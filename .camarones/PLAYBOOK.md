@@ -34,6 +34,10 @@ this file defines the work. `CLI` below = `./camarones.command` (macOS/Linux) or
 
 ## setup
 Done by the wizard (`CLI setup`). If an agent lands here: run it, report missing prerequisites with the fix, mark done.
+The wizard asks once for a branch name (`project.agent_branch` in `.camarones/workspace.yaml`) before wiring agent
+config (`.claude/`, `.codex/`, AGENTS.md/CLAUDE.md rules, MCP) into every repo, so it never lands directly on the
+repo's main branch; it commits the wiring on that branch (never on `main`) and, once done, asks whether to push with
+the saved GitLab/GitHub token or leave it for the user to push themselves.
 
 ## discovery
 Scope: one repo. Output: `docs/interview/discovery/<repo>.md` (`type: interview`). Read-only on code.
@@ -49,6 +53,15 @@ Capture with evidence `<repo>:<path>#Lx-Ly`:
 - **Deployment**: Helm/K8s/ArgoCD/compose, CI files, environment configs.
 - **Architecture & domain signals**: package structure (hexagonal?), aggregates, ubiquitous-language terms.
 - **Unknowns** list.
+
+## quick-overview
+This is the short route. Use the completed discovery notes and verify their sources in the code.
+Write `docs/index.md` and `docs/overview/system.md`: purpose, repositories, how to run locally,
+one representative flow (a Mermaid sequence diagram), evidence and unanswered questions.
+Translate these two pages into `docs/i18n/es/` and run `CLI translated` for them.
+No OpenWiki, graphify, C4 or git hooks are required. Do not install them or edit service repositories.
+Keep all pages as drafts for human review. The next unit builds the portal.
+For discovery and later updates in the quick profile, inspect files directly when graphify is absent.
 
 ## discovery-cross
 Read every `docs/interview/discovery/*.md` (not the code again, except to confirm a doubtful link). Output
@@ -105,6 +118,42 @@ Write `docs/overview/system.md` (purpose, context diagram in words, how to navig
 ## decisions-quality
 `docs/decisions/NNNN-<slug>.md` (ADR; `Status: accepted` only when the user said it was decided, else `proposed`),
 `docs/quality/slas.md`, `docs/quality/tech-debt.md`.
+
+## security-review [beta]
+**Beta**: newer, less battle-tested than the rest of the kit — treat every finding as a lead to verify, not a final
+verdict; expect rougher edges and give feedback if something doesn't fit.
+Optional, opt-in unit (not in the default blueprint — the user adds it explicitly with
+`CLI plan add security-review "Security review" --type security-review --deps arch-system domain data deployment` once
+the architecture is documented). Sources: `docs/architecture/*.c4`, `docs/domain/`, `docs/data/`, `docs/deployment/`,
+`docs/interview/discovery/*.md` (already capture auth/OIDC, datastores, brokers, exposed endpoints). No code re-reading
+beyond confirming a doubtful point — this unit reasons over what discovery/arch-system/data/deployment already
+captured, adding a security lens.
+Look for, with evidence `<repo>:<path>#Lx-Ly`:
+- **AuthN/AuthZ**: endpoints without protection, inconsistent roles/scopes, implicit trust between services.
+- **Data**: PII unencrypted in transit/at rest, `#shared-db` containers with excessive access, secrets in config/code
+  (per what discovery already captured).
+- **Exposed surface**: admin/debug endpoints reachable publicly, missing CORS/rate-limiting, outdated dependency
+  versions (cross-check the "Stack" section of each discovery note).
+- **Cross-repo trust**: sync/async calls without mutual auth, queues/topics without access control.
+Never invent a finding: missing evidence → `TODO(question)` + entry in `docs/interview/open-questions.md`.
+Output: `docs/security/threat-model.md` (actors, attack surface, trust boundaries between components) and
+`docs/security/findings.md` (finding · severity critical/high/medium/low · component · evidence · recommendation).
+
+## architecture-review [beta]
+**Beta**: newer, less battle-tested than the rest of the kit — treat every finding as a lead to verify, not a final
+verdict; expect rougher edges and give feedback if something doesn't fit.
+Optional, opt-in unit (not in the default blueprint — added the same way as `security-review`, with `--deps arch-system
+domain data deployment decisions-quality`). Complements `decisions-quality` (which is interview-based) with
+code-evidenced findings:
+- **Coupling/cycles**: `graphify query`/`graphify explain` over the dependency graph to spot high coupling or circular
+  dependencies between containers.
+- **Oversized/mixed-responsibility components**: from the C4 components views (`docs/architecture/repos/*.c4`).
+- **Outdated stack / missing tests or observability**: cross-check the "Stack" and "Unknowns" sections of each
+  discovery note.
+- **SLA drift**: compare `docs/quality/slas.md` (from `decisions-quality`) against what was actually observed.
+Every finding needs evidence, same pattern as the rest of the kit. Output: `docs/quality/architecture-review.md`
+(area · impact · estimated effort · evidence · recommendation) — a new file, kept separate from `tech-debt.md` (which
+stays the interview-sourced material, `x-owner: human` once confirmed).
 
 ## flows-catalog
 Propose the business flows (from cross-repo discovery + interviews), let the user pick/rename/add, then create one unit

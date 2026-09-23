@@ -7,6 +7,7 @@ from pathlib import Path
 import questionary
 from questionary import Choice, Separator, Style
 from prompt_toolkit.key_binding import KeyBindings, merge_key_bindings
+from rich import box
 from rich.console import Console, Group
 from rich.live import Live
 import threading
@@ -23,9 +24,14 @@ import webbrowser
 
 console = Console(highlight=False)
 PREFS = HOME / ".camarones.json"
+MODELS = ["sonnet", "opus", "haiku"]           # Claude Code's --model aliases; the default is set in do_model / launch_agent
 FIRSTRUN = CACHE / "firstrun.json"     # first-run wizard position (so closing the window never loses it)
 ORANGE = "#ff7a2f"
 BACK = "__back__"   # questionary replaces a None value with the title, so use a sentinel
+EXTRA_REVIEWS = {   # opt-in unit types: uid -> deps required to be `done` before offering it
+    "security-review": ["arch-system", "domain", "data", "deployment"],
+    "architecture-review": ["arch-system", "domain", "data", "deployment", "decisions-quality"],
+}
 STYLE = Style([("qmark", f"fg:{ORANGE} bold"), ("pointer", f"fg:{ORANGE} bold"), ("highlighted", f"fg:{ORANGE} bold"),
                ("selected", f"fg:{ORANGE}"), ("answer", f"fg:{ORANGE} bold"), ("question", "bold"),
                ("separator", "fg:#8a8a8a"), ("instruction", "fg:#8a8a8a italic"), ("disabled", "fg:#6c6c6c italic")])
@@ -64,6 +70,16 @@ T = {
         "manual": "Instálalo a mano y vuelve a abrir Camarones Documenter: {hint}",
         "setup_run": "Instalando herramientas, repos y conectando Claude/Codex (tarda unos minutos la primera vez)",
         "setup_ok": "Entorno listo 🦐",
+        "agent_branch_explain": "Antes de escribir la configuración de los agentes de IA (.claude/, .codex/, reglas de "
+                                "AGENTS.md/CLAUDE.md, MCP…) en cada repo, la creo en una rama nueva para no tocar tu "
+                                "rama principal directamente. Al terminar te pregunto si la subo yo con tus "
+                                "credenciales guardadas o la subes tú desde tu consola.",
+        "agent_branch_ask": "¿Nombre de la rama? (vacío = escribir en la rama actual, como antes)",
+        "push_ask": "Rama «{branch}» lista en {n} repo(s). ¿Cómo la subo?",
+        "push_creds": "🔑 Push con mis credenciales guardadas",
+        "push_manual": "✋ La subo yo desde mi consola git",
+        "push_hint": "Rama «{branch}» guardada localmente. Cuando quieras: git push -u origin {branch}",
+        "push_fail": "⚠ {repo}: el push falló (revisa el token 🔑)",
         "sessions_intro": "Ahora el trabajo va por sesiones: cada una hace UNA unidad del plan (p. ej. analizar un repo). "
                           "Al acabar, la IA guarda el progreso y te pregunta qué seguir. Tú vuelves aquí → «Siguiente paso».",
         "menu": "¿Qué hacemos?",
@@ -75,15 +91,24 @@ T = {
         "m_portal": "🌐 Portal",
         "m_status": "🔎 Estado de la documentación",
         "m_ci": "⚙️  CI (GitLab / GitHub)",
+        "m_extra": "➕ Revisiones extra (seguridad, arquitectura) — beta",
         "m_update": "🔄 Actualizar doc tras cambios (sesión con IA)",
+        "m_model": "🧠 Modelo de Claude",
         "m_lang": "🌍 Idioma / Language",
         "m_exit": "🚪 Salir",
+        "extra_pick": "Marca las revisiones opcionales que quieres añadir al plan (beta — revisa sus hallazgos con ojo crítico; espacio para marcar):",
+        "extra_need": "necesita arch-system/domain/data/deployment",
+        "extra_added": "{n} revisión(es) añadida(s) al plan.",
+        "extra_already": "ya está en el plan",
         "bye": "¡Hasta la próxima! Camarón que se duerme… 🦐",
         "ready_units": "Unidades listas para hacer:",
         "all_done": "¡Plan completado! Usa «Actualizar doc tras cambios» cuando haya cambios en el código.",
         "which_agent": "¿Con qué agente?",
+        "which_model": "¿Qué modelo de Claude uso por defecto?",
+        "model_set": "✔ Modelo por defecto: {model}",
         "copy_prompt": "📋 Copiar el prompt (lo pego yo)",
         "launching": "Abriendo {agent}. Cuando termine la sesión, vuelve aquí.",
+        "launched_bg": "🦐 Se abrió en una ventana nueva. Este menú sigue disponible: revisa «📋 Plan» o «🔎 Estado» para ver el progreso.",
         "copied": "Prompt copiado al portapapeles y guardado en docs/.work/next-prompt.md",
         "saved_prompt": "Prompt guardado en docs/.work/next-prompt.md",
         "after": "Sesión terminada. Progreso: {d}/{t}.",
@@ -164,6 +189,7 @@ T = {
         "m_review": "✅ Revisar y verificar páginas",
         "m_tutorial": "📖 Tutorial: ¿qué es cada herramienta?",
         "d_doing": "En curso", "d_last": "último checkpoint", "d_fb": "correcciones tuyas pendientes",
+        "k_doing": "En curso", "k_todo": "Por hacer", "k_blocked": "Bloqueadas", "k_done": "Hechas", "k_ready": "← lista",
         "res_q": "«{u}» se quedó a medias. ¿Cómo sigo?",
         "res_new": "▶ Nueva sesión que retoma desde el último checkpoint (recomendado)",
         "res_cont": "💬 Reabrir la última conversación de {agent}",
@@ -270,6 +296,16 @@ T = {
         "manual": "Install it manually and reopen Camarones Documenter: {hint}",
         "setup_run": "Installing tools, repos and wiring Claude/Codex (a few minutes the first time)",
         "setup_ok": "Environment ready 🦐",
+        "agent_branch_explain": "Before writing the AI agent setup (.claude/, .codex/, AGENTS.md/CLAUDE.md rules, "
+                                "MCP…) into each repo, I create it on a new branch so I never touch your main branch "
+                                "directly. When it's done I'll ask whether to push it with your saved credentials or "
+                                "leave it for you to push from your own git console.",
+        "agent_branch_ask": "Branch name? (empty = write on the current branch, like before)",
+        "push_ask": "Branch “{branch}” ready in {n} repo(s). How should I push it?",
+        "push_creds": "🔑 Push with my saved credentials",
+        "push_manual": "✋ I'll push it myself from my console",
+        "push_hint": "Branch “{branch}” saved locally. Whenever you're ready: git push -u origin {branch}",
+        "push_fail": "⚠ {repo}: push failed (check the token 🔑)",
         "sessions_intro": "From now on work happens in sessions: each one does ONE plan unit (e.g. analyze a repo). When it "
                           "finishes, the AI saves progress and asks what next. You come back here → “Next step”.",
         "menu": "What shall we do?",
@@ -281,15 +317,24 @@ T = {
         "m_portal": "🌐 Portal",
         "m_status": "🔎 Documentation status",
         "m_ci": "⚙️  CI (GitLab / GitHub)",
+        "m_extra": "➕ Extra reviews (security, architecture) — beta",
         "m_update": "🔄 Update docs after changes (AI session)",
+        "m_model": "🧠 Claude model",
         "m_lang": "🌍 Idioma / Language",
         "m_exit": "🚪 Exit",
+        "extra_pick": "Tick the optional reviews you want to add to the plan (beta — verify their findings critically; space to tick):",
+        "extra_need": "needs arch-system/domain/data/deployment",
+        "extra_added": "{n} review(s) added to the plan.",
+        "extra_already": "already in the plan",
         "bye": "See you! 🦐",
         "ready_units": "Units ready to do:",
         "all_done": "Plan complete! Use “Update docs after changes” when the code changes.",
         "which_agent": "Which agent?",
+        "which_model": "Which Claude model should be the default?",
+        "model_set": "✔ Default model: {model}",
         "copy_prompt": "📋 Copy the prompt (I'll paste it)",
         "launching": "Opening {agent}. Come back here when the session ends.",
+        "launched_bg": "🦐 Opened in a new window. This menu stays available — check “📋 Plan” or “🔎 Status” to see progress.",
         "copied": "Prompt copied to clipboard and saved to docs/.work/next-prompt.md",
         "saved_prompt": "Prompt saved to docs/.work/next-prompt.md",
         "after": "Session finished. Progress: {d}/{t}.",
@@ -370,6 +415,7 @@ T = {
         "m_review": "✅ Review & verify pages",
         "m_tutorial": "📖 Tutorial: what is each tool?",
         "d_doing": "In progress", "d_last": "last checkpoint", "d_fb": "your corrections pending",
+        "k_doing": "Doing", "k_todo": "To do", "k_blocked": "Blocked", "k_done": "Done", "k_ready": "← ready",
         "res_q": "“{u}” was left half done. How shall I continue?",
         "res_new": "▶ New session resuming from the last checkpoint (recommended)",
         "res_cont": "💬 Reopen the last {agent} conversation",
@@ -648,8 +694,12 @@ class W:
                 Choice(self.t("m_review") + (f"  ({n_rev})" if n_rev else ""), "review"),
                 Choice(self.t("m_portal"), "portal"), Choice(self.t("m_status"), "status"), Choice(self.t("m_update"), "update"),
                 Choice(self.t("a_menu"), "arch"), Choice(self.t("m_repos"), "repos"), Choice(self.t("k_menu"), "creds"),
-                Choice(self.t("m_setup"), "setup"), Choice(self.t("m_ci"), "ci"), Choice(self.t("m_tutorial"), "tutorial"),
-                Choice(self.t("m_lang"), "lang"), Choice(self.t("m_exit"), "exit")]
+                Choice(self.t("m_setup"), "setup"), Choice(self.t("m_ci"), "ci")]
+            if self.extra_ready():
+                choices.append(Choice(self.t("m_extra"), "extra"))
+            choices += [
+                Choice(self.t("m_tutorial"), "tutorial"),
+                Choice(self.t("m_model"), "model"), Choice(self.t("m_lang"), "lang"), Choice(self.t("m_exit"), "exit")]
             choice = self.sel(self.t("menu"), back=False, choices=choices)
             if choice == "resume":
                 self.banner()
@@ -850,13 +900,16 @@ class W:
             self.banner()
 
     def fr_setup(self, ws: dict):
+        branch = self.agent_branch()
         self.say(f"[bold]{self.t('setup_run')}[/]")
         env.init_templates(ws["project"]["name"], log=lambda _: None)
-        ok = self.safe(self.busy, env.setup, total=env.setup_steps())
+        ok = self.safe(self.busy, env.setup, total=env.setup_steps(), branch=branch)
         plan.sync()
         if ok:
             plan.set_status("setup", "done", "wizard first run")
             self.say(self.t("setup_ok"), f"bold {ORANGE}")
+            if branch:
+                self.offer_push(branch)
         while True:
             missing = [r["name"] for r in docs.workspace()["repos"] if r.get("url") and not (ROOT / r["name"] / ".git").exists()]
             if missing:
@@ -875,9 +928,11 @@ class W:
                 self.banner()
                 self.add_token(host)
             self.banner()
-            ok = self.safe(self.busy, env.setup, total=env.setup_steps())
+            ok = self.safe(self.busy, env.setup, total=env.setup_steps(), branch=branch)
             if ok:
                 plan.set_status("setup", "done", "wizard")
+                if branch:
+                    self.offer_push(branch)
 
     def fr_intro(self, ws: dict):
         while True:
@@ -1143,7 +1198,10 @@ Talk to the user in {talk}. Do not modify application code.
                 resume_agent = prev
         plan.set_status(u["id"], "doing")               # so a closed window still knows what was in progress
         prompt = plan.prompt(u["id"], lang=self.lang)
-        if not self.launch_agent(prompt, resume_agent=resume_agent):
+        res = self.launch_agent(prompt, resume_agent=resume_agent)
+        if not res:
+            return
+        if res == "bg":               # own window: it updates plan.yaml itself, nothing to report here yet
             return
         u2 = plan.get(plan.load(), u["id"])
         self.checkpoint(u["id"] if u2["status"] == "done" else f"wip {u['id']}")
@@ -1157,8 +1215,10 @@ Talk to the user in {talk}. Do not modify application code.
         if env.checkpoint_commit(what):
             self.say(self.t("saved_ckpt"), "grey62")
 
-    def launch_agent(self, prompt: str, resume_agent: str | None = None) -> bool:
-        """Returns True when an agent session was actually run. resume_agent reopens that agent's last conversation."""
+    def launch_agent(self, prompt: str, resume_agent: str | None = None) -> bool | str:
+        """Returns "bg" when the session was launched in its own window (the wizard stays usable), True when it
+        ran to completion in this terminal (no terminal emulator was found), or False when nothing was launched.
+        resume_agent reopens that agent's last conversation."""
         WORK.mkdir(parents=True, exist_ok=True)
         (WORK / "next-prompt.md").write_text(prompt, encoding="utf-8")
         if resume_agent:
@@ -1182,30 +1242,86 @@ Talk to the user in {talk}. Do not modify application code.
         # multi-line args do not survive Windows .cmd shims: hand over a one-line pointer to the prompt file
         short = "Follow the instructions in docs/.work/next-prompt.md" if self.lang == "en" else \
             "Sigue las instrucciones de docs/.work/next-prompt.md"
+        model = self.prefs.get("model", "sonnet")
+        model_args = ["--model", model] if agent == "claude" and model else []
         if resume_agent == "claude":
-            cmd = [which("claude"), "--continue", short]
+            cmd = [which("claude"), *model_args, "--continue", short]
         elif resume_agent == "codex":
             cmd = [which("codex"), "resume", "--last"]
         else:
-            cmd = [which(agent), short]
-        console.set_alt_screen(False)         # the agent gets the normal terminal
+            cmd = [which(agent), *model_args, short]
+        if env.open_new_terminal(cmd, ROOT):        # own window: the wizard stays open and usable
+            self.say(self.t("launched_bg"), "green")
+            self.pause()
+            return "bg"
+        console.set_alt_screen(False)         # fallback: no terminal emulator found — block this one instead
         try:
             r = subprocess.run(cmd, cwd=str(ROOT))
             if resume_agent and r.returncode != 0:          # nothing to resume (or old CLI): fresh session instead
-                subprocess.run([which(agent), short], cwd=str(ROOT))
+                subprocess.run([which(agent), *model_args, short], cwd=str(ROOT))
         finally:
             console.set_alt_screen(True)
             self.banner()
         return True
 
     def do_update(self) -> None:
-        if self.launch_agent(plan.prompt("update", lang=self.lang)):
+        if self.launch_agent(plan.prompt("update", lang=self.lang)) is True:   # not "bg": that session checkpoints itself
             self.checkpoint("update")
 
     def do_plan(self) -> None:
         plan.sync()
-        console.print(Panel(plan.render(), title="📋 Plan", border_style=ORANGE))
+        console.print(self.board())
         self.pause()
+
+    def extra_ready(self) -> bool:
+        """Whether any opt-in review (security-review, architecture-review) can be offered or is already in the plan."""
+        status = {u["id"]: u["status"] for u in plan.load()["units"]}
+        return any(uid in status or all(status.get(d) == "done" for d in deps) for uid, deps in EXTRA_REVIEWS.items())
+
+    def do_extra(self) -> None:
+        status = {u["id"]: u["status"] for u in plan.load()["units"]}
+        opts = []
+        for uid, deps in EXTRA_REVIEWS.items():
+            added = uid in status
+            ready = added or all(status.get(d) == "done" for d in deps)
+            if not ready:
+                continue
+            title = plan.TYPES[uid][2]
+            opts.append(Choice(title, uid, checked=added, disabled=self.t("extra_already") if added else None))
+        picked = self.chk(self.t("extra_pick"), opts)
+        if picked is None:
+            return
+        n = 0
+        for uid in picked:
+            if uid not in status:
+                plan.add(uid, plan.TYPES[uid][2], uid, EXTRA_REVIEWS[uid])
+                n += 1
+        if n:
+            self.say(self.t("extra_added", n=n), "green")
+        self.pause()
+
+    def board(self) -> Panel:
+        """Kanban view of the plan: one column per status, so parallel work in other windows is easy to track."""
+        data = plan.load()
+        ready = {u["id"] for u in plan.available(data)}
+        cols = [("doing", "▶", "k_doing"), ("todo", "·", "k_todo"), ("blocked", "✖", "k_blocked"), ("done", "✔", "k_done")]
+        buckets: dict[str, list[str]] = {k: [] for k, _, _ in cols}
+        for u in sorted(data["units"], key=lambda u: u["phase"]):
+            st = u["status"]
+            if st in ("dropped",):
+                continue
+            bucket = st if st in buckets else "done"      # dynamic/legacy statuses land with the finished work
+            mark = f"  [grey62]{self.t('k_ready')}[/]" if u["id"] in ready and st == "todo" else ""
+            note = f"\n  [grey50]{u['notes']}[/]" if u.get("notes") and st == "blocked" else ""
+            buckets[bucket].append(f"[{ORANGE}]{u['id']}[/]{mark}\n  [grey62]{u['title']}[/]{note}")
+        tbl = Table(box=box.SIMPLE_HEAVY, expand=True, pad_edge=False)
+        for key, icon, label in cols:
+            tbl.add_column(f"{icon} {self.t(label)} ({len(buckets[key])})", ratio=1)
+        height = max((len(v) for v in buckets.values()), default=0)
+        for i in range(height):
+            tbl.add_row(*[buckets[k][i] if i < len(buckets[k]) else "" for k, _, _ in cols])
+        d, t = plan.progress(data)
+        return Panel(tbl, title=f"📋 Plan — {d}/{t}", border_style=ORANGE)
 
     # ---------- verify: status that tells you what to do, with one-click fixes ----------
     def do_status(self) -> None:
@@ -1463,20 +1579,54 @@ Talk to the user in {talk}. Do not modify application code.
         self.fr_repos(ws)
         if {r["name"] for r in docs.workspace()["repos"]} != before:
             self.safe(self.busy, lambda log: docs.sync_repos(log))
+            branch = docs.workspace()["project"].get("agent_branch")
             for n in docs.repo_names():
                 if (ROOT / n / ".git").exists() and not (ROOT / n / ".graphifyignore").exists():
-                    self.safe(self.busy, env.wire_repo, n)
+                    self.safe(self.busy, env.wire_one, n, branch=branch)
             plan.sync()
+            if branch:
+                self.offer_push(branch)
+
+    def agent_branch(self) -> str | None:
+        """Branch used to wire agent config into every repo — asked once, remembered in workspace.yaml.
+        Empty answer (or Esc) skips it: wiring writes on whatever branch is already checked out, as before."""
+        ws = docs.workspace()
+        stored = ws["project"].get("agent_branch")
+        if stored:
+            return stored
+        self.say(Panel(self.t("agent_branch_explain"), border_style=ORANGE))
+        name = self.txt(self.t("agent_branch_ask"), default="chore/camarones-agents")
+        if not name:
+            return None
+        ws["project"]["agent_branch"] = name
+        docs.save_workspace(ws)
+        return name
+
+    def offer_push(self, branch: str) -> None:
+        repos = env.repos_on_branch(branch)
+        if not repos:
+            return
+        c = self.sel(self.t("push_ask", branch=branch, n=len(repos)),
+                     [Choice(self.t("push_creds"), "creds"), Choice(self.t("push_manual"), "manual")], default="creds")
+        if c != "creds":
+            self.say(self.t("push_hint", branch=branch), "grey62")
+            return
+        for n in repos:
+            ok = self.safe(self.busy, env.push_agent_branch, n, branch, total=1)
+            self.say(f"✔ {n}" if ok else self.t("push_fail", repo=n), "green" if ok else "yellow")
 
     def do_setup(self) -> bool:
         ws = docs.workspace()
         if self.fr_tools(ws) == BACK:
             return False
+        branch = self.agent_branch()
         self.banner()
-        ok = self.safe(self.busy, env.setup, total=env.setup_steps())
+        ok = self.safe(self.busy, env.setup, total=env.setup_steps(), branch=branch)
         plan.sync()
         if ok:
             plan.set_status("setup", "done", "wizard")
+            if branch:
+                self.offer_push(branch)
         self.pause()
         return bool(ok)
 
@@ -1489,6 +1639,15 @@ Talk to the user in {talk}. Do not modify application code.
         self.say(self.t("ci_done"), "green")
         self.pause()
         return True
+
+    def do_model(self) -> None:
+        cur = self.prefs.get("model", "sonnet")
+        c = self.sel(self.t("which_model"), [Choice(m.capitalize(), m) for m in MODELS], default=cur)
+        if c:
+            self.prefs["model"] = c
+            save_json(PREFS, self.prefs)
+            self.say(self.t("model_set", model=c.capitalize()), "green")
+            time.sleep(1)
 
     def do_lang(self) -> None:
         c = self.sel("🌍 Idioma / Language", [Choice("Español", "es"), Choice("English", "en")], default=self.lang)

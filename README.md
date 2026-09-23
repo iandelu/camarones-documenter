@@ -67,9 +67,40 @@ Está pensado para equipos que necesitan incorporar personas, entender sistemas 
 
 El asistente comprueba los requisitos y permite elegir componentes. La primera instalación descarga herramientas y dependencias. El acceso a modelos de IA depende de la configuración y cuenta de tu agente.
 
-### 1. Coloca el kit junto a tus repositorios
+### 1. Instala el kit
 
-Descarga este repositorio desde **Code → Download ZIP** o clónalo. Copia **`.camarones/`**, **`camarones.cmd`** y **`camarones.command`** a la carpeta que agrupa el proyecto. Activa la visualización de archivos ocultos para ver `.camarones/`.
+**Instalación global (recomendada si documentas varios proyectos).** Una sola copia del kit, compartida por todos tus proyectos: actualizarla una vez actualiza el comportamiento en todos a la vez, y cada proyecto solo guarda su propia configuración.
+
+```powershell
+# Windows · PowerShell, desde este repo clonado
+.\install-global.cmd
+```
+
+```sh
+# macOS / Linux, desde este repo clonado
+sh install-global.sh
+```
+
+Esto clona el kit a una ruta fija (`%LOCALAPPDATA%\camarones-documenter\kit` en Windows, `~/.camarones/kit` en macOS/Linux) y deja un comando `camarones` en tu PATH. Desde ahí:
+
+```sh
+camarones new enjoy      # crea ./cama-docs-enjoy/, lo registra y abre el asistente
+camarones switch         # cambia entre los proyectos cama-docs-* que ya tienes
+camarones self-update    # git pull del kit central — actualiza todos los proyectos a la vez
+```
+
+Cada proyecto vive en su propia carpeta **`cama-docs-<nombre>`**, con su propio repositorio Git —versionado aparte tanto del código de Camarones como del de los repositorios que documenta—, y solo contiene su `workspace.yaml` y su caché; el código del kit no se copia dentro.
+
+```text
+cama-docs-enjoy/
+├── .camarones/           # Solo config (workspace.yaml) y caché — sin código del kit
+├── docs/                 # Lo que se versiona: wikis, arquitectura, flujos…
+├── orders-api/           # Repositorio Git (clonado, ignorado por el .git de cama-docs-enjoy)
+├── payments-api/         # Repositorio Git
+└── storefront/           # Repositorio Git
+```
+
+**Copia local por proyecto (modo clásico).** Descarga este repositorio desde **Code → Download ZIP** o clónalo. Copia **`.camarones/`**, **`camarones.cmd`** y **`camarones.command`** a la carpeta que agrupa el proyecto. Activa la visualización de archivos ocultos para ver `.camarones/`. Si ya tienes un proyecto así y quieres pasarlo a instalación global sin perder su configuración, corre `camarones unlink` dentro de él.
 
 ```text
 mi-proyecto/
@@ -84,6 +115,14 @@ mi-proyecto/
 También puedes empezar con la carpeta vacía y añadir repositorios desde el asistente. La carpeta contenedora será el centro de documentación; los repositorios de servicio conservan su propio historial Git.
 
 ### 2. Abre el asistente
+
+**Instalación global** — desde cualquier carpeta dentro de tu proyecto `cama-docs-*` (o corre `camarones switch` para elegir uno):
+
+```sh
+camarones
+```
+
+**Copia local (modo clásico)**
 
 **Windows · PowerShell**
 

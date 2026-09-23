@@ -174,7 +174,18 @@ ALL_COMPONENTS = [*KIT_TOOLS, *EXTRAS]
 
 def components() -> list[str]:
     """Components chosen in the wizard (stored in .camarones/workspace.yaml → project.components). Default: all."""
-    return docs.workspace()["project"].get("components") or list(ALL_COMPONENTS)
+    chosen = docs.workspace()["project"].get("components")
+    return list(ALL_COMPONENTS) if chosen is None else chosen
+
+
+def set_profile(name: str) -> None:
+    from .install import PROFILES
+    if name not in PROFILES:
+        raise ValueError(f'Unknown profile: {name}')
+    ws = docs.workspace()
+    ws['project']['profile'] = name
+    ws['project']['components'] = list(PROFILES[name])
+    docs.save_workspace(ws)
 
 
 def set_components(chosen: list[str]) -> None:
@@ -190,7 +201,7 @@ def tool_ok(name: str) -> bool:
 
 
 def install_tools(log: Log = print, comps: list[str] | None = None) -> None:
-    comps = comps or components()
+    comps = components() if comps is None else comps
     if "graphify" in comps:
         if not tool_ok("graphify"):
             log(f"installing graphify {VERSIONS['graphify']} (uv)…")
@@ -226,7 +237,7 @@ def _append_lines(f: Path, lines: list[str]) -> None:
 
 
 def wire_repo(name: str, log: Log = print, comps: list[str] | None = None) -> None:
-    comps = comps or components()
+    comps = components() if comps is None else comps
     d = ROOT / name
     q = dict(check=False, quiet=True, cwd=d)
     agents = "agents" in comps
@@ -252,8 +263,75 @@ def wire_repo(name: str, log: Log = print, comps: list[str] | None = None) -> No
             log(f"⚠ {name}: graphify build failed")
 
 
+AGENT_BRANCH_MSG = "chore(agents): wire Camarones agent setup (.claude, .codex, AGENTS.md/CLAUDE.md rules, MCP)"
+
+
+def ensure_agent_branch(name: str, branch: str, log: Log = print) -> bool:
+    """Switch repo `name` to `branch` (creating it, from whatever is local or on origin, if it doesn't exist yet)
+    before wiring writes anything. Skips — leaving the repo on its current branch — if the working tree is dirty."""
+    d = ROOT / name
+    q = dict(check=False, quiet=True, cwd=d)
+    if out(["git", "status", "--porcelain"], cwd=d):
+        log(f"⚠ {name}: local changes — wiring on the current branch instead of '{branch}'")
+        return False
+    cur = out(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=d)
+    if cur == branch:
+        return True
+    url = next((r.get("url", "") for r in docs.workspace()["repos"] if r["name"] == name), "")
+    from . import creds
+    gitenv = creds.git_env(url)
+    run(["git", "fetch", "--quiet", "origin", branch], **{**q, "env": gitenv})
+    if run(["git", "show-ref", "--verify", "--quiet", f"refs/heads/{branch}"], **q).returncode == 0:
+        run(["git", "checkout", "-q", branch], **q)
+    elif run(["git", "show-ref", "--verify", "--quiet", f"refs/remotes/origin/{branch}"], **q).returncode == 0:
+        run(["git", "checkout", "-q", "-b", branch, f"origin/{branch}"], **q)
+    else:
+        run(["git", "checkout", "-q", "-b", branch], **q)
+    ok = out(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=d) == branch
+    if not ok:
+        log(f"⚠ {name}: could not switch to '{branch}' — wiring on the current branch instead")
+    return ok
+
+
+def commit_agent_wiring(name: str, log: Log = print) -> bool:
+    """Commit whatever wiring just wrote in repo `name` (never pushes)."""
+    d = ROOT / name
+    run(["git", "add", "-A"], cwd=d, check=False, quiet=True)
+    if run(["git", "diff", "--cached", "--quiet"], cwd=d, check=False, quiet=True).returncode == 0:
+        return False
+    ident = [] if out(["git", "config", "user.email"], cwd=d) else ["-c", "user.name=Camarones Documenter",
+                                                                     "-c", "user.email=camarones@localhost"]
+    r = run(["git", *ident, "commit", "-q", "-m", AGENT_BRANCH_MSG, "--no-verify"], cwd=d, check=False, quiet=True)
+    return r.returncode == 0
+
+
+def push_agent_branch(name: str, branch: str, log: Log = print) -> bool:
+    """Push `branch` for repo `name` using the saved GitLab/GitHub token (never stored in the repo)."""
+    from . import creds
+    d = ROOT / name
+    url = next((r.get("url", "") for r in docs.workspace()["repos"] if r["name"] == name), "")
+    r = run(["git", "push", "-u", "origin", branch], cwd=d, check=False, quiet=True, env=creds.git_env(url))
+    return r.returncode == 0
+
+
+def repos_on_branch(branch: str) -> list[str]:
+    """Which repos (among the ones already cloned) are currently checked out on `branch`."""
+    return [n for n in docs.repo_names()
+            if (ROOT / n / ".git").exists() and out(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=ROOT / n) == branch]
+
+
+def wire_one(name: str, log: Log = print, comps: list[str] | None = None, branch: str | None = None) -> None:
+    """Wire one repo; when `branch` is given, do it on that branch (created if needed) and commit the result —
+    `branch=None` keeps the old behaviour: write on whatever branch is already checked out, commit nothing."""
+    if branch:
+        ensure_agent_branch(name, branch, log)
+    wire_repo(name, log, comps)
+    if branch:
+        commit_agent_wiring(name, log)
+
+
 def wire_umbrella(log: Log = print, comps: list[str] | None = None) -> None:
-    comps = comps or components()
+    comps = components() if comps is None else comps
     if "agents" in comps and "openwiki" in comps:
         for host in ("claude", "codex"):
             run(["openwiki", "integrations", "install", host, "--project", "."], cwd=ROOT, check=False, quiet=True)
@@ -262,7 +340,7 @@ def wire_umbrella(log: Log = print, comps: list[str] | None = None) -> None:
 
 def setup_steps(comps: list[str] | None = None) -> int:
     """How many ✔ lines setup() will print — drives the progress bar."""
-    comps = comps or components()
+    comps = components() if comps is None else comps
     n = sum(1 for t in KIT_TOOLS if t in comps) + 1          # tools + repos synced
     n += len(docs.repo_names())                              # repos wired
     n += 1                                                   # umbrella
@@ -271,20 +349,24 @@ def setup_steps(comps: list[str] | None = None) -> int:
     return n
 
 
-def setup(ci: bool = False, log: Log = print, comps: list[str] | None = None) -> bool:
-    comps = comps or components()
+def setup(ci: bool = False, log: Log = print, comps: list[str] | None = None, branch: str | None = None) -> bool:
+    """`branch`: wire every repo on this branch (created if needed) and commit the wiring there, instead of writing
+    directly on whatever is checked out. None (default, and always in CI) keeps the old behaviour."""
+    comps = components() if comps is None else comps
     missing = [k for k, v in prerequisites().items() if v["need"] and not v["ok"]]
     if missing:
         raise RuntimeError("missing prerequisites: " + ", ".join(missing))
     install_tools(log, comps)
     log("syncing repositories…")
-    docs.sync_repos(lambda m: log(m.strip()))
+    failed = docs.sync_repos(lambda m: log(m.strip()))
+    if failed:
+        raise RuntimeError('Repository sync failed: ' + ', '.join(failed))
     log(f"✔ {len(docs.repo_names())} repo(s) in sync")
     if ci:
         return True
     for n in docs.repo_names():
         if (ROOT / n / ".git").exists():
-            wire_repo(n, log, comps)
+            wire_one(n, log, comps, branch)
             log(f"✔ {n}")
     wire_umbrella(log, comps)
     if "graphify" in comps:
@@ -349,9 +431,12 @@ def portal(log: Log = print) -> Path:
     shutil.copytree(KIT / "portal", b, dirs_exist_ok=True,
                     ignore=shutil.ignore_patterns("node_modules", "dist", ".astro", "Dockerfile", "compose.yml"))
     stamp = b / "node_modules" / ".camarones-stamp"
-    if not stamp.exists() or (KIT / "portal" / "package.json").stat().st_mtime > stamp.stat().st_mtime:
-        run(["npm", "install", "--no-audit", "--no-fund", "--loglevel=error"], cwd=b, quiet=True)
-        stamp.touch()
+    import hashlib
+    lock = KIT / 'portal' / 'package-lock.json'
+    signature = hashlib.sha256(lock.read_bytes() + (KIT / 'portal' / 'package.json').read_bytes()).hexdigest()
+    if not stamp.exists() or stamp.read_text() != signature:
+        run(["npm", "ci", "--no-audit", "--no-fund", "--loglevel=error"], cwd=b, quiet=True)
+        stamp.write_text(signature)
     log("✔ portal shell")
     log("collecting docs, translations and trust badges…")
     content = b / "src" / "content" / "docs"
@@ -366,14 +451,14 @@ def portal(log: Log = print) -> Path:
     cfg = json.loads((b / "portal.config.json").read_text(encoding="utf-8"))
     for sub in ("architecture", "code-graph", "wiki-graph"):
         shutil.rmtree(public / sub, ignore_errors=True)
-    if (arch_dir() / "likec4.config.json").exists():
+    if "likec4" in components() and (arch_dir() / "likec4.config.json").exists():
         log("building the interactive C4 explorer (LikeC4)…")
         run(["likec4", "build", ".", "-o", str(public / "architecture"), "--base", "/architecture/", "--title", cfg["name"]],
             cwd=arch_dir(), quiet=True)
         log("✔ C4 explorer")
     log("adding the code graph…")
     g = CACHE / "graph" / "graph.html"
-    if not g.exists():
+    if not g.exists() and "graphify" in components():
         graph(rebuild=False, log=log)
     if g.exists():
         (public / "code-graph").mkdir(parents=True, exist_ok=True)
@@ -512,6 +597,32 @@ def docker_down() -> None:
 
 def open_url(url: str) -> None:
     webbrowser.open(url)
+
+
+def open_new_terminal(cmd: list[str], cwd: Path) -> bool:
+    """Launch `cmd` in its own terminal window, detached from this process, so an interactive agent session
+    does not block the wizard. Returns False when no terminal emulator could be found — caller then falls
+    back to running `cmd` in the current terminal."""
+    import shlex
+    try:
+        if IS_WIN:
+            subprocess.Popen(cmd, cwd=str(cwd), creationflags=subprocess.CREATE_NEW_CONSOLE)
+            return True
+        if IS_MAC:
+            script = f"cd {shlex.quote(str(cwd))} && exec {shlex.join(cmd)}"
+            subprocess.Popen(["osascript", "-e", f'tell application "Terminal" to do script {json.dumps(script)}'])
+            return True
+        inner = f"cd {shlex.quote(str(cwd))} && exec {shlex.join(cmd)}"
+        for term, args in (("x-terminal-emulator", ["-e", "bash", "-lc", inner]),
+                           ("gnome-terminal", ["--", "bash", "-lc", inner]),
+                           ("konsole", ["-e", "bash", "-lc", inner]),
+                           ("xterm", ["-e", "bash", "-lc", inner])):
+            if which(term):
+                subprocess.Popen([term, *args], cwd=str(cwd))
+                return True
+        return False
+    except OSError:
+        return False
 
 
 # ---------- CI ----------

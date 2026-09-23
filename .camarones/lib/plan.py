@@ -23,6 +23,7 @@ DONE = ("done", "dropped")
 
 # unit type → (phase, runner, title template, playbook section)
 TYPES = {
+    "quick-overview":   (2, "agent", "First overview: purpose, run instructions, one flow and sources", "quick-overview"),
     "setup":            (0, "wizard", "Environment ready (tools, repos, agent wiring)", "setup"),
     "discovery":        (1, "agent",  "Discovery of {repo}", "discovery"),
     "discovery-cross":  (1, "agent",  "Cross-repo correlation (integrations, shared DBs, candidate flows)", "discovery-cross"),
@@ -36,6 +37,8 @@ TYPES = {
     "data":             (4, "agent",  "Data models: ERDs, ownership, shared DBs", "data"),
     "deployment":       (4, "agent",  "Deployment: environments + C4 deployment views", "deployment"),
     "decisions-quality": (4, "agent", "ADRs, SLAs, tech debt", "decisions-quality"),
+    "security-review":  (5, "agent",  "[beta] Security review: threats and vulnerabilities", "security-review"),
+    "architecture-review": (5, "agent", "[beta] Architecture review: coupling, duplication, tech debt", "architecture-review"),
     "flows-catalog":    (5, "agent",  "Business flows catalog (propose, validate, create flow units)", "flows-catalog"),
     "flow":             (5, "agent",  "Flow: {slug}", "flow"),
     "i18n":             (6, "agent",  "Spanish translations + index", "i18n"),
@@ -79,6 +82,13 @@ def blueprint(repos: list[str]) -> list[dict]:
     disc = [f"discovery:{r}" for r in repos]
     briefs = [f"repo-brief:{r}" for r in repos]
     wikis = [f"repo-wiki:{r}" for r in repos]
+    if docs.workspace()['project'].get('profile') == 'quick':
+        return [unit('setup', 'setup', []),
+                *[unit(f'discovery:{r}', 'discovery', ['setup'], repo=r) for r in repos],
+                unit('quick-overview', 'quick-overview', disc),
+                unit('portal', 'portal', ['quick-overview']),
+                unit('confirm', 'confirm', ['quick-overview']),
+                unit('handover', 'handover', ['portal', 'confirm'])]
     u = [unit("setup", "setup", [])]
     u += [unit(f"discovery:{r}", "discovery", ["setup"], repo=r) for r in repos]
     u += [unit("discovery-cross", "discovery-cross", disc)]
@@ -105,6 +115,8 @@ def blueprint(repos: list[str]) -> list[dict]:
 def sync() -> dict:
     """Merge the blueprint into the stored plan: keep statuses/notes, add units for new repos, drop removed repos."""
     data = load()
+    old_profile = data.get('profile', 'full')
+    profile = docs.workspace()['project'].get('profile', 'full')
     repos = docs.repo_names()
     existing = {u["id"]: u for u in data["units"]}
     merged = []
@@ -114,8 +126,14 @@ def sync() -> dict:
             bu.update({k: cur[k] for k in ("status", "notes", "updated") if k in cur})
             if cur.get("status") == "dropped" and bu.get("repo") in repos:
                 bu["status"] = "todo"
+            if cur.get('notes') == 'Not part of the selected profile':
+                bu['status'], bu['notes'] = 'todo', ''
+            if old_profile != profile and bu['id'] in ('setup', 'portal', 'confirm', 'handover'):
+                bu['status'] = 'todo'
         merged.append(bu)
     for leftover in existing.values():     # dynamic units (flows, splits) or units of removed repos
+        if profile == 'quick' and leftover['type'] not in ('flow', 'doc-fixes', 'review-fixes') and leftover['status'] == 'todo':
+            leftover['status'], leftover['notes'] = 'dropped', 'Not part of the selected profile'
         if leftover.get("repo") and leftover["repo"] not in repos:
             leftover["status"] = "dropped"
         merged.append(leftover)
@@ -130,6 +148,7 @@ def sync() -> dict:
             if u["type"] == "repo-wiki" and u["status"] == "todo":
                 u["status"], u["notes"] = "dropped", "OpenWiki not selected"
     data["units"] = merged
+    data['profile'] = profile
     save(data)
     return data
 

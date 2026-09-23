@@ -35,6 +35,7 @@ export default defineConfig({
         ...dir('Deployment', 'deployment'),
         ...dir('Decisions (ADR)', 'decisions'),
         ...dir('Quality & debt', 'quality'),
+        ...dir('Security', 'security'),
         { label: 'Repositories', translations: { es: 'Repositorios' }, items: cfg.repos.flatMap((r) => dir(r.name, `repos/${r.name}`)) },
         ...dir('Guides', 'guides'),
       ],

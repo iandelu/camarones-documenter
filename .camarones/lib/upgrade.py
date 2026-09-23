@@ -13,6 +13,27 @@ from pathlib import Path
 from .common import ROOT, HOME, KIT, CACHE, VERSIONS, IS_WIN
 
 VER_RE = re.compile(r'"kit":\s*"([\d.]+)"')
+
+
+def self_update(log=print) -> str:
+    """Global install only: `git pull` the central kit clone in place. Every project resolves ROOT
+    against this same KIT, so this is the only step needed to bring all of them up to date at once."""
+    kit_repo = KIT.parent
+    if kit_repo.resolve() == ROOT.resolve():
+        raise RuntimeError("this project has its own local kit copy (not a global install) — "
+                            "use `upgrade <newer-kit-folder>` instead, or `unlink` to switch to a global install.")
+    if not (kit_repo / ".git").exists():
+        raise RuntimeError(f"self-update needs the central kit ({kit_repo}) to be a git clone — see install-global.cmd/.sh")
+    before = current()
+    r = subprocess.run(["git", "-C", str(kit_repo), "pull", "--ff-only", "--quiet"], capture_output=True, text=True)
+    if r.returncode != 0:
+        raise RuntimeError(f"git pull failed in {kit_repo}: {(r.stderr or r.stdout).strip()}")
+    text = (KIT / "lib" / "common.py").read_text(encoding="utf-8", errors="replace")
+    m = VER_RE.search(text)
+    after = m.group(1) if m else before
+    log(f"✔ already on the latest kit ({before})" if after == before
+        else f"✔ kit updated {before} → {after} — every project using this global kit sees it now")
+    return after
 PATTERNS = ("camarones-documenter*", "camarones-kit*")
 STAGE = ROOT / "camarones-documenter-upgrade"
 
