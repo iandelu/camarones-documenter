@@ -62,10 +62,18 @@ if _cmd0 == "new" and len(sys.argv) > 2 and not sys.argv[2].startswith("-"):
     print(f"🦐 {_dest.name} → {_dest}")
     _relaunch(_dest, [])
 elif _cmd0 == "switch":
-    _dest = projects.pick(allow_new=True)
+    _dest = projects.pick(allow_new=True, here=Path.cwd())
     if _dest is None:
         sys.exit(1)
     _relaunch(_dest, [])
+elif (_cmd0 == "init" and os.environ.get("CAMARONES_GLOBAL")
+      and not os.environ.get("CAMARONES_ROOT") and not projects.find_marker(Path.cwd())):
+    # Global install, run from inside an existing repos folder (or an empty one): adopt THIS folder as
+    # the project root directly — the classic "drop the kit next to your repos" flow — instead of always
+    # nesting a new cama-docs-<name> subfolder, which would hide any repos already sitting here from
+    # docs.detect_repos()/sync_repos() (they only ever look at ROOT's direct children).
+    projects.register(Path.cwd())
+    _relaunch(Path.cwd(), ["init"])
 elif os.environ.get("CAMARONES_GLOBAL") and not os.environ.get("CAMARONES_ROOT"):
     # Only the global launcher (install-global.cmd/.sh) sets CAMARONES_GLOBAL — a project-local
     # launcher (legacy co-located kit copy) must keep resolving ROOT exactly as before (KIT.parent),
@@ -74,7 +82,7 @@ elif os.environ.get("CAMARONES_GLOBAL") and not os.environ.get("CAMARONES_ROOT")
     if _marker:
         projects.touch(_marker)
     elif _cmd0 not in ("help", "version", "self-update"):
-        _dest = projects.pick(allow_new=True)
+        _dest = projects.pick(allow_new=True, here=Path.cwd())
         if _dest is None:
             sys.exit(1)
         _relaunch(_dest, sys.argv[1:])
@@ -158,7 +166,8 @@ def main() -> int:
             plan.set_status("setup", "done", "cli setup")
     elif a.cmd == "init":
         env.init_templates()
-        plan.sync()
+        docs.save_workspace(docs.workspace())   # persist workspace.yaml even with 0 repos yet — global
+        plan.sync()                             # install's marker lookup (find_project_marker) needs it on disk
     elif a.cmd == "sync":
         docs.sync_repos()
     elif a.cmd == "detect":

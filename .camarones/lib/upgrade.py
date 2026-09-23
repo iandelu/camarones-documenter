@@ -17,9 +17,12 @@ VER_RE = re.compile(r'"kit":\s*"([\d.]+)"')
 
 def self_update(log=print) -> str:
     """Global install only: `git pull` the central kit clone in place. Every project resolves ROOT
-    against this same KIT, so this is the only step needed to bring all of them up to date at once."""
+    against this same KIT, so this is the only step needed to bring all of them up to date at once.
+    Only the global launcher (install-global.cmd/.sh) sets CAMARONES_GLOBAL — that, not ROOT (which
+    falls back to KIT.parent with no project context either way), is what tells legacy and global
+    installs apart here."""
     kit_repo = KIT.parent
-    if kit_repo.resolve() == ROOT.resolve():
+    if not os.environ.get("CAMARONES_GLOBAL"):
         raise RuntimeError("this project has its own local kit copy (not a global install) — "
                             "use `upgrade <newer-kit-folder>` instead, or `unlink` to switch to a global install.")
     if not (kit_repo / ".git").exists():

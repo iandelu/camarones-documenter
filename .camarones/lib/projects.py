@@ -58,11 +58,23 @@ def create(name: str, at: Path | None = None) -> Path:
     return dest
 
 
-def pick(allow_new: bool = True) -> Path | None:
-    """Interactive project picker (questionary). Returns None if the user cancelled (Esc/Ctrl-C)."""
+def has_repos(folder: Path) -> bool:
+    """True if `folder` already looks like an umbrella folder full of repos ('drop the kit next to your
+    repos' case) — the signal used to offer adopting it as-is instead of nesting a new project inside it."""
+    return folder.is_dir() and any((p / ".git").exists() for p in folder.iterdir() if p.is_dir())
+
+
+def pick(allow_new: bool = True, here: Path | None = None) -> Path | None:
+    """Interactive project picker (questionary). Returns None if the user cancelled (Esc/Ctrl-C).
+    `here`: offer adopting this folder as-is (e.g. the cwd) when it isn't already a registered project —
+    covers running `camarones` straight from an existing repos folder instead of a cama-docs-* one."""
     import questionary
     rows = list_registered()
     choices = [questionary.Choice(f"{r['name']}  ({r['path']})", value=Path(r["path"])) for r in rows]
+    offer_here = here is not None and not any(Path(r["path"]).resolve() == here.resolve() for r in rows)
+    if offer_here:
+        label = f"usar esta carpeta ({here})" + ("  — repos detectados" if has_repos(here) else "")
+        choices.append(questionary.Choice(label, value=here))
     if allow_new:
         choices.append(questionary.Choice("+ nuevo proyecto (cama-docs-<nombre>)", value="__new__"))
     if not choices:
@@ -74,5 +86,8 @@ def pick(allow_new: bool = True) -> Path | None:
     if picked == "__new__":
         name = questionary.text("Nombre del nuevo proyecto (ej. enjoy):").ask()
         return create(name) if name else None
+    if offer_here and picked == here:
+        register(here)
+        return here
     touch(picked)
     return picked
