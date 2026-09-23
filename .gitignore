@@ -1,0 +1,33 @@
+# Local project configuration and generated output
+/.camarones/workspace.yaml
+/.camarones/.cache/
+/build/
+/dist/
+/graphify-out/
+
+# Python / Node
+__pycache__/
+*.py[cod]
+.venv/
+node_modules/
+.astro/
+.pytest_cache/
+.uv-cache/
+
+# Credentials and local settings
+.env
+.env.*
+!.env.example
+credentials.json
+*.pem
+*.key
+/.codex/
+/.claude/
+/.agents/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log

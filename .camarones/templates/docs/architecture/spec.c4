@@ -1,0 +1,21 @@
+// project-documenter: shared vocabulary. Do not rename kinds/tags without updating all .c4 files.
+specification {
+  element actor { style { shape person; color secondary } }
+  element system
+  element externalSystem { style { color muted } }
+  element service { notation "Microservice" }
+  element webapp { style { shape browser } }
+  element mobileApp { style { shape mobile } }
+  element database { style { shape storage } }
+  element queue { style { shape queue } }
+  element component
+  deploymentNode environment
+  deploymentNode cluster
+  deploymentNode namespace
+  relationship sync { line solid }
+  relationship async { line dashed }
+  tag ai-draft
+  tag confirmed
+  tag shared-db
+  tag deprecated
+}

@@ -1,0 +1,13 @@
+{
+  "name": "project-docs-portal",
+  "private": true,
+  "type": "module",
+  "scripts": { "dev": "astro dev", "build": "astro build" },
+  "dependencies": {
+    "@astrojs/starlight": "0.42.3",
+    "astro": "7.3.3",
+    "astro-mermaid": "2.1.0",
+    "mermaid": "^11",
+    "sharp": "^0.34"
+  }
+}

@@ -1,0 +1,35 @@
+# 🦐 Camarones Documenter — for EACH service repo on GitHub. Copy to .github/workflows/openwiki.yml
+# Secrets: ANTHROPIC_API_KEY; DOCS_DISPATCH_TOKEN (PAT allowed to dispatch on the umbrella repo). Variable: DOCS_UMBRELLA_REPO (owner/name)
+name: openwiki
+on:
+  push: { branches: [main] }
+  schedule: [{ cron: "0 4 * * 1-5" }]
+  workflow_dispatch:
+permissions: { contents: write, pull-requests: write }
+jobs:
+  openwiki:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    env: { OPENWIKI_PROVIDER: anthropic, OPENWIKI_MODEL_ID: claude-sonnet-5, OPENWIKI_TELEMETRY_DISABLED: "1" }
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm i -g openwiki@0.5.2 && openwiki code --update --print
+        env: { ANTHROPIC_API_KEY: "${{ secrets.ANTHROPIC_API_KEY }}" }
+      - uses: peter-evans/create-pull-request@v7
+        with:
+          branch: openwiki/update
+          title: "docs: update OpenWiki"
+          add-paths: |
+            openwiki
+            AGENTS.md
+            CLAUDE.md
+  notify-umbrella:
+    if: github.event_name == 'push' && vars.DOCS_UMBRELLA_REPO != ''
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -fsS -X POST -H "Authorization: Bearer ${{ secrets.DOCS_DISPATCH_TOKEN }}" -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ vars.DOCS_UMBRELLA_REPO }}/dispatches -d '{"event_type":"service-changed"}'

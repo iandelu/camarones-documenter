@@ -1,0 +1,215 @@
+<p align="center">
+  <img src=".github/media/hero.svg" alt="Camarones Documenter. Muchos repos. Una historia clara." width="100%">
+</p>
+
+<p align="center">
+  <strong>Convierte un proyecto multi-repo en documentación que puedes explorar, revisar y mantener.</strong><br>
+  Tu agente de IA lee el código. Camarones organiza el trabajo. Tú validas el resultado.
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/version-2.4.0-ff875f?style=flat-square" alt="Versión 2.4.0">
+  <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
+  <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
+  <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
+</p>
+
+<p align="center">
+  <a href="#empieza-aquí">Empezar</a> ·
+  <a href="#del-código-al-mapa-del-proyecto">Cómo funciona</a> ·
+  <a href="#una-sesión-una-unidad-de-trabajo">Sesiones</a> ·
+  <a href=".camarones/TUTORIAL.md">Tutorial ES / EN</a>
+</p>
+
+---
+
+## El código está repartido. La explicación no debería estarlo.
+
+Un servicio recibe la petición, otro publica un evento y un tercero guarda el resultado. Entender el sistema exige cruzar repositorios, conversaciones y decisiones que quizá nadie escribió.
+
+**Camarones Documenter** es un kit local con asistente de terminal y CLI que coordina ese trabajo con Claude Code o Codex. Divide la documentación en unidades manejables, guarda el progreso entre sesiones y reúne el resultado en un portal web.
+
+Está pensado para equipos que necesitan incorporar personas, entender sistemas heredados o documentar la arquitectura y los flujos de un proyecto con varios repositorios.
+
+## Del código al mapa del proyecto
+
+<p align="center">
+  <img src=".github/media/workflow.gif" alt="Flujo ilustrativo: conectar repositorios, analizar con IA, guardar el progreso y revisar la documentación." width="960">
+</p>
+
+*Animación explicativa del flujo; no es una grabación de la interfaz ni una medición de tiempos.*
+
+1. **Conecta tus repositorios.** Detecta carpetas Git locales o configura repositorios de GitHub y GitLab.
+2. **Descubre el sistema.** El agente examina código, contratos, configuración e integraciones; las entrevistas recogen el contexto que falta.
+3. **Documenta por sesiones.** Wikis por repositorio, arquitectura C4, dominio, modelos de datos, flujos de negocio y decisiones.
+4. **Revisa y publica.** Valida los borradores y construye un portal con navegación, diagramas y traducciones.
+5. **Vuelve cuando cambie el código.** Compara commits desde la última documentación y usa las fuentes para orientar la actualización.
+
+### Lo que lo hace útil
+
+- **Una visión de todo el proyecto.** Une la documentación de cada repositorio con sus relaciones, actores y flujos de negocio.
+- **Sesiones que puedes retomar.** Plan, notas de progreso y contexto de relevo guardados en archivos del proyecto.
+- **Documentación con fuentes.** Referencias `x-sources` al código y detección de fuentes que ya no existen.
+- **Revisión humana visible.** Distingue borradores, páginas confirmadas y páginas que necesitan otra revisión.
+- **Arquitectura navegable.** LikeC4 para las vistas del sistema y Mermaid para secuencias, estados y modelos de datos.
+- **Documentación para personas y agentes.** Portal para leer; `AGENTS.md`, `CLAUDE.md` y `llms.txt` para orientar el trabajo con IA.
+- **Inglés y español.** Documentación canónica en inglés, traducciones al español y seguimiento de traducciones pendientes o desactualizadas.
+- **Un primer mapa sin IA.** `arch-draft` realiza un análisis estático y propone un borrador C4 que después hay que verificar.
+
+## Empieza aquí
+
+### Requisitos
+
+- **Git** y **Node.js 22 o superior** para el conjunto de herramientas.
+- **uv**, que gestiona Python 3.10+ y las dependencias del CLI. El lanzador puede instalarlo con WinGet en Windows o Homebrew en macOS; en otros casos indica cómo continuar.
+- **Claude Code o Codex**, instalado y autenticado, para las sesiones de documentación con IA. El asistente también permite copiar el prompt.
+- **Docker es opcional**: el portal también se puede servir con Python.
+
+El asistente comprueba los requisitos y permite elegir componentes. La primera instalación descarga herramientas y dependencias. El acceso a modelos de IA depende de la configuración y cuenta de tu agente.
+
+### 1. Coloca el kit junto a tus repositorios
+
+Descarga este repositorio desde **Code → Download ZIP** o clónalo. Copia **`.camarones/`**, **`camarones.cmd`** y **`camarones.command`** a la carpeta que agrupa el proyecto. Activa la visualización de archivos ocultos para ver `.camarones/`.
+
+```text
+mi-proyecto/
+├── .camarones/           # El kit y su configuración
+├── camarones.cmd        # Windows
+├── camarones.command    # macOS / Linux
+├── orders-api/          # Repositorio Git
+├── payments-api/        # Repositorio Git
+└── storefront/          # Repositorio Git
+```
+
+También puedes empezar con la carpeta vacía y añadir repositorios desde el asistente. La carpeta contenedora será el centro de documentación; los repositorios de servicio conservan su propio historial Git.
+
+### 2. Abre el asistente
+
+**Windows · PowerShell**
+
+```powershell
+.\camarones.cmd
+```
+
+**macOS / Linux**
+
+```sh
+sh camarones.command
+```
+
+En Windows también puedes abrir `camarones.cmd` con doble clic. En macOS, si el sistema bloquea el lanzador descargado, ejecútalo una primera vez desde Terminal con el comando anterior.
+
+### 3. Sigue el plan
+
+Configura el proyecto, selecciona repositorios y componentes, prepara el entorno y elige el siguiente paso. Camarones prepara las instrucciones de cada unidad para el agente. Revisa los resultados antes de confirmarlos.
+
+> **Si estás desarrollando el kit:** utiliza `uv run --script .camarones/camarones.py wizard` para abrir el asistente explícitamente. Al ejecutar sin argumentos desde una carpeta llamada `camarones-documenter*` o `camarones-kit*`, el lanzador contempla instalar el kit en la carpeta superior. Prueba los flujos de instalación en una carpeta de ejemplo separada.
+
+## Una sesión, una unidad de trabajo
+
+La documentación profunda de un sistema no suele caber en una sola conversación. Camarones mantiene un plan con dependencias y unidades como `discovery:orders-api`, `arch-system` o `flow:checkout`.
+
+Cada sesión lee el contexto necesario, trabaja en una unidad y guarda notas. Si se interrumpe, el siguiente agente puede continuar desde el último checkpoint. Al cerrar o bloquear una unidad, el CLI intenta crear un commit local del progreso cuando la carpeta contenedora ya tiene Git configurado.
+
+```powershell
+# Ver el trabajo disponible
+.\camarones.cmd plan next
+
+# Empezar una unidad existente y guardar una nota
+.\camarones.cmd plan start discovery:orders-api
+.\camarones.cmd plan note discovery:orders-api "Revisados endpoints; falta mensajería"
+
+# Obtener instrucciones para una sesión de actualización
+.\camarones.cmd prompt update --lang es
+```
+
+En macOS / Linux, sustituye `.\camarones.cmd` por `sh camarones.command` en los ejemplos.
+
+## La IA propone. Tú confirmas.
+
+La revisión se aplica al contenido exacto de cada página:
+
+- **`draft`**: todavía no tiene validación humana.
+- **`confirmed`**: una persona confirmó ese contenido; la confirmación queda asociada a su hash.
+- **`needs-reconfirm`**: la página fue confirmada, pero su contenido cambió después.
+
+Las convenciones instruyen a los agentes para conservar los bloques `<!-- human -->` y respetar los archivos con `x-owner: human`. Son reglas de trabajo para el agente; la calidad final sigue requiriendo revisión.
+
+```powershell
+.\camarones.cmd status
+.\camarones.cmd check
+.\camarones.cmd confirm docs/overview/system.md --by "Tu nombre"
+.\camarones.cmd feedback docs/overview/system.md "Falta describir los reintentos" --by "Tu nombre"
+```
+
+## Todo termina en archivos que puedes versionar
+
+```text
+mi-proyecto/
+├── docs/
+│   ├── overview/        # Visión general del sistema
+│   ├── architecture/    # Modelo C4 y vistas
+│   ├── domain/          # Contextos, actores y glosario
+│   ├── flows/           # Flujos de negocio y secuencias
+│   ├── data/            # Modelos y propiedad de los datos
+│   ├── deployment/      # Entornos y despliegue
+│   ├── decisions/       # Decisiones de arquitectura
+│   ├── quality/         # SLAs y deuda técnica
+│   ├── interview/       # Respuestas y preguntas abiertas
+│   ├── i18n/es/         # Traducciones al español
+│   ├── .work/           # Plan, checkpoints y relevo entre sesiones
+│   └── llms.txt         # Índice para agentes
+├── orders-api/openwiki/ # Wiki del repositorio, si se eligió OpenWiki
+├── AGENTS.md
+└── CLAUDE.md
+```
+
+### Explora el portal
+
+Después de generar la documentación:
+
+```powershell
+.\camarones.cmd portal
+.\camarones.cmd up --no-docker
+```
+
+Abre **http://localhost:8080**. El portal reúne páginas de documentación y, cuando se han generado, el explorador de arquitectura en `/architecture/` y el grafo de código en `/code-graph/`.
+
+Para servirlo con Docker, usa `.\camarones.cmd up`. Para detener el servidor, `.\camarones.cmd down`.
+
+### Mantenlo al día
+
+```powershell
+.\camarones.cmd changes
+.\camarones.cmd prompt update --lang es
+.\camarones.cmd check
+```
+
+`changes` compara los commits con el estado registrado en la última documentación. `prompt update` **imprime instrucciones**: entrégaselas a tu agente o inicia la actualización desde el asistente. Después del trabajo y la revisión, `mark-documented` registra el nuevo punto de referencia.
+
+Se incluyen [plantillas de CI para GitHub y GitLab](.camarones/ci/) para automatizar actualizaciones y construir el portal. Requieren configurar accesos, secretos y despliegue según el proyecto; no se activan al descargar este repositorio.
+
+## Las piezas del kit
+
+**Python + Rich + Questionary** construyen el asistente y la CLI. **uv** resuelve su entorno. **OpenWiki** se encarga de las wikis por repositorio, **graphify** del grafo de código y **LikeC4** del modelo de arquitectura. **Astro + Starlight** presentan el portal, con **Mermaid** para los diagramas dentro de las páginas. El despliegue con contenedor utiliza **nginx**.
+
+Las versiones de las herramientas están fijadas en [common.py](.camarones/lib/common.py) y las del portal en [package.json](.camarones/portal/package.json). Puedes consultarlas con:
+
+```powershell
+.\camarones.cmd version
+.\camarones.cmd doctor
+```
+
+## Sigue explorando
+
+- [Tutorial en español e inglés](.camarones/TUTORIAL.md): qué hace cada herramienta y cómo encajan.
+- [Guía de comandos en español](.camarones/templates/docs/i18n/es/guides/tutorial.md): referencia de uso que el kit instala en cada proyecto.
+- [Playbook de los agentes](.camarones/PLAYBOOK.md): trabajo y entregables de cada sesión.
+- [Convenciones de documentación](.camarones/CONVENTIONS.md): fuentes, revisión, diagramas y traducciones.
+- [CLI principal](.camarones/camarones.py): comandos disponibles y punto de entrada.
+
+¿Has encontrado un problema o tienes una idea? Abre un issue con el contexto, tu sistema operativo, la salida de `version` y los pasos para reproducirlo, sin incluir tokens ni datos privados.
+
+---
+
+<p align="center"><em>🦐 Camarón que se duerme, se lo lleva la corriente.<br>Guarda el contexto. Retoma el trabajo. Entiende el sistema.</em></p>

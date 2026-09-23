@@ -1,0 +1,104 @@
+# 🦐 Camarones Documenter — umbrella (docs) repo pipeline for GitLab.
+# Copy to .gitlab-ci.yml at the umbrella root (or `include: local: .camarones/ci/umbrella.gitlab-ci.yml`).
+#
+# CI/CD variables (Settings → CI/CD → Variables):
+#   ANTHROPIC_API_KEY  (masked)  → docs:update runs Claude Code headless    } set one of them
+#   OPENAI_API_KEY     (masked)  → docs:update runs Codex headless          }
+#   DOCS_BOT_TOKEN     (masked)  project access token (api, write_repository) used to push the docs branch + open the MR
+#   DOCS_DEPLOY        "true" to enable the on-prem deploy job (needs a runner tagged `docs-host` with docker)
+# Each microservice repo must allow this project's CI_JOB_TOKEN to clone it
+#   (repo → Settings → CI/CD → Job token permissions → add this umbrella project).
+
+stages: [verify, docs, build, deploy]
+
+variables:
+  DO_NOT_TRACK: "1"
+  OPENWIKI_TELEMETRY_DISABLED: "1"
+  NO_UPDATE_NOTIFIER: "1"
+  GIT_DEPTH: "0"
+
+.kit:
+  image: node:22-bookworm
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq curl git >/dev/null
+    - curl -LsSf https://astral.sh/uv/install.sh | sh >/dev/null && export PATH="$HOME/.local/bin:$PATH"
+    # clone sibling repos over https with the job token, whatever URL style workspace.yaml uses
+    - git config --global url."https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/".insteadOf "git@${CI_SERVER_HOST}:"
+    - git config --global --add url."https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/".insteadOf "https://${CI_SERVER_HOST}/"
+    - ./camarones.command setup --ci
+
+docs:verify:
+  extends: .kit
+  stage: verify
+  script:
+    - ./camarones.command graph
+    - ./camarones.command arch-validate
+    - ./camarones.command check
+    - ./camarones.command status
+
+# Incremental AI update: runs on schedule, manual "Run pipeline", or when a microservice pipeline triggers us.
+docs:update:
+  extends: .kit
+  stage: docs
+  rules:
+    - if: '$CI_PIPELINE_SOURCE =~ /^(schedule|web|pipeline|trigger)$/'
+  script:
+    - |
+      if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+        npm install -g @anthropic-ai/claude-code >/dev/null
+        claude -p "$(./camarones.command prompt update --lang en --unattended)" --dangerously-skip-permissions
+      elif [ -n "${OPENAI_API_KEY:-}" ]; then
+        npm install -g @openai/codex >/dev/null
+        codex exec --full-auto "$(./camarones.command prompt update --lang en --unattended)"
+      else
+        echo "No ANTHROPIC_API_KEY / OPENAI_API_KEY: skipping AI update"; exit 0
+      fi
+    - ./camarones.command llms && ./camarones.command check || true
+    - |
+      if git diff --quiet && [ -z "$(git ls-files --others --exclude-standard docs)" ]; then echo "Docs already up to date"; exit 0; fi
+    - BRANCH="docs/update-${CI_PIPELINE_ID}"
+    - git config user.name "docs-bot" && git config user.email "docs-bot@${CI_SERVER_HOST}"
+    - git checkout -b "$BRANCH" && git add docs .camarones/workspace.yaml AGENTS.md CLAUDE.md && git commit -m "docs: automated documentation update"
+    - git push "https://oauth2:${DOCS_BOT_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git" "$BRANCH"
+    - |
+      curl --fail -sS --request POST --header "PRIVATE-TOKEN: ${DOCS_BOT_TOKEN}" \
+        --form "source_branch=${BRANCH}" --form "target_branch=${CI_DEFAULT_BRANCH}" \
+        --form "title=docs: automated documentation update" --form "remove_source_branch=true" \
+        --form "description=AI-generated update. Review drafts; confirm what is correct in the Camarones Documenter wizard (or \`camarones confirm\`)." \
+        "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/merge_requests"
+
+portal:site:
+  extends: .kit
+  stage: build
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  script:
+    - ./camarones.command graph
+    - ./camarones.command portal
+  artifacts:
+    paths: [.camarones/.cache/portal-image]
+    expire_in: 1 week
+
+portal:image:
+  stage: build
+  needs: [portal:site]
+  image: docker:27
+  services: [docker:27-dind]
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+    - docker build -t "$CI_REGISTRY_IMAGE/portal:$CI_COMMIT_SHORT_SHA" -t "$CI_REGISTRY_IMAGE/portal:latest" .camarones/.cache/portal-image
+    - docker push --all-tags "$CI_REGISTRY_IMAGE/portal"
+
+portal:deploy:
+  stage: deploy
+  needs: [portal:image]
+  tags: [docs-host]            # shell runner on the on-prem machine that serves the portal
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DOCS_DEPLOY == "true"'
+  variables:
+    DOCS_IMAGE: "$CI_REGISTRY_IMAGE/portal:latest"
+  script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+    - docker compose -f .camarones/portal/compose.yml pull && docker compose -f .camarones/portal/compose.yml up -d --no-build

@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="520" viewBox="0 0 1280 520" role="img" aria-labelledby="title desc">
+  <title id="title">Camarones Documenter</title>
+  <desc id="desc">Muchos repos. Una historia clara. Documentación con IA, contexto que permanece y revisión humana.</desc>
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#101f2b"/><stop offset="1" stop-color="#091119"/></linearGradient>
+    <radialGradient id="glow"><stop stop-color="#ff875f" stop-opacity=".17"/><stop offset="1" stop-color="#ff875f" stop-opacity="0"/></radialGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#233846" stroke-width=".6"/></pattern>
+  </defs>
+  <rect width="1280" height="520" rx="24" fill="url(#bg)"/>
+  <rect width="1280" height="520" rx="24" fill="url(#grid)" opacity=".5"/>
+  <ellipse cx="1040" cy="230" rx="330" ry="300" fill="url(#glow)"/>
+  <g font-family="Segoe UI,Arial,sans-serif">
+    <rect x="58" y="51" width="270" height="31" rx="15" fill="#20323e"/>
+    <circle cx="76" cy="67" r="4" fill="#8bd5ca"/>
+    <text x="90" y="72" fill="#bfd1d8" font-size="12" letter-spacing="2">TU CÓDIGO TIENE UNA HISTORIA</text>
+    <text x="58" y="151" fill="#ff956f" font-size="24" font-weight="600">CAMARONES DOCUMENTER</text>
+    <text x="54" y="232" fill="#f3f5f6" font-size="66" font-weight="700" letter-spacing="-2">Muchos repos.</text>
+    <text x="54" y="304" fill="#f3f5f6" font-size="66" font-weight="700" letter-spacing="-2">Una historia clara.</text>
+    <text x="58" y="355" fill="#adbeca" font-size="21">Documentación con IA. Contexto que permanece.</text>
+    <g font-size="14" fill="#c1d2dc">
+      <rect x="58" y="406" width="184" height="36" rx="8" fill="#1b303c"/><text x="77" y="430">Sesiones reanudables</text>
+      <rect x="254" y="406" width="200" height="36" rx="8" fill="#1b303c"/><text x="273" y="430">Arquitectura navegable</text>
+      <rect x="466" y="406" width="165" height="36" rx="8" fill="#1b303c"/><text x="486" y="430">Revisión humana</text>
+    </g>
+    <g stroke="#41525d" stroke-width="2" fill="none">
+      <path d="M847 138L960 239 1142 148M837 347L960 239 1120 363"/>
+      <path d="M847 138L837 347M1142 148L1120 363" stroke-dasharray="5 8"/>
+    </g>
+    <g fill="#172832" stroke="#39515e">
+      <rect x="781" y="91" width="140" height="84" rx="12"/>
+      <rect x="1069" y="104" width="140" height="84" rx="12"/>
+      <rect x="766" y="321" width="140" height="84" rx="12"/>
+      <rect x="1049" y="332" width="150" height="84" rx="12"/>
+    </g>
+    <g fill="#bbced8" font-size="17" text-anchor="middle">
+      <text x="851" y="125" fill="#8bd5ca" font-family="Consolas,monospace">&lt;/&gt;</text><text x="851" y="154">orders-api</text>
+      <text x="1139" y="138" fill="#8bd5ca" font-family="Consolas,monospace">&lt;/&gt;</text><text x="1139" y="167">payments</text>
+      <text x="836" y="355" fill="#8bd5ca" font-family="Consolas,monospace">&lt;/&gt;</text><text x="836" y="384">storefront</text>
+      <text x="1124" y="367" fill="#ff956f">✓</text><text x="1124" y="396">docs + contexto</text>
+    </g>
+    <circle cx="968" cy="241" r="65" fill="#ff956f"/>
+    <g fill="none" stroke="#142530" stroke-width="11" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M987 212C955 195 931 219 943 246C952 266 978 269 993 251"/>
+      <path d="M950 217L964 229M939 236L955 241M951 257L963 249" stroke-width="5"/>
+      <path d="M990 251L1003 242 1003 264Z" stroke-width="5"/>
+      <path d="M984 211Q1005 186 1010 204M981 212Q999 192 992 185" stroke-width="3"/>
+    </g>
+    <circle cx="985" cy="215" r="3" fill="#142530"/>
+    <text x="968" y="474" text-anchor="middle" fill="#7e939f" font-size="12" letter-spacing="2">LEE · CONECTA · DOCUMENTA · REVISA</text>
+  </g>
+</svg>
