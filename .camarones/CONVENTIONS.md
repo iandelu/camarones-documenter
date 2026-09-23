@@ -15,13 +15,14 @@ Humans: see `docs/guides/tutorial.md`. `CLI` = `./camarones.command` (macOS/Linu
 | Work plan & session handoff | `docs/.work/plan.yaml`, `handoff.md`, `log.md` | Camarones Documenter CLI + agents |
 | C4 model (single source for every architecture diagram) | `docs/architecture/*.c4` | Camarones Documenter agent |
 | Project overview, domain, flows, data, deployment, ADRs, quality | `docs/<section>/*.md` | Camarones Documenter + humans |
+| Security review (opt-in unit) | `docs/security/*.md` | Camarones Documenter agent |
 | Translations | `docs/i18n/<lang>/<same logical path>` (repo pages: `docs/i18n/<lang>/repos/<repo>/<page>`) | Camarones Documenter agent |
 | Interview answers & open questions | `docs/interview/` | Camarones Documenter agent |
 | AI index | `docs/llms.txt` (generated: `CLI llms`) | kit |
 | Incremental state | `docs/.state.json` (`CLI changes`, `mark-documented`) | kit |
 
 `docs/` sections: `index.md`, `overview/`, `architecture/`, `domain/`, `flows/`, `data/`, `deployment/`,
-`decisions/`, `quality/`, `guides/`, `interview/`.
+`decisions/`, `quality/`, `guides/`, `interview/`, `security/` (only present when the opt-in `security-review` unit ran).
 
 ## 2. Frontmatter (every `.md` under `docs/`)
 
@@ -94,7 +95,16 @@ Status · Context · Decision · Consequences · Evidence. Agents may only creat
 **Domain** (`docs/domain/`): `bounded-contexts.md` (context map, which repo implements which context),
 `glossary.md` (term · definition · code name · context), `actors.md` (people & external systems).
 
-**Quality** (`docs/quality/`): `slas.md`, `tech-debt.md` (item · impact · evidence · owner).
+**Quality** (`docs/quality/`): `slas.md`, `tech-debt.md` (item · impact · evidence · owner, from the `decisions-quality`
+interview), `architecture-review.md` (area · impact · estimated effort · evidence · recommendation, from the opt-in
+`architecture-review` unit — code-evidenced, kept separate from the interview-sourced `tech-debt.md`).
+
+**Security** (`docs/security/`, `type: quality`, from the opt-in `security-review` unit — **beta**):
+`threat-model.md` (actors, attack surface, trust boundaries) and `findings.md`
+(finding · severity critical/high/medium/low · component · evidence · recommendation).
+
+> `security-review` and `architecture-review` are **beta** units: newer and less battle-tested than the rest of the
+> kit. Treat their output as draft leads to verify, not a final verdict.
 
 **Deployment** (`docs/deployment/environments.md`): environments, URLs, infra source (Helm/K8s/ArgoCD/compose), config/secrets sources.
 

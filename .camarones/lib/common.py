@@ -10,7 +10,7 @@ IS_MAC = platform.system() == "Darwin"
 HOME = Path.home()
 
 VERSIONS = {
-    "kit": "2.4.0",
+    "kit": "2.5.0",
     "openwiki": "0.5.2",
     "likec4": "1.59.4",
     "graphify": "0.9.65",
@@ -18,17 +18,33 @@ VERSIONS = {
 }
 
 
+def find_project_marker(start: Path) -> Path | None:
+    """Walk up from `start` (like git does for .git/) looking for a project's own .camarones/workspace.yaml.
+    Lets one central kit (global install) serve many project folders without CAMARONES_ROOT set by hand."""
+    cur = start.resolve()
+    for d in (cur, *cur.parents):
+        if (d / ".camarones" / "workspace.yaml").exists():
+            return d
+    return None
+
+
 def find_root() -> Path:
-    """The umbrella root = folder that contains .camarones/ (overridable with CAMARONES_ROOT)."""
+    """The umbrella root = the project being documented (overridable with CAMARONES_ROOT).
+    Resolution order: CAMARONES_ROOT env var > a .camarones/workspace.yaml found walking up from
+    the cwd (global install: KIT is shared, each project keeps only its own config) > KIT.parent
+    (legacy: the kit copy lives inside the project it documents)."""
     env = os.environ.get("CAMARONES_ROOT")
-    return Path(env).resolve() if env else KIT.parent
+    if env:
+        return Path(env).resolve()
+    marker = find_project_marker(Path.cwd())
+    return marker if marker else KIT.parent
 
 
 ROOT = find_root()
 DOCS = ROOT / "docs"
 WORK = DOCS / ".work"          # plan, handoff, session log (committed, hidden from portal)
-WS_FILE = KIT / "workspace.yaml"   # project config lives inside .camarones/ to keep the project root clean
-CACHE = KIT / ".cache"             # generated, git-ignored: portal build, site, code graph, vendor cache
+WS_FILE = ROOT / ".camarones" / "workspace.yaml"   # project config: per-project, never shared across projects
+CACHE = ROOT / ".camarones" / ".cache"             # generated, git-ignored: portal build, site, code graph, vendor cache
 
 
 def cli_cmd() -> str:

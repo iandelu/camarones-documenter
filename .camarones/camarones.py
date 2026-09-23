@@ -26,29 +26,61 @@
   prompt UNIT [--lang es|en] [--unattended]      prompt for an agent session (UNIT may be 'update')
   arch-draft [--save]       quick static architecture scan → C4 draft (first look, no AI)
   doctor                    check prerequisites and tool versions
+  install DEST --profile quick|full [--dry-run]   copy kit into an explicit project folder
+  upgrade SOURCE [--dry-run]  update kit files with backups; preserve project configuration
+  profile quick|full        change the work plan without losing checkpoints
+  new NAME                  create ./cama-docs-NAME/, register it, open it (global install)
+  switch                    pick a registered project to open (global install)
+  self-update               git pull the central kit in place (global install only)
+  unlink                    remove this project's local kit copy, keep config (moves to global install)
 """
 from __future__ import annotations
 
-import argparse, json, os, sys
+import argparse, json, os, subprocess, sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
-# Kit unzipped into its own subfolder (camarones-documenter/) inside the project → offer to install one level up.
-if HERE.parent.name.lower().startswith(("camarones-documenter", "camarones-kit")) and not (HERE.parent / "docs").exists() \
-        and len(sys.argv) == 1 and not os.environ.get("CAMARONES_ROOT"):
-    from lib.wizard import install_from_kit_folder
-    from lib.upgrade import relaunch
-    if install_from_kit_folder(HERE.parent):
-        target = HERE.parent.parent / ".camarones" / "camarones.py"
-        if target.exists():
-            os.chdir(HERE.parent.parent)               # the kit subfolder (old cwd) is gone
-            relaunch(target)
-    sys.exit(0)
+from lib import projects                            # noqa: E402 — no dependency on ROOT/common state
+
+
+def _relaunch(root: Path, argv: list[str]) -> None:
+    """Restart this script with CAMARONES_ROOT set, so every module that captured ROOT at import
+    time (docs, env, wizard, …) sees the right project from the start. Mirrors lib/upgrade.py's
+    own relaunch-after-swap trick — module-level globals can't be hot-reloaded mid-process."""
+    os.environ["CAMARONES_ROOT"] = str(root)
+    args = [sys.executable, __file__, *argv]
+    if os.name == "nt":
+        sys.exit(subprocess.run(args).returncode)
+    os.execv(sys.executable, args)
+
+
+_cmd0 = sys.argv[1] if len(sys.argv) > 1 else None
+if _cmd0 == "new" and len(sys.argv) > 2 and not sys.argv[2].startswith("-"):
+    _dest = projects.create(sys.argv[2])
+    print(f"🦐 {_dest.name} → {_dest}")
+    _relaunch(_dest, [])
+elif _cmd0 == "switch":
+    _dest = projects.pick(allow_new=True)
+    if _dest is None:
+        sys.exit(1)
+    _relaunch(_dest, [])
+elif os.environ.get("CAMARONES_GLOBAL") and not os.environ.get("CAMARONES_ROOT"):
+    # Only the global launcher (install-global.cmd/.sh) sets CAMARONES_GLOBAL — a project-local
+    # launcher (legacy co-located kit copy) must keep resolving ROOT exactly as before (KIT.parent),
+    # even on its very first run before workspace.yaml exists, with no picker involved.
+    _marker = projects.find_marker(Path.cwd())
+    if _marker:
+        projects.touch(_marker)
+    elif _cmd0 not in ("help", "version", "self-update"):
+        _dest = projects.pick(allow_new=True)
+        if _dest is None:
+            sys.exit(1)
+        _relaunch(_dest, sys.argv[1:])
 
 from lib import docs, env, plan                     # noqa: E402
-from lib.common import VERSIONS, cli_cmd, ROOT, CACHE   # noqa: E402
+from lib.common import VERSIONS, cli_cmd, ROOT, CACHE, KIT   # noqa: E402
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -56,16 +88,21 @@ if hasattr(sys.stdout, "reconfigure"):
 
 def main() -> int:
     if len(sys.argv) == 1:
-        from lib.wizard import W, offer_upgrade
-        if offer_upgrade():                        # newer kit found next to the project → installed → restart it
-            from lib.upgrade import relaunch
-            relaunch(ROOT / ".camarones" / "camarones.py")
+        from lib.wizard import W
         W().run()
         return 0
     p = argparse.ArgumentParser(prog=cli_cmd(), description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sp = p.add_subparsers(dest="cmd", required=True)
     sp.add_parser("help")
-    s = sp.add_parser("setup"); s.add_argument("--ci", action="store_true")
+    s = sp.add_parser("setup"); s.add_argument("--ci", action="store_true"); s.add_argument("--profile", choices=["quick", "full"])
+    ins = sp.add_parser("install"); ins.add_argument("destination", type=Path)
+    ins.add_argument("--profile", choices=["quick", "full"], default="quick"); ins.add_argument("--dry-run", action="store_true")
+    upg = sp.add_parser("upgrade"); upg.add_argument("source", type=Path); upg.add_argument("--dry-run", action="store_true")
+    nw = sp.add_parser("new"); nw.add_argument("name")
+    sp.add_parser("switch")
+    sp.add_parser("self-update")
+    sp.add_parser("unlink")
+    prof = sp.add_parser("profile"); prof.add_argument("name", choices=["quick", "full"])
     sp.add_parser("init")
     for c in ("sync", "detect", "changes", "llms", "graph", "arch", "arch-validate", "portal", "down", "doctor", "wizard", "version"):
         sp.add_parser(c)
@@ -90,10 +127,30 @@ def main() -> int:
 
     if a.cmd == "help":
         print(__doc__)
+    elif a.cmd in ("install", "upgrade"):
+        from lib.install import install
+        if a.cmd == "install":
+            install(HERE.parent, a.destination, a.profile, dry_run=a.dry_run)
+        else:
+            install(a.source, ROOT, update=True, dry_run=a.dry_run)
+    elif a.cmd == "self-update":
+        from lib.upgrade import self_update
+        self_update(print)
+    elif a.cmd == "unlink":
+        from lib.install import unlink
+        removed = unlink(ROOT)
+        print("Kit code removed from this project — it now resolves against the global kit."
+              if removed else "Nothing to remove — this project has no local kit copy.")
+    elif a.cmd == "profile":
+        env.set_profile(a.name)
+        plan.sync()
+        print(f"Profile: {a.name}. Progress kept. Run setup to prepare the selected tools.")
     elif a.cmd == "wizard":
         from lib.wizard import W
         W().run()
     elif a.cmd == "setup":
+        if a.profile:
+            env.set_profile(a.profile)
         env.init_templates()
         env.setup(ci=a.ci)
         if not a.ci:
