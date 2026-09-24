@@ -204,8 +204,9 @@ def render_c4(model: dict, project: str) -> dict[str, str]:
     for n in model["caches"]:
         lines.append(f"  {ref(n)} -[sync]-> {sys_id}.cache 'caches'")
     lines.append("}")
-    views = ["views {", "  view index {", "    title 'System context'", f"    include user, {sys_id}" +
-             "".join(f", {ext_ids[i]}" for i in sorted(model["idps"])), "  }",
+    # top-level `include *` = actors, the system and every external system, so elements added later (the AI
+    # refinement, by hand) show up in the context view without anyone having to remember to edit it
+    views = ["views {", "  view index {", "    title 'System context'", "    include *", "  }",
              f"  view containers of {sys_id} {{", "    title 'Containers'", "    include *", "  }", "}"]
     spec = (Path(__file__).resolve().parent.parent / "templates" / "docs" / "architecture" / "spec.c4").read_text(encoding="utf-8")
     cfg = '{ "name": "%s", "title": "%s" }\n' % (ident(project) or "project", project.replace('"', "'"))
@@ -254,6 +255,8 @@ def save(model: dict, overwrite: bool = False) -> list[str]:
         shutil.copyfile(model["dir"] / name, target)
         written.append(f"docs/architecture/{name}")
     page = DOCS / "architecture" / "first-look.md"
+    if "docs/architecture/model.c4" not in written and page.exists():
+        return written                      # the kept model has its own (maybe AI-verified) page: don't contradict it
     rows = "\n".join(f"| {n} | {r['kind']} | {r['tech']} |" for n, r in model["repos"].items())
     rels = "\n".join(f"- {a} → {b}: {label}" for a, b, _, label in model["edges"]) or "- (none detected)"
     page.write_text(f"""---

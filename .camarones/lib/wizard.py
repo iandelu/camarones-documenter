@@ -1147,15 +1147,28 @@ class W:
     def arch_prompt(self) -> str:
         cli = cli_cmd()
         talk = "Spanish" if self.lang == "es" else "English"
+        arch = ws_rel("docs/architecture")
+        # the agent runs in WORKSPACE: in the cam-docs layout a bare `docs/…` path would make it write a second,
+        # unused model next to the repos while the portal keeps showing the unrefined draft
+        layout = (f"\nLayout: you run in the workspace folder. Docs live in `{CAM_DIR}/` (its own git repo); the service repos "
+                  f"are its siblings. Edit only the files under `{arch}/` — never create a `docs/` folder anywhere else.\n"
+                  if CAM_LAYOUT else "")
+        code = ("`graphify query` in the repos, " if "graphify" in env.components() else "")
         return f"""Camarones session — improve the first-look architecture draft.
-
-`docs/architecture/*.c4` was drafted by a static scan (no AI): repos, datastores, brokers and HTTP calls were guessed
-from manifests, config and code. Read `.camarones/CONVENTIONS.md` §4 (C4 rules) first.
-1. Verify every element and relation against the code (use `graphify query` in the repos, OpenAPI/AsyncAPI files, config).
+{layout}
+`{arch}/model.c4` + `views.c4` hold the architecture draft; it started from a static scan (no AI) that guessed repos,
+datastores, brokers and HTTP calls from manifests, config and code. Read `{ws_rel('.camarones/CONVENTIONS.md')}` §4
+(C4 rules) and the kinds/tags in `{arch}/spec.c4` first (do not edit spec.c4).
+1. Verify every element and relation against the code ({code}OpenAPI/AsyncAPI files, config, client code).
    Fix technologies, names, directions and labels (endpoint / exchange / topic); remove false positives; add what is missing
-   (external systems, identity provider, shared databases, frontends/apps).
-2. Keep everything `#ai-draft`. Run `{cli} arch-validate` until ✓ Valid. Update `docs/architecture/first-look.md`.
-3. Show the user the result as a short tree (containers → relations) and ask whether it is right; apply their corrections.
+   (external systems, identity provider, shared databases, frontends/apps). A relation is a runtime call or message —
+   hosting/CI/deployment targets belong to the deployment unit, not here.
+2. Keep `views.c4` in step with the model: `index` must show the actors, the system and every external system;
+   `containers` everything inside the system. Remove view references to elements you deleted.
+3. Keep everything `#ai-draft`. Run `{cli} arch-validate` after every edit until it prints ✓ Valid (it validates
+   `{arch}/`, so a model written anywhere else is not checked). Update `{arch}/first-look.md` to match.
+4. Show the user the result as a short tree (containers → relations) and ask whether it is right; apply their corrections.
+   Tell them the portal's Architecture (C4) tab rebuilds from `{arch}/` (`{cli} up`).
 Talk to the user in {talk}. Do not modify application code.
 """
 
