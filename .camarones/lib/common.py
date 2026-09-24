@@ -47,9 +47,23 @@ WS_FILE = ROOT / ".camarones" / "workspace.yaml"   # project config: per-project
 CACHE = ROOT / ".camarones" / ".cache"             # generated, git-ignored: portal build, site, code graph, vendor cache
 
 
+def is_global() -> bool:
+    """True when this project uses a shared central kit (global install) instead of its own copy —
+    the launchers and .camarones/{lib,PLAYBOOK.md,CONVENTIONS.md,…} then live under KIT, not ROOT."""
+    return KIT.parent != ROOT
+
+
 def cli_cmd() -> str:
     """How humans/agents invoke Camarones Documenter on this OS."""
+    if is_global():
+        return "camarones"
     return r".\camarones.cmd" if IS_WIN else "./camarones.command"
+
+
+def kit_ref() -> str:
+    """Where PLAYBOOK.md/CONVENTIONS.md/etc. actually live: inside this project (legacy install) or the
+    shared central kit's .camarones/ (global install) — for docs/prompts that point agents at them."""
+    return KIT.as_posix() if is_global() else ".camarones"
 
 
 # ---------- PATH & tools ----------

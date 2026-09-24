@@ -13,7 +13,7 @@ from pathlib import Path
 
 import yaml
 
-from .common import WORK, cli_cmd, IS_WIN
+from .common import WORK, cli_cmd, kit_ref, IS_WIN
 from . import docs
 
 PLAN = WORK / "plan.yaml"
@@ -264,6 +264,7 @@ def prompt(uid: str, lang: str = "es", unattended: bool = False) -> str:
     data = load()
     u = get(data, uid) if uid != "update" else {"id": "update", "title": "Incremental update", "type": "update", "phase": "-"}
     cli = cli_cmd()
+    kit = kit_ref()
     section = TYPES.get(u["type"], (0, "", "", "update"))[3]
     talk = "Spanish" if lang == "es" else "English"
     ask = ("This is an unattended run: never ask questions; append them to docs/interview/open-questions.md."
@@ -291,7 +292,7 @@ def prompt(uid: str, lang: str = "es", unattended: bool = False) -> str:
     return f"""Camarones Documenter session — unit `{u['id']}`: {u['title']}
 {resume}{extra}
 You are documenting this project with the Camarones Documenter kit (works the same in Claude Code and Codex).
-1. Read `.camarones/PLAYBOOK.md` → sections "Session protocol" and "{section}", and `.camarones/CONVENTIONS.md` (binding).
+1. Read `{kit}/PLAYBOOK.md` → sections "Session protocol" and "{section}", and `{kit}/CONVENTIONS.md` (binding).
 2. Read `docs/.work/handoff.md` (what previous sessions did and left pending). Do not redo finished work.
 3. Run `{cli} plan start {u['id']}`, then do ONLY this unit, as deep as the playbook asks. The CLI is `{cli}`
    (`{cli} help` lists commands). Write docs in English; talk to the user in {talk}.
