@@ -111,9 +111,12 @@ def sync_repos(log: Log = print) -> list[str]:
                 git(path, "checkout", "--quiet", branch)
                 git(path, "merge", "--ff-only", "--quiet", f"origin/{branch}")
             except RuntimeError as e:
-                failed.append(r["name"])
+                # The repo is already cloned locally — a remote that 404s or rejects auth (renamed,
+                # made private, deleted, expired token) shouldn't block work on what's already there.
                 hint = " — add a GitLab/GitHub token (🔑)" if re.search(r"auth|denied|403|401|could not read", str(e), re.I) else ""
-                log(f"⚠ {e}{hint}")
+                if re.search(r"not found|repository .* not found", str(e), re.I):
+                    hint = " — check the repo still exists at that URL/org, or that you have access"
+                log(f"⚠ {r['name']}: remote unreachable, using local copy as-is{hint}: {e}")
     write_gitignore()
     return failed
 
