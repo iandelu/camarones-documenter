@@ -1,13 +1,13 @@
-"""Docs model: workspace, repo sync, incremental state, trust (draft/confirmed), translations, llms.txt, portal content."""
+"""Docs model: workspace, repo sync, incremental state, trust (draft/confirmed), translations, llms.txt, search."""
 from __future__ import annotations
 
-import datetime as dt, hashlib, json, os, re, shutil, subprocess, tarfile, tempfile
+import datetime as dt, hashlib, os, re, shutil, subprocess, tarfile, tempfile
 from pathlib import Path
 from typing import Callable
 
 import yaml
 
-from .common import (ROOT, DOCS, WS_FILE, CACHE, WORKSPACE, CAM_DIR, CAM_LAYOUT, repo_dir, rel_file, run, which, load_json,
+from .common import (ROOT, DOCS, WS_FILE, CACHE, WORKSPACE, CAM_DIR, CAM_LAYOUT, repo_dir, rel_file, run, load_json,
                      save_json)
 
 STATE_FILE = DOCS / ".state.json"
@@ -337,76 +337,22 @@ def check(strict: bool = False) -> tuple[list[str], list[str]]:
     return errors, warns
 
 
-# ---------- portal content (Starlight) ----------
-MD_LINK = re.compile(r"(\]\()([^)\s#]+\.md)(#[^)\s]*)?(\))")
-BANNERS = {
-    "draft": {"en": "🤖 AI-generated draft — not yet confirmed by a human. Verify against the code before relying on it.",
-              "es": "🤖 Borrador generado por IA — aún no confirmado por un humano. Verifícalo contra el código."},
-    "needs-reconfirm": {"en": "⚠️ Changed after human confirmation — pending re-confirmation.",
-                        "es": "⚠️ Modificado tras la confirmación humana — pendiente de reconfirmar."},
-}
-
-
-def slug(logical: str) -> str:
-    s = logical[:-3] if logical.endswith(".md") else logical
-    if s == "index" or s.endswith("/index"):
-        s = s[: -len("index")].rstrip("/")
-    s = "/".join(re.sub(r"[^a-z0-9._-]+", "-", part.lower()).strip("-") for part in s.split("/") if part)
-    return "/" + (s + "/" if s else "")
-
-
-def rewrite_links(body: str, logical: str, prefix: str) -> str:
-    base = Path(logical).parent
-    def sub(m):
-        target = m.group(2)
-        if re.match(r"^[a-z]+://", target):
-            return m.group(0)
-        resolved = os.path.normpath(str(base / target)).replace("\\", "/")
-        if resolved.startswith(".."):
-            return m.group(0)
-        return f"{m.group(1)}{prefix}{slug(resolved)}{m.group(3) or ''}{m.group(4)}"
-    return MD_LINK.sub(sub, body)
-
-
-def emit(out: Path, logical: str, text: str, trust: str, lang: str, prefix: str) -> None:
-    fm, body = split_fm(text)
-    fm = {k: v for k, v in fm.items() if k in ("title", "description")}
-    fm["title"] = fm.get("title") or first_heading(body) or Path(logical).stem
-    if trust in BANNERS:
-        fm["banner"] = {"content": BANNERS[trust].get(lang, BANNERS[trust]["en"])}
-    elif trust == "confirmed":
-        fm["sidebar"] = {"badge": {"text": "✓", "variant": "success"}}
-    body = re.sub(r"\A\s*#\s+.+\n", "", body, count=1)   # Starlight renders the title itself
-    dst = out / (prefix.strip("/") + "/" if prefix.strip("/") else "") / logical
-    dst.parent.mkdir(parents=True, exist_ok=True)
-    dst.write_text(join_fm(fm, rewrite_links(body, logical, prefix)), encoding="utf-8")
-
-
-def portal_content(out: Path, config: Path) -> int:
-    ws, rows = workspace(), collect()
-    langs = ws["project"].get("translations", [])
-    for r in rows:
-        emit(out, r["path"], (ROOT / r["file"]).read_text(encoding="utf-8"), r["trust"], "en", "")
-        for lang in langs:
-            tf = DOCS / "i18n" / lang / r["path"]
-            if tf.exists():
-                t_trust = r["trust"] if r["i18n"].get(lang) == "current" else "draft"
-                emit(out, r["path"], tf.read_text(encoding="utf-8"), t_trust, lang, f"/{lang}")
-    if not any(r["path"] == "index.md" for r in rows):
-        (out / "index.md").write_text(f"---\ntitle: {ws['project']['name']}\n---\nStart with the sidebar.\n", encoding="utf-8")
-    icon = {"confirmed": "✅ confirmed", "needs-reconfirm": "⚠️ re-confirm", "draft": "🤖 draft"}
-    table = ["| Doc | Trust | Orphan sources | Translations |", "|---|---|---|---|"]
-    for r in rows:
-        tr = ", ".join(f"{k}: {v}" for k, v in r["i18n"].items()) or "—"
-        table.append(f"| [{r['title']}]({slug(r['path'])}) | {icon[r['trust']]} | {len(r['orphan_sources']) or ''} | {tr} |")
-    (out / "status.md").write_text("---\ntitle: Documentation status\n---\n"
-                                   "**confirmed** = validated by a human (source of truth) · **draft** = AI-generated · "
-                                   "**re-confirm** = edited after confirmation.\n\n" + "\n".join(table) + "\n", encoding="utf-8")
-    cfg = {"name": ws["project"]["name"], "site": ws["project"].get("portal_url"), "translations": langs,
-           "localeLabels": {"es": "Español", "en": "English", "fr": "Français", "de": "Deutsch", "pt": "Português"},
-           "repos": [{"name": n, "wikiGraph": wiki_dir(n).is_dir()} for n in repo_names()]}
-    config.write_text(json.dumps(cfg, indent=2) + "\n", encoding="utf-8")
-    return len(rows)
+# ---------- search (portal + MCP) ----------
+def search(query: str, limit: int = 20) -> list[dict]:
+    terms = [t for t in re.findall(r"\w+", query.lower()) if len(t) > 1]
+    if not terms:
+        return []
+    rows, hits = {r["path"]: r for r in collect()}, []
+    for logical, f in iter_docs():
+        text = f.read_text(encoding="utf-8", errors="replace")
+        low = text.lower()
+        score = sum(low.count(t) for t in terms) + 5 * sum(t in logical.lower() for t in terms)
+        if score:
+            r = rows.get(logical, {})
+            hits.append({"path": logical, "title": r.get("title", logical), "trust": r.get("trust", "?"), "score": score,
+                         "lines": [l.strip()[:240] for l in text.splitlines() if any(t in l.lower() for t in terms)][:3]})
+    hits.sort(key=lambda h: -h["score"])
+    return hits[:limit]
 
 
 CDN_RE = re.compile(r"https://(?:cdn\.jsdelivr\.net/npm|unpkg\.com)/((?:@[\w.-]+/)?[\w.-]+)@([\w.+-]+)/([\w./+-]+)")
@@ -415,8 +361,6 @@ CDN_RE = re.compile(r"https://(?:cdn\.jsdelivr\.net/npm|unpkg\.com)/((?:@[\w.-]+
 def vendor(site: Path) -> tuple[int, list[str]]:
     """Graph viewers load libraries from CDNs: fetch them through npm (works with an internal npm mirror) and
     serve them from /vendor/ so the portal works on-prem without internet."""
-    cache = CACHE / "vendor-cache"
-    cache.mkdir(parents=True, exist_ok=True)
     targets = [f for d in ("code-graph", "wiki-graph") if (site / d).exists()
                for f in (site / d).rglob("*") if f.suffix in (".html", ".js")]
     done, failed = set(), set()
@@ -425,21 +369,9 @@ def vendor(site: Path) -> tuple[int, list[str]]:
         def sub(m):
             pkg, ver, path = m.groups()
             key = f"{pkg}@{ver}"
-            pkg_dir = cache / key.replace("/", "__")
-            if key not in done and key not in failed and not pkg_dir.exists():
-                with tempfile.TemporaryDirectory() as tmp:
-                    r = run(["npm", "pack", key, "--silent", "--pack-destination", tmp], check=False, capture=True)
-                    tgz = next(Path(tmp).glob("*.tgz"), None)
-                    if r.returncode != 0 or not tgz:
-                        failed.add(key)
-                        return m.group(0)
-                    with tarfile.open(tgz) as t:
-                        try:
-                            t.extractall(pkg_dir, filter="data")
-                        except TypeError:
-                            t.extractall(pkg_dir)
-            src = pkg_dir / "package" / path
-            if key in failed or not src.exists():
+            src = None if key in failed else vendor_file(pkg, ver, path)
+            if not src:
+                failed.add(key)
                 return m.group(0)
             done.add(key)
             dst = site / "vendor" / key / path
@@ -450,6 +382,26 @@ def vendor(site: Path) -> tuple[int, list[str]]:
         if new != text:
             f.write_text(new, encoding="utf-8")
     return len(done), sorted(failed)
+
+
+def vendor_file(pkg: str, ver: str, path: str) -> Path | None:
+    """One file of an npm package, fetched once with `npm pack` into the cache."""
+    cache = CACHE / "vendor-cache"
+    pkg_dir = cache / f"{pkg}@{ver}".replace("/", "__")
+    if not pkg_dir.exists():
+        cache.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory() as tmp:
+            r = run(["npm", "pack", f"{pkg}@{ver}", "--silent", "--pack-destination", tmp], check=False, capture=True)
+            tgz = next(Path(tmp).glob("*.tgz"), None)
+            if r.returncode != 0 or not tgz:
+                return None
+            with tarfile.open(tgz) as t:
+                try:
+                    t.extractall(pkg_dir, filter="data")
+                except TypeError:
+                    t.extractall(pkg_dir)
+    f = (pkg_dir / "package" / path).resolve()
+    return f if f.is_file() and pkg_dir.resolve() in f.parents else None
 
 
 # ---------- human review ----------

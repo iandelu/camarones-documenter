@@ -39,26 +39,13 @@ def _file(path: str):
 
 
 def search_docs(query: str, limit: int = 8) -> str:
-    terms = [t for t in re.findall(r"\w+", query.lower()) if len(t) > 1]
-    if not terms:
+    if not re.search(r"\w\w", query):
         return "Empty query."
-    rows, hits = _rows(), []
-    for logical, f in docs.iter_docs():
-        text = f.read_text(encoding="utf-8", errors="replace")
-        low = text.lower()
-        score = sum(low.count(t) for t in terms) + 5 * sum(t in logical.lower() for t in terms)
-        if not score:
-            continue
-        lines = [l.strip() for l in text.splitlines() if any(t in l.lower() for t in terms)][:3]
-        hits.append((score, logical, lines))
-    hits.sort(key=lambda h: -h[0])
+    hits = docs.search(query, limit)
     if not hits:
         return f"No page mentions: {query}"
-    out = []
-    for _, logical, lines in hits[:limit]:
-        r = rows.get(logical, {})
-        out.append(f"## {logical} [{r.get('trust', '?')}] — {r.get('title', '')}\n" + "\n".join(f"> {l[:240]}" for l in lines))
-    return "\n\n".join(out)
+    return "\n\n".join(f"## {h['path']} [{h['trust']}] — {h['title']}\n" + "\n".join(f"> {l}" for l in h["lines"])
+                       for h in hits)
 
 
 def read_doc(path: str) -> str:

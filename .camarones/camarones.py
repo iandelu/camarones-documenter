@@ -16,8 +16,10 @@
   llms                      regenerate docs/llms.txt
   graph                     rebuild the cross-repo code graph (.camarones/.cache/graph/graph.html)
   arch | arch-validate      live C4 editor | validate the C4 model
-  portal                    build the static portal (Astro/Starlight, for CI / hosting)
-  up [--port] [--docker|--static]   serve the portal: editable local server (default), nginx in Docker, or static files
+  portal                    export the read-only portal (docs, C4, code graphs, wikis) to .camarones/.cache/site for CI / hosting
+  up [--port] [--docker|--static]   serve the portal: live editable server (default), or the export in Docker / without it
+  wiki REPO.. [--init|--update] [--engine openwiki|claude|codex]   generate / refresh the OpenWiki of repos
+  wiki REPO --open | --close    around a manual OpenWiki MCP session (real openwiki/ folder, then back to cam-docs)
   down                      stop the portal
   migrate [--yes] [--dry-run]   move an older layout into <workspace>/cam-docs and clean kit files out of the repos
   mcp                       stdio MCP server: agents search/read the docs and the code graph
@@ -89,7 +91,7 @@ elif os.environ.get("CAMARONES_GLOBAL") and not os.environ.get("CAMARONES_ROOT")
         _relaunch(_dest, sys.argv[1:])
 
 from lib import docs, env, plan                     # noqa: E402
-from lib.common import VERSIONS, cli_cmd, ROOT, CACHE, KIT   # noqa: E402
+from lib.common import VERSIONS, cli_cmd, ROOT, CACHE   # noqa: E402
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -123,6 +125,11 @@ def main() -> int:
     t = sp.add_parser("translated"); t.add_argument("files", nargs="+")
     u = sp.add_parser("up"); u.add_argument("--port", type=int, default=8080); u.add_argument("--docker", action="store_true")
     u.add_argument("--static", "--no-docker", dest="static", action="store_true"); u.add_argument("--foreground", action="store_true")
+    w = sp.add_parser("wiki"); w.add_argument("repos", nargs="+"); w.add_argument("--engine", default="")
+    w.add_argument("--init", dest="mode", action="store_const", const="init", default="")
+    w.add_argument("--update", dest="mode", action="store_const", const="update")
+    w.add_argument("--open", dest="mode", action="store_const", const="open")
+    w.add_argument("--close", dest="mode", action="store_const", const="close")
     mg = sp.add_parser("migrate"); mg.add_argument("--yes", action="store_true"); mg.add_argument("--dry-run", action="store_true")
     mg.add_argument("--finish", action="store_true", help=argparse.SUPPRESS)
     ci = sp.add_parser("ci"); ci.add_argument("forge", nargs="?", choices=["gitlab", "github"])
@@ -225,15 +232,24 @@ def main() -> int:
     elif a.cmd == "portal":
         env.portal()
     elif a.cmd == "up":
-        if a.docker or a.static:
+        if a.foreground:
+            from lib import serve
+            serve.run_server(a.port, static=a.static)
+        elif a.docker or a.static:
             if not (CACHE / "site" / "index.html").exists():
                 env.portal()
             (env.docker_up if a.docker else env.serve_local)(a.port)
-        elif a.foreground:
-            from lib import serve
-            serve.run_server(a.port)
         else:
             env.serve_editor(a.port)
+    elif a.cmd == "wiki":
+        if a.mode in ("open", "close"):
+            for r in a.repos:
+                (env.wiki_open if a.mode == "open" else env.wiki_close)(r)
+                print(f"{r}/openwiki/: " + ("real folder — run the OpenWiki MCP lifecycle, then `wiki " + r + " --close`"
+                                             if a.mode == "open" else f"moved to cam-docs/wikis/{r}/, repo restored"))
+            return 0
+        failed = [r for r in a.repos if not env.openwiki_generate(r, a.mode, engine=a.engine)]
+        return 1 if failed else 0
     elif a.cmd == "migrate":
         from lib import migrate
         return migrate.main(yes=a.yes, dry_run=a.dry_run, finish=a.finish)

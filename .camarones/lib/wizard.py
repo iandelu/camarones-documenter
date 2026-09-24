@@ -112,7 +112,14 @@ T = {
         "pick_confirm": "Marca las páginas que has revisado y das por buenas (espacio para marcar):",
         "your_name": "Tu nombre (queda registrado en la confirmación):",
         "confirmed_n": "{n} páginas confirmadas.",
-        "p_live": "📝 Abrir el portal vivo (leer, editar, confirmar, comentar)", "p_build": "Construir portal estático (CI / hosting)", "p_up": "Servir el portal estático con Docker", "p_open": "Abrir en el navegador", "p_down": "Parar",
+        "p_live": "📝 Abrir el portal (docs, revisión, C4, grafo de código, wikis — editable)", "p_build": "📦 Exportar el portal para desplegar (solo lectura, CI / hosting)", "p_up": "🐳 Servir la exportación con Docker", "p_open": "Abrir en el navegador", "p_down": "Parar",
+        "m_wikis": "📚 Wikis (OpenWiki)", "w_title": "Wikis por repo", "w_pages": "{n} páginas", "w_none": "sin wiki", "w_stale": "desactualizada",
+        "w_pick": "¿Qué repos genero / actualizo?", "w_engine": "¿Quién escribe la wiki?", "w_open": "🌐 Verlas en el portal",
+        "w_gen": "✨ Generar / actualizar wikis", "w_eng_openwiki": "OpenWiki (clave de proveedor guardada)",
+        "w_eng_claude": "Claude Code (sin terminal, con las herramientas MCP de OpenWiki)", "w_eng_codex": "Codex (sin terminal, con las herramientas MCP de OpenWiki)",
+        "w_no_engine": "OpenWiki no puede lanzarse sin terminal todavía. Guarda una clave una vez con `openwiki auth configure openai` (o anthropic, gemini, openrouter), o instala Claude Code / Codex.",
+        "w_done": "Wiki lista: {repo}", "w_fail": "La wiki de {repo} falló — mira el log arriba", "w_unit_q": "¿Cómo generas la wiki de {repo}?",
+        "w_here": "✨ Aquí mismo (sin sesión de agente, {engine})", "w_agent": "🤖 Sesión de agente interactiva",
         "port": "Puerto:",
         "r_detect": "Detectar repos en la carpeta", "r_add": "Añadir repo por URL", "r_sync": "Sincronizar (clone / pull)",
         "r_remove": "Quitar repo del proyecto",
@@ -234,7 +241,7 @@ T = {
         "st_apply": "🤖 Aplicar tus correcciones ({n})",
         "st_update": "🔄 Documentar los cambios del código ({n} repos)",
         "st_list": "📄 Ver todas las páginas",
-        "p_local": "🐍 Servir el portal estático sin Docker",
+        "p_local": "🐍 Servir la exportación sin Docker",
         "p_docker_na": "Docker no está disponible ({why}). ¿Lo sirvo sin Docker?",
         "p_running": "Portal en marcha: {url}",
         "p_docker_fail": "Docker no pudo levantarlo. ¿Lo sirvo sin Docker mientras tanto?",
@@ -332,7 +339,14 @@ T = {
         "pick_confirm": "Tick the pages you reviewed and accept (space to tick):",
         "your_name": "Your name (recorded in the confirmation):",
         "confirmed_n": "{n} pages confirmed.",
-        "p_live": "📝 Open the living portal (read, edit, confirm, comment)", "p_build": "Build the static portal (CI / hosting)", "p_up": "Serve the static portal with Docker", "p_open": "Open in browser", "p_down": "Stop",
+        "p_live": "📝 Open the portal (docs, review, C4, code graph, wikis — editable)", "p_build": "📦 Export the portal for deployment (read-only, CI / hosting)", "p_up": "🐳 Serve the export with Docker", "p_open": "Open in browser", "p_down": "Stop",
+        "m_wikis": "📚 Wikis (OpenWiki)", "w_title": "Wikis per repo", "w_pages": "{n} pages", "w_none": "no wiki", "w_stale": "out of date",
+        "w_pick": "Which repos should I generate / update?", "w_engine": "Who writes the wiki?", "w_open": "🌐 See them in the portal",
+        "w_gen": "✨ Generate / update wikis", "w_eng_openwiki": "OpenWiki (saved provider key)",
+        "w_eng_claude": "Claude Code (headless, with the OpenWiki MCP tools)", "w_eng_codex": "Codex (headless, with the OpenWiki MCP tools)",
+        "w_no_engine": "OpenWiki cannot run headless yet. Save a provider key once with `openwiki auth configure openai` (or anthropic, gemini, openrouter), or install Claude Code / Codex.",
+        "w_done": "Wiki ready: {repo}", "w_fail": "The {repo} wiki failed — see the log above", "w_unit_q": "How do you want to generate the {repo} wiki?",
+        "w_here": "✨ Right here (no agent session, {engine})", "w_agent": "🤖 Interactive agent session",
         "port": "Port:",
         "r_detect": "Detect repos in this folder", "r_add": "Add repo by URL", "r_sync": "Sync (clone / pull)",
         "r_remove": "Remove repo from project",
@@ -454,7 +468,7 @@ T = {
         "st_apply": "🤖 Apply your corrections ({n})",
         "st_update": "🔄 Document the code changes ({n} repos)",
         "st_list": "📄 Show every page",
-        "p_local": "🐍 Serve the static portal without Docker",
+        "p_local": "🐍 Serve the export without Docker",
         "p_docker_na": "Docker is not available ({why}). Serve it without Docker?",
         "p_running": "Portal running: {url}",
         "p_docker_fail": "Docker could not start it. Serve it without Docker meanwhile?",
@@ -690,7 +704,7 @@ class W:
             choices += [
                 Choice(self.t("m_next"), "next"), Choice(self.t("m_plan"), "plan"),
                 Choice(self.t("m_review") + (f"  ({n_rev})" if n_rev else ""), "review"),
-                Choice(self.t("m_portal"), "portal"), Choice(self.t("m_status"), "status"), Choice(self.t("m_update"), "update"),
+                Choice(self.t("m_portal"), "portal"), Choice(self.t("m_wikis"), "wikis"), Choice(self.t("m_status"), "status"), Choice(self.t("m_update"), "update"),
                 Choice(self.t("a_menu"), "arch"), Choice(self.t("m_repos"), "repos"), Choice(self.t("k_menu"), "creds"),
                 Choice(self.t("m_setup"), "setup"), Choice(self.t("m_ci"), "ci")]
             if self.extra_ready():
@@ -1166,6 +1180,15 @@ Talk to the user in {talk}. Do not modify application code.
                 plan.set_status(u["id"], "done", "wizard")
                 self.checkpoint(u["id"])
             return
+        if u["type"] == "repo-wiki" and (engines := env.wiki_engines()):
+            c = self.sel(self.t("w_unit_q", repo=u["repo"]), [Choice(self.t("w_here", engine=engines[0]), "here"),
+                                                              Choice(self.t("w_agent"), "agent")])
+            if c is None:
+                return
+            if c == "here":
+                ok = self.safe(self.busy, env.openwiki_generate, u["repo"], engine=self.wiki_engine() or engines[0])
+                self.say(self.t("w_done", repo=u["repo"]) if ok else self.t("w_fail", repo=u["repo"]), "green" if ok else "yellow")
+                return
         resume_agent = None
         if u["status"] == "doing":                      # interrupted session: offer how to pick it up again
             last = plan.last_note(u["id"])
@@ -1545,9 +1568,9 @@ Talk to the user in {talk}. Do not modify application code.
     def do_portal(self) -> None:
         port = int(self.prefs.get("port", 8080))
         while True:
-            c = self.sel("🌐 Portal", [Choice(self.t("p_live"), "live"), Choice(self.t("p_open"), "open"),
-                                      Choice(self.t("p_build"), "build"), Choice(self.t("p_up"), "up"),
-                                      Choice(self.t("p_local"), "local"), Choice(self.t("p_down"), "down")])
+            c = self.sel("🌐 Portal", [Choice(self.t("p_live"), "live"), Choice(self.t("p_build"), "build"),
+                                      Choice(self.t("p_up"), "up"), Choice(self.t("p_local"), "local"),
+                                      Choice(self.t("p_open"), "open"), Choice(self.t("p_down"), "down")])
             if not c:
                 return
             if c == "build":
@@ -1582,6 +1605,53 @@ Talk to the user in {talk}. Do not modify application code.
                 env.open_url(f"http://localhost:{port}")
             elif c == "down":
                 env.docker_down()
+
+    def do_wikis(self) -> None:
+        while True:
+            rows = env.wikis()
+            tbl = Table(title=self.t("w_title"), title_justify="left", border_style="grey42", show_header=False)
+            for w in rows:
+                state = (self.t("w_pages", n=w["pages"]) + (f" [yellow]· {self.t('w_stale')}[/]" if w["stale"] else "")
+                         if w["pages"] else f"[grey50]{self.t('w_none')}[/]")
+                tbl.add_row(w["repo"], state, f"[grey50]{w['unit'] or ''}[/]")
+            self.say(tbl)
+            c = self.sel(self.t("m_wikis"), [Choice(self.t("w_gen"), "gen"), Choice(self.t("w_open"), "open")])
+            if not c:
+                return
+            if c == "open":
+                self.open_portal("#/wikis")
+                continue
+            picked = self.chk(self.t("w_pick"), [Choice(w["repo"], w["repo"], checked=not w["pages"])
+                                                 for w in rows if w["cloned"]])
+            if not picked:
+                continue
+            engine = self.wiki_engine()
+            if not engine:
+                continue
+            for repo in picked:
+                ok = self.safe(self.busy, env.openwiki_generate, repo, engine=engine)
+                self.say(self.t("w_done", repo=repo) if ok else self.t("w_fail", repo=repo), "green" if ok else "yellow")
+            self.pause()
+            self.banner()
+
+    def wiki_engine(self) -> str | None:
+        engines = env.wiki_engines()
+        if not engines:
+            self.say(Panel(self.t("w_no_engine"), border_style="yellow"))
+            return None
+        if len(engines) == 1:
+            return engines[0]
+        return self.sel(self.t("w_engine"), [Choice(self.t(f"w_eng_{e}"), e) for e in engines])
+
+    def open_portal(self, hash_: str = "") -> None:
+        """The live portal, started if it is not running yet."""
+        import socket
+        port = int(self.prefs.get("port", 8080))
+        with socket.socket() as sck:
+            up = sck.connect_ex(("127.0.0.1", port)) == 0
+        url = f"http://localhost:{port}" if up else self.safe(self.busy, env.serve_editor, port, total=1)
+        if url:
+            env.open_url(url + "/" + hash_)
 
     def retry_missing(self, missing: list[str]) -> None:
         """A repo with a url but no .git after sync almost always means missing/expired credentials —
