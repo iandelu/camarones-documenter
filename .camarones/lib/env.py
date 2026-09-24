@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json, os, re, shutil, subprocess, webbrowser
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable
 
@@ -529,74 +530,326 @@ def arch_start() -> None:
     run(["likec4", "start", "."], cwd=arch_dir(), check=False)
 
 
-# ---------- portal ----------
-def portal(log: Log = print) -> Path:
-    b, site = CACHE / "portal", CACHE / "site"
-    b.mkdir(parents=True, exist_ok=True)
-    log("preparing the portal (Starlight)… first time downloads ~150 MB with npm")
+# ---------- portal: viewers (C4, code graph, wiki graphs) ----------
+VIEWERS = CACHE / "viewers"
+
+
+def stream(cmd: list[str], cwd: Path, log: Log, env: dict | None = None) -> int:
+    """Run a long command and hand each output line to `log` (the portal shows it live)."""
+    try:
+        pr = subprocess.Popen([which(cmd[0]) or cmd[0], *cmd[1:]], cwd=str(cwd), stdin=subprocess.DEVNULL,
+                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8",
+                              errors="replace", env={**os.environ, **(env or {})})
+    except OSError as e:
+        log(f"⚠ {cmd[0]}: {e}")
+        return 127
+    for line in pr.stdout:
+        line = re.sub(r"\x1b\[[0-9;?]*[A-Za-z]", "", line).rstrip()
+        if line.strip():
+            log(line)
+    return pr.wait()
+
+
+def build_c4(dest: Path | None = None, log: Log = print) -> bool:
+    dest = dest or VIEWERS / "architecture"
+    if not (arch_dir() / "likec4.config.json").exists():
+        log("⚠ no C4 model yet (docs/architecture/likec4.config.json) — unit arch-system writes it")
+        return False
+    log("building the interactive C4 explorer (LikeC4)…")
+    shutil.rmtree(dest, ignore_errors=True)
+    r = run(["likec4", "build", ".", "-o", str(dest), "--base", "/architecture/", "--title", docs.workspace()["project"]["name"]],
+            cwd=arch_dir(), check=False, quiet=True)
+    ok = r.returncode == 0 and (dest / "index.html").exists()
+    log("✔ C4 explorer" if ok else "⚠ C4 explorer skipped: the model has errors (run arch-validate)")
+    return ok
+
+
+def code_graphs() -> dict[str, Path]:
+    """Viewer HTML per repo, plus 'all' for the merged graph."""
+    found = {n: GRAPHS / n / "graph.html" for n in docs.repo_names() if (GRAPHS / n / "graph.html").is_file()}
+    if (CACHE / "graph" / "graph.html").is_file():
+        found = {"all": CACHE / "graph" / "graph.html", **found}
+    return found
+
+
+def build_graphs(log: Log = print) -> bool:
+    if "graphify" not in components():
+        log("⚠ graphify is not installed (setup)")
+        return False
+    for n in docs.repo_names():
+        if repo_dir(n).is_dir():
+            log(f"{n}: code graph…")
+            if not graph_repo(n):
+                log(f"⚠ {n}: graphify failed")
+    return graph(rebuild=False, log=log) is not None
+
+
+def wiki_graph(repo: str, dest: Path | None = None, log: Log = print) -> bool:
+    wiki, dest = docs.wiki_dir(repo), dest or VIEWERS / "wiki-graph" / repo
+    if not wiki_pages(repo):
+        return False
+    log(f"exporting the wiki graph of {repo}…")
+    shutil.rmtree(dest, ignore_errors=True)
+    run(["openwiki", "visualize", wiki.name, "--export", str(dest), "--no-open"], cwd=wiki.parent, check=False, quiet=True)
+    ok = (dest / "index.html").exists()
+    log(f"✔ wiki graph {repo}" if ok else f"⚠ wiki graph {repo} failed")
+    return ok
+
+
+def newest(paths) -> float:
+    return max((p.stat().st_mtime for p in paths if p.exists()), default=0.0)
+
+
+def repo_changed_at(repo: str) -> float:
+    t = out(["git", "log", "-1", "--format=%ct"], cwd=repo_dir(repo))
+    return float(t) if t else 0.0
+
+
+def viewers() -> dict:
+    c4_at = newest([VIEWERS / "architecture" / "index.html"])
+    model_at = newest(arch_dir().glob("*.c4")) if arch_dir().is_dir() else 0.0
+    graphs = {n: {"at": newest([f]), "stale": n != "all" and repo_changed_at(n) > newest([f])}
+              for n, f in code_graphs().items()}
+    return {"c4": {"exists": bool(c4_at), "at": c4_at, "stale": bool(c4_at) and model_at > c4_at, "model": bool(model_at)},
+            "graphs": graphs, "graphify": "graphify" in components(), "likec4": "likec4" in components()}
+
+
+# ---------- OpenWiki ----------
+PROVIDER_KEYS = ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "OPENROUTER_API_KEY",
+                 "OPENAI_COMPATIBLE_API_KEY", "OPENAI_CHATGPT_ACCESS_TOKEN")
+
+
+def openwiki_credentials() -> bool:
+    """OpenWiki runs headless only with a provider key in the environment or saved in ~/.openwiki/.env."""
+    saved = HOME / ".openwiki" / ".env"
+    text = saved.read_text(encoding="utf-8", errors="replace") if saved.exists() else ""
+    return any(os.environ.get(k) or re.search(rf"^{k}=\S", text, re.M) for k in PROVIDER_KEYS)
+
+
+def wiki_engines() -> list[str]:
+    """Who can write a wiki without a terminal: OpenWiki itself (provider key), else an agent CLI with the
+    OpenWiki MCP tools (uses the agent's own login)."""
+    if "openwiki" not in components() or not openwiki_installed():
+        return []
+    return [e for e, ok in (("openwiki", openwiki_credentials()), ("claude", bool(which("claude"))),
+                            ("codex", bool(which("codex")))) if ok]
+
+
+def wiki_pages(repo: str) -> list[Path]:
+    wiki = docs.wiki_dir(repo)
+    return [f for f in wiki.rglob("*.md") if not any(p.startswith(".") for p in f.relative_to(wiki).parts)] \
+        if wiki.is_dir() else []
+
+
+def wikis() -> list[dict]:
+    from . import plan
+    units = {u["id"]: u["status"] for u in plan.load()["units"]}
+    rows = []
+    for n in docs.repo_names():
+        pages = wiki_pages(n)
+        at = newest(pages)
+        rows.append({"repo": n, "pages": len(pages), "at": at, "stale": bool(pages) and repo_changed_at(n) > at,
+                     "graph": (VIEWERS / "wiki-graph" / n / "index.html").exists(), "unit": units.get(f"repo-wiki:{n}"),
+                     "cloned": repo_dir(n).is_dir(),
+                     "index": next((f"repos/{n}/{p}" for p in ("quickstart.md", "index.md", "README.md")
+                                    if (docs.wiki_dir(n) / p).exists()), None)})
+    return rows
+
+
+def wiki_prompt(repo: str, mode: str) -> str:
+    from . import plan
+    uid = f"repo-wiki:{repo}"
+    head = plan.prompt(uid, unattended=True) if uid in {u["id"] for u in plan.load()["units"]} else ""
+    return (head + f"\nTask: {mode} the OpenWiki of `{repo}/` (absolute git root: {repo_dir(repo)}) with the OpenWiki MCP "
+            "tools (skill `openwiki`): openwiki_begin → plan → page loop → openwiki_finish, passing that root. Its `openwiki/` "
+            f"folder is already a real folder for this run (moved into `{CAM_DIR}/wikis/{repo}/` afterwards). Do not "
+            "touch other repo files; what OpenWiki adds itself (AGENTS.md, CLAUDE.md, .github/) is removed afterwards.\n")
+
+
+OPENWIKI_REPO_FILES = ("AGENTS.md", "CLAUDE.md", ".github/workflows/openwiki-update.yml")
+
+
+def wiki_open(repo: str, log: Log = print) -> None:
+    """OpenWiki refuses a symlinked openwiki/ and adds agent snippets + a GitHub workflow to the repo. So a run gets a
+    real openwiki/ seeded from cam-docs/wikis/<repo>, and wiki_close moves the result back and restores the repo."""
+    d, wiki, state = repo_dir(repo), ROOT / "wikis" / repo, CACHE / "wiki-open" / f"{repo}.json"
+    ow = d / "openwiki"
+    if not state.exists():
+        saved = {f: (d / f).read_text(encoding="utf-8") if (d / f).is_file() else None for f in OPENWIKI_REPO_FILES}
+        state.parent.mkdir(parents=True, exist_ok=True)
+        state.write_text(json.dumps(saved), encoding="utf-8")
+    if ow.is_symlink() or getattr(ow, "is_junction", lambda: False)():
+        ow.unlink()
+    if not ow.exists():
+        shutil.copytree(wiki, ow) if wiki.is_dir() else ow.mkdir()
+
+
+def wiki_close(repo: str, log: Log = print) -> None:
+    d, wiki, state = repo_dir(repo), ROOT / "wikis" / repo, CACHE / "wiki-open" / f"{repo}.json"
+    ow = d / "openwiki"
+    if ow.is_dir() and not ow.is_symlink():
+        shutil.rmtree(wiki, ignore_errors=True)
+        wiki.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(ow), str(wiki))
+    saved = json.loads(state.read_text(encoding="utf-8")) if state.exists() else dict.fromkeys(OPENWIKI_REPO_FILES)
+    for f, text in saved.items():
+        p = d / f
+        if text is not None:
+            p.write_text(text, encoding="utf-8")
+        elif p.is_file():
+            p.unlink()
+            for parent in p.relative_to(d).parents:
+                if parent != Path(".") and (d / parent).is_dir() and not any((d / parent).iterdir()):
+                    (d / parent).rmdir()
+    state.unlink(missing_ok=True)
+    link_repo_wiki(repo, log)
+
+
+@contextmanager
+def wiki_workdir(repo: str, log: Log = print):
+    wiki_open(repo, log)
+    try:
+        yield
+    finally:
+        wiki_close(repo, log)
+
+
+def openwiki_generate(repo: str, mode: str = "", log: Log = print, engine: str = "") -> bool:
+    """Write or refresh one repo's OpenWiki (same path for the wizard and the portal)."""
+    from . import plan
+    if not repo_dir(repo).is_dir():
+        raise RuntimeError(f"{repo} is not cloned (sync first)")
+    engines = wiki_engines()
+    engine = engine or (engines[0] if engines else "")
+    if engine not in engines:
+        raise RuntimeError("no way to run OpenWiki headless: save a provider key with `openwiki auth configure <provider>` "
+                           "(or set OPENAI_API_KEY / ANTHROPIC_API_KEY), or install Claude Code / Codex")
+    link_repo_wiki(repo, log)
+    mode = mode or ("update" if wiki_pages(repo) else "init")
+    uid = f"repo-wiki:{repo}"
+    before = {u["id"]: u["status"] for u in plan.load()["units"]}.get(uid)
+    known = before is not None
+    if known:
+        plan.set_status(uid, "doing")
+    log(f"OpenWiki {mode} for {repo} via {engine}… (this can take a while)")
+    with wiki_workdir(repo, log):
+        if engine == "openwiki":
+            rc = stream(["openwiki", "code", f"--{mode}", "--print"], repo_dir(repo), log)
+        elif engine == "claude":
+            rc = stream(["claude", "-p", wiki_prompt(repo, mode), "--permission-mode", "acceptEdits", "--allowedTools",
+                         "mcp__openwiki Skill Read Write Edit Glob Grep Bash(git:*) Bash(ls:*) Bash(camarones:*) Bash(graphify:*)"],
+                        WORKSPACE, log)
+        else:
+            rc = stream(["codex", "exec", "--full-auto", "-C", str(WORKSPACE), wiki_prompt(repo, mode)], WORKSPACE, log)
+    ok = rc == 0 and bool(wiki_pages(repo))
+    if ok:
+        if known:
+            plan.set_status(uid, "done", f"OpenWiki {mode} via {engine}")
+        docs.llms()
+        wiki_graph(repo, log=log)
+        checkpoint_commit(f"{uid} ({mode})")
+        log(f"✔ wiki {repo}: {len(wiki_pages(repo))} pages")
+    else:
+        if known:
+            plan.set_status(uid, before)
+        log(f"⚠ OpenWiki {mode} for {repo} failed (exit {rc})")
+    return ok
+
+
+# ---------- portal: static export (what CI deploys) ----------
+def forge_edit_base() -> str:
+    """https://…/-/edit/<branch>/ (GitLab) or …/edit/<branch>/ (GitHub) for the cam-docs repo, '' without a remote."""
+    url = out(["git", "remote", "get-url", "origin"], cwd=ROOT)
+    if not url:
+        return ""
+    url = re.sub(r"^git@([^:]+):", r"https://\1/", url).removesuffix(".git")
+    url = re.sub(r"^https://[^@/]+@", "https://", url)
+    branch = out(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=ROOT) or "main"
+    return f"{url}/edit/{branch}/" if "github" in url else f"{url}/-/edit/{branch}/"
+
+
+def export_site(log: Log = print) -> Path:
+    """The same portal app, read-only: HTML + JSON snapshots of the API, the viewers and the libraries they need.
+    No npm build — any static host (nginx image, GitLab/GitHub Pages) serves it."""
+    from . import serve
     writable(CACHE)
-    shutil.copytree(KIT / "portal", b, dirs_exist_ok=True,
-                    ignore=shutil.ignore_patterns("node_modules", "dist", ".astro", "Dockerfile", "compose.yml", "live"))
-    stamp = b / "node_modules" / ".camarones-stamp"
-    import hashlib
-    lock = KIT / "portal" / "package-lock.json"
-    signature = hashlib.sha256((lock.read_bytes() if lock.exists() else b"") +
-                               (KIT / "portal" / "package.json").read_bytes()).hexdigest()
-    if not stamp.exists() or stamp.read_text() != signature:
-        npm = ["ci"] if lock.exists() else ["install"]
-        run(["npm", *npm, "--no-audit", "--no-fund", "--loglevel=error"], cwd=b, quiet=True)
-        stamp.write_text(signature)
-    log("✔ portal shell")
-    log("collecting docs, translations and trust badges…")
-    content = b / "src" / "content" / "docs"
-    shutil.rmtree(content, ignore_errors=True)
-    content.mkdir(parents=True)
-    public = b / "public"
-    public.mkdir(exist_ok=True)
+    site, tmp = CACHE / "site", CACHE / "site.tmp"
+    shutil.rmtree(tmp, ignore_errors=True)
+    shutil.copytree(serve.UI, tmp)
+    html = (tmp / "index.html").read_text(encoding="utf-8")
+    (tmp / "index.html").write_text(html.replace('content="live"', 'content="static"'), encoding="utf-8")
     docs.llms()
-    n = docs.portal_content(content, b / "portal.config.json")
-    shutil.copyfile(DOCS / "llms.txt", public / "llms.txt")
-    log(f"✔ {n} docs")
-    cfg = json.loads((b / "portal.config.json").read_text(encoding="utf-8"))
-    for sub in ("architecture", "code-graph", "wiki-graph"):
-        shutil.rmtree(public / sub, ignore_errors=True)
-    if "likec4" in components() and (arch_dir() / "likec4.config.json").exists():
-        log("building the interactive C4 explorer (LikeC4)…")
-        r = run(["likec4", "build", ".", "-o", str(public / "architecture"), "--base", "/architecture/", "--title", cfg["name"]],
-                cwd=arch_dir(), check=False, quiet=True)
-        log("✔ C4 explorer" if r.returncode == 0 else "⚠ C4 explorer skipped: the model has errors (run arch-validate)")
-    log("adding the code graph…")
-    g = CACHE / "graph" / "graph.html"
-    if not g.exists() and "graphify" in components():
+    shutil.copyfile(DOCS / "llms.txt", tmp / "llms.txt")
+    api = tmp / "api"
+
+    def dump(rel: str, data) -> None:
+        f = api / rel
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+    t = serve.tree()
+    t["editBase"] = forge_edit_base()
+    langs = [""] + t["langs"]
+    index = []
+    for d in t["docs"]:
+        for lang in langs:
+            doc = serve.read(d["path"], lang)
+            if lang and not doc["exists"]:
+                continue
+            dump(f"doc/{lang or '_'}/{d['path']}.json", doc)
+            index.append({"path": d["path"], "lang": lang, "title": doc["title"], "trust": d["trust"],
+                          "text": docs.split_fm(doc["raw"])[1][:20000]})
+    log(f"✔ {len(t['docs'])} docs" + (f" + translations ({', '.join(t['langs'])})" if t["langs"] else ""))
+    if DOCS.is_dir():
+        for f in DOCS.rglob("*"):
+            if f.is_file() and f.suffix.lower() in (".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"):
+                dst = tmp / "raw" / f.relative_to(DOCS)
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(f, dst)
+    if "likec4" in components() and (not (VIEWERS / "architecture" / "index.html").exists() or viewers()["c4"]["stale"]):
+        build_c4(log=log)
+    if (VIEWERS / "architecture").is_dir():
+        shutil.copytree(VIEWERS / "architecture", tmp / "architecture")
+    if "graphify" in components() and not code_graphs():
         graph(rebuild=False, log=log)
-    if g.exists():
-        (public / "code-graph").mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(g, public / "code-graph" / "index.html")
-    log("✔ code graph")
-    for r in cfg["repos"]:
-        if r["wikiGraph"]:
-            log(f"exporting the wiki graph of {r['name']}…")
-            wiki = docs.wiki_dir(r["name"])
-            run(["openwiki", "visualize", wiki.name, "--export", str(public / "wiki-graph" / r["name"])],
-                cwd=wiki.parent, check=False, quiet=True)
-            log(f"✔ wiki graph {r['name']}")
-    log("building the static site (Astro)…")
-    run(["npm", "run", "build", "--silent"], cwd=b, quiet=True)
-    log("✔ static site")
+    for n, f in code_graphs().items():
+        dst = tmp / "code-graph" / ("" if n == "all" else n) / "index.html"
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(f, dst)
+    log(f"✔ code graphs ({len(code_graphs())})")
+    for w in wikis():
+        if w["pages"] and not w["graph"]:
+            wiki_graph(w["repo"], log=log)
+        if (VIEWERS / "wiki-graph" / w["repo"]).is_dir():
+            shutil.copytree(VIEWERS / "wiki-graph" / w["repo"], tmp / "wiki-graph" / w["repo"])
+    t["codeGraphs"] = list(code_graphs())
+    dump("tree.json", t)
+    dump("status.json", serve.status())
+    dump("wikis.json", wikis())
+    dump("viewers.json", viewers())
+    dump("search.json", index)
+    for lib in serve.UI_LIBS:
+        f = docs.vendor_file(*lib)
+        if f:
+            dst = tmp / "vendor" / f"{lib[0]}@{lib[1]}" / lib[2]
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(f, dst)
+    k, failed = docs.vendor(tmp)
+    log(f"✔ offline libraries ({k + len(serve.UI_LIBS)})" + (f" — still on CDN: {failed}" if failed else ""))
     shutil.rmtree(site, ignore_errors=True)
-    shutil.move(str(b / "dist"), str(site))
-    k, failed = docs.vendor(site)
-    log(f"✔ offline viewers ({k} libraries)" + (f" — still on CDN: {failed}" if failed else ""))
+    tmp.rename(site)
     image_context()
-    pages = sum(1 for _ in site.rglob("index.html"))
-    log(f"✔ site ready: {pages} pages")
+    log(f"✔ portal exported → {ws_rel('.camarones/.cache/site')}")
     return site
 
 
+portal = export_site
+
+
 def portal_steps() -> int:
-    wikis = sum(1 for n in docs.repo_names() if docs.wiki_dir(n).is_dir())
+    wikis_n = sum(1 for n in docs.repo_names() if wiki_pages(n))
     c4 = 1 if (arch_dir() / "likec4.config.json").exists() else 0
-    return 7 + c4 + wikis
+    return 4 + 2 * c4 + 2 * wikis_n
 
 
 def writable(d: Path) -> None:
@@ -669,33 +922,15 @@ SERVE_PID = CACHE / "serve.pid"
 
 
 def serve_local(port: int = 8080, log: Log = print) -> str:
-    """Serve the built portal without Docker (Python's static server, keeps running after the wizard closes)."""
-    site = CACHE / "site"
-    if not (site / "index.html").exists():
-        raise RuntimeError("the portal is not built yet — build it first")
-    stop_local()
-    import socket, sys, time
-    with socket.socket() as sck:
-        if sck.connect_ex(("127.0.0.1", port)) == 0:
-            raise RuntimeError(f"port {port} is busy — choose another port")
-    kw: dict = {"cwd": str(site), "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL, "stdin": subprocess.DEVNULL}
-    if IS_WIN:
-        kw["creationflags"] = 0x00000008 | 0x00000200          # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
-    else:
-        kw["start_new_session"] = True
-    pr = subprocess.Popen([sys.executable, "-m", "http.server", str(port), "--bind", "127.0.0.1"], **kw)
-    SERVE_PID.write_text(str(pr.pid), encoding="utf-8")
-    time.sleep(0.8)
-    if pr.poll() is not None:
-        raise RuntimeError("the local server did not start")
-    url = f"http://localhost:{port}"
-    log(f"✔ portal at {url} (no Docker)")
-    return url
+    """Serve the exported (read-only) portal without Docker — what the deployed one looks like."""
+    if not (CACHE / "site" / "index.html").exists():
+        raise RuntimeError("the portal is not exported yet — export it first (Portal → Export / `portal`)")
+    return serve_editor(port, log, static=True)
 
 
-def serve_editor(port: int = 8080, log: Log = print) -> str:
+def serve_editor(port: int = 8080, log: Log = print, static: bool = False) -> str:
     """The default portal: a local server (no Docker, no npm) that renders docs/ live and lets people edit,
-    confirm, comment and commit. Detached, like serve_local; `down` stops it."""
+    confirm, comment, commit and rebuild the viewers. Detached, so it outlives the wizard; `down` stops it."""
     stop_local()
     import socket, sys, time
     with socket.socket() as sck:
@@ -706,10 +941,11 @@ def serve_editor(port: int = 8080, log: Log = print) -> str:
                 "stderr": (CACHE / "serve.log").open("w", encoding="utf-8"),
                 "env": {**os.environ, "CAMARONES_ROOT": str(ROOT)}}
     if IS_WIN:
-        kw["creationflags"] = 0x00000008 | 0x00000200
+        kw["creationflags"] = 0x00000008 | 0x00000200          # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
     else:
         kw["start_new_session"] = True
-    pr = subprocess.Popen([sys.executable, str(KIT / "camarones.py"), "up", "--foreground", "--port", str(port)], **kw)
+    cmd = [sys.executable, str(KIT / "camarones.py"), "up", "--foreground", "--port", str(port)] + (["--static"] if static else [])
+    pr = subprocess.Popen(cmd, **kw)
     SERVE_PID.write_text(str(pr.pid), encoding="utf-8")
     for _ in range(20):
         time.sleep(0.25)
@@ -719,7 +955,7 @@ def serve_editor(port: int = 8080, log: Log = print) -> str:
             if sck.connect_ex(("127.0.0.1", port)) == 0:
                 break
     url = f"http://localhost:{port}"
-    log(f"✔ portal at {url} (edit · confirm · comment)")
+    log(f"✔ portal at {url}" + (" (read-only export, no Docker)" if static else " (live: edit · confirm · rebuild · wikis)"))
     return url
 
 

@@ -138,7 +138,7 @@ Docs are written in English (best for AIs and mixed teams) and translated to Spa
    +--------------------------------------------------------------+
 ```
 
-The portal (Starlight) brings all docs together in a website with search, interactive diagrams, the code graph and trust marks. Serve it with Docker (same as on a company server) or instantly without Docker, just on your computer. Everything works offline (on-premise).
+The 🦐 portal brings the docs (with search, editing and review), the C4 diagram, the code graph and the OpenWiki wikis together in one site, in English or Spanish. Open it locally with `camarones up`; `camarones portal` exports the read-only version for deployment (Docker or any static host). Everything works offline (on-premise).
 
 ### 10. 🔑 GitLab / GitHub tokens
 
@@ -325,7 +325,7 @@ La documentación se escribe en inglés (lo que mejor entienden las IAs y los eq
    +--------------------------------------------------------------+
 ```
 
-El portal (Starlight) junta toda la documentación en una web con buscador, diagramas interactivos, grafo de código y marcas de confianza. Puedes servirlo con Docker (igual que en un servidor de la empresa) o sin Docker, al momento, solo en tu ordenador. Todo funciona sin Internet (on-premise).
+El portal 🦐 junta en una sola web la documentación (con buscador, edición y revisión), el diagrama C4, el grafo de código y las wikis de OpenWiki, en español o inglés. En local lo abres con `camarones up`; `camarones portal` exporta la versión de solo lectura para desplegar (Docker o cualquier hosting estático). Todo funciona sin Internet (on-premise).
 
 ### 10. 🔑 Tokens de GitLab / GitHub
 

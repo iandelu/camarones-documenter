@@ -3,35 +3,34 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Docs — Camarones</title>
-  <link rel="icon" href="/favicon.svg">
-  <link rel="stylesheet" href="/app.css">
-  <script src="/vendor/marked@15.0.12/lib/marked.umd.js"></script>
-  <script src="/vendor/dompurify@3.2.6/dist/purify.min.js"></script>
-  <script src="/vendor/mermaid@11.4.1/dist/mermaid.min.js"></script>
+  <meta name="cam-mode" content="live">
+  <title>Camarones</title>
+  <link rel="icon" href="favicon.svg">
+  <link rel="stylesheet" href="app.css">
+  <script src="vendor/marked@15.0.12/lib/marked.umd.js"></script>
+  <script src="vendor/dompurify@3.2.6/dist/purify.min.js"></script>
+  <script src="vendor/mermaid@11.4.1/dist/mermaid.min.js"></script>
 </head>
 <body>
   <header class="top">
-    <a class="brand" href="#/">🦐 <span id="project">Docs</span></a>
-    <input id="search" type="search" placeholder="Search pages…" autocomplete="off">
-    <nav class="links">
+    <a class="brand" href="#/docs"><span class="logo">🦐</span><span class="brand-text"><b>Camarones</b> <span id="project"></span></span></a>
+    <nav class="tabs" id="tabs"></nav>
+    <input id="search" type="search" autocomplete="off">
+    <div class="tools">
       <span id="summary" class="summary"></span>
-      <a href="#/status">Review &amp; status</a>
-      <a id="lnk-graph" href="/code-graph/" target="_blank" hidden>Code graph</a>
-      <a id="lnk-c4" href="/architecture/" target="_blank" hidden>C4</a>
-      <a id="lnk-site" href="/site/" target="_blank" hidden>Static portal</a>
-      <select id="lang" title="Language"></select>
-      <button id="wide" class="ghost" title="Toggle full width">⇔</button>
-    </nav>
+      <select id="lang"></select>
+      <button id="wide" class="ghost icon">⇔</button>
+    </div>
   </header>
-  <div class="layout">
-    <aside class="side">
-      <button id="new" class="ghost small">+ New page</button>
+  <div id="ro" class="ro" hidden></div>
+  <div class="layout" id="layout">
+    <aside class="side" id="side">
+      <button id="new" class="ghost small"></button>
       <div id="tree"></div>
     </aside>
     <main id="main" class="main"></main>
   </div>
   <div id="toast" class="toast" hidden></div>
-  <script src="/app.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>

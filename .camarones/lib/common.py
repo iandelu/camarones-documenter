@@ -10,7 +10,7 @@ IS_MAC = platform.system() == "Darwin"
 HOME = Path.home()
 
 VERSIONS = {
-    "kit": "3.0.0",
+    "kit": "3.1.0",
     "openwiki": "0.5.2",
     "likec4": "1.59.4",
     "graphify": "0.9.65",

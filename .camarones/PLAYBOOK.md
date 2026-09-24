@@ -98,11 +98,13 @@ The foundation for one repo — after this unit the repo is useful on its own:
    `build/mmd/repos/<repo_snake>_components.mmd`). Do not edit the repo's own README/AGENTS.md/CLAUDE.md.
 
 ## repo-wiki
-Generate the OpenWiki of one repo. Preferred: OpenWiki MCP tools (`openwiki_begin` with the repo's absolute git root, mode
-`init` if `wikis/<repo>/` is empty else `update`, then follow the returned lifecycle). If the tools are not loaded in
-this session (they load at session start from `.mcp.json`), tell the user to restart the agent in the workspace folder, or
-use the CLI in the repo when a provider key is configured: `openwiki code --init --print`. Never edit `openwiki/.claims`,
-`.run.json`, indexes or OpenWiki-managed blocks.
+Generate the OpenWiki of one repo. Simplest: `CLI wiki <repo>` (headless: OpenWiki with a provider key, else Claude Code /
+Codex through the OpenWiki MCP; the portal's Wikis tab runs the same). Doing it yourself with the OpenWiki MCP tools:
+first `CLI wiki <repo> --open` (OpenWiki refuses the `openwiki/` symlink, so this makes it a real folder), then
+`openwiki_begin` with the repo's absolute git root, mode `init` if `wikis/<repo>/` is empty else `update`, follow the
+returned lifecycle, and always finish with `CLI wiki <repo> --close` (moves the pages to `wikis/<repo>/` and removes the
+AGENTS.md / CLAUDE.md / `.github/` files OpenWiki adds to the repo). If the tools are not loaded (they load at session
+start from `.mcp.json`), use `CLI wiki <repo>`. Never edit `openwiki/.claims`, `.run.json`, indexes or OpenWiki-managed blocks.
 
 ## arch-system
 If `docs/architecture/first-look.md` exists, the C4 files started as a static-scan draft: verify and refine them rather
@@ -174,8 +176,9 @@ Spanish for every canonical page written/changed since the last i18n pass (`CLI 
 under `docs/i18n/es/<same path>` (repo wikis: `docs/i18n/es/repos/<repo>/<page>`); then `CLI translated <files>`, `CLI llms`.
 
 ## portal
-Wizard: `CLI up` (living portal: read, edit, confirm, comment). For hosting: `CLI portal` builds the static site;
-check `/`, `/architecture/`, `/code-graph/` and a flow page.
+Wizard: `CLI up` (one portal: Docs to read/edit/confirm/comment, Architecture (C4), Code graph, Wikis, Review). For
+hosting: `CLI portal` exports the same app read-only to `.camarones/.cache/site` (no npm); check `#/docs`, `#/c4`,
+`#/code/all`, `#/wikis` and a flow page with `CLI up --static`.
 
 ## ci
 Wizard: `CLI ci` installs the `cam-docs` pipeline; per-repo snippets are in `.camarones/ci/`. Propose them; the user applies
