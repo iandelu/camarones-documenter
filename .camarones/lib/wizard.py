@@ -26,6 +26,7 @@ import webbrowser
 console = Console(highlight=False)
 PREFS = HOME / ".camarones.json"
 MODELS = ["sonnet", "opus", "haiku"]           # Claude Code's --model aliases; the default is set in do_model / launch_agent
+CODEX_MODEL_DEFAULT = "gpt-5.6-terra"          # Codex's model slugs rotate, so this is just a starting default, not a fixed list
 FIRSTRUN = CACHE / "firstrun.json"     # first-run wizard position (so closing the window never loses it)
 ORANGE = "#ff7a2f"
 BACK = "__back__"   # questionary replaces a None value with the title, so use a sentinel
@@ -88,7 +89,7 @@ T = {
         "m_ci": "⚙️  CI (GitLab / GitHub)",
         "m_extra": "➕ Revisiones extra (seguridad, arquitectura) — beta",
         "m_update": "🔄 Actualizar doc tras cambios (sesión con IA)",
-        "m_model": "🧠 Modelo de Claude",
+        "m_model": "🧠 Modelo de IA",
         "m_lang": "🌍 Idioma / Language",
         "m_exit": "🚪 Salir",
         "extra_pick": "Marca las revisiones opcionales que quieres añadir al plan (beta — revisa sus hallazgos con ojo crítico; espacio para marcar):",
@@ -97,9 +98,17 @@ T = {
         "extra_already": "ya está en el plan",
         "bye": "¡Hasta la próxima! Camarón que se duerme… 🦐",
         "ready_units": "Unidades listas para hacer:",
+        "autopilot": "▶▶ Piloto automático: encadenar unidades sin preguntar (Claude Code + Codex)",
+        "autopilot_info": ("Ejecuta las unidades listas una tras otra, cada una en una sesión nueva y desatendida. Si Claude "
+                           "o Codex llegan a su límite de uso cambia al otro, y si ambos lo alcanzan espera y reintenta "
+                           "(deja el equipo encendido). Se salta las entrevistas y los pasos del asistente; las dudas "
+                           "quedan en docs/interview/open-questions.md."),
+        "autopilot_bg": "Piloto automático en marcha en otra ventana. Registro: docs/.work/log.md. Ctrl+C allí para pararlo.",
         "all_done": "¡Plan completado! Usa «Actualizar doc tras cambios» cuando haya cambios en el código.",
         "which_agent": "¿Con qué agente?",
+        "which_model_agent": "¿Modelo de qué agente quieres ajustar?",
         "which_model": "¿Qué modelo de Claude uso por defecto?",
+        "which_codex_model": "¿Qué modelo de Codex uso por defecto? (puedes escribir cualquier slug válido)",
         "model_set": "✔ Modelo por defecto: {model}",
         "copy_prompt": "📋 Copiar el prompt (lo pego yo)",
         "launching": "Abriendo {agent}. Cuando termine la sesión, vuelve aquí.",
@@ -319,7 +328,7 @@ T = {
         "m_ci": "⚙️  CI (GitLab / GitHub)",
         "m_extra": "➕ Extra reviews (security, architecture) — beta",
         "m_update": "🔄 Update docs after changes (AI session)",
-        "m_model": "🧠 Claude model",
+        "m_model": "🧠 AI model",
         "m_lang": "🌍 Idioma / Language",
         "m_exit": "🚪 Exit",
         "extra_pick": "Tick the optional reviews you want to add to the plan (beta — verify their findings critically; space to tick):",
@@ -328,9 +337,17 @@ T = {
         "extra_already": "already in the plan",
         "bye": "See you! 🦐",
         "ready_units": "Units ready to do:",
+        "autopilot": "▶▶ Autopilot: chain units without asking (Claude Code + Codex)",
+        "autopilot_info": ("Runs the ready units one after another, each in a fresh unattended session. If Claude or Codex "
+                           "hits its usage limit it switches to the other, and if both do it waits and retries (leave the "
+                           "machine on). Interviews and wizard steps are skipped; questions go to "
+                           "docs/interview/open-questions.md."),
+        "autopilot_bg": "Autopilot running in another window. Log: docs/.work/log.md. Ctrl+C there to stop it.",
         "all_done": "Plan complete! Use “Update docs after changes” when the code changes.",
         "which_agent": "Which agent?",
+        "which_model_agent": "Which agent's model do you want to set?",
         "which_model": "Which Claude model should be the default?",
+        "which_codex_model": "Which Codex model should be the default? (type any valid slug)",
         "model_set": "✔ Default model: {model}",
         "copy_prompt": "📋 Copy the prompt (I'll paste it)",
         "launching": "Opening {agent}. Come back here when the session ends.",
@@ -1187,10 +1204,31 @@ Talk to the user in {talk}. Do not modify application code.
             self.say(self.t("all_done"), f"bold {ORANGE}")
             self.pause()
             return
-        u = self.sel(self.t("ready_units"),
-                     [Choice(f"{'▶ ' if u['status'] == 'doing' else ''}{u['id']} — {u['title']}", u) for u in ready[:8]])
-        if u:
+        choices = [Choice(f"{'▶ ' if u['status'] == 'doing' else ''}{u['id']} — {u['title']}", u) for u in ready[:8]]
+        if any(u["runner"] == "agent" for u in ready) and (which("claude") or which("codex")):
+            choices.append(Choice(self.t("autopilot"), "autopilot"))
+        u = self.sel(self.t("ready_units"), choices)
+        if u == "autopilot":
+            self.do_autopilot()
+        elif u:
             self.run_unit(u)
+
+    def do_autopilot(self) -> None:
+        self.say(self.t("autopilot_info"), "grey62")
+        cmd = [sys.executable, str(Path(__file__).resolve().parent.parent / "camarones.py"), "autopilot", "--lang", self.lang]
+        if env.open_new_terminal(cmd, WORKSPACE):     # long-lived loop in its own window; the wizard stays usable
+            self.say(self.t("autopilot_bg"), "green")
+            self.pause()
+            return
+        console.set_alt_screen(False)
+        try:
+            subprocess.run(cmd, cwd=str(WORKSPACE))
+        except KeyboardInterrupt:
+            pass
+        finally:
+            console.set_alt_screen(True)
+            self.banner()
+        self.pause()
 
     def run_unit(self, u: dict) -> None:
         if u["runner"] == "wizard":
@@ -1281,7 +1319,9 @@ Talk to the user in {talk}. Do not modify application code.
         brief = ws_rel("docs/.work/next-prompt.md")
         short = f"Follow the instructions in {brief}" if self.lang == "en" else f"Sigue las instrucciones de {brief}"
         model = self.prefs.get("model", "sonnet")
-        model_args = ["--model", model] if agent == "claude" and model else []
+        codex_model = self.prefs.get("codex_model", CODEX_MODEL_DEFAULT)
+        model_args = ["--model", model] if agent == "claude" and model else (
+            ["--model", codex_model] if agent == "codex" and codex_model else [])
         if resume_agent == "claude" and not claude_history(WORKSPACE):
             resume_agent = None                          # nothing to continue here: `--continue` would just error out
         if resume_agent == "claude":
@@ -1757,6 +1797,22 @@ Talk to the user in {talk}. Do not modify application code.
         return True
 
     def do_model(self) -> None:
+        agent = "claude"
+        if which("claude") and which("codex"):
+            agent = self.sel(self.t("which_model_agent"), [Choice("Claude Code", "claude"), Choice("Codex", "codex")])
+            if not agent:
+                return
+        elif which("codex") and not which("claude"):
+            agent = "codex"
+        if agent == "codex":
+            cur = self.prefs.get("codex_model", CODEX_MODEL_DEFAULT)
+            c = self.txt(self.t("which_codex_model"), default=cur)
+            if c:
+                self.prefs["codex_model"] = c
+                save_json(PREFS, self.prefs)
+                self.say(self.t("model_set", model=c), "green")
+                time.sleep(1)
+            return
         cur = self.prefs.get("model", "sonnet")
         c = self.sel(self.t("which_model"), [Choice(m.capitalize(), m) for m in MODELS], default=cur)
         if c:

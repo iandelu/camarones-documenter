@@ -31,6 +31,8 @@
   feedback FILE "text" --by NAME   record a human review comment (applied by the review-fixes unit)
   version                   kit and pinned tool versions
   prompt UNIT [--lang es|en] [--unattended]      prompt for an agent session (UNIT may be 'update')
+  autopilot [--lang es|en] [--max-units N] [--poll-seconds N] [--include-interviews]
+                            run ready units back to back unattended (Claude Code / Codex, waits out usage limits)
   arch-draft [--save]       quick static architecture scan → C4 draft (first look, no AI)
   doctor                    check prerequisites and tool versions
   install DEST --profile quick|full [--dry-run]   copy kit into an explicit project folder
@@ -145,6 +147,8 @@ def main() -> int:
     ad = sp.add_parser("arch-draft"); ad.add_argument("--save", action="store_true"); ad.add_argument("--overwrite", action="store_true")
     pr = sp.add_parser("prompt"); pr.add_argument("unit"); pr.add_argument("--lang", default="es")
     pr.add_argument("--unattended", action="store_true")
+    ap = sp.add_parser("autopilot"); ap.add_argument("--lang", default="es"); ap.add_argument("--max-units", type=int)
+    ap.add_argument("--poll-seconds", type=int, default=900); ap.add_argument("--include-interviews", action="store_true")
     a = p.parse_args()
 
     if a.cmd == "help":
@@ -300,6 +304,12 @@ def main() -> int:
         print(f"feedback recorded in {docs.FEEDBACK.relative_to(ROOT).as_posix()}; unit review-fixes is ready")
     elif a.cmd == "prompt":
         print(plan.prompt(a.unit, lang=a.lang, unattended=a.unattended))
+    elif a.cmd == "autopilot":
+        try:
+            plan.run_autopilot(lang=a.lang, max_units=a.max_units, poll_seconds=a.poll_seconds,
+                               include_interviews=a.include_interviews)
+        except KeyboardInterrupt:
+            print("\nAutopilot interrupted — progress is saved; `plan next` shows where to resume.")
     return 0
 
 
