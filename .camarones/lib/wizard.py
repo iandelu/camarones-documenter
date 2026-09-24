@@ -16,9 +16,10 @@ from rich.progress import BarColumn, Progress, TextColumn
 from rich.table import Table
 from rich.text import Text
 
-from .common import ROOT, HOME, WORK, WS_FILE, CACHE, IS_WIN, IS_MAC, which, cli_cmd, kit_ref, load_json, save_json, out
+from .common import (ROOT, HOME, WORK, WS_FILE, CACHE, IS_WIN, IS_MAC, CAM_DIR, CAM_LAYOUT, WORKSPACE, which, cli_cmd,
+                     load_json, save_json, out, repo_dir)
 from . import docs, env, plan, creds, quickarch, tutorial
-from .common import VERSIONS
+from .common import VERSIONS, ws_rel
 from rich.tree import Tree
 import webbrowser
 
@@ -70,16 +71,10 @@ T = {
         "manual": "Instálalo a mano y vuelve a abrir Camarones Documenter: {hint}",
         "setup_run": "Instalando herramientas, repos y conectando Claude/Codex (tarda unos minutos la primera vez)",
         "setup_ok": "Entorno listo 🦐",
-        "agent_branch_explain": "Antes de escribir la configuración de los agentes de IA (.claude/, .codex/, reglas de "
-                                "AGENTS.md/CLAUDE.md, MCP…) en cada repo, la creo en una rama nueva para no tocar tu "
-                                "rama principal directamente. Al terminar te pregunto si la subo yo con tus "
-                                "credenciales guardadas o la subes tú desde tu consola.",
-        "agent_branch_ask": "¿Nombre de la rama? (vacío = escribir en la rama actual, como antes)",
-        "push_ask": "Rama «{branch}» lista en {n} repo(s). ¿Cómo la subo?",
-        "push_creds": "🔑 Push con mis credenciales guardadas",
-        "push_manual": "✋ La subo yo desde mi consola git",
-        "push_hint": "Rama «{branch}» guardada localmente. Cuando quieras: git push -u origin {branch}",
-        "push_fail": "⚠ {repo}: el push falló (revisa el token 🔑)",
+        "pointer_ask": "¿Añado a cada repo un aviso corto en su CLAUDE.md apuntando a cam-docs? (se añade al final, "
+                       "nunca borra nada; sin él los agentes abiertos dentro de un repo no ven la documentación)",
+        "migrate_ask": "Este proyecto usa la estructura antigua (docs y config en la raíz y dentro de cada repo). "
+                       "¿Lo paso a {cam}/ ahora? Verás la lista de cambios antes de confirmar.",
         "sessions_intro": "Ahora el trabajo va por sesiones: cada una hace UNA unidad del plan (p. ej. analizar un repo). "
                           "Al acabar, la IA guarda el progreso y te pregunta qué seguir. Tú vuelves aquí → «Siguiente paso».",
         "menu": "¿Qué hacemos?",
@@ -117,12 +112,23 @@ T = {
         "pick_confirm": "Marca las páginas que has revisado y das por buenas (espacio para marcar):",
         "your_name": "Tu nombre (queda registrado en la confirmación):",
         "confirmed_n": "{n} páginas confirmadas.",
-        "p_build": "Construir portal", "p_up": "Levantar con Docker", "p_open": "Abrir en el navegador", "p_down": "Parar",
+        "p_live": "📝 Abrir el portal (docs, revisión, C4, grafo de código, wikis — editable)", "p_build": "📦 Exportar el portal para desplegar (solo lectura, CI / hosting)", "p_up": "🐳 Servir la exportación con Docker", "p_open": "Abrir en el navegador", "p_down": "Parar",
+        "m_wikis": "📚 Wikis (OpenWiki)", "w_title": "Wikis por repo", "w_pages": "{n} páginas", "w_none": "sin wiki", "w_stale": "desactualizada",
+        "w_pick": "¿Qué repos genero / actualizo?", "w_engine": "¿Quién escribe la wiki?", "w_open": "🌐 Verlas en el portal",
+        "w_gen": "✨ Generar / actualizar wikis", "w_eng_openwiki": "OpenWiki (clave de proveedor guardada)",
+        "w_eng_claude": "Claude Code (sin terminal, con las herramientas MCP de OpenWiki)", "w_eng_codex": "Codex (sin terminal, con las herramientas MCP de OpenWiki)",
+        "w_no_engine": "OpenWiki no puede lanzarse sin terminal todavía. Guarda una clave una vez con `openwiki auth configure openai` (o anthropic, gemini, openrouter), o instala Claude Code / Codex.",
+        "w_done": "Wiki lista: {repo}", "w_fail": "La wiki de {repo} falló — el motivo está en la línea ⚠ de arriba",
+        "w_off": "sin wiki (no elegido)", "w_need_brief": "antes: su repo-brief (INSTRUCTIONS.md)",
+        "w_choose": "🎯 Elegir qué repos tienen wiki", "w_choose_first": "elige antes los repos",
+        "w_choose_q": "¿Qué repos llevan wiki? Cada una es una sesión de agente completa: elige los servicios con lógica, no librerías ni repos de CI",
+        "w_none_chosen": "Ningún repo tiene wiki todavía: elige primero cuáles (🎯).", "w_skipped": "No lanzados: {repos}", "w_unit_q": "¿Cómo generas la wiki de {repo}?",
+        "w_here": "✨ Aquí mismo (sin sesión de agente, {engine})", "w_agent": "🤖 Sesión de agente interactiva",
         "port": "Puerto:",
         "r_detect": "Detectar repos en la carpeta", "r_add": "Añadir repo por URL", "r_sync": "Sincronizar (clone / pull)",
         "r_remove": "Quitar repo del proyecto",
         "ci_forge": "¿Dónde viven los repos?",
-        "ci_done": "Pipeline instalado. Variables necesarias en el tutorial (docs/guides/tutorial.md §7).",
+        "ci_done": "Pipeline instalado. Variables necesarias en el tutorial (docs/guides/tutorial.md §8).",
         "error": "Algo falló:",
         "install_here": "Estás dentro de «{kit}». ¿Instalo Camarones Documenter en la carpeta del proyecto «{parent}»?",
         "installed_here": "Instalado en {parent}. Abre Camarones Documenter desde allí (camarones.command / camarones.cmd).",
@@ -239,7 +245,7 @@ T = {
         "st_apply": "🤖 Aplicar tus correcciones ({n})",
         "st_update": "🔄 Documentar los cambios del código ({n} repos)",
         "st_list": "📄 Ver todas las páginas",
-        "p_local": "🐍 Servir sin Docker (al momento, solo en este ordenador)",
+        "p_local": "🐍 Servir la exportación sin Docker",
         "p_docker_na": "Docker no está disponible ({why}). ¿Lo sirvo sin Docker?",
         "p_running": "Portal en marcha: {url}",
         "p_docker_fail": "Docker no pudo levantarlo. ¿Lo sirvo sin Docker mientras tanto?",
@@ -296,16 +302,10 @@ T = {
         "manual": "Install it manually and reopen Camarones Documenter: {hint}",
         "setup_run": "Installing tools, repos and wiring Claude/Codex (a few minutes the first time)",
         "setup_ok": "Environment ready 🦐",
-        "agent_branch_explain": "Before writing the AI agent setup (.claude/, .codex/, AGENTS.md/CLAUDE.md rules, "
-                                "MCP…) into each repo, I create it on a new branch so I never touch your main branch "
-                                "directly. When it's done I'll ask whether to push it with your saved credentials or "
-                                "leave it for you to push from your own git console.",
-        "agent_branch_ask": "Branch name? (empty = write on the current branch, like before)",
-        "push_ask": "Branch “{branch}” ready in {n} repo(s). How should I push it?",
-        "push_creds": "🔑 Push with my saved credentials",
-        "push_manual": "✋ I'll push it myself from my console",
-        "push_hint": "Branch “{branch}” saved locally. Whenever you're ready: git push -u origin {branch}",
-        "push_fail": "⚠ {repo}: push failed (check the token 🔑)",
+        "pointer_ask": "Add a short note to each repo's CLAUDE.md pointing at cam-docs? (appended at the end, never "
+                       "removes anything; without it agents opened inside a repo don't see the docs)",
+        "migrate_ask": "This project uses the old layout (docs and config at the root and inside every repo). "
+                       "Move it to {cam}/ now? You'll see the list of changes before confirming.",
         "sessions_intro": "From now on work happens in sessions: each one does ONE plan unit (e.g. analyze a repo). When it "
                           "finishes, the AI saves progress and asks what next. You come back here → “Next step”.",
         "menu": "What shall we do?",
@@ -343,12 +343,23 @@ T = {
         "pick_confirm": "Tick the pages you reviewed and accept (space to tick):",
         "your_name": "Your name (recorded in the confirmation):",
         "confirmed_n": "{n} pages confirmed.",
-        "p_build": "Build portal", "p_up": "Run with Docker", "p_open": "Open in browser", "p_down": "Stop",
+        "p_live": "📝 Open the portal (docs, review, C4, code graph, wikis — editable)", "p_build": "📦 Export the portal for deployment (read-only, CI / hosting)", "p_up": "🐳 Serve the export with Docker", "p_open": "Open in browser", "p_down": "Stop",
+        "m_wikis": "📚 Wikis (OpenWiki)", "w_title": "Wikis per repo", "w_pages": "{n} pages", "w_none": "no wiki", "w_stale": "out of date",
+        "w_pick": "Which repos should I generate / update?", "w_engine": "Who writes the wiki?", "w_open": "🌐 See them in the portal",
+        "w_gen": "✨ Generate / update wikis", "w_eng_openwiki": "OpenWiki (saved provider key)",
+        "w_eng_claude": "Claude Code (headless, with the OpenWiki MCP tools)", "w_eng_codex": "Codex (headless, with the OpenWiki MCP tools)",
+        "w_no_engine": "OpenWiki cannot run headless yet. Save a provider key once with `openwiki auth configure openai` (or anthropic, gemini, openrouter), or install Claude Code / Codex.",
+        "w_done": "Wiki ready: {repo}", "w_fail": "The {repo} wiki failed — the reason is on the ⚠ line above",
+        "w_off": "no wiki (not chosen)", "w_need_brief": "first: its repo-brief (INSTRUCTIONS.md)",
+        "w_choose": "🎯 Choose which repos get a wiki", "w_choose_first": "choose the repos first",
+        "w_choose_q": "Which repos get a wiki? Each one is a full agent run: pick the services with logic, not libraries or CI repos",
+        "w_none_chosen": "No repo has a wiki yet: choose which ones first (🎯).", "w_skipped": "Not started: {repos}", "w_unit_q": "How do you want to generate the {repo} wiki?",
+        "w_here": "✨ Right here (no agent session, {engine})", "w_agent": "🤖 Interactive agent session",
         "port": "Port:",
         "r_detect": "Detect repos in this folder", "r_add": "Add repo by URL", "r_sync": "Sync (clone / pull)",
         "r_remove": "Remove repo from project",
         "ci_forge": "Where do the repos live?",
-        "ci_done": "Pipeline installed. Required variables: tutorial (docs/guides/tutorial.md §7).",
+        "ci_done": "Pipeline installed. Required variables: tutorial (docs/guides/tutorial.md §8).",
         "error": "Something failed:",
         "install_here": "You are inside “{kit}”. Install Camarones Documenter into the project folder “{parent}”?",
         "installed_here": "Installed in {parent}. Open Camarones Documenter from there (camarones.command / camarones.cmd).",
@@ -465,7 +476,7 @@ T = {
         "st_apply": "🤖 Apply your corrections ({n})",
         "st_update": "🔄 Document the code changes ({n} repos)",
         "st_list": "📄 Show every page",
-        "p_local": "🐍 Serve without Docker (instant, only on this computer)",
+        "p_local": "🐍 Serve the export without Docker",
         "p_docker_na": "Docker is not available ({why}). Serve it without Docker?",
         "p_running": "Portal running: {url}",
         "p_docker_fail": "Docker could not start it. Serve it without Docker meanwhile?",
@@ -676,6 +687,15 @@ class W:
 
     def _run(self) -> None:
         self.banner()
+        from . import migrate
+        if migrate.needed() and self.yes(self.t("migrate_ask", cam=CAM_DIR), default=True):
+            console.set_alt_screen(False)
+            if migrate.main() == 0:                          # module globals point at the old root: restart on the new one
+                os.environ["CAMARONES_ROOT"] = str(ROOT / CAM_DIR)
+                self.pause()
+                os.execv(sys.executable, [sys.executable, str(Path(__file__).resolve().parent.parent / "camarones.py")])
+            console.set_alt_screen(True)
+            self.banner()
         state = load_json(FIRSTRUN, {})
         legacy_done = plan.PLAN.exists() and WS_FILE.exists() and not state   # installs from before v2.4
         if not state.get("done") and not legacy_done:
@@ -692,7 +712,7 @@ class W:
             choices += [
                 Choice(self.t("m_next"), "next"), Choice(self.t("m_plan"), "plan"),
                 Choice(self.t("m_review") + (f"  ({n_rev})" if n_rev else ""), "review"),
-                Choice(self.t("m_portal"), "portal"), Choice(self.t("m_status"), "status"), Choice(self.t("m_update"), "update"),
+                Choice(self.t("m_portal"), "portal"), Choice(self.t("m_wikis"), "wikis"), Choice(self.t("m_status"), "status"), Choice(self.t("m_update"), "update"),
                 Choice(self.t("a_menu"), "arch"), Choice(self.t("m_repos"), "repos"), Choice(self.t("k_menu"), "creds"),
                 Choice(self.t("m_setup"), "setup"), Choice(self.t("m_ci"), "ci")]
             if self.extra_ready():
@@ -750,10 +770,10 @@ class W:
         return True
 
     def fr_name(self, ws: dict):
-        name = self.txt(self.t("project_name"), default=ws["project"].get("name") or ROOT.name)
+        name = self.txt(self.t("project_name"), default=ws["project"].get("name") or WORKSPACE.name)
         if name is None:
             return BACK
-        ws["project"]["name"] = name.strip() or ROOT.name
+        ws["project"]["name"] = name.strip() or WORKSPACE.name
         ws["project"]["id"] = "".join(c if c.isalnum() else "-" for c in ws["project"]["name"].lower()).strip("-")
         ws["project"].setdefault("canonical_language", "en")
         ws["project"]["translations"] = ws["project"].get("translations") or ["es"]
@@ -900,18 +920,16 @@ class W:
             self.banner()
 
     def fr_setup(self, ws: dict):
-        branch = self.agent_branch()
+        self.repo_pointer()
         self.say(f"[bold]{self.t('setup_run')}[/]")
         env.init_templates(ws["project"]["name"], log=lambda _: None)
-        ok = self.safe(self.busy, env.setup, total=env.setup_steps(), branch=branch)
+        ok = self.safe(self.busy, env.setup, total=env.setup_steps())
         plan.sync()
         if ok:
             plan.set_status("setup", "done", "wizard first run")
             self.say(self.t("setup_ok"), f"bold {ORANGE}")
-            if branch:
-                self.offer_push(branch)
         while True:
-            missing = [r["name"] for r in docs.workspace()["repos"] if r.get("url") and not (ROOT / r["name"] / ".git").exists()]
+            missing = [r["name"] for r in docs.workspace()["repos"] if r.get("url") and not (repo_dir(r["name"]) / ".git").exists()]
             if missing:
                 self.say(self.t("s_missing", repos=", ".join(missing)), "yellow")
             choices = [Choice(self.t("prereq_continue"), "go", disabled=None if ok else "setup ✖")]
@@ -928,11 +946,9 @@ class W:
                 self.banner()
                 self.add_token(host)
             self.banner()
-            ok = self.safe(self.busy, env.setup, total=env.setup_steps(), branch=branch)
+            ok = self.safe(self.busy, env.setup, total=env.setup_steps())
             if ok:
                 plan.set_status("setup", "done", "wizard")
-                if branch:
-                    self.offer_push(branch)
 
     def fr_intro(self, ws: dict):
         while True:
@@ -1130,12 +1146,11 @@ class W:
 
     def arch_prompt(self) -> str:
         cli = cli_cmd()
-        kit = kit_ref()
         talk = "Spanish" if self.lang == "es" else "English"
         return f"""Camarones session — improve the first-look architecture draft.
 
 `docs/architecture/*.c4` was drafted by a static scan (no AI): repos, datastores, brokers and HTTP calls were guessed
-from manifests, config and code. Read `{kit}/CONVENTIONS.md` §4 (C4 rules) first.
+from manifests, config and code. Read `.camarones/CONVENTIONS.md` §4 (C4 rules) first.
 1. Verify every element and relation against the code (use `graphify query` in the repos, OpenAPI/AsyncAPI files, config).
    Fix technologies, names, directions and labels (endpoint / exchange / topic); remove false positives; add what is missing
    (external systems, identity provider, shared databases, frontends/apps).
@@ -1173,6 +1188,15 @@ Talk to the user in {talk}. Do not modify application code.
                 plan.set_status(u["id"], "done", "wizard")
                 self.checkpoint(u["id"])
             return
+        if u["type"] == "repo-wiki" and (engines := env.wiki_engines()):
+            c = self.sel(self.t("w_unit_q", repo=u["repo"]), [Choice(self.t("w_here", engine=engines[0]), "here"),
+                                                              Choice(self.t("w_agent"), "agent")])
+            if c is None:
+                return
+            if c == "here":
+                ok = self.safe(self.busy, env.openwiki_generate, u["repo"], engine=self.wiki_engine() or engines[0])
+                self.say(self.t("w_done", repo=u["repo"]) if ok else self.t("w_fail", repo=u["repo"]), "green" if ok else "yellow")
+                return
         resume_agent = None
         if u["status"] == "doing":                      # interrupted session: offer how to pick it up again
             last = plan.last_note(u["id"])
@@ -1241,25 +1265,27 @@ Talk to the user in {talk}. Do not modify application code.
         save_json(PREFS, self.prefs)
         self.say(self.t("launching", agent=agent), f"bold {ORANGE}")
         # multi-line args do not survive Windows .cmd shims: hand over a one-line pointer to the prompt file
-        short = "Follow the instructions in docs/.work/next-prompt.md" if self.lang == "en" else \
-            "Sigue las instrucciones de docs/.work/next-prompt.md"
+        brief = ws_rel("docs/.work/next-prompt.md")
+        short = f"Follow the instructions in {brief}" if self.lang == "en" else f"Sigue las instrucciones de {brief}"
         model = self.prefs.get("model", "sonnet")
         model_args = ["--model", model] if agent == "claude" and model else []
+        if resume_agent == "claude" and not claude_history(WORKSPACE):
+            resume_agent = None                          # nothing to continue here: `--continue` would just error out
         if resume_agent == "claude":
             cmd = [which("claude"), *model_args, "--continue", short]
         elif resume_agent == "codex":
             cmd = [which("codex"), "resume", "--last"]
         else:
             cmd = [which(agent), *model_args, short]
-        if env.open_new_terminal(cmd, ROOT):        # own window: the wizard stays open and usable
+        if env.open_new_terminal(cmd, WORKSPACE):   # own window, in the workspace: the agent sees every repo + cam-docs
             self.say(self.t("launched_bg"), "green")
             self.pause()
             return "bg"
         console.set_alt_screen(False)         # fallback: no terminal emulator found — block this one instead
         try:
-            r = subprocess.run(cmd, cwd=str(ROOT))
+            r = subprocess.run(cmd, cwd=str(WORKSPACE))
             if resume_agent and r.returncode != 0:          # nothing to resume (or old CLI): fresh session instead
-                subprocess.run([which(agent), *model_args, short], cwd=str(ROOT))
+                subprocess.run([which(agent), *model_args, short], cwd=str(WORKSPACE))
         finally:
             console.set_alt_screen(True)
             self.banner()
@@ -1271,8 +1297,19 @@ Talk to the user in {talk}. Do not modify application code.
 
     def do_plan(self) -> None:
         plan.sync()
-        console.print(self.board())
-        self.pause()
+        self.paged(self.board())
+
+    def paged(self, renderable) -> None:
+        """Anything taller than the screen goes through the pager (the alt screen has no scrollback)."""
+        with console.capture() as cap:
+            console.print(renderable)
+        if len(cap.get().splitlines()) < console.size.height - 4:
+            console.print(renderable)
+            self.pause()
+            return
+        os.environ.setdefault("LESS", "-R")
+        with console.pager(styles=True):
+            console.print(renderable)
 
     def extra_ready(self) -> bool:
         """Whether any opt-in review (security-review, architecture-review) can be offered or is already in the plan."""
@@ -1398,8 +1435,7 @@ Talk to the user in {talk}. Do not modify application code.
         for r in rows:
             tbl.add_row(icon[r["trust"]], r["path"], " ".join(f"{k}:{v}" for k, v in r["i18n"].items() if v != "current"),
                         str(len(r["orphan_sources"]) or ""))
-        with console.pager(styles=True):
-            console.print(tbl)
+        self.paged(tbl)
 
     # ---------- review: read each page, confirm it or say what is wrong ----------
     def do_confirm(self) -> bool:            # kept for older plans / menus
@@ -1417,7 +1453,7 @@ Talk to the user in {talk}. Do not modify application code.
         return name
 
     def page_view(self, r: dict, i: int, n: int, show_es: bool, full: bool = False):
-        f = ROOT / r["file"]
+        f = (ROOT / r["file"]).resolve()
         es_file = docs.DOCS / "i18n" / "es" / r["path"]
         use_es = show_es and es_file.exists()
         _, body = docs.split_fm((es_file if use_es else f).read_text(encoding="utf-8"))
@@ -1540,39 +1576,114 @@ Talk to the user in {talk}. Do not modify application code.
     def do_portal(self) -> None:
         port = int(self.prefs.get("port", 8080))
         while True:
-            c = self.sel("🌐 Portal", [Choice(self.t("p_build"), "build"), Choice(self.t("p_up"), "up"),
-                                      Choice(self.t("p_local"), "local"), Choice(self.t("p_open"), "open"),
-                                      Choice(self.t("p_down"), "down")])
+            c = self.sel("🌐 Portal", [Choice(self.t("p_live"), "live"), Choice(self.t("p_build"), "build"),
+                                      Choice(self.t("p_up"), "up"), Choice(self.t("p_local"), "local"),
+                                      Choice(self.t("p_open"), "open"), Choice(self.t("p_down"), "down")])
             if not c:
                 return
             if c == "build":
                 self.safe(self.busy, env.portal, total=env.portal_steps())
-            elif c in ("up", "local"):
+            elif c in ("live", "up", "local"):
                 v = self.txt(self.t("port"), default=str(port))
                 if v is None:
                     continue
                 port = int(v) if v.isdigit() else port
                 self.prefs["port"] = port
                 save_json(PREFS, self.prefs)
-                if c == "up":
-                    ok, why = env.docker_ready()
-                    if not ok:
-                        if not self.yes(self.t("p_docker_na", why=why), default=True):
-                            continue
-                        c = "local"
-                if not (CACHE / "site" / "index.html").exists() and \
-                        self.safe(self.busy, env.portal, total=env.portal_steps()) is None:
-                    continue                                    # build failed: the error is already on screen
-                url = self.safe(self.busy, env.docker_up if c == "up" else env.serve_local, port, total=1)
-                if not url and c == "up" and self.yes(self.t("p_docker_fail"), default=True):
-                    url = self.safe(self.busy, env.serve_local, port, total=1)
+                if c == "live":
+                    url = self.safe(self.busy, env.serve_editor, port, total=1)
+                else:
+                    if c == "up":
+                        ok, why = env.docker_ready()
+                        if not ok:
+                            if not self.yes(self.t("p_docker_na", why=why), default=True):
+                                continue
+                            c = "local"
+                    if not (CACHE / "site" / "index.html").exists() and \
+                            self.safe(self.busy, env.portal, total=env.portal_steps()) is None:
+                        continue                                # build failed: the error is already on screen
+                    url = self.safe(self.busy, env.docker_up if c == "up" else env.serve_local, port, total=1)
+                    if not url and c == "up" and self.yes(self.t("p_docker_fail"), default=True):
+                        url = self.safe(self.busy, env.serve_local, port, total=1)
                 if url:
                     self.say(self.t("p_running", url=url), "green")
                     env.open_url(url)
+                    return True
             elif c == "open":
                 env.open_url(f"http://localhost:{port}")
             elif c == "down":
                 env.docker_down()
+
+    def do_wikis(self) -> None:
+        while True:
+            rows = env.wikis()
+            tbl = Table(title=self.t("w_title"), title_justify="left", border_style="grey42", show_header=False)
+            for w in rows:
+                if not w["chosen"]:
+                    state = f"[grey50]{self.t('w_off')}[/]"
+                elif w["pages"]:
+                    state = self.t("w_pages", n=w["pages"]) + (f" [yellow]· {self.t('w_stale')}[/]" if w["stale"] else "")
+                else:
+                    state = f"[grey50]{self.t('w_none')}[/]" + ("" if w["ready"] else f" [yellow]· {self.t('w_need_brief')}[/]")
+                tbl.add_row(w["repo"], state, f"[grey50]{w['unit'] or ''}[/]")
+            self.say(tbl)
+            chosen = [w for w in rows if w["chosen"] and w["cloned"]]
+            if not chosen:
+                self.say(self.t("w_none_chosen"), "yellow")
+            c = self.sel(self.t("m_wikis"), [Choice(self.t("w_gen"), "gen", disabled=None if chosen else self.t("w_choose_first")),
+                                             Choice(self.t("w_choose"), "choose"), Choice(self.t("w_open"), "open")])
+            if not c:
+                return
+            if c == "open":
+                self.open_portal("#/wikis")
+                continue
+            if c == "choose":
+                picked = self.chk(self.t("w_choose_q"), [Choice(w["repo"], w["repo"], checked=w["chosen"]) for w in rows])
+                if picked is not None:
+                    docs.set_wiki_repos(picked)
+                    plan.sync()
+                self.banner()
+                continue
+            picked = self.chk(self.t("w_pick"), [Choice(w["repo"], w["repo"], disabled=None if w["ready"] else self.t("w_need_brief"))
+                                                 for w in chosen])
+            if not picked:
+                continue
+            engine = self.wiki_engine()
+            if not engine:
+                continue
+            for i, repo in enumerate(picked):
+                try:
+                    ok = self.busy(env.openwiki_generate, repo, engine=engine)
+                except env.WikiAbort as e:          # quota / login: the rest would fail the same way
+                    left = picked[i + 1:]
+                    console.print(Panel(str(e) + (f"\n{self.t('w_skipped', repos=', '.join(left))}" if left else ""),
+                                        title=self.t("error"), border_style="red"))
+                    break
+                except Exception as e:  # noqa: BLE001
+                    console.print(Panel(str(e), title=self.t("error"), border_style="red"))
+                    ok = False
+                self.say(self.t("w_done", repo=repo) if ok else self.t("w_fail", repo=repo), "green" if ok else "yellow")
+            self.pause()
+            self.banner()
+
+    def wiki_engine(self) -> str | None:
+        engines = env.wiki_engines()
+        if not engines:
+            self.say(Panel(self.t("w_no_engine"), border_style="yellow"))
+            return None
+        if len(engines) == 1:
+            return engines[0]
+        return self.sel(self.t("w_engine"), [Choice(self.t(f"w_eng_{e}"), e) for e in engines])
+
+    def open_portal(self, hash_: str = "") -> None:
+        """The live portal, started if it is not running yet."""
+        import socket
+        port = int(self.prefs.get("port", 8080))
+        with socket.socket() as sck:
+            up = sck.connect_ex(("127.0.0.1", port)) == 0
+        url = f"http://localhost:{port}" if up else self.safe(self.busy, env.serve_editor, port, total=1)
+        if url:
+            env.open_url(url + "/" + hash_)
 
     def retry_missing(self, missing: list[str]) -> None:
         """A repo with a url but no .git after sync almost always means missing/expired credentials —
@@ -1586,7 +1697,7 @@ Talk to the user in {talk}. Do not modify application code.
             self.add_token(host)
             self.banner()
             self.safe(self.busy, lambda log: docs.sync_repos(log))
-            missing = [n for n in missing if not (ROOT / n / ".git").exists()]
+            missing = [n for n in missing if not (repo_dir(n) / ".git").exists()]
 
     def do_repos(self) -> None:
         ws = docs.workspace()
@@ -1595,55 +1706,30 @@ Talk to the user in {talk}. Do not modify application code.
         if {r["name"] for r in docs.workspace()["repos"]} != before:
             self.safe(self.busy, lambda log: docs.sync_repos(log))
             self.retry_missing([r["name"] for r in docs.workspace()["repos"]
-                                 if r.get("url") and not (ROOT / r["name"] / ".git").exists()])
-            branch = docs.workspace()["project"].get("agent_branch")
+                                 if r.get("url") and not (repo_dir(r["name"]) / ".git").exists()])
             for n in docs.repo_names():
-                if (ROOT / n / ".git").exists() and not (ROOT / n / ".graphifyignore").exists():
-                    self.safe(self.busy, env.wire_one, n, branch=branch)
+                if (repo_dir(n) / ".git").exists() and not env.repo_graph(n).exists():
+                    self.safe(self.busy, env.wire_one, n)
             plan.sync()
-            if branch:
-                self.offer_push(branch)
 
-    def agent_branch(self) -> str | None:
-        """Branch used to wire agent config into every repo — asked once, remembered in workspace.yaml.
-        Empty answer (or Esc) skips it: wiring writes on whatever branch is already checked out, as before."""
+    def repo_pointer(self) -> None:
+        """Asked once, remembered in workspace.yaml: the only thing Camarones may add to a service repo."""
         ws = docs.workspace()
-        stored = ws["project"].get("agent_branch")
-        if stored:
-            return stored
-        self.say(Panel(self.t("agent_branch_explain"), border_style=ORANGE))
-        name = self.txt(self.t("agent_branch_ask"), default="chore/camarones-agents")
-        if not name:
-            return None
-        ws["project"]["agent_branch"] = name
+        if "repo_pointer" in ws["project"] or not CAM_LAYOUT:
+            return
+        ws["project"]["repo_pointer"] = bool(self.yes(self.t("pointer_ask"), default=False))
         docs.save_workspace(ws)
-        return name
-
-    def offer_push(self, branch: str) -> None:
-        repos = env.repos_on_branch(branch)
-        if not repos:
-            return
-        c = self.sel(self.t("push_ask", branch=branch, n=len(repos)),
-                     [Choice(self.t("push_creds"), "creds"), Choice(self.t("push_manual"), "manual")], default="creds")
-        if c != "creds":
-            self.say(self.t("push_hint", branch=branch), "grey62")
-            return
-        for n in repos:
-            ok = self.safe(self.busy, env.push_agent_branch, n, branch, total=1)
-            self.say(f"✔ {n}" if ok else self.t("push_fail", repo=n), "green" if ok else "yellow")
 
     def do_setup(self) -> bool:
         ws = docs.workspace()
         if self.fr_tools(ws) == BACK:
             return False
-        branch = self.agent_branch()
+        self.repo_pointer()
         self.banner()
-        ok = self.safe(self.busy, env.setup, total=env.setup_steps(), branch=branch)
+        ok = self.safe(self.busy, env.setup, total=env.setup_steps())
         plan.sync()
         if ok:
             plan.set_status("setup", "done", "wizard")
-            if branch:
-                self.offer_push(branch)
         self.pause()
         return bool(ok)
 
@@ -1675,6 +1761,12 @@ Talk to the user in {talk}. Do not modify application code.
             self.say("✔ " + ("Idioma: español (también para las sesiones con IA)" if c == "es"
                              else "Language: English (AI sessions too)"), "green")
             time.sleep(1)
+
+
+def claude_history(cwd: Path) -> bool:
+    """Whether Claude Code has a saved conversation for `cwd` (its projects dir is the path with / and . → -)."""
+    key = "".join(c if c.isalnum() else "-" for c in str(cwd.resolve()))
+    return any((HOME / ".claude" / "projects" / key).glob("*.jsonl"))
 
 
 def copy_clipboard(text: str) -> bool:

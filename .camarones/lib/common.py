@@ -10,7 +10,7 @@ IS_MAC = platform.system() == "Darwin"
 HOME = Path.home()
 
 VERSIONS = {
-    "kit": "2.5.1",
+    "kit": "3.1.0",
     "openwiki": "0.5.2",
     "likec4": "1.59.4",
     "graphify": "0.9.65",
@@ -18,20 +18,25 @@ VERSIONS = {
 }
 
 
+CAM_DIR = "cam-docs"      # per-workspace folder (its own git repo) holding docs + agent config, next to the repos
+
+
 def find_project_marker(start: Path) -> Path | None:
-    """Walk up from `start` (like git does for .git/) looking for a project's own .camarones/workspace.yaml.
-    Lets one central kit (global install) serve many project folders without CAMARONES_ROOT set by hand."""
+    """Walk up from `start` (like git does for .git/) looking for a project's .camarones/workspace.yaml, either
+    directly or inside a sibling cam-docs/ folder (the workspace root that holds all repos). Lets one central kit
+    (global install) serve many projects without CAMARONES_ROOT set by hand."""
     cur = start.resolve()
     for d in (cur, *cur.parents):
         if (d / ".camarones" / "workspace.yaml").exists():
             return d
+        if (d / CAM_DIR / ".camarones" / "workspace.yaml").exists():
+            return d / CAM_DIR
     return None
 
 
 def find_root() -> Path:
-    """The umbrella root = the project being documented (overridable with CAMARONES_ROOT).
-    Resolution order: CAMARONES_ROOT env var > a .camarones/workspace.yaml found walking up from
-    the cwd (global install: KIT is shared, each project keeps only its own config) > KIT.parent
+    """The docs root = <workspace>/cam-docs (legacy: the umbrella folder itself), overridable with CAMARONES_ROOT.
+    Resolution order: CAMARONES_ROOT env var > a workspace.yaml found walking up from the cwd > KIT.parent
     (legacy: the kit copy lives inside the project it documents)."""
     env = os.environ.get("CAMARONES_ROOT")
     if env:
@@ -41,29 +46,34 @@ def find_root() -> Path:
 
 
 ROOT = find_root()
+CAM_LAYOUT = ROOT.name == CAM_DIR                  # cam-docs layout: repos are ROOT's siblings, not its children
+WORKSPACE = ROOT.parent if CAM_LAYOUT else ROOT     # folder holding the repos; agents are launched here
 DOCS = ROOT / "docs"
 WORK = DOCS / ".work"          # plan, handoff, session log (committed, hidden from portal)
 WS_FILE = ROOT / ".camarones" / "workspace.yaml"   # project config: per-project, never shared across projects
 CACHE = ROOT / ".camarones" / ".cache"             # generated, git-ignored: portal build, site, code graph, vendor cache
+GRAPHS = ROOT / "graph"                            # per-repo graphify output (git-ignored), kept out of the repos
 
 
-def is_global() -> bool:
-    """True when this project uses a shared central kit (global install) instead of its own copy —
-    the launchers and .camarones/{lib,PLAYBOOK.md,CONVENTIONS.md,…} then live under KIT, not ROOT."""
-    return KIT.parent != ROOT
+def repo_dir(name: str) -> Path:
+    return WORKSPACE / name
+
+
+def ws_rel(path: str) -> str:
+    """A ROOT-relative path as seen from WORKSPACE, where agents run (cam-docs/docs/… vs docs/… in legacy layout)."""
+    return f"{CAM_DIR}/{path}" if CAM_LAYOUT else path
+
+
+def rel_file(f: Path) -> str:
+    """ROOT-relative posix path; files outside ROOT (a repo's wiki) get a ../ path that still joins with ROOT."""
+    return Path(os.path.relpath(f, ROOT)).as_posix()
 
 
 def cli_cmd() -> str:
     """How humans/agents invoke Camarones Documenter on this OS."""
-    if is_global():
+    if os.environ.get("CAMARONES_GLOBAL") or not (ROOT / "camarones.command").exists() and which("camarones"):
         return "camarones"
     return r".\camarones.cmd" if IS_WIN else "./camarones.command"
-
-
-def kit_ref() -> str:
-    """Where PLAYBOOK.md/CONVENTIONS.md/etc. actually live: inside this project (legacy install) or the
-    shared central kit's .camarones/ (global install) — for docs/prompts that point agents at them."""
-    return KIT.as_posix() if is_global() else ".camarones"
 
 
 # ---------- PATH & tools ----------

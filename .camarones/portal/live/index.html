@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="cam-mode" content="live">
+  <title>Camarones</title>
+  <link rel="icon" href="favicon.svg">
+  <link rel="stylesheet" href="app.css">
+  <script src="vendor/marked@15.0.12/lib/marked.umd.js"></script>
+  <script src="vendor/dompurify@3.2.6/dist/purify.min.js"></script>
+  <script src="vendor/mermaid@11.4.1/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="#/docs"><span class="logo">🦐</span><span class="brand-text"><b>Camarones</b> <span id="project"></span></span></a>
+    <nav class="tabs" id="tabs"></nav>
+    <input id="search" type="search" autocomplete="off">
+    <div class="tools">
+      <span id="summary" class="summary"></span>
+      <select id="lang"></select>
+      <button id="wide" class="ghost icon">⇔</button>
+    </div>
+  </header>
+  <div id="ro" class="ro" hidden></div>
+  <div class="layout" id="layout">
+    <aside class="side" id="side">
+      <button id="new" class="ghost small"></button>
+      <div id="tree"></div>
+    </aside>
+    <main id="main" class="main"></main>
+  </div>
+  <div id="toast" class="toast" hidden></div>
+  <script src="app.js"></script>
+</body>
+</html>

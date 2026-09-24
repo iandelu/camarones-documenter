@@ -1,4 +1,4 @@
-"""Central registry of cama-docs-* projects. A global kit install serves many projects; this is how
+"""Central registry of cam-docs projects. A global kit install serves many projects; this is how
 `camarones` finds, creates and switches between them instead of requiring CAMARONES_ROOT set by hand.
 Registry lives at ~/.camarones/projects.json — outside any project, next to the global kit copy."""
 from __future__ import annotations
@@ -6,7 +6,7 @@ from __future__ import annotations
 import json, re
 from pathlib import Path
 
-from .common import HOME, find_project_marker
+from .common import CAM_DIR, HOME, find_project_marker
 
 REGISTRY_DIR = HOME / ".camarones"
 REGISTRY_FILE = REGISTRY_DIR / "projects.json"
@@ -46,15 +46,24 @@ def list_registered() -> list[dict]:
 
 
 def create(name: str, at: Path | None = None) -> Path:
-    """Make an empty cama-docs-<slug>/ folder and register it. The wizard's own first-run flow
-    (env.init_templates, called from wizard.py on first open) does the actual bootstrap (git init,
-    docs/ templates) once it's opened — this only has to create the folder and remember it."""
+    """Make <at>/<name>/cam-docs/ (a new workspace folder for the repos, with its docs folder) and register it.
+    The wizard's first-run flow (env.init_templates) does the actual bootstrap once it's opened."""
     slug = re.sub(r"[^a-z0-9]+", "-", name.strip().lower()).strip("-") or "project"
-    dest = (at or Path.cwd()) / f"cama-docs-{slug}"
-    if dest.exists() and any(dest.iterdir()):
-        raise ValueError(f"{dest} ya existe y no está vacía — elige otro nombre o carpeta.")
+    base = at or Path.cwd()
+    workspace = base if base.name == slug or has_repos(base) else base / slug
+    return adopt(workspace, slug)
+
+
+def adopt(workspace: Path, name: str | None = None) -> Path:
+    """Use `workspace` (a folder with — or for — the repos) as a project: its docs root is workspace/cam-docs."""
+    dest = workspace / CAM_DIR
+    if (dest / ".camarones" / "workspace.yaml").exists():
+        register(dest, name=name)
+        return dest
+    if dest.exists() and any(dest.iterdir()) and not (dest / ".git").exists():
+        raise ValueError(f"{dest} ya existe y no está vacía — elige otra carpeta.")
     dest.mkdir(parents=True, exist_ok=True)
-    register(dest, name=slug)
+    register(dest, name=name or workspace.name)
     return dest
 
 
@@ -71,12 +80,13 @@ def pick(allow_new: bool = True, here: Path | None = None) -> Path | None:
     import questionary
     rows = list_registered()
     choices = [questionary.Choice(f"{r['name']}  ({r['path']})", value=Path(r["path"])) for r in rows]
-    offer_here = here is not None and not any(Path(r["path"]).resolve() == here.resolve() for r in rows)
+    offer_here = here is not None and not any(Path(r["path"]).resolve() in (here.resolve(), (here / CAM_DIR).resolve())
+                                              for r in rows)
     if offer_here:
-        label = f"usar esta carpeta ({here})" + ("  — repos detectados" if has_repos(here) else "")
+        label = f"usar esta carpeta ({here}/{CAM_DIR})" + ("  — repos detectados" if has_repos(here) else "")
         choices.append(questionary.Choice(label, value=here))
     if allow_new:
-        choices.append(questionary.Choice("+ nuevo proyecto (cama-docs-<nombre>)", value="__new__"))
+        choices.append(questionary.Choice("+ nuevo proyecto (<nombre>/cam-docs)", value="__new__"))
     if not choices:
         name = questionary.text("Ningún proyecto registrado todavía. Nombre del proyecto (ej. enjoy):").ask()
         return create(name) if name else None
@@ -87,7 +97,6 @@ def pick(allow_new: bool = True, here: Path | None = None) -> Path | None:
         name = questionary.text("Nombre del nuevo proyecto (ej. enjoy):").ask()
         return create(name) if name else None
     if offer_here and picked == here:
-        register(here)
-        return here
+        return adopt(here)
     touch(picked)
     return picked

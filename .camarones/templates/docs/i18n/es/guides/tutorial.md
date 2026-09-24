@@ -1,6 +1,6 @@
 ---
 title: Tutorial — Camarones Documenter, el asistente de documentación del proyecto
-description: Cómo instalar Camarones Documenter en macOS o Windows, hacer las sesiones guiadas de documentación con Claude Code o Codex, confirmar borradores de IA, levantar el portal y configurar el CI.
+description: Cómo instalar Camarones Documenter en macOS o Windows, hacer las sesiones guiadas de documentación con Claude Code o Codex, confirmar borradores de IA, usar el portal (leer, editar, revisar), generar las wikis de OpenWiki y configurar el CI.
 x-owner: human
 ---
 # Tutorial — Camarones Documenter 🦐
@@ -21,11 +21,18 @@ Requisitos:
 |---|---|
 | macOS | doble clic en `camarones.command` (si macOS lo bloquea la primera vez: Terminal en la carpeta → `sh camarones.command`) o `./camarones.command` |
 | Windows | doble clic en `camarones.cmd`, o `camarones.cmd` en un terminal |
-| Linux / CI | `./camarones.command` (it is a plain shell script) |
+| Linux / CI | `./camarones.command` (es un script de shell normal) |
+
+**Instalación global (varios proyectos):** `sh install-global.sh` (Windows: `install-global.cmd`) desde el repo del kit deja
+el comando `camarones` en tu PATH; ejecuta `camarones` en la carpeta que agrupa los repos y crea `./cam-docs/`.
 
 **Proyecto nuevo desde el zip:** pon `camarones-documenter.zip` en la carpeta donde están los repos del proyecto, descomprímelo ahí
 y abre el lanzador. Si al descomprimir se crea una subcarpeta `camarones-documenter/`, el asistente se ofrece a moverse un nivel más arriba.
 Detecta los repos que ya estén en la carpeta, y puedes añadir más por URL.
+
+Todo lo que escribe el kit vive en **`cam-docs/`**, junto a los repos: un repo git propio con `docs/`, `wikis/<repo>/`, la
+configuración de la herramienta (`.camarones/`) y la de los agentes (`.claude/`, `.codex/`, `.agents/`, `.mcp.json`). Los
+repos de servicio no reciben archivos del kit; las rutas de abajo son relativas a `cam-docs/`.
 
 ## 2. El flujo guiado
 
@@ -61,8 +68,8 @@ y entre ordenadores, porque el plan se commitea junto con la doc.
 
 ## 3. Confianza: borradores de IA frente a doc confirmada
 
-Toda página nace como **🤖 borrador** (el portal lo muestra con un banner). En el asistente, **✅ Revisar y confirmar páginas** te deja
-marcar las páginas que has revisado. La confirmación queda ligada al contenido: si alguien edita la página después, pasa a
+Toda página nace como **🤖 borrador** (el portal lo muestra con un banner). Confírmalas en el portal (**Confirmar** en cada
+página; la pestaña **Revisión** lista lo pendiente) o en el asistente con **✅ Revisar y confirmar páginas**. La confirmación queda ligada al contenido: si alguien edita la página después, pasa a
 **⚠️ pendiente de reconfirmar**. Los agentes tratan las páginas confirmadas como la fuente de verdad. Para proteger un párrafo de los agentes:
 
 ```markdown
@@ -74,33 +81,69 @@ Este párrafo solo lo editan personas.
 ## 4. Después de la primera pasada
 
 **🔄 Actualizar doc tras cambios** lanza una sesión incremental: solo regenera lo que ha cambiado en el código, limpia las
-páginas obsoletas y nunca reescribe a escondidas las páginas confirmadas. El CI puede hacer lo mismo de forma automática (sección 6).
+páginas obsoletas y nunca reescribe a escondidas las páginas confirmadas. El CI puede hacer lo mismo de forma automática (sección 8).
 
 ## 5. Portal
 
-En el asistente: **🌐 Portal** → construir / levantar con Docker / abrir. Sirve:
-- la doc en inglés y español;
-- el explorador C4 interactivo (`/architecture/`);
-- el grafo de código (`/code-graph/`);
-- el grafo de la wiki de cada repo (`/wiki-graph/<repo>/`);
-- `/llms.txt`.
+Un solo portal, dos modos, la misma interfaz. Pestañas: **Docs** (árbol, buscador, marcas de confianza),
+**Arquitectura (C4)**, **Grafo de código** (todos los repos o uno), **Wikis** (la OpenWiki de cada repo, sus páginas y su
+grafo) y **Revisión** (páginas pendientes, peticiones de cambio, código cambiado desde la doc, `check`). El selector de
+idioma cambia la interfaz y la doc; una página sin traducir se muestra en inglés con un aviso.
 
-Es un nginx con ficheros estáticos y funciona sin internet. En un servidor:
-`DOCS_IMAGE=<registry>/<grupo>/<umbrella>/portal:latest docker compose -f .camarones/portal/compose.yml up -d --no-build`.
+| | Comando | Qué es |
+|---|---|---|
+| Local, editable | `camarones up` (asistente → 🌐 Portal → 📝 Abrir el portal) | `http://127.0.0.1:8080`, solo en tu equipo |
+| Exportación para desplegar | `camarones portal` (asistente → 📦 Exportar) | HTML + JSON de solo lectura en `.camarones/.cache/site`, sin npm |
+| Ver la exportación | `camarones up --static` o `camarones up --docker` | exactamente lo que servirá el servidor |
 
-## 6. CI
+La exportación son ficheros estáticos (imagen nginx, GitLab/GitHub Pages) y funciona sin internet. En un servidor, arranca la
+imagen que publicó el CI: `docker run -d -p 8080:80 <registry>/<grupo>/cam-docs/portal:latest`.
 
-En el asistente, **⚙️ CI** instala el pipeline del repo umbrella (GitLab o GitHub). Las plantillas para cada repo de servicio están en `.camarones/ci/repo.*`.
+## 6. Editar: dónde y cuándo
+
+| Dónde | Qué puedes hacer | Dónde queda el cambio |
+|---|---|---|
+| Portal local (`camarones up`) | editar (markdown + vista previa), **+ Nueva página**, **Confirmar**, **Pedir cambios**, generar wikis, reconstruir C4 / grafo | `cam-docs/docs` + commit local si marcas «commit en cam-docs»; el push lo haces tú |
+| Portal desplegado (exportación) | leer y buscar; **Editar** abre el fichero en GitLab / GitHub (si `cam-docs` tiene remote) | un merge request en `cam-docs`; el CI lo vuelve a publicar |
+| Tu editor / IDE | cualquier `.md` de `cam-docs/docs` | git normal en `cam-docs` |
+| La IA (🦐 Siguiente paso) | solo su unidad; nunca reescribe a escondidas lo confirmado | un commit local por unidad |
+
+- **Confirmar** firma con tu `git config user.name`. **Pedir cambios** guarda el comentario y añade una unidad
+  `review-fixes` que la IA aplica en la siguiente sesión.
+- Con el idioma en español, **Editar** edita la traducción (`docs/i18n/es/…`).
+- Editar una página ✅ la pasa a **⚠️ pendiente de reconfirmar** hasta que alguien la vuelva a mirar.
+- No edites a mano lo generado (`llms.txt`, `docs/.status.json`, los visores). Las wikis mejor regenerarlas desde la pestaña
+  **Wikis**: una actualización de OpenWiki puede reescribir lo que cambies.
+
+## 7. OpenWiki: una wiki por repo
+
+Portal → **Wikis** → **Generar / actualizar wiki** (log en directo), asistente → **📚 Wikis**, o `camarones wiki <repo>`. La
+wiki se guarda en `cam-docs/wikis/<repo>/` (el repo ve un enlace `openwiki/` sin versionar) y sus páginas aparecen en
+**Docs** como `repos/<repo>/…`. Usa el proveedor de OpenWiki si hay uno configurado (`openwiki auth configure <proveedor>`);
+si no, Claude Code o Codex. Los archivos que OpenWiki añade al propio repo (`AGENTS.md`, `CLAUDE.md`, `.github/`) se quitan
+al terminar.
+
+Cada wiki es una sesión de agente completa, así que solo la llevan los repos que elijas: asistente → **📚 Wikis** →
+**Elegir qué repos tienen wiki** (se guarda como `wiki: true` en `.camarones/workspace.yaml`). Elige los servicios con
+lógica, no librerías ni repos de CI. La primera wiki de un repo espera a su brief (`wikis/<repo>/INSTRUCTIONS.md`, que
+escribe la unidad repo-brief) para usar tu glosario; `camarones wiki <repo> --force` se salta esa comprobación. Se lanzan
+de una en una, y un lote se para en cuanto el motor se queda sin cuota o sin sesión, en vez de fallar todos los repos
+que quedan.
+
+## 8. CI
+
+En el asistente, **⚙️ CI** instala el pipeline en `cam-docs` (GitLab o GitHub): actualiza la doc afectada, pasa `check`, exporta el portal y lo publica. Las plantillas para cada repo de servicio están en `.camarones/ci/repo.*`.
 
 Variables necesarias: `ANTHROPIC_API_KEY` u `OPENAI_API_KEY`, y un token de bot para abrir MRs/PRs. En GitLab, además, tienes que
-permitir que el job token del proyecto umbrella clone cada repo de servicio (repo → Settings → CI/CD → Job token permissions).
+permitir que el job token del proyecto `cam-docs` clone cada repo de servicio (repo → Settings → CI/CD → Job token permissions).
 
-## 7. Comandos (para scripts y agentes)
+## 9. Comandos (para scripts y agentes)
 
-`./camarones.command help` (en Windows: `camarones.cmd help`) lista estos comandos: `setup`, `sync`, `detect`, `plan`, `plan next`, `status`, `check`,
-`confirm`, `graph`, `arch` (editor C4 en vivo), `arch-validate`, `portal`, `up`, `down`, `ci`, `prompt <unidad>` y `doctor`.
+`camarones help` (copia por proyecto: `./camarones.command help`, en Windows `camarones.cmd help`) lista: `setup`, `sync`,
+`detect`, `plan`, `plan next`, `status`, `check`, `confirm`, `feedback`, `checkpoint`, `graph`, `arch` (editor C4 en vivo),
+`arch-validate`, `wiki <repo>`, `portal` (exportación), `up [--static|--docker]`, `down`, `ci`, `prompt <unidad>`, `migrate` y `doctor`.
 
-## 8. Problemas frecuentes
+## 10. Problemas frecuentes
 
 | Problema | Solución |
 |---|---|
@@ -111,4 +154,6 @@ permitir que el job token del proyecto umbrella clone cada repo de servicio (rep
 | `doctor` dice que falta una herramienta | en el asistente: 🛠 Instalar / reparar |
 | Al sincronizar, un repo sale como "skip … local changes" | haz commit o stash en ese repo y vuelve a sincronizar |
 | Errores en el C4 | `camarones arch-validate` te dice el fichero y la línea |
-| El agente no tiene las herramientas de OpenWiki | reinicia Claude Code / Codex dentro de la carpeta del proyecto |
+| El agente no tiene las herramientas de OpenWiki | reinicia Claude Code / Codex en la carpeta del workspace (la que contiene `cam-docs/`) |
+| El portal desplegado no tiene botón **Editar** | `cam-docs` no tiene remote de git: añádelo y vuelve a exportar |
+| Falló la generación de una wiki | la línea ⚠ dice por qué (cuota o sesión → espera o vuelve a iniciar sesión); lanza otra vez `camarones wiki <repo>`: un run interrumpido se reanuda |

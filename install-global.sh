@@ -48,7 +48,10 @@ echo "Global launcher written to $BINDIR/camarones."
 case ":$PATH:" in
   *":$BINDIR:"*) : ;;
   *)
-    RC="$HOME/.zshrc"; [ -n "${BASH_VERSION:-}" ] && RC="$HOME/.bashrc"
+    RC="$HOME/.bashrc"
+    case "$SHELL" in
+      */zsh) RC="$HOME/.zshrc" ;;
+    esac
     if ! grep -qs "$BINDIR" "$RC" 2>/dev/null; then
       echo "export PATH=\"$BINDIR:\$PATH\"" >> "$RC"
       echo "Added $BINDIR to PATH in $RC — open a new terminal, or run: export PATH=\"$BINDIR:\$PATH\""

@@ -1,4 +1,4 @@
-# 🦐 Camarones Documenter — umbrella (docs) repo workflow for GitHub. Copy to .github/workflows/docs.yml
+# 🦐 Camarones Documenter — cam-docs (docs + agent config) repo workflow for GitHub. Installed by `camarones ci github`.
 # Secrets: ANTHROPIC_API_KEY or OPENAI_API_KEY; REPOS_TOKEN (fine-grained PAT with read access to the service repos).
 # Optional: set repo variable DOCS_DEPLOY=true and register a self-hosted runner labelled `docs-host` for on-prem deploy.
 name: docs
@@ -8,7 +8,12 @@ on:
   workflow_dispatch:
   repository_dispatch: { types: [service-changed] }   # sent by each service repo after merges
 permissions: { contents: write, pull-requests: write, packages: write }
-env: { DO_NOT_TRACK: "1", OPENWIKI_TELEMETRY_DISABLED: "1", NO_UPDATE_NOTIFIER: "1" }
+env:
+  DO_NOT_TRACK: "1"
+  OPENWIKI_TELEMETRY_DISABLED: "1"
+  NO_UPDATE_NOTIFIER: "1"
+  CAMARONES_GLOBAL: "1"
+  CAMARONES_KIT_REPO: https://github.com/iandelu/camarones-documenter.git   # or an internal mirror
 
 jobs:
   docs:
@@ -22,19 +27,22 @@ jobs:
       - name: Kit
         run: |
           git config --global url."https://x-access-token:${{ secrets.REPOS_TOKEN }}@github.com/".insteadOf "git@github.com:"
-          ./camarones.command setup --ci
-          ./camarones.command graph && ./camarones.command arch-validate
+          sudo git clone -q --depth 1 "$CAMARONES_KIT_REPO" /opt/camarones-kit
+          printf '#!/bin/sh\nexec uv run --quiet --script /opt/camarones-kit/.camarones/camarones.py "$@"\n' | sudo tee /usr/local/bin/camarones >/dev/null && sudo chmod +x /usr/local/bin/camarones
+          echo "CAMARONES_ROOT=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
+          CAMARONES_ROOT=$GITHUB_WORKSPACE camarones setup --ci
+          camarones graph && camarones arch-validate
       - name: AI update
         if: github.event_name != 'push'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          PROMPT="$(./camarones.command prompt update --lang en --unattended)"
+          PROMPT="$(camarones prompt update --lang en --unattended)"
           if [ -n "$ANTHROPIC_API_KEY" ]; then npm i -g @anthropic-ai/claude-code >/dev/null && claude -p "$PROMPT" --dangerously-skip-permissions
           elif [ -n "$OPENAI_API_KEY" ]; then npm i -g @openai/codex >/dev/null && codex exec --full-auto "$PROMPT"
           else echo "no AI key, skipping"; fi
-          ./camarones.command llms
+          camarones llms
       - name: Open PR
         if: github.event_name != 'push'
         uses: peter-evans/create-pull-request@v7
@@ -44,13 +52,15 @@ jobs:
           body: "AI-generated update. Review drafts; confirm what is correct in the Camarones Documenter wizard."
           add-paths: |
             docs
+            wikis
+            .camarones
             AGENTS.md
             CLAUDE.md
-      - run: ./camarones.command check
+      - run: camarones check
       - name: Build portal image
         if: github.event_name == 'push'
         run: |
-          ./camarones.command portal
+          camarones portal
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
           IMG="ghcr.io/${GITHUB_REPOSITORY,,}/portal"
           docker build -t "$IMG:latest" -t "$IMG:${GITHUB_SHA::7}" .camarones/.cache/portal-image && docker push --all-tags "$IMG"
@@ -60,8 +70,9 @@ jobs:
     if: github.event_name == 'push' && vars.DOCS_DEPLOY == 'true'
     runs-on: [self-hosted, docs-host]
     steps:
-      - uses: actions/checkout@v4
       - run: |
+          rm -rf /tmp/camarones-kit && git clone -q --depth 1 "$CAMARONES_KIT_REPO" /tmp/camarones-kit
+          C=/tmp/camarones-kit/.camarones/portal/compose.yml
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-          DOCS_IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}/portal:latest" docker compose -f .camarones/portal/compose.yml pull
-          DOCS_IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}/portal:latest" docker compose -f .camarones/portal/compose.yml up -d --no-build
+          DOCS_IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}/portal:latest" docker compose -f $C pull
+          DOCS_IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}/portal:latest" docker compose -f $C up -d --no-build
