@@ -250,7 +250,17 @@ def main() -> int:
                 elif env.wiki_close(r):
                     print(f"{r}/openwiki/: moved to cam-docs/wikis/{r}/, repo restored")
             return 0
-        failed = [r for r in a.repos if not env.openwiki_generate(r, a.mode, engine=a.engine)]
+        failed = []
+        for i, r in enumerate(a.repos):
+            try:
+                if not env.openwiki_generate(r, a.mode, engine=a.engine):
+                    failed.append(r)
+            except env.WikiAbort as e:
+                print(f"✖ {e}" + (f"\n  not started: {', '.join(a.repos[i + 1:])}" if a.repos[i + 1:] else ""), file=sys.stderr)
+                return 1
+            except RuntimeError as e:
+                print(f"✖ {e}", file=sys.stderr)
+                failed.append(r)
         return 1 if failed else 0
     elif a.cmd == "migrate":
         from lib import migrate

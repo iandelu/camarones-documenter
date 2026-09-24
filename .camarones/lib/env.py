@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json, os, re, shutil, subprocess, webbrowser
+from collections import deque
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable
@@ -729,8 +730,18 @@ def wiki_workdir(repo: str, log: Log = print):
         wiki_close(repo, log)
 
 
+class WikiAbort(RuntimeError):
+    """The engine cannot run at all (quota, login): every other repo of a batch would fail the same way."""
+
+
+ENGINE_DOWN = re.compile(r"session limit|usage limit|weekly limit|limit reached|rate.?limit|\b429\b|insufficient_quota|"
+                         r"credit balance|invalid api key|incorrect api key|\b401\b|unauthori[sz]ed|/login|not logged in|"
+                         r"log ?in again|token (?:has )?expired|overloaded", re.I)
+
+
 def openwiki_generate(repo: str, mode: str = "", log: Log = print, engine: str = "") -> bool:
-    """Write or refresh one repo's OpenWiki (same path for the wizard and the portal)."""
+    """Write or refresh one repo's OpenWiki (same path for the wizard, the portal and the CLI). Raises WikiAbort when
+    the engine itself is down, so batches stop instead of failing every remaining repo."""
     from . import plan
     if not repo_dir(repo).is_dir():
         raise RuntimeError(f"{repo} is not cloned (sync first)")
@@ -744,18 +755,24 @@ def openwiki_generate(repo: str, mode: str = "", log: Log = print, engine: str =
     uid = f"repo-wiki:{repo}"
     before = {u["id"]: u["status"] for u in plan.load()["units"]}.get(uid)
     known = before is not None
+    tail: deque[str] = deque(maxlen=5)
+
+    def tee(line: str) -> None:
+        tail.append(line)
+        log(line)
+
     if known:
         plan.set_status(uid, "doing")
     log(f"OpenWiki {mode} for {repo} via {engine}… (this can take a while)")
     with wiki_workdir(repo, log):
         if engine == "openwiki":
-            rc = stream(["openwiki", "code", f"--{mode}", "--print"], repo_dir(repo), log)
+            rc = stream(["openwiki", "code", f"--{mode}", "--print"], repo_dir(repo), tee)
         elif engine == "claude":
             rc = stream(["claude", "-p", wiki_prompt(repo, mode), "--permission-mode", "acceptEdits", "--allowedTools",
                          "mcp__openwiki Skill Read Write Edit Glob Grep Bash(git:*) Bash(ls:*) Bash(camarones:*) Bash(graphify:*)"],
-                        WORKSPACE, log)
+                        WORKSPACE, tee)
         else:
-            rc = stream(["codex", "exec", "--full-auto", "-C", str(WORKSPACE), wiki_prompt(repo, mode)], WORKSPACE, log)
+            rc = stream(["codex", "exec", "--full-auto", "-C", str(WORKSPACE), wiki_prompt(repo, mode)], WORKSPACE, tee)
     ok = rc == 0 and bool(wiki_pages(repo))
     if ok:
         if known:
@@ -764,11 +781,14 @@ def openwiki_generate(repo: str, mode: str = "", log: Log = print, engine: str =
         wiki_graph(repo, log=log)
         checkpoint_commit(f"{uid} ({mode})")
         log(f"✔ wiki {repo}: {len(wiki_pages(repo))} pages")
-    else:
-        if known:
-            plan.set_status(uid, before, record=False)
-        log(f"⚠ OpenWiki {mode} for {repo} failed (exit {rc})")
-    return ok
+        return True
+    if known:
+        plan.set_status(uid, before, record=False)
+    reason = (tail[-1] if tail else "no output")[:300] if rc else "finished without writing any page"
+    log(f"⚠ OpenWiki {mode} for {repo} failed (exit {rc}): {reason}")
+    if rc and any(ENGINE_DOWN.search(l) for l in tail):
+        raise WikiAbort(f"{engine} cannot run right now — {reason}. Nothing else was started; retry when it is back.")
+    return False
 
 
 # ---------- portal: static export (what CI deploys) ----------
