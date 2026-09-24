@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Callable
 
 from .common import (KIT, ROOT, DOCS, HOME, CACHE, IS_WIN, IS_MAC, VERSIONS, run, out, which, uv, ensure_path, cli_cmd,
-                     sdkman_dir)
+                     kit_ref, sdkman_dir)
 from . import docs
 
 Log = Callable[[str], None]
@@ -29,7 +29,8 @@ def init_templates(project_name: str | None = None, log: Log = print) -> list[st
         dst.parent.mkdir(parents=True, exist_ok=True)
         text = src.read_text(encoding="utf-8")
         name = project_name or docs.workspace()["project"]["name"]
-        dst.write_text(text.replace("{{PROJECT_NAME}}", name).replace("{{CLI}}", cli_cmd()), encoding="utf-8")
+        dst.write_text(text.replace("{{PROJECT_NAME}}", name).replace("{{CLI}}", cli_cmd())
+                       .replace("{{KIT}}", kit_ref()), encoding="utf-8")
         created.append(rel.as_posix())
     if not (ROOT / ".git").exists():
         subprocess.run(["git", "init", "-q", str(ROOT)])
@@ -47,7 +48,8 @@ def refresh_block(src: Path, dst: Path, project_name: str | None = None) -> bool
     if a not in cur or b not in cur or a not in tpl:
         return False
     name = project_name or docs.workspace()["project"]["name"]
-    block = tpl[tpl.index(a):tpl.index(b) + len(b)].replace("{{PROJECT_NAME}}", name).replace("{{CLI}}", cli_cmd())
+    block = (tpl[tpl.index(a):tpl.index(b) + len(b)].replace("{{PROJECT_NAME}}", name)
+              .replace("{{CLI}}", cli_cmd()).replace("{{KIT}}", kit_ref()))
     new = cur[:cur.index(a)] + block + cur[cur.index(b) + len(b):]
     if new != cur:
         dst.write_text(new, encoding="utf-8")

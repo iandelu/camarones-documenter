@@ -16,7 +16,7 @@ from rich.progress import BarColumn, Progress, TextColumn
 from rich.table import Table
 from rich.text import Text
 
-from .common import ROOT, HOME, WORK, WS_FILE, CACHE, IS_WIN, IS_MAC, which, cli_cmd, load_json, save_json, out
+from .common import ROOT, HOME, WORK, WS_FILE, CACHE, IS_WIN, IS_MAC, which, cli_cmd, kit_ref, load_json, save_json, out
 from . import docs, env, plan, creds, quickarch, tutorial
 from .common import VERSIONS
 from rich.tree import Tree
@@ -1130,11 +1130,12 @@ class W:
 
     def arch_prompt(self) -> str:
         cli = cli_cmd()
+        kit = kit_ref()
         talk = "Spanish" if self.lang == "es" else "English"
         return f"""Camarones session — improve the first-look architecture draft.
 
 `docs/architecture/*.c4` was drafted by a static scan (no AI): repos, datastores, brokers and HTTP calls were guessed
-from manifests, config and code. Read `.camarones/CONVENTIONS.md` §4 (C4 rules) first.
+from manifests, config and code. Read `{kit}/CONVENTIONS.md` §4 (C4 rules) first.
 1. Verify every element and relation against the code (use `graphify query` in the repos, OpenAPI/AsyncAPI files, config).
    Fix technologies, names, directions and labels (endpoint / exchange / topic); remove false positives; add what is missing
    (external systems, identity provider, shared databases, frontends/apps).
