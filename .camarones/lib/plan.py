@@ -13,7 +13,7 @@ from pathlib import Path
 
 import yaml
 
-from .common import WORK, cli_cmd, IS_WIN
+from .common import WORK, CAM_LAYOUT, CAM_DIR, cli_cmd, ws_rel, rel_file, IS_WIN
 from . import docs
 
 PLAN = WORK / "plan.yaml"
@@ -274,31 +274,34 @@ def prompt(uid: str, lang: str = "es", unattended: bool = False) -> str:
     resume = ""
     notes = note_file(u["id"])
     if u.get("status") == "doing" or notes.exists():
-        rel = notes.relative_to(docs.ROOT).as_posix()
+        rel = ws_rel(rel_file(notes))
         resume = (f"\nRESUME — a previous session already worked on this unit and was closed before finishing. Do NOT start over:\n"
                   f"read its checkpoints in `{rel}`" + (f" (last: {last_note(u['id'])})" if last_note(u["id"]) else "") +
-                  ", look at `git status` / `git diff` in the umbrella folder for work that was written but not committed, "
+                  f", look at `git status` / `git diff` in `{ws_rel('.')}` for work that was written but not committed, "
                   "check which of the unit's output files already exist, and continue from there.\n")
     extra = ""
     if u.get("type") == "review-fixes":
-        extra = ("\nInput: `docs/.work/review-feedback.md` — every `- [ ]` line is a human review comment on a page. Apply each one "
+        extra = (f"\nInput: `{ws_rel('docs/.work/review-feedback.md')}` — every `- [ ]` line is a human review comment on a page. Apply each one "
                  "(verify against the code; if the human is right, fix the page; if the code says otherwise, explain it in the "
                  "page and ask the user), then tick it `- [x]` adding a short note of what changed.\n")
     elif u.get("type") == "doc-fixes":
         extra = (f"\nInput: run `{cli} check` and `{cli} status`. Fix every ERROR, orphaned `x-sources`, `needs-reconfirm` "
                  "pages (re-verify them against the code and summarise the change for the human — never write `x-confirmed`), "
                  f"and outdated/missing translations (then `{cli} translated <files>`). Finish with `{cli} llms` and a clean `check`.\n")
+    layout = (f"\nLayout: you run in the workspace folder. Docs and agent config live in `{CAM_DIR}/` (its own git repo; every "
+              f"`docs/…` or `.camarones/…` path in the playbook is relative to it); the service repos are its siblings (`<repo>/`). "
+              "Never write kit files into the service repos.\n") if CAM_LAYOUT else ""
     return f"""Camarones Documenter session — unit `{u['id']}`: {u['title']}
-{resume}{extra}
+{resume}{extra}{layout}
 You are documenting this project with the Camarones Documenter kit (works the same in Claude Code and Codex).
-1. Read `.camarones/PLAYBOOK.md` → sections "Session protocol" and "{section}", and `.camarones/CONVENTIONS.md` (binding).
-2. Read `docs/.work/handoff.md` (what previous sessions did and left pending). Do not redo finished work.
+1. Read `{ws_rel('.camarones/PLAYBOOK.md')}` → sections "Session protocol" and "{section}", and `{ws_rel('.camarones/CONVENTIONS.md')}` (binding).
+2. Read `{ws_rel('docs/.work/handoff.md')}` (what previous sessions did and left pending). Do not redo finished work.
 3. Run `{cli} plan start {u['id']}`, then do ONLY this unit, as deep as the playbook asks. The CLI is `{cli}`
    (`{cli} help` lists commands). Write docs in English; talk to the user in {talk}.
    Save progress as you go (the user may close the session at any time): after each significant step run
    `{cli} plan note {u['id']} "<what is done / what is next>"` and write findings to their files immediately.
 4. Finish: `{cli} plan done {u['id']} --note "<one line>"` (or `plan block … --note "why"`), rewrite the
-   "Last session" section of `docs/.work/handoff.md` (done, decisions, pending, files to read first next time),
+   "Last session" section of `{ws_rel('docs/.work/handoff.md')}` (done, decisions, pending, files to read first next time),
    run `{cli} check` and `{cli} checkpoint "{u['id']}"` (local commit of the docs so nothing is lost).
 5. {ask}
 """

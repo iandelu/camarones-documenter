@@ -1,11 +1,12 @@
-# 🦐 Camarones Documenter — umbrella (docs) repo pipeline for GitLab.
-# Copy to .gitlab-ci.yml at the umbrella root (or `include: local: .camarones/ci/umbrella.gitlab-ci.yml`).
+# 🦐 Camarones Documenter — cam-docs (docs + agent config) repo pipeline for GitLab.
+# Installed as .gitlab-ci.yml at the cam-docs root by `camarones ci gitlab`.
 #
 # CI/CD variables (Settings → CI/CD → Variables):
 #   ANTHROPIC_API_KEY  (masked)  → docs:update runs Claude Code headless    } set one of them
 #   OPENAI_API_KEY     (masked)  → docs:update runs Codex headless          }
 #   DOCS_BOT_TOKEN     (masked)  project access token (api, write_repository) used to push the docs branch + open the MR
 #   DOCS_DEPLOY        "true" to enable the on-prem deploy job (needs a runner tagged `docs-host` with docker)
+#   CAMARONES_KIT_REPO / CAMARONES_KIT_REF  optional: where to fetch the kit from (e.g. an internal mirror)
 # Each microservice repo must allow this project's CI_JOB_TOKEN to clone it
 #   (repo → Settings → CI/CD → Job token permissions → add this umbrella project).
 
@@ -16,6 +17,10 @@ variables:
   OPENWIKI_TELEMETRY_DISABLED: "1"
   NO_UPDATE_NOTIFIER: "1"
   GIT_DEPTH: "0"
+  CAMARONES_KIT_REPO: "https://github.com/iandelu/camarones-documenter.git"
+  CAMARONES_KIT_REF: "main"
+  CAMARONES_ROOT: "$CI_PROJECT_DIR"
+  CAMARONES_GLOBAL: "1"
 
 .kit:
   image: node:22-bookworm
@@ -25,16 +30,18 @@ variables:
     # clone sibling repos over https with the job token, whatever URL style workspace.yaml uses
     - git config --global url."https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/".insteadOf "git@${CI_SERVER_HOST}:"
     - git config --global --add url."https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/".insteadOf "https://${CI_SERVER_HOST}/"
-    - ./camarones.command setup --ci
+    - git clone -q --depth 1 --branch "$CAMARONES_KIT_REF" "$CAMARONES_KIT_REPO" /opt/camarones-kit
+    - printf '#!/bin/sh\nexec uv run --quiet --script /opt/camarones-kit/.camarones/camarones.py "$@"\n' > /usr/local/bin/camarones && chmod +x /usr/local/bin/camarones
+    - camarones setup --ci
 
 docs:verify:
   extends: .kit
   stage: verify
   script:
-    - ./camarones.command graph
-    - ./camarones.command arch-validate
-    - ./camarones.command check
-    - ./camarones.command status
+    - camarones graph
+    - camarones arch-validate
+    - camarones check
+    - camarones status
 
 # Incremental AI update: runs on schedule, manual "Run pipeline", or when a microservice pipeline triggers us.
 docs:update:
@@ -46,19 +53,19 @@ docs:update:
     - |
       if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
         npm install -g @anthropic-ai/claude-code >/dev/null
-        claude -p "$(./camarones.command prompt update --lang en --unattended)" --dangerously-skip-permissions
+        claude -p "$(camarones prompt update --lang en --unattended)" --dangerously-skip-permissions
       elif [ -n "${OPENAI_API_KEY:-}" ]; then
         npm install -g @openai/codex >/dev/null
-        codex exec --full-auto "$(./camarones.command prompt update --lang en --unattended)"
+        codex exec --full-auto "$(camarones prompt update --lang en --unattended)"
       else
         echo "No ANTHROPIC_API_KEY / OPENAI_API_KEY: skipping AI update"; exit 0
       fi
-    - ./camarones.command llms && ./camarones.command check || true
+    - camarones llms && camarones check || true
     - |
       if git diff --quiet && [ -z "$(git ls-files --others --exclude-standard docs)" ]; then echo "Docs already up to date"; exit 0; fi
     - BRANCH="docs/update-${CI_PIPELINE_ID}"
     - git config user.name "docs-bot" && git config user.email "docs-bot@${CI_SERVER_HOST}"
-    - git checkout -b "$BRANCH" && git add docs .camarones/workspace.yaml AGENTS.md CLAUDE.md && git commit -m "docs: automated documentation update"
+    - git checkout -b "$BRANCH" && git add docs wikis .camarones AGENTS.md CLAUDE.md && git commit -m "docs: automated documentation update"
     - git push "https://oauth2:${DOCS_BOT_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git" "$BRANCH"
     - |
       curl --fail -sS --request POST --header "PRIVATE-TOKEN: ${DOCS_BOT_TOKEN}" \
@@ -73,8 +80,8 @@ portal:site:
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   script:
-    - ./camarones.command graph
-    - ./camarones.command portal
+    - camarones graph
+    - camarones portal
   artifacts:
     paths: [.camarones/.cache/portal-image]
     expire_in: 1 week
@@ -101,4 +108,5 @@ portal:deploy:
     DOCS_IMAGE: "$CI_REGISTRY_IMAGE/portal:latest"
   script:
     - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
-    - docker compose -f .camarones/portal/compose.yml pull && docker compose -f .camarones/portal/compose.yml up -d --no-build
+    - git clone -q --depth 1 --branch "$CAMARONES_KIT_REF" "$CAMARONES_KIT_REPO" /tmp/camarones-kit
+    - docker compose -f /tmp/camarones-kit/.camarones/portal/compose.yml pull && docker compose -f /tmp/camarones-kit/.camarones/portal/compose.yml up -d --no-build

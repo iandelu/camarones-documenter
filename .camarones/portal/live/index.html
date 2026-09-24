@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Docs — Camarones</title>
+  <link rel="icon" href="/favicon.svg">
+  <link rel="stylesheet" href="/app.css">
+  <script src="/vendor/marked@15.0.12/lib/marked.umd.js"></script>
+  <script src="/vendor/dompurify@3.2.6/dist/purify.min.js"></script>
+  <script src="/vendor/mermaid@11.4.1/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="#/">🦐 <span id="project">Docs</span></a>
+    <input id="search" type="search" placeholder="Search pages…" autocomplete="off">
+    <nav class="links">
+      <span id="summary" class="summary"></span>
+      <a href="#/status">Review &amp; status</a>
+      <a id="lnk-graph" href="/code-graph/" target="_blank" hidden>Code graph</a>
+      <a id="lnk-c4" href="/architecture/" target="_blank" hidden>C4</a>
+      <a id="lnk-site" href="/site/" target="_blank" hidden>Static portal</a>
+      <select id="lang" title="Language"></select>
+      <button id="wide" class="ghost" title="Toggle full width">⇔</button>
+    </nav>
+  </header>
+  <div class="layout">
+    <aside class="side">
+      <button id="new" class="ghost small">+ New page</button>
+      <div id="tree"></div>
+    </aside>
+    <main id="main" class="main"></main>
+  </div>
+  <div id="toast" class="toast" hidden></div>
+  <script src="/app.js"></script>
+</body>
+</html>
