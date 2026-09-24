@@ -643,6 +643,12 @@ def wiki_pages(repo: str) -> list[Path]:
             and f.relative_to(wiki).as_posix() != "INSTRUCTIONS.md"] if wiki.is_dir() else []
 
 
+def wiki_brief_ready(repo: str) -> bool:
+    """A first wiki needs the brief that repo-brief writes (role, bounded context, glossary), or OpenWiki writes a
+    generic wiki that ignores the project's language and repeats what docs/ already covers."""
+    return (docs.wiki_dir(repo) / "INSTRUCTIONS.md").is_file()
+
+
 def wikis() -> list[dict]:
     from . import plan
     units = {u["id"]: u["status"] for u in plan.load()["units"]}
@@ -652,7 +658,7 @@ def wikis() -> list[dict]:
         at = newest(pages)
         rows.append({"repo": n, "pages": len(pages), "at": at, "stale": bool(pages) and repo_changed_at(n) > at,
                      "graph": (VIEWERS / "wiki-graph" / n / "index.html").exists(), "unit": units.get(f"repo-wiki:{n}"),
-                     "cloned": repo_dir(n).is_dir(),
+                     "cloned": repo_dir(n).is_dir(), "ready": bool(pages) or wiki_brief_ready(n),
                      "index": next((f"repos/{n}/{p}" for p in ("quickstart.md", "index.md", "README.md")
                                     if (docs.wiki_dir(n) / p).exists()), None)})
     return rows
@@ -782,7 +788,7 @@ ENGINE_DOWN = re.compile(r"session limit|usage limit|weekly limit|limit reached|
                          r"log ?in again|token (?:has )?expired|overloaded", re.I)
 
 
-def openwiki_generate(repo: str, mode: str = "", log: Log = print, engine: str = "") -> bool:
+def openwiki_generate(repo: str, mode: str = "", log: Log = print, engine: str = "", force: bool = False) -> bool:
     """Write or refresh one repo's OpenWiki (same path for the wizard, the portal and the CLI). Raises WikiAbort when
     the engine itself is down, so batches stop instead of failing every remaining repo."""
     from . import plan
@@ -795,6 +801,9 @@ def openwiki_generate(repo: str, mode: str = "", log: Log = print, engine: str =
                            "(or set OPENAI_API_KEY / ANTHROPIC_API_KEY), or install Claude Code / Codex")
     link_repo_wiki(repo, log)
     mode = mode or ("update" if wiki_pages(repo) else "init")
+    if mode == "init" and not force and not wiki_brief_ready(repo):
+        raise RuntimeError(f"{repo}: no {ws_rel(f'wikis/{repo}/INSTRUCTIONS.md')} yet — run its repo-brief unit first "
+                           "(it gives OpenWiki the repo's role and glossary), or force it with `wiki --force`")
     uid = f"repo-wiki:{repo}"
     before = {u["id"]: u["status"] for u in plan.load()["units"]}.get(uid)
     known = before is not None

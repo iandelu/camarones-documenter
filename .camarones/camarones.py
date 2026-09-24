@@ -18,7 +18,8 @@
   arch | arch-validate      live C4 editor | validate the C4 model
   portal                    export the read-only portal (docs, C4, code graphs, wikis) to .camarones/.cache/site for CI / hosting
   up [--port] [--docker|--static]   serve the portal: live editable server (default), or the export in Docker / without it
-  wiki REPO.. [--init|--update] [--engine openwiki|claude|codex]   generate / refresh the OpenWiki of repos
+  wiki REPO.. [--init|--update] [--engine openwiki|claude|codex] [--force]   generate / refresh the OpenWiki of repos,
+                            one at a time (a first wiki needs the repo's brief; --force skips that check)
   wiki REPO --open | --close    around a manual OpenWiki MCP session (real openwiki/ folder, then back to cam-docs)
   down                      stop the portal
   migrate [--yes] [--dry-run]   move an older layout into <workspace>/cam-docs and clean kit files out of the repos
@@ -130,6 +131,7 @@ def main() -> int:
     w.add_argument("--update", dest="mode", action="store_const", const="update")
     w.add_argument("--open", dest="mode", action="store_const", const="open")
     w.add_argument("--close", dest="mode", action="store_const", const="close")
+    w.add_argument("--force", action="store_true")
     mg = sp.add_parser("migrate"); mg.add_argument("--yes", action="store_true"); mg.add_argument("--dry-run", action="store_true")
     mg.add_argument("--finish", action="store_true", help=argparse.SUPPRESS)
     ci = sp.add_parser("ci"); ci.add_argument("forge", nargs="?", choices=["gitlab", "github"])
@@ -253,7 +255,7 @@ def main() -> int:
         failed = []
         for i, r in enumerate(a.repos):
             try:
-                if not env.openwiki_generate(r, a.mode, engine=a.engine):
+                if not env.openwiki_generate(r, a.mode, engine=a.engine, force=a.force):
                     failed.append(r)
             except env.WikiAbort as e:
                 print(f"✖ {e}" + (f"\n  not started: {', '.join(a.repos[i + 1:])}" if a.repos[i + 1:] else ""), file=sys.stderr)
