@@ -1,13 +1,14 @@
-"""Docs model: workspace, repo sync, incremental state, trust (draft/confirmed), translations, llms.txt, portal content."""
+"""Docs model: workspace, repo sync, incremental state, trust (draft/confirmed), translations, llms.txt, search."""
 from __future__ import annotations
 
-import datetime as dt, hashlib, json, os, re, shutil, subprocess, tarfile, tempfile
+import datetime as dt, hashlib, os, re, shutil, subprocess, tarfile, tempfile
 from pathlib import Path
 from typing import Callable
 
 import yaml
 
-from .common import ROOT, DOCS, WS_FILE, CACHE, run, which, load_json, save_json
+from .common import (ROOT, DOCS, WS_FILE, CACHE, WORKSPACE, CAM_DIR, CAM_LAYOUT, repo_dir, rel_file, run, load_json,
+                     save_json)
 
 STATE_FILE = DOCS / ".state.json"
 STATUS_FILE = DOCS / ".status.json"
@@ -33,7 +34,7 @@ def workspace() -> dict:
     ws = (yaml.safe_load(ws_file().read_text(encoding="utf-8")) if ws_file().exists() else None) or {}
     ws.setdefault("project", {})
     ws.setdefault("repos", [])
-    ws["project"].setdefault("name", ROOT.name)
+    ws["project"].setdefault("name", WORKSPACE.name)
     ws["project"].setdefault("translations", ["es"])
     return ws
 
@@ -49,6 +50,19 @@ def repo_names() -> list[str]:
     return [r["name"] for r in workspace()["repos"]]
 
 
+def wiki_repos() -> list[str]:
+    """Repos that get an OpenWiki (`wiki: true` in workspace.yaml). None chosen → none: a wiki per repo costs a full
+    agent run, and libraries or CI repos rarely need one."""
+    return [r["name"] for r in workspace()["repos"] if r.get("wiki")]
+
+
+def set_wiki_repos(names: list[str]) -> None:
+    ws = workspace()
+    for r in ws["repos"]:
+        r["wiki"] = r["name"] in names
+    save_workspace(ws)
+
+
 def git(repo: Path, *args: str, check=True, env: dict | None = None) -> str:
     r = subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True, encoding="utf-8", errors="replace",
                        env={**os.environ, **(env or {})})
@@ -58,10 +72,10 @@ def git(repo: Path, *args: str, check=True, env: dict | None = None) -> str:
 
 
 def detect_repos() -> list[dict]:
-    """Repos already sitting in the umbrella folder (the 'drop the zip next to your repos' case)."""
+    """Repos already sitting in the workspace folder (the 'drop the kit next to your repos' case)."""
     found = []
-    for d in sorted(p for p in ROOT.iterdir() if p.is_dir() and (p / ".git").exists()):
-        if d.name.startswith(".") or d.name in ("docs",) or d.name.lower().startswith("camarones-"):
+    for d in sorted(p for p in WORKSPACE.iterdir() if p.is_dir() and (p / ".git").exists()):
+        if d.name.startswith(".") or d.name in ("docs", CAM_DIR) or d.name.lower().startswith("camarones-"):
             continue
         url = git(d, "remote", "get-url", "origin", check=False)
         branch = git(d, "rev-parse", "--abbrev-ref", "HEAD", check=False) or "main"
@@ -86,7 +100,7 @@ def sync_repos(log: Log = print) -> list[str]:
     from . import creds
     failed = []
     for r in workspace()["repos"]:
-        path, branch, url = ROOT / r["name"], r.get("branch", "main"), r.get("url", "")
+        path, branch, url = repo_dir(r["name"]), r.get("branch", "main"), r.get("url", "")
         env = creds.git_env(url)
         if not (path / ".git").exists():
             if not url:
@@ -124,8 +138,9 @@ def sync_repos(log: Log = print) -> list[str]:
 def write_gitignore() -> None:
     gi = ROOT / ".gitignore"
     text = gi.read_text(encoding="utf-8") if gi.exists() else ""
-    block = "\n".join([GI_START, *[f"/{n}/" for n in repo_names()], "/.camarones/.cache/", "camarones-documenter*/",
-                       "camarones-kit*/", "camarones-documenter*.zip", GI_END])
+    repos = [] if CAM_LAYOUT else [f"/{n}/" for n in repo_names()]      # cam-docs layout: repos live next to it
+    block = "\n".join([GI_START, *repos, "/.camarones/.cache/", "/graph/", "/.claude/settings.local.json",
+                       "camarones-documenter*/", "camarones-kit*/", "camarones-documenter*.zip", ".DS_Store", GI_END])
     if GI_START in text:
         text = re.sub(re.escape(GI_START) + r".*?" + re.escape(GI_END), lambda _: block, text, flags=re.S)
     else:
@@ -137,7 +152,7 @@ def write_gitignore() -> None:
 def changes() -> dict:
     state, out = load_json(STATE_FILE, {"repos": {}}), {}
     for r in workspace()["repos"]:
-        path = ROOT / r["name"]
+        path = repo_dir(r["name"])
         if not (path / ".git").exists():
             out[r["name"]] = {"status": "missing"}
             continue
@@ -161,7 +176,7 @@ def mark_documented(names: list[str] | None = None) -> list[str]:
     state = load_json(STATE_FILE, {"repos": {}})
     names = names or repo_names()
     for n in names:
-        state["repos"][n] = {"sha": git(ROOT / n, "rev-parse", "HEAD"), "at": now()}
+        state["repos"][n] = {"sha": git(repo_dir(n), "rev-parse", "HEAD"), "at": now()}
     for n in set(state["repos"]) - set(repo_names()):
         del state["repos"][n]
     save_json(STATE_FILE, state)
@@ -186,7 +201,7 @@ def body_sha(body: str) -> str:
 
 
 def iter_docs():
-    """(logical_path, file) for every canonical doc: umbrella docs/ + each repo's openwiki/."""
+    """(logical_path, file) for every canonical doc: docs/ + each repo's OpenWiki (cam-docs/wikis/<repo>)."""
     if DOCS.is_dir():
         for f in sorted(DOCS.rglob("*.md")):
             rel = f.relative_to(DOCS)
@@ -194,13 +209,19 @@ def iter_docs():
                 continue
             yield rel.as_posix(), f
     for n in repo_names():
-        ow = ROOT / n / "openwiki"
+        ow = wiki_dir(n)
         if ow.is_dir():
             for f in sorted(ow.rglob("*.md")):
                 rel = f.relative_to(ow)
                 if any(p.startswith(".") for p in rel.parts) or rel.name in ("INSTRUCTIONS.md", "log.md"):
                     continue
                 yield f"repos/{n}/{rel.as_posix()}", f
+
+
+def wiki_dir(repo: str) -> Path:
+    """A repo's OpenWiki lives in cam-docs/wikis/<repo> (the repo gets an untracked openwiki/ symlink to it)."""
+    own = ROOT / "wikis" / repo
+    return own if own.is_dir() or CAM_LAYOUT else repo_dir(repo) / "openwiki"
 
 
 def repo_file_exists(ref: str) -> bool:
@@ -210,7 +231,7 @@ def repo_file_exists(ref: str) -> bool:
     if ":" not in ref:
         return True
     repo, path = ref.split(":", 1)
-    base = ROOT if repo in ("umbrella", ".") else ROOT / repo
+    base = ROOT if repo in ("umbrella", ".", CAM_DIR) else repo_dir(repo)
     return (base / path).exists()
 
 
@@ -233,7 +254,7 @@ def doc_status(logical: str, f: Path, langs: list[str]) -> dict:
         else:
             tfm, _ = split_fm(tf.read_text(encoding="utf-8"))
             i18n[lang] = "current" if (tfm.get("x-translation-of") or {}).get("body_sha") == sha else "outdated"
-    return {"path": logical, "file": f.relative_to(ROOT).as_posix(),
+    return {"path": logical, "file": rel_file(f),
             "title": fm.get("title") or first_heading(body) or f.stem, "description": fm.get("description", ""),
             "type": fm.get("type", ""), "trust": trust, "owner": fm.get("x-owner", "ai"), "orphan_sources": missing,
             "i18n": i18n, "body_sha": sha, "has_frontmatter": bool(fm)}
@@ -329,76 +350,22 @@ def check(strict: bool = False) -> tuple[list[str], list[str]]:
     return errors, warns
 
 
-# ---------- portal content (Starlight) ----------
-MD_LINK = re.compile(r"(\]\()([^)\s#]+\.md)(#[^)\s]*)?(\))")
-BANNERS = {
-    "draft": {"en": "🤖 AI-generated draft — not yet confirmed by a human. Verify against the code before relying on it.",
-              "es": "🤖 Borrador generado por IA — aún no confirmado por un humano. Verifícalo contra el código."},
-    "needs-reconfirm": {"en": "⚠️ Changed after human confirmation — pending re-confirmation.",
-                        "es": "⚠️ Modificado tras la confirmación humana — pendiente de reconfirmar."},
-}
-
-
-def slug(logical: str) -> str:
-    s = logical[:-3] if logical.endswith(".md") else logical
-    if s == "index" or s.endswith("/index"):
-        s = s[: -len("index")].rstrip("/")
-    s = "/".join(re.sub(r"[^a-z0-9._-]+", "-", part.lower()).strip("-") for part in s.split("/") if part)
-    return "/" + (s + "/" if s else "")
-
-
-def rewrite_links(body: str, logical: str, prefix: str) -> str:
-    base = Path(logical).parent
-    def sub(m):
-        target = m.group(2)
-        if re.match(r"^[a-z]+://", target):
-            return m.group(0)
-        resolved = os.path.normpath(str(base / target)).replace("\\", "/")
-        if resolved.startswith(".."):
-            return m.group(0)
-        return f"{m.group(1)}{prefix}{slug(resolved)}{m.group(3) or ''}{m.group(4)}"
-    return MD_LINK.sub(sub, body)
-
-
-def emit(out: Path, logical: str, text: str, trust: str, lang: str, prefix: str) -> None:
-    fm, body = split_fm(text)
-    fm = {k: v for k, v in fm.items() if k in ("title", "description")}
-    fm["title"] = fm.get("title") or first_heading(body) or Path(logical).stem
-    if trust in BANNERS:
-        fm["banner"] = {"content": BANNERS[trust].get(lang, BANNERS[trust]["en"])}
-    elif trust == "confirmed":
-        fm["sidebar"] = {"badge": {"text": "✓", "variant": "success"}}
-    body = re.sub(r"\A\s*#\s+.+\n", "", body, count=1)   # Starlight renders the title itself
-    dst = out / (prefix.strip("/") + "/" if prefix.strip("/") else "") / logical
-    dst.parent.mkdir(parents=True, exist_ok=True)
-    dst.write_text(join_fm(fm, rewrite_links(body, logical, prefix)), encoding="utf-8")
-
-
-def portal_content(out: Path, config: Path) -> int:
-    ws, rows = workspace(), collect()
-    langs = ws["project"].get("translations", [])
-    for r in rows:
-        emit(out, r["path"], (ROOT / r["file"]).read_text(encoding="utf-8"), r["trust"], "en", "")
-        for lang in langs:
-            tf = DOCS / "i18n" / lang / r["path"]
-            if tf.exists():
-                t_trust = r["trust"] if r["i18n"].get(lang) == "current" else "draft"
-                emit(out, r["path"], tf.read_text(encoding="utf-8"), t_trust, lang, f"/{lang}")
-    if not any(r["path"] == "index.md" for r in rows):
-        (out / "index.md").write_text(f"---\ntitle: {ws['project']['name']}\n---\nStart with the sidebar.\n", encoding="utf-8")
-    icon = {"confirmed": "✅ confirmed", "needs-reconfirm": "⚠️ re-confirm", "draft": "🤖 draft"}
-    table = ["| Doc | Trust | Orphan sources | Translations |", "|---|---|---|---|"]
-    for r in rows:
-        tr = ", ".join(f"{k}: {v}" for k, v in r["i18n"].items()) or "—"
-        table.append(f"| [{r['title']}]({slug(r['path'])}) | {icon[r['trust']]} | {len(r['orphan_sources']) or ''} | {tr} |")
-    (out / "status.md").write_text("---\ntitle: Documentation status\n---\n"
-                                   "**confirmed** = validated by a human (source of truth) · **draft** = AI-generated · "
-                                   "**re-confirm** = edited after confirmation.\n\n" + "\n".join(table) + "\n", encoding="utf-8")
-    cfg = {"name": ws["project"]["name"], "site": ws["project"].get("portal_url"), "translations": langs,
-           "localeLabels": {"es": "Español", "en": "English", "fr": "Français", "de": "Deutsch", "pt": "Português"},
-           "repos": [{"name": n, "wikiGraph": (ROOT / n / "openwiki").is_dir()} for n in repo_names()]}
-    config.write_text(json.dumps(cfg, indent=2) + "\n", encoding="utf-8")
-    return len(rows)
+# ---------- search (portal + MCP) ----------
+def search(query: str, limit: int = 20) -> list[dict]:
+    terms = [t for t in re.findall(r"\w+", query.lower()) if len(t) > 1]
+    if not terms:
+        return []
+    rows, hits = {r["path"]: r for r in collect()}, []
+    for logical, f in iter_docs():
+        text = f.read_text(encoding="utf-8", errors="replace")
+        low = text.lower()
+        score = sum(low.count(t) for t in terms) + 5 * sum(t in logical.lower() for t in terms)
+        if score:
+            r = rows.get(logical, {})
+            hits.append({"path": logical, "title": r.get("title", logical), "trust": r.get("trust", "?"), "score": score,
+                         "lines": [l.strip()[:240] for l in text.splitlines() if any(t in l.lower() for t in terms)][:3]})
+    hits.sort(key=lambda h: -h["score"])
+    return hits[:limit]
 
 
 CDN_RE = re.compile(r"https://(?:cdn\.jsdelivr\.net/npm|unpkg\.com)/((?:@[\w.-]+/)?[\w.-]+)@([\w.+-]+)/([\w./+-]+)")
@@ -407,8 +374,6 @@ CDN_RE = re.compile(r"https://(?:cdn\.jsdelivr\.net/npm|unpkg\.com)/((?:@[\w.-]+
 def vendor(site: Path) -> tuple[int, list[str]]:
     """Graph viewers load libraries from CDNs: fetch them through npm (works with an internal npm mirror) and
     serve them from /vendor/ so the portal works on-prem without internet."""
-    cache = CACHE / "vendor-cache"
-    cache.mkdir(parents=True, exist_ok=True)
     targets = [f for d in ("code-graph", "wiki-graph") if (site / d).exists()
                for f in (site / d).rglob("*") if f.suffix in (".html", ".js")]
     done, failed = set(), set()
@@ -417,21 +382,9 @@ def vendor(site: Path) -> tuple[int, list[str]]:
         def sub(m):
             pkg, ver, path = m.groups()
             key = f"{pkg}@{ver}"
-            pkg_dir = cache / key.replace("/", "__")
-            if key not in done and key not in failed and not pkg_dir.exists():
-                with tempfile.TemporaryDirectory() as tmp:
-                    r = run(["npm", "pack", key, "--silent", "--pack-destination", tmp], check=False, capture=True)
-                    tgz = next(Path(tmp).glob("*.tgz"), None)
-                    if r.returncode != 0 or not tgz:
-                        failed.add(key)
-                        return m.group(0)
-                    with tarfile.open(tgz) as t:
-                        try:
-                            t.extractall(pkg_dir, filter="data")
-                        except TypeError:
-                            t.extractall(pkg_dir)
-            src = pkg_dir / "package" / path
-            if key in failed or not src.exists():
+            src = None if key in failed else vendor_file(pkg, ver, path)
+            if not src:
+                failed.add(key)
                 return m.group(0)
             done.add(key)
             dst = site / "vendor" / key / path
@@ -442,6 +395,26 @@ def vendor(site: Path) -> tuple[int, list[str]]:
         if new != text:
             f.write_text(new, encoding="utf-8")
     return len(done), sorted(failed)
+
+
+def vendor_file(pkg: str, ver: str, path: str) -> Path | None:
+    """One file of an npm package, fetched once with `npm pack` into the cache."""
+    cache = CACHE / "vendor-cache"
+    pkg_dir = cache / f"{pkg}@{ver}".replace("/", "__")
+    if not pkg_dir.exists():
+        cache.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory() as tmp:
+            r = run(["npm", "pack", f"{pkg}@{ver}", "--silent", "--pack-destination", tmp], check=False, capture=True)
+            tgz = next(Path(tmp).glob("*.tgz"), None)
+            if r.returncode != 0 or not tgz:
+                return None
+            with tarfile.open(tgz) as t:
+                try:
+                    t.extractall(pkg_dir, filter="data")
+                except TypeError:
+                    t.extractall(pkg_dir)
+    f = (pkg_dir / "package" / path).resolve()
+    return f if f.is_file() and pkg_dir.resolve() in f.parents else None
 
 
 # ---------- human review ----------

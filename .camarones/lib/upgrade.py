@@ -36,6 +36,10 @@ def self_update(log=print) -> str:
     after = m.group(1) if m else before
     log(f"✔ already on the latest kit ({before})" if after == before
         else f"✔ kit updated {before} → {after} — every project using this global kit sees it now")
+    from .common import WS_FILE
+    if after != before and WS_FILE.exists():            # this project's playbook, conventions and kit skills
+        import sys
+        subprocess.run([sys.executable, str(KIT / "camarones.py"), "init"], env={**os.environ, "CAMARONES_ROOT": str(ROOT)})
     return after
 PATTERNS = ("camarones-documenter*", "camarones-kit*")
 STAGE = ROOT / "camarones-documenter-upgrade"

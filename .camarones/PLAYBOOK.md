@@ -1,7 +1,13 @@
 # Camarones Documenter playbook 🦐
 
 How an agent (Claude Code or Codex) documents a project **one unit per session**. `CONVENTIONS.md` defines the format;
-this file defines the work. `CLI` below = `./camarones.command` (macOS/Linux) or `.\camarones.cmd` (Windows).
+this file defines the work. `CLI` below = `camarones` (global install; legacy per-project copies: `./camarones.command`
+or `.\camarones.cmd`).
+
+> **Layout.** Everything the kit writes lives in `cam-docs/` (its own git repo, next to the service repos). Paths in
+> this file are relative to `cam-docs/`; repos are its siblings (`../<repo>` from `cam-docs/`, `<repo>/` from the workspace
+> folder agents run in). Never write kit files into a service repo — the only exception is the optional one-block
+> pointer in `<repo>/CLAUDE.md` that the kit itself manages.
 
 > *Camarón que se duerme, se lo lleva la corriente* — save progress early and often.
 
@@ -10,7 +16,7 @@ this file defines the work. `CLI` below = `./camarones.command` (macOS/Linux) or
 1. **Load only what the unit needs.** Start with `docs/.work/handoff.md`, then the files it points to. Deep work fills
    the context window fast: prefer `graphify query "…"` / `graphify explain` / OpenAPI files over reading whole trees.
 2. **Claim the unit**: `CLI plan start <id>`. If the unit is already `doing` it was interrupted (the user closed the
-   session or the computer): read its checkpoints in `docs/.work/units/<id>.md`, `git status`/`git diff` of the umbrella
+   session or the computer): read its checkpoints in `docs/.work/units/<id>.md`, `git status`/`git diff` of `cam-docs/`
    and the unit's output files, and **continue** from the last checkpoint — never start over.
 3. **Write as you go and checkpoint.** Persist findings to their final file (or a clearly named draft) during the
    session, not at the end. After each significant step run `CLI plan note <id> "done: … / next: …"` — that line is what
@@ -34,14 +40,13 @@ this file defines the work. `CLI` below = `./camarones.command` (macOS/Linux) or
 
 ## setup
 Done by the wizard (`CLI setup`). If an agent lands here: run it, report missing prerequisites with the fix, mark done.
-The wizard asks once for a branch name (`project.agent_branch` in `.camarones/workspace.yaml`) before wiring agent
-config (`.claude/`, `.codex/`, AGENTS.md/CLAUDE.md rules, MCP) into every repo, so it never lands directly on the
-repo's main branch; it commits the wiring on that branch (never on `main`) and, once done, asks whether to push with
-the saved GitLab/GitHub token or leave it for the user to push themselves.
+Agent config (`.claude/`, `.codex/`, `.agents/`, `.mcp.json`, AGENTS.md/CLAUDE.md) is written to `cam-docs/` and linked
+from the workspace folder; code graphs go to `graph/<repo>/`. Service repos are not touched.
 
 ## discovery
 Scope: one repo. Output: `docs/interview/discovery/<repo>.md` (`type: interview`). Read-only on code.
-Truth order: OpenAPI/AsyncAPI → manifests → config → code; navigate with `graphify` (inside the repo) rather than grep.
+Truth order: OpenAPI/AsyncAPI → manifests → config → code; navigate with `graphify query "…" --graph graph/<repo>/graph.json`
+(or the `camarones` MCP tool `repo_graph`) rather than grep.
 Capture with evidence `<repo>:<path>#Lx-Ly`:
 - **Stack**: language+version, framework (Spring Boot, Quarkus, Flutter, FastAPI…), build/test tools, Dockerfile.
 - **Run/test locally**: commands, compose files, env vars, profiles, toolchain pins (`.sdkmanrc`, `.java-version`, `.nvmrc`,
@@ -83,20 +88,27 @@ Unattended: do not ask; take the most reasonable reading and record every questi
 
 ## repo-brief
 The foundation for one repo — after this unit the repo is useful on its own:
-1. `<repo>/openwiki/INSTRUCTIONS.md`: the repo's role, bounded context, key glossary terms, integrations, what to emphasize.
+1. `wikis/<repo>/INSTRUCTIONS.md` (the repo sees it as an untracked `openwiki/` link): the repo's role, bounded context,
+   key glossary terms, integrations, what to emphasize.
 2. C4: its container in `docs/architecture/model.c4` (create `likec4.config.json` + `model.c4` + `views.c4` if missing —
    or run `CLI arch-draft --save` to start from the static-scan draft)
    and `docs/architecture/repos/<repo>.c4` (components + `<repo_snake>_components` view). `CLI arch-validate` → ✓ Valid.
-3. Managed blocks (CONVENTIONS §7): `<repo>/AGENTS.md` (stack, commands, interfaces, data, doc pointers, trust rule),
-   `<repo>/CLAUDE.md` starting with `@AGENTS.md`, `<repo>/README.md` block with the Mermaid component diagram
-   (`likec4 gen mermaid docs/architecture -o build/mmd` → `build/mmd/repos/<repo_snake>_components.mmd`).
+3. Repo brief (CONVENTIONS §7): `docs/repos/<repo>/brief.md` — stack, how to build/test/run, interfaces, data owned,
+   doc pointers and the Mermaid component diagram (`likec4 gen mermaid docs/architecture -o build/mmd` →
+   `build/mmd/repos/<repo_snake>_components.mmd`). Do not edit the repo's own README/AGENTS.md/CLAUDE.md.
 
 ## repo-wiki
-Generate the OpenWiki of one repo. Preferred: OpenWiki MCP tools (`openwiki_begin` with the repo's absolute git root, mode
-`init` if `<repo>/openwiki/` is missing else `update`, then follow the returned lifecycle). If the tools are not loaded in
-this session (they load at session start from `.mcp.json`), tell the user to restart the agent in the umbrella folder, or
-use the CLI in the repo when a provider key is configured: `openwiki code --init --print`. Never edit `openwiki/.claims`,
-`.run.json`, indexes or OpenWiki-managed blocks.
+Generate the OpenWiki of one repo. The unit exists only for the repos the user chose (`wiki: true` in
+`.camarones/workspace.yaml`; wizard → 📚 Wikis → choose) and needs `wikis/<repo>/INSTRUCTIONS.md` from repo-brief. Keep
+the wiki about the repo's internals: the cross-repo domain, flows and C4 live in `docs/` — do not restate them.
+Simplest: `CLI wiki <repo>` (headless: OpenWiki with a provider key, else Claude Code / Codex through the OpenWiki MCP;
+the portal's Wikis tab runs the same; one run at a time, and a batch stops when the engine is out of quota or logged
+out). Doing it yourself with the OpenWiki MCP tools:
+first `CLI wiki <repo> --open` (OpenWiki refuses the `openwiki/` symlink, so this makes it a real folder), then
+`openwiki_begin` with the repo's absolute git root, mode `init` if `wikis/<repo>/` is empty else `update`, follow the
+returned lifecycle, and always finish with `CLI wiki <repo> --close` (moves the pages to `wikis/<repo>/` and removes the
+AGENTS.md / CLAUDE.md / `.github/` files OpenWiki adds to the repo; without a prior `--open` it does nothing). If the tools are not loaded (they load at session
+start from `.mcp.json`), use `CLI wiki <repo>`. Never edit `openwiki/.claims`, `.run.json`, indexes or OpenWiki-managed blocks.
 
 ## arch-system
 If `docs/architecture/first-look.md` exists, the C4 files started as a static-scan draft: verify and refine them rather
@@ -168,10 +180,12 @@ Spanish for every canonical page written/changed since the last i18n pass (`CLI 
 under `docs/i18n/es/<same path>` (repo wikis: `docs/i18n/es/repos/<repo>/<page>`); then `CLI translated <files>`, `CLI llms`.
 
 ## portal
-Wizard: `CLI portal` then `CLI up`. Check `/`, `/architecture/`, `/code-graph/` and a flow page.
+Wizard: `CLI up` (one portal: Docs to read/edit/confirm/comment, Architecture (C4), Code graph, Wikis, Review). For
+hosting: `CLI portal` exports the same app read-only to `.camarones/.cache/site` (no npm); check `#/docs`, `#/c4`,
+`#/code/all`, `#/wikis` and a flow page with `CLI up --static`.
 
 ## ci
-Wizard: `CLI ci` installs the umbrella pipeline; per-repo snippets are in `.camarones/ci/`. Propose them; the user applies
+Wizard: `CLI ci` installs the `cam-docs` pipeline; per-repo snippets are in `.camarones/ci/`. Propose them; the user applies
 them to service repos.
 
 ## confirm
@@ -180,7 +194,7 @@ which pages come straight from the user's answers and run `CLI confirm <files> -
 the user says something is wrong, record it with `CLI feedback <file> "<comment>" --by <name>` (→ `review-fixes`).
 
 ## handover
-`CLI mark-documented`; commit on branch `docs/camarones` in the umbrella and each touched repo (ask before pushing / MRs);
+`CLI mark-documented`; commit on branch `docs/camarones` in `cam-docs/` (ask before pushing / MRs; service repos are untouched);
 final summary: counts per type, drafts left, open questions, how to update (`update` below), tutorial link.
 
 ## update
@@ -189,7 +203,7 @@ Recurring after the first full pass (also what CI runs):
 2. Repo wikis of changed repos: OpenWiki `update` (skip if that repo's CI already did it).
 3. Map changed files to docs via `x-sources`; update affected pages and C4 (interfaces, dependencies, deployment).
    New capability → draft flow + open question.
-4. Refresh managed blocks if stack/commands/interfaces/diagram changed.
+4. Refresh `docs/repos/<repo>/brief.md` if stack/commands/interfaces/diagram changed.
 5. Cleanup (CONVENTIONS §9): orphan drafts deleted (with translations and C4 elements); orphan confirmed pages → question.
 6. Translations of changed pages + `CLI translated`; `CLI arch-validate`, `CLI llms`, `CLI check`, `CLI mark-documented`.
 7. Short report: pages created/updated/deleted, confirmed pages needing re-confirmation, new questions.

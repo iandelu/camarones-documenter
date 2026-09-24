@@ -1,17 +1,22 @@
 # Documentation conventions (Camarones Documenter kit)
 
 Canonical language: **English**. Everything an agent (Claude Code, Codex, CI) writes follows this file.
-Humans: see `docs/guides/tutorial.md`. `CLI` = `./camarones.command` (macOS/Linux) or `.\camarones.cmd` (Windows).
+Humans: see `docs/guides/tutorial.md`. `CLI` = `camarones` (legacy per-project copies: `./camarones.command` / `.\camarones.cmd`).
+
+> **Layout.** Everything the kit writes lives in `cam-docs/` (its own git repo, next to the service repos). Paths in
+> this file are relative to `cam-docs/`; repos are its siblings (`../<repo>` from `cam-docs/`, `<repo>/` from the workspace
+> folder agents run in). Never write kit files into a service repo — the only exception is the optional one-block
+> pointer in `<repo>/CLAUDE.md` that the kit itself manages.
 
 ## 1. Where things live
 
 | What | Where | Written by |
 |---|---|---|
-| Repo-level wiki (per microservice/app) | `<repo>/openwiki/` (OpenWiki OKF pages + grounded claims) | OpenWiki (via Claude/Codex integration or CI) |
-| Repo guidance for agents | `<repo>/AGENTS.md` (managed block) + `<repo>/CLAUDE.md` = `@AGENTS.md` + tool blocks | Camarones Documenter agent |
-| Repo README (humans) | `<repo>/README.md` (managed block only) | Camarones Documenter agent |
-| Project context for OpenWiki | `<repo>/openwiki/INSTRUCTIONS.md` (user-authored brief OpenWiki reads, never rewrites) | Camarones Documenter, then humans |
-| Code graph | `<repo>/graphify-out/` (git-ignored, rebuilt by hooks/CI), merged in `.camarones/.cache/graph/` | graphify |
+| Repo-level wiki (only repos with `wiki: true` in workspace.yaml) | `wikis/<repo>/` (OpenWiki OKF pages + grounded claims; `<repo>/openwiki` is an untracked link to it) | OpenWiki (via Claude/Codex integration or CI) |
+| Repo brief (stack, commands, interfaces, data, component diagram) | `docs/repos/<repo>/brief.md` | Camarones Documenter agent |
+| Agent rules, skills, MCP | `AGENTS.md`, `CLAUDE.md` (`@AGENTS.md` + project notes), `.claude/`, `.codex/`, `.agents/`, `.mcp.json` — linked from the workspace folder | kit (managed blocks) + humans |
+| Project context for OpenWiki | `wikis/<repo>/INSTRUCTIONS.md` (user-authored brief OpenWiki reads, never rewrites) | Camarones Documenter, then humans |
+| Code graph | `graph/<repo>/` (git-ignored, AST-only, `CLI graph`), merged in `.camarones/.cache/graph/` | graphify |
 | Work plan & session handoff | `docs/.work/plan.yaml`, `handoff.md`, `log.md` | Camarones Documenter CLI + agents |
 | C4 model (single source for every architecture diagram) | `docs/architecture/*.c4` | Camarones Documenter agent |
 | Project overview, domain, flows, data, deployment, ADRs, quality | `docs/<section>/*.md` | Camarones Documenter + humans |
@@ -108,16 +113,16 @@ interview), `architecture-review.md` (area · impact · estimated effort · evid
 
 **Deployment** (`docs/deployment/environments.md`): environments, URLs, infra source (Helm/K8s/ArgoCD/compose), config/secrets sources.
 
-## 7. Per-repo managed blocks
+## 7. Repo briefs and managed blocks
 
-Managed blocks are delimited by `<!-- camarones:start -->` / `<!-- camarones:end -->`.
-Only the content between the markers is rewritten; everything else in the file is left alone.
+Service repos carry no kit files. What an agent needs to work on one repo is its brief, `docs/repos/<repo>/brief.md`:
+purpose (1 line) · stack (language, framework, versions, build tool) · how to build/test/run locally · interfaces
+(endpoints, listeners, topics) · data owned · component diagram (Mermaid from LikeC4) · where the rest is (`wikis/<repo>/`,
+`graph/<repo>/`, portal pages) · trust rule (section 3).
 
-- `AGENTS.md` block: purpose (1 line) · stack (language, framework, versions, build tool) · how to build/test/run locally ·
-  interfaces (endpoints, listeners, topics) · data owned · where the docs are (`openwiki/`, umbrella `docs/`, `graphify-out/`) ·
-  trust rule (section 3).
-- `CLAUDE.md`: first line `@AGENTS.md` (Claude Code import) so both agents share one source; tool blocks (graphify, OpenWiki) stay.
-- `README.md` block: what it is · component diagram (Mermaid from LikeC4) · run locally · links to portal pages.
+Managed blocks (`<!-- camarones:start -->` / `<!-- camarones:end -->` in `AGENTS.md`; `<!-- cam-docs:start -->` /
+`<!-- cam-docs:end -->` for the optional pointer in `<repo>/CLAUDE.md`) are rewritten by the kit only; everything outside
+the markers is left alone.
 
 ## 8. Translations
 

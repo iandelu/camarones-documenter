@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import json, os, re, shutil, subprocess, webbrowser
+from collections import deque
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable
 
-from .common import (KIT, ROOT, DOCS, HOME, CACHE, IS_WIN, IS_MAC, VERSIONS, run, out, which, uv, ensure_path, cli_cmd,
-                     kit_ref, sdkman_dir)
+from .common import (KIT, ROOT, DOCS, HOME, CACHE, IS_WIN, IS_MAC, VERSIONS, CAM_DIR, CAM_LAYOUT, WORKSPACE, GRAPHS, run, out,
+                     which, uv, ensure_path, cli_cmd, sdkman_dir, repo_dir, ws_rel, rel_file, load_json, save_json)
 from . import docs
 
 Log = Callable[[str], None]
@@ -14,31 +16,75 @@ TEMPLATES = KIT / "templates"
 
 
 # ---------- templates ----------
+KIT_DOCS = ("PLAYBOOK.md", "CONVENTIONS.md")         # copied into the project so agents (and the team) can read them
+KIT_DOCS_STAMP = ROOT / ".camarones" / ".kit-docs.json"
+
+
+def fill(text: str, name: str) -> str:
+    return (text.replace("{{PROJECT_NAME}}", name).replace("{{CLI}}", cli_cmd())
+            .replace("{{CAM}}", f"{CAM_DIR}/" if CAM_LAYOUT else ""))
+
+
 def init_templates(project_name: str | None = None, log: Log = print) -> list[str]:
-    """Copy umbrella templates that do not exist yet (never overwrites project files)."""
+    """Copy templates that do not exist yet (never overwrites project files), plus the kit's playbook/conventions."""
     created = []
+    name = project_name or docs.workspace()["project"]["name"]
     for src in sorted(TEMPLATES.rglob("*")):
         if src.is_dir():
             continue
         rel = src.relative_to(TEMPLATES)
+        if rel.parts[0] == "skills":            # kit-owned: always refreshed, for Claude Code and Codex alike
+            for host in (".claude", ".agents"):
+                dst = ROOT / host / rel
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                dst.write_text(fill(src.read_text(encoding="utf-8"), name), encoding="utf-8")
+            continue
         dst = ROOT / rel
         if dst.exists():
             if rel.as_posix() == "AGENTS.md":
                 refresh_block(src, dst, project_name)
+            elif rel.as_posix() == "CLAUDE.md":
+                ensure_agents_import(dst)
             continue
         dst.parent.mkdir(parents=True, exist_ok=True)
-        text = src.read_text(encoding="utf-8")
-        name = project_name or docs.workspace()["project"]["name"]
-        dst.write_text(text.replace("{{PROJECT_NAME}}", name).replace("{{CLI}}", cli_cmd())
-                       .replace("{{KIT}}", kit_ref()), encoding="utf-8")
+        dst.write_text(fill(src.read_text(encoding="utf-8"), name), encoding="utf-8")
         created.append(rel.as_posix())
+    created += sync_kit_docs()
     if not (ROOT / ".git").exists():
         subprocess.run(["git", "init", "-q", str(ROOT)])
-        created.append(".git (umbrella repo)")
+        created.append(".git (docs repo)")
     docs.write_gitignore()
     for c in created:
         log(f"  + {c}")
     return created
+
+
+def ensure_agents_import(claude_md: Path) -> None:
+    """A pre-existing CLAUDE.md (project notes) must still pull in the kit's AGENTS.md rules."""
+    text = claude_md.read_text(encoding="utf-8")
+    if "@AGENTS.md" not in text:
+        claude_md.write_text("@AGENTS.md\n\n" + text, encoding="utf-8")
+
+
+def sync_kit_docs() -> list[str]:
+    """Copy PLAYBOOK/CONVENTIONS into the project's .camarones/ (versioned with the docs). A copy the team edited
+    since the last sync is kept as is — only untouched copies follow kit upgrades."""
+    if (ROOT / ".camarones").resolve() == KIT.resolve():
+        return []                                   # legacy: the kit itself lives in this project
+    import hashlib
+    stamp, changed = load_json(KIT_DOCS_STAMP, {}), []
+    for n in KIT_DOCS:
+        src, dst = KIT / n, ROOT / ".camarones" / n
+        cur = hashlib.sha256(dst.read_bytes()).hexdigest() if dst.exists() else None
+        new = hashlib.sha256(src.read_bytes()).hexdigest()
+        if cur == new or (cur and stamp.get(n) != cur):
+            continue
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(src, dst)
+        stamp[n] = new
+        changed.append(f".camarones/{n}")
+    save_json(KIT_DOCS_STAMP, stamp)
+    return changed
 
 
 def refresh_block(src: Path, dst: Path, project_name: str | None = None) -> bool:
@@ -47,9 +93,7 @@ def refresh_block(src: Path, dst: Path, project_name: str | None = None) -> bool
     cur, tpl = dst.read_text(encoding="utf-8"), src.read_text(encoding="utf-8")
     if a not in cur or b not in cur or a not in tpl:
         return False
-    name = project_name or docs.workspace()["project"]["name"]
-    block = (tpl[tpl.index(a):tpl.index(b) + len(b)].replace("{{PROJECT_NAME}}", name)
-              .replace("{{CLI}}", cli_cmd()).replace("{{KIT}}", kit_ref()))
+    block = fill(tpl[tpl.index(a):tpl.index(b) + len(b)], project_name or docs.workspace()["project"]["name"])
     new = cur[:cur.index(a)] + block + cur[cur.index(b) + len(b):]
     if new != cur:
         dst.write_text(new, encoding="utf-8")
@@ -68,7 +112,7 @@ JVM_MARKERS = ("pom.xml", "build.gradle", "build.gradle.kts", "mvnw", "gradlew",
 
 
 def jvm_repos() -> list[str]:
-    return [n for n in docs.repo_names() if any((ROOT / n / m).exists() for m in JVM_MARKERS)]
+    return [n for n in docs.repo_names() if any((repo_dir(n) / m).exists() for m in JVM_MARKERS)]
 
 
 def java_info() -> dict:
@@ -86,7 +130,7 @@ def java_info() -> dict:
                                                     if (p / "current").exists())) + ")" if (sdkman_dir() / "candidates").is_dir() else "SDKMAN ✔")
     if tools:
         note.append("build: " + ", ".join(tools))
-    rc = [n for n in docs.repo_names() if (ROOT / n / ".sdkmanrc").exists()]
+    rc = [n for n in docs.repo_names() if (repo_dir(n) / ".sdkmanrc").exists()]
     if rc:
         note.append(".sdkmanrc in: " + ", ".join(rc) + " → `sdk env` inside those repos")
     return {"ok": bool(ver), "need": False, "found": f"java {ver}" if ver else "—", "sdkman": sdk,
@@ -168,8 +212,7 @@ KIT_TOOLS = {
     "openwiki": "OpenWiki — one wiki per repo with grounded claims",
 }
 EXTRAS = {
-    "agents": "Claude Code / Codex wiring in every repo (skills, MCP, rules)",
-    "hooks": "git hooks: code graph rebuilds itself on commit / checkout",
+    "agents": "Claude Code / Codex wiring in cam-docs (skills, MCP, rules), linked from the workspace root",
 }
 ALL_COMPONENTS = [*KIT_TOOLS, *EXTRAS]
 
@@ -177,7 +220,7 @@ ALL_COMPONENTS = [*KIT_TOOLS, *EXTRAS]
 def components() -> list[str]:
     """Components chosen in the wizard (stored in .camarones/workspace.yaml → project.components). Default: all."""
     chosen = docs.workspace()["project"].get("components")
-    return list(ALL_COMPONENTS) if chosen is None else chosen
+    return list(ALL_COMPONENTS) if chosen is None else [c for c in chosen if c in ALL_COMPONENTS]
 
 
 def set_profile(name: str) -> None:
@@ -227,7 +270,11 @@ def install_tools(log: Log = print, comps: list[str] | None = None) -> None:
                 fh.write("OPENWIKI_TELEMETRY_DISABLED=1\n")
 
 
-# ---------- repo wiring ----------
+# ---------- wiring: everything lives in cam-docs, the service repos stay clean ----------
+LINKS = (".claude", ".codex", ".agents", ".mcp.json", "AGENTS.md", "CLAUDE.md")   # workspace root → cam-docs
+POINTER_START, POINTER_END = "<!-- cam-docs:start -->", "<!-- cam-docs:end -->"
+
+
 def _append_lines(f: Path, lines: list[str]) -> None:
     have = set(f.read_text(encoding="utf-8").splitlines()) if f.exists() else set()
     new = [l for l in lines if l not in have]
@@ -238,138 +285,152 @@ def _append_lines(f: Path, lines: list[str]) -> None:
             fh.write("\n".join(new) + "\n")
 
 
+def git_exclude(repo: Path, pattern: str) -> None:
+    """Ignore a path in `repo` locally (.git/info/exclude is never committed, so the repo's history stays clean)."""
+    if (repo / ".git").is_dir():
+        f = repo / ".git" / "info" / "exclude"
+        f.parent.mkdir(parents=True, exist_ok=True)
+        _append_lines(f, [pattern])
+
+
+def link(dst: Path, target: Path, log: Log = print) -> bool:
+    """dst → target symlink (relative). An existing real file/dir is never replaced. Windows without symlink
+    rights: directories become junctions, files are left alone (the warning says what to do)."""
+    if dst.is_symlink():
+        if dst.resolve() == target.resolve():
+            return True
+        dst.unlink()
+    elif dst.exists():
+        log(f"⚠ {dst.name} already exists in {dst.parent} — not linked (move it into {CAM_DIR}/ or run migrate)")
+        return False
+    try:
+        dst.symlink_to(os.path.relpath(target, dst.parent), target_is_directory=target.is_dir())
+        return True
+    except OSError:
+        if IS_WIN and target.is_dir():
+            return run(["cmd", "/c", "mklink", "/J", str(dst), str(target)], check=False, quiet=True).returncode == 0
+        log(f"⚠ could not link {dst} → {target} (enable Developer Mode on Windows)")
+        return False
+
+
+def link_workspace(log: Log = print) -> list[str]:
+    """Agents open in the workspace folder (so they see every repo): point its config files at cam-docs."""
+    if not CAM_LAYOUT:
+        return []
+    (ROOT / ".claude").mkdir(exist_ok=True)
+    return [n for n in LINKS if (ROOT / n).exists() and link(WORKSPACE / n, ROOT / n, log)]
+
+
+def camarones_mcp() -> dict:
+    """MCP entry for the kit's own server — no API keys; it resolves the project by walking up from its cwd."""
+    if cli_cmd() == "camarones":
+        return {"command": "camarones", "args": ["mcp"]}
+    return {"command": "uv", "args": ["run", "--quiet", "--script", str(KIT / "camarones.py"), "mcp"]}
+
+
+GRAPHIFY_SECTION = re.compile(r"\n*^## graphify\n.*?(?=^## |\Z)", re.S | re.M)
+
+
+def without_graphify_hooks(data: dict) -> dict:
+    """graphify's hooks assume a graphify-out/ in the cwd; the kit keeps graphs in cam-docs/graph/ instead."""
+    for event, groups in list((data.get("hooks") or {}).items()):
+        groups = [g for g in groups if not any("graphify" in h.get("command", "") for h in g.get("hooks", []))]
+        if groups:
+            data["hooks"][event] = groups
+        else:
+            del data["hooks"][event]
+    if data.get("hooks") == {}:
+        del data["hooks"]
+    return data
+
+
+def install_graphify_skill() -> None:
+    """Only the skill: `graphify install --project` would also add hooks and rules pointing at graphify-out/."""
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        run(["graphify", "install", "--project"], cwd=Path(tmp), check=False, quiet=True)
+        run(["graphify", "install", "--project", "--platform", "codex"], cwd=Path(tmp), check=False, quiet=True)
+        for host in (".claude", ".codex", ".agents"):
+            src = Path(tmp) / host / "skills" / "graphify"
+            if src.is_dir():
+                shutil.copytree(src, ROOT / host / "skills" / "graphify", dirs_exist_ok=True)
+
+
+def write_agent_config(comps: list[str]) -> None:
+    for f in (ROOT / "AGENTS.md", ROOT / "CLAUDE.md"):
+        if f.is_file() and GRAPHIFY_SECTION.search(text := f.read_text(encoding="utf-8")):
+            f.write_text(GRAPHIFY_SECTION.sub("", text).rstrip() + "\n", encoding="utf-8")
+    hooks = ROOT / ".codex" / "hooks.json"
+    if hooks.is_file():
+        data = without_graphify_hooks(load_json(hooks, {}))
+        save_json(hooks, data) if data else hooks.unlink()
+    mcp_file = ROOT / ".mcp.json"
+    cfg = load_json(mcp_file, {})
+    servers = cfg.setdefault("mcpServers", {})
+    servers["camarones"] = camarones_mcp()
+    if "openwiki" not in comps:
+        servers.pop("openwiki", None)
+    save_json(mcp_file, cfg)
+    settings = ROOT / ".claude" / "settings.json"
+    st = without_graphify_hooks(load_json(settings, {}))
+    st["enabledMcpjsonServers"] = sorted(set(st.get("enabledMcpjsonServers", [])) | set(servers))
+    save_json(settings, st)
+
+
 def wire_repo(name: str, log: Log = print, comps: list[str] | None = None) -> None:
+    """Nothing is written into the repo's tracked files: the code graph goes to cam-docs/graph/<repo>, and the
+    OpenWiki folder is an untracked symlink into cam-docs/wikis/<repo>."""
     comps = components() if comps is None else comps
-    d = ROOT / name
-    q = dict(check=False, quiet=True, cwd=d)
-    agents = "agents" in comps
-    if agents and "openwiki" in comps:
-        log(f"{name}: OpenWiki skill + MCP for Claude/Codex…")
-        for host in ("claude", "codex"):
-            if run(["openwiki", "integrations", "install", host, "--project", "."], **q).returncode != 0:
-                log(f"⚠ {name}: openwiki {host} integration failed")
+    if "openwiki" in comps and CAM_LAYOUT:
+        link_repo_wiki(name, log)
     if "graphify" in comps:
-        if agents:
-            log(f"{name}: graphify skill + 'query the graph first' rules…")
-            run(["graphify", "install", "--project"], **q)
-            run(["graphify", "install", "--project", "--platform", "codex"], **q)
-            run(["graphify", "claude", "install"], **q)
-            run(["graphify", "codex", "install"], **q)
-        if "hooks" in comps and run(["graphify", "hook", "install"], **q).returncode != 0:
-            log(f"⚠ {name}: graphify git hooks not installed")
-        _append_lines(d / ".gitignore", ["graphify-out/", "*.graphify-bak"])
-        _append_lines(d / ".graphifyignore", [".claude/", ".codex/", ".agents/", "openwiki/", "graphify-out/"])
-        _append_lines(d / ".claudeignore", ["graphify-out/"])
         log(f"{name}: building the code graph…")
-        if run(["graphify", "update", ".", "--force"], **q).returncode != 0:
+        if not graph_repo(name):
             log(f"⚠ {name}: graphify build failed")
 
 
-AGENT_WIRE_DESC = {"en": "wire Camarones agent setup (.claude, .codex, AGENTS.md/CLAUDE.md rules, MCP)",
-                    "es": "configura los agentes de Camarones (.claude, .codex, reglas AGENTS.md/CLAUDE.md, MCP)"}
-CONV_COMMIT_RE = re.compile(r"^(\w+)(\([\w./*-]+\))?!?:\s+\S")
-ES_WORD_RE = re.compile(r"\b(el|la|los|las|de|del|para|con|se|agrega|añade|anade|corrige|actualiza|configura|"
-                        r"arregla|elimina|mejora|cambia)\b", re.I)
+def link_repo_wiki(name: str, log: Log = print) -> None:
+    d, wiki = repo_dir(name), ROOT / "wikis" / name
+    if (d / "openwiki").is_dir() and not (d / "openwiki").is_symlink() and not wiki.exists():
+        wiki.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(d / "openwiki"), str(wiki))
+    wiki.mkdir(parents=True, exist_ok=True)
+    if link(d / "openwiki", wiki, log):
+        git_exclude(d, "/openwiki")
 
 
-def commit_style(name: str) -> dict:
-    """Sniff repo `name`'s own commit convention from its recent history, so commits Camarones makes there
-    (agent wiring) match it instead of always using one fixed format. No clear pattern (or no history yet)
-    falls back to plain Conventional Commits — the most common baseline — in English."""
-    subjects = [s for s in out(["git", "log", "-n", "60", "--format=%s"], cwd=ROOT / name).splitlines() if s.strip()]
-    if not subjects:
-        return {"conventional": True, "type": "chore", "scoped": False, "lang": "en"}
-    hits = [m for m in (CONV_COMMIT_RE.match(s) for s in subjects) if m]
-    conventional = len(hits) >= max(3, len(subjects) // 2)
-    if conventional:
-        types = [m.group(1).lower() for m in hits]
-        meta = [t for t in types if t in ("chore", "build", "ci", "tooling")]
-        from collections import Counter
-        typ = Counter(meta or types).most_common(1)[0][0]
-        scoped = sum(1 for m in hits if m.group(2)) >= len(hits) / 2
-    else:
-        typ, scoped = "chore", False
-    lang = "es" if sum(1 for s in subjects if ES_WORD_RE.search(s)) > len(subjects) / 3 else "en"
-    return {"conventional": conventional, "type": typ, "scoped": scoped, "lang": lang}
-
-
-def agent_wiring_message(name: str) -> str:
-    style = commit_style(name)
-    desc = AGENT_WIRE_DESC[style["lang"]]
-    if not style["conventional"]:
-        return desc[0].upper() + desc[1:]
-    return f"{style['type']}{'(agents)' if style['scoped'] else ''}: {desc}"
-
-
-def ensure_agent_branch(name: str, branch: str, log: Log = print) -> bool:
-    """Switch repo `name` to `branch` (creating it, from whatever is local or on origin, if it doesn't exist yet)
-    before wiring writes anything. Skips — leaving the repo on its current branch — if the working tree is dirty."""
-    d = ROOT / name
-    q = dict(check=False, quiet=True, cwd=d)
-    if out(["git", "status", "--porcelain"], cwd=d):
-        log(f"⚠ {name}: local changes — wiring on the current branch instead of '{branch}'")
+def add_repo_pointer(name: str) -> bool:
+    """Optional: a short block in the repo's CLAUDE.md pointing at cam-docs (appended; existing text is kept)."""
+    f = repo_dir(name) / "CLAUDE.md"
+    text = f.read_text(encoding="utf-8") if f.exists() else ""
+    if POINTER_START in text:
         return False
-    cur = out(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=d)
-    if cur == branch:
-        return True
-    url = next((r.get("url", "") for r in docs.workspace()["repos"] if r["name"] == name), "")
-    from . import creds
-    gitenv = creds.git_env(url)
-    run(["git", "fetch", "--quiet", "origin", branch], **{**q, "env": gitenv})
-    if run(["git", "show-ref", "--verify", "--quiet", f"refs/heads/{branch}"], **q).returncode == 0:
-        run(["git", "checkout", "-q", branch], **q)
-    elif run(["git", "show-ref", "--verify", "--quiet", f"refs/remotes/origin/{branch}"], **q).returncode == 0:
-        run(["git", "checkout", "-q", "-b", branch, f"origin/{branch}"], **q)
-    else:
-        run(["git", "checkout", "-q", "-b", branch], **q)
-    ok = out(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=d) == branch
-    if not ok:
-        log(f"⚠ {name}: could not switch to '{branch}' — wiring on the current branch instead")
-    return ok
+    block = (f"{POINTER_START}\nProject docs, architecture and agent config live in `../{CAM_DIR}/` "
+             f"(read `../{CAM_DIR}/docs/llms.txt` first; update the affected docs after changing code).\n{POINTER_END}\n")
+    f.write_text((text.rstrip() + "\n\n" if text.strip() else "") + block, encoding="utf-8")
+    return True
 
 
-def commit_agent_wiring(name: str, log: Log = print) -> bool:
-    """Commit whatever wiring just wrote in repo `name` (never pushes)."""
-    d = ROOT / name
-    run(["git", "add", "-A"], cwd=d, check=False, quiet=True)
-    if run(["git", "diff", "--cached", "--quiet"], cwd=d, check=False, quiet=True).returncode == 0:
-        return False
-    ident = [] if out(["git", "config", "user.email"], cwd=d) else ["-c", "user.name=Camarones Documenter",
-                                                                     "-c", "user.email=camarones@localhost"]
-    r = run(["git", *ident, "commit", "-q", "-m", agent_wiring_message(name), "--no-verify"], cwd=d, check=False, quiet=True)
-    return r.returncode == 0
-
-
-def push_agent_branch(name: str, branch: str, log: Log = print) -> bool:
-    """Push `branch` for repo `name` using the saved GitLab/GitHub token (never stored in the repo)."""
-    from . import creds
-    d = ROOT / name
-    url = next((r.get("url", "") for r in docs.workspace()["repos"] if r["name"] == name), "")
-    r = run(["git", "push", "-u", "origin", branch], cwd=d, check=False, quiet=True, env=creds.git_env(url))
-    return r.returncode == 0
-
-
-def repos_on_branch(branch: str) -> list[str]:
-    """Which repos (among the ones already cloned) are currently checked out on `branch`."""
-    return [n for n in docs.repo_names()
-            if (ROOT / n / ".git").exists() and out(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=ROOT / n) == branch]
-
-
-def wire_one(name: str, log: Log = print, comps: list[str] | None = None, branch: str | None = None) -> None:
-    """Wire one repo; when `branch` is given, do it on that branch (created if needed) and commit the result —
-    `branch=None` keeps the old behaviour: write on whatever branch is already checked out, commit nothing."""
-    if branch:
-        ensure_agent_branch(name, branch, log)
+def wire_one(name: str, log: Log = print, comps: list[str] | None = None) -> None:
     wire_repo(name, log, comps)
-    if branch:
-        commit_agent_wiring(name, log)
+    if docs.workspace()["project"].get("repo_pointer"):
+        add_repo_pointer(name)
 
 
 def wire_umbrella(log: Log = print, comps: list[str] | None = None) -> None:
     comps = components() if comps is None else comps
-    if "agents" in comps and "openwiki" in comps:
-        for host in ("claude", "codex"):
-            run(["openwiki", "integrations", "install", host, "--project", "."], cwd=ROOT, check=False, quiet=True)
+    if "agents" in comps:
+        q = dict(cwd=ROOT, check=False, quiet=True)
+        if "openwiki" in comps:
+            for host in ("claude", "codex"):
+                run(["openwiki", "integrations", "install", host, "--project", "."], **q)
+        if "graphify" in comps:
+            install_graphify_skill()
+        init_templates(log=lambda _: None)          # kit skills + AGENTS.md/CLAUDE.md
+        write_agent_config(comps)
+        linked = link_workspace(log)
+        if linked:
+            log(f"✔ {WORKSPACE.name}/ → {CAM_DIR}/: {', '.join(linked)}")
     log("✔ project folder ready for Claude Code / Codex")
 
 
@@ -380,13 +441,12 @@ def setup_steps(comps: list[str] | None = None) -> int:
     n += len(docs.repo_names())                              # repos wired
     n += 1                                                   # umbrella
     n += 1 if "graphify" in comps else 0
+    n += 1 if "agents" in comps and CAM_LAYOUT else 0
     n += 1 if "likec4" in comps and (DOCS / "architecture" / "likec4.config.json").exists() else 0
     return n
 
 
-def setup(ci: bool = False, log: Log = print, comps: list[str] | None = None, branch: str | None = None) -> bool:
-    """`branch`: wire every repo on this branch (created if needed) and commit the wiring there, instead of writing
-    directly on whatever is checked out. None (default, and always in CI) keeps the old behaviour."""
+def setup(ci: bool = False, log: Log = print, comps: list[str] | None = None) -> bool:
     comps = components() if comps is None else comps
     missing = [k for k, v in prerequisites().items() if v["need"] and not v["ok"]]
     if missing:
@@ -400,8 +460,8 @@ def setup(ci: bool = False, log: Log = print, comps: list[str] | None = None, br
     if ci:
         return True
     for n in docs.repo_names():
-        if (ROOT / n / ".git").exists():
-            wire_one(n, log, comps, branch)
+        if (repo_dir(n) / ".git").exists():
+            wire_one(n, log, comps)
             log(f"✔ {n}")
     wire_umbrella(log, comps)
     if "graphify" in comps:
@@ -414,17 +474,29 @@ def setup(ci: bool = False, log: Log = print, comps: list[str] | None = None, br
 
 
 # ---------- code graph ----------
+def repo_graph(name: str) -> Path:
+    own = GRAPHS / name / "graph.json"
+    legacy = repo_dir(name) / "graphify-out" / "graph.json"
+    return legacy if not own.exists() and legacy.exists() else own
+
+
+def graph_repo(name: str) -> bool:
+    """AST-only graph of one repo, written to cam-docs/graph/<repo> (GRAPHIFY_OUT) instead of the repo."""
+    (GRAPHS / name).mkdir(parents=True, exist_ok=True)
+    r = run(["graphify", "update", ".", "--force"], cwd=repo_dir(name), check=False, quiet=True,
+            env={"GRAPHIFY_OUT": str(GRAPHS / name)})
+    return r.returncode == 0
+
+
 def graph(rebuild: bool = True, log: Log = print) -> Path | None:
     graphs = []
     for n in docs.repo_names():
-        d = ROOT / n
-        if not d.is_dir():
+        if not repo_dir(n).is_dir():
             continue
-        if rebuild or not (d / "graphify-out" / "graph.json").exists():
-            run(["graphify", "update", ".", "--force"], cwd=d, check=False, quiet=True)
-        g = d / "graphify-out" / "graph.json"
-        if g.exists():
-            graphs.append(str(g))
+        if rebuild or not repo_graph(n).exists():
+            graph_repo(n)
+        if repo_graph(n).exists():
+            graphs.append(str(repo_graph(n)))
     if not graphs:
         log("✔ no code graphs yet")
         return None
@@ -435,8 +507,9 @@ def graph(rebuild: bool = True, log: Log = print) -> Path | None:
         run(["graphify", "merge-graphs", *graphs, "--out", str(merged)], quiet=True)
     else:
         shutil.copyfile(graphs[0], merged)
-    run(["graphify", "export", "html", "--graph", str(merged)], quiet=True, check=False)
-    log(f"✔ code graph: {len(graphs)} repo(s) → .camarones/.cache/graph/graph.html (cross-repo edges are INFERRED)")
+    run(["graphify", "export", "html", "--graph", str(merged)], quiet=True, check=False, cwd=gdir,
+        env={"GRAPHIFY_OUT": str(gdir)})
+    log(f"✔ code graph: {len(graphs)} repo(s) → {ws_rel('.camarones/.cache/graph/graph.html')} (cross-repo edges are INFERRED)")
     return gdir / "graph.html"
 
 
@@ -458,70 +531,425 @@ def arch_start() -> None:
     run(["likec4", "start", "."], cwd=arch_dir(), check=False)
 
 
-# ---------- portal ----------
-def portal(log: Log = print) -> Path:
-    b, site = CACHE / "portal", CACHE / "site"
-    b.mkdir(parents=True, exist_ok=True)
-    log("preparing the portal (Starlight)… first time downloads ~150 MB with npm")
-    shutil.copytree(KIT / "portal", b, dirs_exist_ok=True,
-                    ignore=shutil.ignore_patterns("node_modules", "dist", ".astro", "Dockerfile", "compose.yml"))
-    stamp = b / "node_modules" / ".camarones-stamp"
-    import hashlib
-    lock = KIT / 'portal' / 'package-lock.json'
-    signature = hashlib.sha256(lock.read_bytes() + (KIT / 'portal' / 'package.json').read_bytes()).hexdigest()
-    if not stamp.exists() or stamp.read_text() != signature:
-        run(["npm", "ci", "--no-audit", "--no-fund", "--loglevel=error"], cwd=b, quiet=True)
-        stamp.write_text(signature)
-    log("✔ portal shell")
-    log("collecting docs, translations and trust badges…")
-    content = b / "src" / "content" / "docs"
-    shutil.rmtree(content, ignore_errors=True)
-    content.mkdir(parents=True)
-    public = b / "public"
-    public.mkdir(exist_ok=True)
+# ---------- portal: viewers (C4, code graph, wiki graphs) ----------
+VIEWERS = CACHE / "viewers"
+
+
+def stream(cmd: list[str], cwd: Path, log: Log, env: dict | None = None) -> int:
+    """Run a long command and hand each output line to `log` (the portal shows it live)."""
+    try:
+        pr = subprocess.Popen([which(cmd[0]) or cmd[0], *cmd[1:]], cwd=str(cwd), stdin=subprocess.DEVNULL,
+                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8",
+                              errors="replace", env={**os.environ, **(env or {})})
+    except OSError as e:
+        log(f"⚠ {cmd[0]}: {e}")
+        return 127
+    for line in pr.stdout:
+        line = re.sub(r"\x1b\[[0-9;?]*[A-Za-z]", "", line).rstrip()
+        if line.strip():
+            log(line)
+    return pr.wait()
+
+
+def build_c4(dest: Path | None = None, log: Log = print) -> bool:
+    dest = dest or VIEWERS / "architecture"
+    if not (arch_dir() / "likec4.config.json").exists():
+        log("⚠ no C4 model yet (docs/architecture/likec4.config.json) — unit arch-system writes it")
+        return False
+    log("building the interactive C4 explorer (LikeC4)…")
+    shutil.rmtree(dest, ignore_errors=True)
+    r = run(["likec4", "build", ".", "-o", str(dest), "--base", "/architecture/", "--title", docs.workspace()["project"]["name"]],
+            cwd=arch_dir(), check=False, quiet=True)
+    ok = r.returncode == 0 and (dest / "index.html").exists()
+    log("✔ C4 explorer" if ok else "⚠ C4 explorer skipped: the model has errors (run arch-validate)")
+    return ok
+
+
+def code_graphs() -> dict[str, Path]:
+    """Viewer HTML per repo, plus 'all' for the merged graph."""
+    found = {n: GRAPHS / n / "graph.html" for n in docs.repo_names() if (GRAPHS / n / "graph.html").is_file()}
+    if (CACHE / "graph" / "graph.html").is_file():
+        found = {"all": CACHE / "graph" / "graph.html", **found}
+    return found
+
+
+def build_graphs(log: Log = print) -> bool:
+    if "graphify" not in components():
+        log("⚠ graphify is not installed (setup)")
+        return False
+    for n in docs.repo_names():
+        if repo_dir(n).is_dir():
+            log(f"{n}: code graph…")
+            if not graph_repo(n):
+                log(f"⚠ {n}: graphify failed")
+    return graph(rebuild=False, log=log) is not None
+
+
+def wiki_graph(repo: str, dest: Path | None = None, log: Log = print) -> bool:
+    wiki, dest = docs.wiki_dir(repo), dest or VIEWERS / "wiki-graph" / repo
+    if not wiki_pages(repo):
+        return False
+    log(f"exporting the wiki graph of {repo}…")
+    shutil.rmtree(dest, ignore_errors=True)
+    run(["openwiki", "visualize", wiki.name, "--export", str(dest), "--no-open"], cwd=wiki.parent, check=False, quiet=True)
+    ok = (dest / "index.html").exists()
+    log(f"✔ wiki graph {repo}" if ok else f"⚠ wiki graph {repo} failed")
+    return ok
+
+
+def newest(paths) -> float:
+    return max((p.stat().st_mtime for p in paths if p.exists()), default=0.0)
+
+
+def repo_changed_at(repo: str) -> float:
+    t = out(["git", "log", "-1", "--format=%ct"], cwd=repo_dir(repo))
+    return float(t) if t else 0.0
+
+
+def viewers() -> dict:
+    c4_at = newest([VIEWERS / "architecture" / "index.html"])
+    model_at = newest(arch_dir().glob("*.c4")) if arch_dir().is_dir() else 0.0
+    graphs = {n: {"at": newest([f]), "stale": n != "all" and repo_changed_at(n) > newest([f])}
+              for n, f in code_graphs().items()}
+    return {"c4": {"exists": bool(c4_at), "at": c4_at, "stale": bool(c4_at) and model_at > c4_at, "model": bool(model_at)},
+            "graphs": graphs, "graphify": "graphify" in components(), "likec4": "likec4" in components()}
+
+
+# ---------- OpenWiki ----------
+PROVIDER_KEYS = ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "OPENROUTER_API_KEY",
+                 "OPENAI_COMPATIBLE_API_KEY", "OPENAI_CHATGPT_ACCESS_TOKEN")
+
+
+def openwiki_credentials() -> bool:
+    """OpenWiki runs headless only with a provider key in the environment or saved in ~/.openwiki/.env."""
+    saved = HOME / ".openwiki" / ".env"
+    text = saved.read_text(encoding="utf-8", errors="replace") if saved.exists() else ""
+    return any(os.environ.get(k) or re.search(rf"^{k}=\S", text, re.M) for k in PROVIDER_KEYS)
+
+
+def wiki_engines() -> list[str]:
+    """Who can write a wiki without a terminal: OpenWiki itself (provider key), else an agent CLI with the
+    OpenWiki MCP tools (uses the agent's own login)."""
+    if "openwiki" not in components() or not openwiki_installed():
+        return []
+    return [e for e, ok in (("openwiki", openwiki_credentials()), ("claude", bool(which("claude"))),
+                            ("codex", bool(which("codex")))) if ok]
+
+
+def wiki_pages(repo: str) -> list[Path]:
+    """Generated pages only: INSTRUCTIONS.md is the user-authored brief, not a page."""
+    wiki = docs.wiki_dir(repo)
+    return [f for f in wiki.rglob("*.md") if not any(p.startswith(".") for p in f.relative_to(wiki).parts)
+            and f.relative_to(wiki).as_posix() != "INSTRUCTIONS.md"] if wiki.is_dir() else []
+
+
+def wiki_brief_ready(repo: str) -> bool:
+    """A first wiki needs the brief that repo-brief writes (role, bounded context, glossary), or OpenWiki writes a
+    generic wiki that ignores the project's language and repeats what docs/ already covers."""
+    return (docs.wiki_dir(repo) / "INSTRUCTIONS.md").is_file()
+
+
+def wikis() -> list[dict]:
+    from . import plan
+    units = {u["id"]: u["status"] for u in plan.load()["units"]}
+    chosen = docs.wiki_repos()
+    rows = []
+    for n in docs.repo_names():
+        pages = wiki_pages(n)
+        at = newest(pages)
+        rows.append({"repo": n, "pages": len(pages), "at": at, "stale": bool(pages) and repo_changed_at(n) > at,
+                     "graph": (VIEWERS / "wiki-graph" / n / "index.html").exists(), "unit": units.get(f"repo-wiki:{n}"),
+                     "cloned": repo_dir(n).is_dir(), "chosen": n in chosen, "ready": bool(pages) or wiki_brief_ready(n),
+                     "index": next((f"repos/{n}/{p}" for p in ("quickstart.md", "index.md", "README.md")
+                                    if (docs.wiki_dir(n) / p).exists()), None)})
+    return rows
+
+
+def wiki_prompt(repo: str, mode: str) -> str:
+    """Self-contained on purpose: the caller owns the plan status, the move back to cam-docs and the commit, so the
+    agent must not run the unit protocol (plan start/done, checkpoint) nor `wiki` itself."""
+    from . import plan
+    uid, cli = f"repo-wiki:{repo}", cli_cmd()
+    notes = plan.note_file(uid)
+    resume = (f"A previous run left checkpoints in `{ws_rel(rel_file(notes))}`: read them first. " if notes.exists() else "")
+    return (f"Camarones Documenter — unattended OpenWiki run for `{repo}` (plan unit `{uid}`).\n"
+            f"Task: {mode} the OpenWiki of `{repo}/` (absolute git root: {repo_dir(repo)}) with the OpenWiki MCP tools "
+            "(skill `openwiki`): openwiki_begin → plan → page loop → openwiki_finish, passing that root. OpenWiki resumes an "
+            f"interrupted run by itself. {resume}\n"
+            f"Scope: `{ws_rel(f'wikis/{repo}/INSTRUCTIONS.md')}` is this repo's brief (role, bounded context, glossary) — "
+            f"follow its terms. Keep the wiki about this repo's internals: the cross-repo domain, business flows and C4 "
+            f"architecture are documented in `{ws_rel('docs/')}`, do not restate them.\n"
+            f"Boundaries: `{repo}/openwiki/` is a real folder for this run. When you finish, the caller moves it into "
+            f"`{CAM_DIR}/wikis/{repo}/`, removes what OpenWiki adds to the repo (AGENTS.md, CLAUDE.md, .github/) and marks "
+            f"the plan unit — do none of that yourself, never run `{cli} wiki`, and do not touch other repo files.\n"
+            f"Progress: after each page run `{cli} plan note {uid} \"<page done / next>\"`. This run is unattended: never "
+            f"ask; append questions to `{ws_rel('docs/interview/open-questions.md')}`. At the end rewrite the \"Last "
+            f"session\" section of `{ws_rel('docs/.work/handoff.md')}`.\n")
+
+
+OPENWIKI_REPO_FILES = ("AGENTS.md", "CLAUDE.md", ".github/workflows/openwiki-update.yml")
+
+
+def _is_link(p: Path) -> bool:
+    return p.is_symlink() or getattr(p, "is_junction", lambda: False)()
+
+
+def wiki_open(repo: str, log: Log = print) -> None:
+    """OpenWiki refuses a symlinked openwiki/ and adds agent snippets + a GitHub workflow to the repo. So a run gets a
+    real openwiki/ seeded from cam-docs/wikis/<repo>, and wiki_close moves the result back and restores the repo."""
+    d, wiki, state = repo_dir(repo), ROOT / "wikis" / repo, CACHE / "wiki-open" / f"{repo}.json"
+    ow = d / "openwiki"
+    if not state.exists():
+        saved = {f: (d / f).read_text(encoding="utf-8") if (d / f).is_file() else None for f in OPENWIKI_REPO_FILES}
+        state.parent.mkdir(parents=True, exist_ok=True)
+        state.write_text(json.dumps(saved), encoding="utf-8")
+    if _is_link(ow):
+        ow.unlink()
+    if not ow.exists():
+        shutil.copytree(wiki, ow) if wiki.is_dir() else ow.mkdir()
+
+
+def wiki_close(repo: str, log: Log = print) -> bool:
+    """Only undoes a wiki_open: without its saved state it cannot tell the repo's own AGENTS.md / CLAUDE.md from
+    OpenWiki's, so it leaves them alone (a second close, or a close without open, is a no-op)."""
+    d, wiki, state = repo_dir(repo), ROOT / "wikis" / repo, CACHE / "wiki-open" / f"{repo}.json"
+    if not state.exists():
+        log(f"{repo}: no open OpenWiki run — nothing to close")
+        link_repo_wiki(repo, log)
+        return False
+    ow = d / "openwiki"
+    if ow.is_dir() and not _is_link(ow):
+        if any(ow.iterdir()):
+            shutil.rmtree(wiki, ignore_errors=True)
+            wiki.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(ow), str(wiki))
+        else:                                   # nothing written: keep the wiki cam-docs already has
+            ow.rmdir()
+    saved = json.loads(state.read_text(encoding="utf-8"))
+    for f, text in saved.items():
+        p = d / f
+        if text is not None:
+            p.write_text(text, encoding="utf-8")
+        elif p.is_file():
+            p.unlink()
+            for parent in p.relative_to(d).parents:
+                if parent != Path(".") and (d / parent).is_dir() and not any((d / parent).iterdir()):
+                    (d / parent).rmdir()
+    state.unlink(missing_ok=True)
+    link_repo_wiki(repo, log)
+    return True
+
+
+@contextmanager
+def wiki_workdir(repo: str, log: Log = print):
+    wiki_open(repo, log)
+    try:
+        yield
+    finally:
+        wiki_close(repo, log)
+
+
+WIKI_LOCK = CACHE / "wiki.lock"
+
+
+def pid_alive(pid: int) -> bool:
+    if IS_WIN:                                  # os.kill(pid, 0) would terminate the process on Windows
+        r = run(["tasklist", "/FI", f"PID eq {pid}", "/NH"], check=False, capture=True)
+        return str(pid) in (r.stdout or "")
+    try:
+        os.kill(pid, 0)
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+    return True
+
+
+@contextmanager
+def wiki_lock(repo: str):
+    """One OpenWiki run at a time across the wizard, the portal and the CLI: parallel runs share the agent's quota."""
+    other = load_json(WIKI_LOCK, {}) if WIKI_LOCK.exists() else {}
+    pid = other.get("pid") if isinstance(other, dict) else None
+    if pid and pid != os.getpid() and pid_alive(int(pid)):
+        raise RuntimeError(f"another OpenWiki run is in progress ({other.get('repo')}, pid {pid}) — wait for it to finish")
+    WIKI_LOCK.parent.mkdir(parents=True, exist_ok=True)
+    WIKI_LOCK.write_text(json.dumps({"pid": os.getpid(), "repo": repo}), encoding="utf-8")
+    try:
+        yield
+    finally:
+        WIKI_LOCK.unlink(missing_ok=True)
+
+
+class WikiAbort(RuntimeError):
+    """The engine cannot run at all (quota, login): every other repo of a batch would fail the same way."""
+
+
+ENGINE_DOWN = re.compile(r"session limit|usage limit|weekly limit|limit reached|rate.?limit|\b429\b|insufficient_quota|"
+                         r"credit balance|invalid api key|incorrect api key|\b401\b|unauthori[sz]ed|/login|not logged in|"
+                         r"log ?in again|token (?:has )?expired|overloaded", re.I)
+
+
+def openwiki_generate(repo: str, mode: str = "", log: Log = print, engine: str = "", force: bool = False) -> bool:
+    """Write or refresh one repo's OpenWiki (same path for the wizard, the portal and the CLI). Raises WikiAbort when
+    the engine itself is down, so batches stop instead of failing every remaining repo."""
+    from . import plan
+    if not repo_dir(repo).is_dir():
+        raise RuntimeError(f"{repo} is not cloned (sync first)")
+    engines = wiki_engines()
+    engine = engine or (engines[0] if engines else "")
+    if engine not in engines:
+        raise RuntimeError("no way to run OpenWiki headless: save a provider key with `openwiki auth configure <provider>` "
+                           "(or set OPENAI_API_KEY / ANTHROPIC_API_KEY), or install Claude Code / Codex")
+    link_repo_wiki(repo, log)
+    mode = mode or ("update" if wiki_pages(repo) else "init")
+    if mode == "init" and not force and not wiki_brief_ready(repo):
+        raise RuntimeError(f"{repo}: no {ws_rel(f'wikis/{repo}/INSTRUCTIONS.md')} yet — run its repo-brief unit first "
+                           "(it gives OpenWiki the repo's role and glossary), or force it with `wiki --force`")
+    uid = f"repo-wiki:{repo}"
+    before = {u["id"]: u["status"] for u in plan.load()["units"]}.get(uid)
+    known = before is not None
+    tail: deque[str] = deque(maxlen=5)
+
+    def tee(line: str) -> None:
+        tail.append(line)
+        log(line)
+
+    with wiki_lock(repo):
+        if known:
+            plan.set_status(uid, "doing")
+        log(f"OpenWiki {mode} for {repo} via {engine}… (this can take a while)")
+        with wiki_workdir(repo, log):
+            if engine == "openwiki":
+                rc = stream(["openwiki", "code", f"--{mode}", "--print"], repo_dir(repo), tee)
+            elif engine == "claude":
+                rc = stream(["claude", "-p", wiki_prompt(repo, mode), "--permission-mode", "acceptEdits", "--allowedTools",
+                             "mcp__openwiki Skill Read Write Edit Glob Grep Bash(git:*) Bash(ls:*) Bash(graphify:*) "
+                             f"Bash({cli_cmd()} plan note:*)"], WORKSPACE, tee)
+            else:
+                rc = stream(["codex", "exec", "--full-auto", "-C", str(WORKSPACE), wiki_prompt(repo, mode)], WORKSPACE, tee)
+    ok = rc == 0 and bool(wiki_pages(repo))
+    if ok:
+        if known:
+            plan.set_status(uid, "done", f"OpenWiki {mode} via {engine}")
+        docs.llms()
+        wiki_graph(repo, log=log)
+        checkpoint_commit(f"{uid} ({mode})")
+        log(f"✔ wiki {repo}: {len(wiki_pages(repo))} pages")
+        return True
+    if known:
+        plan.set_status(uid, before, record=False)
+    reason = (tail[-1] if tail else "no output")[:300] if rc else "finished without writing any page"
+    log(f"⚠ OpenWiki {mode} for {repo} failed (exit {rc}): {reason}")
+    if rc and any(ENGINE_DOWN.search(l) for l in tail):
+        raise WikiAbort(f"{engine} cannot run right now — {reason}. Nothing else was started; retry when it is back.")
+    return False
+
+
+# ---------- portal: static export (what CI deploys) ----------
+def forge_edit_base() -> str:
+    """https://…/-/edit/<branch>/ (GitLab) or …/edit/<branch>/ (GitHub) for the cam-docs repo, '' without a remote."""
+    url = out(["git", "remote", "get-url", "origin"], cwd=ROOT)
+    if not url:
+        return ""
+    url = re.sub(r"^git@([^:]+):", r"https://\1/", url).removesuffix(".git")
+    url = re.sub(r"^https://[^@/]+@", "https://", url)
+    branch = out(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=ROOT) or "main"
+    return f"{url}/edit/{branch}/" if "github" in url else f"{url}/-/edit/{branch}/"
+
+
+def export_site(log: Log = print) -> Path:
+    """The same portal app, read-only: HTML + JSON snapshots of the API, the viewers and the libraries they need.
+    No npm build — any static host (nginx image, GitLab/GitHub Pages) serves it."""
+    from . import serve
+    writable(CACHE)
+    site, tmp = CACHE / "site", CACHE / "site.tmp"
+    shutil.rmtree(tmp, ignore_errors=True)
+    shutil.copytree(serve.UI, tmp)
+    html = (tmp / "index.html").read_text(encoding="utf-8")
+    (tmp / "index.html").write_text(html.replace('content="live"', 'content="static"'), encoding="utf-8")
     docs.llms()
-    n = docs.portal_content(content, b / "portal.config.json")
-    shutil.copyfile(DOCS / "llms.txt", public / "llms.txt")
-    log(f"✔ {n} docs")
-    cfg = json.loads((b / "portal.config.json").read_text(encoding="utf-8"))
-    for sub in ("architecture", "code-graph", "wiki-graph"):
-        shutil.rmtree(public / sub, ignore_errors=True)
-    if "likec4" in components() and (arch_dir() / "likec4.config.json").exists():
-        log("building the interactive C4 explorer (LikeC4)…")
-        run(["likec4", "build", ".", "-o", str(public / "architecture"), "--base", "/architecture/", "--title", cfg["name"]],
-            cwd=arch_dir(), quiet=True)
-        log("✔ C4 explorer")
-    log("adding the code graph…")
-    g = CACHE / "graph" / "graph.html"
-    if not g.exists() and "graphify" in components():
+    shutil.copyfile(DOCS / "llms.txt", tmp / "llms.txt")
+    api = tmp / "api"
+
+    def dump(rel: str, data) -> None:
+        f = api / rel
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+    t = serve.tree()
+    t["editBase"] = forge_edit_base()
+    langs = [""] + t["langs"]
+    index = []
+    for d in t["docs"]:
+        for lang in langs:
+            doc = serve.read(d["path"], lang)
+            if lang and not doc["exists"]:
+                continue
+            dump(f"doc/{lang or '_'}/{d['path']}.json", doc)
+            index.append({"path": d["path"], "lang": lang, "title": doc["title"], "trust": d["trust"],
+                          "text": docs.split_fm(doc["raw"])[1][:20000]})
+    log(f"✔ {len(t['docs'])} docs" + (f" + translations ({', '.join(t['langs'])})" if t["langs"] else ""))
+    if DOCS.is_dir():
+        for f in DOCS.rglob("*"):
+            if f.is_file() and f.suffix.lower() in (".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"):
+                dst = tmp / "raw" / f.relative_to(DOCS)
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(f, dst)
+    if "likec4" in components() and (not (VIEWERS / "architecture" / "index.html").exists() or viewers()["c4"]["stale"]):
+        build_c4(log=log)
+    if (VIEWERS / "architecture").is_dir():
+        shutil.copytree(VIEWERS / "architecture", tmp / "architecture")
+    if "graphify" in components() and not code_graphs():
         graph(rebuild=False, log=log)
-    if g.exists():
-        (public / "code-graph").mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(g, public / "code-graph" / "index.html")
-    log("✔ code graph")
-    for r in cfg["repos"]:
-        if r["wikiGraph"]:
-            log(f"exporting the wiki graph of {r['name']}…")
-            run(["openwiki", "visualize", "openwiki", "--export", str(public / "wiki-graph" / r["name"])],
-                cwd=ROOT / r["name"], check=False, quiet=True)
-            log(f"✔ wiki graph {r['name']}")
-    log("building the static site (Astro)…")
-    run(["npm", "run", "build", "--silent"], cwd=b, quiet=True)
-    log("✔ static site")
+    for n, f in code_graphs().items():
+        dst = tmp / "code-graph" / ("" if n == "all" else n) / "index.html"
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(f, dst)
+    log(f"✔ code graphs ({len(code_graphs())})")
+    for w in wikis():
+        if w["pages"] and not w["graph"]:
+            wiki_graph(w["repo"], log=log)
+        if (VIEWERS / "wiki-graph" / w["repo"]).is_dir():
+            shutil.copytree(VIEWERS / "wiki-graph" / w["repo"], tmp / "wiki-graph" / w["repo"])
+    t["codeGraphs"] = list(code_graphs())
+    dump("tree.json", t)
+    dump("status.json", serve.status())
+    dump("wikis.json", wikis())
+    dump("viewers.json", viewers())
+    dump("search.json", index)
+    for lib in serve.UI_LIBS:
+        f = docs.vendor_file(*lib)
+        if f:
+            dst = tmp / "vendor" / f"{lib[0]}@{lib[1]}" / lib[2]
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(f, dst)
+    k, failed = docs.vendor(tmp)
+    log(f"✔ offline libraries ({k + len(serve.UI_LIBS)})" + (f" — still on CDN: {failed}" if failed else ""))
     shutil.rmtree(site, ignore_errors=True)
-    shutil.move(str(b / "dist"), str(site))
-    k, failed = docs.vendor(site)
-    log(f"✔ offline viewers ({k} libraries)" + (f" — still on CDN: {failed}" if failed else ""))
+    tmp.rename(site)
     image_context()
-    pages = sum(1 for _ in site.rglob("index.html"))
-    log(f"✔ site ready: {pages} pages")
+    log(f"✔ portal exported → {ws_rel('.camarones/.cache/site')}")
     return site
 
 
+portal = export_site
+
+
 def portal_steps() -> int:
-    wikis = sum(1 for n in docs.repo_names() if (ROOT / n / "openwiki").is_dir())
+    wikis_n = sum(1 for n in docs.repo_names() if wiki_pages(n))
     c4 = 1 if (arch_dir() / "likec4.config.json").exists() else 0
-    return 7 + c4 + wikis
+    return 4 + 2 * c4 + 2 * wikis_n
+
+
+def writable(d: Path) -> None:
+    """A cache left behind by a `sudo` run would make every later build fail half-way with a bare PermissionError."""
+    if IS_WIN or not d.exists():
+        return
+    uid = os.getuid()
+    bad = [p for p in (d, *d.iterdir()) if p.stat().st_uid != uid]
+    if bad:
+        raise RuntimeError(f"{bad[0]} belongs to another user (an earlier run with sudo?). Fix it with:\n"
+                           f"  sudo chown -R $(whoami) \"{d}\"")
 
 
 def image_context() -> Path:
@@ -583,27 +1011,40 @@ SERVE_PID = CACHE / "serve.pid"
 
 
 def serve_local(port: int = 8080, log: Log = print) -> str:
-    """Serve the built portal without Docker (Python's static server, keeps running after the wizard closes)."""
-    site = CACHE / "site"
-    if not (site / "index.html").exists():
-        raise RuntimeError("the portal is not built yet — build it first")
+    """Serve the exported (read-only) portal without Docker — what the deployed one looks like."""
+    if not (CACHE / "site" / "index.html").exists():
+        raise RuntimeError("the portal is not exported yet — export it first (Portal → Export / `portal`)")
+    return serve_editor(port, log, static=True)
+
+
+def serve_editor(port: int = 8080, log: Log = print, static: bool = False) -> str:
+    """The default portal: a local server (no Docker, no npm) that renders docs/ live and lets people edit,
+    confirm, comment, commit and rebuild the viewers. Detached, so it outlives the wizard; `down` stops it."""
     stop_local()
     import socket, sys, time
     with socket.socket() as sck:
         if sck.connect_ex(("127.0.0.1", port)) == 0:
             raise RuntimeError(f"port {port} is busy — choose another port")
-    kw: dict = {"cwd": str(site), "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL, "stdin": subprocess.DEVNULL}
+    CACHE.mkdir(parents=True, exist_ok=True)
+    kw: dict = {"stdout": subprocess.DEVNULL, "stdin": subprocess.DEVNULL,
+                "stderr": (CACHE / "serve.log").open("w", encoding="utf-8"),
+                "env": {**os.environ, "CAMARONES_ROOT": str(ROOT)}}
     if IS_WIN:
         kw["creationflags"] = 0x00000008 | 0x00000200          # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
     else:
         kw["start_new_session"] = True
-    pr = subprocess.Popen([sys.executable, "-m", "http.server", str(port), "--bind", "127.0.0.1"], **kw)
+    cmd = [sys.executable, str(KIT / "camarones.py"), "up", "--foreground", "--port", str(port)] + (["--static"] if static else [])
+    pr = subprocess.Popen(cmd, **kw)
     SERVE_PID.write_text(str(pr.pid), encoding="utf-8")
-    time.sleep(0.8)
-    if pr.poll() is not None:
-        raise RuntimeError("the local server did not start")
+    for _ in range(20):
+        time.sleep(0.25)
+        if pr.poll() is not None:
+            raise RuntimeError("the portal server did not start — see " + str(CACHE / "serve.log"))
+        with socket.socket() as sck:
+            if sck.connect_ex(("127.0.0.1", port)) == 0:
+                break
     url = f"http://localhost:{port}"
-    log(f"✔ portal at {url} (no Docker)")
+    log(f"✔ portal at {url}" + (" (read-only export, no Docker)" if static else " (live: edit · confirm · rebuild · wikis)"))
     return url
 
 
@@ -682,13 +1123,18 @@ def install_ci(forge: str | None = None, log: Log = print) -> Path:
             log("  existing .gitlab-ci.yml kept: add `include: local: .gitlab-ci.camarones.yml` to it")
     dst.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(src, dst)
-    log(f"  ✔ {dst.relative_to(ROOT)} (umbrella pipeline)")
-    log(f"  → per-repo snippet: .camarones/ci/repo.{'github.yml' if forge == 'github' else 'gitlab-ci.yml'}")
+    snippet = f"repo.{'github.yml' if forge == 'github' else 'gitlab-ci.yml'}"
+    (ROOT / ".camarones" / "ci").mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(KIT / "ci" / snippet, ROOT / ".camarones" / "ci" / snippet)   # service repos include it from here
+    log(f"  ✔ {dst.relative_to(ROOT)} (docs repo pipeline)")
+    log(f"  → per-repo snippet: .camarones/ci/{snippet}")
     return dst
 
 
 # ---------- progress safety: local checkpoint commits in the umbrella repo ----------
-CHECKPOINT_PATHS = ["docs", ".camarones/workspace.yaml", "AGENTS.md", "CLAUDE.md", ".gitignore"]
+CHECKPOINT_PATHS = ["docs", "wikis", ".camarones/workspace.yaml", ".camarones/PLAYBOOK.md", ".camarones/CONVENTIONS.md",
+                    ".camarones/.kit-docs.json", ".camarones/ci", ".claude", ".codex", ".agents", ".mcp.json", "AGENTS.md", "CLAUDE.md",
+                    ".gitignore", ".gitlab-ci.yml", ".github"]
 
 
 def checkpoint_commit(message: str) -> bool:
