@@ -118,6 +118,12 @@ is stored in `cam-docs/wikis/<repo>/` (the repo sees an unversioned `openwiki/` 
 Claude Code or Codex. The files OpenWiki adds to the repo itself (`AGENTS.md`, `CLAUDE.md`, `.github/`) are removed when
 the run ends.
 
+Each wiki is a full agent run, so only the repos you choose get one: wizard → **📚 Wikis** → **Choose which repos get a
+wiki** (stored as `wiki: true` in `.camarones/workspace.yaml`). Pick the services with logic, not libraries or CI repos.
+A first wiki waits for the repo's brief (`wikis/<repo>/INSTRUCTIONS.md`, written by the repo-brief unit) so it uses your
+glossary; `camarones wiki <repo> --force` skips that check. Runs go one at a time, and a batch stops as soon as the
+engine is out of quota or logged out instead of failing every remaining repo.
+
 ## 8. CI
 
 Wizard → **⚙️ CI** installs the pipeline in `cam-docs` (GitLab or GitHub): update the affected docs, `check`, export the portal and publish it. Per-repo snippets: `.camarones/ci/repo.*`.
@@ -143,4 +149,4 @@ job token to clone each service repo (repo → Settings → CI/CD → Job token 
 | C4 errors | `camarones arch-validate` shows file + line |
 | OpenWiki tools missing in the agent | restart Claude Code / Codex in the workspace folder (the one that holds `cam-docs/`) |
 | The deployed portal has no **Edit** button | `cam-docs` has no git remote: add one and export again |
-| A wiki run failed | read its log in the **Wikis** tab; run `camarones wiki <repo>` again (it updates what is there) |
+| A wiki run failed | the ⚠ line says why (quota or login → wait or log in again); run `camarones wiki <repo>` again — an interrupted run resumes |

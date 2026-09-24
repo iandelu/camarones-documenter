@@ -123,6 +123,13 @@ wiki se guarda en `cam-docs/wikis/<repo>/` (el repo ve un enlace `openwiki/` sin
 si no, Claude Code o Codex. Los archivos que OpenWiki añade al propio repo (`AGENTS.md`, `CLAUDE.md`, `.github/`) se quitan
 al terminar.
 
+Cada wiki es una sesión de agente completa, así que solo la llevan los repos que elijas: asistente → **📚 Wikis** →
+**Elegir qué repos tienen wiki** (se guarda como `wiki: true` en `.camarones/workspace.yaml`). Elige los servicios con
+lógica, no librerías ni repos de CI. La primera wiki de un repo espera a su brief (`wikis/<repo>/INSTRUCTIONS.md`, que
+escribe la unidad repo-brief) para usar tu glosario; `camarones wiki <repo> --force` se salta esa comprobación. Se lanzan
+de una en una, y un lote se para en cuanto el motor se queda sin cuota o sin sesión, en vez de fallar todos los repos
+que quedan.
+
 ## 8. CI
 
 En el asistente, **⚙️ CI** instala el pipeline en `cam-docs` (GitLab o GitHub): actualiza la doc afectada, pasa `check`, exporta el portal y lo publica. Las plantillas para cada repo de servicio están en `.camarones/ci/repo.*`.
@@ -149,4 +156,4 @@ permitir que el job token del proyecto `cam-docs` clone cada repo de servicio (r
 | Errores en el C4 | `camarones arch-validate` te dice el fichero y la línea |
 | El agente no tiene las herramientas de OpenWiki | reinicia Claude Code / Codex en la carpeta del workspace (la que contiene `cam-docs/`) |
 | El portal desplegado no tiene botón **Editar** | `cam-docs` no tiene remote de git: añádelo y vuelve a exportar |
-| Falló la generación de una wiki | mira su log en la pestaña **Wikis** y lanza otra vez `camarones wiki <repo>` (actualiza lo que haya) |
+| Falló la generación de una wiki | la línea ⚠ dice por qué (cuota o sesión → espera o vuelve a iniciar sesión); lanza otra vez `camarones wiki <repo>`: un run interrumpido se reanuda |
