@@ -118,7 +118,8 @@ T = {
         "w_gen": "✨ Generar / actualizar wikis", "w_eng_openwiki": "OpenWiki (clave de proveedor guardada)",
         "w_eng_claude": "Claude Code (sin terminal, con las herramientas MCP de OpenWiki)", "w_eng_codex": "Codex (sin terminal, con las herramientas MCP de OpenWiki)",
         "w_no_engine": "OpenWiki no puede lanzarse sin terminal todavía. Guarda una clave una vez con `openwiki auth configure openai` (o anthropic, gemini, openrouter), o instala Claude Code / Codex.",
-        "w_done": "Wiki lista: {repo}", "w_fail": "La wiki de {repo} falló — mira el log arriba", "w_unit_q": "¿Cómo generas la wiki de {repo}?",
+        "w_done": "Wiki lista: {repo}", "w_fail": "La wiki de {repo} falló — el motivo está en la línea ⚠ de arriba",
+        "w_skipped": "No lanzados: {repos}", "w_unit_q": "¿Cómo generas la wiki de {repo}?",
         "w_here": "✨ Aquí mismo (sin sesión de agente, {engine})", "w_agent": "🤖 Sesión de agente interactiva",
         "port": "Puerto:",
         "r_detect": "Detectar repos en la carpeta", "r_add": "Añadir repo por URL", "r_sync": "Sincronizar (clone / pull)",
@@ -345,7 +346,8 @@ T = {
         "w_gen": "✨ Generate / update wikis", "w_eng_openwiki": "OpenWiki (saved provider key)",
         "w_eng_claude": "Claude Code (headless, with the OpenWiki MCP tools)", "w_eng_codex": "Codex (headless, with the OpenWiki MCP tools)",
         "w_no_engine": "OpenWiki cannot run headless yet. Save a provider key once with `openwiki auth configure openai` (or anthropic, gemini, openrouter), or install Claude Code / Codex.",
-        "w_done": "Wiki ready: {repo}", "w_fail": "The {repo} wiki failed — see the log above", "w_unit_q": "How do you want to generate the {repo} wiki?",
+        "w_done": "Wiki ready: {repo}", "w_fail": "The {repo} wiki failed — the reason is on the ⚠ line above",
+        "w_skipped": "Not started: {repos}", "w_unit_q": "How do you want to generate the {repo} wiki?",
         "w_here": "✨ Right here (no agent session, {engine})", "w_agent": "🤖 Interactive agent session",
         "port": "Port:",
         "r_detect": "Detect repos in this folder", "r_add": "Add repo by URL", "r_sync": "Sync (clone / pull)",
@@ -1628,8 +1630,17 @@ Talk to the user in {talk}. Do not modify application code.
             engine = self.wiki_engine()
             if not engine:
                 continue
-            for repo in picked:
-                ok = self.safe(self.busy, env.openwiki_generate, repo, engine=engine)
+            for i, repo in enumerate(picked):
+                try:
+                    ok = self.busy(env.openwiki_generate, repo, engine=engine)
+                except env.WikiAbort as e:          # quota / login: the rest would fail the same way
+                    left = picked[i + 1:]
+                    console.print(Panel(str(e) + (f"\n{self.t('w_skipped', repos=', '.join(left))}" if left else ""),
+                                        title=self.t("error"), border_style="red"))
+                    break
+                except Exception as e:  # noqa: BLE001
+                    console.print(Panel(str(e), title=self.t("error"), border_style="red"))
+                    ok = False
                 self.say(self.t("w_done", repo=repo) if ok else self.t("w_fail", repo=repo), "green" if ok else "yellow")
             self.pause()
             self.banner()
