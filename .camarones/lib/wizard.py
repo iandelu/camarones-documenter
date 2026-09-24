@@ -1573,12 +1573,28 @@ Talk to the user in {talk}. Do not modify application code.
             elif c == "down":
                 env.docker_down()
 
+    def retry_missing(self, missing: list[str]) -> None:
+        """A repo with a url but no .git after sync almost always means missing/expired credentials —
+        offer to add a token and resync right here instead of leaving the user to guess why it failed."""
+        while missing:
+            self.say(self.t("s_missing", repos=", ".join(missing)), "yellow")
+            if not self.yes(self.t("s_token_retry"), default=True):
+                return
+            host = creds.host_of(next(r["url"] for r in docs.workspace()["repos"] if r["name"] == missing[0]))
+            self.banner()
+            self.add_token(host)
+            self.banner()
+            self.safe(self.busy, lambda log: docs.sync_repos(log))
+            missing = [n for n in missing if not (ROOT / n / ".git").exists()]
+
     def do_repos(self) -> None:
         ws = docs.workspace()
         before = {r["name"] for r in ws["repos"]}
         self.fr_repos(ws)
         if {r["name"] for r in docs.workspace()["repos"]} != before:
             self.safe(self.busy, lambda log: docs.sync_repos(log))
+            self.retry_missing([r["name"] for r in docs.workspace()["repos"]
+                                 if r.get("url") and not (ROOT / r["name"] / ".git").exists()])
             branch = docs.workspace()["project"].get("agent_branch")
             for n in docs.repo_names():
                 if (ROOT / n / ".git").exists() and not (ROOT / n / ".graphifyignore").exists():

@@ -263,7 +263,40 @@ def wire_repo(name: str, log: Log = print, comps: list[str] | None = None) -> No
             log(f"⚠ {name}: graphify build failed")
 
 
-AGENT_BRANCH_MSG = "chore(agents): wire Camarones agent setup (.claude, .codex, AGENTS.md/CLAUDE.md rules, MCP)"
+AGENT_WIRE_DESC = {"en": "wire Camarones agent setup (.claude, .codex, AGENTS.md/CLAUDE.md rules, MCP)",
+                    "es": "configura los agentes de Camarones (.claude, .codex, reglas AGENTS.md/CLAUDE.md, MCP)"}
+CONV_COMMIT_RE = re.compile(r"^(\w+)(\([\w./*-]+\))?!?:\s+\S")
+ES_WORD_RE = re.compile(r"\b(el|la|los|las|de|del|para|con|se|agrega|añade|anade|corrige|actualiza|configura|"
+                        r"arregla|elimina|mejora|cambia)\b", re.I)
+
+
+def commit_style(name: str) -> dict:
+    """Sniff repo `name`'s own commit convention from its recent history, so commits Camarones makes there
+    (agent wiring) match it instead of always using one fixed format. No clear pattern (or no history yet)
+    falls back to plain Conventional Commits — the most common baseline — in English."""
+    subjects = [s for s in out(["git", "log", "-n", "60", "--format=%s"], cwd=ROOT / name).splitlines() if s.strip()]
+    if not subjects:
+        return {"conventional": True, "type": "chore", "scoped": False, "lang": "en"}
+    hits = [m for m in (CONV_COMMIT_RE.match(s) for s in subjects) if m]
+    conventional = len(hits) >= max(3, len(subjects) // 2)
+    if conventional:
+        types = [m.group(1).lower() for m in hits]
+        meta = [t for t in types if t in ("chore", "build", "ci", "tooling")]
+        from collections import Counter
+        typ = Counter(meta or types).most_common(1)[0][0]
+        scoped = sum(1 for m in hits if m.group(2)) >= len(hits) / 2
+    else:
+        typ, scoped = "chore", False
+    lang = "es" if sum(1 for s in subjects if ES_WORD_RE.search(s)) > len(subjects) / 3 else "en"
+    return {"conventional": conventional, "type": typ, "scoped": scoped, "lang": lang}
+
+
+def agent_wiring_message(name: str) -> str:
+    style = commit_style(name)
+    desc = AGENT_WIRE_DESC[style["lang"]]
+    if not style["conventional"]:
+        return desc[0].upper() + desc[1:]
+    return f"{style['type']}{'(agents)' if style['scoped'] else ''}: {desc}"
 
 
 def ensure_agent_branch(name: str, branch: str, log: Log = print) -> bool:
@@ -301,7 +334,7 @@ def commit_agent_wiring(name: str, log: Log = print) -> bool:
         return False
     ident = [] if out(["git", "config", "user.email"], cwd=d) else ["-c", "user.name=Camarones Documenter",
                                                                      "-c", "user.email=camarones@localhost"]
-    r = run(["git", *ident, "commit", "-q", "-m", AGENT_BRANCH_MSG, "--no-verify"], cwd=d, check=False, quiet=True)
+    r = run(["git", *ident, "commit", "-q", "-m", agent_wiring_message(name), "--no-verify"], cwd=d, check=False, quiet=True)
     return r.returncode == 0
 
 
