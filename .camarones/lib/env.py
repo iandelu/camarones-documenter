@@ -636,9 +636,10 @@ def wiki_engines() -> list[str]:
 
 
 def wiki_pages(repo: str) -> list[Path]:
+    """Generated pages only: INSTRUCTIONS.md is the user-authored brief, not a page."""
     wiki = docs.wiki_dir(repo)
-    return [f for f in wiki.rglob("*.md") if not any(p.startswith(".") for p in f.relative_to(wiki).parts)] \
-        if wiki.is_dir() else []
+    return [f for f in wiki.rglob("*.md") if not any(p.startswith(".") for p in f.relative_to(wiki).parts)
+            and f.relative_to(wiki).as_posix() != "INSTRUCTIONS.md"] if wiki.is_dir() else []
 
 
 def wikis() -> list[dict]:
