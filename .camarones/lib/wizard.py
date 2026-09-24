@@ -119,7 +119,10 @@ T = {
         "w_eng_claude": "Claude Code (sin terminal, con las herramientas MCP de OpenWiki)", "w_eng_codex": "Codex (sin terminal, con las herramientas MCP de OpenWiki)",
         "w_no_engine": "OpenWiki no puede lanzarse sin terminal todavía. Guarda una clave una vez con `openwiki auth configure openai` (o anthropic, gemini, openrouter), o instala Claude Code / Codex.",
         "w_done": "Wiki lista: {repo}", "w_fail": "La wiki de {repo} falló — el motivo está en la línea ⚠ de arriba",
-        "w_skipped": "No lanzados: {repos}", "w_need_brief": "antes: su repo-brief (INSTRUCTIONS.md)", "w_unit_q": "¿Cómo generas la wiki de {repo}?",
+        "w_off": "sin wiki (no elegido)", "w_need_brief": "antes: su repo-brief (INSTRUCTIONS.md)",
+        "w_choose": "🎯 Elegir qué repos tienen wiki", "w_choose_first": "elige antes los repos",
+        "w_choose_q": "¿Qué repos llevan wiki? Cada una es una sesión de agente completa: elige los servicios con lógica, no librerías ni repos de CI",
+        "w_none_chosen": "Ningún repo tiene wiki todavía: elige primero cuáles (🎯).", "w_skipped": "No lanzados: {repos}", "w_unit_q": "¿Cómo generas la wiki de {repo}?",
         "w_here": "✨ Aquí mismo (sin sesión de agente, {engine})", "w_agent": "🤖 Sesión de agente interactiva",
         "port": "Puerto:",
         "r_detect": "Detectar repos en la carpeta", "r_add": "Añadir repo por URL", "r_sync": "Sincronizar (clone / pull)",
@@ -347,7 +350,10 @@ T = {
         "w_eng_claude": "Claude Code (headless, with the OpenWiki MCP tools)", "w_eng_codex": "Codex (headless, with the OpenWiki MCP tools)",
         "w_no_engine": "OpenWiki cannot run headless yet. Save a provider key once with `openwiki auth configure openai` (or anthropic, gemini, openrouter), or install Claude Code / Codex.",
         "w_done": "Wiki ready: {repo}", "w_fail": "The {repo} wiki failed — the reason is on the ⚠ line above",
-        "w_skipped": "Not started: {repos}", "w_need_brief": "first: its repo-brief (INSTRUCTIONS.md)", "w_unit_q": "How do you want to generate the {repo} wiki?",
+        "w_off": "no wiki (not chosen)", "w_need_brief": "first: its repo-brief (INSTRUCTIONS.md)",
+        "w_choose": "🎯 Choose which repos get a wiki", "w_choose_first": "choose the repos first",
+        "w_choose_q": "Which repos get a wiki? Each one is a full agent run: pick the services with logic, not libraries or CI repos",
+        "w_none_chosen": "No repo has a wiki yet: choose which ones first (🎯).", "w_skipped": "Not started: {repos}", "w_unit_q": "How do you want to generate the {repo} wiki?",
         "w_here": "✨ Right here (no agent session, {engine})", "w_agent": "🤖 Interactive agent session",
         "port": "Port:",
         "r_detect": "Detect repos in this folder", "r_add": "Add repo by URL", "r_sync": "Sync (clone / pull)",
@@ -1613,20 +1619,33 @@ Talk to the user in {talk}. Do not modify application code.
             rows = env.wikis()
             tbl = Table(title=self.t("w_title"), title_justify="left", border_style="grey42", show_header=False)
             for w in rows:
-                if w["pages"]:
+                if not w["chosen"]:
+                    state = f"[grey50]{self.t('w_off')}[/]"
+                elif w["pages"]:
                     state = self.t("w_pages", n=w["pages"]) + (f" [yellow]· {self.t('w_stale')}[/]" if w["stale"] else "")
                 else:
                     state = f"[grey50]{self.t('w_none')}[/]" + ("" if w["ready"] else f" [yellow]· {self.t('w_need_brief')}[/]")
                 tbl.add_row(w["repo"], state, f"[grey50]{w['unit'] or ''}[/]")
             self.say(tbl)
-            c = self.sel(self.t("m_wikis"), [Choice(self.t("w_gen"), "gen"), Choice(self.t("w_open"), "open")])
+            chosen = [w for w in rows if w["chosen"] and w["cloned"]]
+            if not chosen:
+                self.say(self.t("w_none_chosen"), "yellow")
+            c = self.sel(self.t("m_wikis"), [Choice(self.t("w_gen"), "gen", disabled=None if chosen else self.t("w_choose_first")),
+                                             Choice(self.t("w_choose"), "choose"), Choice(self.t("w_open"), "open")])
             if not c:
                 return
             if c == "open":
                 self.open_portal("#/wikis")
                 continue
+            if c == "choose":
+                picked = self.chk(self.t("w_choose_q"), [Choice(w["repo"], w["repo"], checked=w["chosen"]) for w in rows])
+                if picked is not None:
+                    docs.set_wiki_repos(picked)
+                    plan.sync()
+                self.banner()
+                continue
             picked = self.chk(self.t("w_pick"), [Choice(w["repo"], w["repo"], disabled=None if w["ready"] else self.t("w_need_brief"))
-                                                 for w in rows if w["cloned"]])
+                                                 for w in chosen])
             if not picked:
                 continue
             engine = self.wiki_engine()

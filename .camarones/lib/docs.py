@@ -50,6 +50,19 @@ def repo_names() -> list[str]:
     return [r["name"] for r in workspace()["repos"]]
 
 
+def wiki_repos() -> list[str]:
+    """Repos that get an OpenWiki (`wiki: true` in workspace.yaml). None chosen → none: a wiki per repo costs a full
+    agent run, and libraries or CI repos rarely need one."""
+    return [r["name"] for r in workspace()["repos"] if r.get("wiki")]
+
+
+def set_wiki_repos(names: list[str]) -> None:
+    ws = workspace()
+    for r in ws["repos"]:
+        r["wiki"] = r["name"] in names
+    save_workspace(ws)
+
+
 def git(repo: Path, *args: str, check=True, env: dict | None = None) -> str:
     r = subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True, encoding="utf-8", errors="replace",
                        env={**os.environ, **(env or {})})

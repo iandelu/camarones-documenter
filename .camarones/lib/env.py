@@ -652,13 +652,14 @@ def wiki_brief_ready(repo: str) -> bool:
 def wikis() -> list[dict]:
     from . import plan
     units = {u["id"]: u["status"] for u in plan.load()["units"]}
+    chosen = docs.wiki_repos()
     rows = []
     for n in docs.repo_names():
         pages = wiki_pages(n)
         at = newest(pages)
         rows.append({"repo": n, "pages": len(pages), "at": at, "stale": bool(pages) and repo_changed_at(n) > at,
                      "graph": (VIEWERS / "wiki-graph" / n / "index.html").exists(), "unit": units.get(f"repo-wiki:{n}"),
-                     "cloned": repo_dir(n).is_dir(), "ready": bool(pages) or wiki_brief_ready(n),
+                     "cloned": repo_dir(n).is_dir(), "chosen": n in chosen, "ready": bool(pages) or wiki_brief_ready(n),
                      "index": next((f"repos/{n}/{p}" for p in ("quickstart.md", "index.md", "README.md")
                                     if (docs.wiki_dir(n) / p).exists()), None)})
     return rows
