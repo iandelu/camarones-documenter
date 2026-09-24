@@ -1,0 +1,8 @@
+/* Big screens: use the room instead of a narrow centred column. */
+@media (min-width: 1600px) { :root { --sl-content-width: 60rem; } }
+@media (min-width: 2200px) { :root { --sl-content-width: 76rem; } }
+
+/* Wide content scrolls on its own instead of being clipped. */
+.sl-markdown-content :is(pre.mermaid, .mermaid, table) { display: block; max-width: 100%; overflow-x: auto; }
+.sl-markdown-content .mermaid svg { max-width: none; }
+.sl-markdown-content img { max-width: 100%; height: auto; }

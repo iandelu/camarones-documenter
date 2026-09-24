@@ -7,7 +7,8 @@ from typing import Callable
 
 import yaml
 
-from .common import ROOT, DOCS, WS_FILE, CACHE, run, which, load_json, save_json
+from .common import (ROOT, DOCS, WS_FILE, CACHE, WORKSPACE, CAM_DIR, CAM_LAYOUT, repo_dir, rel_file, run, which, load_json,
+                     save_json)
 
 STATE_FILE = DOCS / ".state.json"
 STATUS_FILE = DOCS / ".status.json"
@@ -33,7 +34,7 @@ def workspace() -> dict:
     ws = (yaml.safe_load(ws_file().read_text(encoding="utf-8")) if ws_file().exists() else None) or {}
     ws.setdefault("project", {})
     ws.setdefault("repos", [])
-    ws["project"].setdefault("name", ROOT.name)
+    ws["project"].setdefault("name", WORKSPACE.name)
     ws["project"].setdefault("translations", ["es"])
     return ws
 
@@ -58,10 +59,10 @@ def git(repo: Path, *args: str, check=True, env: dict | None = None) -> str:
 
 
 def detect_repos() -> list[dict]:
-    """Repos already sitting in the umbrella folder (the 'drop the zip next to your repos' case)."""
+    """Repos already sitting in the workspace folder (the 'drop the kit next to your repos' case)."""
     found = []
-    for d in sorted(p for p in ROOT.iterdir() if p.is_dir() and (p / ".git").exists()):
-        if d.name.startswith(".") or d.name in ("docs",) or d.name.lower().startswith("camarones-"):
+    for d in sorted(p for p in WORKSPACE.iterdir() if p.is_dir() and (p / ".git").exists()):
+        if d.name.startswith(".") or d.name in ("docs", CAM_DIR) or d.name.lower().startswith("camarones-"):
             continue
         url = git(d, "remote", "get-url", "origin", check=False)
         branch = git(d, "rev-parse", "--abbrev-ref", "HEAD", check=False) or "main"
@@ -86,7 +87,7 @@ def sync_repos(log: Log = print) -> list[str]:
     from . import creds
     failed = []
     for r in workspace()["repos"]:
-        path, branch, url = ROOT / r["name"], r.get("branch", "main"), r.get("url", "")
+        path, branch, url = repo_dir(r["name"]), r.get("branch", "main"), r.get("url", "")
         env = creds.git_env(url)
         if not (path / ".git").exists():
             if not url:
@@ -124,8 +125,9 @@ def sync_repos(log: Log = print) -> list[str]:
 def write_gitignore() -> None:
     gi = ROOT / ".gitignore"
     text = gi.read_text(encoding="utf-8") if gi.exists() else ""
-    block = "\n".join([GI_START, *[f"/{n}/" for n in repo_names()], "/.camarones/.cache/", "camarones-documenter*/",
-                       "camarones-kit*/", "camarones-documenter*.zip", GI_END])
+    repos = [] if CAM_LAYOUT else [f"/{n}/" for n in repo_names()]      # cam-docs layout: repos live next to it
+    block = "\n".join([GI_START, *repos, "/.camarones/.cache/", "/graph/", "/.claude/settings.local.json",
+                       "camarones-documenter*/", "camarones-kit*/", "camarones-documenter*.zip", ".DS_Store", GI_END])
     if GI_START in text:
         text = re.sub(re.escape(GI_START) + r".*?" + re.escape(GI_END), lambda _: block, text, flags=re.S)
     else:
@@ -137,7 +139,7 @@ def write_gitignore() -> None:
 def changes() -> dict:
     state, out = load_json(STATE_FILE, {"repos": {}}), {}
     for r in workspace()["repos"]:
-        path = ROOT / r["name"]
+        path = repo_dir(r["name"])
         if not (path / ".git").exists():
             out[r["name"]] = {"status": "missing"}
             continue
@@ -161,7 +163,7 @@ def mark_documented(names: list[str] | None = None) -> list[str]:
     state = load_json(STATE_FILE, {"repos": {}})
     names = names or repo_names()
     for n in names:
-        state["repos"][n] = {"sha": git(ROOT / n, "rev-parse", "HEAD"), "at": now()}
+        state["repos"][n] = {"sha": git(repo_dir(n), "rev-parse", "HEAD"), "at": now()}
     for n in set(state["repos"]) - set(repo_names()):
         del state["repos"][n]
     save_json(STATE_FILE, state)
@@ -186,7 +188,7 @@ def body_sha(body: str) -> str:
 
 
 def iter_docs():
-    """(logical_path, file) for every canonical doc: umbrella docs/ + each repo's openwiki/."""
+    """(logical_path, file) for every canonical doc: docs/ + each repo's OpenWiki (cam-docs/wikis/<repo>)."""
     if DOCS.is_dir():
         for f in sorted(DOCS.rglob("*.md")):
             rel = f.relative_to(DOCS)
@@ -194,13 +196,19 @@ def iter_docs():
                 continue
             yield rel.as_posix(), f
     for n in repo_names():
-        ow = ROOT / n / "openwiki"
+        ow = wiki_dir(n)
         if ow.is_dir():
             for f in sorted(ow.rglob("*.md")):
                 rel = f.relative_to(ow)
                 if any(p.startswith(".") for p in rel.parts) or rel.name in ("INSTRUCTIONS.md", "log.md"):
                     continue
                 yield f"repos/{n}/{rel.as_posix()}", f
+
+
+def wiki_dir(repo: str) -> Path:
+    """A repo's OpenWiki lives in cam-docs/wikis/<repo> (the repo gets an untracked openwiki/ symlink to it)."""
+    own = ROOT / "wikis" / repo
+    return own if own.is_dir() or CAM_LAYOUT else repo_dir(repo) / "openwiki"
 
 
 def repo_file_exists(ref: str) -> bool:
@@ -210,7 +218,7 @@ def repo_file_exists(ref: str) -> bool:
     if ":" not in ref:
         return True
     repo, path = ref.split(":", 1)
-    base = ROOT if repo in ("umbrella", ".") else ROOT / repo
+    base = ROOT if repo in ("umbrella", ".", CAM_DIR) else repo_dir(repo)
     return (base / path).exists()
 
 
@@ -233,7 +241,7 @@ def doc_status(logical: str, f: Path, langs: list[str]) -> dict:
         else:
             tfm, _ = split_fm(tf.read_text(encoding="utf-8"))
             i18n[lang] = "current" if (tfm.get("x-translation-of") or {}).get("body_sha") == sha else "outdated"
-    return {"path": logical, "file": f.relative_to(ROOT).as_posix(),
+    return {"path": logical, "file": rel_file(f),
             "title": fm.get("title") or first_heading(body) or f.stem, "description": fm.get("description", ""),
             "type": fm.get("type", ""), "trust": trust, "owner": fm.get("x-owner", "ai"), "orphan_sources": missing,
             "i18n": i18n, "body_sha": sha, "has_frontmatter": bool(fm)}
@@ -396,7 +404,7 @@ def portal_content(out: Path, config: Path) -> int:
                                    "**re-confirm** = edited after confirmation.\n\n" + "\n".join(table) + "\n", encoding="utf-8")
     cfg = {"name": ws["project"]["name"], "site": ws["project"].get("portal_url"), "translations": langs,
            "localeLabels": {"es": "Español", "en": "English", "fr": "Français", "de": "Deutsch", "pt": "Português"},
-           "repos": [{"name": n, "wikiGraph": (ROOT / n / "openwiki").is_dir()} for n in repo_names()]}
+           "repos": [{"name": n, "wikiGraph": wiki_dir(n).is_dir()} for n in repo_names()]}
     config.write_text(json.dumps(cfg, indent=2) + "\n", encoding="utf-8")
     return len(rows)
 

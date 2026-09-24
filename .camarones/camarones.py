@@ -16,7 +16,11 @@
   llms                      regenerate docs/llms.txt
   graph                     rebuild the cross-repo code graph (.camarones/.cache/graph/graph.html)
   arch | arch-validate      live C4 editor | validate the C4 model
-  portal | up [--port] [--no-docker] | down   build the static portal | serve it (Docker, or plain Python) | stop it
+  portal                    build the static portal (Astro/Starlight, for CI / hosting)
+  up [--port] [--docker|--static]   serve the portal: editable local server (default), nginx in Docker, or static files
+  down                      stop the portal
+  migrate [--yes] [--dry-run]   move an older layout into <workspace>/cam-docs and clean kit files out of the repos
+  mcp                       stdio MCP server: agents search/read the docs and the code graph
   ci [gitlab|github]        install the umbrella CI pipeline
   plan [sync|next|start|note|done|block|drop|add] …   session work plan (docs/.work/plan.yaml)
   plan note UNIT "text"     save a progress checkpoint of a unit (a closed session resumes from it)
@@ -29,7 +33,7 @@
   install DEST --profile quick|full [--dry-run]   copy kit into an explicit project folder
   upgrade SOURCE [--dry-run]  update kit files with backups; preserve project configuration
   profile quick|full        change the work plan without losing checkpoints
-  new NAME                  create ./cama-docs-NAME/, register it, open it (global install)
+  new NAME                  create ./NAME/cam-docs/, register it, open it (global install)
   switch                    pick a registered project to open (global install)
   self-update               git pull the central kit in place (global install only)
   unlink                    remove this project's local kit copy, keep config (moves to global install)
@@ -68,12 +72,9 @@ elif _cmd0 == "switch":
     _relaunch(_dest, [])
 elif (_cmd0 == "init" and os.environ.get("CAMARONES_GLOBAL")
       and not os.environ.get("CAMARONES_ROOT") and not projects.find_marker(Path.cwd())):
-    # Global install, run from inside an existing repos folder (or an empty one): adopt THIS folder as
-    # the project root directly — the classic "drop the kit next to your repos" flow — instead of always
-    # nesting a new cama-docs-<name> subfolder, which would hide any repos already sitting here from
-    # docs.detect_repos()/sync_repos() (they only ever look at ROOT's direct children).
-    projects.register(Path.cwd())
-    _relaunch(Path.cwd(), ["init"])
+    # Global install, run from inside an existing repos folder (or an empty one): adopt THIS folder as the
+    # workspace — docs and agent config go to ./cam-docs, the repos stay where they are.
+    _relaunch(projects.adopt(Path.cwd()), ["init"])
 elif os.environ.get("CAMARONES_GLOBAL") and not os.environ.get("CAMARONES_ROOT"):
     # Only the global launcher (install-global.cmd/.sh) sets CAMARONES_GLOBAL — a project-local
     # launcher (legacy co-located kit copy) must keep resolving ROOT exactly as before (KIT.parent),
@@ -81,7 +82,7 @@ elif os.environ.get("CAMARONES_GLOBAL") and not os.environ.get("CAMARONES_ROOT")
     _marker = projects.find_marker(Path.cwd())
     if _marker:
         projects.touch(_marker)
-    elif _cmd0 not in ("help", "version", "self-update"):
+    elif _cmd0 not in ("help", "version", "self-update", "mcp"):
         _dest = projects.pick(allow_new=True, here=Path.cwd())
         if _dest is None:
             sys.exit(1)
@@ -112,14 +113,18 @@ def main() -> int:
     sp.add_parser("unlink")
     prof = sp.add_parser("profile"); prof.add_argument("name", choices=["quick", "full"])
     sp.add_parser("init")
-    for c in ("sync", "detect", "changes", "llms", "graph", "arch", "arch-validate", "portal", "down", "doctor", "wizard", "version"):
+    for c in ("sync", "detect", "changes", "llms", "graph", "arch", "arch-validate", "portal", "down", "doctor", "wizard", "version",
+              "mcp"):
         sp.add_parser(c)
     m = sp.add_parser("mark-documented"); m.add_argument("repos", nargs="*")
     s = sp.add_parser("status"); s.add_argument("--json", action="store_true")
     k = sp.add_parser("check"); k.add_argument("--strict", action="store_true")
     c = sp.add_parser("confirm"); c.add_argument("files", nargs="+"); c.add_argument("--by", required=True)
     t = sp.add_parser("translated"); t.add_argument("files", nargs="+")
-    u = sp.add_parser("up"); u.add_argument("--port", type=int, default=8080); u.add_argument("--no-docker", action="store_true")
+    u = sp.add_parser("up"); u.add_argument("--port", type=int, default=8080); u.add_argument("--docker", action="store_true")
+    u.add_argument("--static", "--no-docker", dest="static", action="store_true"); u.add_argument("--foreground", action="store_true")
+    mg = sp.add_parser("migrate"); mg.add_argument("--yes", action="store_true"); mg.add_argument("--dry-run", action="store_true")
+    mg.add_argument("--finish", action="store_true", help=argparse.SUPPRESS)
     ci = sp.add_parser("ci"); ci.add_argument("forge", nargs="?", choices=["gitlab", "github"])
     pl = sp.add_parser("plan"); pl.add_argument("action", nargs="?", default="show",
                                                 choices=["show", "sync", "next", "start", "note", "done", "block", "drop", "add"])
@@ -220,9 +225,21 @@ def main() -> int:
     elif a.cmd == "portal":
         env.portal()
     elif a.cmd == "up":
-        if not (CACHE / "site" / "index.html").exists():
-            env.portal()
-        (env.serve_local if a.no_docker else env.docker_up)(a.port)
+        if a.docker or a.static:
+            if not (CACHE / "site" / "index.html").exists():
+                env.portal()
+            (env.docker_up if a.docker else env.serve_local)(a.port)
+        elif a.foreground:
+            from lib import serve
+            serve.run_server(a.port)
+        else:
+            env.serve_editor(a.port)
+    elif a.cmd == "migrate":
+        from lib import migrate
+        return migrate.main(yes=a.yes, dry_run=a.dry_run, finish=a.finish)
+    elif a.cmd == "mcp":
+        from lib import mcp
+        mcp.serve_stdio()
     elif a.cmd == "down":
         env.docker_down()
     elif a.cmd == "ci":
@@ -300,6 +317,6 @@ def cmd_plan(a) -> int:
 if __name__ == "__main__":
     try:
         sys.exit(main())
-    except (RuntimeError, KeyError, ValueError) as e:
+    except (RuntimeError, KeyError, ValueError, OSError) as e:
         print(f"🦐✖ {e}", file=sys.stderr)
         sys.exit(1)

@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.4.0-ff875f?style=flat-square" alt="Versión 2.4.0">
+  <img src="https://img.shields.io/badge/version-3.0.0-ff875f?style=flat-square" alt="Versión 3.0.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -30,6 +30,15 @@ Un servicio recibe la petición, otro publica un evento y un tercero guarda el r
 **Camarones Documenter** es un kit local con asistente de terminal y CLI que coordina ese trabajo con Claude Code o Codex. Divide la documentación en unidades manejables, guarda el progreso entre sesiones y reúne el resultado en un portal web.
 
 Está pensado para equipos que necesitan incorporar personas, entender sistemas heredados o documentar la arquitectura y los flujos de un proyecto con varios repositorios.
+
+### Qué hace, en seis puntos
+
+1. **Instala e integra las herramientas de IA** (Claude Code, Codex, graphify, LikeC4, OpenWiki, MCP) con un asistente.
+2. **Estandariza la documentación** con un plan de unidades, un playbook, convenciones y skills para los agentes.
+3. **Las personas consultan, editan y verifican** la documentación en el portal vivo (`camarones up`) o con la CLI.
+4. **La IA tiene la documentación a mano al implementar**: servidor MCP `camarones` (`search_docs`, `read_doc`, `repo_graph`…) y skills `cam-docs-lookup` / `cam-docs-update`.
+5. **Documentación viva**: el código y la doc cambian juntos; `changes`, `check` y la trazabilidad `x-sources` señalan lo que quedó atrás.
+6. **Todo vive en `cam-docs/`**, una carpeta junto a tus repos que es su propio repo Git: docs, `.camarones`, `.claude`, `.codex`, `.agents`, `.mcp.json`. Los repos de servicio no reciben archivos del kit.
 
 ## Del código al mapa del proyecto
 
@@ -84,21 +93,32 @@ sh install-global.sh
 Esto clona el kit a una ruta fija (`%LOCALAPPDATA%\camarones-documenter\kit` en Windows, `~/.camarones/kit` en macOS/Linux) y deja un comando `camarones` en tu PATH. Desde ahí:
 
 ```sh
-camarones new enjoy      # crea ./cama-docs-enjoy/, lo registra y abre el asistente
-camarones switch         # cambia entre los proyectos cama-docs-* que ya tienes
-camarones self-update    # git pull del kit central — actualiza todos los proyectos a la vez
+cd ~/Documents/mi-proyecto   # la carpeta que agrupa (o agrupará) los repos
+camarones                    # crea ./cam-docs/, lo registra y abre el asistente
+camarones new enjoy          # alternativa: crea ./enjoy/cam-docs/
+camarones switch             # cambia entre tus proyectos
+camarones self-update        # git pull del kit central — actualiza todos los proyectos a la vez
+camarones migrate            # pasa un proyecto de la estructura anterior (≤2.5) a cam-docs/
 ```
 
-Cada proyecto vive en su propia carpeta **`cama-docs-<nombre>`**, con su propio repositorio Git —versionado aparte tanto del código de Camarones como del de los repositorios que documenta—, y solo contiene su `workspace.yaml` y su caché; el código del kit no se copia dentro.
+Cada proyecto guarda **todo lo que genera el kit en `cam-docs/`**, un repositorio Git propio (versionado aparte del kit y de los repos que documenta, pensado para compartirlo con el equipo). La carpeta del workspace enlaza a él la configuración de los agentes, así que al abrir Claude Code o Codex en ella ven todos los repos y la documentación:
 
 ```text
-cama-docs-enjoy/
-├── .camarones/           # Solo config (workspace.yaml) y caché — sin código del kit
-├── docs/                 # Lo que se versiona: wikis, arquitectura, flujos…
-├── orders-api/           # Repositorio Git (clonado, ignorado por el .git de cama-docs-enjoy)
-├── payments-api/         # Repositorio Git
-└── storefront/           # Repositorio Git
+mi-proyecto/
+├── cam-docs/             # Repo Git: la documentación viva y la config de la herramienta
+│   ├── .camarones/       # workspace.yaml, PLAYBOOK.md, CONVENTIONS.md (y .cache/, ignorada)
+│   ├── .claude/ .codex/ .agents/ .mcp.json   # skills, MCP y reglas para los agentes
+│   ├── AGENTS.md CLAUDE.md
+│   ├── docs/             # Arquitectura, dominio, flujos, fichas por repo, plan de trabajo…
+│   ├── wikis/<repo>/     # Wikis de OpenWiki (el repo ve un enlace openwiki/ sin versionar)
+│   └── graph/<repo>/     # Grafo de código de graphify (ignorado)
+├── .claude → cam-docs/.claude   .mcp.json → cam-docs/.mcp.json   AGENTS.md → …   CLAUDE.md → …
+├── orders-api/           # Repositorio Git, sin archivos del kit
+├── payments-api/
+└── storefront/
 ```
+
+Si lo pides, el asistente añade al `CLAUDE.md` de cada repo un bloque corto que apunta a `../cam-docs` (se añade al final; nunca borra lo que había).
 
 **Copia local por proyecto (modo clásico).** Descarga este repositorio desde **Code → Download ZIP** o clónalo. Copia **`.camarones/`**, **`camarones.cmd`** y **`camarones.command`** a la carpeta que agrupa el proyecto. Activa la visualización de archivos ocultos para ver `.camarones/`. Si ya tienes un proyecto así y quieres pasarlo a instalación global sin perder su configuración, corre `camarones unlink` dentro de él.
 
@@ -116,7 +136,7 @@ También puedes empezar con la carpeta vacía y añadir repositorios desde el as
 
 ### 2. Abre el asistente
 
-**Instalación global** — desde cualquier carpeta dentro de tu proyecto `cama-docs-*` (o corre `camarones switch` para elegir uno):
+**Instalación global** — desde la carpeta del workspace o cualquier carpeta dentro de ella (o corre `camarones switch` para elegir un proyecto):
 
 ```sh
 camarones
@@ -184,7 +204,7 @@ Las convenciones instruyen a los agentes para conservar los bloques `<!-- human 
 ## Todo termina en archivos que puedes versionar
 
 ```text
-mi-proyecto/
+mi-proyecto/cam-docs/
 ├── docs/
 │   ├── overview/        # Visión general del sistema
 │   ├── architecture/    # Modelo C4 y vistas
@@ -198,23 +218,21 @@ mi-proyecto/
 │   ├── i18n/es/         # Traducciones al español
 │   ├── .work/           # Plan, checkpoints y relevo entre sesiones
 │   └── llms.txt         # Índice para agentes
-├── orders-api/openwiki/ # Wiki del repositorio, si se eligió OpenWiki
+├── wikis/orders-api/    # Wiki del repositorio, si se eligió OpenWiki
 ├── AGENTS.md
 └── CLAUDE.md
 ```
 
-### Explora el portal
+### Explora y edita en el portal
 
-Después de generar la documentación:
-
-```powershell
-.\camarones.cmd portal
-.\camarones.cmd up --no-docker
+```sh
+camarones up          # portal vivo: leer, editar, confirmar, pedir cambios y hacer commit en cam-docs
+camarones down
 ```
 
-Abre **http://localhost:8080**. El portal reúne páginas de documentación y, cuando se han generado, el explorador de arquitectura en `/architecture/` y el grafo de código en `/code-graph/`.
+Abre **http://localhost:8080**. El portal vivo lee `cam-docs/docs` en el momento (sin build, sin Docker): cada página muestra su estado (`draft`, `confirmed`, `needs-reconfirm`), y desde ahí puedes editarla, confirmarla o dejar un comentario para la siguiente sesión de IA. «Review & status» lista lo pendiente de revisar y los repos cuyo código cambió.
 
-Para servirlo con Docker, usa `.\camarones.cmd up`. Para detener el servidor, `.\camarones.cmd down`.
+Para publicarlo (CI / hosting), `camarones portal` construye el sitio estático con Astro + Starlight, que se sirve con `camarones up --static` o `camarones up --docker`, e incluye el explorador C4 en `/architecture/` y el grafo de código en `/code-graph/`.
 
 ### Mantenlo al día
 

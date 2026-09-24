@@ -5,8 +5,8 @@ import json, os, re, shutil, subprocess, webbrowser
 from pathlib import Path
 from typing import Callable
 
-from .common import (KIT, ROOT, DOCS, HOME, CACHE, IS_WIN, IS_MAC, VERSIONS, run, out, which, uv, ensure_path, cli_cmd,
-                     sdkman_dir)
+from .common import (KIT, ROOT, DOCS, HOME, CACHE, IS_WIN, IS_MAC, VERSIONS, CAM_DIR, CAM_LAYOUT, WORKSPACE, GRAPHS, run, out,
+                     which, uv, ensure_path, cli_cmd, sdkman_dir, repo_dir, ws_rel, load_json, save_json)
 from . import docs
 
 Log = Callable[[str], None]
@@ -14,30 +14,75 @@ TEMPLATES = KIT / "templates"
 
 
 # ---------- templates ----------
+KIT_DOCS = ("PLAYBOOK.md", "CONVENTIONS.md")         # copied into the project so agents (and the team) can read them
+KIT_DOCS_STAMP = ROOT / ".camarones" / ".kit-docs.json"
+
+
+def fill(text: str, name: str) -> str:
+    return (text.replace("{{PROJECT_NAME}}", name).replace("{{CLI}}", cli_cmd())
+            .replace("{{CAM}}", f"{CAM_DIR}/" if CAM_LAYOUT else ""))
+
+
 def init_templates(project_name: str | None = None, log: Log = print) -> list[str]:
-    """Copy umbrella templates that do not exist yet (never overwrites project files)."""
+    """Copy templates that do not exist yet (never overwrites project files), plus the kit's playbook/conventions."""
     created = []
+    name = project_name or docs.workspace()["project"]["name"]
     for src in sorted(TEMPLATES.rglob("*")):
         if src.is_dir():
             continue
         rel = src.relative_to(TEMPLATES)
+        if rel.parts[0] == "skills":            # kit-owned: always refreshed, for Claude Code and Codex alike
+            for host in (".claude", ".agents"):
+                dst = ROOT / host / rel
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                dst.write_text(fill(src.read_text(encoding="utf-8"), name), encoding="utf-8")
+            continue
         dst = ROOT / rel
         if dst.exists():
             if rel.as_posix() == "AGENTS.md":
                 refresh_block(src, dst, project_name)
+            elif rel.as_posix() == "CLAUDE.md":
+                ensure_agents_import(dst)
             continue
         dst.parent.mkdir(parents=True, exist_ok=True)
-        text = src.read_text(encoding="utf-8")
-        name = project_name or docs.workspace()["project"]["name"]
-        dst.write_text(text.replace("{{PROJECT_NAME}}", name).replace("{{CLI}}", cli_cmd()), encoding="utf-8")
+        dst.write_text(fill(src.read_text(encoding="utf-8"), name), encoding="utf-8")
         created.append(rel.as_posix())
+    created += sync_kit_docs()
     if not (ROOT / ".git").exists():
         subprocess.run(["git", "init", "-q", str(ROOT)])
-        created.append(".git (umbrella repo)")
+        created.append(".git (docs repo)")
     docs.write_gitignore()
     for c in created:
         log(f"  + {c}")
     return created
+
+
+def ensure_agents_import(claude_md: Path) -> None:
+    """A pre-existing CLAUDE.md (project notes) must still pull in the kit's AGENTS.md rules."""
+    text = claude_md.read_text(encoding="utf-8")
+    if "@AGENTS.md" not in text:
+        claude_md.write_text("@AGENTS.md\n\n" + text, encoding="utf-8")
+
+
+def sync_kit_docs() -> list[str]:
+    """Copy PLAYBOOK/CONVENTIONS into the project's .camarones/ (versioned with the docs). A copy the team edited
+    since the last sync is kept as is — only untouched copies follow kit upgrades."""
+    if (ROOT / ".camarones").resolve() == KIT.resolve():
+        return []                                   # legacy: the kit itself lives in this project
+    import hashlib
+    stamp, changed = load_json(KIT_DOCS_STAMP, {}), []
+    for n in KIT_DOCS:
+        src, dst = KIT / n, ROOT / ".camarones" / n
+        cur = hashlib.sha256(dst.read_bytes()).hexdigest() if dst.exists() else None
+        new = hashlib.sha256(src.read_bytes()).hexdigest()
+        if cur == new or (cur and stamp.get(n) != cur):
+            continue
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(src, dst)
+        stamp[n] = new
+        changed.append(f".camarones/{n}")
+    save_json(KIT_DOCS_STAMP, stamp)
+    return changed
 
 
 def refresh_block(src: Path, dst: Path, project_name: str | None = None) -> bool:
@@ -46,8 +91,7 @@ def refresh_block(src: Path, dst: Path, project_name: str | None = None) -> bool
     cur, tpl = dst.read_text(encoding="utf-8"), src.read_text(encoding="utf-8")
     if a not in cur or b not in cur or a not in tpl:
         return False
-    name = project_name or docs.workspace()["project"]["name"]
-    block = tpl[tpl.index(a):tpl.index(b) + len(b)].replace("{{PROJECT_NAME}}", name).replace("{{CLI}}", cli_cmd())
+    block = fill(tpl[tpl.index(a):tpl.index(b) + len(b)], project_name or docs.workspace()["project"]["name"])
     new = cur[:cur.index(a)] + block + cur[cur.index(b) + len(b):]
     if new != cur:
         dst.write_text(new, encoding="utf-8")
@@ -66,7 +110,7 @@ JVM_MARKERS = ("pom.xml", "build.gradle", "build.gradle.kts", "mvnw", "gradlew",
 
 
 def jvm_repos() -> list[str]:
-    return [n for n in docs.repo_names() if any((ROOT / n / m).exists() for m in JVM_MARKERS)]
+    return [n for n in docs.repo_names() if any((repo_dir(n) / m).exists() for m in JVM_MARKERS)]
 
 
 def java_info() -> dict:
@@ -84,7 +128,7 @@ def java_info() -> dict:
                                                     if (p / "current").exists())) + ")" if (sdkman_dir() / "candidates").is_dir() else "SDKMAN ✔")
     if tools:
         note.append("build: " + ", ".join(tools))
-    rc = [n for n in docs.repo_names() if (ROOT / n / ".sdkmanrc").exists()]
+    rc = [n for n in docs.repo_names() if (repo_dir(n) / ".sdkmanrc").exists()]
     if rc:
         note.append(".sdkmanrc in: " + ", ".join(rc) + " → `sdk env` inside those repos")
     return {"ok": bool(ver), "need": False, "found": f"java {ver}" if ver else "—", "sdkman": sdk,
@@ -166,8 +210,7 @@ KIT_TOOLS = {
     "openwiki": "OpenWiki — one wiki per repo with grounded claims",
 }
 EXTRAS = {
-    "agents": "Claude Code / Codex wiring in every repo (skills, MCP, rules)",
-    "hooks": "git hooks: code graph rebuilds itself on commit / checkout",
+    "agents": "Claude Code / Codex wiring in cam-docs (skills, MCP, rules), linked from the workspace root",
 }
 ALL_COMPONENTS = [*KIT_TOOLS, *EXTRAS]
 
@@ -175,7 +218,7 @@ ALL_COMPONENTS = [*KIT_TOOLS, *EXTRAS]
 def components() -> list[str]:
     """Components chosen in the wizard (stored in .camarones/workspace.yaml → project.components). Default: all."""
     chosen = docs.workspace()["project"].get("components")
-    return list(ALL_COMPONENTS) if chosen is None else chosen
+    return list(ALL_COMPONENTS) if chosen is None else [c for c in chosen if c in ALL_COMPONENTS]
 
 
 def set_profile(name: str) -> None:
@@ -225,7 +268,11 @@ def install_tools(log: Log = print, comps: list[str] | None = None) -> None:
                 fh.write("OPENWIKI_TELEMETRY_DISABLED=1\n")
 
 
-# ---------- repo wiring ----------
+# ---------- wiring: everything lives in cam-docs, the service repos stay clean ----------
+LINKS = (".claude", ".codex", ".agents", ".mcp.json", "AGENTS.md", "CLAUDE.md")   # workspace root → cam-docs
+POINTER_START, POINTER_END = "<!-- cam-docs:start -->", "<!-- cam-docs:end -->"
+
+
 def _append_lines(f: Path, lines: list[str]) -> None:
     have = set(f.read_text(encoding="utf-8").splitlines()) if f.exists() else set()
     new = [l for l in lines if l not in have]
@@ -236,138 +283,152 @@ def _append_lines(f: Path, lines: list[str]) -> None:
             fh.write("\n".join(new) + "\n")
 
 
+def git_exclude(repo: Path, pattern: str) -> None:
+    """Ignore a path in `repo` locally (.git/info/exclude is never committed, so the repo's history stays clean)."""
+    if (repo / ".git").is_dir():
+        f = repo / ".git" / "info" / "exclude"
+        f.parent.mkdir(parents=True, exist_ok=True)
+        _append_lines(f, [pattern])
+
+
+def link(dst: Path, target: Path, log: Log = print) -> bool:
+    """dst → target symlink (relative). An existing real file/dir is never replaced. Windows without symlink
+    rights: directories become junctions, files are left alone (the warning says what to do)."""
+    if dst.is_symlink():
+        if dst.resolve() == target.resolve():
+            return True
+        dst.unlink()
+    elif dst.exists():
+        log(f"⚠ {dst.name} already exists in {dst.parent} — not linked (move it into {CAM_DIR}/ or run migrate)")
+        return False
+    try:
+        dst.symlink_to(os.path.relpath(target, dst.parent), target_is_directory=target.is_dir())
+        return True
+    except OSError:
+        if IS_WIN and target.is_dir():
+            return run(["cmd", "/c", "mklink", "/J", str(dst), str(target)], check=False, quiet=True).returncode == 0
+        log(f"⚠ could not link {dst} → {target} (enable Developer Mode on Windows)")
+        return False
+
+
+def link_workspace(log: Log = print) -> list[str]:
+    """Agents open in the workspace folder (so they see every repo): point its config files at cam-docs."""
+    if not CAM_LAYOUT:
+        return []
+    (ROOT / ".claude").mkdir(exist_ok=True)
+    return [n for n in LINKS if (ROOT / n).exists() and link(WORKSPACE / n, ROOT / n, log)]
+
+
+def camarones_mcp() -> dict:
+    """MCP entry for the kit's own server — no API keys; it resolves the project by walking up from its cwd."""
+    if cli_cmd() == "camarones":
+        return {"command": "camarones", "args": ["mcp"]}
+    return {"command": "uv", "args": ["run", "--quiet", "--script", str(KIT / "camarones.py"), "mcp"]}
+
+
+GRAPHIFY_SECTION = re.compile(r"\n*^## graphify\n.*?(?=^## |\Z)", re.S | re.M)
+
+
+def without_graphify_hooks(data: dict) -> dict:
+    """graphify's hooks assume a graphify-out/ in the cwd; the kit keeps graphs in cam-docs/graph/ instead."""
+    for event, groups in list((data.get("hooks") or {}).items()):
+        groups = [g for g in groups if not any("graphify" in h.get("command", "") for h in g.get("hooks", []))]
+        if groups:
+            data["hooks"][event] = groups
+        else:
+            del data["hooks"][event]
+    if data.get("hooks") == {}:
+        del data["hooks"]
+    return data
+
+
+def install_graphify_skill() -> None:
+    """Only the skill: `graphify install --project` would also add hooks and rules pointing at graphify-out/."""
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        run(["graphify", "install", "--project"], cwd=Path(tmp), check=False, quiet=True)
+        run(["graphify", "install", "--project", "--platform", "codex"], cwd=Path(tmp), check=False, quiet=True)
+        for host in (".claude", ".codex", ".agents"):
+            src = Path(tmp) / host / "skills" / "graphify"
+            if src.is_dir():
+                shutil.copytree(src, ROOT / host / "skills" / "graphify", dirs_exist_ok=True)
+
+
+def write_agent_config(comps: list[str]) -> None:
+    for f in (ROOT / "AGENTS.md", ROOT / "CLAUDE.md"):
+        if f.is_file() and GRAPHIFY_SECTION.search(text := f.read_text(encoding="utf-8")):
+            f.write_text(GRAPHIFY_SECTION.sub("", text).rstrip() + "\n", encoding="utf-8")
+    hooks = ROOT / ".codex" / "hooks.json"
+    if hooks.is_file():
+        data = without_graphify_hooks(load_json(hooks, {}))
+        save_json(hooks, data) if data else hooks.unlink()
+    mcp_file = ROOT / ".mcp.json"
+    cfg = load_json(mcp_file, {})
+    servers = cfg.setdefault("mcpServers", {})
+    servers["camarones"] = camarones_mcp()
+    if "openwiki" not in comps:
+        servers.pop("openwiki", None)
+    save_json(mcp_file, cfg)
+    settings = ROOT / ".claude" / "settings.json"
+    st = without_graphify_hooks(load_json(settings, {}))
+    st["enabledMcpjsonServers"] = sorted(set(st.get("enabledMcpjsonServers", [])) | set(servers))
+    save_json(settings, st)
+
+
 def wire_repo(name: str, log: Log = print, comps: list[str] | None = None) -> None:
+    """Nothing is written into the repo's tracked files: the code graph goes to cam-docs/graph/<repo>, and the
+    OpenWiki folder is an untracked symlink into cam-docs/wikis/<repo>."""
     comps = components() if comps is None else comps
-    d = ROOT / name
-    q = dict(check=False, quiet=True, cwd=d)
-    agents = "agents" in comps
-    if agents and "openwiki" in comps:
-        log(f"{name}: OpenWiki skill + MCP for Claude/Codex…")
-        for host in ("claude", "codex"):
-            if run(["openwiki", "integrations", "install", host, "--project", "."], **q).returncode != 0:
-                log(f"⚠ {name}: openwiki {host} integration failed")
+    if "openwiki" in comps and CAM_LAYOUT:
+        link_repo_wiki(name, log)
     if "graphify" in comps:
-        if agents:
-            log(f"{name}: graphify skill + 'query the graph first' rules…")
-            run(["graphify", "install", "--project"], **q)
-            run(["graphify", "install", "--project", "--platform", "codex"], **q)
-            run(["graphify", "claude", "install"], **q)
-            run(["graphify", "codex", "install"], **q)
-        if "hooks" in comps and run(["graphify", "hook", "install"], **q).returncode != 0:
-            log(f"⚠ {name}: graphify git hooks not installed")
-        _append_lines(d / ".gitignore", ["graphify-out/", "*.graphify-bak"])
-        _append_lines(d / ".graphifyignore", [".claude/", ".codex/", ".agents/", "openwiki/", "graphify-out/"])
-        _append_lines(d / ".claudeignore", ["graphify-out/"])
         log(f"{name}: building the code graph…")
-        if run(["graphify", "update", ".", "--force"], **q).returncode != 0:
+        if not graph_repo(name):
             log(f"⚠ {name}: graphify build failed")
 
 
-AGENT_WIRE_DESC = {"en": "wire Camarones agent setup (.claude, .codex, AGENTS.md/CLAUDE.md rules, MCP)",
-                    "es": "configura los agentes de Camarones (.claude, .codex, reglas AGENTS.md/CLAUDE.md, MCP)"}
-CONV_COMMIT_RE = re.compile(r"^(\w+)(\([\w./*-]+\))?!?:\s+\S")
-ES_WORD_RE = re.compile(r"\b(el|la|los|las|de|del|para|con|se|agrega|añade|anade|corrige|actualiza|configura|"
-                        r"arregla|elimina|mejora|cambia)\b", re.I)
+def link_repo_wiki(name: str, log: Log = print) -> None:
+    d, wiki = repo_dir(name), ROOT / "wikis" / name
+    if (d / "openwiki").is_dir() and not (d / "openwiki").is_symlink() and not wiki.exists():
+        wiki.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(d / "openwiki"), str(wiki))
+    wiki.mkdir(parents=True, exist_ok=True)
+    if link(d / "openwiki", wiki, log):
+        git_exclude(d, "/openwiki")
 
 
-def commit_style(name: str) -> dict:
-    """Sniff repo `name`'s own commit convention from its recent history, so commits Camarones makes there
-    (agent wiring) match it instead of always using one fixed format. No clear pattern (or no history yet)
-    falls back to plain Conventional Commits — the most common baseline — in English."""
-    subjects = [s for s in out(["git", "log", "-n", "60", "--format=%s"], cwd=ROOT / name).splitlines() if s.strip()]
-    if not subjects:
-        return {"conventional": True, "type": "chore", "scoped": False, "lang": "en"}
-    hits = [m for m in (CONV_COMMIT_RE.match(s) for s in subjects) if m]
-    conventional = len(hits) >= max(3, len(subjects) // 2)
-    if conventional:
-        types = [m.group(1).lower() for m in hits]
-        meta = [t for t in types if t in ("chore", "build", "ci", "tooling")]
-        from collections import Counter
-        typ = Counter(meta or types).most_common(1)[0][0]
-        scoped = sum(1 for m in hits if m.group(2)) >= len(hits) / 2
-    else:
-        typ, scoped = "chore", False
-    lang = "es" if sum(1 for s in subjects if ES_WORD_RE.search(s)) > len(subjects) / 3 else "en"
-    return {"conventional": conventional, "type": typ, "scoped": scoped, "lang": lang}
-
-
-def agent_wiring_message(name: str) -> str:
-    style = commit_style(name)
-    desc = AGENT_WIRE_DESC[style["lang"]]
-    if not style["conventional"]:
-        return desc[0].upper() + desc[1:]
-    return f"{style['type']}{'(agents)' if style['scoped'] else ''}: {desc}"
-
-
-def ensure_agent_branch(name: str, branch: str, log: Log = print) -> bool:
-    """Switch repo `name` to `branch` (creating it, from whatever is local or on origin, if it doesn't exist yet)
-    before wiring writes anything. Skips — leaving the repo on its current branch — if the working tree is dirty."""
-    d = ROOT / name
-    q = dict(check=False, quiet=True, cwd=d)
-    if out(["git", "status", "--porcelain"], cwd=d):
-        log(f"⚠ {name}: local changes — wiring on the current branch instead of '{branch}'")
+def add_repo_pointer(name: str) -> bool:
+    """Optional: a short block in the repo's CLAUDE.md pointing at cam-docs (appended; existing text is kept)."""
+    f = repo_dir(name) / "CLAUDE.md"
+    text = f.read_text(encoding="utf-8") if f.exists() else ""
+    if POINTER_START in text:
         return False
-    cur = out(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=d)
-    if cur == branch:
-        return True
-    url = next((r.get("url", "") for r in docs.workspace()["repos"] if r["name"] == name), "")
-    from . import creds
-    gitenv = creds.git_env(url)
-    run(["git", "fetch", "--quiet", "origin", branch], **{**q, "env": gitenv})
-    if run(["git", "show-ref", "--verify", "--quiet", f"refs/heads/{branch}"], **q).returncode == 0:
-        run(["git", "checkout", "-q", branch], **q)
-    elif run(["git", "show-ref", "--verify", "--quiet", f"refs/remotes/origin/{branch}"], **q).returncode == 0:
-        run(["git", "checkout", "-q", "-b", branch, f"origin/{branch}"], **q)
-    else:
-        run(["git", "checkout", "-q", "-b", branch], **q)
-    ok = out(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=d) == branch
-    if not ok:
-        log(f"⚠ {name}: could not switch to '{branch}' — wiring on the current branch instead")
-    return ok
+    block = (f"{POINTER_START}\nProject docs, architecture and agent config live in `../{CAM_DIR}/` "
+             f"(read `../{CAM_DIR}/docs/llms.txt` first; update the affected docs after changing code).\n{POINTER_END}\n")
+    f.write_text((text.rstrip() + "\n\n" if text.strip() else "") + block, encoding="utf-8")
+    return True
 
 
-def commit_agent_wiring(name: str, log: Log = print) -> bool:
-    """Commit whatever wiring just wrote in repo `name` (never pushes)."""
-    d = ROOT / name
-    run(["git", "add", "-A"], cwd=d, check=False, quiet=True)
-    if run(["git", "diff", "--cached", "--quiet"], cwd=d, check=False, quiet=True).returncode == 0:
-        return False
-    ident = [] if out(["git", "config", "user.email"], cwd=d) else ["-c", "user.name=Camarones Documenter",
-                                                                     "-c", "user.email=camarones@localhost"]
-    r = run(["git", *ident, "commit", "-q", "-m", agent_wiring_message(name), "--no-verify"], cwd=d, check=False, quiet=True)
-    return r.returncode == 0
-
-
-def push_agent_branch(name: str, branch: str, log: Log = print) -> bool:
-    """Push `branch` for repo `name` using the saved GitLab/GitHub token (never stored in the repo)."""
-    from . import creds
-    d = ROOT / name
-    url = next((r.get("url", "") for r in docs.workspace()["repos"] if r["name"] == name), "")
-    r = run(["git", "push", "-u", "origin", branch], cwd=d, check=False, quiet=True, env=creds.git_env(url))
-    return r.returncode == 0
-
-
-def repos_on_branch(branch: str) -> list[str]:
-    """Which repos (among the ones already cloned) are currently checked out on `branch`."""
-    return [n for n in docs.repo_names()
-            if (ROOT / n / ".git").exists() and out(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=ROOT / n) == branch]
-
-
-def wire_one(name: str, log: Log = print, comps: list[str] | None = None, branch: str | None = None) -> None:
-    """Wire one repo; when `branch` is given, do it on that branch (created if needed) and commit the result —
-    `branch=None` keeps the old behaviour: write on whatever branch is already checked out, commit nothing."""
-    if branch:
-        ensure_agent_branch(name, branch, log)
+def wire_one(name: str, log: Log = print, comps: list[str] | None = None) -> None:
     wire_repo(name, log, comps)
-    if branch:
-        commit_agent_wiring(name, log)
+    if docs.workspace()["project"].get("repo_pointer"):
+        add_repo_pointer(name)
 
 
 def wire_umbrella(log: Log = print, comps: list[str] | None = None) -> None:
     comps = components() if comps is None else comps
-    if "agents" in comps and "openwiki" in comps:
-        for host in ("claude", "codex"):
-            run(["openwiki", "integrations", "install", host, "--project", "."], cwd=ROOT, check=False, quiet=True)
+    if "agents" in comps:
+        q = dict(cwd=ROOT, check=False, quiet=True)
+        if "openwiki" in comps:
+            for host in ("claude", "codex"):
+                run(["openwiki", "integrations", "install", host, "--project", "."], **q)
+        if "graphify" in comps:
+            install_graphify_skill()
+        init_templates(log=lambda _: None)          # kit skills + AGENTS.md/CLAUDE.md
+        write_agent_config(comps)
+        linked = link_workspace(log)
+        if linked:
+            log(f"✔ {WORKSPACE.name}/ → {CAM_DIR}/: {', '.join(linked)}")
     log("✔ project folder ready for Claude Code / Codex")
 
 
@@ -378,13 +439,12 @@ def setup_steps(comps: list[str] | None = None) -> int:
     n += len(docs.repo_names())                              # repos wired
     n += 1                                                   # umbrella
     n += 1 if "graphify" in comps else 0
+    n += 1 if "agents" in comps and CAM_LAYOUT else 0
     n += 1 if "likec4" in comps and (DOCS / "architecture" / "likec4.config.json").exists() else 0
     return n
 
 
-def setup(ci: bool = False, log: Log = print, comps: list[str] | None = None, branch: str | None = None) -> bool:
-    """`branch`: wire every repo on this branch (created if needed) and commit the wiring there, instead of writing
-    directly on whatever is checked out. None (default, and always in CI) keeps the old behaviour."""
+def setup(ci: bool = False, log: Log = print, comps: list[str] | None = None) -> bool:
     comps = components() if comps is None else comps
     missing = [k for k, v in prerequisites().items() if v["need"] and not v["ok"]]
     if missing:
@@ -398,8 +458,8 @@ def setup(ci: bool = False, log: Log = print, comps: list[str] | None = None, br
     if ci:
         return True
     for n in docs.repo_names():
-        if (ROOT / n / ".git").exists():
-            wire_one(n, log, comps, branch)
+        if (repo_dir(n) / ".git").exists():
+            wire_one(n, log, comps)
             log(f"✔ {n}")
     wire_umbrella(log, comps)
     if "graphify" in comps:
@@ -412,17 +472,29 @@ def setup(ci: bool = False, log: Log = print, comps: list[str] | None = None, br
 
 
 # ---------- code graph ----------
+def repo_graph(name: str) -> Path:
+    own = GRAPHS / name / "graph.json"
+    legacy = repo_dir(name) / "graphify-out" / "graph.json"
+    return legacy if not own.exists() and legacy.exists() else own
+
+
+def graph_repo(name: str) -> bool:
+    """AST-only graph of one repo, written to cam-docs/graph/<repo> (GRAPHIFY_OUT) instead of the repo."""
+    (GRAPHS / name).mkdir(parents=True, exist_ok=True)
+    r = run(["graphify", "update", ".", "--force"], cwd=repo_dir(name), check=False, quiet=True,
+            env={"GRAPHIFY_OUT": str(GRAPHS / name)})
+    return r.returncode == 0
+
+
 def graph(rebuild: bool = True, log: Log = print) -> Path | None:
     graphs = []
     for n in docs.repo_names():
-        d = ROOT / n
-        if not d.is_dir():
+        if not repo_dir(n).is_dir():
             continue
-        if rebuild or not (d / "graphify-out" / "graph.json").exists():
-            run(["graphify", "update", ".", "--force"], cwd=d, check=False, quiet=True)
-        g = d / "graphify-out" / "graph.json"
-        if g.exists():
-            graphs.append(str(g))
+        if rebuild or not repo_graph(n).exists():
+            graph_repo(n)
+        if repo_graph(n).exists():
+            graphs.append(str(repo_graph(n)))
     if not graphs:
         log("✔ no code graphs yet")
         return None
@@ -433,8 +505,9 @@ def graph(rebuild: bool = True, log: Log = print) -> Path | None:
         run(["graphify", "merge-graphs", *graphs, "--out", str(merged)], quiet=True)
     else:
         shutil.copyfile(graphs[0], merged)
-    run(["graphify", "export", "html", "--graph", str(merged)], quiet=True, check=False)
-    log(f"✔ code graph: {len(graphs)} repo(s) → .camarones/.cache/graph/graph.html (cross-repo edges are INFERRED)")
+    run(["graphify", "export", "html", "--graph", str(merged)], quiet=True, check=False, cwd=gdir,
+        env={"GRAPHIFY_OUT": str(gdir)})
+    log(f"✔ code graph: {len(graphs)} repo(s) → {ws_rel('.camarones/.cache/graph/graph.html')} (cross-repo edges are INFERRED)")
     return gdir / "graph.html"
 
 
@@ -461,14 +534,17 @@ def portal(log: Log = print) -> Path:
     b, site = CACHE / "portal", CACHE / "site"
     b.mkdir(parents=True, exist_ok=True)
     log("preparing the portal (Starlight)… first time downloads ~150 MB with npm")
+    writable(CACHE)
     shutil.copytree(KIT / "portal", b, dirs_exist_ok=True,
-                    ignore=shutil.ignore_patterns("node_modules", "dist", ".astro", "Dockerfile", "compose.yml"))
+                    ignore=shutil.ignore_patterns("node_modules", "dist", ".astro", "Dockerfile", "compose.yml", "live"))
     stamp = b / "node_modules" / ".camarones-stamp"
     import hashlib
-    lock = KIT / 'portal' / 'package-lock.json'
-    signature = hashlib.sha256(lock.read_bytes() + (KIT / 'portal' / 'package.json').read_bytes()).hexdigest()
+    lock = KIT / "portal" / "package-lock.json"
+    signature = hashlib.sha256((lock.read_bytes() if lock.exists() else b"") +
+                               (KIT / "portal" / "package.json").read_bytes()).hexdigest()
     if not stamp.exists() or stamp.read_text() != signature:
-        run(["npm", "ci", "--no-audit", "--no-fund", "--loglevel=error"], cwd=b, quiet=True)
+        npm = ["ci"] if lock.exists() else ["install"]
+        run(["npm", *npm, "--no-audit", "--no-fund", "--loglevel=error"], cwd=b, quiet=True)
         stamp.write_text(signature)
     log("✔ portal shell")
     log("collecting docs, translations and trust badges…")
@@ -486,9 +562,9 @@ def portal(log: Log = print) -> Path:
         shutil.rmtree(public / sub, ignore_errors=True)
     if "likec4" in components() and (arch_dir() / "likec4.config.json").exists():
         log("building the interactive C4 explorer (LikeC4)…")
-        run(["likec4", "build", ".", "-o", str(public / "architecture"), "--base", "/architecture/", "--title", cfg["name"]],
-            cwd=arch_dir(), quiet=True)
-        log("✔ C4 explorer")
+        r = run(["likec4", "build", ".", "-o", str(public / "architecture"), "--base", "/architecture/", "--title", cfg["name"]],
+                cwd=arch_dir(), check=False, quiet=True)
+        log("✔ C4 explorer" if r.returncode == 0 else "⚠ C4 explorer skipped: the model has errors (run arch-validate)")
     log("adding the code graph…")
     g = CACHE / "graph" / "graph.html"
     if not g.exists() and "graphify" in components():
@@ -500,8 +576,9 @@ def portal(log: Log = print) -> Path:
     for r in cfg["repos"]:
         if r["wikiGraph"]:
             log(f"exporting the wiki graph of {r['name']}…")
-            run(["openwiki", "visualize", "openwiki", "--export", str(public / "wiki-graph" / r["name"])],
-                cwd=ROOT / r["name"], check=False, quiet=True)
+            wiki = docs.wiki_dir(r["name"])
+            run(["openwiki", "visualize", wiki.name, "--export", str(public / "wiki-graph" / r["name"])],
+                cwd=wiki.parent, check=False, quiet=True)
             log(f"✔ wiki graph {r['name']}")
     log("building the static site (Astro)…")
     run(["npm", "run", "build", "--silent"], cwd=b, quiet=True)
@@ -517,9 +594,20 @@ def portal(log: Log = print) -> Path:
 
 
 def portal_steps() -> int:
-    wikis = sum(1 for n in docs.repo_names() if (ROOT / n / "openwiki").is_dir())
+    wikis = sum(1 for n in docs.repo_names() if docs.wiki_dir(n).is_dir())
     c4 = 1 if (arch_dir() / "likec4.config.json").exists() else 0
     return 7 + c4 + wikis
+
+
+def writable(d: Path) -> None:
+    """A cache left behind by a `sudo` run would make every later build fail half-way with a bare PermissionError."""
+    if IS_WIN or not d.exists():
+        return
+    uid = os.getuid()
+    bad = [p for p in (d, *d.iterdir()) if p.stat().st_uid != uid]
+    if bad:
+        raise RuntimeError(f"{bad[0]} belongs to another user (an earlier run with sudo?). Fix it with:\n"
+                           f"  sudo chown -R $(whoami) \"{d}\"")
 
 
 def image_context() -> Path:
@@ -605,6 +693,36 @@ def serve_local(port: int = 8080, log: Log = print) -> str:
     return url
 
 
+def serve_editor(port: int = 8080, log: Log = print) -> str:
+    """The default portal: a local server (no Docker, no npm) that renders docs/ live and lets people edit,
+    confirm, comment and commit. Detached, like serve_local; `down` stops it."""
+    stop_local()
+    import socket, sys, time
+    with socket.socket() as sck:
+        if sck.connect_ex(("127.0.0.1", port)) == 0:
+            raise RuntimeError(f"port {port} is busy — choose another port")
+    CACHE.mkdir(parents=True, exist_ok=True)
+    kw: dict = {"stdout": subprocess.DEVNULL, "stdin": subprocess.DEVNULL,
+                "stderr": (CACHE / "serve.log").open("w", encoding="utf-8"),
+                "env": {**os.environ, "CAMARONES_ROOT": str(ROOT)}}
+    if IS_WIN:
+        kw["creationflags"] = 0x00000008 | 0x00000200
+    else:
+        kw["start_new_session"] = True
+    pr = subprocess.Popen([sys.executable, str(KIT / "camarones.py"), "up", "--foreground", "--port", str(port)], **kw)
+    SERVE_PID.write_text(str(pr.pid), encoding="utf-8")
+    for _ in range(20):
+        time.sleep(0.25)
+        if pr.poll() is not None:
+            raise RuntimeError("the portal server did not start — see " + str(CACHE / "serve.log"))
+        with socket.socket() as sck:
+            if sck.connect_ex(("127.0.0.1", port)) == 0:
+                break
+    url = f"http://localhost:{port}"
+    log(f"✔ portal at {url} (edit · confirm · comment)")
+    return url
+
+
 def stop_local() -> bool:
     if not SERVE_PID.exists():
         return False
@@ -680,13 +798,18 @@ def install_ci(forge: str | None = None, log: Log = print) -> Path:
             log("  existing .gitlab-ci.yml kept: add `include: local: .gitlab-ci.camarones.yml` to it")
     dst.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(src, dst)
-    log(f"  ✔ {dst.relative_to(ROOT)} (umbrella pipeline)")
-    log(f"  → per-repo snippet: .camarones/ci/repo.{'github.yml' if forge == 'github' else 'gitlab-ci.yml'}")
+    snippet = f"repo.{'github.yml' if forge == 'github' else 'gitlab-ci.yml'}"
+    (ROOT / ".camarones" / "ci").mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(KIT / "ci" / snippet, ROOT / ".camarones" / "ci" / snippet)   # service repos include it from here
+    log(f"  ✔ {dst.relative_to(ROOT)} (docs repo pipeline)")
+    log(f"  → per-repo snippet: .camarones/ci/{snippet}")
     return dst
 
 
 # ---------- progress safety: local checkpoint commits in the umbrella repo ----------
-CHECKPOINT_PATHS = ["docs", ".camarones/workspace.yaml", "AGENTS.md", "CLAUDE.md", ".gitignore"]
+CHECKPOINT_PATHS = ["docs", "wikis", ".camarones/workspace.yaml", ".camarones/PLAYBOOK.md", ".camarones/CONVENTIONS.md",
+                    ".camarones/.kit-docs.json", ".camarones/ci", ".claude", ".codex", ".agents", ".mcp.json", "AGENTS.md", "CLAUDE.md",
+                    ".gitignore", ".gitlab-ci.yml", ".github"]
 
 
 def checkpoint_commit(message: str) -> bool:

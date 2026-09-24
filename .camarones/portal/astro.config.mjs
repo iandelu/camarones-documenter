@@ -1,4 +1,4 @@
-// Generated portal shell — do not edit in build/; edit .docs-kit/portal/ instead.
+// Generated portal shell — do not edit in .cache/portal/; edit the kit's .camarones/portal/ instead.
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import mermaid from 'astro-mermaid';
@@ -15,6 +15,7 @@ export default defineConfig({
     starlight({
       title: cfg.name,
       favicon: '/favicon.svg',
+      customCss: ['./src/styles/custom.css'],
       defaultLocale: 'root',
       locales: {
         root: { label: 'English', lang: 'en' },
