@@ -730,6 +730,37 @@ def wiki_workdir(repo: str, log: Log = print):
         wiki_close(repo, log)
 
 
+WIKI_LOCK = CACHE / "wiki.lock"
+
+
+def pid_alive(pid: int) -> bool:
+    if IS_WIN:                                  # os.kill(pid, 0) would terminate the process on Windows
+        r = run(["tasklist", "/FI", f"PID eq {pid}", "/NH"], check=False, capture=True)
+        return str(pid) in (r.stdout or "")
+    try:
+        os.kill(pid, 0)
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+    return True
+
+
+@contextmanager
+def wiki_lock(repo: str):
+    """One OpenWiki run at a time across the wizard, the portal and the CLI: parallel runs share the agent's quota."""
+    other = load_json(WIKI_LOCK, {}) if WIKI_LOCK.exists() else {}
+    pid = other.get("pid") if isinstance(other, dict) else None
+    if pid and pid != os.getpid() and pid_alive(int(pid)):
+        raise RuntimeError(f"another OpenWiki run is in progress ({other.get('repo')}, pid {pid}) — wait for it to finish")
+    WIKI_LOCK.parent.mkdir(parents=True, exist_ok=True)
+    WIKI_LOCK.write_text(json.dumps({"pid": os.getpid(), "repo": repo}), encoding="utf-8")
+    try:
+        yield
+    finally:
+        WIKI_LOCK.unlink(missing_ok=True)
+
+
 class WikiAbort(RuntimeError):
     """The engine cannot run at all (quota, login): every other repo of a batch would fail the same way."""
 
@@ -761,18 +792,19 @@ def openwiki_generate(repo: str, mode: str = "", log: Log = print, engine: str =
         tail.append(line)
         log(line)
 
-    if known:
-        plan.set_status(uid, "doing")
-    log(f"OpenWiki {mode} for {repo} via {engine}… (this can take a while)")
-    with wiki_workdir(repo, log):
-        if engine == "openwiki":
-            rc = stream(["openwiki", "code", f"--{mode}", "--print"], repo_dir(repo), tee)
-        elif engine == "claude":
-            rc = stream(["claude", "-p", wiki_prompt(repo, mode), "--permission-mode", "acceptEdits", "--allowedTools",
-                         "mcp__openwiki Skill Read Write Edit Glob Grep Bash(git:*) Bash(ls:*) Bash(camarones:*) Bash(graphify:*)"],
-                        WORKSPACE, tee)
-        else:
-            rc = stream(["codex", "exec", "--full-auto", "-C", str(WORKSPACE), wiki_prompt(repo, mode)], WORKSPACE, tee)
+    with wiki_lock(repo):
+        if known:
+            plan.set_status(uid, "doing")
+        log(f"OpenWiki {mode} for {repo} via {engine}… (this can take a while)")
+        with wiki_workdir(repo, log):
+            if engine == "openwiki":
+                rc = stream(["openwiki", "code", f"--{mode}", "--print"], repo_dir(repo), tee)
+            elif engine == "claude":
+                rc = stream(["claude", "-p", wiki_prompt(repo, mode), "--permission-mode", "acceptEdits", "--allowedTools",
+                             "mcp__openwiki Skill Read Write Edit Glob Grep Bash(git:*) Bash(ls:*) Bash(camarones:*) Bash(graphify:*)"],
+                            WORKSPACE, tee)
+            else:
+                rc = stream(["codex", "exec", "--full-auto", "-C", str(WORKSPACE), wiki_prompt(repo, mode)], WORKSPACE, tee)
     ok = rc == 0 and bool(wiki_pages(repo))
     if ok:
         if known:
