@@ -34,7 +34,7 @@ const I18N = {
     wikisHelp: 'OpenWiki writes one wiki per repo (cam-docs/wikis/<repo>/). Its pages also appear under Docs → repos/<repo>.',
     noWiki: 'no wiki yet', pages: '{n} pages', updated: 'updated {when}', unit: 'plan unit', read: 'Read', graph: 'Graph',
     generate: 'Generate wiki', update: 'Update wiki', via: 'via', notCloned: 'not cloned',
-    needBrief: 'first run its repo-brief unit (it writes INSTRUCTIONS.md)',
+    notChosen: 'no wiki for this repo (choose repos in the wizard → Wikis)', needBrief: 'first run its repo-brief unit (it writes INSTRUCTIONS.md)',
     noEngine: 'OpenWiki cannot run from here yet: save a provider key once with `openwiki auth configure openai` (or anthropic, gemini, openrouter) in a terminal, or install Claude Code / Codex so an agent writes it.',
     running: 'running…', done: 'done', failed: 'failed', jobStarted: 'Started: {label}',
     readOnly: 'Read-only portal (export). To edit, confirm or generate wikis locally run <code>camarones up</code>.',
@@ -68,7 +68,7 @@ const I18N = {
     wikisHelp: 'OpenWiki escribe una wiki por repo (cam-docs/wikis/<repo>/). Sus páginas también salen en Docs → repos/<repo>.',
     noWiki: 'sin wiki', pages: '{n} páginas', updated: 'actualizada {when}', unit: 'unidad del plan', read: 'Leer', graph: 'Grafo',
     generate: 'Generar wiki', update: 'Actualizar wiki', via: 'con', notCloned: 'sin clonar',
-    needBrief: 'antes ejecuta su unidad repo-brief (escribe INSTRUCTIONS.md)',
+    notChosen: 'sin wiki para este repo (elige repos en el asistente → Wikis)', needBrief: 'antes ejecuta su unidad repo-brief (escribe INSTRUCTIONS.md)',
     noEngine: 'OpenWiki aún no puede lanzarse desde aquí: guarda una clave de proveedor una vez con `openwiki auth configure openai` (o anthropic, gemini, openrouter) en una terminal, o instala Claude Code / Codex para que la escriba un agente.',
     running: 'en curso…', done: 'hecho', failed: 'falló', jobStarted: 'Lanzado: {label}',
     readOnly: 'Portal de solo lectura (exportado). Para editar, confirmar o generar wikis en local ejecuta <code>camarones up</code>.',
@@ -437,8 +437,9 @@ async function showWikis(open) {
       <div class="row">
         ${w.index ? `<a class="button ghost small" href="#/docs/${esc(w.index)}">${esc(t('read'))}</a>` : ''}
         ${w.graph ? `<button class="ghost small w-graph">${esc(t('graph'))}</button>` : ''}
-        ${!STATIC && !w.ready ? `<span class="muted small">${esc(t('needBrief'))}</span>` : ''}
-        ${!STATIC && engines.length && w.cloned && w.ready ? `<button class="small w-gen">${esc(w.pages ? t('update') : t('generate'))}</button>${engSel ? ` ${esc(t('via'))} ${engSel}` : ` <span class="muted small">${esc(t('via'))} ${esc(engines[0])}</span>`}` : ''}
+        ${!STATIC && !w.chosen && !w.pages ? `<span class="muted small">${esc(t('notChosen'))}</span>` : ''}
+        ${!STATIC && w.chosen && !w.ready ? `<span class="muted small">${esc(t('needBrief'))}</span>` : ''}
+        ${!STATIC && engines.length && w.cloned && (w.chosen || w.pages) && w.ready ? `<button class="small w-gen">${esc(w.pages ? t('update') : t('generate'))}</button>${engSel ? ` ${esc(t('via'))} ${engSel}` : ` <span class="muted small">${esc(t('via'))} ${esc(engines[0])}</span>`}` : ''}
       </div>
       <pre class="joblog" hidden></pre>
       <div class="wgraph"></div></div>`).join('')}</div></div>`;

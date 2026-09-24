@@ -20,6 +20,7 @@ PLAN = WORK / "plan.yaml"
 HANDOFF = WORK / "handoff.md"
 LOG = WORK / "log.md"
 DONE = ("done", "dropped")
+NO_WIKI = "No wiki for this repo (wizard → Wikis → choose repos)"
 
 # unit type → (phase, runner, title template, playbook section)
 TYPES = {
@@ -143,10 +144,21 @@ def sync() -> dict:
         if u["id"] in ("i18n", "confirm"):
             u["deps"] = sorted(set(u["deps"]) | set(flow_ids))
     comps = docs.workspace()["project"].get("components")
-    if comps is not None and "openwiki" not in comps:      # OpenWiki not installed → no repo-wiki units
-        for u in merged:
-            if u["type"] == "repo-wiki" and u["status"] == "todo":
-                u["status"], u["notes"] = "dropped", "OpenWiki not selected"
+    wiki_repos = docs.wiki_repos()
+    for u in merged:
+        if u["type"] != "repo-wiki":
+            continue
+        if comps is not None and "openwiki" not in comps:  # OpenWiki not installed → no repo-wiki units
+            why = "OpenWiki not selected"
+        elif u["repo"] not in wiki_repos:                  # a wiki only for the repos the user picked
+            why = NO_WIKI
+        else:
+            if u.get("notes") == NO_WIKI:                  # chosen again
+                u["status"] = "todo" if u["status"] == "dropped" else u["status"]
+                u["notes"] = ""
+            continue
+        if u["status"] in ("todo", "blocked"):
+            u["status"], u["notes"] = "dropped", why
     data["units"] = merged
     data['profile'] = profile
     save(data)
