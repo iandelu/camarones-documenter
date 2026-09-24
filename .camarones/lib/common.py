@@ -136,8 +136,9 @@ def run(cmd: list[str], cwd: Path | None = None, check: bool = True, quiet: bool
         kw.update(capture_output=True, text=True, encoding="utf-8", errors="replace")
     try:
         r = subprocess.run(full, **kw)
-    except (FileNotFoundError, NotADirectoryError, PermissionError) as e:
-        # a tool that is not installed yet must not crash the wizard (Windows raises WinError 2 here)
+    except OSError as e:
+        # a tool that is missing, unreadable, or blocked (e.g. Windows Smart App Control /
+        # WinError 4551) must not crash the wizard — treat it like "not available" instead
         if check:
             raise RuntimeError(f"'{cmd[0]}' not found — run setup / install it first ({e})") from None
         return subprocess.CompletedProcess(full, 127, "", str(e))
