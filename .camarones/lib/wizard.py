@@ -119,7 +119,7 @@ T = {
         "w_eng_claude": "Claude Code (sin terminal, con las herramientas MCP de OpenWiki)", "w_eng_codex": "Codex (sin terminal, con las herramientas MCP de OpenWiki)",
         "w_no_engine": "OpenWiki no puede lanzarse sin terminal todavía. Guarda una clave una vez con `openwiki auth configure openai` (o anthropic, gemini, openrouter), o instala Claude Code / Codex.",
         "w_done": "Wiki lista: {repo}", "w_fail": "La wiki de {repo} falló — el motivo está en la línea ⚠ de arriba",
-        "w_skipped": "No lanzados: {repos}", "w_unit_q": "¿Cómo generas la wiki de {repo}?",
+        "w_skipped": "No lanzados: {repos}", "w_need_brief": "antes: su repo-brief (INSTRUCTIONS.md)", "w_unit_q": "¿Cómo generas la wiki de {repo}?",
         "w_here": "✨ Aquí mismo (sin sesión de agente, {engine})", "w_agent": "🤖 Sesión de agente interactiva",
         "port": "Puerto:",
         "r_detect": "Detectar repos en la carpeta", "r_add": "Añadir repo por URL", "r_sync": "Sincronizar (clone / pull)",
@@ -347,7 +347,7 @@ T = {
         "w_eng_claude": "Claude Code (headless, with the OpenWiki MCP tools)", "w_eng_codex": "Codex (headless, with the OpenWiki MCP tools)",
         "w_no_engine": "OpenWiki cannot run headless yet. Save a provider key once with `openwiki auth configure openai` (or anthropic, gemini, openrouter), or install Claude Code / Codex.",
         "w_done": "Wiki ready: {repo}", "w_fail": "The {repo} wiki failed — the reason is on the ⚠ line above",
-        "w_skipped": "Not started: {repos}", "w_unit_q": "How do you want to generate the {repo} wiki?",
+        "w_skipped": "Not started: {repos}", "w_need_brief": "first: its repo-brief (INSTRUCTIONS.md)", "w_unit_q": "How do you want to generate the {repo} wiki?",
         "w_here": "✨ Right here (no agent session, {engine})", "w_agent": "🤖 Interactive agent session",
         "port": "Port:",
         "r_detect": "Detect repos in this folder", "r_add": "Add repo by URL", "r_sync": "Sync (clone / pull)",
@@ -1613,8 +1613,10 @@ Talk to the user in {talk}. Do not modify application code.
             rows = env.wikis()
             tbl = Table(title=self.t("w_title"), title_justify="left", border_style="grey42", show_header=False)
             for w in rows:
-                state = (self.t("w_pages", n=w["pages"]) + (f" [yellow]· {self.t('w_stale')}[/]" if w["stale"] else "")
-                         if w["pages"] else f"[grey50]{self.t('w_none')}[/]")
+                if w["pages"]:
+                    state = self.t("w_pages", n=w["pages"]) + (f" [yellow]· {self.t('w_stale')}[/]" if w["stale"] else "")
+                else:
+                    state = f"[grey50]{self.t('w_none')}[/]" + ("" if w["ready"] else f" [yellow]· {self.t('w_need_brief')}[/]")
                 tbl.add_row(w["repo"], state, f"[grey50]{w['unit'] or ''}[/]")
             self.say(tbl)
             c = self.sel(self.t("m_wikis"), [Choice(self.t("w_gen"), "gen"), Choice(self.t("w_open"), "open")])
@@ -1623,7 +1625,7 @@ Talk to the user in {talk}. Do not modify application code.
             if c == "open":
                 self.open_portal("#/wikis")
                 continue
-            picked = self.chk(self.t("w_pick"), [Choice(w["repo"], w["repo"], checked=not w["pages"])
+            picked = self.chk(self.t("w_pick"), [Choice(w["repo"], w["repo"], disabled=None if w["ready"] else self.t("w_need_brief"))
                                                  for w in rows if w["cloned"]])
             if not picked:
                 continue
