@@ -169,15 +169,17 @@ def available(data: dict | None = None) -> list[dict]:
     return sorted(ready, key=lambda u: (order[u["status"]], u["phase"]))
 
 
-def set_status(uid: str, status: str, note: str | None = None) -> dict:
+def set_status(uid: str, status: str, note: str | None = None, record: bool = True) -> dict:
+    """record=False puts a unit back where it was (a failed run) without logging it as a new transition."""
     data = load()
     u = get(data, uid)
     u["status"] = status
-    u["updated"] = now()
+    if record:
+        u["updated"] = now()
     if note:
         u["notes"] = note
     save(data)
-    if status in ("done", "blocked", "dropped"):
+    if record and status in ("done", "blocked", "dropped"):
         WORK.mkdir(parents=True, exist_ok=True)
         with LOG.open("a", encoding="utf-8") as fh:
             fh.write(f"- {u['updated']} **{uid}** → {status}" + (f": {note}" if note else "") + "\n")
