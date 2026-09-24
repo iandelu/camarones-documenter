@@ -766,7 +766,7 @@ def openwiki_generate(repo: str, mode: str = "", log: Log = print, engine: str =
         log(f"✔ wiki {repo}: {len(wiki_pages(repo))} pages")
     else:
         if known:
-            plan.set_status(uid, before)
+            plan.set_status(uid, before, record=False)
         log(f"⚠ OpenWiki {mode} for {repo} failed (exit {rc})")
     return ok
 
