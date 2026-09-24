@@ -68,8 +68,10 @@ PAGES = {
                  "del código: la IA no se inventa cosas y cualquiera puede comprobarlas. La wiki se guarda en "
                  "cam-docs/wikis/<repo>, así que el repo de servicio queda limpio. La generas o actualizas desde el "
                  "portal (pestaña Wikis, con el log en directo), desde el asistente (📚 Wikis) o con "
-                 "«camarones wiki <repo>»; sus páginas aparecen en Docs, en repos/<repo>/. Camarones rellena lo que "
-                 "OpenWiki no cubre: visión del proyecto entero, dominio, flujos de negocio, despliegue y decisiones."},
+                 "«camarones wiki <repo>»; sus páginas aparecen en Docs, en repos/<repo>/. Cada wiki es una sesión de "
+                 "agente completa, así que solo la llevan los repos que elijas (asistente > Wikis > elegir), y la primera "
+                 "espera al repo-brief, que le da el rol y el glosario del repo. Se lanzan de una en una. Camarones rellena "
+                 "lo que OpenWiki no cubre: visión del proyecto entero, dominio, flujos de negocio, despliegue y decisiones."},
         {"icon": "🕸", "title": "graphify: el grafo del código",
          "art": r"""
           (OrderController)
@@ -267,6 +269,8 @@ PAGES = {
                  "so the AI can't make things up and anyone can check. The wiki is stored in cam-docs/wikis/<repo>, so "
                  "the service repo stays clean. Generate or update it from the portal (Wikis tab, with a live log), from "
                  "the wizard (📚 Wikis) or with “camarones wiki <repo>”; its pages show up under Docs as repos/<repo>/. "
+                 "Each wiki is a full agent run, so only the repos you choose get one (wizard > Wikis > choose), and the "
+                 "first one waits for the repo-brief, which gives it the repo's role and glossary. They run one at a time. "
                  "Camarones fills what OpenWiki doesn't cover: the whole-project view, domain, business flows, deployment "
                  "and decisions."},
         {"icon": "🕸", "title": "graphify: the code graph",

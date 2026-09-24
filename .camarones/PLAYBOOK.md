@@ -98,12 +98,16 @@ The foundation for one repo — after this unit the repo is useful on its own:
    `build/mmd/repos/<repo_snake>_components.mmd`). Do not edit the repo's own README/AGENTS.md/CLAUDE.md.
 
 ## repo-wiki
-Generate the OpenWiki of one repo. Simplest: `CLI wiki <repo>` (headless: OpenWiki with a provider key, else Claude Code /
-Codex through the OpenWiki MCP; the portal's Wikis tab runs the same). Doing it yourself with the OpenWiki MCP tools:
+Generate the OpenWiki of one repo. The unit exists only for the repos the user chose (`wiki: true` in
+`.camarones/workspace.yaml`; wizard → 📚 Wikis → choose) and needs `wikis/<repo>/INSTRUCTIONS.md` from repo-brief. Keep
+the wiki about the repo's internals: the cross-repo domain, flows and C4 live in `docs/` — do not restate them.
+Simplest: `CLI wiki <repo>` (headless: OpenWiki with a provider key, else Claude Code / Codex through the OpenWiki MCP;
+the portal's Wikis tab runs the same; one run at a time, and a batch stops when the engine is out of quota or logged
+out). Doing it yourself with the OpenWiki MCP tools:
 first `CLI wiki <repo> --open` (OpenWiki refuses the `openwiki/` symlink, so this makes it a real folder), then
 `openwiki_begin` with the repo's absolute git root, mode `init` if `wikis/<repo>/` is empty else `update`, follow the
 returned lifecycle, and always finish with `CLI wiki <repo> --close` (moves the pages to `wikis/<repo>/` and removes the
-AGENTS.md / CLAUDE.md / `.github/` files OpenWiki adds to the repo). If the tools are not loaded (they load at session
+AGENTS.md / CLAUDE.md / `.github/` files OpenWiki adds to the repo; without a prior `--open` it does nothing). If the tools are not loaded (they load at session
 start from `.mcp.json`), use `CLI wiki <repo>`. Never edit `openwiki/.claims`, `.run.json`, indexes or OpenWiki-managed blocks.
 
 ## arch-system

@@ -12,7 +12,7 @@ Humans: see `docs/guides/tutorial.md`. `CLI` = `camarones` (legacy per-project c
 
 | What | Where | Written by |
 |---|---|---|
-| Repo-level wiki (per microservice/app) | `wikis/<repo>/` (OpenWiki OKF pages + grounded claims; `<repo>/openwiki` is an untracked link to it) | OpenWiki (via Claude/Codex integration or CI) |
+| Repo-level wiki (only repos with `wiki: true` in workspace.yaml) | `wikis/<repo>/` (OpenWiki OKF pages + grounded claims; `<repo>/openwiki` is an untracked link to it) | OpenWiki (via Claude/Codex integration or CI) |
 | Repo brief (stack, commands, interfaces, data, component diagram) | `docs/repos/<repo>/brief.md` | Camarones Documenter agent |
 | Agent rules, skills, MCP | `AGENTS.md`, `CLAUDE.md` (`@AGENTS.md` + project notes), `.claude/`, `.codex/`, `.agents/`, `.mcp.json` — linked from the workspace folder | kit (managed blocks) + humans |
 | Project context for OpenWiki | `wikis/<repo>/INSTRUCTIONS.md` (user-authored brief OpenWiki reads, never rewrites) | Camarones Documenter, then humans |
