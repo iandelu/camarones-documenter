@@ -669,6 +669,10 @@ def wiki_prompt(repo: str, mode: str) -> str:
 OPENWIKI_REPO_FILES = ("AGENTS.md", "CLAUDE.md", ".github/workflows/openwiki-update.yml")
 
 
+def _is_link(p: Path) -> bool:
+    return p.is_symlink() or getattr(p, "is_junction", lambda: False)()
+
+
 def wiki_open(repo: str, log: Log = print) -> None:
     """OpenWiki refuses a symlinked openwiki/ and adds agent snippets + a GitHub workflow to the repo. So a run gets a
     real openwiki/ seeded from cam-docs/wikis/<repo>, and wiki_close moves the result back and restores the repo."""
@@ -678,20 +682,29 @@ def wiki_open(repo: str, log: Log = print) -> None:
         saved = {f: (d / f).read_text(encoding="utf-8") if (d / f).is_file() else None for f in OPENWIKI_REPO_FILES}
         state.parent.mkdir(parents=True, exist_ok=True)
         state.write_text(json.dumps(saved), encoding="utf-8")
-    if ow.is_symlink() or getattr(ow, "is_junction", lambda: False)():
+    if _is_link(ow):
         ow.unlink()
     if not ow.exists():
         shutil.copytree(wiki, ow) if wiki.is_dir() else ow.mkdir()
 
 
-def wiki_close(repo: str, log: Log = print) -> None:
+def wiki_close(repo: str, log: Log = print) -> bool:
+    """Only undoes a wiki_open: without its saved state it cannot tell the repo's own AGENTS.md / CLAUDE.md from
+    OpenWiki's, so it leaves them alone (a second close, or a close without open, is a no-op)."""
     d, wiki, state = repo_dir(repo), ROOT / "wikis" / repo, CACHE / "wiki-open" / f"{repo}.json"
+    if not state.exists():
+        log(f"{repo}: no open OpenWiki run — nothing to close")
+        link_repo_wiki(repo, log)
+        return False
     ow = d / "openwiki"
-    if ow.is_dir() and not ow.is_symlink():
-        shutil.rmtree(wiki, ignore_errors=True)
-        wiki.parent.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(ow), str(wiki))
-    saved = json.loads(state.read_text(encoding="utf-8")) if state.exists() else dict.fromkeys(OPENWIKI_REPO_FILES)
+    if ow.is_dir() and not _is_link(ow):
+        if any(ow.iterdir()):
+            shutil.rmtree(wiki, ignore_errors=True)
+            wiki.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(ow), str(wiki))
+        else:                                   # nothing written: keep the wiki cam-docs already has
+            ow.rmdir()
+    saved = json.loads(state.read_text(encoding="utf-8"))
     for f, text in saved.items():
         p = d / f
         if text is not None:
@@ -703,6 +716,7 @@ def wiki_close(repo: str, log: Log = print) -> None:
                     (d / parent).rmdir()
     state.unlink(missing_ok=True)
     link_repo_wiki(repo, log)
+    return True
 
 
 @contextmanager
