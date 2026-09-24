@@ -244,9 +244,11 @@ def main() -> int:
     elif a.cmd == "wiki":
         if a.mode in ("open", "close"):
             for r in a.repos:
-                (env.wiki_open if a.mode == "open" else env.wiki_close)(r)
-                print(f"{r}/openwiki/: " + ("real folder — run the OpenWiki MCP lifecycle, then `wiki " + r + " --close`"
-                                             if a.mode == "open" else f"moved to cam-docs/wikis/{r}/, repo restored"))
+                if a.mode == "open":
+                    env.wiki_open(r)
+                    print(f"{r}/openwiki/: real folder — run the OpenWiki MCP lifecycle, then `wiki {r} --close`")
+                elif env.wiki_close(r):
+                    print(f"{r}/openwiki/: moved to cam-docs/wikis/{r}/, repo restored")
             return 0
         failed = [r for r in a.repos if not env.openwiki_generate(r, a.mode, engine=a.engine)]
         return 1 if failed else 0
