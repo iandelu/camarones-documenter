@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Callable
 
 from .common import (KIT, ROOT, DOCS, HOME, CACHE, IS_WIN, IS_MAC, VERSIONS, CAM_DIR, CAM_LAYOUT, WORKSPACE, GRAPHS, run, out,
-                     which, uv, ensure_path, cli_cmd, sdkman_dir, repo_dir, ws_rel, load_json, save_json)
+                     which, uv, ensure_path, cli_cmd, sdkman_dir, repo_dir, ws_rel, rel_file, load_json, save_json)
 from . import docs
 
 Log = Callable[[str], None]
@@ -659,13 +659,25 @@ def wikis() -> list[dict]:
 
 
 def wiki_prompt(repo: str, mode: str) -> str:
+    """Self-contained on purpose: the caller owns the plan status, the move back to cam-docs and the commit, so the
+    agent must not run the unit protocol (plan start/done, checkpoint) nor `wiki` itself."""
     from . import plan
-    uid = f"repo-wiki:{repo}"
-    head = plan.prompt(uid, unattended=True) if uid in {u["id"] for u in plan.load()["units"]} else ""
-    return (head + f"\nTask: {mode} the OpenWiki of `{repo}/` (absolute git root: {repo_dir(repo)}) with the OpenWiki MCP "
-            "tools (skill `openwiki`): openwiki_begin → plan → page loop → openwiki_finish, passing that root. Its `openwiki/` "
-            f"folder is already a real folder for this run (moved into `{CAM_DIR}/wikis/{repo}/` afterwards). Do not "
-            "touch other repo files; what OpenWiki adds itself (AGENTS.md, CLAUDE.md, .github/) is removed afterwards.\n")
+    uid, cli = f"repo-wiki:{repo}", cli_cmd()
+    notes = plan.note_file(uid)
+    resume = (f"A previous run left checkpoints in `{ws_rel(rel_file(notes))}`: read them first. " if notes.exists() else "")
+    return (f"Camarones Documenter — unattended OpenWiki run for `{repo}` (plan unit `{uid}`).\n"
+            f"Task: {mode} the OpenWiki of `{repo}/` (absolute git root: {repo_dir(repo)}) with the OpenWiki MCP tools "
+            "(skill `openwiki`): openwiki_begin → plan → page loop → openwiki_finish, passing that root. OpenWiki resumes an "
+            f"interrupted run by itself. {resume}\n"
+            f"Scope: `{ws_rel(f'wikis/{repo}/INSTRUCTIONS.md')}` is this repo's brief (role, bounded context, glossary) — "
+            f"follow its terms. Keep the wiki about this repo's internals: the cross-repo domain, business flows and C4 "
+            f"architecture are documented in `{ws_rel('docs/')}`, do not restate them.\n"
+            f"Boundaries: `{repo}/openwiki/` is a real folder for this run. When you finish, the caller moves it into "
+            f"`{CAM_DIR}/wikis/{repo}/`, removes what OpenWiki adds to the repo (AGENTS.md, CLAUDE.md, .github/) and marks "
+            f"the plan unit — do none of that yourself, never run `{cli} wiki`, and do not touch other repo files.\n"
+            f"Progress: after each page run `{cli} plan note {uid} \"<page done / next>\"`. This run is unattended: never "
+            f"ask; append questions to `{ws_rel('docs/interview/open-questions.md')}`. At the end rewrite the \"Last "
+            f"session\" section of `{ws_rel('docs/.work/handoff.md')}`.\n")
 
 
 OPENWIKI_REPO_FILES = ("AGENTS.md", "CLAUDE.md", ".github/workflows/openwiki-update.yml")
@@ -801,8 +813,8 @@ def openwiki_generate(repo: str, mode: str = "", log: Log = print, engine: str =
                 rc = stream(["openwiki", "code", f"--{mode}", "--print"], repo_dir(repo), tee)
             elif engine == "claude":
                 rc = stream(["claude", "-p", wiki_prompt(repo, mode), "--permission-mode", "acceptEdits", "--allowedTools",
-                             "mcp__openwiki Skill Read Write Edit Glob Grep Bash(git:*) Bash(ls:*) Bash(camarones:*) Bash(graphify:*)"],
-                            WORKSPACE, tee)
+                             "mcp__openwiki Skill Read Write Edit Glob Grep Bash(git:*) Bash(ls:*) Bash(graphify:*) "
+                             f"Bash({cli_cmd()} plan note:*)"], WORKSPACE, tee)
             else:
                 rc = stream(["codex", "exec", "--full-auto", "-C", str(WORKSPACE), wiki_prompt(repo, mode)], WORKSPACE, tee)
     ok = rc == 0 and bool(wiki_pages(repo))
