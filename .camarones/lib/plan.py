@@ -9,11 +9,12 @@ and docs/.work/handoff.md carries the baton between sessions.
 from __future__ import annotations
 
 import datetime as dt
+import time
 from pathlib import Path
 
 import yaml
 
-from .common import WORK, CAM_LAYOUT, CAM_DIR, cli_cmd, ws_rel, rel_file, IS_WIN
+from .common import WORK, CAM_LAYOUT, CAM_DIR, WORKSPACE, cli_cmd, ws_rel, rel_file, IS_WIN, which, run as sh_run
 from . import docs
 
 PLAN = WORK / "plan.yaml"
@@ -319,3 +320,93 @@ You are documenting this project with the Camarones Documenter kit (works the sa
    run `{cli} check` and `{cli} checkpoint "{u['id']}"` (local commit of the docs so nothing is lost).
 5. {ask}
 """
+
+
+# ---------- autopilot ----------
+AGENTS = ("claude", "codex")
+INTERVIEW_TYPES = {"interview-context", "interview-language", "interview-history"}
+# best guess at the CLIs' wording, matched only against the end of the output (where the CLI prints its
+# error) so a unit documenting a rate-limited API isn't misread; anything else stops the loop instead
+LIMIT_HINTS = ("usage limit", "rate limit", "rate_limit", "limit reached", "try again later",
+               "too many requests", "resets at", "limit will reset", "quota exceeded")
+AUTOPILOT_PROMPT = WORK / "autopilot-prompt.md"
+
+
+def _autopilot_log(text: str, echo=print) -> None:
+    echo(text)
+    WORK.mkdir(parents=True, exist_ok=True)
+    with LOG.open("a", encoding="utf-8") as fh:
+        fh.write(f"- {now()} [autopilot] {text.strip()}\n")
+
+
+def _run_agent(agent: str, text: str, lang: str):
+    # multi-line args do not survive Windows .cmd shims: hand over a one-line pointer to the prompt file
+    WORK.mkdir(parents=True, exist_ok=True)
+    AUTOPILOT_PROMPT.write_text(text, encoding="utf-8")
+    brief = ws_rel(rel_file(AUTOPILOT_PROMPT))
+    short = f"Follow the instructions in {brief}" if lang == "en" else f"Sigue las instrucciones de {brief}"
+    cmd = [agent, "-p", short, "--dangerously-skip-permissions"] if agent == "claude" else [agent, "exec", "--full-auto", short]
+    return sh_run(cmd, cwd=WORKSPACE, check=False, capture=True)
+
+
+def run_autopilot(lang: str = "es", max_units: int | None = None, poll_seconds: int = 900,
+                  include_interviews: bool = False, echo=print) -> int:
+    """Run ready units back to back, one fresh unattended session each, switching between Claude Code and
+    Codex when one hits its usage limit and waiting while both are limited. Returns units completed."""
+    log = lambda t: _autopilot_log(t, echo)                                    # noqa: E731
+    agents = [a for a in AGENTS if which(a)]
+    if not agents:
+        log("Autopilot: neither `claude` nor `codex` is installed — nothing to run.")
+        return 0
+    skip = set() if include_interviews else INTERVIEW_TYPES
+    limited: dict[str, dt.datetime] = {}
+    done = 0
+    log(f"Autopilot started with {', '.join(agents)}" + (f" (max {max_units} units)" if max_units else ""))
+    while max_units is None or done < max_units:
+        data = sync()
+        ready = available(data)
+        queue = [u for u in ready if u["runner"] == "agent" and u["type"] not in skip]
+        if not queue:
+            wizard = [u["id"] for u in ready if u["runner"] == "wizard"]
+            interviews = [u["id"] for u in ready if u["type"] in skip]
+            if wizard or interviews:
+                why = ([f"wizard step(s) {', '.join(wizard)} (run `{cli_cmd()}`)"] if wizard else []) + \
+                      ([f"interview(s) {', '.join(interviews)} (need you, in an interactive session)"] if interviews else [])
+                log(f"Autopilot stopped: what is left needs you — {'; '.join(why)}. Then start autopilot again.")
+            else:
+                d, t = progress(data)
+                log(f"Autopilot stopped: nothing ready — {d}/{t} units done "
+                    "(finished, or waiting on blocked units / docs/interview/open-questions.md).")
+            return done
+        u = queue[0]
+        free = [a for a in agents if limited.get(a, dt.datetime.min) <= dt.datetime.now()]
+        if not free:
+            soonest = min(limited.values())
+            wait = max(60, min(poll_seconds, int((soonest - dt.datetime.now()).total_seconds())))
+            log(f"All agents are at their usage limit — retrying in {wait // 60} min "
+                f"(machine must stay on; Ctrl+C to stop, progress is saved).")
+            time.sleep(wait)
+            continue
+        agent = free[0]
+        log(f"{agent} → {u['id']}: {u['title']}")
+        r = _run_agent(agent, prompt(u["id"], lang=lang, unattended=True), lang)
+        output = f"{r.stdout or ''}\n{r.stderr or ''}"
+        if r.returncode == 0:
+            status = get(load(), u["id"])["status"]
+            log(f"{agent} finished {u['id']} (status: {status})")
+            if status in ("todo", "doing"):
+                log(f"Autopilot stopped: {u['id']} ended without `plan done`/`plan block` — check its checkpoints "
+                    f"in {ws_rel(rel_file(note_file(u['id'])))} before continuing.")
+                return done
+            done += 1
+            continue
+        if any(h in output[-2000:].lower() for h in LIMIT_HINTS):
+            limited[agent] = dt.datetime.now() + dt.timedelta(seconds=poll_seconds)
+            others = [a for a in agents if limited.get(a, dt.datetime.min) <= dt.datetime.now()]
+            log(f"{agent} hit its usage limit" + (f" — switching to {others[0]}" if others else ""))
+            continue
+        log(f"Autopilot stopped: {agent} failed on {u['id']} (exit {r.returncode}). Last output:\n"
+            + output.strip()[-1500:])
+        return done
+    log(f"Autopilot stopped: reached the limit of {max_units} unit(s).")
+    return done

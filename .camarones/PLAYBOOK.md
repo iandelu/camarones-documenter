@@ -36,6 +36,12 @@ or `.\camarones.cmd`).
 6. **Ask what next.** Show `CLI plan next` (top 3–4 ready units) and ask the user which one — in Claude Code with
    AskUserQuestion (options = units + "stop here"), in Codex as a numbered list. Recommend a **new session** after heavy
    units (discovery, repo-wiki, flows) — the user reopens the Camarones Documenter wizard and picks "Next step".
+   **Autopilot** (`CLI autopilot`, or "Autopilot" in the wizard's ready-units list) skips this step. An outer loop
+   starts every ready agent unit in its own fresh, unattended session (`claude -p … --dangerously-skip-permissions`
+   or `codex exec --full-auto …`). If one agent hits its usage limit, the loop switches to the other; if both are
+   limited, it waits. It never runs interview units or wizard steps (setup, portal, ci, confirm), and it stops when
+   only those are left, when a unit fails, or when a unit ends without `plan done`/`plan block`. In an autopilot
+   session you close the unit as usual (step 5), and questions go to `docs/interview/open-questions.md`.
 7. Never write `x-confirmed`; never rewrite `<!-- human -->` blocks, `x-owner: human` files or confirmed pages silently.
 
 ## setup
