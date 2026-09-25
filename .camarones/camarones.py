@@ -2,7 +2,7 @@
 # requires-python = ">=3.10"
 # dependencies = ["pyyaml>=6", "rich>=13", "questionary>=2", "keyring>=25"]
 # ///
-"""🦐 Camarones Documenter — project documentation kit (wizard + CLI). No arguments opens the wizard.
+"""🦐 Camarón — project documentation wizard + CLI. No arguments opens the wizard.
 
   setup [--ci]              install tools, sync repos, wire Claude Code/Codex + git hooks (idempotent)
   sync                      clone/pull repos from workspace.yaml
@@ -28,8 +28,9 @@
                             and the workspace folder (--global: also ~/.camarones*, saved tokens)
   mcp                       stdio MCP server: agents search/read the docs and the code graph
   ci [gitlab|github]        install the umbrella CI pipeline
-  plan [sync|next|start|note|done|block|drop|add] …   session work plan (docs/.work/plan.yaml)
+  plan [sync|next|start|note|done|block|drop|add|redo] …   session work plan (docs/.work/plan.yaml)
   plan note UNIT "text"     save a progress checkpoint of a unit (a closed session resumes from it)
+  plan redo UNIT [--also U…]  reopen a finished unit (e.g. an interview) to review and update it
   checkpoint ["message"]    commit docs progress locally in the umbrella repo (never pushes)
   feedback FILE "text" --by NAME   record a human review comment (applied by the review-fixes unit)
   version                   kit and pinned tool versions
@@ -148,10 +149,11 @@ def main() -> int:
     un.add_argument("--backup-dir", type=Path)
     ci = sp.add_parser("ci"); ci.add_argument("forge", nargs="?", choices=["gitlab", "github"])
     pl = sp.add_parser("plan"); pl.add_argument("action", nargs="?", default="show",
-                                                choices=["show", "sync", "next", "start", "note", "done", "block", "drop", "add"])
+                                                choices=["show", "sync", "next", "start", "note", "done", "block", "drop", "add", "redo"])
     pl.add_argument("unit", nargs="?"); pl.add_argument("title", nargs="?")
     pl.add_argument("--note"); pl.add_argument("--type", default="flow"); pl.add_argument("--deps", nargs="*")
     pl.add_argument("--json", action="store_true")
+    pl.add_argument("--also", nargs="*", default=[])
     cp = sp.add_parser("checkpoint"); cp.add_argument("message", nargs="?", default="progress")
     fb = sp.add_parser("feedback"); fb.add_argument("file"); fb.add_argument("text"); fb.add_argument("--by", default="")
     ad = sp.add_parser("arch-draft"); ad.add_argument("--save", action="store_true"); ad.add_argument("--overwrite", action="store_true")
@@ -217,7 +219,7 @@ def main() -> int:
         if a.json:
             print(json.dumps(rows, indent=2, ensure_ascii=False))
         else:
-            icon = {"confirmed": "✅", "needs-reconfirm": "⚠️ ", "draft": "🤖"}
+            icon = {"confirmed": "✅", "needs-reconfirm": "⚠️ ", "draft": "✨"}
             for r in rows:
                 extra = ([f"ORPHAN({len(r['orphan_sources'])})"] if r["orphan_sources"] else []) + \
                         [f"{k}:{v}" for k, v in r["i18n"].items() if v != "current"]
@@ -333,7 +335,7 @@ def main() -> int:
             return 2
         print(f"{a.repo}: " + ("stack reset to the detected one" if a.reset else a.text.strip()))
     elif a.cmd == "version":
-        print(f"Camarones Documenter {VERSIONS['kit']} — " + ", ".join(f"{k} {v}" for k, v in VERSIONS.items() if k != "kit"))
+        print(f"Camarón {VERSIONS['kit']} — " + ", ".join(f"{k} {v}" for k, v in VERSIONS.items() if k != "kit"))
     elif a.cmd == "checkpoint":
         print("✔ committed locally" if env.checkpoint_commit(a.message) else "no checkpoint commit")
     elif a.cmd == "feedback":
@@ -383,6 +385,16 @@ def cmd_plan(a) -> int:
         u = plan.set_status(a.unit, status, a.note)
         print(f"{u['id']} → {status}")
         if status != "doing" and env.checkpoint_commit(f"{u['id']} {status}"):
+            print("✔ docs committed locally (checkpoint)")
+    elif a.action == "redo":
+        if not a.unit:
+            print("usage: plan redo <unit> [--also <dependent> …]"); return 2
+        for u in plan.redo(a.unit, a.also):
+            print(f"{u['id']} → todo (redo; was done {str(u['redo'])[:10]})")
+        still = plan.dependents(plan.load(), a.unit)
+        if still:
+            print("Still done, built on it (reopen with --also if they need redoing): " + ", ".join(u["id"] for u in still))
+        if env.checkpoint_commit(f"redo {a.unit}"):
             print("✔ docs committed locally (checkpoint)")
     elif a.action == "add":
         if not a.unit or not a.title:
