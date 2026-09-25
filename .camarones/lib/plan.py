@@ -390,6 +390,14 @@ def prompt(uid: str, lang: str = "es", unattended: bool = False) -> str:
         extra = (f"\nInput: run `{cli} check` and `{cli} status`. Fix every ERROR, orphaned `x-sources`, `needs-reconfirm` "
                  "pages (re-verify them against the code and summarise the change for the human — never write `x-confirmed`), "
                  f"and outdated/missing translations (then `{cli} translated <files>`). Finish with `{cli} llms` and a clean `check`.\n")
+    elif u.get("type") in INTERVIEW_TYPES and docs.interview_mode() == "team":
+        qdir = ws_rel("docs/interview/questionnaire")
+        extra = (f"\nTEAM MODE — do not interview anyone: the team already answered a questionnaire. Input: "
+                 f"`{qdir}/questionnaire.yaml` (this unit's questions are those with topic `{u['type'].split('-', 1)[1]}`) "
+                 f"and every `{qdir}/responses/*.yaml` (one per person). `{cli} interview status` lists who answered, "
+                 "what nobody answered and where people disagree. Consolidate the answers as the playbook section "
+                 "\"interview\" (team mode) says: agreed answers to the dated interview file, citing who said what; "
+                 "disagreements and unanswered questions to `docs/interview/open-questions.md`.\n")
     layout = (f"\nLayout: you run in the workspace folder. Docs and agent config live in `{CAM_DIR}/` (its own git repo; every "
               f"`docs/…` or `.camarones/…` path in the playbook is relative to it); the service repos are its siblings (`<repo>/`). "
               "Never write kit files into the service repos.\n") if CAM_LAYOUT else (

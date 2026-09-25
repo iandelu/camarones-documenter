@@ -22,7 +22,7 @@ Humans: see `docs/guides/tutorial.md`. `CLI` = `camaron` (legacy per-project cop
 | Project overview, domain, flows, data, deployment, ADRs, quality | `docs/<section>/*.md` | Camarón + humans |
 | Security review (opt-in unit) | `docs/security/*.md` | Camarón agent |
 | Translations | `docs/i18n/<lang>/<same logical path>` (repo pages: `docs/i18n/<lang>/repos/<repo>/<page>`) | Camarón agent |
-| Interview answers & open questions | `docs/interview/` | Camarón agent |
+| Interview answers & open questions (team mode: `interview/questionnaire/` + `responses/`) | `docs/interview/` | Camarón agent |
 | AI index | `docs/llms.txt` (generated: `CLI llms`) | kit |
 | Incremental state | `docs/.state.json` (`CLI changes`, `mark-documented`) | kit |
 

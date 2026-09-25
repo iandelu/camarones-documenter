@@ -42,6 +42,10 @@
   arch-draft [--save]       quick static architecture scan → C4 draft (first look, no AI)
   radar [--json]            stack + tools the repos already use (Backstage, Sonar, linters…) → docs/overview/tooling.md
   stack REPO [TEXT|--reset] fix a repo's stack in workspace.yaml (--reset: back to the detected one)
+  interview mode [team|live]   how interviews run: team questionnaire answered offline, or live with the agent
+  interview export [--lang es|en]   questionnaire → offline HTML form + Markdown copy to share with the team
+  interview import FILE|DIR…   import the team's answers (form JSON or filled Markdown)
+  interview status [--json]    who answered, unanswered questions, disagreements
   doctor                    check prerequisites and tool versions
   install DEST --profile quick|full [--dry-run]   copy kit into an explicit project folder
   upgrade SOURCE [--dry-run]  update kit files with backups; preserve project configuration
@@ -181,6 +185,9 @@ def main() -> int:
     fb = sp.add_parser("feedback"); fb.add_argument("file"); fb.add_argument("text"); fb.add_argument("--by", default="")
     ad = sp.add_parser("arch-draft"); ad.add_argument("--save", action="store_true"); ad.add_argument("--overwrite", action="store_true")
     rd = sp.add_parser("radar"); rd.add_argument("--json", action="store_true")
+    iv = sp.add_parser("interview"); iv.add_argument("action", choices=["mode", "export", "import", "status"])
+    iv.add_argument("args", nargs="*"); iv.add_argument("--lang", default="es", choices=["es", "en"])
+    iv.add_argument("--json", action="store_true")
     st = sp.add_parser("stack"); st.add_argument("repo"); st.add_argument("text", nargs="?", default="")
     st.add_argument("--reset", action="store_true")
     pr = sp.add_parser("prompt"); pr.add_argument("unit"); pr.add_argument("--lang", default="es")
@@ -337,6 +344,8 @@ def main() -> int:
         print((m["dir"] / "model.c4").read_text(encoding="utf-8"))
         if a.save:
             print("\n".join(quickarch.save(m, overwrite=a.overwrite)))
+    elif a.cmd == "interview":
+        return cmd_interview(a)
     elif a.cmd == "radar":
         from lib import radar
         page = radar.run(log=(lambda _: None) if a.json else print)
@@ -381,6 +390,42 @@ def main() -> int:
                                include_interviews=a.include_interviews)
         except KeyboardInterrupt:
             print("\nAutopilot interrupted — progress is saved; `plan next` shows where to resume.")
+    return 0
+
+
+def cmd_interview(a) -> int:
+    from lib import questionnaire
+    try:
+        if a.action == "mode":
+            if a.args:
+                docs.set_interview_mode(a.args[0])
+                plan.sync()
+            print(docs.interview_mode())
+        elif a.action == "export":
+            for f in questionnaire.export(a.lang):
+                print(f)
+        elif a.action == "import":
+            if not a.args:
+                print("usage: interview import FILE|DIR …", file=sys.stderr); return 2
+            results = questionnaire.import_files(a.args)
+            for f, who, err in results:
+                print(f"✔ {who}: {f.name}" if who else f"✖ {f.name}: {err}")
+            if not results:
+                print("no answers files found", file=sys.stderr)
+            return 0 if results and all(who for _, who, _ in results) else 1
+        else:
+            s = questionnaire.status()
+            if a.json:
+                print(json.dumps(s, indent=2, ensure_ascii=False))
+                return 0
+            print(f"{s['questions']} questions · answered by: "
+                  + (", ".join(f"{r['name']} ({r['answered']})" for r in s["respondents"]) or "nobody yet"))
+            print("unanswered: " + (", ".join(s["unanswered"]) or "-"))
+            for c in s["conflicts"]:
+                print(f"disagree {c['id']}: " + "; ".join(f"{v} ← {', '.join(n)}" for v, n in c["answers"].items()))
+    except ValueError as e:
+        print(e, file=sys.stderr)
+        return 2
     return 0
 
 
