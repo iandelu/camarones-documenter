@@ -43,6 +43,7 @@ jobs:
           elif [ -n "$OPENAI_API_KEY" ]; then npm i -g @openai/codex >/dev/null && codex exec --full-auto "$PROMPT"
           else echo "no AI key, skipping"; fi
           camarones llms
+          camarones check --secrets   # a secret copied into the docs must never reach the PR branch
       - name: Open PR
         if: github.event_name != 'push'
         uses: peter-evans/create-pull-request@v7

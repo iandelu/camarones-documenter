@@ -38,7 +38,7 @@ or `.\camarones.cmd`).
    units (discovery, repo-wiki, flows) — the user reopens the Camarones Documenter wizard and picks "Next step".
    **Autopilot** (`CLI autopilot`, or "Autopilot" in the wizard's ready-units list) skips this step. An outer loop
    starts every ready agent unit in its own fresh, unattended session (`claude -p … --dangerously-skip-permissions`
-   or `codex exec --full-auto …`). If one agent hits its usage limit, the loop switches to the other; if both are
+   or `codex exec --approve-for-me …`). If one agent hits its usage limit, the loop switches to the other; if both are
    limited, it waits. It never runs interview units or wizard steps (setup, portal, ci, confirm), and it stops when
    only those are left, when a unit fails, or when a unit ends without `plan done`/`plan block`. In an autopilot
    session you close the unit as usual (step 5), and questions go to `docs/interview/open-questions.md`.
@@ -47,7 +47,8 @@ or `.\camarones.cmd`).
 ## setup
 Done by the wizard (`CLI setup`). If an agent lands here: run it, report missing prerequisites with the fix, mark done.
 Agent config (`.claude/`, `.codex/`, `.agents/`, `.mcp.json`, AGENTS.md/CLAUDE.md) is written to `cam-docs/` and linked
-from the workspace folder; code graphs go to `graph/<repo>/`. Service repos are not touched.
+from the workspace folder; code graphs go to `graph/<repo>/`. Service repos are not touched. The `full` profile also
+installs the quality gate (mermaid-cli, gitleaks) that `CLI check` uses; without it those checks are skipped with a WARN.
 
 ## discovery
 Scope: one repo. Output: `docs/interview/discovery/<repo>.md` (`type: interview`). Read-only on code.
@@ -86,7 +87,7 @@ Three short units (`interview-context`, `interview-language`, `interview-history
 validate or correct; ≤4 questions per round. Topics per unit:
 - **context**: bounded contexts (and which repo implements each, relationships: customer/supplier, ACL, shared kernel),
   external actors (people, systems), environments (which, where, differences).
-- **language**: DDD glossary (term, definition, code name, context; which translations to keep), SLAs/NFRs.
+- **language**: DDD glossary (term, definition, code name, context, synonyms to avoid; which translations to keep), SLAs/NFRs.
 - **history**: historical decisions (why, alternatives dropped) → ADR material; known debt; validation of the inferred
   integrations, flows (names/scope) and data ownership / shared DBs.
 Record answers faithfully in `docs/interview/<YYYY-MM-DD>-<unit>.md`; unanswered → `docs/interview/open-questions.md`.
@@ -122,9 +123,12 @@ than starting over.
 `docs/architecture/model.c4` + `views.c4`: actors, external systems, every container (services, apps, DBs, brokers, topics),
 `index` (context) and `containers` views; `#ai-draft` on unvalidated elements, `#confirmed` on validated ones.
 Write `docs/overview/system.md` (purpose, context diagram in words, how to navigate) and `docs/index.md` (entry point).
+The `likec4` MCP server (in `.mcp.json` / `.codex/config.toml`) answers questions about the model while you write it
+(search elements, relationships, "who calls X?").
 
 ## domain
-`docs/domain/bounded-contexts.md` (context map + repo mapping), `glossary.md`, `actors.md` from the interviews.
+`docs/domain/bounded-contexts.md` (context map + repo mapping), `glossary.md`, `actors.md` from the interviews. Fill the
+glossary's **Avoid** column with the synonyms the interviews rejected: `CLI check` flags them across the docs.
 
 ## data
 `docs/data/<store>.md` per datastore: `erDiagram`, ownership table (table → writers → readers), migration source,
@@ -188,7 +192,8 @@ under `docs/i18n/es/<same path>` (repo wikis: `docs/i18n/es/repos/<repo>/<page>`
 ## portal
 Wizard: `CLI up` (one portal: Docs to read/edit/confirm/comment, Architecture (C4), Code graph, Wikis, Review). For
 hosting: `CLI portal` exports the same app read-only to `.camarones/.cache/site` (no npm); check `#/docs`, `#/c4`,
-`#/code/all`, `#/wikis` and a flow page with `CLI up --static`.
+`#/code/all`, `#/wikis` and a flow page with `CLI up --static`. The export refuses to run while gitleaks finds a possible
+secret in the docs (as do checkpoint commits): replace it with a placeholder first.
 
 ## ci
 Wizard: `CLI ci` installs the `cam-docs` pipeline; per-repo snippets are in `.camarones/ci/`. Propose them; the user applies
@@ -223,7 +228,8 @@ again: tell the user it is ready for another review. Never write `x-confirmed`.
 
 ## doc-fixes
 Triggered from the wizard's "Documentation status". Run `CLI check` and `CLI status`, then fix, in this order:
-1. `ERROR`s (frontmatter, broken links, invalid C4 → `CLI arch-validate`).
+1. `ERROR`s: possible secrets first (replace with a placeholder), then frontmatter, broken links, invalid Mermaid
+   diagrams, invalid C4 (→ `CLI arch-validate`). Glossary `WARN`s: use the preferred term.
 2. Orphans: `x-sources` that no longer exist → find where the code moved (`graphify query`, `git log --follow`) and
    update the page and its sources, or remove the claim.
 3. `needs-reconfirm` pages: diff what changed since confirmation, verify it against the code, and write a short summary

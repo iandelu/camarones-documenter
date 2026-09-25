@@ -1,7 +1,7 @@
 """Environment: templates, prerequisites, pinned tools, repo wiring, code graph, C4, portal, docker, CI."""
 from __future__ import annotations
 
-import json, os, re, shutil, subprocess, webbrowser
+import json, os, re, shutil, subprocess, sys, webbrowser
 from collections import deque
 from contextlib import contextmanager
 from pathlib import Path
@@ -9,7 +9,7 @@ from typing import Callable
 
 from .common import (KIT, ROOT, DOCS, HOME, CACHE, IS_WIN, IS_MAC, VERSIONS, CAM_DIR, CAM_LAYOUT, WORKSPACE, GRAPHS, run, out,
                      which, uv, ensure_path, cli_cmd, sdkman_dir, repo_dir, ws_rel, rel_file, load_json, save_json)
-from . import docs
+from . import binaries, docs
 
 Log = Callable[[str], None]
 TEMPLATES = KIT / "templates"
@@ -210,6 +210,7 @@ KIT_TOOLS = {
     "graphify": "graphify — code knowledge graph (Claude/Codex query it instead of grepping)",
     "likec4": "LikeC4 — C4 architecture diagrams + interactive explorer",
     "openwiki": "OpenWiki — one wiki per repo with grounded claims",
+    "quality": "Quality gate — mermaid-cli (diagram validation) + gitleaks (secret scan) for CLI check",
 }
 EXTRAS = {
     "agents": "Claude Code / Codex wiring in cam-docs (skills, MCP, rules), linked from the workspace root",
@@ -242,6 +243,10 @@ def set_components(chosen: list[str]) -> None:
 def tool_ok(name: str) -> bool:
     if name == "openwiki":
         return openwiki_installed()
+    if name == "quality":
+        return tool_ok("mmdc") and tool_ok("gitleaks")
+    if name == "gitleaks":
+        return binaries.pinned_path("gitleaks").is_file()
     return tool_version(name) == VERSIONS[name]
 
 
@@ -268,6 +273,18 @@ def install_tools(log: Log = print, comps: list[str] | None = None) -> None:
         if "OPENWIKI_TELEMETRY_DISABLED=1" not in (envf.read_text(encoding="utf-8") if envf.exists() else ""):
             with envf.open("a", encoding="utf-8") as fh:
                 fh.write("OPENWIKI_TELEMETRY_DISABLED=1\n")
+    if "quality" in comps:                  # optional: a failure only means CLI check skips that check (one WARN)
+        if not tool_ok("mmdc"):
+            log(f"installing mermaid-cli {VERSIONS['mmdc']} (npm, downloads a headless Chromium)…")
+            try:
+                npm_global(f"@mermaid-js/mermaid-cli@{VERSIONS['mmdc']}", log)
+            except RuntimeError as e:
+                log(f"⚠ mermaid-cli not installed ({e}) — diagrams will not be validated")
+        if not tool_ok("gitleaks"):
+            log(f"installing gitleaks {VERSIONS['gitleaks']}…")
+            binaries.ensure("gitleaks", log)
+        gl = binaries.bin_path("gitleaks")
+        log(f"✔ quality gate: mermaid-cli {tool_version('mmdc') or 'missing'} · gitleaks {'ok' if gl else 'missing'}")
 
 
 # ---------- wiring: everything lives in cam-docs, the service repos stay clean ----------
@@ -328,6 +345,30 @@ def camarones_mcp() -> dict:
     return {"command": "uv", "args": ["run", "--quiet", "--script", str(KIT / "camarones.py"), "mcp"]}
 
 
+def likec4_mcp() -> dict:
+    """LikeC4's own MCP server (built into the pinned CLI, offline) over docs/architecture: agents can query the C4
+    model ("who calls X?") while writing it. The path is workspace-relative — agents start in the workspace root.
+    Windows: likec4 is a .cmd shim, which MCP hosts cannot spawn directly."""
+    args = ["mcp", "--stdio", ws_rel("docs/architecture")]
+    return {"command": "cmd", "args": ["/c", "likec4", *args]} if IS_WIN else {"command": "likec4", "args": args}
+
+
+CODEX_MCP_START, CODEX_MCP_END = "# CAMARONES:MCP:START", "# CAMARONES:MCP:END"
+CODEX_MCP_RE = re.compile(rf"{CODEX_MCP_START}.*?{CODEX_MCP_END}\n?", re.S)
+
+
+def write_codex_mcp(servers: dict) -> None:
+    """Same servers for Codex, in a managed block of .codex/config.toml (other content is kept; a server the user
+    already defined outside the block is left to them)."""
+    f = ROOT / ".codex" / "config.toml"
+    text = CODEX_MCP_RE.sub("", f.read_text(encoding="utf-8") if f.is_file() else "")
+    body = [f"[mcp_servers.{name}]\ncommand = {json.dumps(s['command'])}\nargs = {json.dumps(s['args'])}\n"
+            for name, s in servers.items() if f"[mcp_servers.{name}]" not in text]
+    block = f"{CODEX_MCP_START}\n" + "\n".join(body) + f"{CODEX_MCP_END}\n" if body else ""
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text((text.rstrip() + "\n\n" if text.strip() else "") + block, encoding="utf-8")
+
+
 GRAPHIFY_SECTION = re.compile(r"\n*^## graphify\n.*?(?=^## |\Z)", re.S | re.M)
 
 
@@ -370,7 +411,12 @@ def write_agent_config(comps: list[str]) -> None:
     servers["camarones"] = camarones_mcp()
     if "openwiki" not in comps:
         servers.pop("openwiki", None)
+    if "likec4" in comps:
+        servers["likec4"] = likec4_mcp()
+    else:
+        servers.pop("likec4", None)
     save_json(mcp_file, cfg)
+    write_codex_mcp({k: servers[k] for k in ("camarones", "likec4") if k in servers})
     settings = ROOT / ".claude" / "settings.json"
     st = without_graphify_hooks(load_json(settings, {}))
     st["enabledMcpjsonServers"] = sorted(set(st.get("enabledMcpjsonServers", [])) | set(servers))
@@ -860,7 +906,8 @@ def forge_edit_base() -> str:
 def export_site(log: Log = print) -> Path:
     """The same portal app, read-only: HTML + JSON snapshots of the API, the viewers and the libraries they need.
     No npm build — any static host (nginx image, GitLab/GitHub Pages) serves it."""
-    from . import serve
+    from . import quality, serve
+    quality.assert_no_secrets()
     writable(CACHE)
     site, tmp = CACHE / "site", CACHE / "site.tmp"
     shutil.rmtree(tmp, ignore_errors=True)
@@ -1144,6 +1191,11 @@ def checkpoint_commit(message: str) -> bool:
     paths = [p for p in CHECKPOINT_PATHS if (ROOT / p).exists()]
     run(["git", "add", "--", *paths], cwd=ROOT, check=False, quiet=True)
     if run(["git", "diff", "--cached", "--quiet"], cwd=ROOT, check=False, quiet=True).returncode == 0:
+        return False
+    from . import quality
+    leaks = quality.staged_secrets()
+    if leaks:        # left staged, not committed: fix the page, the next checkpoint picks it up
+        print("🦐✖ checkpoint not committed — possible secrets staged:\n  " + "\n  ".join(leaks), file=sys.stderr)
         return False
     ident = [] if out(["git", "config", "user.email"], cwd=ROOT) else ["-c", "user.name=Camarones Documenter",
                                                                        "-c", "user.email=camarones@localhost"]

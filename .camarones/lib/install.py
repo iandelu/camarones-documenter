@@ -11,7 +11,7 @@ from pathlib import Path
 
 from .common import VERSIONS
 
-PROFILES = {"quick": ["agents"], "full": ["graphify", "likec4", "openwiki", "agents"]}
+PROFILES = {"quick": ["agents"], "full": ["graphify", "likec4", "openwiki", "quality", "agents"]}
 RECEIPT = Path('.camarones/install.json')
 DIRECTORIES = ('lib', 'templates', 'portal', 'ci')
 FILES = ('camarones.py', 'camarones.py.lock', 'README.md', 'TUTORIAL.md', 'PLAYBOOK.md', 'CONVENTIONS.md', 'nginx.conf')

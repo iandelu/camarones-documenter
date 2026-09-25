@@ -1,7 +1,8 @@
 """Docs model: workspace, repo sync, incremental state, trust (draft/confirmed), translations, llms.txt, search."""
 from __future__ import annotations
 
-import datetime as dt, hashlib, os, re, shutil, subprocess, tarfile, tempfile
+import datetime as dt, hashlib, math, os, re, shutil, subprocess, tarfile, tempfile
+from collections import Counter
 from pathlib import Path
 from typing import Callable
 
@@ -240,11 +241,15 @@ def first_heading(body: str) -> str | None:
     return m.group(1).strip() if m else None
 
 
+def trust_of(fm: dict, sha: str) -> str:
+    conf = fm.get("x-confirmed") or {}
+    return "confirmed" if conf.get("body_sha") == sha else ("needs-reconfirm" if conf else "draft")
+
+
 def doc_status(logical: str, f: Path, langs: list[str]) -> dict:
     fm, body = split_fm(f.read_text(encoding="utf-8"))
     sha = body_sha(body)
-    conf = fm.get("x-confirmed") or {}
-    trust = "confirmed" if conf.get("body_sha") == sha else ("needs-reconfirm" if conf else "draft")
+    trust = trust_of(fm, sha)
     missing = [s for s in (fm.get("x-sources") or []) if not repo_file_exists(str(s))]
     i18n = {}
     for lang in ([] if fm.get("type") == "interview" else langs):   # working notes are not translated
@@ -335,9 +340,13 @@ def llms() -> int:
     return len(rows)
 
 
-def check(strict: bool = False) -> tuple[list[str], list[str]]:
+def check(strict: bool = False, secrets_only: bool = False) -> tuple[list[str], list[str]]:
+    from . import quality
+    if secrets_only:
+        return quality.check_secrets()
     errors, warns = [], []
-    for r in collect():
+    rows = collect()
+    for r in rows:
         if not r["has_frontmatter"]:
             errors.append(f"{r['file']}: missing frontmatter")
         if r["orphan_sources"]:
@@ -347,23 +356,36 @@ def check(strict: bool = False) -> tuple[list[str], list[str]]:
         for lang, st in r["i18n"].items():
             if st != "current":
                 warns.append(f"{r['file']}: translation {lang} {st}")
+    for fn in quality.CHECKS:
+        e, w = fn(rows, strict)
+        errors += e
+        warns += w
     return errors, warns
 
 
-# ---------- search (portal + MCP) ----------
+# ---------- search (portal + MCP): BM25 over body tokens, prefix-matched (pedido → pedidos) ----------
 def search(query: str, limit: int = 20) -> list[dict]:
-    terms = [t for t in re.findall(r"\w+", query.lower()) if len(t) > 1]
+    terms = list(dict.fromkeys(t for t in re.findall(r"\w+", query.lower()) if len(t) > 1))
     if not terms:
         return []
-    rows, hits = {r["path"]: r for r in collect()}, []
+    pages = []
     for logical, f in iter_docs():
-        text = f.read_text(encoding="utf-8", errors="replace")
-        low = text.lower()
-        score = sum(low.count(t) for t in terms) + 5 * sum(t in logical.lower() for t in terms)
+        fm, body = split_fm(f.read_text(encoding="utf-8", errors="replace"))
+        toks = Counter(re.findall(r"\w+", body.lower()))
+        tf = {t: sum(c for w, c in toks.items() if w.startswith(t)) for t in terms}
+        title = fm.get("title") or first_heading(body) or f.stem
+        pages.append((logical, fm, body, sum(toks.values()), tf, str(title)))
+    if not pages:
+        return []
+    n, avg = len(pages), max(1.0, sum(p[3] for p in pages) / len(pages))
+    idf = {t: math.log(1 + (n - (df := sum(1 for p in pages if p[4][t])) + 0.5) / (df + 0.5)) for t in terms}
+    k1, b, hits = 1.2, 0.75, []
+    for logical, fm, body, length, tf, title in pages:
+        score = sum(idf[t] * tf[t] * (k1 + 1) / (tf[t] + k1 * (1 - b + b * length / avg)) for t in terms)
+        score += sum(2 * idf[t] for t in terms if t in title.lower() or t in logical.lower())
         if score:
-            r = rows.get(logical, {})
-            hits.append({"path": logical, "title": r.get("title", logical), "trust": r.get("trust", "?"), "score": score,
-                         "lines": [l.strip()[:240] for l in text.splitlines() if any(t in l.lower() for t in terms)][:3]})
+            hits.append({"path": logical, "title": title, "trust": trust_of(fm, body_sha(body)), "score": round(score, 2),
+                         "lines": [l.strip()[:240] for l in body.splitlines() if any(t in l.lower() for t in terms)][:3]})
     hits.sort(key=lambda h: -h["score"])
     return hits[:limit]
 
