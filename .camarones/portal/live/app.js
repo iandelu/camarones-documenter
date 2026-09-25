@@ -2,7 +2,7 @@
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const STATIC = $('meta[name="cam-mode"]').content === 'static';
-const TRUST = { confirmed: '✅', draft: '🤖', 'needs-reconfirm': '⚠️' };
+const TRUST = { confirmed: '✅', draft: '✨', 'needs-reconfirm': '⚠️' };
 const LANG_NAMES = { en: 'English', es: 'Español', fr: 'Français', de: 'Deutsch', pt: 'Português', it: 'Italiano' };
 
 const I18N = {
@@ -22,7 +22,7 @@ const I18N = {
     commitMsg: 'What changed? (commit message)', commitBox: 'commit to cam-docs', saved: 'Saved', savedCommitted: 'Saved and committed',
     nothingToCommit: 'Saved (nothing to commit)', confirmedToast: 'Confirmed', commentSaved: 'Comment saved',
     translation: 'translation', newTitle: 'Title', newPath: 'section/page.md (e.g. guides/onboarding.md)',
-    noDocs: 'No documentation yet', noDocsHelp: 'Run the next unit from the Camarones wizard, or create a page.',
+    noDocs: 'No documentation yet', noDocsHelp: 'Run the next unit from the Camarón wizard, or create a page.',
     noMatch: 'No pages match.', results: 'Results for', noResults: 'No page mentions it.',
     reviewTitle: 'Review & status', planUnits: 'Plan {done}/{total} units · {pages} pages',
     waiting: 'Waiting for a human', allConfirmed: 'Nothing — all confirmed.', changeRequests: 'Change requests not applied yet',
@@ -37,7 +37,7 @@ const I18N = {
     notChosen: 'no wiki for this repo (choose repos in the wizard → Wikis)', needBrief: 'first run its repo-brief unit (it writes INSTRUCTIONS.md)',
     noEngine: 'OpenWiki cannot run from here yet: save a provider key once with `openwiki auth configure openai` (or anthropic, gemini, openrouter) in a terminal, or install Claude Code / Codex so an agent writes it.',
     running: 'running…', done: 'done', failed: 'failed', jobStarted: 'Started: {label}',
-    readOnly: 'Read-only portal (export). To edit, confirm or generate wikis locally run <code>camarones up</code>.',
+    readOnly: 'Read-only portal (export). To edit, confirm or generate wikis locally run <code>camaron up</code>.',
     unreachable: 'Cannot reach the docs server', error: 'Error', justNow: 'just now',
   },
   es: {
@@ -56,7 +56,7 @@ const I18N = {
     commitMsg: '¿Qué cambió? (mensaje del commit)', commitBox: 'commit en cam-docs', saved: 'Guardado', savedCommitted: 'Guardado y commit hecho',
     nothingToCommit: 'Guardado (nada que commitear)', confirmedToast: 'Confirmada', commentSaved: 'Comentario guardado',
     translation: 'traducción', newTitle: 'Título', newPath: 'seccion/pagina.md (p. ej. guides/onboarding.md)',
-    noDocs: 'Aún no hay documentación', noDocsHelp: 'Lanza la siguiente unidad desde el asistente de Camarones, o crea una página.',
+    noDocs: 'Aún no hay documentación', noDocsHelp: 'Lanza la siguiente unidad desde el asistente de Camarón, o crea una página.',
     noMatch: 'Ninguna página coincide.', results: 'Resultados de', noResults: 'Ninguna página lo menciona.',
     reviewTitle: 'Revisión y estado', planUnits: 'Plan {done}/{total} unidades · {pages} páginas',
     waiting: 'Esperando a un humano', allConfirmed: 'Nada — todo confirmado.', changeRequests: 'Peticiones de cambio sin aplicar',
@@ -71,7 +71,7 @@ const I18N = {
     notChosen: 'sin wiki para este repo (elige repos en el asistente → Wikis)', needBrief: 'antes ejecuta su unidad repo-brief (escribe INSTRUCTIONS.md)',
     noEngine: 'OpenWiki aún no puede lanzarse desde aquí: guarda una clave de proveedor una vez con `openwiki auth configure openai` (o anthropic, gemini, openrouter) en una terminal, o instala Claude Code / Codex para que la escriba un agente.',
     running: 'en curso…', done: 'hecho', failed: 'falló', jobStarted: 'Lanzado: {label}',
-    readOnly: 'Portal de solo lectura (exportado). Para editar, confirmar o generar wikis en local ejecuta <code>camarones up</code>.',
+    readOnly: 'Portal de solo lectura (exportado). Para editar, confirmar o generar wikis en local ejecuta <code>camaron up</code>.',
     unreachable: 'No se puede conectar con el servidor de la doc', error: 'Error', justNow: 'ahora mismo',
   },
 };
@@ -209,10 +209,10 @@ function drawTree(active) {
 async function loadTree() {
   T = await api('tree');
   if (!T.langs.includes(lang)) lang = '';
-  document.title = `🦐 ${T.project} — Camarones`;
+  document.title = `🦐 ${T.project} — Camarón`;
   $('#project').textContent = T.project;
   const s = T.summary;
-  $('#summary').textContent = `✅ ${s.confirmed} · 🤖 ${s.draft} · ⚠️ ${s['needs-reconfirm']}` + (T.feedback ? ` · ✏️ ${T.feedback}` : '');
+  $('#summary').textContent = `✅ ${s.confirmed} · ✨ ${s.draft} · ⚠️ ${s['needs-reconfirm']}` + (T.feedback ? ` · ✏️ ${T.feedback}` : '');
 }
 
 // ---------- docs ----------

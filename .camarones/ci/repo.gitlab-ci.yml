@@ -1,4 +1,4 @@
-# 🦐 Camarones Documenter — snippet for EACH microservice repo (GitLab).
+# 🦐 Camarón — snippet for EACH microservice repo (GitLab).
 # Add to the repo's .gitlab-ci.yml:   include: { project: '<group>/<umbrella>', file: '.camarones/ci/repo.gitlab-ci.yml' }
 # (or copy these two jobs). Variables on the repo (or group):
 #   ANTHROPIC_API_KEY (masked), OPENWIKI_GITLAB_TOKEN (masked: api + write_repository), DOCS_UMBRELLA_PROJECT (e.g. acme/acme-docs)

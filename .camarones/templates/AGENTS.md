@@ -1,7 +1,7 @@
 # {{PROJECT_NAME}} — documentation hub
 
 <!-- camarones:start -->
-This is the living documentation of **{{PROJECT_NAME}}**, managed with the Camarones Documenter kit 🦐. Docs, architecture and
+This is the living documentation of **{{PROJECT_NAME}}**, managed with the Camarón kit 🦐. Docs, architecture and
 agent config live in `{{CAM}}` (its own git repo); the service repos listed in `{{CAM}}.camarones/workspace.yaml` sit next to it
 and never receive kit files.
 

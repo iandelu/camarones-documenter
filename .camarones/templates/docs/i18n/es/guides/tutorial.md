@@ -1,11 +1,11 @@
 ---
-title: Tutorial — Camarones Documenter, el asistente de documentación del proyecto
-description: Cómo instalar Camarones Documenter en macOS o Windows, hacer las sesiones guiadas de documentación con Claude Code o Codex, confirmar borradores de IA, usar el portal (leer, editar, revisar), generar las wikis de OpenWiki y configurar el CI.
+title: Tutorial — Camarón, el asistente de documentación del proyecto
+description: Cómo instalar Camarón en macOS o Windows, hacer las sesiones guiadas de documentación con Claude Code o Codex, confirmar borradores de IA, usar el portal (leer, editar, revisar), generar las wikis de OpenWiki y configurar el CI.
 x-owner: human
 ---
-# Tutorial — Camarones Documenter 🦐
+# Tutorial — Camarón 🦐
 
-*Camarón que se duerme, se lo lleva la corriente.* Camarones Documenter documenta un proyecto entero (todos sus repos) en sesiones
+*Camarón que se duerme, se lo lleva la corriente.* Camarón documenta un proyecto entero (todos sus repos) en sesiones
 cortas con IA, guarda el progreso después de cada una y siempre te dice qué viene a continuación.
 
 ## 1. Instalación (una vez por ordenador)
@@ -19,9 +19,9 @@ Requisitos:
 
 | | Abrir el asistente |
 |---|---|
-| macOS | doble clic en `camarones.command` (si macOS lo bloquea la primera vez: Terminal en la carpeta → `sh camarones.command`) o `./camarones.command` |
-| Windows | doble clic en `camarones.cmd`, o `camarones.cmd` en un terminal |
-| Linux / CI | `./camarones.command` (es un script de shell normal) |
+| macOS | doble clic en `camaron.command` (si macOS lo bloquea la primera vez: Terminal en la carpeta → `sh camaron.command`) o `./camaron.command` |
+| Windows | doble clic en `camaron.cmd`, o `camaron.cmd` en un terminal |
+| Linux / CI | `./camaron.command` (es un script de shell normal) |
 
 **Instalación global (varios proyectos):** `sh install-global.sh` (Windows: `install-global.cmd`) desde el repo del kit deja
 el comando `camarones` en tu PATH; ejecuta `camarones` en la carpeta que agrupa los repos y crea `./cam-docs/`.
@@ -70,7 +70,7 @@ y entre ordenadores, porque el plan se commitea junto con la doc.
 
 ## 3. Confianza: borradores de IA frente a doc confirmada
 
-Toda página nace como **🤖 borrador** (el portal lo muestra con un banner). Confírmalas en el portal (**Confirmar** en cada
+Toda página nace como **✨ borrador** (el portal lo muestra con un banner). Confírmalas en el portal (**Confirmar** en cada
 página; la pestaña **Revisión** lista lo pendiente) o en el asistente con **✅ Revisar y confirmar páginas**. La confirmación queda ligada al contenido: si alguien edita la página después, pasa a
 **⚠️ pendiente de reconfirmar**. Los agentes tratan las páginas confirmadas como la fuente de verdad. Para proteger un párrafo de los agentes:
 
@@ -85,14 +85,14 @@ Este párrafo solo lo editan personas.
 **🔄 Actualizar doc tras cambios** lanza una sesión incremental: solo regenera lo que ha cambiado en el código, limpia las
 páginas obsoletas y nunca reescribe a escondidas las páginas confirmadas. El CI puede hacer lo mismo de forma automática (sección 8).
 
-**Control de calidad.** `camarones check` se ejecuta al cerrar cada unidad y en el CI. Además del frontmatter, las fuentes,
+**Control de calidad.** `camaron check` se ejecuta al cerrar cada unidad y en el CI. Además del frontmatter, las fuentes,
 la confianza y las traducciones, revisa:
 
 | Comprobación | Gravedad | Necesita |
 |---|---|---|
 | Enlace roto a otra página (no se comprueban URLs externas ni `#anclas`) | ERROR | — |
 | Diagrama Mermaid que no se dibuja | ERROR | mermaid-cli |
-| Posible secreto en `docs/` o en una wiki (solo fichero y línea, nunca el valor) | ERROR; además bloquea los commits de checkpoint y `camarones portal` | gitleaks |
+| Posible secreto en `docs/` o en una wiki (solo fichero y línea, nunca el valor) | ERROR; además bloquea los commits de checkpoint y `camaron portal` | gitleaks |
 | Una palabra de la columna **Avoid** del glosario | aviso (ERROR con `--strict`) | una columna Avoid en `docs/domain/glossary.md` |
 
 mermaid-cli y gitleaks vienen con la instalación completa (el componente `quality`; mermaid-cli descarga una vez un
@@ -107,9 +107,9 @@ idioma cambia la interfaz y la doc; una página sin traducir se muestra en ingl�
 
 | | Comando | Qué es |
 |---|---|---|
-| Local, editable | `camarones up` (asistente → 🌐 Portal → 📝 Abrir el portal) | `http://127.0.0.1:8080`, solo en tu equipo |
-| Exportación para desplegar | `camarones portal` (asistente → 📦 Exportar) | HTML + JSON de solo lectura en `.camarones/.cache/site`, sin npm |
-| Ver la exportación | `camarones up --static` o `camarones up --docker` | exactamente lo que servirá el servidor |
+| Local, editable | `camaron up` (asistente → 🌐 Portal → 📝 Abrir el portal) | `http://127.0.0.1:8080`, solo en tu equipo |
+| Exportación para desplegar | `camaron portal` (asistente → 📦 Exportar) | HTML + JSON de solo lectura en `.camarones/.cache/site`, sin npm |
+| Ver la exportación | `camaron up --static` o `camaron up --docker` | exactamente lo que servirá el servidor |
 
 La exportación son ficheros estáticos (imagen nginx, GitLab/GitHub Pages) y funciona sin internet. En un servidor, arranca la
 imagen que publicó el CI: `docker run -d -p 8080:80 <registry>/<grupo>/cam-docs/portal:latest`.
@@ -118,7 +118,7 @@ imagen que publicó el CI: `docker run -d -p 8080:80 <registry>/<grupo>/cam-docs
 
 | Dónde | Qué puedes hacer | Dónde queda el cambio |
 |---|---|---|
-| Portal local (`camarones up`) | editar (markdown + vista previa), **+ Nueva página**, **Confirmar**, **Pedir cambios**, generar wikis, reconstruir C4 / grafo | `cam-docs/docs` + commit local si marcas «commit en cam-docs»; el push lo haces tú |
+| Portal local (`camaron up`) | editar (markdown + vista previa), **+ Nueva página**, **Confirmar**, **Pedir cambios**, generar wikis, reconstruir C4 / grafo | `cam-docs/docs` + commit local si marcas «commit en cam-docs»; el push lo haces tú |
 | Portal desplegado (exportación) | leer y buscar; **Editar** abre el fichero en GitLab / GitHub (si `cam-docs` tiene remote) | un merge request en `cam-docs`; el CI lo vuelve a publicar |
 | Tu editor / IDE | cualquier `.md` de `cam-docs/docs` | git normal en `cam-docs` |
 | La IA (🦐 Siguiente paso) | solo su unidad; nunca reescribe a escondidas lo confirmado | un commit local por unidad |
@@ -132,7 +132,7 @@ imagen que publicó el CI: `docker run -d -p 8080:80 <registry>/<grupo>/cam-docs
 
 ## 7. OpenWiki: una wiki por repo
 
-Portal → **Wikis** → **Generar / actualizar wiki** (log en directo), asistente → **📚 Wikis**, o `camarones wiki <repo>`. La
+Portal → **Wikis** → **Generar / actualizar wiki** (log en directo), asistente → **📚 Wikis**, o `camaron wiki <repo>`. La
 wiki se guarda en `cam-docs/wikis/<repo>/` (el repo ve un enlace `openwiki/` sin versionar) y sus páginas aparecen en
 **Docs** como `repos/<repo>/…`. Usa el proveedor de OpenWiki si hay uno configurado (`openwiki auth configure <proveedor>`);
 si no, Claude Code o Codex. Los archivos que OpenWiki añade al propio repo (`AGENTS.md`, `CLAUDE.md`, `.github/`) se quitan
@@ -141,21 +141,21 @@ al terminar.
 Cada wiki es una sesión de agente completa, así que solo la llevan los repos que elijas: asistente → **📚 Wikis** →
 **Elegir qué repos tienen wiki** (se guarda como `wiki: true` en `.camarones/workspace.yaml`). Elige los servicios con
 lógica, no librerías ni repos de CI. La primera wiki de un repo espera a su brief (`wikis/<repo>/INSTRUCTIONS.md`, que
-escribe la unidad repo-brief) para usar tu glosario; `camarones wiki <repo> --force` se salta esa comprobación. Se lanzan
+escribe la unidad repo-brief) para usar tu glosario; `camaron wiki <repo> --force` se salta esa comprobación. Se lanzan
 de una en una, y un lote se para en cuanto el motor se queda sin cuota o sin sesión, en vez de fallar todos los repos
 que quedan.
 
 ## 8. CI
 
 En el asistente, **⚙️ CI** instala el pipeline en `cam-docs` (GitLab o GitHub): actualiza la doc afectada, pasa `check`, exporta el portal y lo publica. Las plantillas para cada repo de servicio están en `.camarones/ci/repo.*`.
-Antes de subir la rama de actualización se ejecuta `camarones check --secrets`: si encuentra un posible secreto, el job falla y no se abre el MR/PR.
+Antes de subir la rama de actualización se ejecuta `camaron check --secrets`: si encuentra un posible secreto, el job falla y no se abre el MR/PR.
 
 Variables necesarias: `ANTHROPIC_API_KEY` u `OPENAI_API_KEY`, y un token de bot para abrir MRs/PRs. En GitLab, además, tienes que
 permitir que el job token del proyecto `cam-docs` clone cada repo de servicio (repo → Settings → CI/CD → Job token permissions).
 
 ## 9. Comandos (para scripts y agentes)
 
-`camarones help` (copia por proyecto: `./camarones.command help`, en Windows `camarones.cmd help`) lista: `setup`, `sync`,
+`camaron help` (copia por proyecto: `./camaron.command help`, en Windows `camaron.cmd help`) lista: `setup`, `sync`,
 `detect`, `plan`, `plan next`, `status`, `check [--strict|--secrets]`, `confirm`, `feedback`, `checkpoint`, `graph`, `arch` (editor C4 en vivo),
 `arch-validate`, `wiki <repo>`, `portal` (exportación), `up [--static|--docker]`, `down`, `ci`, `prompt <unidad>`, `migrate` y `doctor`.
 
@@ -163,15 +163,15 @@ permitir que el job token del proyecto `cam-docs` clone cada repo de servicio (r
 
 | Problema | Solución |
 |---|---|
-| macOS bloquea `camarones.command` ("no se puede abrir" / "Apple no pudo verificar…") | abre Terminal en la carpeta y ejecuta `sh camarones.command` (una vez: el lanzador quita la marca de cuarentena y a partir de ahí el doble clic funciona). Alternativa: Ajustes del Sistema → Privacidad y seguridad → "Abrir igualmente" |
+| macOS bloquea `camaron.command` ("no se puede abrir" / "Apple no pudo verificar…") | abre Terminal en la carpeta y ejecuta `sh camaron.command` (una vez: el lanzador quita la marca de cuarentena y a partir de ahí el doble clic funciona). Alternativa: Ajustes del Sistema → Privacidad y seguridad → "Abrir igualmente" |
 | Windows: aviso de SmartScreen | "Más información" → "Ejecutar de todas formas" |
 | Windows bloquea el archivo o lo borra el antivirus | antes de descomprimir: clic derecho en el zip → Propiedades → marca **Desbloquear** → Aceptar. Si ya lo descomprimiste, en PowerShell dentro de la carpeta: `Get-ChildItem -Recurse | Unblock-File`. Si el equipo es de empresa y no deja ejecutar `.cmd`: `winget install astral-sh.uv` y luego `uv run --script .camarones\camarones.py` |
 | Algo se ha instalado pero no lo detecta | cierra y vuelve a abrir el asistente (para que se refresque el PATH) |
 | `doctor` dice que falta una herramienta | en el asistente: 🛠 Instalar / reparar |
 | Al sincronizar, un repo sale como "skip … local changes" | haz commit o stash en ese repo y vuelve a sincronizar |
-| Errores en el C4 | `camarones arch-validate` te dice el fichero y la línea |
+| Errores en el C4 | `camaron arch-validate` te dice el fichero y la línea |
 | `checkpoint` / `portal` se niegan: "possible secret" | sustituye el valor de ese fichero y línea por un marcador (`<tu token>`) y vuelve a lanzarlo |
 | `check`: "mermaid-cli could not start its browser" | a Chromium le faltan librerías del sistema (suele pasar en contenedores de CI); se saltan los diagramas, el resto del check sigue |
 | El agente no tiene las herramientas de OpenWiki | reinicia Claude Code / Codex en la carpeta del workspace (la que contiene `cam-docs/`) |
 | El portal desplegado no tiene botón **Editar** | `cam-docs` no tiene remote de git: añádelo y vuelve a exportar |
-| Falló la generación de una wiki | la línea ⚠ dice por qué (cuota o sesión → espera o vuelve a iniciar sesión); lanza otra vez `camarones wiki <repo>`: un run interrumpido se reanuda |
+| Falló la generación de una wiki | la línea ⚠ dice por qué (cuota o sesión → espera o vuelve a iniciar sesión); lanza otra vez `camaron wiki <repo>`: un run interrumpido se reanuda |

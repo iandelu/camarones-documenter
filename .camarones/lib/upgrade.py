@@ -1,4 +1,4 @@
-"""Kit upgrades: find a newer Camarones Documenter next to the project (unzipped folder or zip) and install it in place.
+"""Kit upgrades: find a newer Camarón next to the project (unzipped folder or zip) and install it in place.
 
 Looked up when the wizard opens:
   * <project>/camarones-documenter*/ or camarones-kit*/ (the zip unzipped into its own folder)

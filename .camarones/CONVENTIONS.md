@@ -1,7 +1,7 @@
-# Documentation conventions (Camarones Documenter kit)
+# Documentation conventions (Camarón kit)
 
 Canonical language: **English**. Everything an agent (Claude Code, Codex, CI) writes follows this file.
-Humans: see `docs/guides/tutorial.md`. `CLI` = `camarones` (legacy per-project copies: `./camarones.command` / `.\camarones.cmd`).
+Humans: see `docs/guides/tutorial.md`. `CLI` = `camaron` (legacy per-project copies: `./camaron.command` / `.\camaron.cmd`).
 
 > **Layout.** Everything the kit writes lives in `cam-docs/` (its own git repo, next to the service repos). Paths in
 > this file are relative to `cam-docs/`; repos are its siblings (`../<repo>` from `cam-docs/`, `<repo>/` from the workspace
@@ -13,16 +13,16 @@ Humans: see `docs/guides/tutorial.md`. `CLI` = `camarones` (legacy per-project c
 | What | Where | Written by |
 |---|---|---|
 | Repo-level wiki (only repos with `wiki: true` in workspace.yaml) | `wikis/<repo>/` (OpenWiki OKF pages + grounded claims; `<repo>/openwiki` is an untracked link to it) | OpenWiki (via Claude/Codex integration or CI) |
-| Repo brief (stack, commands, interfaces, data, component diagram) | `docs/repos/<repo>/brief.md` | Camarones Documenter agent |
+| Repo brief (stack, commands, interfaces, data, component diagram) | `docs/repos/<repo>/brief.md` | Camarón agent |
 | Agent rules, skills, MCP | `AGENTS.md`, `CLAUDE.md` (`@AGENTS.md` + project notes), `.claude/`, `.codex/`, `.agents/`, `.mcp.json` — linked from the workspace folder | kit (managed blocks) + humans |
-| Project context for OpenWiki | `wikis/<repo>/INSTRUCTIONS.md` (user-authored brief OpenWiki reads, never rewrites) | Camarones Documenter, then humans |
+| Project context for OpenWiki | `wikis/<repo>/INSTRUCTIONS.md` (user-authored brief OpenWiki reads, never rewrites) | Camarón, then humans |
 | Code graph | `graph/<repo>/` (git-ignored, AST-only, `CLI graph`), merged in `.camarones/.cache/graph/` | graphify |
-| Work plan & session handoff | `docs/.work/plan.yaml`, `handoff.md`, `log.md` | Camarones Documenter CLI + agents |
-| C4 model (single source for every architecture diagram) | `docs/architecture/*.c4` | Camarones Documenter agent |
-| Project overview, domain, flows, data, deployment, ADRs, quality | `docs/<section>/*.md` | Camarones Documenter + humans |
-| Security review (opt-in unit) | `docs/security/*.md` | Camarones Documenter agent |
-| Translations | `docs/i18n/<lang>/<same logical path>` (repo pages: `docs/i18n/<lang>/repos/<repo>/<page>`) | Camarones Documenter agent |
-| Interview answers & open questions | `docs/interview/` | Camarones Documenter agent |
+| Work plan & session handoff | `docs/.work/plan.yaml`, `handoff.md`, `log.md` | Camarón CLI + agents |
+| C4 model (single source for every architecture diagram) | `docs/architecture/*.c4` | Camarón agent |
+| Project overview, domain, flows, data, deployment, ADRs, quality | `docs/<section>/*.md` | Camarón + humans |
+| Security review (opt-in unit) | `docs/security/*.md` | Camarón agent |
+| Translations | `docs/i18n/<lang>/<same logical path>` (repo pages: `docs/i18n/<lang>/repos/<repo>/<page>`) | Camarón agent |
+| Interview answers & open questions | `docs/interview/` | Camarón agent |
 | AI index | `docs/llms.txt` (generated: `CLI llms`) | kit |
 | Incremental state | `docs/.state.json` (`CLI changes`, `mark-documented`) | kit |
 

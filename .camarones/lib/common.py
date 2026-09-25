@@ -80,9 +80,11 @@ def rel_file(f: Path) -> str:
 
 
 def cli_cmd() -> str:
-    """How humans/agents invoke Camarones Documenter on this OS."""
-    if os.environ.get("CAMARONES_GLOBAL") or not (ROOT / "camarones.command").exists() and which("camarones"):
-        return "camarones"
+    """How humans/agents invoke Camarón on this OS; legacy launchers remain a compatibility fallback."""
+    if os.environ.get("CAMARONES_GLOBAL") or not (ROOT / "camaron.command").exists() and which("camaron"):
+        return "camaron"
+    if (ROOT / ("camaron.cmd" if IS_WIN else "camaron.command")).exists():
+        return r".\camaron.cmd" if IS_WIN else "./camaron.command"
     return r".\camarones.cmd" if IS_WIN else "./camarones.command"
 
 
@@ -166,7 +168,7 @@ def out(cmd: list[str], cwd: Path | None = None) -> str:
 def uv() -> str:
     exe = which("uv") or os.environ.get("UV")
     if not exe:
-        raise RuntimeError("uv not found — run the Camarones Documenter launcher (it installs uv).")
+        raise RuntimeError("uv not found — run the Camarón launcher (it installs uv).")
     return exe
 
 

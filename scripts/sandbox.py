@@ -1,4 +1,4 @@
-"""Test-bench project for Camarones Documenter: two real repos (Spring PetClinic REST + Angular) pinned to a commit,
+"""Test-bench project for Camarón: two real repos (Spring PetClinic REST + Angular) pinned to a commit,
 in a fixed folder you can document, break and reset as often as you like. Runs THIS checkout's kit against it.
 
   uv run scripts/sandbox.py reset       uninstall the docs (if any), wipe the folder, clone the pinned repos again

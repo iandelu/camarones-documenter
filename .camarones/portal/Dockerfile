@@ -1,4 +1,4 @@
-# Camarones Documenter portal image. Build context = .camarones/.cache/portal-image (created by `portal`).
+# Camarón portal image. Build context = .camarones/.cache/portal-image (created by `portal`).
 FROM nginx:1.29-alpine
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY site /usr/share/nginx/html
