@@ -6,7 +6,7 @@ from __future__ import annotations
 import json, re
 from pathlib import Path
 
-from .common import CAM_DIR, HOME, find_project_marker
+from .common import CAM_DIR, HOME, docs_root, find_project_marker
 
 REGISTRY_DIR = HOME / ".camarones"
 REGISTRY_FILE = REGISTRY_DIR / "projects.json"
@@ -41,8 +41,17 @@ def touch(path: Path) -> None:
 
 
 def list_registered() -> list[dict]:
-    """Registered projects that still exist on disk (stale entries are skipped, never deleted silently)."""
-    return [r for r in load() if Path(r["path"]).is_dir()]
+    """Registered projects that still exist on disk (stale entries are skipped, never deleted silently), one row
+    per docs root: a workspace folder and its cam-docs/ are the same project."""
+    seen, rows = set(), []
+    for r in load():
+        if not Path(r["path"]).is_dir():
+            continue
+        root = docs_root(Path(r["path"]))
+        if root not in seen:
+            seen.add(root)
+            rows.append({**r, "path": str(root)})
+    return rows
 
 
 def create(name: str, at: Path | None = None) -> Path:
@@ -98,5 +107,6 @@ def pick(allow_new: bool = True, here: Path | None = None) -> Path | None:
         return create(name) if name else None
     if offer_here and picked == here:
         return adopt(here)
+    picked = docs_root(picked)
     touch(picked)
     return picked

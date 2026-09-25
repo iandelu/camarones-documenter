@@ -27,11 +27,19 @@ def find_project_marker(start: Path) -> Path | None:
     (global install) serve many projects without CAMARONES_ROOT set by hand."""
     cur = start.resolve()
     for d in (cur, *cur.parents):
-        if (d / ".camarones" / "workspace.yaml").exists():
-            return d
+        # cam-docs first: a workspace folder that holds a cam-docs project is never a project of its own
         if (d / CAM_DIR / ".camarones" / "workspace.yaml").exists():
             return d / CAM_DIR
+        if (d / ".camarones" / "workspace.yaml").exists():
+            return d
     return None
+
+
+def docs_root(path: Path) -> Path:
+    """A registered/requested project path → its docs root: the workspace folder of a cam-docs project means
+    its cam-docs/ (otherwise opening the workspace folder would bootstrap a second, legacy project there)."""
+    path = path.resolve()
+    return path / CAM_DIR if (path / CAM_DIR / ".camarones" / "workspace.yaml").exists() else path
 
 
 def find_root() -> Path:
@@ -40,7 +48,7 @@ def find_root() -> Path:
     (legacy: the kit copy lives inside the project it documents)."""
     env = os.environ.get("CAMARONES_ROOT")
     if env:
-        return Path(env).resolve()
+        return docs_root(Path(env))
     marker = find_project_marker(Path.cwd())
     return marker if marker else KIT.parent
 
