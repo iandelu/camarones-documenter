@@ -83,6 +83,19 @@ Este párrafo solo lo editan personas.
 **🔄 Actualizar doc tras cambios** lanza una sesión incremental: solo regenera lo que ha cambiado en el código, limpia las
 páginas obsoletas y nunca reescribe a escondidas las páginas confirmadas. El CI puede hacer lo mismo de forma automática (sección 8).
 
+**Control de calidad.** `camarones check` se ejecuta al cerrar cada unidad y en el CI. Además del frontmatter, las fuentes,
+la confianza y las traducciones, revisa:
+
+| Comprobación | Gravedad | Necesita |
+|---|---|---|
+| Enlace roto a otra página (no se comprueban URLs externas ni `#anclas`) | ERROR | — |
+| Diagrama Mermaid que no se dibuja | ERROR | mermaid-cli |
+| Posible secreto en `docs/` o en una wiki (solo fichero y línea, nunca el valor) | ERROR; además bloquea los commits de checkpoint y `camarones portal` | gitleaks |
+| Una palabra de la columna **Avoid** del glosario | aviso (ERROR con `--strict`) | una columna Avoid en `docs/domain/glossary.md` |
+
+mermaid-cli y gitleaks vienen con la instalación completa (el componente `quality`; mermaid-cli descarga una vez un
+Chromium sin ventana). Si faltan, `check` lo avisa una vez y se salta esa comprobación.
+
 ## 5. Portal
 
 Un solo portal, dos modos, la misma interfaz. Pestañas: **Docs** (árbol, buscador, marcas de confianza),
@@ -133,6 +146,7 @@ que quedan.
 ## 8. CI
 
 En el asistente, **⚙️ CI** instala el pipeline en `cam-docs` (GitLab o GitHub): actualiza la doc afectada, pasa `check`, exporta el portal y lo publica. Las plantillas para cada repo de servicio están en `.camarones/ci/repo.*`.
+Antes de subir la rama de actualización se ejecuta `camarones check --secrets`: si encuentra un posible secreto, el job falla y no se abre el MR/PR.
 
 Variables necesarias: `ANTHROPIC_API_KEY` u `OPENAI_API_KEY`, y un token de bot para abrir MRs/PRs. En GitLab, además, tienes que
 permitir que el job token del proyecto `cam-docs` clone cada repo de servicio (repo → Settings → CI/CD → Job token permissions).
@@ -140,7 +154,7 @@ permitir que el job token del proyecto `cam-docs` clone cada repo de servicio (r
 ## 9. Comandos (para scripts y agentes)
 
 `camarones help` (copia por proyecto: `./camarones.command help`, en Windows `camarones.cmd help`) lista: `setup`, `sync`,
-`detect`, `plan`, `plan next`, `status`, `check`, `confirm`, `feedback`, `checkpoint`, `graph`, `arch` (editor C4 en vivo),
+`detect`, `plan`, `plan next`, `status`, `check [--strict|--secrets]`, `confirm`, `feedback`, `checkpoint`, `graph`, `arch` (editor C4 en vivo),
 `arch-validate`, `wiki <repo>`, `portal` (exportación), `up [--static|--docker]`, `down`, `ci`, `prompt <unidad>`, `migrate` y `doctor`.
 
 ## 10. Problemas frecuentes
@@ -154,6 +168,8 @@ permitir que el job token del proyecto `cam-docs` clone cada repo de servicio (r
 | `doctor` dice que falta una herramienta | en el asistente: 🛠 Instalar / reparar |
 | Al sincronizar, un repo sale como "skip … local changes" | haz commit o stash en ese repo y vuelve a sincronizar |
 | Errores en el C4 | `camarones arch-validate` te dice el fichero y la línea |
+| `checkpoint` / `portal` se niegan: "possible secret" | sustituye el valor de ese fichero y línea por un marcador (`<tu token>`) y vuelve a lanzarlo |
+| `check`: "mermaid-cli could not start its browser" | a Chromium le faltan librerías del sistema (suele pasar en contenedores de CI); se saltan los diagramas, el resto del check sigue |
 | El agente no tiene las herramientas de OpenWiki | reinicia Claude Code / Codex en la carpeta del workspace (la que contiene `cam-docs/`) |
 | El portal desplegado no tiene botón **Editar** | `cam-docs` no tiene remote de git: añádelo y vuelve a exportar |
 | Falló la generación de una wiki | la línea ⚠ dice por qué (cuota o sesión → espera o vuelve a iniciar sesión); lanza otra vez `camarones wiki <repo>`: un run interrumpido se reanuda |
