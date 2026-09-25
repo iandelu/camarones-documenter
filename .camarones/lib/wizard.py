@@ -30,6 +30,7 @@ CODEX_MODEL_DEFAULT = "gpt-5.6-terra"          # Codex's model slugs rotate, so 
 FIRSTRUN = CACHE / "firstrun.json"     # first-run wizard position (so closing the window never loses it)
 STEPS = ("name", "repos", "tools", "setup", "stack", "arch", "intro")   # first-run steps, saved by id
 LEGACY_STEPS = ("name", "repos", "tools", "setup", "arch", "intro")     # firstrun.json before 3.3 kept only the index
+JOIN_STEPS = ("tools", "setup", "intro")   # joining a team's cam-docs: the rest is shared and already decided
 ORANGE = "#ff7a2f"
 BACK = "__back__"   # questionary replaces a None value with the title, so use a sentinel
 EXTRA_REVIEWS = {   # opt-in unit types: uid -> deps required to be `done` before offering it
@@ -97,6 +98,17 @@ T = {
         "m_ci": "⚙️  CI (GitLab / GitHub)",
         "m_extra": "➕ Revisiones extra (seguridad, arquitectura) — beta",
         "m_update": "🔄 Actualizar doc tras cambios (sesión con IA)",
+        "m_share": "🤝 Compartir con el equipo (traer y publicar cam-docs)",
+        "sh_url": "URL del repo de cam-docs del equipo (GitHub/GitLab; vacío para volver):",
+        "sh_confirm": "Traigo lo último del equipo y publico tu trabajo en {url}. ¿Seguimos?",
+        "sh_pushed": "✔ Publicado en {url} ({detail}). Tu equipo ya puede pescarlo.",
+        "sh_up_to_date": "✔ Ya estás al día con {url}: nada que publicar.",
+        "sh_nothing": "Aún no hay nada guardado que compartir.",
+        "sh_blocked": "✖ No publicado: hay cambios que parecen secretos. Revísalos con «{cli} check --secrets».",
+        "sh_conflict": "✖ Tu trabajo y el del equipo cambian las mismas líneas ({detail}). No he tocado nada: resuélvelo con git en cam-docs y vuelve a compartir.",
+        "sh_error": "✖ No he podido compartir: {detail}",
+        "join_welcome": "Te unes a «{name}»: el equipo ya eligió repos, stack y arquitectura, y el plan sigue donde lo dejaron. "
+                        "Yo solo preparo esta máquina: herramientas y repos. Nada de pelar dos veces la misma gamba.",
         "m_model": "🧠 Modelo de IA",
         "m_lang": "🌍 Idioma / Language",
         "m_exit": "🚪 Salir",
@@ -367,6 +379,17 @@ T = {
         "m_ci": "⚙️  CI (GitLab / GitHub)",
         "m_extra": "➕ Extra reviews (security, architecture) — beta",
         "m_update": "🔄 Update docs after changes (AI session)",
+        "m_share": "🤝 Share with the team (pull and publish cam-docs)",
+        "sh_url": "URL of the team's cam-docs repo (GitHub/GitLab; empty to go back):",
+        "sh_confirm": "I'll pull the team's latest and publish your work to {url}. Go ahead?",
+        "sh_pushed": "✔ Published to {url} ({detail}). Your team can reel it in now.",
+        "sh_up_to_date": "✔ Already in sync with {url}: nothing to publish.",
+        "sh_nothing": "Nothing saved to share yet.",
+        "sh_blocked": "✖ Not published: some changes look like secrets. Check them with “{cli} check --secrets”.",
+        "sh_conflict": "✖ Your work and the team's change the same lines ({detail}). I left everything as it was: resolve it with git in cam-docs and share again.",
+        "sh_error": "✖ Could not share: {detail}",
+        "join_welcome": "You're joining “{name}”: the team already picked the repos, stack and architecture, and the plan carries "
+                        "on where they left it. I'll just set up this machine: tools and repos. No peeling the same shrimp twice.",
         "m_model": "🧠 AI model",
         "m_lang": "🌍 Idioma / Language",
         "m_exit": "🚪 Exit",
@@ -781,9 +804,10 @@ class W:
             console.set_alt_screen(True)
             self.banner()
         state = load_json(FIRSTRUN, {})
-        legacy_done = plan.PLAN.exists() and WS_FILE.exists() and not state   # installs from before v2.4
-        if not state.get("done") and not legacy_done:
-            if not self.first_run(resume_step(state)):
+        shared = plan.PLAN.exists() and WS_FILE.exists()          # team work that came with the repo (or pre-2.4)
+        mode = first_run_mode(state, shared, local_ready=bool(shared and not state) and self.local_ready())
+        if mode != "done":
+            if not self.first_run(resume_step(state), mode=mode):
                 return
         else:
             time.sleep(0.8)
@@ -798,6 +822,7 @@ class W:
                 Choice(self.t("m_review") + (f"  ({n_rev})" if n_rev else ""), "review"),
                 Choice(self.t("m_portal"), "portal"), Choice(self.t("m_wikis"), "wikis"), Choice(self.t("m_status"), "status"), Choice(self.t("m_update"), "update"),
                 Choice(self.t("a_menu"), "arch"), Choice(self.t("sk_menu"), "stack"), Choice(self.t("m_repos"), "repos"), Choice(self.t("k_menu"), "creds"),
+                Choice(self.t("m_share"), "share"),
                 Choice(self.t("m_setup"), "setup"), Choice(self.t("m_ci"), "ci")]
             if self.extra_ready():
                 choices.append(Choice(self.t("m_extra"), "extra"))
@@ -821,21 +846,27 @@ class W:
                 return
 
     # ---------- first run: a step machine, Esc / ↩ goes one step back ----------
-    def first_run(self, start: int = 0) -> bool:
+    def first_run(self, start: int = 0, mode: str = "new") -> bool:
+        """`start`: index in STEPS. mode "join" (a team's cam-docs cloned here) runs only the machine steps."""
         ws = docs.workspace()
-        steps = [("Workspace", self.fr_name), ("Repos", self.fr_repos), (self.t("t_title"), self.fr_tools),
-                 ("Setup", self.fr_setup), ("Stack", self.fr_stack), ("C4", self.fr_arch), ("🦐", self.fr_intro)]
-        i = min(max(start, 0), len(steps) - 1)
+        every = dict(zip(STEPS, [("Workspace", self.fr_name), ("Repos", self.fr_repos), (self.t("t_title"), self.fr_tools),
+                                 ("Setup", self.fr_setup), ("Stack", self.fr_stack), ("C4", self.fr_arch), ("🦐", self.fr_intro)]))
+        ids = JOIN_STEPS if mode == "join" else STEPS
+        steps = [every[k] for k in ids]
+        first = STEPS[min(max(start, 0), len(STEPS) - 1)]
+        i = ids.index(first) if first in ids else 0
         if i:
             self.resumed = True
         while i < len(steps):
-            save_json(FIRSTRUN, {"step": i, "name": STEPS[i], "done": False})
+            save_json(FIRSTRUN, {"step": STEPS.index(ids[i]), "name": ids[i], "done": False,
+                                 **({"mode": mode} if mode == "join" else {})})
             crumbs = "  ".join((f"[bold {ORANGE}]● {n}[/]" if k == i else (f"[green]✔ {n}[/]" if k < i else f"[grey50]○ {n}[/]"))
                                for k, (n, _) in enumerate(steps))
             self.step_hdr = f"[bold]{self.t('step', n=i + 1, t=len(steps))}[/]   {crumbs}\n"
             self.banner()
             if i == 0:
-                self.say(Panel(self.t("welcome"), border_style=ORANGE))
+                name = ws["project"].get("name") or WORKSPACE.name
+                self.say(Panel(self.t("join_welcome", name=name) if mode == "join" else self.t("welcome"), border_style=ORANGE))
             elif getattr(self, "resumed", False):
                 self.say(f"[grey62]↻ {self.t('fr_resumed')}[/]")
                 self.resumed = False
@@ -1977,6 +2008,29 @@ Talk to the user in {talk}. Do not modify application code.
                     self.safe(self.busy, env.wire_one, n)
             plan.sync()
 
+    def local_ready(self) -> bool:
+        """This machine already has what setup gives: every repo with a URL cloned and the chosen kit tools."""
+        if any(r.get("url") and not (repo_dir(r["name"]) / ".git").exists() for r in docs.workspace()["repos"]):
+            return False
+        return all(env.tool_ok(k) for k in env.KIT_TOOLS if k in env.components())
+
+    def do_share(self) -> None:
+        url = env.docs_remote()
+        if not url:
+            url = (self.txt(self.t("sh_url")) or "").strip()
+            if not url:
+                return
+            env.set_remote(url)
+        if not self.yes(self.t("sh_confirm", url=url), default=True):
+            return
+        r = self.safe(self.busy, env.share)
+        if not r:
+            return
+        ok = r["status"] in ("pushed", "up-to-date", "nothing")
+        self.say(self.t("sh_" + r["status"].replace("-", "_"), url=url, detail=r["detail"], cli=cli_cmd()),
+                 f"bold {ORANGE}" if r["status"] == "pushed" else ("" if ok else "red"))
+        self.pause()
+
     def repo_pointer(self) -> None:
         """Asked once, remembered in workspace.yaml: the only thing Camarones may add to a service repo."""
         ws = docs.workspace()
@@ -2042,6 +2096,19 @@ Talk to the user in {talk}. Do not modify application code.
             self.say("✔ " + ("Idioma: español (también para las sesiones con IA)" if c == "es"
                              else "Language: English (AI sessions too)"), "green")
             time.sleep(1)
+
+
+def first_run_mode(state: dict, shared_ready: bool, local_ready: bool) -> str:
+    """"done" (straight to the menu), "new" (full first run, or resume one) or "join": plan + workspace.yaml came with
+    the team's cam-docs but this machine has no first-run state, so only its tools and repos still need setting up.
+    A project that already has both on this machine is an install from before v2.4: nothing to redo."""
+    if state.get("done"):
+        return "done"
+    if state.get("mode") == "join":
+        return "join"
+    if state or not shared_ready:
+        return "new"
+    return "done" if local_ready else "join"
 
 
 def resume_step(state: dict) -> int:
