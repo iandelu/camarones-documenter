@@ -197,6 +197,10 @@ T = {
         "a_saved": "✔ Guardado como borrador en docs/architecture (el plan lo irá refinando)",
         "a_invalid": "⚠ LikeC4 encontró errores en el borrador; puedes guardarlo y la IA lo corregirá.",
         "a_users": "usan",
+        "a_done": "El diagrama rápido ya está hecho (guardado el {when}). ¿Qué quieres hacer?",
+        "a_view": "🌐 Verlo en el portal (pestaña C4)",
+        "a_redo": "↻ Rehacerlo (volver a analizar los repos)",
+        "a_keep": "✔ Dejarlo como está",
         "up_found": "Hay una versión nueva del kit: v{new} (este proyecto usa v{cur}).\nEncontrada en: {where}",
         "up_q": "¿Actualizo ahora? (se conservan tu configuración, el plan y toda la documentación)",
         "up_done": "✔ Actualizado a v{new}. Reiniciando…",
@@ -437,6 +441,10 @@ T = {
         "a_saved": "✔ Saved as a draft in docs/architecture (the plan will refine it)",
         "a_invalid": "⚠ LikeC4 found errors in the draft; save it and the AI will fix it.",
         "a_users": "used by",
+        "a_done": "The quick diagram is already done (saved {when}). What do you want to do?",
+        "a_view": "🌐 View it in the portal (C4 tab)",
+        "a_redo": "↻ Redo it (scan the repos again)",
+        "a_keep": "✔ Keep it as it is",
         "up_found": "A newer kit is available: v{new} (this project uses v{cur}).\nFound at: {where}",
         "up_q": "Upgrade now? (your config, the plan and all documentation are kept)",
         "up_done": "✔ Upgraded to v{new}. Restarting…",
@@ -1130,6 +1138,19 @@ class W:
 
     def arch_flow(self) -> str:
         """Returns 'saved', 'skipped' or BACK."""
+        page = docs.DOCS / "architecture" / "first-look.md"      # written when a draft is saved
+        while page.exists():
+            self.banner()
+            when = time.strftime("%Y-%m-%d %H:%M", time.localtime(page.stat().st_mtime))
+            c = self.sel(self.t("a_done", when=when), [Choice(self.t("a_view"), "view"), Choice(self.t("a_redo"), "redo"),
+                                                         Choice(self.t("a_keep"), "keep")])
+            if c is None:
+                return BACK
+            if c == "keep":
+                return "saved"
+            if c == "redo":
+                break
+            self.open_portal("#/c4")
         while True:
             self.banner()
             m = self.safe(self.busy, quickarch.draft, total=3)
