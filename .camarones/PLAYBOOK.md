@@ -1,8 +1,8 @@
-# Camarones Documenter playbook 🦐
+# Camarón playbook 🦐
 
 How an agent (Claude Code or Codex) documents a project **one unit per session**. `CONVENTIONS.md` defines the format;
-this file defines the work. `CLI` below = `camarones` (global install; legacy per-project copies: `./camarones.command`
-or `.\camarones.cmd`).
+this file defines the work. `CLI` below = `camaron` (global install; legacy per-project copies: `./camaron.command`
+or `.\camaron.cmd`).
 
 > **Layout.** Everything the kit writes lives in `cam-docs/` (its own git repo, next to the service repos). Paths in
 > this file are relative to `cam-docs/`; repos are its siblings (`../<repo>` from `cam-docs/`, `<repo>/` from the workspace
@@ -18,6 +18,10 @@ or `.\camarones.cmd`).
 2. **Claim the unit**: `CLI plan start <id>`. If the unit is already `doing` it was interrupted (the user closed the
    session or the computer): read its checkpoints in `docs/.work/units/<id>.md`, `git status`/`git diff` of `cam-docs/`
    and the unit's output files, and **continue** from the last checkpoint — never start over.
+   **Redo.** A finished unit can be reopened later (`CLI plan redo <id> [--also <dependent> …]`, or "↻ Redo a finished
+   step" in the wizard), e.g. to repeat an interview. Its prompt then says REDO: review what the unit produced, show it
+   to the user, update what is wrong, missing or has changed (a redone interview is a new dated file; the old one stays)
+   and list in the handoff which finished units built on it may now be outdated. Nothing is deleted.
 3. **Write as you go and checkpoint.** Persist findings to their final file (or a clearly named draft) during the
    session, not at the end. After each significant step run `CLI plan note <id> "done: … / next: …"` — that line is what
    the next session (or the wizard's "▶ Continue") resumes from.
@@ -35,7 +39,7 @@ or `.\camarones.cmd`).
    ```
 6. **Ask what next.** Show `CLI plan next` (top 3–4 ready units) and ask the user which one — in Claude Code with
    AskUserQuestion (options = units + "stop here"), in Codex as a numbered list. Recommend a **new session** after heavy
-   units (discovery, repo-wiki, flows) — the user reopens the Camarones Documenter wizard and picks "Next step".
+   units (discovery, repo-wiki, flows) — the user reopens the Camarón wizard and picks "Next step".
    **Autopilot** (`CLI autopilot`, or "Autopilot" in the wizard's ready-units list) skips this step. An outer loop
    starts every ready agent unit in its own fresh, unattended session (`claude -p … --dangerously-skip-permissions`
    or `codex exec --approve-for-me …`). If one agent hits its usage limit, the loop switches to the other; if both are

@@ -1,4 +1,4 @@
-"""Camarones Documenter 🦐 — interactive wizard (macOS / Windows / Linux terminal)."""
+"""Camarón 🦐 — interactive project-documentation wizard (macOS / Windows / Linux terminal)."""
 from __future__ import annotations
 
 import os, platform, random, subprocess, sys, time
@@ -40,7 +40,7 @@ STYLE = Style([("qmark", f"fg:{ORANGE} bold"), ("pointer", f"fg:{ORANGE} bold"),
                ("selected", f"fg:{ORANGE}"), ("answer", f"fg:{ORANGE} bold"), ("question", "bold"),
                ("separator", "fg:#8a8a8a"), ("instruction", "fg:#8a8a8a italic"), ("disabled", "fg:#6c6c6c italic")])
 
-SHRIMP = r"""
+CAMARON = r"""
 [#ff7a2f]  ⠀⠀⠀⠀⠘⠒⠖⠲⠒⠖⠲⠒⠖⠲⠒⠖⠲⢤⣀⠀[/]
 [#ff7a2f]  ⠀⠀⠀⣀⣴⠦⠠⣤⠤⠤⠤⠤⠤⠤⠤⠤⠤⣤⠈⣆[/]
 [#ff7a2f]  ⠀⣰⡾⠋⠀⠀⠀⣻⠀⠀⠀⠀⣖⣳⠀⠀⠀⣽⠀⣸[/]
@@ -58,7 +58,7 @@ T = {
         "tagline": "Camarón que se duerme, se lo lleva la corriente — documentación que no se queda atrás.",
         "busy": ["Pelando repos…", "Cociendo el grafo…", "El camarón está sudando…", "Hirviendo el portal…",
                  "Echando sal al C4…", "Rebozando la documentación…"],
-        "welcome": "¡Bienvenido a Camarones Documenter! Te guío paso a paso: primero el entorno, luego sesiones cortas con tu IA "
+        "welcome": "¡Bienvenido a Camarón! Te guío paso a paso: primero el entorno, luego sesiones cortas con tu IA "
                    "(Claude Code o Codex) que documentan el proyecto por partes y guardan el progreso.",
         "step": "Paso {n} de {t}",
         "project_name": "¿Cómo se llama el proyecto?",
@@ -67,11 +67,11 @@ T = {
         "add_url": "URL git de otro repo para clonar (vacío para terminar):",
         "repo_name": "Nombre de carpeta para ese repo:",
         "branch": "Rama:",
-        "no_repos": "No hay repos todavía. Añade al menos uno (URL) o copia los repos en esta carpeta y vuelve a abrir Camarones Documenter.",
+        "no_repos": "No hay repos todavía. Añade al menos uno (URL) o copia los repos en esta carpeta y vuelve a abrir Camarón.",
         "prereq": "Comprobando requisitos",
         "missing": "Falta {what}. ¿Lo instalo ahora?",
-        "reopen": "Instalado. Cierra y vuelve a abrir Camarones Documenter para que el sistema lo detecte.",
-        "manual": "Instálalo a mano y vuelve a abrir Camarones Documenter: {hint}",
+        "reopen": "Instalado. Cierra y vuelve a abrir Camarón para que el sistema lo detecte.",
+        "manual": "Instálalo a mano y vuelve a abrir Camarón: {hint}",
         "setup_run": "Instalando herramientas, repos y conectando Claude/Codex (tarda unos minutos la primera vez)",
         "setup_ok": "Entorno listo 🦐",
         "pointer_ask": "¿Añado a cada repo un aviso corto en su CLAUDE.md apuntando a cam-docs? (se añade al final, "
@@ -83,6 +83,12 @@ T = {
         "menu": "¿Qué hacemos?",
         "m_next": "🦐 Siguiente paso (sesión con IA)",
         "m_plan": "📋 Plan de trabajo",
+        "m_redo": "↻ Rehacer un paso ya hecho (p. ej. una entrevista)",
+        "rd_none": "Todavía no hay ningún paso terminado que rehacer.",
+        "rd_pick": "¿Qué paso quieres rehacer? La IA revisará lo que hay y lo actualizará (no se borra nada).",
+        "rd_deps": "Estos pasos ya hechos se basan en «{u}». Marca los que quieras rehacer también (↩ ninguno):",
+        "rd_ok": "«{u}» vuelve a estar pendiente (rehacer).",
+        "rd_now": "¿Empezamos ahora?",
         "m_setup": "🛠  Instalar / reparar entorno",
         "m_repos": "📦 Repos",
         "m_confirm": "✅ Revisar y confirmar páginas",
@@ -142,9 +148,9 @@ T = {
         "ci_forge": "¿Dónde viven los repos?",
         "ci_done": "Pipeline instalado. Variables necesarias en el tutorial (docs/guides/tutorial.md §8).",
         "error": "Algo falló:",
-        "install_here": "Estás dentro de «{kit}». ¿Instalo Camarones Documenter en la carpeta del proyecto «{parent}»?",
-        "installed_here": "Instalado en {parent}. Abre Camarones Documenter desde allí (camarones.command / camarones.cmd).",
-        "no_tty": "Camarones Documenter necesita una terminal interactiva. Usa los comandos: {cli} help",
+        "install_here": "Estás dentro de «{kit}». ¿Instalo Camarón en la carpeta del proyecto «{parent}»?",
+        "installed_here": "Instalado en {parent}. Abre Camarón desde allí (camaron.command / camaron.cmd).",
+        "no_tty": "Camarón necesita una terminal interactiva. Usa los comandos: {cli} help",
         "unit_wizard": "Esta unidad la hace el propio asistente.",
         "nav_select": "↑↓ moverse · Enter elegir · Esc volver",
         "nav_check": "↑↓ moverse · Espacio marcar/desmarcar · a todos/ninguno · Enter confirmar · Esc volver",
@@ -160,7 +166,7 @@ T = {
         "prereq_blocked": "faltan requisitos obligatorios",
         "go_menu": "🦐 Ir al menú principal",
         "setup_again": "↻ Repetir instalación",
-        "exit_q": "¿Salir de Camarones Documenter?",
+        "exit_q": "¿Salir de Camarón?",
         "pick_remove": "Marca los repos que quieres quitar:",
         "k_menu": "🔑 Tokens GitLab / GitHub",
         "k_title": "Tokens guardados",
@@ -192,7 +198,7 @@ T = {
         "a_question": "¿Está bien? ¿Lo guardo?",
         "a_save": "✔ Está bien, guárdalo",
         "a_open": "🌐 Verlo interactivo en el navegador",
-        "a_ai": "🤖 Guardarlo y mejorarlo ahora con IA",
+        "a_ai": "✨ Guardarlo y mejorarlo ahora con IA",
         "a_again": "↻ Volver a analizar",
         "a_skip": "✖ No lo guardes, sigo sin él",
         "a_overwrite": "Ya hay un modelo C4 en docs/architecture. ¿Lo sustituyo por este borrador?",
@@ -250,7 +256,7 @@ T = {
         "rv_count": "{n} páginas por revisar · {r} cambiaron desde que se confirmaron",
         "rv_start": "▶ Empezar",
         "rv_head": "Página {i} de {n}",
-        "rv_draft": "🤖 borrador de la IA", "rv_reconf": "⚠️ cambió desde que se confirmó",
+        "rv_draft": "✨ borrador de la IA", "rv_reconf": "⚠️ cambió desde que se confirmó",
         "rv_q": "¿Qué te parece esta página?",
         "rv_confirm": "✔ Está bien → confirmar",
         "rv_change": "✏️  Hay algo mal → pedir cambios",
@@ -262,10 +268,10 @@ T = {
         "rv_more": "… {n} líneas más → «📖 Leer entera»",
         "rv_showing_es": "Mostrando la traducción al español (se confirma la página original).",
         "rv_sum": "Revisión: ✔ {c} confirmadas · ✏️ {f} con cambios pedidos · ⏭ {s} saltadas",
-        "rv_fix_now": "🤖 Aplicar tus correcciones ahora con IA",
+        "rv_fix_now": "✨ Aplicar tus correcciones ahora con IA",
         "rv_later": "Luego (aparece en «Siguiente paso»)",
         "st_title": "🔎 Estado de la documentación",
-        "st_legend": "✅ confirmada por una persona · 🤖 borrador de la IA · ⚠️ confirmada pero cambió después · "
+        "st_legend": "✅ confirmada por una persona · ✨ borrador de la IA · ⚠️ confirmada pero cambió después · "
                      "huérfana = cita código que ya no existe · traducción = español que falta o se quedó atrás",
         "st_problems": "Qué hay que hacer",
         "st_ok": "✔ Todo en orden: nada que arreglar.",
@@ -276,9 +282,9 @@ T = {
         "st_i18n": "{n} traducciones faltan o están desactualizadas",
         "st_fb": "{n} correcciones tuyas sin aplicar",
         "st_changes": "{n} repos con cambios de código sin documentar",
-        "st_fix": "🤖 Arreglar los problemas con IA (errores, huérfanas, traducciones)",
+        "st_fix": "✨ Arreglar los problemas con IA (errores, huérfanas, traducciones)",
         "st_review": "✅ Revisar páginas ({n})",
-        "st_apply": "🤖 Aplicar tus correcciones ({n})",
+        "st_apply": "✨ Aplicar tus correcciones ({n})",
         "st_update": "🔄 Documentar los cambios del código ({n} repos)",
         "st_list": "📄 Ver todas las páginas",
         "p_local": "🐍 Servir la exportación sin Docker",
@@ -322,7 +328,7 @@ T = {
         "tagline": "The sleeping shrimp gets carried away by the current — docs that keep up.",
         "busy": ["Peeling repos…", "Boiling the graph…", "The shrimp is sweating…", "Simmering the portal…",
                  "Salting the C4 model…", "Battering the docs…"],
-        "welcome": "Welcome to Camarones Documenter! I'll guide you step by step: first the environment, then short sessions with "
+        "welcome": "Welcome to Camarón! I'll guide you step by step: first the environment, then short sessions with "
                    "your AI (Claude Code or Codex) that document the project piece by piece and save progress.",
         "step": "Step {n} of {t}",
         "project_name": "Project name?",
@@ -331,11 +337,11 @@ T = {
         "add_url": "Git URL of another repo to clone (empty to finish):",
         "repo_name": "Folder name for that repo:",
         "branch": "Branch:",
-        "no_repos": "No repos yet. Add at least one URL, or copy the repos into this folder and reopen Camarones Documenter.",
+        "no_repos": "No repos yet. Add at least one URL, or copy the repos into this folder and reopen Camarón.",
         "prereq": "Checking prerequisites",
         "missing": "{what} is missing. Install it now?",
-        "reopen": "Installed. Close and reopen Camarones Documenter so your system picks it up.",
-        "manual": "Install it manually and reopen Camarones Documenter: {hint}",
+        "reopen": "Installed. Close and reopen Camarón so your system picks it up.",
+        "manual": "Install it manually and reopen Camarón: {hint}",
         "setup_run": "Installing tools, repos and wiring Claude/Codex (a few minutes the first time)",
         "setup_ok": "Environment ready 🦐",
         "pointer_ask": "Add a short note to each repo's CLAUDE.md pointing at cam-docs? (appended at the end, never "
@@ -347,6 +353,12 @@ T = {
         "menu": "What shall we do?",
         "m_next": "🦐 Next step (AI session)",
         "m_plan": "📋 Work plan",
+        "m_redo": "↻ Redo a finished step (e.g. an interview)",
+        "rd_none": "No finished step to redo yet.",
+        "rd_pick": "Which step do you want to redo? The AI reviews what is there and updates it (nothing is deleted).",
+        "rd_deps": "These finished steps build on “{u}”. Tick the ones to redo as well (↩ none):",
+        "rd_ok": "“{u}” is pending again (redo).",
+        "rd_now": "Start it now?",
         "m_setup": "🛠  Install / repair environment",
         "m_repos": "📦 Repos",
         "m_confirm": "✅ Review & confirm pages",
@@ -406,9 +418,9 @@ T = {
         "ci_forge": "Where do the repos live?",
         "ci_done": "Pipeline installed. Required variables: tutorial (docs/guides/tutorial.md §8).",
         "error": "Something failed:",
-        "install_here": "You are inside “{kit}”. Install Camarones Documenter into the project folder “{parent}”?",
-        "installed_here": "Installed in {parent}. Open Camarones Documenter from there (camarones.command / camarones.cmd).",
-        "no_tty": "Camarones Documenter needs an interactive terminal. Use the commands: {cli} help",
+        "install_here": "You are inside “{kit}”. Install Camarón into the project folder “{parent}”?",
+        "installed_here": "Installed in {parent}. Open Camarón from there (camaron.command / camaron.cmd).",
+        "no_tty": "Camarón needs an interactive terminal. Use the commands: {cli} help",
         "unit_wizard": "The wizard does this unit itself.",
         "nav_select": "↑↓ move · Enter choose · Esc back",
         "nav_check": "↑↓ move · Space tick/untick · a all/none · Enter confirm · Esc back",
@@ -424,7 +436,7 @@ T = {
         "prereq_blocked": "required prerequisites missing",
         "go_menu": "🦐 Go to the main menu",
         "setup_again": "↻ Run setup again",
-        "exit_q": "Exit Camarones Documenter?",
+        "exit_q": "Exit Camarón?",
         "pick_remove": "Tick the repos to remove:",
         "k_menu": "🔑 GitLab / GitHub tokens",
         "k_title": "Saved tokens",
@@ -456,7 +468,7 @@ T = {
         "a_question": "Does it look right? Shall I save it?",
         "a_save": "✔ Looks right, save it",
         "a_open": "🌐 Open it interactive in the browser",
-        "a_ai": "🤖 Save it and improve it with AI now",
+        "a_ai": "✨ Save it and improve it with AI now",
         "a_again": "↻ Scan again",
         "a_skip": "✖ Don't save it, continue without it",
         "a_overwrite": "docs/architecture already has a C4 model. Replace it with this draft?",
@@ -514,7 +526,7 @@ T = {
         "rv_count": "{n} pages to review · {r} changed since they were confirmed",
         "rv_start": "▶ Start",
         "rv_head": "Page {i} of {n}",
-        "rv_draft": "🤖 AI draft", "rv_reconf": "⚠️ changed since it was confirmed",
+        "rv_draft": "✨ AI draft", "rv_reconf": "⚠️ changed since it was confirmed",
         "rv_q": "What do you think of this page?",
         "rv_confirm": "✔ Looks right → confirm",
         "rv_change": "✏️  Something's wrong → request changes",
@@ -526,10 +538,10 @@ T = {
         "rv_more": "… {n} more lines → “📖 Read it all”",
         "rv_showing_es": "Showing the Spanish translation (confirming applies to the original page).",
         "rv_sum": "Review: ✔ {c} confirmed · ✏️ {f} with changes requested · ⏭ {s} skipped",
-        "rv_fix_now": "🤖 Apply your corrections now with AI",
+        "rv_fix_now": "✨ Apply your corrections now with AI",
         "rv_later": "Later (it shows up in “Next step”)",
         "st_title": "🔎 Documentation status",
-        "st_legend": "✅ confirmed by a person · 🤖 AI draft · ⚠️ confirmed but changed afterwards · "
+        "st_legend": "✅ confirmed by a person · ✨ AI draft · ⚠️ confirmed but changed afterwards · "
                      "orphan = cites code that no longer exists · translation = Spanish missing or behind",
         "st_problems": "What needs doing",
         "st_ok": "✔ All good: nothing to fix.",
@@ -540,9 +552,9 @@ T = {
         "st_i18n": "{n} translations missing or outdated",
         "st_fb": "{n} of your corrections not applied yet",
         "st_changes": "{n} repos with code changes not documented yet",
-        "st_fix": "🤖 Fix the problems with AI (errors, orphans, translations)",
+        "st_fix": "✨ Fix the problems with AI (errors, orphans, translations)",
         "st_review": "✅ Review pages ({n})",
-        "st_apply": "🤖 Apply your corrections ({n})",
+        "st_apply": "✨ Apply your corrections ({n})",
         "st_update": "🔄 Document the code changes ({n} repos)",
         "st_list": "📄 Show every page",
         "p_local": "🐍 Serve the export without Docker",
@@ -640,8 +652,8 @@ class W:
     # ---------- chrome ----------
     def banner(self, big: bool | None = None) -> None:
         console.clear()
-        console.print(SHRIMP)
-        title = Text("  C A M A R O N E S   D O C U M E N T E R", style=f"bold {ORANGE}")
+        console.print(CAMARON)
+        title = Text("  C A M A R Ó N", style=f"bold {ORANGE}")
         title.append(f"   v{VERSIONS['kit']}", style="grey50")
         console.print(title)
         console.print(Text(f"  🦐 {self.t('tagline')}", style="grey62"))
@@ -730,7 +742,7 @@ class W:
                        TextColumn("{task.completed}/{task.total}"))
         bar.add_task("Plan", total=max(t, 1), completed=d)
         tbl.add_row("Plan", bar)
-        tbl.add_row("Docs", f"✅ {s['confirmed']}  🤖 {s['draft']}  ⚠️ {s['needs-reconfirm']}  "
+        tbl.add_row("Docs", f"✅ {s['confirmed']}  ✨ {s['draft']}  ⚠️ {s['needs-reconfirm']}  "
                             f"{'huérfanas' if self.lang == 'es' else 'orphans'} {s['orphans']}")
         doing = [u for u in data["units"] if u["status"] == "doing"]
         for u in doing[:2]:
@@ -782,7 +794,7 @@ class W:
             n_rev = len(docs.review_queue()) if (ROOT / "docs").exists() else 0
             choices = [Choice(self.t("m_resume", u=doing[0]["id"]), "resume")] if doing else []
             choices += [
-                Choice(self.t("m_next"), "next"), Choice(self.t("m_plan"), "plan"),
+                Choice(self.t("m_next"), "next"), Choice(self.t("m_plan"), "plan"), Choice(self.t("m_redo"), "redo"),
                 Choice(self.t("m_review") + (f"  ({n_rev})" if n_rev else ""), "review"),
                 Choice(self.t("m_portal"), "portal"), Choice(self.t("m_wikis"), "wikis"), Choice(self.t("m_status"), "status"), Choice(self.t("m_update"), "update"),
                 Choice(self.t("a_menu"), "arch"), Choice(self.t("sk_menu"), "stack"), Choice(self.t("m_repos"), "repos"), Choice(self.t("k_menu"), "creds"),
@@ -1337,6 +1349,27 @@ Talk to the user in {talk}. Do not modify application code.
         elif u:
             self.run_unit(u)
 
+    def do_redo(self) -> None:
+        data = plan.sync()
+        done = sorted((u for u in data["units"] if u["status"] == "done"), key=lambda u: u["phase"])
+        if not done:
+            self.say(self.t("rd_none"), "yellow")
+            self.pause()
+            return
+        u = self.sel(self.t("rd_pick"), [Choice(f"{u['id']} — {u['title']}", u) for u in done])
+        if not u:
+            return
+        also = []
+        if deps := plan.dependents(data, u["id"]):
+            also = self.chk(self.t("rd_deps", u=u["id"]), [Choice(f"{d['id']} — {d['title']}", d["id"]) for d in deps])
+            if also is None:
+                return
+        plan.redo(u["id"], also)
+        self.checkpoint(f"redo {u['id']}")
+        self.say(self.t("rd_ok", u=u["id"]), "green")
+        if self.yes(self.t("rd_now"), default=True):
+            self.run_unit(plan.get(plan.load(), u["id"]))
+
     def do_autopilot(self) -> None:
         self.say(self.t("autopilot_info"), "grey62")
         cmd = [sys.executable, str(Path(__file__).resolve().parent.parent / "camarones.py"), "autopilot", "--lang", self.lang]
@@ -1544,6 +1577,7 @@ Talk to the user in {talk}. Do not modify application code.
                 continue
             bucket = st if st in buckets else "done"      # dynamic/legacy statuses land with the finished work
             mark = f"  [grey62]{self.t('k_ready')}[/]" if u["id"] in ready and st == "todo" else ""
+            mark += f"  [{ORANGE}]↻[/]" if u.get("redo") else ""
             note = f"\n  [grey50]{u['notes']}[/]" if u.get("notes") and st == "blocked" else ""
             buckets[bucket].append(f"[{ORANGE}]{u['id']}[/]{mark}\n  [grey62]{u['title']}[/]{note}")
         tbl = Table(box=box.SIMPLE_HEAVY, expand=True, pad_edge=False)
@@ -1565,7 +1599,7 @@ Talk to the user in {talk}. Do not modify application code.
             fb = docs.pending_feedback()
             ch = {k: v for k, v in docs.changes().items() if v.get("status") in ("changed", "history-rewritten")}
             tbl = Table.grid(padding=(0, 2))
-            tbl.add_row("✅", str(s["confirmed"]), "🤖", str(s["draft"]), "⚠️", str(s["needs-reconfirm"]),
+            tbl.add_row("✅", str(s["confirmed"]), "✨", str(s["draft"]), "⚠️", str(s["needs-reconfirm"]),
                         "🧩", f"{s['orphans']} {'huérfanas' if self.lang == 'es' else 'orphans'}",
                         "🌍", f"{s['untranslated']}")
             console.print(Panel(Group(tbl, Text(""), Text(self.t("st_legend"), style="grey62")),
@@ -1625,7 +1659,7 @@ Talk to the user in {talk}. Do not modify application code.
         tbl = Table(show_lines=False, border_style="grey42")
         for col in ("", "Doc", "i18n", "orphan"):
             tbl.add_column(col)
-        icon = {"confirmed": "✅", "needs-reconfirm": "⚠️", "draft": "🤖"}
+        icon = {"confirmed": "✅", "needs-reconfirm": "⚠️", "draft": "✨"}
         for r in rows:
             tbl.add_row(icon[r["trust"]], r["path"], " ".join(f"{k}:{v}" for k, v in r["i18n"].items() if v != "current"),
                         str(len(r["orphan_sources"]) or ""))
@@ -2064,7 +2098,7 @@ def install_from_kit_folder(kit_dir: Path, ask: bool = True) -> bool:
         pass
     console.print(w.t("installed_here", parent=parent), style=f"bold {ORANGE}")
     if not IS_WIN:
-        p = parent / "camarones.command"
+        p = parent / "camaron.command"
         if p.exists():
             p.chmod(0o755)
     return True
@@ -2081,7 +2115,7 @@ def offer_upgrade() -> bool:
         return False
     w = W()
     console.print(Panel(w.t("up_found", new=c["version"], cur=upgrade.current(), where=str(c["path"])),
-                        title="🦐 Camarones Documenter", border_style=ORANGE))
+                        title="🦐 Camarón", border_style=ORANGE))
     if not w.yes(w.t("up_q"), default=True):
         return False
     kit_dir = upgrade.stage(c)

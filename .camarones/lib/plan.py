@@ -76,7 +76,7 @@ def load() -> dict:
 
 def save(data: dict) -> None:
     WORK.mkdir(parents=True, exist_ok=True)
-    PLAN.write_text("# Camarones Documenter work plan — one unit per agent session. Managed by the camarones CLI.\n"
+    PLAN.write_text("# Camarón work plan — one unit per agent session. Managed by the camarones CLI.\n"
                     + yaml.safe_dump(data, sort_keys=False, allow_unicode=True, width=120), encoding="utf-8")
 
 
@@ -137,7 +137,7 @@ def sync() -> dict:
     for bu in blueprint(repos):
         cur = existing.pop(bu["id"], None)
         if cur:
-            bu.update({k: cur[k] for k in ("status", "notes", "updated") if k in cur})
+            bu.update({k: cur[k] for k in ("status", "notes", "updated", "redo") if k in cur})
             if cur.get("status") == "dropped" and bu.get("repo") in repos:
                 bu["status"] = "todo"
             if cur.get('notes') == 'Not part of the selected profile':
@@ -198,8 +198,18 @@ def get(data: dict, uid: str) -> dict:
 def available(data: dict | None = None) -> list[dict]:
     data = data or load()
     st = {u["id"]: u["status"] for u in data["units"]}
+    deps = {u["id"]: u["deps"] for u in data["units"]}
+
+    def waits_on(u: dict) -> list[str]:
+        if not u.get("redo"):
+            return u["deps"]
+        up, frontier = set(), set(u["deps"])     # a reopened unit also waits for a redo further up its chain
+        while frontier:
+            up |= frontier
+            frontier = {d for f in frontier for d in deps.get(f, [])} - up
+        return list(up)
     ready = [u for u in data["units"] if u["status"] in ("todo", "doing", "blocked")
-             and all(st.get(d, "done") in DONE for d in u["deps"])]
+             and all(st.get(d, "done") in DONE for d in waits_on(u))]
     order = {"doing": 0, "todo": 1, "blocked": 2}
     return sorted(ready, key=lambda u: (order[u["status"]], u["phase"]))
 
@@ -209,6 +219,8 @@ def set_status(uid: str, status: str, note: str | None = None, record: bool = Tr
     data = load()
     u = get(data, uid)
     u["status"] = status
+    if status in DONE:
+        u.pop("redo", None)
     if record:
         u["updated"] = now()
     if note:
@@ -248,11 +260,48 @@ def ensure(uid: str, type_: str, title: str | None = None) -> dict:
     return nu
 
 
+def dependents(data: dict, uid: str) -> list[dict]:
+    """Finished units built on `uid`, directly or through other units (plan order): what a redo may leave outdated."""
+    found, frontier = set(), {uid}
+    while frontier:
+        frontier = {u["id"] for u in data["units"] if u["id"] not in found and frontier & set(u["deps"])}
+        found |= frontier
+    return [u for u in data["units"] if u["id"] in found and u["status"] == "done"]
+
+
+def redo(uid: str, also: list[str] | tuple = ()) -> list[dict]:
+    """Reopen a finished unit (and the chosen dependents) for a review-and-update session: nothing is deleted,
+    the old checkpoints are archived and `redo` keeps when it was finished so the prompt can say so."""
+    data = load()
+    targets = [get(data, i) for i in dict.fromkeys([uid, *also])]
+    for u in targets:
+        if u["status"] != "done":
+            raise ValueError(f"{u['id']} is {u['status']}, not done — only finished units can be redone")
+    stamp = now()
+    for u in targets:
+        u["status"], u["redo"], u["updated"] = "todo", u.get("updated") or stamp, stamp
+        f = note_file(u["id"])
+        if f.exists():
+            f.rename(f.with_name(f"{f.stem}.before-redo-{stamp.replace(':', '')}.md"))
+    save(data)
+    WORK.mkdir(parents=True, exist_ok=True)
+    with LOG.open("a", encoding="utf-8") as fh:
+        for u in targets:
+            fh.write(f"- {stamp} **{u['id']}** → redo (was done {u['redo']})\n")
+    return targets
+
+
 UNITS_DIR = WORK / "units"
 
 
 def note_file(uid: str) -> Path:
     return UNITS_DIR / (uid.replace(":", "__").replace("/", "_") + ".md")
+
+
+def old_notes(uid: str) -> list[Path]:
+    """Checkpoints of earlier runs of a redone unit, oldest first."""
+    f = note_file(uid)
+    return sorted(f.parent.glob(f"{f.stem}.before-redo-*.md")) if f.parent.exists() else []
 
 
 def note(uid: str, text: str) -> Path:
@@ -289,7 +338,7 @@ def render(data: dict | None = None) -> str:
         if u["phase"] != phase:
             phase = u["phase"]
             lines.append(f"\nPhase {phase}")
-        mark = " ← ready" if u["id"] in ready and u["status"] == "todo" else ""
+        mark = (" ← ready" if u["id"] in ready and u["status"] == "todo" else "") + (" ↻ redo" if u.get("redo") else "")
         note = f"  ({u['notes']})" if u.get("notes") else ""
         lines.append(f"  {icon[u['status']]} {u['id']:<28} {u['title']}{mark}{note}")
     d, t = progress(data)
@@ -307,7 +356,7 @@ def prompt(uid: str, lang: str = "es", unattended: bool = False) -> str:
            if unattended else
            f"When the unit is done, show the user `{cli} plan next` and ask what to do next (offer: continue with the next "
            "unit in this session only if your context is still light, otherwise recommend starting a new session from the "
-           f"Camarones Documenter wizard: `{cli}`).")
+           f"Camarón wizard: `{cli}`).")
     resume = ""
     notes = note_file(u["id"])
     if u.get("status") == "doing" or notes.exists():
@@ -316,6 +365,22 @@ def prompt(uid: str, lang: str = "es", unattended: bool = False) -> str:
                   f"read its checkpoints in `{rel}`" + (f" (last: {last_note(u['id'])})" if last_note(u["id"]) else "") +
                   f", look at `git status` / `git diff` in `{ws_rel('.')}` for work that was written but not committed, "
                   "check which of the unit's output files already exist, and continue from there.\n")
+    redo_txt = ""
+    if u.get("redo"):
+        olds = old_notes(u["id"])
+        later = [d["id"] for d in dependents(data, u["id"])]
+        interview = ("For an interview: show the user what `docs/interview/` already records for this unit and ask what changed "
+                     "or was missing; write the new round to a new `docs/interview/<YYYY-MM-DD>-<unit>.md` (keep the old "
+                     "file), close any answered item of `docs/interview/open-questions.md`, and update the pages that used "
+                     "the old answers.\n") if u.get("type") in INTERVIEW_TYPES else ""
+        redo_txt = (f"\nREDO — this unit was finished on {str(u['redo'])[:10]} and the user asked to go over it again. Do NOT "
+                    "start from scratch and do not delete earlier work: read what it produced (its outputs per the playbook "
+                    "section, the handoff" + (f", the previous checkpoints in `{ws_rel(rel_file(olds[-1]))}`" if olds else "") +
+                    "), show the user what is there, find what is wrong, missing or has changed since, and update those files.\n"
+                    + interview +
+                    ("Units already finished on top of this one: " + ", ".join(f"`{i}`" for i in later) + ". If your changes "
+                     "make any of them outdated, say which and why in the handoff's pending list (the user can redo them "
+                     f"with `{cli} plan redo <unit>`).\n" if later else ""))
     extra = ""
     if u.get("type") == "review-fixes":
         extra = (f"\nInput: `{ws_rel('docs/.work/review-feedback.md')}` — every `- [ ]` line is a human review comment on a page. Apply each one "
@@ -330,9 +395,9 @@ def prompt(uid: str, lang: str = "es", unattended: bool = False) -> str:
               "Never write kit files into the service repos.\n") if CAM_LAYOUT else (
               "\nLayout: this project uses the older single-folder layout — its docs are `docs/` and `.camarones/` of "
               f"this folder ({ROOT}). Ignore the playbook's `{CAM_DIR}/` prefix and any other `{CAM_DIR}/` folder you see.\n")
-    return f"""Camarones Documenter session — unit `{u['id']}`: {u['title']}
-{resume}{extra}{layout}
-You are documenting this project with the Camarones Documenter kit (works the same in Claude Code and Codex).
+    return f"""Camarón session — unit `{u['id']}`: {u['title']}
+{redo_txt}{resume}{extra}{layout}
+You are documenting this project with the Camarón kit (works the same in Claude Code and Codex).
 1. Read `{ws_rel('.camarones/PLAYBOOK.md')}` → sections "Session protocol" and "{section}", and `{ws_rel('.camarones/CONVENTIONS.md')}` (binding).
 2. Read `{ws_rel('docs/.work/handoff.md')}` (what previous sessions did and left pending). Do not redo finished work.
 3. Run `{cli} plan start {u['id']}`, then do ONLY this unit, as deep as the playbook asks. The CLI is `{cli}`
