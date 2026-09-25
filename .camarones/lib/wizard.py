@@ -18,7 +18,7 @@ from rich.text import Text
 
 from .common import (ROOT, HOME, WORK, WS_FILE, CACHE, IS_WIN, IS_MAC, CAM_DIR, CAM_LAYOUT, WORKSPACE, which, cli_cmd,
                      load_json, save_json, out, repo_dir)
-from . import docs, env, plan, creds, quickarch, tutorial
+from . import docs, env, plan, creds, quickarch, radar, tutorial
 from .common import VERSIONS, ws_rel
 from rich.tree import Tree
 import webbrowser
@@ -28,6 +28,8 @@ PREFS = HOME / ".camarones.json"
 MODELS = ["sonnet", "opus", "haiku"]           # Claude Code's --model aliases; the default is set in do_model / launch_agent
 CODEX_MODEL_DEFAULT = "gpt-5.6-terra"          # Codex's model slugs rotate, so this is just a starting default, not a fixed list
 FIRSTRUN = CACHE / "firstrun.json"     # first-run wizard position (so closing the window never loses it)
+STEPS = ("name", "repos", "tools", "setup", "stack", "arch", "intro")   # first-run steps, saved by id
+LEGACY_STEPS = ("name", "repos", "tools", "setup", "arch", "intro")     # firstrun.json before 3.3 kept only the index
 ORANGE = "#ff7a2f"
 BACK = "__back__"   # questionary replaces a None value with the title, so use a sentinel
 EXTRA_REVIEWS = {   # opt-in unit types: uid -> deps required to be `done` before offering it
@@ -201,6 +203,18 @@ T = {
         "a_view": "🌐 Verlo en el portal (pestaña C4)",
         "a_redo": "↻ Rehacerlo (volver a analizar los repos)",
         "a_keep": "✔ Dejarlo como está",
+        "sk_menu": "🧰 Stack y herramientas de cada repo",
+        "sk_intro": "He mirado cada repo sin IA: su stack y las herramientas que ya usáis (Backstage, Sonar, librería de componentes, linters, contratos, CI…). La IA lo leerá primero y lo irá afinando. Si un stack está mal, corrígelo aquí.",
+        "sk_repo": "Repo", "sk_stack": "Stack", "sk_tools": "Herramientas detectadas",
+        "sk_detected": "detectado",
+        "sk_none": "Aún no hay repos descargados: lo analizaré cuando estén (menú → Stack y herramientas).",
+        "sk_question": "¿Es correcto?",
+        "sk_ok": "✔ Correcto, seguir",
+        "sk_fix": "✏ Corregir el stack de un repo",
+        "sk_view": "🌐 Ver la página en el portal",
+        "sk_pick": "¿Qué repo?",
+        "sk_fix_q": "Stack de {repo} (vacío = el detectado):",
+        "sk_done": "✔ Apuntado. Ya sé qué hay en vuestra caja de herramientas: nada de pescar a ciegas 🦐",
         "up_found": "Hay una versión nueva del kit: v{new} (este proyecto usa v{cur}).\nEncontrada en: {where}",
         "up_q": "¿Actualizo ahora? (se conservan tu configuración, el plan y toda la documentación)",
         "up_done": "✔ Actualizado a v{new}. Reiniciando…",
@@ -453,6 +467,18 @@ T = {
         "a_view": "🌐 View it in the portal (C4 tab)",
         "a_redo": "↻ Redo it (scan the repos again)",
         "a_keep": "✔ Keep it as it is",
+        "sk_menu": "🧰 Stack & tools of each repo",
+        "sk_intro": "I looked at each repo without AI: its stack and the tools you already use (Backstage, Sonar, component library, linters, contracts, CI…). The AI reads this first and refines it. If a stack is wrong, fix it here.",
+        "sk_repo": "Repo", "sk_stack": "Stack", "sk_tools": "Tools found",
+        "sk_detected": "detected",
+        "sk_none": "No repos downloaded yet: I will scan them once they are (menu → Stack & tools).",
+        "sk_question": "Is this right?",
+        "sk_ok": "✔ Looks right, continue",
+        "sk_fix": "✏ Fix a repo's stack",
+        "sk_view": "🌐 View the page in the portal",
+        "sk_pick": "Which repo?",
+        "sk_fix_q": "Stack of {repo} (empty = the detected one):",
+        "sk_done": "✔ Noted. I know what's in your toolbox now — no more fishing in the dark 🦐",
         "up_found": "A newer kit is available: v{new} (this project uses v{cur}).\nFound at: {where}",
         "up_q": "Upgrade now? (your config, the plan and all documentation are kept)",
         "up_done": "✔ Upgraded to v{new}. Restarting…",
@@ -745,7 +771,7 @@ class W:
         state = load_json(FIRSTRUN, {})
         legacy_done = plan.PLAN.exists() and WS_FILE.exists() and not state   # installs from before v2.4
         if not state.get("done") and not legacy_done:
-            if not self.first_run(int(state.get("step", 0))):
+            if not self.first_run(resume_step(state)):
                 return
         else:
             time.sleep(0.8)
@@ -759,7 +785,7 @@ class W:
                 Choice(self.t("m_next"), "next"), Choice(self.t("m_plan"), "plan"),
                 Choice(self.t("m_review") + (f"  ({n_rev})" if n_rev else ""), "review"),
                 Choice(self.t("m_portal"), "portal"), Choice(self.t("m_wikis"), "wikis"), Choice(self.t("m_status"), "status"), Choice(self.t("m_update"), "update"),
-                Choice(self.t("a_menu"), "arch"), Choice(self.t("m_repos"), "repos"), Choice(self.t("k_menu"), "creds"),
+                Choice(self.t("a_menu"), "arch"), Choice(self.t("sk_menu"), "stack"), Choice(self.t("m_repos"), "repos"), Choice(self.t("k_menu"), "creds"),
                 Choice(self.t("m_setup"), "setup"), Choice(self.t("m_ci"), "ci")]
             if self.extra_ready():
                 choices.append(Choice(self.t("m_extra"), "extra"))
@@ -786,12 +812,12 @@ class W:
     def first_run(self, start: int = 0) -> bool:
         ws = docs.workspace()
         steps = [("Workspace", self.fr_name), ("Repos", self.fr_repos), (self.t("t_title"), self.fr_tools),
-                 ("Setup", self.fr_setup), ("C4", self.fr_arch), ("🦐", self.fr_intro)]
+                 ("Setup", self.fr_setup), ("Stack", self.fr_stack), ("C4", self.fr_arch), ("🦐", self.fr_intro)]
         i = min(max(start, 0), len(steps) - 1)
         if i:
             self.resumed = True
         while i < len(steps):
-            save_json(FIRSTRUN, {"step": i, "done": False})
+            save_json(FIRSTRUN, {"step": i, "name": STEPS[i], "done": False})
             crumbs = "  ".join((f"[bold {ORANGE}]● {n}[/]" if k == i else (f"[green]✔ {n}[/]" if k < i else f"[grey50]○ {n}[/]"))
                                for k, (n, _) in enumerate(steps))
             self.step_hdr = f"[bold]{self.t('step', n=i + 1, t=len(steps))}[/]   {crumbs}\n"
@@ -1231,6 +1257,61 @@ datastores, brokers and HTTP calls from manifests, config and code. Read `{ws_re
    Tell them the portal's Architecture (C4) tab rebuilds from `{arch}/` (`{cli} up`).
 Talk to the user in {talk}. Do not modify application code.
 """
+
+    # ---------- stack + tooling radar (static, no AI) ----------
+    def show_stack(self, result: dict) -> None:
+        self.say(Panel(self.t("sk_intro"), border_style="grey42"))
+        tbl = Table(border_style="grey42")
+        for col in ("sk_repo", "sk_stack", "sk_tools"):
+            tbl.add_column(self.t(col))
+        for name, r in result.items():
+            st = r["stack"] + (f"\n[grey50]{self.t('sk_detected')}: {r['detected_stack']}[/]"
+                               if r["stack"] != r["detected_stack"] else "")
+            tools = ", ".join(t["label"] for t in r["tools"]) or "—"
+            tbl.add_row(f"[{ORANGE}]{name}[/]", st, f"[grey62]{tools}[/]")
+        console.print(tbl)
+
+    def stack_flow(self) -> str:
+        """Returns 'done' or BACK."""
+        scan = True
+        while True:
+            if scan:
+                self.safe(self.busy, radar.run, total=1)
+                scan = False
+            result = load_json(radar.CACHE_FILE, {})
+            self.banner()
+            if not result:
+                self.say(self.t("sk_none"), "yellow")
+            else:
+                self.show_stack(result)
+            c = self.sel(self.t("sk_question"), [
+                Choice(self.t("sk_ok"), "ok"), Choice(self.t("sk_fix"), "fix", disabled=None if result else "—"),
+                Choice(self.t("sk_view"), "view", disabled=None if result else "—")], default="ok")
+            if c is None:
+                return BACK
+            if c == "ok":
+                if result:
+                    self.say(self.t("sk_done"), f"bold {ORANGE}")
+                    time.sleep(1.2)
+                return "done"
+            if c == "view":
+                self.open_portal("#/docs/overview/tooling.md")
+                continue
+            repo = self.sel(self.t("sk_pick"), [Choice(f"{n}  ({r['stack']})", n) for n, r in result.items()])
+            if repo is None:
+                continue
+            text = self.txt(self.t("sk_fix_q", repo=repo), default=result[repo]["stack"])
+            if text is None:
+                continue
+            same = text.strip() in ("", result[repo]["detected_stack"])
+            radar.set_stack(repo, None if same else text)
+            scan = True
+
+    def fr_stack(self, ws: dict):
+        return BACK if self.stack_flow() == BACK else None
+
+    def do_stack(self) -> None:
+        self.stack_flow()
 
     def fr_arch(self, ws: dict):
         r = self.arch_flow()
@@ -1927,6 +2008,14 @@ Talk to the user in {talk}. Do not modify application code.
             self.say("✔ " + ("Idioma: español (también para las sesiones con IA)" if c == "es"
                              else "Language: English (AI sessions too)"), "green")
             time.sleep(1)
+
+
+def resume_step(state: dict) -> int:
+    """Where the first run continues: by step id, or by index for firstrun.json files written before 3.3."""
+    if state.get("name") in STEPS:
+        return STEPS.index(state["name"])
+    i = int(state.get("step", 0))
+    return STEPS.index(LEGACY_STEPS[i]) if 0 <= i < len(LEGACY_STEPS) else min(max(i, 0), len(STEPS) - 1)
 
 
 def claude_history(cwd: Path) -> bool:
