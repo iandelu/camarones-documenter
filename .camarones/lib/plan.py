@@ -9,12 +9,16 @@ and docs/.work/handoff.md carries the baton between sessions.
 from __future__ import annotations
 
 import datetime as dt
+import json
+import os
+import subprocess
+import threading
 import time
 from pathlib import Path
 
 import yaml
 
-from .common import WORK, CAM_LAYOUT, CAM_DIR, WORKSPACE, cli_cmd, ws_rel, rel_file, IS_WIN, which, run as sh_run
+from .common import ROOT, WORK, CAM_LAYOUT, CAM_DIR, WORKSPACE, cli_cmd, ws_rel, rel_file, IS_WIN, which
 from . import docs
 
 PLAN = WORK / "plan.yaml"
@@ -305,7 +309,9 @@ def prompt(uid: str, lang: str = "es", unattended: bool = False) -> str:
                  f"and outdated/missing translations (then `{cli} translated <files>`). Finish with `{cli} llms` and a clean `check`.\n")
     layout = (f"\nLayout: you run in the workspace folder. Docs and agent config live in `{CAM_DIR}/` (its own git repo; every "
               f"`docs/…` or `.camarones/…` path in the playbook is relative to it); the service repos are its siblings (`<repo>/`). "
-              "Never write kit files into the service repos.\n") if CAM_LAYOUT else ""
+              "Never write kit files into the service repos.\n") if CAM_LAYOUT else (
+              "\nLayout: this project uses the older single-folder layout — its docs are `docs/` and `.camarones/` of "
+              f"this folder ({ROOT}). Ignore the playbook's `{CAM_DIR}/` prefix and any other `{CAM_DIR}/` folder you see.\n")
     return f"""Camarones Documenter session — unit `{u['id']}`: {u['title']}
 {resume}{extra}{layout}
 You are documenting this project with the Camarones Documenter kit (works the same in Claude Code and Codex).
@@ -333,20 +339,107 @@ AUTOPILOT_PROMPT = WORK / "autopilot-prompt.md"
 
 
 def _autopilot_log(text: str, echo=print) -> None:
-    echo(text)
+    echo(f"[{dt.datetime.now():%H:%M}] {text}")
     WORK.mkdir(parents=True, exist_ok=True)
     with LOG.open("a", encoding="utf-8") as fh:
         fh.write(f"- {now()} [autopilot] {text.strip()}\n")
 
 
-def _run_agent(agent: str, text: str, lang: str):
+def _short(s, n: int = 110) -> str:
+    s = str(s or "").replace(str(WORKSPACE), "").replace("\\\\", "\\").strip().lstrip("\\/")
+    s = s.splitlines()[0] if s else ""
+    return s if len(s) <= n else s[:n - 1] + "…"
+
+
+def _render(agent: str, line: str) -> tuple[list[str], str]:
+    """One line of the agent's JSON event stream → (progress lines to show, error/result text for limit checks)."""
+    try:
+        ev = json.loads(line)
+    except ValueError:
+        return ([_short(line, 140)] if line.strip() else []), line
+    kind = ev.get("type")
+    if agent == "claude":
+        if kind == "assistant":
+            shown = []
+            for c in ev.get("message", {}).get("content", []):
+                if c.get("type") == "tool_use":
+                    inp = c.get("input") or {}
+                    arg = next((inp[k] for k in ("file_path", "path", "command", "pattern", "url", "description") if inp.get(k)), "")
+                    shown.append(f"· {c.get('name')} {_short(arg)}")
+                elif c.get("type") == "text" and c.get("text", "").strip():
+                    shown.append(f"» {_short(c['text'], 130)}")
+            return shown, ""
+        if kind == "result":
+            res = str(ev.get("result") or ev.get("subtype") or "")
+            return ([f"= {'error: ' if ev.get('is_error') else ''}{_short(res, 130)}"] if ev.get("is_error") else []), res
+        return [], ""
+    item = ev.get("item") or {}
+    if kind == "item.started" and item.get("type") == "command_execution":
+        cmd = str(item.get("command", ""))
+        return [f"· $ {_short(cmd.split('-Command', 1)[-1].strip(chr(39) + ' '))}"], ""
+    if kind == "item.completed":
+        if item.get("type") == "agent_message":
+            return [f"» {_short(item.get('text'), 130)}"], ""
+        if item.get("type") == "file_change":
+            return [f"· edit {_short(c.get('path'))}" for c in item.get("changes", [])], ""
+        if item.get("type") == "mcp_tool_call":
+            return [f"· {item.get('server')}.{item.get('tool')}"], ""
+    if kind in ("turn.failed", "error"):
+        msg = str((ev.get("error") or {}).get("message") or ev.get("message") or "")
+        return [f"= error: {_short(msg, 130)}"], msg
+    return [], ""
+
+
+def _run_agent(agent: str, text: str, lang: str, uid: str, echo=print) -> subprocess.CompletedProcess:
+    """Run one unattended session, streaming a compact view of what the agent does, plus a heartbeat with
+    the unit's last checkpoint when it goes quiet. The returned stdout holds the error/result text only."""
     # multi-line args do not survive Windows .cmd shims: hand over a one-line pointer to the prompt file
     WORK.mkdir(parents=True, exist_ok=True)
     AUTOPILOT_PROMPT.write_text(text, encoding="utf-8")
     brief = ws_rel(rel_file(AUTOPILOT_PROMPT))
     short = f"Follow the instructions in {brief}" if lang == "en" else f"Sigue las instrucciones de {brief}"
-    cmd = [agent, "-p", short, "--dangerously-skip-permissions"] if agent == "claude" else [agent, "exec", "--full-auto", short]
-    return sh_run(cmd, cwd=WORKSPACE, check=False, capture=True)
+    cmd = ([which(agent), "-p", short, "--dangerously-skip-permissions", "--output-format", "stream-json", "--verbose"]
+           if agent == "claude" else
+           [which(agent), "exec", "--approve-for-me", "--skip-git-repo-check", "--json", short])
+    start = last = time.monotonic()
+    seen_note = last_note(uid)
+    stop = threading.Event()
+
+    def heartbeat() -> None:
+        nonlocal seen_note
+        while not stop.wait(30):
+            if time.monotonic() - last < 60:
+                continue
+            ckpt = last_note(uid)
+            extra = f" — checkpoint: {_short(ckpt, 100)}" if ckpt and ckpt != seen_note else ""
+            seen_note = ckpt or seen_note
+            echo(f"  … {int((time.monotonic() - start) // 60)} min on {uid}, {agent} still working{extra}")
+
+    tail: list[str] = []
+    try:
+        # pin the project: the agent's own `camarones …` calls must hit this plan, whatever folder it cds into
+        p = subprocess.Popen(cmd, cwd=str(WORKSPACE), stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                             stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace", bufsize=1,
+                             env={**os.environ, "CAMARONES_ROOT": str(ROOT)})
+    except OSError as e:
+        return subprocess.CompletedProcess(cmd, 127, str(e), "")
+    threading.Thread(target=heartbeat, daemon=True).start()
+    try:
+        for line in p.stdout:
+            shown, err = _render(agent, line.rstrip("\n"))
+            for s in shown:
+                echo(f"  {s}")
+            if shown:
+                last = time.monotonic()
+            if err:
+                tail = (tail + [err])[-20:]
+        rc = p.wait()
+    finally:
+        stop.set()
+        if p.poll() is None:
+            p.kill()
+    echo(f"  ({int((time.monotonic() - start) // 60)} min)")
+    return subprocess.CompletedProcess(cmd, rc, "\n".join(tail), "")
 
 
 def run_autopilot(lang: str = "es", max_units: int | None = None, poll_seconds: int = 900,
@@ -389,7 +482,7 @@ def run_autopilot(lang: str = "es", max_units: int | None = None, poll_seconds: 
             continue
         agent = free[0]
         log(f"{agent} → {u['id']}: {u['title']}")
-        r = _run_agent(agent, prompt(u["id"], lang=lang, unattended=True), lang)
+        r = _run_agent(agent, prompt(u["id"], lang=lang, unattended=True), lang, u["id"], echo)
         output = f"{r.stdout or ''}\n{r.stderr or ''}"
         if r.returncode == 0:
             status = get(load(), u["id"])["status"]
