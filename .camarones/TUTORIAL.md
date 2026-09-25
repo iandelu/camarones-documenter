@@ -36,7 +36,7 @@ Camarón turns several repos into living documentation that serves both people a
    session 1 --> [x]   session 2 --> [x]   session 3 --> [>] (closed)  --> session 4 resumes
 ```
 
-Documenting a project in depth doesn't fit in one AI conversation, so the work is split into small units. Every “🦐 Next step” opens a session that does ONE unit. The AI saves checkpoints while it works: if you close the terminal or the laptop, next time you get “▶ Continue” and it resumes from the last checkpoint. Each finished unit is committed locally in cam-docs so nothing is lost (you decide when to push).
+Documenting a project in depth doesn't fit in one AI conversation, so the work is split into small units. Every “🦐 Next step” opens a session that does ONE unit. The AI saves checkpoints while it works: if you close the terminal or the laptop, next time you get “▶ Continue” and it resumes from the last checkpoint. Each finished unit is committed locally in cam-docs so nothing is lost; “🤝 Share with the team” (or `camaron share`) pulls the team's work and publishes yours when you decide.
 
 ### 3. 🤖 Claude Code / Codex: your AI
 
@@ -260,7 +260,7 @@ Camarón convierte varios repos en una documentación viva que sirve a personas 
    sesion 1 --> [x]   sesion 2 --> [x]   sesion 3 --> [>] (cerraste)  --> sesion 4 continua
 ```
 
-Documentar a fondo un proyecto no cabe en una sola conversación con la IA, así que el trabajo se divide en unidades pequeñas. Cada vez que eliges «🦐 Siguiente paso» se abre una sesión que hace UNA unidad. La IA guarda checkpoints mientras trabaja: si cierras la terminal o el portátil, la próxima vez aparece «▶ Continuar» y retoma desde el último checkpoint. Al terminar cada unidad se hace un commit local en cam-docs para que nada se pierda (el push lo decides tú).
+Documentar a fondo un proyecto no cabe en una sola conversación con la IA, así que el trabajo se divide en unidades pequeñas. Cada vez que eliges «🦐 Siguiente paso» se abre una sesión que hace UNA unidad. La IA guarda checkpoints mientras trabaja: si cierras la terminal o el portátil, la próxima vez aparece «▶ Continuar» y retoma desde el último checkpoint. Al terminar cada unidad se hace un commit local en cam-docs para que nada se pierda; «🤝 Compartir con el equipo» (o `camaron share`) trae el trabajo del equipo y publica el tuyo cuando tú decides.
 
 ### 3. 🤖 Claude Code / Codex: tu IA
 

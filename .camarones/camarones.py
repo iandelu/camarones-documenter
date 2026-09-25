@@ -32,6 +32,8 @@
   plan note UNIT "text"     save a progress checkpoint of a unit (a closed session resumes from it)
   plan redo UNIT [--also U…]  reopen a finished unit (e.g. an interview) to review and update it
   checkpoint ["message"]    commit docs progress locally in the umbrella repo (never pushes)
+  remote [URL]              show / set the team's cam-docs repo (origin)
+  share                     checkpoint, pull the team's work (rebase) and push cam-docs — only when you run it
   feedback FILE "text" --by NAME   record a human review comment (applied by the review-fixes unit)
   version                   kit and pinned tool versions
   prompt UNIT [--lang es|en] [--unattended]      prompt for an agent session (UNIT may be 'update')
@@ -44,7 +46,9 @@
   install DEST --profile quick|full [--dry-run]   copy kit into an explicit project folder
   upgrade SOURCE [--dry-run]  update kit files with backups; preserve project configuration
   profile quick|full        change the work plan without losing checkpoints
-  new NAME                  create ./NAME/cam-docs/, register it, open it (global install)
+  new NAME [--from URL]     create ./NAME/cam-docs/, register it, open it (global install); --from joins the team's repo
+  join URL [FOLDER]         use the team's cam-docs repo: clone it into FOLDER/cam-docs (default: here) or reuse the
+                            copy already on this machine; the wizard then only sets up this machine
   switch                    pick a registered project to open (global install)
   self-update               git pull the central kit in place (global install only)
   unlink                    remove this project's local kit copy, keep config (moves to global install)
@@ -56,6 +60,10 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
+
+for _stream in (sys.stdout, sys.stderr):           # before the first print: a Windows pipe is cp1252, not UTF-8
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
 
 from lib import projects                            # noqa: E402 — no dependency on ROOT/common state
 
@@ -71,10 +79,26 @@ def _relaunch(root: Path, argv: list[str]) -> None:
     os.execv(sys.executable, args)
 
 
+def _team(fn, *args):
+    """new --from / join: a clone that fails (no access, wrong URL, folder taken) is a short error, not a traceback."""
+    try:
+        return fn(*args)
+    except (ValueError, RuntimeError) as e:
+        print(f"✖ {e}", file=sys.stderr)
+        sys.exit(1)
+
+
 _cmd0 = sys.argv[1] if len(sys.argv) > 1 else None
 if _cmd0 == "new" and len(sys.argv) > 2 and not sys.argv[2].startswith("-"):
-    _dest = projects.create(sys.argv[2])
+    _from = sys.argv[sys.argv.index("--from") + 1] if "--from" in sys.argv[3:-1] else ""
+    _dest = _team(projects.create, sys.argv[2], None, _from)
     print(f"🦐 {_dest.name} → {_dest}")
+    _relaunch(_dest, [])
+elif _cmd0 == "join" and len(sys.argv) > 2 and not sys.argv[2].startswith("-"):
+    # The team's cam-docs repo: cloned into <folder or cwd>/cam-docs, or reused if this machine already has it.
+    # The wizard then only prepares this machine (tools, repos) — the rest is the team's, already done.
+    _dest, _joined = _team(projects.join, sys.argv[2], Path(sys.argv[3]).resolve() if len(sys.argv) > 3 else Path.cwd())
+    print(f"🦐 {'joined' if _joined else 'new project, remote set'} → {_dest}")
     _relaunch(_dest, [])
 elif _cmd0 == "switch":
     _dest = projects.pick(allow_new=True, here=Path.cwd())
@@ -102,10 +126,6 @@ elif os.environ.get("CAMARONES_GLOBAL") and not os.environ.get("CAMARONES_ROOT")
 from lib import docs, env, plan                     # noqa: E402
 from lib.common import VERSIONS, cli_cmd, ROOT, CACHE, load_json   # noqa: E402
 
-for _stream in (sys.stdout, sys.stderr):
-    if hasattr(_stream, "reconfigure"):
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-
 
 def main() -> int:
     if len(sys.argv) == 1:
@@ -119,7 +139,7 @@ def main() -> int:
     ins = sp.add_parser("install"); ins.add_argument("destination", type=Path)
     ins.add_argument("--profile", choices=["quick", "full"], default="quick"); ins.add_argument("--dry-run", action="store_true")
     upg = sp.add_parser("upgrade"); upg.add_argument("source", type=Path); upg.add_argument("--dry-run", action="store_true")
-    nw = sp.add_parser("new"); nw.add_argument("name")
+    nw = sp.add_parser("new"); nw.add_argument("name"); nw.add_argument("--from", dest="from_url", default="")
     sp.add_parser("switch")
     sp.add_parser("self-update")
     sp.add_parser("unlink")
@@ -155,6 +175,9 @@ def main() -> int:
     pl.add_argument("--json", action="store_true")
     pl.add_argument("--also", nargs="*", default=[])
     cp = sp.add_parser("checkpoint"); cp.add_argument("message", nargs="?", default="progress")
+    rm = sp.add_parser("remote"); rm.add_argument("url", nargs="?")
+    sp.add_parser("share")
+    jn = sp.add_parser("join"); jn.add_argument("url"); jn.add_argument("folder", nargs="?", type=Path)
     fb = sp.add_parser("feedback"); fb.add_argument("file"); fb.add_argument("text"); fb.add_argument("--by", default="")
     ad = sp.add_parser("arch-draft"); ad.add_argument("--save", action="store_true"); ad.add_argument("--overwrite", action="store_true")
     rd = sp.add_parser("radar"); rd.add_argument("--json", action="store_true")
@@ -338,6 +361,14 @@ def main() -> int:
         print(f"Camarón {VERSIONS['kit']} — " + ", ".join(f"{k} {v}" for k, v in VERSIONS.items() if k != "kit"))
     elif a.cmd == "checkpoint":
         print("✔ committed locally" if env.checkpoint_commit(a.message) else "no checkpoint commit")
+    elif a.cmd == "remote":
+        if a.url:
+            env.set_remote(a.url)
+        print(env.docs_remote() or "no remote — set one with: remote URL")
+    elif a.cmd == "share":
+        r = env.share()
+        print(f"{r['status']}{': ' + r['detail'] if r['detail'] else ''}")
+        return 0 if r["status"] in ("pushed", "up-to-date", "nothing") else 1
     elif a.cmd == "feedback":
         docs.add_feedback(a.file, a.text, a.by or os.environ.get("USER", "human"))
         plan.ensure("review-fixes", "review-fixes")

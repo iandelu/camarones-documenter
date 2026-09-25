@@ -1201,3 +1201,64 @@ def checkpoint_commit(message: str) -> bool:
                                                                        "-c", "user.email=camarones@localhost"]
     r = run(["git", *ident, "commit", "-q", "-m", f"docs(camarones): {message}", "--no-verify"], cwd=ROOT, check=False, quiet=True)
     return r.returncode == 0
+
+
+# ---------- the team's docs repo: explicit pull + push, never automatic ----------
+def docs_remote() -> str:
+    return out(["git", "remote", "get-url", "origin"], cwd=ROOT) if (ROOT / ".git").exists() else ""
+
+
+def set_remote(url: str) -> None:
+    """Point cam-docs at the team's repo (origin). The first share publishes it."""
+    if not (ROOT / ".git").exists():
+        run(["git", "init", "-q", str(ROOT)], quiet=True)
+    run(["git", "remote", "remove", "origin"], cwd=ROOT, check=False, quiet=True)
+    run(["git", "remote", "add", "origin", url.strip()], cwd=ROOT, quiet=True)
+
+
+def _ident() -> list[str]:
+    return [] if out(["git", "config", "user.email"], cwd=ROOT) else ["-c", "user.name=Camarón",
+                                                                      "-c", "user.email=camarones@localhost"]
+
+
+def share(log: Log = print) -> dict:
+    """Checkpoint, bring in the team's work (rebase onto origin) and push. Returns {"status", "detail"}:
+    pushed · up-to-date · no-remote · nothing · blocked (secrets staged) · conflict (rebase undone) · error."""
+    url = docs_remote()
+    if not url:
+        return {"status": "no-remote", "detail": ""}
+    from . import creds
+    auth = creds.git_env(url)
+
+    def git(*args: str, env: dict | None = None):
+        return run(["git", *args], cwd=ROOT, check=False, quiet=True, env=env)
+
+    def last(r) -> str:
+        lines = (r.stderr or r.stdout or "").strip().splitlines()
+        return lines[-1] if lines else ""
+
+    checkpoint_commit("share")
+    if git("diff", "--cached", "--quiet").returncode != 0:
+        return {"status": "blocked", "detail": "staged changes were not committed (possible secrets): run check --secrets"}
+    if git("rev-parse", "--verify", "--quiet", "HEAD").returncode != 0:
+        return {"status": "nothing", "detail": ""}
+    branch = out(["git", "symbolic-ref", "--short", "HEAD"], cwd=ROOT)
+    if not branch:
+        return {"status": "error", "detail": "detached HEAD: check out a branch first"}
+    log(f"fetching {url}…")
+    r = git("fetch", "--quiet", "origin", env=auth)
+    if r.returncode:
+        return {"status": "error", "detail": last(r)}
+    theirs = f"origin/{branch}"
+    if git("rev-parse", "--verify", "--quiet", theirs).returncode == 0:
+        log(f"rebasing onto {theirs}…")
+        if git(*_ident(), "rebase", "--quiet", "--autostash", theirs).returncode:
+            git("rebase", "--abort")
+            return {"status": "conflict", "detail": theirs}
+        if out(["git", "rev-list", "--count", f"{theirs}..HEAD"], cwd=ROOT) == "0":
+            return {"status": "up-to-date", "detail": branch}
+    log(f"pushing {branch}…")
+    r = git("push", "--quiet", "-u", "origin", branch, env=auth)
+    if r.returncode:
+        return {"status": "error", "detail": last(r)}
+    return {"status": "pushed", "detail": branch}
