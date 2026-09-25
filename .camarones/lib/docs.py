@@ -57,6 +57,16 @@ def wiki_repos() -> list[str]:
     return [r["name"] for r in workspace()["repos"] if r.get("wiki")]
 
 
+INTERVIEW_MODES = ("live", "team")
+
+
+def interview_mode() -> str:
+    """`live`: the agent interviews the user in a session. `team`: a questionnaire the team answers offline, then agent
+    units consolidate the answers. Projects without the key (every 3.x project so far) keep `live`."""
+    mode = workspace()["project"].get("interviews")
+    return mode if mode in INTERVIEW_MODES else "live"
+
+
 def set_wiki_repos(names: list[str]) -> None:
     ws = workspace()
     for r in ws["repos"]:

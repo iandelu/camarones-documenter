@@ -26,6 +26,7 @@ HANDOFF = WORK / "handoff.md"
 LOG = WORK / "log.md"
 DONE = ("done", "dropped")
 NO_WIKI = "No wiki for this repo (wizard → Wikis → choose repos)"
+LIVE_INTERVIEWS = "Interviews are done live, not by team questionnaire"
 
 # unit type → (phase, runner, title template, playbook section)
 TYPES = {
@@ -33,6 +34,8 @@ TYPES = {
     "setup":            (0, "wizard", "Environment ready (tools, repos, agent wiring)", "setup"),
     "discovery":        (1, "agent",  "Discovery of {repo}", "discovery"),
     "discovery-cross":  (1, "agent",  "Cross-repo correlation (integrations, shared DBs, candidate flows)", "discovery-cross"),
+    "questionnaire":    (2, "agent",  "Team questionnaire: inferred answers and options to share with the team", "questionnaire"),
+    "answers":          (2, "wizard", "Team answers: share the questionnaire and import the answers", "answers"),
     "interview-context":  (2, "agent", "Interview 1: bounded contexts, external actors, environments", "interview"),
     "interview-language": (2, "agent", "Interview 2: DDD glossary, SLAs / NFRs", "interview"),
     "interview-history":  (2, "agent", "Interview 3: historical decisions, known debt, validate integrations/flows/data", "interview"),
@@ -98,7 +101,12 @@ def blueprint(repos: list[str]) -> list[dict]:
     u = [unit("setup", "setup", [])]
     u += [unit(f"discovery:{r}", "discovery", ["setup"], repo=r) for r in repos]
     u += [unit("discovery-cross", "discovery-cross", disc)]
-    u += [unit("interview-context", "interview-context", ["discovery-cross"]),
+    first_interview = ["discovery-cross"]
+    if docs.interview_mode() == "team":      # the team answers a questionnaire; the interview units consolidate it
+        u += [unit("questionnaire", "questionnaire", ["discovery-cross"]),
+              unit("answers", "answers", ["questionnaire"])]
+        first_interview = ["answers"]
+    u += [unit("interview-context", "interview-context", first_interview),
           unit("interview-language", "interview-language", ["interview-context"]),
           unit("interview-history", "interview-history", ["interview-context"])]
     for r in repos:
@@ -164,6 +172,16 @@ def sync() -> dict:
             continue
         if u["status"] in ("todo", "blocked"):
             u["status"], u["notes"] = "dropped", why
+    # questionnaire units only while the team answers it: not in live mode, nor once the interviews ran live
+    team = docs.interview_mode() == "team"
+    live_done = any(u["id"] == "interview-context" and u["status"] == "done" for u in merged)
+    for u in merged:
+        if u["type"] not in ("questionnaire", "answers"):
+            continue
+        if team and not live_done and u["status"] == "dropped" and u.get("notes") == LIVE_INTERVIEWS:
+            u["status"], u["notes"] = "todo", ""
+        elif (not team or live_done) and u["status"] in ("todo", "blocked"):
+            u["status"], u["notes"] = "dropped", LIVE_INTERVIEWS
     data["units"] = merged
     data['profile'] = profile
     save(data)
@@ -451,7 +469,8 @@ def run_autopilot(lang: str = "es", max_units: int | None = None, poll_seconds: 
     if not agents:
         log("Autopilot: neither `claude` nor `codex` is installed — nothing to run.")
         return 0
-    skip = set() if include_interviews else INTERVIEW_TYPES
+    # team interviews only consolidate written answers: nothing to ask, so they can run unattended
+    skip = set() if include_interviews or docs.interview_mode() == "team" else INTERVIEW_TYPES
     limited: dict[str, dt.datetime] = {}
     done = 0
     log(f"Autopilot started with {', '.join(agents)}" + (f" (max {max_units} units)" if max_units else ""))
