@@ -132,6 +132,7 @@ T = {
         "w_choose": "🎯 Elegir qué repos tienen wiki", "w_choose_first": "elige antes los repos",
         "w_choose_q": "¿Qué repos llevan wiki? Cada una es una sesión de agente completa: elige los servicios con lógica, no librerías ni repos de CI",
         "w_none_chosen": "Ningún repo tiene wiki todavía: elige primero cuáles (🎯).", "w_skipped": "No lanzados: {repos}", "w_unit_q": "¿Cómo generas la wiki de {repo}?",
+        "w_none_ready": "Ningún repo elegido está listo para wiki ({repos}): antes necesitan su repo-brief (INSTRUCTIONS.md). Hazlo desde el plan.",
         "w_here": "✨ Aquí mismo (sin sesión de agente, {engine})", "w_agent": "🤖 Sesión de agente interactiva",
         "port": "Puerto:",
         "r_detect": "Detectar repos en la carpeta", "r_add": "Añadir repo por URL", "r_sync": "Sincronizar (clone / pull)",
@@ -371,6 +372,7 @@ T = {
         "w_choose": "🎯 Choose which repos get a wiki", "w_choose_first": "choose the repos first",
         "w_choose_q": "Which repos get a wiki? Each one is a full agent run: pick the services with logic, not libraries or CI repos",
         "w_none_chosen": "No repo has a wiki yet: choose which ones first (🎯).", "w_skipped": "Not started: {repos}", "w_unit_q": "How do you want to generate the {repo} wiki?",
+        "w_none_ready": "None of the chosen repos is ready for a wiki ({repos}): each needs its repo-brief (INSTRUCTIONS.md) first. Run it from the plan.",
         "w_here": "✨ Right here (no agent session, {engine})", "w_agent": "🤖 Interactive agent session",
         "port": "Port:",
         "r_detect": "Detect repos in this folder", "r_add": "Add repo by URL", "r_sync": "Sync (clone / pull)",
@@ -568,6 +570,8 @@ class W:
 
     def chk(self, msg: str, choices: list):
         """Multiple choice. Returns the list of values (possibly empty), or None when the user goes back."""
+        if not any(isinstance(c, Choice) and not c.disabled for c in choices):
+            return None     # questionary crashes (no pointed_at) when nothing is selectable
         r = self._ask(questionary.checkbox(msg, choices=list(choices) + self.help_rows("nav_check"), style=STYLE,
                                            instruction=" "))
         return None if r in (None, BACK) else r
@@ -1713,6 +1717,11 @@ Talk to the user in {talk}. Do not modify application code.
                 if picked is not None:
                     docs.set_wiki_repos(picked)
                     plan.sync()
+                self.banner()
+                continue
+            if not any(w["ready"] for w in chosen):
+                self.say(self.t("w_none_ready", repos=", ".join(w["repo"] for w in chosen)), "yellow")
+                self.pause()
                 self.banner()
                 continue
             picked = self.chk(self.t("w_pick"), [Choice(w["repo"], w["repo"], disabled=None if w["ready"] else self.t("w_need_brief"))
