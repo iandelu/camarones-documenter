@@ -223,6 +223,8 @@ The wizard checks all of this and installs it for you (winget on Windows, Homebr
 
 That's all. Stop whenever you like: progress saves itself. Esc always goes back.
 
+Want to start over? **🧹 Undo everything** (or `camarones uninstall`) zips `cam-docs/` as a backup, deletes it, and removes every trace of the kit from the repos and the workspace folder. The repos end up exactly as in their last commit.
+
 ## Español
 
 ### 1. 🦐 Camarones Documenter: la foto completa
@@ -444,3 +446,5 @@ El asistente comprueba todo esto y lo instala por ti (winget en Windows, Homebre
 ```
 
 Con esto basta. Puedes parar cuando quieras: el progreso se guarda solo. Esc siempre vuelve atrás.
+
+¿Quieres empezar de cero? **🧹 Deshacer todo** (o `camarones uninstall`) guarda una copia `.zip` de `cam-docs/`, lo borra y quita todo rastro del kit de los repos y de la carpeta del workspace. Los repos quedan exactamente como en su último commit.

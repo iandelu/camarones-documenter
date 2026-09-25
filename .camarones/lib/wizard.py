@@ -208,6 +208,14 @@ T = {
         "m_resume": "▶ Continuar «{u}» (se quedó a medias)",
         "m_review": "✅ Revisar y verificar páginas",
         "m_tutorial": "📖 Tutorial: ¿qué es cada herramienta?",
+        "m_uninstall": "🧹 Deshacer todo (quitar la documentación de este proyecto)",
+        "u_global": "¿Limpiar también lo de tu usuario? (~/.camarones, tokens guardados, ajustes del wizard — lo comparten todos tus proyectos)",
+        "u_preview": "Esto es lo que se va a quitar",
+        "u_keep": "No se toca",
+        "u_confirm": "Escribe el nombre del proyecto ({name}) para confirmar:",
+        "u_cancel": "Cancelado: no se ha borrado nada.",
+        "u_done": "✔ Hecho: {ws} vuelve a tener solo sus repos, tal como estaban.",
+        "u_backup": "Copia de seguridad de cam-docs: {path}",
         "d_doing": "En curso", "d_last": "último checkpoint", "d_fb": "correcciones tuyas pendientes",
         "k_doing": "En curso", "k_todo": "Por hacer", "k_blocked": "Bloqueadas", "k_done": "Hechas", "k_ready": "← lista",
         "res_q": "«{u}» se quedó a medias. ¿Cómo sigo?",
@@ -452,6 +460,14 @@ T = {
         "m_resume": "▶ Continue “{u}” (left half done)",
         "m_review": "✅ Review & verify pages",
         "m_tutorial": "📖 Tutorial: what is each tool?",
+        "m_uninstall": "🧹 Undo everything (remove this project's documentation)",
+        "u_global": "Also clean your user-level files? (~/.camarones, saved tokens, wizard settings — shared by all your projects)",
+        "u_preview": "This is what will be removed",
+        "u_keep": "Not touched",
+        "u_confirm": "Type the project name ({name}) to confirm:",
+        "u_cancel": "Cancelled: nothing was removed.",
+        "u_done": "✔ Done: {ws} holds just its repos again, exactly as they were.",
+        "u_backup": "Backup of cam-docs: {path}",
         "d_doing": "In progress", "d_last": "last checkpoint", "d_fb": "your corrections pending",
         "k_doing": "Doing", "k_todo": "To do", "k_blocked": "Blocked", "k_done": "Done", "k_ready": "← ready",
         "res_q": "“{u}” was left half done. How shall I continue?",
@@ -748,7 +764,7 @@ class W:
             if self.extra_ready():
                 choices.append(Choice(self.t("m_extra"), "extra"))
             choices += [
-                Choice(self.t("m_tutorial"), "tutorial"),
+                Choice(self.t("m_tutorial"), "tutorial"), Choice(self.t("m_uninstall"), "uninstall"),
                 Choice(self.t("m_model"), "model"), Choice(self.t("m_lang"), "lang"), Choice(self.t("m_exit"), "exit")]
             choice = self.sel(self.t("menu"), back=False, choices=choices)
             if choice == "resume":
@@ -763,7 +779,8 @@ class W:
             if choice == "exit":
                 return
             self.banner()
-            self.safe(getattr(self, f"do_{choice}"))
+            if self.safe(getattr(self, f"do_{choice}")) == "gone":   # uninstalled: this project no longer exists
+                return
 
     # ---------- first run: a step machine, Esc / ↩ goes one step back ----------
     def first_run(self, start: int = 0) -> bool:
@@ -1766,6 +1783,38 @@ Talk to the user in {talk}. Do not modify application code.
                 self.say(self.t("w_done", repo=repo) if ok else self.t("w_fail", repo=repo), "green" if ok else "yellow")
             self.pause()
             self.banner()
+
+    def do_uninstall(self) -> str | None:
+        """Undo the whole project (lib/uninstall.py). Returns 'gone' once cam-docs is deleted."""
+        from . import uninstall
+        why = uninstall.guard()
+        if why:
+            self.say(Panel(why, border_style="yellow"))
+            self.pause()
+            return None
+        user_level = self.yes(self.t("u_global"), default=False)
+        if user_level is None:
+            return None
+        self.banner()
+        rows = Text()
+        for s in uninstall.steps(include_global=user_level):
+            rows.append(f"  • {s.label}\n", style="yellow" if s.kind in ("delete", "user") else "")
+        rows.append(f"\n{self.t('u_keep')}:\n", style="bold")
+        for t in uninstall.untouched():
+            rows.append(f"  · {t}\n", style="grey62")
+        self.say(Panel(rows, title=self.t("u_preview"), title_align="left", border_style="red"))
+        name = docs.workspace()["project"]["name"]
+        typed = self.txt(self.t("u_confirm", name=name))
+        if typed is None or typed.strip().casefold() != name.strip().casefold():
+            self.say(self.t("u_cancel"), "yellow")
+            self.pause()
+            return None
+        zipped = self.busy(uninstall.run, include_global=user_level)
+        self.say(self.t("u_done", ws=WORKSPACE), "green")
+        if zipped:
+            self.say(self.t("u_backup", path=zipped))
+        self.pause()
+        return "gone"
 
     def wiki_engine(self) -> str | None:
         engines = env.wiki_engines()

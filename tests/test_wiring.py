@@ -117,3 +117,15 @@ def test_migrate_cleaner_dry_run_reports_without_changing(kit):
     assert any(".gitignore" in a for a in acts)
     after = subprocess.run(["git", "status", "--porcelain", "-uall"], cwd=repo, capture_output=True, text=True).stdout
     assert before == after and (repo / "graphify-out" / "graph.json").exists()
+
+
+def test_migrate_cleanup_restores_head_bytes_and_line_endings(kit):
+    repo = kit.ws / "api"
+    head = (repo / "CLAUDE.md").read_bytes()
+    with (repo / "CLAUDE.md").open("a", encoding="utf-8", newline="\r\n") as fh:    # what a Windows text write leaves
+        fh.write("\n## graphify\nuse graphify-out/\n")
+    (repo / ".gitignore").write_bytes(b"target/\ngraphify-out/\n")
+    kit.migrate.Cleaner("api", dry=False).run()
+    assert (repo / "CLAUDE.md").read_bytes() == head
+    assert (repo / ".gitignore").read_bytes() == b"target/\n"
+    assert porcelain(repo) == set()
