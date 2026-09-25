@@ -48,3 +48,36 @@ def test_menu_errors_are_shown_not_raised(kit, fake_wizard, monkeypatch):
     kit.plan.sync()
     monkeypatch.setattr(kit.wizard.W, "do_status", lambda self: 1 / 0)
     fake_wizard(["status", "exit"])._run()
+
+
+# ---------- quick C4 draft (first look) ----------
+@pytest.fixture
+def first_look(kit, monkeypatch):
+    page = kit.docs.DOCS / "architecture" / "first-look.md"
+    page.parent.mkdir(parents=True)
+    page.write_text("# First look\n", encoding="utf-8")
+    calls = {"draft": 0, "portal": []}
+
+    def draft(log=None, **kw):
+        calls["draft"] += 1
+        return None                                                              # scan failed → again / skip menu
+    monkeypatch.setattr(kit.wizard.quickarch, "draft", draft)
+    monkeypatch.setattr(kit.wizard.W, "open_portal", lambda self, h="": calls["portal"].append(h))
+    return calls
+
+
+def test_saved_first_look_is_kept_without_rescanning(first_look, fake_wizard):
+    w = fake_wizard(["keep"])
+    assert w.arch_flow() == "saved"
+    assert first_look["draft"] == 0
+    assert "first-look" not in w.answers.asked[0] and "ya está hecho" in w.answers.asked[0]
+
+
+def test_saved_first_look_can_be_viewed_then_redone(first_look, fake_wizard):
+    w = fake_wizard(["view", "redo", "skip"])
+    assert w.arch_flow() == "skipped"
+    assert first_look["portal"] == ["#/c4"] and first_look["draft"] == 1
+
+
+def test_escape_on_a_saved_first_look_goes_back(kit, first_look, fake_wizard):
+    assert fake_wizard([None]).arch_flow() == kit.wizard.BACK
