@@ -81,3 +81,49 @@ def test_saved_first_look_can_be_viewed_then_redone(first_look, fake_wizard):
 
 def test_escape_on_a_saved_first_look_goes_back(kit, first_look, fake_wizard):
     assert fake_wizard([None]).arch_flow() == kit.wizard.BACK
+
+
+# ---------- stack + tooling radar (first-run step and menu) ----------
+def test_every_string_exists_in_both_languages(kit):
+    T = kit.wizard.T
+    assert set(T["es"]) == set(T["en"])
+
+
+@pytest.mark.parametrize("state, step", [
+    ({}, "name"), ({"step": 3, "done": False}, "setup"),
+    ({"step": 4, "done": False}, "arch"), ({"step": 5, "done": False}, "intro"),   # firstrun.json from before 3.3
+    ({"step": 4, "name": "stack", "done": False}, "stack"), ({"step": 0, "name": "arch"}, "arch"),
+])
+def test_first_run_resumes_on_the_same_step(kit, state, step):
+    W = kit.wizard
+    assert W.STEPS[W.resume_step(state)] == step
+
+
+@pytest.fixture
+def stack_screen(kit, monkeypatch):
+    portal = []
+    monkeypatch.setattr(kit.wizard.W, "open_portal", lambda self, h="": portal.append(h))
+    return portal
+
+
+def test_stack_step_accepts_the_detected_stack(kit, stack_screen, fake_wizard):
+    w = fake_wizard(["view", "ok"])
+    assert w.stack_flow() == "done"
+    assert stack_screen == ["#/docs/overview/tooling.md"]
+    assert (kit.docs.DOCS / "overview" / "tooling.md").exists()
+    assert all("stack" not in r for r in kit.docs.workspace()["repos"])
+
+
+def test_stack_step_fixes_a_repo_stack(kit, stack_screen, fake_wizard):
+    w = fake_wizard(["fix", "api", "Java 21 · Spring Boot", "fix", "web", "Node.js · React", "ok"])
+    assert w.stack_flow() == "done"
+    rows = {r["name"]: r for r in kit.docs.workspace()["repos"]}
+    assert rows["api"]["stack"] == "Java 21 · Spring Boot"
+    assert "stack" not in rows["web"]                                     # same as detected: nothing to override
+    assert "Java 21 · Spring Boot" in (kit.docs.DOCS / "overview" / "tooling.md").read_text(encoding="utf-8")
+
+
+def test_stack_step_escape_goes_back(kit, stack_screen, fake_wizard):
+    assert fake_wizard([None]).stack_flow() == kit.wizard.BACK
+    w = fake_wizard(["fix", None, "ok"])                                  # Esc in the repo picker: back to the screen
+    assert w.stack_flow() == "done"

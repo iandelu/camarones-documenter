@@ -52,6 +52,9 @@ installs the quality gate (mermaid-cli, gitleaks) that `CLI check` uses; without
 
 ## discovery
 Scope: one repo. Output: `docs/interview/discovery/<repo>.md` (`type: interview`). Read-only on code.
+Start from `docs/overview/tooling.md` (static radar, no AI: stack + tools the team already uses — Backstage catalog,
+Sonar, component library, linters, contracts, CI/deploy). Verify it; if a stack is wrong run `CLI stack <repo> "<stack>"`
+then `CLI radar`. Specs and `catalog-info.yaml` it lists are first-class evidence (owner/system from Backstage).
 Truth order: OpenAPI/AsyncAPI → manifests → config → code; navigate with `graphify query "…" --graph graph/<repo>/graph.json`
 (or the `camarones` MCP tool `repo_graph`) rather than grep.
 Capture with evidence `<repo>:<path>#Lx-Ly`:
@@ -100,7 +103,8 @@ The foundation for one repo — after this unit the repo is useful on its own:
 2. C4: its container in `docs/architecture/model.c4` (create `likec4.config.json` + `model.c4` + `views.c4` if missing —
    or run `CLI arch-draft --save` to start from the static-scan draft)
    and `docs/architecture/repos/<repo>.c4` (components + `<repo_snake>_components` view). `CLI arch-validate` → ✓ Valid.
-3. Repo brief (CONVENTIONS §7): `docs/repos/<repo>/brief.md` — stack, how to build/test/run, interfaces, data owned,
+3. Repo brief (CONVENTIONS §7): `docs/repos/<repo>/brief.md` — stack (must match `CLI stack`; fix it there, not only in
+   the brief), how to build/test/run, interfaces, data owned,
    doc pointers and the Mermaid component diagram (`likec4 gen mermaid docs/architecture -o build/mmd` →
    `build/mmd/repos/<repo_snake>_components.mmd`). Do not edit the repo's own README/AGENTS.md/CLAUDE.md.
 

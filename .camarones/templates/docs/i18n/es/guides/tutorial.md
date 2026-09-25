@@ -36,11 +36,13 @@ repos de servicio no reciben archivos del kit; las rutas de abajo son relativas 
 
 ## 2. El flujo guiado
 
-La primera vez te lleva por 4 pasos:
+La primera vez te lleva por 6 pasos:
 1. **Workspace:** nombre del proyecto y repos.
 2. **Herramientas:** tabla con lo que tienes y lo que falta; eliges **instalar todo (recomendado)** o **qué instalar** (git, Node, Docker, Java, Claude/Codex, graphify, LikeC4, OpenWiki, hooks…).
 3. **Setup:** herramientas, repos, conexión de Claude/Codex y hooks de git.
-4. **Sesiones:** te explica cómo funcionan.
+4. **Stack y herramientas:** el stack de cada repo y las herramientas que ya usáis (Backstage, Sonar, librería de componentes, linters, contratos, CI), detectados sin IA; si un stack está mal lo corriges ahí o luego con `camaron stack`. Queda en `docs/overview/tooling.md`.
+5. **Diagrama C4 rápido:** un primer borrador de la arquitectura, también sin IA.
+6. **Sesiones:** te explica cómo funcionan.
 
 Esc vuelve al paso anterior en cualquier momento. Las tareas largas muestran qué están haciendo, una barra de progreso y datos curiosos de crustáceos. Después, el menú principal muestra el progreso del plan y el siguiente paso.
 

@@ -1,4 +1,4 @@
-# Tooling candidates for the Camarones method
+# Tooling candidates for the Camarón method
 
 Research pass, 2026-09-24. Goal: list every tool that could improve how Camarones documents a multi-repo project, so we
 can **discard** in a second pass. Nothing here is a decision.
@@ -146,13 +146,13 @@ can **discard** in a second pass. Nothing here is a decision.
 | J3 | sqlite-vec † | Vector search extension for SQLite | Add semantic search on top of J1 without a server | Needs an embedding model | 🔴 |
 | J4 | [Pagefind](https://pagefind.app) † | Static-site search index built at export time | Better search for the **static** portal export (`CLI portal`) with tiny payloads | Binary/npm at build time only | 🟡 |
 | J5 | Context7 MCP † | Up-to-date docs of third-party libraries for agents | Agents documenting a repo can check framework semantics (Spring, Quarkus versions) | Hosted | 🔴 |
-| J6 | llms.txt conventions (`llms-full.txt`) † | Emerging standard for AI-readable site indexes | We already write `llms.txt`; add `llms-full.txt` in the static export | Trivial | 🟡 |
+| J6 | llms.txt conventions (`llms-full.txt`) † | Emerging standard for AI-readable site indexes | We already write `llms.txt`; add `llms-full.txt` in the static export → taken up in [ai-first-docs.md](ai-first-docs.md) (P8) | Trivial | 🟡 |
 
 ## K. Portal and publishing
 
 | ID | Tool | What it is | What it would improve here | Notes | Signal |
 |---|---|---|---|---|---|
-| K1 | [Backstage](https://backstage.io/docs/features/software-catalog/descriptor-format/) catalog + TechDocs | Developer portal; `catalog-info.yaml` entities (Component, API, System, Domain, Resource) with typed relations | **Export target**: generate `catalog-info.yaml` from `model.c4` + discovery so companies with Backstage consume our work | Export only — never run Backstage from the kit; writing into service repos would need the teams' consent | 🟡 |
+| K1 | [Backstage](https://backstage.io/docs/features/software-catalog/descriptor-format/) catalog + TechDocs | Developer portal; `catalog-info.yaml` entities (Component, API, System, Domain, Resource) with typed relations | **Export target**: generate `catalog-info.yaml` from `model.c4` + discovery so companies with Backstage consume our work | Export only — never run Backstage from the kit; writing into service repos would need the teams' consent. **Import side done (3.3):** `lib/radar.py` reads an existing `catalog-info.yaml` (owner, system, lifecycle) into `docs/overview/tooling.md` | 🟡 |
 | K2 | [Zensical](https://squidfunk.github.io/mkdocs-material/blog/2025/11/05/zensical/) | Successor of Material for MkDocs (which ends maintenance 2026-11-05), MIT | Alternative static export for teams wanting a "standard" docs site | Our own portal already covers this; relevant only if we drop it | 🔴 |
 | K3 | Astro Starlight / Docusaurus / VitePress † | Static docs frameworks | Same as K2 | Build step + npm, against the kit's no-build choice | 🔴 |
 | K4 | Quartz / Obsidian † | Markdown knowledge garden / vault | Open `cam-docs/docs` as an Obsidian vault (graph view, backlinks) with no extra work | Only needs wiki-link compatibility checks | 🔴 |
@@ -174,6 +174,8 @@ can **discard** in a second pass. Nothing here is a decision.
 | M1 | Whisper / whisper.cpp † | Local speech-to-text | Record a 30-min interview with an architect, transcribe locally, let the `interview-*` unit extract answers | Local models; privacy consent needed | 🟡 |
 | M2 | NotebookLM (MCP available in this environment) | Grounded Q&A over uploaded sources | Load existing PDFs/Confluence exports as interview material | Sends content to Google | 🔴 for private code |
 | M3 | Confluence / Jira / Notion MCP connectors | Read existing wikis and tickets | Discovery of **historical decisions** (ADRs hidden in tickets and old wiki pages) for `interview-history` | Read-only use; auth per company | 🟡 |
+| M4 | Doc import from exported files (Confluence/Notion HTML or Markdown export, Word) | The user hands the kit an up-to-date export; pages enter as a new `imported` trust state (below `draft`) and a unit reconciles each claim against the code (truth order) — matches become drafts with both sources, contradictions go to `open-questions.md` | Reuses what teams already wrote instead of re-interviewing | Deferred after the 3.3 radar (scope). Files first: no credentials, works on the three OSes; MCP (M3) only as an optional shortcut | 🟡 next |
+| M5 | Radar follow-ups: SonarQube/Backstage **API** reads, per-stack tool installs | Metrics (coverage, debt) and catalog relations from the company's servers; e.g. springdoc/Springwolf builds (C1/C2) when the stack is Spring | Richer evidence for `decisions-quality` and contracts | API reads need a server + token (`creds.py`), so optional and degradable; installs must pass AGENTS.md §2.4 one by one. The 3.3 radar only reads files in the repos | 🟡 |
 
 ## N. Evidence for the beta review units
 

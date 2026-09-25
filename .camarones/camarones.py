@@ -37,6 +37,8 @@
   autopilot [--lang es|en] [--max-units N] [--poll-seconds N] [--include-interviews]
                             run ready units back to back unattended (Claude Code / Codex, waits out usage limits)
   arch-draft [--save]       quick static architecture scan → C4 draft (first look, no AI)
+  radar [--json]            stack + tools the repos already use (Backstage, Sonar, linters…) → docs/overview/tooling.md
+  stack REPO [TEXT|--reset] fix a repo's stack in workspace.yaml (--reset: back to the detected one)
   doctor                    check prerequisites and tool versions
   install DEST --profile quick|full [--dry-run]   copy kit into an explicit project folder
   upgrade SOURCE [--dry-run]  update kit files with backups; preserve project configuration
@@ -97,7 +99,7 @@ elif os.environ.get("CAMARONES_GLOBAL") and not os.environ.get("CAMARONES_ROOT")
         _relaunch(_dest, sys.argv[1:])
 
 from lib import docs, env, plan                     # noqa: E402
-from lib.common import VERSIONS, cli_cmd, ROOT, CACHE   # noqa: E402
+from lib.common import VERSIONS, cli_cmd, ROOT, CACHE, load_json   # noqa: E402
 
 for _stream in (sys.stdout, sys.stderr):
     if hasattr(_stream, "reconfigure"):
@@ -153,6 +155,9 @@ def main() -> int:
     cp = sp.add_parser("checkpoint"); cp.add_argument("message", nargs="?", default="progress")
     fb = sp.add_parser("feedback"); fb.add_argument("file"); fb.add_argument("text"); fb.add_argument("--by", default="")
     ad = sp.add_parser("arch-draft"); ad.add_argument("--save", action="store_true"); ad.add_argument("--overwrite", action="store_true")
+    rd = sp.add_parser("radar"); rd.add_argument("--json", action="store_true")
+    st = sp.add_parser("stack"); st.add_argument("repo"); st.add_argument("text", nargs="?", default="")
+    st.add_argument("--reset", action="store_true")
     pr = sp.add_parser("prompt"); pr.add_argument("unit"); pr.add_argument("--lang", default="es")
     pr.add_argument("--unattended", action="store_true")
     ap = sp.add_parser("autopilot"); ap.add_argument("--lang", default="es"); ap.add_argument("--max-units", type=int)
@@ -307,6 +312,26 @@ def main() -> int:
         print((m["dir"] / "model.c4").read_text(encoding="utf-8"))
         if a.save:
             print("\n".join(quickarch.save(m, overwrite=a.overwrite)))
+    elif a.cmd == "radar":
+        from lib import radar
+        page = radar.run(log=(lambda _: None) if a.json else print)
+        if a.json:
+            print(json.dumps(load_json(radar.CACHE_FILE, {}), indent=2, ensure_ascii=False))
+        else:
+            for name, r in load_json(radar.CACHE_FILE, {}).items():
+                print(f"{name:<20} {r['stack']}")
+                print(f"{'':<20} " + (", ".join(t["label"] for t in r["tools"]) or "-"))
+            print(f"→ {page.relative_to(ROOT).as_posix()}")
+    elif a.cmd == "stack":
+        from lib import radar
+        if not a.reset and not a.text:
+            p.error("stack: give the stack text or --reset")
+        try:
+            radar.set_stack(a.repo, None if a.reset else a.text)
+        except ValueError as e:
+            print(e, file=sys.stderr)
+            return 2
+        print(f"{a.repo}: " + ("stack reset to the detected one" if a.reset else a.text.strip()))
     elif a.cmd == "version":
         print(f"Camarones Documenter {VERSIONS['kit']} — " + ", ".join(f"{k} {v}" for k, v in VERSIONS.items() if k != "kit"))
     elif a.cmd == "checkpoint":
