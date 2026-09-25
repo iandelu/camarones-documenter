@@ -43,6 +43,12 @@ Every change must work on all three. CI (`.github/workflows/tests.yml`) runs the
   `e2e` marker.
 - Run: `uv run pytest` (all but e2e) · `uv run pytest -m e2e` (clones real repos). A change is done when the suite is
   green; say so with the output, or say what failed.
+- **Sandbox for end-to-end checks.** If the sandbox project exists (`$CAMARONES_SANDBOX`, else
+  `~/projects/camarones-sandbox`, with the Spring PetClinic repos), use it to verify a change end to end with this
+  checkout's kit, beyond the unit suite: `uv run scripts/sandbox.py cli <command>` (or `open` for the wizard),
+  then `traces` after uninstall flows (exit 0 = nothing left behind). `reset` restores the pinned repos without
+  network. Never run the kit against a real project to test it. If the sandbox is missing, `reset` creates it
+  (first run clones from GitHub); say so rather than skipping silently.
 
 ### 2.3 Backward compatibility (3.x)
 

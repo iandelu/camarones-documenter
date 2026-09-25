@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="520" viewBox="0 0 1280 520" role="img" aria-labelledby="title desc">
-  <title id="title">Camarones Documenter</title>
+  <title id="title">Camarón</title>
   <desc id="desc">Muchos repos. Una historia clara. Documentación con IA, contexto que permanece y revisión humana.</desc>
   <defs>
     <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#101f2b"/><stop offset="1" stop-color="#091119"/></linearGradient>
@@ -13,7 +13,7 @@
     <rect x="58" y="51" width="270" height="31" rx="15" fill="#20323e"/>
     <circle cx="76" cy="67" r="4" fill="#8bd5ca"/>
     <text x="90" y="72" fill="#bfd1d8" font-size="12" letter-spacing="2">TU CÓDIGO TIENE UNA HISTORIA</text>
-    <text x="58" y="151" fill="#ff956f" font-size="24" font-weight="600">CAMARONES DOCUMENTER</text>
+    <text x="58" y="151" fill="#ff956f" font-size="24" font-weight="600">CAMARÓN</text>
     <text x="54" y="232" fill="#f3f5f6" font-size="66" font-weight="700" letter-spacing="-2">Muchos repos.</text>
     <text x="54" y="304" fill="#f3f5f6" font-size="66" font-weight="700" letter-spacing="-2">Una historia clara.</text>
     <text x="58" y="355" fill="#adbeca" font-size="21">Documentación con IA. Contexto que permanece.</text>

@@ -1,10 +1,10 @@
 <p align="center">
-  <img src=".github/media/hero.svg" alt="Camarones Documenter. Muchos repos. Una historia clara." width="100%">
+  <img src=".github/media/hero.svg" alt="Camarón. Muchos repos. Una historia clara." width="100%">
 </p>
 
 <p align="center">
   <strong>Convierte un proyecto multi-repo en documentación que puedes explorar, revisar y mantener.</strong><br>
-  Tu agente de IA lee el código. Camarones organiza el trabajo. Tú validas el resultado.
+  Tu agente de IA lee el código. Camarón organiza el trabajo. Tú validas el resultado.
 </p>
 
 <p align="center">
@@ -28,7 +28,7 @@
 
 Un servicio recibe la petición, otro publica un evento y un tercero guarda el resultado. Entender el sistema exige cruzar repositorios, conversaciones y decisiones que quizá nadie escribió.
 
-**Camarones Documenter** es un kit local con asistente de terminal y CLI que coordina ese trabajo con Claude Code o Codex. Divide la documentación en unidades manejables, guarda el progreso entre sesiones y reúne el resultado en un portal web.
+**Camarón** es un wizard local con CLI que coordina ese trabajo con Claude Code o Codex. Divide la documentación en unidades manejables, guarda el progreso entre sesiones y reúne el resultado en un portal web.
 
 Está pensado para equipos que necesitan incorporar personas, entender sistemas heredados o documentar la arquitectura y los flujos de un proyecto con varios repositorios.
 
@@ -46,18 +46,35 @@ Camarón te habla como tu becario gamba al que has mandado a documentar: con gan
 
 1. **Instala e integra las herramientas de IA** (Claude Code, Codex, graphify, LikeC4, OpenWiki, MCP, mermaid-cli, gitleaks) con un asistente.
 2. **Estandariza la documentación** con un plan de unidades, un playbook, convenciones y skills para los agentes.
-3. **Las personas consultan, editan y verifican** la documentación en el portal vivo (`camarones up`) o con la CLI.
+3. **Las personas consultan, editan y verifican** la documentación en el portal vivo (`camaron up`) o con la CLI.
 4. **La IA tiene la documentación a mano al implementar**: servidor MCP `camarones` (`search_docs` con ranking, `read_doc`, `repo_graph`…), servidor MCP `likec4` para preguntar al modelo de arquitectura, ambos en Claude Code y en Codex, y skills `cam-docs-lookup` / `cam-docs-update`.
 5. **Documentación viva y revisada**: el código y la doc cambian juntos; `changes`, `check` y la trazabilidad `x-sources` señalan lo que quedó atrás, y `check` además detecta enlaces rotos, diagramas que no se dibujan, secretos copiados y términos que el glosario pide evitar.
 6. **Todo vive en `cam-docs/`**, una carpeta junto a tus repos que es su propio repo Git: docs, `.camarones`, `.claude`, `.codex`, `.agents`, `.mcp.json`. Los repos de servicio no reciben archivos del kit.
 
-## Del código al mapa del proyecto
+## Mira cómo funciona
 
 <p align="center">
-  <img src=".github/media/workflow.gif" alt="Flujo ilustrativo: conectar repositorios, analizar con IA, guardar el progreso y revisar la documentación." width="960">
+  <img src=".github/media/portal-docs.gif" alt="Recorrido real por la documentación y la búsqueda del portal de Camarón." width="960">
 </p>
 
-*Animación explicativa del flujo; no es una grabación de la interfaz ni una medición de tiempos.*
+<p align="center"><em>Navega, busca y abre documentación sin salir del portal.</em></p>
+
+<p align="center">
+  <img src=".github/media/portal-review.gif" alt="Recorrido real por la revisión humana de documentación en Camarón." width="960">
+</p>
+
+<p align="center"><em>Revisa borradores, confirma páginas y deja correcciones para la siguiente sesión.</em></p>
+
+<details>
+<summary><strong>Más capturas del portal</strong></summary>
+
+| Documentación | Arquitectura C4 | Revisión |
+|---|---|---|
+| ![Documentación del portal](.github/media/portal-docs.png) | ![Arquitectura C4 del portal](.github/media/portal-c4.png) | ![Cola de revisión del portal](.github/media/portal-review.png) |
+
+</details>
+
+## Del código al mapa del proyecto
 
 1. **Conecta tus repositorios.** Detecta carpetas Git locales o configura repositorios de GitHub y GitLab.
 2. **Descubre el sistema.** El agente examina código, contratos, configuración e integraciones; las entrevistas recogen el contexto que falta.
@@ -103,16 +120,16 @@ El asistente comprueba los requisitos y permite elegir componentes. La primera i
 sh install-global.sh
 ```
 
-Esto clona el kit a una ruta fija (`%LOCALAPPDATA%\camarones-documenter\kit` en Windows, `~/.camarones/kit` en macOS/Linux) y deja un comando `camarones` en tu PATH. Desde ahí:
+Esto clona el kit a una ruta fija (`%LOCALAPPDATA%\camarones-documenter\kit` en Windows, `~/.camarones/kit` en macOS/Linux) y deja el comando `camaron` en tu PATH. El antiguo `camarones` continúa como alias compatible durante la transición. Desde ahí:
 
 ```sh
 cd ~/Documents/mi-proyecto   # la carpeta que agrupa (o agrupará) los repos
-camarones                    # crea ./cam-docs/, lo registra y abre el asistente
-camarones new enjoy          # alternativa: crea ./enjoy/cam-docs/
-camarones switch             # cambia entre tus proyectos
-camarones self-update        # git pull del kit central — actualiza todos los proyectos a la vez
-camarones migrate            # pasa un proyecto de la estructura anterior (≤2.5) a cam-docs/
-camarones uninstall          # lo deshace todo: borra cam-docs/ (con copia .zip) y los rastros en los repos
+camaron                    # crea ./cam-docs/, lo registra y abre el asistente
+camaron new enjoy          # alternativa: crea ./enjoy/cam-docs/
+camaron switch             # cambia entre tus proyectos
+camaron self-update        # git pull del kit central — actualiza todos los proyectos a la vez
+camaron migrate            # pasa un proyecto de la estructura anterior (≤2.5) a cam-docs/
+camaron uninstall           # lo deshace todo: borra cam-docs/ (con copia .zip) y los rastros en los repos
 ```
 
 Cada proyecto guarda **todo lo que genera el kit en `cam-docs/`**, un repositorio Git propio (versionado aparte del kit y de los repos que documenta, pensado para compartirlo con el equipo). La carpeta del workspace enlaza a él la configuración de los agentes, así que al abrir Claude Code o Codex en ella ven todos los repos y la documentación:
@@ -134,13 +151,13 @@ mi-proyecto/
 
 Si lo pides, el asistente añade al `CLAUDE.md` de cada repo un bloque corto que apunta a `../cam-docs` (se añade al final; nunca borra lo que había).
 
-**Copia local por proyecto (modo clásico).** Descarga este repositorio desde **Code → Download ZIP** o clónalo. Copia **`.camarones/`**, **`camarones.cmd`** y **`camarones.command`** a la carpeta que agrupa el proyecto. Activa la visualización de archivos ocultos para ver `.camarones/`. Si ya tienes un proyecto así y quieres pasarlo a instalación global sin perder su configuración, corre `camarones unlink` dentro de él.
+**Copia local por proyecto (modo clásico).** Descarga este repositorio desde **Code → Download ZIP** o clónalo. Copia **`.camarones/`**, **`camaron.cmd`** y **`camaron.command`** a la carpeta que agrupa el proyecto. Los launchers antiguos `camarones.*` son aliases compatibles. Activa la visualización de archivos ocultos para ver `.camarones/`. Si ya tienes un proyecto así y quieres pasarlo a instalación global sin perder su configuración, corre `camaron unlink` dentro de él.
 
 ```text
 mi-proyecto/
 ├── .camarones/           # El kit y su configuración
-├── camarones.cmd        # Windows
-├── camarones.command    # macOS / Linux
+├── camaron.cmd          # Windows
+├── camaron.command      # macOS / Linux
 ├── orders-api/          # Repositorio Git
 ├── payments-api/        # Repositorio Git
 └── storefront/          # Repositorio Git
@@ -150,10 +167,10 @@ También puedes empezar con la carpeta vacía y añadir repositorios desde el as
 
 ### 2. Abre el asistente
 
-**Instalación global** — desde la carpeta del workspace o cualquier carpeta dentro de ella (o corre `camarones switch` para elegir un proyecto):
+**Instalación global** — desde la carpeta del workspace o cualquier carpeta dentro de ella (o corre `camaron switch` para elegir un proyecto):
 
 ```sh
-camarones
+camaron
 ```
 
 **Copia local (modo clásico)**
@@ -161,16 +178,16 @@ camarones
 **Windows · PowerShell**
 
 ```powershell
-.\camarones.cmd
+.\camaron.cmd
 ```
 
 **macOS / Linux**
 
 ```sh
-sh camarones.command
+sh camaron.command
 ```
 
-En Windows también puedes abrir `camarones.cmd` con doble clic. En macOS, si el sistema bloquea el lanzador descargado, ejecútalo una primera vez desde Terminal con el comando anterior.
+En Windows también puedes abrir `camaron.cmd` con doble clic. En macOS, si el sistema bloquea el lanzador descargado, ejecútalo una primera vez desde Terminal con el comando anterior.
 
 ### 3. Sigue el plan
 
@@ -186,17 +203,17 @@ Cada sesión lee el contexto necesario, trabaja en una unidad y guarda notas. Si
 
 ```powershell
 # Ver el trabajo disponible
-.\camarones.cmd plan next
+.\camaron.cmd plan next
 
 # Empezar una unidad existente y guardar una nota
-.\camarones.cmd plan start discovery:orders-api
-.\camarones.cmd plan note discovery:orders-api "Revisados endpoints; falta mensajería"
+.\camaron.cmd plan start discovery:orders-api
+.\camaron.cmd plan note discovery:orders-api "Revisados endpoints; falta mensajería"
 
 # Obtener instrucciones para una sesión de actualización
-.\camarones.cmd prompt update --lang es
+.\camaron.cmd prompt update --lang es
 ```
 
-En macOS / Linux, sustituye `.\camarones.cmd` por `sh camarones.command` en los ejemplos.
+En macOS / Linux, sustituye `.\camaron.cmd` por `sh camaron.command` en los ejemplos.
 
 ## La IA propone. Tú confirmas.
 
@@ -209,10 +226,10 @@ La revisión se aplica al contenido exacto de cada página:
 Las convenciones instruyen a los agentes para conservar los bloques `<!-- human -->` y respetar los archivos con `x-owner: human`. Son reglas de trabajo para el agente; la calidad final sigue requiriendo revisión.
 
 ```powershell
-.\camarones.cmd status
-.\camarones.cmd check
-.\camarones.cmd confirm docs/overview/system.md --by "Tu nombre"
-.\camarones.cmd feedback docs/overview/system.md "Falta describir los reintentos" --by "Tu nombre"
+.\camaron.cmd status
+.\camaron.cmd check
+.\camaron.cmd confirm docs/overview/system.md --by "Tu nombre"
+.\camaron.cmd feedback docs/overview/system.md "Falta describir los reintentos" --by "Tu nombre"
 ```
 
 `check` es la puerta de calidad que se pasa al cerrar cada unidad y en CI:
@@ -253,9 +270,9 @@ mi-proyecto/cam-docs/
 ### Explora y edita en el portal
 
 ```sh
-camarones up          # portal local: leer, editar, confirmar, pedir cambios, generar wikis y hacer commit en cam-docs
-camarones wiki orders-api   # generar o actualizar la wiki OpenWiki de un repo (lo mismo que la pestaña Wikis)
-camarones down
+camaron up          # portal local: leer, editar, confirmar, pedir cambios, generar wikis y hacer commit en cam-docs
+camaron wiki orders-api   # generar o actualizar la wiki OpenWiki de un repo (lo mismo que la pestaña Wikis)
+camaron down
 ```
 
 Abre **http://localhost:8080**. Es un único portal 🦐 con pestañas, en español o inglés (el mismo selector cambia la interfaz y las traducciones de la documentación):
@@ -266,14 +283,14 @@ Abre **http://localhost:8080**. Es un único portal 🦐 con pestañas, en espa�
 - **Wikis**: estado de la wiki OpenWiki de cada repo, su grafo, y el botón para generarla o actualizarla con un log en vivo. Sin clave de proveedor de OpenWiki, la genera Claude Code o Codex a través del MCP de OpenWiki.
 - **Review**: lo pendiente de revisar, las peticiones de cambio y los repos cuyo código cambió.
 
-Para publicarlo (CI / hosting), `camarones portal` exporta la misma aplicación en modo solo lectura (HTML + JSON, sin npm) a `.camarones/.cache/site`. Se sirve con `camarones up --static`, con `camarones up --docker` o desde cualquier hosting estático; los enlaces «Editar» llevan al fichero en GitLab/GitHub.
+Para publicarlo (CI / hosting), `camaron portal` exporta la misma aplicación en modo solo lectura (HTML + JSON, sin npm) a `.camarones/.cache/site`. Se sirve con `camaron up --static`, con `camaron up --docker` o desde cualquier hosting estático; los enlaces «Editar» llevan al fichero en GitLab/GitHub.
 
 ### Mantenlo al día
 
 ```powershell
-.\camarones.cmd changes
-.\camarones.cmd prompt update --lang es
-.\camarones.cmd check
+.\camaron.cmd changes
+.\camaron.cmd prompt update --lang es
+.\camaron.cmd check
 ```
 
 `changes` compara los commits con el estado registrado en la última documentación. `prompt update` **imprime instrucciones**: entrégaselas a tu agente o inicia la actualización desde el asistente. Después del trabajo y la revisión, `mark-documented` registra el nuevo punto de referencia.
@@ -282,7 +299,7 @@ Se incluyen [plantillas de CI para GitHub y GitLab](.camarones/ci/) para automat
 
 ### Deshazlo todo
 
-El menú del asistente tiene **🧹 Deshacer todo** (o `camarones uninstall`, con `--dry-run` para ver la lista sin tocar nada). Detiene el portal, guarda una copia `.zip` de `cam-docs/` en la carpeta temporal, quita de cada repo lo que añadió el kit (el enlace `openwiki`, su línea en `.git/info/exclude`, el bloque en `CLAUDE.md` y restos de versiones antiguas), elimina los enlaces de la carpeta del workspace y borra `cam-docs/` y su entrada del registro. Los repos quedan como en su último commit: un fichero versionado vuelve a su contenido de HEAD y nunca se toca el historial. Pide escribir el nombre del proyecto para confirmar. Con la casilla de usuario (o `--global`) limpia también `~/.camarones.json`, `~/.camarones/` y los tokens guardados; no desinstala herramientas globales ni el propio kit.
+El menú del asistente tiene **🧹 Deshacer todo** (o `camaron uninstall`, con `--dry-run` para ver la lista sin tocar nada). Detiene el portal, guarda una copia `.zip` de `cam-docs/` en la carpeta temporal, quita de cada repo lo que añadió el kit (el enlace `openwiki`, su línea en `.git/info/exclude`, el bloque en `CLAUDE.md` y restos de versiones antiguas), elimina los enlaces de la carpeta del workspace y borra `cam-docs/` y su entrada del registro. Los repos quedan como en su último commit: un fichero versionado vuelve a su contenido de HEAD y nunca se toca el historial. Pide escribir el nombre del proyecto para confirmar. Con la casilla de usuario (o `--global`) limpia también `~/.camarones.json`, `~/.camarones/` y los tokens guardados; no desinstala herramientas globales ni el propio kit.
 
 ## Las piezas del kit
 
@@ -291,8 +308,8 @@ El menú del asistente tiene **🧹 Deshacer todo** (o `camarones uninstall`, co
 Las versiones de las herramientas están fijadas en [common.py](.camarones/lib/common.py) y las librerías del portal en [serve.py](.camarones/lib/serve.py). Puedes consultarlas con:
 
 ```powershell
-.\camarones.cmd version
-.\camarones.cmd doctor
+.\camaron.cmd version
+.\camaron.cmd doctor
 ```
 
 ## Herramientas que evaluamos y descartamos
@@ -315,6 +332,10 @@ Además, no deja archivos en los repos de servicio y sirve igual con Claude Code
 | SQLite FTS5 | Un índice incremental tendría que leer todos los ficheros en cada consulta para saber qué cambió. La búsqueda BM25 en memoria da el mismo ranking sin caché ni problemas de concurrencia. |
 | mermaid-cli 12 | Usa mermaid 12 y el portal dibuja con mermaid 11: se fija mermaid-cli 11.x para validar con el mismo motor. |
 | `npx skills add` (skill de LikeC4) | Canal de distribución sin versión fija. El servidor MCP de LikeC4 sí está integrado; la skill queda pendiente hasta poder guardar una copia revisada. |
+
+## Documentación pensada primero para agentes (propuesta)
+
+La propuesta es que los documentos que escriben las unidades del plan estén pensados primero para que los lea un agente de IA y después para las personas. Cada página empezaría con un resumen breve (TL;DR), tendría secciones que se entienden sin leer el resto, nombres exactos de endpoints, tablas y topics, la evidencia junto a cada afirmación y un tamaño máximo. `check` avisaría de lo que no cumpla. La propuesta completa, con los cambios en los prompts, las plantillas por tipo de página, el check nuevo, `llms-full.txt` y la lectura por secciones en el MCP, está en [ai-first-docs.md](docs/research/ai-first-docs.md). **Todavía no está implementada.**
 
 **Descartadas en el análisis:**
 
