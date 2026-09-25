@@ -4,6 +4,7 @@
 /build/
 /dist/
 /graphify-out/
+/.cache/
 
 # Python / Node
 __pycache__/
