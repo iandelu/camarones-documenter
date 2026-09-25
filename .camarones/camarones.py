@@ -23,6 +23,9 @@
   wiki REPO --open | --close    around a manual OpenWiki MCP session (real openwiki/ folder, then back to cam-docs)
   down                      stop the portal
   migrate [--yes] [--dry-run]   move an older layout into <workspace>/cam-docs and clean kit files out of the repos
+  uninstall [--dry-run] [--yes] [--global] [--no-backup] [--backup-dir DIR]
+                            undo the project: back up and delete cam-docs, remove every kit trace from the repos
+                            and the workspace folder (--global: also ~/.camarones*, saved tokens)
   mcp                       stdio MCP server: agents search/read the docs and the code graph
   ci [gitlab|github]        install the umbrella CI pipeline
   plan [sync|next|start|note|done|block|drop|add] …   session work plan (docs/.work/plan.yaml)
@@ -138,6 +141,9 @@ def main() -> int:
     w.add_argument("--force", action="store_true")
     mg = sp.add_parser("migrate"); mg.add_argument("--yes", action="store_true"); mg.add_argument("--dry-run", action="store_true")
     mg.add_argument("--finish", action="store_true", help=argparse.SUPPRESS)
+    un = sp.add_parser("uninstall"); un.add_argument("--yes", action="store_true"); un.add_argument("--dry-run", action="store_true")
+    un.add_argument("--global", dest="user_level", action="store_true"); un.add_argument("--no-backup", action="store_true")
+    un.add_argument("--backup-dir", type=Path)
     ci = sp.add_parser("ci"); ci.add_argument("forge", nargs="?", choices=["gitlab", "github"])
     pl = sp.add_parser("plan"); pl.add_argument("action", nargs="?", default="show",
                                                 choices=["show", "sync", "next", "start", "note", "done", "block", "drop", "add"])
@@ -273,6 +279,10 @@ def main() -> int:
     elif a.cmd == "migrate":
         from lib import migrate
         return migrate.main(yes=a.yes, dry_run=a.dry_run, finish=a.finish)
+    elif a.cmd == "uninstall":
+        from lib import uninstall
+        return uninstall.main(include_global=a.user_level, dry_run=a.dry_run, yes=a.yes, backup=not a.no_backup,
+                              backup_dir=a.backup_dir)
     elif a.cmd == "mcp":
         from lib import mcp
         mcp.serve_stdio()

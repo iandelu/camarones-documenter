@@ -38,8 +38,9 @@ def head_text(repo: Path, rel: str) -> str | None:
 
 
 class Cleaner:
-    def __init__(self, name: str, dry: bool):
-        self.name, self.repo, self.dry, self.done = name, repo_dir(name), dry, []
+    def __init__(self, name: str, dry: bool, graph_out: str = "move"):
+        """graph_out: 'move' a leftover graphify-out/ into cam-docs/graph (migrate) or 'delete' it (uninstall)."""
+        self.name, self.repo, self.dry, self.done, self.graph_out = name, repo_dir(name), dry, [], graph_out
 
     def act(self, what: str, fn=None) -> None:
         self.done.append(what)
@@ -59,12 +60,16 @@ class Cleaner:
         p, head = self.repo / rel, head_text(self.repo, rel)
         cur = p.read_text(encoding="utf-8")
         if head is not None and new.strip() == head.strip():
-            new = head
+            if cur != head:          # checkout, not a text write: HEAD's exact bytes, line endings included
+                self.act(f"clean {rel}", lambda: run(["git", "checkout", "HEAD", "--", rel], cwd=self.repo, quiet=True))
+            return
         if new == cur:
             return
         if head is None and not new.strip():
             return self.remove(rel)
-        self.act(f"clean {rel}", lambda: p.write_text(new, encoding="utf-8"))
+        raw = p.read_bytes()        # keep the file's own line endings (text mode would write CRLF on Windows)
+        eol = "\r\n" if raw[:raw.find(b"\n") + 1].endswith(b"\r\n") else "\n"
+        self.act(f"clean {rel}", lambda: p.write_text(new, encoding="utf-8", newline=eol))
 
     def lines(self, rel: str, kit: list[str]) -> None:
         p = self.repo / rel
@@ -125,7 +130,9 @@ class Cleaner:
         if not (self.repo / ".git").exists():
             return []
         out_dir = self.repo / "graphify-out"
-        if out_dir.is_dir() and not tracked(self.repo, "graphify-out"):
+        if out_dir.is_dir() and not tracked(self.repo, "graphify-out") and self.graph_out == "delete":
+            self.remove("graphify-out")
+        elif out_dir.is_dir() and not tracked(self.repo, "graphify-out"):
             dst = GRAPHS / self.name
             self.act(f"move graphify-out/ → {CAM_DIR}/graph/{self.name}/",
                      lambda: (shutil.rmtree(dst, ignore_errors=True), dst.parent.mkdir(parents=True, exist_ok=True),

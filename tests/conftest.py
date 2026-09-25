@@ -63,8 +63,7 @@ def kit(tmp_path, isolated_env):
     purge_kit_modules()
 
 
-@pytest.fixture
-def wired(kit):
+def wire_project(kit) -> SimpleNamespace:
     """The offline part of `setup` (no external tools): the 'documented project' state the kit leaves behind."""
     env = kit.env
     ws = kit.docs.workspace()
@@ -76,7 +75,14 @@ def wired(kit):
     for r in kit.docs.repo_names():
         env.link_repo_wiki(r, log=lambda _: None)
         env.add_repo_pointer(r)
+    (kit.root / "docs" / "overview.md").write_text("---\ntitle: Overview\n---\n# Overview\n", encoding="utf-8")
+    kit.env.checkpoint_commit("wired")
     return kit
+
+
+@pytest.fixture
+def wired(kit):
+    return wire_project(kit)
 
 
 class Answers:

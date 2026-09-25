@@ -40,6 +40,16 @@ def touch(path: Path) -> None:
     register(path)
 
 
+def unregister(*paths: Path) -> int:
+    """Drop the rows of these paths (a project's cam-docs and its workspace folder). Returns how many went."""
+    gone = {p.resolve() for p in paths}
+    rows = load()
+    keep = [r for r in rows if Path(r["path"]).resolve() not in gone]
+    if len(keep) != len(rows):
+        save(keep)
+    return len(rows) - len(keep)
+
+
 def list_registered() -> list[dict]:
     """Registered projects that still exist on disk (stale entries are skipped, never deleted silently), one row
     per docs root: a workspace folder and its cam-docs/ are the same project."""

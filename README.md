@@ -100,6 +100,7 @@ camarones new enjoy          # alternativa: crea ./enjoy/cam-docs/
 camarones switch             # cambia entre tus proyectos
 camarones self-update        # git pull del kit central — actualiza todos los proyectos a la vez
 camarones migrate            # pasa un proyecto de la estructura anterior (≤2.5) a cam-docs/
+camarones uninstall          # lo deshace todo: borra cam-docs/ (con copia .zip) y los rastros en los repos
 ```
 
 Cada proyecto guarda **todo lo que genera el kit en `cam-docs/`**, un repositorio Git propio (versionado aparte del kit y de los repos que documenta, pensado para compartirlo con el equipo). La carpeta del workspace enlaza a él la configuración de los agentes, así que al abrir Claude Code o Codex en ella ven todos los repos y la documentación:
@@ -267,6 +268,10 @@ Para publicarlo (CI / hosting), `camarones portal` exporta la misma aplicación 
 
 Se incluyen [plantillas de CI para GitHub y GitLab](.camarones/ci/) para automatizar actualizaciones y construir el portal. Antes de abrir la PR/MR ejecutan `check --secrets`: si la IA copió un secreto en la documentación, el job falla y la rama no se publica. Requieren configurar accesos, secretos y despliegue según el proyecto; no se activan al descargar este repositorio.
 
+### Deshazlo todo
+
+El menú del asistente tiene **🧹 Deshacer todo** (o `camarones uninstall`, con `--dry-run` para ver la lista sin tocar nada). Detiene el portal, guarda una copia `.zip` de `cam-docs/` en la carpeta temporal, quita de cada repo lo que añadió el kit (el enlace `openwiki`, su línea en `.git/info/exclude`, el bloque en `CLAUDE.md` y restos de versiones antiguas), elimina los enlaces de la carpeta del workspace y borra `cam-docs/` y su entrada del registro. Los repos quedan como en su último commit: un fichero versionado vuelve a su contenido de HEAD y nunca se toca el historial. Pide escribir el nombre del proyecto para confirmar. Con la casilla de usuario (o `--global`) limpia también `~/.camarones.json`, `~/.camarones/` y los tokens guardados; no desinstala herramientas globales ni el propio kit.
+
 ## Las piezas del kit
 
 **Python + Rich + Questionary** construyen el asistente y la CLI. **uv** resuelve su entorno. **OpenWiki** se encarga de las wikis por repositorio, **graphify** del grafo de código y **LikeC4** del modelo de arquitectura (también como servidor MCP para los agentes). **mermaid-cli** valida los diagramas y **gitleaks** busca secretos antes de cada commit y de publicar; gitleaks se descarga de su release oficial con la suma SHA-256 verificada. El portal es una aplicación propia sin build (**marked**, **DOMPurify** y **Mermaid**, servidos en local). El despliegue con contenedor utiliza **nginx**.
@@ -313,6 +318,23 @@ Antes de añadir una herramienta, la comparamos con los criterios del kit: funci
 | GitHub Spec Kit, Task Master | Otro objetivo: construir funcionalidades, no documentar. |
 
 **Aplazadas, no descartadas:** codebase-memory-mcp o GitNexus (grafo de código con impacto entre repos), tbls (esquema real de las bases de datos), el service graph de OpenTelemetry (relaciones observadas en producción) y CodeWiki (wikis de repos muy grandes). Merecen una prueba en un proyecto real antes de decidir. El resto de candidatas marcadas como «worth a look» siguen en el análisis sin decisión.
+
+## Desarrollo
+
+Los tests fijan el comportamiento del kit sobre un workspace sintético de tres repos, con un `HOME` temporal (nunca tocan tu `~/.camarones`):
+
+```sh
+uv run pytest            # suite rápida, sin red
+uv run pytest -m e2e     # ciclo completo sobre Spring PetClinic (REST + Angular) fijado a un commit
+```
+
+Para probar a mano, [scripts/sandbox.py](scripts/sandbox.py) mantiene un proyecto de pruebas con esos dos repos reales en `~/projects/camarones-sandbox` y lanza el kit de este checkout sobre él:
+
+```sh
+uv run scripts/sandbox.py reset      # deshace la documentación y vuelve a clonar los repos
+uv run scripts/sandbox.py open       # abre el asistente sobre el sandbox
+uv run scripts/sandbox.py traces     # lista lo que el kit dejó; sale con 0 si no queda nada
+```
 
 ## Sigue explorando
 
