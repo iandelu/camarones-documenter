@@ -214,6 +214,21 @@ Quick wins that fill a documented gap with low install weight:
 5. **H5 gitleaks** on `cam-docs/` before commit/export.
 6. **H3 Vale** with a vocabulary generated from the glossary.
 
+**Adopted in kit 3.2.0** (see CONVENTIONS §10), with these deviations:
+
+- **H1** is a stdlib check (no lychee). It resolves links the way the portal does (logical paths) and checks `.md` targets
+  only: external URLs are out of scope, and `#anchors` are skipped because the portal renders no heading ids yet.
+- **G1** uses mermaid-cli 11.x, pinned to the same mermaid major as the portal, and caches pages that already
+  validated.
+- **J1** became in-memory BM25 instead of SQLite FTS5. An incremental index still has to read every file to detect
+  changes, so ranking was the only real gain.
+- **E1**: the MCP server is wired for Claude and Codex. The `likec4-dsl` skill is still pending, because it is only
+  distributed through an unpinned `npx skills add`.
+- **H5**: gitleaks is pinned and checksummed. It runs in `CLI check`, and it blocks checkpoint commits, the portal
+  export and the CI branch.
+- **H3** became a stdlib check against an **Avoid** column in the glossary instead of Vale. Vale's value depended on
+  that column anyway, and it ships no Spanish dictionary.
+
 Bigger bets worth a spike:
 
 7. **B1 codebase-memory-mcp** (or **B2 GitNexus**) next to graphify — compare on one real multi-repo project.

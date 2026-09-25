@@ -61,6 +61,7 @@ docs:update:
         echo "No ANTHROPIC_API_KEY / OPENAI_API_KEY: skipping AI update"; exit 0
       fi
     - camarones llms && camarones check || true
+    - camarones check --secrets   # unlike the rest of check, a secret blocks the branch and the MR
     - |
       if git diff --quiet && [ -z "$(git ls-files --others --exclude-standard docs)" ]; then echo "Docs already up to date"; exit 0; fi
     - BRANCH="docs/update-${CI_PIPELINE_ID}"

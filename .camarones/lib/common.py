@@ -10,10 +10,12 @@ IS_MAC = platform.system() == "Darwin"
 HOME = Path.home()
 
 VERSIONS = {
-    "kit": "3.1.0",
+    "kit": "3.2.0",
     "openwiki": "0.5.2",
     "likec4": "1.59.4",
     "graphify": "0.9.65",
+    "mmdc": "11.17.0",        # mermaid-cli 11.x = mermaid 11, the major the portal renders with (serve.py VENDOR)
+    "gitleaks": "8.30.1",
     "node_min_major": 22,
 }
 

@@ -98,7 +98,9 @@ ERD · ownership table (table → writer services → reader services) · migrat
 Status · Context · Decision · Consequences · Evidence. Agents may only create `Status: proposed`.
 
 **Domain** (`docs/domain/`): `bounded-contexts.md` (context map, which repo implements which context),
-`glossary.md` (term · definition · code name · context), `actors.md` (people & external systems).
+`glossary.md` (term · definition · code name · context · avoid), `actors.md` (people & external systems). **Avoid** is
+optional: comma-separated synonyms not to use (`purchase, request` for *Order*); `CLI check` warns wherever they appear
+in prose. A translated glossary (`docs/i18n/<lang>/domain/glossary.md`) carries its own Avoid list for that language.
 
 **Quality** (`docs/quality/`): `slas.md`, `tech-debt.md` (item · impact · evidence · owner, from the `decisions-quality`
 interview), `architecture-review.md` (area · impact · estimated effort · evidence · recommendation, from the opt-in
@@ -139,3 +141,17 @@ then stamp it: `CLI translated <files>`. `CLI status` shows missing/outdated tra
    C4 elements). Orphan `confirmed` → do not delete; mark `TODO(question)` and ask. Repo removed from `.camarones/workspace.yaml` →
    delete its C4 file, its `docs/i18n/*/repos/<repo>/` and references.
 4. `CLI llms`, `CLI check`, then `CLI mark-documented`.
+
+## 10. Quality gate (`CLI check`)
+
+| Check | Severity | Needs |
+|---|---|---|
+| Missing frontmatter, orphan `x-sources` | ERROR | — |
+| Broken internal link (`.md` target, resolved like the portal does; external URLs and `#anchors` are not checked) | ERROR | — |
+| Invalid Mermaid diagram | ERROR | mermaid-cli (`quality` component) |
+| Possible secret in `docs/` or a wiki | ERROR; also blocks checkpoint commits and `CLI portal` | gitleaks (`quality` component) |
+| Glossary synonym to avoid | WARN (ERROR with `--strict`) | an Avoid column in the glossary |
+| Confirmed page changed since confirmation | WARN (ERROR with `--strict`) | — |
+| Missing / outdated translation | WARN | — |
+
+A check whose tool is missing prints one WARN and is skipped. `CLI check --secrets` runs only the secret scan (CI gate).

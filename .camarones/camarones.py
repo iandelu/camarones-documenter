@@ -96,8 +96,9 @@ elif os.environ.get("CAMARONES_GLOBAL") and not os.environ.get("CAMARONES_ROOT")
 from lib import docs, env, plan                     # noqa: E402
 from lib.common import VERSIONS, cli_cmd, ROOT, CACHE   # noqa: E402
 
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
 
 
 def main() -> int:
@@ -124,6 +125,7 @@ def main() -> int:
     m = sp.add_parser("mark-documented"); m.add_argument("repos", nargs="*")
     s = sp.add_parser("status"); s.add_argument("--json", action="store_true")
     k = sp.add_parser("check"); k.add_argument("--strict", action="store_true")
+    k.add_argument("--secrets", action="store_true", help="only the secret scan (CI gate before committing)")
     c = sp.add_parser("confirm"); c.add_argument("files", nargs="+"); c.add_argument("--by", required=True)
     t = sp.add_parser("translated"); t.add_argument("files", nargs="+")
     u = sp.add_parser("up"); u.add_argument("--port", type=int, default=8080); u.add_argument("--docker", action="store_true")
@@ -213,7 +215,7 @@ def main() -> int:
             print(f"\n{s['total']} docs — confirmed {s['confirmed']}, needs-reconfirm {s['needs-reconfirm']}, "
                   f"draft {s['draft']}, orphans {s['orphans']}, untranslated {s['untranslated']}")
     elif a.cmd == "check":
-        errors, warns = docs.check(a.strict)
+        errors, warns = docs.check(a.strict, secrets_only=a.secrets)
         for w in warns:
             print("WARN ", w)
         for e in errors:
@@ -283,9 +285,10 @@ def main() -> int:
             print(f"{'✔' if v['ok'] else ('✖' if v['need'] else '·')} {k:<7} {v.get('found', '')}  {'' if v['ok'] else v['hint']}")
             if v.get("note"):
                 print(f"          {v['note']}")
-        for tname in ("graphify", "likec4"):
+        for tname in ("graphify", "likec4", "mmdc"):
             print(f"  {tname:<9} {env.tool_version(tname) or 'missing'} (pinned {VERSIONS[tname]})")
         print(f"  openwiki  {'ok' if env.openwiki_installed() else 'missing'} (pinned {VERSIONS['openwiki']})")
+        print(f"  gitleaks  {'ok' if env.tool_ok('gitleaks') else 'missing'} (pinned {VERSIONS['gitleaks']})")
     elif a.cmd == "plan":
         return cmd_plan(a)
     elif a.cmd == "arch-draft":
@@ -297,7 +300,7 @@ def main() -> int:
     elif a.cmd == "version":
         print(f"Camarones Documenter {VERSIONS['kit']} — " + ", ".join(f"{k} {v}" for k, v in VERSIONS.items() if k != "kit"))
     elif a.cmd == "checkpoint":
-        print("✔ committed locally" if env.checkpoint_commit(a.message) else "nothing to commit")
+        print("✔ committed locally" if env.checkpoint_commit(a.message) else "no checkpoint commit")
     elif a.cmd == "feedback":
         docs.add_feedback(a.file, a.text, a.by or os.environ.get("USER", "human"))
         plan.ensure("review-fixes", "review-fixes")
