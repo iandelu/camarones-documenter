@@ -660,6 +660,7 @@ class W:
             return fn(*a, **kw)
         except Exception as e:  # noqa: BLE001 — the wizard must survive any tool failure
             console.print(Panel(str(e), title=self.t("error"), border_style="red"))
+            self.pause()                    # the menu redraw clears the screen: without this the error is never seen
             return None
 
     def dashboard(self) -> None:
@@ -1216,6 +1217,10 @@ Talk to the user in {talk}. Do not modify application code.
     def do_autopilot(self) -> None:
         self.say(self.t("autopilot_info"), "grey62")
         cmd = [sys.executable, str(Path(__file__).resolve().parent.parent / "camarones.py"), "autopilot", "--lang", self.lang]
+        # the new window must work on THIS project, not whatever a walk up from WORKSPACE finds first
+        os.environ["CAMARONES_ROOT"] = str(ROOT)
+        if not IS_WIN:
+            cmd = ["env", f"CAMARONES_ROOT={ROOT}", *cmd]      # a macOS/Linux terminal window does not inherit it
         if env.open_new_terminal(cmd, WORKSPACE):     # long-lived loop in its own window; the wizard stays usable
             self.say(self.t("autopilot_bg"), "green")
             self.pause()
@@ -1356,13 +1361,26 @@ Talk to the user in {talk}. Do not modify application code.
         """Anything taller than the screen goes through the pager (the alt screen has no scrollback)."""
         with console.capture() as cap:
             console.print(renderable)
-        if len(cap.get().splitlines()) < console.size.height - 4:
+        lines = cap.get().splitlines()
+        if len(lines) < console.size.height - 4:
             console.print(renderable)
             self.pause()
             return
-        os.environ.setdefault("LESS", "-R")
-        with console.pager(styles=True):
-            console.print(renderable)
+        if not IS_WIN:
+            os.environ.setdefault("LESS", "-R")
+            with console.pager(styles=True):
+                console.print(renderable)
+            return
+        # Windows: rich's pager goes through pydoc + `more`, which re-encodes to the console code page and turns
+        # every box-drawing character and emoji into \uXXXX escapes — page the captured lines here instead
+        size = max(console.size.height - 3, 5)
+        pages = -(-len(lines) // size)
+        for n in range(pages):
+            console.clear()
+            for line in lines[n * size:(n + 1) * size]:
+                console.print(Text.from_ansi(line), soft_wrap=True)
+            more = f"-- {'más' if self.lang == 'es' else 'more'} ({n + 1}/{pages}) --"
+            questionary.press_any_key_to_continue("↩" if n == pages - 1 else more).ask()
 
     def extra_ready(self) -> bool:
         """Whether any opt-in review (security-review, architecture-review) can be offered or is already in the plan."""
