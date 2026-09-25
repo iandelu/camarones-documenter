@@ -1,10 +1,10 @@
-"""📖 Beginner tutorial: what each piece of Camarones Documenter is, with ASCII drawings (wizard pages + TUTORIAL.md)."""
+"""📖 Beginner tutorial: what each piece of Camarón is, with ASCII drawings (wizard pages + TUTORIAL.md)."""
 from __future__ import annotations
 
 # Each page: icon, title, art (plain ASCII / box drawing — emojis only at line ends so widths stay aligned), text.
 PAGES = {
     "es": [
-        {"icon": "🦐", "title": "Camarones Documenter: la foto completa",
+        {"icon": "🦐", "title": "Camarón: la foto completa",
          "art": r"""
    tus repos             el asistente            tu IA                 resultado
   +---------+          +-------------+       +------------+       +--------------+
@@ -18,7 +18,7 @@ PAGES = {
                                                                    +--------------+
                                                                    |  portal web  |
                                                                    +--------------+""",
-         "text": "Camarones Documenter convierte varios repos en una documentación viva que sirve a personas y a IAs. "
+         "text": "Camarón convierte varios repos en una documentación viva que sirve a personas y a IAs. "
                  "Tú no escribes la documentación: el asistente prepara todo, tu IA (Claude Code o Codex) analiza el código "
                  "y escribe, y tú revisas y confirmas. Todo queda en la carpeta cam-docs/, junto a tus repos: es un repo "
                  "git propio con la documentación y la configuración de las herramientas, pensado para compartirlo con el "
@@ -63,12 +63,12 @@ PAGES = {
 
    repo-a/openwiki  -->  enlace a cam-docs/wikis/repo-a (sin versionar en el repo)
 
-   generar o actualizar:  portal > Wikis  |  asistente > Wikis  |  camarones wiki repo-a""",
+   generar o actualizar:  portal > Wikis  |  asistente > Wikis  |  camaron wiki repo-a""",
          "text": "OpenWiki escribe una wiki estándar de cada repo donde cada afirmación está anclada a un fichero y línea "
                  "del código: la IA no se inventa cosas y cualquiera puede comprobarlas. La wiki se guarda en "
                  "cam-docs/wikis/<repo>, así que el repo de servicio queda limpio. La generas o actualizas desde el "
                  "portal (pestaña Wikis, con el log en directo), desde el asistente (📚 Wikis) o con "
-                 "«camarones wiki <repo>»; sus páginas aparecen en Docs, en repos/<repo>/. Cada wiki es una sesión de "
+                 "«camaron wiki <repo>»; sus páginas aparecen en Docs, en repos/<repo>/. Cada wiki es una sesión de "
                  "agente completa, así que solo la llevan los repos que elijas (asistente > Wikis > elegir), y la primera "
                  "espera al repo-brief, que le da el rol y el glosario del repo. Se lanzan de una en una. Camarones rellena "
                  "lo que OpenWiki no cubre: visión del proyecto entero, dominio, flujos de negocio, despliegue y decisiones."},
@@ -114,21 +114,21 @@ PAGES = {
                            | algo mal
                            v
                    "pedir cambios" --> la IA lo corrige en la siguiente sesion""",
-         "text": "Cada página lleva una marca de confianza. 🤖 Borrador: la escribió la IA y nadie la ha revisado. "
+         "text": "Cada página lleva una marca de confianza. ✨ Borrador: la escribió la IA y nadie la ha revisado. "
                  "✅ Confirmada: una persona la leyó y dijo «está bien»; a partir de ahí las IAs la tratan como verdad y "
                  "no la reescriben sin avisar. ⚠️ Re-confirmar: alguien cambió una página confirmada (a mano, en el "
                  "portal o la IA) y hay que volver a mirarla. Puedes revisar en el portal (botones Confirmar y Pedir "
                  "cambios en cada página; la pestaña Revisión lista lo pendiente) o en «✅ Revisar» del asistente."},
         {"icon": "🧪", "title": "Control de calidad: lo que revisa check",
          "art": r"""
-   camarones check
+   camaron check
      |-- enlaces rotos entre paginas          ERROR
      |-- diagramas Mermaid que no se dibujan  ERROR   (mermaid-cli)
      |-- secretos copiados en la doc          ERROR   (gitleaks: bloquea commit y portal)
      |-- palabras a evitar del glosario       aviso   (ERROR con --strict)
      +-- fuentes, frontmatter, traducciones   ERROR / aviso""",
          "text": "La IA escribe rápido y a veces falla en lo pequeño: un enlace a una página que no existe, un diagrama "
-                 "que no se dibuja o un token copiado de un fichero de configuración. «camarones check» lo revisa al "
+                 "que no se dibuja o un token copiado de un fichero de configuración. «camaron check» lo revisa al "
                  "cerrar cada unidad y en el CI. Los secretos son especiales: mientras gitleaks encuentre uno, no se hace "
                  "el commit de checkpoint ni se exporta el portal (nunca se muestra el valor, solo fichero y línea). Si "
                  "en el glosario rellenas la columna «Avoid» (por ejemplo «compra, petición» para Pedido), check avisa "
@@ -157,16 +157,16 @@ PAGES = {
    +----------------------------------------------------------------------------+""",
          "text": "El portal 🦐 junta en una sola web la documentación (con buscador, edición y revisión), el explorador C4, "
                  "el grafo de código y las wikis de OpenWiki, en español o inglés. Tiene dos modos con la misma "
-                 "interfaz: el portal local (`camarones up`, o asistente → 🌐 Portal → 📝 Abrir el portal), donde se "
-                 "puede editar, y la exportación de solo lectura (`camarones portal`) que se despliega con Docker o en "
-                 "cualquier hosting estático. `camarones up --static` te enseña la exportación tal cual. Todo funciona "
+                 "interfaz: el portal local (`camaron up`, o asistente → 🌐 Portal → 📝 Abrir el portal), donde se "
+                 "puede editar, y la exportación de solo lectura (`camaron portal`) que se despliega con Docker o en "
+                 "cualquier hosting estático. `camaron up --static` te enseña la exportación tal cual. Todo funciona "
                  "sin Internet (on-premise)."},
         {"icon": "✏️", "title": "Dónde y cuándo se puede editar",
          "art": r"""
    DONDE                        QUE PUEDES HACER                     DONDE QUEDA
    ---------------------------  -----------------------------------  ------------------------
    portal local                 editar, pagina nueva, confirmar,     cam-docs + commit local
-   (camarones up)               pedir cambios, generar wikis,        (el push lo haces tu)
+   (camaron up)               pedir cambios, generar wikis,        (el push lo haces tu)
                                 reconstruir C4 y grafo
    portal desplegado            leer y buscar; "Editar" abre el      merge request en el
    (exportacion)                fichero en GitLab / GitHub           repo cam-docs
@@ -198,7 +198,7 @@ PAGES = {
                   |-- IA actualiza solo las paginas afectadas
                   |-- check --secrets  (un secreto para aqui: no hay MR)
                   |-- check (enlaces, diagramas, fuentes, confianza)
-                  +-- exporta el portal (camarones portal) --> imagen nginx / Pages""",
+                  +-- exporta el portal (camaron portal) --> imagen nginx / Pages""",
          "text": "Opcional: un pipeline que, tras cada cambio en los repos o en cam-docs, actualiza la documentación "
                  "afectada y publica el portal de solo lectura. Así, un merge request hecho desde «Editar» del portal "
                  "desplegado aparece publicado al fusionarse. También se puede hacer a mano con «🔄 Actualizar doc tras "
@@ -219,14 +219,14 @@ PAGES = {
          "art": r"""
    1. camarones                -> abre el asistente del proyecto (cam-docs)
    2. 🦐 Siguiente paso        -> una sesion de IA hace la siguiente unidad
-   3. 🌐 Portal (camarones up) -> leer, editar, confirmar o pedir cambios
+   3. 🌐 Portal (camaron up) -> leer, editar, confirmar o pedir cambios
    4. 📚 Wikis                 -> crear o refrescar la wiki de un repo
    5. 🔄 Actualizar            -> cuando cambie el codigo
    6. git push en cam-docs     -> compartir con el equipo""",
          "text": "Con esto basta. Puedes parar cuando quieras: el progreso se guarda solo. Esc siempre vuelve atrás."},
     ],
     "en": [
-        {"icon": "🦐", "title": "Camarones Documenter: the big picture",
+        {"icon": "🦐", "title": "Camarón: the big picture",
          "art": r"""
    your repos            the wizard              your AI               result
   +---------+          +-------------+       +------------+       +--------------+
@@ -240,7 +240,7 @@ PAGES = {
                                                                    +--------------+
                                                                    |  web portal  |
                                                                    +--------------+""",
-         "text": "Camarones Documenter turns several repos into living documentation that serves both people and AIs. "
+         "text": "Camarón turns several repos into living documentation that serves both people and AIs. "
                  "You don't write the docs: the wizard prepares everything, your AI (Claude Code or Codex) analyses the code "
                  "and writes, and you review and confirm. Everything lives in the cam-docs/ folder next to your repos: its "
                  "own git repo with the docs and the tool configuration, meant to be shared with the team. Your service "
@@ -284,11 +284,11 @@ PAGES = {
 
    repo-a/openwiki  -->  link to cam-docs/wikis/repo-a (not versioned in the repo)
 
-   generate or update:  portal > Wikis  |  wizard > Wikis  |  camarones wiki repo-a""",
+   generate or update:  portal > Wikis  |  wizard > Wikis  |  camaron wiki repo-a""",
          "text": "OpenWiki writes a standard wiki for each repo where every claim is anchored to a file and line of code, "
                  "so the AI can't make things up and anyone can check. The wiki is stored in cam-docs/wikis/<repo>, so "
                  "the service repo stays clean. Generate or update it from the portal (Wikis tab, with a live log), from "
-                 "the wizard (📚 Wikis) or with “camarones wiki <repo>”; its pages show up under Docs as repos/<repo>/. "
+                 "the wizard (📚 Wikis) or with “camaron wiki <repo>”; its pages show up under Docs as repos/<repo>/. "
                  "Each wiki is a full agent run, so only the repos you choose get one (wizard > Wikis > choose), and the "
                  "first one waits for the repo-brief, which gives it the repo's role and glossary. They run one at a time. "
                  "Camarones fills what OpenWiki doesn't cover: the whole-project view, domain, business flows, deployment "
@@ -335,21 +335,21 @@ PAGES = {
                            | something wrong
                            v
                    "request changes" --> the AI fixes it in the next session""",
-         "text": "Every page has a trust mark. 🤖 Draft: written by the AI, nobody reviewed it. ✅ Confirmed: a person read "
+         "text": "Every page has a trust mark. ✨ Draft: written by the AI, nobody reviewed it. ✅ Confirmed: a person read "
                  "it and said “looks right”; from then on AIs treat it as the truth and don't rewrite it silently. "
                  "⚠️ Re-confirm: a confirmed page changed (by hand, in the portal or by the AI) and needs another look. "
                  "Review in the portal (Confirm and Request changes buttons on every page; the Review tab lists what's "
                  "pending) or in the wizard's “✅ Review”."},
         {"icon": "🧪", "title": "Quality gate: what check looks at",
          "art": r"""
-   camarones check
+   camaron check
      |-- broken links between pages           ERROR
      |-- Mermaid diagrams that don't render   ERROR   (mermaid-cli)
      |-- secrets copied into the docs         ERROR   (gitleaks: blocks commit and portal)
      |-- glossary words to avoid              warning (ERROR with --strict)
      +-- sources, frontmatter, translations   ERROR / warning""",
          "text": "The AI writes fast and sometimes slips on small things: a link to a page that doesn't exist, a diagram "
-                 "that doesn't render or a token copied from a config file. “camarones check” looks for them when each "
+                 "that doesn't render or a token copied from a config file. “camaron check” looks for them when each "
                  "unit closes and in CI. Secrets are special: while gitleaks finds one, the checkpoint commit and the "
                  "portal export don't happen (the value is never shown, only file and line). Fill the glossary's "
                  "“Avoid” column (say “purchase, request” for Order) and check warns wherever those words appear. "
@@ -378,15 +378,15 @@ PAGES = {
    +----------------------------------------------------------------------------+""",
          "text": "The 🦐 portal brings the docs (with search, editing and review), the C4 explorer, the code graph and the "
                  "OpenWiki wikis together in one site, in English or Spanish. It has two modes with the same interface: "
-                 "the local portal (`camarones up`, or wizard → 🌐 Portal → 📝 Open the portal), where you can edit, and "
-                 "the read-only export (`camarones portal`) that is deployed with Docker or on any static host. "
-                 "`camarones up --static` shows you the export as is. Everything works offline (on-premise)."},
+                 "the local portal (`camaron up`, or wizard → 🌐 Portal → 📝 Open the portal), where you can edit, and "
+                 "the read-only export (`camaron portal`) that is deployed with Docker or on any static host. "
+                 "`camaron up --static` shows you the export as is. Everything works offline (on-premise)."},
         {"icon": "✏️", "title": "Where and when you can edit",
          "art": r"""
    WHERE                        WHAT YOU CAN DO                      WHERE IT GOES
    ---------------------------  -----------------------------------  ------------------------
    local portal                 edit, new page, confirm,             cam-docs + local commit
-   (camarones up)               request changes, generate wikis,     (you push it)
+   (camaron up)               request changes, generate wikis,     (you push it)
                                 rebuild C4 and graph
    deployed portal              read and search; "Edit" opens the    merge request in the
    (export)                     file in GitLab / GitHub              cam-docs repo
@@ -418,7 +418,7 @@ PAGES = {
                   |-- AI updates only the affected pages
                   |-- check --secrets  (a secret stops here: no MR)
                   |-- check (links, diagrams, sources, trust)
-                  +-- exports the portal (camarones portal) --> nginx image / Pages""",
+                  +-- exports the portal (camaron portal) --> nginx image / Pages""",
          "text": "Optional: a pipeline that, after each change in the repos or in cam-docs, updates the affected docs and "
                  "publishes the read-only portal. So a merge request opened from the deployed portal's “Edit” shows up "
                  "once merged. You can also do it by hand with “🔄 Update docs after changes” and “📦 Export the portal”."},
@@ -437,7 +437,7 @@ PAGES = {
          "art": r"""
    1. camarones                -> opens the project's wizard (cam-docs)
    2. 🦐 Next step             -> an AI session does the next unit
-   3. 🌐 Portal (camarones up) -> read, edit, confirm or request changes
+   3. 🌐 Portal (camaron up) -> read, edit, confirm or request changes
    4. 📚 Wikis                 -> create or refresh a repo's wiki
    5. 🔄 Update                -> when the code changes
    6. git push in cam-docs     -> share it with the team""",
@@ -448,7 +448,7 @@ PAGES = {
 
 def markdown() -> str:
     """TUTORIAL.md: the same pages for reading outside the wizard."""
-    parts = ["# 🦐 Camarones Documenter — Tutorial\n", "Español abajo · English first.\n"]
+    parts = ["# 🦐 Camarón — Tutorial\n", "Español abajo · English first.\n"]
     for lang, head in (("en", "## English"), ("es", "## Español")):
         parts.append(f"\n{head}\n")
         for i, p in enumerate(PAGES[lang], 1):

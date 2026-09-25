@@ -718,7 +718,7 @@ def wiki_prompt(repo: str, mode: str) -> str:
     uid, cli = f"repo-wiki:{repo}", cli_cmd()
     notes = plan.note_file(uid)
     resume = (f"A previous run left checkpoints in `{ws_rel(rel_file(notes))}`: read them first. " if notes.exists() else "")
-    return (f"Camarones Documenter — unattended OpenWiki run for `{repo}` (plan unit `{uid}`).\n"
+    return (f"Camarón — unattended OpenWiki run for `{repo}` (plan unit `{uid}`).\n"
             f"Task: {mode} the OpenWiki of `{repo}/` (absolute git root: {repo_dir(repo)}) with the OpenWiki MCP tools "
             "(skill `openwiki`): openwiki_begin → plan → page loop → openwiki_finish, passing that root. OpenWiki resumes an "
             f"interrupted run by itself. {resume}\n"
@@ -1197,7 +1197,7 @@ def checkpoint_commit(message: str) -> bool:
     if leaks:        # left staged, not committed: fix the page, the next checkpoint picks it up
         print("🦐✖ checkpoint not committed — possible secrets staged:\n  " + "\n  ".join(leaks), file=sys.stderr)
         return False
-    ident = [] if out(["git", "config", "user.email"], cwd=ROOT) else ["-c", "user.name=Camarones Documenter",
+    ident = [] if out(["git", "config", "user.email"], cwd=ROOT) else ["-c", "user.name=Camarón",
                                                                        "-c", "user.email=camarones@localhost"]
     r = run(["git", *ident, "commit", "-q", "-m", f"docs(camarones): {message}", "--no-verify"], cwd=ROOT, check=False, quiet=True)
     return r.returncode == 0

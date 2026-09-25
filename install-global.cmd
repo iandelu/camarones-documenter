@@ -1,7 +1,7 @@
 @echo off
 setlocal enabledelayedexpansion
-REM Camarones Documenter - one-time global install (Windows).
-REM Clones this repo into a fixed central location and puts a camarones launcher on your PATH,
+REM Camaron - one-time global install (Windows).
+REM Clones this repo into a fixed central location and puts camaron plus the legacy camarones alias on your PATH,
 REM so every cama-docs-* project shares one kit copy instead of a per-project copy going stale.
 cd /d "%~dp0"
 set "SRC=%~dp0"
@@ -43,13 +43,18 @@ if errorlevel 1 (
 )
 
 if not exist "%BINDIR%" mkdir "%BINDIR%"
-> "%BINDIR%\camarones.cmd" (
+> "%BINDIR%\camaron.cmd" (
   echo @echo off
   echo set "PYTHONUTF8=1"
   echo set "CAMARONES_GLOBAL=1"
   echo uv run --quiet --script "%CENTRAL%\.camarones\camarones.py" %%*
 )
-echo Global launcher written to "%BINDIR%\camarones.cmd".
+> "%BINDIR%\camarones.cmd" (
+  echo @echo off
+  echo call "%BINDIR%\camaron.cmd" %%*
+  echo exit /b %%ERRORLEVEL%%
+)
+echo Global launcher written to "%BINDIR%\camaron.cmd"; compatibility alias: camarones.
 
 echo %PATH% | find /i "%BINDIR%" >nul
 if not errorlevel 1 goto onpath
@@ -62,7 +67,7 @@ echo   Done - open a NEW terminal for it to take effect.
 :onpath
 
 echo.
-echo Camarones Documenter installed globally.
-echo Open a new terminal and run: camarones new my-project
-echo Update every project at once later with: camarones self-update
+echo Camaron installed globally.
+echo Open a new terminal and run: camaron new my-project
+echo Update every project at once later with: camaron self-update
 pause

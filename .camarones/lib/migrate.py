@@ -243,7 +243,7 @@ def finish_phase(dry: bool = False, ask: bool = False) -> int:
             env.link_repo_wiki(n)
     env.wire_umbrella(print, comps)
     run(["git", "add", "-A"], cwd=ROOT, check=False, quiet=True)
-    ident = [] if out(["git", "config", "user.email"], cwd=ROOT) else ["-c", "user.name=Camarones Documenter",
+    ident = [] if out(["git", "config", "user.email"], cwd=ROOT) else ["-c", "user.name=Camarón",
                                                                        "-c", "user.email=camarones@localhost"]
     run(["git", *ident, "commit", "-q", "--no-verify", "-m", f"chore(camarones): move docs and agent config to {CAM_DIR}/"],
         cwd=ROOT, check=False, quiet=True)

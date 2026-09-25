@@ -1,6 +1,6 @@
 """The Camarones portal server (stdlib, no Docker, no npm build).
 
-Live mode (`camarones up`): people read the docs as they are right now, edit, confirm, comment and commit — the same
+Live mode (`camaron up`): people read the docs as they are right now, edit, confirm, comment and commit — the same
 actions as the CLI, on the same files — and browse / rebuild the C4 explorer, the code graphs and the OpenWiki wikis.
 Static mode (`up --static`): serves the read-only export (`portal`) exactly like nginx would.
 Binds 127.0.0.1 only. Mutating calls need the X-Camarones header, which a cross-site page cannot send without a
@@ -260,7 +260,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         if STATIC:
-            return self.json({"error": "read-only portal — run `camarones up` to edit"}, 405)
+            return self.json({"error": "read-only portal — run `camaron up` to edit"}, 405)
         if self.headers.get("X-Camarones") != "1":
             return self.json({"error": "forbidden"}, 403)
         try:
@@ -298,7 +298,7 @@ def run_server(port: int = 8080, static: bool = False) -> None:
     global STATIC
     STATIC = static
     if static and not (SITE / "index.html").exists():
-        raise RuntimeError("the portal is not exported yet — run `camarones portal` first")
+        raise RuntimeError("the portal is not exported yet — run `camaron portal` first")
     httpd = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     try:
         httpd.serve_forever()

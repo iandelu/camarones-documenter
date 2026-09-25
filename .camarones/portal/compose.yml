@@ -1,5 +1,5 @@
 # For servers: DOCS_IMAGE=<registry>/.../portal:latest docker compose -f .camarones/portal/compose.yml up -d --no-build
-# (locally `camarones up` uses plain docker build + docker run, no compose needed)
+# (locally `camaron up` uses plain docker build + docker run, no compose needed)
 services:
   docs-portal:
     build:

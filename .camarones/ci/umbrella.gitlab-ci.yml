@@ -1,4 +1,4 @@
-# 🦐 Camarones Documenter — cam-docs (docs + agent config) repo pipeline for GitLab.
+# 🦐 Camarón — cam-docs (docs + agent config) repo pipeline for GitLab.
 # Installed as .gitlab-ci.yml at the cam-docs root by `camarones ci gitlab`.
 #
 # CI/CD variables (Settings → CI/CD → Variables):
@@ -38,10 +38,10 @@ docs:verify:
   extends: .kit
   stage: verify
   script:
-    - camarones graph
-    - camarones arch-validate
-    - camarones check
-    - camarones status
+    - camaron graph
+    - camaron arch-validate
+    - camaron check
+    - camaron status
 
 # Incremental AI update: runs on schedule, manual "Run pipeline", or when a microservice pipeline triggers us.
 docs:update:
@@ -53,15 +53,15 @@ docs:update:
     - |
       if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
         npm install -g @anthropic-ai/claude-code >/dev/null
-        claude -p "$(camarones prompt update --lang en --unattended)" --dangerously-skip-permissions
+        claude -p "$(camaron prompt update --lang en --unattended)" --dangerously-skip-permissions
       elif [ -n "${OPENAI_API_KEY:-}" ]; then
         npm install -g @openai/codex >/dev/null
-        codex exec --full-auto "$(camarones prompt update --lang en --unattended)"
+        codex exec --full-auto "$(camaron prompt update --lang en --unattended)"
       else
         echo "No ANTHROPIC_API_KEY / OPENAI_API_KEY: skipping AI update"; exit 0
       fi
-    - camarones llms && camarones check || true
-    - camarones check --secrets   # unlike the rest of check, a secret blocks the branch and the MR
+    - camaron llms && camaron check || true
+    - camaron check --secrets   # unlike the rest of check, a secret blocks the branch and the MR
     - |
       if git diff --quiet && [ -z "$(git ls-files --others --exclude-standard docs)" ]; then echo "Docs already up to date"; exit 0; fi
     - BRANCH="docs/update-${CI_PIPELINE_ID}"
@@ -72,7 +72,7 @@ docs:update:
       curl --fail -sS --request POST --header "PRIVATE-TOKEN: ${DOCS_BOT_TOKEN}" \
         --form "source_branch=${BRANCH}" --form "target_branch=${CI_DEFAULT_BRANCH}" \
         --form "title=docs: automated documentation update" --form "remove_source_branch=true" \
-        --form "description=AI-generated update. Review drafts; confirm what is correct in the Camarones Documenter wizard (or \`camarones confirm\`)." \
+        --form "description=AI-generated update. Review drafts; confirm what is correct in the Camarón wizard (or \`camaron confirm\`)." \
         "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/merge_requests"
 
 portal:site:
@@ -81,8 +81,8 @@ portal:site:
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   script:
-    - camarones graph
-    - camarones portal
+    - camaron graph
+    - camaron portal
   artifacts:
     paths: [.camarones/.cache/portal-image]
     expire_in: 1 week

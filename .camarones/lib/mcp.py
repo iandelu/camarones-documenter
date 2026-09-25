@@ -79,7 +79,7 @@ def repo_graph(question: str, repo: str | None = None) -> str:
         return "graphify is not installed (run camarones setup)."
     g = env.repo_graph(repo) if repo else env.CACHE / "graph" / "graph.json"
     if not g.exists():
-        return f"No code graph for {repo or 'the workspace'} yet — run `camarones graph`."
+        return f"No code graph for {repo or 'the workspace'} yet — run `camaron graph`."
     r = run(["graphify", "query", question, "--graph", str(g)], check=False, capture=True)
     return (r.stdout or r.stderr or "").strip()[-12000:] or "No result."
 
@@ -130,4 +130,3 @@ def serve_stdio() -> None:
         if reply:
             sys.stdout.write(json.dumps(reply, ensure_ascii=False) + "\n")
             sys.stdout.flush()
-

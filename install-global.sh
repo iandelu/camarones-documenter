@@ -1,6 +1,6 @@
 #!/bin/sh
-# Camarones Documenter — one-time global install (macOS / Linux).
-# Clones this repo into a fixed central location and puts a `camarones` launcher on your PATH,
+# Camarón — one-time global install (macOS / Linux).
+# Clones this repo into a fixed central location and puts `camaron` plus the legacy `camarones` alias on your PATH,
 # so every cama-docs-* project shares one kit copy instead of a per-project copy going stale.
 set -e
 SRC="$(cd "$(dirname "$0")" && pwd)"
@@ -16,7 +16,7 @@ if ! command -v uv >/dev/null 2>&1; then
     echo "🦐 Installing uv with Homebrew (one-time)…"
     brew install uv
   else
-    echo "🦐 Camarones Documenter needs uv (Python tool manager by Astral)."
+    echo "🦐 Camarón needs uv (Python tool manager by Astral)."
     printf "   Install it now with Astral's official installer? [y/N] "
     read -r ans
     case "$ans" in
@@ -36,14 +36,19 @@ else
 fi
 
 mkdir -p "$BINDIR"
-cat > "$BINDIR/camarones" <<EOF
+cat > "$BINDIR/camaron" <<EOF
 #!/bin/sh
 export PYTHONUTF8=1
 export CAMARONES_GLOBAL=1
 exec uv run --quiet --script "$CENTRAL/.camarones/camarones.py" "\$@"
 EOF
+chmod +x "$BINDIR/camaron"
+cat > "$BINDIR/camarones" <<EOF
+#!/bin/sh
+exec "$BINDIR/camaron" "\$@"
+EOF
 chmod +x "$BINDIR/camarones"
-echo "Global launcher written to $BINDIR/camarones."
+echo "Global launcher written to $BINDIR/camaron; compatibility alias: camarones."
 
 case ":$PATH:" in
   *":$BINDIR:"*) : ;;
@@ -60,6 +65,6 @@ case ":$PATH:" in
 esac
 
 echo
-echo "🦐 Camarones Documenter installed globally."
-echo "Open a new terminal and run: camarones new my-project"
-echo "Update every project at once later with: camarones self-update"
+echo "🦐 Camarón installed globally."
+echo "Open a new terminal and run: camaron new my-project"
+echo "Update every project at once later with: camaron self-update"

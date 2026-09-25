@@ -1,4 +1,4 @@
-# 🦐 Camarones Documenter — for EACH service repo on GitHub. Copy to .github/workflows/openwiki.yml
+# 🦐 Camarón — for EACH service repo on GitHub. Copy to .github/workflows/openwiki.yml
 # Secrets: ANTHROPIC_API_KEY; DOCS_DISPATCH_TOKEN (PAT allowed to dispatch on the umbrella repo). Variable: DOCS_UMBRELLA_REPO (owner/name)
 name: openwiki
 on:

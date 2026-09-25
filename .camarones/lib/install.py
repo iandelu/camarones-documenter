@@ -34,11 +34,12 @@ def safe_path(path: Path) -> None:
 
 def payload(source: Path) -> dict[str, bytes]:
     safe_path(source)
-    required = [source / 'camarones.cmd', source / 'camarones.command', source / '.camarones/camarones.py',
+    required = [source / 'camaron.cmd', source / 'camaron.command', source / 'camarones.cmd',
+                source / 'camarones.command', source / '.camarones/camarones.py',
                 source / '.camarones/lib/common.py']
     if not all(p.is_file() for p in required):
-        raise ValueError('Source is not a Camarones kit (launchers and .camarones/ are required).')
-    paths = required[:2] + [source / '.camarones' / name for name in FILES if (source / '.camarones' / name).is_file()]
+        raise ValueError('Source is not a Camarón kit (launchers and .camarones/ are required).')
+    paths = required[:4] + [source / '.camarones' / name for name in FILES if (source / '.camarones' / name).is_file()]
     for name in DIRECTORIES:
         base = source / '.camarones' / name
         if not base.is_dir():
@@ -136,6 +137,7 @@ def install(source: Path, destination: Path, profile: str = 'quick', *, update: 
                 os.replace(stage / name, target)
                 written.append(name)
             if os.name != 'nt':
+                (destination / 'camaron.command').chmod(0o755)
                 (destination / 'camarones.command').chmod(0o755)
         except BaseException:
             for name in reversed(written):
@@ -156,7 +158,8 @@ def unlink(destination: Path, *, log=print) -> list[str]:
     walk-up finds this project the same way whether or not its own copy of the code is still here."""
     destination = destination.resolve()
     removed = []
-    for rel in ('camarones.cmd', 'camarones.command', *(f'.camarones/{name}' for name in FILES)):
+    for rel in ('camaron.cmd', 'camaron.command', 'camarones.cmd', 'camarones.command',
+                *(f'.camarones/{name}' for name in FILES)):
         p = destination / rel
         if p.is_file():
             p.unlink()

@@ -98,7 +98,8 @@ def test_unlink_strips_kit_code_and_keeps_config(kit, tmp_path):
     dest = tmp_path / "proj"
     kit.install.install(REPO, dest, log=lambda _: None)
     removed = kit.install.unlink(dest, log=lambda _: None)
-    assert "camarones.cmd" in removed and ".camarones/lib/" in removed
+    assert {"camaron.cmd", "camaron.command", "camarones.cmd", "camarones.command"} <= set(removed)
+    assert ".camarones/lib/" in removed
     assert not (dest / ".camarones" / "lib").exists()
     assert (dest / ".camarones" / "workspace.yaml").is_file()
     assert (dest / ".camarones" / "install.json").is_file()
