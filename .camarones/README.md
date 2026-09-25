@@ -29,4 +29,4 @@ project folder **overwriting** files, or into a subfolder and open that subfolde
 to the wizard title.
 
 Tools used (all permissive licenses): OpenWiki (MIT), LikeC4 (MIT), graphify (MIT/Apache-2.0), marked (MIT), DOMPurify (Apache-2.0/MPL-2.0), Mermaid (MIT),
-nginx (BSD-2), uv (MIT/Apache-2.0), rich (MIT), questionary (MIT).
+mermaid-cli (MIT), gitleaks (MIT), nginx (BSD-2), uv (MIT/Apache-2.0), rich (MIT), questionary (MIT).

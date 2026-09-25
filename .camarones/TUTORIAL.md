@@ -98,7 +98,7 @@ graphify walks the code and builds a graph: classes, functions, calls and cross-
    Level 3 COMPONENTS               [Controller] -> [Service] -> [Repository]
 ```
 
-C4 draws architecture at zoom levels: the system and who uses it (context), the applications and databases (containers) and the parts of each application (components). LikeC4 keeps it as code in docs/architecture/*.c4: one model generates every diagram, so they never contradict each other. You browse it in the portal's “Architecture (C4)” tab. After installing you'll see an automatic first draft (“Does it look right? Shall I save it?”).
+C4 draws architecture at zoom levels: the system and who uses it (context), the applications and databases (containers) and the parts of each application (components). LikeC4 keeps it as code in docs/architecture/*.c4: one model generates every diagram, so they never contradict each other. You browse it in the portal's “Architecture (C4)” tab. After installing you'll see an automatic first draft (“Does it look right? Shall I save it?”). The AI also queries the model while it writes, through the “likec4” MCP server (who calls this service? what sits between A and B?).
 
 ### 7. ✅ Review & verify: how much to trust each page
 
@@ -115,7 +115,20 @@ C4 draws architecture at zoom levels: the system and who uses it (context), the 
 
 Every page has a trust mark. 🤖 Draft: written by the AI, nobody reviewed it. ✅ Confirmed: a person read it and said “looks right”; from then on AIs treat it as the truth and don't rewrite it silently. ⚠️ Re-confirm: a confirmed page changed (by hand, in the portal or by the AI) and needs another look. Review in the portal (Confirm and Request changes buttons on every page; the Review tab lists what's pending) or in the wizard's “✅ Review”.
 
-### 8. 🌍 Bilingual: English + Spanish
+### 8. 🧪 Quality gate: what check looks at
+
+```text
+   camarones check
+     |-- broken links between pages           ERROR
+     |-- Mermaid diagrams that don't render   ERROR   (mermaid-cli)
+     |-- secrets copied into the docs         ERROR   (gitleaks: blocks commit and portal)
+     |-- glossary words to avoid              warning (ERROR with --strict)
+     +-- sources, frontmatter, translations   ERROR / warning
+```
+
+The AI writes fast and sometimes slips on small things: a link to a page that doesn't exist, a diagram that doesn't render or a token copied from a config file. “camarones check” looks for them when each unit closes and in CI. Secrets are special: while gitleaks finds one, the checkpoint commit and the portal export don't happen (the value is never shown, only file and line). Fill the glossary's “Avoid” column (say “purchase, request” for Order) and check warns wherever those words appear. mermaid-cli and gitleaks come with the full install; without them, check says so once and skips that check.
+
+### 9. 🌍 Bilingual: English + Spanish
 
 ```text
    docs/domain/glossary.md              (English, the official version)
@@ -126,7 +139,7 @@ Every page has a trust mark. 🤖 Draft: written by the AI, nobody reviewed it. 
 
 Docs are written in English (best for AIs and mixed teams) and translated to Spanish. Camarones knows which translations are current and which fell behind when the original changed. The portal's language switch changes both the interface and the docs; a page with no translation yet is shown in English with a notice.
 
-### 9. 🌐 The portal: docs as a website
+### 10. 🌐 The portal: docs as a website
 
 ```text
    +----------------------------------------------------------------------------+
@@ -142,7 +155,7 @@ Docs are written in English (best for AIs and mixed teams) and translated to Spa
 
 The 🦐 portal brings the docs (with search, editing and review), the C4 explorer, the code graph and the OpenWiki wikis together in one site, in English or Spanish. It has two modes with the same interface: the local portal (`camarones up`, or wizard → 🌐 Portal → 📝 Open the portal), where you can edit, and the read-only export (`camarones portal`) that is deployed with Docker or on any static host. `camarones up --static` shows you the export as is. Everything works offline (on-premise).
 
-### 10. ✏️ Where and when you can edit
+### 11. ✏️ Where and when you can edit
 
 ```text
    WHERE                        WHAT YOU CAN DO                      WHERE IT GOES
@@ -159,7 +172,7 @@ The 🦐 portal brings the docs (with search, editing and review), the C4 explor
 
 In the local portal, “Edit” opens the markdown with a live preview; saving writes to cam-docs/docs and, with “commit to cam-docs” ticked, makes a local commit (sharing it with git push is up to you). “+ New page” creates a page of your own and “Confirm” signs with your git user name. With Spanish selected you edit the translation. The deployed portal doesn't edit: it's a snapshot of the last export; its “Edit” button takes you to the file in GitLab/GitHub (when cam-docs has a remote), the change goes in as a merge request and CI publishes it again. Editing a ✅ page turns it ⚠️ until someone checks it. Don't hand-edit generated files (llms.txt, .status.json, viewers); wikis are better regenerated from the Wikis tab, since an update can rewrite what you change.
 
-### 11. 🔑 GitLab / GitHub tokens
+### 12. 🔑 GitLab / GitHub tokens
 
 ```text
    OS keychain          --->  Camarones  --->  git clone / pull   (OK)
@@ -171,31 +184,33 @@ In the local portal, “Edit” opens the markdown with a live preview; saving w
 
 If your repos are private, Camarones needs a token to clone and update them. It is stored in your OS keychain and used only by Camarones' own git commands: never written to the project or git config, never shared with Claude, Codex or other third parties.
 
-### 12. ⚙️ CI: docs that update themselves
+### 13. ⚙️ CI: docs that update themselves
 
 ```text
    git push --> pipeline (GitLab CI / GitHub Actions)
                   |-- what changed in the code?
                   |-- AI updates only the affected pages
-                  |-- check (links, sources, trust)
+                  |-- check --secrets  (a secret stops here: no MR)
+                  |-- check (links, diagrams, sources, trust)
                   +-- exports the portal (camarones portal) --> nginx image / Pages
 ```
 
 Optional: a pipeline that, after each change in the repos or in cam-docs, updates the affected docs and publishes the read-only portal. So a merge request opened from the deployed portal's “Edit” shows up once merged. You can also do it by hand with “🔄 Update docs after changes” and “📦 Export the portal”.
 
-### 13. 🧰 Supporting pieces
+### 14. 🧰 Supporting pieces
 
 ```text
    uv        -> runs Camarones (Python) without installing anything else
    git       -> repos and the docs history
-   Node.js   -> OpenWiki and LikeC4 (the portal needs no npm)
+   Node.js   -> OpenWiki, LikeC4 and mermaid-cli (the portal needs no npm)
+   gitleaks  -> looks for secrets before every commit and before publishing
    Docker    -> serve the portal like production (optional)
    Java      -> only for Java/Kotlin repos (SDKMAN is detected)
 ```
 
-The wizard checks all of this and installs it for you (winget on Windows, Homebrew on Mac) when you choose “Install everything recommended”. Only git and Node.js are required.
+The wizard checks all of this and installs it for you (winget on Windows, Homebrew on Mac) when you choose “Install everything recommended”. Only git and Node.js are required. The quality gate (mermaid-cli and gitleaks) comes with the full install; mermaid-cli downloads a headless Chromium the first time.
 
-### 14. 🗺 Your day to day
+### 15. 🗺 Your day to day
 
 ```text
    1. camarones                -> opens the project's wizard (cam-docs)
@@ -305,7 +320,7 @@ graphify recorre el código y construye un grafo: clases, funciones, llamadas y 
    Nivel 3 COMPONENTES              [Controller] -> [Service] -> [Repository]
 ```
 
-C4 es una forma de dibujar la arquitectura por niveles de zoom: el sistema y quién lo usa (contexto), las aplicaciones y bases de datos (contenedores) y las piezas de cada aplicación (componentes). LikeC4 guarda todo como código en docs/architecture/*.c4: un solo modelo genera todos los diagramas, así que nunca se contradicen. Lo navegas en la pestaña «Arquitectura (C4)» del portal. Al instalar verás un primer borrador automático («¿Está bien? ¿Lo guardo?»).
+C4 es una forma de dibujar la arquitectura por niveles de zoom: el sistema y quién lo usa (contexto), las aplicaciones y bases de datos (contenedores) y las piezas de cada aplicación (componentes). LikeC4 guarda todo como código en docs/architecture/*.c4: un solo modelo genera todos los diagramas, así que nunca se contradicen. Lo navegas en la pestaña «Arquitectura (C4)» del portal. Al instalar verás un primer borrador automático («¿Está bien? ¿Lo guardo?»). La IA también consulta el modelo mientras escribe, con el servidor MCP «likec4» (¿quién llama a este servicio?, ¿qué hay entre A y B?).
 
 ### 7. ✅ Revisar y verificar: la confianza de cada página
 
@@ -322,7 +337,20 @@ C4 es una forma de dibujar la arquitectura por niveles de zoom: el sistema y qui
 
 Cada página lleva una marca de confianza. 🤖 Borrador: la escribió la IA y nadie la ha revisado. ✅ Confirmada: una persona la leyó y dijo «está bien»; a partir de ahí las IAs la tratan como verdad y no la reescriben sin avisar. ⚠️ Re-confirmar: alguien cambió una página confirmada (a mano, en el portal o la IA) y hay que volver a mirarla. Puedes revisar en el portal (botones Confirmar y Pedir cambios en cada página; la pestaña Revisión lista lo pendiente) o en «✅ Revisar» del asistente.
 
-### 8. 🌍 Bilingüe: inglés + español
+### 8. 🧪 Control de calidad: lo que revisa check
+
+```text
+   camarones check
+     |-- enlaces rotos entre paginas          ERROR
+     |-- diagramas Mermaid que no se dibujan  ERROR   (mermaid-cli)
+     |-- secretos copiados en la doc          ERROR   (gitleaks: bloquea commit y portal)
+     |-- palabras a evitar del glosario       aviso   (ERROR con --strict)
+     +-- fuentes, frontmatter, traducciones   ERROR / aviso
+```
+
+La IA escribe rápido y a veces falla en lo pequeño: un enlace a una página que no existe, un diagrama que no se dibuja o un token copiado de un fichero de configuración. «camarones check» lo revisa al cerrar cada unidad y en el CI. Los secretos son especiales: mientras gitleaks encuentre uno, no se hace el commit de checkpoint ni se exporta el portal (nunca se muestra el valor, solo fichero y línea). Si en el glosario rellenas la columna «Avoid» (por ejemplo «compra, petición» para Pedido), check avisa donde aparezcan esas palabras. mermaid-cli y gitleaks vienen con la instalación completa; si faltan, check lo avisa una vez y se salta esa comprobación.
+
+### 9. 🌍 Bilingüe: inglés + español
 
 ```text
    docs/domain/glossary.md              (ingles, la version oficial)
@@ -333,7 +361,7 @@ Cada página lleva una marca de confianza. 🤖 Borrador: la escribió la IA y n
 
 La documentación se escribe en inglés (lo que mejor entienden las IAs y los equipos mixtos) y se traduce al español. Camarones sabe qué traducciones están al día y cuáles se quedaron atrás cuando cambió el original. El selector de idioma del portal cambia la interfaz y la documentación; si una página aún no tiene traducción, se muestra en inglés con un aviso.
 
-### 9. 🌐 El portal: la documentación como web
+### 10. 🌐 El portal: la documentación como web
 
 ```text
    +----------------------------------------------------------------------------+
@@ -349,7 +377,7 @@ La documentación se escribe en inglés (lo que mejor entienden las IAs y los eq
 
 El portal 🦐 junta en una sola web la documentación (con buscador, edición y revisión), el explorador C4, el grafo de código y las wikis de OpenWiki, en español o inglés. Tiene dos modos con la misma interfaz: el portal local (`camarones up`, o asistente → 🌐 Portal → 📝 Abrir el portal), donde se puede editar, y la exportación de solo lectura (`camarones portal`) que se despliega con Docker o en cualquier hosting estático. `camarones up --static` te enseña la exportación tal cual. Todo funciona sin Internet (on-premise).
 
-### 10. ✏️ Dónde y cuándo se puede editar
+### 11. ✏️ Dónde y cuándo se puede editar
 
 ```text
    DONDE                        QUE PUEDES HACER                     DONDE QUEDA
@@ -366,7 +394,7 @@ El portal 🦐 junta en una sola web la documentación (con buscador, edición y
 
 En el portal local, «Editar» abre el markdown con vista previa; al guardar se escribe en cam-docs/docs y, si marcas «commit en cam-docs», se hace un commit local (compartirlo con git push es cosa tuya). «+ Nueva página» crea una página tuya y «Confirmar» firma con tu usuario de git. Con el idioma en español editas la traducción. El portal desplegado no edita: es una foto de la última exportación; su botón «Editar» te lleva al fichero en GitLab/GitHub (si cam-docs tiene remote) y el cambio entra por merge request, y el CI vuelve a publicar. Editar una página ✅ la pasa a ⚠️ hasta que alguien la mire. No edites a mano lo generado (llms.txt, .status.json, visores): las wikis mejor regenerarlas desde la pestaña Wikis, porque una actualización puede reescribir lo que cambies.
 
-### 11. 🔑 Tokens de GitLab / GitHub
+### 12. 🔑 Tokens de GitLab / GitHub
 
 ```text
    llavero del sistema  --->  Camarones  --->  git clone / pull   (OK)
@@ -378,31 +406,33 @@ En el portal local, «Editar» abre el markdown con vista previa; al guardar se 
 
 Si tus repos son privados, Camarones necesita un token para clonarlos y actualizarlos. Se guarda en el llavero de tu sistema operativo y solo lo usa Camarones en sus propios comandos git: no se escribe en el proyecto, ni en git config, ni se comparte con Claude, Codex u otros terceros.
 
-### 12. ⚙️ CI: documentación que se actualiza sola
+### 13. ⚙️ CI: documentación que se actualiza sola
 
 ```text
    git push --> pipeline (GitLab CI / GitHub Actions)
                   |-- que ha cambiado en el codigo?
                   |-- IA actualiza solo las paginas afectadas
-                  |-- check (enlaces, fuentes, confianza)
+                  |-- check --secrets  (un secreto para aqui: no hay MR)
+                  |-- check (enlaces, diagramas, fuentes, confianza)
                   +-- exporta el portal (camarones portal) --> imagen nginx / Pages
 ```
 
 Opcional: un pipeline que, tras cada cambio en los repos o en cam-docs, actualiza la documentación afectada y publica el portal de solo lectura. Así, un merge request hecho desde «Editar» del portal desplegado aparece publicado al fusionarse. También se puede hacer a mano con «🔄 Actualizar doc tras cambios» y «📦 Exportar el portal».
 
-### 13. 🧰 Piezas de apoyo
+### 14. 🧰 Piezas de apoyo
 
 ```text
    uv        -> ejecuta Camarones (Python) sin instalar nada mas
    git       -> repos y el historial de la documentacion
-   Node.js   -> OpenWiki y LikeC4 (el portal no necesita npm)
+   Node.js   -> OpenWiki, LikeC4 y mermaid-cli (el portal no necesita npm)
+   gitleaks  -> busca secretos antes de cada commit y de publicar
    Docker    -> servir el portal como en produccion (opcional)
    Java      -> solo si hay repos Java/Kotlin (se detecta SDKMAN)
 ```
 
-El asistente comprueba todo esto y lo instala por ti (winget en Windows, Homebrew en Mac) si eliges «Instalar todo lo recomendado». Solo git y Node.js son obligatorios.
+El asistente comprueba todo esto y lo instala por ti (winget en Windows, Homebrew en Mac) si eliges «Instalar todo lo recomendado». Solo git y Node.js son obligatorios. El control de calidad (mermaid-cli y gitleaks) viene con la instalación completa; mermaid-cli descarga un Chromium sin ventana la primera vez.
 
-### 14. 🗺 Tu día a día
+### 15. 🗺 Tu día a día
 
 ```text
    1. camarones                -> abre el asistente del proyecto (cam-docs)

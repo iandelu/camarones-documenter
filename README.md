@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.1.0-ff875f?style=flat-square" alt="Versión 3.1.0">
+  <img src="https://img.shields.io/badge/version-3.2.0-ff875f?style=flat-square" alt="Versión 3.2.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -33,11 +33,11 @@ Está pensado para equipos que necesitan incorporar personas, entender sistemas 
 
 ### Qué hace, en seis puntos
 
-1. **Instala e integra las herramientas de IA** (Claude Code, Codex, graphify, LikeC4, OpenWiki, MCP) con un asistente.
+1. **Instala e integra las herramientas de IA** (Claude Code, Codex, graphify, LikeC4, OpenWiki, MCP, mermaid-cli, gitleaks) con un asistente.
 2. **Estandariza la documentación** con un plan de unidades, un playbook, convenciones y skills para los agentes.
 3. **Las personas consultan, editan y verifican** la documentación en el portal vivo (`camarones up`) o con la CLI.
-4. **La IA tiene la documentación a mano al implementar**: servidor MCP `camarones` (`search_docs`, `read_doc`, `repo_graph`…) y skills `cam-docs-lookup` / `cam-docs-update`.
-5. **Documentación viva**: el código y la doc cambian juntos; `changes`, `check` y la trazabilidad `x-sources` señalan lo que quedó atrás.
+4. **La IA tiene la documentación a mano al implementar**: servidor MCP `camarones` (`search_docs` con ranking, `read_doc`, `repo_graph`…), servidor MCP `likec4` para preguntar al modelo de arquitectura, ambos en Claude Code y en Codex, y skills `cam-docs-lookup` / `cam-docs-update`.
+5. **Documentación viva y revisada**: el código y la doc cambian juntos; `changes`, `check` y la trazabilidad `x-sources` señalan lo que quedó atrás, y `check` además detecta enlaces rotos, diagramas que no se dibujan, secretos copiados y términos que el glosario pide evitar.
 6. **Todo vive en `cam-docs/`**, una carpeta junto a tus repos que es su propio repo Git: docs, `.camarones`, `.claude`, `.codex`, `.agents`, `.mcp.json`. Los repos de servicio no reciben archivos del kit.
 
 ## Del código al mapa del proyecto
@@ -64,6 +64,7 @@ Está pensado para equipos que necesitan incorporar personas, entender sistemas 
 - **Documentación para personas y agentes.** Portal para leer; `AGENTS.md`, `CLAUDE.md` y `llms.txt` para orientar el trabajo con IA.
 - **Inglés y español.** Documentación canónica en inglés, traducciones al español y seguimiento de traducciones pendientes o desactualizadas.
 - **Un primer mapa sin IA.** `arch-draft` realiza un análisis estático y propone un borrador C4 que después hay que verificar.
+- **Control de calidad en cada unidad.** Enlaces rotos y diagramas Mermaid inválidos son errores; un posible secreto bloquea el commit de checkpoint, la exportación del portal y la rama de CI, sin mostrar nunca su valor.
 
 ## Empieza aquí
 
@@ -201,6 +202,19 @@ Las convenciones instruyen a los agentes para conservar los bloques `<!-- human 
 .\camarones.cmd feedback docs/overview/system.md "Falta describir los reintentos" --by "Tu nombre"
 ```
 
+`check` es la puerta de calidad que se pasa al cerrar cada unidad y en CI:
+
+| Comprobación | Gravedad | Herramienta |
+|---|---|---|
+| Frontmatter ausente, fuentes `x-sources` que ya no existen | ERROR | — |
+| Enlace roto a otra página, resuelto igual que en el portal | ERROR | Python (sin dependencias) |
+| Diagrama Mermaid que no se dibuja | ERROR | mermaid-cli |
+| Posible secreto en `docs/` o en una wiki | ERROR; bloquea checkpoint y `portal` | gitleaks |
+| Palabra de la columna **Avoid** del glosario | aviso (ERROR con `--strict`) | Python (sin dependencias) |
+| Página confirmada que cambió · traducción pendiente | aviso | — |
+
+mermaid-cli y gitleaks forman el componente `quality` del perfil completo; si faltan, `check` lo avisa una vez y sigue con el resto. `check --secrets` ejecuta solo el escaneo de secretos.
+
 ## Todo termina en archivos que puedes versionar
 
 ```text
@@ -251,11 +265,11 @@ Para publicarlo (CI / hosting), `camarones portal` exporta la misma aplicación 
 
 `changes` compara los commits con el estado registrado en la última documentación. `prompt update` **imprime instrucciones**: entrégaselas a tu agente o inicia la actualización desde el asistente. Después del trabajo y la revisión, `mark-documented` registra el nuevo punto de referencia.
 
-Se incluyen [plantillas de CI para GitHub y GitLab](.camarones/ci/) para automatizar actualizaciones y construir el portal. Requieren configurar accesos, secretos y despliegue según el proyecto; no se activan al descargar este repositorio.
+Se incluyen [plantillas de CI para GitHub y GitLab](.camarones/ci/) para automatizar actualizaciones y construir el portal. Antes de abrir la PR/MR ejecutan `check --secrets`: si la IA copió un secreto en la documentación, el job falla y la rama no se publica. Requieren configurar accesos, secretos y despliegue según el proyecto; no se activan al descargar este repositorio.
 
 ## Las piezas del kit
 
-**Python + Rich + Questionary** construyen el asistente y la CLI. **uv** resuelve su entorno. **OpenWiki** se encarga de las wikis por repositorio, **graphify** del grafo de código y **LikeC4** del modelo de arquitectura. El portal es una aplicación propia sin build (**marked**, **DOMPurify** y **Mermaid**, servidos en local). El despliegue con contenedor utiliza **nginx**.
+**Python + Rich + Questionary** construyen el asistente y la CLI. **uv** resuelve su entorno. **OpenWiki** se encarga de las wikis por repositorio, **graphify** del grafo de código y **LikeC4** del modelo de arquitectura (también como servidor MCP para los agentes). **mermaid-cli** valida los diagramas y **gitleaks** busca secretos antes de cada commit y de publicar; gitleaks se descarga de su release oficial con la suma SHA-256 verificada. El portal es una aplicación propia sin build (**marked**, **DOMPurify** y **Mermaid**, servidos en local). El despliegue con contenedor utiliza **nginx**.
 
 Las versiones de las herramientas están fijadas en [common.py](.camarones/lib/common.py) y las librerías del portal en [serve.py](.camarones/lib/serve.py). Puedes consultarlas con:
 
@@ -263,6 +277,42 @@ Las versiones de las herramientas están fijadas en [common.py](.camarones/lib/c
 .\camarones.cmd version
 .\camarones.cmd doctor
 ```
+
+## Herramientas que evaluamos y descartamos
+
+Antes de añadir una herramienta, la comparamos con los criterios del kit: funciona en local y sin enviar código fuera, no deja archivos en los repos de servicio, sirve igual con Claude Code y con Codex, funciona en macOS, Windows y Linux, y pesa poco (preferimos Python estándar, `uv` o npm con versión fija). El análisis completo, con un identificador por candidata, está en [tooling-candidates.md](docs/research/tooling-candidates.md).
+
+**Sustituidas al implementar** (el hueco se cubrió de forma más ligera):
+
+| Herramienta | Por qué no |
+|---|---|
+| lychee | La comprobación de enlaces está escrita en Python estándar: resuelve los enlaces igual que el portal y no añade ningún binario. |
+| Vale | Su valor dependía de una lista de sinónimos prohibidos; con la columna **Avoid** del glosario basta una búsqueda en Python. Además no trae diccionario en español. |
+| SQLite FTS5 | Un índice incremental tendría que leer todos los ficheros en cada consulta para saber qué cambió. La búsqueda BM25 en memoria da el mismo ranking sin caché ni problemas de concurrencia. |
+| mermaid-cli 12 | Usa mermaid 12 y el portal dibuja con mermaid 11: se fija mermaid-cli 11.x para validar con el mismo motor. |
+| `npx skills add` (skill de LikeC4) | Canal de distribución sin versión fija. El servidor MCP de LikeC4 sí está integrado; la skill queda pendiente hasta poder guardar una copia revisada. |
+
+**Descartadas en el análisis:**
+
+| Herramientas | Por qué no |
+|---|---|
+| DeepWiki, Google Code Wiki, Swimm, Mintlify, GitBook, DeepDocs, NotebookLM, Context7, DeepL, IcePanel | Servicios en la nube: el código o la documentación salen de la máquina. |
+| Structurizr, D2, Kroki | Otra notación u otro motor de diagramas además de LikeC4 y Mermaid; cambiar tiene un coste alto. |
+| Zensical, Astro Starlight, Docusaurus, VitePress, Quartz | El portal propio ya cubre esto sin paso de build ni npm; quien prefiera Obsidian puede abrir `cam-docs/docs` como vault sin integración del kit. |
+| log4brains | Duplicaría el visor de ADR que ya tiene el portal. |
+| CodeGraphContext, Zoekt, indexadores SCIP | Necesitan un servidor, una base de datos de grafos o que los repos compilen: demasiado para un kit local. |
+| RepoWiki | Proyecto pequeño y de madurez desconocida. |
+| jQAssistant, Spring Modulith Documenter, dependency-cruiser, Madge | Solo sirven para un lenguaje o framework concreto. |
+| SchemaSpy, Atlas | tbls cubre lo mismo con salida en Markdown y Mermaid. |
+| KubeDiagrams | Genera imágenes, no un modelo LikeC4. |
+| Spectral, AsyncAPI CLI | Solo tienen sentido si antes se generan contratos OpenAPI/AsyncAPI desde el código. |
+| sqlite-vec | Exige un modelo de embeddings para una mejora pequeña sobre la búsqueda actual. |
+| Egon.io, OWASP Threat Dragon | Herramientas manuales de taller; un agente no puede conducirlas. |
+| po4a, mdpo | Flujo de traducción pensado para traductores humanos; excesivo para dos idiomas. |
+| mani, gita | `workspace.yaml` y `sync` ya gestionan los repos. |
+| GitHub Spec Kit, Task Master | Otro objetivo: construir funcionalidades, no documentar. |
+
+**Aplazadas, no descartadas:** codebase-memory-mcp o GitNexus (grafo de código con impacto entre repos), tbls (esquema real de las bases de datos), el service graph de OpenTelemetry (relaciones observadas en producción) y CodeWiki (wikis de repos muy grandes). Merecen una prueba en un proyecto real antes de decidir. El resto de candidatas marcadas como «worth a look» siguen en el análisis sin decisión.
 
 ## Sigue explorando
 

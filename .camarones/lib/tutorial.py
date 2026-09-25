@@ -102,7 +102,8 @@ PAGES = {
                  "las aplicaciones y bases de datos (contenedores) y las piezas de cada aplicación (componentes). LikeC4 "
                  "guarda todo como código en docs/architecture/*.c4: un solo modelo genera todos los diagramas, así que "
                  "nunca se contradicen. Lo navegas en la pestaña «Arquitectura (C4)» del portal. Al instalar verás un "
-                 "primer borrador automático («¿Está bien? ¿Lo guardo?»)."},
+                 "primer borrador automático («¿Está bien? ¿Lo guardo?»). La IA también consulta el modelo mientras "
+                 "escribe, con el servidor MCP «likec4» (¿quién llama a este servicio?, ¿qué hay entre A y B?)."},
         {"icon": "✅", "title": "Revisar y verificar: la confianza de cada página",
          "art": r"""
     IA escribe         tu revisas              confirmada             alguien la edita
@@ -118,6 +119,21 @@ PAGES = {
                  "no la reescriben sin avisar. ⚠️ Re-confirmar: alguien cambió una página confirmada (a mano, en el "
                  "portal o la IA) y hay que volver a mirarla. Puedes revisar en el portal (botones Confirmar y Pedir "
                  "cambios en cada página; la pestaña Revisión lista lo pendiente) o en «✅ Revisar» del asistente."},
+        {"icon": "🧪", "title": "Control de calidad: lo que revisa check",
+         "art": r"""
+   camarones check
+     |-- enlaces rotos entre paginas          ERROR
+     |-- diagramas Mermaid que no se dibujan  ERROR   (mermaid-cli)
+     |-- secretos copiados en la doc          ERROR   (gitleaks: bloquea commit y portal)
+     |-- palabras a evitar del glosario       aviso   (ERROR con --strict)
+     +-- fuentes, frontmatter, traducciones   ERROR / aviso""",
+         "text": "La IA escribe rápido y a veces falla en lo pequeño: un enlace a una página que no existe, un diagrama "
+                 "que no se dibuja o un token copiado de un fichero de configuración. «camarones check» lo revisa al "
+                 "cerrar cada unidad y en el CI. Los secretos son especiales: mientras gitleaks encuentre uno, no se hace "
+                 "el commit de checkpoint ni se exporta el portal (nunca se muestra el valor, solo fichero y línea). Si "
+                 "en el glosario rellenas la columna «Avoid» (por ejemplo «compra, petición» para Pedido), check avisa "
+                 "donde aparezcan esas palabras. mermaid-cli y gitleaks vienen con la instalación completa; si faltan, "
+                 "check lo avisa una vez y se salta esa comprobación."},
         {"icon": "🌍", "title": "Bilingüe: inglés + español",
          "art": r"""
    docs/domain/glossary.md              (ingles, la version oficial)
@@ -180,7 +196,8 @@ PAGES = {
    git push --> pipeline (GitLab CI / GitHub Actions)
                   |-- que ha cambiado en el codigo?
                   |-- IA actualiza solo las paginas afectadas
-                  |-- check (enlaces, fuentes, confianza)
+                  |-- check --secrets  (un secreto para aqui: no hay MR)
+                  |-- check (enlaces, diagramas, fuentes, confianza)
                   +-- exporta el portal (camarones portal) --> imagen nginx / Pages""",
          "text": "Opcional: un pipeline que, tras cada cambio en los repos o en cam-docs, actualiza la documentación "
                  "afectada y publica el portal de solo lectura. Así, un merge request hecho desde «Editar» del portal "
@@ -190,11 +207,14 @@ PAGES = {
          "art": r"""
    uv        -> ejecuta Camarones (Python) sin instalar nada mas
    git       -> repos y el historial de la documentacion
-   Node.js   -> OpenWiki y LikeC4 (el portal no necesita npm)
+   Node.js   -> OpenWiki, LikeC4 y mermaid-cli (el portal no necesita npm)
+   gitleaks  -> busca secretos antes de cada commit y de publicar
    Docker    -> servir el portal como en produccion (opcional)
    Java      -> solo si hay repos Java/Kotlin (se detecta SDKMAN)""",
          "text": "El asistente comprueba todo esto y lo instala por ti (winget en Windows, Homebrew en Mac) si eliges "
-                 "«Instalar todo lo recomendado». Solo git y Node.js son obligatorios."},
+                 "«Instalar todo lo recomendado». Solo git y Node.js son obligatorios. El control de calidad "
+                 "(mermaid-cli y gitleaks) viene con la instalación completa; mermaid-cli descarga un Chromium sin "
+                 "ventana la primera vez."},
         {"icon": "🗺", "title": "Tu día a día",
          "art": r"""
    1. camarones                -> abre el asistente del proyecto (cam-docs)
@@ -303,7 +323,8 @@ PAGES = {
                  "(containers) and the parts of each application (components). LikeC4 keeps it as code in "
                  "docs/architecture/*.c4: one model generates every diagram, so they never contradict each other. You "
                  "browse it in the portal's “Architecture (C4)” tab. After installing you'll see an automatic first draft "
-                 "(“Does it look right? Shall I save it?”)."},
+                 "(“Does it look right? Shall I save it?”). The AI also queries the model while it writes, through the "
+                 "“likec4” MCP server (who calls this service? what sits between A and B?)."},
         {"icon": "✅", "title": "Review & verify: how much to trust each page",
          "art": r"""
     AI writes          you review              confirmed              someone edits it
@@ -319,6 +340,21 @@ PAGES = {
                  "⚠️ Re-confirm: a confirmed page changed (by hand, in the portal or by the AI) and needs another look. "
                  "Review in the portal (Confirm and Request changes buttons on every page; the Review tab lists what's "
                  "pending) or in the wizard's “✅ Review”."},
+        {"icon": "🧪", "title": "Quality gate: what check looks at",
+         "art": r"""
+   camarones check
+     |-- broken links between pages           ERROR
+     |-- Mermaid diagrams that don't render   ERROR   (mermaid-cli)
+     |-- secrets copied into the docs         ERROR   (gitleaks: blocks commit and portal)
+     |-- glossary words to avoid              warning (ERROR with --strict)
+     +-- sources, frontmatter, translations   ERROR / warning""",
+         "text": "The AI writes fast and sometimes slips on small things: a link to a page that doesn't exist, a diagram "
+                 "that doesn't render or a token copied from a config file. “camarones check” looks for them when each "
+                 "unit closes and in CI. Secrets are special: while gitleaks finds one, the checkpoint commit and the "
+                 "portal export don't happen (the value is never shown, only file and line). Fill the glossary's "
+                 "“Avoid” column (say “purchase, request” for Order) and check warns wherever those words appear. "
+                 "mermaid-cli and gitleaks come with the full install; without them, check says so once and skips "
+                 "that check."},
         {"icon": "🌍", "title": "Bilingual: English + Spanish",
          "art": r"""
    docs/domain/glossary.md              (English, the official version)
@@ -380,7 +416,8 @@ PAGES = {
    git push --> pipeline (GitLab CI / GitHub Actions)
                   |-- what changed in the code?
                   |-- AI updates only the affected pages
-                  |-- check (links, sources, trust)
+                  |-- check --secrets  (a secret stops here: no MR)
+                  |-- check (links, diagrams, sources, trust)
                   +-- exports the portal (camarones portal) --> nginx image / Pages""",
          "text": "Optional: a pipeline that, after each change in the repos or in cam-docs, updates the affected docs and "
                  "publishes the read-only portal. So a merge request opened from the deployed portal's “Edit” shows up "
@@ -389,11 +426,13 @@ PAGES = {
          "art": r"""
    uv        -> runs Camarones (Python) without installing anything else
    git       -> repos and the docs history
-   Node.js   -> OpenWiki and LikeC4 (the portal needs no npm)
+   Node.js   -> OpenWiki, LikeC4 and mermaid-cli (the portal needs no npm)
+   gitleaks  -> looks for secrets before every commit and before publishing
    Docker    -> serve the portal like production (optional)
    Java      -> only for Java/Kotlin repos (SDKMAN is detected)""",
          "text": "The wizard checks all of this and installs it for you (winget on Windows, Homebrew on Mac) when you choose "
-                 "“Install everything recommended”. Only git and Node.js are required."},
+                 "“Install everything recommended”. Only git and Node.js are required. The quality gate (mermaid-cli "
+                 "and gitleaks) comes with the full install; mermaid-cli downloads a headless Chromium the first time."},
         {"icon": "🗺", "title": "Your day to day",
          "art": r"""
    1. camarones                -> opens the project's wizard (cam-docs)
