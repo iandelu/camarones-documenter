@@ -43,7 +43,8 @@ or `.\camaron.cmd`).
    **Autopilot** (`CLI autopilot`, or "Autopilot" in the wizard's ready-units list) skips this step. An outer loop
    starts every ready agent unit in its own fresh, unattended session (`claude -p … --dangerously-skip-permissions`
    or `codex exec --approve-for-me …`). If one agent hits its usage limit, the loop switches to the other; if both are
-   limited, it waits. It never runs interview units or wizard steps (setup, portal, ci, confirm), and it stops when
+   limited, it waits. It never runs wizard steps (setup, answers, portal, ci, confirm) nor live interview units (in
+   team mode it runs them: they only consolidate written answers), and it stops when
    only those are left, when a unit fails, or when a unit ends without `plan done`/`plan block`. In an autopilot
    session you close the unit as usual (step 5), and questions go to `docs/interview/open-questions.md`.
 7. Never write `x-confirmed`; never rewrite `<!-- human -->` blocks, `x-owner: human` files or confirmed pages silently.
@@ -89,9 +90,39 @@ producer↔consumer pairs, shared databases, candidate bounded contexts, candida
 (entrypoint → hops → side effects), questions for the interviews. `.camarones/.cache/graph/graph.json` cross-repo edges are INFERRED —
 confirm in code before stating them.
 
+## questionnaire
+Team mode only (`project.interviews: team`; wizard → "📋 Team questionnaire", or `CLI interview mode team`). Instead of
+asking live, write ONE questionnaire covering the three interview topics, for the team to answer offline. Read
+`docs/interview/discovery/*.md` (cross-repo first) and `docs/interview/open-questions.md`; no code re-reading.
+Output `docs/interview/questionnaire/questionnaire.yaml` (questions in the user's language):
+```yaml
+title: <Project> — team questionnaire
+intro: One or two sentences: why we ask, how long it takes (aim for ≤15 minutes).
+questions:
+  - id: ctx-environments          # stable, unique: <ctx|lang|hist>-<slug>
+    topic: context                # context | language | history (which interview unit consolidates it)
+    text: Which environments exist, and where does each run?
+    inferred: dev and prod in the Helm values; no staging found.   # what the code says, so people only correct
+    evidence: api:deploy/values-prod.yaml#L1-L20
+    kind: multi                   # single | multi | confirm (yes / no / don't know) | text
+    options: [dev, staging, pre, prod]   # single/multi; people can always add "other" and a comment
+```
+Prefer `confirm` for an inference ("Is X right?") and `single`/`multi` with concrete options over open `text`;
+keep 10–25 questions, the topics of the interview section below, most important first. Then run
+`CLI interview export` (writes the HTML form + Markdown copy next to it) and `CLI check`.
+
+## answers
+Wizard step (`CLI interview export|import|status`): the user shares `questionnaire.html` (offline form → each person
+downloads an answers JSON) or `questionnaire.md` (tick boxes, send back or PR), imports what comes back into
+`docs/interview/questionnaire/responses/<person>.yaml`, and closes the step when there are enough answers.
+
 ## interview
 Three short units (`interview-context`, `interview-language`, `interview-history`). Show what was inferred, let the user
-validate or correct; ≤4 questions per round. Topics per unit:
+validate or correct; ≤4 questions per round.
+**Team mode** (`CLI interview mode` says `team`): do not interview. Read `questionnaire.yaml` (this unit's topic) and
+every `responses/*.yaml`; `CLI interview status` lists who answered, gaps and disagreements. Write the agreed answers to
+the dated file below, citing who said what (`— Ana, Bob`); a disagreement or an unanswered question becomes an entry
+of `docs/interview/open-questions.md` quoting each answer. Never pick a side silently. Topics per unit:
 - **context**: bounded contexts (and which repo implements each, relationships: customer/supplier, ACL, shared kernel),
   external actors (people, systems), environments (which, where, differences).
 - **language**: DDD glossary (term, definition, code name, context, synonyms to avoid; which translations to keep), SLAs/NFRs.

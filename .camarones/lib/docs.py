@@ -67,6 +67,14 @@ def interview_mode() -> str:
     return mode if mode in INTERVIEW_MODES else "live"
 
 
+def set_interview_mode(mode: str) -> None:
+    if mode not in INTERVIEW_MODES:
+        raise ValueError(f"interview mode must be one of {', '.join(INTERVIEW_MODES)}")
+    ws = workspace()
+    ws["project"]["interviews"] = mode
+    save_workspace(ws)
+
+
 def set_wiki_repos(names: list[str]) -> None:
     ws = workspace()
     for r in ws["repos"]:

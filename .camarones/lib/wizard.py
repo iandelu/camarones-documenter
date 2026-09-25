@@ -18,7 +18,7 @@ from rich.text import Text
 
 from .common import (ROOT, HOME, WORK, WS_FILE, CACHE, IS_WIN, IS_MAC, CAM_DIR, CAM_LAYOUT, WORKSPACE, which, cli_cmd,
                      load_json, save_json, out, repo_dir)
-from . import docs, env, plan, creds, quickarch, radar, tutorial
+from . import docs, env, plan, creds, questionnaire, quickarch, radar, tutorial
 from .common import VERSIONS, ws_rel
 from rich.tree import Tree
 import webbrowser
@@ -233,6 +233,29 @@ T = {
         "sk_pick": "¿Qué repo?",
         "sk_fix_q": "Stack de {repo} (vacío = el detectado):",
         "sk_done": "✔ Apuntado. Ya sé qué hay en vuestra caja de herramientas: nada de pescar a ciegas 🦐",
+        "m_team": "📋 Cuestionario para el equipo",
+        "iv_mode_q": "¿Cómo hacemos las entrevistas?",
+        "iv_team": "📋 Cuestionario para el equipo: la IA lo prepara con opciones, lo compartes y cada uno responde cuando pueda",
+        "iv_live": "💬 En directo, ahora, con la IA",
+        "iv_team_ok": "Primero la IA prepara el cuestionario con lo que ya ha deducido del código.",
+        "iv_switch": "Las entrevistas están en modo «en directo». ¿Pasarlas a cuestionario para el equipo?",
+        "iv_first": "Aún no hay cuestionario: la IA tiene que prepararlo primero. ¿Lo empezamos ahora?",
+        "iv_dropped": "Las entrevistas ya se hicieron en directo: no hace falta cuestionario (puedes rehacerlas desde «↻ Rehacer»).",
+        "qa_title": "Respuestas del equipo",
+        "qa_questions": "Preguntas", "qa_people": "Han respondido", "qa_conflicts": "Respuestas que no coinciden",
+        "qa_unanswered": "Sin respuesta",
+        "qa_q": "¿Qué hacemos?",
+        "qa_export": "📤 Generar los ficheros para compartir (formulario HTML + Markdown)",
+        "qa_import": "📥 Importar respuestas (fichero o carpeta)",
+        "qa_close": "✔ Ya hay suficientes: que la IA las consolide",
+        "qa_need": "importa al menos una respuesta",
+        "qa_exported": "✔ Listo para compartir:\n  · {html}  → el formulario: se abre en cualquier navegador, sin instalar nada\n"
+                       "  · {md}  → la misma encuesta en Markdown, para quien prefiera un pull request\n"
+                       "Cada persona te devuelve su fichero de respuestas; luego «Importar respuestas». El cuestionario ya va nadando hacia tu equipo 🦐",
+        "qa_import_q": "Fichero o carpeta con las respuestas (en una carpeta busco respuestas-*/answers-*):",
+        "qa_imported": "✔ {who}: {file}",
+        "qa_skipped": "✖ {file}: {why}",
+        "qa_none_found": "No encontré ficheros de respuestas ahí.",
         "up_found": "Hay una versión nueva del kit: v{new} (este proyecto usa v{cur}).\nEncontrada en: {where}",
         "up_q": "¿Actualizo ahora? (se conservan tu configuración, el plan y toda la documentación)",
         "up_done": "✔ Actualizado a v{new}. Reiniciando…",
@@ -514,6 +537,29 @@ T = {
         "sk_pick": "Which repo?",
         "sk_fix_q": "Stack of {repo} (empty = the detected one):",
         "sk_done": "✔ Noted. I know what's in your toolbox now — no more fishing in the dark 🦐",
+        "m_team": "📋 Team questionnaire",
+        "iv_mode_q": "How do we run the interviews?",
+        "iv_team": "📋 Team questionnaire: the AI prepares it with options, you share it and everyone answers when they can",
+        "iv_live": "💬 Live, now, with the AI",
+        "iv_team_ok": "First the AI prepares the questionnaire from what it already inferred from the code.",
+        "iv_switch": "Interviews are set to “live”. Switch them to a team questionnaire?",
+        "iv_first": "There is no questionnaire yet: the AI has to prepare it first. Start it now?",
+        "iv_dropped": "The interviews were already done live: no questionnaire needed (you can redo them from “↻ Redo”).",
+        "qa_title": "Team answers",
+        "qa_questions": "Questions", "qa_people": "Answered by", "qa_conflicts": "Answers that disagree",
+        "qa_unanswered": "Unanswered",
+        "qa_q": "What next?",
+        "qa_export": "📤 Create the files to share (HTML form + Markdown)",
+        "qa_import": "📥 Import answers (file or folder)",
+        "qa_close": "✔ That's enough: let the AI consolidate them",
+        "qa_need": "import at least one answer",
+        "qa_exported": "✔ Ready to share:\n  · {html}  → the form: opens in any browser, nothing to install\n"
+                       "  · {md}  → the same survey in Markdown, for whoever prefers a pull request\n"
+                       "Everyone sends you back their answers file; then “Import answers”. The questionnaire is swimming off to your team 🦐",
+        "qa_import_q": "File or folder with the answers (in a folder I look for answers-*/respuestas-*):",
+        "qa_imported": "✔ {who}: {file}",
+        "qa_skipped": "✖ {file}: {why}",
+        "qa_none_found": "No answers files found there.",
         "up_found": "A newer kit is available: v{new} (this project uses v{cur}).\nFound at: {where}",
         "up_q": "Upgrade now? (your config, the plan and all documentation are kept)",
         "up_done": "✔ Upgraded to v{new}. Restarting…",
@@ -826,6 +872,8 @@ class W:
                 Choice(self.t("m_setup"), "setup"), Choice(self.t("m_ci"), "ci")]
             if self.extra_ready():
                 choices.append(Choice(self.t("m_extra"), "extra"))
+            if self.team_ready():
+                choices.append(Choice(self.t("m_team"), "team"))
             choices += [
                 Choice(self.t("m_tutorial"), "tutorial"), Choice(self.t("m_uninstall"), "uninstall"),
                 Choice(self.t("m_model"), "model"), Choice(self.t("m_lang"), "lang"), Choice(self.t("m_exit"), "exit")]
@@ -1401,6 +1449,79 @@ Talk to the user in {talk}. Do not modify application code.
         if self.yes(self.t("rd_now"), default=True):
             self.run_unit(plan.get(plan.load(), u["id"]))
 
+    # ---------- team questionnaire (deferred interviews) ----------
+    def reveal(self, folder: Path) -> None:
+        """Show a folder in the system file manager (Explorer / Finder / the desktop's default)."""
+        env.open_url(folder.resolve().as_uri())
+
+    def show_answers(self, s: dict) -> None:
+        tbl = Table(title=self.t("qa_title"), title_justify="left", border_style="grey42", show_header=False)
+        tbl.add_row(self.t("qa_questions"), str(s["questions"]))
+        people = ", ".join(f"{r['name']} ({r['answered']})" for r in s["respondents"]) or "—"
+        tbl.add_row(self.t("qa_people"), f"[{ORANGE}]{people}[/]")
+        tbl.add_row(self.t("qa_unanswered"), str(len(s["unanswered"])))
+        tbl.add_row(self.t("qa_conflicts"), ", ".join(c["id"] for c in s["conflicts"]) or "—")
+        console.print(tbl)
+
+    def do_answers(self) -> bool | None:
+        """The `answers` step: share the questionnaire, import what comes back. True = enough, consolidate."""
+        while True:
+            self.banner()
+            try:
+                s = questionnaire.status()
+            except ValueError as e:
+                self.say(str(e), "yellow")
+                self.pause()
+                return None
+            self.show_answers(s)
+            c = self.sel(self.t("qa_q"), [
+                Choice(self.t("qa_export"), "export"), Choice(self.t("qa_import"), "import"),
+                Choice(self.t("qa_close"), "close", disabled=None if s["respondents"] else self.t("qa_need"))])
+            if c is None:
+                return None
+            if c == "close":
+                return True
+            if c == "export":
+                html, md = questionnaire.export(self.lang)
+                self.say(self.t("qa_exported", html=html, md=md), "green")
+                self.reveal(questionnaire.QDIR)
+            else:
+                path = self.txt(self.t("qa_import_q"), default=str(HOME / "Downloads"))
+                if not path or not path.strip():
+                    continue
+                results = questionnaire.import_files([Path(path.strip().strip('"').strip("'")).expanduser()])
+                for f, who, err in results:
+                    self.say(self.t("qa_imported", who=who, file=f.name) if who else
+                             self.t("qa_skipped", file=f.name, why=err), "green" if who else "yellow")
+                if not results:
+                    self.say(self.t("qa_none_found"), "yellow")
+            self.pause()
+
+    def team_ready(self) -> bool:
+        """Offer the questionnaire while it is in use, or while the interviews are still ahead."""
+        units = {u["id"]: u["status"] for u in plan.load()["units"]}
+        return docs.interview_mode() == "team" or units.get("interview-context") not in (None, "done", "dropped")
+
+    def do_team(self) -> None:
+        """Menu entry: switch the interviews to a team questionnaire, or manage the answers."""
+        if docs.interview_mode() != "team":
+            if not self.yes(self.t("iv_switch"), default=True):
+                return
+            docs.set_interview_mode("team")
+        data = plan.sync()
+        q = plan.get(data, "questionnaire")
+        if q["status"] == "dropped":
+            self.say(self.t("iv_dropped"), "yellow")
+            self.pause()
+            return
+        if not questionnaire.SOURCE.exists():
+            if self.yes(self.t("iv_first"), default=True):
+                self.run_unit(q)
+            return
+        if self.do_answers() is True and plan.get(plan.load(), "answers")["status"] != "done":
+            plan.set_status("answers", "done", "wizard")
+            self.checkpoint("answers")
+
     def do_autopilot(self) -> None:
         self.say(self.t("autopilot_info"), "grey62")
         cmd = [sys.executable, str(Path(__file__).resolve().parent.parent / "camarones.py"), "autopilot", "--lang", self.lang]
@@ -1423,9 +1544,22 @@ Talk to the user in {talk}. Do not modify application code.
         self.pause()
 
     def run_unit(self, u: dict) -> None:
+        if u["type"] in plan.INTERVIEW_TYPES and u["status"] == "todo" and \
+                "interviews" not in docs.workspace()["project"] and \
+                plan.get(plan.load(), "interview-context")["status"] != "done":
+            mode = self.sel(self.t("iv_mode_q"), [Choice(self.t("iv_team"), "team"), Choice(self.t("iv_live"), "live")],
+                            default="team")
+            if mode is None:
+                return
+            docs.set_interview_mode(mode)
+            data = plan.sync()
+            if mode == "team":
+                self.say(self.t("iv_team_ok"), "grey62")
+                return self.run_unit(plan.get(data, "questionnaire"))
         if u["runner"] == "wizard":
             self.say(self.t("unit_wizard"), "grey62")
-            action = {"setup": self.do_setup, "portal": self.do_portal, "ci": self.do_ci, "confirm": self.do_review}[u["type"]]
+            action = {"setup": self.do_setup, "portal": self.do_portal, "ci": self.do_ci, "confirm": self.do_review,
+                      "answers": self.do_answers}[u["type"]]
             res = self.safe(action)
             if res is True or (u["type"] == "portal" and (CACHE / "site" / "index.html").exists()):
                 plan.set_status(u["id"], "done", "wizard")
