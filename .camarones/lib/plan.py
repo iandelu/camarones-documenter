@@ -188,6 +188,19 @@ def sync() -> dict:
     return data
 
 
+def set_interview_mode(mode: str) -> dict:
+    """Switch how the interviews run. In team mode a live interview that was already started goes back to todo: it now
+    waits for the team's answers (its checkpoints stay, so the consolidation sees what was said live)."""
+    docs.set_interview_mode(mode)
+    data = sync()
+    if mode == "team" and any(u["type"] in INTERVIEW_TYPES and u["status"] == "doing" for u in data["units"]):
+        for u in data["units"]:
+            if u["type"] in INTERVIEW_TYPES and u["status"] == "doing":
+                u["status"] = "todo"
+        save(data)
+    return data
+
+
 def get(data: dict, uid: str) -> dict:
     for u in data["units"]:
         if u["id"] == uid:
@@ -347,6 +360,8 @@ def render(data: dict | None = None) -> str:
 
 # ---------- session prompts ----------
 def prompt(uid: str, lang: str = "es", unattended: bool = False) -> str:
+    from . import env                    # lazy: env imports plan
+    env.sync_kit_docs()                  # the session reads the project's PLAYBOOK copy: bring it up to this kit
     data = load()
     u = get(data, uid) if uid != "update" else {"id": "update", "title": "Incremental update", "type": "update", "phase": "-"}
     cli = cli_cmd()

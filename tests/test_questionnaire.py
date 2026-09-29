@@ -310,6 +310,58 @@ def test_first_interview_asks_live_or_team(kit, quiet, launched, fake_wizard):
     assert unit(kit.plan.load(), "interview-context")["status"] == "todo"
 
 
+def test_a_started_live_interview_can_still_go_to_the_team(kit, quiet, launched, fake_wizard):
+    """Bug: an interview already `doing` (a live session was opened) skipped the question and relaunched the agent."""
+    kit.plan.sync()
+    finish(kit, "setup", "discovery")
+    kit.plan.set_status("interview-context", "doing")
+    fake_wizard(["team"]).run_unit(unit(kit.plan.load(), "interview-context"))
+    assert "unit `questionnaire`" in launched[0]
+    assert unit(kit.plan.load(), "interview-context")["status"] == "todo"      # waits for the answers now
+
+
+def test_switching_to_team_puts_a_started_interview_back_to_wait(kit):
+    kit.plan.sync()
+    kit.plan.set_status("interview-context", "doing")
+    kit.plan.set_interview_mode("team")
+    data = kit.plan.load()
+    assert unit(data, "interview-context")["status"] == "todo"
+    assert unit(data, "interview-context")["deps"] == ["answers"]
+
+
+def test_the_menu_entry_switches_a_started_interview(kit, quiet, launched, fake_wizard):
+    kit.plan.sync()
+    finish(kit, "setup", "discovery")
+    kit.plan.set_status("interview-context", "doing")
+    w = fake_wizard([True, True])                                          # switch to team? · start the questionnaire?
+    assert w.team_ready()
+    w.do_team()
+    assert unit(kit.plan.load(), "interview-context")["status"] == "todo"
+    assert "unit `questionnaire`" in launched[0]
+
+
+def test_prompt_refreshes_an_untouched_playbook_copy(kit):
+    """Bug: after a kit upgrade the project's PLAYBOOK copy (what agents read) stayed old until setup ran again."""
+    import hashlib
+    env, dst = kit.env, kit.root / ".camarones" / "PLAYBOOK.md"
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    dst.write_text("# old playbook\n", encoding="utf-8")
+    kit.common.save_json(env.KIT_DOCS_STAMP, {"PLAYBOOK.md": hashlib.sha256(dst.read_bytes()).hexdigest()})
+    kit.plan.sync()
+    kit.plan.prompt("setup")
+    assert "## questionnaire" in dst.read_text(encoding="utf-8")
+
+
+def test_prompt_keeps_a_playbook_the_team_edited(kit):
+    env, dst = kit.env, kit.root / ".camarones" / "PLAYBOOK.md"
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    dst.write_text("# our own playbook\n", encoding="utf-8")
+    kit.common.save_json(env.KIT_DOCS_STAMP, {"PLAYBOOK.md": "sha-of-what-the-kit-wrote-before"})
+    kit.plan.sync()
+    kit.plan.prompt("setup")
+    assert dst.read_text(encoding="utf-8") == "# our own playbook\n"
+
+
 def test_live_choice_keeps_the_interview(kit, quiet, launched, fake_wizard):
     kit.plan.sync()
     finish(kit, "setup", "discovery")

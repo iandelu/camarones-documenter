@@ -1507,8 +1507,9 @@ Talk to the user in {talk}. Do not modify application code.
         if docs.interview_mode() != "team":
             if not self.yes(self.t("iv_switch"), default=True):
                 return
-            docs.set_interview_mode("team")
-        data = plan.sync()
+            data = plan.set_interview_mode("team")
+        else:
+            data = plan.sync()
         q = plan.get(data, "questionnaire")
         if q["status"] == "dropped":
             self.say(self.t("iv_dropped"), "yellow")
@@ -1544,15 +1545,14 @@ Talk to the user in {talk}. Do not modify application code.
         self.pause()
 
     def run_unit(self, u: dict) -> None:
-        if u["type"] in plan.INTERVIEW_TYPES and u["status"] == "todo" and \
+        if u["type"] in plan.INTERVIEW_TYPES and u["status"] in ("todo", "doing") and \
                 "interviews" not in docs.workspace()["project"] and \
                 plan.get(plan.load(), "interview-context")["status"] != "done":
             mode = self.sel(self.t("iv_mode_q"), [Choice(self.t("iv_team"), "team"), Choice(self.t("iv_live"), "live")],
                             default="team")
             if mode is None:
                 return
-            docs.set_interview_mode(mode)
-            data = plan.sync()
+            data = plan.set_interview_mode(mode)
             if mode == "team":
                 self.say(self.t("iv_team_ok"), "grey62")
                 return self.run_unit(plan.get(data, "questionnaire"))

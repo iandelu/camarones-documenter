@@ -398,8 +398,7 @@ def cmd_interview(a) -> int:
     try:
         if a.action == "mode":
             if a.args:
-                docs.set_interview_mode(a.args[0])
-                plan.sync()
+                plan.set_interview_mode(a.args[0])
             print(docs.interview_mode())
         elif a.action == "export":
             for f in questionnaire.export(a.lang):
