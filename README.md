@@ -128,6 +128,7 @@ camaron                    # crea ./cam-docs/, lo registra y abre el asistente
 camaron new enjoy          # alternativa: crea ./enjoy/cam-docs/
 camaron join <url>         # únete al cam-docs de tu equipo: lo clona aquí o reutiliza el que ya tienes
 camaron share              # trae lo último del equipo y publica tu trabajo (solo cuando lo pides)
+camaron share --auto on    # o publica solo tras cada checkpoint (en este equipo)
 camaron switch             # cambia entre tus proyectos
 camaron self-update        # git pull del kit central — actualiza todos los proyectos a la vez
 camaron migrate            # pasa un proyecto de la estructura anterior (≤2.5) a cam-docs/
@@ -162,7 +163,7 @@ Camarón está pensado para que lo use un equipo. Al crear un proyecto, el asist
 - **Si el repo está vacío**, crea el proyecto en local con esa URL como `origin`. Tu primer «Compartir con el equipo» lo publica.
 - **Sin URL**, crea un repo Git local, igual que antes. Puedes añadir el remoto más tarde con `camaron remote <url>`.
 
-Los checkpoints se siguen guardando solo en local. Publicar es siempre un paso explícito: «🤝 Compartir con el equipo» en el menú o `camaron share`, que guarda un checkpoint, rebasa sobre el trabajo del equipo y hace push. Si hay un conflicto, lo deshace y no toca nada; si hay algo que parece un secreto, no publica.
+Por defecto los checkpoints se guardan solo en local y publicar es un paso explícito: «🤝 Compartir con el equipo» en el menú o `camaron share`, que guarda un checkpoint, rebasa sobre el trabajo del equipo y hace push. Con `camaron share --auto on` (o diciendo que sí tras el primer share en el wizard) cada checkpoint hace ese share solo; es por máquina, así que no activa nada a tus compañeros, y si falla lo avisa sin perder el commit local. Si hay un conflicto, lo deshace y no toca nada; si hay algo que parece un secreto, no publica.
 
 **Copia local por proyecto (modo clásico).** Descarga este repositorio desde **Code → Download ZIP** o clónalo. Copia **`.camarones/`**, **`camaron.cmd`** y **`camaron.command`** a la carpeta que agrupa el proyecto. Los launchers antiguos `camarones.*` son aliases compatibles. Activa la visualización de archivos ocultos para ver `.camarones/`. Si ya tienes un proyecto así y quieres pasarlo a instalación global sin perder su configuración, corre `camaron unlink` dentro de él.
 

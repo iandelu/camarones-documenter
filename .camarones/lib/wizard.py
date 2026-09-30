@@ -113,6 +113,8 @@ T = {
         "sh_err_not_found": "✖ No encuentro el repo {url}: revisa la URL o que tu usuario tenga acceso a él.",
         "sh_err_network": "✖ No llego a {host}: revisa la conexión, la VPN o el proxy.",
         "sh_err_unknown": "✖ No he podido compartir.",
+        "sh_auto_ask": "¿Publico automáticamente cada vez que se guarde algo? Solo en este equipo; se apaga con «{cli} share --auto off».",
+        "sh_auto_on": "✔ Publicación automática activada: cada guardado trae lo del equipo y publica lo tuyo.",
         "sh_git_said": "  git: {detail}",
         "join_welcome": "Te unes a «{name}»: el equipo ya eligió repos, stack y arquitectura, y el plan sigue donde lo dejaron. "
                         "Yo solo preparo esta máquina: herramientas y repos. Nada de pelar dos veces la misma gamba.",
@@ -424,6 +426,8 @@ T = {
         "sh_err_not_found": "✖ Repository {url} not found: check the URL and that your user has access to it.",
         "sh_err_network": "✖ Can't reach {host}: check your connection, VPN or proxy.",
         "sh_err_unknown": "✖ Could not share.",
+        "sh_auto_ask": "Publish automatically every time something is saved? Only on this computer; turn it off with “{cli} share --auto off”.",
+        "sh_auto_on": "✔ Auto-publish on: every save pulls the team's work and publishes yours.",
         "sh_git_said": "  git: {detail}",
         "join_welcome": "You're joining “{name}”: the team already picked the repos, stack and architecture, and the plan carries "
                         "on where they left it. I'll just set up this machine: tools and repos. No peeling the same shrimp twice.",
@@ -2191,6 +2195,11 @@ Talk to the user in {talk}. Do not modify application code.
         ok = r["status"] in ("pushed", "up-to-date", "nothing")
         self.say(self.t("sh_" + r["status"].replace("-", "_"), url=url, detail=r["detail"], cli=cli_cmd()),
                  f"bold {ORANGE}" if r["status"] == "pushed" else ("" if ok else "red"))
+        if ok and not env.AUTO_SHARE.exists():                         # asked once; the CLI flag changes it later
+            on = bool(self.yes(self.t("sh_auto_ask", cli=cli_cmd()), default=True))
+            env.set_auto_share(on)
+            if on:
+                self.say(self.t("sh_auto_on"), "green")
         self.pause()
 
     def repo_pointer(self) -> None:

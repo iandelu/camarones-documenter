@@ -33,7 +33,7 @@
   plan redo UNIT [--also U…]  reopen a finished unit (e.g. an interview) to review and update it
   checkpoint ["message"]    commit docs progress locally in the umbrella repo (never pushes)
   remote [URL]              show / set the team's cam-docs repo (origin)
-  share                     checkpoint, pull the team's work (rebase) and push cam-docs — only when you run it
+  share [--auto on|off]     checkpoint, pull the team's work (rebase) and push cam-docs; --auto: after every checkpoint
   feedback FILE "text" --by NAME   record a human review comment (applied by the review-fixes unit)
   version                   kit and pinned tool versions
   prompt UNIT [--lang es|en] [--unattended]      prompt for an agent session (UNIT may be 'update')
@@ -180,7 +180,7 @@ def main() -> int:
     pl.add_argument("--also", nargs="*", default=[])
     cp = sp.add_parser("checkpoint"); cp.add_argument("message", nargs="?", default="progress")
     rm = sp.add_parser("remote"); rm.add_argument("url", nargs="?")
-    sp.add_parser("share")
+    sh = sp.add_parser("share"); sh.add_argument("--auto", choices=["on", "off"])
     jn = sp.add_parser("join"); jn.add_argument("url"); jn.add_argument("folder", nargs="?", type=Path)
     fb = sp.add_parser("feedback"); fb.add_argument("file"); fb.add_argument("text"); fb.add_argument("--by", default="")
     ad = sp.add_parser("arch-draft"); ad.add_argument("--save", action="store_true"); ad.add_argument("--overwrite", action="store_true")
@@ -374,6 +374,9 @@ def main() -> int:
         if a.url:
             env.set_remote(a.url)
         print(env.docs_remote() or "no remote — set one with: remote URL")
+    elif a.cmd == "share" and a.auto:
+        env.set_auto_share(a.auto == "on")
+        print(f"auto-share: {a.auto}")
     elif a.cmd == "share":
         r = env.share()
         why = f" ({r['reason']})" if r.get("reason") else ""

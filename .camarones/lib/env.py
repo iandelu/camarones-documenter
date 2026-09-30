@@ -1185,7 +1185,7 @@ CHECKPOINT_PATHS = ["docs", "wikis", ".camarones/workspace.yaml", ".camarones/PL
 
 
 def checkpoint_commit(message: str) -> bool:
-    """Commit docs progress locally (never pushes). Keeps work safe if a session or the computer closes."""
+    """Commit docs progress locally. Keeps work safe if a session or the computer closes; pushes only with auto-share."""
     if not (ROOT / ".git").exists():
         return False
     paths = [p for p in CHECKPOINT_PATHS if (ROOT / p).exists()]
@@ -1200,10 +1200,30 @@ def checkpoint_commit(message: str) -> bool:
     ident = [] if out(["git", "config", "user.email"], cwd=ROOT) else ["-c", "user.name=Camarón",
                                                                        "-c", "user.email=camarones@localhost"]
     r = run(["git", *ident, "commit", "-q", "-m", f"docs(camarones): {message}", "--no-verify"], cwd=ROOT, check=False, quiet=True)
-    return r.returncode == 0
+    if r.returncode:
+        return False
+    if not _sharing and auto_share() and docs_remote():
+        s = share(log=lambda _: None)
+        if s["status"] not in ("pushed", "up-to-date", "nothing"):
+            why = f" ({s['reason']})" if s.get("reason") else ""
+            print(f"🦐 auto-share: {s['status']}{why}: {s['detail']}", file=sys.stderr)
+    return True
 
 
-# ---------- the team's docs repo: explicit pull + push, never automatic ----------
+# ---------- the team's docs repo: pull + push on demand, or after every checkpoint with auto-share ----------
+AUTO_SHARE = CACHE / "share.json"                   # per machine: one teammate opting in never pushes for the others
+_sharing = False
+
+
+def auto_share() -> bool:
+    return bool(load_json(AUTO_SHARE, {}).get("auto"))
+
+
+def set_auto_share(on: bool) -> None:
+    AUTO_SHARE.parent.mkdir(parents=True, exist_ok=True)
+    save_json(AUTO_SHARE, {"auto": bool(on)})
+
+
 def docs_remote() -> str:
     return out(["git", "remote", "get-url", "origin"], cwd=ROOT) if (ROOT / ".git").exists() else ""
 
@@ -1268,7 +1288,12 @@ def share(log: Log = print) -> dict:
         detail = " · ".join(lines[max(start, 0):])[:400]              # git's last line alone is often a fragment
         return {"status": "error", "reason": reason, "host": host or "", "detail": detail}
 
-    checkpoint_commit("share")
+    global _sharing
+    _sharing = True
+    try:
+        checkpoint_commit("share")
+    finally:
+        _sharing = False
     if git("diff", "--cached", "--quiet").returncode != 0:
         return {"status": "blocked", "detail": "staged changes were not committed (possible secrets): run check --secrets"}
     if git("rev-parse", "--verify", "--quiet", "HEAD").returncode != 0:

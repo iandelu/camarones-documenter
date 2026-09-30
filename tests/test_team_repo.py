@@ -211,9 +211,9 @@ def test_share_menu_sets_the_remote_and_asks_before_pushing(kit, fake_wizard, tm
     w = fake_wizard([str(remote), False])                               # URL, then "no" to publishing
     w.do_share()
     assert kit.env.docs_remote() == str(remote) and not remote_files_safe(remote)
-    w = fake_wizard([True])
+    w = fake_wizard([True, False])                                      # publish, then "no" to auto-share
     w.do_share()
-    assert ".camarones/workspace.yaml" in remote_files(remote)
+    assert ".camarones/workspace.yaml" in remote_files(remote) and not kit.env.auto_share()
 
 
 def remote_files_safe(remote: Path) -> set[str]:
@@ -340,3 +340,59 @@ def test_cli_share_prints_the_reason(kit, tmp_path):
     r = cli(kit.root, kit.ws, "share")
     assert r.returncode == 1 and "\nerror (not-found): fatal: " in r.stdout, r.stdout + r.stderr
     assert "does not appear to be a git repository" in r.stdout
+
+
+# ---------- auto-share: opt-in push after every checkpoint ----------
+def test_auto_share_is_off_by_default(kit, tmp_path):
+    kit.env.init_templates("demo", log=lambda _: None)
+    remote = bare(tmp_path)
+    kit.env.set_remote(str(remote))
+    assert not kit.env.auto_share()
+    (kit.root / "docs" / "note.md").write_text("# note\n", encoding="utf-8")
+    assert kit.env.checkpoint_commit("note")
+    assert not remote_files_safe(remote)
+
+
+def test_auto_share_pushes_each_checkpoint(kit, tmp_path):
+    kit.env.init_templates("demo", log=lambda _: None)
+    remote = bare(tmp_path)
+    kit.env.set_remote(str(remote))
+    kit.env.set_auto_share(True)
+    (kit.root / "docs" / "note.md").write_text("# note\n", encoding="utf-8")
+    assert kit.env.checkpoint_commit("note")
+    assert "docs/note.md" in remote_files(remote)
+
+
+def test_auto_share_failure_keeps_the_local_commit(kit, tmp_path, capsys):
+    kit.env.init_templates("demo", log=lambda _: None)
+    kit.env.set_remote(str(tmp_path / "missing.git"))
+    kit.env.set_auto_share(True)
+    (kit.root / "docs" / "note.md").write_text("# note\n", encoding="utf-8")
+    assert kit.env.checkpoint_commit("note")
+    assert "auto-share: error (not-found)" in capsys.readouterr().err
+
+
+def test_auto_share_setting_is_local_to_this_machine(kit):
+    kit.env.init_templates("demo", log=lambda _: None)
+    kit.env.set_auto_share(True)
+    assert kit.env.AUTO_SHARE.is_relative_to(kit.common.CACHE)
+
+
+def test_cli_share_auto_toggle(kit):
+    kit.env.init_templates("demo", log=lambda _: None)
+    r = cli(kit.root, kit.ws, "share", "--auto", "on")
+    assert r.returncode == 0 and "auto-share: on" in r.stdout, r.stdout + r.stderr
+    assert kit.common.load_json(kit.env.AUTO_SHARE, {}) == {"auto": True}
+    r = cli(kit.root, kit.ws, "share", "--auto", "off")
+    assert r.returncode == 0 and kit.common.load_json(kit.env.AUTO_SHARE, {}) == {"auto": False}
+
+
+def test_share_menu_offers_auto_share_once(kit, fake_wizard, tmp_path):
+    kit.env.init_templates("demo", log=lambda _: None)
+    remote = bare(tmp_path)
+    kit.env.set_remote(str(remote))
+    fake_wizard([True, True]).do_share()                                # publish, then "yes" to auto-share
+    assert kit.env.auto_share()
+    (kit.root / "docs" / "note.md").write_text("# note\n", encoding="utf-8")
+    fake_wizard([True]).do_share()                                      # already decided: not asked again
+    assert "sh_auto_ask" in kit.wizard.T["es"] and "sh_auto_ask" in kit.wizard.T["en"]
