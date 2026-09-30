@@ -376,7 +376,8 @@ def main() -> int:
         print(env.docs_remote() or "no remote — set one with: remote URL")
     elif a.cmd == "share":
         r = env.share()
-        print(f"{r['status']}{': ' + r['detail'] if r['detail'] else ''}")
+        why = f" ({r['reason']})" if r.get("reason") else ""
+        print(f"{r['status']}{why}{': ' + r['detail'] if r['detail'] else ''}")
         return 0 if r["status"] in ("pushed", "up-to-date", "nothing") else 1
     elif a.cmd == "feedback":
         docs.add_feedback(a.file, a.text, a.by or os.environ.get("USER", "human"))

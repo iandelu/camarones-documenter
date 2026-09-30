@@ -75,6 +75,15 @@ def create(name: str, at: Path | None = None, url: str = "") -> Path:
 
 
 # ---------- the team's docs repo ----------
+def clean_remote(url: str) -> str:
+    """A URL pasted from the browser carries #fragment / ?query: git keeps them and the request lands on the web UI."""
+    u = url.strip()
+    if not re.match(r"^[a-z][a-z0-9+.-]*://", u, re.I):                # scp form or a local path: nothing to drop
+        return u
+    p = urllib.parse.urlsplit(u)
+    return urllib.parse.urlunsplit((p.scheme, p.netloc, p.path.rstrip("/") or p.path, "", ""))
+
+
 def remote_key(url: str) -> str:
     """What a git remote points at, so the scp, https, ssh:// and token-in-URL spellings of one repo compare equal."""
     u = url.strip()
@@ -114,6 +123,7 @@ def join(url: str, workspace: Path | None = None, name: str | None = None) -> tu
     already holds a Camarón project, so only this machine needs setting up. Never does the work twice: a registered
     project or a local cam-docs with that remote is reused (fast-forwarded), an empty remote becomes the origin of a
     fresh local project, and only otherwise is the repo cloned."""
+    url = clean_remote(url)
     key, workspace = remote_key(url), (workspace or Path.cwd())
     for r in list_registered():                                     # already cloned somewhere on this machine
         root = Path(r["path"])

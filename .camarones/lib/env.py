@@ -1213,7 +1213,24 @@ def set_remote(url: str) -> None:
     if not (ROOT / ".git").exists():
         run(["git", "init", "-q", str(ROOT)], quiet=True)
     run(["git", "remote", "remove", "origin"], cwd=ROOT, check=False, quiet=True)
-    run(["git", "remote", "add", "origin", url.strip()], cwd=ROOT, quiet=True)
+    from .projects import clean_remote
+    run(["git", "remote", "add", "origin", clean_remote(url)], cwd=ROOT, quiet=True)
+
+
+_FAILURES = (                                                         # first match wins: push denial before auth
+    ("denied", r"not allowed to push|protected branch|pre-receive hook declined|permission to \S+ denied|error: 403"),
+    ("auth", r"users/sign_in|authentication failed|access denied|could not read username|"
+             r"permission denied \(publickey|error: 401"),
+    ("not-found", r"could not be found|not found|does not appear to be a git repository|error: 404"),
+    ("network", r"could not resolve host|failed to connect|timed out|connection refused|network is unreachable|"
+                r"ssl|certificate"),
+)
+
+
+def git_failure(stderr: str) -> str:
+    """Why a git fetch/push failed, as one of: denied · auth · not-found · network · unknown."""
+    text = stderr.lower()
+    return next((reason for reason, rx in _FAILURES if re.search(rx, text)), "unknown")
 
 
 def _ident() -> list[str]:
@@ -1228,7 +1245,12 @@ def share(log: Log = print) -> dict:
     if not url:
         return {"status": "no-remote", "detail": ""}
     from . import creds
+    from .projects import clean_remote
+    if clean_remote(url) != url:                                      # stored as typed by an older kit
+        url = clean_remote(url)
+        run(["git", "remote", "set-url", "origin", url], cwd=ROOT, check=False, quiet=True)
     auth = creds.git_env(url)
+    host = creds.host_of(url) if re.match(r"^[a-z][a-z0-9+.-]*://|^[\w.+-]+@", url, re.I) else None
 
     def git(*args: str, env: dict | None = None):
         return run(["git", *args], cwd=ROOT, check=False, quiet=True, env=env)
@@ -1236,6 +1258,15 @@ def share(log: Log = print) -> dict:
     def last(r) -> str:
         lines = (r.stderr or r.stdout or "").strip().splitlines()
         return lines[-1] if lines else ""
+
+    def failed(r) -> dict:
+        reason = git_failure(r.stderr or r.stdout or "")
+        if reason == "auth" and host and not creds.get(host):
+            reason = "no-token"
+        lines = [ln.strip() for ln in (r.stderr or r.stdout or "").strip().splitlines() if ln.strip()]
+        start = next((i for i, ln in enumerate(lines) if ln.lower().startswith(("fatal:", "error:"))), len(lines) - 1)
+        detail = " · ".join(lines[max(start, 0):])[:400]              # git's last line alone is often a fragment
+        return {"status": "error", "reason": reason, "host": host or "", "detail": detail}
 
     checkpoint_commit("share")
     if git("diff", "--cached", "--quiet").returncode != 0:
@@ -1248,7 +1279,7 @@ def share(log: Log = print) -> dict:
     log(f"fetching {url}…")
     r = git("fetch", "--quiet", "origin", env=auth)
     if r.returncode:
-        return {"status": "error", "detail": last(r)}
+        return failed(r)
     theirs = f"origin/{branch}"
     if git("rev-parse", "--verify", "--quiet", theirs).returncode == 0:
         log(f"rebasing onto {theirs}…")
@@ -1260,5 +1291,5 @@ def share(log: Log = print) -> dict:
     log(f"pushing {branch}…")
     r = git("push", "--quiet", "-u", "origin", branch, env=auth)
     if r.returncode:
-        return {"status": "error", "detail": last(r)}
+        return failed(r)
     return {"status": "pushed", "detail": branch}

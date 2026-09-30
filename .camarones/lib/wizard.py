@@ -107,6 +107,13 @@ T = {
         "sh_blocked": "✖ No publicado: hay cambios que parecen secretos. Revísalos con «{cli} check --secrets».",
         "sh_conflict": "✖ Tu trabajo y el del equipo cambian las mismas líneas ({detail}). No he tocado nada: resuélvelo con git en cam-docs y vuelve a compartir.",
         "sh_error": "✖ No he podido compartir: {detail}",
+        "sh_err_auth": "✖ {host} ha rechazado tus credenciales: el token está caducado, revocado o le faltan 'read_repository' / 'write_repository'.",
+        "sh_err_no_token": "✖ {host} pide iniciar sesión y no hay ningún token guardado para ese servidor.",
+        "sh_err_denied": "✖ Puedes leer {url} pero no publicar: el token necesita 'write_repository' y tu rol debe poder hacer push a esa rama (¿está protegida?).",
+        "sh_err_not_found": "✖ No encuentro el repo {url}: revisa la URL o que tu usuario tenga acceso a él.",
+        "sh_err_network": "✖ No llego a {host}: revisa la conexión, la VPN o el proxy.",
+        "sh_err_unknown": "✖ No he podido compartir.",
+        "sh_git_said": "  git: {detail}",
         "join_welcome": "Te unes a «{name}»: el equipo ya eligió repos, stack y arquitectura, y el plan sigue donde lo dejaron. "
                         "Yo solo preparo esta máquina: herramientas y repos. Nada de pelar dos veces la misma gamba.",
         "m_model": "🧠 Modelo de IA",
@@ -411,6 +418,13 @@ T = {
         "sh_blocked": "✖ Not published: some changes look like secrets. Check them with “{cli} check --secrets”.",
         "sh_conflict": "✖ Your work and the team's change the same lines ({detail}). I left everything as it was: resolve it with git in cam-docs and share again.",
         "sh_error": "✖ Could not share: {detail}",
+        "sh_err_auth": "✖ {host} rejected your credentials: the token is expired, revoked or missing 'read_repository' / 'write_repository'.",
+        "sh_err_no_token": "✖ {host} asks you to sign in and there is no token saved for that server.",
+        "sh_err_denied": "✖ You can read {url} but not publish: the token needs 'write_repository' and your role must be allowed to push to that branch (is it protected?).",
+        "sh_err_not_found": "✖ Repository {url} not found: check the URL and that your user has access to it.",
+        "sh_err_network": "✖ Can't reach {host}: check your connection, VPN or proxy.",
+        "sh_err_unknown": "✖ Could not share.",
+        "sh_git_said": "  git: {detail}",
         "join_welcome": "You're joining “{name}”: the team already picked the repos, stack and architecture, and the plan carries "
                         "on where they left it. I'll just set up this machine: tools and repos. No peeling the same shrimp twice.",
         "m_model": "🧠 AI model",
@@ -2157,9 +2171,23 @@ Talk to the user in {talk}. Do not modify application code.
             env.set_remote(url)
         if not self.yes(self.t("sh_confirm", url=url), default=True):
             return
-        r = self.safe(self.busy, env.share)
-        if not r:
-            return
+        while True:
+            r = self.safe(self.busy, env.share)
+            if not r:
+                return
+            url = env.docs_remote() or url
+            if r["status"] != "error" or not r.get("reason"):
+                break
+            host = r.get("host") or url
+            self.say(self.t("sh_err_" + r["reason"].replace("-", "_"), host=host, url=url), "red")
+            if r["detail"]:
+                self.say(self.t("sh_git_said", detail=r["detail"]), "dim")
+            if r["reason"] not in ("auth", "no-token", "denied") or not r.get("host") \
+                    or not self.yes(self.t("s_token_retry"), default=True):
+                self.pause()
+                return
+            self.banner()
+            self.add_token(r["host"])
         ok = r["status"] in ("pushed", "up-to-date", "nothing")
         self.say(self.t("sh_" + r["status"].replace("-", "_"), url=url, detail=r["detail"], cli=cli_cmd()),
                  f"bold {ORANGE}" if r["status"] == "pushed" else ("" if ok else "red"))

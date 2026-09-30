@@ -250,3 +250,93 @@ def test_cli_remote_share_and_join(kit, tmp_path):
     r = cli(None, mate, "join", str(remote), PYTHONUTF8="0", PYTHONIOENCODING="cp1252")   # a Windows pipe
     assert r.returncode == 0, r.stdout + r.stderr
     assert (mate / "cam-docs" / ".camarones" / "workspace.yaml").exists()
+
+
+# ---------- remote URL hygiene and readable share errors ----------
+@pytest.mark.parametrize("raw, clean", [
+    ("https://gitlab.example.com/g/docs#", "https://gitlab.example.com/g/docs"),
+    ("  https://gitlab.example.com/g/docs.git/#readme ", "https://gitlab.example.com/g/docs.git"),
+    ("https://github.com/acme/docs?tab=readme", "https://github.com/acme/docs"),
+    ("git@github.com:acme/docs.git", "git@github.com:acme/docs.git"),
+    ("https://gitlab.example.com/g/docs.git", "https://gitlab.example.com/g/docs.git"),
+])
+def test_clean_remote_drops_what_a_browser_url_adds(kit, raw, clean):
+    assert kit.projects.clean_remote(raw) == clean
+
+
+def test_clean_remote_leaves_local_paths_alone(kit, tmp_path):
+    local = str(tmp_path / "team#docs.git")
+    assert kit.projects.clean_remote(local) == local
+
+
+def test_set_remote_stores_the_clean_url(kit):
+    kit.env.init_templates("demo", log=lambda _: None)
+    kit.env.set_remote("https://gitlab.example.com/g/docs# ")
+    assert kit.env.docs_remote() == "https://gitlab.example.com/g/docs"
+
+
+def test_share_repairs_an_origin_saved_with_a_fragment(kit, tmp_path):
+    kit.env.init_templates("demo", log=lambda _: None)
+    remote = bare(tmp_path)
+    kit.env.set_remote(str(remote))
+    git(kit.root, "remote", "set-url", "origin", remote.as_uri() + "#")     # what an older kit stored as typed
+    assert kit.env.share(log=lambda _: None)["status"] == "pushed"
+    assert kit.env.docs_remote() == remote.as_uri()
+
+
+@pytest.mark.parametrize("stderr, reason", [
+    ("   redirect: https://gitlab.example.com/users/sign_in", "auth"),
+    ("fatal: Authentication failed for 'https://gitlab.example.com/g/docs.git/'", "auth"),
+    ("remote: HTTP Basic: Access denied", "auth"),
+    ("fatal: could not read Username for 'https://github.com': terminal prompts disabled", "auth"),
+    ("git@github.com: Permission denied (publickey).", "auth"),
+    ("remote: You are not allowed to push code to this project.", "denied"),
+    ("remote: GitLab: You are not allowed to push code to protected branches on this project.", "denied"),
+    ("fatal: unable to access 'https://x/': The requested URL returned error: 403", "denied"),
+    ("remote: The project you were looking for could not be found or you don't have permission to view it.",
+     "not-found"),
+    ("remote: Repository not found.", "not-found"),
+    ("fatal: '/nope' does not appear to be a git repository", "not-found"),
+    ("fatal: unable to access 'https://x/': Could not resolve host: x", "network"),
+    ("fatal: unable to access 'https://x/': Failed to connect to x port 443: Connection timed out", "network"),
+    ("fatal: something nobody expected", "unknown"),
+])
+def test_git_failure_reason(kit, stderr, reason):
+    assert kit.env.git_failure(stderr) == reason
+
+
+def test_share_explains_an_unreachable_remote(kit, tmp_path):
+    kit.env.init_templates("demo", log=lambda _: None)
+    kit.env.set_remote(str(tmp_path / "missing.git"))
+    r = kit.env.share(log=lambda _: None)
+    assert r["status"] == "error" and r["reason"] == "not-found" and r["host"] == ""
+
+
+def test_share_error_strings_exist_in_both_languages(kit):
+    T = kit.wizard.T
+    for reason in ("auth", "no-token", "denied", "not-found", "network", "unknown"):
+        key = "sh_err_" + reason.replace("-", "_")
+        assert key in T["es"] and key in T["en"], key
+
+
+def test_share_menu_shows_the_reason_and_offers_a_token(kit, fake_wizard, monkeypatch):
+    kit.env.init_templates("demo", log=lambda _: None)
+    kit.env.set_remote("https://gitlab.example.com/g/docs.git")
+    calls, said = [], []
+    monkeypatch.setattr(kit.env, "share", lambda log=print: calls.append(1) or {
+        "status": "error", "reason": "auth", "host": "gitlab.example.com",
+        "detail": "fatal: Authentication failed"})
+    monkeypatch.setattr(kit.wizard.W, "say", lambda self, msg, style="": said.append(msg))
+    monkeypatch.setattr(kit.wizard.W, "add_token", lambda self, host=None: calls.append(host) or host)
+    fake_wizard([True, True, False]).do_share()                          # publish, add a token, then stop
+    assert kit.wizard.T["en"]["sh_err_auth"].split("{")[0] in said[0] or \
+        kit.wizard.T["es"]["sh_err_auth"].split("{")[0] in said[0]
+    assert calls == [1, "gitlab.example.com", 1]
+
+
+def test_cli_share_prints_the_reason(kit, tmp_path):
+    kit.env.init_templates("demo", log=lambda _: None)
+    kit.env.set_remote(str(tmp_path / "missing.git"))
+    r = cli(kit.root, kit.ws, "share")
+    assert r.returncode == 1 and "\nerror (not-found): fatal: " in r.stdout, r.stdout + r.stderr
+    assert "does not appear to be a git repository" in r.stdout
