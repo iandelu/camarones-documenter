@@ -182,7 +182,7 @@ In the local portal, “Edit” opens the markdown with a live preview; saving w
    project folder  ---X--->  token             (never written there)
 ```
 
-If your repos are private, Camarones needs a token to clone and update them. It is stored in your OS keychain and used only by Camarones' own git commands: never written to the project or git config, never shared with Claude, Codex or other third parties.
+If your repos are private, Camarones needs a token to clone and update them. It is stored in your OS keychain and used only by Camarones' own git commands: never written to the project or git config, never shared with Claude, Codex or other third parties. When you join a team's cam-docs repo, Camarones first tries your own git (keychain, credential manager, SSH keys) and asks for a token only if that is refused.
 
 ### 13. ⚙️ CI: docs that update themselves
 
@@ -406,7 +406,7 @@ En el portal local, «Editar» abre el markdown con vista previa; al guardar se 
    carpeta del proyecto ---X---> token         (nunca se escribe)
 ```
 
-Si tus repos son privados, Camarones necesita un token para clonarlos y actualizarlos. Se guarda en el llavero de tu sistema operativo y solo lo usa Camarones en sus propios comandos git: no se escribe en el proyecto, ni en git config, ni se comparte con Claude, Codex u otros terceros.
+Si tus repos son privados, Camarones necesita un token para clonarlos y actualizarlos. Se guarda en el llavero de tu sistema operativo y solo lo usa Camarones en sus propios comandos git: no se escribe en el proyecto, ni en git config, ni se comparte con Claude, Codex u otros terceros. Al unirte al repo de cam-docs de un equipo, Camarones prueba primero con tu propio git (llavero, gestor de credenciales, claves SSH) y solo te pide un token si eso no entra.
 
 ### 13. ⚙️ CI: documentación que se actualiza sola
 

@@ -3,6 +3,7 @@ sharing pulls then pushes on demand, and a joined project only prepares this mac
 from __future__ import annotations
 
 import os, subprocess, sys
+from types import SimpleNamespace
 from pathlib import Path
 
 import pytest
@@ -396,3 +397,95 @@ def test_share_menu_offers_auto_share_once(kit, fake_wizard, tmp_path):
     (kit.root / "docs" / "note.md").write_text("# note\n", encoding="utf-8")
     fake_wizard([True]).do_share()                                      # already decided: not asked again
     assert "sh_auto_ask" in kit.wizard.T["es"] and "sh_auto_ask" in kit.wizard.T["en"]
+
+
+# ---------- joining: plain git first, a token only when git itself can't get in ----------
+def fake_host(kit, monkeypatch, good: str = "good-token"):
+    """A private https remote: git answers only when Camarón sends `good` as the token; records every call."""
+    import base64, subprocess as sp
+    calls = []
+
+    def run(cmd, cwd=None, check=True, quiet=False, capture=False, env=None):
+        header = (env or {}).get("GIT_CONFIG_VALUE_0", "")
+        calls.append(header)
+        if header.endswith(base64.b64encode(f"oauth2:{good}".encode()).decode()):
+            return sp.CompletedProcess(cmd, 0, "abc123\trefs/heads/main\n", "")
+        return sp.CompletedProcess(cmd, 128, "", "fatal: could not read Username for "
+                                                 "'https://git.example.com': terminal prompts disabled")
+    monkeypatch.setattr(kit.projects, "run", run)
+    monkeypatch.setattr(kit.creds, "_keyring", lambda: None)             # the file fallback, inside the test HOME
+    return calls
+
+
+def test_connect_uses_plain_git_when_it_can_read_the_remote(kit, tmp_path):
+    remote = bare(tmp_path)
+    publish(kit, remote)
+    asked = []
+    assert kit.projects.connect(str(remote), ask=lambda host, again: asked.append(host), log=lambda _: None)
+    assert asked == [] and not kit.creds.hosts()
+
+
+def test_connect_asks_a_token_when_plain_git_has_no_access(kit, monkeypatch):
+    calls = fake_host(kit, monkeypatch)
+    tokens = iter(["wrong", "good-token"])
+    asked = []
+    ok = kit.projects.connect("https://git.example.com/team/docs.git",
+                              ask=lambda host, again: asked.append((host, again)) or next(tokens), log=lambda _: None)
+    assert ok and asked == [("git.example.com", False), ("git.example.com", True)]
+    assert calls[0] == ""                                               # the first try is plain git, no token
+    assert kit.creds.get("git.example.com") == "good-token"
+
+
+def test_connect_cancelled_keeps_no_token(kit, monkeypatch):
+    fake_host(kit, monkeypatch)
+    tokens = iter(["wrong", None])
+    ok = kit.projects.connect("https://git.example.com/team/docs.git", ask=lambda host, again: next(tokens),
+                              log=lambda _: None)
+    assert not ok and kit.creds.get("git.example.com") is None and not kit.creds.hosts()
+
+
+def test_connect_does_not_ask_a_token_for_a_missing_repo(kit, tmp_path):
+    msgs = []
+    ok = kit.projects.connect(str(tmp_path / "nowhere.git"), ask=lambda *a: pytest.fail("asked a token"),
+                              log=msgs.append)
+    assert not ok and msgs
+
+
+@pytest.mark.parametrize("url, name", [
+    ("https://gitlab.example.com/CHUB/base-resources/docs", "base-resources"),
+    ("git@github.com:acme/team-docs.git", "team-docs"),
+    ("https://gitlab.example.com/acme/cam-docs.git", "acme"),
+])
+def test_project_name_from_url(kit, url, name):
+    assert kit.projects.name_from_url(url) == name
+
+
+def test_picker_asks_the_team_repo_first_and_checks_access(kit, tmp_path, monkeypatch):
+    import questionary
+    remote = bare(tmp_path)
+    publish(kit, remote)
+    asked = []
+
+    def prompt(answer_for):
+        return lambda msg, *a, **kw: SimpleNamespace(ask=lambda: asked.append(msg) or answer_for(msg))
+    monkeypatch.setattr(questionary, "select", prompt(lambda msg: "__new__"))
+    monkeypatch.setattr(questionary, "text", prompt(lambda msg: str(remote) if "cam-docs" in msg else "mate"))
+    monkeypatch.chdir(tmp_path)
+    dest = kit.projects.pick(allow_new=True)
+    assert dest == tmp_path / "mate" / "cam-docs" and (dest / ".camarones" / "workspace.yaml").exists()
+    assert "cam-docs" in asked[1] and "cam-docs" not in asked[2]        # repo URL before the project name
+
+
+def test_connect_keeps_the_saved_token_when_the_new_one_is_rejected(kit, monkeypatch):
+    fake_host(kit, monkeypatch)
+    kit.creds.save("git.example.com", "gitlab", "expired", "me")
+    tokens = iter(["wrong", None])
+    asked = []
+    ok = kit.projects.connect("https://git.example.com/team/docs.git",
+                              ask=lambda host, again: asked.append(again) or next(tokens), log=lambda _: None)
+    assert not ok and asked == [True, True]
+    assert kit.creds.get("git.example.com") == "expired" and kit.creds.hosts()["git.example.com"]["user"] == "me"
+
+
+def test_connect_strings_exist_in_both_languages(kit):
+    assert set(kit.projects.CONNECT["es"]) == set(kit.projects.CONNECT["en"])

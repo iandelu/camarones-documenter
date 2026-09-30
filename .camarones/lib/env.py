@@ -10,6 +10,7 @@ from typing import Callable
 from .common import (KIT, ROOT, DOCS, HOME, CACHE, IS_WIN, IS_MAC, VERSIONS, CAM_DIR, CAM_LAYOUT, WORKSPACE, GRAPHS, run, out,
                      which, uv, ensure_path, cli_cmd, sdkman_dir, repo_dir, ws_rel, rel_file, load_json, save_json)
 from . import binaries, docs
+from .projects import git_failure  # noqa: F401 — share() and callers of env.git_failure
 
 Log = Callable[[str], None]
 TEMPLATES = KIT / "templates"
@@ -1235,22 +1236,6 @@ def set_remote(url: str) -> None:
     run(["git", "remote", "remove", "origin"], cwd=ROOT, check=False, quiet=True)
     from .projects import clean_remote
     run(["git", "remote", "add", "origin", clean_remote(url)], cwd=ROOT, quiet=True)
-
-
-_FAILURES = (                                                         # first match wins: push denial before auth
-    ("denied", r"not allowed to push|protected branch|pre-receive hook declined|permission to \S+ denied|error: 403"),
-    ("auth", r"users/sign_in|authentication failed|access denied|could not read username|"
-             r"permission denied \(publickey|error: 401"),
-    ("not-found", r"could not be found|not found|does not appear to be a git repository|error: 404"),
-    ("network", r"could not resolve host|failed to connect|timed out|connection refused|network is unreachable|"
-                r"ssl|certificate"),
-)
-
-
-def git_failure(stderr: str) -> str:
-    """Why a git fetch/push failed, as one of: denied · auth · not-found · network · unknown."""
-    text = stderr.lower()
-    return next((reason for reason, rx in _FAILURES if re.search(rx, text)), "unknown")
 
 
 def _ident() -> list[str]:

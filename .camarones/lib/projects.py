@@ -109,6 +109,98 @@ def origin_of(repo: Path) -> str:
     return r.stdout.strip() if r.returncode == 0 else ""
 
 
+_FAILURES = (                                                         # first match wins: push denial before auth
+    ("denied", r"not allowed to push|protected branch|pre-receive hook declined|permission to \S+ denied|error: 403"),
+    ("auth", r"users/sign_in|authentication failed|access denied|could not read username|"
+             r"permission denied \(publickey|error: 401"),
+    ("not-found", r"could not be found|not found|does not appear to be a git repository|error: 404"),
+    ("network", r"could not resolve host|failed to connect|timed out|connection refused|network is unreachable|"
+                r"ssl|certificate"),
+)
+
+
+def git_failure(stderr: str) -> str:
+    """Why a git fetch/push failed, as one of: denied · auth · not-found · network · unknown."""
+    text = stderr.lower()
+    return next((reason for reason, rx in _FAILURES if re.search(rx, text)), "unknown")
+
+
+CONNECT = {
+    "es": {"probe": "🔎 Probando el acceso a {url} con tu git…",
+           "ok": "✔ Tu git ya tiene acceso: no hace falta token.",
+           "ok_token": "✔ Acceso con el token guardado para {host}.",
+           "token": "{host} pide credenciales y tu git no tiene ninguna guardada. Pega un token de acceso "
+                    "(GitLab: read_repository + write_repository · GitHub: repo). Se guarda en el llavero del "
+                    "sistema, nunca en el proyecto. Vacío = cancelar:",
+           "retry": "✖ {host} rechaza ese token. Pega otro (vacío = cancelar):",
+           "not-found": "✖ No encuentro {url}: revisa la URL o que tu usuario tenga acceso.",
+           "network": "✖ No llego a {host}: revisa la conexión, la VPN o el proxy.",
+           "unknown": "✖ No puedo leer {url}: {detail}"},
+    "en": {"probe": "🔎 Checking access to {url} with your git…",
+           "ok": "✔ Your git already has access: no token needed.",
+           "ok_token": "✔ Access with the token saved for {host}.",
+           "token": "{host} asks for credentials and your git has none saved. Paste an access token "
+                    "(GitLab: read_repository + write_repository · GitHub: repo). It is kept in the OS keychain, "
+                    "never in the project. Empty = cancel:",
+           "retry": "✖ {host} rejects that token. Paste another one (empty = cancel):",
+           "not-found": "✖ Can't find {url}: check the URL and that your user has access to it.",
+           "network": "✖ Can't reach {host}: check the connection, VPN or proxy.",
+           "unknown": "✖ Can't read {url}: {detail}"},
+}
+
+
+def reach(url: str) -> tuple[str, str]:
+    """('', '') when git can list `url` (your own git credentials, or a token saved in Camarón), else (reason, detail)."""
+    r = _git("ls-remote", "--heads", url, url=url)
+    return ("", "") if r.returncode == 0 else (git_failure(r.stderr or r.stdout or ""), _last_line(r))
+
+
+def connect(url: str, ask=None, log=print) -> bool:
+    """Before joining: plain git first (keychain, credential manager, SSH keys). Only when that is refused for lack of
+    credentials, `ask(host, again)` for a token; it is kept only once git gets in with it. False = can't read `url`."""
+    from . import creds
+    t, url = _tr(CONNECT), clean_remote(url)
+    host = creds.host_of(url) if re.match(r"^[a-z][a-z0-9+.-]*://|^[\w.+-]+@", url, re.I) else None
+    prev, meta = (creds.get(host), creds.hosts().get(host, {})) if host else (None, {})
+    kind = meta.get("kind") or (creds.guess_kind(host) if host else "")
+    log(t["probe"].format(url=url))
+    reason, detail = reach(url)
+    again = bool(prev)                                              # the saved token was refused: ask for a new one
+    while reason == "auth" and host and ask:
+        token = ask(host, again)
+        if not token or not token.strip():
+            return False
+        creds.save(host, kind, token.strip())
+        reason, detail = reach(url)
+        if not reason:
+            log(t["ok_token"].format(host=host))
+            return True
+        if prev:                                                    # a rejected token never replaces the old one
+            creds.save(host, kind, prev, meta.get("user", ""))
+        else:
+            creds.delete(host)
+        again = True
+    if not reason:
+        log(t["ok_token"].format(host=host) if prev else t["ok"])
+        return True
+    log(t.get(reason, t["unknown"]).format(url=url, host=host or url, detail=detail))
+    return False
+
+
+def ask_token(host: str, again: bool) -> str | None:
+    import questionary
+    return questionary.password(_tr(CONNECT)["retry" if again else "token"].format(host=host)).ask()
+
+
+def name_from_url(url: str) -> str:
+    """A folder name for a joined project: the repo's name, or its group when the repo is just called docs."""
+    path = re.sub(r"^[\w.+-]+@[^:/]+:", "", url.strip())
+    path = urllib.parse.urlsplit(path).path if "://" in path else path
+    parts = [p.removesuffix(".git") for p in path.strip("/").split("/") if p]
+    generic = {"docs", "doc", "cam-docs", "documentation", "wiki"}
+    return next((p for p in reversed(parts) if p.lower() not in generic), "project")
+
+
 def _is_project(root: Path) -> bool:
     return (root / ".camarones" / "workspace.yaml").exists()
 
@@ -223,10 +315,14 @@ def pick(allow_new: bool = True, here: Path | None = None) -> Path | None:
     if picked is None:
         return None
     if picked == "__new__" or (offer_here and picked == here):
-        name = questionary.text("Nombre del nuevo proyecto (ej. enjoy):").ask() if picked == "__new__" else here.name
-        url = questionary.text(_tr(TEAM_URL_Q)).ask() if name else None
-        if url is None:
+        url = questionary.text(_tr(TEAM_URL_Q)).ask()
+        if url is None or (url.strip() and not connect(url, ask=ask_token)):
             return None
+        name = here.name if picked == here else ""
+        if picked == "__new__":
+            name = questionary.text("Nombre del proyecto (ej. enjoy):", default=name_from_url(url) if url.strip() else "").ask()
+            if not name:
+                return None
         try:
             return create(name, url=url) if picked == "__new__" else (join(url, here)[0] if url.strip() else adopt(here))
         except (ValueError, RuntimeError) as e:

@@ -84,7 +84,12 @@ def _relaunch(root: Path, argv: list[str]) -> None:
 
 
 def _team(fn, *args):
-    """new --from / join: a clone that fails (no access, wrong URL, folder taken) is a short error, not a traceback."""
+    """new --from / join: a clone that fails (no access, wrong URL, folder taken) is a short error, not a traceback.
+    Access is checked first with plain git; a token is asked only when that fails and there is a terminal to ask in."""
+    url = args[-1] if fn is projects.create else args[0]
+    if url.strip() and not projects.connect(url, ask=projects.ask_token if sys.stdin.isatty() else None,
+                                            log=lambda m: print(m, file=sys.stderr)):
+        sys.exit(1)
     try:
         return fn(*args)
     except (ValueError, RuntimeError) as e:
