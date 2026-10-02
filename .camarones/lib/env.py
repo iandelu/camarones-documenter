@@ -638,7 +638,7 @@ def wiki_graph(repo: str, dest: Path | None = None, log: Log = print) -> bool:
         return False
     log(f"exporting the wiki graph of {repo}…")
     shutil.rmtree(dest, ignore_errors=True)
-    run(["openwiki", "visualize", wiki.name, "--export", str(dest), "--no-open"], cwd=wiki.parent, check=False, quiet=True)
+    run(["openwiki", "visualize", wiki.name, "--export", str(dest)], cwd=wiki.parent, check=False, quiet=True)
     ok = (dest / "index.html").exists()
     log(f"✔ wiki graph {repo}" if ok else f"⚠ wiki graph {repo} failed")
     return ok
