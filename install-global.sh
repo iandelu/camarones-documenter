@@ -1,9 +1,12 @@
 #!/bin/sh
 # Camarón — one-time global install (macOS / Linux).
-# Clones this repo into a fixed central location and puts `camaron` plus the legacy `camarones` alias on your PATH,
+# Clones the kit into a fixed central location and puts `camaron` plus the legacy `camarones` alias on your PATH,
 # so every cama-docs-* project shares one kit copy instead of a per-project copy going stale.
+# Works from a checkout or piped from the web:
+#   curl -fsSL https://raw.githubusercontent.com/iandelu/camarones-documenter/main/install-global.sh | sh
+# CAMARONES_KIT_URL overrides where the kit comes from (a fork, or a local checkout while developing the kit).
 set -e
-SRC="$(cd "$(dirname "$0")" && pwd)"
+KIT_URL="${CAMARONES_KIT_URL:-https://github.com/iandelu/camarones-documenter.git}"
 CENTRAL="$HOME/.camarones/kit"
 BINDIR="$HOME/.local/bin"
 
@@ -18,7 +21,7 @@ if ! command -v uv >/dev/null 2>&1; then
   else
     echo "🦐 Camarón needs uv (Python tool manager by Astral)."
     printf "   Install it now with Astral's official installer? [y/N] "
-    read -r ans
+    { read -r ans < /dev/tty; } 2>/dev/null || ans=""   # piped from curl: stdin is this script, ask the terminal
     case "$ans" in
       y|Y) curl -LsSf https://astral.sh/uv/install.sh | sh ;;
       *) echo "   Install uv and run install-global.sh again."; exit 1 ;;
@@ -29,10 +32,16 @@ fi
 mkdir -p "$(dirname "$CENTRAL")"
 if [ -d "$CENTRAL/.git" ]; then
   echo "Updating existing central kit at $CENTRAL…"
-  git -C "$CENTRAL" pull --ff-only
+  ORIGIN="$(git -C "$CENTRAL" remote get-url origin 2>/dev/null || true)"
+  case "$ORIGIN" in
+    *://*|*@*:*) if [ -n "$CAMARONES_KIT_URL" ]; then git -C "$CENTRAL" remote set-url origin "$KIT_URL"; fi ;;
+    *) git -C "$CENTRAL" remote set-url origin "$KIT_URL" ;;   # older installs followed a local checkout
+  esac
+  git -C "$CENTRAL" pull --ff-only --quiet || {
+    echo "Could not fast-forward $CENTRAL — run: camaron self-update" >&2; exit 1; }
 else
   echo "Cloning kit to $CENTRAL…"
-  git clone --quiet "$SRC" "$CENTRAL"
+  git clone --quiet "$KIT_URL" "$CENTRAL"
 fi
 
 mkdir -p "$BINDIR"

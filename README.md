@@ -108,19 +108,23 @@ El asistente comprueba los requisitos y permite elegir componentes. La primera i
 
 ### 1. Instala el kit
 
-**Instalación global (recomendada si documentas varios proyectos).** Una sola copia del kit, compartida por todos tus proyectos: actualizarla una vez actualiza el comportamiento en todos a la vez, y cada proyecto solo guarda su propia configuración.
-
-```powershell
-# Windows · PowerShell, desde este repo clonado
-.\install-global.cmd
-```
+**Instalación global (recomendada).** Una sola copia del kit, compartida por todos tus proyectos: actualizarla una vez actualiza el comportamiento en todos a la vez, y cada proyecto solo guarda su propia configuración. Una línea, sin clonar nada antes:
 
 ```sh
-# macOS / Linux, desde este repo clonado
-sh install-global.sh
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/iandelu/camarones-documenter/main/install-global.sh | sh
 ```
 
-Esto clona el kit a una ruta fija (`%LOCALAPPDATA%\camarones-documenter\kit` en Windows, `~/.camarones/kit` en macOS/Linux) y deja el comando `camaron` en tu PATH. El antiguo `camarones` continúa como alias compatible durante la transición. Desde ahí:
+```powershell
+# Windows · PowerShell
+$f="$env:TEMP\camaron-install.cmd"; (irm https://raw.githubusercontent.com/iandelu/camarones-documenter/main/install-global.cmd) -replace "`r?`n","`r`n" | Set-Content -NoNewline -Encoding ascii $f; & $f
+```
+
+Si ya tienes el repo clonado, `sh install-global.sh` o `.\install-global.cmd` hacen lo mismo.
+
+Esto clona el kit oficial de GitHub a una ruta fija (`%LOCALAPPDATA%\camarones-documenter\kit` en Windows, `~/.camarones/kit` en macOS/Linux) y deja el comando `camaron` en tu PATH. El antiguo `camarones` continúa como alias compatible durante la transición. Para instalar desde un fork o desde tu copia local mientras desarrollas el kit, define `CAMARONES_KIT_URL` antes de lanzar el instalador.
+
+**Actualizar.** En el asistente, **⬆️ Actualizar Camarón** comprueba si hay versión nueva, te la ofrece y reinicia el asistente ya actualizado. Desde la terminal es `camaron self-update`. Las instalaciones anteriores a la 3.8, que seguían la carpeta desde la que se instalaron, pasan solas a seguir el kit oficial. Desde ahí:
 
 ```sh
 cd ~/Documents/mi-proyecto   # la carpeta que agrupa (o agrupará) los repos
@@ -130,7 +134,7 @@ camaron join <url>         # únete al cam-docs de tu equipo: lo clona aquí o r
 camaron share              # trae lo último del equipo y publica tu trabajo (solo cuando lo pides)
 camaron share --auto on    # o publica solo tras cada checkpoint (en este equipo)
 camaron switch             # cambia entre tus proyectos
-camaron self-update        # git pull del kit central — actualiza todos los proyectos a la vez
+camaron self-update        # trae el kit oficial al día — actualiza todos los proyectos a la vez (en el asistente: ⬆️ Actualizar Camarón)
 camaron migrate            # pasa un proyecto de la estructura anterior (≤2.5) a cam-docs/
 camaron uninstall           # lo deshace todo: borra cam-docs/ (con copia .zip) y los rastros en los repos
 ```

@@ -18,7 +18,7 @@ from rich.text import Text
 
 from .common import (ROOT, HOME, WORK, WS_FILE, CACHE, IS_WIN, IS_MAC, CAM_DIR, CAM_LAYOUT, WORKSPACE, which, cli_cmd,
                      load_json, save_json, out, repo_dir)
-from . import docs, env, plan, creds, questionnaire, quickarch, radar, tutorial
+from . import docs, env, plan, creds, questionnaire, quickarch, radar, tutorial, upgrade
 from .common import VERSIONS, ws_rel
 from rich.tree import Tree
 import webbrowser
@@ -268,6 +268,16 @@ T = {
         "up_found": "Hay una versión nueva del kit: v{new} (este proyecto usa v{cur}).\nEncontrada en: {where}",
         "up_q": "¿Actualizo ahora? (se conservan tu configuración, el plan y toda la documentación)",
         "up_done": "✔ Actualizado a v{new}. Reiniciando…",
+        "m_kitupdate": "⬆️  Actualizar Camarón",
+        "ku_checking": "Asomando las antenas por si hay marea nueva…",
+        "ku_latest": "✔ Ya tienes la última versión (v{cur}).",
+        "ku_found": "Hay una versión nueva del kit: v{new} (tienes v{cur}) · {n} cambios.",
+        "ku_found_same": "Hay {n} cambios nuevos en el kit (v{cur}).",
+        "ku_q": "¿Actualizo ahora? Tus proyectos se conservan y el asistente se reinicia.",
+        "ku_fail": "No se pudo actualizar el kit:\n{err}",
+        "ku_local": "Este proyecto usa una copia local del kit, que no se actualiza desde aquí.\n"
+                    "Instala Camarón globalmente (ver README: «Instala el kit») y corre `camaron unlink` en este proyecto.",
+        "ku_done": "✔ Muda de caparazón hecha: v{new}. Reiniciando…",
         "fr_resumed": "Retomo la instalación donde la dejaste.",
         "m_resume": "▶ Continuar «{u}» (se quedó a medias)",
         "m_review": "✅ Revisar y verificar páginas",
@@ -581,6 +591,16 @@ T = {
         "up_found": "A newer kit is available: v{new} (this project uses v{cur}).\nFound at: {where}",
         "up_q": "Upgrade now? (your config, the plan and all documentation are kept)",
         "up_done": "✔ Upgraded to v{new}. Restarting…",
+        "m_kitupdate": "⬆️  Update Camarón",
+        "ku_checking": "Poking my antennae out for a new tide…",
+        "ku_latest": "✔ You're on the latest version (v{cur}).",
+        "ku_found": "A newer kit is available: v{new} (you have v{cur}) · {n} changes.",
+        "ku_found_same": "The kit has {n} new changes (v{cur}).",
+        "ku_q": "Update now? Your projects are kept and the wizard restarts.",
+        "ku_fail": "Could not update the kit:\n{err}",
+        "ku_local": "This project uses a local copy of the kit, which is not updated from here.\n"
+                    "Install Camarón globally (see README: \"Install the kit\") and run `camaron unlink` in this project.",
+        "ku_done": "✔ Molted into a fresh shell: v{new}. Restarting…",
         "fr_resumed": "Resuming the setup where you left it.",
         "m_resume": "▶ Continue “{u}” (left half done)",
         "m_review": "✅ Review & verify pages",
@@ -893,6 +913,7 @@ class W:
             if self.team_ready():
                 choices.append(Choice(self.t("m_team"), "team"))
             choices += [
+                Choice(self.t("m_kitupdate"), "kitupdate"),
                 Choice(self.t("m_tutorial"), "tutorial"), Choice(self.t("m_uninstall"), "uninstall"),
                 Choice(self.t("m_model"), "model"), Choice(self.t("m_lang"), "lang"), Choice(self.t("m_exit"), "exit")]
             choice = self.sel(self.t("menu"), back=False, choices=choices)
@@ -2209,6 +2230,40 @@ Talk to the user in {talk}. Do not modify application code.
             return
         ws["project"]["repo_pointer"] = bool(self.yes(self.t("pointer_ask"), default=False))
         docs.save_workspace(ws)
+
+    def do_kitupdate(self) -> None:
+        """Menu: bring the central (global) kit up to date and restart on it. A local kit copy only gets directions."""
+        if not os.environ.get("CAMARONES_GLOBAL"):
+            self.say(Panel(self.t("ku_local"), border_style=ORANGE))
+            self.pause()
+            return
+        try:
+            with console.status(self.t("ku_checking"), spinner="dots"):
+                info = upgrade.check()
+        except RuntimeError as e:
+            self.say(Panel(self.t("ku_fail", err=e), border_style="red"))
+            self.pause()
+            return
+        if not info["behind"]:
+            self.say(self.t("ku_latest", cur=info["current"]), style="green")
+            self.pause()
+            return
+        found = (self.t("ku_found", new=info["latest"], cur=info["current"], n=info["behind"])
+                 if upgrade.vtuple(info["latest"]) > upgrade.vtuple(info["current"])
+                 else self.t("ku_found_same", n=info["behind"], cur=info["current"]))
+        self.say(Panel(found, title="🦐 Camarón", border_style=ORANGE))
+        if not self.yes(self.t("ku_q"), default=True):
+            return
+        try:
+            new = self.busy(upgrade.self_update)
+        except RuntimeError as e:
+            self.say(Panel(self.t("ku_fail", err=e), border_style="red"))
+            self.pause()
+            return
+        self.say(self.t("ku_done", new=new), style=f"bold {ORANGE}")
+        self.pause()
+        console.set_alt_screen(False)
+        upgrade.relaunch_global()
 
     def do_setup(self) -> bool:
         ws = docs.workspace()

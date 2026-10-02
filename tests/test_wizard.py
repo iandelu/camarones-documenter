@@ -127,3 +127,53 @@ def test_stack_step_escape_goes_back(kit, stack_screen, fake_wizard):
     assert fake_wizard([None]).stack_flow() == kit.wizard.BACK
     w = fake_wizard(["fix", None, "ok"])                                  # Esc in the repo picker: back to the screen
     assert w.stack_flow() == "done"
+
+
+# ---------- ⬆️ update Camarón ----------
+@pytest.fixture
+def said(kit, monkeypatch):
+    out: list[str] = []
+    monkeypatch.setattr(kit.wizard.W, "say", lambda self, m, style="": out.append(str(getattr(m, "renderable", m))))
+    return out
+
+
+def test_kit_update_on_a_local_kit_copy_explains_instead_of_running_git(kit, fake_wizard, monkeypatch, said):
+    monkeypatch.setattr(kit.wizard.upgrade, "check", lambda *a, **kw: pytest.fail("must not touch git"))
+    fake_wizard([]).do_kitupdate()
+    assert "camaron unlink" in said[0]
+
+
+def test_kit_update_offers_and_respects_no(kit, fake_wizard, monkeypatch):
+    monkeypatch.setenv("CAMARONES_GLOBAL", "1")
+    monkeypatch.setattr(kit.wizard.upgrade, "check", lambda *a, **kw: {"current": "3.8.0", "latest": "3.9.0", "behind": 4})
+    monkeypatch.setattr(kit.wizard.upgrade, "self_update", lambda *a, **kw: pytest.fail("user said no"))
+    w = fake_wizard([False])
+    w.do_kitupdate()
+    assert len(w.answers.asked) == 1
+
+
+def test_kit_update_when_already_current_asks_nothing(kit, fake_wizard, monkeypatch, said):
+    monkeypatch.setenv("CAMARONES_GLOBAL", "1")
+    monkeypatch.setattr(kit.wizard.upgrade, "check", lambda *a, **kw: {"current": "3.8.0", "latest": "3.8.0", "behind": 0})
+    fake_wizard([]).do_kitupdate()
+    assert "3.8.0" in said[0]
+
+
+def test_kit_update_yes_updates_then_restarts(kit, fake_wizard, monkeypatch):
+    monkeypatch.setenv("CAMARONES_GLOBAL", "1")
+    calls = []
+    monkeypatch.setattr(kit.wizard.upgrade, "check", lambda *a, **kw: {"current": "3.8.0", "latest": "3.8.0", "behind": 1})
+    monkeypatch.setattr(kit.wizard.upgrade, "self_update", lambda log=print, **kw: calls.append("update") or "3.8.0")
+    monkeypatch.setattr(kit.wizard.upgrade, "relaunch_global", lambda: calls.append("relaunch"))
+    fake_wizard([True]).do_kitupdate()
+    assert calls == ["update", "relaunch"]
+
+
+def test_kit_update_failure_is_reported_not_raised(kit, fake_wizard, monkeypatch, said):
+    monkeypatch.setenv("CAMARONES_GLOBAL", "1")
+
+    def offline(*a, **kw):
+        raise RuntimeError("could not reach the kit")
+    monkeypatch.setattr(kit.wizard.upgrade, "check", offline)
+    fake_wizard([]).do_kitupdate()
+    assert "could not reach the kit" in said[0]
