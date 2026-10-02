@@ -17,9 +17,10 @@ from . import docs, env, plan
 UI = KIT / "portal" / "live"
 SITE = CACHE / "site"
 UI_LIBS = (("marked", "15.0.12", "lib/marked.umd.js"), ("dompurify", "3.2.6", "dist/purify.min.js"),
-           ("mermaid", "11.4.1", "dist/mermaid.min.js"))
+           ("mermaid", "11.4.1", "dist/mermaid.min.js"), ("@highlightjs/cdn-assets", "11.11.1", "highlight.min.js"))
 VENDOR_RE = re.compile(r"^/vendor/((?:@[\w.-]+/)?[\w.-]+)@([\w.+-]+)/([\w./+-]+)$")
 STATIC = False
+mimetypes.add_type("text/javascript", ".js")    # Windows may map .js to text/plain in the registry
 
 
 def reviewer() -> str:
@@ -45,8 +46,9 @@ def tree() -> dict:
     return {"project": ws["project"]["name"], "langs": ws["project"].get("translations", []), "reviewer": reviewer(),
             "summary": docs.summary(rows), "feedback": len(docs.pending_feedback()), "kit": VERSIONS["kit"],
             "repos": docs.repo_names(), "codeGraphs": list(env.code_graphs()), "engines": env.wiki_engines(),
-            "editBase": "", "docs": [{k: r[k] for k in ("path", "file", "title", "type", "trust", "owner", "i18n",
-                                                        "orphan_sources")} for r in rows]}
+            "sections": docs.SECTIONS, "views": env.c4_views(), "editBase": "",
+            "docs": [{k: r[k] for k in ("path", "file", "title", "description", "type", "space", "trust", "owner", "i18n",
+                                        "orphan_sources")} for r in rows]}
 
 
 def read(path: str, lang: str = "") -> dict:

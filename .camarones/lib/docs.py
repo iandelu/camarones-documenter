@@ -277,6 +277,17 @@ def first_heading(body: str) -> str | None:
     return m.group(1).strip() if m else None
 
 
+SECTIONS = ["index.md", "overview", "architecture", "domain", "flows", "data", "deployment", "decisions", "quality",
+            "guides", "repos"]
+
+
+def space_of(logical: str, f: Path, fm: dict) -> str:
+    """docs = the documentation; notes = working notes (discovery, interviews); wiki = a repo's OpenWiki page."""
+    if not f.is_relative_to(DOCS):
+        return "wiki"
+    return "notes" if fm.get("type") == "interview" or logical.startswith("interview/") else "docs"
+
+
 def trust_of(fm: dict, sha: str) -> str:
     conf = fm.get("x-confirmed") or {}
     return "confirmed" if conf.get("body_sha") == sha else ("needs-reconfirm" if conf else "draft")
@@ -298,7 +309,8 @@ def doc_status(logical: str, f: Path, langs: list[str]) -> dict:
     return {"path": logical, "file": rel_file(f),
             "title": fm.get("title") or first_heading(body) or f.stem, "description": fm.get("description", ""),
             "type": fm.get("type", ""), "trust": trust, "owner": fm.get("x-owner", "ai"), "orphan_sources": missing,
-            "i18n": i18n, "body_sha": sha, "has_frontmatter": bool(fm) or not fm_valid, "frontmatter_valid": fm_valid}
+            "space": space_of(logical, f, fm), "i18n": i18n, "body_sha": sha,
+            "has_frontmatter": bool(fm) or not fm_valid, "frontmatter_valid": fm_valid}
 
 
 def collect() -> list[dict]:
@@ -355,10 +367,9 @@ def translated(files: list[str]) -> list[str]:
 
 def llms() -> int:
     ws, rows = workspace(), collect()
-    order = ["index.md", "overview", "architecture", "domain", "flows", "data", "deployment", "decisions", "quality", "guides", "repos"]
     def key(r):
         head = r["path"].split("/")[0]
-        return (order.index(head) if head in order else len(order), r["path"])
+        return (SECTIONS.index(head) if head in SECTIONS else len(SECTIONS), r["path"])
     lines = [f"# {ws['project']['name']}", "",
              "> Documentation index for AI agents. Trust: `confirmed` = verified by a human (source of truth); "
              "`draft` = AI-generated, verify against code; `needs-reconfirm` = confirmed, then changed.", ""]

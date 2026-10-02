@@ -1,7 +1,7 @@
 """Environment: templates, prerequisites, pinned tools, repo wiring, code graph, C4, portal, docker, CI."""
 from __future__ import annotations
 
-import json, os, re, shutil, subprocess, sys, webbrowser
+import json, os, posixpath, re, shutil, subprocess, sys, webbrowser
 from collections import deque
 from contextlib import contextmanager
 from pathlib import Path
@@ -612,6 +612,26 @@ def build_c4(dest: Path | None = None, log: Log = print) -> bool:
     return ok
 
 
+C4_VIEW_RE = re.compile(r"^\s*(dynamic\s+|deployment\s+)?view\s+([A-Za-z_][\w-]*)\b", re.M)
+C4_TITLE_RE = re.compile(r"""^\s*title\s+(['"])(.*?)\1""", re.M)
+
+
+def c4_views() -> list[dict]:
+    """Views declared in the model, read with a regex so the portal can list and embed them without LikeC4."""
+    arch = arch_dir()
+    found = []
+    for f in sorted(arch.rglob("*.c4"), key=lambda p: (p.parent != arch, p.as_posix())) if arch.is_dir() else []:
+        text = f.read_text(encoding="utf-8", errors="replace")
+        decls = list(C4_VIEW_RE.finditer(text))
+        for i, m in enumerate(decls):
+            block = text[m.end(): decls[i + 1].start() if i + 1 < len(decls) else len(text)]
+            title = C4_TITLE_RE.search(block)
+            kind = (m.group(1) or "element").strip()
+            found.append({"id": m.group(2), "title": title.group(2) if title else m.group(2), "kind": kind,
+                          "file": f.relative_to(arch).as_posix()})
+    return found
+
+
 def code_graphs() -> dict[str, Path]:
     """Viewer HTML per repo, plus 'all' for the merged graph."""
     found = {n: GRAPHS / n / "graph.html" for n in docs.repo_names() if (GRAPHS / n / "graph.html").is_file()}
@@ -690,6 +710,37 @@ def wiki_pages(repo: str) -> list[Path]:
             and f.relative_to(wiki).as_posix() != "INSTRUCTIONS.md"] if wiki.is_dir() else []
 
 
+WIKI_LINK_RE = re.compile(r"\]\(([^)\s#]+\.md)(?:#[^)]*)?\)")
+
+
+def wiki_nav(repo: str) -> dict:
+    """A wiki's own navigation: pages in the order of its index.md, then the rest, plus backlinks between pages."""
+    wiki = docs.wiki_dir(repo)
+    files = {f.relative_to(wiki).as_posix(): f for f in wiki_pages(repo) if f.name != "log.md"}
+    if not files:
+        return {"home": None, "pages": [], "backlinks": {}}
+
+    def links(rel: str) -> list[str]:
+        base = posixpath.dirname(rel)
+        text = files[rel].read_text(encoding="utf-8", errors="replace")
+        return [t for t in (posixpath.normpath(posixpath.join(base, h)) for h in WIKI_LINK_RE.findall(text)
+                            if not re.match(r"^[a-z]+:", h, re.I)) if t in files]
+
+    order = (["index.md"] + links("index.md")) if "index.md" in files else []
+    order = list(dict.fromkeys(order + sorted(files)))
+    pages = []
+    for rel in order:
+        fm, body = docs.split_fm(files[rel].read_text(encoding="utf-8", errors="replace"))
+        pages.append({"path": f"repos/{repo}/{rel}", "title": fm.get("title") or docs.first_heading(body) or Path(rel).stem})
+    backlinks: dict[str, set] = {}
+    for rel in files:
+        for target in links(rel):
+            if target != rel:
+                backlinks.setdefault(f"repos/{repo}/{target}", set()).add(f"repos/{repo}/{rel}")
+    home = next((f"repos/{repo}/{p}" for p in ("quickstart.md", "index.md", "README.md") if p in files), pages[0]["path"])
+    return {"home": home, "pages": pages, "backlinks": {k: sorted(v) for k, v in sorted(backlinks.items())}}
+
+
 def wiki_brief_ready(repo: str) -> bool:
     """A first wiki needs the brief that repo-brief writes (role, bounded context, glossary), or OpenWiki writes a
     generic wiki that ignores the project's language and repeats what docs/ already covers."""
@@ -702,10 +753,10 @@ def wikis() -> list[dict]:
     chosen = docs.wiki_repos()
     rows = []
     for n in docs.repo_names():
-        pages = wiki_pages(n)
-        at = newest(pages)
-        rows.append({"repo": n, "pages": len(pages), "at": at, "stale": bool(pages) and repo_changed_at(n) > at,
-                     "graph": (VIEWERS / "wiki-graph" / n / "index.html").exists(), "unit": units.get(f"repo-wiki:{n}"),
+        pages, nav = wiki_pages(n), wiki_nav(n)
+        at, graph_at = newest(pages), newest([VIEWERS / "wiki-graph" / n / "index.html"])
+        rows.append({"repo": n, "pages": len(nav["pages"]), "nav": nav, "at": at, "stale": bool(pages) and repo_changed_at(n) > at,
+                     "graph": bool(graph_at), "graphStale": bool(graph_at) and at > graph_at, "unit": units.get(f"repo-wiki:{n}"),
                      "cloned": repo_dir(n).is_dir(), "chosen": n in chosen, "ready": bool(pages) or wiki_brief_ready(n),
                      "index": next((f"repos/{n}/{p}" for p in ("quickstart.md", "index.md", "README.md")
                                     if (docs.wiki_dir(n) / p).exists()), None)})
@@ -955,7 +1006,7 @@ def export_site(log: Log = print) -> Path:
         shutil.copyfile(f, dst)
     log(f"✔ code graphs ({len(code_graphs())})")
     for w in wikis():
-        if w["pages"] and not w["graph"]:
+        if w["pages"] and (not w["graph"] or w["graphStale"]):
             wiki_graph(w["repo"], log=log)
         if (VIEWERS / "wiki-graph" / w["repo"]).is_dir():
             shutil.copytree(VIEWERS / "wiki-graph" / w["repo"], tmp / "wiki-graph" / w["repo"])
