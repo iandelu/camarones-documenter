@@ -134,7 +134,9 @@ Unattended: do not ask; take the most reasonable reading and record every questi
 ## repo-brief
 The foundation for one repo — after this unit the repo is useful on its own:
 1. `wikis/<repo>/INSTRUCTIONS.md` (the repo sees it as an untracked `openwiki/` link): the repo's role, bounded context,
-   key glossary terms, integrations, what to emphasize.
+   key glossary terms, integrations, what to emphasize, and a `## Coverage` section listing the pages its wiki needs
+   (modules/layers, one per API surface — endpoints, events, jobs — and per logic area, data, configuration, testing,
+   operations, known issues). OpenWiki's own engine reads only this brief, so the list is what makes its wiki complete.
 2. C4: its container in `docs/architecture/model.c4` (create `likec4.config.json` + `model.c4` + `views.c4` if missing —
    or run `CLI arch-draft --save` to start from the static-scan draft)
    and `docs/architecture/repos/<repo>.c4` (components + `<repo_snake>_components` view). `CLI arch-validate` → ✓ Valid.
@@ -145,8 +147,11 @@ The foundation for one repo — after this unit the repo is useful on its own:
 
 ## repo-wiki
 Generate the OpenWiki of one repo. The unit exists only for the repos the user chose (`wiki: true` in
-`.camarones/workspace.yaml`; wizard → 📚 Wikis → choose) and needs `wikis/<repo>/INSTRUCTIONS.md` from repo-brief. Keep
-the wiki about the repo's internals: the cross-repo domain, flows and C4 live in `docs/` — do not restate them.
+`.camarones/workspace.yaml`; wizard → 📚 Wikis → choose) and needs `wikis/<repo>/INSTRUCTIONS.md` from repo-brief. Write
+a complete wiki — enough for a new developer to work on the repo with it alone — covering the brief's `## Coverage` list;
+a service with real logic usually needs 10+ pages. The cross-repo domain, flows and C4 live in `docs/`: explain the
+repo's side of them and link those pages (`../../docs/<page>`) instead of copying them. A wiki written before kit 3.10
+had a narrower scope: `check` warns about it; `CLI wiki <repo>` (update) expands it.
 Simplest: `CLI wiki <repo>` (headless: OpenWiki with a provider key, else Claude Code / Codex through the OpenWiki MCP;
 the portal's Wikis tab runs the same; one run at a time, and a batch stops when the engine is out of quota or logged
 out). Doing it yourself with the OpenWiki MCP tools:

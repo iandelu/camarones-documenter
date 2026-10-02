@@ -36,6 +36,7 @@ async function showWiki(repo, rel, anchor) {
     crumbs: [[`#/wikis`, t('wikis')], [`#/wiki/${repo}`, repo]],
     order: nav.pages.map((p) => p.path),
     extra: `<a class="button ghost small" href="#/wiki/${esc(repo)}">🕸️ ${esc(t('graph'))}</a>`,
+    banner: w.old ? `<div class="banner">${esc(t('wikiOld'))} <a href="#/wikis/">${esc(t('wikis'))} →</a></div>` : '',
     after: back.length ? `<div class="box backlinks"><b>${esc(t('linkedFrom'))}</b><ul class="list">${back.map((p) =>
       `<li><a href="${esc(hrefFor(p))}">${esc(title(p))}</a></li>`).join('')}</ul></div>` : '',
   });
@@ -55,8 +56,9 @@ async function showWikiGraph(repo) {
   const bar = (state, rebuild) => viewerBar([`<b>📚 ${esc(repo)}</b>`, state,
     `<a href="${esc(hrefFor(w.nav.home))}">📄 ${esc(t('readPages'))}</a>`,
     w.graph ? `<a href="${src}" target="_blank" rel="noopener">${esc(t('openTab'))} ↗</a>` : ''], rebuild);
+  const oldNote = w.old ? `<div class="banner flush">${esc(t('wikiOld'))} <a href="#/wikis/">${esc(t('wikis'))} →</a></div>` : '';
   if (w.graph && (STATIC || !w.graphStale)) {
-    $('#main').innerHTML = bar(`<span class="muted small">${esc(t('pages', { n: w.pages }))}</span>`, t('rebuild'))
+    $('#main').innerHTML = oldNote + bar(`<span class="muted small">${esc(t('pages', { n: w.pages }))}</span>`, t('rebuild'))
       + `<iframe class="viewer" src="${src}" title="wiki graph"></iframe>`;
     bindBuild('wiki-graph', repo, () => { WIKIS = null; route(); });
     return;
@@ -92,6 +94,7 @@ async function showWikis(open) {
         ${!STATIC && w.chosen && !w.ready ? `<span class="muted small">${esc(t('needBrief'))}</span>` : ''}
         ${!STATIC && engines.length && w.cloned && (w.chosen || w.pages) && w.ready ? `<button class="ghost small w-gen" type="button">${esc(w.pages ? t('update') : t('generate'))}</button>${engSel ? ` ${esc(t('via'))} ${engSel}` : ` <span class="muted small">${esc(t('via'))} ${esc(engines[0])}</span>`}` : ''}
       </div>
+      ${w.old ? `<p class="warn small">${esc(t('wikiOld'))}</p>` : ''}
       <pre class="joblog" hidden></pre></div>`).join('')}</div></div>`;
   $$('#main .card').forEach((card) => {
     const repo = card.dataset.repo;

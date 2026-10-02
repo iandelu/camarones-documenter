@@ -741,6 +741,31 @@ def wiki_nav(repo: str) -> dict:
     return {"home": home, "pages": pages, "backlinks": {k: sorted(v) for k, v in sorted(backlinks.items())}}
 
 
+WIKI_SCOPE = 2                 # 1: repo internals only (kit <= 3.9) · 2: a complete wiki, the repo's side of flows and C4
+WIKI_STAMP = ".camaron.json"   # in wikis/<repo>/, next to OpenWiki's own dot-files; hidden from the docs
+
+
+def wiki_scope(repo: str) -> int:
+    """Scope a wiki was written for; wikis from before the stamp existed are scope 1."""
+    try:
+        return int(json.loads((docs.wiki_dir(repo) / WIKI_STAMP).read_text(encoding="utf-8")).get("scope", 1))
+    except (OSError, ValueError, TypeError, AttributeError):
+        return 1
+
+
+def stamp_wiki(repo: str, **extra) -> None:
+    f = docs.wiki_dir(repo) / WIKI_STAMP
+    f.write_text(json.dumps({"scope": WIKI_SCOPE, **extra}, indent=2) + "\n", encoding="utf-8")
+
+
+def wiki_old(repo: str) -> bool:
+    return bool(wiki_pages(repo)) and wiki_scope(repo) < WIKI_SCOPE
+
+
+def old_wikis() -> list[str]:
+    return [n for n in docs.repo_names() if wiki_old(n)]
+
+
 def wiki_brief_ready(repo: str) -> bool:
     """A first wiki needs the brief that repo-brief writes (role, bounded context, glossary), or OpenWiki writes a
     generic wiki that ignores the project's language and repeats what docs/ already covers."""
@@ -756,7 +781,8 @@ def wikis() -> list[dict]:
         pages, nav = wiki_pages(n), wiki_nav(n)
         at, graph_at = newest(pages), newest([VIEWERS / "wiki-graph" / n / "index.html"])
         rows.append({"repo": n, "pages": len(nav["pages"]), "nav": nav, "at": at, "stale": bool(pages) and repo_changed_at(n) > at,
-                     "graph": bool(graph_at), "graphStale": bool(graph_at) and at > graph_at, "unit": units.get(f"repo-wiki:{n}"),
+                     "graph": bool(graph_at), "graphStale": bool(graph_at) and at > graph_at, "old": wiki_old(n),
+                     "unit": units.get(f"repo-wiki:{n}"),
                      "cloned": repo_dir(n).is_dir(), "chosen": n in chosen, "ready": bool(pages) or wiki_brief_ready(n),
                      "index": next((f"repos/{n}/{p}" for p in ("quickstart.md", "index.md", "README.md")
                                     if (docs.wiki_dir(n) / p).exists()), None)})
@@ -774,9 +800,21 @@ def wiki_prompt(repo: str, mode: str) -> str:
             f"Task: {mode} the OpenWiki of `{repo}/` (absolute git root: {repo_dir(repo)}) with the OpenWiki MCP tools "
             "(skill `openwiki`): openwiki_begin → plan → page loop → openwiki_finish, passing that root. OpenWiki resumes an "
             f"interrupted run by itself. {resume}\n"
-            f"Scope: `{ws_rel(f'wikis/{repo}/INSTRUCTIONS.md')}` is this repo's brief (role, bounded context, glossary) — "
-            f"follow its terms. Keep the wiki about this repo's internals: the cross-repo domain, business flows and C4 "
-            f"architecture are documented in `{ws_rel('docs/')}`, do not restate them.\n"
+            f"Scope: `{ws_rel(f'wikis/{repo}/INSTRUCTIONS.md')}` is this repo's brief (role, bounded context, glossary, "
+            "what to emphasize) — follow its terms.\n"
+            "Coverage: write a complete wiki, enough for a new developer to work on this repo with it alone: overview and "
+            "quickstart (build, test, run locally); the repo's architecture (modules or layers, main components, how a "
+            "request or message travels through them); one page per API surface (endpoints, events consumed and produced, "
+            "scheduled jobs) and per important domain or logic area; data and integrations (what it owns and stores, what "
+            "it calls, who calls it); configuration and environments; testing; operations (deploy, observability, "
+            "troubleshooting); known issues and tech debt. Give a topic its own page rather than compressing it: a service "
+            "with real logic usually needs 10 pages or more, a small library fewer. Every claim anchored to code.\n"
+            f"Cross-repo context: the shared domain, business flows and C4 model live in `{ws_rel('docs/')}`. Explain this "
+            "repo's part in them from its own side, and link those pages (from the wiki: `../../docs/<page>`) instead of "
+            "copying them.\n"
+            + ("Expand: this wiki was written under an older, narrower scope (internals only). Keep the pages that are "
+               "still correct, add the pages Coverage asks for that are missing, and deepen the thin ones.\n"
+               if mode == "update" and wiki_old(repo) else "") +
             f"Boundaries: `{repo}/openwiki/` is a real folder for this run. When you finish, the caller moves it into "
             f"`{CAM_DIR}/wikis/{repo}/`, removes what OpenWiki adds to the repo (AGENTS.md, CLAUDE.md, .github/) and marks "
             f"the plan unit — do none of that yourself, never run `{cli} wiki`, and do not touch other repo files.\n"
@@ -927,6 +965,9 @@ def openwiki_generate(repo: str, mode: str = "", log: Log = print, engine: str =
                 rc = stream(["codex", "exec", "--full-auto", "-C", str(WORKSPACE), wiki_prompt(repo, mode)], WORKSPACE, tee)
     ok = rc == 0 and bool(wiki_pages(repo))
     if ok:
+        brief = docs.wiki_dir(repo) / "INSTRUCTIONS.md"
+        if engine != "openwiki" or (brief.is_file() and "## Coverage" in brief.read_text(encoding="utf-8")):
+            stamp_wiki(repo, mode=mode, engine=engine, kit=VERSIONS["kit"])
         if known:
             plan.set_status(uid, "done", f"OpenWiki {mode} via {engine}")
         docs.llms()

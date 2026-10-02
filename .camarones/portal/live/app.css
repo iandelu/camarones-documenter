@@ -151,6 +151,7 @@ body.viewer-mode .main { padding: 0; }
 .banner { border-left: 3px solid var(--warn); background: color-mix(in srgb, var(--warn) 8%, transparent); padding: .5rem .85rem;
           border-radius: 0 8px 8px 0; margin-bottom: 1rem; font-size: .9rem; }
 .banner.draft { border-color: var(--draft); background: color-mix(in srgb, var(--draft) 6%, transparent); color: var(--ink-2); }
+.banner.flush { margin: 0; border-radius: 0; }
 .banner.info { border-color: var(--info); background: color-mix(in srgb, var(--info) 7%, transparent); }
 .pager { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--line); }
 .pager a { display: flex; flex-direction: column; gap: .15rem; padding: .8rem 1rem; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); }

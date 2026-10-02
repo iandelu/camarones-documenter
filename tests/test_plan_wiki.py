@@ -151,3 +151,45 @@ def test_engine_down_aborts_and_restores_the_unit(wired, engine):
     assert "repo-wiki:api" not in (wired.plan.LOG.read_text(encoding="utf-8") if wired.plan.LOG.exists() else "")
     assert not wired.env.WIKI_LOCK.exists()
     assert wired.env._is_link(wired.ws / "api" / "openwiki")             # the repo is put back even on failure
+
+
+# ---------- wiki scope: complete wikis, and a warning for the ones written under the old, narrow scope ----------
+def test_the_wiki_prompt_asks_for_a_complete_wiki(wired):
+    p = wired.env.wiki_prompt("api", "init")
+    assert "Coverage" in p and "do not restate" not in p
+    assert "docs/" in p                                           # still points at the cross-repo docs, to link not copy
+
+
+def test_a_generated_wiki_is_stamped_with_the_current_scope(wired, engine):
+    env = wired.env
+    assert env.openwiki_generate("api", log=lambda _: None, force=True) is True
+    assert env.wiki_scope("api") == env.WIKI_SCOPE
+    assert not {w["repo"]: w for w in env.wikis()}["api"]["old"]
+
+
+def test_an_unstamped_wiki_is_old_warned_and_expanded_on_update(wired, engine, monkeypatch):
+    env, wiki = wired.env, wired.root / "wikis" / "api"
+    (wiki / "INSTRUCTIONS.md").write_text("brief", encoding="utf-8")
+    (wiki / "index.md").write_text("# api\n", encoding="utf-8")          # written by a kit before scope stamps
+    assert env.wiki_scope("api") == 1
+    assert {w["repo"]: w for w in env.wikis()}["api"]["old"]
+    assert any("wikis/api" in w and "older" in w for w in wired.docs.check()[1])
+    assert "Expand" in env.wiki_prompt("api", "update")
+    prompts = []
+    real = env.stream
+    monkeypatch.setattr(env, "stream", lambda cmd, cwd, log, env_=None: prompts.append(cmd[2]) or real(cmd, cwd, log))
+    assert env.openwiki_generate("api", log=lambda _: None) is True
+    assert "Expand" in prompts[0]
+    assert not {w["repo"]: w for w in env.wikis()}["api"]["old"]
+    assert not any("wikis/api" in w and "older" in w for w in wired.docs.check()[1])
+
+
+def test_openwiki_own_engine_counts_as_complete_only_with_a_coverage_brief(wired, engine, monkeypatch):
+    env, brief = wired.env, wired.root / "wikis" / "api" / "INSTRUCTIONS.md"
+    monkeypatch.setattr(env, "wiki_engines", lambda: ["openwiki"])     # OpenWiki's agent reads the brief, not our prompt
+    brief.write_text("# brief\n", encoding="utf-8")
+    assert env.openwiki_generate("api", log=lambda _: None) is True
+    assert env.wiki_old("api")
+    brief.write_text("# brief\n\n## Coverage\n- one page per endpoint group\n", encoding="utf-8")
+    assert env.openwiki_generate("api", log=lambda _: None) is True
+    assert not env.wiki_old("api")

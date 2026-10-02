@@ -151,7 +151,8 @@ T = {
         "your_name": "Tu nombre (queda registrado en la confirmación):",
         "confirmed_n": "{n} páginas confirmadas.",
         "p_live": "📝 Abrir el portal (docs, revisión, C4, grafo de código, wikis — editable)", "p_build": "📦 Exportar el portal para desplegar (solo lectura, CI / hosting)", "p_up": "🐳 Servir la exportación con Docker", "p_open": "Abrir en el navegador", "p_down": "Parar",
-        "m_wikis": "📚 Wikis (OpenWiki)", "w_title": "Wikis por repo", "w_pages": "{n} páginas", "w_none": "sin wiki", "w_stale": "desactualizada",
+        "m_wikis": "📚 Wikis (OpenWiki)", "w_title": "Wikis por repo", "w_pages": "{n} páginas", "w_none": "sin wiki", "w_stale": "desactualizada", "w_old": "antigua (alcance reducido): actualízala",
+        "d_old_wikis": "{n} wiki(s) con el formato antiguo, más escueto ({repos}): 📚 Wikis → ✨ Generar / actualizar las amplía",
         "w_pick": "¿Qué repos genero / actualizo?", "w_engine": "¿Quién escribe la wiki?", "w_open": "🌐 Verlas en el portal",
         "w_gen": "✨ Generar / actualizar wikis", "w_eng_openwiki": "OpenWiki (clave de proveedor guardada)",
         "w_eng_claude": "Claude Code (sin terminal, con las herramientas MCP de OpenWiki)", "w_eng_codex": "Codex (sin terminal, con las herramientas MCP de OpenWiki)",
@@ -474,7 +475,8 @@ T = {
         "your_name": "Your name (recorded in the confirmation):",
         "confirmed_n": "{n} pages confirmed.",
         "p_live": "📝 Open the portal (docs, review, C4, code graph, wikis — editable)", "p_build": "📦 Export the portal for deployment (read-only, CI / hosting)", "p_up": "🐳 Serve the export with Docker", "p_open": "Open in browser", "p_down": "Stop",
-        "m_wikis": "📚 Wikis (OpenWiki)", "w_title": "Wikis per repo", "w_pages": "{n} pages", "w_none": "no wiki", "w_stale": "out of date",
+        "m_wikis": "📚 Wikis (OpenWiki)", "w_title": "Wikis per repo", "w_pages": "{n} pages", "w_none": "no wiki", "w_stale": "out of date", "w_old": "old (narrow scope): update it",
+        "d_old_wikis": "{n} wiki(s) in the old, thinner format ({repos}): 📚 Wikis → ✨ Generate / update expands them",
         "w_pick": "Which repos should I generate / update?", "w_engine": "Who writes the wiki?", "w_open": "🌐 See them in the portal",
         "w_gen": "✨ Generate / update wikis", "w_eng_openwiki": "OpenWiki (saved provider key)",
         "w_eng_claude": "Claude Code (headless, with the OpenWiki MCP tools)", "w_eng_codex": "Codex (headless, with the OpenWiki MCP tools)",
@@ -859,6 +861,9 @@ class W:
         fb = len(docs.pending_feedback())
         if fb:
             tbl.add_row("✏️", f"{fb} {self.t('d_fb')}")
+        old = env.old_wikis()
+        if old:
+            tbl.add_row("📚", f"[yellow]{self.t('d_old_wikis', n=len(old), repos=', '.join(old))}[/]")
         nxt = [u for u in plan.available(data) if u["status"] != "doing"]
         if nxt:
             tbl.add_row("→", f"[{ORANGE}]{nxt[0]['id']}[/] — {nxt[0]['title']}")
@@ -2054,7 +2059,8 @@ Talk to the user in {talk}. Do not modify application code.
                 if not w["chosen"]:
                     state = f"[grey50]{self.t('w_off')}[/]"
                 elif w["pages"]:
-                    state = self.t("w_pages", n=w["pages"]) + (f" [yellow]· {self.t('w_stale')}[/]" if w["stale"] else "")
+                    state = (self.t("w_pages", n=w["pages"]) + (f" [yellow]· {self.t('w_stale')}[/]" if w["stale"] else "")
+                             + (f" [yellow]· {self.t('w_old')}[/]" if w["old"] else ""))
                 else:
                     state = f"[grey50]{self.t('w_none')}[/]" + ("" if w["ready"] else f" [yellow]· {self.t('w_need_brief')}[/]")
                 tbl.add_row(w["repo"], state, f"[grey50]{w['unit'] or ''}[/]")
