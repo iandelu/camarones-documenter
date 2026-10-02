@@ -28,9 +28,7 @@ def self_update(log=print) -> str:
     if not (kit_repo / ".git").exists():
         raise RuntimeError(f"self-update needs the central kit ({kit_repo}) to be a git clone — see install-global.cmd/.sh")
     before = current()
-    r = subprocess.run(["git", "-C", str(kit_repo), "pull", "--ff-only", "--quiet"], capture_output=True, text=True)
-    if r.returncode != 0:
-        raise RuntimeError(f"git pull failed in {kit_repo}: {(r.stderr or r.stdout).strip()}")
+    pull_kit(kit_repo)
     text = (KIT / "lib" / "common.py").read_text(encoding="utf-8", errors="replace")
     m = VER_RE.search(text)
     after = m.group(1) if m else before
@@ -41,6 +39,29 @@ def self_update(log=print) -> str:
         import sys
         subprocess.run([sys.executable, str(KIT / "camarones.py"), "init"], env={**os.environ, "CAMARONES_ROOT": str(ROOT)})
     return after
+
+
+def pull_kit(kit_repo: Path) -> None:
+    """Fast-forward the kit clone; if upstream history was rewritten (rebased, amended), move onto it as long as
+    every local commit already exists upstream by content and nothing is left uncommitted."""
+    def git(*args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(["git", "-C", str(kit_repo), *args], capture_output=True, text=True, encoding="utf-8")
+
+    r = git("pull", "--ff-only", "--quiet")
+    if r.returncode == 0:
+        return
+    if git("rev-parse", "--abbrev-ref", "@{u}").returncode != 0 or git("fetch", "--quiet").returncode != 0:
+        raise RuntimeError(f"git pull failed in {kit_repo}: {(r.stderr or r.stdout).strip()}")
+    if git("status", "--porcelain", "--untracked-files=no").stdout.strip():
+        raise RuntimeError(f"the kit clone {kit_repo} has uncommitted changes — commit or discard them, then retry")
+    if any(line.startswith("+") for line in git("cherry", "@{u}", "HEAD").stdout.splitlines()):
+        raise RuntimeError(f"the kit clone {kit_repo} has local commits that are not upstream — "
+                           "push or drop them, then retry")
+    r = git("reset", "--hard", "--quiet", "@{u}")
+    if r.returncode != 0:
+        raise RuntimeError(f"could not move {kit_repo} onto upstream: {(r.stderr or r.stdout).strip()}")
+
+
 PATTERNS = ("camarones-documenter*", "camarones-kit*")
 STAGE = ROOT / "camarones-documenter-upgrade"
 
