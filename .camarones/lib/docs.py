@@ -1,7 +1,7 @@
 """Docs model: workspace, repo sync, incremental state, trust (draft/confirmed), translations, llms.txt, search."""
 from __future__ import annotations
 
-import datetime as dt, hashlib, math, os, re, shutil, subprocess, tarfile, tempfile
+import datetime as dt, hashlib, json, math, os, re, shutil, subprocess, tarfile, tempfile
 from collections import Counter
 from pathlib import Path
 from typing import Callable
@@ -203,11 +203,29 @@ def mark_documented(names: list[str] | None = None) -> list[str]:
 
 
 # ---------- docs model ----------
-def split_fm(text: str) -> tuple[dict, str]:
+# agents often write `description: Foo: bar` unquoted; quote such top-level scalars instead of failing
+LOOSE_VALUE_RE = re.compile(r"^([\w-]+):[ \t]+(?![\"'\[{|>&*!%@`])(.*?:\s.*?)[ \t]*$", re.M)
+
+
+def parse_fm(text: str) -> tuple[dict, str, bool]:
+    """(frontmatter, body, valid). Unreadable frontmatter yields {} but is still kept out of the body."""
     m = FM_RE.match(text)
     if not m:
-        return {}, text
-    return (yaml.safe_load(m.group(1)) or {}), text[m.end():]
+        return {}, text, True
+    raw, body = m.group(1), text[m.end():]
+    for candidate in (raw, LOOSE_VALUE_RE.sub(lambda v: f"{v[1]}: {json.dumps(v[2], ensure_ascii=False)}", raw)):
+        try:
+            fm = yaml.safe_load(candidate) or {}
+        except yaml.YAMLError:
+            continue
+        if isinstance(fm, dict):
+            return fm, body, True
+    return {}, body, False
+
+
+def split_fm(text: str) -> tuple[dict, str]:
+    fm, body, _ = parse_fm(text)
+    return fm, body
 
 
 def join_fm(fm: dict, body: str) -> str:
@@ -265,7 +283,7 @@ def trust_of(fm: dict, sha: str) -> str:
 
 
 def doc_status(logical: str, f: Path, langs: list[str]) -> dict:
-    fm, body = split_fm(f.read_text(encoding="utf-8"))
+    fm, body, fm_valid = parse_fm(f.read_text(encoding="utf-8"))
     sha = body_sha(body)
     trust = trust_of(fm, sha)
     missing = [s for s in (fm.get("x-sources") or []) if not repo_file_exists(str(s))]
@@ -280,7 +298,7 @@ def doc_status(logical: str, f: Path, langs: list[str]) -> dict:
     return {"path": logical, "file": rel_file(f),
             "title": fm.get("title") or first_heading(body) or f.stem, "description": fm.get("description", ""),
             "type": fm.get("type", ""), "trust": trust, "owner": fm.get("x-owner", "ai"), "orphan_sources": missing,
-            "i18n": i18n, "body_sha": sha, "has_frontmatter": bool(fm)}
+            "i18n": i18n, "body_sha": sha, "has_frontmatter": bool(fm) or not fm_valid, "frontmatter_valid": fm_valid}
 
 
 def collect() -> list[dict]:
@@ -365,7 +383,9 @@ def check(strict: bool = False, secrets_only: bool = False) -> tuple[list[str], 
     errors, warns = [], []
     rows = collect()
     for r in rows:
-        if not r["has_frontmatter"]:
+        if not r.get("frontmatter_valid", True):
+            errors.append(f"{r['file']}: invalid frontmatter (YAML does not parse) — quote values that contain ': '")
+        elif not r["has_frontmatter"]:
             errors.append(f"{r['file']}: missing frontmatter")
         if r["orphan_sources"]:
             errors.append(f"{r['file']}: sources no longer exist: {r['orphan_sources']}")
