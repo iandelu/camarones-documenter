@@ -10,27 +10,43 @@
   <script src="vendor/marked@15.0.12/lib/marked.umd.js"></script>
   <script src="vendor/dompurify@3.2.6/dist/purify.min.js"></script>
   <script src="vendor/mermaid@11.4.1/dist/mermaid.min.js"></script>
+  <script src="vendor/@highlightjs/cdn-assets@11.11.1/highlight.min.js"></script>
 </head>
 <body>
   <header class="top">
-    <a class="brand" href="#/docs"><span class="logo">🦐</span><span class="brand-text"><b>Camarón</b> <span id="project"></span></span></a>
+    <button id="menu" class="ghost icon menu" type="button" aria-label="menu">☰</button>
+    <a class="brand" href="#/"><span class="logo">🦐</span><span class="brand-text"><b id="project">Camarón</b><span class="brand-sub">Camarón</span></span></a>
     <nav class="tabs" id="tabs"></nav>
-    <input id="search" type="search" autocomplete="off">
+    <button id="search-btn" class="searchbtn" type="button"><span>🔍 <span id="search-label"></span></span><kbd id="search-key">⌘K</kbd></button>
     <div class="tools">
       <span id="summary" class="summary"></span>
-      <select id="lang"></select>
-      <button id="wide" class="ghost icon">⇔</button>
+      <select id="lang" aria-label="language"></select>
+      <button id="theme" class="ghost icon" type="button" aria-label="theme"></button>
     </div>
   </header>
   <div id="ro" class="ro" hidden></div>
   <div class="layout" id="layout">
-    <aside class="side" id="side">
-      <button id="new" class="ghost small"></button>
-      <div id="tree"></div>
-    </aside>
+    <aside class="side" id="side"><div id="side-head"></div><nav id="tree"></nav></aside>
     <main id="main" class="main"></main>
+    <aside class="toc empty" id="toc"></aside>
   </div>
+  <div id="scrim"></div>
+  <dialog id="palette" class="palette">
+    <div class="pal">
+      <input id="pal-q" type="search" autocomplete="off" spellcheck="false" aria-label="search">
+      <div id="pal-list" class="pal-list"></div>
+      <div id="pal-hint" class="pal-foot muted small"></div>
+    </div>
+  </dialog>
+  <dialog id="zoomer" class="zoomer">
+    <button id="zoomer-close" class="ghost icon" type="button" aria-label="close">✕</button>
+    <div id="zoomer-body"></div>
+  </dialog>
   <div id="toast" class="toast" hidden></div>
+  <script src="core.js"></script>
+  <script src="doc.js"></script>
+  <script src="c4.js"></script>
+  <script src="wiki.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

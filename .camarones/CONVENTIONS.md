@@ -71,6 +71,8 @@ x-owner: ai                  # ai (agent may rewrite) | human (agent never rewri
   that names the endpoint/exchange/topic. Shared databases: tag the database `#shared-db` and draw one edge per service.
 - New or unvalidated elements carry `#ai-draft`; replace with `#confirmed` after the interview.
 - `views.c4`: `index` (context), `containers`, one `dynamic view flow_<slug>` per business flow, `deployment view deploy_<env>` per environment.
+  The portal embeds `flow_<slug>` interactively at the top of `docs/flows/<slug>.md` (slug `-` → `_`), and `index` on the
+  home page. Any other page can embed a view with a fenced block: ```` ```likec4-view ```` containing the view id.
 - `deployment.c4`: environments → clusters/hosts → namespaces → `instanceOf`.
 - Syntax traps: tags go inside `{ }` blocks (not after a one-line element); metadata keys must not be DSL keywords (`source`, `model`…) —
   use `evidence`. Validate after every edit: `CLI arch-validate` (must print `✓ Valid`).

@@ -27,7 +27,7 @@ can **discard** in a second pass. Nothing here is a decision.
 | Diagrams | Mermaid in Markdown | Mermaid syntax never validated |
 | Quality gate | `CLI check` (`lib/docs.py:338`) | Checks frontmatter, orphan `x-sources`, trust, i18n. **No link check** (the PLAYBOOK's `doc-fixes` step assumes one), no prose lint, no secret scan, no claim verification |
 | Agent retrieval | `camarones` MCP `search_docs` (`lib/docs.py:354`) | Naive term counting over every file per query; no ranking, no semantic match |
-| Portal | Own no-build app (marked, DOMPurify, Mermaid) | Static export search is client-side; no catalog export |
+| Portal | Own no-build app (marked, DOMPurify, Mermaid, highlight.js, LikeC4 web component) | Static export search is client-side; no catalog export |
 | Plan / sessions | `plan.yaml`, `handoff.md`, checkpoints | Custom; fine for one agent, untested for parallel agents |
 | i18n | Agent translates, hash stamp via `CLI translated` | Every translation is a full agent pass |
 | Opt-in reviews | `security-review`, `architecture-review` (beta) | Pure LLM reasoning; no scanner evidence |
@@ -156,6 +156,8 @@ can **discard** in a second pass. Nothing here is a decision.
 | K2 | [Zensical](https://squidfunk.github.io/mkdocs-material/blog/2025/11/05/zensical/) | Successor of Material for MkDocs (which ends maintenance 2026-11-05), MIT | Alternative static export for teams wanting a "standard" docs site | Our own portal already covers this; relevant only if we drop it | 🔴 |
 | K3 | Astro Starlight / Docusaurus / VitePress † | Static docs frameworks | Same as K2 | Build step + npm, against the kit's no-build choice | 🔴 |
 | K4 | Quartz / Obsidian † | Markdown knowledge garden / vault | Open `cam-docs/docs` as an Obsidian vault (graph view, backlinks) with no extra work | Only needs wiki-link compatibility checks | 🔴 |
+| K5 | [highlight.js](https://highlightjs.org/) (`@highlightjs/cdn-assets` 11.11.1) | Browser syntax highlighter, BSD-3, one UMD file | Code blocks in the portal were plain text | **Adopted (3.9):** pinned in `serve.UI_LIBS`, vendored like marked/Mermaid; token colours follow the portal theme; pages render plain code if it fails to load | 🟢 |
+| K6 | LikeC4 web component (`likec4-views.js`) | Emitted by `likec4 build` we already run (`--build-webcomponent` is the default) | C4 only lived in an iframe tab; flows never showed their dynamic view | **Adopted (3.9):** `<likec4-view>` embedded in flow pages (`flow_<slug>`), the home page (`index`), ```` ```likec4-view ```` blocks and the Architecture gallery. No new dependency | 🟢 |
 
 ## L. Plan, sessions and agent orchestration
 

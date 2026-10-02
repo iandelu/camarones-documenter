@@ -1,254 +1,197 @@
 'use strict';
-const $ = (s, el = document) => el.querySelector(s);
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const STATIC = $('meta[name="cam-mode"]').content === 'static';
-const TRUST = { confirmed: '✅', draft: '✨', 'needs-reconfirm': '⚠️' };
-const LANG_NAMES = { en: 'English', es: 'Español', fr: 'Français', de: 'Deutsch', pt: 'Português', it: 'Italiano' };
+// Chrome, the Docs space (tree, home, pages), search, review and routing.
 
-const I18N = {
-  en: {
-    docs: 'Docs', c4: 'Architecture (C4)', code: 'Code graph', wikis: 'Wikis', review: 'Review',
-    search: 'Search the docs… (Enter: full text)', newPage: '+ New page', general: 'General', wide: 'Toggle full width',
-    edit: 'Edit', editForge: 'Edit in the repository', confirm: '✅ Confirm as correct', requestChange: '✏️ Request a change',
-    'banner.draft': 'AI-generated draft — not yet confirmed by a human. Verify it against the code before relying on it.',
-    'banner.needs-reconfirm': 'Changed after a human confirmed it — pending re-confirmation.',
-    confirmedBy: 'confirmed by', humanOwned: '✍️ human-owned page', noTranslation: 'No {lang} translation yet — showing English.',
-    outdatedTranslation: 'This translation is older than the English page.',
-    pendingComments: 'Pending review comments', sources: 'Sources', emptyPage: '_Nothing here yet — use Edit to write it._',
-    confirmTitle: 'Confirm this page', confirmHelp: 'You checked it against how the system really works. Agents will treat it as the source of truth.',
-    yourName: 'Your name', cancel: 'Cancel', send: 'Send', save: 'Save', create: 'Create',
-    fbHelp: 'Describe what is wrong or missing. The next AI session applies it (unit review-fixes).',
-    editing: 'Editing', confirmedWarn: 'This page is confirmed: saving a change makes it “needs re-confirmation”.',
-    commitMsg: 'What changed? (commit message)', commitBox: 'commit to cam-docs', saved: 'Saved', savedCommitted: 'Saved and committed',
-    nothingToCommit: 'Saved (nothing to commit)', confirmedToast: 'Confirmed', commentSaved: 'Comment saved',
-    translation: 'translation', newTitle: 'Title', newPath: 'section/page.md (e.g. guides/onboarding.md)',
-    noDocs: 'No documentation yet', noDocsHelp: 'Run the next unit from the Camarón wizard, or create a page.',
-    noMatch: 'No pages match.', results: 'Results for', noResults: 'No page mentions it.',
-    reviewTitle: 'Review & status', planUnits: 'Plan {done}/{total} units · {pages} pages',
-    waiting: 'Waiting for a human', allConfirmed: 'Nothing — all confirmed.', changeRequests: 'Change requests not applied yet',
-    none: 'None.', codeChanged: 'Code changed since the docs were updated', allDocumented: 'All repos documented at their current commit.',
-    askAgent: 'Ask an agent: “update the docs for the latest changes” (skill cam-docs-update).', checks: 'Checks', allPass: 'All checks pass.',
-    files: 'files', rebuild: '↻ Rebuild', build: 'Build', builtAt: 'built {when}', stale: 'out of date — the source changed since',
-    notBuilt: 'Not built yet.', noC4: 'There is no C4 model yet — the arch-system unit writes docs/architecture/*.c4.',
-    noGraph: 'No code graph yet.', allRepos: 'All repos (merged)', openTab: 'Open in a new tab',
-    wikisHelp: 'OpenWiki writes one wiki per repo (cam-docs/wikis/<repo>/). Its pages also appear under Docs → repos/<repo>.',
-    noWiki: 'no wiki yet', pages: '{n} pages', updated: 'updated {when}', unit: 'plan unit', read: 'Read', graph: 'Graph',
-    generate: 'Generate wiki', update: 'Update wiki', via: 'via', notCloned: 'not cloned',
-    notChosen: 'no wiki for this repo (choose repos in the wizard → Wikis)', needBrief: 'first run its repo-brief unit (it writes INSTRUCTIONS.md)',
-    noEngine: 'OpenWiki cannot run from here yet: save a provider key once with `openwiki auth configure openai` (or anthropic, gemini, openrouter) in a terminal, or install Claude Code / Codex so an agent writes it.',
-    running: 'running…', done: 'done', failed: 'failed', jobStarted: 'Started: {label}',
-    readOnly: 'Read-only portal (export). To edit, confirm or generate wikis locally run <code>camaron up</code>.',
-    unreachable: 'Cannot reach the docs server', error: 'Error', justNow: 'just now',
-  },
-  es: {
-    docs: 'Docs', c4: 'Arquitectura (C4)', code: 'Grafo de código', wikis: 'Wikis', review: 'Revisión',
-    search: 'Buscar en la doc… (Enter: texto completo)', newPage: '+ Nueva página', general: 'General', wide: 'Ancho completo',
-    edit: 'Editar', editForge: 'Editar en el repositorio', confirm: '✅ Confirmar como correcta', requestChange: '✏️ Pedir un cambio',
-    'banner.draft': 'Borrador generado por IA — aún no confirmado por un humano. Verifícalo contra el código antes de fiarte.',
-    'banner.needs-reconfirm': 'Modificado tras la confirmación humana — pendiente de reconfirmar.',
-    confirmedBy: 'confirmada por', humanOwned: '✍️ página de un humano', noTranslation: 'Aún no hay traducción {lang} — se muestra en inglés.',
-    outdatedTranslation: 'Esta traducción es anterior a la página en inglés.',
-    pendingComments: 'Comentarios de revisión pendientes', sources: 'Fuentes', emptyPage: '_Aún no hay nada — usa Editar para escribirla._',
-    confirmTitle: 'Confirmar esta página', confirmHelp: 'La has comprobado contra cómo funciona de verdad el sistema. Los agentes la tratarán como fuente de verdad.',
-    yourName: 'Tu nombre', cancel: 'Cancelar', send: 'Enviar', save: 'Guardar', create: 'Crear',
-    fbHelp: 'Describe qué está mal o falta. La próxima sesión de IA lo aplica (unidad review-fixes).',
-    editing: 'Editando', confirmedWarn: 'Esta página está confirmada: al guardar un cambio pasa a “pendiente de reconfirmar”.',
-    commitMsg: '¿Qué cambió? (mensaje del commit)', commitBox: 'commit en cam-docs', saved: 'Guardado', savedCommitted: 'Guardado y commit hecho',
-    nothingToCommit: 'Guardado (nada que commitear)', confirmedToast: 'Confirmada', commentSaved: 'Comentario guardado',
-    translation: 'traducción', newTitle: 'Título', newPath: 'seccion/pagina.md (p. ej. guides/onboarding.md)',
-    noDocs: 'Aún no hay documentación', noDocsHelp: 'Lanza la siguiente unidad desde el asistente de Camarón, o crea una página.',
-    noMatch: 'Ninguna página coincide.', results: 'Resultados de', noResults: 'Ninguna página lo menciona.',
-    reviewTitle: 'Revisión y estado', planUnits: 'Plan {done}/{total} unidades · {pages} páginas',
-    waiting: 'Esperando a un humano', allConfirmed: 'Nada — todo confirmado.', changeRequests: 'Peticiones de cambio sin aplicar',
-    none: 'Ninguna.', codeChanged: 'Código cambiado desde la última actualización de la doc', allDocumented: 'Todos los repos documentados en su commit actual.',
-    askAgent: 'Pide a un agente: “actualiza la doc con los últimos cambios” (skill cam-docs-update).', checks: 'Comprobaciones', allPass: 'Todo correcto.',
-    files: 'ficheros', rebuild: '↻ Regenerar', build: 'Generar', builtAt: 'generado {when}', stale: 'desactualizado — la fuente cambió desde entonces',
-    notBuilt: 'Aún no generado.', noC4: 'Aún no hay modelo C4 — la unidad arch-system escribe docs/architecture/*.c4.',
-    noGraph: 'Aún no hay grafo de código.', allRepos: 'Todos los repos (fusionado)', openTab: 'Abrir en otra pestaña',
-    wikisHelp: 'OpenWiki escribe una wiki por repo (cam-docs/wikis/<repo>/). Sus páginas también salen en Docs → repos/<repo>.',
-    noWiki: 'sin wiki', pages: '{n} páginas', updated: 'actualizada {when}', unit: 'unidad del plan', read: 'Leer', graph: 'Grafo',
-    generate: 'Generar wiki', update: 'Actualizar wiki', via: 'con', notCloned: 'sin clonar',
-    notChosen: 'sin wiki para este repo (elige repos en el asistente → Wikis)', needBrief: 'antes ejecuta su unidad repo-brief (escribe INSTRUCTIONS.md)',
-    noEngine: 'OpenWiki aún no puede lanzarse desde aquí: guarda una clave de proveedor una vez con `openwiki auth configure openai` (o anthropic, gemini, openrouter) en una terminal, o instala Claude Code / Codex para que la escriba un agente.',
-    running: 'en curso…', done: 'hecho', failed: 'falló', jobStarted: 'Lanzado: {label}',
-    readOnly: 'Portal de solo lectura (exportado). Para editar, confirmar o generar wikis en local ejecuta <code>camaron up</code>.',
-    unreachable: 'No se puede conectar con el servidor de la doc', error: 'Error', justNow: 'ahora mismo',
-  },
-};
+let CURRENT = '';            // page on screen: a hash change that only moves the anchor just scrolls
+let DOCS_ORDER = [];
+let NOTES_ORDER = [];
 
-let T = { docs: [], langs: [], codeGraphs: [], engines: [], repos: [] };
-let SEARCH_INDEX = null;
-const store = { get: (k) => { try { return localStorage.getItem(k) || ''; } catch { return ''; } },
-                set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } } };
-let lang = store.get('cam-lang');           // '' = English (canonical docs); otherwise a translation code
-const ui = () => I18N[lang] || I18N.en;
-const t = (k, vars = {}) => (ui()[k] ?? I18N.en[k] ?? k).replace(/\{(\w+)\}/g, (_, v) => vars[v] ?? '');
-const ago = (sec) => {
-  if (!sec) return '';
-  const d = new Date(sec * 1000);
-  return (Date.now() - d) < 60000 ? t('justNow') : d.toLocaleString(lang || 'en', { dateStyle: 'medium', timeStyle: 'short' });
-};
-
-async function api(name, params = {}, body) {
-  if (STATIC) {
-    if (body !== undefined) throw new Error('read-only');
-    if (name === 'doc') {
-      const tryGet = async (l) => { const r = await fetch(`api/doc/${l || '_'}/${params.path}.json`); return r.ok ? r.json() : null; };
-      const d = params.lang && await tryGet(params.lang);
-      if (d) return d;
-      const en = await tryGet('');
-      if (!en) throw new Error(`unknown page ${params.path}`);
-      return params.lang ? { ...en, lang: params.lang, exists: false, raw: '' } : en;
-    }
-    if (name === 'search') return staticSearch(params.q);
-    const r = await fetch(`api/${name}.json`);
-    if (!r.ok) throw new Error(r.statusText);
-    return r.json();
-  }
-  const qs = new URLSearchParams(params).toString();
-  const r = await fetch(`api/${name}${qs ? '?' + qs : ''}`, body === undefined ? {} : {
-    method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Camarones': '1' }, body: JSON.stringify(body),
-  });
-  const data = await r.json();
-  if (!r.ok) throw new Error(data.error || r.statusText);
-  return data;
-}
-
-async function staticSearch(q) {
-  SEARCH_INDEX ||= await (await fetch('api/search.json')).json();
-  const terms = (q.toLowerCase().match(/\w+/g) || []).filter((w) => w.length > 1);
-  if (!terms.length) return [];
-  const want = SEARCH_INDEX.some((e) => e.lang === lang) ? lang : '';
-  return SEARCH_INDEX.filter((e) => e.lang === want).map((e) => {
-    const low = e.text.toLowerCase();
-    const score = terms.reduce((s, w) => s + low.split(w).length - 1 + (e.path.toLowerCase().includes(w) ? 5 : 0), 0);
-    const lines = e.text.split('\n').filter((l) => terms.some((w) => l.toLowerCase().includes(w))).slice(0, 3).map((l) => l.trim().slice(0, 240));
-    return { ...e, score, lines };
-  }).filter((e) => e.score).sort((a, b) => b.score - a.score).slice(0, 20);
-}
-
-function toast(msg) {
-  const el = $('#toast');
-  el.textContent = msg; el.hidden = false;
-  clearTimeout(toast.h); toast.h = setTimeout(() => { el.hidden = true; }, 3500);
-}
-
-const dark = matchMedia('(prefers-color-scheme: dark)').matches;
-if (window.mermaid) mermaid.initialize({ startOnLoad: false, theme: dark ? 'dark' : 'default' });
-
-function render(md, docPath) {
-  const body = md.replace(/^---\n[\s\S]*?\n---\n?/, '').replace(/^\s*#\s+.+\n/, '');   // the page header shows the title
-  const el = document.createElement('div');
-  el.className = 'doc';
-  el.innerHTML = DOMPurify.sanitize(marked.parse(body, { gfm: true }));
-  const base = docPath.split('/').slice(0, -1);
-  const resolve = (href) => {
-    const parts = [...base];
-    for (const p of href.split('/')) { if (p === '..') parts.pop(); else if (p && p !== '.') parts.push(p); }
-    return parts.join('/');
-  };
-  el.querySelectorAll('a[href]').forEach((a) => {
-    const href = a.getAttribute('href');
-    if (/^[a-z]+:|^#|^\//i.test(href)) return;
-    const [file, anchor] = href.split('#');
-    if (file.endsWith('.md')) a.setAttribute('href', `#/docs/${resolve(file)}${anchor ? '::' + anchor : ''}`);
-  });
-  el.querySelectorAll('img[src]').forEach((img) => {
-    const src = img.getAttribute('src');
-    if (!/^[a-z]+:|^\//i.test(src)) img.src = 'raw/' + resolve(src);
-  });
-  el.querySelectorAll('pre code.language-mermaid').forEach((c) => {
-    const d = document.createElement('div');
-    d.className = 'mermaid';
-    d.textContent = c.textContent;
-    c.parentElement.replaceWith(d);
-  });
-  return el;
-}
-
-async function drawMermaid(root) {
-  const nodes = root.querySelectorAll('.mermaid');
-  if (nodes.length && window.mermaid) { try { await mermaid.run({ nodes }); } catch (e) { console.warn(e); } }
-}
-
-// ---------- chrome ----------
-const TABS = [['docs', '#/docs'], ['c4', '#/c4'], ['code', '#/code'], ['wikis', '#/wikis'], ['review', '#/review']];
-
-function drawChrome(active) {
+function drawChrome(active, { viewer = false, bare = false } = {}) {
   document.documentElement.lang = lang || 'en';
-  $('#tabs').innerHTML = TABS.map(([k, href]) => `<a href="${href}" class="${k === active ? 'on' : ''}">${esc(t(k))}</a>`).join('');
-  $('#search').placeholder = t('search');
-  $('#wide').title = t('wide');
-  $('#new').textContent = t('newPage');
-  $('#new').hidden = STATIC;
+  const wikis = !STATIC || T.docs.some((d) => d.space === 'wiki');
+  const tabs = [['docs', '#/'], ['c4', '#/c4'], ...(wikis ? [['wikis', '#/wikis']] : []), ['review', '#/review']];
+  $('#tabs').innerHTML = tabs.map(([k, href]) => `<a href="${href}" class="${k === active ? 'on' : ''}">${esc(t(k))}</a>`).join('');
+  $('#search-label').textContent = t('search');
+  $('#theme').title = t('theme');
+  $('#menu').title = t('menu');
   $('#ro').hidden = !STATIC;
   $('#ro').innerHTML = t('readOnly');
   const langs = ['', ...T.langs];
+  $('#lang').hidden = langs.length < 2;
   $('#lang').innerHTML = langs.map((l) => `<option value="${l}">${esc(LANG_NAMES[l || 'en'] || l)}</option>`).join('');
   $('#lang').value = langs.includes(lang) ? lang : '';
-  const full = active !== 'docs' && active !== 'review' && active !== 'search';
-  document.body.classList.toggle('viewer-mode', full);
-  $('#side').hidden = full;
+  document.body.classList.toggle('viewer-mode', viewer);
+  document.body.classList.toggle('bare', bare);
+  document.body.classList.remove('nav-open');
+  if (viewer) drawToc(null);
 }
 
-function drawTree(active) {
-  const q = $('#search').value.trim().toLowerCase();
-  const groups = {};
-  for (const d of T.docs) {
-    if (q && !(d.title + ' ' + d.path).toLowerCase().includes(q)) continue;
-    const g = d.path.includes('/') ? d.path.split('/').slice(0, d.path.startsWith('repos/') ? 2 : 1).join('/') : '';
-    (groups[g] ||= []).push(d);
+// ---------- the Docs tree: folders in the canonical section order, working notes folded at the bottom ----------
+function buildTree(rows) {
+  const root = { name: '', path: '', dirs: {}, pages: [], index: null };
+  for (const d of rows) {
+    if (d.path === 'index.md') continue;                  // the home page
+    const parts = d.path.split('/');
+    let node = root;
+    parts.slice(0, -1).forEach((p, i) => {
+      node = node.dirs[p] ||= { name: p, path: parts.slice(0, i + 1).join('/'), dirs: {}, pages: [], index: null };
+    });
+    if (node !== root && parts.at(-1) === 'index.md') node.index = d; else node.pages.push(d);
   }
-  const order = Object.entries(groups).sort(([a], [b]) => (b === '') - (a === '')).map(([g, items]) => [g || t('general'), items]);
-  $('#tree').innerHTML = order.map(([g, items]) => `<h4>${esc(g)}</h4>` + items.map((d) =>
-    `<a href="#/docs/${esc(d.path)}" class="${d.path === active ? 'on' : ''}" title="${esc(d.path)}">${TRUST[d.trust] || ''} ${esc(d.title)}</a>`
-  ).join('')).join('') || `<p class="muted">${esc(t('noMatch'))}</p>`;
+  return root;
+}
+
+const byTitle = (a, b) => a.title.localeCompare(b.title, lang || 'en');
+function sortedDirs(node) {
+  const rank = (n) => { const i = T.sections.indexOf(n); return i < 0 ? T.sections.length : i; };
+  return Object.values(node.dirs).sort((a, b) => (node.path ? 0 : rank(a.name) - rank(b.name)) || a.name.localeCompare(b.name));
+}
+
+function flatten(node, out = []) {
+  if (node.index) out.push(node.index.path);
+  node.pages.slice().sort(byTitle).forEach((d) => out.push(d.path));
+  sortedDirs(node).forEach((n) => flatten(n, out));
+  return out;
+}
+
+const leaf = (d, active, label) => `<a href="${esc(hrefFor(d.path))}" class="${d.path === active ? 'on' : ''}" title="${esc(t('trust.' + d.trust))}">
+  <span class="dot ${esc(d.trust)}"></span>${esc(label || d.title)}</a>`;
+
+function drawNode(node, active) {
+  const pages = node.pages.slice().sort(byTitle).map((d) => leaf(d, active)).join('');
+  return pages + sortedDirs(node).map((n) => {
+    if (!n.index && !Object.keys(n.dirs).length && n.pages.length === 1) return leaf(n.pages[0], active);
+    const open = active.startsWith(n.path + '/');
+    const label = n.index ? `<a href="${esc(hrefFor(n.index.path))}" class="${n.index.path === active ? 'on' : ''}">${esc(n.name)}</a>` : `<span>${esc(n.name)}</span>`;
+    return `<details ${open ? 'open' : ''}><summary>${label}</summary><div class="sub">${drawNode(n, active)}</div></details>`;
+  }).join('');
+}
+
+function drawDocsSide(active) {
+  const docs = buildTree(T.docs.filter((d) => d.space === 'docs'));
+  let notes = buildTree(T.docs.filter((d) => d.space === 'notes'));
+  if (!notes.pages.length && Object.keys(notes.dirs).length === 1 && notes.dirs.interview) notes = { ...notes.dirs.interview, path: '' };
+  const home = BY_PATH['index.md'];
+  DOCS_ORDER = [...(home ? ['index.md'] : []), ...flatten({ ...docs, dirs: {} }), ...sortedDirs(docs).flatMap((n) => flatten(n))];
+  NOTES_ORDER = flatten(notes);
+  $('#side-head').innerHTML = STATIC ? '' : `<a href="#/new" class="button ghost small newpage">${esc(t('newPage'))}</a>`;
+  const general = docs.pages.length ? `<div class="group"><div class="group-title">${esc(t('general'))}</div>${drawNode({ ...docs, dirs: {} }, active)}</div>` : '';
+  const sections = sortedDirs(docs).map((n) => {
+    const title = `${SECTION_ICONS[n.name] || '📁'} ${esc(sectionLabel(n.name))}`;
+    const head = n.index ? `<a class="group-title ${n.index.path === active ? 'on' : ''}" href="${esc(hrefFor(n.index.path))}">${title}</a>`
+      : `<div class="group-title">${title}</div>`;
+    return `<div class="group">${head}${drawNode({ ...n, index: null }, active)}</div>`;
+  }).join('');
+  const notesOpen = BY_PATH[active]?.space === 'notes';
+  $('#tree').innerHTML = `<div class="group"><a href="#/" class="${!active ? 'on' : ''}">🏠 ${esc(t('home'))}</a></div>${general}${sections}
+    ${NOTES_ORDER.length ? `<details class="notes" ${notesOpen ? 'open' : ''}><summary>🗒️ ${esc(t('notes'))} <span class="count">${NOTES_ORDER.length}</span></summary>
+      <p class="muted small">${esc(t('notesHelp'))}</p><div class="sub">${drawNode(notes, active)}</div></details>` : ''}`;
   $('#tree .on')?.scrollIntoView({ block: 'nearest' });
 }
 
-async function loadTree() {
-  T = await api('tree');
-  if (!T.langs.includes(lang)) lang = '';
-  document.title = `🦐 ${T.project} — Camarón`;
-  $('#project').textContent = T.project;
-  const s = T.summary;
-  $('#summary').textContent = `✅ ${s.confirmed} · ✨ ${s.draft} · ⚠️ ${s['needs-reconfirm']}` + (T.feedback ? ` · ✏️ ${T.feedback}` : '');
+// ---------- home ----------
+async function showHome() {
+  drawChrome('docs');
+  drawDocsSide('');
+  CURRENT = '';
+  const docs = T.docs.filter((d) => d.space === 'docs');
+  const wikiPages = T.docs.filter((d) => d.space === 'wiki').length;
+  if (!docs.length && !T.views.length) {
+    drawToc(null);
+    $('#main').innerHTML = `<div class="page hero empty"><div class="hero-logo">🦐</div><h1>${esc(T.project)}</h1>
+      <p class="lead">${esc(t('homeEmpty'))}</p><p class="muted">${esc(t('noDocsHelp'))}</p></div>`;
+    return;
+  }
+  const home = BY_PATH['index.md'];
+  const tree = buildTree(docs);
+  const confirmed = docs.length ? Math.round(100 * docs.filter((d) => d.trust === 'confirmed').length / docs.length) : 0;
+  const flows = T.views.filter((v) => v.kind === 'dynamic').length || (tree.dirs.flows ? tree.dirs.flows.pages.length : 0);
+  const stats = [t('statPages', { n: docs.length }), t('statConfirmed', { n: confirmed }),
+    flows ? t('statFlows', { n: flows }) : '', T.views.length ? t('statViews', { n: T.views.length }) : ''].filter(Boolean);
+  const card = (href, icon, label, desc, count) => `<a class="card link" href="${esc(href)}"><div class="card-icon">${icon}</div>
+    <div><b>${esc(label)}</b>${count ? ` <span class="count">${count}</span>` : ''}<p class="muted small">${esc(desc)}</p></div></a>`;
+  const cards = sortedDirs(tree).map((n) => {
+    const first = n.index?.path || flatten(n)[0];
+    return card(hrefFor(first), SECTION_ICONS[n.name] || '📁', sectionLabel(n.name), has('secd.' + n.name) ? t('secd.' + n.name) : '', flatten(n).length);
+  });
+  if (T.views.length) cards.splice(1, 0, card('#/c4', '🗺️', 'C4', t('secd.c4'), T.views.length));
+  if (wikiPages) cards.push(card('#/wikis', '📚', t('wikis'), t('secd.wikis'), wikiPages));
+  const context = T.views.some((v) => v.id === 'index');
+  $('#main').innerHTML = `<div class="page wide home">
+    <header class="hero"><h1>${esc(home?.title && home.title !== 'index' ? home.title : T.project)}</h1>
+      <p class="lead">${esc(home?.description || t('homeLead'))}</p>
+      <div class="stats">${stats.map((s) => `<span class="pill">${esc(s)}</span>`).join('')}</div></header>
+    <div class="cards">${cards.join('')}</div>
+    ${context ? `<h2 class="home-h">${esc(t('systemContext'))}</h2><div class="c4embed" data-view="index"></div>` : ''}
+    <div id="body"></div></div>`;
+  drawToc(null);
+  const tasks = [drawC4($('#main'))];
+  if (home) {
+    const d = await api('doc', { path: 'index.md', lang });
+    const raw = d.exists ? d.raw : (await api('doc', { path: 'index.md' })).raw;
+    tasks.push(mountDoc($('#body'), raw, 'index.md'));
+  }
+  await Promise.all(tasks);
 }
 
-// ---------- docs ----------
+// ---------- pages ----------
+function crumbsFor(path) {
+  const row = BY_PATH[path] || {};
+  const parts = path.split('/').slice(0, -1);
+  const out = [['#/', t('home')]];
+  if (row.space === 'notes') out.push(['', t('notes')]);
+  parts.forEach((p, i) => {
+    const idx = parts.slice(0, i + 1).join('/') + '/index.md';
+    const label = i === 0 && row.space !== 'notes' ? sectionLabel(p) : p;
+    out.push([BY_PATH[idx] && idx !== path ? hrefFor(idx) : '', label]);
+  });
+  return out;
+}
+
 async function showDoc(path, anchor) {
   drawChrome('docs');
-  drawTree(path);
+  drawDocsSide(path);
+  const notes = BY_PATH[path]?.space === 'notes';
+  await showPage(path, anchor, { crumbs: crumbsFor(path), order: notes ? NOTES_ORDER : DOCS_ORDER });
+}
+
+async function showPage(path, anchor, ctx) {
   const d = await api('doc', { path, lang });
   const english = lang && !d.exists ? await api('doc', { path }) : null;
-  const row = T.docs.find((r) => r.path === path) || {};
+  const row = BY_PATH[path] || {};
   const i18n = lang ? (row.i18n || {})[lang] : '';
+  const title = d.exists ? d.title : english?.title || row.title || d.title;
   const edit = STATIC
-    ? (T.editBase ? `<a class="button" href="${esc(T.editBase + d.file)}" target="_blank" rel="noopener">${esc(t('editForge'))} ↗</a>` : '')
-    : `<button id="a-edit">${esc(t('edit'))}</button>
-       ${d.trust !== 'confirmed' ? `<button id="a-confirm" class="ghost">${esc(t('confirm'))}</button>` : ''}
-       <button id="a-fb" class="ghost">${esc(t('requestChange'))}</button>`;
-  $('#main').innerHTML = `
-    <h1>${esc(d.title)}</h1>
+    ? (T.editBase ? `<a class="button ghost small" href="${esc(T.editBase + d.file)}" target="_blank" rel="noopener">✎ ${esc(t('editForge'))} ↗</a>` : '')
+    : `<button id="a-edit" class="ghost small" type="button">✎ ${esc(t('edit'))}</button>
+       ${d.trust !== 'confirmed' ? `<button id="a-confirm" class="ghost small" type="button">${esc(t('confirm'))}</button>` : ''}
+       <button id="a-fb" class="ghost small" type="button">${esc(t('requestChange'))}</button>`;
+  const i = ctx.order.indexOf(path);
+  const pager = (p, cls, label) => (p ? `<a class="${cls}" href="${esc(hrefFor(p))}"><span class="muted small">${esc(label)}</span><b>${esc(BY_PATH[p]?.title || p)}</b></a>` : '<span></span>');
+  $('#main').innerHTML = `<article class="page">
+    <nav class="crumbs">${ctx.crumbs.map(([h, l]) => (h ? `<a href="${esc(h)}">${esc(l)}</a>` : `<span>${esc(l)}</span>`)).join('<span class="sep">›</span>')}</nav>
+    <h1>${esc(title)}</h1>
+    ${row.description ? `<p class="lead">${esc(row.description)}</p>` : ''}
     <div class="meta">
-      <span class="badge ${esc(d.trust)}">${TRUST[d.trust] || ''} ${esc(d.trust)}</span>
-      <code>${esc(d.file)}</code>
-      ${d.confirmed && d.confirmed.by ? `<span>${esc(t('confirmedBy'))} ${esc(d.confirmed.by)} · ${esc(String(d.confirmed.at).slice(0, 10))}</span>` : ''}
-      ${d.owner === 'human' ? `<span>${esc(t('humanOwned'))}</span>` : ''}
+      <span class="pill trust ${esc(d.trust)}" title="${esc(t('banner.' + d.trust))}">${TRUST[d.trust] || ''} ${esc(t('trust.' + d.trust))}</span>
+      ${d.confirmed && d.confirmed.by ? `<span class="small muted">${esc(t('confirmedBy'))} ${esc(d.confirmed.by)} · ${esc(String(d.confirmed.at).slice(0, 10))}</span>` : ''}
+      ${d.owner === 'human' ? `<span class="small muted">${esc(t('humanOwned'))}</span>` : ''}
+      <code class="file" title="${esc(d.file)}">${esc(d.file)}</code>
+      <span class="actions">${ctx.extra || ''}${edit}</span>
     </div>
     ${lang && !d.exists ? `<div class="banner info">${esc(t('noTranslation', { lang: LANG_NAMES[lang] || lang }))}</div>` : ''}
     ${lang && d.exists && i18n === 'outdated' ? `<div class="banner">${esc(t('outdatedTranslation'))}</div>` : ''}
-    ${t('banner.' + d.trust) !== 'banner.' + d.trust ? `<div class="banner ${esc(d.trust)}">${esc(t('banner.' + d.trust))}</div>` : ''}
-    <div class="actions">${edit}</div>
+    ${d.trust === 'needs-reconfirm' ? `<div class="banner needs-reconfirm">${esc(t('banner.needs-reconfirm'))}</div>` : ''}
+    ${d.trust === 'draft' && row.space !== 'notes' ? `<div class="banner draft">${esc(t('banner.draft'))}</div>` : ''}
     <div id="panel"></div>
     ${d.feedback.length ? `<div class="box"><b>${esc(t('pendingComments'))}</b><ul class="list">${d.feedback.map((f) => `<li>${esc(f.slice(6))}</li>`).join('')}</ul></div>` : ''}
     <div id="body"></div>
-    ${d.sources.length ? `<div class="box"><b>${esc(t('sources'))}</b><ul class="list">${d.sources.map((s) => `<li><code>${esc(s)}</code></li>`).join('')}</ul></div>` : ''}`;
-  const body = render(d.exists ? d.raw : english?.exists ? english.raw : t('emptyPage'), path);
-  $('#body').append(body);
-  await drawMermaid(body);
-  if (anchor) document.getElementById(anchor)?.scrollIntoView();
-  else window.scrollTo(0, 0);
+    ${ctx.after || ''}
+    ${d.sources.length ? `<details class="box sources"><summary><b>${esc(t('sources'))}</b> <span class="count">${d.sources.length}</span></summary>
+      <ul class="list">${d.sources.map((s) => `<li><code>${esc(s)}</code></li>`).join('')}</ul></details>` : ''}
+    ${i >= 0 ? `<nav class="pager">${pager(ctx.order[i - 1], 'prev', '← ' + t('prev'))}${pager(ctx.order[i + 1], 'next', t('next') + ' →')}</nav>` : ''}
+  </article>`;
+  CURRENT = path;
+  await mountDoc($('#body'), d.exists ? d.raw : english?.exists ? english.raw : t('emptyPage'), path, anchor);
   if (STATIC) return;
   $('#a-edit').onclick = () => editDoc(d);
   $('#a-confirm')?.addEventListener('click', () => confirmPanel(d));
@@ -259,7 +202,7 @@ function confirmPanel(d) {
   $('#panel').innerHTML = `<div class="box"><b>${esc(t('confirmTitle'))}</b>
     <p class="muted">${esc(t('confirmHelp'))}</p>
     <div class="row"><input id="c-by" value="${esc(T.reviewer)}" placeholder="${esc(t('yourName'))}" style="max-width:16rem">
-    <button id="c-go">${esc(t('confirm'))}</button><button id="c-x" class="ghost">${esc(t('cancel'))}</button></div></div>`;
+    <button id="c-go" type="button">${esc(t('confirm'))}</button><button id="c-x" class="ghost" type="button">${esc(t('cancel'))}</button></div></div>`;
   $('#c-x').onclick = () => { $('#panel').innerHTML = ''; };
   $('#c-go').onclick = async () => {
     await api('confirm', {}, { path: d.path, lang, by: $('#c-by').value });
@@ -272,7 +215,7 @@ function feedbackPanel(d) {
     <p class="muted">${esc(t('fbHelp'))}</p>
     <textarea id="f-text" rows="4"></textarea>
     <div class="row"><input id="f-by" value="${esc(T.reviewer)}" placeholder="${esc(t('yourName'))}" style="max-width:16rem">
-    <button id="f-go">${esc(t('send'))}</button><button id="f-x" class="ghost">${esc(t('cancel'))}</button></div></div>`;
+    <button id="f-go" type="button">${esc(t('send'))}</button><button id="f-x" class="ghost" type="button">${esc(t('cancel'))}</button></div></div>`;
   $('#f-x').onclick = () => { $('#panel').innerHTML = ''; };
   $('#f-go').onclick = async () => {
     if (!$('#f-text').value.trim()) return;
@@ -282,15 +225,17 @@ function feedbackPanel(d) {
 }
 
 function editDoc(d) {
-  $('#main').innerHTML = `<h1>${esc(t('editing'))}: ${esc(d.title)}</h1>
+  drawToc(null);
+  CURRENT = '';
+  $('#main').innerHTML = `<div class="page wide"><h1>${esc(t('editing'))}: ${esc(d.title)}</h1>
     <div class="meta"><code>${esc(d.file)}</code>${lang ? ` · ${esc(t('translation'))} ${esc(lang)}` : ''}</div>
     ${d.trust === 'confirmed' ? `<div class="banner">${esc(t('confirmedWarn'))}</div>` : ''}
     <div class="editor"><textarea id="e-src" spellcheck="true"></textarea><div class="preview" id="e-prev"></div></div>
     <div class="row">
       <input id="e-msg" placeholder="${esc(t('commitMsg'))}" style="flex:1;min-width:14rem">
       <label><input type="checkbox" id="e-commit" checked> ${esc(t('commitBox'))}</label>
-      <button id="e-save">${esc(t('save'))}</button><button id="e-x" class="ghost">${esc(t('cancel'))}</button>
-    </div>`;
+      <button id="e-save" type="button">${esc(t('save'))}</button><button id="e-x" class="ghost" type="button">${esc(t('cancel'))}</button>
+    </div></div>`;
   const src = $('#e-src');
   src.value = d.raw || `---\ntitle: ${d.title}\n---\n\n# ${d.title}\n`;
   const preview = () => { const p = $('#e-prev'); p.innerHTML = ''; const el = render(src.value, d.path); p.append(el); drawMermaid(el); };
@@ -306,8 +251,7 @@ function editDoc(d) {
         toast(c.committed ? `${t('savedCommitted')}: ${c.head}` : t('nothingToCommit'));
       } else toast(t('saved'));
       await loadTree();
-      location.hash = `#/docs/${d.path}`;
-      route();
+      if (location.hash === hrefFor(d.path)) route(); else location.hash = hrefFor(d.path);
     } catch (e) { toast(e.message); $('#e-save').disabled = false; }
   };
 }
@@ -315,190 +259,197 @@ function editDoc(d) {
 async function afterChange(path, msg) {
   toast(msg);
   await loadTree();
-  await showDoc(path);
+  CURRENT = '';
+  await route();
 }
 
 function newPage() {
   drawChrome('docs');
-  $('#main').innerHTML = `<h1>${esc(t('newPage').replace('+ ', ''))}</h1><div class="box">
+  drawDocsSide('');
+  drawToc(null);
+  $('#main').innerHTML = `<div class="page"><h1>${esc(t('newPage').replace('+ ', ''))}</h1><div class="box">
     <input id="n-title" placeholder="${esc(t('newTitle'))}">
     <div class="row"><input id="n-path" placeholder="${esc(t('newPath'))}"></div>
-    <div class="row"><button id="n-go">${esc(t('create'))}</button></div></div>`;
+    <div class="row"><button id="n-go" type="button">${esc(t('create'))}</button></div></div></div>`;
   $('#n-title').oninput = () => { $('#n-path').value = 'guides/' + $('#n-title').value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.md'; };
   $('#n-go').onclick = async () => {
     try {
       const d = await api('new', {}, { path: $('#n-path').value, title: $('#n-title').value });
       await loadTree();
-      location.hash = `#/docs/${d.path}`;
+      history.replaceState(null, '', hrefFor(d.path));
       editDoc(d);
     } catch (e) { toast(e.message); }
   };
 }
 
+// ---------- search: ⌘K palette (titles instantly, full text as you type) and a full results page ----------
+const SPACE_ICON = { docs: '📄', wiki: '📚', notes: '🗒️' };
+const markTerms = (s, q) => { let h = esc(s); for (const w of q.match(/\w{2,}/g) || []) h = h.replace(new RegExp(`(${w})`, 'gi'), '<mark>$1</mark>'); return h; };
+const spaceRank = (p) => ({ docs: 0, wiki: 1, notes: 2 }[BY_PATH[p]?.space] ?? 3);
+
 async function showSearch(q) {
-  drawChrome('search');
-  drawTree('');
-  $('#search').value = q;
-  const hits = await api('search', { q });
-  const mark = (s) => { let h = esc(s); for (const w of q.match(/\w{2,}/g) || []) h = h.replace(new RegExp(`(${w})`, 'gi'), '<mark>$1</mark>'); return h; };
-  $('#main').innerHTML = `<h1>${esc(t('results'))} “${esc(q)}”</h1>` + (hits.map((h) =>
-    `<div class="hit"><a href="#/docs/${esc(h.path)}">${TRUST[h.trust] || ''} ${esc(h.title)}</a> <span class="muted">${esc(h.path)}</span>
-     ${h.lines.map((l) => `<div class="snip">${mark(l)}</div>`).join('')}</div>`).join('') || `<p class="muted">${esc(t('noResults'))}</p>`);
+  drawChrome('docs');
+  drawDocsSide('');
+  drawToc(null);
+  CURRENT = '';
+  const hits = (await api('search', { q })).slice().sort((a, b) => spaceRank(a.path) - spaceRank(b.path) || b.score - a.score);
+  $('#main').innerHTML = `<div class="page"><h1>${esc(t('results'))} “${esc(q)}”</h1>` + (hits.map((h) =>
+    `<div class="hit"><a href="${esc(hrefFor(h.path))}">${SPACE_ICON[BY_PATH[h.path]?.space] || '📄'} ${esc(h.title)}</a>
+     <span class="muted small">${esc(h.path)}</span>
+     ${h.lines.map((l) => `<div class="snip">${markTerms(l, q)}</div>`).join('')}</div>`).join('') || `<p class="muted">${esc(t('noResults'))}</p>`) + '</div>';
+}
+
+const PAL = { items: [], sel: 0, timer: 0, seq: 0 };
+function openPalette() {
+  const dlg = $('#palette');
+  if (dlg.open) return;
+  $('#pal-q').placeholder = t('searchPh');
+  $('#pal-hint').textContent = t('searchHint');
+  $('#pal-q').value = '';
+  dlg.showModal();
+  $('#pal-q').focus();
+  paletteInput();
+}
+
+function paletteDraw(groups) {
+  PAL.items = groups.flatMap(([, items]) => items);
+  PAL.sel = Math.min(PAL.sel, Math.max(PAL.items.length - 1, 0));
+  let n = 0;
+  $('#pal-list').innerHTML = groups.filter(([, items]) => items.length).map(([label, items]) => `<div class="pal-group">${esc(label)}</div>` +
+    items.map((it) => `<a class="pal-item ${n++ === PAL.sel ? 'on' : ''}" href="${esc(it.href)}">${it.icon} <span><b>${it.title}</b>
+      ${it.sub ? `<span class="muted small">${it.sub}</span>` : ''}</span></a>`).join('')).join('')
+    || (PAL.q ? `<p class="muted pal-empty">${esc(t('noMatch'))}</p>` : '');
+  $('#pal-list .on')?.scrollIntoView({ block: 'nearest' });
+}
+
+function paletteInput() {
+  const q = $('#pal-q').value.trim();
+  PAL.q = q;
+  PAL.sel = 0;
+  const low = q.toLowerCase();
+  const item = (d, sub) => ({ href: hrefFor(d.path), icon: SPACE_ICON[d.space] || '📄', title: q ? markTerms(d.title, q) : esc(d.title),
+    sub: sub ?? esc(d.space === 'notes' ? `${d.path} · ${t('inNotes')}` : d.path) });
+  const titles = (q ? T.docs.filter((d) => (d.title + ' ' + d.path).toLowerCase().includes(low))
+    : DOCS_ORDER.map((p) => BY_PATH[p]).filter(Boolean)).sort((a, b) => (q ? spaceRank(a.path) - spaceRank(b.path) : 0)).slice(0, 8);
+  const groups = [[t('titles'), titles.map((d) => item(d))]];
+  paletteDraw(groups);
+  clearTimeout(PAL.timer);
+  if (q.length < 2) return;
+  const seq = ++PAL.seq;
+  PAL.timer = setTimeout(async () => {
+    try {
+      const seen = new Set(titles.map((d) => d.path));
+      const hits = (await api('search', { q })).filter((h) => !seen.has(h.path) && BY_PATH[h.path])
+        .sort((a, b) => spaceRank(a.path) - spaceRank(b.path)).slice(0, 8);
+      if (seq !== PAL.seq) return;
+      const content = hits.map((h) => item(BY_PATH[h.path], h.lines[0] ? markTerms(h.lines[0].slice(0, 140), q) : ''));
+      content.push({ href: `#/search/${encodeURIComponent(q)}`, icon: '🔎', title: esc(t('searchAll', { q })), sub: '' });
+      paletteDraw([...groups, [t('content'), content]]);
+    } catch { /* keep the title matches */ }
+  }, 180);
+}
+
+function paletteKey(e) {
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    const n = PAL.items.length;
+    if (!n) return;
+    PAL.sel = (PAL.sel + (e.key === 'ArrowDown' ? 1 : n - 1)) % n;
+    $$('#pal-list .pal-item').forEach((a, i) => a.classList.toggle('on', i === PAL.sel));
+    $('#pal-list .on')?.scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    const it = PAL.items[PAL.sel];
+    const q = $('#pal-q').value.trim();
+    if (it) location.hash = it.href; else if (q) location.hash = `#/search/${encodeURIComponent(q)}`;
+    $('#palette').close();
+  }
 }
 
 // ---------- review ----------
 async function showReview() {
   drawChrome('review');
-  drawTree('');
+  drawDocsSide('');
+  drawToc(null);
+  CURRENT = '';
   const s = await api('status');
   const changed = Object.entries(s.changes).filter(([, c]) => c.status !== 'up-to-date');
-  $('#main').innerHTML = `<h1>${esc(t('reviewTitle'))}</h1>
-    <p class="muted">${esc(t('planUnits', { done: s.plan.done, total: s.plan.total, pages: T.summary.total }))}</p>
+  $('#main').innerHTML = `<div class="page"><h1>${esc(t('reviewTitle'))}</h1>
+    <p class="muted">${esc(t('planUnits', { done: s.plan.done, total: s.plan.total, pages: T.summary.total }))} · ${esc($('#summary').textContent)}</p>
     <div class="box"><b>${esc(t('waiting'))} (${s.queue.length})</b><ul class="list">${s.queue.map((r) =>
-      `<li>${TRUST[r.trust]} <a href="#/docs/${esc(r.path)}">${esc(r.title)}</a> <span class="muted">${esc(r.path)}</span></li>`).join('') || `<li class="muted">${esc(t('allConfirmed'))}</li>`}</ul></div>
+      `<li>${TRUST[r.trust]} <a href="${esc(hrefFor(r.path))}">${esc(r.title)}</a> <span class="muted small">${esc(r.path)}</span></li>`).join('') || `<li class="muted">${esc(t('allConfirmed'))}</li>`}</ul></div>
     <div class="box"><b>${esc(t('changeRequests'))} (${s.feedback.length})</b><ul class="list">${s.feedback.map((f) => `<li>${esc(f.slice(6))}</li>`).join('') || `<li class="muted">${esc(t('none'))}</li>`}</ul></div>
     <div class="box"><b>${esc(t('codeChanged'))} (${changed.length})</b><ul class="list">${changed.map(([n, c]) =>
       `<li><b>${esc(n)}</b> — ${esc(c.status)}${c.files ? ` (${c.files.length} ${esc(t('files'))})` : ''}</li>`).join('') || `<li class="muted">${esc(t('allDocumented'))}</li>`}</ul>
-      <p class="muted">${esc(t('askAgent'))}</p></div>
-    <div class="box"><b>${esc(t('checks'))}</b><ul class="list">${[...s.check.errors.map((e) => `<li>❌ ${esc(e)}</li>`), ...s.check.warnings.map((w) => `<li>⚠️ ${esc(w)}</li>`)].join('') || `<li class="muted">${esc(t('allPass'))}</li>`}</ul></div>`;
+      <p class="muted small">${esc(t('askAgent'))}</p></div>
+    <div class="box"><b>${esc(t('checks'))}</b><ul class="list">${[...s.check.errors.map((e) => `<li>❌ ${esc(e)}</li>`), ...s.check.warnings.map((w) => `<li>⚠️ ${esc(w)}</li>`)].join('') || `<li class="muted">${esc(t('allPass'))}</li>`}</ul></div></div>`;
 }
 
-// ---------- jobs (live mode: builds and wiki runs) ----------
-function watchJob(job, logEl, onEnd) {
-  let since = 0;
-  toast(t('jobStarted', { label: job.label }));
-  const tick = async () => {
-    try {
-      const j = await api(`jobs/${job.id}`, { since });
-      since = j.lines;
-      if (logEl && j.log.length) { logEl.hidden = false; logEl.textContent += j.log.join('\n') + '\n'; logEl.scrollTop = logEl.scrollHeight; }
-      if (j.status === 'running') return setTimeout(tick, 1000);
-      toast(`${j.label}: ${t(j.status)}`);
-      onEnd?.(j);
-    } catch (e) { toast(e.message); }
-  };
-  tick();
+// ---------- routing (old links keep working: #/docs/repos/<repo>/<wiki page>, #/wikis/<repo>, #/code/<repo>) ----------
+// One view renders at a time and a newer hash skips the queued ones, so a slow page never paints over the next.
+let routing = Promise.resolve();
+let routeSeq = 0;
+function route() {
+  const seq = ++routeSeq;
+  routing = routing.then(() => (seq === routeSeq ? routeNow() : undefined));
+  return routing;
 }
 
-function viewerBar(parts, rebuild) {
-  return `<div class="vbar">${parts.filter(Boolean).join('')}
-    ${!STATIC && rebuild ? `<button id="v-build" class="small">${esc(rebuild)}</button>` : ''}
-    <pre id="v-log" class="joblog inline" hidden></pre></div>`;
-}
-
-function bindBuild(what, repo) {
-  $('#v-build')?.addEventListener('click', async () => {
-    $('#v-build').disabled = true;
-    try { watchJob(await api('build', {}, { what, repo }), $('#v-log'), async () => { await loadTree(); route(); }); }
-    catch (e) { toast(e.message); $('#v-build').disabled = false; }
-  });
-}
-
-async function showC4() {
-  drawChrome('c4');
-  const v = (await api('viewers')).c4;
-  const state = v.exists ? `<span class="muted">${esc(t('builtAt', { when: ago(v.at) }))}</span>${v.stale ? ` <span class="warn">⚠️ ${esc(t('stale'))}</span>` : ''}`
-    : `<span class="muted">${esc(v.model ? t('notBuilt') : t('noC4'))}</span>`;
-  $('#main').innerHTML = viewerBar([`<b>${esc(t('c4'))}</b>`, state,
-    v.exists ? `<a href="architecture/" target="_blank">${esc(t('openTab'))} ↗</a>` : ''], v.model ? (v.exists ? t('rebuild') : t('build')) : '')
-    + (v.exists ? '<iframe class="viewer" src="architecture/" title="C4"></iframe>' : '');
-  bindBuild('c4');
-}
-
-async function showCode(repo) {
-  drawChrome('code');
-  const v = await api('viewers');
-  const names = Object.keys(v.graphs);
-  repo = names.includes(repo) ? repo : (names[0] || '');
-  const g = v.graphs[repo];
-  const src = repo === 'all' ? 'code-graph/' : `code-graph/${encodeURIComponent(repo)}/`;
-  const sel = names.length ? `<select id="v-repo">${names.map((n) => `<option value="${esc(n)}" ${n === repo ? 'selected' : ''}>${esc(n === 'all' ? t('allRepos') : n)}</option>`).join('')}</select>` : '';
-  const state = g ? `<span class="muted">${esc(t('builtAt', { when: ago(g.at) }))}</span>${g.stale ? ` <span class="warn">⚠️ ${esc(t('stale'))}</span>` : ''}`
-    : `<span class="muted">${esc(t('noGraph'))}</span>`;
-  $('#main').innerHTML = viewerBar([`<b>${esc(t('code'))}</b>`, sel, state, g ? `<a href="${src}" target="_blank">${esc(t('openTab'))} ↗</a>` : ''],
-    v.graphify ? (names.length ? t('rebuild') : t('build')) : '') + (g ? `<iframe class="viewer" src="${src}" title="code graph"></iframe>` : '');
-  $('#v-repo')?.addEventListener('change', (e) => { location.hash = `#/code/${e.target.value}`; });
-  bindBuild('graph');
-}
-
-async function showWikis(open) {
-  drawChrome('wikis');
-  const rows = await api('wikis');
-  const engines = T.engines || [];
-  const engSel = engines.length > 1 ? `<select class="w-eng">${engines.map((e) => `<option>${esc(e)}</option>`).join('')}</select>` : '';
-  $('#main').innerHTML = `<div class="page"><h1>📚 ${esc(t('wikis'))} <span class="muted small">OpenWiki</span></h1>
-    <p class="muted">${esc(t('wikisHelp'))}</p>
-    ${!STATIC && !engines.length ? `<div class="banner">${esc(t('noEngine'))}</div>` : ''}
-    <div class="cards">${rows.map((w) => `<div class="card ${w.repo === open ? 'open' : ''}" data-repo="${esc(w.repo)}">
-      <div class="card-h"><b>${esc(w.repo)}</b>
-        <span class="muted">${w.pages ? esc(t('pages', { n: w.pages })) + ' · ' + esc(t('updated', { when: ago(w.at) })) : esc(w.cloned ? t('noWiki') : t('notCloned'))}</span>
-        ${w.stale ? `<span class="warn">⚠️ ${esc(t('stale'))}</span>` : ''}
-        ${w.unit ? `<span class="chip">${esc(t('unit'))}: ${esc(w.unit)}</span>` : ''}</div>
-      <div class="row">
-        ${w.index ? `<a class="button ghost small" href="#/docs/${esc(w.index)}">${esc(t('read'))}</a>` : ''}
-        ${w.graph ? `<button class="ghost small w-graph">${esc(t('graph'))}</button>` : ''}
-        ${!STATIC && !w.chosen && !w.pages ? `<span class="muted small">${esc(t('notChosen'))}</span>` : ''}
-        ${!STATIC && w.chosen && !w.ready ? `<span class="muted small">${esc(t('needBrief'))}</span>` : ''}
-        ${!STATIC && engines.length && w.cloned && (w.chosen || w.pages) && w.ready ? `<button class="small w-gen">${esc(w.pages ? t('update') : t('generate'))}</button>${engSel ? ` ${esc(t('via'))} ${engSel}` : ` <span class="muted small">${esc(t('via'))} ${esc(engines[0])}</span>`}` : ''}
-      </div>
-      <pre class="joblog" hidden></pre>
-      <div class="wgraph"></div></div>`).join('')}</div></div>`;
-  $('#main').querySelectorAll('.card').forEach((card) => {
-    const repo = card.dataset.repo;
-    card.querySelector('.w-graph')?.addEventListener('click', () => {
-      const box = card.querySelector('.wgraph');
-      box.innerHTML = box.innerHTML ? '' : `<iframe class="viewer small" src="wiki-graph/${encodeURIComponent(repo)}/" title="wiki graph"></iframe>`;
-    });
-    card.querySelector('.w-gen')?.addEventListener('click', async (e) => {
-      e.target.disabled = true;
-      const engine = card.querySelector('.w-eng')?.value || '';
-      try { watchJob(await api('wiki', {}, { repo, engine }), card.querySelector('.joblog'), async (j) => { await loadTree(); if (j.status === 'done' && location.hash.startsWith('#/wikis')) showWikis(repo); else e.target.disabled = false; }); }
-      catch (err) { toast(err.message); e.target.disabled = false; }
-    });
-  });
-  if (!STATIC) {       // reattach to a wiki run started earlier (from this page or another tab)
-    const jobs = await api('jobs');
-    for (const j of jobs.filter((x) => x.kind === 'wiki' && x.status === 'running')) {
-      const card = [...$('#main').querySelectorAll('.card')].find((c) => j.label.endsWith(' ' + c.dataset.repo));
-      if (card) { card.querySelector('.w-gen')?.setAttribute('disabled', ''); watchJob(j, card.querySelector('.joblog'), (r) => { if (r.status === 'done') showWikis(card.dataset.repo); }); }
-    }
-  }
-}
-
-// ---------- routing ----------
-async function route() {
+async function routeNow() {
   const h = decodeURIComponent(location.hash.slice(1));
   const [, view = '', rest = ''] = h.match(/^\/([\w-]*)\/?(.*)$/) || [];
+  if ($('#palette').open) $('#palette').close();
   try {
     if (view === 'docs' || view === 'doc') {
-      if (rest) { const [path, anchor] = rest.split('::'); return await showDoc(path, anchor); }
-    } else if (view === 'c4') return await showC4();
-    else if (view === 'code') return await showCode(rest);
-    else if (view === 'wikis') return await showWikis(rest);
-    else if (view === 'review' || view === 'status') return await showReview();
-    else if (view === 'search') return await showSearch(rest);
-    else if (view === 'new' && !STATIC) return newPage();
-    const first = T.docs.find((d) => d.path === 'index.md') || T.docs.find((d) => d.path.startsWith('overview')) || T.docs[0];
-    if (first) return await showDoc(first.path);
-    drawChrome('docs');
-    drawTree('');
-    $('#main').innerHTML = `<h1>${esc(t('noDocs'))}</h1><p>${esc(t('noDocsHelp'))}</p>`;
+      if (!rest) return await showHome();
+      const [path, anchor] = rest.split('::');
+      if (BY_PATH[path]?.space === 'wiki') return location.replace(hrefFor(path, anchor));
+      if (path === CURRENT && anchor !== undefined && $('#body')) return scrollToAnchor(anchor);
+      return await showDoc(path, anchor);
+    }
+    if (view === 'wiki') {
+      const [repo = '', ...more] = rest.split('/');
+      const [rel = '', anchor] = more.join('/').split('::');
+      if (rel && `repos/${repo}/${rel}` === CURRENT && anchor !== undefined && $('#body')) return scrollToAnchor(anchor);
+      CURRENT = '';
+      if (!repo) return await showWikis();
+      return rel ? await showWiki(repo, rel, anchor) : await showWikiGraph(repo);
+    }
+    CURRENT = '';
+    if (view === 'wikis') return rest ? location.replace(`#/wiki/${rest}`) : await showWikis();
+    if (view === 'c4') return await showArch(rest);
+    if (view === 'code') return location.replace(`#/c4/code${rest ? '/' + rest : ''}`);
+    if (view === 'review' || view === 'status') return await showReview();
+    if (view === 'search') return await showSearch(rest);
+    if (view === 'new' && !STATIC) return newPage();
+    return await showHome();
   } catch (e) {
-    $('#main').innerHTML = `<h1>${esc(t('error'))}</h1><p>${esc(e.message)}</p>`;
+    drawToc(null);
+    $('#main').innerHTML = `<div class="page"><h1>${esc(t('error'))}</h1><p>${esc(e.message)}</p></div>`;
   }
 }
 
-$('#search').oninput = () => { if (!$('#side').hidden) drawTree((decodeURIComponent(location.hash).match(/#\/docs?\/([^:]+)/) || [])[1]); };
-$('#search').onkeydown = (e) => { if (e.key === 'Enter' && e.target.value.trim()) location.hash = `#/search/${encodeURIComponent(e.target.value.trim())}`; };
-$('#lang').onchange = (e) => { lang = e.target.value; store.set('cam-lang', lang); route(); };
-$('#wide').onclick = () => { document.body.classList.toggle('wide'); store.set('cam-wide', document.body.classList.contains('wide') ? '1' : ''); };
-$('#new').onclick = () => { location.hash = '#/new'; };
-if (store.get('cam-wide')) document.body.classList.add('wide');
+$('#lang').onchange = (e) => { lang = e.target.value; store.set('cam-lang', lang); CURRENT = ''; route(); };
+$('#theme').onclick = () => { store.set('cam-theme', isDark() ? 'light' : 'dark'); applyTheme(); CURRENT = ''; route(); };
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (!store.get('cam-theme')) { applyTheme(); CURRENT = ''; route(); } });
+$('#menu').onclick = () => document.body.classList.toggle('nav-open');
+$('#scrim').onclick = () => document.body.classList.remove('nav-open');
+$('#search-btn').onclick = openPalette;
+$('#pal-q').oninput = paletteInput;
+$('#pal-q').onkeydown = paletteKey;
+$('#palette').addEventListener('click', (e) => { if (e.target === $('#palette')) $('#palette').close(); });
+$('#zoomer').addEventListener('click', (e) => { if (e.target === $('#zoomer') || e.target.closest('#zoomer-close')) $('#zoomer').close(); });
+document.addEventListener('keydown', (e) => {
+  const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '');
+  if ((e.key === 'k' && (e.metaKey || e.ctrlKey)) || (e.key === '/' && !typing)) { e.preventDefault(); openPalette(); }
+});
 addEventListener('hashchange', route);
+applyTheme();
+$('#search-key').textContent = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘K' : 'Ctrl K';
 loadTree().then(() => {
   if (!store.get('cam-lang')) {           // first visit: the browser's language when the docs are translated to it
     const nav = (navigator.language || 'en').slice(0, 2);
     if (T.langs.includes(nav)) lang = nav;
   }
   return route();
-}).catch((e) => { drawChrome('docs'); $('#main').innerHTML = `<h1>${esc(t('unreachable'))}</h1><p>${esc(e.message)}</p>`; });
+}).catch((e) => { drawChrome('docs'); $('#main').innerHTML = `<div class="page"><h1>${esc(t('unreachable'))}</h1><p>${esc(e.message)}</p></div>`; });

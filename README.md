@@ -295,10 +295,9 @@ camaron down
 
 Abre **http://localhost:8080**. Es un único portal 🦐 con pestañas, en español o inglés (el mismo selector cambia la interfaz y las traducciones de la documentación):
 
-- **Docs**: lee `cam-docs/docs` en el momento (sin build, sin Docker). Cada página muestra su estado (`draft`, `confirmed`, `needs-reconfirm`), y desde ahí puedes editarla, confirmarla, crear páginas o dejar un comentario para la siguiente sesión de IA. Incluye búsqueda de texto completo.
-- **Architecture (C4)**: el explorador LikeC4, con botón para reconstruirlo.
-- **Code graph**: el grafo de graphify de todos los repos o de uno.
-- **Wikis**: estado de la wiki OpenWiki de cada repo, su grafo, y el botón para generarla o actualizarla con un log en vivo. Sin clave de proveedor de OpenWiki, la genera Claude Code o Codex a través del MCP de OpenWiki.
+- **Docs**: lee `cam-docs/docs` en el momento (sin build, sin Docker). Portada con una tarjeta por sección y el contexto C4, menú lateral por secciones, índice de la página, anterior/siguiente y búsqueda con <kbd>⌘K</kbd>/<kbd>Ctrl K</kbd>. Las páginas de flujo muestran arriba su vista dinámica C4 interactiva. Las notas de discovery y entrevistas quedan plegadas en «Notas de trabajo». Cada página muestra su estado (`draft`, `confirmed`, `needs-reconfirm`), y desde ahí puedes editarla, confirmarla, crear páginas o dejar un comentario para la siguiente sesión de IA.
+- **Arquitectura**: galería de las vistas C4 (sistema, contenedores, flujos, despliegue) interactivas, el explorador LikeC4 completo y el grafo de graphify de todos los repos o de uno, con botones para reconstruirlos.
+- **Wikis**: cada repo se abre en el visor de OpenWiki (grafo de páginas conectadas y lector; se regenera solo si la wiki cambió). «Leer las páginas» la muestra dentro del portal, con menú propio y «Enlazada desde». También está el botón para generarla o actualizarla con un log en vivo. Sin clave de proveedor de OpenWiki, la genera Claude Code o Codex a través del MCP de OpenWiki.
 - **Review**: lo pendiente de revisar, las peticiones de cambio y los repos cuyo código cambió.
 
 Para publicarlo (CI / hosting), `camaron portal` exporta la misma aplicación en modo solo lectura (HTML + JSON, sin npm) a `.camarones/.cache/site`. Se sirve con `camaron up --static`, con `camaron up --docker` o desde cualquier hosting estático; los enlaces «Editar» llevan al fichero en GitLab/GitHub.
