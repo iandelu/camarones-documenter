@@ -155,7 +155,7 @@ async function showDoc(path, anchor) {
 }
 
 async function showPage(path, anchor, ctx) {
-  const d = await api('doc', { path, lang });
+  const d = await api('doc', { path, lang, track: 1 });
   const english = lang && !d.exists ? await api('doc', { path }) : null;
   const row = BY_PATH[path] || {};
   const i18n = lang ? (row.i18n || {})[lang] : '';
@@ -293,7 +293,7 @@ async function showSearch(q) {
   drawDocsSide('');
   drawToc(null);
   CURRENT = '';
-  const hits = (await api('search', { q })).slice().sort((a, b) => spaceRank(a.path) - spaceRank(b.path) || b.score - a.score);
+  const hits = (await api('search', { q, track: 1 })).slice().sort((a, b) => spaceRank(a.path) - spaceRank(b.path) || b.score - a.score);
   $('#main').innerHTML = `<div class="page"><h1>${esc(t('results'))} “${esc(q)}”</h1>` + (hits.map((h) =>
     `<div class="hit"><a href="${esc(hrefFor(h.path))}">${SPACE_ICON[BY_PATH[h.path]?.space] || '📄'} ${esc(h.title)}</a>
      <span class="muted small">${esc(h.path)}</span>

@@ -35,6 +35,8 @@
   remote [URL]              show / set the team's cam-docs repo (origin)
   share [--auto on|off]     checkpoint, pull the team's work (rebase) and push cam-docs; --auto: after every checkpoint
   feedback FILE "text" --by NAME   record a human review comment (applied by the review-fixes unit)
+  stats [--json] [--months N] [--record on|off]   team usage KPIs (who consults the docs, what they find, what
+                            is read most); --record: whether this machine adds its counts
   version                   kit and pinned tool versions
   prompt UNIT [--lang es|en] [--unattended]      prompt for an agent session (UNIT may be 'update')
   autopilot [--lang es|en] [--max-units N] [--poll-seconds N] [--include-interviews]
@@ -187,6 +189,8 @@ def main() -> int:
     rm = sp.add_parser("remote"); rm.add_argument("url", nargs="?")
     sh = sp.add_parser("share"); sh.add_argument("--auto", choices=["on", "off"])
     jn = sp.add_parser("join"); jn.add_argument("url"); jn.add_argument("folder", nargs="?", type=Path)
+    us = sp.add_parser("stats"); us.add_argument("--json", action="store_true")
+    us.add_argument("--months", type=int, default=3); us.add_argument("--record", choices=["on", "off"])
     fb = sp.add_parser("feedback"); fb.add_argument("file"); fb.add_argument("text"); fb.add_argument("--by", default="")
     ad = sp.add_parser("arch-draft"); ad.add_argument("--save", action="store_true"); ad.add_argument("--overwrite", action="store_true")
     rd = sp.add_parser("radar"); rd.add_argument("--json", action="store_true")
@@ -200,6 +204,9 @@ def main() -> int:
     ap = sp.add_parser("autopilot"); ap.add_argument("--lang", default="es"); ap.add_argument("--max-units", type=int)
     ap.add_argument("--poll-seconds", type=int, default=900); ap.add_argument("--include-interviews", action="store_true")
     a = p.parse_args()
+    if a.cmd not in ("help", "mcp", "wizard"):
+        from lib import usage
+        usage.record(f"cli:{a.cmd}")
 
     if a.cmd == "help":
         print(__doc__)
@@ -389,6 +396,12 @@ def main() -> int:
         why = f" ({r['reason']})" if r.get("reason") else ""
         print(f"{r['status']}{why}{': ' + r['detail'] if r['detail'] else ''}")
         return 0 if r["status"] in ("pushed", "up-to-date", "nothing") else 1
+    elif a.cmd == "stats" and a.record:
+        usage.set_enabled(a.record == "on")
+        print(f"usage stats: {a.record}")
+    elif a.cmd == "stats":
+        r = usage.report(months=a.months)
+        print(json.dumps(r, indent=2, ensure_ascii=False) if a.json else usage.render_md(r))
     elif a.cmd == "feedback":
         docs.add_feedback(a.file, a.text, a.by or os.environ.get("USER", "human"))
         plan.ensure("review-fixes", "review-fixes")

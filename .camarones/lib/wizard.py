@@ -18,7 +18,7 @@ from rich.text import Text
 
 from .common import (ROOT, HOME, WORK, WS_FILE, CACHE, IS_WIN, IS_MAC, CAM_DIR, CAM_LAYOUT, WORKSPACE, which, cli_cmd,
                      load_json, save_json, out, repo_dir)
-from . import docs, env, plan, creds, questionnaire, quickarch, radar, tutorial, upgrade
+from . import docs, env, plan, creds, questionnaire, quickarch, radar, tutorial, upgrade, usage
 from .common import VERSIONS, ws_rel
 from rich.tree import Tree
 import webbrowser
@@ -115,6 +115,24 @@ T = {
         "sh_err_unknown": "✖ No he podido compartir.",
         "sh_auto_ask": "¿Publico automáticamente cada vez que se guarde algo? Solo en este equipo; se apaga con «{cli} share --auto off».",
         "sh_auto_on": "✔ Publicación automática activada: cada guardado trae lo del equipo y publica lo tuyo.",
+        "us_ask": "¿Guardo estadísticas de uso para el equipo? Solo contadores (búsquedas, páginas leídas, funciones), "
+                  "sin el texto que buscas y con tu usuario cifrado; viajan con cam-docs al compartir. "
+                  "Se cambia con «{cli} stats --record on|off».",
+        "us_notice": "📊 Ahora Camarón guarda estadísticas de uso del equipo: solo contadores, sin el texto de las búsquedas "
+                     "y con tu usuario cifrado; viajan con cam-docs al compartir. Para apagarlas: «{cli} stats --record off».",
+        "m_stats": "📊 Estadísticas de uso del equipo",
+        "us_title": "📊 Uso del equipo",
+        "us_cols": "Mes|Personas|Días activos|Consultas agentes|Consultas personas|Búsquedas|Sin resultado|Cambios en docs|Autores",
+        "us_people": "Personas que lo han usado: {n}",
+        "us_top": "Páginas más leídas",
+        "us_top_row": "{reads}  (agentes {agent} · personas {human})",
+        "us_unread": "Sin leer en este periodo: {n} de {total} páginas",
+        "us_features": "Lo más usado",
+        "us_health": "Docs hoy: {pages} páginas · {confirmed_pct}% confirmadas · {needs_reconfirm} por reconfirmar · "
+                     "{repos_changed} repos cambiados desde la última documentación · plan {plan_done}/{plan_total}",
+        "us_empty": "Aún no hay estadísticas: aparecen cuando el equipo usa el portal, los agentes (MCP) o la CLI, y llegan al compartir.",
+        "us_on": "▶ Activar estadísticas en este equipo",
+        "us_off": "⏸ Desactivar estadísticas en este equipo",
         "sh_git_said": "  git: {detail}",
         "join_welcome": "Te unes a «{name}»: el equipo ya eligió repos, stack y arquitectura, y el plan sigue donde lo dejaron. "
                         "Yo solo preparo esta máquina: herramientas y repos. Nada de pelar dos veces la misma gamba.",
@@ -439,6 +457,24 @@ T = {
         "sh_err_unknown": "✖ Could not share.",
         "sh_auto_ask": "Publish automatically every time something is saved? Only on this computer; turn it off with “{cli} share --auto off”.",
         "sh_auto_on": "✔ Auto-publish on: every save pulls the team's work and publishes yours.",
+        "us_ask": "Keep usage stats for the team? Counters only (searches, pages read, features), never what you search "
+                  "for, and your user is hashed; they travel with cam-docs when you share. "
+                  "Change it with “{cli} stats --record on|off”.",
+        "us_notice": "📊 Camarón now keeps team usage stats: counters only, never what you search for, and your user is "
+                     "hashed; they travel with cam-docs when you share. To turn them off: “{cli} stats --record off”.",
+        "m_stats": "📊 Team usage stats",
+        "us_title": "📊 Team usage",
+        "us_cols": "Month|People|Active days|Agent queries|People queries|Searches|No results|Doc changes|Writers",
+        "us_people": "People who used it: {n}",
+        "us_top": "Most read pages",
+        "us_top_row": "{reads}  (agents {agent} · people {human})",
+        "us_unread": "Not read in this period: {n} of {total} pages",
+        "us_features": "Most used",
+        "us_health": "Docs today: {pages} pages · {confirmed_pct}% confirmed · {needs_reconfirm} to re-confirm · "
+                     "{repos_changed} repos changed since last documented · plan {plan_done}/{plan_total}",
+        "us_empty": "No stats yet: they appear as the team uses the portal, agents (MCP) or the CLI, and arrive when sharing.",
+        "us_on": "▶ Turn stats on for this computer",
+        "us_off": "⏸ Turn stats off for this computer",
         "sh_git_said": "  git: {detail}",
         "join_welcome": "You're joining “{name}”: the team already picked the repos, stack and architecture, and the plan carries "
                         "on where they left it. I'll just set up this machine: tools and repos. No peeling the same shrimp twice.",
@@ -899,7 +935,9 @@ class W:
             if not self.first_run(resume_step(state), mode=mode):
                 return
         else:
+            self.usage_notice()
             time.sleep(0.8)
+        usage.record("wizard:open")
         while True:
             self.banner()
             self.dashboard()
@@ -911,7 +949,7 @@ class W:
                 Choice(self.t("m_review") + (f"  ({n_rev})" if n_rev else ""), "review"),
                 Choice(self.t("m_portal"), "portal"), Choice(self.t("m_wikis"), "wikis"), Choice(self.t("m_status"), "status"), Choice(self.t("m_update"), "update"),
                 Choice(self.t("a_menu"), "arch"), Choice(self.t("sk_menu"), "stack"), Choice(self.t("m_repos"), "repos"), Choice(self.t("k_menu"), "creds"),
-                Choice(self.t("m_share"), "share"),
+                Choice(self.t("m_share"), "share"), Choice(self.t("m_stats"), "stats"),
                 Choice(self.t("m_setup"), "setup"), Choice(self.t("m_ci"), "ci")]
             if self.extra_ready():
                 choices.append(Choice(self.t("m_extra"), "extra"))
@@ -922,6 +960,8 @@ class W:
                 Choice(self.t("m_tutorial"), "tutorial"), Choice(self.t("m_uninstall"), "uninstall"),
                 Choice(self.t("m_model"), "model"), Choice(self.t("m_lang"), "lang"), Choice(self.t("m_exit"), "exit")]
             choice = self.sel(self.t("menu"), back=False, choices=choices)
+            if choice not in (None, "exit"):
+                usage.record(f"wizard:{choice}")
             if choice == "resume":
                 self.banner()
                 self.safe(self.run_unit, doing[0])
@@ -1129,6 +1169,7 @@ class W:
 
     def fr_setup(self, ws: dict):
         self.repo_pointer()
+        self.ask_usage()
         self.say(f"[bold]{self.t('setup_run')}[/]")
         env.init_templates(ws["project"]["name"], log=lambda _: None)
         ok = self.safe(self.busy, env.setup, total=env.setup_steps())
@@ -2228,6 +2269,47 @@ Talk to the user in {talk}. Do not modify application code.
             if on:
                 self.say(self.t("sh_auto_on"), "green")
         self.pause()
+
+    def ask_usage(self) -> None:
+        if not usage.decided():                                        # asked once per machine; the CLI flag changes it later
+            usage.set_enabled(bool(self.yes(self.t("us_ask", cli=cli_cmd()), default=True)))
+
+    def usage_notice(self) -> None:
+        """A project set up before stats existed records from now on: say so once, with how to turn it off."""
+        if not usage.decided():
+            usage.set_enabled(True)
+            self.say(self.t("us_notice", cli=cli_cmd()), "grey62")
+            self.pause()
+
+    def do_stats(self) -> None:
+        while True:
+            self.banner()
+            r = usage.report()
+            parts = []
+            if not r["people"]:
+                parts.append(Text(self.t("us_empty"), style="grey62"))
+            else:
+                tbl = Table(border_style="grey42", title=self.t("us_people", n=r["people"]), title_justify="left")
+                for c in self.t("us_cols").split("|"):
+                    tbl.add_column(c, justify="left" if not tbl.columns else "right")
+                for m in r["months"]:
+                    tbl.add_row(m["month"], *(str(m[k]) for k in ("people", "active_days", "agent_queries", "human_queries",
+                                                                  "searches")),
+                                f"{m['no_results_pct']}%", str(m["doc_commits"]), str(m["writers"]))
+                parts.append(tbl)
+                top = Table.grid(padding=(0, 2))
+                for p in r["top_pages"]:
+                    top.add_row(f"[{ORANGE}]{p['path']}[/]", self.t("us_top_row", **p))
+                parts += [Text(""), Text(self.t("us_top"), style="bold"), top,
+                          Text(self.t("us_unread", n=len(r["unread_pages"]), total=r["health"]["pages"]), style="grey62"),
+                          Text(""), Text(self.t("us_features"), style="bold"),
+                          Text("  ".join(f"{f['event']} {f['count']}" for f in r["top_features"]))]
+            parts += [Text(""), Text(self.t("us_health", **r["health"]), style="grey70")]
+            self.paged(Panel(Group(*parts), title=self.t("us_title"), title_align="left", border_style=ORANGE))
+            c = self.sel(self.t("menu"), [Choice(self.t("us_off" if r["recording"] else "us_on"), "toggle")])
+            if c is None:
+                return
+            usage.set_enabled(not usage.enabled())
 
     def repo_pointer(self) -> None:
         """Asked once, remembered in workspace.yaml: the only thing Camarones may add to a service repo."""

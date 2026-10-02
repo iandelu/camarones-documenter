@@ -12,7 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from .common import KIT, ROOT, DOCS, CACHE, VERSIONS, out, rel_file
-from . import docs, env, plan
+from . import docs, env, plan, usage
 
 UI = KIT / "portal" / "live"
 SITE = CACHE / "site"
@@ -60,6 +60,22 @@ def read(path: str, lang: str = "") -> dict:
             "title": fm.get("title") or docs.first_heading(body) or Path(path).stem, "trust": row.get("trust"),
             "owner": row.get("owner"), "sources": fm.get("x-sources") or [], "confirmed": fm.get("x-confirmed"),
             "feedback": [l for l in docs.pending_feedback() if f"`{row.get('file')}`" in l]}
+
+
+def api_doc(q: dict) -> dict:
+    """A page the reader opened (`track`), not the extra reads the UI does for fallbacks and the home page."""
+    d = read(q["path"], q.get("lang", ""))
+    if q.get("track"):
+        usage.record("portal:doc", channel="human", page=q["path"])
+    return d
+
+
+def api_search(q: dict) -> list[dict]:
+    """Only full searches (`track`) count: the palette searches on every keystroke."""
+    hits = docs.search(q.get("q", ""))
+    if q.get("track"):
+        usage.record("portal:search", channel="human", hit=bool(hits))
+    return hits
 
 
 def write(path: str, raw: str, lang: str = "") -> dict:
@@ -240,11 +256,11 @@ class Handler(BaseHTTPRequestHandler):
         if name == "tree":
             return self.json(tree())
         if name == "doc":
-            return self.json(read(q["path"], q.get("lang", "")))
+            return self.json(api_doc(q))
         if name == "status":
             return self.json(status())
         if name == "search":
-            return self.json(docs.search(q.get("q", "")))
+            return self.json(api_search(q))
         if name == "wikis":
             return self.json(env.wikis())
         if name == "viewers":

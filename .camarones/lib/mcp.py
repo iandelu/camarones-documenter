@@ -5,7 +5,7 @@ from __future__ import annotations
 import json, re, sys
 
 from .common import ROOT, DOCS, WS_FILE, VERSIONS, run, which
-from . import docs, env
+from . import docs, env, usage
 
 PROTOCOL = "2025-06-18"
 
@@ -42,6 +42,7 @@ def search_docs(query: str, limit: int = 8) -> str:
     if not re.search(r"\w\w", query):
         return "Empty query."
     hits = docs.search(query, limit)
+    usage.record("mcp:search_docs", channel="agent", hit=bool(hits))
     if not hits:
         return f"No page mentions: {query}"
     return "\n\n".join(f"## {h['path']} [{h['trust']}] — {h['title']}\n" + "\n".join(f"> {l}" for l in h["lines"])
@@ -50,6 +51,7 @@ def search_docs(query: str, limit: int = 8) -> str:
 
 def read_doc(path: str) -> str:
     f = _file(path)
+    usage.record("mcp:read_doc", channel="agent", page=path if f else None)
     if not f:
         return f"No page at {path}. Use list_docs or search_docs."
     r = _rows().get(path.removeprefix("docs/"), {})
@@ -57,11 +59,13 @@ def read_doc(path: str) -> str:
 
 
 def list_docs() -> str:
+    usage.record("mcp:list_docs")
     return "\n".join(f"- {r['path']} [{r['trust']}] {r['title']}" + (f" — {r['description']}" if r["description"] else "")
                      for r in docs.collect()) or "No docs yet."
 
 
 def doc_status() -> str:
+    usage.record("mcp:doc_status")
     rows = docs.collect()
     s = docs.summary(rows)
     lines = [f"{s['total']} pages: confirmed {s['confirmed']}, draft {s['draft']}, needs-reconfirm {s['needs-reconfirm']}, "
@@ -75,6 +79,7 @@ def doc_status() -> str:
 
 
 def repo_graph(question: str, repo: str | None = None) -> str:
+    usage.record("mcp:repo_graph")
     if not which("graphify"):
         return "graphify is not installed (run camarones setup)."
     g = env.repo_graph(repo) if repo else env.CACHE / "graph" / "graph.json"

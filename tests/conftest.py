@@ -18,7 +18,7 @@ for p in (str(KIT_DIR), str(TESTS)):
 
 from fixtures.builder import make_workspace  # noqa: E402
 
-MODULES = ("common", "docs", "env", "plan", "projects", "migrate", "quality", "install", "quickarch", "creds", "questionnaire", "wizard")
+MODULES = ("common", "docs", "env", "plan", "projects", "migrate", "quality", "install", "quickarch", "creds", "questionnaire", "usage", "wizard")
 
 
 def purge_kit_modules() -> None:
