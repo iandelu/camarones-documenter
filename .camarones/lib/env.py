@@ -808,7 +808,9 @@ def wiki_prompt(repo: str, mode: str) -> str:
             "scheduled jobs) and per important domain or logic area; data and integrations (what it owns and stores, what "
             "it calls, who calls it); configuration and environments; testing; operations (deploy, observability, "
             "troubleshooting); known issues and tech debt. Give a topic its own page rather than compressing it: a service "
-            "with real logic usually needs 10 pages or more, a small library fewer. Every claim anchored to code.\n"
+            "with real logic usually needs 10 pages or more, a small library fewer. Every claim anchored to code. Draw "
+            "what prose explains badly, with Mermaid: a sequenceDiagram for each main request or message path, a "
+            "stateDiagram-v2 for every entity or job with a status lifecycle, a flowchart for branching rules.\n"
             f"Cross-repo context: the shared domain, business flows and C4 model live in `{ws_rel('docs/')}`. Explain this "
             "repo's part in them from its own side, and link those pages (from the wiki: `../../docs/<page>`) instead of "
             "copying them.\n"
@@ -1056,6 +1058,9 @@ def export_site(log: Log = print) -> Path:
     dump("status.json", serve.status())
     dump("wikis.json", wikis())
     dump("viewers.json", viewers())
+    from . import codemap
+    for n in codemap.available():
+        dump(f"codemap/{n}.json", codemap.load(n))
     dump("search.json", index)
     for lib in serve.UI_LIBS:
         f = docs.vendor_file(*lib)

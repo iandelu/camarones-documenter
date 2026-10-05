@@ -101,10 +101,61 @@ function c4Box(id) {
   return d;
 }
 
+// Mermaid draws at 100% of the column, so a wide sequence shrinks to unreadable: keep its natural size (the figure
+// scrolls) and let a click open it full screen with zoom and pan.
 async function drawMermaid(root) {
   const nodes = $$('.mermaid', root);
-  if (nodes.length && window.mermaid) { try { await mermaid.run({ nodes }); } catch (e) { console.warn(e); } }
+  if (!nodes.length || !window.mermaid) return;
+  try { await mermaid.run({ nodes }); } catch (e) { console.warn(e); }
+  nodes.forEach((n) => {
+    const svg = $('svg', n);
+    const natural = svg && parseFloat(svg.style.maxWidth);
+    if (natural) { svg.style.width = `${natural}px`; svg.style.maxWidth = 'none'; svg.removeAttribute('width'); }
+  });
 }
+
+const ZOOM = { k: 1, x: 0, y: 0, drag: null };
+function zoomApply() { $('#zoomer-stage').style.transform = `translate(${ZOOM.x}px, ${ZOOM.y}px) scale(${ZOOM.k})`; }
+function zoomFit() {
+  const body = $('#zoomer-body').getBoundingClientRect();
+  const stage = $('#zoomer-stage');
+  stage.style.transform = 'none';
+  const r = stage.getBoundingClientRect();
+  ZOOM.k = Math.min(body.width / r.width, body.height / r.height, 4) * 0.95;
+  ZOOM.x = (body.width - r.width * ZOOM.k) / 2;
+  ZOOM.y = (body.height - r.height * ZOOM.k) / 2;
+  zoomApply();
+}
+function zoomBy(f, cx, cy) {
+  const body = $('#zoomer-body').getBoundingClientRect();
+  const x = (cx ?? body.width / 2), y = (cy ?? body.height / 2);
+  const k = Math.min(Math.max(ZOOM.k * f, 0.1), 12);
+  ZOOM.x = x - (x - ZOOM.x) * (k / ZOOM.k);
+  ZOOM.y = y - (y - ZOOM.y) * (k / ZOOM.k);
+  ZOOM.k = k;
+  zoomApply();
+}
+function openZoom(fig) {
+  const svg = $('.mermaid svg', fig);
+  if (!svg) return;
+  const copy = svg.cloneNode(true);                 // keeps its id: Mermaid scopes the diagram's CSS to it
+  $('#zoomer-body').innerHTML = '<div id="zoomer-stage"></div>';
+  $('#zoomer-stage').append(copy);
+  $('#zoomer').showModal();
+  requestAnimationFrame(zoomFit);
+}
+const zbody = $('#zoomer-body');
+zbody.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const r = zbody.getBoundingClientRect();
+  zoomBy(Math.exp(-e.deltaY * 0.0015), e.clientX - r.left, e.clientY - r.top);
+}, { passive: false });
+zbody.addEventListener('pointerdown', (e) => { ZOOM.drag = { x: e.clientX - ZOOM.x, y: e.clientY - ZOOM.y }; zbody.setPointerCapture(e.pointerId); });
+zbody.addEventListener('pointermove', (e) => { if (ZOOM.drag) { ZOOM.x = e.clientX - ZOOM.drag.x; ZOOM.y = e.clientY - ZOOM.drag.y; zoomApply(); } });
+zbody.addEventListener('pointerup', () => { ZOOM.drag = null; });
+$('#zoom-in').onclick = () => zoomBy(1.25);
+$('#zoom-out').onclick = () => zoomBy(0.8);
+$('#zoom-fit').onclick = zoomFit;
 
 // ---------- LikeC4: `likec4 build` also emits likec4-views.js, a web component (<likec4-view view-id>) ----------
 let likec4Ready = null;
@@ -172,7 +223,7 @@ function c4Missing(box, v) {
     startBuild('c4', '', e.target, box.querySelector('pre'), () => location.reload()));
 }
 
-const EMBED_MAX_H = () => Math.min(innerHeight * 0.6, 560);
+const EMBED_MAX_H = () => Math.min(innerHeight * 0.75, 760);
 
 async function drawC4(root, { caption = true, maxH = EMBED_MAX_H } = {}) {
   const boxes = $$('.c4embed', root);
@@ -232,11 +283,6 @@ document.addEventListener('click', async (e) => {
     setTimeout(() => { copy.textContent = t('copy'); }, 1500);
     return;
   }
-  const zoom = e.target.closest('figure .zoom');
-  if (zoom) {
-    const dlg = $('#zoomer');
-    $('#zoomer-body').innerHTML = '';
-    $('#zoomer-body').append(...[...zoom.parentElement.children].filter((c) => c !== zoom).map((c) => c.cloneNode(true)));
-    dlg.showModal();
-  }
+  const fig = e.target.closest('figure.diagram');
+  if (fig && !e.target.closest('a')) openZoom(fig);
 });

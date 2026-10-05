@@ -39,13 +39,19 @@
     </div>
   </dialog>
   <dialog id="zoomer" class="zoomer">
-    <button id="zoomer-close" class="ghost icon" type="button" aria-label="close">✕</button>
+    <div class="zoom-tools">
+      <button id="zoom-in" class="ghost icon" type="button" aria-label="zoom in">＋</button>
+      <button id="zoom-out" class="ghost icon" type="button" aria-label="zoom out">－</button>
+      <button id="zoom-fit" class="ghost icon" type="button" aria-label="fit">⤢</button>
+      <button id="zoomer-close" class="ghost icon" type="button" aria-label="close">✕</button>
+    </div>
     <div id="zoomer-body"></div>
   </dialog>
   <div id="toast" class="toast" hidden></div>
   <script src="core.js"></script>
   <script src="doc.js"></script>
   <script src="c4.js"></script>
+  <script src="code.js"></script>
   <script src="wiki.js"></script>
   <script src="app.js"></script>
 </body>

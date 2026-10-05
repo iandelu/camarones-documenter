@@ -80,10 +80,15 @@ x-owner: ai                  # ai (agent may rewrite) | human (agent never rewri
 
 ## 5. Markdown diagrams (Mermaid)
 
-- Business flow → `sequenceDiagram` always; add `flowchart` only if there are business rules with branches;
-  add `stateDiagram-v2` when an entity has a lifecycle.
-- Data model → `erDiagram` per datastore.
+- Business flow → `sequenceDiagram` always; add `flowchart` only if there are business rules with branches.
+- Lifecycle → `stateDiagram-v2` for **every** entity, job or request with a status (an enum, a `status` column, a state
+  machine), wherever it is explained: flow, domain or data page. Real states and the events/endpoints that move them.
+- Data model → `erDiagram` per datastore; a cache or key-value store gets a `flowchart` of keys, TTLs, writers and readers.
+- Domain → a context map (`flowchart`). System overview → the C4 context (```` ```likec4-view ```` `index`).
+  Deployment → a diagram or the C4 deployment view.
 - Keep diagrams ≤ ~25 nodes; split instead of shrinking.
+- `CLI check` warns about the gaps (a flow without its sequence, a lifecycle told only in prose, a structure page with
+  no picture); the `diagrams` plan unit fills them.
 
 ## 6. Page templates
 

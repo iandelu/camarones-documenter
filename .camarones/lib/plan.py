@@ -50,6 +50,7 @@ TYPES = {
     "architecture-review": (5, "agent", "[beta] Architecture review: coupling, duplication, tech debt", "architecture-review"),
     "flows-catalog":    (5, "agent",  "Business flows catalog (propose, validate, create flow units)", "flows-catalog"),
     "flow":             (5, "agent",  "Flow: {slug}", "flow"),
+    "diagrams":         (5, "agent",  "Diagrams: sequences, lifecycles (state), data and context maps where pages lack them", "diagrams"),
     "i18n":             (6, "agent",  "Spanish translations + index", "i18n"),
     "portal":           (7, "wizard", "Build and run the portal", "portal"),
     "ci":               (7, "wizard", "CI pipelines (umbrella + per-repo snippets)", "ci"),
@@ -118,6 +119,7 @@ def blueprint(repos: list[str]) -> list[dict]:
           unit("deployment", "deployment", ["arch-system"]),
           unit("decisions-quality", "decisions-quality", ["interview-history"]),
           unit("flows-catalog", "flows-catalog", ["arch-system", "interview-history"]),
+          unit("diagrams", "diagrams", ["domain", "data", "flows-catalog"]),
           unit("i18n", "i18n", ["domain", "flows-catalog"]),
           unit("portal", "portal", ["arch-system"]),
           unit("ci", "ci", ["setup"]),
@@ -154,7 +156,7 @@ def sync() -> dict:
     # flows must finish before i18n/confirm consider flows complete
     flow_ids = [u["id"] for u in merged if u["type"] == "flow" and u["status"] != "dropped"]
     for u in merged:
-        if u["id"] in ("i18n", "confirm"):
+        if u["id"] in ("i18n", "confirm", "diagrams"):
             u["deps"] = sorted(set(u["deps"]) | set(flow_ids))
     comps = docs.workspace()["project"].get("components")
     wiki_repos = docs.wiki_repos()

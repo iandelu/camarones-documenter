@@ -182,3 +182,18 @@ def test_a_wiki_graph_older_than_its_pages_is_stale(serve_mod):
     assert not rows["web"]["graph"] and not rows["web"]["graphStale"]
     os.utime(graph, None)
     assert not {w["repo"]: w for w in serve_mod.env.wikis()}["api"]["graphStale"]
+
+
+def test_code_maps_are_listed_served_and_exported(serve_mod, monkeypatch):
+    import importlib
+    from test_codemap import write_graph
+    serve_mod.codemap = importlib.import_module("lib.codemap")
+    write_graph(serve_mod)
+    assert serve_mod.serve.tree()["codeMaps"] == ["api"]
+    env, docs = serve_mod.env, serve_mod.docs
+    env.set_components(["agents"])
+    monkeypatch.setattr(docs, "vendor_file", lambda *_a: None)
+    monkeypatch.setattr(docs, "vendor", lambda _site: (0, []))
+    site = env.export_site(log=lambda _: None)
+    m = json.loads((site / "api" / "codemap" / "api.json").read_text(encoding="utf-8"))
+    assert m["stats"]["files"] == 5

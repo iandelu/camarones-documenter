@@ -8,8 +8,9 @@ let NOTES_ORDER = [];
 function drawChrome(active, { viewer = false, bare = false } = {}) {
   document.documentElement.lang = lang || 'en';
   const wikis = !STATIC || T.docs.some((d) => d.space === 'wiki');
-  const tabs = [['docs', '#/'], ['c4', '#/c4'], ...(wikis ? [['wikis', '#/wikis']] : []), ['review', '#/review']];
-  $('#tabs').innerHTML = tabs.map(([k, href]) => `<a href="${href}" class="${k === active ? 'on' : ''}">${esc(t(k))}</a>`).join('');
+  const code = (T.codeMaps || []).length || T.codeGraphs.length;
+  const tabs = [['docs', '#/'], ['c4', '#/c4'], ...(code ? [['code', '#/code']] : []), ...(wikis ? [['wikis', '#/wikis']] : []), ['review', '#/review']];
+  $('#tabs').innerHTML = tabs.map(([k, href]) => `<a href="${href}" class="${k === active ? 'on' : ''}">${esc(t(k === 'code' ? 'codeTab' : k))}</a>`).join('');
   $('#search-label').textContent = t('search');
   $('#theme').title = t('theme');
   $('#menu').title = t('menu');
@@ -386,7 +387,7 @@ async function showReview() {
     <div class="box"><b>${esc(t('checks'))}</b><ul class="list">${[...s.check.errors.map((e) => `<li>❌ ${esc(e)}</li>`), ...s.check.warnings.map((w) => `<li>⚠️ ${esc(w)}</li>`)].join('') || `<li class="muted">${esc(t('allPass'))}</li>`}</ul></div></div>`;
 }
 
-// ---------- routing (old links keep working: #/docs/repos/<repo>/<wiki page>, #/wikis/<repo>, #/code/<repo>) ----------
+// ---------- routing (old links keep working: #/docs/repos/<repo>/<wiki page>, #/wikis/<repo>, #/c4/code/<repo>) ----------
 // One view renders at a time and a newer hash skips the queued ones, so a slow page never paints over the next.
 let routing = Promise.resolve();
 let routeSeq = 0;
@@ -419,7 +420,7 @@ async function routeNow() {
     CURRENT = '';
     if (view === 'wikis') return rest ? location.replace(`#/wiki/${rest}`) : await showWikis();
     if (view === 'c4') return await showArch(rest);
-    if (view === 'code') return location.replace(`#/c4/code${rest ? '/' + rest : ''}`);
+    if (view === 'code') return await showCodeTab(rest);
     if (view === 'review' || view === 'status') return await showReview();
     if (view === 'search') return await showSearch(rest);
     if (view === 'new' && !STATIC) return newPage();

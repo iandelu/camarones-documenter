@@ -55,6 +55,11 @@ const I18N = {
     files: 'files', rebuild: '↻ Rebuild', build: 'Build', builtAt: 'built {when}', stale: 'out of date — the source changed since',
     notBuilt: 'Not built yet.', noC4: 'There is no C4 model yet — the arch-system unit writes docs/architecture/*.c4.',
     noGraph: 'No code graph yet.', allRepos: 'All repos (merged)', openTab: 'Open in a new tab',
+    codeTab: 'Code', fullGraph: 'Full graph (graphify)', noCodeMap: 'No code map yet — build the code graph (graphify) first.',
+    statFiles: '{n} files', statModules: '{n} modules', findClass: 'Find a class or file…', uses: 'Uses', usedBy: 'Used by',
+    filesIn: 'Files', packages: 'Packages', modules: 'Modules', coreFiles: 'Most used', coreHelp: 'The files the rest of the code depends on most.',
+    codeHint: 'Click a module to open it, a file to see what it uses and what uses it. Scroll to zoom, drag to move.',
+    noVis: 'The graph library could not load — the lists on the right still work.',
     views: 'Views', 'kind.system': 'System', 'kind.element': 'Containers & components', 'kind.dynamic': 'Flows',
     'kind.deployment': 'Deployment', explorer: 'Full explorer', openExplorer: 'Open in the explorer', readFlow: 'Read the flow',
     viewIn: 'Open in Architecture', c4Missing: 'The interactive diagram is not built yet.', c4Unavailable: 'Interactive diagrams need a newer C4 build — rebuild it.',
@@ -116,6 +121,11 @@ const I18N = {
     files: 'ficheros', rebuild: '↻ Regenerar', build: 'Generar', builtAt: 'generado {when}', stale: 'desactualizado — la fuente cambió desde entonces',
     notBuilt: 'Aún no generado.', noC4: 'Aún no hay modelo C4 — la unidad arch-system escribe docs/architecture/*.c4.',
     noGraph: 'Aún no hay grafo de código.', allRepos: 'Todos los repos (fusionado)', openTab: 'Abrir en otra pestaña',
+    codeTab: 'Código', fullGraph: 'Grafo completo (graphify)', noCodeMap: 'Aún no hay mapa de código: genera antes el grafo de código (graphify).',
+    statFiles: '{n} ficheros', statModules: '{n} módulos', findClass: 'Busca una clase o fichero…', uses: 'Usa', usedBy: 'Lo usan',
+    filesIn: 'Ficheros', packages: 'Paquetes', modules: 'Módulos', coreFiles: 'Los más usados', coreHelp: 'Los ficheros de los que más depende el resto del código.',
+    codeHint: 'Pulsa un módulo para abrirlo y un fichero para ver qué usa y quién lo usa. Rueda para zoom, arrastra para moverte.',
+    noVis: 'No se pudo cargar la librería del grafo; las listas de la derecha siguen funcionando.',
     views: 'Vistas', 'kind.system': 'Sistema', 'kind.element': 'Contenedores y componentes', 'kind.dynamic': 'Flujos',
     'kind.deployment': 'Despliegue', explorer: 'Explorador completo', openExplorer: 'Abrir en el explorador', readFlow: 'Leer el flujo',
     viewIn: 'Abrir en Arquitectura', c4Missing: 'El diagrama interactivo aún no está generado.', c4Unavailable: 'Los diagramas interactivos necesitan un build C4 más reciente: regenéralo.',
@@ -164,6 +174,11 @@ async function api(name, params = {}, body) {
       return params.lang ? { ...en, lang: params.lang, exists: false, raw: '' } : en;
     }
     if (name === 'search') return staticSearch(params.q);
+    if (name === 'codemap') {
+      const r = await fetch(`api/codemap/${encodeURIComponent(params.repo)}.json`);
+      if (!r.ok) throw new Error(r.statusText);
+      return r.json();
+    }
     const r = await fetch(`api/${name}.json`);
     if (!r.ok) throw new Error(r.statusText);
     return r.json();

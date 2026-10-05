@@ -236,4 +236,35 @@ def check_terms(rows: list[dict], strict: bool = False) -> Issues:
     return (found, []) if strict else ([], found)
 
 
-CHECKS = (check_links, check_mermaid, check_secrets, check_terms)
+# ---------- diagrams the page type calls for (CONVENTIONS §5) ----------
+DIAGRAM_RE = re.compile(r"^\s*(?:```|~~~)\s*(mermaid|likec4-view)\b[^\n]*\n\s*(\w[\w-]*)?", re.M)
+LIFECYCLE_RE = re.compile(r"\b(status|state|states|lifecycle|transitions?|estado|estados|ciclo de vida)\b", re.I)
+NEEDS_DIAGRAM = {"data-model": "an erDiagram (or a flowchart of keys and TTLs for a cache)",
+                 "domain": "a diagram (context map or relationships)",
+                 "deployment": "a diagram (or a likec4-view of the deployment)"}
+
+
+def check_diagrams(rows: list[dict], strict: bool = False) -> Issues:
+    """Warnings only: a flow without its sequence, a lifecycle told in prose, a structure page with no picture."""
+    warns = []
+    for r in rows:
+        if r.get("space", "docs") != "docs" or r["path"].endswith("index.md"):
+            continue
+        f = ROOT / r["file"]
+        text = f.read_text(encoding="utf-8", errors="replace")
+        kinds = {(m.group(2) or "") if m.group(1) == "mermaid" else "likec4" for m in DIAGRAM_RE.finditer(text)}
+        kind, where = r["type"], rel_file(f)
+        if kind == "business-flow" and "sequenceDiagram" not in kinds:
+            warns.append(f"{where}: business flow without a sequenceDiagram")
+        elif kind in NEEDS_DIAGRAM and not kinds:
+            warns.append(f"{where}: {kind} page without {NEEDS_DIAGRAM[kind]}")
+        elif r["path"] == "overview/system.md" and not kinds:
+            warns.append(f"{where}: system overview without a diagram (embed the C4 context: likec4-view index)")
+        prose = " ".join(line for _, line in prose_lines(text))
+        if (kind in ("business-flow", "domain", "data-model") and "stateDiagram-v2" not in kinds
+                and len(LIFECYCLE_RE.findall(prose)) >= 3):
+            warns.append(f"{where}: describes a lifecycle (status/state) without a stateDiagram-v2")
+    return [], warns
+
+
+CHECKS = (check_links, check_mermaid, check_secrets, check_terms, check_diagrams)

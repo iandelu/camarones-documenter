@@ -12,12 +12,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from .common import KIT, ROOT, DOCS, CACHE, VERSIONS, out, rel_file
-from . import docs, env, plan, usage
+from . import codemap, docs, env, plan, usage
 
 UI = KIT / "portal" / "live"
 SITE = CACHE / "site"
 UI_LIBS = (("marked", "15.0.12", "lib/marked.umd.js"), ("dompurify", "3.2.6", "dist/purify.min.js"),
-           ("mermaid", "11.4.1", "dist/mermaid.min.js"), ("@highlightjs/cdn-assets", "11.11.1", "highlight.min.js"))
+           ("mermaid", "11.4.1", "dist/mermaid.min.js"), ("@highlightjs/cdn-assets", "11.11.1", "highlight.min.js"),
+           ("vis-network", "9.1.6", "standalone/umd/vis-network.min.js"))     # the code map, loaded on its tab only
 VENDOR_RE = re.compile(r"^/vendor/((?:@[\w.-]+/)?[\w.-]+)@([\w.+-]+)/([\w./+-]+)$")
 STATIC = False
 mimetypes.add_type("text/javascript", ".js")    # Windows may map .js to text/plain in the registry
@@ -46,7 +47,7 @@ def tree() -> dict:
     return {"project": ws["project"]["name"], "langs": ws["project"].get("translations", []), "reviewer": reviewer(),
             "summary": docs.summary(rows), "feedback": len(docs.pending_feedback()), "kit": VERSIONS["kit"],
             "repos": docs.repo_names(), "codeGraphs": list(env.code_graphs()), "engines": env.wiki_engines(),
-            "sections": docs.SECTIONS, "views": env.c4_views(), "editBase": "",
+            "sections": docs.SECTIONS, "views": env.c4_views(), "codeMaps": codemap.available(), "editBase": "",
             "docs": [{k: r[k] for k in ("path", "file", "title", "description", "type", "space", "trust", "owner", "i18n",
                                         "orphan_sources")} for r in rows]}
 
@@ -263,6 +264,9 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(api_search(q))
         if name == "wikis":
             return self.json(env.wikis())
+        if name == "codemap":
+            m = codemap.load(q.get("repo", "")) if q.get("repo") in docs.repo_names() else None
+            return self.json(m) if m else self.json({"error": "no code map"}, 404)
         if name == "viewers":
             return self.json(env.viewers())
         if name == "jobs":

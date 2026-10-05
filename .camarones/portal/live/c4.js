@@ -28,13 +28,13 @@ function drawArchSide(active) {
       ${vs.map((v) => link(`#/c4/${v.id}`, v.title, v.id === active, v.id)).join('')}</div>`).join('')
     + `<div class="group"><div class="group-title">${esc(t('explore'))}</div>
       ${link('#/c4/explorer', '🧭 ' + t('explorer'), active === 'explorer')}
-      ${T.codeGraphs.length || !STATIC ? link('#/c4/code', '🕸️ ' + t('code'), active === 'code') : ''}</div>`;
+      ${(T.codeMaps || []).length || T.codeGraphs.length ? link('#/code', '🧩 ' + t('codeTab'), false) : ''}</div>`;
 }
 
 async function showArch(rest) {
   const [first = '', ...more] = rest.split('/').filter(Boolean);
   drawChrome('c4', { viewer: true });
-  if (first === 'code') { drawArchSide('code'); return showCode(more.join('/')); }
+  if (first === 'code') return location.replace(`#/code/${more.join('/') || 'all'}/graph`);
   const id = first || defaultView();
   drawArchSide(id || 'explorer');
   if (!id || id === 'explorer') return showExplorer();
@@ -78,6 +78,6 @@ async function showCode(repo) {
     : `<span class="muted small">${esc(t('noGraph'))}</span>`;
   $('#main').innerHTML = viewerBar([`<b>${esc(t('code'))}</b>`, sel, state, g ? `<a href="${src}" target="_blank" rel="noopener">${esc(t('openTab'))} ↗</a>` : ''],
     v.graphify ? (names.length ? t('rebuild') : t('build')) : '') + (g ? `<iframe class="viewer" src="${src}" title="code graph"></iframe>` : '');
-  $('#v-repo')?.addEventListener('change', (e) => { location.hash = `#/c4/code/${e.target.value}`; });
+  $('#v-repo')?.addEventListener('change', (e) => { location.hash = `#/code/${e.target.value}/graph`; });
   bindBuild('graph');
 }
