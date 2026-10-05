@@ -101,8 +101,9 @@ function c4Box(id) {
   return d;
 }
 
-// Mermaid draws at 100% of the column, so a wide sequence shrinks to unreadable: keep its natural size (the figure
-// scrolls) and let a click open it full screen with zoom and pan.
+// Mermaid draws at 100% of the column, so a wide sequence shrinks to unreadable. Shrink at most to MIN_SCALE of
+// its natural size (text stays legible), scroll beyond that, and let a click open it full screen with zoom and pan.
+const MIN_SCALE = 0.65;
 async function drawMermaid(root) {
   const nodes = $$('.mermaid', root);
   if (!nodes.length || !window.mermaid) return;
@@ -110,7 +111,11 @@ async function drawMermaid(root) {
   nodes.forEach((n) => {
     const svg = $('svg', n);
     const natural = svg && parseFloat(svg.style.maxWidth);
-    if (natural) { svg.style.width = `${natural}px`; svg.style.maxWidth = 'none'; svg.removeAttribute('width'); }
+    if (!natural) return;
+    const room = n.parentElement.clientWidth - 32;
+    svg.style.width = `${Math.round(natural <= room ? natural : Math.max(room, natural * MIN_SCALE))}px`;
+    svg.style.maxWidth = 'none';
+    svg.removeAttribute('width');
   });
 }
 
