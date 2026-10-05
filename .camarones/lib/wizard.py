@@ -8,6 +8,7 @@ import questionary
 from questionary import Choice, Separator, Style
 from prompt_toolkit.key_binding import KeyBindings, merge_key_bindings
 from rich import box
+from rich.cells import cell_len
 from rich.console import Console, Group
 from rich.live import Live
 import threading
@@ -32,6 +33,7 @@ STEPS = ("name", "repos", "tools", "setup", "stack", "arch", "intro")   # first-
 LEGACY_STEPS = ("name", "repos", "tools", "setup", "arch", "intro")     # firstrun.json before 3.3 kept only the index
 JOIN_STEPS = ("tools", "setup", "intro")   # joining a team's cam-docs: the rest is shared and already decided
 ORANGE = "#ff7a2f"
+MENU_LABELS = {"arch": "a_menu", "stack": "sk_menu", "creds": "k_menu"}   # menu actions whose label is not m_<action>
 BACK = "__back__"   # questionary replaces a None value with the title, so use a sentinel
 EXTRA_REVIEWS = {   # opt-in unit types: uid -> deps required to be `done` before offering it
     "security-review": ["arch-system", "domain", "data", "deployment"],
@@ -139,6 +141,11 @@ T = {
         "m_model": "🧠 Modelo de IA",
         "m_lang": "🌍 Idioma / Language",
         "m_exit": "🚪 Salir",
+        "s_docs": "🗂  Plan y documentación", "s_team": "👥 Equipo", "s_settings": "⚙️  Ajustes",
+        "s_short": {"plan": "plan", "status": "estado", "redo": "rehacer", "arch": "diagrama", "stack": "stack",
+                    "extra": "revisiones extra", "team": "cuestionario", "stats": "estadísticas", "ci": "CI",
+                    "repos": "repos", "creds": "tokens", "setup": "entorno", "model": "modelo IA", "lang": "idioma",
+                    "kitupdate": "actualizar", "uninstall": "deshacer"},
         "extra_pick": "Marca las revisiones opcionales que quieres añadir al plan (beta — revisa sus hallazgos con ojo crítico; espacio para marcar):",
         "extra_need": "necesita arch-system/domain/data/deployment",
         "extra_added": "{n} revisión(es) añadida(s) al plan.",
@@ -481,6 +488,11 @@ T = {
         "m_model": "🧠 AI model",
         "m_lang": "🌍 Idioma / Language",
         "m_exit": "🚪 Exit",
+        "s_docs": "🗂  Plan & docs", "s_team": "👥 Team", "s_settings": "⚙️  Settings",
+        "s_short": {"plan": "plan", "status": "status", "redo": "redo", "arch": "diagram", "stack": "stack",
+                    "extra": "extra reviews", "team": "questionnaire", "stats": "stats", "ci": "CI",
+                    "repos": "repos", "creds": "tokens", "setup": "environment", "model": "AI model", "lang": "language",
+                    "kitupdate": "update", "uninstall": "undo"},
         "extra_pick": "Tick the optional reviews you want to add to the plan (beta — verify their findings critically; space to tick):",
         "extra_need": "needs arch-system/domain/data/deployment",
         "extra_added": "{n} review(s) added to the plan.",
@@ -906,6 +918,14 @@ class W:
         console.print(Panel(tbl, border_style=ORANGE))
 
     # ---------- main loop ----------
+    def menu_sections(self) -> dict[str, list[str]]:
+        """Everything that is not daily work, grouped so the main menu stays one screen tall."""
+        return {
+            "s_docs": ["plan", "status", "redo", "arch", "stack"] + (["extra"] if self.extra_ready() else []),
+            "s_team": (["team"] if self.team_ready() else []) + ["stats", "ci"],
+            "s_settings": ["repos", "creds", "setup", "model", "lang", "kitupdate", "uninstall"],
+        }
+
     def run(self) -> None:
         if not sys.stdin.isatty():
             print(self.t("no_tty", cli=cli_cmd()))
@@ -941,25 +961,36 @@ class W:
         while True:
             self.banner()
             self.dashboard()
-            doing = [u for u in plan.load()["units"] if u["status"] == "doing" and u["runner"] == "agent"]
+            data = plan.load()
+            doing = [u for u in data["units"] if u["status"] == "doing" and u["runner"] == "agent"]
             n_rev = len(docs.review_queue()) if (ROOT / "docs").exists() else 0
+            sections = self.menu_sections()
             choices = [Choice(self.t("m_resume", u=doing[0]["id"]), "resume")] if doing else []
             choices += [
-                Choice(self.t("m_next"), "next"), Choice(self.t("m_plan"), "plan"), Choice(self.t("m_redo"), "redo"),
+                Choice(self.t("m_next"), "next"),
                 Choice(self.t("m_review") + (f"  ({n_rev})" if n_rev else ""), "review"),
-                Choice(self.t("m_portal"), "portal"), Choice(self.t("m_wikis"), "wikis"), Choice(self.t("m_status"), "status"), Choice(self.t("m_update"), "update"),
-                Choice(self.t("a_menu"), "arch"), Choice(self.t("sk_menu"), "stack"), Choice(self.t("m_repos"), "repos"), Choice(self.t("k_menu"), "creds"),
-                Choice(self.t("m_share"), "share"), Choice(self.t("m_stats"), "stats"),
-                Choice(self.t("m_setup"), "setup"), Choice(self.t("m_ci"), "ci")]
-            if self.extra_ready():
-                choices.append(Choice(self.t("m_extra"), "extra"))
-            if self.team_ready():
-                choices.append(Choice(self.t("m_team"), "team"))
-            choices += [
-                Choice(self.t("m_kitupdate"), "kitupdate"),
-                Choice(self.t("m_tutorial"), "tutorial"), Choice(self.t("m_uninstall"), "uninstall"),
-                Choice(self.t("m_model"), "model"), Choice(self.t("m_lang"), "lang"), Choice(self.t("m_exit"), "exit")]
-            choice = self.sel(self.t("menu"), back=False, choices=choices)
+                Choice(self.t("m_portal"), "portal"), Choice(self.t("m_wikis"), "wikis"),
+                Choice(self.t("m_update"), "update"), Choice(self.t("m_share"), "share"), Separator(" ")]
+            short, width = self.t("s_short"), max(cell_len(self.t(k)) for k in sections)
+            choices += [Choice(self.t(k) + " " * (width - cell_len(self.t(k))) + " ›  " + " · ".join(short[a] for a in acts), k)
+                        for k, acts in sections.items()]
+            choices += [Separator(" "), Choice(self.t("m_tutorial"), "tutorial"), Choice(self.t("m_exit"), "exit")]
+            if doing:
+                default = "resume"
+            elif any(u["status"] != "doing" for u in plan.available(data)):
+                default = "next"
+            else:
+                default = "review" if n_rev else "portal"
+            choice = self.sel(self.t("menu"), back=False, choices=choices, default=default)
+            if choice in sections:
+                self.banner()
+                acts = sections[choice]
+                sub = [Choice(self.t(MENU_LABELS.get(a, f"m_{a}")), a) for a in acts if a != "uninstall"]
+                if "uninstall" in acts:
+                    sub += [Separator(" "), Choice(self.t("m_uninstall"), "uninstall")]
+                choice = self.sel(self.t(choice), sub)
+                if choice is None:                  # Esc in a section: back to the main menu, not out of Camarón
+                    continue
             if choice not in (None, "exit"):
                 usage.record(f"wizard:{choice}")
             if choice == "resume":

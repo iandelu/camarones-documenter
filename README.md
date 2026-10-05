@@ -124,7 +124,7 @@ Si ya tienes el repo clonado, `sh install-global.sh` o `.\install-global.cmd` ha
 
 Esto clona el kit oficial de GitHub a una ruta fija (`%LOCALAPPDATA%\camarones-documenter\kit` en Windows, `~/.camarones/kit` en macOS/Linux) y deja el comando `camaron` en tu PATH. El antiguo `camarones` continúa como alias compatible durante la transición. Para instalar desde un fork o desde tu copia local mientras desarrollas el kit, define `CAMARONES_KIT_URL` antes de lanzar el instalador.
 
-**Actualizar.** En el asistente, **⬆️ Actualizar Camarón** comprueba si hay versión nueva, te la ofrece y reinicia el asistente ya actualizado. Desde la terminal es `camaron self-update`. Las instalaciones anteriores a la 3.8, que seguían la carpeta desde la que se instalaron, pasan solas a seguir el kit oficial. Desde ahí:
+**Actualizar.** En el asistente, **⚙️ Ajustes › ⬆️ Actualizar Camarón** comprueba si hay versión nueva, te la ofrece y reinicia el asistente ya actualizado. Desde la terminal es `camaron self-update`. Las instalaciones anteriores a la 3.8, que seguían la carpeta desde la que se instalaron, pasan solas a seguir el kit oficial. Desde ahí:
 
 ```sh
 cd ~/Documents/mi-proyecto   # la carpeta que agrupa (o agrupará) los repos
@@ -134,7 +134,7 @@ camaron join <url>         # únete al cam-docs de tu equipo: lo clona aquí o r
 camaron share              # trae lo último del equipo y publica tu trabajo (solo cuando lo pides)
 camaron share --auto on    # o publica solo tras cada checkpoint (en este equipo)
 camaron switch             # cambia entre tus proyectos
-camaron self-update        # trae el kit oficial al día — actualiza todos los proyectos a la vez (en el asistente: ⬆️ Actualizar Camarón)
+camaron self-update        # trae el kit oficial al día — actualiza todos los proyectos a la vez (en el asistente: ⚙️ Ajustes › ⬆️ Actualizar Camarón)
 camaron migrate            # pasa un proyecto de la estructura anterior (≤2.5) a cam-docs/
 camaron uninstall           # lo deshace todo: borra cam-docs/ (con copia .zip) y los rastros en los repos
 ```
@@ -305,7 +305,7 @@ Para publicarlo (CI / hosting), `camaron portal` exporta la misma aplicación en
 
 ### Mide si le sirve al equipo
 
-**📊 Estadísticas de uso del equipo** en el menú (o `camaron stats`, con `--json` o `--months N`) resume, mes a mes, cuántas personas lo usan, las consultas de agentes (MCP) y de personas (portal), las búsquedas sin resultado, los cambios en la documentación y sus autores, las páginas más leídas y las que nadie lee, las funciones más usadas y la salud de los docs. Solo guarda contadores, nunca el texto de las búsquedas, con el usuario cifrado, en `docs/.work/usage/` (un fichero por persona y máquina, así que no hay conflictos). Viajan con `cam-docs` al compartir, así que el informe junta a todo el equipo. El setup pregunta si activarlas. En proyectos que ya existían quedan activadas al actualizar y se avisa una vez. Cada máquina decide con `camaron stats --record on|off`.
+**👥 Equipo › 📊 Estadísticas de uso del equipo** en el menú (o `camaron stats`, con `--json` o `--months N`) resume, mes a mes, cuántas personas lo usan, las consultas de agentes (MCP) y de personas (portal), las búsquedas sin resultado, los cambios en la documentación y sus autores, las páginas más leídas y las que nadie lee, las funciones más usadas y la salud de los docs. Solo guarda contadores, nunca el texto de las búsquedas, con el usuario cifrado, en `docs/.work/usage/` (un fichero por persona y máquina, así que no hay conflictos). Viajan con `cam-docs` al compartir, así que el informe junta a todo el equipo. El setup pregunta si activarlas. En proyectos que ya existían quedan activadas al actualizar y se avisa una vez. Cada máquina decide con `camaron stats --record on|off`.
 
 ### Mantenlo al día
 
@@ -321,7 +321,7 @@ Se incluyen [plantillas de CI para GitHub y GitLab](.camarones/ci/) para automat
 
 ### Deshazlo todo
 
-El menú del asistente tiene **🧹 Deshacer todo** (o `camaron uninstall`, con `--dry-run` para ver la lista sin tocar nada). Detiene el portal, guarda una copia `.zip` de `cam-docs/` en la carpeta temporal, quita de cada repo lo que añadió el kit (el enlace `openwiki`, su línea en `.git/info/exclude`, el bloque en `CLAUDE.md` y restos de versiones antiguas), elimina los enlaces de la carpeta del workspace y borra `cam-docs/` y su entrada del registro. Los repos quedan como en su último commit: un fichero versionado vuelve a su contenido de HEAD y nunca se toca el historial. Pide escribir el nombre del proyecto para confirmar. Con la casilla de usuario (o `--global`) limpia también `~/.camarones.json`, `~/.camarones/` y los tokens guardados; no desinstala herramientas globales ni el propio kit.
+El menú del asistente tiene **⚙️ Ajustes › 🧹 Deshacer todo** (o `camaron uninstall`, con `--dry-run` para ver la lista sin tocar nada). Detiene el portal, guarda una copia `.zip` de `cam-docs/` en la carpeta temporal, quita de cada repo lo que añadió el kit (el enlace `openwiki`, su línea en `.git/info/exclude`, el bloque en `CLAUDE.md` y restos de versiones antiguas), elimina los enlaces de la carpeta del workspace y borra `cam-docs/` y su entrada del registro. Los repos quedan como en su último commit: un fichero versionado vuelve a su contenido de HEAD y nunca se toca el historial. Pide escribir el nombre del proyecto para confirmar. Con la casilla de usuario (o `--global`) limpia también `~/.camarones.json`, `~/.camarones/` y los tokens guardados; no desinstala herramientas globales ni el propio kit.
 
 ## Las piezas del kit
 

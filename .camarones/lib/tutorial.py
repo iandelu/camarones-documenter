@@ -38,7 +38,27 @@ PAGES = {
                  "en unidades pequeñas. Cada vez que eliges «🦐 Siguiente paso» se abre una sesión que hace UNA unidad. "
                  "La IA guarda checkpoints mientras trabaja: si cierras la terminal o el portátil, la próxima vez aparece "
                  "«▶ Continuar» y retoma desde el último checkpoint. Al terminar cada unidad se hace un commit local en "
-                 "cam-docs para que nada se pierda (el push lo decides tú)."},
+                 "cam-docs para que nada se pierda; «🤝 Compartir con el equipo» (o `camaron share`) trae el trabajo del "
+                 "equipo y publica el tuyo cuando tú decides."},
+        {"icon": "🗂", "title": "El menú: lo de cada día arriba, lo demás por secciones",
+         "art": r"""
+   Que hacemos?
+   > Siguiente paso (sesion con IA)   <- el cursor ya esta en lo recomendado
+     Revisar y verificar paginas (3)
+     Portal  /  Wikis  /  Actualizar  /  Compartir
+
+     Plan y documentacion  >   plan, estado, rehacer, diagrama, stack
+     Equipo                >   cuestionario, estadisticas, CI
+     Ajustes               >   repos, tokens, entorno, modelo IA, idioma, actualizar, deshacer
+
+     Tutorial  /  Salir                 Esc = un nivel atras""",
+         "text": "Arriba está solo lo que usas cada día, y el cursor ya apunta a lo recomendado (continuar lo que quedó a "
+                 "medias, el siguiente paso o revisar), así que muchas veces basta con Enter. Lo demás vive en tres "
+                 "secciones: «Plan y documentación» (ver el plan, el estado, rehacer un paso, el diagrama rápido y el "
+                 "stack de cada repo), «Equipo» (cuestionario, estadísticas de uso y CI) y «Ajustes» (repos, tokens, "
+                 "instalar o reparar el entorno, modelo de IA, idioma, actualizar Camarón y deshacer todo). Al lado de "
+                 "cada sección ves qué hay dentro. Esc vuelve un nivel atrás; en el menú principal te pregunta antes "
+                 "de salir."},
         {"icon": "🤖", "title": "Claude Code / Codex: tu IA",
          "art": r"""
         +-----------------------------+
@@ -190,7 +210,9 @@ PAGES = {
    carpeta del proyecto ---X---> token         (nunca se escribe)""",
          "text": "Si tus repos son privados, Camarones necesita un token para clonarlos y actualizarlos. Se guarda en el "
                  "llavero de tu sistema operativo y solo lo usa Camarones en sus propios comandos git: no se escribe en el "
-                 "proyecto, ni en git config, ni se comparte con Claude, Codex u otros terceros."},
+                 "proyecto, ni en git config, ni se comparte con Claude, Codex u otros terceros. Al unirte al repo de "
+                 "cam-docs de un equipo, Camarones prueba primero con tu propio git (llavero, gestor de credenciales, "
+                 "claves SSH) y solo te pide un token si eso no entra. Los gestionas en «Ajustes › Tokens»."},
         {"icon": "⚙️", "title": "CI: documentación que se actualiza sola",
          "art": r"""
    git push --> pipeline (GitLab CI / GitHub Actions)
@@ -201,8 +223,8 @@ PAGES = {
                   +-- exporta el portal (camaron portal) --> imagen nginx / Pages""",
          "text": "Opcional: un pipeline que, tras cada cambio en los repos o en cam-docs, actualiza la documentación "
                  "afectada y publica el portal de solo lectura. Así, un merge request hecho desde «Editar» del portal "
-                 "desplegado aparece publicado al fusionarse. También se puede hacer a mano con «🔄 Actualizar doc tras "
-                 "cambios» y «📦 Exportar el portal»."},
+                 "desplegado aparece publicado al fusionarse. Se configura en «Equipo › CI». También se puede hacer a mano "
+                 "con «🔄 Actualizar doc tras cambios» y «🌐 Portal › 📦 Exportar el portal»."},
         {"icon": "🧰", "title": "Piezas de apoyo",
          "art": r"""
    uv        -> ejecuta Camarones (Python) sin instalar nada mas
@@ -217,13 +239,20 @@ PAGES = {
                  "ventana la primera vez."},
         {"icon": "🗺", "title": "Tu día a día",
          "art": r"""
-   1. camarones                -> abre el asistente del proyecto (cam-docs)
-   2. 🦐 Siguiente paso        -> una sesion de IA hace la siguiente unidad
-   3. 🌐 Portal (camaron up) -> leer, editar, confirmar o pedir cambios
-   4. 📚 Wikis                 -> crear o refrescar la wiki de un repo
-   5. 🔄 Actualizar            -> cuando cambie el codigo
-   6. git push en cam-docs     -> compartir con el equipo""",
-         "text": "Con esto basta. Puedes parar cuando quieras: el progreso se guarda solo. Esc siempre vuelve atrás."},
+   1. camarones              -> abre el asistente del proyecto (cam-docs)
+   2. Siguiente paso         -> una sesion de IA hace la siguiente unidad
+   3. Portal (camaron up)    -> leer, editar, confirmar o pedir cambios
+   4. Wikis                  -> crear o refrescar la wiki de un repo
+   5. Actualizar             -> cuando cambie el codigo
+   6. Compartir              -> traer lo del equipo y publicar lo tuyo""",
+         "text": "Con esto basta, y todo está en la parte de arriba del menú. Puedes parar cuando quieras: el progreso "
+                 "se guarda solo. Esc siempre vuelve atrás.\n\n"
+                 "¿Hay un Camarón nuevo? «Ajustes › ⬆️ Actualizar Camarón» (o `camaron self-update`) mira el kit "
+                 "oficial, te dice qué ha cambiado y, si le dices que sí, lo actualiza para todos los proyectos de esta "
+                 "máquina y reinicia el asistente. Tus proyectos y tu documentación no se tocan.\n\n"
+                 "¿Quieres empezar de cero? «Ajustes › 🧹 Deshacer todo» (o `camaron uninstall`) guarda una copia .zip "
+                 "de cam-docs/, lo borra y quita todo rastro del kit de los repos y de la carpeta del workspace. Los "
+                 "repos quedan exactamente como en su último commit."},
     ],
     "en": [
         {"icon": "🦐", "title": "Camarón: the big picture",
@@ -259,7 +288,26 @@ PAGES = {
          "text": "Documenting a project in depth doesn't fit in one AI conversation, so the work is split into small units. "
                  "Every “🦐 Next step” opens a session that does ONE unit. The AI saves checkpoints while it works: if you "
                  "close the terminal or the laptop, next time you get “▶ Continue” and it resumes from the last checkpoint. "
-                 "Each finished unit is committed locally in cam-docs so nothing is lost (you decide when to push)."},
+                 "Each finished unit is committed locally in cam-docs so nothing is lost; “🤝 Share with the team” (or "
+                 "`camaron share`) pulls the team's work and publishes yours when you decide."},
+        {"icon": "🗂", "title": "The menu: daily work on top, the rest in sections",
+         "art": r"""
+   What shall we do?
+   > Next step (AI session)           <- the cursor is already on the recommended one
+     Review & verify pages (3)
+     Portal  /  Wikis  /  Update  /  Share
+
+     Plan & docs           >   plan, status, redo, diagram, stack
+     Team                  >   questionnaire, stats, CI
+     Settings              >   repos, tokens, environment, AI model, language, update, undo
+
+     Tutorial  /  Exit                  Esc = one level back""",
+         "text": "On top there is only what you use every day, and the cursor already points at the recommended action "
+                 "(continue what was left half done, the next step, or review), so often Enter is all it takes. The rest "
+                 "lives in three sections: “Plan & docs” (the plan, status, redo a step, the quick diagram and each "
+                 "repo's stack), “Team” (questionnaire, usage stats and CI) and “Settings” (repos, tokens, install or "
+                 "repair the environment, AI model, language, update Camarón and undo everything). Next to each section "
+                 "you see what is inside. Esc goes one level back; on the main menu it asks before leaving."},
         {"icon": "🤖", "title": "Claude Code / Codex: your AI",
          "art": r"""
         +-----------------------------+
@@ -410,7 +458,9 @@ PAGES = {
    project folder  ---X--->  token             (never written there)""",
          "text": "If your repos are private, Camarones needs a token to clone and update them. It is stored in your OS "
                  "keychain and used only by Camarones' own git commands: never written to the project or git config, "
-                 "never shared with Claude, Codex or other third parties."},
+                 "never shared with Claude, Codex or other third parties. When you join a team's cam-docs repo, Camarones "
+                 "first tries your own git (keychain, credential manager, SSH keys) and asks for a token only if that is "
+                 "refused. Manage them in “Settings › Tokens”."},
         {"icon": "⚙️", "title": "CI: docs that update themselves",
          "art": r"""
    git push --> pipeline (GitLab CI / GitHub Actions)
@@ -421,7 +471,8 @@ PAGES = {
                   +-- exports the portal (camaron portal) --> nginx image / Pages""",
          "text": "Optional: a pipeline that, after each change in the repos or in cam-docs, updates the affected docs and "
                  "publishes the read-only portal. So a merge request opened from the deployed portal's “Edit” shows up "
-                 "once merged. You can also do it by hand with “🔄 Update docs after changes” and “📦 Export the portal”."},
+                 "once merged. Set it up in “Team › CI”. You can also do it by hand with “🔄 Update docs after changes” and "
+                 "“🌐 Portal › 📦 Export the portal”."},
         {"icon": "🧰", "title": "Supporting pieces",
          "art": r"""
    uv        -> runs Camarones (Python) without installing anything else
@@ -435,13 +486,20 @@ PAGES = {
                  "and gitleaks) comes with the full install; mermaid-cli downloads a headless Chromium the first time."},
         {"icon": "🗺", "title": "Your day to day",
          "art": r"""
-   1. camarones                -> opens the project's wizard (cam-docs)
-   2. 🦐 Next step             -> an AI session does the next unit
-   3. 🌐 Portal (camaron up) -> read, edit, confirm or request changes
-   4. 📚 Wikis                 -> create or refresh a repo's wiki
-   5. 🔄 Update                -> when the code changes
-   6. git push in cam-docs     -> share it with the team""",
-         "text": "That's all. Stop whenever you like: progress saves itself. Esc always goes back."},
+   1. camarones              -> opens the project's wizard (cam-docs)
+   2. Next step              -> an AI session does the next unit
+   3. Portal (camaron up)    -> read, edit, confirm or request changes
+   4. Wikis                  -> create or refresh a repo's wiki
+   5. Update                 -> when the code changes
+   6. Share                  -> pull the team's work and publish yours""",
+         "text": "That's all, and it is all on the top part of the menu. Stop whenever you like: progress saves itself. "
+                 "Esc always goes back.\n\n"
+                 "Is there a new Camarón? “Settings › ⬆️ Update Camarón” (or `camaron self-update`) checks the official "
+                 "kit, tells you what changed and, if you say yes, updates it for every project on this machine and "
+                 "restarts the wizard. Your projects and documentation are not touched.\n\n"
+                 "Want to start over? “Settings › 🧹 Undo everything” (or `camaron uninstall`) zips cam-docs/ as a "
+                 "backup, deletes it, and removes every trace of the kit from the repos and the workspace folder. The "
+                 "repos end up exactly as in their last commit."},
     ],
 }
 

@@ -1,8 +1,10 @@
 """Wizard flows driven with queued answers (no terminal): menus must survive every state of the project."""
 from __future__ import annotations
 
+import re
+
 import pytest
-from questionary import Choice
+from questionary import Choice, Separator
 
 
 @pytest.fixture(autouse=True)
@@ -177,3 +179,80 @@ def test_kit_update_failure_is_reported_not_raised(kit, fake_wizard, monkeypatch
     monkeypatch.setattr(kit.wizard.upgrade, "check", offline)
     fake_wizard([]).do_kitupdate()
     assert "could not reach the kit" in said[0]
+
+
+# ---------- main menu: daily actions on top, the rest in sections ----------
+@pytest.fixture
+def menu(kit, monkeypatch):
+    """Drives _run with queued answers and records every list it showed: [(msg, values, default)]."""
+    kit.common.save_json(kit.wizard.FIRSTRUN, {"step": 6, "done": True})
+    kit.plan.sync()
+    shown, ran = [], []
+    W = kit.wizard.W
+    monkeypatch.setattr(W, "banner", lambda self, *a, **kw: None)
+    monkeypatch.setattr(W, "pause", lambda self: None)
+    for name in ("plan", "status", "uninstall", "next"):
+        monkeypatch.setattr(W, f"do_{name}", lambda self, n=name: ran.append(n))
+
+    def drive(answers):
+        q = list(answers)
+
+        def sel(self, msg, choices, back=True, default=None):
+            shown.append((msg, [c.value for c in choices if not isinstance(c, Separator)], default))
+            return q.pop(0)
+        monkeypatch.setattr(W, "sel", sel)
+        monkeypatch.setattr(W, "yes", lambda self, *a, **kw: q.pop(0))
+        W()._run()
+        return shown, ran
+    return drive
+
+
+def test_main_menu_is_short_and_reaches_every_action(kit, menu):
+    shown, _ = menu(["exit"])
+    main = shown[0][1]
+    assert len(main) <= 12
+    w = kit.wizard.W()
+    reachable = set(main) | {a for acts in w.menu_sections().values() for a in acts}
+    handlers = {n[3:] for n in dir(w) if n.startswith("do_")} - {"confirm", "answers", "autopilot", "extra", "team"}   # sub-flows or conditional
+    assert handlers <= reachable
+
+
+def test_section_opens_a_submenu_and_runs_the_action(menu):
+    shown, ran = menu(["s_docs", "status", "exit"])
+    assert ran == ["status"]
+    assert "status" in shown[1][1] and "status" not in shown[0][1]
+
+
+def test_escape_in_a_submenu_goes_back_to_the_main_menu(menu):
+    shown, ran = menu(["s_settings", None, "exit"])
+    assert ran == [] and len(shown) == 3
+
+
+def test_destructive_actions_live_in_settings_last(kit, menu):
+    shown, _ = menu(["s_settings", None, "exit"])
+    assert "uninstall" not in shown[0][1]
+    assert shown[1][1][-1] == "uninstall"
+
+
+def test_main_menu_points_at_the_next_step(menu):
+    shown, _ = menu(["exit"])
+    assert shown[0][2] == "next"
+
+
+# ---------- tutorial ----------
+def test_tutorial_md_is_generated_from_the_wizard_pages(kit):
+    md = (kit.kit_dir / "TUTORIAL.md").read_text(encoding="utf-8")
+    assert md == kit.wizard.tutorial.markdown()
+
+
+def test_tutorial_has_the_same_pages_in_both_languages(kit):
+    P = kit.wizard.tutorial.PAGES
+    assert [p["icon"] for p in P["es"]] == [p["icon"] for p in P["en"]]
+
+
+@pytest.mark.parametrize("lang", ["es", "en"])
+def test_tutorial_names_the_menu_sections(kit, lang):
+    T, P = kit.wizard.T[lang], kit.wizard.tutorial.PAGES[lang]
+    text = "\n".join(p["art"] + p["text"] for p in P)
+    for key in ("s_docs", "s_team", "s_settings"):
+        assert re.sub(r"^\W+", "", T[key]) in text
