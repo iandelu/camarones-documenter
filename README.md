@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.2.0-ff875f?style=flat-square" alt="Versión 3.2.0">
+  <img src="https://img.shields.io/badge/version-3.13.0-ff875f?style=flat-square" alt="Versión 3.13.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -49,7 +49,7 @@ Camarón te habla como tu becario gamba al que has mandado a documentar: con gan
 3. **Las personas consultan, editan y verifican** la documentación en el portal vivo (`camaron up`) o con la CLI.
 4. **La IA tiene la documentación a mano al implementar**: servidor MCP `camarones` (`search_docs` con ranking, `read_doc`, `repo_graph`…), servidor MCP `likec4` para preguntar al modelo de arquitectura, ambos en Claude Code y en Codex, y skills `cam-docs-lookup` / `cam-docs-update`.
 5. **Documentación viva y revisada**: el código y la doc cambian juntos; `changes`, `check` y la trazabilidad `x-sources` señalan lo que quedó atrás, y `check` además detecta enlaces rotos, diagramas que no se dibujan, secretos copiados y términos que el glosario pide evitar.
-6. **Todo vive en `cam-docs/`**, una carpeta junto a tus repos que es su propio repo Git: docs, `.camarones`, `.claude`, `.codex`, `.agents`, `.mcp.json`. Los repos de servicio no reciben archivos del kit.
+6. **Todo vive en `cam-docs/`**, una carpeta junto a tus repos que es su propio repo Git: docs, `.camarones`, `.claude`, `.codex`, `.agents`, `.mcp.json`. Los repos de servicio no reciben archivos del kit, y la configuración de agentes que llega del equipo solo se carga cuando la apruebas en tu máquina.
 
 ## Mira cómo funciona
 
@@ -94,6 +94,7 @@ Camarón te habla como tu becario gamba al que has mandado a documentar: con gan
 - **Un primer mapa sin IA.** `arch-draft` realiza un análisis estático y propone un borrador C4 que después hay que verificar.
 - **Aprovecha lo que ya usáis.** `radar` detecta el stack de cada repo y sus herramientas (Backstage, Sonar, librería de componentes, linters, contratos, CI) y lo deja en `docs/overview/tooling.md`; `stack` corrige un stack mal detectado.
 - **Control de calidad en cada unidad.** Enlaces rotos y diagramas Mermaid inválidos son errores; un posible secreto bloquea el commit de checkpoint, la exportación del portal y la rama de CI, sin mostrar nunca su valor.
+- **Nada se ejecuta a ciegas.** Los hooks, servidores MCP, ajustes y skills que llegan con el `cam-docs` del equipo y que no ha escrito el kit se te enseñan antes de que los carguen Claude Code o Codex; las aprobaciones son de tu máquina y ningún push puede darlas por ti.
 
 ## Empieza aquí
 
@@ -324,7 +325,7 @@ Se incluyen [plantillas de CI para GitHub y GitLab](.camarones/ci/) para automat
 
 ### Deshazlo todo
 
-El menú del asistente tiene **⚙️ Ajustes › 🧹 Deshacer todo** (o `camaron uninstall`, con `--dry-run` para ver la lista sin tocar nada). Detiene el portal, guarda una copia `.zip` de `cam-docs/` en la carpeta temporal, quita de cada repo lo que añadió el kit (el enlace `openwiki`, su línea en `.git/info/exclude`, el bloque en `CLAUDE.md` y restos de versiones antiguas), elimina los enlaces de la carpeta del workspace y borra `cam-docs/` y su entrada del registro. Los repos quedan como en su último commit: un fichero versionado vuelve a su contenido de HEAD y nunca se toca el historial. Pide escribir el nombre del proyecto para confirmar. Con la casilla de usuario (o `--global`) limpia también `~/.camarones.json`, `~/.camarones/` y los tokens guardados; no desinstala herramientas globales ni el propio kit.
+El menú del asistente tiene **⚙️ Ajustes › 🧹 Deshacer todo** (o `camaron uninstall`, con `--dry-run` para ver la lista sin tocar nada). Detiene el portal, guarda una copia `.zip` de `cam-docs/` en la carpeta temporal, quita de cada repo lo que añadió el kit (el enlace `openwiki`, su línea en `.git/info/exclude`, el bloque en `CLAUDE.md` y restos de versiones antiguas), elimina los enlaces de la carpeta del workspace y borra `cam-docs/`, su entrada del registro y las aprobaciones de su configuración de agentes en `~/.camarones/trust/`. Los repos quedan como en su último commit: un fichero versionado vuelve a su contenido de HEAD y nunca se toca el historial. Pide escribir el nombre del proyecto para confirmar. Con la casilla de usuario (o `--global`) limpia también `~/.camarones.json`, `~/.camarones/` y los tokens guardados; no desinstala herramientas globales ni el propio kit.
 
 ## Las piezas del kit
 
@@ -358,10 +359,6 @@ Además, no deja archivos en los repos de servicio y sirve igual con Claude Code
 | mermaid-cli 12 | Usa mermaid 12 y el portal dibuja con mermaid 11: se fija mermaid-cli 11.x para validar con el mismo motor. |
 | `npx skills add` (skill de LikeC4) | Canal de distribución sin versión fija. El servidor MCP de LikeC4 sí está integrado; la skill queda pendiente hasta poder guardar una copia revisada. |
 
-## Documentación pensada primero para agentes (propuesta)
-
-La propuesta es que los documentos que escriben las unidades del plan estén pensados primero para que los lea un agente de IA y después para las personas. Cada página empezaría con un resumen breve (TL;DR), tendría secciones que se entienden sin leer el resto, nombres exactos de endpoints, tablas y topics, la evidencia junto a cada afirmación y un tamaño máximo. `check` avisaría de lo que no cumpla. La propuesta completa, con los cambios en los prompts, las plantillas por tipo de página, el check nuevo, `llms-full.txt` y la lectura por secciones en el MCP, está en [ai-first-docs.md](docs/research/ai-first-docs.md). **Todavía no está implementada.**
-
 **Descartadas en el análisis:**
 
 | Herramientas | Por qué no |
@@ -382,7 +379,13 @@ La propuesta es que los documentos que escriben las unidades del plan estén pen
 | mani, gita | `workspace.yaml` y `sync` ya gestionan los repos. |
 | GitHub Spec Kit, Task Master | Otro objetivo: construir funcionalidades, no documentar. |
 
+**Ideas de otros kits.** [ecc-comparison.md](docs/research/ecc-comparison.md) compara Camarón con [ECC](https://ecc.tools) (Everything Claude Code): en qué ya es mejor Camarón, doce ideas que merece la pena tomar (X1–X12) y lo que no conviene copiar. La primera, aprobar la configuración de agentes del equipo antes de enlazarla (`camaron trust`), ya está en el kit 3.13.0.
+
 **Aplazadas, no descartadas:** codebase-memory-mcp o GitNexus (grafo de código con impacto entre repos), tbls (esquema real de las bases de datos), el service graph de OpenTelemetry (relaciones observadas en producción) y CodeWiki (wikis de repos muy grandes). Merecen una prueba en un proyecto real antes de decidir. El resto de candidatas marcadas como «worth a look» siguen en el análisis sin decisión.
+
+## Documentación pensada primero para agentes (propuesta)
+
+La propuesta es que los documentos que escriben las unidades del plan estén pensados primero para que los lea un agente de IA y después para las personas. Cada página empezaría con un resumen breve (TL;DR), tendría secciones que se entienden sin leer el resto, nombres exactos de endpoints, tablas y topics, la evidencia junto a cada afirmación y un tamaño máximo. `check` avisaría de lo que no cumpla. La propuesta completa, con los cambios en los prompts, las plantillas por tipo de página, el check nuevo, `llms-full.txt` y la lectura por secciones en el MCP, está en [ai-first-docs.md](docs/research/ai-first-docs.md). **Todavía no está implementada.**
 
 ## Desarrollo
 
@@ -406,7 +409,7 @@ Para probar a mano, [scripts/sandbox.py](scripts/sandbox.py) mantiene un proyect
 ```sh
 uv run scripts/sandbox.py reset      # deshace la documentación y vuelve a clonar los repos
 uv run scripts/sandbox.py open       # abre el asistente sobre el sandbox
-uv run scripts/sandbox.py traces     # lista lo que el kit dejó; sale con 0 si no queda nada
+uv run scripts/sandbox.py traces     # lista lo que el kit dejó (también aprobaciones en ~/.camarones/trust/); 0 si no queda nada
 ```
 
 ## Sigue explorando
