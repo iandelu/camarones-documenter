@@ -14,7 +14,7 @@ Humans: see `docs/guides/tutorial.md`. `CLI` = `camaron` (legacy per-project cop
 |---|---|---|
 | Repo-level wiki (only repos with `wiki: true` in workspace.yaml) | `wikis/<repo>/` (OpenWiki OKF pages + grounded claims; `<repo>/openwiki` is an untracked link to it) | OpenWiki (via Claude/Codex integration or CI) |
 | Repo brief (stack, commands, interfaces, data, component diagram) | `docs/repos/<repo>/brief.md` | Camarón agent |
-| Agent rules, skills, MCP | `AGENTS.md`, `CLAUDE.md` (`@AGENTS.md` + project notes), `.claude/`, `.codex/`, `.agents/`, `.mcp.json` — linked from the workspace folder | kit (managed blocks) + humans |
+| Agent rules, skills, MCP | `AGENTS.md`, `CLAUDE.md` (`@AGENTS.md` + project notes), `.claude/`, `.codex/`, `.agents/`, `.mcp.json` — linked from the workspace folder once this machine approves what the kit did not write (`CLI trust`; approvals in `~/.camarones/trust/`, never in the repo) | kit (managed blocks) + humans |
 | Project context for OpenWiki | `wikis/<repo>/INSTRUCTIONS.md` (user-authored brief OpenWiki reads, never rewrites) | Camarón, then humans |
 | Code graph | `graph/<repo>/` (git-ignored, AST-only, `CLI graph`), merged in `.camarones/.cache/graph/` | graphify |
 | Work plan & session handoff | `docs/.work/plan.yaml`, `handoff.md`, `log.md` | Camarón CLI + agents |

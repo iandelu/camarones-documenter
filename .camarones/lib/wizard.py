@@ -81,6 +81,15 @@ T = {
                        "nunca borra nada; sin él los agentes abiertos dentro de un repo no ven la documentación)",
         "migrate_ask": "Este proyecto usa la estructura antigua (docs y config en la raíz y dentro de cada repo). "
                        "¿Lo paso a {cam}/ ahora? Verás la lista de cambios antes de confirmar.",
+        "trust_title": "Configuración de agentes sin aprobar en esta máquina",
+        "trust_intro": "{cam}/ trae hooks, servidores MCP, ajustes o skills que este kit no ha escrito y que aquí aún no has "
+                       "aprobado. Claude Code y Codex los cargarían al abrir el workspace. Revisa qué ejecutan:",
+        "trust_cols": ("Tipo", "Qué", "Detalle", "Estado"),
+        "trust_new": "nuevo", "trust_changed": "cambiado",
+        "trust_q": "¿Apruebas todo lo de la lista en esta máquina?",
+        "trust_ok": "✔ Aprobado: los agentes del workspace cargan esta configuración.",
+        "trust_no": "Sin aprobar: los agentes del workspace no cargan .claude, .codex, .agents ni .mcp.json. "
+                    "Cuando lo revises, apruébalo con `{cli} trust`.",
         "sessions_intro": "Ahora el trabajo va por sesiones: cada una hace UNA unidad del plan (p. ej. analizar un repo). "
                           "Al acabar, la IA guarda el progreso y te pregunta qué seguir. Tú vuelves aquí → «Siguiente paso».",
         "menu": "¿Qué hacemos?",
@@ -428,6 +437,15 @@ T = {
                        "removes anything; without it agents opened inside a repo don't see the docs)",
         "migrate_ask": "This project uses the old layout (docs and config at the root and inside every repo). "
                        "Move it to {cam}/ now? You'll see the list of changes before confirming.",
+        "trust_title": "Agent config not approved on this machine",
+        "trust_intro": "{cam}/ brings hooks, MCP servers, settings or skills this kit did not write and you have not "
+                       "approved here. Claude Code and Codex would load them when you open the workspace. Check what they run:",
+        "trust_cols": ("Kind", "What", "Detail", "Status"),
+        "trust_new": "new", "trust_changed": "changed",
+        "trust_q": "Approve everything in the list on this machine?",
+        "trust_ok": "✔ Approved: the workspace's agents load this config.",
+        "trust_no": "Not approved: the workspace's agents do not load .claude, .codex, .agents or .mcp.json. "
+                    "Once you have checked it, approve it with `{cli} trust`.",
         "sessions_intro": "From now on work happens in sessions: each one does ONE plan unit (e.g. analyze a repo). When it "
                           "finishes, the AI saves progress and asks what next. You come back here → “Next step”.",
         "menu": "What shall we do?",
@@ -948,6 +966,7 @@ class W:
                 os.execv(sys.executable, [sys.executable, str(Path(__file__).resolve().parent.parent / "camarones.py")])
             console.set_alt_screen(True)
             self.banner()
+        self.trust_check()
         state = load_json(FIRSTRUN, {})
         shared = plan.PLAN.exists() and WS_FILE.exists()          # team work that came with the repo (or pre-2.4)
         mode = first_run_mode(state, shared, local_ready=bool(shared and not state) and self.local_ready())
@@ -1007,6 +1026,29 @@ class W:
             self.banner()
             if self.safe(getattr(self, f"do_{choice}")) == "gone":   # uninstalled: this project no longer exists
                 return
+
+    def trust_check(self) -> None:
+        """Agent config from the team's repo that this machine has not approved: show what it runs and ask (lib/trust.py)."""
+        from . import trust
+        env.refresh_agent_config()
+        rows = trust.grouped(trust.pending())
+        if not rows:
+            return
+        tbl = Table(*self.t("trust_cols"), box=box.SIMPLE_HEAD, show_lines=False, expand=True)
+        for kind, label, detail, status in rows:
+            tbl.add_row(kind, label, detail, self.t(f"trust_{status}"))
+        self.say(f"[bold yellow]{self.t('trust_title')}[/]")
+        self.say(self.t("trust_intro", cam=CAM_DIR))
+        console.print(tbl)
+        if self.yes(self.t("trust_q"), default=False):
+            trust.approve()
+            env.link_workspace(log=lambda _: None)
+            self.say(self.t("trust_ok"), "green")
+        else:
+            trust.decline()
+            self.say(self.t("trust_no", cli=cli_cmd()), "yellow")
+        self.pause()
+        self.banner()
 
     # ---------- first run: a step machine, Esc / ↩ goes one step back ----------
     def first_run(self, start: int = 0, mode: str = "new") -> bool:

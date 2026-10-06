@@ -52,7 +52,9 @@ or `.\camaron.cmd`).
 ## setup
 Done by the wizard (`CLI setup`). If an agent lands here: run it, report missing prerequisites with the fix, mark done.
 Agent config (`.claude/`, `.codex/`, `.agents/`, `.mcp.json`, AGENTS.md/CLAUDE.md) is written to `cam-docs/` and linked
-from the workspace folder; code graphs go to `graph/<repo>/`. Service repos are not touched. The `full` profile also
+from the workspace folder; hooks, MCP servers, settings or skills the kit did not write are only linked once the user
+approves them on this machine (`CLI trust`; never approve them on the user's behalf). Code graphs go to `graph/<repo>/`.
+Service repos are not touched. The `full` profile also
 installs the quality gate (mermaid-cli, gitleaks) that `CLI check` uses; without it those checks are skipped with a WARN.
 
 ## discovery

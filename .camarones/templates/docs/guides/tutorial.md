@@ -33,6 +33,10 @@ Everything the kit writes lives in **`cam-docs/`**, next to the repos: its own g
 tool configuration (`.camarones/`) and the agents' setup (`.claude/`, `.codex/`, `.agents/`, `.mcp.json`). Service repos
 get no kit files; paths below are relative to `cam-docs/`.
 
+The agents' setup is shared with the team, so it is never loaded blindly: hooks, MCP servers, settings and skills the
+kit did not write are listed when you open the wizard, and the workspace only links them once you approve them on this
+machine (`camaron trust`). Approvals live in `~/.camarones/trust/`, never in the repo.
+
 ## 2. The guided flow
 
 The first run walks you through: workspace (project name) → repos → tools (install everything — recommended — or pick
