@@ -58,6 +58,7 @@ def unit(kit, uid):
 def started_interview(kit):
     """The state a real project was in: discovery done, a live interview session opened and closed half-way."""
     kit.common.save_json(kit.wizard.FIRSTRUN, {"step": 6, "done": True})
+    kit.wizard.usage.set_enabled(True)                 # stats already decided: no one-off notice before the menu
     kit.plan.sync()
     for u in kit.plan.load()["units"]:
         if u["id"].startswith(("setup", "discovery")):
