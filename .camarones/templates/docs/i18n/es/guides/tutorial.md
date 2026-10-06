@@ -34,6 +34,10 @@ Todo lo que escribe el kit vive en **`cam-docs/`**, junto a los repos: un repo g
 configuración de la herramienta (`.camarones/`) y la de los agentes (`.claude/`, `.codex/`, `.agents/`, `.mcp.json`). Los
 repos de servicio no reciben archivos del kit; las rutas de abajo son relativas a `cam-docs/`.
 
+La configuración de los agentes se comparte con el equipo, así que nunca se carga a ciegas: los hooks, servidores MCP,
+ajustes y skills que no ha escrito el kit se listan al abrir el asistente, y el workspace solo los enlaza cuando los
+apruebas en esta máquina (`camaron trust`). Las aprobaciones viven en `~/.camarones/trust/`, nunca en el repo.
+
 ## 2. El flujo guiado
 
 La primera vez te lleva por 6 pasos:

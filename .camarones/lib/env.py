@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable
 
-from .common import (KIT, ROOT, DOCS, HOME, CACHE, IS_WIN, IS_MAC, VERSIONS, CAM_DIR, CAM_LAYOUT, WORKSPACE, GRAPHS, run, out,
+from .common import (KIT, ROOT, DOCS, HOME, CACHE, IS_WIN, IS_MAC, VERSIONS, CAM_DIR, CAM_LAYOUT, WORKSPACE, WS_FILE, GRAPHS, run, out,
                      which, uv, ensure_path, cli_cmd, sdkman_dir, repo_dir, ws_rel, rel_file, load_json, save_json)
 from . import binaries, docs
 from .projects import git_failure  # noqa: F401 — share() and callers of env.git_failure
@@ -26,19 +26,31 @@ def fill(text: str, name: str) -> str:
             .replace("{{CAM}}", f"{CAM_DIR}/" if CAM_LAYOUT else ""))
 
 
+def kit_skill_files(project_name: str | None = None) -> dict[str, str]:
+    """cam-docs-relative path → text of the kit's own skills, rendered for this machine (Claude Code and Codex alike)."""
+    name = project_name or docs.workspace()["project"]["name"]
+    return {f"{host}/{src.relative_to(TEMPLATES).as_posix()}": fill(src.read_text(encoding="utf-8"), name)
+            for src in sorted((TEMPLATES / "skills").rglob("*")) if src.is_file() for host in (".claude", ".agents")}
+
+
+def write_kit_skills(project_name: str | None = None) -> None:
+    """Kit-owned: always refreshed (a copy edited in the team's repo goes back to the kit's text)."""
+    for rel, text in kit_skill_files(project_name).items():
+        dst = ROOT / rel
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        dst.write_text(text, encoding="utf-8")
+
+
 def init_templates(project_name: str | None = None, log: Log = print) -> list[str]:
     """Copy templates that do not exist yet (never overwrites project files), plus the kit's playbook/conventions."""
     created = []
     name = project_name or docs.workspace()["project"]["name"]
+    write_kit_skills(name)
     for src in sorted(TEMPLATES.rglob("*")):
         if src.is_dir():
             continue
         rel = src.relative_to(TEMPLATES)
-        if rel.parts[0] == "skills":            # kit-owned: always refreshed, for Claude Code and Codex alike
-            for host in (".claude", ".agents"):
-                dst = ROOT / host / rel
-                dst.parent.mkdir(parents=True, exist_ok=True)
-                dst.write_text(fill(src.read_text(encoding="utf-8"), name), encoding="utf-8")
+        if rel.parts[0] == "skills":
             continue
         dst = ROOT / rel
         if dst.exists():
@@ -344,11 +356,31 @@ def link(dst: Path, target: Path, log: Log = print) -> bool:
 
 
 def link_workspace(log: Log = print) -> list[str]:
-    """Agents open in the workspace folder (so they see every repo): point its config files at cam-docs."""
+    """Agents open in the workspace folder (so they see every repo): point its config files at cam-docs. Agent config
+    this machine has not approved (lib/trust.py) is not linked; links that already exist are left for the user to
+    decide in the wizard or with `trust`."""
     if not CAM_LAYOUT:
         return []
+    from . import trust
     (ROOT / ".claude").mkdir(exist_ok=True)
-    return [n for n in LINKS if (ROOT / n).exists() and link(WORKSPACE / n, ROOT / n, log)]
+    held = trust.pending()
+    if held:
+        log(f"⚠ agent config not linked: {len(held)} item(s) not approved on this machine — review them with "
+            f"`{cli_cmd()} trust`")
+    return [n for n in LINKS if (ROOT / n).exists() and not (held and n in trust.AGENT_LINKS)
+            and link(WORKSPACE / n, ROOT / n, log)]
+
+
+def unlink_agent_config() -> list[str]:
+    """Drop the workspace links that make agents load cam-docs' agent config. A real file or folder is the user's."""
+    from . import trust
+    gone = []
+    for n in trust.AGENT_LINKS:
+        p = WORKSPACE / n
+        if _linked(p) and os.path.realpath(p) == os.path.realpath(ROOT / n):
+            _unlink(p)
+            gone.append(n)
+    return gone
 
 
 def camarones_mcp() -> dict:
@@ -370,14 +402,18 @@ CODEX_MCP_START, CODEX_MCP_END = "# CAMARONES:MCP:START", "# CAMARONES:MCP:END"
 CODEX_MCP_RE = re.compile(rf"{CODEX_MCP_START}.*?{CODEX_MCP_END}\n?", re.S)
 
 
+def codex_block(servers: dict) -> str:
+    body = [f"[mcp_servers.{name}]\ncommand = {json.dumps(s['command'])}\nargs = {json.dumps(s['args'])}\n"
+            for name, s in servers.items()]
+    return f"{CODEX_MCP_START}\n" + "\n".join(body) + f"{CODEX_MCP_END}\n" if body else ""
+
+
 def write_codex_mcp(servers: dict) -> None:
     """Same servers for Codex, in a managed block of .codex/config.toml (other content is kept; a server the user
     already defined outside the block is left to them)."""
     f = ROOT / ".codex" / "config.toml"
     text = CODEX_MCP_RE.sub("", f.read_text(encoding="utf-8") if f.is_file() else "")
-    body = [f"[mcp_servers.{name}]\ncommand = {json.dumps(s['command'])}\nargs = {json.dumps(s['args'])}\n"
-            for name, s in servers.items() if f"[mcp_servers.{name}]" not in text]
-    block = f"{CODEX_MCP_START}\n" + "\n".join(body) + f"{CODEX_MCP_END}\n" if body else ""
+    block = codex_block({k: v for k, v in servers.items() if f"[mcp_servers.{k}]" not in text})
     f.parent.mkdir(parents=True, exist_ok=True)
     f.write_text((text.rstrip() + "\n\n" if text.strip() else "") + block, encoding="utf-8")
 
@@ -434,6 +470,14 @@ def write_agent_config(comps: list[str]) -> None:
     st = without_graphify_hooks(load_json(settings, {}))
     st["enabledMcpjsonServers"] = sorted(set(st.get("enabledMcpjsonServers", [])) | set(servers))
     save_json(settings, st)
+
+
+def refresh_agent_config() -> None:
+    """Re-render what the kit owns in the agent config (its skills and MCP entries) for this machine, so a copy edited
+    in the team's repo — or rendered on a teammate's machine — goes back to the kit's own text before trust.pending()."""
+    if CAM_LAYOUT and WS_FILE.exists() and "agents" in components():
+        write_kit_skills()
+        write_agent_config(components())
 
 
 def wire_repo(name: str, log: Log = print, comps: list[str] | None = None) -> None:

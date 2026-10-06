@@ -107,6 +107,10 @@ def traces(folder: Path, home: Path | None = None) -> list[str]:
     if registry.is_file():
         rows = json.loads(registry.read_text(encoding="utf-8") or "[]")
         found += [f"registry entry {r['path']}" for r in rows if Path(r["path"]).resolve().is_relative_to(folder.resolve())]
+    for f in sorted(((home or Path.home()) / ".camarones" / "trust").glob("*.json")):   # lib/trust.py approvals
+        root = json.loads(f.read_text(encoding="utf-8") or "{}").get("root", "")
+        if root and Path(root).resolve().is_relative_to(folder.resolve()):
+            found.append(f"agent-config approvals {f.name} ({root})")
     return found
 
 

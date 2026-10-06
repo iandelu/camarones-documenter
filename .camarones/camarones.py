@@ -55,6 +55,8 @@
   new NAME [--from URL]     create ./NAME/cam-docs/, register it, open it (global install); --from joins the team's repo
   join URL [FOLDER]         use the team's cam-docs repo: clone it into FOLDER/cam-docs (default: here) or reuse the
                             copy already on this machine; the wizard then only sets up this machine
+  trust [--yes]             list the agent config (hooks, MCP servers, settings, skills) this machine has not approved;
+                            approve it and link it into the workspace (unapproved config is never linked)
   switch                    pick a registered project to open (global install)
   self-update               git pull the central kit in place (global install only)
   unlink                    remove this project's local kit copy, keep config (moves to global install)
@@ -138,6 +140,36 @@ from lib import docs, env, plan                     # noqa: E402
 from lib.common import VERSIONS, cli_cmd, ROOT, CACHE, load_json   # noqa: E402
 
 
+def cmd_trust(a) -> int:
+    from lib import trust
+    env.refresh_agent_config()
+    rows = trust.grouped(trust.pending())
+    if not rows:
+        env.link_workspace()
+        print("✔ nothing to approve: the agent config is the kit's own or already approved on this machine")
+        return 0
+    print("Agent config not approved on this machine (Claude Code / Codex would load it from the workspace):\n")
+    for kind, label, detail, status in rows:
+        print(f"  {status:<8} {kind:<8} {label}\n           {detail}")
+    if not a.yes:
+        if not sys.stdin.isatty():
+            print(f"\nnot approved — check it, then run: {cli_cmd()} trust --yes")
+            return 1
+        try:
+            answer = input("\nApprove all of this on this machine? [y/N] ")
+        except (EOFError, KeyboardInterrupt):
+            print(f"\nnot approved — check it, then run: {cli_cmd()} trust --yes")
+            return 1
+        if answer.strip().lower() not in ("y", "yes", "s", "si", "sí"):
+            trust.decline()
+            print("not approved: the workspace does not link .claude, .codex, .agents or .mcp.json")
+            return 1
+    n = trust.approve()
+    env.link_workspace()
+    print(f"✔ approved {n} item(s); the workspace's agents load this config")
+    return 0
+
+
 def main() -> int:
     if len(sys.argv) == 1:
         from lib.wizard import W
@@ -188,6 +220,7 @@ def main() -> int:
     cp = sp.add_parser("checkpoint"); cp.add_argument("message", nargs="?", default="progress")
     rm = sp.add_parser("remote"); rm.add_argument("url", nargs="?")
     sh = sp.add_parser("share"); sh.add_argument("--auto", choices=["on", "off"])
+    tr = sp.add_parser("trust"); tr.add_argument("--yes", action="store_true")
     jn = sp.add_parser("join"); jn.add_argument("url"); jn.add_argument("folder", nargs="?", type=Path)
     us = sp.add_parser("stats"); us.add_argument("--json", action="store_true")
     us.add_argument("--months", type=int, default=3); us.add_argument("--record", choices=["on", "off"])
@@ -402,6 +435,8 @@ def main() -> int:
     elif a.cmd == "stats":
         r = usage.report(months=a.months)
         print(json.dumps(r, indent=2, ensure_ascii=False) if a.json else usage.render_md(r))
+    elif a.cmd == "trust":
+        return cmd_trust(a)
     elif a.cmd == "feedback":
         docs.add_feedback(a.file, a.text, a.by or os.environ.get("USER", "human"))
         plan.ensure("review-fixes", "review-fixes")
