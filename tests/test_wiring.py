@@ -50,6 +50,13 @@ def test_workspace_links_point_into_cam_docs(wired):
         assert (wired.ws / n).resolve() == (wired.root / n).resolve()
 
 
+def test_linking_again_keeps_the_links_quietly(wired):
+    """Windows without symlink rights links folders as junctions: a second setup must see them as its own links."""
+    said = []
+    assert set(wired.env.link_workspace(log=said.append)) == set(wired.linked)
+    assert not [m for m in said if "already exists" in m]
+
+
 def test_agents_md_refresh_only_touches_the_kit_block(wired):
     f = wired.root / "AGENTS.md"
     a, b = "<!-- camarones:start -->", "<!-- camarones:end -->"
