@@ -238,6 +238,27 @@ Bigger bets worth a spike:
 9. **C7 OpenTelemetry service graph** as runtime evidence where tracing exists.
 10. **A1 CodeWiki** as a second wiki engine for very large repos.
 
+## Corrections from the 2026-09-30 report
+
+The external review "Herramientas de IA para desarrollo" (2026-09-30) re-checked several tools against primary
+sources. What changes for this list (plan: [roadmap-2026-10.md](roadmap-2026-10.md)):
+
+| Tool | Correction | Effect here |
+|---|---|---|
+| B5 Serena | The application is GPL-3.0-or-later; only SolidLSP is MIT. Kotlin uses the official Kotlin language server, described as pre-alpha. Local analysis does not keep its results out of the remote LLM's context | Not "MIT"; pilot Java and Kotlin separately. Claude Code's code-intelligence plugins are an alternative to compare before adding another MCP |
+| Graphify | The project now lives at Graphify-Labs; it separates extracted from inferred relations | We already pin it; never treat a merged code graph as the deployed system map |
+| OpenWiki | Aggregate telemetry is on by default | The kit already sets `OPENWIKI_TELEMETRY_DISABLED=1` and `DO_NOT_TRACK=1`; per-repo CI snippets still lack `DO_NOT_TRACK` |
+| RTK | Documents Maven (`rtk mvnd verify`); a JetBrains study saw no overall cost saving | Not a kit concern; a per-user experiment |
+| Caveman | The skill and its later proxy are different products | Same |
+| claude-mem | Now Apache-2.0; the audit issue was about v10.5.2 and is closed | Still out: `cam-docs/` is the versioned memory |
+| OmniRoute | Publishes several routing strategies, not only quota fallback | Gateways stay out of scope |
+| GitLab Duo / CodeRabbit | Both document self-hosted options | AI MR reviewers stay out of the kit |
+| MCP definitions | Claude Code can reduce tool-definition loading | No fixed "3–4 MCP servers" limit; measure context |
+| D1 EventCatalog | Mostly MIT with commercial components | Export target only (deferred) |
+| K1 Backstage | Core Apache-2.0; Spotify Portal is the commercial managed offer | Export target only (deferred) |
+| H6 promptfoo / evaluation | LangChain's OpenEvals is another reference | The eval bank (roadmap line C) scores deterministically, no judge |
+| "Skill-bus" | Ambiguous name, several candidates | Not adopted |
+
 ## Sources
 
 - Wikis: [CodeWiki](https://github.com/FSoft-AI4Code/CodeWiki) · [CodeWiki paper](https://arxiv.org/html/2510.24428v5) · [deepwiki-open](https://github.com/AsyncFuncAI/deepwiki-open) · [RepoWiki](https://github.com/he-yufeng/RepoWiki) · [repowise](https://github.com/repowise-dev/repowise) · [repowise vs DeepWiki](https://www.repowise.dev/blog/comparisons/repowise-vs-deepwiki) · [Google Code Wiki](https://developers.googleblog.com/introducing-code-wiki-accelerating-your-code-understanding/) · [Code Wiki status](https://pasqualepillitteri.it/en/news/1942/google-code-wiki-automatic-ai-documentation)
