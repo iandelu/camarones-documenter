@@ -311,13 +311,25 @@ def git_exclude(repo: Path, pattern: str) -> None:
         _append_lines(f, [pattern])
 
 
+def _linked(p: Path) -> bool:
+    """A symlink or a Windows junction (Python < 3.12 cannot tell a junction: it resolves somewhere else)."""
+    return _is_link(p) or (p.is_dir() and Path(os.path.realpath(p)) != Path(os.path.realpath(p.parent)) / p.name)
+
+
+def _unlink(p: Path) -> None:
+    try:
+        p.unlink()
+    except OSError:
+        os.rmdir(p)                                 # a Windows junction (the target is never followed)
+
+
 def link(dst: Path, target: Path, log: Log = print) -> bool:
     """dst → target symlink (relative). An existing real file/dir is never replaced. Windows without symlink
     rights: directories become junctions, files are left alone (the warning says what to do)."""
-    if dst.is_symlink():
-        if dst.resolve() == target.resolve():
+    if _linked(dst):
+        if os.path.realpath(dst) == os.path.realpath(target):
             return True
-        dst.unlink()
+        _unlink(dst)
     elif dst.exists():
         log(f"⚠ {dst.name} already exists in {dst.parent} — not linked (move it into {CAM_DIR}/ or run migrate)")
         return False
