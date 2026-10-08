@@ -212,7 +212,8 @@ def main() -> int:
     un.add_argument("--backup-dir", type=Path)
     ci = sp.add_parser("ci"); ci.add_argument("forge", nargs="?", choices=["gitlab", "github"])
     pl = sp.add_parser("plan"); pl.add_argument("action", nargs="?", default="show",
-                                                choices=["show", "sync", "next", "start", "note", "done", "block", "drop", "add", "redo"])
+                                                choices=["show", "sync", "next", "start", "note", "done", "block", "drop", "add", "redo",
+                                                         "ask", "handoff"])
     pl.add_argument("unit", nargs="?"); pl.add_argument("title", nargs="?")
     pl.add_argument("--note"); pl.add_argument("--type", default="flow"); pl.add_argument("--deps", nargs="*")
     pl.add_argument("--json", action="store_true")
@@ -220,6 +221,7 @@ def main() -> int:
     pl.add_argument("--session", help="who works on the unit (default: $CAMARONES_SESSION)")
     pl.add_argument("--force", action="store_true", help="start: take over a unit another session holds")
     pl.add_argument("--claim", action="store_true", help="next: claim the first free unit for this session")
+    pl.add_argument("--topic", choices=["context", "language", "history", "general"], help="ask: the interview it is for")
     cp = sp.add_parser("checkpoint"); cp.add_argument("message", nargs="?", default="progress")
     rm = sp.add_parser("remote"); rm.add_argument("url", nargs="?")
     sh = sp.add_parser("share"); sh.add_argument("--auto", choices=["on", "off"])
@@ -239,6 +241,7 @@ def main() -> int:
     pr.add_argument("--unattended", action="store_true")
     ap = sp.add_parser("autopilot"); ap.add_argument("--lang", default="es"); ap.add_argument("--max-units", type=int)
     ap.add_argument("--poll-seconds", type=int, default=900); ap.add_argument("--include-interviews", action="store_true")
+    ap.add_argument("--jobs", type=int, default=1, help="units to run side by side (each in its own agent session)")
     a = p.parse_args()
     if a.cmd not in ("help", "mcp", "wizard"):
         from lib import usage
@@ -449,7 +452,7 @@ def main() -> int:
     elif a.cmd == "autopilot":
         try:
             plan.run_autopilot(lang=a.lang, max_units=a.max_units, poll_seconds=a.poll_seconds,
-                               include_interviews=a.include_interviews)
+                               include_interviews=a.include_interviews, jobs=a.jobs)
         except KeyboardInterrupt:
             print("\nAutopilot interrupted — progress is saved; `plan next` shows where to resume.")
     return 0
@@ -521,6 +524,12 @@ def cmd_plan(a) -> int:
                       f"{f'  [taken: {who}]' if who else ''}{'  [wizard]' if u['runner'] == 'wizard' else ''}")
                 if u["status"] == "doing" and plan.last_note(u["id"]):
                     print(f"       last checkpoint: {plan.last_note(u['id'])}")
+    elif a.action in ("ask", "handoff"):
+        text = a.title if a.title != "-" else sys.stdin.read()
+        if not a.unit or not (text or "").strip():
+            print(f'usage: plan {a.action} <unit> "<text>"  (or - to read it from stdin)'); return 2
+        f = plan.ask(a.unit, text, a.topic) if a.action == "ask" else plan.handoff(a.unit, text)
+        print(f"{'question added' if a.action == 'ask' else 'handoff entry added'} → {f.relative_to(ROOT).as_posix()}")
     elif a.action == "note":
         if not a.unit or not (a.title or a.note):
             print('usage: plan note <unit> "what is done / what is next"'); return 2

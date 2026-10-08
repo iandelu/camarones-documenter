@@ -83,13 +83,13 @@ def pilot(kit, monkeypatch):
     plan = kit.plan
     calls = []
 
-    def run_agent(agent, text, lang, uid, echo):
+    def run_agent(agent, text, lang, uid, echo, **kw):
         calls.append(uid)
         plan.set_status(uid, "done")
         return subprocess.CompletedProcess([agent], 0, "", "")
     monkeypatch.setattr(plan, "which", lambda name: f"/bin/{name}")
     monkeypatch.setattr(plan, "_run_agent", run_agent)
-    monkeypatch.setattr(plan, "prompt", lambda uid, lang="es", unattended=False: f"prompt {uid}")
+    monkeypatch.setattr(plan, "prompt", lambda uid, lang="es", unattended=False, **kw: f"prompt {uid}")
     return calls
 
 
@@ -301,7 +301,7 @@ def quiet(kit, monkeypatch):
 @pytest.fixture
 def launched(kit, monkeypatch):
     prompts = []
-    monkeypatch.setattr(kit.wizard.W, "launch_agent", lambda self, prompt, resume_agent=None: prompts.append(prompt) or "bg")
+    monkeypatch.setattr(kit.wizard.W, "launch_agent", lambda self, prompt, resume_agent=None, **kw: prompts.append(prompt) or "bg")
     return prompts
 
 

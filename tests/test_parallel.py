@@ -151,6 +151,88 @@ def test_claim_next_picks_a_free_unit_atomically(ready):
     assert plan.claim_next("C", pick=lambda ready: next((u for u in ready if u["runner"] == "agent"), None)) is None
 
 
+# ---------- shared files: open questions, handoff, prompts, checkpoints ----------
+def test_plan_ask_appends_tagged_questions_without_losing_any(ready):
+    plan = ready.plan
+    plan.sync()
+    code = textwrap.dedent("""
+        import sys
+        sys.path.insert(0, sys.argv[1])
+        from lib import plan
+        for i in range(15):
+            plan.ask(sys.argv[2], f"question {sys.argv[2]} {i}?")
+    """)
+    env = {**os.environ, "CAMARONES_ROOT": str(ready.root), "PYTHONUTF8": "1"}
+    procs = [subprocess.Popen([sys.executable, "-c", code, str(KIT_DIR), uid], env=env, cwd=ready.ws,
+                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+             for uid in ("repo-brief:api", "domain")]
+    for p in procs:
+        out, _ = p.communicate(timeout=240)
+        assert p.returncode == 0, out
+    text = plan.OPEN_QUESTIONS.read_text(encoding="utf-8")
+    lines = [l for l in text.splitlines() if l.startswith("- [ ] ")]
+    assert len(lines) == 30
+    assert any("context · repo-brief:api) question repo-brief:api 0?" in l for l in lines)   # topic from the soft dep
+    assert any("language · domain) question domain 3?" in l for l in lines)
+    plan.ask("data", "who owns orders?", topic="history")
+    assert "history · data) who owns orders?" in plan.OPEN_QUESTIONS.read_text(encoding="utf-8")
+
+
+def test_handoff_keeps_recent_sessions_newest_first(ready):
+    plan = ready.plan
+    plan.HANDOFF.parent.mkdir(parents=True, exist_ok=True)
+    plan.HANDOFF.write_text("# Session handoff 🦐\n\nEach agent session rewrites \"Last session\" when it finishes a plan "
+                            "unit. Read this first in every new session.\n\n## Last session — setup\n- Done: installed.\n",
+                            encoding="utf-8", newline="\n")
+    plan.handoff("discovery:api", "- Done: api mapped.\n### a heading the agent wrote")
+    text = plan.HANDOFF.read_text(encoding="utf-8")
+    assert "## Recent sessions" in text and "## Last session" not in text
+    assert text.index("### discovery:api") < text.index("### setup")         # the old section became an entry
+    assert "#### a heading the agent wrote" in text                            # cannot split the entries
+    for i in range(12):
+        plan.handoff(f"flow:{i}", f"- Done: flow {i}")
+    text = plan.HANDOFF.read_text(encoding="utf-8")
+    assert text.count("\n### ") == plan.HANDOFF_KEEP
+    assert text.index("### flow:11") < text.index("### flow:10")
+    assert "### setup" not in text
+    plan.handoff("flow:12", "- Done")                                          # idempotent shape
+    assert plan.HANDOFF.read_text(encoding="utf-8").count("## Recent sessions") == 1
+
+
+def test_prompt_files_are_per_unit(ready):
+    plan = ready.plan
+    a, b = plan.prompt_file("repo-brief:api"), plan.prompt_file("repo-brief:web")
+    assert a != b and a.parent == b.parent and ":" not in a.name
+
+
+def test_prompt_tells_the_session_to_use_the_shared_file_commands(ready):
+    text = ready.plan.prompt("discovery-cross", unattended=True)
+    assert "plan handoff discovery-cross" in text
+    assert "plan start discovery-cross --session" in text
+
+
+def test_interview_prompt_starts_from_the_drafts_questions(ready):
+    text = ready.plan.prompt("interview-context")
+    assert "open-questions.md" in text and "context ·" in text
+
+
+def test_checkpoint_commits_are_serialised(ready, monkeypatch):
+    env, common = ready.env, ready.common
+    seen = []
+    real_run = env.run
+
+    def spy(cmd, *a, **kw):
+        if cmd[:2] == ["git", "add"]:
+            seen.append(env.CHECKPOINT_LOCK.exists())
+        return real_run(cmd, *a, **kw)
+    monkeypatch.setattr(env, "run", spy)
+    (ready.root / "docs").mkdir(exist_ok=True)
+    (ready.root / "docs" / "x.md").write_text("x\n", encoding="utf-8")
+    subprocess.run(["git", "init", "-q"], cwd=ready.root, check=True)
+    env.checkpoint_commit("x")
+    assert seen == [True] and not env.CHECKPOINT_LOCK.exists()
+
+
 # ---------- CLI ----------
 def test_cli_start_refuses_a_taken_unit(ready):
     r = cli(ready, "start", "discovery-cross", "--session", "A")
@@ -169,3 +251,12 @@ def test_cli_next_claim_prints_the_claimed_unit(ready):
     assert "discovery-cross" not in r.stdout                                  # taken by A
     r = cli(ready, "next")
     assert "taken: A" in r.stdout
+
+
+def test_cli_ask_and_handoff(ready):
+    r = cli(ready, "ask", "domain", "which context owns pets?")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "which context owns pets?" in ready.plan.OPEN_QUESTIONS.read_text(encoding="utf-8")
+    r = cli(ready, "handoff", "domain", "- Done: glossary draft")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "### domain" in ready.plan.HANDOFF.read_text(encoding="utf-8")

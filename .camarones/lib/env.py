@@ -1,7 +1,7 @@
 """Environment: templates, prerequisites, pinned tools, repo wiring, code graph, C4, portal, docker, CI."""
 from __future__ import annotations
 
-import json, os, posixpath, re, shutil, subprocess, sys, webbrowser
+import json, os, posixpath, re, shutil, subprocess, sys, time, webbrowser
 from collections import deque
 from contextlib import contextmanager
 from pathlib import Path
@@ -877,8 +877,8 @@ def wiki_prompt(repo: str, mode: str) -> str:
             f"`{CAM_DIR}/wikis/{repo}/`, removes what OpenWiki adds to the repo (AGENTS.md, CLAUDE.md, .github/) and marks "
             f"the plan unit — do none of that yourself, never run `{cli} wiki`, and do not touch other repo files.\n"
             f"Progress: after each page run `{cli} plan note {uid} \"<page done / next>\"`. This run is unattended: never "
-            f"ask; append questions to `{ws_rel('docs/interview/open-questions.md')}`. At the end rewrite the \"Last "
-            f"session\" section of `{ws_rel('docs/.work/handoff.md')}`.\n")
+            f"ask; record questions with `{cli} plan ask {uid} \"<question>\"`. At the end add your handoff entry with "
+            f"`{cli} plan handoff {uid} \"<done, pending>\"`.\n")
 
 
 OPENWIKI_REPO_FILES = ("AGENTS.md", "CLAUDE.md", ".github/workflows/openwiki-update.yml")
@@ -1266,15 +1266,15 @@ def open_url(url: str) -> None:
     webbrowser.open(url)
 
 
-def open_new_terminal(cmd: list[str], cwd: Path) -> bool:
+def open_new_terminal(cmd: list[str], cwd: Path) -> bool | int:
     """Launch `cmd` in its own terminal window, detached from this process, so an interactive agent session
     does not block the wizard. Returns False when no terminal emulator could be found — caller then falls
-    back to running `cmd` in the current terminal."""
+    back to running `cmd` in the current terminal. On Windows it returns the pid of `cmd` itself (the window
+    closes with it), so callers can tell a closed window from a busy one; elsewhere True."""
     import shlex
     try:
         if IS_WIN:
-            subprocess.Popen(cmd, cwd=str(cwd), creationflags=subprocess.CREATE_NEW_CONSOLE)
-            return True
+            return subprocess.Popen(cmd, cwd=str(cwd), creationflags=subprocess.CREATE_NEW_CONSOLE).pid or True
         if IS_MAC:
             script = f"cd {shlex.quote(str(cwd))} && exec {shlex.join(cmd)}"
             subprocess.Popen(["osascript", "-e", f'tell application "Terminal" to do script {json.dumps(script)}'])
@@ -1328,10 +1328,28 @@ CHECKPOINT_PATHS = ["docs", "wikis", ".camarones/workspace.yaml", ".camarones/PL
                     ".gitignore", ".gitlab-ci.yml", ".github"]
 
 
+CHECKPOINT_LOCK = CACHE / "checkpoint.lock"
+
+
 def checkpoint_commit(message: str) -> bool:
-    """Commit docs progress locally. Keeps work safe if a session or the computer closes; pushes only with auto-share."""
+    """Commit docs progress locally. Keeps work safe if a session or the computer closes; pushes only with auto-share.
+    Sessions running side by side take turns (git's own index.lock would make one of them fail); each commit holds
+    whatever every session has written so far, which is fine for a local safety net."""
     if not (ROOT / ".git").exists():
         return False
+    try:
+        with common.file_lock(CHECKPOINT_LOCK, timeout=120, stale=300):
+            for _ in range(100):                     # an agent's own git command may hold the index for a moment
+                if not (ROOT / ".git" / "index.lock").exists():
+                    break
+                time.sleep(0.1)
+            return _checkpoint_commit(message)
+    except RuntimeError as e:
+        print(f"🦐✖ checkpoint not committed — {e}", file=sys.stderr)
+        return False
+
+
+def _checkpoint_commit(message: str) -> bool:
     paths = [p for p in CHECKPOINT_PATHS if (ROOT / p).exists()]
     run(["git", "add", "--", *paths], cwd=ROOT, check=False, quiet=True)
     if run(["git", "diff", "--cached", "--quiet"], cwd=ROOT, check=False, quiet=True).returncode == 0:
