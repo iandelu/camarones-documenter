@@ -11,6 +11,9 @@ if defined CAMARONES_KIT_URL set "KIT_URL=%CAMARONES_KIT_URL%"
 set "CENTRAL=%LOCALAPPDATA%\camarones-documenter\kit"
 set "BINDIR=%USERPROFILE%\.local\bin"
 
+REM The PATH this installer was started with: the launcher folder is checked against it, not against the
+REM folders prepended below to find uv.
+set "START_PATH=%PATH%"
 set "PATH=%USERPROFILE%\.local\bin;%LOCALAPPDATA%\Microsoft\WinGet\Links;%PATH%"
 where git >nul 2>nul
 if errorlevel 1 (
@@ -38,12 +41,29 @@ set "ORIGIN="
 for /f "usebackq delims=" %%U in (`git -C "%CENTRAL%" remote get-url origin 2^>nul`) do set "ORIGIN=%%U"
 REM Older installs followed a local checkout; a remote URL (a fork) is kept unless CAMARONES_KIT_URL says otherwise.
 set "REPOINT=1"
-echo !ORIGIN! | findstr /c:"://" /c:"@" >nul && set "REPOINT="
+echo !ORIGIN! | "%SystemRoot%\System32\findstr.exe" /c:"://" /c:"@" >nul && set "REPOINT="
 if defined CAMARONES_KIT_URL set "REPOINT=1"
 if defined REPOINT git -C "%CENTRAL%" remote set-url origin "%KIT_URL%"
-git -C "%CENTRAL%" pull --ff-only --quiet
+git -C "%CENTRAL%" pull --ff-only --quiet 2>nul
+if not errorlevel 1 goto cloned
+REM Upstream history was rewritten (rebased, amended): move onto it like `camaron self-update` does, as long as
+REM nothing is uncommitted and every local commit already exists upstream by content.
+git -C "%CENTRAL%" fetch --quiet
 if errorlevel 1 (
-  echo Could not fast-forward "%CENTRAL%" - run: camaron self-update
+  echo Could not reach the kit upstream from "%CENTRAL%".
+  pause & exit /b 1
+)
+for /f "usebackq delims=" %%S in (`git -C "%CENTRAL%" status --porcelain --untracked-files^=no`) do (
+  echo The kit clone "%CENTRAL%" has uncommitted changes - commit or discard them, then retry.
+  pause & exit /b 1
+)
+for /f "usebackq delims=" %%C in (`git -C "%CENTRAL%" cherry @{u} HEAD ^| "%SystemRoot%\System32\findstr.exe" /b /l "+"`) do (
+  echo The kit clone "%CENTRAL%" has local commits that are not upstream - push or drop them, then retry.
+  pause & exit /b 1
+)
+git -C "%CENTRAL%" reset --hard --quiet @{u}
+if errorlevel 1 (
+  echo Could not move "%CENTRAL%" onto the kit upstream.
   pause & exit /b 1
 )
 goto cloned
@@ -71,14 +91,19 @@ if not exist "%BINDIR%" mkdir "%BINDIR%"
 )
 echo Global launcher written to "%BINDIR%\camaron.cmd"; compatibility alias: camarones.
 
-echo %PATH% | find /i "%BINDIR%" >nul
+REM Windows' own find.exe: under Git Bash a bare `find` is GNU find, which made this check always fail.
+echo ;%START_PATH%; | "%SystemRoot%\System32\find.exe" /i "%BINDIR%" >nul
 if not errorlevel 1 goto onpath
-for /f "usebackq tokens=2,*" %%A in (`reg query HKCU\Environment /v Path 2^>nul`) do set "USERPATH=%%B"
-echo !USERPATH! | find /i "%BINDIR%" >nul
-if not errorlevel 1 goto onpath
+REM Never setx: it truncates PATH at 1024 characters. PowerShell edits the registry value in place (keeping
+REM %VARIABLES%) only if the folder is not there yet, then tells Windows the environment changed.
 echo Adding "%BINDIR%" to your user PATH...
-setx PATH "%BINDIR%;!USERPATH!" >nul
-echo   Done - open a NEW terminal for it to take effect.
+set "CAM_BINDIR=%BINDIR%"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$b = $env:CAM_BINDIR.TrimEnd('\'); $k = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Environment'); $parts = @(([string]$k.GetValue('Path', '', 'DoNotExpandEnvironmentNames')) -split ';' | Where-Object { $_ }); if (@($parts | ForEach-Object { [Environment]::ExpandEnvironmentVariables($_).TrimEnd('\') }) -notcontains $b) { $k.SetValue('Path', ((@($b) + $parts) -join ';'), 'ExpandString'); [Environment]::SetEnvironmentVariable('CAMARON_PATH_REFRESH', '1', 'User'); [Environment]::SetEnvironmentVariable('CAMARON_PATH_REFRESH', $null, 'User') }"
+if errorlevel 1 (
+  echo   Could not change your PATH - add "%BINDIR%" to it by hand.
+) else (
+  echo   Done - open a NEW terminal for it to take effect.
+)
 :onpath
 
 echo.
