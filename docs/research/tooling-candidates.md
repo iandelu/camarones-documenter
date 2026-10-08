@@ -28,7 +28,7 @@ can **discard** in a second pass. Nothing here is a decision.
 | Quality gate | `CLI check` (`lib/docs.py:338`) | Checks frontmatter, orphan `x-sources`, trust, i18n. **No link check** (the PLAYBOOK's `doc-fixes` step assumes one), no prose lint, no secret scan, no claim verification |
 | Agent retrieval | `camarones` MCP `search_docs` (`lib/docs.py:354`) | Naive term counting over every file per query; no ranking, no semantic match |
 | Portal | Own no-build app (marked, DOMPurify, Mermaid, highlight.js, vis-network, LikeC4 web component) | Static export search is client-side; no catalog export |
-| Plan / sessions | `plan.yaml`, `handoff.md`, checkpoints | Custom; fine for one agent, untested for parallel agents |
+| Plan / sessions | `plan.yaml`, `handoff.md`, checkpoints | Custom; parallel sessions since kit 3.14.0 (file lock, per-unit claims, `autopilot --jobs N`), same tree, no worktrees |
 | i18n | Agent translates, hash stamp via `CLI translated` | Every translation is a full agent pass |
 | Opt-in reviews | `security-review`, `architecture-review` (beta) | Pure LLM reasoning; no scanner evidence |
 
@@ -164,7 +164,7 @@ can **discard** in a second pass. Nothing here is a decision.
 
 | ID | Tool | What it is | What it would improve here | Notes | Signal |
 |---|---|---|---|---|---|
-| L1 | [Beads (`bd`)](https://github.com/gastownhall/beads) | Git-friendly, dependency-aware issue graph for coding agents (Dolt or SQLite), hash IDs, "ready" detection, memory decay of closed tasks | Replacement for `plan.yaml` if we want **parallel agents** (one per repo) without merge conflicts, plus a standard CLI both Claude and Codex already know | Go binary + DB; our plan is simple and works — high switching cost | 🟡 |
+| L1 | [Beads (`bd`)](https://github.com/gastownhall/beads) | Git-friendly, dependency-aware issue graph for coding agents (Dolt or SQLite), hash IDs, "ready" detection, memory decay of closed tasks | Replacement for `plan.yaml` if we want **parallel agents** (one per repo) without merge conflicts, plus a standard CLI both Claude and Codex already know | Go binary + DB; our plan is simple and works — high switching cost. Kit 3.14.0 covers parallel agents without it (lock + claims on `plan.yaml`) | 🔴 |
 | L2 | Claude Agent SDK / `claude -p` headless † | Programmatic Claude Code sessions | Run independent units (discovery per repo, wikis) unattended in parallel, with structured JSON results | We already run headless for wikis; generalise to other units | 🟡 |
 | L3 | Codex `exec` † | Codex non-interactive mode | Same as L2 for Codex users | — | 🟡 |
 | L4 | Claude Code subagents / hooks † | Scoped sub-agents and lifecycle hooks | A `discovery` subagent per repo returning only the summary keeps the main context small; a `Stop` hook could enforce `plan note` | Claude-only; keep Codex parity | 🟡 |

@@ -15,9 +15,18 @@ or `.\camaron.cmd`).
 
 1. **Load only what the unit needs.** Start with `docs/.work/handoff.md`, then the files it points to. Deep work fills
    the context window fast: prefer `graphify query "…"` / `graphify explain` / OpenAPI files over reading whole trees.
-2. **Claim the unit**: `CLI plan start <id>`. If the unit is already `doing` it was interrupted (the user closed the
+2. **Claim the unit**: `CLI plan start <id> --session <session>` (your prompt gives the session id; choosing a unit
+   yourself: `CLI plan next --claim`). Other sessions may be working on other units at the same time (see "Parallel
+   sessions"): if `plan start` says the unit is taken, stop and tell the user — never `--force` on your own. If the unit
+   is already `doing` it was interrupted (the user closed the
    session or the computer): read its checkpoints in `docs/.work/units/<id>.md`, `git status`/`git diff` of `cam-docs/`
    and the unit's output files, and **continue** from the last checkpoint — never start over.
+   **Provisional.** The interviews never block drafting: `repo-brief`, `domain`, `data`, `decisions-quality` and
+   `flows-catalog` can start before the interview they draw on. Then the prompt says PROVISIONAL: write from the code and
+   the discovery notes, never invent business intent, names or decisions, mark inferences `TODO(question)`, record each
+   question with `CLI plan ask <id> "<question>"`, keep ADRs `proposed`. When that interview is done the unit is
+   reopened and its prompt says REFINE: apply what the interview corrects or completes, nothing else. `i18n` and
+   `confirm` still wait for the interviews.
    **Redo.** A finished unit can be reopened later (`CLI plan redo <id> [--also <dependent> …]`, or "↻ Redo a finished
    step" in the wizard), e.g. to repeat an interview. Its prompt then says REDO: review what the unit produced, show it
    to the user, update what is wrong, missing or has changed (a redone interview is a new dated file; the old one stays)
@@ -28,26 +37,39 @@ or `.\camaron.cmd`).
 4. **Too big for one session?** Split it: finish a coherent part, then
    `CLI plan add <id>:part2 "What remains" --type <type> --deps <id>` and mark the current unit done with a note.
 5. **Close the unit**: `CLI plan done <id> --note "…"` (or `plan block <id> --note "reason"`; both make a local checkpoint
-   commit), run `CLI check`, then `CLI checkpoint "<id>"` after the handoff below, and rewrite
-   the `## Last session` section of `docs/.work/handoff.md`:
-   ```markdown
-   ## Last session — <unit id> (<date>, <agent>)
-   - Done: …
+   commit), add your handoff entry, run `CLI check`, then `CLI checkpoint "<id>"`. The handoff goes through the CLI (it
+   adds a dated `### <id>` entry on top of "Recent sessions"; never edit `docs/.work/handoff.md` by hand — another
+   session may be writing it):
+   ```bash
+   CLI plan handoff <id> "- Done: …
    - Decisions / user answers: …
    - Pending / risks: …
-   - Read first next time: <files>
+   - Read first next time: <files>"
    ```
 6. **Ask what next.** Show `CLI plan next` (top 3–4 ready units) and ask the user which one — in Claude Code with
    AskUserQuestion (options = units + "stop here"), in Codex as a numbered list. Recommend a **new session** after heavy
    units (discovery, repo-wiki, flows) — the user reopens the Camarón wizard and picks "Next step".
-   **Autopilot** (`CLI autopilot`, or "Autopilot" in the wizard's ready-units list) skips this step. An outer loop
-   starts every ready agent unit in its own fresh, unattended session (`claude -p … --dangerously-skip-permissions`
-   or `codex exec --approve-for-me …`). If one agent hits its usage limit, the loop switches to the other; if both are
-   limited, it waits. It never runs wizard steps (setup, answers, portal, ci, confirm) nor live interview units (in
-   team mode it runs them: they only consolidate written answers), and it stops when
-   only those are left, when a unit fails, or when a unit ends without `plan done`/`plan block`. In an autopilot
-   session you close the unit as usual (step 5), and questions go to `docs/interview/open-questions.md`.
+   **Autopilot** (`CLI autopilot [--jobs N]`, or "Autopilot" in the wizard's ready-units list) skips this step. An
+   outer loop starts every ready agent unit in its own fresh, unattended session (`claude -p … --dangerously-skip-permissions`
+   or `codex exec --approve-for-me …`), up to N side by side, each claimed by its worker. If one agent hits its usage
+   limit, the loop switches to the other; if both are limited, it waits. It never runs wizard steps (setup, answers,
+   portal, ci, confirm) nor live interview units (in team mode it runs them: they only consolidate written answers), but
+   it does not wait for them either: drafts go ahead as provisional. It stops when only those are left, when a unit
+   fails, or when a unit ends without `plan done`/`plan block`. In an autopilot session you close the unit as usual
+   (step 5), and questions go through `CLI plan ask`.
 7. Never write `x-confirmed`; never rewrite `<!-- human -->` blocks, `x-owner: human` files or confirmed pages silently.
+
+## Parallel sessions
+Several sessions can work on one plan at once (wizard windows, `autopilot --jobs N`). The CLI keeps `plan.yaml`
+consistent (lock + claims); you keep to your own files:
+- Write only your unit's outputs. Per-unit C4 files exist for that: a repo's container and components go to
+  `docs/architecture/repos/<repo>.c4`, a flow's dynamic view to `docs/architecture/flows/<slug>.c4`. `model.c4` and
+  `views.c4` belong to `arch-system`.
+- Shared files go through the CLI: questions → `CLI plan ask`, handoff → `CLI plan handoff`, progress →
+  `CLI plan note`. Never rewrite them by hand.
+- `arch-system`, `deployment`, `diagrams`, `i18n`, `handover`, `review-fixes` and `doc-fixes` touch many shared pages:
+  the autopilot runs them alone. Run them alone in the wizard too.
+- If you must touch another shared page (`docs/index.md`, a glossary entry), re-read it right before a small edit.
 
 ## setup
 Done by the wizard (`CLI setup`). If an agent lands here: run it, report missing prerequisites with the fix, mark done.
@@ -130,6 +152,10 @@ of `docs/interview/open-questions.md` quoting each answer. Never pick a side sil
 - **language**: DDD glossary (term, definition, code name, context, synonyms to avoid; which translations to keep), SLAs/NFRs.
 - **history**: historical decisions (why, alternatives dropped) → ADR material; known debt; validation of the inferred
   integrations, flows (names/scope) and data ownership / shared DBs.
+**Start from the drafts' questions.** Pages may already be drafted without this interview (provisional units): their
+questions are the open items of `docs/interview/open-questions.md` tagged with this unit's topic (`context ·`,
+`language ·`, `history ·`). Ask those first — they are concrete and grounded in code — and tick each one answered
+(`- [x]` + the answer or a pointer to the dated file). Finishing the unit reopens those drafts to refine them.
 Record answers faithfully in `docs/interview/<YYYY-MM-DD>-<unit>.md`; unanswered → `docs/interview/open-questions.md`.
 Unattended: do not ask; take the most reasonable reading and record every question.
 
@@ -139,9 +165,11 @@ The foundation for one repo — after this unit the repo is useful on its own:
    key glossary terms, integrations, what to emphasize, and a `## Coverage` section listing the pages its wiki needs
    (modules/layers, one per API surface — endpoints, events, jobs — and per logic area, data, configuration, testing,
    operations, known issues). OpenWiki's own engine reads only this brief, so the list is what makes its wiki complete.
-2. C4: its container in `docs/architecture/model.c4` (create `likec4.config.json` + `model.c4` + `views.c4` if missing —
-   or run `CLI arch-draft --save` to start from the static-scan draft)
-   and `docs/architecture/repos/<repo>.c4` (components + `<repo_snake>_components` view). `CLI arch-validate` → ✓ Valid.
+2. C4 in `docs/architecture/repos/<repo>.c4` only (other repo-briefs may run at the same time): the components and a
+   `<repo_snake>_components` view, added to the model with `extend` — `extend <system>.<container> { … }` when the
+   container is already declared (e.g. by the static-scan draft), otherwise declare it there with
+   `extend <system> { <container> = container '…' { … } }`. Relationships to other containers go in the same file. If
+   `likec4.config.json` / `model.c4` are missing, run `CLI arch-draft --save` first. `CLI arch-validate` → ✓ Valid.
 3. Repo brief (CONVENTIONS §7): `docs/repos/<repo>/brief.md` — stack (must match `CLI stack`; fix it there, not only in
    the brief), how to build/test/run, interfaces, data owned,
    doc pointers and the Mermaid component diagram (`likec4 gen mermaid docs/architecture -o build/mmd` →
@@ -229,7 +257,8 @@ per flow: `CLI plan add flow:<slug> "<Flow name>"`. Write `docs/flows/index.md` 
 
 ## flow
 One flow: `docs/flows/<slug>.md` per CONVENTIONS §6 (sequence diagram always; flowchart only with branching rules; state
-diagram for lifecycles) + `dynamic view flow_<slug>` in `views.c4`. Every step cites entrypoint + evidence.
+diagram for lifecycles) + `dynamic view flow_<slug>` in its own `docs/architecture/flows/<slug>.c4` (a `views { … }`
+block; flows run side by side). Every step cites entrypoint + evidence.
 
 ## i18n
 Spanish for every canonical page written/changed since the last i18n pass (`CLI status` lists `es:missing/outdated`),
