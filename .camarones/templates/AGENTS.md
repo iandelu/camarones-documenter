@@ -16,7 +16,8 @@ and never receive kit files.
 ## Documentation sessions
 1. Read `{{CAM}}docs/.work/handoff.md` (what the last session did and left pending) and run `{{CLI}} plan next`.
 2. A unit marked `[in progress]` was interrupted: resume it from its checkpoints in `{{CAM}}docs/.work/units/` instead of starting
-   over. Otherwise propose the next ready unit. Follow `{{CAM}}.camarones/PLAYBOOK.md` ("Session protocol"); save progress often
+   over. Otherwise propose the next ready unit; one marked `[taken: …]` belongs to another session working right now, leave it
+   alone. Follow `{{CAM}}.camarones/PLAYBOOK.md` ("Session protocol"); save progress often
    with `{{CLI}} plan note <unit> "…"`. Human review comments waiting to be applied: `{{CAM}}docs/.work/review-feedback.md`.
 3. Doc rules: `{{CAM}}.camarones/CONVENTIONS.md` (binding). Paths in the playbook and conventions are relative to `{{CAM}}`.
 4. JVM repos with SDKMAN: run `source ~/.sdkman/bin/sdkman-init.sh && sdk env` in the repo before `mvn`/`gradle` (prefer `./mvnw`, `./gradlew`).
@@ -27,6 +28,6 @@ instead of rewriting them. `draft` pages are AI-generated: verify against code. 
 `<!-- human -->` blocks or files with `x-owner: human`.
 
 ## CLI
-`{{CLI}} help` · `plan next` · `plan start|note|done <unit>` · `checkpoint` · `status` · `check` · `changes` ·
+`{{CLI}} help` · `plan next` · `plan start|note|done <unit>` · `plan ask|handoff <unit> "…"` · `checkpoint` · `status` · `check` · `changes` ·
 `arch-validate` · `translated` · `llms` · `up` (portal: read, edit, confirm)
 <!-- camarones:end -->

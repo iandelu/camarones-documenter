@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.13.0-ff875f?style=flat-square" alt="Versión 3.13.0">
+  <img src="https://img.shields.io/badge/version-3.14.0-ff875f?style=flat-square" alt="Versión 3.14.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -236,6 +236,17 @@ Cada sesión lee el contexto necesario, trabaja en una unidad y guarda notas. Si
 ```
 
 En macOS / Linux, sustituye `.\camaron.cmd` por `sh camaron.command` en los ejemplos.
+
+### Varios agentes a la vez, sin esperar a la entrevista
+
+Varias sesiones pueden trabajar sobre el mismo plan: ventanas del asistente o `autopilot --jobs N`. Cada sesión reclama su unidad (`plan start <unidad> --session <id>`) y el CLI rechaza una unidad que otra sesión viva ya tiene. Las escrituras en `plan.yaml`, las preguntas (`plan ask`), el handoff (`plan handoff`) y los commits de checkpoint pasan por un bloqueo, y cada repo y cada flujo escribe su propio fichero C4.
+
+La entrevista ya no bloquea. `repo-brief`, `domain`, `data`, ADRs y el catálogo de flujos se redactan desde el código como borradores provisionales y dejan sus dudas en `open-questions.md`. La entrevista empieza por esas preguntas y, al terminar, reabre esos borradores para afinarlos. Solo la traducción y la confirmación humana la esperan.
+
+```powershell
+# Tres unidades a la vez, cada una en su sesión desatendida
+.\camaron.cmd autopilot --jobs 3
+```
 
 ## La IA propone. Tú confirmas.
 

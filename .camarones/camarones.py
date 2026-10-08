@@ -28,7 +28,11 @@
                             and the workspace folder (--global: also ~/.camarones*, saved tokens)
   mcp                       stdio MCP server: agents search/read the docs and the code graph
   ci [gitlab|github]        install the umbrella CI pipeline
-  plan [sync|next|start|note|done|block|drop|add|redo] …   session work plan (docs/.work/plan.yaml)
+  plan [sync|next|start|note|done|block|drop|add|redo|ask|handoff] …   session work plan (docs/.work/plan.yaml)
+  plan start UNIT [--session S] [--force]   claim a unit for a session (refuses one another live session holds)
+  plan next --claim [--session S]   claim the first free ready unit
+  plan ask UNIT "question" [--topic T]   add a question for the interviews (open-questions.md)
+  plan handoff UNIT "text"  add this session's entry to docs/.work/handoff.md
   plan note UNIT "text"     save a progress checkpoint of a unit (a closed session resumes from it)
   plan redo UNIT [--also U…]  reopen a finished unit (e.g. an interview) to review and update it
   checkpoint ["message"]    commit docs progress locally in the umbrella repo (never pushes)
@@ -39,7 +43,7 @@
                             is read most); --record: whether this machine adds its counts
   version                   kit and pinned tool versions
   prompt UNIT [--lang es|en] [--unattended]      prompt for an agent session (UNIT may be 'update')
-  autopilot [--lang es|en] [--max-units N] [--poll-seconds N] [--include-interviews]
+  autopilot [--lang es|en] [--jobs N] [--max-units N] [--poll-seconds N] [--include-interviews]
                             run ready units back to back unattended (Claude Code / Codex, waits out usage limits)
   arch-draft [--save]       quick static architecture scan → C4 draft (first look, no AI)
   radar [--json]            stack + tools the repos already use (Backstage, Sonar, linters…) → docs/overview/tooling.md
