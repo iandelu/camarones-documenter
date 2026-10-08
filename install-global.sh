@@ -37,8 +37,18 @@ if [ -d "$CENTRAL/.git" ]; then
     *://*|*@*:*) if [ -n "$CAMARONES_KIT_URL" ]; then git -C "$CENTRAL" remote set-url origin "$KIT_URL"; fi ;;
     *) git -C "$CENTRAL" remote set-url origin "$KIT_URL" ;;   # older installs followed a local checkout
   esac
-  git -C "$CENTRAL" pull --ff-only --quiet || {
-    echo "Could not fast-forward $CENTRAL — run: camaron self-update" >&2; exit 1; }
+  if ! git -C "$CENTRAL" pull --ff-only --quiet 2>/dev/null; then
+    # Upstream history was rewritten (rebased, amended): move onto it like `camaron self-update` does, as long as
+    # nothing is uncommitted and every local commit already exists upstream by content.
+    git -C "$CENTRAL" fetch --quiet || { echo "Could not reach the kit upstream from $CENTRAL." >&2; exit 1; }
+    if [ -n "$(git -C "$CENTRAL" status --porcelain --untracked-files=no)" ]; then
+      echo "The kit clone $CENTRAL has uncommitted changes — commit or discard them, then retry." >&2; exit 1
+    fi
+    if git -C "$CENTRAL" cherry '@{u}' HEAD | grep -q '^+'; then
+      echo "The kit clone $CENTRAL has local commits that are not upstream — push or drop them, then retry." >&2; exit 1
+    fi
+    git -C "$CENTRAL" reset --hard --quiet '@{u}'
+  fi
 else
   echo "Cloning kit to $CENTRAL…"
   git clone --quiet "$KIT_URL" "$CENTRAL"

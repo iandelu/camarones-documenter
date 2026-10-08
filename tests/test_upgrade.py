@@ -141,24 +141,110 @@ def test_self_update_refuses_a_project_local_kit(central):
         upgrade.self_update(lambda _m: None, repo=local)
 
 
-@pytest.mark.skipif(not shutil.which("uv"), reason="the installer needs uv")
-def test_installer_clones_the_official_kit_without_a_checkout(central, tmp_path):
+# ---------- the installers (install-global.cmd / .sh), run for real against an offline upstream ----------
+def user_path() -> str | None:
+    """The real user PATH in the Windows registry (None elsewhere)."""
+    if os.name != "nt":
+        return None
+    import winreg
+    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment") as k:
+        try:
+            return winreg.QueryValueEx(k, "Path")[0]
+        except FileNotFoundError:
+            return ""
+
+
+@pytest.fixture
+def installer(central, tmp_path):
+    """run(path_has_bindir) → CompletedProcess of the real installer in a fake home. On Windows `setx`, `powershell`
+    and `find` resolve to stubs that only log their call (a GNU find on PATH, as under Git Bash, made the old
+    installer think the launcher folder was missing and rewrite the real PATH with setx, which truncates at 1024
+    characters). Whatever happens, the real user PATH must come out unchanged — if not, it is put back and the test
+    fails."""
     _, upstream, _ = central
-    home = tmp_path / "fresh-home"
+    home, stubs, calls = tmp_path / "fresh-home", tmp_path / "stubs", tmp_path / "calls.log"
     home.mkdir()
+    stubs.mkdir()
     env = {**os.environ, "HOME": str(home), "USERPROFILE": str(home), "LOCALAPPDATA": str(home / "AppData"),
            "SHELL": "/bin/sh", "CAMARONES_KIT_URL": str(upstream)}
+    bindir = home / ".local" / "bin"
     if os.name == "nt":
-        bindir = home / ".local" / "bin"
-        env["PATH"] = f"{bindir};{env['PATH']}"                       # already on PATH: the installer never runs setx
+        for name, code in (("setx", 1), ("powershell", 0), ("find", 1)):
+            (stubs / f"{name}.cmd").write_text(f'@echo off\r\necho {name} %* [%CAM_BINDIR%]>> "{calls}"\r\nexit /b {code}\r\n',
+                                               encoding="utf-8")
         cmd, central_dir = ["cmd", "/c", str(REPO / "install-global.cmd")], home / "AppData" / "camarones-documenter" / "kit"
         launcher = bindir / "camaron.cmd"
     else:
         cmd, central_dir = ["sh", str(REPO / "install-global.sh")], home / ".camarones" / "kit"
-        launcher = home / ".local" / "bin" / "camaron"
+        launcher = bindir / "camaron"
+    before = user_path()
+
+    def run(path_has_bindir: bool = True):
+        e = dict(env)
+        e["PATH"] = os.pathsep.join([str(stubs)] * (os.name == "nt") + [str(bindir)] * path_has_bindir + [env["PATH"]])
+        return subprocess.run(cmd, cwd=tmp_path, env=e, stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                              encoding="utf-8", errors="replace")
+
+    box = type("Installer", (), {"run": staticmethod(run), "central": central_dir, "launcher": launcher,
+                                 "bindir": bindir, "home": home, "upstream": upstream,
+                                 "calls": lambda: calls.read_text(encoding="utf-8") if calls.exists() else ""})
+    yield box
+    after = user_path()
+    if after != before:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment", 0, winreg.KEY_SET_VALUE) as k:
+            winreg.SetValueEx(k, "Path", 0, winreg.REG_EXPAND_SZ, before)
+        pytest.fail("the installer changed the real user PATH (restored)")
+
+
+needs_uv = pytest.mark.skipif(not shutil.which("uv"), reason="the installer needs uv")
+
+
+@needs_uv
+def test_installer_clones_the_official_kit_without_a_checkout(installer):
     for _ in range(2):                                                # second run updates in place
-        r = subprocess.run(cmd, cwd=tmp_path, env=env, stdin=subprocess.DEVNULL, capture_output=True, text=True,
-                           encoding="utf-8", errors="replace")
+        r = installer.run()
         assert r.returncode == 0, r.stdout + r.stderr
-    assert git(central_dir, "remote", "get-url", "origin") == str(upstream)
-    assert launcher.exists()
+    assert git(installer.central, "remote", "get-url", "origin") == str(installer.upstream)
+    assert installer.launcher.exists()
+
+
+@needs_uv
+@pytest.mark.skipif(os.name != "nt", reason="Windows PATH handling")
+def test_installer_leaves_the_path_alone_when_the_launcher_folder_is_on_it(installer):
+    r = installer.run()
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "setx" not in installer.calls() and "powershell" not in installer.calls()
+    assert "Adding" not in r.stdout
+
+
+@needs_uv
+@pytest.mark.skipif(os.name != "nt", reason="Windows PATH handling")
+def test_installer_adds_the_launcher_folder_without_setx(installer):
+    """setx truncates PATH at 1024 characters; the user PATH is changed through PowerShell instead."""
+    r = installer.run(path_has_bindir=False)
+    assert r.returncode == 0, r.stdout + r.stderr
+    calls = installer.calls()
+    assert "setx" not in calls
+    assert "powershell" in calls and str(installer.bindir) in calls
+
+
+@needs_uv
+def test_installer_follows_rewritten_upstream_history(installer):
+    assert installer.run().returncode == 0
+    git(installer.upstream, "commit", "-q", "--amend", "-m", "feat: rewritten")       # force-pushed upstream
+    commit(installer.upstream, "new.txt", "n\n", "feat: new")
+    r = installer.run()
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert git(installer.central, "rev-parse", "HEAD") == git(installer.upstream, "rev-parse", "HEAD")
+
+
+@needs_uv
+def test_installer_keeps_commits_that_only_exist_in_the_central_clone(installer):
+    assert installer.run().returncode == 0
+    commit(installer.central, "mine.txt", "m\n", "feat: only here")
+    git(installer.upstream, "commit", "-q", "--amend", "-m", "feat: rewritten")
+    head = git(installer.central, "rev-parse", "HEAD")
+    r = installer.run()
+    assert r.returncode != 0 and "local commits" in (r.stdout + r.stderr)
+    assert git(installer.central, "rev-parse", "HEAD") == head
