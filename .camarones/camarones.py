@@ -217,6 +217,9 @@ def main() -> int:
     pl.add_argument("--note"); pl.add_argument("--type", default="flow"); pl.add_argument("--deps", nargs="*")
     pl.add_argument("--json", action="store_true")
     pl.add_argument("--also", nargs="*", default=[])
+    pl.add_argument("--session", help="who works on the unit (default: $CAMARONES_SESSION)")
+    pl.add_argument("--force", action="store_true", help="start: take over a unit another session holds")
+    pl.add_argument("--claim", action="store_true", help="next: claim the first free unit for this session")
     cp = sp.add_parser("checkpoint"); cp.add_argument("message", nargs="?", default="progress")
     rm = sp.add_parser("remote"); rm.add_argument("url", nargs="?")
     sh = sp.add_parser("share"); sh.add_argument("--auto", choices=["on", "off"])
@@ -488,11 +491,21 @@ def cmd_interview(a) -> int:
 
 
 def cmd_plan(a) -> int:
+    session = a.session or os.environ.get("CAMARONES_SESSION") or None
     if a.action == "sync" or not plan.PLAN.exists():
         plan.sync()
     if a.action in ("show", "sync"):
         data = plan.load()
         print(json.dumps(data, indent=2, ensure_ascii=False) if a.json else plan.render(data))
+    elif a.action == "next" and a.claim:
+        u = plan.claim_next(session, lambda ready: next((x for x in ready if x["runner"] == "agent"), None),
+                            agent=os.environ.get("CAMARONES_AGENT"))
+        if a.json:
+            print(json.dumps(u, indent=2, ensure_ascii=False))
+        elif u:
+            print(f"claimed {u['id']}: {u['title']}")
+        else:
+            print("Nothing free to claim: every ready unit is taken by another session, waits for the wizard, or the plan is complete.")
     elif a.action == "next":
         ready = plan.available()
         if a.json:
@@ -503,8 +516,9 @@ def cmd_plan(a) -> int:
             d, t = plan.progress()
             print(f"Progress {d}/{t}. Ready next:")
             for i, u in enumerate(ready[:6], 1):
-                print(f"  {i}. {u['id']:<28} {u['title']}{'  [in progress]' if u['status'] == 'doing' else ''}"
-                      f"{'  [wizard]' if u['runner'] == 'wizard' else ''}")
+                who = plan.taken_by(u, session)
+                print(f"  {i}. {u['id']:<28} {u['title']}{'  [in progress]' if u['status'] == 'doing' and not who else ''}"
+                      f"{f'  [taken: {who}]' if who else ''}{'  [wizard]' if u['runner'] == 'wizard' else ''}")
                 if u["status"] == "doing" and plan.last_note(u["id"]):
                     print(f"       last checkpoint: {plan.last_note(u['id'])}")
     elif a.action == "note":
@@ -516,8 +530,17 @@ def cmd_plan(a) -> int:
         if not a.unit:
             print("unit id required"); return 2
         status = {"start": "doing", "done": "done", "block": "blocked", "drop": "dropped"}[a.action]
-        u = plan.set_status(a.unit, status, a.note)
+        if status == "doing":
+            try:
+                u = plan.claim(a.unit, session, agent=os.environ.get("CAMARONES_AGENT"), force=a.force)
+            except plan.Taken as e:
+                print(e, file=sys.stderr)
+                return 3
+        else:
+            u = plan.set_status(a.unit, status, a.note)
         print(f"{u['id']} → {status}")
+        if u.get("reopened"):
+            print(f"reopened to refine with what {u['id']} recorded: " + ", ".join(u["reopened"]))
         if status != "doing" and env.checkpoint_commit(f"{u['id']} {status}"):
             print("✔ docs committed locally (checkpoint)")
     elif a.action == "redo":

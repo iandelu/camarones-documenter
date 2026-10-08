@@ -77,8 +77,9 @@ def test_interviews_are_left_to_a_human(kit, pilot):
     for u in kit.plan.load()["units"]:
         if u["id"].startswith("discovery"):
             kit.plan.set_status(u["id"], "done")
-    assert pilot["run"]() == 0
-    assert not pilot["calls"]
+    pilot["run"]()
+    ran = [uid for _, uid in pilot["calls"]]
+    assert ran and not any(uid.startswith("interview-") for uid in ran)          # drafts go on without them
     assert any("interview" in l and "needs you" in l for l in pilot["echo"])
 
 

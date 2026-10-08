@@ -9,7 +9,7 @@ from typing import Callable
 
 from .common import (KIT, ROOT, DOCS, HOME, CACHE, IS_WIN, IS_MAC, VERSIONS, CAM_DIR, CAM_LAYOUT, WORKSPACE, WS_FILE, GRAPHS, run, out,
                      which, uv, ensure_path, cli_cmd, sdkman_dir, repo_dir, ws_rel, rel_file, load_json, save_json)
-from . import binaries, docs
+from . import binaries, common, docs
 from .projects import git_failure  # noqa: F401 — share() and callers of env.git_failure
 
 Log = Callable[[str], None]
@@ -946,17 +946,7 @@ def wiki_workdir(repo: str, log: Log = print):
 WIKI_LOCK = CACHE / "wiki.lock"
 
 
-def pid_alive(pid: int) -> bool:
-    if IS_WIN:                                  # os.kill(pid, 0) would terminate the process on Windows
-        r = run(["tasklist", "/FI", f"PID eq {pid}", "/NH"], check=False, capture=True)
-        return str(pid) in (r.stdout or "")
-    try:
-        os.kill(pid, 0)
-    except PermissionError:
-        return True
-    except OSError:
-        return False
-    return True
+pid_alive = common.pid_alive          # kept here: callers and tests patch env.pid_alive
 
 
 @contextmanager

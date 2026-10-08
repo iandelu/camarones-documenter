@@ -1,7 +1,8 @@
 """Shared paths, versions and cross-platform process helpers (macOS, Windows, Linux)."""
 from __future__ import annotations
 
-import json, os, platform, shutil, subprocess, sys
+import json, os, platform, shutil, subprocess, sys, threading, time
+from contextlib import contextmanager
 from pathlib import Path
 
 KIT = Path(__file__).resolve().parent.parent          # .camarones/
@@ -186,3 +187,85 @@ def save_json(p: Path, data) -> None:
 
 def py() -> str:
     return sys.executable
+
+
+def pid_alive(pid: int) -> bool:
+    if IS_WIN:                                  # os.kill(pid, 0) would terminate the process on Windows
+        r = run(["tasklist", "/FI", f"PID eq {pid}", "/NH"], check=False, capture=True)
+        return str(pid) in (r.stdout or "")
+    try:
+        os.kill(pid, 0)
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+    return True
+
+
+_LOCKS: dict[str, threading.RLock] = {}
+_HELD: dict[str, int] = {}
+_LOCKS_GUARD = threading.Lock()
+
+
+def _lock_is_stale(path: Path, stale: float) -> bool:
+    try:
+        age = time.time() - path.stat().st_mtime
+        pid = int(path.read_text(encoding="utf-8").strip() or 0)
+    except (OSError, ValueError):
+        return False                            # being written or just removed: look again on the next try
+    return age > stale or bool(pid and pid != os.getpid() and not pid_alive(pid))
+
+
+@contextmanager
+def file_lock(path: Path, timeout: float = 15, stale: float = 120, reentrant: bool = True):
+    """Mutual exclusion across processes and threads (macOS, Windows, Linux): an O_EXCL lock file holding the
+    holder's pid. A lock left by a dead process, or older than `stale` seconds, is taken over. Re-entrant within
+    one thread, so a locked helper may call another."""
+    key = os.path.normcase(os.path.abspath(path))
+    with _LOCKS_GUARD:
+        rl = _LOCKS.setdefault(key, threading.RLock())
+    if not rl.acquire(timeout=timeout):
+        raise RuntimeError(f"{path.name} is busy (another session is writing) — try again")
+    try:
+        if _HELD.get(key):
+            if not reentrant:
+                raise RuntimeError(f"{path.name} is busy (another session is writing) — try again")
+            _HELD[key] += 1
+            try:
+                yield
+            finally:
+                _HELD[key] -= 1
+            return
+        path.parent.mkdir(parents=True, exist_ok=True)
+        deadline, checked = time.monotonic() + timeout, 0.0
+        while True:
+            try:
+                fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                break
+            except (FileExistsError, PermissionError):  # Windows: PermissionError while the old one is being deleted
+                pass
+            now = time.monotonic()
+            if now - checked > 1:
+                checked = now
+                if _lock_is_stale(path, stale):
+                    try:
+                        path.unlink(missing_ok=True)
+                    except PermissionError:
+                        pass
+                    continue
+            if now > deadline:
+                raise RuntimeError(f"{path.name} is busy (another session is writing) — try again")
+            time.sleep(0.03)
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(str(os.getpid()))
+        _HELD[key] = 1
+        try:
+            yield
+        finally:
+            _HELD[key] = 0
+            try:
+                path.unlink(missing_ok=True)
+            except PermissionError:
+                pass
+    finally:
+        rl.release()

@@ -118,11 +118,15 @@ def test_autopilot_consolidates_team_answers(kit, pilot):
     assert pilot[0] == "interview-context"
 
 
-def test_autopilot_still_leaves_live_interviews_to_a_human(kit, pilot):
+def test_autopilot_leaves_live_interviews_to_a_human_but_keeps_drafting(kit, pilot):
     kit.plan.sync()
     finish(kit, "setup", "discovery")
-    kit.plan.run_autopilot(echo=lambda _: None)
-    assert pilot == []
+    echo = []
+    kit.plan.run_autopilot(echo=echo.append)
+    assert not any(uid.startswith("interview-") for uid in pilot)
+    assert {"repo-brief:api", "domain", "data", "decisions-quality"} <= set(pilot)    # provisional drafts
+    assert "i18n" not in pilot                                                         # waits for the interviews
+    assert any("interview-context" in l and "need you" in l for l in echo)
 
 
 # ---------- questionnaire: format, export, import, status ----------
