@@ -13,19 +13,22 @@ import json
 import os
 import subprocess
 import threading
+import re
 import time
+import uuid
 from pathlib import Path
 
 import yaml
 
-from .common import ROOT, WORK, CACHE, CAM_LAYOUT, CAM_DIR, WORKSPACE, cli_cmd, ws_rel, rel_file, IS_WIN, which, file_lock
+from .common import (ROOT, DOCS, WORK, CACHE, CAM_LAYOUT, CAM_DIR, WORKSPACE, cli_cmd, ws_rel, rel_file, IS_WIN, which,
+                     file_lock, pid_alive)
 from . import docs
 
 PLAN = WORK / "plan.yaml"
 HANDOFF = WORK / "handoff.md"
 LOG = WORK / "log.md"
 PLAN_LOCK = CACHE / "plan.lock"          # git-ignored: several sessions (windows, autopilot workers) share one plan
-CLAIM_TTL = dt.timedelta(hours=2)        # a claim nobody touched for this long is free again (crashed session)
+CLAIM_TTL = dt.timedelta(minutes=30)     # a claim nobody touched (plan note) for this long is free again: closed window
 DONE = ("done", "dropped")
 NO_WIKI = "No wiki for this repo (wizard → Wikis → choose repos)"
 LIVE_INTERVIEWS = "Interviews are done live, not by team questionnaire"
@@ -176,7 +179,8 @@ def _sync() -> dict:
     for bu in blueprint(repos):
         cur = existing.pop(bu["id"], None)
         if cur:
-            bu.update({k: cur[k] for k in ("status", "notes", "updated", "redo", "owner", "provisional", "refine") if k in cur})
+            bu.update({k: cur[k] for k in ("status", "notes", "updated", "redo", "owner", "provisional", "refine", "chat")
+                       if k in cur})
             if cur.get("status") == "dropped" and bu.get("repo") in repos:
                 bu["status"] = "todo"
             if cur.get('notes') == 'Not part of the selected profile':
@@ -251,7 +255,8 @@ def get(data: dict, uid: str) -> dict:
 
 def taken_by(u: dict, session: str | None = None) -> str | None:
     """The live session holding a unit, unless it is `session` itself. A unit `doing` without an owner (3.x plans,
-    or a session that ended without closing it) or whose owner went quiet for CLAIM_TTL is free."""
+    or a session that ended without closing it), whose owner went quiet for CLAIM_TTL, or whose window is known to
+    be closed (its pid is gone) is free."""
     o = u.get("owner")
     if u.get("status") != "doing" or not isinstance(o, dict):
         return None
@@ -260,6 +265,8 @@ def taken_by(u: dict, session: str | None = None) -> str | None:
     except ValueError:
         return None
     if dt.datetime.now() - seen >= CLAIM_TTL or o.get("session") == session:
+        return None
+    if o.get("pid") and not pid_alive(int(o["pid"])):
         return None
     return str(o.get("session"))
 
@@ -486,6 +493,68 @@ def note(uid: str, text: str) -> Path:
     return f
 
 
+OPEN_QUESTIONS = DOCS / "interview" / "open-questions.md"
+TOPICS = {"interview-context": "context", "interview-language": "language", "interview-history": "history"}
+SHARED_LOCK = CACHE / "shared-files.lock"
+
+
+def ask(uid: str, question: str, topic: str | None = None) -> Path:
+    """Append a question for the interviews to open-questions.md (under a lock: sessions run side by side). The topic
+    defaults to the interview the unit was drafted without."""
+    if not topic:
+        u = next((x for x in load()["units"] if x["id"] == uid), {})
+        soft = [d for d in u.get("soft") or [] if d in TOPICS]
+        topic = TOPICS.get(uid) or (TOPICS[soft[0]] if soft else "general")
+    line = f"- [ ] ({now()[:10]}, {topic} · {uid}) {' '.join(question.split())}\n"
+    with file_lock(SHARED_LOCK):
+        if not OPEN_QUESTIONS.exists():
+            OPEN_QUESTIONS.parent.mkdir(parents=True, exist_ok=True)
+            OPEN_QUESTIONS.write_text("---\ntype: interview\ntitle: Open questions\ndescription: Questions agents could not "
+                                      "answer from the code; answer them in the next interview or inline.\n---\n"
+                                      "# Open questions\n\n", encoding="utf-8", newline="\n")
+        text = OPEN_QUESTIONS.read_text(encoding="utf-8")
+        with OPEN_QUESTIONS.open("a", encoding="utf-8", newline="\n") as fh:
+            fh.write(("" if text.endswith("\n") else "\n") + line)
+    return OPEN_QUESTIONS
+
+
+HANDOFF_KEEP = 10                    # older entries stay in units/<id>.md and log.md
+_OLD_INTRO = 'Each agent session rewrites "Last session" when it finishes a plan unit.'
+_NEW_INTRO = "Each agent session adds its entry with `plan handoff <unit> \"…\"` when it finishes a plan unit (newest first)."
+
+
+def handoff(uid: str, text: str) -> Path:
+    """Add a session's handoff entry on top of "Recent sessions". The single "Last session" section of 3.x handoffs
+    (which parallel sessions would overwrite) becomes the first entry, once."""
+    body = "\n".join(("#### " + l.lstrip("#").strip()) if l.startswith("#") else l for l in text.strip().splitlines())
+    entry = f"### {uid} — {now()[:16].replace('T', ' ')}\n{body}\n"
+    with file_lock(SHARED_LOCK):
+        cur = HANDOFF.read_text(encoding="utf-8") if HANDOFF.exists() else "# Session handoff 🦐\n\n" + _NEW_INTRO + "\n"
+        head, entries = _split_handoff(cur)
+        entries = [entry, *entries][:HANDOFF_KEEP]
+        HANDOFF.parent.mkdir(parents=True, exist_ok=True)
+        HANDOFF.write_text(head.rstrip() + "\n\n## Recent sessions\n\n" + "\n".join(e.rstrip() + "\n" for e in entries),
+                           encoding="utf-8", newline="\n")
+    return HANDOFF
+
+
+def _split_handoff(text: str) -> tuple[str, list[str]]:
+    text = text.replace("\r\n", "\n").replace(_OLD_INTRO, _NEW_INTRO)
+    m = re.search(r"^## Recent sessions[^\n]*\n", text, flags=re.M)
+    if m:
+        head, rest = text[:m.start()], text[m.end():]
+        parts = re.split(r"^(?=### (?!#))", rest, flags=re.M)
+        return head, [p for p in parts if p.startswith("### ")]
+    m = re.search(r"^## Last session(?: — (.*))?\n", text, flags=re.M)
+    if not m:
+        return text, []
+    nxt = re.search(r"^## ", text[m.end():], flags=re.M)
+    end = m.end() + nxt.start() if nxt else len(text)
+    old = text[m.end():end].strip()
+    head = text[:m.start()] + text[end:]
+    return head, ([f"### {(m.group(1) or 'earlier').strip()} — earlier\n{old}\n"] if old else [])
+
+
 def last_note(uid: str) -> str:
     f = note_file(uid)
     if not f.exists():
@@ -519,7 +588,17 @@ def render(data: dict | None = None) -> str:
 
 
 # ---------- session prompts ----------
-def prompt(uid: str, lang: str = "es", unattended: bool = False) -> str:
+def new_session() -> str:
+    return uuid.uuid4().hex[:8]
+
+
+def prompt_file(uid: str) -> Path:
+    """Each unit's session prompt has its own file: sessions launched side by side never overwrite each other's."""
+    return WORK / "prompts" / (uid.replace(":", "__").replace("/", "_") + ".md")
+
+
+def prompt(uid: str, lang: str = "es", unattended: bool = False, session: str | None = None) -> str:
+    session = session or os.environ.get("CAMARONES_SESSION") or new_session()
     from . import env                    # lazy: env imports plan
     env.sync_kit_docs()                  # the session reads the project's PLAYBOOK copy: bring it up to this kit
     data = load()
@@ -591,6 +670,12 @@ def prompt(uid: str, lang: str = "es", unattended: bool = False) -> str:
                  "what nobody answered and where people disagree. Consolidate the answers as the playbook section "
                  "\"interview\" (team mode) says: agreed answers to the dated interview file, citing who said what; "
                  "disagreements and unanswered questions to `docs/interview/open-questions.md`.\n")
+    if u.get("type") in INTERVIEW_TYPES:
+        topic = TOPICS[u["type"]]
+        extra += (f"\nDRAFT QUESTIONS — other units may already have drafted pages from the code without this interview. "
+                  f"Start from the open items tagged `{topic} ·` in `docs/interview/open-questions.md`: they are concrete "
+                  "questions grounded in the code. Tick each one you get answered (`- [x]`, with the answer or a pointer "
+                  "to the dated interview file); finishing this unit reopens those drafts to refine them.\n")
     layout = (f"\nLayout: you run in the workspace folder. Docs and agent config live in `{CAM_DIR}/` (its own git repo; every "
               f"`docs/…` or `.camarones/…` path in the playbook is relative to it); the service repos are its siblings (`<repo>/`). "
               "Never write kit files into the service repos.\n") if CAM_LAYOUT else (
@@ -601,13 +686,15 @@ def prompt(uid: str, lang: str = "es", unattended: bool = False) -> str:
 You are documenting this project with the Camarón kit (works the same in Claude Code and Codex).
 1. Read `{ws_rel('.camarones/PLAYBOOK.md')}` → sections "Session protocol" and "{section}", and `{ws_rel('.camarones/CONVENTIONS.md')}` (binding).
 2. Read `{ws_rel('docs/.work/handoff.md')}` (what previous sessions did and left pending). Do not redo finished work.
-3. Run `{cli} plan start {u['id']}`, then do ONLY this unit, as deep as the playbook asks. The CLI is `{cli}`
-   (`{cli} help` lists commands). Write docs in English; talk to the user in {talk}.
+3. Run `{cli} plan start {u['id']} --session {session}`, then do ONLY this unit, as deep as the playbook asks. Other
+   sessions may be working on other units at the same time: if `plan start` says the unit is taken, stop and say so.
+   The CLI is `{cli}` (`{cli} help` lists commands). Write docs in English; talk to the user in {talk}.
    Save progress as you go (the user may close the session at any time): after each significant step run
    `{cli} plan note {u['id']} "<what is done / what is next>"` and write findings to their files immediately.
-4. Finish: `{cli} plan done {u['id']} --note "<one line>"` (or `plan block … --note "why"`), rewrite the
-   "Last session" section of `{ws_rel('docs/.work/handoff.md')}` (done, decisions, pending, files to read first next time),
-   run `{cli} check` and `{cli} checkpoint "{u['id']}"` (local commit of the docs so nothing is lost).
+4. Finish: `{cli} plan done {u['id']} --note "<one line>"` (or `plan block … --note "why"`), then
+   `{cli} plan handoff {u['id']} "<done, decisions, pending, files to read first next time>"` (adds your entry to
+   `{ws_rel('docs/.work/handoff.md')}`; never edit that file by hand), then run `{cli} check` and
+   `{cli} checkpoint "{u['id']}"` (local commit of the docs so nothing is lost).
 5. {ask}
 """
 
@@ -619,7 +706,6 @@ INTERVIEW_TYPES = {"interview-context", "interview-language", "interview-history
 # error) so a unit documenting a rate-limited API isn't misread; anything else stops the loop instead
 LIMIT_HINTS = ("usage limit", "rate limit", "rate_limit", "limit reached", "try again later",
                "too many requests", "resets at", "limit will reset", "quota exceeded")
-AUTOPILOT_PROMPT = WORK / "autopilot-prompt.md"
 
 
 def _autopilot_log(text: str, echo=print) -> None:
@@ -674,13 +760,14 @@ def _render(agent: str, line: str) -> tuple[list[str], str]:
     return [], ""
 
 
-def _run_agent(agent: str, text: str, lang: str, uid: str, echo=print) -> subprocess.CompletedProcess:
+def _run_agent(agent: str, text: str, lang: str, uid: str, echo=print, session: str | None = None) -> subprocess.CompletedProcess:
     """Run one unattended session, streaming a compact view of what the agent does, plus a heartbeat with
     the unit's last checkpoint when it goes quiet. The returned stdout holds the error/result text only."""
     # multi-line args do not survive Windows .cmd shims: hand over a one-line pointer to the prompt file
-    WORK.mkdir(parents=True, exist_ok=True)
-    AUTOPILOT_PROMPT.write_text(text, encoding="utf-8")
-    brief = ws_rel(rel_file(AUTOPILOT_PROMPT))
+    pf = prompt_file(uid)
+    pf.parent.mkdir(parents=True, exist_ok=True)
+    pf.write_text(text, encoding="utf-8")
+    brief = ws_rel(rel_file(pf))
     short = f"Follow the instructions in {brief}" if lang == "en" else f"Sigue las instrucciones de {brief}"
     cmd = ([which(agent), "-p", short, "--dangerously-skip-permissions", "--output-format", "stream-json", "--verbose"]
            if agent == "claude" else
@@ -692,6 +779,10 @@ def _run_agent(agent: str, text: str, lang: str, uid: str, echo=print) -> subpro
     def heartbeat() -> None:
         nonlocal seen_note
         while not stop.wait(30):
+            try:
+                touch(uid)                   # keep this worker's claim alive however long the unit takes
+            except RuntimeError:
+                pass
             if time.monotonic() - last < 60:
                 continue
             ckpt = last_note(uid)
@@ -704,7 +795,8 @@ def _run_agent(agent: str, text: str, lang: str, uid: str, echo=print) -> subpro
         # pin the project: the agent's own `camarones …` calls must hit this plan, whatever folder it cds into
         p = subprocess.Popen(cmd, cwd=str(WORKSPACE), stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                              stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace", bufsize=1,
-                             env={**os.environ, "CAMARONES_ROOT": str(ROOT)})
+                             env={**os.environ, "CAMARONES_ROOT": str(ROOT), "CAMARONES_AGENT": agent,
+                                  **({"CAMARONES_SESSION": session} if session else {})})
     except OSError as e:
         return subprocess.CompletedProcess(cmd, 127, str(e), "")
     threading.Thread(target=heartbeat, daemon=True).start()
@@ -726,65 +818,140 @@ def _run_agent(agent: str, text: str, lang: str, uid: str, echo=print) -> subpro
     return subprocess.CompletedProcess(cmd, rc, "\n".join(tail), "")
 
 
+# units that touch many shared files (the system C4 model, every page, translations): never next to another unit
+GLOBAL_TYPES = {"arch-system", "deployment", "diagrams", "i18n", "handover", "review-fixes", "doc-fixes"}
+
+
+def release(uid: str) -> None:
+    """Drop a session's claim and leave the status as the session left it (a `doing` unit is resumed next time)."""
+    def drop(data: dict) -> None:
+        get(data, uid).pop("owner", None)
+    mutate(drop)
+
+
 def run_autopilot(lang: str = "es", max_units: int | None = None, poll_seconds: int = 900,
-                  include_interviews: bool = False, echo=print) -> int:
-    """Run ready units back to back, one fresh unattended session each, switching between Claude Code and
-    Codex when one hits its usage limit and waiting while both are limited. Returns units completed."""
+                  include_interviews: bool = False, echo=print, jobs: int = 1) -> int:
+    """Run ready units, one fresh unattended session each and up to `jobs` side by side, switching between Claude
+    Code and Codex when one hits its usage limit and waiting while both are limited. Each worker claims its unit, so
+    windows the user opened meanwhile are left alone; units in GLOBAL_TYPES run alone. Returns units completed."""
+    import queue as queue_mod
     log = lambda t: _autopilot_log(t, echo)                                    # noqa: E731
     agents = [a for a in AGENTS if which(a)]
     if not agents:
         log("Autopilot: neither `claude` nor `codex` is installed — nothing to run.")
         return 0
+    jobs = max(1, int(jobs or 1))
     # team interviews only consolidate written answers: nothing to ask, so they can run unattended
     skip = set() if include_interviews or docs.interview_mode() == "team" else INTERVIEW_TYPES
     limited: dict[str, dt.datetime] = {}
-    done = 0
-    log(f"Autopilot started with {', '.join(agents)}" + (f" (max {max_units} units)" if max_units else ""))
-    while max_units is None or done < max_units:
-        data = sync()
-        ready = available(data)
-        queue = [u for u in ready if u["runner"] == "agent" and u["type"] not in skip]
-        if not queue:
-            wizard = [u["id"] for u in ready if u["runner"] == "wizard"]
-            interviews = [u["id"] for u in ready if u["type"] in skip]
-            if wizard or interviews:
-                why = ([f"wizard step(s) {', '.join(wizard)} (run `{cli_cmd()}`)"] if wizard else []) + \
-                      ([f"interview(s) {', '.join(interviews)} (need you, in an interactive session)"] if interviews else [])
-                log(f"Autopilot stopped: what is left needs you — {'; '.join(why)}. Then start autopilot again.")
-            else:
-                d, t = progress(data)
-                log(f"Autopilot stopped: nothing ready — {d}/{t} units done "
-                    "(finished, or waiting on blocked units / docs/interview/open-questions.md).")
-            return done
-        u = queue[0]
-        free = [a for a in agents if limited.get(a, dt.datetime.min) <= dt.datetime.now()]
-        if not free:
-            soonest = min(limited.values())
-            wait = max(60, min(poll_seconds, int((soonest - dt.datetime.now()).total_seconds())))
-            log(f"All agents are at their usage limit — retrying in {wait // 60} min "
-                f"(machine must stay on; Ctrl+C to stop, progress is saved).")
-            time.sleep(wait)
-            continue
-        agent = free[0]
-        log(f"{agent} → {u['id']}: {u['title']}")
-        r = _run_agent(agent, prompt(u["id"], lang=lang, unattended=True), lang, u["id"], echo)
+    running: dict[str, tuple[str, str]] = {}               # uid → (agent, worker session)
+    results: queue_mod.Queue = queue_mod.Queue()
+    out_lock = threading.Lock()
+    done, stopping = 0, False
+    log(f"Autopilot started with {', '.join(agents)}" + (f", {jobs} units at a time" if jobs > 1 else "")
+        + (f" (max {max_units} units)" if max_units else ""))
+
+    def worker_echo(name: str, uid: str):
+        if jobs == 1:
+            return echo
+
+        def say(text: str) -> None:
+            with out_lock:
+                echo(f"[{name.removeprefix('autopilot-')} {uid}] {str(text).strip()}")
+        return say
+
+    def work(agent: str, uid: str, session: str) -> None:
+        try:
+            r = _run_agent(agent, prompt(uid, lang=lang, unattended=True, session=session), lang, uid,
+                           worker_echo(session, uid), session=session)
+        except Exception as e:                              # a crashed worker must not hang the scheduler
+            r = subprocess.CompletedProcess([agent], 1, f"{type(e).__name__}: {e}", "")
+        results.put((uid, r))
+
+    def finished(uid: str, r: subprocess.CompletedProcess) -> bool:
+        """Handle one result; False stops starting new units."""
+        nonlocal done
+        agent, _ = running.pop(uid)
         output = f"{r.stdout or ''}\n{r.stderr or ''}"
         if r.returncode == 0:
-            status = get(load(), u["id"])["status"]
-            log(f"{agent} finished {u['id']} (status: {status})")
+            status = get(load(), uid)["status"]
+            log(f"{agent} finished {uid} (status: {status})")
             if status in ("todo", "doing"):
-                log(f"Autopilot stopped: {u['id']} ended without `plan done`/`plan block` — check its checkpoints "
-                    f"in {ws_rel(rel_file(note_file(u['id'])))} before continuing.")
-                return done
+                release(uid)
+                log(f"Autopilot stopped: {uid} ended without `plan done`/`plan block` — check its checkpoints "
+                    f"in {ws_rel(rel_file(note_file(uid)))} before continuing.")
+                return False
             done += 1
-            continue
+            return True
+        release(uid)
         if any(h in output[-2000:].lower() for h in LIMIT_HINTS):
             limited[agent] = dt.datetime.now() + dt.timedelta(seconds=poll_seconds)
             others = [a for a in agents if limited.get(a, dt.datetime.min) <= dt.datetime.now()]
             log(f"{agent} hit its usage limit" + (f" — switching to {others[0]}" if others else ""))
+            return True
+        log(f"Autopilot stopped: {agent} failed on {uid} (exit {r.returncode}). Last output:\n" + output.strip()[-1500:])
+        return False
+
+    while True:
+        while not results.empty():                          # collect whatever finished meanwhile
+            if not finished(*results.get()):
+                stopping = True
+        room = (not stopping and len(running) < jobs and (max_units is None or done + len(running) < max_units)
+                and not any(get(load(), uid)["type"] in GLOBAL_TYPES for uid in running))
+        if room:
+            free = [a for a in agents if limited.get(a, dt.datetime.min) <= dt.datetime.now()]
+            if not free and not running:
+                soonest = min(limited.values())
+                wait = max(60, min(poll_seconds, int((soonest - dt.datetime.now()).total_seconds())))
+                log(f"All agents are at their usage limit — retrying in {wait // 60} min "
+                    f"(machine must stay on; Ctrl+C to stop, progress is saved).")
+                time.sleep(wait)
+                continue
+            if free:
+                busy = {s for _, s in running.values()}
+                session = next(f"autopilot-w{k}" for k in range(1, jobs + 1) if f"autopilot-w{k}" not in busy)
+
+                def pick(ready: list[dict]) -> dict | None:
+                    for u in ready:
+                        if u["runner"] != "agent" or u["type"] in skip or u["id"] in running:
+                            continue
+                        if u["type"] in GLOBAL_TYPES and running:
+                            return None                     # it runs alone: wait for the others to finish first
+                        return u
+                    return None
+                sync()
+                u = claim_next(session, pick, agent=free[0])
+                if u:
+                    running[u["id"]] = (free[0], session)
+                    log(f"{free[0]} → {u['id']}: {u['title']}" + (f" [{session.removeprefix('autopilot-')}]" if jobs > 1 else ""))
+                    threading.Thread(target=work, args=(free[0], u["id"], session), daemon=True).start()
+                    continue
+        if running:
+            try:
+                uid, r = results.get(timeout=1)
+            except queue_mod.Empty:
+                continue
+            if not finished(uid, r):
+                stopping = True
             continue
-        log(f"Autopilot stopped: {agent} failed on {u['id']} (exit {r.returncode}). Last output:\n"
-            + output.strip()[-1500:])
+        # nothing running and nothing more to start: say why
+        if stopping:
+            return done
+        if max_units is not None and done >= max_units:
+            log(f"Autopilot stopped: reached the limit of {max_units} unit(s).")
+            return done
+        data = sync()
+        ready = available(data)
+        wizard = [u["id"] for u in ready if u["runner"] == "wizard"]
+        interviews = [u["id"] for u in ready if u["type"] in skip]
+        taken = [f"{u['id']} ({taken_by(u)})" for u in ready if taken_by(u)]
+        if wizard or interviews or taken:
+            why = ([f"wizard step(s) {', '.join(wizard)} (run `{cli_cmd()}`)"] if wizard else []) + \
+                  ([f"interview(s) {', '.join(interviews)} (need you, in an interactive session)"] if interviews else []) + \
+                  ([f"unit(s) another session is working on: {', '.join(taken)}"] if taken else [])
+            log(f"Autopilot stopped: what is left needs you — {'; '.join(why)}. Then start autopilot again.")
+        else:
+            d, t = progress(data)
+            log(f"Autopilot stopped: nothing ready — {d}/{t} units done "
+                "(finished, or waiting on blocked units / docs/interview/open-questions.md).")
         return done
-    log(f"Autopilot stopped: reached the limit of {max_units} unit(s).")
-    return done
