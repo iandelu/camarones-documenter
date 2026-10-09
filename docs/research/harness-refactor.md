@@ -56,7 +56,7 @@ publisher, judge), with parallel execution, a run event log, and KPIs that tell 
 | H24 | **Whiteboard: free-form and C4 sketch, interface first.** A UX prototype of both modes comes before the implementation; iterate after real use. | §9.2 |
 | H25 | **Plugins are versioned with semver, vendored in cam-docs and pinned in `plugins.lock`.** Updates are explicit and code plugins are re-approved when their hash changes. | §2.4 |
 | H26 | **Default local models are free, open-weight models** (Qwen family first), chosen by the machine's memory and confirmed by the golden set, never hardcoded in code. | §4.1 |
-| H27 | **Stale docs are blocked for AI and flagged for humans.** Agents never get a suspect or stale page or section: the MCP, `llms.txt` and `llms-full.txt` withhold it deterministically and point to the code instead. Humans see it with a warning; the PR check warns and never blocks merging code. Better no information than wrong information. | §6.1 |
+| H27 | **Stale docs are blocked for AI and flagged for humans.** Agents never get a suspect or stale page or section, nor an unreviewed page that has no `x-sources` to check it against: the MCP, `llms.txt` and `llms-full.txt` withhold it deterministically and point to the code instead. Humans see it with a warning; the PR check warns and never blocks merging code. Better no information than wrong information. | §6.1 |
 | H28 | **Gemini CLI uses the generic `command` runner.** A native adapter only if real use shows the template is not enough. | §2.2 |
 
 ## 2. Target architecture
@@ -432,7 +432,7 @@ sidecar. A `refresh-suspect` pipeline node re-documents only suspect pages.
 
 | Reader | Fresh | Suspect or stale | No `x-sources` (unverifiable) |
 |---|---|---|---|
-| Agent (MCP `search_docs` / `read_doc` / `ask`, `llms.txt`, `llms-full.txt`) | Served | **Withheld.** The hit is replaced by a fixed notice: what changed, since which commit, and the cited code paths to read instead. | Served, labelled `unverified` with its trust (draft / confirmed) |
+| Agent (MCP `search_docs` / `read_doc` / `ask`, `llms.txt`, `llms-full.txt`) | Served | **Withheld.** The hit is replaced by a fixed notice: what changed, since which commit, and the cited code paths to read instead. | Served only if a person confirmed it (`x-confirmed` and body unchanged since). Drafts and `needs-reconfirm` pages are **withheld** with a notice that they await review |
 | Human (portal, CLI) | Shown | Shown with a banner (what changed, since when) and a "refresh" action | Shown with its trust pill |
 
 - The rule is deterministic: no model decides whether a page is still right. Same sidecar, same answer.
