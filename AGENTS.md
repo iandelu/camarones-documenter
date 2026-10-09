@@ -102,3 +102,20 @@ self-aware about being small.
 - Code, comments, commit messages and these docs are in English; user-facing strings in `es` + `en`.
 - Conventional commits (`feat(scope): …`, `fix(scope): …`), small and focused.
 - Other agent sessions may be editing the tree in parallel: stage and commit only your own hunks.
+
+### 5.1 README and tutorial move with the code
+
+Any change a user can notice (command, flag, wizard screen, default, workflow, output, portal view) updates the user
+docs **in the same commit**:
+
+- `README.md` (Spanish): the feature description, commands and examples; the version badge when `VERSIONS["kit"]`
+  changes.
+- The tutorial, in `es` and `en`:
+  - `lib/tutorial.py` (the wizard's tutorial pages). Regenerate `.camarones/TUTORIAL.md` from it; `test_wizard.py`
+    fails if they differ. From `.camarones/`:
+    `uv run python -c "from lib import tutorial; open('TUTORIAL.md','w',encoding='utf-8',newline='\n').write(tutorial.markdown())"`
+  - The command guide shipped to projects: `templates/docs/guides/tutorial.md` and its twin
+    `templates/docs/i18n/es/guides/tutorial.md`. Templates are copied once, so existing projects keep their copy;
+    say so in the commit when the change matters to them.
+
+If a change has nothing a user can notice, say so in the commit body instead of skipping the docs silently.
