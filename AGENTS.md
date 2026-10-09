@@ -93,7 +93,7 @@ self-aware about being small.
 | `.camarones/camarones.py` | entry point (uv inline script; its header lists runtime deps) |
 | `.camarones/lib/` | `common` (paths, versions, processes), `wizard`, `install`, `env`, `plan`, `docs`, `quality`, `quickarch`, `migrate`, `upgrade`, `uninstall`, `mcp`, `serve`… |
 | `.camarones/lib/harness/` | harness core ([RFC](docs/research/harness-refactor.md)): `ctx` (project paths as a value), `events` (run log), `ports` (adapter interfaces) |
-| `.camarones/lib/adapters/` | pluggable adapters; `runners/` holds the agent CLIs (`claude`, `codex`) behind the `Runner` port |
+| `.camarones/lib/adapters/` | pluggable adapters; `runners/` holds the agent CLIs (`claude`, `codex`) behind the `Runner` port; autopilot, the wizard and wiki generation launch agents only through it |
 | `.camarones/templates/` | files copied into projects (`AGENTS.md`, docs skeleton, i18n) — changes here reach old projects: see 2.3 |
 | `.camarones/portal/` | live/static portal |
 | `tests/` | pytest suite; `pyproject.toml` holds dev deps only |

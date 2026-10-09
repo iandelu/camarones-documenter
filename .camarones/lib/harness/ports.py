@@ -14,6 +14,9 @@ class RunRequest:
     cwd: Path
     env: dict = field(default_factory=dict)
     model: str | None = None
+    interactive: bool = False      # a terminal session for a person, instead of a headless run
+    resume: bool = False           # interactive only: reopen the agent's last conversation in cwd
+    allow_tools: tuple[str, ...] | None = None   # headless, edits allowed but tools limited; None = unattended, full access
 
 
 @dataclass(frozen=True)
@@ -27,6 +30,7 @@ class Runner(Protocol):
     """An agent CLI. `build` is pure so each adapter's argv can be pinned by tests; `parse` maps one line of the
     agent's output to normalised events: log, tool.call, file.changed, usage, result, error."""
     id: str
+    label: str
 
     def available(self) -> bool: ...
 

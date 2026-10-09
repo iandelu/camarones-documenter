@@ -41,7 +41,7 @@ flowchart LR
 
 ## Wave 1A: harness core (no visible change until R7)
 
-Done: R1, R2, R3 (2026-10-09).
+Done: R1–R5 (2026-10-09).
 
 | ID | PR | Test first | Depends | Decisions |
 |---|---|---|---|---|

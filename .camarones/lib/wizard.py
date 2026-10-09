@@ -1,7 +1,7 @@
 """Camarón 🦐 — interactive project-documentation wizard (macOS / Windows / Linux terminal)."""
 from __future__ import annotations
 
-import os, platform, random, subprocess, sys, time
+import dataclasses, os, platform, random, subprocess, sys, time
 from pathlib import Path
 
 import questionary
@@ -20,6 +20,8 @@ from rich.text import Text
 from .common import (ROOT, HOME, WORK, WS_FILE, CACHE, IS_WIN, IS_MAC, CAM_DIR, CAM_LAYOUT, WORKSPACE, which, cli_cmd,
                      load_json, save_json, out, repo_dir)
 from . import docs, env, plan, creds, questionnaire, quickarch, radar, tutorial, upgrade, usage
+from .adapters import runners
+from .harness.ports import RunRequest
 from .common import VERSIONS, ws_rel
 from rich.tree import Tree
 import webbrowser
@@ -1784,8 +1786,7 @@ Talk to the user in {talk}. Do not modify application code.
         if resume_agent:
             agent = resume_agent
         else:
-            agents = [Choice("Claude Code", "claude")] if which("claude") else []
-            agents += [Choice("Codex", "codex")] if which("codex") else []
+            agents = [Choice(r.label, r.id) for r in runners.builtin() if which(r.id)]
             agents += [Choice(self.t("copy_prompt"), "copy")]
             agent = self.sel(self.t("which_agent"), agents, default=self.prefs.get("last_agent") if which(
                 self.prefs.get("last_agent") or "-") else None)
@@ -1802,18 +1803,12 @@ Talk to the user in {talk}. Do not modify application code.
         # multi-line args do not survive Windows .cmd shims: hand over a one-line pointer to the prompt file
         brief = ws_rel("docs/.work/next-prompt.md")
         short = f"Follow the instructions in {brief}" if self.lang == "en" else f"Sigue las instrucciones de {brief}"
-        model = self.prefs.get("model", "sonnet")
-        codex_model = self.prefs.get("codex_model", CODEX_MODEL_DEFAULT)
-        model_args = ["--model", model] if agent == "claude" and model else (
-            ["--model", codex_model] if agent == "codex" and codex_model else [])
+        model = self.prefs.get("model", "sonnet") if agent == "claude" else self.prefs.get("codex_model", CODEX_MODEL_DEFAULT)
         if resume_agent == "claude" and not claude_history(WORKSPACE):
             resume_agent = None                          # nothing to continue here: `--continue` would just error out
-        if resume_agent == "claude":
-            cmd = [which("claude"), *model_args, "--continue", short]
-        elif resume_agent == "codex":
-            cmd = [which("codex"), "resume", "--last"]
-        else:
-            cmd = [which(agent), *model_args, short]
+        runner = runners.get(agent)
+        req = RunRequest(prompt=short, cwd=WORKSPACE, model=model or None, interactive=True, resume=bool(resume_agent))
+        cmd = runner.build(req).argv
         if env.open_new_terminal(cmd, WORKSPACE):   # own window, in the workspace: the agent sees every repo + cam-docs
             self.say(self.t("launched_bg"), "green")
             self.pause()
@@ -1822,7 +1817,7 @@ Talk to the user in {talk}. Do not modify application code.
         try:
             r = subprocess.run(cmd, cwd=str(WORKSPACE))
             if resume_agent and r.returncode != 0:          # nothing to resume (or old CLI): fresh session instead
-                subprocess.run([which(agent), *model_args, short], cwd=str(WORKSPACE))
+                subprocess.run(runner.build(dataclasses.replace(req, resume=False)).argv, cwd=str(WORKSPACE))
         finally:
             console.set_alt_screen(True)
             self.banner()
