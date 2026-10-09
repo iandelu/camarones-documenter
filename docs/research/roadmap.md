@@ -1,7 +1,7 @@
 # Roadmap: harness refactor and improvements
 
 Work order for [harness-refactor.md](harness-refactor.md), 2026-10-09. Each item is one small PR with the failing
-test written first (AGENTS.md §2.2). IDs `R1`–`R36` are stable: discard or reorder by ID. Decisions (`H…`) refer to the
+test written first (AGENTS.md §2.2). IDs `R1`–`R37` are stable: discard or reorder by ID. Decisions (`H…`) refer to the
 RFC; `P…` to [ai-first-docs.md](ai-first-docs.md); `X…` to [ecc-comparison.md](ecc-comparison.md).
 
 Rules for every item: green on macOS, Windows and Linux; 3.x projects keep opening (§2.3); user-facing strings in
@@ -48,7 +48,7 @@ flowchart LR
 | R3 | `Runner` port + `adapters/runners/claude.py`, `codex.py`, extracted from `plan.py:462-550` (`build`, `parse`, `classify`) | Characterization: `build()` argv equals today's (`plan.py:509-511`); existing stream-rendering test runs against `parse`; usage read from Claude `result` and Codex `turn.completed` | R1 | H2, H9 |
 | R4 | Autopilot goes through the registry and emits events; still sequential | `tests/test_autopilot.py` unchanged and green; `events.jsonl` has `unit.started` / `usage` / `unit.finished` | R2, R3 | H11 |
 | R5 | `wizard.launch_agent` (`wizard.py:1778`) and `env.openwiki_generate` (`env.py:986`) go through the registry | Wizard argv with model prefs and both resume variants unchanged | R3 | H9 |
-| R6 | `opencode` and `command` runners + tier routing (`workspace.yaml agents:`, `~/.camarones.json`) | Routing picks the first available runner per tier; `command` templates produce a list argv resolved through `common.which`, never a shell; local runner refused on `agentic-heavy` without `allow_local` | R3 | H9, H10 |
+| R6 | `opencode` and `command` runners + tier routing (`workspace.yaml agents:`, `~/.camarones.json`); local models only as `opencode:<provider>/<model>` | Routing picks the first available runner per tier; `command` templates produce a list argv resolved through `common.which`, never a shell; local runner refused on `agentic-heavy` without `allow_local`; a local model without OpenCode installed is reported, not attempted | R3 | H9, H10, H21 |
 | R7 | `lib/harness/pipeline.py` + `pipelines/full.yaml`, `quick.yaml`; `plan.blueprint()` delegates; `plan.TYPES` derived | Golden matrix: `expand()` equals today's `blueprint()` for every profile × interview mode × component set | R1 | H2, H4 |
 | R8 | Project override (`extends`, `patch`) + validator with YAML error paths; `schema.json` for editors | A bad override reports `nodes[3].needs`; `disable` drops the unit the same way `sync` drops units | R7 | H4 |
 | R9 | `lib/harness/locks.py` (`O_EXCL` file + pid/host/ts, stale takeover); wraps `plan.save` and `env.wiki_lock` | 2 processes × 50 `set_status` calls lose nothing; a lock with a dead pid is taken over | — | H6 |
@@ -69,7 +69,7 @@ flowchart LR
 | ID | PR | Test first | Depends | Decisions |
 |---|---|---|---|---|
 | R16 | `lib/harness/kpis.py` + `camaron kpis [--json] [--compare a b]`; monthly roll-up in `docs/.work/kpis/` | Expected totals from fixture events; compare shows deltas | R2 | H12 |
-| R17 | `cam-docs/evals/questions.yaml` + `camaron eval` (deterministic scorer, optional `Judge` port, local allowed) | Scorer on canned answers: refs ∩ citations, required terms | R6 | H12, H10 |
+| R17 | `cam-docs/evals/questions.yaml` + `camaron eval` (deterministic scorer, optional `Judge` port, local allowed); `eval-questions` node drafts questions, a person confirms them; fixed PetClinic set under the `eval` marker | Scorer on canned answers: refs ∩ citations, required terms; unconfirmed questions are reported apart from confirmed ones | R6 | H12, H10, H22 |
 | R18 | AI-draft snapshot at `plan done`; edit distance recorded at `confirm` (`docs.py:338`) | Confirm after a 10 % edit records ≈ 0.1 | — | H12 |
 | R19 | `camaron ab --qa "<question>"` and golden-set A/B: with vs without cam-docs | Fake runner: both variants recorded with tokens, time, score; `ab.enabled: false` blocks it | R16, R17 | H13 |
 
@@ -89,8 +89,9 @@ flowchart LR
 | R24 | AI-first P1–P5 (skeletons, `check_structure`) + X3 generated blocks (env, commands, OpenAPI, topics) | As listed in ai-first-docs.md §4; a hand edit inside a generated block is flagged | H20 |
 | R25 | Skills and prompts as versioned plugins (`skill@version` on nodes) | Node resolves the pinned version; unknown version is a validation error | H20, H5 |
 | R26 | MCP: `read_doc(section)`, resources `camdocs://`, prompts, `ask` with citations, freshness in hits (P6–P8) | Section read returns only that H2 + TL;DR; hits carry slug, trust, freshness | H16 |
-| R27 | No-AI PR job `docs:fresh` + comment, GitHub and GitLab generated from one definition; `pull_request` trigger on the umbrella | Generated YAML matches golden files; comment body from a fixture diff | H15 |
+| R27 | No-AI PR job `docs:fresh` + comment, GitHub and GitLab generated from one definition; `pull_request` trigger on the umbrella; generator reads `ci.target`, `ci.runner_labels`, `ci.runner_tags` | Generated YAML matches golden files for `local` and `self-hosted`; comment body from a fixture diff | H15, H23 |
 | R28 | Code-running plugins under `trust.py` (new "plugins" group; built-ins via `owned()`) | Unapproved plugin is not imported; a changed hash asks again | H5 |
+| R37 | Plugin versioning: semver + `kit` range, vendored team plugins, `plugins.lock` with sha256, `plugins add \| update \| outdated \| remove`, major pins on nodes | Incompatible `kit` range refused; hand-edited folder flagged by `check`; update rewrites the lock and re-asks `trust` for code plugins | H25 |
 | R29 | Portal parity: live tables, `:::` directives (+ Python flattener for `llms-full`/MCP), business/tech toggle, clickable C4/Mermaid; `/next` becomes default, old UI removed | Directive flattener golden tests; vitest per component | H17, H18, H19 |
 
 ## Wave 3
@@ -98,10 +99,10 @@ flowchart LR
 | ID | PR | Test first | Decisions |
 |---|---|---|---|
 | R30 | Freshness L2 (symbol anchors via `CodeIndexer.symbols`) and L3 (propagation over doc/C4 graph) | Moved method stays fresh; a suspect page makes its dependants suspect | H14 |
-| R31 | `docs:propose` (label opt-in) → linked cam-docs PR + `docs:preview` portal | Dry-run builds the right runner invocation and branch name | H15 |
+| R31 | `camaron pr propose <url>` (runs locally first) → linked cam-docs PR; `docs:propose` job for `self-hosted` runners, member-labelled PRs only; `docs:preview` through the `Publisher` port; self-hosted runner guide (es + en) | Dry-run builds the right runner invocation and branch name; fork PRs never reach the AI job | H15, H23 |
 | R32 | MCP draft-only write tools, pipeline control tools, Streamable HTTP on localhost | `propose_edit` never confirms; HTTP rejects requests without the token | H16 |
 | R33 | `camaron ab "<task>"` on throwaway service-repo worktrees; opt-in sampling hook (off by default) | Control variant has no cam-docs config; real checkout untouched (`snapshot()` from `tests/fixtures/builder.py`) | H13 |
-| R34 | Excalidraw whiteboards, "ask the docs" chat, anchored review (X6) | `.excalidraw` round-trips through `/api/doc`; anchors survive a heading rename via slug | H18, H19 |
+| R34 | Whiteboard UX prototype (free-form + C4 sketch), then Excalidraw boards; "ask the docs" chat; anchored review (X6) | `.excalidraw` round-trips through `/api/doc`; a C4 view produces a sketch; anchors survive a heading rename via slug | H18, H19, H24 |
 | R35 | Exporters as plugins: PDF and guided tour built in; Confluence / Notion opt-in | Tour built from a fixture flow; third-party exporters disabled unless approved | H19 |
 | R36 | X2 hooks, X7 compliance evals on the sandbox, Gemini adapter, central MCP / team server spike (own RFC) | Per item | H9, H16, H20 |
 
