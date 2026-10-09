@@ -7,7 +7,7 @@ publisher, judge), with parallel execution, a run event log, and KPIs that tell 
 
 **How to read it**
 
-- Decisions have IDs `H1`–`H25` and can be challenged one by one. Roadmap items have IDs `R1`–`R37`.
+- Decisions have IDs `H1`–`H28` and can be challenged one by one. Roadmap items have IDs `R1`–`R37`.
 - Paths are relative to the kit repo; line numbers are from 2026-10-09.
 - It builds on [ai-first-docs.md](ai-first-docs.md) (`P1`–`P10`), [ecc-comparison.md](ecc-comparison.md)
   (`X2`–`X12`) and [tooling-candidates.md](tooling-candidates.md) (new candidates in its section Q).
@@ -55,6 +55,9 @@ publisher, judge), with parallel execution, a run event log, and KPIs that tell 
 | H23 | **AI in CI runs on infrastructure you control.** `ci.target` is `local` (the developer's machine), `self-hosted` (a company GitHub/GitLab runner) or, later, `hosted` (cloud runner + API key). The generated YAML only calls `camaron`; where it runs is config. | §7 |
 | H24 | **Whiteboard: free-form and C4 sketch, interface first.** A UX prototype of both modes comes before the implementation; iterate after real use. | §9.2 |
 | H25 | **Plugins are versioned with semver, vendored in cam-docs and pinned in `plugins.lock`.** Updates are explicit and code plugins are re-approved when their hash changes. | §2.4 |
+| H26 | **Default local models are free, open-weight models** (Qwen family first), chosen by the machine's memory and confirmed by the golden set, never hardcoded in code. | §4.1 |
+| H27 | **Stale docs are blocked for AI and flagged for humans.** Agents never get a suspect or stale page or section: the MCP, `llms.txt` and `llms-full.txt` withhold it deterministically and point to the code instead. Humans see it with a warning; the PR check warns and never blocks merging code. Better no information than wrong information. | §6.1 |
+| H28 | **Gemini CLI uses the generic `command` runner.** A native adapter only if real use shows the template is not enough. | §2.2 |
 
 ## 2. Target architecture
 
@@ -338,6 +341,23 @@ the provider answers, and leaves model downloads and provider config to OpenCode
 gives local models real tool use (reading files, running `check`), and lets the same node switch between a cloud and
 a local model by changing one routing line.
 
+### 4.1 Default local models (H26)
+
+Free, open-weight models, Qwen family first. `camaron doctor --local` reads the machine's memory and proposes one:
+
+| Machine | Proposed model (Ollama tag) | Why |
+|---|---|---|
+| 32 GB Mac / 24 GB GPU or more | `qwen3-coder:30b` | Mixture of experts (about 3B active parameters, about 19 GB at Q4), long context, trained for tool calling |
+| 16 GB | a smaller Qwen 3 coder or instruct model; `devstral` (Mistral, Apache-2.0) or `gpt-oss:20b` as alternatives | Fits in memory with room for context |
+| Less than 16 GB | No local default; bounded and judge stay on the cloud runner | Quality too low to be worth it |
+
+DeepSeek, GLM and Kimi flagships are too large for a laptop. They can be used through OpenCode if the company hosts
+them on its own GPU server. The list lives in a data file next to `VERSIONS`, not in code. Each entry is re-checked at
+implementation time (Ollama tag, licence, tool-calling template). The default is kept only if the golden set on the
+sandbox (R17) shows it does the bounded and judge work well enough.
+
+Sources (third-party, mid-2026, not verified): [morphllm: best Ollama models](https://www.morphllm.com/best-ollama-models) · [Faros: open-weight models for coding](https://www.faros.ai/blog/open-weight-models) · [haimaker: Ollama models for coding agents](https://haimaker.ai/blog/best-ollama-models-for-coding-agents.md).
+
 Routing is a list per tier. The first available runner wins, and per-node `runner:` overrides it. Machine-specific
 choices (which model is installed) go in `~/.camarones.json`; team choices go in `workspace.yaml` (`agents:`), so
 `workspace.yaml` never names a model only one machine has.
@@ -408,11 +428,28 @@ The choice is automatic per source: code paths use L2 when a symbol is given and
 use L3. Frontmatter is never rewritten by `fresh` (human-confirmed pages stay untouched); everything goes in the
 sidecar. A `refresh-suspect` pipeline node re-documents only suspect pages.
 
+### 6.1 Reading policy: blocked for AI, flagged for humans (H27)
+
+| Reader | Fresh | Suspect or stale | No `x-sources` (unverifiable) |
+|---|---|---|---|
+| Agent (MCP `search_docs` / `read_doc` / `ask`, `llms.txt`, `llms-full.txt`) | Served | **Withheld.** The hit is replaced by a fixed notice: what changed, since which commit, and the cited code paths to read instead. | Served, labelled `unverified` with its trust (draft / confirmed) |
+| Human (portal, CLI) | Shown | Shown with a banner (what changed, since when) and a "refresh" action | Shown with its trust pill |
+
+- The rule is deterministic: no model decides whether a page is still right. Same sidecar, same answer.
+- **Granularity is the section** when sources are cited inline per section (W5 in ai-first-docs.md): only the
+  affected H2 is withheld and the rest of the page is served. Otherwise it is the page.
+- A person can re-validate without rewriting: `camaron fresh --ack <page>` records the new hashes when the change did
+  not affect what the page says, with who acknowledged it and when.
+- To avoid blocking half the docs on a cosmetic change, L1 hashes ignore whitespace-only and comment-only changes, and
+  L2 symbol anchors ignore moved lines.
+- `freshness.ai_policy: block` is the default; `warn` exists for teams that prefer it, and the choice is shown in
+  `doc_status` so an agent knows which policy applies.
+
 ## 7. PR pipeline
 
 | Job | When | AI | Output |
 |---|---|---|---|
-| `docs:fresh` | Every PR/MR in a service repo | No | Comment with the table of pages this PR makes suspect; warn or fail by setting |
+| `docs:fresh` | Every PR/MR in a service repo | No | Comment with the table of pages this PR makes suspect. **Warns, never blocks merging code** (H27): once merged, those pages are withheld from agents until they are refreshed or acknowledged |
 | `docs:propose` | Label `docs:update` (opt-in) | Yes, `update` node with the configured runner | Linked PR/MR in cam-docs, referenced in the service PR |
 | `docs:preview` | When `docs:propose` opened a PR | No | Static portal of the proposal (Pages or artifact) |
 
@@ -443,7 +480,7 @@ The AI step is always the same command, `camaron pr propose <pr-url>`. Only wher
 
 | Area | Additions |
 |---|---|
-| Retrieval | `read_doc(path, section)`; `search_docs` hits carry section slug, trust and freshness; `ask(question)` returns an answer with citations; resources `camdocs://page/<path>`; prompts (`document-flow`, `explain-repo`) |
+| Retrieval | `read_doc(path, section)`; `search_docs` hits carry section slug, trust and freshness; suspect or stale content is withheld (H27, §6.1); `ask(question)` returns an answer with citations; resources `camdocs://page/<path>`; prompts (`document-flow`, `explain-repo`) |
 | Write (draft only) | `propose_edit`, `add_feedback`, `mark_suspect`. Never `confirm`. Writes land as drafts or feedback the human reviews. |
 | Pipeline control | `pipeline_status`, `run_node`, `run_events`, `kpis`, so any client can drive the harness |
 | Transport | Streamable HTTP on `127.0.0.1` next to stdio, with the same CSRF/token rule as the portal. A central, multi-user team server is a separate spike with its own RFC. |
@@ -527,6 +564,7 @@ plan already is). Its volume of generic skills is still out of scope (see [ecc-c
 | Import-time globals (`common.py:58-60`) tie a process to one project | Don't migrate everything to `Ctx` up front. Per-worktree work (`check`, `llms`, `arch-validate`) runs as a subprocess with `CAMARONES_ROOT`; only the scheduler and `integrate` take a `Ctx`. |
 | Windows worktrees: long paths, locked files, junctions | Short `.cw/<n>` names, `core.longpaths`, removal with retries then `--force`, prune on next run. Workspace junctions point at main, so MCP reads the integrated snapshot (documented). |
 | Lock correctness across OSes | `O_EXCL` lock files with pid, host and timestamp; stale when the pid is dead or older than a TTL. Tested on all three OSes. |
+| Freshness gate withholds too much after a refactor, so agents lose the docs | Whitespace/comment-insensitive hashes, L2 symbol anchors, section granularity, `fresh --ack`, and a `refresh-suspect` node; the PR comment lists what will be withheld before merge |
 | Quota exhaustion from parallel sessions | `per_runner` defaults of 1; pause dispatch on `limited`; re-queue, never fail |
 | Mixed kit versions on one cam-docs | Additive data only, outside `plan.yaml` units |
 | React bundle in a Python kit | `app-build/` not `dist/`; rebuild check in CI; lazy chunks; old UI as fallback until parity |
@@ -561,10 +599,11 @@ Resolved on 2026-10-09:
 | Who runs the AI PR proposal | Infrastructure the team controls: local first, a self-hosted runner later (H23) |
 | Whiteboard scope | Both free-form and C4 sketch, interface prototype first (H24) |
 | Plugin versioning | semver + kit range, vendored, `plugins.lock`, explicit updates (H25) |
+| Default local model | Free open-weight models, Qwen first, chosen by memory (H26) |
+| Should stale docs block? | Blocked for AI, warning for humans, PR check never blocks merging (H27) |
+| Gemini adapter | Generic `command` runner until proven insufficient (H28) |
 
 Still open:
 
-- Default local model for `bounded` / `judge` and the minimum hardware. Measure it with the golden set on the
-  sandbox (R17) instead of guessing.
-- Label name for the AI proposal (`docs:update`?) and whether `docs:fresh` warns or blocks by default.
-- Should Gemini CLI get a native adapter, or does the `command` template stay enough?
+- Label name for the AI proposal. Default `docs:update`, configurable.
+- Whether the Qwen default (H26) holds up on the golden set. Measure on the sandbox (R17).
