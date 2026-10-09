@@ -10,6 +10,8 @@ from typing import Callable
 from .common import (KIT, ROOT, DOCS, HOME, CACHE, IS_WIN, IS_MAC, VERSIONS, CAM_DIR, CAM_LAYOUT, WORKSPACE, WS_FILE, GRAPHS, run, out,
                      which, uv, ensure_path, cli_cmd, sdkman_dir, repo_dir, ws_rel, rel_file, load_json, save_json)
 from . import binaries, docs
+from .adapters import runners
+from .harness.ports import RunRequest
 from .projects import git_failure  # noqa: F401 — share() and callers of env.git_failure
 
 Log = Callable[[str], None]
@@ -1015,12 +1017,11 @@ def openwiki_generate(repo: str, mode: str = "", log: Log = print, engine: str =
         with wiki_workdir(repo, log):
             if engine == "openwiki":
                 rc = stream(["openwiki", "code", f"--{mode}", "--print"], repo_dir(repo), tee)
-            elif engine == "claude":
-                rc = stream(["claude", "-p", wiki_prompt(repo, mode), "--permission-mode", "acceptEdits", "--allowedTools",
-                             "mcp__openwiki Skill Read Write Edit Glob Grep Bash(git:*) Bash(ls:*) Bash(graphify:*) "
-                             f"Bash({cli_cmd()} plan note:*)"], WORKSPACE, tee)
             else:
-                rc = stream(["codex", "exec", "--full-auto", "-C", str(WORKSPACE), wiki_prompt(repo, mode)], WORKSPACE, tee)
+                tools = ("mcp__openwiki", "Skill", "Read", "Write", "Edit", "Glob", "Grep", "Bash(git:*)", "Bash(ls:*)",
+                         "Bash(graphify:*)", f"Bash({cli_cmd()} plan note:*)")
+                req = RunRequest(prompt=wiki_prompt(repo, mode), cwd=WORKSPACE, allow_tools=tools)
+                rc = stream(runners.get(engine).build(req).argv, WORKSPACE, tee)
     ok = rc == 0 and bool(wiki_pages(repo))
     if ok:
         brief = docs.wiki_dir(repo) / "INSTRUCTIONS.md"

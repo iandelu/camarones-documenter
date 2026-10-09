@@ -70,7 +70,7 @@ def test_codex_argv_is_todays(runners, kit):
     inv = runners.get("codex").build(RunRequest(prompt="Sigue las instrucciones de x.md", cwd=kit.ws, env={}))
     assert inv.argv == ["/bin/codex", "exec", "--approve-for-me", "--skip-git-repo-check", "--json",
                         "Sigue las instrucciones de x.md"]
-    assert runners.get("codex").build(RunRequest(prompt="p", cwd=kit.ws, env={}, model="o5")).argv[-3:] == ["-m", "o5", "p"]
+    assert runners.get("codex").build(RunRequest(prompt="p", cwd=kit.ws, env={}, model="o5")).argv[-3:] == ["--model", "o5", "p"]
 
 
 def test_autopilot_session_launches_the_runner_argv(kit, monkeypatch):

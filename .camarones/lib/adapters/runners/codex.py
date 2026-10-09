@@ -7,12 +7,20 @@ from .base import CliRunner
 
 class Codex(CliRunner):
     id = "codex"
+    label = "Codex"
 
     def build(self, req: RunRequest) -> Invocation:
-        argv = [self.exe(), "exec", "--approve-for-me", "--skip-git-repo-check", "--json"]
-        if req.model:
-            argv += ["-m", req.model]
-        return Invocation([*argv, req.prompt], req.cwd, req.env)
+        model = ["--model", req.model] if req.model else []
+        if req.interactive and req.resume:
+            argv = [self.exe(), "resume", "--last"]
+        elif req.interactive:
+            argv = [self.exe(), *model, req.prompt]
+        elif req.allow_tools is not None:
+            # Codex has no per-tool allow list: its full-auto sandbox (edits inside cwd only) is the closest scope
+            argv = [self.exe(), "exec", "--full-auto", "-C", str(req.cwd), *model, req.prompt]
+        else:
+            argv = [self.exe(), "exec", "--approve-for-me", "--skip-git-repo-check", "--json", *model, req.prompt]
+        return Invocation(argv, req.cwd, req.env)
 
     def parse_event(self, ev: dict) -> list[dict]:
         kind = ev.get("type")

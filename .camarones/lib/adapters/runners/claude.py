@@ -9,12 +9,18 @@ ARG_KEYS = ("file_path", "path", "command", "pattern", "url", "description")
 
 class Claude(CliRunner):
     id = "claude"
+    label = "Claude Code"
 
     def build(self, req: RunRequest) -> Invocation:
-        argv = [self.exe(), "-p", req.prompt, "--dangerously-skip-permissions", "--output-format", "stream-json",
-                "--verbose"]
-        if req.model:
-            argv += ["--model", req.model]
+        model = ["--model", req.model] if req.model else []
+        if req.interactive:
+            argv = [self.exe(), *model, *(["--continue"] if req.resume else []), req.prompt]
+        elif req.allow_tools is not None:
+            argv = [self.exe(), "-p", req.prompt, "--permission-mode", "acceptEdits", "--allowedTools",
+                    " ".join(req.allow_tools), *model]
+        else:
+            argv = [self.exe(), "-p", req.prompt, "--dangerously-skip-permissions", "--output-format", "stream-json",
+                    "--verbose", *model]
         return Invocation(argv, req.cwd, req.env)
 
     def parse_event(self, ev: dict) -> list[dict]:
