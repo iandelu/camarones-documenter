@@ -14,9 +14,11 @@ LIMIT_HINTS = ("usage limit", "rate limit", "rate_limit", "limit reached", "try 
 
 class CliRunner:
     id = ""
+    label = ""
+    command = ""                  # executable name looked up on PATH; defaults to the id
 
     def exe(self) -> str | None:
-        return which(self.id)
+        return which(self.command or self.id)
 
     def available(self) -> bool:
         return bool(self.exe())

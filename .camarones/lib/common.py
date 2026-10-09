@@ -9,9 +9,10 @@ from .harness.ctx import KIT, CAM_DIR, Ctx, docs_root, find_project_marker, find
 IS_WIN = platform.system() == "Windows"
 IS_MAC = platform.system() == "Darwin"
 HOME = Path.home()
+PREFS = HOME / ".camarones.json"              # per-machine choices: language, models, runners, routing
 
 VERSIONS = {
-    "kit": "3.13.0",
+    "kit": "3.14.0",
     "openwiki": "0.5.2",
     "likec4": "1.59.4",
     "graphify": "0.9.65",

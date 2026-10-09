@@ -17,7 +17,7 @@ from rich.progress import BarColumn, Progress, TextColumn
 from rich.table import Table
 from rich.text import Text
 
-from .common import (ROOT, HOME, WORK, WS_FILE, CACHE, IS_WIN, IS_MAC, CAM_DIR, CAM_LAYOUT, WORKSPACE, which, cli_cmd,
+from .common import (ROOT, HOME, PREFS, WORK, WS_FILE, CACHE, IS_WIN, IS_MAC, CAM_DIR, CAM_LAYOUT, WORKSPACE, which, cli_cmd,
                      load_json, save_json, out, repo_dir)
 from . import docs, env, plan, creds, questionnaire, quickarch, radar, tutorial, upgrade, usage
 from .adapters import runners
@@ -27,7 +27,6 @@ from rich.tree import Tree
 import webbrowser
 
 console = Console(highlight=False)
-PREFS = HOME / ".camarones.json"
 MODELS = ["sonnet", "opus", "haiku"]           # Claude Code's --model aliases; the default is set in do_model / launch_agent
 CODEX_MODEL_DEFAULT = "gpt-5.6-terra"          # Codex's model slugs rotate, so this is just a starting default, not a fixed list
 FIRSTRUN = CACHE / "firstrun.json"     # first-run wizard position (so closing the window never loses it)
@@ -1786,7 +1785,7 @@ Talk to the user in {talk}. Do not modify application code.
         if resume_agent:
             agent = resume_agent
         else:
-            agents = [Choice(r.label, r.id) for r in runners.builtin() if which(r.id)]
+            agents = [Choice(r.label, r.id) for r in runners.all() if which(r.command or r.id)]
             agents += [Choice(self.t("copy_prompt"), "copy")]
             agent = self.sel(self.t("which_agent"), agents, default=self.prefs.get("last_agent") if which(
                 self.prefs.get("last_agent") or "-") else None)
@@ -1803,7 +1802,8 @@ Talk to the user in {talk}. Do not modify application code.
         # multi-line args do not survive Windows .cmd shims: hand over a one-line pointer to the prompt file
         brief = ws_rel("docs/.work/next-prompt.md")
         short = f"Follow the instructions in {brief}" if self.lang == "en" else f"Sigue las instrucciones de {brief}"
-        model = self.prefs.get("model", "sonnet") if agent == "claude" else self.prefs.get("codex_model", CODEX_MODEL_DEFAULT)
+        model = {"claude": self.prefs.get("model", "sonnet"), "codex": self.prefs.get("codex_model", CODEX_MODEL_DEFAULT)
+                 }.get(agent, self.prefs.get(f"{agent}_model"))
         if resume_agent == "claude" and not claude_history(WORKSPACE):
             resume_agent = None                          # nothing to continue here: `--continue` would just error out
         runner = runners.get(agent)
