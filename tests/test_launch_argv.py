@@ -113,3 +113,10 @@ def test_wiki_by_claude_is_scoped_to_edits_and_wiki_tools(kit, wiki_cmd):
 def test_wiki_by_codex_runs_full_auto_in_the_workspace(kit, wiki_cmd):
     assert wiki_cmd("codex") == (["codex", "exec", "--full-auto", "-C", str(kit.common.WORKSPACE), "PROMPT"],
                                  kit.common.WORKSPACE)
+
+
+def test_other_runners_take_their_own_model_pref(launched):
+    launched["make"](["opencode"]).launch_agent("prompt")
+    assert launched["cmds"][0][0] == ["/bin/opencode", "--prompt", launched["short"]]
+    launched["make"](["opencode"], opencode_model="ollama/qwen3-coder:30b").launch_agent("prompt")
+    assert launched["cmds"][1][0] == ["/bin/opencode", "--model", "ollama/qwen3-coder:30b", "--prompt", launched["short"]]

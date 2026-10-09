@@ -20,10 +20,11 @@ from pathlib import Path
 
 import yaml
 
-from .common import CTX, ROOT, WORK, CAM_LAYOUT, CAM_DIR, WORKSPACE, cli_cmd, ws_rel, rel_file, IS_WIN, which
+from .common import CTX, PREFS, ROOT, load_json, WORK, CAM_LAYOUT, CAM_DIR, WORKSPACE, cli_cmd, ws_rel, rel_file, IS_WIN, which
 from . import docs
 from .adapters import runners
 from .adapters.runners.base import LIMIT_HINTS  # noqa: F401  (kept for callers)
+from .harness import routing
 from .harness.events import EventLog
 from .harness.ports import RunRequest
 
@@ -443,7 +444,6 @@ You are documenting this project with the Camarón kit (works the same in Claude
 
 
 # ---------- autopilot ----------
-AGENTS = tuple(r.id for r in runners.builtin())
 INTERVIEW_TYPES = {"interview-context", "interview-language", "interview-history"}
 AUTOPILOT_PROMPT = WORK / "autopilot-prompt.md"
 _RUN: ContextVar[tuple[EventLog, str] | None] = ContextVar("autopilot_run", default=None)
@@ -480,7 +480,30 @@ def _short(s, n: int = 110) -> str:
 
 def _render(agent: str, line: str) -> tuple[list[str], str]:
     """One line of the agent's JSON event stream → (progress lines to show, error/result text for limit checks)."""
-    return _show(runners.get(agent).parse(line))
+    return _show(_runner(agent)[0].parse(line))
+
+
+def _runner(target: str):
+    """A routing target (`codex` or `codex:o5`) → (its runner, the model to ask for)."""
+    route = routing.parse(target)
+    return runners.get(route.runner), route.model
+
+
+def _agents(log) -> list[str]:
+    """Installed targets for agentic-heavy work, in routing order (defaults: claude, then codex)."""
+    keep, notes = routing.candidates("agentic-heavy", routing.table(docs.workspace(), load_json(PREFS, {})))
+    out = []
+    for r in keep:
+        try:
+            runner = runners.get(r.runner)
+        except KeyError:
+            notes.append(f"{r}: unknown runner")
+            continue
+        if which(runner.command or runner.id):
+            out.append(str(r))
+    for n in notes:
+        log(f"Routing: {n}")
+    return out
 
 
 def _show(events: list[dict]) -> tuple[list[str], str]:
@@ -513,7 +536,9 @@ def _run_agent(agent: str, text: str, lang: str, uid: str, echo=print) -> subpro
     brief = ws_rel(rel_file(AUTOPILOT_PROMPT))
     short = f"Follow the instructions in {brief}" if lang == "en" else f"Sigue las instrucciones de {brief}"
     # pin the project: the agent's own `camarones …` calls must hit this plan, whatever folder it cds into
-    inv = runners.get(agent).build(RunRequest(prompt=short, cwd=WORKSPACE, env={**os.environ, "CAMARONES_ROOT": str(ROOT)}))
+    runner, model = _runner(agent)
+    inv = runner.build(RunRequest(prompt=short, cwd=WORKSPACE, env={**os.environ, "CAMARONES_ROOT": str(ROOT)},
+                                  model=model))
     cmd = inv.argv
     start = last = time.monotonic()
     seen_note = last_note(uid)
@@ -539,7 +564,7 @@ def _run_agent(agent: str, text: str, lang: str, uid: str, echo=print) -> subpro
     threading.Thread(target=heartbeat, daemon=True).start()
     try:
         for line in p.stdout:
-            events = runners.get(agent).parse(line.rstrip("\n"))
+            events = runner.parse(line.rstrip("\n"))
             for ev in events:
                 _emit(ev["type"], unit=uid, runner=agent, **{k: v for k, v in ev.items() if k != "type"})
             shown, err = _show(events)
@@ -563,9 +588,10 @@ def run_autopilot(lang: str = "es", max_units: int | None = None, poll_seconds: 
     """Run ready units back to back, one fresh unattended session each, switching between Claude Code and
     Codex when one hits its usage limit and waiting while both are limited. Returns units completed.
     Every run is recorded in .camarones/.cache/runs/<run>/events.jsonl."""
-    agents = [a for a in AGENTS if which(a)]
+    agents = _agents(lambda t: _autopilot_log(t, echo))
     if not agents:
-        _autopilot_log("Autopilot: neither `claude` nor `codex` is installed — nothing to run.", echo)
+        _autopilot_log("Autopilot: no agent from the agentic-heavy routing is installed (default: `claude`, `codex`) "
+                       "— nothing to run.", echo)
         return 0
     run_id = f"r-{dt.datetime.now():%Y%m%d-%H%M%S}-{os.getpid()}"
     with recording(EventLog(CTX.runs / run_id / "events.jsonl"), run_id):
@@ -618,7 +644,7 @@ def _autopilot(agents: list[str], lang: str, max_units: int | None, poll_seconds
         started = time.monotonic()
         r = _run_agent(agent, prompt(u["id"], lang=lang, unattended=True), lang, u["id"], echo)
         output = f"{r.stdout or ''}\n{r.stderr or ''}"
-        outcome = runners.get(agent).classify(r.returncode, output)
+        outcome = _runner(agent)[0].classify(r.returncode, output)
         status = get(load(), u["id"])["status"]
         _emit("unit.finished", unit=u["id"], runner=agent, outcome=outcome, rc=r.returncode, status=status,
               seconds=round(time.monotonic() - started, 1))

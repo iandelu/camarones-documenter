@@ -72,8 +72,10 @@ PAGES = {
          "text": "Claude Code (Anthropic) y Codex (OpenAI) son agentes que trabajan en tu terminal: leen el código, ejecutan "
                  "comandos y escriben ficheros. Camarones les prepara las instrucciones de cada unidad (PLAYBOOK) y las "
                  "reglas de formato (CONVENTIONS). Con tener uno instalado basta. Si no tienes ninguno, puedes copiar el "
-                 "prompt y pegarlo donde quieras. Cuando luego implementéis features, la IA consulta la documentación "
-                 "con el servidor MCP «camarones» (buscar, leer páginas, grafo del repo)."},
+                 "prompt y pegarlo donde quieras. También sirven OpenCode (la vía para modelos locales, como Qwen con "
+                 "Ollama) y Gemini CLI; `camaron doctor --local` te propone un modelo local según la memoria de tu "
+                 "equipo. Cuando luego implementéis features, la IA consulta la documentación con el servidor MCP "
+                 "«camarones» (buscar, leer páginas, grafo del repo)."},
         {"icon": "📖", "title": "OpenWiki: la wiki de cada repo",
          "art": r"""
    cam-docs/wikis/repo-a/     <- la wiki vive aqui, versionada con el resto de la doc
@@ -325,8 +327,10 @@ PAGES = {
          "text": "Claude Code (Anthropic) and Codex (OpenAI) are agents that work in your terminal: they read code, run "
                  "commands and write files. Camarones gives them the instructions for each unit (PLAYBOOK) and the format "
                  "rules (CONVENTIONS). One of them is enough. With none, you can copy the prompt and paste it anywhere. "
-                 "Later, when you implement features, the AI looks the docs up through the “camarones” MCP server "
-                 "(search, read pages, repo graph)."},
+                 "OpenCode (the way to local models, such as Qwen on Ollama) and Gemini CLI work too; "
+                 "`camaron doctor --local` proposes a local model that fits your computer's memory. Later, when you "
+                 "implement features, the AI looks the docs up through the “camarones” MCP server (search, read pages, "
+                 "repo graph)."},
         {"icon": "📖", "title": "OpenWiki: each repo's wiki",
          "art": r"""
    cam-docs/wikis/repo-a/     <- the wiki lives here, versioned with the rest of the docs

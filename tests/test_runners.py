@@ -49,7 +49,7 @@ def runners(kit, monkeypatch):
 
 
 def test_registry_knows_the_builtin_runners(runners):
-    assert [r.id for r in runners.builtin()] == ["claude", "codex"]
+    assert [r.id for r in runners.builtin()] == ["claude", "codex", "opencode", "gemini"]
     assert runners.get("codex").id == "codex"
     with pytest.raises(KeyError):
         runners.get("nope")
@@ -132,3 +132,80 @@ def test_autopilot_keeps_its_limit_hints(kit):
     from lib.adapters.runners.base import LIMIT_HINTS
     assert kit.plan.LIMIT_HINTS == LIMIT_HINTS
 
+
+
+# ---------- OpenCode (local models go through it, H21) ----------
+def test_opencode_unattended_argv(runners, kit):
+    from lib.harness.ports import RunRequest
+    inv = runners.get("opencode").build(RunRequest(prompt="p", cwd=kit.ws, env={}, model="ollama/qwen3-coder:30b"))
+    assert inv.argv == ["/bin/opencode", "run", "--format", "json", "--auto", "--model", "ollama/qwen3-coder:30b", "p"]
+
+
+def test_opencode_interactive_and_resume_argv(runners, kit):
+    from lib.harness.ports import RunRequest
+    oc = runners.get("opencode")
+    assert oc.build(RunRequest(prompt="p", cwd=kit.ws, interactive=True)).argv == ["/bin/opencode", "--prompt", "p"]
+    assert oc.build(RunRequest(prompt="p", cwd=kit.ws, interactive=True, resume=True, model="m/x")).argv == \
+        ["/bin/opencode", "--model", "m/x", "--continue", "--prompt", "p"]
+
+
+def test_opencode_scoped_run_limits_shell_through_its_permission_env(runners, kit):
+    from lib.harness.ports import RunRequest
+    inv = runners.get("opencode").build(RunRequest(prompt="p", cwd=kit.ws, env={"A": "1"},
+                                                   allow_tools=("Read", "Edit", "Bash(git:*)", "Bash(ls:*)")))
+    assert "--auto" not in inv.argv and inv.argv[-1] == "p" and inv.env["A"] == "1"
+    perm = json.loads(inv.env["OPENCODE_PERMISSION"])
+    assert perm == {"edit": "allow", "webfetch": "deny", "bash": {"*": "deny", "git *": "allow", "ls *": "allow"}}
+
+
+def test_opencode_stream_is_normalised(runners):
+    oc = runners.get("opencode")
+    tool = {"type": "tool_use", "part": {"tool": "edit", "state": {"status": "completed", "input": {"filePath": "docs/a.md"}}}}
+    assert oc.parse(json.dumps(tool)) == [{"type": "tool.call", "name": "edit", "arg": "docs/a.md"},
+                                         {"type": "file.changed", "path": "docs/a.md"}]
+    assert oc.parse(json.dumps({"type": "text", "part": {"text": "done"}})) == [{"type": "log", "text": "done"}]
+    step = {"type": "step_finish", "part": {"cost": 0, "tokens": {"input": 50, "output": 7, "reasoning": 3,
+                                                                     "cache": {"read": 10, "write": 2}}}}
+    assert oc.parse(json.dumps(step)) == [{"type": "usage", "in": 50, "out": 7, "cache_read": 10, "cache_write": 2,
+                                           "cost_usd": 0}]
+    err = {"type": "error", "error": {"name": "APIError", "data": {"message": "rate limit exceeded"}}}
+    assert oc.parse(json.dumps(err)) == [{"type": "error", "text": "rate limit exceeded"}]
+
+
+def test_opencode_view_in_the_terminal(kit, runners):
+    tool = {"type": "tool_use", "part": {"tool": "bash", "state": {"input": {"command": "git log"}}}}
+    assert kit.plan._render("opencode", json.dumps(tool)) == (["· bash git log"], "")
+
+
+# ---------- generic command runner (Gemini and anything else, H28) ----------
+def test_gemini_is_a_command_template(runners, kit):
+    from lib.harness.ports import RunRequest
+    g = runners.get("gemini")
+    assert g.label == "Gemini CLI"
+    assert g.build(RunRequest(prompt="p", cwd=kit.ws, env={})).argv == ["/bin/gemini", "-p", "p", "--yolo"]
+    assert g.build(RunRequest(prompt="p", cwd=kit.ws, model="gemini-3-pro", interactive=True)).argv == \
+        ["/bin/gemini", "--model", "gemini-3-pro", "-i", "p"]
+    assert g.parse('{"not": "parsed"}') == [{"type": "log", "text": '{"not": "parsed"}', "raw": True}]
+
+
+def test_a_command_runner_from_machine_prefs(runners, kit):
+    from lib.common import PREFS, save_json
+    from lib.harness.ports import RunRequest
+    save_json(PREFS, {"runners": {"aider": {"label": "Aider", "argv": ["aider", "{model_args}", "--yes", "--message", "{prompt}"],
+                                            "model_args": ["--model", "{model}"], "limit_hints": ["credit exhausted"]}}})
+    a = runners.get("aider")
+    assert a.label == "Aider" and "aider" in [r.id for r in runners.available()]
+    argv = a.build(RunRequest(prompt="do it; rm -rf /", cwd=kit.ws, env={}, model="ollama/x")).argv
+    assert argv == ["/bin/aider", "--model", "ollama/x", "--yes", "--message", "do it; rm -rf /"]   # one argv item, no shell
+    assert a.build(RunRequest(prompt="p", cwd=kit.ws, env={})).argv == ["/bin/aider", "--yes", "--message", "p"]
+    assert a.classify(1, "error: credit exhausted") == "limited"
+
+
+def test_a_command_runner_cannot_run_scoped_or_interactive_without_a_template(runners, kit):
+    from lib.harness.ports import RunRequest
+    from lib.adapters.runners.command import CommandRunner
+    r = CommandRunner("x", "X", argv=["x", "{prompt}"])
+    with pytest.raises(ValueError):
+        r.build(RunRequest(prompt="p", cwd=kit.ws, allow_tools=("Read",)))
+    with pytest.raises(ValueError):
+        r.build(RunRequest(prompt="p", cwd=kit.ws, interactive=True))

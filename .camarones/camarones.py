@@ -48,7 +48,8 @@
   interview export [--lang es|en]   questionnaire → offline HTML form + Markdown copy to share with the team
   interview import FILE|DIR…   import the team's answers (form JSON or filled Markdown)
   interview status [--json]    who answered, unanswered questions, disagreements
-  doctor                    check prerequisites and tool versions
+  doctor [--local]          check prerequisites and tool versions; --local: propose a free local model for this
+                            machine (bounded/judge work, through OpenCode) without installing anything
   install DEST --profile quick|full [--dry-run]   copy kit into an explicit project folder
   upgrade SOURCE [--dry-run]  update kit files with backups; preserve project configuration
   profile quick|full        change the work plan without losing checkpoints
@@ -188,9 +189,10 @@ def main() -> int:
     sp.add_parser("unlink")
     prof = sp.add_parser("profile"); prof.add_argument("name", choices=["quick", "full"])
     sp.add_parser("init")
-    for c in ("sync", "detect", "changes", "llms", "graph", "arch", "arch-validate", "portal", "down", "doctor", "wizard", "version",
+    for c in ("sync", "detect", "changes", "llms", "graph", "arch", "arch-validate", "portal", "down", "wizard", "version",
               "mcp"):
         sp.add_parser(c)
+    dr = sp.add_parser("doctor"); dr.add_argument("--local", action="store_true")
     m = sp.add_parser("mark-documented"); m.add_argument("repos", nargs="*")
     s = sp.add_parser("status"); s.add_argument("--json", action="store_true")
     k = sp.add_parser("check"); k.add_argument("--strict", action="store_true")
@@ -374,6 +376,9 @@ def main() -> int:
         env.docker_down()
     elif a.cmd == "ci":
         env.install_ci(a.forge)
+    elif a.cmd == "doctor" and a.local:
+        from lib.adapters.runners import local
+        print("\n".join(local.report()))
     elif a.cmd == "doctor":
         for k, v in env.prerequisites().items():
             print(f"{'✔' if v['ok'] else ('✖' if v['need'] else '·')} {k:<7} {v.get('found', '')}  {'' if v['ok'] else v['hint']}")

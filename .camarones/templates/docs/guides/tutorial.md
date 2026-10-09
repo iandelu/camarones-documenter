@@ -13,7 +13,8 @@ sessions, saves progress after each one and always tells you what comes next.
 ## 1. Install (once per computer)
 
 Requirements: **git** and **Node.js ≥ 22**; Java only for JVM repos (SDKMAN, brew or winget installs are detected) (the wizard offers to install them with Homebrew / winget),
-**Docker Desktop** only to serve the portal, and **Claude Code** and/or **Codex** for the AI sessions.
+**Docker Desktop** only to serve the portal, and **Claude Code** and/or **Codex** for the AI sessions (OpenCode and
+Gemini CLI work too; OpenCode is the way to local models).
 Python is *not* required: the launcher installs `uv`, which brings its own Python.
 
 | | Open the wizard |
@@ -154,7 +155,14 @@ job token to clone each service repo (repo → Settings → CI/CD → Job token 
 
 `camaron help` (per-project copy: `./camaron.command help`, Windows `camaron.cmd help`): `setup`, `sync`, `detect`,
 `plan`, `plan next`, `status`, `check [--strict|--secrets]`, `confirm`, `feedback`, `checkpoint`, `graph`, `arch` (live C4 editor), `arch-validate`,
-`wiki <repo>`, `portal` (export), `up [--static|--docker]`, `down`, `ci`, `prompt <unit>`, `migrate`, `doctor`.
+`wiki <repo>`, `portal` (export), `up [--static|--docker]`, `down`, `ci`, `prompt <unit>`, `migrate`, `doctor`,
+`doctor --local` (proposes a free local model for this computer, installs nothing), `autopilot`.
+
+**Which agent runs what.** Each kind of work has an ordered list and the first installed agent runs it:
+`agentic-heavy` (long units), `bounded` (translations, summaries) and `judge` (eval scoring). `runner:model` also picks
+the model. The team sets it in `.camarones/workspace.yaml` (`agents: routing:`); `~/.camarones.json` (`routing`) wins on
+this machine. Local models go only through OpenCode (`opencode:ollama/qwen3-coder:30b`) and never do `agentic-heavy`
+work. Today only `autopilot` reads it. Each autopilot run is logged in `.camarones/.cache/runs/`.
 
 ## 10. Troubleshooting
 

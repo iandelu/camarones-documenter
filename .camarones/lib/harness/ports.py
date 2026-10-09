@@ -28,7 +28,8 @@ class Invocation:
 
 class Runner(Protocol):
     """An agent CLI. `build` is pure so each adapter's argv can be pinned by tests; `parse` maps one line of the
-    agent's output to normalised events: log, tool.call, file.changed, usage, result, error."""
+    agent's output to normalised events: log, tool.call, file.changed, usage, result, error. Usage events add up:
+    a run's cost is the sum of its usage events."""
     id: str
     label: str
 

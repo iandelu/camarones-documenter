@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.13.0-ff875f?style=flat-square" alt="Versión 3.13.0">
+  <img src="https://img.shields.io/badge/version-3.14.0-ff875f?style=flat-square" alt="Versión 3.14.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -102,7 +102,7 @@ Camarón te habla como tu becario gamba al que has mandado a documentar: con gan
 
 - **Git** y **Node.js 22 o superior** para el conjunto de herramientas.
 - **uv**, que gestiona Python 3.10+ y las dependencias del CLI. El lanzador puede instalarlo con WinGet en Windows o Homebrew en macOS; en otros casos indica cómo continuar.
-- **Claude Code o Codex**, instalado y autenticado, para las sesiones de documentación con IA. El asistente también permite copiar el prompt.
+- **Claude Code o Codex**, instalado y autenticado, para las sesiones de documentación con IA. También sirven OpenCode y Gemini CLI (ver [Agentes y modelos locales](#agentes-y-modelos-locales)). El asistente también permite copiar el prompt.
 - **Docker es opcional**: el portal también se puede servir con Python.
 
 El asistente comprueba los requisitos y permite elegir componentes. La primera instalación descarga herramientas y dependencias. El acceso a modelos de IA depende de la configuración y cuenta de tu agente.
@@ -387,9 +387,33 @@ Además, no deja archivos en los repos de servicio y sirve igual con Claude Code
 
 La propuesta es que los documentos que escriben las unidades del plan estén pensados primero para que los lea un agente de IA y después para las personas. Cada página empezaría con un resumen breve (TL;DR), tendría secciones que se entienden sin leer el resto, nombres exactos de endpoints, tablas y topics, la evidencia junto a cada afirmación y un tamaño máximo. `check` avisaría de lo que no cumpla. La propuesta completa, con los cambios en los prompts, las plantillas por tipo de página, el check nuevo, `llms-full.txt` y la lectura por secciones en el MCP, está en [ai-first-docs.md](docs/research/ai-first-docs.md). **Todavía no está implementada.**
 
+## Agentes y modelos locales
+
+El asistente, el piloto automático (`camaron autopilot`) y la generación de wikis lanzan los agentes a través de un adaptador común, así que no dependen de uno concreto:
+
+| Agente | Cómo entra |
+|---|---|
+| Claude Code, Codex | Como siempre; es el orden por defecto. |
+| OpenCode | Aparece en el asistente si está instalado. Es la única vía para modelos locales (Ollama, LM Studio). |
+| Gemini CLI | Aparece en el asistente si está instalado. |
+| Cualquier otro CLI | Se declara con una plantilla de comando en `~/.camarones.json` (`runners`). Solo en tu máquina: el repo del equipo puede elegir agentes, pero nunca definir comandos. |
+
+**Qué agente hace cada trabajo.** Hay tres tipos de trabajo: `agentic-heavy` (unidades largas como discovery o flujos), `bounded` (tareas acotadas como traducir o resumir) y `judge` (puntuar evaluaciones). Cada uno tiene una lista ordenada y se usa el primer agente instalado. `runner:modelo` elige además el modelo. El equipo lo fija en `workspace.yaml` y cada máquina puede cambiarlo en `~/.camarones.json`, que manda:
+
+```yaml
+# cam-docs/.camarones/workspace.yaml
+agents:
+  routing:
+    agentic-heavy: [claude, codex:gpt-5.6-terra]
+```
+
+Los modelos locales solo se usan a través de OpenCode (`opencode:ollama/qwen3-coder:30b`) y nunca para trabajo `agentic-heavy`, donde un modelo pequeño falla más de lo que ahorra. Hoy solo el piloto automático lee esta tabla; `bounded` y `judge` se usarán a medida que lleguen esos pasos. Cada ejecución del piloto queda registrada (unidades, agente, duración, tokens y coste) en `.camarones/.cache/runs/`.
+
+**Qué modelo local usar.** `camaron doctor --local` mira la memoria de tu equipo y propone un modelo libre y de pesos abiertos de la familia Qwen. Te dice qué falta (OpenCode, Ollama o el modelo) y qué línea de `routing` añadir. No instala nada.
+
 ## Hacia un harness enchufable (propuesta)
 
-La siguiente versión quiere convertir el kit en un *harness*: un pipeline declarativo en YAML que el proyecto puede ampliar. Cada paso usa un adaptador intercambiable (Claude Code, Codex, OpenCode o cualquier comando, motores de diagramas, wikis, checks y publicadores). Las unidades independientes corren en paralelo, cada una en su propio worktree, y luego se consolidan. Los modelos locales se encargan de las tareas acotadas. Además habrá KPIs de coste, calidad, frescura y utilidad, con una comparación «con cam-docs frente a sin cam-docs», y un portal nuevo con vista de pipeline en vivo. La decisión y el diseño están en [harness-refactor.md](docs/research/harness-refactor.md), y el orden de trabajo, PR a PR, en [roadmap.md](docs/research/roadmap.md). **Todavía no está implementado.**
+La siguiente versión quiere convertir el kit en un *harness*: un pipeline declarativo en YAML que el proyecto puede ampliar. Cada paso usa un adaptador intercambiable (Claude Code, Codex, OpenCode o cualquier comando, motores de diagramas, wikis, checks y publicadores). Las unidades independientes corren en paralelo, cada una en su propio worktree, y luego se consolidan. Los modelos locales se encargan de las tareas acotadas. Además habrá KPIs de coste, calidad, frescura y utilidad, con una comparación «con cam-docs frente a sin cam-docs», y un portal nuevo con vista de pipeline en vivo. La decisión y el diseño están en [harness-refactor.md](docs/research/harness-refactor.md), y el orden de trabajo, PR a PR, en [roadmap.md](docs/research/roadmap.md). **Ya está la primera parte:** los agentes intercambiables, el registro de ejecuciones y los modelos locales de la sección anterior. Lo demás está en marcha.
 
 ## Desarrollo
 

@@ -13,7 +13,7 @@ cortas con IA, guarda el progreso después de cada una y siempre te dice qué vi
 Requisitos:
 - **git** y **Node.js ≥ 22**. Si faltan, el asistente se ofrece a instalarlos con Homebrew o winget.
 - **Docker Desktop**, solo si quieres servir el portal.
-- **Claude Code** y/o **Codex**, para las sesiones con IA.
+- **Claude Code** y/o **Codex**, para las sesiones con IA. También sirven OpenCode y Gemini CLI; OpenCode es la vía para modelos locales.
 
 **No** hace falta Python: el lanzador instala `uv`, que ya trae su propio Python.
 
@@ -161,7 +161,15 @@ permitir que el job token del proyecto `cam-docs` clone cada repo de servicio (r
 
 `camaron help` (copia por proyecto: `./camaron.command help`, en Windows `camaron.cmd help`) lista: `setup`, `sync`,
 `detect`, `plan`, `plan next`, `status`, `check [--strict|--secrets]`, `confirm`, `feedback`, `checkpoint`, `graph`, `arch` (editor C4 en vivo),
-`arch-validate`, `wiki <repo>`, `portal` (exportación), `up [--static|--docker]`, `down`, `ci`, `prompt <unidad>`, `migrate` y `doctor`.
+`arch-validate`, `wiki <repo>`, `portal` (exportación), `up [--static|--docker]`, `down`, `ci`, `prompt <unidad>`, `migrate`, `doctor`,
+`doctor --local` (propone un modelo local libre para este equipo, sin instalar nada) y `autopilot`.
+
+**Qué agente hace cada trabajo.** Cada tipo de trabajo tiene una lista ordenada y lo hace el primer agente instalado:
+`agentic-heavy` (unidades largas), `bounded` (traducciones, resúmenes) y `judge` (puntuar evaluaciones). `runner:modelo`
+elige también el modelo. El equipo lo fija en `.camarones/workspace.yaml` (`agents: routing:`); `~/.camarones.json`
+(`routing`) manda en esta máquina. Los modelos locales solo pasan por OpenCode (`opencode:ollama/qwen3-coder:30b`) y nunca
+hacen trabajo `agentic-heavy`. Hoy solo lo lee `autopilot`. Cada ejecución del piloto queda registrada en
+`.camarones/.cache/runs/`.
 
 ## 10. Problemas frecuentes
 
