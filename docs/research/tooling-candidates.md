@@ -215,8 +215,8 @@ into `portal/app-build/` in the kit's CI, so users never install npm packages fo
 | ID | Tool | What it is | What it would improve here | §2.4 check (first pass) | Signal |
 |---|---|---|---|---|---|
 | Q1 | [OpenCode](https://opencode.ai) | Open-source terminal coding agent with many providers, including Ollama and LM Studio; headless `run` | Third built-in runner (H9). The most direct path to local models with real tool use (H10) | MIT · npm/binary on the 3 OSes · one adapter (R6) · local when pointed at a local provider | 🟢 |
-| Q2 | Ollama † | Local model server, OpenAI-compatible API | Reference local backend for the `bounded` and `judge` tiers | MIT · installers for the 3 OSes · the kit only detects it, never installs it · fully local | 🟢 as optional |
-| Q3 | LM Studio † | Desktop app serving local models over an OpenAI-compatible API | Alternative to Q2 for people who prefer a GUI | Proprietary freeware: detect it, never ship or install it | 🟡 |
+| Q2 | Ollama † | Local model server, OpenAI-compatible API | Reference local backend for the `bounded` and `judge` tiers, **reached only through OpenCode** (H21) | MIT · installers for the 3 OSes · the kit never installs or calls it directly · fully local | 🟢 as optional |
+| Q3 | LM Studio † | Desktop app serving local models over an OpenAI-compatible API | Alternative to Q2 for people who prefer a GUI, also as an OpenCode provider | Proprietary freeware: never shipped, installed or called directly by the kit | 🟡 |
 | Q4 | [React Flow (xyflow)](https://reactflow.dev) | React library for node graphs | Live pipeline DAG in the Pipeline tab (R21) | MIT · build-time only · lazy chunk | 🟢 |
 | Q5 | [TanStack Table](https://tanstack.com/table) | Headless table logic: sort, filter, group | Live tables (R29) | MIT · build-time only · small | 🟢 |
 | Q6 | [Excalidraw](https://github.com/excalidraw/excalidraw) | Embeddable whiteboard with a JSON file format | `.excalidraw` whiteboards versioned in cam-docs (R34) | MIT · build-time only · heavy, so lazy. tldraw is ruled out because its licence requires a watermark or a paid key | 🟡 (wave 3) |

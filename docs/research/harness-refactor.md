@@ -1,13 +1,13 @@
 # Harness refactor: pluggable pipeline, parallel units, KPIs
 
 RFC, 2026-10-09. **Status: accepted direction, not implemented.** The work order is in [roadmap.md](roadmap.md)
-(items `R1`–`R36`). This RFC turns the kit from a set of hardcoded integrations into a **harness**: a declarative
+(items `R1`–`R37`). This RFC turns the kit from a set of hardcoded integrations into a **harness**: a declarative
 pipeline of nodes, each backed by a pluggable adapter (agent runner, code indexer, diagram engine, wiki engine, check,
 publisher, judge), with parallel execution, a run event log, and KPIs that tell whether Camarón actually helps.
 
 **How to read it**
 
-- Decisions have IDs `H1`–`H20` and can be challenged one by one. Roadmap items have IDs `R1`–`R36`.
+- Decisions have IDs `H1`–`H25` and can be challenged one by one. Roadmap items have IDs `R1`–`R37`.
 - Paths are relative to the kit repo; line numbers are from 2026-10-09.
 - It builds on [ai-first-docs.md](ai-first-docs.md) (`P1`–`P10`), [ecc-comparison.md](ecc-comparison.md)
   (`X2`–`X12`) and [tooling-candidates.md](tooling-candidates.md) (new candidates in its section Q).
@@ -50,6 +50,11 @@ publisher, judge), with parallel execution, a run event log, and KPIs that tell 
 | H18 | **Rich docs**: live tables, `:::` directives, Excalidraw whiteboards, clickable C4/Mermaid. Plain Markdown fallback everywhere. | §9.2 |
 | H19 | **Non-technical UX**: business/tech view toggle, "ask the docs" with citations, anchored review in the portal, PDF/tour export; Confluence/Notion as opt-in plugins. | §9.3 |
 | H20 | **Generation skills**: AI-first + skeletons (P1–P5), skills/prompts as versioned plugins with compliance evals (X7), no-AI generated blocks (X3), opt-in method hooks (X2). | §10 |
+| H21 | **Every local-model feature goes through OpenCode.** The kit never calls Ollama, LM Studio or an OpenAI-compatible endpoint itself; those are OpenCode providers. The `command` runner stays for other CLIs. | §4 |
+| H22 | **Golden questions are drafted by an agent and approved by a person.** An `eval-questions` node (tier `bounded`) proposes them from the docs; the tech lead reviews them like any draft page. Missed searches can be added as candidates (opt-in). | §5.2 |
+| H23 | **AI in CI runs on infrastructure you control.** `ci.target` is `local` (the developer's machine), `self-hosted` (a company GitHub/GitLab runner) or, later, `hosted` (cloud runner + API key). The generated YAML only calls `camaron`; where it runs is config. | §7 |
+| H24 | **Whiteboard: free-form and C4 sketch, interface first.** A UX prototype of both modes comes before the implementation; iterate after real use. | §9.2 |
+| H25 | **Plugins are versioned with semver, vendored in cam-docs and pinned in `plugins.lock`.** Updates are explicit and code plugins are re-approved when their hash changes. | §2.4 |
 
 ## 2. Target architecture
 
@@ -214,12 +219,26 @@ kit: ">=3.15,<4"
 provides:
   checks:  [{id: adr-lint, entry: "plugin.py:check"}]
   nodes:   [{id: adr-review, kind: agent, prompt: prompts/adr-review.md, tier: bounded}]
-  runners: [{id: lmstudio, uses: runner/command,
-             with: {argv: ["opencode", "run", "-m", "lmstudio/{model}", "--file", "{prompt_file}"]}}]
+  runners: [{id: aider, uses: runner/command,
+             with: {argv: ["aider", "--yes", "--message-file", "{prompt_file}"]}}]
   skills:  [skills/cam-docs-adr]
 ```
 
 - Plugins live in `cam-docs/.camarones/plugins/<name>/` (team) and `.camarones/plugins/` (built-in).
+
+**Versioning and updates (H25):**
+
+- `version` is semver; `kit` is the range of kit versions it works with. The loader refuses an incompatible plugin
+  with a clear message instead of half-loading it.
+- Built-in plugins are versioned with the kit (`VERSIONS["kit"]`) and update with `kitupdate`.
+- Team plugins are **vendored**: the files live in cam-docs, so every teammate gets the same version through git, with
+  no download at run time.
+- `cam-docs/.camarones/plugins.lock` records name, version, source (`path:` or `git:<url>@<tag>`) and the sha256 of
+  the folder. `check` warns when a folder no longer matches the lock (someone edited it by hand).
+- Commands: `plugins add <source>`, `plugins update [name]` (shows the diff, rewrites the folder and the lock),
+  `plugins outdated`, `plugins remove`. No registry or marketplace.
+- A `runs_code` plugin whose hash changed is asked about again in `trust`, so an update cannot slip in new code.
+- A node can pin a major version (`uses: adr-lint@0`); without a pin it uses whatever is vendored.
 - The loader computes `runs_code`. It is true for any Python entry point, `command` runner, hook or MCP server;
   the manifest cannot claim otherwise.
 - `runs_code` plugins are hashed into a new **plugins** group in `trust.items()` (`trust.py`). They are never
@@ -310,8 +329,14 @@ note "integrate" and main is left untouched.
 | Tier | Nodes | Good local candidates |
 |---|---|---|
 | `agentic-heavy` | discovery, discovery-cross, arch-*, flow, repo-brief, update | None by default. Allowed only with `allow_local: true` on the node. |
-| `bounded` | i18n, TL;DR / `description` writing, glossary extraction, X3 block captions, summaries of a single page | Ollama / LM Studio through OpenCode, or an OpenAI-compatible endpoint through the `command` runner |
+| `bounded` | i18n, TL;DR / `description` writing, glossary extraction, X3 block captions, summaries of a single page, drafting golden questions | OpenCode with an Ollama or LM Studio provider |
 | `judge` | eval scoring, A/B judging, claim audit (H6 in tooling-candidates) | Same as bounded; a blind judge is fine locally |
+
+**OpenCode is the only gateway to local models (H21).** In routing a local model is written
+`opencode:<provider>/<model>` (`opencode:ollama/qwen2.5-coder`). The kit checks that OpenCode is installed and that
+the provider answers, and leaves model downloads and provider config to OpenCode. This keeps one adapter to maintain,
+gives local models real tool use (reading files, running `check`), and lets the same node switch between a cloud and
+a local model by changing one routing line.
 
 Routing is a list per tier. The first available runner wins, and per-node `runner:` overrides it. Machine-specific
 choices (which model is installed) go in `~/.camarones.json`; team choices go in `workspace.yaml` (`agents:`), so
@@ -333,10 +358,31 @@ tabs. Comparing runs is how a prompt, model or kit change is judged.
 
 ### 5.2 Golden Q&A
 
-`cam-docs/evals/questions.yaml` holds questions with expected page refs and must-mention terms. `camaron eval` asks
-them through the MCP tools with a chosen runner. The base score is deterministic (cited pages ∩ expected refs, terms
-present); a `Judge` (optionally local) adds a graded score. The sandbox (PetClinic) gets a fixed set that acts as a
-cross-version benchmark for the kit itself.
+A golden question is a question someone would really ask about the system, together with where the answer is.
+It works like an exam with an answer key for the docs:
+
+```yaml
+- q: How is a refund processed?
+  expect: [docs/flows/refund.md]        # the page that should be cited
+  mention: ["POST /refunds", "refund-requested"]
+  x-confirmed: {by: ana, at: 2026-10-20}
+```
+
+`camaron eval` asks each question through the MCP tools with a chosen runner and checks the answer. The base score is
+deterministic: did it cite the expected page, and does it mention the exact identifiers? A `Judge` (optionally local)
+adds a graded score. Run before and after a change (new prompt, model, kit version), it says whether the docs got
+better at answering, and the same set drives the A/B in §5.3.
+
+Who writes them (H22):
+
+1. An `eval-questions` node (tier `bounded`, local allowed) drafts 15–30 questions from the confirmed pages: one or two
+   per flow, per repo brief and per key decision.
+2. The tech lead reviews them in the portal or the file, about 10 minutes. They are drafts until confirmed, like pages.
+3. Optional: searches that found nothing (`usage.py` already counts misses, without the text) can be stored as
+   candidate questions when the team turns on `evals.capture_misses`. Off by default for privacy.
+
+The kit ships a fixed PetClinic set for the sandbox. It runs under the `eval` pytest marker, outside the default suite
+because it calls a real agent, and serves as the benchmark between kit versions.
 
 ### 5.3 A/B with vs without cam-docs
 
@@ -374,6 +420,25 @@ GitHub and GitLab YAML are generated from one definition, replacing the hand-mai
 umbrella `github.yml` gains a `pull_request` trigger (it has none today). The CI runners get `--allowedTools` /
 permission modes per tier instead of `--dangerously-skip-permissions` (`plan.py:509`, `ci/umbrella.*.yml`).
 
+### 7.1 Where the AI job runs (H23)
+
+The AI step is always the same command, `camaron pr propose <pr-url>`. Only where it runs changes:
+
+| `ci.target` | Where | Who pays | Infra needed | When |
+|---|---|---|---|---|
+| `local` | The developer's machine: the PR job only posts a "run `camaron pr propose <url>`" hint; or the wizard lists open PRs with suspect pages | The developer's own subscription or local model | None | Default, from day one |
+| `self-hosted` | A company machine registered as a GitHub Actions self-hosted runner or a GitLab runner with a tag (`docs-ai`), with the agent CLI logged in or OpenCode + a local model | The company's account or hardware | One machine and a runner registration | When the team wants it automatic |
+| `hosted` | GitHub-hosted / GitLab shared runners with an API key secret | Per-token API billing | A secret | Later, only if wanted |
+
+- The no-AI jobs (`docs:fresh`, `docs:preview` build) run on any runner, hosted included: they need no token.
+- The generator takes `ci.target`, `ci.runner_labels` (GitHub `runs-on`) and `ci.runner_tags` (GitLab `tags`), so
+  moving from `local` to `self-hosted` is a config change plus `camaron ci` again.
+- Self-hosted runners only pick AI jobs for PRs labelled by a project member, never from forks: a self-hosted runner
+  executes the PR's code on a company machine.
+- The portal preview and deploy go through the `Publisher` port: `artifact` (download), `pages` (GitHub/GitLab
+  Pages) and `docker-host` (today's `portal:deploy` with a `docs-host` runner, `env.py`/`ci/umbrella.*`).
+- A step-by-step guide (es + en) for registering a self-hosted runner on GitHub and GitLab ships with R31.
+
 ## 8. MCP
 
 | Area | Additions |
@@ -408,8 +473,9 @@ identifiers, motion only for state changes (node started, card moved, panel open
   (a `table` code fence with a `src` attribute pointing at YAML/CSV in cam-docs, frontmatter, X3 blocks).
 - **Directives**: `:::tabs`, `:::cards`, `:::steps`, `:::details`, callouts, badges. They read as plain Markdown on
   GitHub, and a Python renderer flattens them for `llms-full.txt` and MCP.
-- **Whiteboard**: `.excalidraw` files in cam-docs, embedded and editable in live mode, versioned in git; optional
-  starter sketch from a C4 view.
+- **Whiteboard** (H24): `.excalidraw` files in cam-docs, embedded and editable in live mode, versioned in git. Two
+  modes: free-form boards, and a sketch generated from a C4 view that people annotate. Whether annotations ever flow
+  back into the C4 model is decided after real use. A clickable UX prototype of both modes comes first.
 - **Clickable diagrams**: C4 and Mermaid nodes link to pages, code and wikis, with a tooltip showing description and
   trust.
 
@@ -484,12 +550,21 @@ plan already is). Its volume of generic skills is still out of scope (see [ecc-c
 8. **The central MCP/team server, freshness L3 and the AI PR proposal** each deserve their own design pass; this RFC
    fixes only the ports they need.
 
-## 14. Open questions
+## 14. Questions
 
-- Reference local stack for `bounded` / `judge` (Ollama + a Qwen coder model? LM Studio?) and the minimum hardware.
-- Who writes the golden questions per project, and should the PetClinic set be part of the kit's CI as an `eval`
-  marker run?
-- AI PR proposal: whose token and which runner run in CI, cost per project, the label name.
-- Excalidraw: free-form whiteboard only, or also a C4 sketch → view round trip?
-- Plugin versioning against `VERSIONS["kit"]` and how a team updates a plugin in an existing project.
+Resolved on 2026-10-09:
+
+| Question | Answer |
+|---|---|
+| Reference local stack | OpenCode for every local-model feature (H21) |
+| Who writes the golden questions | Drafted by an agent, approved by the tech lead (H22) |
+| Who runs the AI PR proposal | Infrastructure the team controls: local first, a self-hosted runner later (H23) |
+| Whiteboard scope | Both free-form and C4 sketch, interface prototype first (H24) |
+| Plugin versioning | semver + kit range, vendored, `plugins.lock`, explicit updates (H25) |
+
+Still open:
+
+- Default local model for `bounded` / `judge` and the minimum hardware. Measure it with the golden set on the
+  sandbox (R17) instead of guessing.
+- Label name for the AI proposal (`docs:update`?) and whether `docs:fresh` warns or blocks by default.
 - Should Gemini CLI get a native adapter, or does the `command` template stay enough?
