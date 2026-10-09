@@ -4,7 +4,8 @@ from __future__ import annotations
 import json, os, platform, shutil, subprocess, sys
 from pathlib import Path
 
-KIT = Path(__file__).resolve().parent.parent          # .camarones/
+from .harness.ctx import KIT, CAM_DIR, Ctx, docs_root, find_project_marker, find_root  # noqa: F401  (re-exported)
+
 IS_WIN = platform.system() == "Windows"
 IS_MAC = platform.system() == "Darwin"
 HOME = Path.home()
@@ -20,49 +21,15 @@ VERSIONS = {
 }
 
 
-CAM_DIR = "cam-docs"      # per-workspace folder (its own git repo) holding docs + agent config, next to the repos
-
-
-def find_project_marker(start: Path) -> Path | None:
-    """Walk up from `start` (like git does for .git/) looking for a project's .camarones/workspace.yaml, either
-    directly or inside a sibling cam-docs/ folder (the workspace root that holds all repos). Lets one central kit
-    (global install) serve many projects without CAMARONES_ROOT set by hand."""
-    cur = start.resolve()
-    for d in (cur, *cur.parents):
-        # cam-docs first: a workspace folder that holds a cam-docs project is never a project of its own
-        if (d / CAM_DIR / ".camarones" / "workspace.yaml").exists():
-            return d / CAM_DIR
-        if (d / ".camarones" / "workspace.yaml").exists():
-            return d
-    return None
-
-
-def docs_root(path: Path) -> Path:
-    """A registered/requested project path → its docs root: the workspace folder of a cam-docs project means
-    its cam-docs/ (otherwise opening the workspace folder would bootstrap a second, legacy project there)."""
-    path = path.resolve()
-    return path / CAM_DIR if (path / CAM_DIR / ".camarones" / "workspace.yaml").exists() else path
-
-
-def find_root() -> Path:
-    """The docs root = <workspace>/cam-docs (legacy: the umbrella folder itself), overridable with CAMARONES_ROOT.
-    Resolution order: CAMARONES_ROOT env var > a workspace.yaml found walking up from the cwd > KIT.parent
-    (legacy: the kit copy lives inside the project it documents)."""
-    env = os.environ.get("CAMARONES_ROOT")
-    if env:
-        return docs_root(Path(env))
-    marker = find_project_marker(Path.cwd())
-    return marker if marker else KIT.parent
-
-
-ROOT = find_root()
-CAM_LAYOUT = ROOT.name == CAM_DIR                  # cam-docs layout: repos are ROOT's siblings, not its children
-WORKSPACE = ROOT.parent if CAM_LAYOUT else ROOT     # folder holding the repos; agents are launched here
-DOCS = ROOT / "docs"
-WORK = DOCS / ".work"          # plan, handoff, session log (committed, hidden from portal)
-WS_FILE = ROOT / ".camarones" / "workspace.yaml"   # project config: per-project, never shared across projects
-CACHE = ROOT / ".camarones" / ".cache"             # generated, git-ignored: portal build, site, code graph, vendor cache
-GRAPHS = ROOT / "graph"                            # per-repo graphify output (git-ignored), kept out of the repos
+CTX = Ctx.from_env()
+ROOT = CTX.root
+CAM_LAYOUT = CTX.cam_layout                        # cam-docs layout: repos are ROOT's siblings, not its children
+WORKSPACE = CTX.workspace                          # folder holding the repos; agents are launched here
+DOCS = CTX.docs
+WORK = CTX.work                # plan, handoff, session log (committed, hidden from portal); CAMARONES_STATE_ROOT moves it
+WS_FILE = CTX.ws_file                              # project config: per-project, never shared across projects
+CACHE = CTX.cache                                  # generated, git-ignored: portal build, site, code graph, vendor cache
+GRAPHS = CTX.graphs                                # per-repo graphify output (git-ignored), kept out of the repos
 
 
 def repo_dir(name: str) -> Path:
