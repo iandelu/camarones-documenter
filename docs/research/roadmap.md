@@ -41,6 +41,8 @@ flowchart LR
 
 ## Wave 1A: harness core (no visible change until R7)
 
+Done: R1, R2, R3 (2026-10-09).
+
 | ID | PR | Test first | Depends | Decisions |
 |---|---|---|---|---|
 | R1 | `lib/harness/ctx.py`: `Ctx.from_env()` (root, workspace, work, cache, state_root); `common` globals derive from it; `CAMARONES_STATE_ROOT` honoured | Two `Ctx` for two tmp workspaces in one process give different `work` paths | — | H3 |

@@ -20,6 +20,9 @@ import yaml
 
 from .common import ROOT, WORK, CAM_LAYOUT, CAM_DIR, WORKSPACE, cli_cmd, ws_rel, rel_file, IS_WIN, which
 from . import docs
+from .adapters import runners
+from .adapters.runners.base import LIMIT_HINTS  # noqa: F401  (kept for callers)
+from .harness.ports import RunRequest
 
 PLAN = WORK / "plan.yaml"
 HANDOFF = WORK / "handoff.md"
@@ -439,10 +442,6 @@ You are documenting this project with the Camarón kit (works the same in Claude
 # ---------- autopilot ----------
 AGENTS = ("claude", "codex")
 INTERVIEW_TYPES = {"interview-context", "interview-language", "interview-history"}
-# best guess at the CLIs' wording, matched only against the end of the output (where the CLI prints its
-# error) so a unit documenting a rate-limited API isn't misread; anything else stops the loop instead
-LIMIT_HINTS = ("usage limit", "rate limit", "rate_limit", "limit reached", "try again later",
-               "too many requests", "resets at", "limit will reset", "quota exceeded")
 AUTOPILOT_PROMPT = WORK / "autopilot-prompt.md"
 
 
@@ -461,41 +460,24 @@ def _short(s, n: int = 110) -> str:
 
 def _render(agent: str, line: str) -> tuple[list[str], str]:
     """One line of the agent's JSON event stream → (progress lines to show, error/result text for limit checks)."""
-    try:
-        ev = json.loads(line)
-    except ValueError:
-        return ([_short(line, 140)] if line.strip() else []), line
-    kind = ev.get("type")
-    if agent == "claude":
-        if kind == "assistant":
-            shown = []
-            for c in ev.get("message", {}).get("content", []):
-                if c.get("type") == "tool_use":
-                    inp = c.get("input") or {}
-                    arg = next((inp[k] for k in ("file_path", "path", "command", "pattern", "url", "description") if inp.get(k)), "")
-                    shown.append(f"· {c.get('name')} {_short(arg)}")
-                elif c.get("type") == "text" and c.get("text", "").strip():
-                    shown.append(f"» {_short(c['text'], 130)}")
-            return shown, ""
-        if kind == "result":
-            res = str(ev.get("result") or ev.get("subtype") or "")
-            return ([f"= {'error: ' if ev.get('is_error') else ''}{_short(res, 130)}"] if ev.get("is_error") else []), res
-        return [], ""
-    item = ev.get("item") or {}
-    if kind == "item.started" and item.get("type") == "command_execution":
-        cmd = str(item.get("command", ""))
-        return [f"· $ {_short(cmd.split('-Command', 1)[-1].strip(chr(39) + ' '))}"], ""
-    if kind == "item.completed":
-        if item.get("type") == "agent_message":
-            return [f"» {_short(item.get('text'), 130)}"], ""
-        if item.get("type") == "file_change":
-            return [f"· edit {_short(c.get('path'))}" for c in item.get("changes", [])], ""
-        if item.get("type") == "mcp_tool_call":
-            return [f"· {item.get('server')}.{item.get('tool')}"], ""
-    if kind in ("turn.failed", "error"):
-        msg = str((ev.get("error") or {}).get("message") or ev.get("message") or "")
-        return [f"= error: {_short(msg, 130)}"], msg
-    return [], ""
+    shown, err = [], ""
+    for ev in runners.get(agent).parse(line):
+        kind, text = ev["type"], ev.get("text")
+        if kind == "tool.call":
+            shown.append(f"· {ev['name']}" + ("" if ev["arg"] is None else f" {_short(ev['arg'])}"))
+        elif kind == "file.changed":
+            shown.append(f"· edit {_short(ev['path'])}")
+        elif kind == "log" and ev.get("raw"):
+            shown += [_short(text, 140)] if text.strip() else []
+            err = text
+        elif kind == "log":
+            shown.append(f"» {_short(text, 130)}")
+        elif kind == "error":
+            shown.append(f"= error: {_short(text, 130)}")
+            err = text
+        elif kind == "result":
+            err = text
+    return shown, err
 
 
 def _run_agent(agent: str, text: str, lang: str, uid: str, echo=print) -> subprocess.CompletedProcess:
@@ -506,9 +488,9 @@ def _run_agent(agent: str, text: str, lang: str, uid: str, echo=print) -> subpro
     AUTOPILOT_PROMPT.write_text(text, encoding="utf-8")
     brief = ws_rel(rel_file(AUTOPILOT_PROMPT))
     short = f"Follow the instructions in {brief}" if lang == "en" else f"Sigue las instrucciones de {brief}"
-    cmd = ([which(agent), "-p", short, "--dangerously-skip-permissions", "--output-format", "stream-json", "--verbose"]
-           if agent == "claude" else
-           [which(agent), "exec", "--approve-for-me", "--skip-git-repo-check", "--json", short])
+    # pin the project: the agent's own `camarones …` calls must hit this plan, whatever folder it cds into
+    inv = runners.get(agent).build(RunRequest(prompt=short, cwd=WORKSPACE, env={**os.environ, "CAMARONES_ROOT": str(ROOT)}))
+    cmd = inv.argv
     start = last = time.monotonic()
     seen_note = last_note(uid)
     stop = threading.Event()
@@ -525,10 +507,9 @@ def _run_agent(agent: str, text: str, lang: str, uid: str, echo=print) -> subpro
 
     tail: list[str] = []
     try:
-        # pin the project: the agent's own `camarones …` calls must hit this plan, whatever folder it cds into
-        p = subprocess.Popen(cmd, cwd=str(WORKSPACE), stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+        p = subprocess.Popen(cmd, cwd=str(inv.cwd), stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                              stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace", bufsize=1,
-                             env={**os.environ, "CAMARONES_ROOT": str(ROOT)})
+                             env=inv.env)
     except OSError as e:
         return subprocess.CompletedProcess(cmd, 127, str(e), "")
     threading.Thread(target=heartbeat, daemon=True).start()
@@ -602,7 +583,7 @@ def run_autopilot(lang: str = "es", max_units: int | None = None, poll_seconds: 
                 return done
             done += 1
             continue
-        if any(h in output[-2000:].lower() for h in LIMIT_HINTS):
+        if runners.get(agent).classify(r.returncode, output) == "limited":
             limited[agent] = dt.datetime.now() + dt.timedelta(seconds=poll_seconds)
             others = [a for a in agents if limited.get(a, dt.datetime.min) <= dt.datetime.now()]
             log(f"{agent} hit its usage limit" + (f" — switching to {others[0]}" if others else ""))
