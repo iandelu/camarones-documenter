@@ -387,6 +387,10 @@ Además, no deja archivos en los repos de servicio y sirve igual con Claude Code
 
 La propuesta es que los documentos que escriben las unidades del plan estén pensados primero para que los lea un agente de IA y después para las personas. Cada página empezaría con un resumen breve (TL;DR), tendría secciones que se entienden sin leer el resto, nombres exactos de endpoints, tablas y topics, la evidencia junto a cada afirmación y un tamaño máximo. `check` avisaría de lo que no cumpla. La propuesta completa, con los cambios en los prompts, las plantillas por tipo de página, el check nuevo, `llms-full.txt` y la lectura por secciones en el MCP, está en [ai-first-docs.md](docs/research/ai-first-docs.md). **Todavía no está implementada.**
 
+## Hacia un harness enchufable (propuesta)
+
+La siguiente versión quiere convertir el kit en un *harness*: un pipeline declarativo en YAML que el proyecto puede ampliar. Cada paso usa un adaptador intercambiable (Claude Code, Codex, OpenCode o cualquier comando, motores de diagramas, wikis, checks y publicadores). Las unidades independientes corren en paralelo, cada una en su propio worktree, y luego se consolidan. Los modelos locales se encargan de las tareas acotadas. Además habrá KPIs de coste, calidad, frescura y utilidad, con una comparación «con cam-docs frente a sin cam-docs», y un portal nuevo con vista de pipeline en vivo. La decisión y el diseño están en [harness-refactor.md](docs/research/harness-refactor.md), y el orden de trabajo, PR a PR, en [roadmap.md](docs/research/roadmap.md). **Todavía no está implementado.**
+
 ## Desarrollo
 
 Cada cambio en el kit sigue estas reglas (la versión completa para agentes está en [AGENTS.md](AGENTS.md), que también lee `CLAUDE.md`):
