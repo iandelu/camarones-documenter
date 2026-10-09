@@ -8,20 +8,23 @@ and docs/.work/handoff.md carries the baton between sessions.
 """
 from __future__ import annotations
 
+import contextlib
 import datetime as dt
 import json
 import os
 import subprocess
 import threading
 import time
+from contextvars import ContextVar
 from pathlib import Path
 
 import yaml
 
-from .common import ROOT, WORK, CAM_LAYOUT, CAM_DIR, WORKSPACE, cli_cmd, ws_rel, rel_file, IS_WIN, which
+from .common import CTX, ROOT, WORK, CAM_LAYOUT, CAM_DIR, WORKSPACE, cli_cmd, ws_rel, rel_file, IS_WIN, which
 from . import docs
 from .adapters import runners
 from .adapters.runners.base import LIMIT_HINTS  # noqa: F401  (kept for callers)
+from .harness.events import EventLog
 from .harness.ports import RunRequest
 
 PLAN = WORK / "plan.yaml"
@@ -440,9 +443,26 @@ You are documenting this project with the Camarón kit (works the same in Claude
 
 
 # ---------- autopilot ----------
-AGENTS = ("claude", "codex")
+AGENTS = tuple(r.id for r in runners.builtin())
 INTERVIEW_TYPES = {"interview-context", "interview-language", "interview-history"}
 AUTOPILOT_PROMPT = WORK / "autopilot-prompt.md"
+_RUN: ContextVar[tuple[EventLog, str] | None] = ContextVar("autopilot_run", default=None)
+
+
+@contextlib.contextmanager
+def recording(log: EventLog, run_id: str):
+    """Within this block, agent sessions and autopilot steps are written to `log` under `run_id`."""
+    token = _RUN.set((log, run_id))
+    try:
+        yield
+    finally:
+        _RUN.reset(token)
+
+
+def _emit(kind: str, **fields) -> None:
+    cur = _RUN.get()
+    if cur:
+        cur[0].emit(kind, run=cur[1], **fields)
 
 
 def _autopilot_log(text: str, echo=print) -> None:
@@ -460,8 +480,12 @@ def _short(s, n: int = 110) -> str:
 
 def _render(agent: str, line: str) -> tuple[list[str], str]:
     """One line of the agent's JSON event stream → (progress lines to show, error/result text for limit checks)."""
+    return _show(runners.get(agent).parse(line))
+
+
+def _show(events: list[dict]) -> tuple[list[str], str]:
     shown, err = [], ""
-    for ev in runners.get(agent).parse(line):
+    for ev in events:
         kind, text = ev["type"], ev.get("text")
         if kind == "tool.call":
             shown.append(f"· {ev['name']}" + ("" if ev["arg"] is None else f" {_short(ev['arg'])}"))
@@ -515,7 +539,10 @@ def _run_agent(agent: str, text: str, lang: str, uid: str, echo=print) -> subpro
     threading.Thread(target=heartbeat, daemon=True).start()
     try:
         for line in p.stdout:
-            shown, err = _render(agent, line.rstrip("\n"))
+            events = runners.get(agent).parse(line.rstrip("\n"))
+            for ev in events:
+                _emit(ev["type"], unit=uid, runner=agent, **{k: v for k, v in ev.items() if k != "type"})
+            shown, err = _show(events)
             for s in shown:
                 echo(f"  {s}")
             if shown:
@@ -534,12 +561,27 @@ def _run_agent(agent: str, text: str, lang: str, uid: str, echo=print) -> subpro
 def run_autopilot(lang: str = "es", max_units: int | None = None, poll_seconds: int = 900,
                   include_interviews: bool = False, echo=print) -> int:
     """Run ready units back to back, one fresh unattended session each, switching between Claude Code and
-    Codex when one hits its usage limit and waiting while both are limited. Returns units completed."""
-    log = lambda t: _autopilot_log(t, echo)                                    # noqa: E731
+    Codex when one hits its usage limit and waiting while both are limited. Returns units completed.
+    Every run is recorded in .camarones/.cache/runs/<run>/events.jsonl."""
     agents = [a for a in AGENTS if which(a)]
     if not agents:
-        log("Autopilot: neither `claude` nor `codex` is installed — nothing to run.")
+        _autopilot_log("Autopilot: neither `claude` nor `codex` is installed — nothing to run.", echo)
         return 0
+    run_id = f"r-{dt.datetime.now():%Y%m%d-%H%M%S}-{os.getpid()}"
+    with recording(EventLog(CTX.runs / run_id / "events.jsonl"), run_id):
+        _emit("run.started", agents=agents, max_units=max_units)
+        try:
+            done = _autopilot(agents, lang, max_units, poll_seconds, include_interviews, echo)
+        except BaseException:                  # Ctrl+C or a crash: the log must still say the run ended
+            _emit("run.finished", interrupted=True)
+            raise
+        _emit("run.finished", done=done)
+    return done
+
+
+def _autopilot(agents: list[str], lang: str, max_units: int | None, poll_seconds: int, include_interviews: bool,
+               echo) -> int:
+    log = lambda t: _autopilot_log(t, echo)                                    # noqa: E731
     # team interviews only consolidate written answers: nothing to ask, so they can run unattended
     skip = set() if include_interviews or docs.interview_mode() == "team" else INTERVIEW_TYPES
     limited: dict[str, dt.datetime] = {}
@@ -572,10 +614,15 @@ def run_autopilot(lang: str = "es", max_units: int | None = None, poll_seconds: 
             continue
         agent = free[0]
         log(f"{agent} → {u['id']}: {u['title']}")
+        _emit("unit.started", unit=u["id"], runner=agent)
+        started = time.monotonic()
         r = _run_agent(agent, prompt(u["id"], lang=lang, unattended=True), lang, u["id"], echo)
         output = f"{r.stdout or ''}\n{r.stderr or ''}"
-        if r.returncode == 0:
-            status = get(load(), u["id"])["status"]
+        outcome = runners.get(agent).classify(r.returncode, output)
+        status = get(load(), u["id"])["status"]
+        _emit("unit.finished", unit=u["id"], runner=agent, outcome=outcome, rc=r.returncode, status=status,
+              seconds=round(time.monotonic() - started, 1))
+        if outcome == "ok":
             log(f"{agent} finished {u['id']} (status: {status})")
             if status in ("todo", "doing"):
                 log(f"Autopilot stopped: {u['id']} ended without `plan done`/`plan block` — check its checkpoints "
@@ -583,7 +630,7 @@ def run_autopilot(lang: str = "es", max_units: int | None = None, poll_seconds: 
                 return done
             done += 1
             continue
-        if runners.get(agent).classify(r.returncode, output) == "limited":
+        if outcome == "limited":
             limited[agent] = dt.datetime.now() + dt.timedelta(seconds=poll_seconds)
             others = [a for a in agents if limited.get(a, dt.datetime.min) <= dt.datetime.now()]
             log(f"{agent} hit its usage limit" + (f" — switching to {others[0]}" if others else ""))
