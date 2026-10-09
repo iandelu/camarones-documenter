@@ -85,7 +85,7 @@ flowchart LR
 
 | ID | PR | Test first | Decisions |
 |---|---|---|---|
-| R23 | Freshness L1: whitespace/comment-insensitive hashes in `docs/.fresh.json`, `camaron fresh [--ack]`, portal banner, `refresh-suspect` node; **AI gate**: MCP and `llms*.txt` withhold suspect/stale pages or sections and point to the code (`freshness.ai_policy: block`) | Edit a cited range → suspect and withheld from `read_doc`/`search_docs`/`llms-full.txt`, still shown in the portal with a banner; whitespace-only edit → fresh; `--ack` → served again; `ai_policy: warn` serves with a notice | H14, H27 |
+| R23 | Freshness L1: whitespace/comment-insensitive hashes in `docs/.fresh.json`, `camaron fresh [--ack]`, portal banner, `refresh-suspect` node; **AI gate**: MCP and `llms*.txt` withhold suspect/stale pages or sections and point to the code (`freshness.ai_policy: block`) | Edit a cited range → suspect and withheld from `read_doc`/`search_docs`/`llms-full.txt`, still shown in the portal with a banner; whitespace-only edit → fresh; `--ack` → served again; a page without `x-sources` is served only when confirmed and withheld as draft or `needs-reconfirm`; `ai_policy: warn` serves with a notice | H14, H27 |
 | R24 | AI-first P1–P5 (skeletons, `check_structure`) + X3 generated blocks (env, commands, OpenAPI, topics) | As listed in ai-first-docs.md §4; a hand edit inside a generated block is flagged | H20 |
 | R25 | Skills and prompts as versioned plugins (`skill@version` on nodes) | Node resolves the pinned version; unknown version is a validation error | H20, H5 |
 | R26 | MCP: `read_doc(section)`, resources `camdocs://`, prompts, `ask` with citations, freshness in hits (P6–P8) | Section read returns only that H2 + TL;DR; hits carry slug, trust, freshness | H16 |
