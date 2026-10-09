@@ -111,4 +111,5 @@ flowchart LR
 - `uv run pytest` green on the three OSes; e2e on the sandbox (`uv run scripts/sandbox.py cli …`) for items that run
   agents or touch worktrees, and `traces` exit 0 after uninstall.
 - The RFC decision table updated when an item changes a decision.
-- README (es) updated when the user sees something new.
+- README and tutorial (es + en: `lib/tutorial.py` → `TUTORIAL.md`, and the project command guide) updated in the same
+  PR whenever the user sees something new (AGENTS.md §5.1).
