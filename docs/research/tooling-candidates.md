@@ -206,6 +206,24 @@ can **discard** in a second pass. Nothing here is a decision.
 | P1 | [mani](https://dev.to/alajmo/mani-a-cli-tool-to-manage-multiple-repositories-1eg) | Repo list with tags + run commands across repos (Go) | Replace parts of `sync_repos` / per-repo loops | We already have `workspace.yaml` + sync; little gain | 🔴 |
 | P2 | [gita](https://terminaltrove.com/gita/) | Batch git ops over many repos (Python) | Same as P1 | — | 🔴 |
 
+## Q. Harness refactor (added 2026-10-09)
+
+Candidates from [harness-refactor.md](harness-refactor.md). All have to pass AGENTS.md §2.4 at implementation time,
+when versions get pinned. The portal libraries are **build-time dependencies of the kit repo only**. They are compiled
+into `portal/app-build/` in the kit's CI, so users never install npm packages for them.
+
+| ID | Tool | What it is | What it would improve here | §2.4 check (first pass) | Signal |
+|---|---|---|---|---|---|
+| Q1 | [OpenCode](https://opencode.ai) | Open-source terminal coding agent with many providers, including Ollama and LM Studio; headless `run` | Third built-in runner (H9). The most direct path to local models with real tool use (H10) | MIT · npm/binary on the 3 OSes · one adapter (R6) · local when pointed at a local provider | 🟢 |
+| Q2 | Ollama † | Local model server, OpenAI-compatible API | Reference local backend for the `bounded` and `judge` tiers | MIT · installers for the 3 OSes · the kit only detects it, never installs it · fully local | 🟢 as optional |
+| Q3 | LM Studio † | Desktop app serving local models over an OpenAI-compatible API | Alternative to Q2 for people who prefer a GUI | Proprietary freeware: detect it, never ship or install it | 🟡 |
+| Q4 | [React Flow (xyflow)](https://reactflow.dev) | React library for node graphs | Live pipeline DAG in the Pipeline tab (R21) | MIT · build-time only · lazy chunk | 🟢 |
+| Q5 | [TanStack Table](https://tanstack.com/table) | Headless table logic: sort, filter, group | Live tables (R29) | MIT · build-time only · small | 🟢 |
+| Q6 | [Excalidraw](https://github.com/excalidraw/excalidraw) | Embeddable whiteboard with a JSON file format | `.excalidraw` whiteboards versioned in cam-docs (R34) | MIT · build-time only · heavy, so lazy. tldraw is ruled out because its licence requires a watermark or a paid key | 🟡 (wave 3) |
+| Q7 | [Motion](https://motion.dev) | Animation library for React | State-change animations in the new portal | MIT · build-time only | 🟢 |
+| Q8 | Vite + React † | Build tool and UI library | New portal app (R20). The current vanilla JS portal would not scale to kanban, a DAG and a whiteboard | MIT · only in the kit repo's CI, ubuntu job | 🟢 |
+| Q9 | Gemini CLI † | Google's terminal agent | Fourth runner, for teams without Anthropic or OpenAI | Apache-2.0 · `command` template first, native adapter only if demand appears | 🟡 later |
+
 ---
 
 ## Candidate short-list if we only picked a few (for the discard pass)
