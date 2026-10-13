@@ -24,7 +24,7 @@ from .common import CTX, PREFS, ROOT, load_json, WORK, CAM_LAYOUT, CAM_DIR, WORK
 from . import docs
 from .adapters import runners
 from .adapters.runners.base import LIMIT_HINTS  # noqa: F401  (kept for callers)
-from .harness import routing
+from .harness import pipeline, routing
 from .harness.events import EventLog
 from .harness.ports import RunRequest
 
@@ -35,37 +35,8 @@ DONE = ("done", "dropped")
 NO_WIKI = "No wiki for this repo (wizard → Wikis → choose repos)"
 LIVE_INTERVIEWS = "Interviews are done live, not by team questionnaire"
 
-# unit type → (phase, runner, title template, playbook section)
-TYPES = {
-    "quick-overview":   (2, "agent", "First overview: purpose, run instructions, one flow and sources", "quick-overview"),
-    "setup":            (0, "wizard", "Environment ready (tools, repos, agent wiring)", "setup"),
-    "discovery":        (1, "agent",  "Discovery of {repo}", "discovery"),
-    "discovery-cross":  (1, "agent",  "Cross-repo correlation (integrations, shared DBs, candidate flows)", "discovery-cross"),
-    "questionnaire":    (2, "agent",  "Team questionnaire: inferred answers and options to share with the team", "questionnaire"),
-    "answers":          (2, "wizard", "Team answers: share the questionnaire and import the answers", "answers"),
-    "interview-context":  (2, "agent", "Interview 1: bounded contexts, external actors, environments", "interview"),
-    "interview-language": (2, "agent", "Interview 2: DDD glossary, SLAs / NFRs", "interview"),
-    "interview-history":  (2, "agent", "Interview 3: historical decisions, known debt, validate integrations/flows/data", "interview"),
-    "repo-brief":       (3, "agent",  "{repo}: README + AGENTS.md/CLAUDE.md (stack) + C4 components + OpenWiki brief", "repo-brief"),
-    "repo-wiki":        (3, "agent",  "{repo}: OpenWiki repository wiki", "repo-wiki"),
-    "arch-system":      (4, "agent",  "C4 system: context + containers views", "arch-system"),
-    "domain":           (4, "agent",  "Domain: bounded contexts, context map, glossary, actors", "domain"),
-    "data":             (4, "agent",  "Data models: ERDs, ownership, shared DBs", "data"),
-    "deployment":       (4, "agent",  "Deployment: environments + C4 deployment views", "deployment"),
-    "decisions-quality": (4, "agent", "ADRs, SLAs, tech debt", "decisions-quality"),
-    "security-review":  (5, "agent",  "[beta] Security review: threats and vulnerabilities", "security-review"),
-    "architecture-review": (5, "agent", "[beta] Architecture review: coupling, duplication, tech debt", "architecture-review"),
-    "flows-catalog":    (5, "agent",  "Business flows catalog (propose, validate, create flow units)", "flows-catalog"),
-    "flow":             (5, "agent",  "Flow: {slug}", "flow"),
-    "diagrams":         (5, "agent",  "Diagrams: sequences, lifecycles (state), data and context maps where pages lack them", "diagrams"),
-    "i18n":             (6, "agent",  "Spanish translations + index", "i18n"),
-    "portal":           (7, "wizard", "Build and run the portal", "portal"),
-    "ci":               (7, "wizard", "CI pipelines (umbrella + per-repo snippets)", "ci"),
-    "confirm":          (7, "wizard", "Human review: confirm pages", "confirm"),
-    "handover":         (7, "agent",  "Handover: summary, commits on branches, next steps", "handover"),
-    "review-fixes":     (7, "agent",  "Apply human review feedback", "review-fixes"),
-    "doc-fixes":        (7, "agent",  "Fix documentation problems (check errors, orphans, re-confirmations, translations)", "doc-fixes"),
-}
+# unit type → (phase, runner, title template, playbook section); the catalog lives in lib/pipelines/units.yaml
+TYPES = {k: (v["phase"], v["runner"], v["title"], v["playbook"]) for k, v in pipeline.types().items()}
 
 
 def now() -> str:
@@ -96,43 +67,10 @@ def unit(uid: str, type_: str, deps: list[str], repo: str | None = None, slug: s
 
 
 def blueprint(repos: list[str]) -> list[dict]:
-    disc = [f"discovery:{r}" for r in repos]
-    briefs = [f"repo-brief:{r}" for r in repos]
-    wikis = [f"repo-wiki:{r}" for r in repos]
-    if docs.workspace()['project'].get('profile') == 'quick':
-        return [unit('setup', 'setup', []),
-                *[unit(f'discovery:{r}', 'discovery', ['setup'], repo=r) for r in repos],
-                unit('quick-overview', 'quick-overview', disc),
-                unit('portal', 'portal', ['quick-overview']),
-                unit('confirm', 'confirm', ['quick-overview']),
-                unit('handover', 'handover', ['portal', 'confirm'])]
-    u = [unit("setup", "setup", [])]
-    u += [unit(f"discovery:{r}", "discovery", ["setup"], repo=r) for r in repos]
-    u += [unit("discovery-cross", "discovery-cross", disc)]
-    first_interview = ["discovery-cross"]
-    if docs.interview_mode() == "team":      # the team answers a questionnaire; the interview units consolidate it
-        u += [unit("questionnaire", "questionnaire", ["discovery-cross"]),
-              unit("answers", "answers", ["questionnaire"])]
-        first_interview = ["answers"]
-    u += [unit("interview-context", "interview-context", first_interview),
-          unit("interview-language", "interview-language", ["interview-context"]),
-          unit("interview-history", "interview-history", ["interview-context"])]
-    for r in repos:
-        u += [unit(f"repo-brief:{r}", "repo-brief", ["interview-context"], repo=r),
-              unit(f"repo-wiki:{r}", "repo-wiki", [f"repo-brief:{r}"], repo=r)]
-    u += [unit("arch-system", "arch-system", briefs),
-          unit("domain", "domain", ["interview-language"]),
-          unit("data", "data", ["discovery-cross", "interview-history"]),
-          unit("deployment", "deployment", ["arch-system"]),
-          unit("decisions-quality", "decisions-quality", ["interview-history"]),
-          unit("flows-catalog", "flows-catalog", ["arch-system", "interview-history"]),
-          unit("diagrams", "diagrams", ["domain", "data", "flows-catalog"]),
-          unit("i18n", "i18n", ["domain", "flows-catalog"]),
-          unit("portal", "portal", ["arch-system"]),
-          unit("ci", "ci", ["setup"]),
-          unit("confirm", "confirm", ["domain", "decisions-quality", "flows-catalog"]),
-          unit("handover", "handover", ["i18n", "portal", "confirm", *wikis])]
-    return u
+    """The plan's units for these repos, from the kit pipeline of the project's profile (lib/pipelines/)."""
+    name = "quick" if docs.workspace()["project"].get("profile") == "quick" else "full"
+    nodes = pipeline.expand(pipeline.load(name), repos, {"team-interviews": docs.interview_mode() == "team"})
+    return [unit(n["id"], n["type"], n["needs"], repo=n["repo"]) for n in nodes]
 
 
 def sync() -> dict:
