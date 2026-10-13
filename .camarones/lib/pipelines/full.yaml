@@ -1,0 +1,34 @@
+# The full documentation plan. Each node becomes a plan unit; `needs` are the units it waits for.
+# for_each: repos  repeats its nodes per repo ({repo} filled in); `x:*` means every x:<repo> unit.
+# when / unless    keep a node only if a named condition holds (team-interviews: the team answers a questionnaire).
+# Units added while working (flow:<slug>, review-fixes, doc-fixes) are not listed here.
+version: 1
+name: full
+nodes:
+  - {id: setup, type: setup}
+  - for_each: repos
+    nodes:
+      - {id: "discovery:{repo}", type: discovery, needs: [setup]}
+  - {id: discovery-cross, type: discovery-cross, needs: ["discovery:*"]}
+  - {id: questionnaire, type: questionnaire, needs: [discovery-cross], when: team-interviews}
+  - {id: answers, type: answers, needs: [questionnaire], when: team-interviews}
+  - {id: interview-context, type: interview-context, needs: [answers], when: team-interviews}
+  - {id: interview-context, type: interview-context, needs: [discovery-cross], unless: team-interviews}
+  - {id: interview-language, type: interview-language, needs: [interview-context]}
+  - {id: interview-history, type: interview-history, needs: [interview-context]}
+  - for_each: repos
+    nodes:
+      - {id: "repo-brief:{repo}", type: repo-brief, needs: [interview-context]}
+      - {id: "repo-wiki:{repo}", type: repo-wiki, needs: ["repo-brief:{repo}"]}
+  - {id: arch-system, type: arch-system, needs: ["repo-brief:*"]}
+  - {id: domain, type: domain, needs: [interview-language]}
+  - {id: data, type: data, needs: [discovery-cross, interview-history]}
+  - {id: deployment, type: deployment, needs: [arch-system]}
+  - {id: decisions-quality, type: decisions-quality, needs: [interview-history]}
+  - {id: flows-catalog, type: flows-catalog, needs: [arch-system, interview-history]}
+  - {id: diagrams, type: diagrams, needs: [domain, data, flows-catalog]}
+  - {id: i18n, type: i18n, needs: [domain, flows-catalog]}
+  - {id: portal, type: portal, needs: [arch-system]}
+  - {id: ci, type: ci, needs: [setup]}
+  - {id: confirm, type: confirm, needs: [domain, decisions-quality, flows-catalog]}
+  - {id: handover, type: handover, needs: [i18n, portal, confirm, "repo-wiki:*"]}

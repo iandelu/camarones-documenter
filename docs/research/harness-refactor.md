@@ -109,7 +109,7 @@ flowchart LR
 .camarones/lib/harness/   ctx · ports · registry · pipeline · scheduler · worktrees · integrate · locks · events · kpis
 .camarones/lib/adapters/  runners/{claude,codex,opencode,command} · indexers/graphify · diagrams/{likec4,mermaid}
                           wikis/openwiki · publishers/static · checks/builtin
-.camarones/pipelines/     full.yaml · quick.yaml · schema.json        (schema for editor help only)
+.camarones/lib/pipelines/ units.yaml · full.yaml · quick.yaml · schema.json   (inside lib/ so install copies it)
 .camarones/plugins/       built-in plugin.yaml manifests pointing at adapters/*
 .camarones/portal/app/    React source
 .camarones/portal/app-build/   compiled bundle, committed
