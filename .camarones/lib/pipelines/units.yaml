@@ -1,5 +1,6 @@
 # Every unit type the kit knows. phase orders the plan; runner says who does it (agent session or wizard step);
 # title is what people see ({repo} / {slug} filled in); playbook is the PLAYBOOK.md section the agent follows.
+# tier (default agentic-heavy) picks the runner through the routing table: bounded work can go to a local model.
 quick-overview:      {phase: 2, runner: agent,  playbook: quick-overview,      title: "First overview: purpose, run instructions, one flow and sources"}
 setup:               {phase: 0, runner: wizard, playbook: setup,               title: "Environment ready (tools, repos, agent wiring)"}
 discovery:           {phase: 1, runner: agent,  playbook: discovery,           title: "Discovery of {repo}"}
@@ -21,7 +22,7 @@ architecture-review: {phase: 5, runner: agent,  playbook: architecture-review, t
 flows-catalog:       {phase: 5, runner: agent,  playbook: flows-catalog,       title: "Business flows catalog (propose, validate, create flow units)"}
 flow:                {phase: 5, runner: agent,  playbook: flow,                title: "Flow: {slug}"}
 diagrams:            {phase: 5, runner: agent,  playbook: diagrams,            title: "Diagrams: sequences, lifecycles (state), data and context maps where pages lack them"}
-i18n:                {phase: 6, runner: agent,  playbook: i18n,                title: "Spanish translations + index"}
+i18n:                {phase: 6, runner: agent,  playbook: i18n,                tier: bounded, title: "Spanish translations + index"}
 portal:              {phase: 7, runner: wizard, playbook: portal,              title: "Build and run the portal"}
 ci:                  {phase: 7, runner: wizard, playbook: ci,                  title: "CI pipelines (umbrella + per-repo snippets)"}
 confirm:             {phase: 7, runner: wizard, playbook: confirm,             title: "Human review: confirm pages"}

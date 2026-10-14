@@ -34,6 +34,13 @@ LOG = WORK / "log.md"
 DONE = ("done", "dropped")
 NO_WIKI = "No wiki for this repo (wizard → Wikis → choose repos)"
 LIVE_INTERVIEWS = "Interviews are done live, not by team questionnaire"
+OFF_PROFILE = "Not part of the selected profile"
+DISABLED = "Disabled in .camarones/pipeline.yaml"
+OVERRIDE = CTX.root / ".camarones" / "pipeline.yaml"      # the project's own changes to the kit pipeline (R8)
+
+
+class PipelineError(RuntimeError):
+    """The project's pipeline.yaml cannot be used; the stored plan is left as it was."""
 
 # unit type → (phase, runner, title template, playbook section); the catalog lives in lib/pipelines/units.yaml
 TYPES = {k: (v["phase"], v["runner"], v["title"], v["playbook"]) for k, v in pipeline.types().items()}
@@ -66,11 +73,44 @@ def unit(uid: str, type_: str, deps: list[str], repo: str | None = None, slug: s
             "deps": deps, "repo": repo, "notes": "", "updated": None}
 
 
+def project_pipeline() -> tuple[dict, list[str]]:
+    """The kit pipeline of the project's profile, with .camarones/pipeline.yaml applied when there is one."""
+    default = "quick" if docs.workspace()["project"].get("profile") == "quick" else "full"
+    if not OVERRIDE.exists():
+        return pipeline.load(default), []
+    try:
+        override = yaml.safe_load(OVERRIDE.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError as e:
+        return pipeline.load(default), [f"pipeline.yaml is not valid YAML: {e}"]
+    if not isinstance(override, dict):
+        return pipeline.load(default), ["pipeline.yaml: expected a mapping (extends, nodes, patch)"]
+    return pipeline.compose(override, default)
+
+
+def pipeline_problems() -> list[str]:
+    return project_pipeline()[1]
+
+
+def _nodes(repos: list[str]) -> list[dict]:
+    spec, problems = project_pipeline()
+    if problems:
+        raise PipelineError("; ".join(problems))
+    return pipeline.expand(spec, repos, {"team-interviews": docs.interview_mode() == "team"})
+
+
 def blueprint(repos: list[str]) -> list[dict]:
-    """The plan's units for these repos, from the kit pipeline of the project's profile (lib/pipelines/)."""
-    name = "quick" if docs.workspace()["project"].get("profile") == "quick" else "full"
-    nodes = pipeline.expand(pipeline.load(name), repos, {"team-interviews": docs.interview_mode() == "team"})
-    return [unit(n["id"], n["type"], n["needs"], repo=n["repo"]) for n in nodes]
+    """The plan's units for these repos, from the project's pipeline (lib/pipelines/ + .camarones/pipeline.yaml)."""
+    return [unit(n["id"], n["type"], n["needs"], repo=n["repo"]) for n in _nodes(repos) if not n["disabled"]]
+
+
+def settings(uid: str) -> dict:
+    """How a unit runs: its type's tier, then what the pipeline sets for that node (tier, runner, allow_local)."""
+    try:
+        node = next((n for n in _nodes(docs.repo_names()) if n["id"] == uid), None)
+    except PipelineError:
+        node = None
+    type_ = node["type"] if node else next((u["type"] for u in load()["units"] if u["id"] == uid), "")
+    return {"tier": pipeline.types().get(type_, {}).get("tier", "agentic-heavy"), **(node["settings"] if node else {})}
 
 
 def sync() -> dict:
@@ -79,22 +119,31 @@ def sync() -> dict:
     old_profile = data.get('profile', 'full')
     profile = docs.workspace()['project'].get('profile', 'full')
     repos = docs.repo_names()
+    try:
+        nodes = _nodes(repos)
+    except PipelineError:
+        return data                        # a broken pipeline.yaml must not switch units on or off; `plan` says why
+    disabled = {n["id"] for n in nodes if n["disabled"]}
     existing = {u["id"]: u for u in data["units"]}
     merged = []
-    for bu in blueprint(repos):
+    for bu in (unit(n["id"], n["type"], n["needs"], repo=n["repo"]) for n in nodes if not n["disabled"]):
         cur = existing.pop(bu["id"], None)
         if cur:
             bu.update({k: cur[k] for k in ("status", "notes", "updated", "redo") if k in cur})
             if cur.get("status") == "dropped" and bu.get("repo") in repos:
                 bu["status"] = "todo"
-            if cur.get('notes') == 'Not part of the selected profile':
+            if cur.get('notes') in (OFF_PROFILE, DISABLED):
                 bu['status'], bu['notes'] = 'todo', ''
             if old_profile != profile and bu['id'] in ('setup', 'portal', 'confirm', 'handover'):
                 bu['status'] = 'todo'
         merged.append(bu)
     for leftover in existing.values():     # dynamic units (flows, splits) or units of removed repos
         if profile == 'quick' and leftover['type'] not in ('flow', 'doc-fixes', 'review-fixes') and leftover['status'] == 'todo':
-            leftover['status'], leftover['notes'] = 'dropped', 'Not part of the selected profile'
+            leftover['status'], leftover['notes'] = 'dropped', OFF_PROFILE
+        if leftover["status"] in ("todo", "blocked") and leftover["id"] in disabled:
+            leftover["status"], leftover["notes"] = "dropped", DISABLED
+        elif leftover["status"] in ("todo", "blocked") and OVERRIDE.exists() and leftover["type"] in pipeline.kit_types():
+            leftover["status"], leftover["notes"] = "dropped", OFF_PROFILE     # left out by the project's pipeline
         if leftover.get("repo") and leftover["repo"] not in repos:
             leftover["status"] = "dropped"
         merged.append(leftover)
@@ -427,9 +476,11 @@ def _runner(target: str):
     return runners.get(route.runner), route.model
 
 
-def _agents(log) -> list[str]:
-    """Installed targets for agentic-heavy work, in routing order (defaults: claude, then codex)."""
-    keep, notes = routing.candidates("agentic-heavy", routing.table(docs.workspace(), load_json(PREFS, {})))
+def _agents(log, tier: str = "agentic-heavy", runner: str | None = None, allow_local: bool = False) -> list[str]:
+    """Installed targets for a tier in routing order (defaults: claude, then codex), or for the one runner a
+    pipeline node asks for."""
+    routes = {tier: [runner]} if runner else routing.table(docs.workspace(), load_json(PREFS, {}))
+    keep, notes = routing.candidates(tier, routes, allow_local)
     out = []
     for r in keep:
         try:
@@ -549,7 +600,15 @@ def _autopilot(agents: list[str], lang: str, max_units: int | None, poll_seconds
     # team interviews only consolidate written answers: nothing to ask, so they can run unattended
     skip = set() if include_interviews or docs.interview_mode() == "team" else INTERVIEW_TYPES
     limited: dict[str, dt.datetime] = {}
+    noted: set[str] = set()
+
+    def log_once(text: str) -> None:           # routing notes once per run, not once per unit
+        if text not in noted:
+            noted.add(text)
+            log(text)
     done = 0
+    for problem in pipeline_problems():
+        log(f"pipeline.yaml: {problem} — the plan is used as it was")
     log(f"Autopilot started with {', '.join(agents)}" + (f" (max {max_units} units)" if max_units else ""))
     while max_units is None or done < max_units:
         data = sync()
@@ -568,9 +627,14 @@ def _autopilot(agents: list[str], lang: str, max_units: int | None, poll_seconds
                     "(finished, or waiting on blocked units / docs/interview/open-questions.md).")
             return done
         u = queue[0]
-        free = [a for a in agents if limited.get(a, dt.datetime.min) <= dt.datetime.now()]
+        s = settings(u["id"])
+        targets = _agents(log_once, s["tier"], s.get("runner"), bool(s.get("allow_local")))
+        if not targets:
+            log(f"Autopilot stopped: no installed agent can run {u['id']} ({s.get('runner') or s['tier']}).")
+            return done
+        free = [a for a in targets if limited.get(a, dt.datetime.min) <= dt.datetime.now()]
         if not free:
-            soonest = min(limited.values())
+            soonest = min(limited[a] for a in targets)
             wait = max(60, min(poll_seconds, int((soonest - dt.datetime.now()).total_seconds())))
             log(f"All agents are at their usage limit — retrying in {wait // 60} min "
                 f"(machine must stay on; Ctrl+C to stop, progress is saved).")
@@ -596,7 +660,7 @@ def _autopilot(agents: list[str], lang: str, max_units: int | None, poll_seconds
             continue
         if outcome == "limited":
             limited[agent] = dt.datetime.now() + dt.timedelta(seconds=poll_seconds)
-            others = [a for a in agents if limited.get(a, dt.datetime.min) <= dt.datetime.now()]
+            others = [a for a in targets if limited.get(a, dt.datetime.min) <= dt.datetime.now()]
             log(f"{agent} hit its usage limit" + (f" — switching to {others[0]}" if others else ""))
             continue
         log(f"Autopilot stopped: {agent} failed on {u['id']} (exit {r.returncode}). Last output:\n"

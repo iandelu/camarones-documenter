@@ -39,7 +39,8 @@ PAGES = {
                  "La IA guarda checkpoints mientras trabaja: si cierras la terminal o el portátil, la próxima vez aparece "
                  "«▶ Continuar» y retoma desde el último checkpoint. Al terminar cada unidad se hace un commit local en "
                  "cam-docs para que nada se pierda; «🤝 Compartir con el equipo» (o `camaron share`) trae el trabajo del "
-                 "equipo y publica el tuyo cuando tú decides."},
+                 "equipo y publica el tuyo cuando tú decides. ¿Queréis otro plan? En `.camarones/pipeline.yaml` podéis "
+                 "quitar, añadir o reordenar unidades sin tocar el kit (la guía de comandos trae ejemplos)."},
         {"icon": "🗂", "title": "El menú: lo de cada día arriba, lo demás por secciones",
          "art": r"""
    Que hacemos?
@@ -295,7 +296,9 @@ PAGES = {
                  "Every “🦐 Next step” opens a session that does ONE unit. The AI saves checkpoints while it works: if you "
                  "close the terminal or the laptop, next time you get “▶ Continue” and it resumes from the last checkpoint. "
                  "Each finished unit is committed locally in cam-docs so nothing is lost; “🤝 Share with the team” (or "
-                 "`camaron share`) pulls the team's work and publishes yours when you decide."},
+                 "`camaron share`) pulls the team's work and publishes yours when you decide. Want a different plan? "
+                 "`.camarones/pipeline.yaml` lets you drop, add or rewire units without touching the kit (the command "
+                 "guide has examples)."},
         {"icon": "🗂", "title": "The menu: daily work on top, the rest in sections",
          "art": r"""
    What shall we do?

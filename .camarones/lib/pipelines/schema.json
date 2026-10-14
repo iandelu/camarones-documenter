@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Camarón pipeline",
+  "description": "A kit pipeline (lib/pipelines/*.yaml) or a project's cam-docs/.camarones/pipeline.yaml. Editor help only: the kit validates with its own rules (harness/pipeline.py).",
+  "type": "object",
+  "properties": {
+    "version": {"const": 1},
+    "name": {"type": "string"},
+    "extends": {"enum": ["kit:full", "kit:quick"], "description": "Kit pipeline this project starts from; default: the project's profile."},
+    "nodes": {"type": "array", "items": {"$ref": "#/$defs/entry"}, "description": "Units to add, in order."},
+    "patch": {"type": "array", "items": {"$ref": "#/$defs/patch"}, "description": "Changes to the kit's nodes."}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "condition": {"enum": ["team-interviews"]},
+    "tier": {"enum": ["agentic-heavy", "bounded", "judge"]},
+    "node": {
+      "type": "object",
+      "required": ["id", "type"],
+      "properties": {
+        "id": {"type": "string", "description": "Unit id; {repo} inside a for_each group."},
+        "type": {"type": "string", "description": "A unit type from lib/pipelines/units.yaml."},
+        "needs": {"type": "array", "items": {"type": "string"}, "description": "Unit ids this waits for; x:* means every x:<repo>."},
+        "when": {"$ref": "#/$defs/condition"},
+        "unless": {"$ref": "#/$defs/condition"},
+        "tier": {"$ref": "#/$defs/tier"},
+        "runner": {"type": "string", "description": "runner or runner:model, e.g. codex:o5 or opencode:ollama/qwen3-coder:30b"},
+        "allow_local": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "entry": {
+      "oneOf": [
+        {"$ref": "#/$defs/node"},
+        {
+          "type": "object",
+          "required": ["for_each", "nodes"],
+          "properties": {
+            "for_each": {"const": "repos"},
+            "nodes": {"type": "array", "items": {"$ref": "#/$defs/node"}},
+            "when": {"$ref": "#/$defs/condition"},
+            "unless": {"$ref": "#/$defs/condition"}
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "patch": {
+      "type": "object",
+      "required": ["op", "node"],
+      "properties": {
+        "op": {"enum": ["disable", "needs", "set"]},
+        "node": {"type": "string", "description": "Node id as written in the pipeline (discovery:{repo}) or a prefix wildcard (repo-wiki:*)."},
+        "add": {"type": "array", "items": {"type": "string"}},
+        "remove": {"type": "array", "items": {"type": "string"}},
+        "tier": {"$ref": "#/$defs/tier"},
+        "runner": {"type": "string"},
+        "allow_local": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

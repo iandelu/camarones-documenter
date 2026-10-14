@@ -1,16 +1,23 @@
-"""Pipelines as data (R7): lib/pipelines/<name>.yaml lists the nodes of a documentation plan and units.yaml the unit
-types they use. `expand` turns a pipeline into concrete units for the project's repos; `validate` reports problems by
-their YAML path. Conditions are named and implemented in Python, never an expression language."""
+"""Pipelines as data (R7, R8): lib/pipelines/<name>.yaml lists the nodes of a documentation plan and units.yaml the
+unit types they use. A project can extend a kit pipeline in cam-docs/.camarones/pipeline.yaml (`compose`). `expand`
+turns a pipeline into concrete units for the project's repos; `validate` reports problems by their YAML path.
+Conditions are named and implemented in Python, never an expression language."""
 from __future__ import annotations
 
+import copy
 import functools
 from pathlib import Path
 
 import yaml
 
+from .routing import TIERS
+
 DIR = Path(__file__).resolve().parent.parent / "pipelines"
+KIT_PIPELINES = ("full", "quick")
 FAN_OUT = ("repos",)
 CONDITIONS = ("team-interviews",)
+SETTINGS = ("tier", "runner", "allow_local")
+OPS = {"disable": (), "needs": ("add", "remove"), "set": SETTINGS}
 
 
 @functools.lru_cache(maxsize=1)
@@ -20,6 +27,11 @@ def types() -> dict[str, dict]:
 
 def load(name: str) -> dict:
     return yaml.safe_load((DIR / f"{name}.yaml").read_text(encoding="utf-8"))
+
+
+def kit_types() -> set[str]:
+    """Unit types some kit pipeline plans; the rest (flow, review-fixes…) are only added while working."""
+    return {n["type"] for name in KIT_PIPELINES for _, n in _flat(load(name))}
 
 
 def _members(node: dict) -> list[dict]:
@@ -36,10 +48,13 @@ def _active(node: dict, predicates: dict[str, bool]) -> bool:
 def _instance(node: dict, repo: str | None) -> dict:
     fill = (lambda s: s.replace("{repo}", repo)) if repo else (lambda s: s)
     return {"id": fill(node["id"]), "type": node["type"], "needs": [fill(n) for n in node.get("needs") or []],
-            "repo": repo}
+            "repo": repo, "disabled": bool(node.get("disabled")),
+            "settings": {k: node[k] for k in SETTINGS if k in node}}
 
 
 def expand(spec: dict, repos: list[str], predicates: dict[str, bool]) -> list[dict]:
+    """Concrete units in pipeline order. Disabled nodes are kept with disabled=True (the plan drops them) and left
+    out of `x:*` wildcards."""
     out = []
     for node in spec["nodes"]:
         if not _active(node, predicates):
@@ -48,11 +63,56 @@ def expand(spec: dict, repos: list[str], predicates: dict[str, bool]) -> list[di
             out += [_instance(m, r) for r in repos for m in _members(node) if _active(m, predicates)]
         else:
             out.append(_instance(node, None))
-    ids = [n["id"] for n in out]
+    ids = [n["id"] for n in out if not n["disabled"]]
     for n in out:
         n["needs"] = [i for need in n["needs"]
                       for i in ([x for x in ids if x.startswith(need[:-1])] if need.endswith("*") else [need])]
     return out
+
+
+def _matches(pattern, node_id) -> bool:
+    if not isinstance(pattern, str) or not node_id:
+        return False
+    return pattern == node_id or (pattern.endswith("*") and node_id.startswith(pattern[:-1]))
+
+
+def compose(override: dict, default: str) -> tuple[dict, list[str]]:
+    """A project's pipeline.yaml on top of a kit pipeline: `extends: kit:<name>`, extra `nodes`, and `patch` entries
+    (disable · needs add/remove · set tier/runner/allow_local). Returns the merged spec and its problems."""
+    base = override.get("extends", f"kit:{default}")
+    name = base[4:] if isinstance(base, str) and base.startswith("kit:") else None
+    if name not in KIT_PIPELINES:
+        return load(default), [f"extends: unknown pipeline '{base}' (use {' or '.join('kit:' + k for k in KIT_PIPELINES)})"]
+    spec = copy.deepcopy(load(name))
+    errors, flat, base_count = [], [n for _, n in _flat(spec)], len(spec["nodes"])
+    for i, p in enumerate(override.get("patch") or []):
+        path, op = f"patch[{i}]", (p or {}).get("op")
+        if op not in OPS:
+            errors.append(f"{path}.op: unknown op '{op}' (use {', '.join(OPS)})")
+            continue
+        targets = [n for n in flat if _matches(p.get("node"), n.get("id"))]
+        extra = sorted(set(p) - {"op", "node", *OPS[op]})
+        if not targets:
+            errors.append(f"{path}.node: unknown node '{p.get('node')}'")
+        elif extra:
+            errors.append(f"{path}: '{extra[0]}' does not apply to {op} (use {', '.join(OPS[op]) or 'op and node only'})")
+        for n in targets if not extra else []:
+            if op == "disable":
+                n["disabled"] = True
+            elif op == "needs":
+                kept = [x for x in n.get("needs") or [] if x not in (p.get("remove") or [])]
+                n["needs"] = kept + [x for x in p.get("add") or [] if x not in kept]
+            else:
+                n.update({k: p[k] for k in SETTINGS if k in p})
+    spec["nodes"] += override.get("nodes") or []
+    spec["name"] = f"{name}+project"
+    for e in validate(spec):
+        head, _, rest = e.partition("]")
+        if head.startswith("nodes[") and head[6:].isdigit():
+            k = int(head[6:])
+            e = f"nodes[{k - base_count}]{rest}" if k >= base_count else f"kit:{name} nodes[{k}]{rest}"
+        errors.append(e)
+    return spec, errors
 
 
 def _flat(spec: dict) -> list[tuple[str, dict]]:
@@ -82,6 +142,8 @@ def validate(spec: dict) -> list[str]:
         for key in ("when", "unless"):
             if key in n and n[key] not in CONDITIONS:
                 errors.append(f"{path}.{key}: unknown condition '{n[key]}'")
+        if "tier" in n and n["tier"] not in TIERS:
+            errors.append(f"{path}.tier: unknown tier '{n['tier']}' (use {', '.join(TIERS)})")
         for need in n.get("needs") or []:
             if not _target(need, ids):
                 errors.append(f"{path}.needs: unknown node '{need}'")

@@ -68,6 +68,22 @@ Close the agent and come back to the wizard for the next unit (a fresh session =
 Big unit? The agent splits it and adds the remainder to the plan. Everything survives between sessions and computers
 (the plan is committed with the docs).
 
+**Your own plan.** The plan comes from the kit's pipeline (`full` or `quick`). To change it for this project, create
+`.camarones/pipeline.yaml` and run `camaron plan sync`:
+
+```yaml
+extends: kit:full
+nodes:                                   # extra units
+  - {id: security-review, type: security-review, needs: [arch-system]}
+patch:
+  - {op: disable, node: ci}              # the unit is dropped; remove the line and it comes back
+  - {op: needs, node: domain, add: [data]}
+  - {op: set, node: i18n, runner: "opencode:ollama/qwen3-coder:30b"}   # or tier: bounded / judge
+```
+
+`node` is the id as the kit writes it (`discovery:{repo}`) or a prefix with `*` (`repo-wiki:*`). If the file has a
+mistake, the plan stays as it was and `camaron plan` says where (`patch[1].node: unknown node 'cii'`).
+
 ## 3. Trust: AI drafts vs confirmed
 
 Every page starts as **✨ draft** (banner in the portal). Confirm pages in the portal (**Confirm** on each page, the
