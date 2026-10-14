@@ -72,6 +72,22 @@ Cierra el agente y vuelve al asistente para la siguiente unidad: una sesión nue
 ¿Una unidad es demasiado grande para una sesión? El agente la divide y añade lo que falta al plan. Todo se conserva entre sesiones
 y entre ordenadores, porque el plan se commitea junto con la doc.
 
+**Tu propio plan.** El plan sale del pipeline del kit (`full` o `quick`). Para cambiarlo en este proyecto, crea
+`.camarones/pipeline.yaml` y ejecuta `camaron plan sync`:
+
+```yaml
+extends: kit:full
+nodes:                                   # unidades extra
+  - {id: security-review, type: security-review, needs: [arch-system]}
+patch:
+  - {op: disable, node: ci}              # la unidad se descarta; quita la línea y vuelve
+  - {op: needs, node: domain, add: [data]}
+  - {op: set, node: i18n, runner: "opencode:ollama/qwen3-coder:30b"}   # o tier: bounded / judge
+```
+
+`node` es el id tal como lo escribe el kit (`discovery:{repo}`) o un prefijo con `*` (`repo-wiki:*`). Si el fichero tiene
+un error, el plan se queda como estaba y `camaron plan` dice dónde (`patch[1].node: unknown node 'cii'`).
+
 ## 3. Confianza: borradores de IA frente a doc confirmada
 
 Toda página nace como **✨ borrador** (el portal lo muestra con un banner). Confírmalas en el portal (**Confirmar** en cada

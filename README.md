@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.14.0-ff875f?style=flat-square" alt="Versión 3.14.0">
+  <img src="https://img.shields.io/badge/version-3.15.0-ff875f?style=flat-square" alt="Versión 3.15.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -407,7 +407,9 @@ agents:
     agentic-heavy: [claude, codex:gpt-5.6-terra]
 ```
 
-Los modelos locales solo se usan a través de OpenCode (`opencode:ollama/qwen3-coder:30b`) y nunca para trabajo `agentic-heavy`, donde un modelo pequeño falla más de lo que ahorra. Hoy solo el piloto automático lee esta tabla; `bounded` y `judge` se usarán a medida que lleguen esos pasos. Cada ejecución del piloto queda registrada (unidades, agente, duración, tokens y coste) en `.camarones/.cache/runs/`.
+Los modelos locales solo se usan a través de OpenCode (`opencode:ollama/qwen3-coder:30b`) y nunca para trabajo `agentic-heavy`, donde un modelo pequeño falla más de lo que ahorra. Hoy solo el piloto automático lee esta tabla, unidad a unidad: las traducciones (`i18n`) son trabajo `bounded`, así que un modelo local puede hacerlas. `judge` se usará cuando lleguen las evaluaciones. Cada ejecución del piloto queda registrada (unidades, agente, duración, tokens y coste) en `.camarones/.cache/runs/`.
+
+**Tu propio plan.** El plan ya no está escrito en el código: sale de un pipeline en YAML (`full` o `quick`), y cada proyecto puede ajustarlo en `cam-docs/.camarones/pipeline.yaml` sin tocar el kit. Puede quitar unidades (`disable`), cambiar de qué dependen (`needs`), añadir otras o decidir qué agente o tipo de trabajo hace cada una (`set`). Tras editarlo, `camaron plan sync` lo aplica. Si el fichero tiene un error, el plan se queda como estaba y `camaron plan` dice exactamente dónde. Hay ejemplos en la guía de comandos.
 
 **Qué modelo local usar.** `camaron doctor --local` mira la memoria de tu equipo y propone un modelo libre y de pesos abiertos de la familia Qwen. Te dice qué falta (OpenCode, Ollama o el modelo) y qué línea de `routing` añadir. No instala nada.
 

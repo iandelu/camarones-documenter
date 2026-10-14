@@ -493,6 +493,8 @@ def cmd_interview(a) -> int:
 
 
 def cmd_plan(a) -> int:
+    for problem in plan.pipeline_problems():
+        print(f"✖ .camarones/pipeline.yaml — {problem} (the plan is left as it was)", file=sys.stderr)
     if a.action == "sync" or not plan.PLAN.exists():
         plan.sync()
     if a.action in ("show", "sync"):
