@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.18.0-ff875f?style=flat-square" alt="Versión 3.18.0">
+  <img src="https://img.shields.io/badge/version-3.19.0-ff875f?style=flat-square" alt="Versión 3.19.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -418,6 +418,15 @@ camaron pipeline show        # el plan como unidades: dónde trabaja cada una y 
 ```
 
 `camaron autopilot` sigue igual, de una unidad en una y sin worktrees.
+
+**¿Está funcionando?** `camaron kpis` reúne cuatro familias de indicadores:
+
+- **Coste y velocidad:** las ejecuciones de todo el equipo por mes, con tiempo, tokens, coste, coste por unidad, paralelismo conseguido, límites y fallos.
+- **Cobertura y calidad:** repos con ficha, flujos, ficheros C4, errores y avisos de `check`.
+- **Confianza y frescura:** páginas confirmadas, borradores, pendientes de reconfirmar y repos que cambiaron desde que se documentaron.
+- **Utilidad:** consultas de agentes y personas, y búsquedas sin resultado.
+
+Cada máquina acumula sus ejecuciones en `docs/.work/kpis/` (se commitea y `share` suma las del equipo), con el mismo interruptor que las estadísticas de uso. `camaron kpis --compare <run-a> <run-b>` pone dos ejecuciones lado a lado para ver si un cambio de prompt, de modelo o de versión del kit ayudó.
 
 **Tu propio plan.** El plan ya no está escrito en el código: sale de un pipeline en YAML (`full` o `quick`), y cada proyecto puede ajustarlo en `cam-docs/.camarones/pipeline.yaml` sin tocar el kit. Puede quitar unidades (`disable`), cambiar de qué dependen (`needs`), añadir otras o decidir qué agente o tipo de trabajo hace cada una (`set`). Tras editarlo, `camaron plan sync` lo aplica. Si el fichero tiene un error, el plan se queda como estaba y `camaron plan` dice exactamente dónde. Hay ejemplos en la guía de comandos.
 

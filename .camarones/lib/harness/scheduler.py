@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 
 from .. import docs, plan
 from ..common import CAM_DIR, CTX, cli_cmd
-from . import routing
+from . import kpis, routing
 from .ctx import Ctx
 from .events import EventLog
 from .integrate import GATES, _kit, integrate
@@ -83,8 +83,10 @@ def run_parallel(lang: str = "es", max_parallel: int = 2, per_runner: dict[str, 
             if j.proc is not None and j.proc.poll() is None:
                 j.proc.kill()
         emit("run.finished", interrupted=True)
+        kpis.record_run(run_id)
         raise
     emit("run.finished", done=done)
+    kpis.record_run(run_id)
     return done
 
 

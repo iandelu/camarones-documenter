@@ -25,7 +25,7 @@ from .common import CTX, PREFS, ROOT, load_json, WORK, CAM_LAYOUT, CAM_DIR, WORK
 from . import docs
 from .adapters import runners
 from .adapters.runners.base import LIMIT_HINTS  # noqa: F401  (kept for callers)
-from .harness import pipeline, routing
+from .harness import kpis, pipeline, routing
 from .harness.events import EventLog
 from .harness.locks import FileLock
 from .harness.ports import RunRequest
@@ -661,8 +661,10 @@ def run_autopilot(lang: str = "es", max_units: int | None = None, poll_seconds: 
             done = _autopilot(agents, lang, max_units, poll_seconds, include_interviews, echo)
         except BaseException:                  # Ctrl+C or a crash: the log must still say the run ended
             _emit("run.finished", interrupted=True)
+            kpis.record_run(run_id)
             raise
         _emit("run.finished", done=done)
+    kpis.record_run(run_id)
     return done
 
 

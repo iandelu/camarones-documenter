@@ -137,6 +137,8 @@ def test_a_run_is_recorded(wired, fake):
     kinds = [e["type"] for e in EventLog(log).read()[0]]
     assert kinds[0] == "run.started" and kinds[-1] == "run.finished"
     assert kinds.count("unit.started") == 3 and kinds.count("merge.ok") == 3
+    rollup = list((wired.root / "docs" / ".work" / "kpis").glob("*.json"))
+    assert len(rollup) == 1 and log.parent.name in rollup[0].read_text(encoding="utf-8")
 
 
 def test_a_runner_with_no_slots_stops_instead_of_spinning(wired, fake):
