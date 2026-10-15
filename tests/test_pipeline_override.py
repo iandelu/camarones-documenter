@@ -83,9 +83,10 @@ def test_patch_errors_name_the_patch_entry(kit, project):
 def test_unit_settings_come_from_the_type_then_the_patch(kit, project):
     project(None)
     assert kit.plan.settings("i18n")["tier"] == "bounded"
-    assert kit.plan.settings("domain") == {"tier": "agentic-heavy"}
+    assert kit.plan.settings("domain") == {"tier": "agentic-heavy", "isolation": "none"}
+    assert kit.plan.settings("discovery:api")["isolation"] == "worktree"
     project({"patch": [{"op": "set", "node": "domain", "runner": "codex:o5"}]})
-    assert kit.plan.settings("domain") == {"tier": "agentic-heavy", "runner": "codex:o5"}
+    assert kit.plan.settings("domain") == {"tier": "agentic-heavy", "isolation": "none", "runner": "codex:o5"}
 
 
 @pytest.fixture
@@ -125,3 +126,4 @@ def test_schema_for_editors_matches_the_code(kit):
     assert set(defs["patch"]["properties"]["op"]["enum"]) == set(pipeline.OPS)
     assert set(defs["condition"]["enum"]) == set(pipeline.CONDITIONS)
     assert set(defs["tier"]["enum"]) == set(routing.TIERS)
+    assert set(defs["isolation"]["enum"]) == set(pipeline.ISOLATION)

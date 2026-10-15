@@ -60,8 +60,7 @@ GATES = [("check", _gate("check")), ("arch-validate", _gate("arch-validate"))]
 
 def handoff_file(uid: str) -> Path:
     from .. import plan
-    f = plan.note_file(uid)
-    return f.with_name(f"{f.stem}.handoff.md")
+    return plan.handoff_file(uid)
 
 
 def _fold_handoff(uid: str) -> None:

@@ -128,13 +128,15 @@ def blueprint(repos: list[str]) -> list[dict]:
 
 
 def settings(uid: str) -> dict:
-    """How a unit runs: its type's tier, then what the pipeline sets for that node (tier, runner, allow_local)."""
+    """How a unit runs: its type's tier and isolation, then what the pipeline sets for that node."""
     try:
         node = next((n for n in _nodes(docs.repo_names()) if n["id"] == uid), None)
     except PipelineError:
         node = None
     type_ = node["type"] if node else next((u["type"] for u in load()["units"] if u["id"] == uid), "")
-    return {"tier": pipeline.types().get(type_, {}).get("tier", "agentic-heavy"), **(node["settings"] if node else {})}
+    t = pipeline.types().get(type_, {})
+    return {"tier": t.get("tier", "agentic-heavy"), "isolation": t.get("isolation", "none"),
+            **(node["settings"] if node else {})}
 
 
 @locked
@@ -337,6 +339,17 @@ def note_file(uid: str) -> Path:
     return UNITS_DIR / (uid.replace(":", "__").replace("/", "_") + ".md")
 
 
+def handoff_file(uid: str) -> Path:
+    """Where a unit that runs in its own worktree leaves its handoff; integration folds it into handoff.md."""
+    f = note_file(uid)
+    return f.with_name(f"{f.stem}.handoff.md")
+
+
+def _at(path: Path) -> str:
+    """Any path as seen from the workspace, where agents run."""
+    return Path(os.path.relpath(path, WORKSPACE)).as_posix()
+
+
 def old_notes(uid: str) -> list[Path]:
     """Checkpoints of earlier runs of a redone unit, oldest first."""
     f = note_file(uid)
@@ -439,23 +452,34 @@ def prompt(uid: str, lang: str = "es", unattended: bool = False) -> str:
                  "what nobody answered and where people disagree. Consolidate the answers as the playbook section "
                  "\"interview\" (team mode) says: agreed answers to the dated interview file, citing who said what; "
                  "disagreements and unanswered questions to `docs/interview/open-questions.md`.\n")
-    layout = (f"\nLayout: you run in the workspace folder. Docs and agent config live in `{CAM_DIR}/` (its own git repo; every "
+    in_tree = CTX.root != CTX.state_root          # a parallel unit in its own worktree of cam-docs
+    layout = (f"\nLayout: you run in the workspace folder. This unit writes its docs in `{ws_rel('.')}/`, a private copy "
+              f"of `{CAM_DIR}/` on its own branch: every `docs/…` or `.camarones/…` path in the playbook is relative to it. "
+              f"Other units are working in parallel; the shared plan and handoff stay in `{CAM_DIR}/`, and the `{cli}` "
+              "commands below reach them. Never edit files in another unit's folder or in "
+              f"`{CAM_DIR}/docs/` directly, and do not commit: the kit commits and merges your folder when you are done. "
+              "The service repos are siblings (`<repo>/`); never write kit files into them.\n") if in_tree else (
+              f"\nLayout: you run in the workspace folder. Docs and agent config live in `{CAM_DIR}/` (its own git repo; every "
               f"`docs/…` or `.camarones/…` path in the playbook is relative to it); the service repos are its siblings (`<repo>/`). "
               "Never write kit files into the service repos.\n") if CAM_LAYOUT else (
               "\nLayout: this project uses the older single-folder layout — its docs are `docs/` and `.camarones/` of "
               f"this folder ({ROOT}). Ignore the playbook's `{CAM_DIR}/` prefix and any other `{CAM_DIR}/` folder you see.\n")
+    finish = (f"""write your handoff (done, decisions, pending, files to read first next time) to
+   `{_at(handoff_file(u['id']))}`, run `{cli} check` and fix what it reports on your pages, then
+   `{cli} plan done {u['id']} --note "<one line>"` (or `plan block … --note "why"`).""" if in_tree else
+              f"""`{cli} plan done {u['id']} --note "<one line>"` (or `plan block … --note "why"`), rewrite the
+   "Last session" section of `{_at(HANDOFF)}` (done, decisions, pending, files to read first next time),
+   run `{cli} check` and `{cli} checkpoint "{u['id']}"` (local commit of the docs so nothing is lost).""")
     return f"""Camarón session — unit `{u['id']}`: {u['title']}
 {redo_txt}{resume}{extra}{layout}
 You are documenting this project with the Camarón kit (works the same in Claude Code and Codex).
 1. Read `{ws_rel('.camarones/PLAYBOOK.md')}` → sections "Session protocol" and "{section}", and `{ws_rel('.camarones/CONVENTIONS.md')}` (binding).
-2. Read `{ws_rel('docs/.work/handoff.md')}` (what previous sessions did and left pending). Do not redo finished work.
+2. Read `{_at(HANDOFF)}` (what previous sessions did and left pending). Do not redo finished work.
 3. Run `{cli} plan start {u['id']}`, then do ONLY this unit, as deep as the playbook asks. The CLI is `{cli}`
    (`{cli} help` lists commands). Write docs in English; talk to the user in {talk}.
    Save progress as you go (the user may close the session at any time): after each significant step run
    `{cli} plan note {u['id']} "<what is done / what is next>"` and write findings to their files immediately.
-4. Finish: `{cli} plan done {u['id']} --note "<one line>"` (or `plan block … --note "why"`), rewrite the
-   "Last session" section of `{ws_rel('docs/.work/handoff.md')}` (done, decisions, pending, files to read first next time),
-   run `{cli} check` and `{cli} checkpoint "{u['id']}"` (local commit of the docs so nothing is lost).
+4. Finish: {finish}
 5. {ask}
 """
 
@@ -546,18 +570,22 @@ def _show(events: list[dict]) -> tuple[list[str], str]:
     return shown, err
 
 
-def _run_agent(agent: str, text: str, lang: str, uid: str, echo=print) -> subprocess.CompletedProcess:
+def _run_agent(agent: str, text: str, lang: str, uid: str, echo=print, *, prompt_file: Path | None = None,
+               env: dict | None = None, emit=None, on_start=None) -> subprocess.CompletedProcess:
     """Run one unattended session, streaming a compact view of what the agent does, plus a heartbeat with
-    the unit's last checkpoint when it goes quiet. The returned stdout holds the error/result text only."""
+    the unit's last checkpoint when it goes quiet. The returned stdout holds the error/result text only.
+    The parallel scheduler gives each unit its own prompt file, env (its worktree) and event sink."""
+    emit = emit or _emit
+    prompt_file = prompt_file or AUTOPILOT_PROMPT
     # multi-line args do not survive Windows .cmd shims: hand over a one-line pointer to the prompt file
-    WORK.mkdir(parents=True, exist_ok=True)
-    AUTOPILOT_PROMPT.write_text(text, encoding="utf-8")
-    brief = ws_rel(rel_file(AUTOPILOT_PROMPT))
+    prompt_file.parent.mkdir(parents=True, exist_ok=True)
+    prompt_file.write_text(text, encoding="utf-8")
+    brief = _at(prompt_file)
     short = f"Follow the instructions in {brief}" if lang == "en" else f"Sigue las instrucciones de {brief}"
     # pin the project: the agent's own `camarones …` calls must hit this plan, whatever folder it cds into
     runner, model = _runner(agent)
-    inv = runner.build(RunRequest(prompt=short, cwd=WORKSPACE, env={**os.environ, "CAMARONES_ROOT": str(ROOT)},
-                                  model=model))
+    inv = runner.build(RunRequest(prompt=short, cwd=WORKSPACE,
+                                  env={**os.environ, "CAMARONES_ROOT": str(ROOT), **(env or {})}, model=model))
     cmd = inv.argv
     start = last = time.monotonic()
     seen_note = last_note(uid)
@@ -580,12 +608,14 @@ def _run_agent(agent: str, text: str, lang: str, uid: str, echo=print) -> subpro
                              env=inv.env)
     except OSError as e:
         return subprocess.CompletedProcess(cmd, 127, str(e), "")
+    if on_start:
+        on_start(p)
     threading.Thread(target=heartbeat, daemon=True).start()
     try:
         for line in p.stdout:
             events = runner.parse(line.rstrip("\n"))
             for ev in events:
-                _emit(ev["type"], unit=uid, runner=agent, **{k: v for k, v in ev.items() if k != "type"})
+                emit(ev["type"], unit=uid, runner=agent, **{k: v for k, v in ev.items() if k != "type"})
             shown, err = _show(events)
             for s in shown:
                 echo(f"  {s}")

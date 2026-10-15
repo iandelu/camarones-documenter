@@ -101,6 +101,8 @@ class Worktrees:
             if delete_branch:
                 self._git("branch", "-D", w.branch, check=False)
             save_json(self.registry, reg)
+            if self.base.is_dir() and not any(self.base.iterdir()):
+                self.base.rmdir()                  # no unit left in parallel: no .cw/ left in the workspace
 
     def prune(self) -> None:
         """Forget worktrees whose folder and branch are both gone (nothing left to resume)."""

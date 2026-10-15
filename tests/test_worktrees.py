@@ -108,3 +108,22 @@ def test_uninstall_removes_unit_worktrees(wired, wt):
     assert any(".cw" in s.label for s in un.steps() if s.kind == "delete")
     un.run(backup=False, log=lambda _: None)
     assert not (wired.ws / ".cw").exists()
+
+
+def test_a_worktree_session_is_told_where_to_write_and_not_to_checkpoint(wired, wt, monkeypatch):
+    wired.plan.sync()
+    w = wt.add("discovery:api")
+    monkeypatch.setenv("CAMARONES_STATE_ROOT", str(wired.root))
+    monkeypatch.setenv("CAMARONES_WORKSPACE", str(wired.ws))
+    k = load_kit(w.path, wired.home, wired.ws)
+    text = k.plan.prompt("discovery:api", "en", unattended=True)
+    assert "`.cw/1/`" in text and "checkpoint" not in text
+    assert "cam-docs/docs/.work/handoff.md" in text                     # the shared handoff, read from main
+    assert "cam-docs/docs/.work/units/discovery__api.handoff.md" in text   # this unit's own handoff
+    assert "`.cw/1/.camarones/PLAYBOOK.md`" in text
+
+
+def test_the_main_session_prompt_is_unchanged(wired):
+    wired.plan.sync()
+    text = wired.plan.prompt("discovery:api", "en", unattended=True)
+    assert "checkpoint \"discovery:api\"" in text and "`cam-docs/docs/.work/handoff.md`" in text and ".cw/" not in text
