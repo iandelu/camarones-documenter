@@ -14,6 +14,7 @@
   "$defs": {
     "condition": {"enum": ["team-interviews"]},
     "tier": {"enum": ["agentic-heavy", "bounded", "judge"]},
+    "isolation": {"enum": ["none", "worktree"], "description": "worktree: the unit gets its own copy of cam-docs when units run in parallel."},
     "node": {
       "type": "object",
       "required": ["id", "type"],
@@ -25,7 +26,8 @@
         "unless": {"$ref": "#/$defs/condition"},
         "tier": {"$ref": "#/$defs/tier"},
         "runner": {"type": "string", "description": "runner or runner:model, e.g. codex:o5 or opencode:ollama/qwen3-coder:30b"},
-        "allow_local": {"type": "boolean"}
+        "allow_local": {"type": "boolean"},
+        "isolation": {"$ref": "#/$defs/isolation"}
       },
       "additionalProperties": false
     },
@@ -55,7 +57,8 @@
         "remove": {"type": "array", "items": {"type": "string"}},
         "tier": {"$ref": "#/$defs/tier"},
         "runner": {"type": "string"},
-        "allow_local": {"type": "boolean"}
+        "allow_local": {"type": "boolean"},
+        "isolation": {"$ref": "#/$defs/isolation"}
       },
       "additionalProperties": false
     }
