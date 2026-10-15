@@ -55,6 +55,10 @@
                             run ready units in parallel: discovery, repo briefs and flows each in their own copy of
                             cam-docs (merged back when done), other units one at a time. autopilot stays sequential
   runs [RUN] [--json]       what past runs did: units, outcome, merges, time, tokens and cost
+  eval [list|run|draft|confirm ID…] [--runner T] [--judge T] [--all] [--json] [--by NAME]
+                            golden questions (evals/questions.yaml): run asks the confirmed ones to an agent that may
+                            only read the docs and scores cited pages + exact identifiers; draft adds a unit that
+                            proposes questions; confirm approves them
   kpis [--json] [--months N] [--no-check] [--compare RUN_A RUN_B]
                             is it working? cost and speed of runs (the team's, per month), coverage, trust, usage;
                             --compare puts two runs side by side
@@ -210,6 +214,9 @@ def main() -> int:
     rn.add_argument("--max-units", type=int); rn.add_argument("--lang", default="es")
     rn.add_argument("--include-interviews", action="store_true"); rn.add_argument("--poll-seconds", type=int, default=900)
     rn.add_argument("--policy", choices=["on-conflict", "never"], default="on-conflict")
+    ev = sp.add_parser("eval"); ev.add_argument("action", nargs="?", default="list", choices=["list", "run", "draft", "confirm"])
+    ev.add_argument("ids", nargs="*"); ev.add_argument("--runner", default=""); ev.add_argument("--judge", default="")
+    ev.add_argument("--all", action="store_true"); ev.add_argument("--json", action="store_true"); ev.add_argument("--by", default="")
     kp = sp.add_parser("kpis"); kp.add_argument("--json", action="store_true"); kp.add_argument("--months", type=int, default=3)
     kp.add_argument("--no-check", action="store_true"); kp.add_argument("--compare", nargs=2, metavar="RUN")
     rs = sp.add_parser("runs"); rs.add_argument("run_id", nargs="?"); rs.add_argument("--json", action="store_true")
@@ -410,6 +417,8 @@ def main() -> int:
         return cmd_runs(a)
     elif a.cmd == "kpis":
         return cmd_kpis(a)
+    elif a.cmd == "eval":
+        return cmd_eval(a)
     elif a.cmd == "pipeline":
         return cmd_pipeline(a)
     elif a.cmd == "plugins":
@@ -569,6 +578,57 @@ def cmd_runs(a) -> int:
     return 0
 
 
+def cmd_eval(a) -> int:
+    from lib.harness import evals
+    if a.action == "draft":
+        u = evals.draft_unit()
+        print(f"✔ unit {u['id']} added: run it from the wizard, `{cli_cmd()} run` or `{cli_cmd()} autopilot`")
+        return 0
+    if a.action == "confirm":
+        if not a.ids or not a.by:
+            print("usage: eval confirm <id>… --by <name>", file=sys.stderr)
+            return 2
+        try:
+            print(f"✔ confirmed: {', '.join(evals.confirm(a.ids, a.by))}")
+        except KeyError as e:
+            print(f"✖ {e.args[0]}", file=sys.stderr)
+            return 1
+        return 0
+    qs = evals.load()
+    for p in evals.problems(qs):
+        print(f"✖ evals/questions.yaml — {p}", file=sys.stderr)
+    if a.action == "list":
+        if a.json:
+            print(json.dumps(qs, indent=2, ensure_ascii=False))
+        elif not qs:
+            print(f"No golden questions yet: `{cli_cmd()} eval draft` adds a unit that proposes them.")
+        for q in qs if not a.json else []:
+            print(f"  {'✔' if q.get('x-confirmed') else '·'} {q.get('id', '?'):<22} {q.get('q', '')}"
+                  + ("" if q.get("x-confirmed") else "  (draft)"))
+        return 0
+    runner = a.runner
+    if not runner:
+        found = plan._agents(lambda _: None)
+        if not found:
+            print("✖ no agent installed for the questions (see `camaron doctor`)", file=sys.stderr)
+            return 1
+        runner = found[0]
+    judge = None
+    if a.judge:
+        judge = a.judge if a.judge != "auto" else next(iter(plan._agents(lambda _: None, "judge")), None)
+    if not (evals.confirmed(qs) or (a.all and qs)):
+        print(f"No confirmed questions to ask: `{cli_cmd()} eval list`, then `{cli_cmd()} eval confirm <id> --by <name>`.")
+        return 1
+    r = evals.run(runner, judge=judge, include_drafts=a.all, echo=(lambda _: None) if a.json else print)
+    if a.json:
+        print(json.dumps(r, indent=2, ensure_ascii=False))
+    else:
+        print(f"Score {r['score']} over {len(r['questions'])} question(s) with {runner}"
+              + (f", judge {r['judge']}" if r["judge"] is not None else "")
+              + (f" — {r['drafts_skipped']} draft(s) not asked" if r["drafts_skipped"] else ""))
+    return 0
+
+
 def cmd_kpis(a) -> int:
     from lib.harness import kpis, runs
     if a.compare:
@@ -607,7 +667,10 @@ def cmd_kpis(a) -> int:
           f"plan {t['plan_done']}/{t['plan_total']}")
     u = r["usefulness"]
     print(f"Usefulness (this month)\n  {u['agent_queries'] or 0} agent queries  {u['human_queries'] or 0} portal reads  "
-          f"{u['searches'] or 0} searches, {u['no_results_pct'] or 0}% with no result")
+          f"{u['searches'] or 0} searches, {u['no_results_pct'] or 0}% with no result"
+          + (f"\n  golden questions: score {u['eval_score']}" + (f", judge {u['eval_judge']}" if u["eval_judge"] is not None
+                                                                else "") + f" ({str(u['eval_at'])[:10]})"
+             if u.get("eval_score") is not None else f"\n  golden questions: none run yet (`{cli_cmd()} eval`)"))
     return 0
 
 

@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.19.0-ff875f?style=flat-square" alt="Versión 3.19.0">
+  <img src="https://img.shields.io/badge/version-3.20.0-ff875f?style=flat-square" alt="Versión 3.20.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -427,6 +427,14 @@ camaron pipeline show        # el plan como unidades: dónde trabaja cada una y 
 - **Utilidad:** consultas de agentes y personas, y búsquedas sin resultado.
 
 Cada máquina acumula sus ejecuciones en `docs/.work/kpis/` (se commitea y `share` suma las del equipo), con el mismo interruptor que las estadísticas de uso. `camaron kpis --compare <run-a> <run-b>` pone dos ejecuciones lado a lado para ver si un cambio de prompt, de modelo o de versión del kit ayudó.
+
+**Preguntas de oro.** Son un examen con solucionario para la documentación. `evals/questions.yaml` lista preguntas reales sobre el sistema («¿cómo se procesa un reembolso?»), las páginas que deberían citarse y los identificadores exactos que una buena respuesta tiene que nombrar (`POST /refunds`).
+
+- `camaron eval draft` añade una unidad para que un agente las proponga; es trabajo `bounded`, así que puede hacerlo un modelo local.
+- `camaron eval confirm <id> --by <nombre>` las aprueba; solo cuentan las confirmadas.
+- `camaron eval run` se las pregunta a un agente que solo puede leer la documentación (las herramientas MCP de `camarones`, sin editar nada) y puntúa sin IA: páginas citadas e identificadores mencionados. `--judge` añade la nota de un modelo, que también puede ser local.
+
+El resultado se guarda para el equipo y `kpis` muestra la última nota. El kit trae su propio examen para el sandbox de PetClinic (`scripts/evals/petclinic.yaml`, `uv run pytest -m eval`).
 
 **Tu propio plan.** El plan ya no está escrito en el código: sale de un pipeline en YAML (`full` o `quick`), y cada proyecto puede ajustarlo en `cam-docs/.camarones/pipeline.yaml` sin tocar el kit. Puede quitar unidades (`disable`), cambiar de qué dependen (`needs`), añadir otras o decidir qué agente o tipo de trabajo hace cada una (`set`). Tras editarlo, `camaron plan sync` lo aplica. Si el fichero tiene un error, el plan se queda como estaba y `camaron plan` dice exactamente dónde. Hay ejemplos en la guía de comandos.
 

@@ -104,5 +104,8 @@ def report(months: int = 3, today: date | None = None, run_check: bool = True) -
     u = usage.report(months=1, today=today)
     health, _ = usage._health()
     month = u["months"][0] if u["months"] else {}
+    from . import evals
+    last = evals.latest() or {}
     return {"runs": rows, "coverage": coverage(run_check), "trust": health,
-            "usefulness": {k: month.get(k) for k in ("agent_queries", "human_queries", "searches", "no_results_pct")}}
+            "usefulness": {**{k: month.get(k) for k in ("agent_queries", "human_queries", "searches", "no_results_pct")},
+                           "eval_score": last.get("score"), "eval_judge": last.get("judge"), "eval_at": last.get("at")}}

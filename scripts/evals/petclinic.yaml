@@ -1,0 +1,55 @@
+# Golden questions for the sandbox (Spring PetClinic REST + Angular, pinned in scripts/sandbox.py). The kit's own
+# benchmark: run them after documenting the sandbox to compare kit versions, prompts or models
+# (uv run pytest -m eval). Facts checked against the pinned commits; `expect` uses the pages every project gets.
+# A mention may be a list of alternatives: any of them counts (still exact, never fuzzy).
+questions:
+  - id: rest-port
+    q: On which port and context path does the PetClinic REST API listen?
+    expect: [repos/spring-petclinic-rest/brief.md]
+    mention: ["9966", "/petclinic"]
+    x-confirmed: {by: camarones-kit, at: "2026-10-16"}
+  - id: list-owners
+    q: Which REST endpoint lists the owners?
+    expect: [repos/spring-petclinic-rest/brief.md]
+    mention: ["/api/owners"]
+    x-confirmed: {by: camarones-kit, at: "2026-10-16"}
+  - id: api-versions
+    q: Does the REST API have more than one version of its endpoints? Give an example path.
+    expect: [repos/spring-petclinic-rest/brief.md]
+    mention: ["/v2/owners"]
+    x-confirmed: {by: camarones-kit, at: "2026-10-16"}
+  - id: add-visit
+    q: Which endpoint records a visit for a pet?
+    expect: [repos/spring-petclinic-rest/brief.md]
+    mention: ["/owners/{ownerId}/pets/{petId}/visits"]
+    x-confirmed: {by: camarones-kit, at: "2026-10-16"}
+  - id: default-db
+    q: Which database does the REST API use by default, and which others can it switch to?
+    expect: [repos/spring-petclinic-rest/brief.md]
+    mention: [[h2, H2], [mysql, MySQL], [postgres, PostgreSQL, Postgres]]
+    x-confirmed: {by: camarones-kit, at: "2026-10-16"}
+  - id: security
+    q: Is the REST API protected by authentication, and how is it switched on?
+    expect: [repos/spring-petclinic-rest/brief.md]
+    mention: ["petclinic.security.enable"]
+    x-confirmed: {by: camarones-kit, at: "2026-10-16"}
+  - id: run-rest
+    q: How do you run the REST API locally?
+    expect: [repos/spring-petclinic-rest/brief.md]
+    mention: ["spring-boot:run"]
+    x-confirmed: {by: camarones-kit, at: "2026-10-16"}
+  - id: domain-entities
+    q: What are the main entities of the PetClinic domain?
+    expect: [repos/spring-petclinic-rest/brief.md]
+    mention: [Owner, Pet, Visit, Vet, PetType, Specialty]
+    x-confirmed: {by: camarones-kit, at: "2026-10-16"}
+  - id: frontend-backend
+    q: Which URL does the Angular frontend use to reach the REST API?
+    expect: [repos/spring-petclinic-angular/brief.md]
+    mention: ["localhost:9966/petclinic/api"]
+    x-confirmed: {by: camarones-kit, at: "2026-10-16"}
+  - id: run-frontend
+    q: How do you start the Angular frontend locally, and on which port does it open?
+    expect: [repos/spring-petclinic-angular/brief.md]
+    mention: ["npm start", "4200"]
+    x-confirmed: {by: camarones-kit, at: "2026-10-16"}

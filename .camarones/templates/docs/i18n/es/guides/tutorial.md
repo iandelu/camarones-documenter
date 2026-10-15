@@ -184,7 +184,7 @@ permitir que el job token del proyecto `cam-docs` clone cada repo de servicio (r
 `detect`, `plan`, `plan next`, `status`, `check [--strict|--secrets]`, `confirm`, `feedback`, `checkpoint`, `graph`, `arch` (editor C4 en vivo),
 `arch-validate`, `wiki <repo>`, `portal` (exportación), `up [--static|--docker]`, `down`, `ci`, `prompt <unidad>`, `migrate`, `doctor`,
 `doctor --local` (propone un modelo local libre para este equipo, sin instalar nada), `autopilot`, `plugins [--json]`,
-`run`, `runs`, `kpis` y `pipeline show|validate`.
+`run`, `runs`, `kpis`, `eval` y `pipeline show|validate`.
 
 **En paralelo.** `camaron run --parallel 3 --per-runner claude=2,codex=1` hace varias unidades a la vez. Los
 descubrimientos, las fichas de repo y los flujos trabajan cada uno en su propia copia de `cam-docs/` (un worktree de git
@@ -198,6 +198,13 @@ paralelismo, límites, fallos), la cobertura (repos con ficha, flujos, ficheros 
 (confirmadas, borradores, reconfirmaciones, repos que cambiaron desde que se documentaron) y el uso (consultas de agentes
 y del portal, búsquedas sin resultado). Las ejecuciones se suman a través de `docs/.work/kpis/` (se commitea, un fichero
 por persona y máquina). `camaron kpis --compare <run-a> <run-b>` dice si un cambio de prompt, de modelo o del kit ayudó.
+
+**Preguntas de oro.** Un examen con solucionario para la documentación: `evals/questions.yaml` lista preguntas reales,
+las páginas que deberían citarse (`expect`, tal como las toma `read_doc`) y los identificadores exactos que una buena
+respuesta nombra (`mention`). `camaron eval draft` añade una unidad en la que un agente las propone; `camaron eval
+confirm <id> --by <nombre>` las aprueba (solo cuentan las confirmadas); `camaron eval run` se las pregunta a un agente que
+solo puede leer la documentación y puntúa, sin IA, las páginas citadas y los identificadores (`--judge` añade la nota de
+un modelo). `kpis` muestra la última nota.
 
 **Qué agente hace cada trabajo.** Cada tipo de trabajo tiene una lista ordenada y lo hace el primer agente instalado:
 `agentic-heavy` (unidades largas), `bounded` (traducciones, resúmenes) y `judge` (puntuar evaluaciones). `runner:modelo`
