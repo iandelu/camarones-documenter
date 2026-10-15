@@ -77,7 +77,7 @@ def legacy_blueprint(repos, profile, team):
 
 
 def test_unit_types_are_unchanged(kit):
-    assert kit.plan.TYPES == LEGACY_TYPES
+    assert {t: kit.plan.TYPES[t] for t in LEGACY_TYPES} == LEGACY_TYPES        # new types may be added, none changed
 
 
 @pytest.mark.parametrize("profile", ["quick", "full"])

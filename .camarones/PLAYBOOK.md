@@ -292,3 +292,15 @@ Triggered from the wizard's "Documentation status". Run `CLI check` and `CLI sta
    for the user of what changed (they re-confirm it in the wizard). Do not revert human edits.
 4. Missing / outdated translations → translate, then `CLI translated <files>`.
 Finish with `CLI llms`, a clean `CLI check` and `CLI checkpoint "doc-fixes"`.
+
+## integrate
+A unit that ran in parallel, in its own copy of `cam-docs/` (a git worktree under `.cw/<n>/`), could not be merged
+back on its own: it conflicts with what other units wrote, or it adds new `check` / `arch-validate` errors. This unit's
+note names the unit, its folder, its branch, the commit of the main docs to merge and the files involved.
+1. Work **only in that folder** (`cd .cw/<n>`). Run the `git merge <commit>` from the note.
+2. Resolve each conflict keeping the facts of both sides. Never drop confirmed content or `<!-- human -->` blocks;
+   when the two sides disagree on a fact, keep both with their sources and add a `TODO(question)`.
+3. For gate errors, fix the pages the note lists (frontmatter, links, Mermaid, C4 syntax).
+4. Commit in that folder (`git add -A && git commit -m "integrate <unit>"`). Do not run `checkpoint` there and do not
+   copy files into the main `cam-docs/`.
+5. `CLI plan done integrate:<unit>`: the kit merges the unit again, runs the checks itself and closes it.

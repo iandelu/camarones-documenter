@@ -163,7 +163,7 @@ def sync() -> dict:
                 bu['status'] = 'todo'
         merged.append(bu)
     for leftover in existing.values():     # dynamic units (flows, splits) or units of removed repos
-        if profile == 'quick' and leftover['type'] not in ('flow', 'doc-fixes', 'review-fixes') and leftover['status'] == 'todo':
+        if profile == 'quick' and leftover['type'] not in ('flow', 'doc-fixes', 'review-fixes', 'integrate') and leftover['status'] == 'todo':
             leftover['status'], leftover['notes'] = 'dropped', OFF_PROFILE
         if leftover["status"] in ("todo", "blocked") and leftover["id"] in disabled:
             leftover["status"], leftover["notes"] = "dropped", DISABLED
