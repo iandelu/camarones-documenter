@@ -41,7 +41,8 @@ PAGES = {
                  "cam-docs para que nada se pierda; «🤝 Compartir con el equipo» (o `camaron share`) trae el trabajo del "
                  "equipo y publica el tuyo cuando tú decides. ¿Queréis otro plan? En `.camarones/pipeline.yaml` podéis "
                  "quitar, añadir o reordenar unidades sin tocar el kit (la guía de comandos trae ejemplos). ¿Con prisa? "
-                 "`camaron run` hace varias unidades a la vez, cada una en su propia copia de cam-docs."},
+                 "`camaron run` hace varias unidades a la vez, cada una en su propia copia de cam-docs, y `camaron kpis` "
+                 "te dice cuánto costó y si mereció la pena."},
         {"icon": "🗂", "title": "El menú: lo de cada día arriba, lo demás por secciones",
          "art": r"""
    Que hacemos?
@@ -301,7 +302,7 @@ PAGES = {
                  "`camaron share`) pulls the team's work and publishes yours when you decide. Want a different plan? "
                  "`.camarones/pipeline.yaml` lets you drop, add or rewire units without touching the kit (the command "
                  "guide has examples). In a hurry? `camaron run` does several units at once, each in its own copy of "
-                 "cam-docs."},
+                 "cam-docs, and `camaron kpis` tells you what it cost and whether it was worth it."},
         {"icon": "🗂", "title": "The menu: daily work on top, the rest in sections",
          "art": r"""
    What shall we do?

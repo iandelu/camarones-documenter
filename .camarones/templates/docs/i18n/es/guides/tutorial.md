@@ -184,7 +184,7 @@ permitir que el job token del proyecto `cam-docs` clone cada repo de servicio (r
 `detect`, `plan`, `plan next`, `status`, `check [--strict|--secrets]`, `confirm`, `feedback`, `checkpoint`, `graph`, `arch` (editor C4 en vivo),
 `arch-validate`, `wiki <repo>`, `portal` (exportación), `up [--static|--docker]`, `down`, `ci`, `prompt <unidad>`, `migrate`, `doctor`,
 `doctor --local` (propone un modelo local libre para este equipo, sin instalar nada), `autopilot`, `plugins [--json]`,
-`run`, `runs` y `pipeline show|validate`.
+`run`, `runs`, `kpis` y `pipeline show|validate`.
 
 **En paralelo.** `camaron run --parallel 3 --per-runner claude=2,codex=1` hace varias unidades a la vez. Los
 descubrimientos, las fichas de repo y los flujos trabajan cada uno en su propia copia de `cam-docs/` (un worktree de git
@@ -192,6 +192,12 @@ en `.cw/<n>/`) y se integran al terminar, si `check` y `arch-validate` no muestr
 van de una en una, y una unidad espera a que se integre lo que necesita. Si hay un choque, la unidad se bloquea,
 `cam-docs/` no se toca y se añade una unidad `integrate:<unidad>`. `camaron runs` muestra qué hizo y cuánto costó cada
 ejecución; `camaron pipeline show` lista las unidades y dónde trabaja cada una. `autopilot` sigue siendo secuencial.
+
+**¿Está funcionando?** `camaron kpis` muestra las ejecuciones del equipo por mes (tiempo, tokens, coste por unidad,
+paralelismo, límites, fallos), la cobertura (repos con ficha, flujos, ficheros C4, errores de `check`), la confianza
+(confirmadas, borradores, reconfirmaciones, repos que cambiaron desde que se documentaron) y el uso (consultas de agentes
+y del portal, búsquedas sin resultado). Las ejecuciones se suman a través de `docs/.work/kpis/` (se commitea, un fichero
+por persona y máquina). `camaron kpis --compare <run-a> <run-b>` dice si un cambio de prompt, de modelo o del kit ayudó.
 
 **Qué agente hace cada trabajo.** Cada tipo de trabajo tiene una lista ordenada y lo hace el primer agente instalado:
 `agentic-heavy` (unidades largas), `bounded` (traducciones, resúmenes) y `judge` (puntuar evaluaciones). `runner:modelo`

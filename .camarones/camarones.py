@@ -55,6 +55,9 @@
                             run ready units in parallel: discovery, repo briefs and flows each in their own copy of
                             cam-docs (merged back when done), other units one at a time. autopilot stays sequential
   runs [RUN] [--json]       what past runs did: units, outcome, merges, time, tokens and cost
+  kpis [--json] [--months N] [--no-check] [--compare RUN_A RUN_B]
+                            is it working? cost and speed of runs (the team's, per month), coverage, trust, usage;
+                            --compare puts two runs side by side
   pipeline show|validate [--json]   the project's plan as units (kit pipeline + .camarones/pipeline.yaml);
                             validate exits 1 when pipeline.yaml has problems (for CI)
   plugins [--json]          plugins of the kit and of this project (.camarones/plugins/): what they provide, whether
@@ -207,6 +210,8 @@ def main() -> int:
     rn.add_argument("--max-units", type=int); rn.add_argument("--lang", default="es")
     rn.add_argument("--include-interviews", action="store_true"); rn.add_argument("--poll-seconds", type=int, default=900)
     rn.add_argument("--policy", choices=["on-conflict", "never"], default="on-conflict")
+    kp = sp.add_parser("kpis"); kp.add_argument("--json", action="store_true"); kp.add_argument("--months", type=int, default=3)
+    kp.add_argument("--no-check", action="store_true"); kp.add_argument("--compare", nargs=2, metavar="RUN")
     rs = sp.add_parser("runs"); rs.add_argument("run_id", nargs="?"); rs.add_argument("--json", action="store_true")
     pp = sp.add_parser("pipeline"); pp.add_argument("action", choices=["show", "validate"]); pp.add_argument("--json", action="store_true")
     m = sp.add_parser("mark-documented"); m.add_argument("repos", nargs="*")
@@ -403,6 +408,8 @@ def main() -> int:
                                poll_seconds=a.poll_seconds, include_interviews=a.include_interviews, policy=a.policy)
     elif a.cmd == "runs":
         return cmd_runs(a)
+    elif a.cmd == "kpis":
+        return cmd_kpis(a)
     elif a.cmd == "pipeline":
         return cmd_pipeline(a)
     elif a.cmd == "plugins":
@@ -559,6 +566,48 @@ def cmd_runs(a) -> int:
         print(f"No runs yet: `{cli_cmd()} run` or `{cli_cmd()} autopilot` record one each time.")
     for r in rows if not a.json else []:
         print(_run_line(r))
+    return 0
+
+
+def cmd_kpis(a) -> int:
+    from lib.harness import kpis, runs
+    if a.compare:
+        missing = [r for r in a.compare if r not in runs.ids()]
+        if missing:
+            print(f"✖ no run {', '.join(missing)} (see `{cli_cmd()} runs`)", file=sys.stderr)
+            return 1
+        c = kpis.compare(*a.compare)
+        if a.json:
+            print(json.dumps(c, indent=2, ensure_ascii=False))
+            return 0
+        print(f"{'':<18}{c['a']['run']:>26}{c['b']['run']:>26}{'change':>12}")
+        for k in kpis.NUMERIC:
+            va, vb = c["a"].get(k), c["b"].get(k)
+            d = c["delta"].get(k)
+            print(f"{k:<18}{'-' if va is None else va:>26}{'-' if vb is None else vb:>26}"
+                  f"{'' if d is None else f'{d:+g}':>12}")
+        return 0
+    r = kpis.report(months=a.months, run_check=not a.no_check)
+    if a.json:
+        print(json.dumps(r, indent=2, ensure_ascii=False))
+        return 0
+    print("Cost and speed (all runs of the team, per month)")
+    for m in r["runs"]:
+        print(f"  {m['month']}  {m['runs']} runs  {m['done']}/{m['units']} units done  {m['limited']} limited  "
+              f"{m['failed']} failed  {m['hours']} h  {m['tokens_in']} in / {m['tokens_out']} out  ${m['cost_usd']:.2f}"
+              + (f"  ${m['cost_per_unit']:.2f}/unit" if m["cost_per_unit"] is not None else "")
+              + (f"  ×{m['parallelism']} parallel" if m["parallelism"] else ""))
+    c = r["coverage"]
+    print(f"Coverage and quality\n  {c['repos_with_brief']}/{c['repos']} repos with a brief  {c['flows']} flows  "
+          f"{c['c4_files']} C4 files" + ("" if c["check_errors"] is None else
+                                         f"  check: {c['check_errors']} errors, {c['check_warnings']} warnings"))
+    t = r["trust"]
+    print(f"Trust and freshness\n  {t['pages']} pages  {t['confirmed_pct']}% confirmed  {t['draft']} drafts  "
+          f"{t['needs_reconfirm']} to re-confirm  {t['repos_changed']} repos changed since documented  "
+          f"plan {t['plan_done']}/{t['plan_total']}")
+    u = r["usefulness"]
+    print(f"Usefulness (this month)\n  {u['agent_queries'] or 0} agent queries  {u['human_queries'] or 0} portal reads  "
+          f"{u['searches'] or 0} searches, {u['no_results_pct'] or 0}% with no result")
     return 0
 
 

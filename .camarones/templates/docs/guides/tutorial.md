@@ -178,7 +178,7 @@ job token to clone each service repo (repo → Settings → CI/CD → Job token 
 `plan`, `plan next`, `status`, `check [--strict|--secrets]`, `confirm`, `feedback`, `checkpoint`, `graph`, `arch` (live C4 editor), `arch-validate`,
 `wiki <repo>`, `portal` (export), `up [--static|--docker]`, `down`, `ci`, `prompt <unit>`, `migrate`, `doctor`,
 `doctor --local` (proposes a free local model for this computer, installs nothing), `autopilot`, `plugins [--json]`,
-`run`, `runs`, `pipeline show|validate`.
+`run`, `runs`, `kpis`, `pipeline show|validate`.
 
 **Parallel runs.** `camaron run --parallel 3 --per-runner claude=2,codex=1` does several units at once. Discovery, repo
 briefs and flows each work in their own copy of `cam-docs/` (a git worktree in `.cw/<n>/`) and are merged back when
@@ -186,6 +186,12 @@ they finish, after `check` and `arch-validate` show no new errors; other units r
 what it needs to be merged. A clash blocks the unit, leaves `cam-docs/` untouched and adds an `integrate:<unit>` unit.
 `camaron runs` shows what each run did and cost; `camaron pipeline show` lists the units and where each one works.
 `autopilot` stays sequential.
+
+**Is it working?** `camaron kpis` shows the team's runs per month (time, tokens, cost per unit, parallelism, limits,
+failures), coverage (repos with a brief, flows, C4 files, `check` errors), trust (confirmed, drafts, re-confirmations,
+repos changed since documented) and usage (agent and portal queries, searches with no result). Runs add up through
+`docs/.work/kpis/` (committed, one file per person and machine). `camaron kpis --compare <run-a> <run-b>` shows whether
+a prompt, model or kit change helped.
 
 **Which agent runs what.** Each kind of work has an ordered list and the first installed agent runs it:
 `agentic-heavy` (long units), `bounded` (translations, summaries) and `judge` (eval scoring). `runner:model` also picks
