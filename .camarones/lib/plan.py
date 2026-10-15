@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import contextlib
 import datetime as dt
+import functools
 import json
 import os
 import subprocess
@@ -26,9 +27,11 @@ from .adapters import runners
 from .adapters.runners.base import LIMIT_HINTS  # noqa: F401  (kept for callers)
 from .harness import pipeline, routing
 from .harness.events import EventLog
+from .harness.locks import FileLock
 from .harness.ports import RunRequest
 
 PLAN = WORK / "plan.yaml"
+PLAN_LOCK = CTX.state_root / ".camarones" / ".cache" / "locks" / "plan.lock"   # git-ignored, shared by worktrees
 HANDOFF = WORK / "handoff.md"
 LOG = WORK / "log.md"
 DONE = ("done", "dropped")
@@ -60,10 +63,31 @@ def load() -> dict:
     return data
 
 
+def locked(fn):
+    """Read-modify-write of plan.yaml under the plan lock, so parallel sessions never lose each other's updates."""
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        with FileLock(PLAN_LOCK):
+            return fn(*args, **kwargs)
+    return wrapper
+
+
+@locked
 def save(data: dict) -> None:
+    """Write the plan atomically: readers without the lock see the old file or the new one, never half of one."""
     WORK.mkdir(parents=True, exist_ok=True)
-    PLAN.write_text("# Camarón work plan — one unit per agent session. Managed by the camarones CLI.\n"
-                    + yaml.safe_dump(data, sort_keys=False, allow_unicode=True, width=120), encoding="utf-8")
+    tmp = PLAN_LOCK.with_name(f"plan.{os.getpid()}.tmp")    # git-ignored if a crash leaves it; same disk as PLAN
+    tmp.write_text("# Camarón work plan — one unit per agent session. Managed by the camarones CLI.\n"
+                   + yaml.safe_dump(data, sort_keys=False, allow_unicode=True, width=120), encoding="utf-8",
+                   newline="\n")
+    for attempt in range(50):
+        try:
+            os.replace(tmp, PLAN)
+            return
+        except PermissionError:              # Windows: a reader has the file open for a moment
+            if attempt == 49:
+                raise
+            time.sleep(0.02)
 
 
 def unit(uid: str, type_: str, deps: list[str], repo: str | None = None, slug: str | None = None, title: str | None = None) -> dict:
@@ -113,6 +137,7 @@ def settings(uid: str) -> dict:
     return {"tier": pipeline.types().get(type_, {}).get("tier", "agentic-heavy"), **(node["settings"] if node else {})}
 
 
+@locked
 def sync() -> dict:
     """Merge the blueprint into the stored plan: keep statuses/notes, add units for new repos, drop removed repos."""
     data = load()
@@ -184,6 +209,7 @@ def sync() -> dict:
     return data
 
 
+@locked
 def set_interview_mode(mode: str) -> dict:
     """Switch how the interviews run. In team mode a live interview that was already started goes back to todo: it now
     waits for the team's answers (its checkpoints stay, so the consolidation sees what was said live)."""
@@ -223,6 +249,7 @@ def available(data: dict | None = None) -> list[dict]:
     return sorted(ready, key=lambda u: (order[u["status"]], u["phase"]))
 
 
+@locked
 def set_status(uid: str, status: str, note: str | None = None, record: bool = True) -> dict:
     """record=False puts a unit back where it was (a failed run) without logging it as a new transition."""
     data = load()
@@ -242,6 +269,7 @@ def set_status(uid: str, status: str, note: str | None = None, record: bool = Tr
     return u
 
 
+@locked
 def add(uid: str, title: str, type_: str = "flow", deps: list[str] | None = None) -> dict:
     data = load()
     if any(u["id"] == uid for u in data["units"]):
@@ -254,6 +282,7 @@ def add(uid: str, title: str, type_: str = "flow", deps: list[str] | None = None
     return nu
 
 
+@locked
 def ensure(uid: str, type_: str, title: str | None = None) -> dict:
     """Add a dynamic unit, or put it back to todo if it was done (e.g. new review feedback arrived)."""
     data = load()
@@ -278,6 +307,7 @@ def dependents(data: dict, uid: str) -> list[dict]:
     return [u for u in data["units"] if u["id"] in found and u["status"] == "done"]
 
 
+@locked
 def redo(uid: str, also: list[str] | tuple = ()) -> list[dict]:
     """Reopen a finished unit (and the chosen dependents) for a review-and-update session: nothing is deleted,
     the old checkpoints are archived and `redo` keeps when it was finished so the prompt can say so."""
