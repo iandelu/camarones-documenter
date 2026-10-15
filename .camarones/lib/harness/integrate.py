@@ -19,6 +19,7 @@ from .locks import FileLock
 from .worktrees import Worktrees
 
 DERIVED = ("docs/llms.txt", "docs/.status.json")         # regenerated from the pages; never merged by hand
+SHARED_C4 = tuple(f"docs/architecture/{n}" for n in ("model.c4", "spec.c4", "views.c4", "deployment.c4"))
 EXCLUDED = (*DERIVED, "docs/.work")                       # plan state lives in the main cam-docs only
 
 GATE_SCRIPT = {
@@ -125,6 +126,9 @@ def integrate(uid: str, ctx: Ctx, gates=GATES, policy: str = "on-conflict", emit
             wts.remove(uid)
             return Result(uid, "nothing")
         target = _git(main, "rev-parse", "HEAD", check=True).stdout.strip()
+        shared = sorted(_git(main, "diff", "--name-only", f"{target}...{w.branch}", "--", *SHARED_C4).stdout.split())
+        if shared:                     # parallel units are meant to write their own fragment (CONVENTIONS §4)
+            emit("c4.shared", unit=uid, files=shared)
         if _git(w.path, *_ident(w.path), "merge", "--no-edit", "-m", f"docs(camarones): {uid} on main", target).returncode:
             files = sorted(_git(w.path, "diff", "--name-only", "--diff-filter=U").stdout.split())
             _git(w.path, "merge", "--abort")

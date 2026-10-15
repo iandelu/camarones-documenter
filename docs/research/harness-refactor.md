@@ -314,6 +314,10 @@ units. In-flight units that fail with a limit go back to `todo`, never `failed`.
 
 ### 3.3 LikeC4 fragments
 
+> **As built (R14):** no file lock. Agents edit files directly, so a lock cannot stop them; instead the shared files are
+> left to in-place units, which the scheduler runs one at a time, and integration emits `c4.shared` when a parallel
+> unit touched one anyway. `arch-validate` catches duplicate elements across fragments.
+
 LikeC4 merges every `.c4` file under the model folder and supports `extend`. Each unit writes its own fragment
 (`docs/architecture/fragments/<unit-slug>.c4`) and extends shared elements. Only `model.c4` and `spec.c4` (actors,
 systems, kinds) need `FileLock("c4-model")`, so most architecture units never wait. Duplicate element ids across
