@@ -66,11 +66,16 @@ x-owner: ai                  # ai (agent may rewrite) | human (agent never rewri
 - `model.c4`: actors, external systems, the project `system`, one container per repo/datastore/broker/topic.
   Container ids = repo name in camelCase; `metadata { repo '<repo-name>' }` on every repo container.
 - `repos/<repo>.c4`: `extend <system>.<container> { components… }` + `view <repo_snake>_components of <system>.<container> { include * }`.
+  A repo container that `model.c4` does not have yet is declared here too, with `extend <system> { … }`.
+- **Fragments.** Units that may run in parallel write only their own file: `repos/<repo>.c4` (repo-brief) and
+  `flows/<slug>.c4` (one `dynamic view flow_<slug>` per flow). The shared files — `spec.c4`, `model.c4`, `views.c4`,
+  `deployment.c4` — are edited by the units that run alone (arch-system, deployment, diagrams). LikeC4 reads every
+  `.c4` under `docs/architecture/`, so the split changes nothing in the views; flows already in `views.c4` stay valid.
   Components follow the real structure (hexagonal: in-adapters, application services, domain, out-adapters).
 - Relationships: `-[sync]->` for HTTP/gRPC, `-[async]->` for AMQP/Kafka/events, always with `technology '…'` and a label
   that names the endpoint/exchange/topic. Shared databases: tag the database `#shared-db` and draw one edge per service.
 - New or unvalidated elements carry `#ai-draft`; replace with `#confirmed` after the interview.
-- `views.c4`: `index` (context), `containers`, one `dynamic view flow_<slug>` per business flow, `deployment view deploy_<env>` per environment.
+- `views.c4`: `index` (context), `containers`, `deployment view deploy_<env>` per environment; flow views live in `flows/<slug>.c4`.
   The portal embeds `flow_<slug>` interactively at the top of `docs/flows/<slug>.md` (slug `-` → `_`), and `index` on the
   home page. Any other page can embed a view with a fenced block: ```` ```likec4-view ```` containing the view id.
 - `deployment.c4`: environments → clusters/hosts → namespaces → `instanceOf`.

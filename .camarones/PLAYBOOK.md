@@ -139,9 +139,11 @@ The foundation for one repo — after this unit the repo is useful on its own:
    key glossary terms, integrations, what to emphasize, and a `## Coverage` section listing the pages its wiki needs
    (modules/layers, one per API surface — endpoints, events, jobs — and per logic area, data, configuration, testing,
    operations, known issues). OpenWiki's own engine reads only this brief, so the list is what makes its wiki complete.
-2. C4: its container in `docs/architecture/model.c4` (create `likec4.config.json` + `model.c4` + `views.c4` if missing —
-   or run `CLI arch-draft --save` to start from the static-scan draft)
-   and `docs/architecture/repos/<repo>.c4` (components + `<repo_snake>_components` view). `CLI arch-validate` → ✓ Valid.
+2. C4, all in `docs/architecture/repos/<repo>.c4` (this unit may run in parallel with other repos' briefs, so do not
+   edit `model.c4`, `views.c4` or `spec.c4`): if `model.c4` has no container for this repo yet, declare it here with
+   `extend <system> { <container> = service '…' { metadata { repo '<repo>' } } }`; then
+   `extend <system>.<container> { components… }`, its relationships, and the `<repo_snake>_components` view. No
+   architecture folder at all yet? Run `CLI arch-draft --save` first. `CLI arch-validate` → ✓ Valid.
 3. Repo brief (CONVENTIONS §7): `docs/repos/<repo>/brief.md` — stack (must match `CLI stack`; fix it there, not only in
    the brief), how to build/test/run, interfaces, data owned,
    doc pointers and the Mermaid component diagram (`likec4 gen mermaid docs/architecture -o build/mmd` →
@@ -229,7 +231,8 @@ per flow: `CLI plan add flow:<slug> "<Flow name>"`. Write `docs/flows/index.md` 
 
 ## flow
 One flow: `docs/flows/<slug>.md` per CONVENTIONS §6 (sequence diagram always; flowchart only with branching rules; state
-diagram for lifecycles) + `dynamic view flow_<slug>` in `views.c4`. Every step cites entrypoint + evidence.
+diagram for lifecycles) + `dynamic view flow_<slug>` in its own file, `docs/architecture/flows/<slug>.c4` (flows run in
+parallel: each writes only its file). Every step cites entrypoint + evidence.
 
 ## i18n
 Spanish for every canonical page written/changed since the last i18n pass (`CLI status` lists `es:missing/outdated`),

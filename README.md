@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.16.0-ff875f?style=flat-square" alt="Versión 3.16.0">
+  <img src="https://img.shields.io/badge/version-3.17.0-ff875f?style=flat-square" alt="Versión 3.17.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -88,7 +88,7 @@ Camarón te habla como tu becario gamba al que has mandado a documentar: con gan
 - **Sesiones que puedes retomar.** Plan, notas de progreso y contexto de relevo guardados en archivos del proyecto.
 - **Documentación con fuentes.** Referencias `x-sources` al código y detección de fuentes que ya no existen.
 - **Revisión humana visible.** Distingue borradores, páginas confirmadas y páginas que necesitan otra revisión.
-- **Arquitectura navegable.** LikeC4 para las vistas del sistema y Mermaid para secuencias, estados y modelos de datos.
+- **Arquitectura navegable.** LikeC4 para las vistas del sistema y Mermaid para secuencias, estados y modelos de datos. El modelo C4 se reparte en ficheros: cada repo en `repos/<repo>.c4` y cada flujo en `flows/<slug>.c4`, de modo que las unidades que trabajan a la vez no editan el mismo fichero.
 - **Documentación para personas y agentes.** Portal para leer; `AGENTS.md`, `CLAUDE.md` y `llms.txt` para orientar el trabajo con IA.
 - **Inglés y español.** Documentación canónica en inglés, traducciones al español y seguimiento de traducciones pendientes o desactualizadas.
 - **Un primer mapa sin IA.** `arch-draft` realiza un análisis estático y propone un borrador C4 que después hay que verificar.
