@@ -50,6 +50,13 @@
   interview status [--json]    who answered, unanswered questions, disagreements
   doctor [--local]          check prerequisites and tool versions; --local: propose a free local model for this
                             machine (bounded/judge work, through OpenCode) without installing anything
+  run [--parallel N] [--per-runner claude=2,codex=1] [--max-units N] [--lang es|en] [--include-interviews]
+      [--policy on-conflict|never] [--poll-seconds N]
+                            run ready units in parallel: discovery, repo briefs and flows each in their own copy of
+                            cam-docs (merged back when done), other units one at a time. autopilot stays sequential
+  runs [RUN] [--json]       what past runs did: units, outcome, merges, time, tokens and cost
+  pipeline show|validate [--json]   the project's plan as units (kit pipeline + .camarones/pipeline.yaml);
+                            validate exits 1 when pipeline.yaml has problems (for CI)
   plugins [--json]          plugins of the kit and of this project (.camarones/plugins/): what they provide, whether
                             they run code, and whether they are loaded (code needs approval first)
   install DEST --profile quick|full [--dry-run]   copy kit into an explicit project folder
@@ -196,6 +203,12 @@ def main() -> int:
         sp.add_parser(c)
     dr = sp.add_parser("doctor"); dr.add_argument("--local", action="store_true")
     pg = sp.add_parser("plugins"); pg.add_argument("--json", action="store_true")
+    rn = sp.add_parser("run"); rn.add_argument("--parallel", type=int, default=2); rn.add_argument("--per-runner", default="")
+    rn.add_argument("--max-units", type=int); rn.add_argument("--lang", default="es")
+    rn.add_argument("--include-interviews", action="store_true"); rn.add_argument("--poll-seconds", type=int, default=900)
+    rn.add_argument("--policy", choices=["on-conflict", "never"], default="on-conflict")
+    rs = sp.add_parser("runs"); rs.add_argument("run_id", nargs="?"); rs.add_argument("--json", action="store_true")
+    pp = sp.add_parser("pipeline"); pp.add_argument("action", choices=["show", "validate"]); pp.add_argument("--json", action="store_true")
     m = sp.add_parser("mark-documented"); m.add_argument("repos", nargs="*")
     s = sp.add_parser("status"); s.add_argument("--json", action="store_true")
     k = sp.add_parser("check"); k.add_argument("--strict", action="store_true")
@@ -379,6 +392,19 @@ def main() -> int:
         env.docker_down()
     elif a.cmd == "ci":
         env.install_ci(a.forge)
+    elif a.cmd == "run":
+        from lib.harness import scheduler
+        try:
+            slots = scheduler.parse_slots(a.per_runner)
+        except ValueError as e:
+            print(f"✖ --per-runner {e}", file=sys.stderr)
+            return 2
+        scheduler.run_parallel(lang=a.lang, max_parallel=max(1, a.parallel), per_runner=slots, max_units=a.max_units,
+                               poll_seconds=a.poll_seconds, include_interviews=a.include_interviews, policy=a.policy)
+    elif a.cmd == "runs":
+        return cmd_runs(a)
+    elif a.cmd == "pipeline":
+        return cmd_pipeline(a)
     elif a.cmd == "plugins":
         from lib.harness import plugins
         rows = plugins.rows()
@@ -507,6 +533,65 @@ def cmd_interview(a) -> int:
         print(e, file=sys.stderr)
         return 2
     return 0
+
+
+def cmd_runs(a) -> int:
+    from lib.harness import runs
+    if a.run_id:
+        if a.run_id not in runs.ids():
+            print(f"✖ no run {a.run_id} (see `{cli_cmd()} runs`)", file=sys.stderr)
+            return 1
+        d = runs.detail(a.run_id)
+        if a.json:
+            print(json.dumps(d, indent=2, ensure_ascii=False))
+            return 0
+        print(_run_line(runs.summary(a.run_id)))
+        width = max((len(u["unit"]) for u in d["units"]), default=0)
+        for u in d["units"]:
+            print(f"  {u['unit']:<{width}}  {u['runner'] or '-':<10} {u['isolation'] or '-':<9} {u['outcome'] or 'running':<8} "
+                  f"{u['status'] or '-':<8} {u['merge'] or '-':<11} {u['seconds'] or 0:>7}s  {u['tokens_in']:>8} in "
+                  f"{u['tokens_out']:>7} out  ${u['cost_usd']:.2f}")
+        return 0
+    rows = runs.rows()
+    if a.json:
+        print(json.dumps(rows, indent=2, ensure_ascii=False))
+    elif not rows:
+        print(f"No runs yet: `{cli_cmd()} run` or `{cli_cmd()} autopilot` record one each time.")
+    for r in rows if not a.json else []:
+        print(_run_line(r))
+    return 0
+
+
+def _run_line(r: dict) -> str:
+    state = "interrupted" if r["interrupted"] else ("finished" if r["finished"] else "running?")
+    return (f"{r['run']}  {(r['started'] or '')[:16].replace('T', ' ')}  {r['done']}/{r['units']} done  "
+            f"{r['limited']} limited  {r['failed']} failed  {r['seconds']:.0f}s  {r['tokens_in']} in / {r['tokens_out']} out"
+            f"  ${r['cost_usd']:.2f}  {state}")
+
+
+def cmd_pipeline(a) -> int:
+    problems = plan.pipeline_problems()
+    if a.action == "validate":
+        for p in problems:
+            print(f"✖ .camarones/pipeline.yaml — {p}")
+        if not problems:
+            print("✔ pipeline valid" + ("" if plan.OVERRIDE.exists() else " (kit pipeline, no .camarones/pipeline.yaml)"))
+        return 1 if problems else 0
+    spec, _ = plan.project_pipeline()
+    units = [] if problems else plan.pipeline_units()
+    if a.json:
+        print(json.dumps({"pipeline": spec.get("name"), "override": plan.OVERRIDE.exists(), "problems": problems,
+                          "units": units}, indent=2, ensure_ascii=False))
+        return 1 if problems else 0
+    print(f"Pipeline {spec.get('name')}" + (" (with .camarones/pipeline.yaml)" if plan.OVERRIDE.exists() else ""))
+    for p in problems:
+        print(f"✖ {p}")
+    width = max((len(u["id"]) for u in units), default=0)
+    for u in units:
+        how = u["runner"] or u["tier"]
+        print(f"  {'·' if not u['disabled'] else '-'} {u['id']:<{width}}  {u['isolation']:<9} {how:<16} "
+              f"{'disabled' if u['disabled'] else ('← ' + ', '.join(u['needs']) if u['needs'] else '')}")
+    return 1 if problems else 0
 
 
 def cmd_plan(a) -> int:

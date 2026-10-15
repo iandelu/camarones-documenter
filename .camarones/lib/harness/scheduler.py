@@ -21,6 +21,17 @@ from .worktrees import Worktrees, slug
 RESYNC = 10.0          # seconds between plan syncs while nothing changes (agents add units such as flows)
 
 
+def parse_slots(text: str) -> dict[str, int]:
+    """`claude=2,codex=1` → {"claude": 2, "codex": 1}: how many sessions each runner may run at once."""
+    out = {}
+    for part in filter(None, (p.strip() for p in (text or "").split(","))):
+        name, sep, n = part.partition("=")
+        if not sep or not n.strip().isdigit():
+            raise ValueError(f"'{part}': use runner=N, e.g. claude=2,codex=1")
+        out[name.strip()] = int(n)
+    return out
+
+
 @dataclass
 class Job:
     uid: str

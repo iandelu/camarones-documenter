@@ -183,14 +183,22 @@ permitir que el job token del proyecto `cam-docs` clone cada repo de servicio (r
 `camaron help` (copia por proyecto: `./camaron.command help`, en Windows `camaron.cmd help`) lista: `setup`, `sync`,
 `detect`, `plan`, `plan next`, `status`, `check [--strict|--secrets]`, `confirm`, `feedback`, `checkpoint`, `graph`, `arch` (editor C4 en vivo),
 `arch-validate`, `wiki <repo>`, `portal` (exportación), `up [--static|--docker]`, `down`, `ci`, `prompt <unidad>`, `migrate`, `doctor`,
-`doctor --local` (propone un modelo local libre para este equipo, sin instalar nada), `autopilot` y `plugins [--json]`.
+`doctor --local` (propone un modelo local libre para este equipo, sin instalar nada), `autopilot`, `plugins [--json]`,
+`run`, `runs` y `pipeline show|validate`.
+
+**En paralelo.** `camaron run --parallel 3 --per-runner claude=2,codex=1` hace varias unidades a la vez. Los
+descubrimientos, las fichas de repo y los flujos trabajan cada uno en su propia copia de `cam-docs/` (un worktree de git
+en `.cw/<n>/`) y se integran al terminar, si `check` y `arch-validate` no muestran errores nuevos. Las demás unidades
+van de una en una, y una unidad espera a que se integre lo que necesita. Si hay un choque, la unidad se bloquea,
+`cam-docs/` no se toca y se añade una unidad `integrate:<unidad>`. `camaron runs` muestra qué hizo y cuánto costó cada
+ejecución; `camaron pipeline show` lista las unidades y dónde trabaja cada una. `autopilot` sigue siendo secuencial.
 
 **Qué agente hace cada trabajo.** Cada tipo de trabajo tiene una lista ordenada y lo hace el primer agente instalado:
 `agentic-heavy` (unidades largas), `bounded` (traducciones, resúmenes) y `judge` (puntuar evaluaciones). `runner:modelo`
 elige también el modelo. El equipo lo fija en `.camarones/workspace.yaml` (`agents: routing:`); `~/.camarones.json`
 (`routing`) manda en esta máquina. Los modelos locales solo pasan por OpenCode (`opencode:ollama/qwen3-coder:30b`) y nunca
-hacen trabajo `agentic-heavy`. Hoy solo lo lee `autopilot`. Cada ejecución del piloto queda registrada en
-`.camarones/.cache/runs/`.
+hacen trabajo `agentic-heavy`. `autopilot` y `run` lo leen unidad a unidad. Cada ejecución queda registrada en
+`.camarones/.cache/runs/` (`camaron runs`).
 
 ## 10. Problemas frecuentes
 
