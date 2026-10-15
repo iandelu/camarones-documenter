@@ -1,25 +1,33 @@
-"""Agent runners: the kit's built-ins plus command runners this machine defines in ~/.camarones.json (`runners:`).
-Team config (workspace.yaml) only names runners; it never defines commands, so a shared repo cannot make a
-teammate's machine run something new."""
+"""Agent runners: code adapters, command runners from the kit's own plugins (lib/plugins/, e.g. Gemini) and command
+runners this machine defines in ~/.camarones.json (`runners:`). Team config (workspace.yaml) only names runners, and a
+project plugin that defines one is not loaded until approved, so a shared repo cannot make a teammate's machine run
+something new."""
 from __future__ import annotations
 
 from ...common import PREFS, load_json
 from .claude import Claude
 from .codex import Codex
-from .command import GEMINI, CommandRunner
+from ...harness import plugins
+from .command import CommandRunner
 from .opencode import OpenCode
 
-_BUILTIN = {r.id: r for r in (Claude(), Codex(), OpenCode(), CommandRunner("gemini", **GEMINI))}
+_CODE = {r.id: r for r in (Claude(), Codex(), OpenCode())}
+
+
+def _from(d: dict) -> CommandRunner:
+    return CommandRunner(d["id"], d.get("label", d["id"]), d["argv"], d.get("interactive"), d.get("model_args"),
+                         d.get("limit_hints"))
 
 
 def builtin() -> list:
-    return list(_BUILTIN.values())
+    kit = [_from(d) for p in plugins.kit() if p.active for d in p.provides.get("runners") or []]
+    return [*_CODE.values(), *(r for r in kit if r.id not in _CODE)]
 
 
 def machine() -> list:
     defs = load_json(PREFS, {}).get("runners") or {}
-    return [CommandRunner(rid, d.get("label", rid), d["argv"], d.get("interactive"), d.get("model_args"),
-                          d.get("limit_hints")) for rid, d in defs.items() if rid not in _BUILTIN and d.get("argv")]
+    taken = {r.id for r in builtin()}
+    return [_from({"id": rid, **d}) for rid, d in defs.items() if rid not in taken and d.get("argv")]
 
 
 def all() -> list:                                          # noqa: A001

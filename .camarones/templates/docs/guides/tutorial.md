@@ -84,6 +84,11 @@ patch:
 `node` is the id as the kit writes it (`discovery:{repo}`) or a prefix with `*` (`repo-wiki:*`). If the file has a
 mistake, the plan stays as it was and `camaron plan` says where (`patch[1].node: unknown node 'cii'`).
 
+**Plugins.** A plugin is a folder in `.camarones/plugins/<name>/` with a `plugin.yaml` (`name`, `version`, `kit`
+range, `provides`). `camaron plugins` lists the kit's and the project's, what they provide and whether they run code.
+A plugin that runs code (agent commands, hooks, MCP servers, scripts) is shared with the whole team through the repo,
+so it is not loaded until it is approved on each machine.
+
 ## 3. Trust: AI drafts vs confirmed
 
 Every page starts as **✨ draft** (banner in the portal). Confirm pages in the portal (**Confirm** on each page, the
@@ -172,7 +177,7 @@ job token to clone each service repo (repo → Settings → CI/CD → Job token 
 `camaron help` (per-project copy: `./camaron.command help`, Windows `camaron.cmd help`): `setup`, `sync`, `detect`,
 `plan`, `plan next`, `status`, `check [--strict|--secrets]`, `confirm`, `feedback`, `checkpoint`, `graph`, `arch` (live C4 editor), `arch-validate`,
 `wiki <repo>`, `portal` (export), `up [--static|--docker]`, `down`, `ci`, `prompt <unit>`, `migrate`, `doctor`,
-`doctor --local` (proposes a free local model for this computer, installs nothing), `autopilot`.
+`doctor --local` (proposes a free local model for this computer, installs nothing), `autopilot`, `plugins [--json]`.
 
 **Which agent runs what.** Each kind of work has an ordered list and the first installed agent runs it:
 `agentic-heavy` (long units), `bounded` (translations, summaries) and `judge` (eval scoring). `runner:model` also picks
