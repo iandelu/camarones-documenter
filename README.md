@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.17.0-ff875f?style=flat-square" alt="Versión 3.17.0">
+  <img src="https://img.shields.io/badge/version-3.18.0-ff875f?style=flat-square" alt="Versión 3.18.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -407,7 +407,17 @@ agents:
     agentic-heavy: [claude, codex:gpt-5.6-terra]
 ```
 
-Los modelos locales solo se usan a través de OpenCode (`opencode:ollama/qwen3-coder:30b`) y nunca para trabajo `agentic-heavy`, donde un modelo pequeño falla más de lo que ahorra. Hoy solo el piloto automático lee esta tabla, unidad a unidad: las traducciones (`i18n`) son trabajo `bounded`, así que un modelo local puede hacerlas. `judge` se usará cuando lleguen las evaluaciones. Cada ejecución del piloto queda registrada (unidades, agente, duración, tokens y coste) en `.camarones/.cache/runs/`.
+Los modelos locales solo se usan a través de OpenCode (`opencode:ollama/qwen3-coder:30b`) y nunca para trabajo `agentic-heavy`, donde un modelo pequeño falla más de lo que ahorra. El piloto automático y `camaron run` leen esta tabla unidad a unidad: las traducciones (`i18n`) son trabajo `bounded`, así que un modelo local puede hacerlas. `judge` se usará cuando lleguen las evaluaciones. Cada ejecución del piloto queda registrada (unidades, agente, duración, tokens y coste) en `.camarones/.cache/runs/`.
+
+**Documentar en paralelo.** `camaron run` hace varias unidades a la vez. Cada descubrimiento, ficha de repo y flujo trabaja en su propia copia de `cam-docs` (un worktree de git en `.cw/<n>/`). Al terminar, el kit la integra solo: primero trae lo último de `cam-docs` a esa copia, comprueba que no aparezcan errores nuevos (`check`, `arch-validate`) y después la fusiona. Las demás unidades van de una en una, y una unidad no empieza hasta que se ha integrado lo que necesita. Si una copia choca con lo que escribió otra unidad, la unidad queda bloqueada, `cam-docs` no se toca y se crea una unidad `integrate:<unidad>` para resolverlo. Los cambios sin commitear en `cam-docs` nunca se sobrescriben. Por defecto van dos a la vez y una sesión por agente, porque el límite real suele ser la cuota de la suscripción:
+
+```sh
+camaron run --parallel 3 --per-runner claude=2,codex=1
+camaron runs                 # qué hizo cada ejecución: unidades, fusiones, tiempo, tokens y coste
+camaron pipeline show        # el plan como unidades: dónde trabaja cada una y con qué agente
+```
+
+`camaron autopilot` sigue igual, de una unidad en una y sin worktrees.
 
 **Tu propio plan.** El plan ya no está escrito en el código: sale de un pipeline en YAML (`full` o `quick`), y cada proyecto puede ajustarlo en `cam-docs/.camarones/pipeline.yaml` sin tocar el kit. Puede quitar unidades (`disable`), cambiar de qué dependen (`needs`), añadir otras o decidir qué agente o tipo de trabajo hace cada una (`set`). Tras editarlo, `camaron plan sync` lo aplica. Si el fichero tiene un error, el plan se queda como estaba y `camaron plan` dice exactamente dónde. Hay ejemplos en la guía de comandos.
 
@@ -417,7 +427,7 @@ Los modelos locales solo se usan a través de OpenCode (`opencode:ollama/qwen3-c
 
 ## Hacia un harness enchufable (propuesta)
 
-La siguiente versión quiere convertir el kit en un *harness*: un pipeline declarativo en YAML que el proyecto puede ampliar. Cada paso usa un adaptador intercambiable (Claude Code, Codex, OpenCode o cualquier comando, motores de diagramas, wikis, checks y publicadores). Las unidades independientes corren en paralelo, cada una en su propio worktree, y luego se consolidan. Los modelos locales se encargan de las tareas acotadas. Además habrá KPIs de coste, calidad, frescura y utilidad, con una comparación «con cam-docs frente a sin cam-docs», y un portal nuevo con vista de pipeline en vivo. La decisión y el diseño están en [harness-refactor.md](docs/research/harness-refactor.md), y el orden de trabajo, PR a PR, en [roadmap.md](docs/research/roadmap.md). **Ya está la primera parte:** los agentes intercambiables, el registro de ejecuciones y los modelos locales de la sección anterior. Lo demás está en marcha.
+La siguiente versión quiere convertir el kit en un *harness*: un pipeline declarativo en YAML que el proyecto puede ampliar. Cada paso usa un adaptador intercambiable (Claude Code, Codex, OpenCode o cualquier comando, motores de diagramas, wikis, checks y publicadores). Las unidades independientes corren en paralelo, cada una en su propio worktree, y luego se consolidan. Los modelos locales se encargan de las tareas acotadas. Además habrá KPIs de coste, calidad, frescura y utilidad, con una comparación «con cam-docs frente a sin cam-docs», y un portal nuevo con vista de pipeline en vivo. La decisión y el diseño están en [harness-refactor.md](docs/research/harness-refactor.md), y el orden de trabajo, PR a PR, en [roadmap.md](docs/research/roadmap.md). **Ya están** los agentes intercambiables, los modelos locales, el plan en YAML, los plugins y la documentación en paralelo de la sección anterior. Lo demás (KPIs, evaluaciones y el portal nuevo) está en marcha.
 
 ## Desarrollo
 

@@ -115,6 +115,18 @@ def pipeline_problems() -> list[str]:
     return project_pipeline()[1]
 
 
+def pipeline_units() -> list[dict]:
+    """The project's pipeline expanded for its repos, with how each unit runs (for `pipeline show`)."""
+    out = []
+    for n in _nodes(docs.repo_names()):
+        t = pipeline.types().get(n["type"], {})
+        s = {"tier": t.get("tier", "agentic-heavy"), "isolation": t.get("isolation", "none"), "runner": None,
+             **n["settings"]}
+        out.append({"id": n["id"], "type": n["type"], "needs": n["needs"], "tier": s["tier"],
+                    "isolation": s["isolation"], "runner": s["runner"], "disabled": n["disabled"]})
+    return out
+
+
 def _nodes(repos: list[str]) -> list[dict]:
     spec, problems = project_pipeline()
     if problems:

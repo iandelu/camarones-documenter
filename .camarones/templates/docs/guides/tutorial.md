@@ -177,13 +177,21 @@ job token to clone each service repo (repo → Settings → CI/CD → Job token 
 `camaron help` (per-project copy: `./camaron.command help`, Windows `camaron.cmd help`): `setup`, `sync`, `detect`,
 `plan`, `plan next`, `status`, `check [--strict|--secrets]`, `confirm`, `feedback`, `checkpoint`, `graph`, `arch` (live C4 editor), `arch-validate`,
 `wiki <repo>`, `portal` (export), `up [--static|--docker]`, `down`, `ci`, `prompt <unit>`, `migrate`, `doctor`,
-`doctor --local` (proposes a free local model for this computer, installs nothing), `autopilot`, `plugins [--json]`.
+`doctor --local` (proposes a free local model for this computer, installs nothing), `autopilot`, `plugins [--json]`,
+`run`, `runs`, `pipeline show|validate`.
+
+**Parallel runs.** `camaron run --parallel 3 --per-runner claude=2,codex=1` does several units at once. Discovery, repo
+briefs and flows each work in their own copy of `cam-docs/` (a git worktree in `.cw/<n>/`) and are merged back when
+they finish, after `check` and `arch-validate` show no new errors; other units run one at a time, and a unit waits for
+what it needs to be merged. A clash blocks the unit, leaves `cam-docs/` untouched and adds an `integrate:<unit>` unit.
+`camaron runs` shows what each run did and cost; `camaron pipeline show` lists the units and where each one works.
+`autopilot` stays sequential.
 
 **Which agent runs what.** Each kind of work has an ordered list and the first installed agent runs it:
 `agentic-heavy` (long units), `bounded` (translations, summaries) and `judge` (eval scoring). `runner:model` also picks
 the model. The team sets it in `.camarones/workspace.yaml` (`agents: routing:`); `~/.camarones.json` (`routing`) wins on
 this machine. Local models go only through OpenCode (`opencode:ollama/qwen3-coder:30b`) and never do `agentic-heavy`
-work. Today only `autopilot` reads it. Each autopilot run is logged in `.camarones/.cache/runs/`.
+work. `autopilot` and `run` read it unit by unit. Each run is logged in `.camarones/.cache/runs/` (`camaron runs`).
 
 ## 10. Troubleshooting
 
