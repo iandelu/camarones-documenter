@@ -307,3 +307,16 @@ note names the unit, its folder, its branch, the commit of the main docs to merg
 4. Commit in that folder (`git add -A && git commit -m "integrate <unit>"`). Do not run `checkpoint` there and do not
    copy files into the main `cam-docs/`.
 5. `CLI plan done integrate:<unit>`: the kit merges the unit again, runs the checks itself and closes it.
+
+## eval-questions
+Draft the project's golden questions: what the docs must be able to answer, so `CLI eval` can tell whether they do.
+1. Read the confirmed pages first (`CLI status`), then the drafts. Write 15–30 questions people really ask: one or two
+   per business flow, per repo brief (run it, its API, its data) and per key decision or constraint.
+2. For each question, in `evals/questions.yaml` (create it if missing; keep the questions already there):
+   `id` (short, unique), `q`, `expect` — the page(s) that answer it, as `read_doc` takes them (`flows/refund.md`) — and
+   `mention`: the exact identifiers a right answer names (endpoints, topics, tables, classes, properties, commands),
+   spelled as in the code. A list inside `mention` gives exact alternatives (`[h2, H2]`).
+3. Do not add `x-confirmed`: a person confirms each question (`CLI eval confirm <id> --by <name>`). Never edit a
+   confirmed question. Facts the docs do not cover yet go to `docs/interview/open-questions.md`, not into a question.
+4. `CLI plan done eval-questions --note "<n> questions drafted"`.
+

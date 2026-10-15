@@ -30,4 +30,5 @@ confirm:             {phase: 7, runner: wizard, playbook: confirm,             t
 handover:            {phase: 7, runner: agent,  playbook: handover,            title: "Handover: summary, commits on branches, next steps"}
 review-fixes:        {phase: 7, runner: agent,  playbook: review-fixes,        title: "Apply human review feedback"}
 doc-fixes:           {phase: 7, runner: agent,  playbook: doc-fixes,           title: "Fix documentation problems (check errors, orphans, re-confirmations, translations)"}
+eval-questions:      {phase: 7, runner: agent,  playbook: eval-questions,      tier: bounded, title: "Golden questions: draft what the docs must answer"}
 integrate:           {phase: 7, runner: agent,  playbook: integrate,           title: "Integrate {slug}: resolve it against the main docs"}
