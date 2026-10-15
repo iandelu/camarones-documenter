@@ -46,23 +46,32 @@ def find_root() -> Path:
 class Ctx:
     root: Path            # the docs tree being read and written (main cam-docs, or a unit's worktree)
     state_root: Path      # where plan, handoffs and run logs live; the main cam-docs even when root is a worktree
+    workspace_root: Path | None = None   # set for a worktree: the real workspace, where the repos are
 
     @classmethod
-    def for_root(cls, root: Path, state_root: Path | None = None) -> "Ctx":
+    def for_root(cls, root: Path, state_root: Path | None = None, workspace: Path | None = None) -> "Ctx":
         r = docs_root(Path(root))
-        return cls(r, docs_root(Path(state_root)) if state_root else r)
+        return cls(r, docs_root(Path(state_root)) if state_root else r, Path(workspace).resolve() if workspace else None)
 
     @classmethod
     def from_env(cls) -> "Ctx":
-        return cls.for_root(find_root(), os.environ.get("CAMARONES_STATE_ROOT") or None)
+        return cls.for_root(find_root(), os.environ.get("CAMARONES_STATE_ROOT") or None,
+                            os.environ.get("CAMARONES_WORKSPACE") or None)
 
     @property
     def cam_layout(self) -> bool:
-        return self.root.name == CAM_DIR       # repos are root's siblings, not its children
+        """Repos live next to the docs tree (cam-docs, or a worktree of it), not inside it (legacy layout)."""
+        return self.root.name == CAM_DIR or (self.workspace_root is not None and self.workspace_root != self.root)
 
     @property
     def workspace(self) -> Path:
+        if self.workspace_root is not None:
+            return self.workspace_root
         return self.root.parent if self.cam_layout else self.root
+
+    def ws_rel(self, path: str) -> str:
+        """A root-relative path as seen from the workspace, where agents run (cam-docs/docs/…, .cw/3/docs/…)."""
+        return Path(os.path.relpath(self.root / path, self.workspace)).as_posix()
 
     @property
     def docs(self) -> Path:

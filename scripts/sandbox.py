@@ -86,6 +86,8 @@ def traces(folder: Path, home: Path | None = None) -> list[str]:
     found = []
     if (folder / CAM_DIR).exists():
         found.append(f"{CAM_DIR}/ exists")
+    if (folder / ".cw").exists():
+        found.append(".cw/ (unit worktrees) exists")
     for n in LINKS:
         p = folder / n
         if p.exists() or p.is_symlink():
