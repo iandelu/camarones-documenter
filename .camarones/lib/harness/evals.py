@@ -117,10 +117,11 @@ def request(prompt_question: str, cwd: Path, model: str | None = None) -> RunReq
               f"Question: {prompt_question} Reply with one JSON object on the last line: "
               '{"answer": "<your answer, naming exact endpoints, topics, tables or classes>", '
               '"cited": ["<page path as read_doc takes it>", ...]}')
-    return RunRequest(prompt=prompt, cwd=cwd, env={}, model=model, allow_tools=READ_ONLY)
+    return RunRequest(prompt=prompt, cwd=cwd, env={}, model=model, allow_tools=READ_ONLY, stream=True)
 
 
-def _ask(target: str, req: RunRequest) -> tuple[list[str], float, int]:
+def _ask(target: str, req: RunRequest) -> dict:
+    """One headless question: the answer's text lines plus time, exit code, tokens, cost and tool calls."""
     from .. import plan
     runner, model = plan._runner(target)
     req = RunRequest(**{**req.__dict__, "model": req.model or model})
@@ -136,12 +137,19 @@ def _ask(target: str, req: RunRequest) -> tuple[list[str], float, int]:
         out, rc = r.stdout or "", r.returncode
     except (OSError, subprocess.TimeoutExpired) as e:
         out, rc = str(e), 124
-    lines = []
+    got = {"lines": [], "seconds": round(time.monotonic() - start, 1), "rc": rc, "tokens_in": 0, "tokens_out": 0,
+           "cost_usd": 0.0, "tool_calls": 0}
     for raw in out.splitlines():
         for ev in runner.parse(raw):
             if ev["type"] in ("log", "result", "error") and ev.get("text"):
-                lines += str(ev["text"]).splitlines()
-    return lines, round(time.monotonic() - start, 1), rc
+                got["lines"] += str(ev["text"]).splitlines()
+            elif ev["type"] == "usage":
+                got["tokens_in"] += ev.get("in", 0)
+                got["tokens_out"] += ev.get("out", 0)
+                got["cost_usd"] = round(got["cost_usd"] + (ev.get("cost_usd") or 0), 6)
+            elif ev["type"] == "tool.call":
+                got["tool_calls"] += 1
+    return got
 
 
 def _grade(q: dict, answer: str, target: str) -> float | None:
@@ -149,8 +157,7 @@ def _grade(q: dict, answer: str, target: str) -> float | None:
     prompt = (f"Rate from 0 to 10 how well an answer answers a question about this project. Question: {q['q']} "
               f"Facts it should contain: {facts}. Answer: {' '.join(str(answer).split())[:2000]} "
               'Reply with one JSON object on the last line: {"grade": <0-10>}')
-    lines, _, _ = _ask(target, RunRequest(prompt=prompt, cwd=WORKSPACE, env={}, allow_tools=()))
-    obj = _last_json(lines, "grade")
+    obj = _last_json(_ask(target, RunRequest(prompt=prompt, cwd=WORKSPACE, env={}, allow_tools=()))["lines"], "grade")
     try:
         return round(max(0.0, min(10.0, float(obj["grade"]))) / 10, 3) if obj else None
     except (TypeError, ValueError):
@@ -164,10 +171,11 @@ def run(target: str, judge: str | None = None, include_drafts: bool = False, ech
     rows = []
     for q in asked:
         echo(f"? {q['id']}: {q['q']}")
-        lines, seconds, rc = _ask(target, request(q["q"], WORKSPACE))
-        answer, cited = extract(lines)
+        got = _ask(target, request(q["q"], WORKSPACE))
+        answer, cited = extract(got["lines"])
         s = score(q, answer, cited)
-        row = {"id": q["id"], **s, "cited": cited, "answer": answer[:2000], "seconds": seconds, "rc": rc}
+        row = {"id": q["id"], **s, "cited": cited, "answer": answer[:2000],
+               **{k: got[k] for k in ("seconds", "rc", "tokens_in", "tokens_out", "cost_usd", "tool_calls")}}
         if judge_target:
             row["judge"] = grade(q, answer, judge_target)
         rows.append(row)

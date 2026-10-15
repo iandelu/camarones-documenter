@@ -184,7 +184,7 @@ permitir que el job token del proyecto `cam-docs` clone cada repo de servicio (r
 `detect`, `plan`, `plan next`, `status`, `check [--strict|--secrets]`, `confirm`, `feedback`, `checkpoint`, `graph`, `arch` (editor C4 en vivo),
 `arch-validate`, `wiki <repo>`, `portal` (exportación), `up [--static|--docker]`, `down`, `ci`, `prompt <unidad>`, `migrate`, `doctor`,
 `doctor --local` (propone un modelo local libre para este equipo, sin instalar nada), `autopilot`, `plugins [--json]`,
-`run`, `runs`, `kpis`, `eval` y `pipeline show|validate`.
+`run`, `runs`, `kpis`, `eval`, `ab` y `pipeline show|validate`.
 
 **En paralelo.** `camaron run --parallel 3 --per-runner claude=2,codex=1` hace varias unidades a la vez. Los
 descubrimientos, las fichas de repo y los flujos trabajan cada uno en su propia copia de `cam-docs/` (un worktree de git
@@ -206,6 +206,11 @@ respuesta nombra (`mention`). `camaron eval draft` añade una unidad en la que u
 confirm <id> --by <nombre>` las aprueba (solo cuentan las confirmadas); `camaron eval run` se las pregunta a un agente que
 solo puede leer la documentación y puntúa, sin IA, las páginas citadas y los identificadores (`--judge` añade la nota de
 un modelo). `kpis` muestra la última nota.
+
+**¿Ayuda cam-docs?** `camaron ab --qa "<pregunta>"` hace la misma pregunta dos veces: con la documentación, y solo con el
+código, en una carpeta temporal fuera del proyecto que enlaza los repos y nada más (sin `cam-docs/`, sin `AGENTS.md`, sin
+MCP). Compara tokens, tiempo, herramientas usadas y los identificadores exactos que nombra cada respuesta; `--golden` lo
+hace con las preguntas de oro. Los repos no se tocan. `ab: {enabled: false}` en `workspace.yaml` lo desactiva.
 
 **Qué agente hace cada trabajo.** Cada tipo de trabajo tiene una lista ordenada y lo hace el primer agente instalado:
 `agentic-heavy` (unidades largas), `bounded` (traducciones, resúmenes) y `judge` (puntuar evaluaciones). `runner:modelo`
