@@ -17,7 +17,8 @@ class Claude(CliRunner):
             argv = [self.exe(), *model, *(["--continue"] if req.resume else []), req.prompt]
         elif req.allow_tools is not None:
             argv = [self.exe(), "-p", req.prompt, "--permission-mode", "acceptEdits", "--allowedTools",
-                    " ".join(req.allow_tools), *model]
+                    " ".join(req.allow_tools), *model,
+                    *(["--output-format", "stream-json", "--verbose"] if req.stream else [])]
         else:
             argv = [self.exe(), "-p", req.prompt, "--dangerously-skip-permissions", "--output-format", "stream-json",
                     "--verbose", *model]

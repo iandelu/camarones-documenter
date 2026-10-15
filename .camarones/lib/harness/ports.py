@@ -17,6 +17,7 @@ class RunRequest:
     interactive: bool = False      # a terminal session for a person, instead of a headless run
     resume: bool = False           # interactive only: reopen the agent's last conversation in cwd
     allow_tools: tuple[str, ...] | None = None   # headless, edits allowed but tools limited; None = unattended, full access
+    stream: bool = False           # tool-limited runs: emit the JSON event stream too (usage, tool calls)
 
 
 @dataclass(frozen=True)

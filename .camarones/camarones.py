@@ -59,6 +59,9 @@
                             golden questions (evals/questions.yaml): run asks the confirmed ones to an agent that may
                             only read the docs and scores cited pages + exact identifiers; draft adds a unit that
                             proposes questions; confirm approves them
+  ab --qa "QUESTION" | --golden [--runner T] [--judge T] [--json]
+                            the same question with cam-docs and without it (only the code, in a throwaway folder that
+                            links the repos): tokens, time, tool calls and identifiers named, side by side
   kpis [--json] [--months N] [--no-check] [--compare RUN_A RUN_B]
                             is it working? cost and speed of runs (the team's, per month), coverage, trust, usage;
                             --compare puts two runs side by side
@@ -217,6 +220,8 @@ def main() -> int:
     ev = sp.add_parser("eval"); ev.add_argument("action", nargs="?", default="list", choices=["list", "run", "draft", "confirm"])
     ev.add_argument("ids", nargs="*"); ev.add_argument("--runner", default=""); ev.add_argument("--judge", default="")
     ev.add_argument("--all", action="store_true"); ev.add_argument("--json", action="store_true"); ev.add_argument("--by", default="")
+    abp = sp.add_parser("ab"); abp.add_argument("--qa", default=""); abp.add_argument("--golden", action="store_true")
+    abp.add_argument("--runner", default=""); abp.add_argument("--judge", default=""); abp.add_argument("--json", action="store_true")
     kp = sp.add_parser("kpis"); kp.add_argument("--json", action="store_true"); kp.add_argument("--months", type=int, default=3)
     kp.add_argument("--no-check", action="store_true"); kp.add_argument("--compare", nargs=2, metavar="RUN")
     rs = sp.add_parser("runs"); rs.add_argument("run_id", nargs="?"); rs.add_argument("--json", action="store_true")
@@ -419,6 +424,8 @@ def main() -> int:
         return cmd_kpis(a)
     elif a.cmd == "eval":
         return cmd_eval(a)
+    elif a.cmd == "ab":
+        return cmd_ab(a)
     elif a.cmd == "pipeline":
         return cmd_pipeline(a)
     elif a.cmd == "plugins":
@@ -626,6 +633,38 @@ def cmd_eval(a) -> int:
         print(f"Score {r['score']} over {len(r['questions'])} question(s) with {runner}"
               + (f", judge {r['judge']}" if r["judge"] is not None else "")
               + (f" — {r['drafts_skipped']} draft(s) not asked" if r["drafts_skipped"] else ""))
+    return 0
+
+
+def cmd_ab(a) -> int:
+    from lib.harness import ab, evals
+    if not a.qa and not a.golden:
+        print('usage: ab --qa "QUESTION" | --golden [--runner T] [--judge T] [--json]', file=sys.stderr)
+        return 2
+    if not ab.enabled():
+        print("✖ A/B runs are turned off for this project (ab.enabled: false in workspace.yaml)", file=sys.stderr)
+        return 1
+    questions = [{"id": "qa", "q": a.qa}] if a.qa else evals.confirmed(evals.load())
+    if not questions:
+        print(f"No confirmed golden questions: `{cli_cmd()} eval list`.", file=sys.stderr)
+        return 1
+    runner = a.runner or next(iter(plan._agents(lambda _: None)), None)
+    if not runner:
+        print("✖ no agent installed (see `camaron doctor`)", file=sys.stderr)
+        return 1
+    judge = (a.judge if a.judge != "auto" else next(iter(plan._agents(lambda _: None, "judge")), None)) if a.judge else None
+    r = ab.run(questions, runner, judge=judge, echo=(lambda _: None) if a.json else print)
+    if a.json:
+        print(json.dumps(r, indent=2, ensure_ascii=False))
+        return 0
+    w, wo = r["totals"]["with"], r["totals"]["without"]
+    print(f"{'':<14}{'with cam-docs':>16}{'without':>14}")
+    for k in ab.METRICS:
+        if w.get(k) is not None or wo.get(k) is not None:
+            print(f"{k:<14}{'-' if w.get(k) is None else w[k]:>16}{'-' if wo.get(k) is None else wo[k]:>14}")
+    if r["tokens_saved_pct"] is not None:
+        print(f"cam-docs used {r['tokens_saved_pct']}% fewer input tokens" if r["tokens_saved_pct"] >= 0 else
+              f"cam-docs used {-r['tokens_saved_pct']}% more input tokens")
     return 0
 
 

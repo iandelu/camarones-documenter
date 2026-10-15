@@ -17,7 +17,8 @@ class Codex(CliRunner):
             argv = [self.exe(), *model, req.prompt]
         elif req.allow_tools is not None:
             # Codex has no per-tool allow list: its full-auto sandbox (edits inside cwd only) is the closest scope
-            argv = [self.exe(), "exec", "--full-auto", "-C", str(req.cwd), *model, req.prompt]
+            argv = [self.exe(), "exec", "--full-auto", "-C", str(req.cwd), *model, *(["--json"] if req.stream else []),
+                    req.prompt]
         else:
             argv = [self.exe(), "exec", "--approve-for-me", "--skip-git-repo-check", "--json", *model, req.prompt]
         return Invocation(argv, req.cwd, req.env)
