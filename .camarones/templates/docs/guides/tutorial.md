@@ -189,7 +189,7 @@ what it needs to be merged. A clash blocks the unit, leaves `cam-docs/` untouche
 
 **Is it working?** `camaron kpis` shows the team's runs per month (time, tokens, cost per unit, parallelism, limits,
 failures), coverage (repos with a brief, flows, C4 files, `check` errors), trust (confirmed, drafts, re-confirmations,
-repos changed since documented) and usage (agent and portal queries, searches with no result). Runs add up through
+repos changed since documented, and how much of the AI's words people change before confirming a page) and usage (agent and portal queries, searches with no result). Runs add up through
 `docs/.work/kpis/` (committed, one file per person and machine). `camaron kpis --compare <run-a> <run-b>` shows whether
 a prompt, model or kit change helped.
 

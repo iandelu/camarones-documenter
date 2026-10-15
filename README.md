@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.20.0-ff875f?style=flat-square" alt="Versión 3.20.0">
+  <img src="https://img.shields.io/badge/version-3.21.0-ff875f?style=flat-square" alt="Versión 3.21.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -423,7 +423,7 @@ camaron pipeline show        # el plan como unidades: dónde trabaja cada una y 
 
 - **Coste y velocidad:** las ejecuciones de todo el equipo por mes, con tiempo, tokens, coste, coste por unidad, paralelismo conseguido, límites y fallos.
 - **Cobertura y calidad:** repos con ficha, flujos, ficheros C4, errores y avisos de `check`.
-- **Confianza y frescura:** páginas confirmadas, borradores, pendientes de reconfirmar y repos que cambiaron desde que se documentaron.
+- **Confianza y frescura:** páginas confirmadas, borradores, pendientes de reconfirmar y repos que cambiaron desde que se documentaron. También cuánto cambian las personas lo que escribió la IA antes de confirmarlo: al cerrar una unidad el kit guarda su versión de cada página, y al confirmarla mide qué parte de las palabras cambió (0 % significa que se confirmó tal cual). Es una señal barata y honesta de la calidad de los borradores.
 - **Utilidad:** consultas de agentes y personas, y búsquedas sin resultado.
 
 Cada máquina acumula sus ejecuciones en `docs/.work/kpis/` (se commitea y `share` suma las del equipo), con el mismo interruptor que las estadísticas de uso. `camaron kpis --compare <run-a> <run-b>` pone dos ejecuciones lado a lado para ver si un cambio de prompt, de modelo o de versión del kit ayudó.
