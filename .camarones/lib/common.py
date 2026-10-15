@@ -1,7 +1,7 @@
 """Shared paths, versions and cross-platform process helpers (macOS, Windows, Linux)."""
 from __future__ import annotations
 
-import json, os, platform, shutil, subprocess, sys
+import json, os, platform, shutil, stat, subprocess, sys
 from pathlib import Path
 
 from .harness.ctx import KIT, CAM_DIR, Ctx, docs_root, find_project_marker, find_root  # noqa: F401  (re-exported)
@@ -38,8 +38,9 @@ def repo_dir(name: str) -> Path:
 
 
 def ws_rel(path: str) -> str:
-    """A ROOT-relative path as seen from WORKSPACE, where agents run (cam-docs/docs/… vs docs/… in legacy layout)."""
-    return f"{CAM_DIR}/{path}" if CAM_LAYOUT else path
+    """A ROOT-relative path as seen from WORKSPACE, where agents run: cam-docs/docs/…, docs/… in the legacy layout,
+    .cw/<n>/docs/… in a unit's worktree."""
+    return Path(os.path.relpath(ROOT / path, WORKSPACE)).as_posix()
 
 
 def rel_file(f: Path) -> str:
@@ -154,3 +155,11 @@ def save_json(p: Path, data) -> None:
 
 def py() -> str:
     return sys.executable
+
+
+def rmtree(path: Path) -> None:
+    """shutil.rmtree that also removes read-only files (git objects on Windows)."""
+    def onerror(fn, p, _exc):
+        os.chmod(p, stat.S_IWRITE)
+        fn(p)
+    shutil.rmtree(path, onerror=onerror)
