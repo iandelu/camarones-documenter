@@ -12,6 +12,7 @@ from .common import (KIT, ROOT, DOCS, HOME, CACHE, IS_WIN, IS_MAC, VERSIONS, CAM
 from . import binaries, docs
 from .adapters import runners
 from .harness.ports import RunRequest
+from .harness.locks import FileLock, LockBusy, pid_alive  # noqa: F401  (pid_alive re-exported)
 from .projects import git_failure  # noqa: F401 — share() and callers of env.git_failure
 
 Log = Callable[[str], None]
@@ -948,32 +949,19 @@ def wiki_workdir(repo: str, log: Log = print):
 WIKI_LOCK = CACHE / "wiki.lock"
 
 
-def pid_alive(pid: int) -> bool:
-    if IS_WIN:                                  # os.kill(pid, 0) would terminate the process on Windows
-        r = run(["tasklist", "/FI", f"PID eq {pid}", "/NH"], check=False, capture=True)
-        return str(pid) in (r.stdout or "")
-    try:
-        os.kill(pid, 0)
-    except PermissionError:
-        return True
-    except OSError:
-        return False
-    return True
-
-
 @contextmanager
 def wiki_lock(repo: str):
     """One OpenWiki run at a time across the wizard, the portal and the CLI: parallel runs share the agent's quota."""
-    other = load_json(WIKI_LOCK, {}) if WIKI_LOCK.exists() else {}
-    pid = other.get("pid") if isinstance(other, dict) else None
-    if pid and pid != os.getpid() and pid_alive(int(pid)):
-        raise RuntimeError(f"another OpenWiki run is in progress ({other.get('repo')}, pid {pid}) — wait for it to finish")
-    WIKI_LOCK.parent.mkdir(parents=True, exist_ok=True)
-    WIKI_LOCK.write_text(json.dumps({"pid": os.getpid(), "repo": repo}), encoding="utf-8")
+    lock = FileLock(WIKI_LOCK, wait=0, info={"repo": repo})
+    try:
+        lock.acquire()
+    except LockBusy as e:
+        raise RuntimeError(f"another OpenWiki run is in progress ({e.holder.get('repo')}, pid {e.holder.get('pid')}) "
+                           "— wait for it to finish") from None
     try:
         yield
     finally:
-        WIKI_LOCK.unlink(missing_ok=True)
+        lock.release()
 
 
 class WikiAbort(RuntimeError):
