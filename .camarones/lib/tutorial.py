@@ -243,7 +243,8 @@ PAGES = {
          "text": "El asistente comprueba todo esto y lo instala por ti (winget en Windows, Homebrew en Mac) si eliges "
                  "«Instalar todo lo recomendado». Solo git y Node.js son obligatorios. El control de calidad "
                  "(mermaid-cli y gitleaks) viene con la instalación completa; mermaid-cli descarga un Chromium sin "
-                 "ventana la primera vez."},
+                 "ventana la primera vez. Las extensiones del equipo van como plugins en `.camarones/plugins/` "
+                 "(`camaron plugins` las lista); las que ejecutan código no se cargan hasta que alguien las aprueba."},
         {"icon": "🗺", "title": "Tu día a día",
          "art": r"""
    1. camarones              -> abre el asistente del proyecto (cam-docs)
@@ -498,7 +499,9 @@ PAGES = {
    Java      -> only for Java/Kotlin repos (SDKMAN is detected)""",
          "text": "The wizard checks all of this and installs it for you (winget on Windows, Homebrew on Mac) when you choose "
                  "“Install everything recommended”. Only git and Node.js are required. The quality gate (mermaid-cli "
-                 "and gitleaks) comes with the full install; mermaid-cli downloads a headless Chromium the first time."},
+                 "and gitleaks) comes with the full install; mermaid-cli downloads a headless Chromium the first time. "
+                 "Team extensions go in `.camarones/plugins/` as plugins (`camaron plugins` lists them); the ones that "
+                 "run code are not loaded until someone approves them."},
         {"icon": "🗺", "title": "Your day to day",
          "art": r"""
    1. camarones              -> opens the project's wizard (cam-docs)

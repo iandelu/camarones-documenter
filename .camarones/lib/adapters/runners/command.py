@@ -1,5 +1,5 @@
-"""An agent CLI described by argv templates instead of code (H28): Gemini CLI ships this way, and a machine can add
-its own in ~/.camarones.json. Placeholders: {prompt}, {cwd}, {model}, and the item {model_args}, which expands to
+"""An agent CLI described by argv templates instead of code (H28): Gemini CLI ships this way (lib/plugins/gemini), and
+a machine can add its own in ~/.camarones.json. Placeholders: {prompt}, {cwd}, {model}, and the item {model_args}, which expands to
 `model_args` when a model is set and to nothing otherwise. Each placeholder fills one argv item: no shell."""
 from __future__ import annotations
 
@@ -42,7 +42,3 @@ class CommandRunner(CliRunner):
         if rc and any(h in tail[-2000:].lower() for h in self.limit_hints):
             return "limited"
         return super().classify(rc, tail)
-
-
-GEMINI = dict(label="Gemini CLI", argv=["gemini", "{model_args}", "-p", "{prompt}", "--yolo"],
-              interactive=["gemini", "{model_args}", "-i", "{prompt}"])

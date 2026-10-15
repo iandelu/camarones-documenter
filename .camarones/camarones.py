@@ -50,6 +50,8 @@
   interview status [--json]    who answered, unanswered questions, disagreements
   doctor [--local]          check prerequisites and tool versions; --local: propose a free local model for this
                             machine (bounded/judge work, through OpenCode) without installing anything
+  plugins [--json]          plugins of the kit and of this project (.camarones/plugins/): what they provide, whether
+                            they run code, and whether they are loaded (code needs approval first)
   install DEST --profile quick|full [--dry-run]   copy kit into an explicit project folder
   upgrade SOURCE [--dry-run]  update kit files with backups; preserve project configuration
   profile quick|full        change the work plan without losing checkpoints
@@ -193,6 +195,7 @@ def main() -> int:
               "mcp"):
         sp.add_parser(c)
     dr = sp.add_parser("doctor"); dr.add_argument("--local", action="store_true")
+    pg = sp.add_parser("plugins"); pg.add_argument("--json", action="store_true")
     m = sp.add_parser("mark-documented"); m.add_argument("repos", nargs="*")
     s = sp.add_parser("status"); s.add_argument("--json", action="store_true")
     k = sp.add_parser("check"); k.add_argument("--strict", action="store_true")
@@ -376,6 +379,20 @@ def main() -> int:
         env.docker_down()
     elif a.cmd == "ci":
         env.install_ci(a.forge)
+    elif a.cmd == "plugins":
+        from lib.harness import plugins
+        rows = plugins.rows()
+        if a.json:
+            print(json.dumps(rows, indent=2, ensure_ascii=False))
+            return 0
+        for r in rows:
+            mark = {"active": "✔", "invalid": "✖"}.get(r["status"], "·")
+            print(f"{mark} {r['name']:<16} {r['version']:<8} {r['source']:<8} {', '.join(r['provides']) or '-':<22} "
+                  f"{'runs code' if r['runs_code'] else 'config only':<12} {r['status']}")
+            for e in r["errors"]:
+                print(f"    {e}")
+        if not any(r["source"] == "project" for r in rows):
+            print(f"No project plugins yet: add a folder with a plugin.yaml in {plugins.PROJECT_DIR.relative_to(ROOT.parent)}")
     elif a.cmd == "doctor" and a.local:
         from lib.adapters.runners import local
         print("\n".join(local.report()))

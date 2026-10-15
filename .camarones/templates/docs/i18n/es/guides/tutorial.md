@@ -88,6 +88,11 @@ patch:
 `node` es el id tal como lo escribe el kit (`discovery:{repo}`) o un prefijo con `*` (`repo-wiki:*`). Si el fichero tiene
 un error, el plan se queda como estaba y `camaron plan` dice dónde (`patch[1].node: unknown node 'cii'`).
 
+**Plugins.** Un plugin es una carpeta en `.camarones/plugins/<nombre>/` con un `plugin.yaml` (`name`, `version`, rango
+`kit`, `provides`). `camaron plugins` lista los del kit y los del proyecto, qué aportan y si ejecutan código. Un plugin
+que ejecuta código (comandos de agente, hooks, servidores MCP, scripts) llega a todo el equipo a través del repo, así
+que no se carga hasta que se aprueba en cada máquina.
+
 ## 3. Confianza: borradores de IA frente a doc confirmada
 
 Toda página nace como **✨ borrador** (el portal lo muestra con un banner). Confírmalas en el portal (**Confirmar** en cada
@@ -178,7 +183,7 @@ permitir que el job token del proyecto `cam-docs` clone cada repo de servicio (r
 `camaron help` (copia por proyecto: `./camaron.command help`, en Windows `camaron.cmd help`) lista: `setup`, `sync`,
 `detect`, `plan`, `plan next`, `status`, `check [--strict|--secrets]`, `confirm`, `feedback`, `checkpoint`, `graph`, `arch` (editor C4 en vivo),
 `arch-validate`, `wiki <repo>`, `portal` (exportación), `up [--static|--docker]`, `down`, `ci`, `prompt <unidad>`, `migrate`, `doctor`,
-`doctor --local` (propone un modelo local libre para este equipo, sin instalar nada) y `autopilot`.
+`doctor --local` (propone un modelo local libre para este equipo, sin instalar nada), `autopilot` y `plugins [--json]`.
 
 **Qué agente hace cada trabajo.** Cada tipo de trabajo tiene una lista ordenada y lo hace el primer agente instalado:
 `agentic-heavy` (unidades largas), `bounded` (traducciones, resúmenes) y `judge` (puntuar evaluaciones). `runner:modelo`
