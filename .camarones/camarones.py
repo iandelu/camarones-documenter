@@ -664,7 +664,9 @@ def cmd_kpis(a) -> int:
     t = r["trust"]
     print(f"Trust and freshness\n  {t['pages']} pages  {t['confirmed_pct']}% confirmed  {t['draft']} drafts  "
           f"{t['needs_reconfirm']} to re-confirm  {t['repos_changed']} repos changed since documented  "
-          f"plan {t['plan_done']}/{t['plan_total']}")
+          f"plan {t['plan_done']}/{t['plan_total']}"
+          + (f"\n  people changed {round(100 * t['ai_edit_avg'])}% of the AI's words before confirming "
+             f"({t['ai_pages_confirmed']} page{'' if t['ai_pages_confirmed'] == 1 else 's'})" if t.get("ai_edit_avg") is not None else ""))
     u = r["usefulness"]
     print(f"Usefulness (this month)\n  {u['agent_queries'] or 0} agent queries  {u['human_queries'] or 0} portal reads  "
           f"{u['searches'] or 0} searches, {u['no_results_pct'] or 0}% with no result"

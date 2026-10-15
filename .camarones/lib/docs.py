@@ -345,6 +345,13 @@ def confirm(files: list[str], by: str) -> list[str]:
         fm["x-confirmed"] = {"by": by, "at": now(), "body_sha": body_sha(body)}
         f.write_text(join_fm(fm, body), encoding="utf-8")
         done.append(p)
+        logical = next((lp for lp, df in iter_docs() if df.resolve() == f.resolve()), None)
+        if logical:
+            from .harness import drafts
+            try:
+                drafts.record_confirmation(logical, body, by)
+            except Exception:  # noqa: BLE001 — a measurement must never fail a confirmation
+                pass
     return done
 
 

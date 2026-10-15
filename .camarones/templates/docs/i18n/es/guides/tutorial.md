@@ -195,7 +195,8 @@ ejecución; `camaron pipeline show` lista las unidades y dónde trabaja cada una
 
 **¿Está funcionando?** `camaron kpis` muestra las ejecuciones del equipo por mes (tiempo, tokens, coste por unidad,
 paralelismo, límites, fallos), la cobertura (repos con ficha, flujos, ficheros C4, errores de `check`), la confianza
-(confirmadas, borradores, reconfirmaciones, repos que cambiaron desde que se documentaron) y el uso (consultas de agentes
+(confirmadas, borradores, reconfirmaciones, repos que cambiaron desde que se documentaron, y cuánto cambian las
+personas lo que escribió la IA antes de confirmarlo) y el uso (consultas de agentes
 y del portal, búsquedas sin resultado). Las ejecuciones se suman a través de `docs/.work/kpis/` (se commitea, un fichero
 por persona y máquina). `camaron kpis --compare <run-a> <run-b>` dice si un cambio de prompt, de modelo o del kit ayudó.
 

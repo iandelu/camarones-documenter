@@ -25,7 +25,7 @@ from .common import CTX, PREFS, ROOT, load_json, WORK, CAM_LAYOUT, CAM_DIR, WORK
 from . import docs
 from .adapters import runners
 from .adapters.runners.base import LIMIT_HINTS  # noqa: F401  (kept for callers)
-from .harness import kpis, pipeline, routing
+from .harness import drafts, kpis, pipeline, routing
 from .harness.events import EventLog
 from .harness.locks import FileLock
 from .harness.ports import RunRequest
@@ -276,6 +276,11 @@ def set_status(uid: str, status: str, note: str | None = None, record: bool = Tr
     if note:
         u["notes"] = note
     save(data)
+    if record and status == "done":
+        try:
+            drafts.snapshot(uid)              # the AI's version of its pages, to compare with what people confirm
+        except Exception:  # noqa: BLE001 — a measurement must never fail closing a unit
+            pass
     if record and status in ("done", "blocked", "dropped"):
         WORK.mkdir(parents=True, exist_ok=True)
         with LOG.open("a", encoding="utf-8") as fh:
