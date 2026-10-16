@@ -97,7 +97,7 @@ Every page starts as **✨ draft** (banner in the portal). Confirm pages in the 
 
 **Freshness.** When a page is written, the code it cites (`x-sources`) is fingerprinted. If that code changes the page
 is **suspect**; if it is gone, **stale** (moved code does not count). Agents are not given suspect or stale pages, nor
-unreviewed pages without sources: the MCP and `llms.txt` withhold them and point to the code. People still see them,
+unreviewed pages without sources: the MCP, `llms.txt` and `llms-full.txt` withhold them and point to the code. People still see them,
 with a banner. `camaron fresh` lists them, `fresh --plan` adds a unit to refresh them, `fresh --ack <page> --by <name>`
 says one still holds. `freshness: {ai_policy: warn}` in `workspace.yaml` serves them with a warning instead.
 
@@ -165,7 +165,7 @@ CI pushed: `docker run -d -p 8080:80 <registry>/<group>/cam-docs/portal:latest`.
   unit that the AI applies in the next session.
 - With Spanish selected, **Edit** edits the translation (`docs/i18n/es/…`).
 - Editing a ✅ page turns it **⚠️ needs re-confirmation** until someone checks it again.
-- Don't hand-edit generated files (`llms.txt`, `docs/.status.json`, the viewers). Wikis are better regenerated from the
+- Don't hand-edit generated files (`llms.txt`, `llms-full.txt`, `docs/.status.json`, the viewers). Wikis are better regenerated from the
   **Wikis** tab: an OpenWiki update can rewrite what you change.
 
 ## 7. OpenWiki: one wiki per repo

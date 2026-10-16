@@ -18,7 +18,7 @@ from .ctx import Ctx
 from .locks import FileLock
 from .worktrees import Worktrees
 
-DERIVED = ("docs/llms.txt", "docs/.status.json")         # regenerated from the pages; never merged by hand
+DERIVED = ("docs/llms.txt", "docs/llms-full.txt", "docs/.status.json")         # regenerated from the pages; never merged by hand
 SHARED_C4 = tuple(f"docs/architecture/{n}" for n in ("model.c4", "spec.c4", "views.c4", "deployment.c4"))
 EXCLUDED = (*DERIVED, "docs/.work")                       # plan state lives in the main cam-docs only
 UNION = ("docs/interview/open-questions.md",)               # append-only lists: keep every unit's additions

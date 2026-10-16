@@ -381,37 +381,70 @@ def translated(files: list[str]) -> list[str]:
     return done
 
 
-def llms() -> int:
-    ws, rows = workspace(), collect()
-    def key(r):
-        head = r["path"].split("/")[0]
-        return (SECTIONS.index(head) if head in SECTIONS else len(SECTIONS), r["path"])
-    lines = [f"# {ws['project']['name']}", "",
-             "> Documentation index for AI agents. Trust: `confirmed` = verified by a human (source of truth); "
-             "`draft` = AI-generated, verify against code; `needs-reconfirm` = confirmed, then changed.", ""]
+def readable() -> list[dict]:
+    """Rows an agent may read today (the freshness gate), in llms.txt order; interviews last."""
     from .harness import freshness
-    held = {r["path"]: freshness.gate(r["path"], r["trust"], r.get("freshness"))[1] for r in rows}
-    held = {p: n for p, n in held.items() if n and freshness.policy() == "block"}
+    rows = collect()
+    block = freshness.policy() == "block"
+    ok = [r for r in rows if not block or freshness.gate(r["path"], r["trust"], r.get("freshness"))[0]]
+    return sorted(ok, key=_llms_key)
+
+
+def _llms_key(r: dict) -> tuple:
+    head = r["path"].split("/")[0]
+    return (r["type"] == "interview" or head == "interview",
+            SECTIONS.index(head) if head in SECTIONS else len(SECTIONS), r["path"])
+
+
+def llms() -> int:
+    """docs/llms.txt (index, llmstxt.org) and docs/llms-full.txt (every page agents may read, one file)."""
+    from .harness import freshness
+    ws, rows = workspace(), collect()
+    home = next((r for r in rows if r["path"] == "index.md"), None)
+    intro = (home or {}).get("description") or f"Living documentation of {ws['project']['name']}."
+    lines = [f"# {ws['project']['name']}", "",
+             f"> {intro} Trust: `confirmed` = verified by a human (source of truth); `draft` = AI-generated, verify "
+             "against code; `needs-reconfirm` = confirmed, then changed.", "",
+             "Every page below in one file: [llms-full.txt](llms-full.txt).", ""]
+    ok = readable()
+    served = {r["path"] for r in ok}
     section = None
-    for r in sorted((r for r in rows if r["path"] not in held), key=key):
-        head = "repos/" + r["path"].split("/")[1] if r["path"].startswith("repos/") else (r["path"].split("/")[0] if "/" in r["path"] else "root")
+    for r in ok:
+        notes = r["type"] == "interview" or r["path"].startswith("interview/")
+        head = "Optional" if notes else ("repos/" + r["path"].split("/")[1] if r["path"].startswith("repos/")
+                                         else (r["path"].split("/")[0] if "/" in r["path"] else "root"))
         if head != section:
             lines += ["", f"## {head}"]
             section = head
         link = os.path.relpath(ROOT / r["file"], DOCS).replace("\\", "/")
         desc = f": {r['description']}" if r["description"] else ""
         lines.append(f"- [{r['title']}]({link}) [{r['trust']}]{desc}")
-    old = [r for r in rows if r["path"] in held and r["fresh"] in freshness.OUT_OF_DATE]
+    held = sorted((r for r in rows if r["path"] not in served), key=_llms_key)
+    if section == "Optional":                        # llmstxt.org: Optional comes last
+        tail = lines[lines.index("## Optional") - 1:]
+        lines = lines[:lines.index("## Optional") - 1]
+    else:
+        tail = []
+    old = [r for r in held if r["fresh"] in freshness.OUT_OF_DATE]
     if old:
         lines += ["", "## Out of date (read the code instead)", ""]
         lines += [f"- {r['path']}: {', '.join(freshness.code_paths(r['freshness']['missing'] + r['freshness']['changed']))}"
-                  for r in sorted(old, key=key)]
-    waiting = [r for r in rows if r["path"] in held and r["fresh"] not in freshness.OUT_OF_DATE]
+                  for r in old]
+    waiting = [r for r in held if r["fresh"] not in freshness.OUT_OF_DATE]
     if waiting:
         lines += ["", "## Awaiting review (no sources to check them against)", ""]
-        lines += [f"- {r['path']}" for r in sorted(waiting, key=key)]
+        lines += [f"- {r['path']}" for r in waiting]
+    lines += tail
     DOCS.mkdir(exist_ok=True)
     (DOCS / "llms.txt").write_text(re.sub(r"\n{3,}", "\n\n", "\n".join(lines)) + "\n", encoding="utf-8")
+    full = [f"# {ws['project']['name']} — full documentation", "", f"> {intro}", ""]
+    for r in ok:
+        if r["type"] == "interview" or r["path"].startswith("interview/"):
+            continue
+        body = split_fm((ROOT / r["file"]).read_text(encoding="utf-8", errors="replace"))[1].strip()
+        desc = f" · {r['description']}" if r["description"] else ""
+        full += [f"<!-- {r['path']} · {r['trust']}{desc} -->", "", body, ""]
+    (DOCS / "llms-full.txt").write_text("\n".join(full).rstrip() + "\n", encoding="utf-8", newline="\n")
     return len(rows)
 
 
@@ -494,8 +527,8 @@ def sections(body: str) -> list[dict]:
     return out
 
 
-def section_of(body: str, line: int) -> str | None:
-    return next((s["slug"] for s in sections(body) if s["start"] <= line < s["end"]), None)
+def section_of(body: str, line: int, secs: list[dict] | None = None) -> str | None:
+    return next((s["slug"] for s in (secs if secs is not None else sections(body)) if s["start"] <= line < s["end"]), None)
 
 
 def tldr(body: str) -> str:
@@ -520,8 +553,14 @@ def section_text(body: str, key: str) -> tuple[dict, str] | None:
     return s, "\n".join(body.splitlines()[s["start"]:s["end"]]).strip()
 
 
+STOPWORDS = set("how are is was the an what which who does do did of to in on at for and or with by from it this that "
+                "can should when where why be".split()) | set("que qué como cómo el la los las de del en es un una y o "
+                                                            "por para con se lo al cuál cual quién quien dónde donde".split())
+
+
 def search(query: str, limit: int = 20) -> list[dict]:
-    terms = list(dict.fromkeys(t for t in re.findall(r"\w+", query.lower()) if len(t) > 1))
+    words = list(dict.fromkeys(t for t in re.findall(r"\w+", query.lower()) if len(t) > 1))
+    terms = [w for w in words if w not in STOPWORDS] or words
     if not terms:
         return []
     pages = []
@@ -545,8 +584,10 @@ def search(query: str, limit: int = 20) -> list[dict]:
         if score:
             lines = body.splitlines()
             at = [i for i, l in enumerate(lines) if any(t in l.lower() for t in terms)]
+            secs = sections(body)
+            per = Counter(s for i in at if (s := section_of(body, i, secs)))
             hits.append({"path": logical, "title": title, "trust": trust, "score": round(score, 2),
-                         "section": section_of(body, at[0]) if at else None,
+                         "section": per.most_common(1)[0][0] if per else None,
                          "lines": [lines[i].strip()[:240] for i in at[:3]]})
     hits.sort(key=lambda h: -h["score"])
     return hits[:limit]

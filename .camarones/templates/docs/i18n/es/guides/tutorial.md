@@ -101,7 +101,7 @@ página; la pestaña **Revisión** lista lo pendiente) o en el asistente con **�
 
 **Frescura.** Cuando se escribe una página, se guarda una huella del código que cita (`x-sources`). Si ese código cambia,
 la página queda **sospechosa**; si desaparece, **obsoleta** (el código que solo se movió no cuenta). Los agentes no
-reciben páginas sospechosas ni obsoletas, ni páginas sin fuentes que nadie ha revisado: el MCP y `llms.txt` las retienen
+reciben páginas sospechosas ni obsoletas, ni páginas sin fuentes que nadie ha revisado: el MCP, `llms.txt` y `llms-full.txt` las retienen
 y les indican el código. Las personas las siguen viendo, con un aviso. `camaron fresh` las lista, `fresh --plan` añade
 una unidad para actualizarlas y `fresh --ack <página> --by <nombre>` dice que una sigue siendo válida. Con
 `freshness: {ai_policy: warn}` en `workspace.yaml` se entregan con una advertencia en lugar de retenerlas.
@@ -171,7 +171,7 @@ imagen que publicó el CI: `docker run -d -p 8080:80 <registry>/<grupo>/cam-docs
   `review-fixes` que la IA aplica en la siguiente sesión.
 - Con el idioma en español, **Editar** edita la traducción (`docs/i18n/es/…`).
 - Editar una página ✅ la pasa a **⚠️ pendiente de reconfirmar** hasta que alguien la vuelva a mirar.
-- No edites a mano lo generado (`llms.txt`, `docs/.status.json`, los visores). Las wikis mejor regenerarlas desde la pestaña
+- No edites a mano lo generado (`llms.txt`, `llms-full.txt`, `docs/.status.json`, los visores). Las wikis mejor regenerarlas desde la pestaña
   **Wikis**: una actualización de OpenWiki puede reescribir lo que cambies.
 
 ## 7. OpenWiki: una wiki por repo

@@ -68,7 +68,7 @@ On top there is only what you use every day, and the cursor already points at th
         +-----------------------------+      you only need ONE of them
 ```
 
-Claude Code (Anthropic) and Codex (OpenAI) are agents that work in your terminal: they read code, run commands and write files. Camarones gives them the instructions for each unit (PLAYBOOK) and the format rules (CONVENTIONS). One of them is enough. With none, you can copy the prompt and paste it anywhere. OpenCode (the way to local models, such as Qwen on Ollama) and Gemini CLI work too; `camaron doctor --local` proposes a local model that fits your computer's memory. Later, when you implement features, the AI looks the docs up through the “camarones” MCP server (search, read a page or just the section it needs, repo graph).
+Claude Code (Anthropic) and Codex (OpenAI) are agents that work in your terminal: they read code, run commands and write files. Camarones gives them the instructions for each unit (PLAYBOOK) and the format rules (CONVENTIONS). One of them is enough. With none, you can copy the prompt and paste it anywhere. OpenCode (the way to local models, such as Qwen on Ollama) and Gemini CLI work too; `camaron doctor --local` proposes a local model that fits your computer's memory. Later, when you implement features, the AI looks the docs up through the “camarones” MCP server (ask with citations, search, read a page or just the section it needs, repo graph).
 
 ### 5. 📖 OpenWiki: each repo's wiki
 
@@ -188,7 +188,7 @@ The 🦐 portal brings the docs (with search, editing and review), the C4 explor
                                 confirmed pages silently
 ```
 
-In the local portal, “Edit” opens the markdown with a live preview; saving writes to cam-docs/docs and, with “commit to cam-docs” ticked, makes a local commit (sharing it with git push is up to you). “+ New page” creates a page of your own and “Confirm” signs with your git user name. With Spanish selected you edit the translation. The deployed portal doesn't edit: it's a snapshot of the last export; its “Edit” button takes you to the file in GitLab/GitHub (when cam-docs has a remote), the change goes in as a merge request and CI publishes it again. Editing a ✅ page turns it ⚠️ until someone checks it. Don't hand-edit generated files (llms.txt, .status.json, viewers); wikis are better regenerated from the Wikis tab, since an update can rewrite what you change.
+In the local portal, “Edit” opens the markdown with a live preview; saving writes to cam-docs/docs and, with “commit to cam-docs” ticked, makes a local commit (sharing it with git push is up to you). “+ New page” creates a page of your own and “Confirm” signs with your git user name. With Spanish selected you edit the translation. The deployed portal doesn't edit: it's a snapshot of the last export; its “Edit” button takes you to the file in GitLab/GitHub (when cam-docs has a remote), the change goes in as a merge request and CI publishes it again. Editing a ✅ page turns it ⚠️ until someone checks it. Don't hand-edit generated files (llms.txt, llms-full.txt, .status.json, viewers); wikis are better regenerated from the Wikis tab, since an update can rewrite what you change.
 
 ### 13. 🔑 GitLab / GitHub tokens
 
@@ -312,7 +312,7 @@ Arriba está solo lo que usas cada día, y el cursor ya apunta a lo recomendado 
         +-----------------------------+      solo necesitas UNO de los dos
 ```
 
-Claude Code (Anthropic) y Codex (OpenAI) son agentes que trabajan en tu terminal: leen el código, ejecutan comandos y escriben ficheros. Camarones les prepara las instrucciones de cada unidad (PLAYBOOK) y las reglas de formato (CONVENTIONS). Con tener uno instalado basta. Si no tienes ninguno, puedes copiar el prompt y pegarlo donde quieras. También sirven OpenCode (la vía para modelos locales, como Qwen con Ollama) y Gemini CLI; `camaron doctor --local` te propone un modelo local según la memoria de tu equipo. Cuando luego implementéis features, la IA consulta la documentación con el servidor MCP «camarones» (buscar, leer una página o solo la sección que hace falta, grafo del repo).
+Claude Code (Anthropic) y Codex (OpenAI) son agentes que trabajan en tu terminal: leen el código, ejecutan comandos y escriben ficheros. Camarones les prepara las instrucciones de cada unidad (PLAYBOOK) y las reglas de formato (CONVENTIONS). Con tener uno instalado basta. Si no tienes ninguno, puedes copiar el prompt y pegarlo donde quieras. También sirven OpenCode (la vía para modelos locales, como Qwen con Ollama) y Gemini CLI; `camaron doctor --local` te propone un modelo local según la memoria de tu equipo. Cuando luego implementéis features, la IA consulta la documentación con el servidor MCP «camarones» (preguntar con citas, buscar, leer una página o solo la sección que hace falta, grafo del repo).
 
 ### 5. 📖 OpenWiki: la wiki de cada repo
 
@@ -432,7 +432,7 @@ El portal 🦐 junta en una sola web la documentación (con buscador, edición y
                                 confirmado sin avisar
 ```
 
-En el portal local, «Editar» abre el markdown con vista previa; al guardar se escribe en cam-docs/docs y, si marcas «commit en cam-docs», se hace un commit local (compartirlo con git push es cosa tuya). «+ Nueva página» crea una página tuya y «Confirmar» firma con tu usuario de git. Con el idioma en español editas la traducción. El portal desplegado no edita: es una foto de la última exportación; su botón «Editar» te lleva al fichero en GitLab/GitHub (si cam-docs tiene remote) y el cambio entra por merge request, y el CI vuelve a publicar. Editar una página ✅ la pasa a ⚠️ hasta que alguien la mire. No edites a mano lo generado (llms.txt, .status.json, visores): las wikis mejor regenerarlas desde la pestaña Wikis, porque una actualización puede reescribir lo que cambies.
+En el portal local, «Editar» abre el markdown con vista previa; al guardar se escribe en cam-docs/docs y, si marcas «commit en cam-docs», se hace un commit local (compartirlo con git push es cosa tuya). «+ Nueva página» crea una página tuya y «Confirmar» firma con tu usuario de git. Con el idioma en español editas la traducción. El portal desplegado no edita: es una foto de la última exportación; su botón «Editar» te lleva al fichero en GitLab/GitHub (si cam-docs tiene remote) y el cambio entra por merge request, y el CI vuelve a publicar. Editar una página ✅ la pasa a ⚠️ hasta que alguien la mire. No edites a mano lo generado (llms.txt, llms-full.txt, .status.json, visores): las wikis mejor regenerarlas desde la pestaña Wikis, porque una actualización puede reescribir lo que cambies.
 
 ### 13. 🔑 Tokens de GitLab / GitHub
 
