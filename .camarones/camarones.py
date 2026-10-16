@@ -663,8 +663,8 @@ def cmd_ab(a) -> int:
         if w.get(k) is not None or wo.get(k) is not None:
             print(f"{k:<14}{'-' if w.get(k) is None else w[k]:>16}{'-' if wo.get(k) is None else wo[k]:>14}")
     if r["tokens_saved_pct"] is not None:
-        print(f"cam-docs used {r['tokens_saved_pct']}% fewer input tokens" if r["tokens_saved_pct"] >= 0 else
-              f"cam-docs used {-r['tokens_saved_pct']}% more input tokens")
+        print(f"cam-docs read {r['tokens_saved_pct']}% less context (input + cached tokens)" if r["tokens_saved_pct"] >= 0
+              else f"cam-docs read {-r['tokens_saved_pct']}% more context (input + cached tokens)")
     return 0
 
 
@@ -693,7 +693,8 @@ def cmd_kpis(a) -> int:
     print("Cost and speed (all runs of the team, per month)")
     for m in r["runs"]:
         print(f"  {m['month']}  {m['runs']} runs  {m['done']}/{m['units']} units done  {m['limited']} limited  "
-              f"{m['failed']} failed  {m['hours']} h  {m['tokens_in']} in / {m['tokens_out']} out  ${m['cost_usd']:.2f}"
+              f"{m['failed']} failed  {m['hours']} h  {m['tokens_in'] + m['tokens_cache']} in (cached included) / "
+              f"{m['tokens_out']} out  ${m['cost_usd']:.2f}"
               + (f"  ${m['cost_per_unit']:.2f}/unit" if m["cost_per_unit"] is not None else "")
               + (f"  ×{m['parallelism']} parallel" if m["parallelism"] else ""))
     c = r["coverage"]

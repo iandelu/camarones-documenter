@@ -212,7 +212,8 @@ un modelo). `kpis` muestra la última nota.
 
 **¿Ayuda cam-docs?** `camaron ab --qa "<pregunta>"` hace la misma pregunta dos veces: con la documentación, y solo con el
 código, en una carpeta temporal fuera del proyecto que enlaza los repos y nada más (sin `cam-docs/`, sin `AGENTS.md`, sin
-MCP). Compara tokens, tiempo, herramientas usadas y los identificadores exactos que nombra cada respuesta; `--golden` lo
+MCP). Compara el contexto leído (tokens de entrada más los de caché), tiempo, coste, herramientas usadas y los
+identificadores exactos que nombra cada respuesta; `--golden` lo
 hace con las preguntas de oro. Los repos no se tocan. `ab: {enabled: false}` en `workspace.yaml` lo desactiva.
 
 **Qué agente hace cada trabajo.** Cada tipo de trabajo tiene una lista ordenada y lo hace el primer agente instalado:

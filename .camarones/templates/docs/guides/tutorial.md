@@ -203,7 +203,8 @@ pages and identifiers, without AI (`--judge` adds a model's grade). `kpis` shows
 
 **Does cam-docs help?** `camaron ab --qa "<question>"` asks the same question twice: through the docs, and with only
 the code, in a temporary folder outside the project that links the repos and nothing else (no `cam-docs/`, no
-`AGENTS.md`, no MCP). It compares tokens, time, tool calls and the exact identifiers each answer names; `--golden`
+`AGENTS.md`, no MCP). It compares the context read (input plus cached tokens), time, cost, tool calls and the exact
+identifiers each answer names; `--golden`
 does it for the golden questions. The repos are never touched. `ab: {enabled: false}` in `workspace.yaml` turns it off.
 
 **Which agent runs what.** Each kind of work has an ordered list and the first installed agent runs it:

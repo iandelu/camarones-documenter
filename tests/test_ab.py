@@ -27,7 +27,7 @@ def fake_ask(kit, monkeypatch):
         seen.append({"docs": docs, "cwd": req.cwd, "stream": req.stream, "tools": req.allow_tools, "prompt": req.prompt})
         answer = {"answer": "POST /refunds" if docs else "some endpoint", "cited": ["flows/refund.md"] if docs else []}
         return {"lines": [json.dumps(answer)], "seconds": 10.0 if docs else 40.0, "rc": 0,
-                "tokens_in": 1000 if docs else 9000, "tokens_out": 100 if docs else 300,
+                "tokens_in": 1000 if docs else 9000, "tokens_cache": 0, "tokens_out": 100 if docs else 300,
                 "cost_usd": 0.1 if docs else 0.5, "tool_calls": 2 if docs else 14}
     monkeypatch.setattr(evals, "_ask", ask)
     return seen
@@ -106,3 +106,17 @@ def test_the_ab_command_needs_a_question(kit):
     r = subprocess.run([sys.executable, str(kit.kit_dir / "camarones.py"), "ab"], env=env, capture_output=True, text=True,
                        encoding="utf-8")
     assert r.returncode == 2 and "--qa" in r.stderr
+
+
+def test_cached_context_counts_in_the_saving(kit, ab, monkeypatch):
+    """Claude reports input_tokens without the cache: the comparison must use the whole context it read."""
+    from lib.harness import evals
+
+    def ask(target, req):
+        docs = any("camarones" in x for x in req.allow_tools or ())
+        return {"lines": ['{"answer": "x", "cited": []}'], "seconds": 1.0, "rc": 0, "tokens_in": 8 if docs else 10,
+                "tokens_cache": 20000 if docs else 60000, "tokens_out": 1, "cost_usd": 0.1, "tool_calls": 1}
+    monkeypatch.setattr(evals, "_ask", ask)
+    r = ab.run([{"id": "q", "q": "?"}], "claude", echo=lambda _: None)
+    assert r["totals"]["with"]["tokens_cache"] == 20000
+    assert r["tokens_saved_pct"] == pytest.approx(100 * (60010 - 20008) / 60010, abs=0.1)

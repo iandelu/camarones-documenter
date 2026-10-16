@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.23.0-ff875f?style=flat-square" alt="Versión 3.23.0">
+  <img src="https://img.shields.io/badge/version-3.24.0-ff875f?style=flat-square" alt="Versión 3.24.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -436,7 +436,7 @@ Cada máquina acumula sus ejecuciones en `docs/.work/kpis/` (se commitea y `shar
 - `camaron eval confirm <id> --by <nombre>` las aprueba; solo cuentan las confirmadas.
 - `camaron eval run` se las pregunta a un agente que solo puede leer la documentación (las herramientas MCP de `camarones`, sin editar nada) y puntúa sin IA: páginas citadas e identificadores mencionados. `--judge` añade la nota de un modelo, que también puede ser local.
 
-**¿Ayuda cam-docs?** `camaron ab --qa "¿cómo se procesa un reembolso?"` hace la misma pregunta dos veces. La primera, con la documentación; la segunda, solo con el código, en una carpeta temporal fuera del proyecto que enlaza los repos y nada más (sin `cam-docs`, sin `AGENTS.md` y sin MCP). Compara los tokens, el tiempo, las herramientas usadas y los identificadores exactos que nombra cada respuesta. `camaron ab --golden` hace lo mismo con las preguntas de oro. Los repos no se tocan y el resultado queda para el equipo; `kpis` muestra la última comparación. Si el equipo no quiere que se use, `ab: {enabled: false}` en `workspace.yaml` lo desactiva.
+**¿Ayuda cam-docs?** `camaron ab --qa "¿cómo se procesa un reembolso?"` hace la misma pregunta dos veces. La primera, con la documentación; la segunda, solo con el código, en una carpeta temporal fuera del proyecto que enlaza los repos y nada más (sin `cam-docs`, sin `AGENTS.md` y sin MCP). Compara el contexto leído (tokens de entrada más los que pasan por la caché, porque Claude no cuenta estos últimos como entrada), el tiempo, el coste, las herramientas usadas y los identificadores exactos que nombra cada respuesta. En el sandbox de PetClinic, una pregunta sobre puertos y URL se respondió leyendo un 55 % menos de contexto, en 18 s frente a 52 s y con 4 herramientas frente a 11; el coste fue parecido. `camaron ab --golden` hace lo mismo con las preguntas de oro. Los repos no se tocan y el resultado queda para el equipo; `kpis` muestra la última comparación. Si el equipo no quiere que se use, `ab: {enabled: false}` en `workspace.yaml` lo desactiva.
 
 El resultado de las preguntas de oro se guarda para el equipo y `kpis` muestra la última nota. El kit trae su propio examen para el sandbox de PetClinic (`scripts/evals/petclinic.yaml`, `uv run pytest -m eval`).
 

@@ -16,7 +16,7 @@ from .ports import RunRequest
 
 RESULTS = WORK / "evals" / "ab"
 CODE_TOOLS = ("Read", "Glob", "Grep")
-METRICS = ("seconds", "tokens_in", "tokens_out", "cost_usd", "tool_calls", "mentions", "judge")
+METRICS = ("seconds", "tokens_in", "tokens_cache", "tokens_out", "cost_usd", "tool_calls", "mentions", "judge")
 
 
 def enabled() -> bool:
@@ -66,7 +66,8 @@ def _variant(q: dict, target: str, req: RunRequest, judge: str | None) -> dict:
     got = evals._ask(target, req)
     answer, cited = evals.extract(got["lines"])
     mentions = evals.score({"mention": q.get("mention")}, answer, [])["mentions"] if q.get("mention") else None
-    return {**{k: got[k] for k in ("seconds", "tokens_in", "tokens_out", "cost_usd", "tool_calls", "rc")},
+    return {**{k: got.get(k, 0) for k in ("seconds", "tokens_in", "tokens_cache", "tokens_out", "cost_usd", "tool_calls",
+                                          "rc")},
             "mentions": mentions, "judge": evals._grade(q, answer, judge) if judge else None,
             "answer": answer[:2000], "cited": cited}
 
@@ -88,15 +89,17 @@ def run(questions: list[dict], target: str, judge: str | None = None, echo=print
         with control_workspace() as tmp:
             without = _variant(q, target, control_request(q["q"], tmp), judge)
         rows.append({"id": q.get("id"), "q": q["q"], "with": with_docs, "without": without})
-        echo(f"  with cam-docs: {with_docs['tokens_in']} tokens in, {with_docs['seconds']}s · "
-             f"without: {without['tokens_in']} tokens in, {without['seconds']}s")
+        echo(f"  with cam-docs: {with_docs['tokens_in'] + with_docs['tokens_cache']} context tokens, "
+             f"{with_docs['seconds']}s · without: {without['tokens_in'] + without['tokens_cache']} context tokens, "
+             f"{without['seconds']}s")
     totals = {side: {k: _total(rows, side, k) for k in METRICS} for side in ("with", "without")}
     delta = {k: round(totals["with"][k] - totals["without"][k], 4) for k in METRICS
              if totals["with"][k] is not None and totals["without"][k] is not None}
-    base = totals["without"]["tokens_in"]
+    context = {s: (totals[s]["tokens_in"] or 0) + (totals[s]["tokens_cache"] or 0) for s in ("with", "without")}
+    base = context["without"]           # the whole context read, cached or not: what the docs should save
     result = {"at": dt.datetime.now().replace(microsecond=0).isoformat(), "runner": target, "judge_runner": judge,
               "questions": rows, "totals": totals, "delta": delta,
-              "tokens_saved_pct": round(100 * (base - totals["with"]["tokens_in"]) / base, 1) if base else None}
+              "tokens_saved_pct": round(100 * (base - context["with"]) / base, 1) if base else None}
     RESULTS.mkdir(parents=True, exist_ok=True)
     save_json(RESULTS / f"{result['at'].replace(':', '').replace('-', '')}.json", result)
     return result
