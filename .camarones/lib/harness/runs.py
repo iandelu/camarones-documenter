@@ -37,6 +37,7 @@ def summary(run_id: str) -> dict:
             "limited": sum(1 for e in finished if e.get("outcome") == "limited"),
             "failed": sum(1 for e in finished if e.get("outcome") not in ("ok", "limited")),
             "tokens_in": sum(e.get("in", 0) for e in usage), "tokens_out": sum(e.get("out", 0) for e in usage),
+            "tokens_cache": sum(e.get("cache_read", 0) + e.get("cache_write", 0) for e in usage),
             "cost_usd": round(sum(e.get("cost_usd", 0) or 0 for e in usage), 6)}
 
 
@@ -47,12 +48,14 @@ def detail(run_id: str) -> dict:
         uid = e.get("unit")
         if e["type"] == "unit.started":
             open_[uid] = {"unit": uid, "runner": e.get("runner"), "isolation": e.get("isolation"), "outcome": None,
-                          "status": None, "seconds": None, "merge": None, "tokens_in": 0, "tokens_out": 0,
+                          "status": None, "seconds": None, "merge": None, "tokens_in": 0, "tokens_cache": 0,
+                          "tokens_out": 0,
                           "cost_usd": 0.0}
             rows.append(open_[uid])
         elif e["type"] == "usage" and uid in open_:
             r = open_[uid]
             r["tokens_in"] += e.get("in", 0)
+            r["tokens_cache"] += e.get("cache_read", 0) + e.get("cache_write", 0)
             r["tokens_out"] += e.get("out", 0)
             r["cost_usd"] = round(r["cost_usd"] + (e.get("cost_usd") or 0), 6)
         elif e["type"] == "unit.finished" and uid in open_:

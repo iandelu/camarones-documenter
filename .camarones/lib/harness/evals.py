@@ -137,14 +137,15 @@ def _ask(target: str, req: RunRequest) -> dict:
         out, rc = r.stdout or "", r.returncode
     except (OSError, subprocess.TimeoutExpired) as e:
         out, rc = str(e), 124
-    got = {"lines": [], "seconds": round(time.monotonic() - start, 1), "rc": rc, "tokens_in": 0, "tokens_out": 0,
-           "cost_usd": 0.0, "tool_calls": 0}
+    got = {"lines": [], "seconds": round(time.monotonic() - start, 1), "rc": rc, "tokens_in": 0, "tokens_cache": 0,
+           "tokens_out": 0, "cost_usd": 0.0, "tool_calls": 0}
     for raw in out.splitlines():
         for ev in runner.parse(raw):
             if ev["type"] in ("log", "result", "error") and ev.get("text"):
                 got["lines"] += str(ev["text"]).splitlines()
             elif ev["type"] == "usage":
                 got["tokens_in"] += ev.get("in", 0)
+                got["tokens_cache"] += ev.get("cache_read", 0) + ev.get("cache_write", 0)   # Claude's input excludes it
                 got["tokens_out"] += ev.get("out", 0)
                 got["cost_usd"] = round(got["cost_usd"] + (ev.get("cost_usd") or 0), 6)
             elif ev["type"] == "tool.call":
@@ -175,7 +176,8 @@ def run(target: str, judge: str | None = None, include_drafts: bool = False, ech
         answer, cited = extract(got["lines"])
         s = score(q, answer, cited)
         row = {"id": q["id"], **s, "cited": cited, "answer": answer[:2000],
-               **{k: got[k] for k in ("seconds", "rc", "tokens_in", "tokens_out", "cost_usd", "tool_calls")}}
+               **{k: got.get(k, 0) for k in ("seconds", "rc", "tokens_in", "tokens_cache", "tokens_out", "cost_usd",
+                                              "tool_calls")}}
         if judge_target:
             row["judge"] = grade(q, answer, judge_target)
         rows.append(row)

@@ -12,7 +12,7 @@ from . import runs
 
 DIR = WORK / "kpis"
 KEEP = 500                     # runs kept per machine file
-NUMERIC = ("units", "done", "limited", "failed", "seconds", "tokens_in", "tokens_out", "cost_usd", "parallelism",
+NUMERIC = ("units", "done", "limited", "failed", "seconds", "tokens_in", "tokens_cache", "tokens_out", "cost_usd", "parallelism",
            "cost_per_unit", "seconds_per_unit")
 
 
@@ -98,6 +98,7 @@ def report(months: int = 3, today: date | None = None, run_check: bool = True) -
                      "limited": sum(r.get("limited", 0) for r in rs), "failed": sum(r.get("failed", 0) for r in rs),
                      "hours": round(sum(r.get("seconds", 0) for r in rs) / 3600, 2),
                      "tokens_in": sum(r.get("tokens_in", 0) for r in rs),
+                     "tokens_cache": sum(r.get("tokens_cache", 0) for r in rs),
                      "tokens_out": sum(r.get("tokens_out", 0) for r in rs), "cost_usd": cost,
                      "cost_per_unit": round(cost / done, 4) if done else None,
                      "parallelism": round(sum(par) / len(par), 2) if par else None})
