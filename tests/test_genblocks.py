@@ -193,3 +193,11 @@ def test_the_wizard_stack_step_writes_the_reference_pages(kit, gb):
     kit.wizard.scan_repos(log=lambda _: None)
     assert (kit.root / "docs" / "repos" / "web" / "reference.md").exists()
     assert (kit.root / "docs" / "overview" / "tooling.md").exists()
+
+
+def test_a_page_that_only_quotes_the_marker_syntax_is_not_reported(kit, gb):
+    f = kit.root / "docs" / "guides" / "how.md"
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text("---\ntitle: how\nx-owner: human\n---\n# How\n\nUse `<!-- generated:<kind> repo=<repo> -->`.\n",
+                 encoding="utf-8")
+    assert gb.refresh()["human"] == []

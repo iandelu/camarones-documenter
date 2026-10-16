@@ -260,7 +260,7 @@ def refresh(force: bool = False) -> dict:
     scan, out = Scanner(), {"updated": [], "edited": [], "human": []}
     for row, f in _pages():
         text = f.read_text(encoding="utf-8")
-        if "<!-- generated:" not in text:
+        if not BLOCK_RE.search(text):
             continue
         if row.get("owner") == "human":
             out["human"].append(rel_file(f))

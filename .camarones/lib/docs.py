@@ -445,6 +445,81 @@ def check(strict: bool = False, secrets_only: bool = False) -> tuple[list[str], 
 
 
 # ---------- search (portal + MCP): BM25 over body tokens, prefix-matched (pedido → pedidos) ----------
+COMMENT_RE = re.compile(r"<!--.*?-->", re.S)
+HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*#*\s*$")
+TLDR_RE = re.compile(r"^>\s*\*\*TL;DR:?\*\*", re.I)
+
+
+def heading_text(md: str) -> str:
+    """What a reader sees of a Markdown heading (the portal slugs its textContent)."""
+    md = re.sub(r"<!--.*?-->", "", md)
+    md = re.sub(r"!?\[([^\]]*)\]\([^)]*\)", r"\1", md)
+    return re.sub(r"[`*]|(?<!\w)_|_(?!\w)", "", md).strip()
+
+
+def slug(heading: str) -> str:
+    """Mirror of the portal's slugify (portal/live/doc.js): lower case, letters/digits/space/_/- kept, spaces → -."""
+    return re.sub(r"\s+", "-", re.sub(r"[^\w\s-]", "", heading_text(heading).lower().strip()))
+
+
+def headings(body: str) -> list[dict]:
+    """Every heading outside code: {level, title, slug, line}; a repeated slug gets -1, -2… like the portal."""
+    out, seen, fence = [], {}, None
+    for i, line in enumerate(body.splitlines()):
+        if re.match(r"^\s*(```|~~~)", line):
+            fence = None if fence else True
+            continue
+        m = None if fence else HEADING_RE.match(line)
+        if not m:
+            continue
+        s = slug(m.group(2)) or "section"
+        if s in seen:
+            seen[s] += 1
+            s = f"{s}-{seen[s]}"
+        else:
+            seen[s] = 0
+        out.append({"level": len(m.group(1)), "title": heading_text(m.group(2)), "slug": s, "line": i})
+    return out
+
+
+def sections(body: str) -> list[dict]:
+    """The page's H2 sections: {title, slug, start, end} as line ranges (a section runs to the next H1/H2)."""
+    hs = headings(body)
+    n = len(body.splitlines())
+    h2 = [h for h in hs if h["level"] == 2]
+    out = []
+    for h in h2:
+        end = next((x["line"] for x in hs if x["line"] > h["line"] and x["level"] <= 2), n)
+        out.append({"title": h["title"], "slug": h["slug"], "start": h["line"], "end": end})
+    return out
+
+
+def section_of(body: str, line: int) -> str | None:
+    return next((s["slug"] for s in sections(body) if s["start"] <= line < s["end"]), None)
+
+
+def tldr(body: str) -> str:
+    lines = body.splitlines()
+    i = next((i for i, l in enumerate(lines) if TLDR_RE.match(l.strip())), None)
+    if i is None:
+        return ""
+    out = []
+    for l in lines[i:]:
+        if not l.strip().startswith(">"):
+            break
+        out.append(l)
+    return "\n".join(out)
+
+
+def section_text(body: str, key: str) -> tuple[dict, str] | None:
+    """The section whose slug or title is `key`, with its text (heading included)."""
+    k = key.strip().lstrip("#").lower()
+    s = next((s for s in sections(body) if s["slug"] == k or s["title"].lower() == k or s["slug"] == slug(key)), None)
+    if not s:
+        return None
+    return s, "\n".join(body.splitlines()[s["start"]:s["end"]]).strip()
+
+
 def search(query: str, limit: int = 20) -> list[dict]:
     terms = list(dict.fromkeys(t for t in re.findall(r"\w+", query.lower()) if len(t) > 1))
     if not terms:
@@ -452,21 +527,27 @@ def search(query: str, limit: int = 20) -> list[dict]:
     pages = []
     for logical, f in iter_docs():
         fm, body = split_fm(f.read_text(encoding="utf-8", errors="replace"))
+        trust = trust_of(fm, body_sha(body))
+        body = COMMENT_RE.sub(lambda m: "\n" * m.group().count("\n"), body)     # markers are not content
         toks = Counter(re.findall(r"\w+", body.lower()))
         tf = {t: sum(c for w, c in toks.items() if w.startswith(t)) for t in terms}
         title = fm.get("title") or first_heading(body) or f.stem
-        pages.append((logical, fm, body, sum(toks.values()), tf, str(title)))
+        meta = " ".join([str(title), str(fm.get("description") or ""), *map(str, fm.get("x-answers") or [])]).lower()
+        pages.append((logical, trust, body, sum(toks.values()), tf, str(title), meta))
     if not pages:
         return []
     n, avg = len(pages), max(1.0, sum(p[3] for p in pages) / len(pages))
     idf = {t: math.log(1 + (n - (df := sum(1 for p in pages if p[4][t])) + 0.5) / (df + 0.5)) for t in terms}
     k1, b, hits = 1.2, 0.75, []
-    for logical, fm, body, length, tf, title in pages:
+    for logical, trust, body, length, tf, title, meta in pages:
         score = sum(idf[t] * tf[t] * (k1 + 1) / (tf[t] + k1 * (1 - b + b * length / avg)) for t in terms)
-        score += sum(2 * idf[t] for t in terms if t in title.lower() or t in logical.lower())
+        score += sum(2 * idf[t] for t in terms if t in meta or t in logical.lower())
         if score:
-            hits.append({"path": logical, "title": title, "trust": trust_of(fm, body_sha(body)), "score": round(score, 2),
-                         "lines": [l.strip()[:240] for l in body.splitlines() if any(t in l.lower() for t in terms)][:3]})
+            lines = body.splitlines()
+            at = [i for i, l in enumerate(lines) if any(t in l.lower() for t in terms)]
+            hits.append({"path": logical, "title": title, "trust": trust, "score": round(score, 2),
+                         "section": section_of(body, at[0]) if at else None,
+                         "lines": [lines[i].strip()[:240] for i in at[:3]]})
     hits.sort(key=lambda h: -h["score"])
     return hits[:limit]
 

@@ -5,7 +5,8 @@ description: Look up {{PROJECT_NAME}}'s documentation and code graph before impl
 
 # Look up the project docs
 
-1. Search first: MCP tool `search_docs` (server `camarones`) with the feature's key terms; open hits with `read_doc`.
+1. Search first: MCP tool `search_docs` (server `camarones`) with the feature's key terms. Each hit names the section
+   that matched: read just that one with `read_doc(path, section)` (TL;DR + section), the whole page only if needed.
    Without MCP: read `{{CAM}}docs/llms.txt` (index with trust per page) and grep `{{CAM}}docs/`.
 2. Weigh trust: `confirmed` = verified by a human, the source of truth; `draft` = AI-written, verify against the code;
    `needs-reconfirm` = was confirmed, then edited.

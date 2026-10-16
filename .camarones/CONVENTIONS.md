@@ -171,7 +171,8 @@ then stamp it: `CLI translated <files>`. `CLI status` shows missing/outdated tra
 | Check | Severity | Needs |
 |---|---|---|
 | Missing frontmatter, orphan `x-sources` | ERROR | — |
-| Broken internal link (`.md` target, resolved like the portal does; external URLs and `#anchors` are not checked) | ERROR | — |
+| Broken internal link (`.md` target, resolved like the portal does; external URLs are not checked) | ERROR | — |
+| `#anchor` with no matching heading in the target page (slugs as in the portal: lower case, punctuation dropped, spaces → `-`) | WARN (ERROR with `--strict`) | — |
 | Invalid Mermaid diagram | ERROR | mermaid-cli (`quality` component) |
 | Possible secret in `docs/` or a wiki | ERROR; also blocks checkpoint commits and `CLI portal` | gitleaks (`quality` component) |
 | Glossary synonym to avoid | WARN (ERROR with `--strict`) | an Avoid column in the glossary |

@@ -79,7 +79,7 @@ PAGES = {
                  "prompt y pegarlo donde quieras. También sirven OpenCode (la vía para modelos locales, como Qwen con "
                  "Ollama) y Gemini CLI; `camaron doctor --local` te propone un modelo local según la memoria de tu "
                  "equipo. Cuando luego implementéis features, la IA consulta la documentación con el servidor MCP "
-                 "«camarones» (buscar, leer páginas, grafo del repo)."},
+                 "«camarones» (buscar, leer una página o solo la sección que hace falta, grafo del repo)."},
         {"icon": "📖", "title": "OpenWiki: la wiki de cada repo",
          "art": r"""
    cam-docs/wikis/repo-a/     <- la wiki vive aqui, versionada con el resto de la doc
@@ -346,8 +346,8 @@ PAGES = {
                  "rules (CONVENTIONS). One of them is enough. With none, you can copy the prompt and paste it anywhere. "
                  "OpenCode (the way to local models, such as Qwen on Ollama) and Gemini CLI work too; "
                  "`camaron doctor --local` proposes a local model that fits your computer's memory. Later, when you "
-                 "implement features, the AI looks the docs up through the “camarones” MCP server (search, read pages, "
-                 "repo graph)."},
+                 "implement features, the AI looks the docs up through the “camarones” MCP server (search, read a page "
+                 "or just the section it needs, repo graph)."},
         {"icon": "📖", "title": "OpenWiki: each repo's wiki",
          "art": r"""
    cam-docs/wikis/repo-a/     <- the wiki lives here, versioned with the rest of the docs

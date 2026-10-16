@@ -59,17 +59,32 @@ def resolve(base: str, href: str) -> str:
 
 # ---------- H1: internal links ----------
 def check_links(rows: list[dict], strict: bool = False) -> Issues:
-    known = {r["path"] for r in rows}
-    errors = []
-    for logical, f, _ in pages(rows):
+    """Broken page links are errors; a `#anchor` the target page has no heading for is a WARN (ERROR with --strict).
+    Anchors resolve like the portal: docs.slug() of the heading. Translations are skipped for anchors."""
+    known = {r["path"]: ROOT / r["file"] for r in rows}
+    slugs: dict[str, set[str]] = {}
+
+    def anchors(path: str) -> set[str]:
+        if path not in slugs:
+            body = docs.split_fm(known[path].read_text(encoding="utf-8", errors="replace"))[1]
+            slugs[path] = {h["slug"] for h in docs.headings(body)}
+        return slugs[path]
+    errors, warns = [], []
+    for logical, f, lang in pages(rows):
         for n, line in prose_lines(f.read_text(encoding="utf-8", errors="replace")):
             for href in LINK_RE.findall(line) + REF_DEF_RE.findall(line):
-                if re.match(r"^[a-z][a-z0-9+.-]*:|^#|^/", href, re.I):     # external, anchor-only, absolute: skipped
+                if re.match(r"^[a-z][a-z0-9+.-]*:|^/", href, re.I):          # external, absolute: skipped
                     continue
-                target = unquote(href.split("#", 1)[0].split("?", 1)[0])
-                if target.endswith(".md") and resolve(logical, target) not in known:
+                target, _, anchor = unquote(href.split("?", 1)[0]).partition("#")
+                if target and not target.endswith(".md"):
+                    continue
+                page = resolve(logical, target) if target else logical
+                if target and page not in known:
                     errors.append(f"{rel_file(f)}:{n}: broken link → {href}")
-    return errors, []
+                elif (anchor and anchor != "top" and not lang and page in known
+                      and docs.slug(anchor) not in anchors(page)):
+                    warns.append(f"{rel_file(f)}:{n}: no heading for #{anchor} in {page}")
+    return (errors + warns, []) if strict else (errors, warns)
 
 
 # ---------- G1: Mermaid diagrams ----------
