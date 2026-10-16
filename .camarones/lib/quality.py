@@ -393,5 +393,11 @@ def check_structure(rows: list[dict], strict: bool = False) -> Issues:
     return (issues, []) if strict else ([], issues)
 
 
+def check_generated(rows: list[dict], strict: bool = False) -> Issues:
+    """Generated blocks (X3) edited by hand or behind the code."""
+    from . import genblocks
+    return genblocks.check(rows, strict)
+
+
 CHECKS = (check_links, check_mermaid, check_secrets, check_terms, check_diagrams, check_fresh,
-          check_structure)
+          check_structure, check_generated)

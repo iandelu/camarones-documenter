@@ -123,6 +123,7 @@ translations it reports:
 | Mermaid diagram that doesn't render | ERROR | mermaid-cli |
 | Possible secret in `docs/` or a wiki (file and line only, never the value) | ERROR; also blocks checkpoint commits and `camaron portal` | gitleaks |
 | A word from the glossary's **Avoid** column | warning (ERROR with `--strict`) | an Avoid column in `docs/domain/glossary.md` |
+| Generated block edited by hand or behind the code (`camaron blocks`) | warning (ERROR with `--strict`) | — |
 | Page structure: TL;DR under the title, the sections of its skeleton in `.camarones/skeletons/`, size budget, vague references | warning (ERROR with `--strict`) | — |
 
 mermaid-cli and gitleaks come with the full install (the `quality` component; mermaid-cli downloads a headless Chromium
@@ -193,7 +194,14 @@ job token to clone each service repo (repo → Settings → CI/CD → Job token 
 `plan`, `plan next`, `status`, `check [--strict|--secrets]`, `confirm`, `feedback`, `checkpoint`, `graph`, `arch` (live C4 editor), `arch-validate`,
 `wiki <repo>`, `portal` (export), `up [--static|--docker]`, `down`, `ci`, `prompt <unit>`, `migrate`, `doctor`,
 `doctor --local` (proposes a free local model for this computer, installs nothing), `autopilot`, `plugins [--json]`,
-`run`, `runs`, `kpis`, `eval`, `ab`, `pipeline show|validate`.
+`run`, `runs`, `kpis`, `eval`, `ab`, `pipeline show|validate`, `blocks [--force]`.
+
+**Facts from the code, no AI.** `camaron blocks` writes `docs/repos/<repo>/reference.md` for each repo: commands
+(Maven, Gradle, `package.json`, Makefile, Docker Compose), env vars (Spring `${VAR:default}` placeholders,
+`.env.example`, Angular `environment.ts`; secret-looking defaults hidden), HTTP endpoints (OpenAPI, else Spring
+annotations) and message topics, each row with its file and line. They are `<!-- generated:<kind> repo=<repo> -->`
+blocks you can put in any page; `blocks` and `sync` refresh them. A block edited by hand is kept and `check` flags it;
+`blocks --force` takes the code's version.
 
 **Parallel runs.** `camaron run --parallel 3 --per-runner claude=2,codex=1` does several units at once. Discovery, repo
 briefs and flows each work in their own copy of `cam-docs/` (a git worktree in `.cw/<n>/`) and are merged back when

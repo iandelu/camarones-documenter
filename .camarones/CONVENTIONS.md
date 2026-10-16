@@ -141,6 +141,11 @@ purpose (1 line) · stack (language, framework, versions, build tool) · how to 
 (endpoints, listeners, topics) · data owned · component diagram (Mermaid from LikeC4) · where the rest is (`wikis/<repo>/`,
 `graph/<repo>/`, portal pages) · trust rule (section 3).
 
+Generated blocks hold facts read from the repos without AI: `<!-- generated:<kind> repo=<repo> -->` …
+`<!-- /generated:<kind> -->`, with `<kind>` one of `commands`, `env`, `endpoints`, `topics`. `docs/repos/<repo>/reference.md`
+is made of them (`CLI blocks`). Put the same markers in any page instead of copying those facts by hand; `CLI blocks` and
+`CLI sync` fill and refresh them. Never edit inside a block: fix the source in the repo. A hand edit is kept and flagged.
+
 Managed blocks (`<!-- camarones:start -->` / `<!-- camarones:end -->` in `AGENTS.md`; `<!-- cam-docs:start -->` /
 `<!-- cam-docs:end -->` for the optional pointer in `<repo>/CLAUDE.md`) are rewritten by the kit only; everything outside
 the markers is left alone.
@@ -174,6 +179,7 @@ then stamp it: `CLI translated <files>`. `CLI status` shows missing/outdated tra
 | Missing / outdated translation | WARN | — |
 | Missing diagram (flow without a sequence, lifecycle told only in prose) | WARN (ERROR with `--strict`) | — |
 | Cited code changed or gone since the page was written (`CLI fresh`) | WARN (ERROR with `--strict`) | — |
+| Generated block edited by hand or behind the code (`CLI blocks`) | WARN (ERROR with `--strict`) | — |
 | Page structure (section 11): type, title, description, one H1, TL;DR, skeleton sections, budgets, vague references | WARN (ERROR with `--strict`) | — |
 
 A check whose tool is missing prints one WARN and is skipped. `CLI check --secrets` runs only the secret scan (CI gate).

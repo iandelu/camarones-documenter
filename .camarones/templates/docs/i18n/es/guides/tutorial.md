@@ -128,6 +128,7 @@ la confianza y las traducciones, revisa:
 | Diagrama Mermaid que no se dibuja | ERROR | mermaid-cli |
 | Posible secreto en `docs/` o en una wiki (solo fichero y línea, nunca el valor) | ERROR; además bloquea los commits de checkpoint y `camaron portal` | gitleaks |
 | Una palabra de la columna **Avoid** del glosario | aviso (ERROR con `--strict`) | una columna Avoid en `docs/domain/glossary.md` |
+| Bloque generado editado a mano o desfasado respecto al código (`camaron blocks`) | aviso (ERROR con `--strict`) | — |
 | Estructura de la página: TL;DR bajo el título, las secciones de su plantilla en `.camarones/skeletons/`, tamaño máximo, referencias vagas | aviso (ERROR con `--strict`) | — |
 
 mermaid-cli y gitleaks vienen con la instalación completa (el componente `quality`; mermaid-cli descarga una vez un
@@ -201,7 +202,14 @@ permitir que el job token del proyecto `cam-docs` clone cada repo de servicio (r
 `detect`, `plan`, `plan next`, `status`, `check [--strict|--secrets]`, `confirm`, `feedback`, `checkpoint`, `graph`, `arch` (editor C4 en vivo),
 `arch-validate`, `wiki <repo>`, `portal` (exportación), `up [--static|--docker]`, `down`, `ci`, `prompt <unidad>`, `migrate`, `doctor`,
 `doctor --local` (propone un modelo local libre para este equipo, sin instalar nada), `autopilot`, `plugins [--json]`,
-`run`, `runs`, `kpis`, `eval`, `ab` y `pipeline show|validate`.
+`run`, `runs`, `kpis`, `eval`, `ab`, `pipeline show|validate` y `blocks [--force]`.
+
+**Datos del código, sin IA.** `camaron blocks` escribe `docs/repos/<repo>/reference.md` para cada repo: comandos
+(Maven, Gradle, `package.json`, Makefile, Docker Compose), variables de entorno (placeholders `${VAR:valor}` de Spring,
+`.env.example`, `environment.ts` de Angular; los valores que parecen secretos se ocultan), endpoints HTTP (OpenAPI o, si
+no hay, anotaciones de Spring) y topics de mensajería, cada fila con su fichero y línea. Son bloques
+`<!-- generated:<tipo> repo=<repo> -->` que puedes poner en cualquier página; `blocks` y `sync` los actualizan. Si
+alguien edita uno a mano, se conserva y `check` lo avisa; `blocks --force` toma la versión del código.
 
 **En paralelo.** `camaron run --parallel 3 --per-runner claude=2,codex=1` hace varias unidades a la vez. Los
 descubrimientos, las fichas de repo y los flujos trabajan cada uno en su propia copia de `cam-docs/` (un worktree de git

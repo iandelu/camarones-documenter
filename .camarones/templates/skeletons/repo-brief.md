@@ -19,11 +19,14 @@ x-sources:
 
 ## Build, test and run
 
-```sh
-<commands, and the folder they run in>
-```
+<!-- generated:commands repo=<repo> -->
+<!-- /generated:commands -->
+
+<Anything the generated table misses: profiles, seed data, how to reach a dependency.>
 
 ## Interfaces
+
+The full lists of endpoints, topics and env vars are in [<repo> reference](reference.md), generated from the code.
 
 | Kind | Name | Evidence |
 |---|---|---|
