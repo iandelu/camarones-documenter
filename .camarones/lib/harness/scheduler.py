@@ -197,6 +197,8 @@ def _loop(jobs, lang, max_parallel, per_runner, max_units, poll_seconds, include
                 if res.outcome in ("merged", "nothing"):
                     done += 1
                     log(f"{uid} merged into {CAM_DIR}/")
+                    if str(plan.get(plan.load(), uid).get("notes") or "").startswith("integrate:"):
+                        plan.set_status(uid, "done", f"merged into {CAM_DIR}/ by the kit", record=False)
                     fix = next((u for u in plan.load()["units"] if u["id"] == f"integrate:{uid}"), None)
                     if fix and fix["status"] not in ("done", "dropped"):
                         plan.set_status(fix["id"], "dropped", "merged by the kit, nothing left to resolve")

@@ -215,3 +215,5 @@ def test_a_unit_blocked_by_integration_is_retried_and_its_fix_unit_dropped(wired
     done, out = run(wired, max_parallel=1, per_runner={"fake": 1}, max_units=0)
     assert done == 1 and status(wired, "discovery:api") == "done" and not fake["entries"]()
     assert status(wired, "integrate:discovery:api") == "dropped"
+    note = next(u for u in wired.plan.load()["units"] if u["id"] == "discovery:api")["notes"]
+    assert not note.startswith("integrate:")                  # the block's reason does not outlive the block
