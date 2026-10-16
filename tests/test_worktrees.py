@@ -121,6 +121,8 @@ def test_a_worktree_session_is_told_where_to_write_and_not_to_checkpoint(wired, 
     assert "cam-docs/docs/.work/handoff.md" in text                     # the shared handoff, read from main
     assert "cam-docs/docs/.work/units/discovery__api.handoff.md" in text   # this unit's own handoff
     assert "`.cw/1/.camarones/PLAYBOOK.md`" in text
+    kit_cmd = f'run --quiet --script "{k.common.KIT / "camarones.py"}"'
+    assert kit_cmd in text and "`camaron plan" not in text          # this exact kit, not whatever is on PATH
 
 
 def test_the_main_session_prompt_is_unchanged(wired):

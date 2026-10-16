@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 
 from .. import docs, plan
 from ..common import CAM_DIR, CTX, cli_cmd
-from . import kpis, routing
+from . import awake, kpis, routing
 from .ctx import Ctx
 from .events import EventLog
 from .integrate import GATES, _kit, integrate
@@ -42,6 +42,25 @@ class Job:
     result: object = None
     error: str = ""
     started: float = field(default_factory=time.monotonic)
+
+
+def _closed_in_copy(uid: str, log) -> bool:
+    """A session that closed its unit in its worktree's copy of the plan (an older kit on PATH ignores the state
+    root): carry that status over to the real plan instead of losing the work."""
+    import yaml
+    w = Worktrees(CTX).get(uid)
+    copy = w.path / "docs" / ".work" / "plan.yaml" if w else None
+    try:
+        units = (yaml.safe_load(copy.read_text(encoding="utf-8")) or {}).get("units", []) if copy and copy.exists() else []
+    except yaml.YAMLError:
+        return False
+    u = next((u for u in units if u.get("id") == uid), None)
+    if not u or u.get("status") not in ("done", "blocked"):
+        return False
+    plan.set_status(uid, u["status"], u.get("notes") or None)
+    log(f"{uid}: closed in its worktree's copy of the plan — an older kit on PATH? Carried over to {CAM_DIR}/; "
+        "update the kit everywhere (`camaron self-update`)")
+    return True
 
 
 def _work(job: Job, lang: str, emit, echo) -> None:
@@ -76,8 +95,9 @@ def run_parallel(lang: str = "es", max_parallel: int = 2, per_runner: dict[str, 
     jobs: dict[str, Job] = {}
     emit("run.started", parallel=max_parallel, per_runner=per_runner or {}, max_units=max_units)
     try:
-        done = _loop(jobs, lang, max_parallel, per_runner or {}, max_units, poll_seconds, include_interviews, policy,
-                     gates, emit, echo, poll)
+        with awake.keep_awake():
+            done = _loop(jobs, lang, max_parallel, per_runner or {}, max_units, poll_seconds, include_interviews, policy,
+                         gates, emit, echo, poll)
     except BaseException:                       # Ctrl+C or a crash: stop the agents, and say the run ended
         for j in jobs.values():
             if j.proc is not None and j.proc.poll() is None:
@@ -101,6 +121,7 @@ def _loop(jobs, lang, max_parallel, per_runner, max_units, poll_seconds, include
             log(text)
     skip = set() if include_interviews or docs.interview_mode() == "team" else plan.INTERVIEW_TYPES
     limited: dict[str, dt.datetime] = {}
+    retried: set[str] = set()                # one more try per unit after a transient failure
     pending: list[str] = []
     started = done = 0
     stop = ""
@@ -108,6 +129,12 @@ def _loop(jobs, lang, max_parallel, per_runner, max_units, poll_seconds, include
     for problem in plan.pipeline_problems():
         log(f"pipeline.yaml: {problem} — the plan is used as it was")
     log(f"Parallel run started: up to {max_parallel} unit(s) at a time" + (f", max {max_units}" if max_units else ""))
+    agents = {routing.parse(t).runner for t in plan._agents(lambda _: None)}
+    if 0 < len(agents) < max_parallel:                 # one session per agent by default (quotas): say how to allow more
+        for rid in sorted(agents):
+            if per_runner.get(rid, 1) * len(agents) < max_parallel:
+                log(f"{rid}: {per_runner.get(rid, 1)} session at a time — --per-runner {rid}={max_parallel} lets it "
+                    "take more (each session uses your quota)")
     while True:
         for uid, j in list(jobs.items()):                                       # 1. collect finished sessions
             if j.thread.is_alive():
@@ -126,9 +153,17 @@ def _loop(jobs, lang, max_parallel, per_runner, max_units, poll_seconds, include
                  seconds=seconds)
             if outcome == "limited":
                 limited[j.target] = dt.datetime.now() + dt.timedelta(seconds=poll_seconds)
+                started -= 1                          # back in the queue: it does not use up --max-units
                 if st == "doing":
                     plan.set_status(uid, "todo", record=False)
                 log(f"{j.target} hit its usage limit — {uid} goes back to the queue")
+            elif outcome == "retry" and uid not in retried:
+                retried.add(uid)
+                started -= 1
+                if st == "doing":
+                    plan.set_status(uid, "todo", record=False)
+                log(f"{uid}: the session broke ({output.strip().splitlines()[-1][:120] if output.strip() else 'no output'})"
+                    " — retrying once")
             elif outcome != "ok":
                 stop = stop or (f"{j.target} failed on {uid} (exit {j.result.returncode}). Last output:\n"
                                 + output.strip()[-1500:])
@@ -137,6 +172,10 @@ def _loop(jobs, lang, max_parallel, per_runner, max_units, poll_seconds, include
                 if j.inplace:
                     done += 1
                 else:
+                    pending.append(uid)
+            elif st in ("todo", "doing") and not j.inplace and _closed_in_copy(uid, log):
+                synced = 0.0
+                if plan.get(plan.load(), uid)["status"] == "done":
                     pending.append(uid)
             elif st in ("todo", "doing"):
                 stop = stop or (f"{uid} ended without `plan done`/`plan block` — check its checkpoints in "

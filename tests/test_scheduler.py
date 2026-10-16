@@ -21,11 +21,19 @@ mark("start")
 if mode == "limit":
     print("Error: usage limit reached, resets at 5pm")
     sys.exit(1)
+flaky = os.environ["FAKE_LOG"] + "." + uid.replace(":", "-") + ".flaked"
+if mode == "flaky" and not os.path.exists(flaky):
+    open(flaky, "w").close()
+    print("API Error: Your computer went to sleep mid-response. The response above may be incomplete.")
+    sys.exit(1)
 time.sleep(float(os.environ.get("FAKE_SLEEP", "0.8")))
 os.makedirs(notes, exist_ok=True)
 with open(os.path.join(notes, uid.replace(":", "-") + ".md"), "w", encoding="utf-8") as fh:
     fh.write("---\ntitle: note\n---\n# note\n")
 sys.path.insert(0, os.environ["KIT_DIR"])
+if os.environ.get("FAKE_OLD_KIT"):           # an older kit on PATH: it knows nothing of the state root
+    os.environ.pop("CAMARONES_STATE_ROOT", None)
+    os.environ.pop("CAMARONES_WORKSPACE", None)
 from lib import plan
 plan.set_status(uid, os.environ.get("FAKE_STATUS", "done"))
 mark("end")
@@ -45,7 +53,8 @@ def fake(wired, tmp_path, monkeypatch):
         monkeypatch.setenv("FAKE_SLEEP", sleep)
         monkeypatch.setenv("FAKE_STATUS", status)
         save_json(PREFS, {"runners": {"fake": {"argv": [sys.executable, str(script), "ok"]},
-                                      "lim": {"argv": [sys.executable, str(script), "limit"]}},
+                                      "lim": {"argv": [sys.executable, str(script), "limit"]},
+                                      "flaky": {"argv": [sys.executable, str(script), "flaky"]}},
                           "routing": {"agentic-heavy": routing}})
     wired.plan.sync()
 
@@ -146,3 +155,29 @@ def test_a_runner_with_no_slots_stops_instead_of_spinning(wired, fake):
     wired.plan.set_status("setup", "done")
     done, out = run(wired, max_parallel=2, per_runner={"fake": 0})
     assert done == 0 and any("no agent slot" in l for l in out)
+
+
+def test_a_lone_runner_capped_at_one_session_is_explained(wired, fake):
+    fake["configure"](["fake"], sleep="0.1")
+    wired.plan.set_status("setup", "done")
+    _, out = run(wired, max_parallel=3, max_units=1)
+    assert any("fake: 1 session at a time" in l and "--per-runner fake=3" in l for l in out)
+
+
+def test_a_unit_closed_in_its_worktree_copy_by_an_older_kit_still_counts(wired, fake, monkeypatch):
+    fake["configure"](["fake"], sleep="0.1")
+    monkeypatch.setenv("FAKE_OLD_KIT", "1")
+    wired.plan.set_status("setup", "done")
+    wired.env.checkpoint_commit("plan")              # as on a real project: worktrees carry a copy of the plan
+    done, out = run(wired, max_parallel=1, per_runner={"fake": 1}, max_units=1)
+    assert done == 1 and status(wired, "discovery:api") == "done"
+    assert (wired.root / "docs" / "notes" / "discovery-api.md").exists()                # merged into main
+    assert any("older kit" in l for l in out)
+
+
+def test_a_transient_failure_is_retried_once(wired, fake):
+    fake["configure"](["flaky"], sleep="0.1")
+    wired.plan.set_status("setup", "done")
+    done, out = run(wired, max_parallel=1, per_runner={"flaky": 1}, max_units=1)
+    assert done == 1 and status(wired, "discovery:api") == "done"
+    assert any("retrying once" in l for l in out)
