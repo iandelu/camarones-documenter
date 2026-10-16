@@ -67,6 +67,8 @@ def test_pages_are_classified_into_docs_notes_and_wiki(serve_mod):
 def test_sections_order_matches_llms(serve_mod):
     t = serve_mod.serve.tree()
     assert t["sections"] == serve_mod.docs.SECTIONS
+    d = serve_mod.root / "docs"                         # pages without sources reach agents once confirmed (H27)
+    serve_mod.docs.confirm([str(d / "flows/checkout.md"), str(d / "repos/api/brief.md")], by="ana")
     serve_mod.docs.llms()
     text = (serve_mod.root / "docs" / "llms.txt").read_text(encoding="utf-8")
     assert text.index("## flows") < text.index("## repos/api")

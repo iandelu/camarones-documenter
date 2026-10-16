@@ -320,3 +320,14 @@ Draft the project's golden questions: what the docs must be able to answer, so `
    confirmed question. Facts the docs do not cover yet go to `docs/interview/open-questions.md`, not into a question.
 4. `CLI plan done eval-questions --note "<n> questions drafted"`.
 
+## refresh-docs
+Some pages cite code that changed or disappeared since they were written (`CLI fresh` lists them; this unit's note
+names each page and the code to read). Agents are kept off those pages until they are refreshed.
+1. For each page: read the cited code as it is now (`git log -p` on those files shows what changed), then update only
+   what the change made wrong — facts, identifiers, line ranges in `x-sources`. Keep `<!-- human -->` blocks and
+   confirmed wording; if the code now contradicts a confirmed page, write the contradiction in
+   `docs/interview/open-questions.md` instead of rewriting it.
+2. If a cited file moved, point `x-sources` at its new path; if the code is gone for good, remove the claim or the page.
+3. `CLI check`: no "code changed since it was written" warnings left for these pages. Then
+   `CLI plan done refresh-docs --note "<n> pages refreshed"`.
+

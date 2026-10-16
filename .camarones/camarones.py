@@ -62,6 +62,9 @@
   ab --qa "QUESTION" | --golden [--runner T] [--judge T] [--json]
                             the same question with cam-docs and without it (only the code, in a throwaway folder that
                             links the repos): tokens, time, tool calls and identifiers named, side by side
+  fresh [--json] [--ack PAGE… --by NAME] [--plan]
+                            pages whose cited code changed (suspect) or is gone (stale); agents are kept off them.
+                            --ack: the page still holds for today's code; --plan: add a unit that refreshes them
   kpis [--json] [--months N] [--no-check] [--compare RUN_A RUN_B]
                             is it working? cost and speed of runs (the team's, per month), coverage, trust, usage;
                             --compare puts two runs side by side
@@ -222,6 +225,8 @@ def main() -> int:
     ev.add_argument("--all", action="store_true"); ev.add_argument("--json", action="store_true"); ev.add_argument("--by", default="")
     abp = sp.add_parser("ab"); abp.add_argument("--qa", default=""); abp.add_argument("--golden", action="store_true")
     abp.add_argument("--runner", default=""); abp.add_argument("--judge", default=""); abp.add_argument("--json", action="store_true")
+    fr = sp.add_parser("fresh"); fr.add_argument("--json", action="store_true"); fr.add_argument("--ack", nargs="+", default=[])
+    fr.add_argument("--by", default=""); fr.add_argument("--plan", action="store_true")
     kp = sp.add_parser("kpis"); kp.add_argument("--json", action="store_true"); kp.add_argument("--months", type=int, default=3)
     kp.add_argument("--no-check", action="store_true"); kp.add_argument("--compare", nargs=2, metavar="RUN")
     rs = sp.add_parser("runs"); rs.add_argument("run_id", nargs="?"); rs.add_argument("--json", action="store_true")
@@ -422,6 +427,8 @@ def main() -> int:
         return cmd_runs(a)
     elif a.cmd == "kpis":
         return cmd_kpis(a)
+    elif a.cmd == "fresh":
+        return cmd_fresh(a)
     elif a.cmd == "eval":
         return cmd_eval(a)
     elif a.cmd == "ab":
@@ -665,6 +672,35 @@ def cmd_ab(a) -> int:
     if r["tokens_saved_pct"] is not None:
         print(f"cam-docs read {r['tokens_saved_pct']}% less context (input + cached tokens)" if r["tokens_saved_pct"] >= 0
               else f"cam-docs read {-r['tokens_saved_pct']}% more context (input + cached tokens)")
+    return 0
+
+
+def cmd_fresh(a) -> int:
+    from lib.harness import freshness
+    if a.ack:
+        if not a.by:
+            print("usage: fresh --ack PAGE… --by NAME", file=sys.stderr)
+            return 2
+        done = freshness.ack(a.ack, a.by)
+        print(f"✔ today's code is now the reference for: {', '.join(done) or 'no known page'}")
+        return 0 if done else 1
+    if a.plan:
+        u = freshness.refresh_unit()
+        print(f"✔ unit {u['id']}: {u['notes']}")
+        return 0
+    states = freshness.states()
+    rows = [{"path": p, **s} for p, s in sorted(states.items())]
+    if a.json:
+        print(json.dumps(rows, indent=2, ensure_ascii=False))
+        return 0
+    old = [r for r in rows if r["state"] in freshness.OUT_OF_DATE]
+    counts = {k: sum(1 for r in rows if r["state"] == k) for k in ("fresh", "suspect", "stale", "unverified")}
+    print("  ".join(f"{n} {k}" for k, n in counts.items()) + f"  (agents: {freshness.policy()})")
+    for r in old:
+        print(f"  {r['state']:<8} {r['path']}  ← {', '.join(freshness.code_paths(r['missing'] + r['changed']))}")
+    if old:
+        print(f"Refresh them (`{cli_cmd()} fresh --plan` adds a unit) or, if they still hold, "
+              f"`{cli_cmd()} fresh --ack <page> --by <name>`.")
     return 0
 
 

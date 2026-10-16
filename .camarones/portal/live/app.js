@@ -182,6 +182,7 @@ async function showPage(path, anchor, ctx) {
     ${lang && !d.exists ? `<div class="banner info">${esc(t('noTranslation', { lang: LANG_NAMES[lang] || lang }))}</div>` : ''}
     ${lang && d.exists && i18n === 'outdated' ? `<div class="banner">${esc(t('outdatedTranslation'))}</div>` : ''}
     ${d.trust === 'needs-reconfirm' ? `<div class="banner needs-reconfirm">${esc(t('banner.needs-reconfirm'))}</div>` : ''}
+    ${d.fresh === 'suspect' || d.fresh === 'stale' ? `<div class="banner needs-reconfirm">${esc(t('banner.' + d.fresh))} <code>${esc([...(d.freshness?.missing || []), ...(d.freshness?.changed || [])].join(', '))}</code></div>` : ''}
     ${d.trust === 'draft' && row.space !== 'notes' ? `<div class="banner draft">${esc(t('banner.draft'))}</div>` : ''}
     ${ctx.banner || ''}
     <div id="panel"></div>

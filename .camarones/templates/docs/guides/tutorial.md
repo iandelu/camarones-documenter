@@ -93,7 +93,15 @@ so it is not loaded until it is approved on each machine.
 
 Every page starts as **✨ draft** (banner in the portal). Confirm pages in the portal (**Confirm** on each page, the
 **Review** tab lists what is pending) or with **✅ Review & confirm pages** in the wizard; the confirmation is locked to the content — if anyone edits the page later it becomes
-**⚠️ needs re-confirmation**. Agents treat confirmed pages as the source of truth. To protect a paragraph from agents:
+**⚠️ needs re-confirmation**. Agents treat confirmed pages as the source of truth.
+
+**Freshness.** When a page is written, the code it cites (`x-sources`) is fingerprinted. If that code changes the page
+is **suspect**; if it is gone, **stale** (moved code does not count). Agents are not given suspect or stale pages, nor
+unreviewed pages without sources: the MCP and `llms.txt` withhold them and point to the code. People still see them,
+with a banner. `camaron fresh` lists them, `fresh --plan` adds a unit to refresh them, `fresh --ack <page> --by <name>`
+says one still holds. `freshness: {ai_policy: warn}` in `workspace.yaml` serves them with a warning instead.
+
+To protect a paragraph from agents:
 
 ```markdown
 <!-- human -->

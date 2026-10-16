@@ -267,4 +267,18 @@ def check_diagrams(rows: list[dict], strict: bool = False) -> Issues:
     return [], warns
 
 
-CHECKS = (check_links, check_mermaid, check_secrets, check_terms, check_diagrams)
+def check_fresh(rows: list[dict], strict: bool = False) -> Issues:
+    """Pages whose cited code changed or disappeared since they were written (agents are kept off them)."""
+    from .harness.freshness import code_paths
+    warns = []
+    for r in rows:
+        st = r.get("freshness") or {}
+        if r.get("fresh") == "suspect":
+            warns.append(f"{r['file']}: its code changed since it was written ({', '.join(code_paths(st.get('changed', [])))}) "
+                         "— refresh it, or `fresh --ack` if it still holds")
+        elif r.get("fresh") == "stale":
+            warns.append(f"{r['file']}: its code is gone ({', '.join(code_paths(st.get('missing', [])))}) — refresh it")
+    return ([], warns) if not strict else (warns, [])
+
+
+CHECKS = (check_links, check_mermaid, check_secrets, check_terms, check_diagrams, check_fresh)
