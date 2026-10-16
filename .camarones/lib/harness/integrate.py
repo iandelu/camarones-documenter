@@ -104,6 +104,21 @@ def _drop_derived(path: Path, paths: tuple[str, ...] = DERIVED) -> None:
         _git(path, "clean", "-fdq", "--", rel)
 
 
+def _restore_state(path: Path, target: str) -> None:
+    """Make the branch's docs/.work exactly main's, however it got there (an older kit can checkpoint the worktree's
+    copy of the plan): the merge into main must never touch the live plan."""
+    ours = set(_git(path, "ls-files", "--", "docs/.work").stdout.split())
+    theirs = set(_git(path, "ls-tree", "-r", "--name-only", target, "--", "docs/.work").stdout.split())
+    for f in sorted(ours - theirs):
+        _git(path, "rm", "-q", "--cached", "--", f)
+        (path / f).unlink(missing_ok=True)
+    if theirs:
+        _git(path, "checkout", target, "--", "docs/.work")
+    if _git(path, "diff", "--cached", "--quiet").returncode:
+        _git(path, *_ident(path), "commit", "-q", "--no-verify", "-m", "docs(camarones): keep the main plan state",
+             check=True)
+
+
 def _block(uid: str, why: str, fix: str | None) -> None:
     from .. import plan
     plan.set_status(uid, "blocked", f"integrate: {why}")
@@ -138,6 +153,7 @@ def integrate(uid: str, ctx: Ctx, gates=GATES, policy: str = "on-conflict", emit
                    f"(branch {w.branch}). There, merge {target[:12]} and resolve keeping both units' facts, commit, then "
                    f"mark this unit done; the kit merges it again." if policy == "on-conflict" else None)
             return Result(uid, "conflict", ", ".join(files))
+        _restore_state(w.path, target)
         main_ctx = Ctx.for_root(main, state_root=main, workspace=ctx.workspace)
         new = {f"{name}: {e}" for name, gate in gates for e in gate(tree) - gate(main_ctx)}
         _drop_derived(main)

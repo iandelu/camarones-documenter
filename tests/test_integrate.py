@@ -147,3 +147,20 @@ def test_integration_never_touches_the_live_plan_in_main(wired, setup):
     before = wired.plan.PLAN.read_text(encoding="utf-8")
     setup["run"]("discovery:api")
     assert wired.plan.PLAN.read_text(encoding="utf-8") == before and note.read_text(encoding="utf-8") == "uncommitted checkpoint"
+
+
+def test_plan_state_committed_on_the_branch_never_reaches_main(wired, setup):
+    """An older kit can checkpoint the worktree's copy of the plan into the unit's branch: integration drops it."""
+    wired.env.checkpoint_commit("plan")
+    w = setup["unit"]("discovery:api", {"docs/a.md": "a\n"})
+    work = w.path / "docs" / ".work"
+    (work / "plan.yaml").write_text("units: []\n", encoding="utf-8")
+    (work / "units").mkdir(parents=True, exist_ok=True)
+    (work / "units" / "stray.md").write_text("stray", encoding="utf-8")
+    git(w.path, "add", "-A")
+    git(w.path, "commit", "-qm", "old kit checkpoint")
+    live = wired.plan.PLAN.read_text(encoding="utf-8")
+    assert setup["run"]("discovery:api").outcome == "merged"
+    assert wired.plan.PLAN.read_text(encoding="utf-8") == live and (wired.root / "docs" / "a.md").exists()
+    assert not (wired.root / "docs" / ".work" / "units" / "stray.md").exists()
+    assert "docs/.work" not in git(wired.root, "diff", "--name-only", "HEAD~1", "HEAD")
