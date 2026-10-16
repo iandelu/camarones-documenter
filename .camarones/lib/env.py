@@ -53,7 +53,7 @@ def init_templates(project_name: str | None = None, log: Log = print) -> list[st
         if src.is_dir():
             continue
         rel = src.relative_to(TEMPLATES)
-        if rel.parts[0] == "skills":
+        if rel.parts[0] in ("skills", "skeletons"):      # skills go to the agent hosts, skeletons via sync_kit_docs
             continue
         dst = ROOT / rel
         if dst.exists():
@@ -83,14 +83,16 @@ def ensure_agents_import(claude_md: Path) -> None:
 
 
 def sync_kit_docs() -> list[str]:
-    """Copy PLAYBOOK/CONVENTIONS into the project's .camarones/ (versioned with the docs). A copy the team edited
+    """Copy PLAYBOOK/CONVENTIONS and the page skeletons into the project's .camarones/ (versioned with the docs). A copy the team edited
     since the last sync is kept as is — only untouched copies follow kit upgrades."""
     if (ROOT / ".camarones").resolve() == KIT.resolve():
         return []                                   # legacy: the kit itself lives in this project
     import hashlib
     stamp, changed = load_json(KIT_DOCS_STAMP, {}), []
-    for n in KIT_DOCS:
-        src, dst = KIT / n, ROOT / ".camarones" / n
+    files = [(n, KIT / n) for n in KIT_DOCS]
+    files += [(f"skeletons/{f.name}", f) for f in sorted((TEMPLATES / "skeletons").glob("*.md"))]
+    for n, src in files:
+        dst = ROOT / ".camarones" / n
         cur = hashlib.sha256(dst.read_bytes()).hexdigest() if dst.exists() else None
         new = hashlib.sha256(src.read_bytes()).hexdigest()
         if cur == new or (cur and stamp.get(n) != cur):
@@ -1323,7 +1325,7 @@ def install_ci(forge: str | None = None, log: Log = print) -> Path:
 
 # ---------- progress safety: local checkpoint commits in the umbrella repo ----------
 CHECKPOINT_PATHS = ["docs", "wikis", "evals", ".camarones/workspace.yaml", ".camarones/PLAYBOOK.md", ".camarones/CONVENTIONS.md",
-                    ".camarones/.kit-docs.json", ".camarones/ci", ".claude", ".codex", ".agents", ".mcp.json", "AGENTS.md", "CLAUDE.md",
+                    ".camarones/skeletons", ".camarones/.kit-docs.json", ".camarones/ci", ".claude", ".codex", ".agents", ".mcp.json", "AGENTS.md", "CLAUDE.md",
                     ".gitignore", ".gitlab-ci.yml", ".github"]
 
 

@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.28.0-ff875f?style=flat-square" alt="Versión 3.28.0">
+  <img src="https://img.shields.io/badge/version-3.29.0-ff875f?style=flat-square" alt="Versión 3.29.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -274,6 +274,7 @@ Si el equipo prefiere avisar en lugar de bloquear, `freshness: {ai_policy: warn}
 | Posible secreto en `docs/` o en una wiki | ERROR; bloquea checkpoint y `portal` | gitleaks |
 | Palabra de la columna **Avoid** del glosario | aviso (ERROR con `--strict`) | Python (sin dependencias) |
 | Página confirmada que cambió · traducción pendiente | aviso | — |
+| Estructura de la página: tipo, título y descripción, un solo H1, TL;DR, las secciones de su plantilla, tamaño máximo, referencias vagas («ver arriba») | aviso (ERROR con `--strict`) | Python (sin dependencias) |
 
 mermaid-cli y gitleaks forman el componente `quality` del perfil completo; si faltan, `check` lo avisa una vez y sigue con el resto. `check --secrets` ejecuta solo el escaneo de secretos.
 
@@ -401,9 +402,13 @@ Además, no deja archivos en los repos de servicio y sirve igual con Claude Code
 
 **Aplazadas, no descartadas:** codebase-memory-mcp o GitNexus (grafo de código con impacto entre repos), tbls (esquema real de las bases de datos), el service graph de OpenTelemetry (relaciones observadas en producción) y CodeWiki (wikis de repos muy grandes). Merecen una prueba en un proyecto real antes de decidir. El resto de candidatas marcadas como «worth a look» siguen en el análisis sin decisión.
 
-## Documentación pensada primero para agentes (propuesta)
+## Documentación pensada primero para agentes
 
-La propuesta es que los documentos que escriben las unidades del plan estén pensados primero para que los lea un agente de IA y después para las personas. Cada página empezaría con un resumen breve (TL;DR), tendría secciones que se entienden sin leer el resto, nombres exactos de endpoints, tablas y topics, la evidencia junto a cada afirmación y un tamaño máximo. `check` avisaría de lo que no cumpla. La propuesta completa, con los cambios en los prompts, las plantillas por tipo de página, el check nuevo, `llms-full.txt` y la lectura por secciones en el MCP, está en [ai-first-docs.md](docs/research/ai-first-docs.md). **Todavía no está implementada.**
+Las páginas que escriben las unidades del plan están pensadas primero para que las lea un agente de IA y después para las personas. Cada página empieza con un resumen breve (`> **TL;DR:** …`) bajo el título, tiene secciones que se entienden sin leer el resto, nombres exactos de endpoints, tablas y topics, la evidencia junto a cada afirmación y un tamaño máximo (unas 1500 palabras por página y 400 por sección). Las reglas están en `CONVENTIONS.md` §11.
+
+Cada tipo de página tiene su plantilla en `cam-docs/.camarones/skeletons/` (flujo, modelo de datos, decisión, glosario, contextos, despliegue, deuda técnica, visión general y ficha de repo). El agente parte de ella, y `check` la usa para saber qué secciones `##` necesita la página. Si el equipo edita una plantilla, su copia se conserva al actualizar el kit. `check` avisa de lo que no cumpla, y con `--strict` es un error. Las entrevistas, las guías, las wikis y las páginas con `x-owner: human` no se revisan. Las páginas que el kit genera sin IA (`tooling.md`, `first-look.md`) ya cumplen.
+
+Queda pendiente de la [propuesta](docs/research/ai-first-docs.md): `llms-full.txt` y la lectura por secciones en el MCP.
 
 ## Agentes y modelos locales
 

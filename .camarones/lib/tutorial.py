@@ -154,13 +154,16 @@ PAGES = {
      |-- diagramas Mermaid que no se dibujan  ERROR   (mermaid-cli)
      |-- secretos copiados en la doc          ERROR   (gitleaks: bloquea commit y portal)
      |-- palabras a evitar del glosario       aviso   (ERROR con --strict)
+     |-- estructura: TL;DR, secciones, largo  aviso   (ERROR con --strict)
      +-- fuentes, frontmatter, traducciones   ERROR / aviso""",
          "text": "La IA escribe rápido y a veces falla en lo pequeño: un enlace a una página que no existe, un diagrama "
                  "que no se dibuja o un token copiado de un fichero de configuración. «camaron check» lo revisa al "
                  "cerrar cada unidad y en el CI. Los secretos son especiales: mientras gitleaks encuentre uno, no se hace "
                  "el commit de checkpoint ni se exporta el portal (nunca se muestra el valor, solo fichero y línea). Si "
                  "en el glosario rellenas la columna «Avoid» (por ejemplo «compra, petición» para Pedido), check avisa "
-                 "donde aparezcan esas palabras. mermaid-cli y gitleaks vienen con la instalación completa; si faltan, "
+                 "donde aparezcan esas palabras. Las páginas se escriben primero para agentes: un TL;DR bajo el título, "
+                 "secciones que se leen solas y las de su plantilla (.camarones/skeletons/), y un tamaño máximo; check "
+                 "avisa de lo que falte. mermaid-cli y gitleaks vienen con la instalación completa; si faltan, "
                  "check lo avisa una vez y se salta esa comprobación."},
         {"icon": "🌍", "title": "Bilingüe: inglés + español",
          "art": r"""
@@ -416,12 +419,15 @@ PAGES = {
      |-- Mermaid diagrams that don't render   ERROR   (mermaid-cli)
      |-- secrets copied into the docs         ERROR   (gitleaks: blocks commit and portal)
      |-- glossary words to avoid              warning (ERROR with --strict)
+     |-- structure: TL;DR, sections, size     warning (ERROR with --strict)
      +-- sources, frontmatter, translations   ERROR / warning""",
          "text": "The AI writes fast and sometimes slips on small things: a link to a page that doesn't exist, a diagram "
                  "that doesn't render or a token copied from a config file. “camaron check” looks for them when each "
                  "unit closes and in CI. Secrets are special: while gitleaks finds one, the checkpoint commit and the "
                  "portal export don't happen (the value is never shown, only file and line). Fill the glossary's "
                  "“Avoid” column (say “purchase, request” for Order) and check warns wherever those words appear. "
+                 "Pages are written for agents first: a TL;DR under the title, sections that read alone, the ones "
+                 "their skeleton asks for (.camarones/skeletons/) and a size budget; check warns about what is missing. "
                  "mermaid-cli and gitleaks come with the full install; without them, check says so once and skips "
                  "that check."},
         {"icon": "🌍", "title": "Bilingual: English + Spanish",

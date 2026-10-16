@@ -48,6 +48,9 @@ or `.\camaron.cmd`).
    only those are left, when a unit fails, or when a unit ends without `plan done`/`plan block`. In an autopilot
    session you close the unit as usual (step 5), and questions go to `docs/interview/open-questions.md`.
 7. Never write `x-confirmed`; never rewrite `<!-- human -->` blocks, `x-owner: human` files or confirmed pages silently.
+8. **Write for agents first** (CONVENTIONS §11): start each page from its skeleton in `.camarones/skeletons/`, TL;DR
+   under the H1, sections that read alone, exact identifiers, tables for facts. A unit is done when `CLI check` shows
+   no structure WARN on the pages it wrote.
 
 ## setup
 Done by the wizard (`CLI setup`). If an agent lands here: run it, report missing prerequisites with the fix, mark done.
@@ -148,6 +151,7 @@ The foundation for one repo — after this unit the repo is useful on its own:
    the brief), how to build/test/run, interfaces, data owned,
    doc pointers and the Mermaid component diagram (`likec4 gen mermaid docs/architecture -o build/mmd` →
    `build/mmd/repos/<repo_snake>_components.mmd`). Do not edit the repo's own README/AGENTS.md/CLAUDE.md.
+Skeleton: `repo-brief.md`.
 
 ## repo-wiki
 Generate the OpenWiki of one repo. The unit exists only for the repos the user chose (`wiki: true` in
@@ -171,23 +175,26 @@ than starting over.
 `docs/architecture/model.c4` + `views.c4`: actors, external systems, every container (services, apps, DBs, brokers, topics),
 `index` (context) and `containers` views; `#ai-draft` on unvalidated elements, `#confirmed` on validated ones.
 Write `docs/overview/system.md` (purpose, context diagram in words, how to navigate) and `docs/index.md` (entry point).
+Skeleton: `overview.md`.
 The `likec4` MCP server (in `.mcp.json` / `.codex/config.toml`) answers questions about the model while you write it
 (search elements, relationships, "who calls X?").
 
 ## domain
 `docs/domain/bounded-contexts.md` (context map + repo mapping), `glossary.md`, `actors.md` from the interviews. Fill the
 glossary's **Avoid** column with the synonyms the interviews rejected: `CLI check` flags them across the docs.
+Skeletons: `domain.md` (bounded contexts), `glossary.md`.
 
 ## data
 `docs/data/<store>.md` per datastore: `erDiagram`, ownership table (table → writers → readers), migration source,
-`#shared-db` tag in C4 + warning section when shared.
+`#shared-db` tag in C4 + warning section when shared. Skeleton: `data-model.md`.
 
 ## deployment
 `docs/architecture/deployment.c4` + `deployment view deploy_<env>` per environment; `docs/deployment/environments.md`.
+Skeleton: `deployment.md`.
 
 ## decisions-quality
 `docs/decisions/NNNN-<slug>.md` (ADR; `Status: accepted` only when the user said it was decided, else `proposed`),
-`docs/quality/slas.md`, `docs/quality/tech-debt.md`.
+`docs/quality/slas.md`, `docs/quality/tech-debt.md`. Skeletons: `decision.md`, `quality.md` (tech debt).
 
 ## security-review [beta]
 **Beta**: newer, less battle-tested than the rest of the kit — treat every finding as a lead to verify, not a final
@@ -232,7 +239,7 @@ per flow: `CLI plan add flow:<slug> "<Flow name>"`. Write `docs/flows/index.md` 
 ## flow
 One flow: `docs/flows/<slug>.md` per CONVENTIONS §6 (sequence diagram always; flowchart only with branching rules; state
 diagram for lifecycles) + `dynamic view flow_<slug>` in its own file, `docs/architecture/flows/<slug>.c4` (flows run in
-parallel: each writes only its file). Every step cites entrypoint + evidence.
+parallel: each writes only its file). Every step cites entrypoint + evidence. Skeleton: `business-flow.md`.
 
 ## i18n
 Spanish for every canonical page written/changed since the last i18n pass (`CLI status` lists `es:missing/outdated`),
@@ -294,6 +301,8 @@ Triggered from the wizard's "Documentation status". Run `CLI check` and `CLI sta
 3. `needs-reconfirm` pages: diff what changed since confirmation, verify it against the code, and write a short summary
    for the user of what changed (they re-confirm it in the wizard). Do not revert human edits.
 4. Missing / outdated translations → translate, then `CLI translated <files>`.
+5. Structure `WARN`s (CONVENTIONS §11): add the TL;DR, the skeleton's missing sections (`TODO(question)` when the
+   content is unknown), split pages over budget, replace vague references. Do not touch `x-owner: human` pages.
 Finish with `CLI llms`, a clean `CLI check` and `CLI checkpoint "doc-fixes"`.
 
 ## integrate

@@ -461,7 +461,8 @@ def prompt(uid: str, lang: str = "es", unattended: bool = False) -> str:
     elif u.get("type") == "doc-fixes":
         extra = (f"\nInput: run `{cli} check` and `{cli} status`. Fix every ERROR, orphaned `x-sources`, `needs-reconfirm` "
                  "pages (re-verify them against the code and summarise the change for the human — never write `x-confirmed`), "
-                 f"and outdated/missing translations (then `{cli} translated <files>`). Finish with `{cli} llms` and a clean `check`.\n")
+                 f"outdated/missing translations (then `{cli} translated <files>`) and structure WARNs (CONVENTIONS §11). "
+                 f"Finish with `{cli} llms` and a clean `check`.\n")
     elif u.get("type") in INTERVIEW_TYPES and docs.interview_mode() == "team":
         qdir = ws_rel("docs/interview/questionnaire")
         extra = (f"\nTEAM MODE — do not interview anyone: the team already answered a questionnaire. Input: "
@@ -499,8 +500,12 @@ You are documenting this project with the Camarón kit (works the same in Claude
    (`{cli} help` lists commands). Write docs in English; talk to the user in {talk}.
    Save progress as you go (the user may close the session at any time): after each significant step run
    `{cli} plan note {u['id']} "<what is done / what is next>"` and write findings to their files immediately.
-4. Finish: {finish}
-5. {ask}
+4. Write for agents first, people second (CONVENTIONS §11): start each page from its skeleton in
+   `{ws_rel('.camarones/skeletons/')}`; `> **TL;DR:** …` under the H1; every `##` section reads alone (no "see above");
+   exact identifiers in backticks; tables for facts, commands in fenced blocks; evidence next to the claim; unknown →
+   `TODO(question): …`. `{cli} check` must show no structure WARN on your pages before you finish.
+5. Finish: {finish}
+6. {ask}
 """
 
 

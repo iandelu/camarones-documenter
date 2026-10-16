@@ -128,6 +128,7 @@ la confianza y las traducciones, revisa:
 | Diagrama Mermaid que no se dibuja | ERROR | mermaid-cli |
 | Posible secreto en `docs/` o en una wiki (solo fichero y línea, nunca el valor) | ERROR; además bloquea los commits de checkpoint y `camaron portal` | gitleaks |
 | Una palabra de la columna **Avoid** del glosario | aviso (ERROR con `--strict`) | una columna Avoid en `docs/domain/glossary.md` |
+| Estructura de la página: TL;DR bajo el título, las secciones de su plantilla en `.camarones/skeletons/`, tamaño máximo, referencias vagas | aviso (ERROR con `--strict`) | — |
 
 mermaid-cli y gitleaks vienen con la instalación completa (el componente `quality`; mermaid-cli descarga una vez un
 Chromium sin ventana). Si faltan, `check` lo avisa una vez y se salta esa comprobación.

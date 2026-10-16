@@ -35,8 +35,10 @@ Humans: see `docs/guides/tutorial.md`. `CLI` = `camaron` (legacy per-project cop
 ---
 type: business-flow          # overview|architecture|domain|glossary|business-flow|data-model|deployment|decision|quality|guide|interview
 title: Place order
-description: One or two retrieval-oriented sentences (what question does this page answer?).
-tags: [orders, payments]
+description: One or two retrieval-oriented sentences (what question does this page answer?). Required, 40–300 chars.
+x-answers:                   # optional, up to 5 questions as an agent would ask them
+  - How is an order placed?
+tags: [orders, payments]     # only repo names, glossary terms and C4 ids
 x-sources:                   # evidence, "<repo>:<path>" (optionally #L10-L40). Drives orphan detection.
   - orders-service:src/main/java/com/acme/orders/OrderService.java#L12-L30
 x-owner: ai                  # ai (agent may rewrite) | human (agent never rewrites; proposes in docs/interview/open-questions.md)
@@ -81,7 +83,8 @@ x-owner: ai                  # ai (agent may rewrite) | human (agent never rewri
 - `deployment.c4`: environments → clusters/hosts → namespaces → `instanceOf`.
 - Syntax traps: tags go inside `{ }` blocks (not after a one-line element); metadata keys must not be DSL keywords (`source`, `model`…) —
   use `evidence`. Validate after every edit: `CLI arch-validate` (must print `✓ Valid`).
-- Repo READMEs embed the Mermaid export of their component view: `likec4 gen mermaid docs/architecture -o build/mmd`.
+- Repo briefs (`docs/repos/<repo>/brief.md`) embed the Mermaid export of their component view:
+  `likec4 gen mermaid docs/architecture -o build/mmd`. Service repos and their READMEs get no kit files (section 7).
 
 ## 5. Markdown diagrams (Mermaid)
 
@@ -96,6 +99,10 @@ x-owner: ai                  # ai (agent may rewrite) | human (agent never rewri
   no picture); the `diagrams` plan unit fills them.
 
 ## 6. Page templates
+
+Start every page from its skeleton in `.camarones/skeletons/` (one per `type`, or per path with `x-skeleton-for`):
+frontmatter, H1, TL;DR and the required `##` sections. `CLI check` reads the skeletons to know which sections a page
+needs; one marked `<!-- optional -->` may be left out. The team may edit them; an edited copy survives kit upgrades.
 
 **Business flow** (`docs/flows/<slug>.md`, `type: business-flow`)
 1. Summary (actor, trigger, outcome) · 2. Sequence diagram · 3. Steps table: step · repo · entrypoint (endpoint/listener) · evidence ·
@@ -165,5 +172,26 @@ then stamp it: `CLI translated <files>`. `CLI status` shows missing/outdated tra
 | Glossary synonym to avoid | WARN (ERROR with `--strict`) | an Avoid column in the glossary |
 | Confirmed page changed since confirmation | WARN (ERROR with `--strict`) | — |
 | Missing / outdated translation | WARN | — |
+| Missing diagram (flow without a sequence, lifecycle told only in prose) | WARN (ERROR with `--strict`) | — |
+| Cited code changed or gone since the page was written (`CLI fresh`) | WARN (ERROR with `--strict`) | — |
+| Page structure (section 11): type, title, description, one H1, TL;DR, skeleton sections, budgets, vague references | WARN (ERROR with `--strict`) | — |
 
 A check whose tool is missing prints one WARN and is skipped. `CLI check --secrets` runs only the secret scan (CI gate).
+
+## 11. Writing for agents first
+
+The first reader is an agent that gets **fragments**: one search hit, one section, one `llms.txt` line. People read
+the same pages second, and skim them the same way. `CLI check` enforces the rules marked ✓ (section 10); interviews,
+guides, wikis and pages with `x-owner: human` keep their own shape.
+
+| ID | Rule | ✓ |
+|---|---|---|
+| W1 | Open with `> **TL;DR:** …` (2–4 lines) right under the H1: what the page answers, in plain words. | ✓ |
+| W2 | Every `##` section reads alone: name the thing again instead of "as mentioned above", "this service", "see below". | ✓ |
+| W3 | Exact identifiers in backticks, spelled as in the code: `POST /orders`, topics, tables, classes, env vars, C4 ids, repo names. Use the glossary term. | |
+| W4 | Tables for facts (endpoints, commands, env vars, ownership, steps), prose for the why. Commands in fenced blocks, saying which folder they run in. | |
+| W5 | Evidence next to the claim: keep `x-sources`, and add `(evidence: repo:path#Lx-Ly)` in table rows and critical claims. | |
+| W6 | Budgets: at most ~1500 words of prose per page and ~400 per `##` section; one H1; no skipped heading levels. Split instead of compressing. | ✓ |
+| W7 | `description` of 40–300 characters that says which question the page answers; optional `x-answers`; `tags` from repo names, glossary terms and C4 ids. | ✓ |
+| W8 | Unknown → `TODO(question): …`. Never fill a section to look complete. | |
+| W9 | Every diagram has a table or text with the same facts. | |
