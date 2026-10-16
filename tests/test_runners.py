@@ -209,3 +209,11 @@ def test_a_command_runner_cannot_run_scoped_or_interactive_without_a_template(ru
         r.build(RunRequest(prompt="p", cwd=kit.ws, allow_tools=("Read",)))
     with pytest.raises(ValueError):
         r.build(RunRequest(prompt="p", cwd=kit.ws, interactive=True))
+
+
+@pytest.mark.parametrize("tail", ["API Error: Your computer went to sleep mid-response.", "Error: socket hang up",
+                                  "API Error: 529 Overloaded", "fetch failed: ECONNRESET"])
+def test_transient_failures_are_told_apart(runners, tail):
+    assert runners.get("claude").classify(1, tail) == "retry"
+    assert runners.get("claude").classify(1, "Error: usage limit reached") == "limited"
+    assert runners.get("claude").classify(1, "Traceback: KeyError") == "failed"

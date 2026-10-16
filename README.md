@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.22.0-ff875f?style=flat-square" alt="Versión 3.22.0">
+  <img src="https://img.shields.io/badge/version-3.23.0-ff875f?style=flat-square" alt="Versión 3.23.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -418,6 +418,8 @@ camaron pipeline show        # el plan como unidades: dónde trabaja cada una y 
 ```
 
 `camaron autopilot` sigue igual, de una unidad en una y sin worktrees.
+
+Mientras dura una ejecución (`run` o `autopilot`), el kit impide que el ordenador se suspenda: con `caffeinate` en macOS, con la API de energía en Windows y con `systemd-inhibit` en Linux. Un portátil que se duerme corta la sesión del agente. Si aun así una sesión se corta por algo pasajero (suspensión, red, API saturada), la unidad vuelve a la cola una vez. Si solo tienes un agente instalado, `run` te avisa de que hace una sesión a la vez y de cómo permitir más (`--per-runner claude=2`).
 
 **¿Está funcionando?** `camaron kpis` reúne cuatro familias de indicadores:
 
