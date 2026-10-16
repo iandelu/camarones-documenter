@@ -149,10 +149,11 @@ def api_pipeline() -> dict:
     return {"units": units, "run": runs.summary(latest[0]) if latest else None}
 
 
-def status() -> dict:
+def status(check: bool = True) -> dict:
+    """`check=False` skips the full quality check (seconds on a big project): the page shows the rest at once."""
     return {"queue": [{k: r[k] for k in ("path", "title", "trust", "type")} for r in docs.review_queue()],
-            "feedback": docs.pending_feedback(), "changes": docs.changes(), "check": dict(zip(("errors", "warnings"),
-                                                                                          docs.check())),
+            "feedback": docs.pending_feedback(), "changes": docs.changes(),
+            "check": dict(zip(("errors", "warnings"), docs.check())) if check else None,
             "plan": dict(zip(("done", "total"), plan.progress()))}
 
 
@@ -313,7 +314,9 @@ class Handler(BaseHTTPRequestHandler):
         if name == "doc":
             return self.json(api_doc(q))
         if name == "status":
-            return self.json(status())
+            return self.json(status(check=q.get("check") != "0"))
+        if name == "check":
+            return self.json(dict(zip(("errors", "warnings"), docs.check())))
         if name == "search":
             return self.json(api_search(q))
         if name == "wikis":

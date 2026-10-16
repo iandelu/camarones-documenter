@@ -161,7 +161,7 @@ Docs are written in English (best for AIs and mixed teams) and translated to Spa
 
 ```text
    +----------------------------------------------------------------------------+
-   | Camarones  My Project  [Docs] Architecture Graph Wikis Review   English v  |
+   | Camarones  My Project  [Docs] Architecture Wikis Review Pipeline English v |
    |                        [ Search the docs...             ]                  |
    +----------------------------------------------------------------------------+
    | ARCHITECTURE     |  Architecture: first look                               |
@@ -171,7 +171,7 @@ Docs are written in English (best for AIs and mixed teams) and translated to Spa
    +----------------------------------------------------------------------------+
 ```
 
-The 🦐 portal brings the docs (with search, editing and review), the C4 explorer, the code graph and the OpenWiki wikis together in one site, in English or Spanish. It has two modes with the same interface: the local portal (`camaron up`, or wizard → 🌐 Portal → 📝 Open the portal), where you can edit, and the read-only export (`camaron portal`) that is deployed with Docker or on any static host. `camaron up --static` shows you the export as is. Everything works offline (on-premise).
+The 🦐 portal brings the docs (with search, editing and review), the C4 explorer, the code graph and the OpenWiki wikis together in one site, in English or Spanish. It has two modes with the same interface: the local portal (`camaron up`, or wizard → 🌐 Portal → 📝 Open the portal), where you can edit, and the read-only export (`camaron portal`) that is deployed with Docker or on any static host. `camaron up --static` shows you the export as is. Everything works offline (on-premise). The local portal's “Pipeline ↗” tab opens the new portal (/next): the plan as a live graph, which agent does each unit, and buttons to run, cancel or retry.
 
 ### 12. ✏️ Where and when you can edit
 
@@ -405,7 +405,7 @@ La documentación se escribe en inglés (lo que mejor entienden las IAs y los eq
 
 ```text
    +----------------------------------------------------------------------------+
-   | Camarones  Mi Proyecto  [Docs] Arquitectura Grafo Wikis Revision  Espanol v|
+   | Camarones  Mi Proyecto  [Docs] Arquitectura Wikis Revision Pipeline   Esp v|
    |                         [ Buscar en la doc...            ]                 |
    +----------------------------------------------------------------------------+
    | ARQUITECTURA     |  Arquitectura: primer vistazo                           |
@@ -415,7 +415,7 @@ La documentación se escribe en inglés (lo que mejor entienden las IAs y los eq
    +----------------------------------------------------------------------------+
 ```
 
-El portal 🦐 junta en una sola web la documentación (con buscador, edición y revisión), el explorador C4, el grafo de código y las wikis de OpenWiki, en español o inglés. Tiene dos modos con la misma interfaz: el portal local (`camaron up`, o asistente → 🌐 Portal → 📝 Abrir el portal), donde se puede editar, y la exportación de solo lectura (`camaron portal`) que se despliega con Docker o en cualquier hosting estático. `camaron up --static` te enseña la exportación tal cual. Todo funciona sin Internet (on-premise).
+El portal 🦐 junta en una sola web la documentación (con buscador, edición y revisión), el explorador C4, el grafo de código y las wikis de OpenWiki, en español o inglés. Tiene dos modos con la misma interfaz: el portal local (`camaron up`, o asistente → 🌐 Portal → 📝 Abrir el portal), donde se puede editar, y la exportación de solo lectura (`camaron portal`) que se despliega con Docker o en cualquier hosting estático. `camaron up --static` te enseña la exportación tal cual. Todo funciona sin Internet (on-premise). La pestaña «Pipeline ↗» del portal local abre el portal nuevo (/next): el plan como grafo en vivo, qué agente hace cada unidad, y botones para lanzar, cancelar o reintentar.
 
 ### 12. ✏️ Dónde y cuándo se puede editar
 

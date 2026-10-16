@@ -4,7 +4,7 @@
     "name": "rolldown-runtime"
   },
   "index.html": {
-    "file": "assets/index-yUQ0uVHM.js",
+    "file": "assets/index-BdvWJOJo.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
@@ -19,7 +19,7 @@
     ]
   },
   "src/Pipeline.jsx": {
-    "file": "assets/Pipeline-CD3ebGHC.js",
+    "file": "assets/Pipeline-Dvd7BgQQ.js",
     "name": "Pipeline",
     "src": "src/Pipeline.jsx",
     "isDynamicEntry": true,
