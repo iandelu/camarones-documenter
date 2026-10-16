@@ -11,7 +11,7 @@ import itertools, json, mimetypes, re, threading, time, urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from .common import KIT, ROOT, DOCS, CACHE, VERSIONS, out, rel_file
+from .common import CTX, KIT, ROOT, DOCS, CACHE, VERSIONS, out, rel_file
 from . import codemap, docs, env, plan, usage
 
 UI = KIT / "portal" / "live"
@@ -98,6 +98,25 @@ def create(path: str, title: str) -> dict:
     f.write_text(docs.join_fm({"title": title, "description": "", "type": "guide", "x-owner": "human"},
                               f"\n# {title}\n\n"), encoding="utf-8")
     return read(path)
+
+
+def api_pipeline() -> dict:
+    """The plan as a graph for the Pipeline tab: every unit with its status and dependencies, how it runs (isolation,
+    tier, runner), and the latest run."""
+    from .harness import pipeline, runs
+    try:
+        nodes = {u["id"]: u for u in plan.pipeline_units()}
+    except plan.PipelineError:
+        nodes = {}
+    types = pipeline.types()
+    units = []
+    for u in plan.load()["units"]:
+        t, n = types.get(u["type"], {}), nodes.get(u["id"], {})
+        units.append({**{k: u.get(k) for k in ("id", "title", "type", "phase", "status", "deps", "repo", "notes", "runner")},
+                      "isolation": n.get("isolation") or t.get("isolation", "none"),
+                      "tier": n.get("tier") or t.get("tier", "agentic-heavy"), "agent": n.get("runner")})
+    latest = runs.ids()
+    return {"units": units, "run": runs.summary(latest[0]) if latest else None}
 
 
 def status() -> dict:
@@ -276,11 +295,52 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(env.viewers())
         if name == "jobs":
             return self.json([{k: v for k, v in j.items() if k != "log"} for j in JOBS.values()])
+        if name == "pipeline":
+            return self.json(api_pipeline())
+        if name == "runs":
+            from .harness import runs
+            return self.json(runs.rows())
+        if m := re.fullmatch(r"runs/([\w.-]+)(/events)?", name):
+            from .harness import runs
+            if m.group(1) not in runs.ids():
+                return self.json({"error": f"no run {m.group(1)}"}, 404)
+            if m.group(2):
+                return self.stream_events(m.group(1), int(self.headers.get("Last-Event-ID") or q.get("from") or 0))
+            return self.json(runs.detail(m.group(1)))
         if name.startswith("jobs/") and name[5:] in JOBS:
             j = JOBS[name[5:]]
             since = int(q.get("since", 0))
             return self.json({**j, "log": j["log"][since:], "lines": len(j["log"])})
         self.json({"error": "not found"}, 404)
+
+    def stream_events(self, run_id: str, offset: int) -> None:
+        """Server-sent events: one message per run event, its id the byte offset after it. Ends with the run, or
+        after an hour with nothing new (a run killed without run.finished)."""
+        from .harness.events import EventLog
+        log = EventLog(CTX.runs / run_id / "events.jsonl")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        quiet = beat = time.monotonic()
+        try:
+            while time.monotonic() - quiet < 3600:
+                batch = log.read_lines(offset)
+                for ev, offset in batch:
+                    self.wfile.write(f"id: {offset}\ndata: {json.dumps(ev, ensure_ascii=False)}\n\n".encode("utf-8"))
+                    if ev.get("type") == "run.finished":
+                        self.wfile.flush()
+                        return
+                if batch:
+                    self.wfile.flush()
+                    quiet = time.monotonic()
+                elif time.monotonic() - beat > 15:
+                    self.wfile.write(b": keep-alive\n\n")
+                    self.wfile.flush()
+                    beat = time.monotonic()
+                time.sleep(0.3)
+        except (BrokenPipeError, ConnectionResetError):
+            return
 
     def do_PUT(self):
         self.do_POST()

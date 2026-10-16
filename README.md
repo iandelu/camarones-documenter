@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.25.0-ff875f?style=flat-square" alt="Versión 3.25.0">
+  <img src="https://img.shields.io/badge/version-3.26.0-ff875f?style=flat-square" alt="Versión 3.26.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -297,7 +297,13 @@ camaron wiki orders-api   # generar o actualizar la wiki OpenWiki de un repo (lo
 camaron down
 ```
 
-**Portal nuevo, en pruebas:** en **http://localhost:8080/next/** está el portal que lo sustituirá: blanco y negro, modo oscuro automático y, pronto, la vista en vivo de las ejecuciones. Viene ya compilado con el kit, así que no hace falta Node.
+**Portal nuevo, en pruebas:** en **http://localhost:8080/next/** está el portal que lo sustituirá. Es blanco y negro, con modo oscuro automático, y viene ya compilado con el kit, así que no hace falta Node. Su pestaña **Pipeline** muestra el plan en vivo:
+
+- **Grafo:** las unidades por fase, con sus dependencias y su estado.
+- **Tablero:** columnas por hacer, en curso, bloqueadas, hechas y descartadas.
+- **Panel de cada unidad:** agente, resultado, tiempo, tokens, coste, si trabaja en su propia copia y el log de lo que hace el agente, línea a línea.
+
+Si lanzas `camaron run` con el portal abierto, lo detecta solo y sigue la ejecución en directo.
 
 Abre **http://localhost:8080**. Es un único portal 🦐 con pestañas, en español o inglés (el mismo selector cambia la interfaz y las traducciones de la documentación):
 

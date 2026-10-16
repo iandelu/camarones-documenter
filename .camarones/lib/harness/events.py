@@ -25,6 +25,25 @@ class EventLog:
                 fh.write(data)
         return ev
 
+    def read_lines(self, offset: int = 0) -> list[tuple[dict, int]]:
+        """Complete events after `offset`, each with the offset right after it (an SSE id a reader can resume from)."""
+        try:
+            with self.path.open("rb") as fh:
+                fh.seek(offset)
+                chunk = fh.read()
+        except FileNotFoundError:
+            return []
+        out, pos = [], offset
+        for raw in chunk.splitlines(keepends=True):
+            if not raw.endswith(b"\n"):
+                break                                   # a line still being written: next time
+            pos += len(raw)
+            try:
+                out.append((json.loads(raw.decode("utf-8", errors="replace")), pos))
+            except ValueError:
+                continue
+        return out
+
     def read(self, offset: int = 0) -> tuple[list[dict], int]:
         """Complete events after `offset` and the offset to resume from; a trailing partial line is left for later."""
         try:
