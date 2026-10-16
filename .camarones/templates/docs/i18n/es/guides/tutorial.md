@@ -130,8 +130,10 @@ Un solo portal, dos modos, la misma interfaz. Pestañas: **Docs** (árbol, busca
 grafo) y **Revisión** (páginas pendientes, peticiones de cambio, código cambiado desde la doc, `check`). El selector de
 idioma cambia la interfaz y la doc; una página sin traducir se muestra en inglés con un aviso.
 
-El portal nuevo se está construyendo en `http://127.0.0.1:8080/next/` (blanco y negro, modo oscuro y, pronto, la
-vista en vivo de las ejecuciones). Viene ya compilado con el kit: no hace falta Node.
+El portal nuevo se está construyendo en `http://127.0.0.1:8080/next/` (blanco y negro, modo oscuro; viene ya compilado
+con el kit, no hace falta Node). Su pestaña **Pipeline** muestra el plan en vivo: un grafo de las unidades por fase, un
+tablero por estado y, por unidad, su agente, resultado, tiempo, tokens, coste y el log del agente línea a línea. Si lanzas
+`camaron run` con la página abierta, la ejecución aparece sola.
 
 | | Comando | Qué es |
 |---|---|---|

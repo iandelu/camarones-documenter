@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
+import { MotionConfig } from 'motion/react'
 import { getJSON } from './api.js'
 import { href, parse } from './routes.js'
 
@@ -42,14 +43,7 @@ function Home() {
   )
 }
 
-function Pipeline() {
-  return (
-    <section>
-      <h1>Pipeline</h1>
-      <p className="lede">The live view of runs (units, agents, merges) arrives here next.</p>
-    </section>
-  )
-}
+const Pipeline = lazy(() => import('./Pipeline.jsx'))          // React Flow loads only with this tab
 
 export default function App() {
   const route = useRoute()
@@ -65,7 +59,11 @@ export default function App() {
           <a href="/">Classic portal</a>
         </nav>
       </header>
-      <main key={route.view} className="view"><View arg={route.arg} /></main>
+      <MotionConfig reducedMotion="user">
+        <main key={route.view} className="view">
+          <Suspense fallback={<p className="muted">Loading…</p>}><View arg={route.arg} /></Suspense>
+        </main>
+      </MotionConfig>
     </div>
   )
 }
