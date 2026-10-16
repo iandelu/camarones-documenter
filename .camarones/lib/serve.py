@@ -61,6 +61,7 @@ def read(path: str, lang: str = "") -> dict:
     return {"path": path, "lang": lang, "file": rel_file(f), "raw": raw, "exists": f.exists(),
             "title": fm.get("title") or docs.first_heading(body) or Path(path).stem, "trust": row.get("trust"),
             "owner": row.get("owner"), "sources": fm.get("x-sources") or [], "confirmed": fm.get("x-confirmed"),
+            "fresh": row.get("fresh"), "freshness": row.get("freshness"),
             "feedback": [l for l in docs.pending_feedback() if f"`{row.get('file')}`" in l]}
 
 

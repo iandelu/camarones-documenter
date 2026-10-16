@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.27.0-ff875f?style=flat-square" alt="Versión 3.27.0">
+  <img src="https://img.shields.io/badge/version-3.28.0-ff875f?style=flat-square" alt="Versión 3.28.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -246,6 +246,16 @@ La revisión se aplica al contenido exacto de cada página:
 - **`needs-reconfirm`**: la página fue confirmada, pero su contenido cambió después.
 
 Las convenciones instruyen a los agentes para conservar los bloques `<!-- human -->` y respetar los archivos con `x-owner: human`. Son reglas de trabajo para el agente; la calidad final sigue requiriendo revisión.
+
+**Mejor sin información que con información equivocada.** Cuando se escribe una página, el kit guarda una huella del código que cita en sus `x-sources` (las líneas, sin espacios ni comentarios). Si ese código cambia, la página pasa a **sospechosa**; si desaparece, a **obsoleta**. Si el código solo se movió dentro del fichero, sigue siendo **fresca**. Los agentes no reciben las páginas sospechosas ni obsoletas: el MCP y `llms.txt` las retienen y les indican qué código leer en su lugar. Tampoco reciben las páginas sin fuentes que nadie ha revisado. Las personas siguen viéndolas en el portal, con un aviso.
+
+```sh
+camaron fresh                          # qué páginas citan código que cambió o ya no existe
+camaron fresh --plan                   # añade una unidad para que un agente las actualice
+camaron fresh --ack <página> --by ana  # la página sigue siendo válida con el código de hoy
+```
+
+Si el equipo prefiere avisar en lugar de bloquear, `freshness: {ai_policy: warn}` en `workspace.yaml` entrega esas páginas a los agentes con una advertencia. `check` avisa de las páginas desactualizadas.
 
 ```powershell
 .\camaron.cmd status

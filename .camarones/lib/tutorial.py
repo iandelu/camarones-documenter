@@ -144,7 +144,9 @@ PAGES = {
                  "✅ Confirmada: una persona la leyó y dijo «está bien»; a partir de ahí las IAs la tratan como verdad y "
                  "no la reescriben sin avisar. ⚠️ Re-confirmar: alguien cambió una página confirmada (a mano, en el "
                  "portal o la IA) y hay que volver a mirarla. Puedes revisar en el portal (botones Confirmar y Pedir "
-                 "cambios en cada página; la pestaña Revisión lista lo pendiente) o en «✅ Revisar» del asistente."},
+                 "cambios en cada página; la pestaña Revisión lista lo pendiente) o en «✅ Revisar» del asistente. Si el "
+                 "código que cita una página cambia, la página queda sospechosa y las IAs dejan de leerla hasta que se "
+                 "actualice (`camaron fresh`): mejor sin información que con información equivocada."},
         {"icon": "🧪", "title": "Control de calidad: lo que revisa check",
          "art": r"""
    camaron check
@@ -405,7 +407,8 @@ PAGES = {
                  "it and said “looks right”; from then on AIs treat it as the truth and don't rewrite it silently. "
                  "⚠️ Re-confirm: a confirmed page changed (by hand, in the portal or by the AI) and needs another look. "
                  "Review in the portal (Confirm and Request changes buttons on every page; the Review tab lists what's "
-                 "pending) or in the wizard's “✅ Review”."},
+                 "pending) or in the wizard's “✅ Review”. If the code a page cites changes, the page turns suspect and "
+                 "AIs stop reading it until it is refreshed (`camaron fresh`): no information beats wrong information."},
         {"icon": "🧪", "title": "Quality gate: what check looks at",
          "art": r"""
    camaron check

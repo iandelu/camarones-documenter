@@ -5,6 +5,7 @@ from __future__ import annotations
 import json, re, sys
 
 from .common import ROOT, DOCS, WS_FILE, VERSIONS, run, which
+from .harness import freshness
 from . import docs, env, usage
 
 PROTOCOL = "2025-06-18"
@@ -45,8 +46,17 @@ def search_docs(query: str, limit: int = 8) -> str:
     usage.record("mcp:search_docs", channel="agent", hit=bool(hits))
     if not hits:
         return f"No page mentions: {query}"
-    return "\n\n".join(f"## {h['path']} [{h['trust']}] — {h['title']}\n" + "\n".join(f"> {l}" for l in h["lines"])
-                       for h in hits)
+    rows, served, held = _rows(), [], []
+    for h in hits:
+        r = rows.get(h["path"], {})
+        ok, notice = freshness.gate(h["path"], r.get("trust", "draft"), r.get("freshness"))
+        (served if ok else held).append((h, notice))
+    out = "\n\n".join(f"## {h['path']} [{h['trust']}] — {h['title']}\n" + (f"> ⚠ {n}\n" if n else "")
+                       + "\n".join(f"> {l}" for l in h["lines"]) for h, n in served)
+    if held:
+        out += (f"\n\n{len(held)} page{'s' if len(held) > 1 else ''} withheld (out of date or unreviewed):\n"
+                + "\n".join(f"- {n}" for _, n in held))
+    return out.strip()
 
 
 def read_doc(path: str) -> str:
@@ -55,13 +65,18 @@ def read_doc(path: str) -> str:
     if not f:
         return f"No page at {path}. Use list_docs or search_docs."
     r = _rows().get(path.removeprefix("docs/"), {})
-    return f"<!-- trust: {r.get('trust', '?')} · file: {r.get('file', '')} -->\n" + f.read_text(encoding="utf-8")
+    ok, notice = freshness.gate(path.removeprefix("docs/"), r.get("trust", "draft"), r.get("freshness"))
+    if not ok:
+        return notice
+    head = f"<!-- trust: {r.get('trust', '?')} · freshness: {r.get('fresh', '?')} · file: {r.get('file', '')} -->\n"
+    return head + (f"> ⚠ {notice}\n\n" if notice else "") + f.read_text(encoding="utf-8")
 
 
 def list_docs() -> str:
     usage.record("mcp:list_docs")
-    return "\n".join(f"- {r['path']} [{r['trust']}] {r['title']}" + (f" — {r['description']}" if r["description"] else "")
-                     for r in docs.collect()) or "No docs yet."
+    rows = docs.collect()
+    return "\n".join(f"- {r['path']} [{r['trust']}{'' if freshness.gate(r['path'], r['trust'], r.get('freshness'))[0] else ', withheld'}] "
+                     f"{r['title']}" + (f" — {r['description']}" if r["description"] else "") for r in rows) or "No docs yet."
 
 
 def doc_status() -> str:

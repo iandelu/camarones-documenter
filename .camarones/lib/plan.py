@@ -25,7 +25,7 @@ from .common import CTX, KIT, PREFS, ROOT, load_json, WORK, CAM_LAYOUT, CAM_DIR,
 from . import docs
 from .adapters import runners
 from .adapters.runners.base import LIMIT_HINTS  # noqa: F401  (kept for callers)
-from .harness import awake, drafts, kpis, pipeline, routing
+from .harness import awake, drafts, freshness, kpis, pipeline, routing
 from .harness.events import EventLog
 from .harness.locks import FileLock
 from .harness.ports import RunRequest
@@ -177,7 +177,7 @@ def sync() -> dict:
                 bu['status'] = 'todo'
         merged.append(bu)
     for leftover in existing.values():     # dynamic units (flows, splits) or units of removed repos
-        if profile == 'quick' and leftover['type'] not in ('flow', 'doc-fixes', 'review-fixes', 'integrate', 'eval-questions') and leftover['status'] == 'todo':
+        if profile == 'quick' and leftover['type'] not in ('flow', 'doc-fixes', 'review-fixes', 'integrate', 'eval-questions', 'refresh-docs') and leftover['status'] == 'todo':
             leftover['status'], leftover['notes'] = 'dropped', OFF_PROFILE
         if leftover["status"] in ("todo", "blocked") and leftover["id"] in disabled:
             leftover["status"], leftover["notes"] = "dropped", DISABLED
@@ -279,6 +279,7 @@ def set_status(uid: str, status: str, note: str | None = None, record: bool = Tr
     if record and status == "done":
         try:
             drafts.snapshot(uid)              # the AI's version of its pages, to compare with what people confirm
+            freshness.stamp_all()             # the pages it wrote reflect today's code
         except Exception:  # noqa: BLE001 — a measurement must never fail closing a unit
             pass
     if record and status in ("done", "blocked", "dropped"):

@@ -316,6 +316,14 @@ def doc_status(logical: str, f: Path, langs: list[str]) -> dict:
 def collect() -> list[dict]:
     langs = workspace()["project"].get("translations", [])
     rows = [doc_status(l, f, langs) for l, f in iter_docs()]
+    try:
+        from .harness import freshness
+        states = freshness.states()
+    except Exception:  # noqa: BLE001 — a repo that cannot be read must not hide the docs
+        states = {}
+    for r in rows:
+        st = states.get(r["path"], {"state": "unverified", "changed": [], "missing": []})
+        r["fresh"], r["freshness"] = st["state"], st
     save_json(STATUS_FILE, {"generated_at": now(), "docs": rows})
     return rows
 
@@ -347,11 +355,12 @@ def confirm(files: list[str], by: str) -> list[str]:
         done.append(p)
         logical = next((lp for lp, df in iter_docs() if df.resolve() == f.resolve()), None)
         if logical:
-            from .harness import drafts
+            from .harness import drafts, freshness
             try:
                 drafts.record_confirmation(logical, body, by)
             except Exception:  # noqa: BLE001 — a measurement must never fail a confirmation
                 pass
+            freshness.ack([logical], by)          # a person checked it against today's code
     return done
 
 
@@ -380,8 +389,11 @@ def llms() -> int:
     lines = [f"# {ws['project']['name']}", "",
              "> Documentation index for AI agents. Trust: `confirmed` = verified by a human (source of truth); "
              "`draft` = AI-generated, verify against code; `needs-reconfirm` = confirmed, then changed.", ""]
+    from .harness import freshness
+    held = {r["path"]: freshness.gate(r["path"], r["trust"], r.get("freshness"))[1] for r in rows}
+    held = {p: n for p, n in held.items() if n and freshness.policy() == "block"}
     section = None
-    for r in sorted(rows, key=key):
+    for r in sorted((r for r in rows if r["path"] not in held), key=key):
         head = "repos/" + r["path"].split("/")[1] if r["path"].startswith("repos/") else (r["path"].split("/")[0] if "/" in r["path"] else "root")
         if head != section:
             lines += ["", f"## {head}"]
@@ -389,6 +401,15 @@ def llms() -> int:
         link = os.path.relpath(ROOT / r["file"], DOCS).replace("\\", "/")
         desc = f": {r['description']}" if r["description"] else ""
         lines.append(f"- [{r['title']}]({link}) [{r['trust']}]{desc}")
+    old = [r for r in rows if r["path"] in held and r["fresh"] in freshness.OUT_OF_DATE]
+    if old:
+        lines += ["", "## Out of date (read the code instead)", ""]
+        lines += [f"- {r['path']}: {', '.join(freshness.code_paths(r['freshness']['missing'] + r['freshness']['changed']))}"
+                  for r in sorted(old, key=key)]
+    waiting = [r for r in rows if r["path"] in held and r["fresh"] not in freshness.OUT_OF_DATE]
+    if waiting:
+        lines += ["", "## Awaiting review (no sources to check them against)", ""]
+        lines += [f"- {r['path']}" for r in sorted(waiting, key=key)]
     DOCS.mkdir(exist_ok=True)
     (DOCS / "llms.txt").write_text(re.sub(r"\n{3,}", "\n\n", "\n".join(lines)) + "\n", encoding="utf-8")
     return len(rows)

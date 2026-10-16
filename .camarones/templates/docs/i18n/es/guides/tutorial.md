@@ -97,7 +97,16 @@ que no se carga hasta que se aprueba en cada máquina.
 
 Toda página nace como **✨ borrador** (el portal lo muestra con un banner). Confírmalas en el portal (**Confirmar** en cada
 página; la pestaña **Revisión** lista lo pendiente) o en el asistente con **✅ Revisar y confirmar páginas**. La confirmación queda ligada al contenido: si alguien edita la página después, pasa a
-**⚠️ pendiente de reconfirmar**. Los agentes tratan las páginas confirmadas como la fuente de verdad. Para proteger un párrafo de los agentes:
+**⚠️ pendiente de reconfirmar**. Los agentes tratan las páginas confirmadas como la fuente de verdad.
+
+**Frescura.** Cuando se escribe una página, se guarda una huella del código que cita (`x-sources`). Si ese código cambia,
+la página queda **sospechosa**; si desaparece, **obsoleta** (el código que solo se movió no cuenta). Los agentes no
+reciben páginas sospechosas ni obsoletas, ni páginas sin fuentes que nadie ha revisado: el MCP y `llms.txt` las retienen
+y les indican el código. Las personas las siguen viendo, con un aviso. `camaron fresh` las lista, `fresh --plan` añade
+una unidad para actualizarlas y `fresh --ack <página> --by <nombre>` dice que una sigue siendo válida. Con
+`freshness: {ai_policy: warn}` en `workspace.yaml` se entregan con una advertencia en lugar de retenerlas.
+
+Para proteger un párrafo de los agentes:
 
 ```markdown
 <!-- human -->
