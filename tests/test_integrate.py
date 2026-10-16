@@ -164,3 +164,46 @@ def test_plan_state_committed_on_the_branch_never_reaches_main(wired, setup):
     assert wired.plan.PLAN.read_text(encoding="utf-8") == live and (wired.root / "docs" / "a.md").exists()
     assert not (wired.root / "docs" / ".work" / "units" / "stray.md").exists()
     assert "docs/.work" not in git(wired.root, "diff", "--name-only", "HEAD~1", "HEAD")
+
+
+def test_open_questions_from_two_units_are_both_kept(wired, setup):
+    q = wired.root / "docs" / "interview" / "open-questions.md"
+    q.parent.mkdir(parents=True, exist_ok=True)
+    q.write_text("# Open questions\n\n- [ ] existing\n", encoding="utf-8")
+    wired.env.checkpoint_commit("questions")
+    setup["unit"]("discovery:api", {"docs/interview/open-questions.md": "# Open questions\n\n- [ ] existing\n- [ ] from api\n"})
+    setup["unit"]("discovery:web", {"docs/interview/open-questions.md": "# Open questions\n\n- [ ] existing\n- [ ] from web\n"})
+    assert setup["run"]("discovery:api").outcome == "merged"
+    assert setup["run"]("discovery:web").outcome == "merged"
+    text = q.read_text(encoding="utf-8")
+    assert "from api" in text and "from web" in text and text.count("existing") == 1
+
+
+def test_a_conflict_only_in_derived_files_resolves_itself(wired, setup):
+    wired.env.checkpoint_commit("base")
+    a = setup["unit"]("discovery:api", {"docs/a.md": "a\n"})
+    b = setup["unit"]("discovery:web", {"docs/b.md": "b\n"})
+    for w, text in ((a, '{"from": "api"}\n'), (b, '{"from": "web"}\n')):            # agents that checkpointed anyway
+        (w.path / "docs" / ".status.json").write_text(text, encoding="utf-8")
+        git(w.path, "add", "-A")
+        git(w.path, "commit", "-qm", "agent checkpoint")
+    assert setup["run"]("discovery:api").outcome == "merged"
+    assert setup["run"]("discovery:web").outcome == "merged"
+    assert (wired.root / "docs" / "b.md").exists()
+
+
+def test_checkpoint_in_a_worktree_leaves_out_derived_files_and_plan_state(wired, monkeypatch):
+    from conftest import load_kit
+    from lib.harness.worktrees import Worktrees
+    wired.plan.sync()
+    w = Worktrees(wired.common.CTX).add("discovery:api")
+    (w.path / "docs" / "page.md").write_text("page\n", encoding="utf-8")
+    (w.path / "docs" / ".status.json").write_text("{}\n", encoding="utf-8")
+    (w.path / "docs" / ".work").mkdir(exist_ok=True)
+    (w.path / "docs" / ".work" / "plan.yaml").write_text("units: []\n", encoding="utf-8")
+    monkeypatch.setenv("CAMARONES_STATE_ROOT", str(wired.root))
+    monkeypatch.setenv("CAMARONES_WORKSPACE", str(wired.ws))
+    k = load_kit(w.path, wired.home, wired.ws)
+    assert k.env.checkpoint_commit("unit work")
+    changed = git(w.path, "show", "--name-only", "--format=", "HEAD").split()
+    assert "docs/page.md" in changed and not any(c.startswith("docs/.work") or c.endswith(".status.json") for c in changed)
