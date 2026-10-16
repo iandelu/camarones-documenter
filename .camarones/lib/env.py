@@ -1058,6 +1058,7 @@ def export_site(log: Log = print) -> Path:
     (tmp / "index.html").write_text(html.replace('content="live"', 'content="static"'), encoding="utf-8")
     docs.llms()
     shutil.copyfile(DOCS / "llms.txt", tmp / "llms.txt")
+    shutil.copyfile(DOCS / "llms-full.txt", tmp / "llms-full.txt")
     api = tmp / "api"
 
     def dump(rel: str, data) -> None:
@@ -1335,7 +1336,8 @@ def checkpoint_commit(message: str) -> bool:
         return False
     paths = [p for p in CHECKPOINT_PATHS if (ROOT / p).exists()]
     if CTX.root != CTX.state_root:   # a unit's worktree: its pages only; derived files and plan state belong to main
-        paths += [":(exclude)docs/.work", ":(exclude)docs/.status.json", ":(exclude)docs/llms.txt"]
+        paths += [":(exclude)docs/.work", ":(exclude)docs/.status.json", ":(exclude)docs/llms.txt",
+                  ":(exclude)docs/llms-full.txt"]
     run(["git", "add", "--", *paths], cwd=ROOT, check=False, quiet=True)
     if run(["git", "diff", "--cached", "--quiet"], cwd=ROOT, check=False, quiet=True).returncode == 0:
         return False
