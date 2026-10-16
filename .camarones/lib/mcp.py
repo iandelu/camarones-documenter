@@ -12,12 +12,15 @@ PROTOCOL = "2025-06-18"
 
 TOOLS = [
     {"name": "search_docs", "description": "Full-text search over the project documentation (all repos, architecture, domain, "
-                                           "flows, decisions). Returns matching pages with trust level and snippets.",
+                                           "flows, decisions). Returns matching pages with the section that matched, trust "
+                                           "level, freshness and snippets; read just that section next.",
      "inputSchema": {"type": "object", "properties": {"query": {"type": "string"},
                                                       "limit": {"type": "integer", "default": 8}}, "required": ["query"]}},
     {"name": "read_doc", "description": "Read one documentation page by the path returned by search_docs/list_docs "
-                                        "(e.g. architecture/overview.md).",
-     "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}},
+                                        "(e.g. architecture/overview.md). Pass `section` (a slug from search_docs or the "
+                                        "page outline, or the heading text) to get only the TL;DR and that section.",
+     "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}, "section": {"type": "string"}},
+                     "required": ["path"]}},
     {"name": "list_docs", "description": "Index of every documentation page: path, title, type, trust "
                                          "(confirmed = human-verified source of truth, draft = AI-written).",
      "inputSchema": {"type": "object", "properties": {}}},
@@ -51,15 +54,21 @@ def search_docs(query: str, limit: int = 8) -> str:
         r = rows.get(h["path"], {})
         ok, notice = freshness.gate(h["path"], r.get("trust", "draft"), r.get("freshness"))
         (served if ok else held).append((h, notice))
-    out = "\n\n".join(f"## {h['path']} [{h['trust']}] — {h['title']}\n" + (f"> ⚠ {n}\n" if n else "")
-                       + "\n".join(f"> {l}" for l in h["lines"]) for h, n in served)
+    out = "\n\n".join(_hit(h, rows.get(h["path"], {}), n) for h, n in served)
     if held:
         out += (f"\n\n{len(held)} page{'s' if len(held) > 1 else ''} withheld (out of date or unreviewed):\n"
                 + "\n".join(f"- {n}" for _, n in held))
     return out.strip()
 
 
-def read_doc(path: str) -> str:
+def _hit(h: dict, r: dict, notice: str | None) -> str:
+    where = h["path"] + (f"#{h['section']}" if h.get("section") else "")
+    then = (f'→ read_doc("{h["path"]}", section="{h["section"]}")\n' if h.get("section") else "")
+    return (f"## {where} [{h['trust']} · {r.get('fresh', '?')}] — {h['title']}\n" + (f"> ⚠ {notice}\n" if notice else "")
+            + "\n".join(f"> {l}" for l in h["lines"]) + ("\n" + then.rstrip() if then else ""))
+
+
+def read_doc(path: str, section: str | None = None) -> str:
     f = _file(path)
     usage.record("mcp:read_doc", channel="agent", page=path if f else None)
     if not f:
@@ -68,8 +77,19 @@ def read_doc(path: str) -> str:
     ok, notice = freshness.gate(path.removeprefix("docs/"), r.get("trust", "draft"), r.get("freshness"))
     if not ok:
         return notice
-    head = f"<!-- trust: {r.get('trust', '?')} · freshness: {r.get('fresh', '?')} · file: {r.get('file', '')} -->\n"
-    return head + (f"> ⚠ {notice}\n\n" if notice else "") + f.read_text(encoding="utf-8")
+    text = f.read_text(encoding="utf-8")
+    fm, body = docs.split_fm(text)
+    outline = ", ".join(s["slug"] for s in docs.sections(body))
+    head = (f"<!-- trust: {r.get('trust', '?')} · freshness: {r.get('fresh', '?')} · file: {r.get('file', '')}"
+            + (f" · sections: {outline}" if outline else "") + " -->\n")
+    warn = f"> ⚠ {notice}\n\n" if notice else ""
+    if not section:
+        return head + warn + text
+    found = docs.section_text(body, section)
+    if not found:
+        return f"No section '{section}' in {path}. Sections: {outline or 'none'}."
+    title = fm.get("title") or docs.first_heading(body) or path
+    return head + warn + f"# {title}\n\n" + (docs.tldr(body) + "\n\n" if docs.tldr(body) else "") + found[1] + "\n"
 
 
 def list_docs() -> str:

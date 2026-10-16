@@ -119,7 +119,8 @@ translations it reports:
 
 | Check | Severity | Needs |
 |---|---|---|
-| Broken link to another page (external URLs and `#anchors` are not checked) | ERROR | — |
+| Broken link to another page (external URLs are not checked) | ERROR | — |
+| A `#anchor` with no matching heading in the target page | warning (ERROR with `--strict`) | — |
 | Mermaid diagram that doesn't render | ERROR | mermaid-cli |
 | Possible secret in `docs/` or a wiki (file and line only, never the value) | ERROR; also blocks checkpoint commits and `camaron portal` | gitleaks |
 | A word from the glossary's **Avoid** column | warning (ERROR with `--strict`) | an Avoid column in `docs/domain/glossary.md` |

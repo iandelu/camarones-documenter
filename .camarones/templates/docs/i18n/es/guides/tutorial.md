@@ -124,7 +124,8 @@ la confianza y las traducciones, revisa:
 
 | Comprobación | Gravedad | Necesita |
 |---|---|---|
-| Enlace roto a otra página (no se comprueban URLs externas ni `#anclas`) | ERROR | — |
+| Enlace roto a otra página (no se comprueban URLs externas) | ERROR | — |
+| Un `#ancla` sin título que le corresponda en la página de destino | aviso (ERROR con `--strict`) | — |
 | Diagrama Mermaid que no se dibuja | ERROR | mermaid-cli |
 | Posible secreto en `docs/` o en una wiki (solo fichero y línea, nunca el valor) | ERROR; además bloquea los commits de checkpoint y `camaron portal` | gitleaks |
 | Una palabra de la columna **Avoid** del glosario | aviso (ERROR con `--strict`) | una columna Avoid en `docs/domain/glossary.md` |

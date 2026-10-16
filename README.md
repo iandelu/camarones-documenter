@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.1.0-ff875f?style=flat-square" alt="Versión 4.1.0">
+  <img src="https://img.shields.io/badge/version-4.2.0-ff875f?style=flat-square" alt="Versión 4.2.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -47,7 +47,7 @@ Camarón te habla como tu becario gamba al que has mandado a documentar: con gan
 1. **Instala e integra las herramientas de IA** (Claude Code, Codex, graphify, LikeC4, OpenWiki, MCP, mermaid-cli, gitleaks) con un asistente.
 2. **Estandariza la documentación** con un plan de unidades, un playbook, convenciones y skills para los agentes.
 3. **Las personas consultan, editan y verifican** la documentación en el portal vivo (`camaron up`) o con la CLI.
-4. **La IA tiene la documentación a mano al implementar**: servidor MCP `camarones` (`search_docs` con ranking, `read_doc`, `repo_graph`…), servidor MCP `likec4` para preguntar al modelo de arquitectura, ambos en Claude Code y en Codex, y skills `cam-docs-lookup` / `cam-docs-update`.
+4. **La IA tiene la documentación a mano al implementar**: servidor MCP `camarones` (`search_docs` con ranking, que dice en qué sección está cada resultado; `read_doc` de una página entera o solo de una sección, con su TL;DR; `repo_graph`…), servidor MCP `likec4` para preguntar al modelo de arquitectura, ambos en Claude Code y en Codex, y skills `cam-docs-lookup` / `cam-docs-update`.
 5. **Documentación viva y revisada**: el código y la doc cambian juntos; `changes`, `check` y la trazabilidad `x-sources` señalan lo que quedó atrás, y `check` además detecta enlaces rotos, diagramas que no se dibujan, secretos copiados y términos que el glosario pide evitar.
 6. **Todo vive en `cam-docs/`**, una carpeta junto a tus repos que es su propio repo Git: docs, `.camarones`, `.claude`, `.codex`, `.agents`, `.mcp.json`. Los repos de servicio no reciben archivos del kit, y la configuración de agentes que llega del equipo solo se carga cuando la apruebas en tu máquina.
 
@@ -271,6 +271,7 @@ Si el equipo prefiere avisar en lugar de bloquear, `freshness: {ai_policy: warn}
 |---|---|---|
 | Frontmatter ausente, fuentes `x-sources` que ya no existen | ERROR | — |
 | Enlace roto a otra página, resuelto igual que en el portal | ERROR | Python (sin dependencias) |
+| `#ancla` que no corresponde a ningún título de la página de destino | aviso (ERROR con `--strict`) | Python (sin dependencias) |
 | Diagrama Mermaid que no se dibuja | ERROR | mermaid-cli |
 | Posible secreto en `docs/` o en una wiki | ERROR; bloquea checkpoint y `portal` | gitleaks |
 | Palabra de la columna **Avoid** del glosario | aviso (ERROR con `--strict`) | Python (sin dependencias) |
@@ -410,7 +411,7 @@ Las páginas que escriben las unidades del plan están pensadas primero para que
 
 Cada tipo de página tiene su plantilla en `cam-docs/.camarones/skeletons/` (flujo, modelo de datos, decisión, glosario, contextos, despliegue, deuda técnica, visión general y ficha de repo). El agente parte de ella, y `check` la usa para saber qué secciones `##` necesita la página. Si el equipo edita una plantilla, su copia se conserva al actualizar el kit. `check` avisa de lo que no cumpla, y con `--strict` es un error. Las entrevistas, las guías, las wikis y las páginas con `x-owner: human` no se revisan. Las páginas que el kit genera sin IA (`tooling.md`, `first-look.md`) ya cumplen.
 
-Queda pendiente de la [propuesta](docs/research/ai-first-docs.md): `llms-full.txt` y la lectura por secciones en el MCP.
+El MCP ya lee por secciones: cada resultado de `search_docs` dice en qué sección está y cuál es su confianza y frescura, y `read_doc(path, section)` devuelve el TL;DR y esa sección. Queda pendiente de la [propuesta](docs/research/ai-first-docs.md): `llms-full.txt`.
 
 ## Agentes y modelos locales
 

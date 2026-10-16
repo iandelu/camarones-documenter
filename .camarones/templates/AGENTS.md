@@ -6,7 +6,8 @@ agent config live in `{{CAM}}` (its own git repo); the service repos listed in `
 and never receive kit files.
 
 ## Implementing a feature (any repo)
-1. Before coding, look it up: `camarones` MCP tools (`search_docs`, `read_doc`, `repo_graph`) or `{{CAM}}docs/llms.txt`.
+1. Before coding, look it up: `camarones` MCP tools (`search_docs`, then `read_doc(path, section)` for the section a hit
+   names; `repo_graph`) or `{{CAM}}docs/llms.txt`.
    `confirmed` pages are the source of truth; `draft` pages must be verified against the code.
 2. Code questions: `graphify query "<question>" --graph {{CAM}}graph/<repo>/graph.json` (one repo) or
    `--graph {{CAM}}.camarones/.cache/graph/graph.json` (all repos).
