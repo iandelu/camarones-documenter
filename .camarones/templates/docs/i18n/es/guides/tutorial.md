@@ -130,6 +130,9 @@ Un solo portal, dos modos, la misma interfaz. Pestañas: **Docs** (árbol, busca
 grafo) y **Revisión** (páginas pendientes, peticiones de cambio, código cambiado desde la doc, `check`). El selector de
 idioma cambia la interfaz y la doc; una página sin traducir se muestra en inglés con un aviso.
 
+El portal nuevo se está construyendo en `http://127.0.0.1:8080/next/` (blanco y negro, modo oscuro y, pronto, la
+vista en vivo de las ejecuciones). Viene ya compilado con el kit: no hace falta Node.
+
 | | Comando | Qué es |
 |---|---|---|
 | Local, editable | `camaron up` (asistente → 🌐 Portal → 📝 Abrir el portal) | `http://127.0.0.1:8080`, solo en tu equipo |

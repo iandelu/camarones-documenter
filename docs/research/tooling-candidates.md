@@ -221,7 +221,7 @@ into `portal/app-build/` in the kit's CI, so users never install npm packages fo
 | Q5 | [TanStack Table](https://tanstack.com/table) | Headless table logic: sort, filter, group | Live tables (R29) | MIT · build-time only · small | 🟢 |
 | Q6 | [Excalidraw](https://github.com/excalidraw/excalidraw) | Embeddable whiteboard with a JSON file format | `.excalidraw` whiteboards versioned in cam-docs (R34) | MIT · build-time only · heavy, so lazy. tldraw is ruled out because its licence requires a watermark or a paid key | 🟡 (wave 3) |
 | Q7 | [Motion](https://motion.dev) | Animation library for React | State-change animations in the new portal | MIT · build-time only | 🟢 |
-| Q8 | Vite + React † | Build tool and UI library | New portal app (R20). The current vanilla JS portal would not scale to kanban, a DAG and a whiteboard | MIT · only in the kit repo's CI, ubuntu job | 🟢 |
+| Q8 | Vite + React † | Build tool and UI library | New portal app (R20). The current vanilla JS portal would not scale to kanban, a DAG and a whiteboard | MIT · only in the kit repo's CI, ubuntu job | ✅ **adopted (3.25.0):** React 19.3.0, Vite 8.3.1, @vitejs/plugin-react 6.1.1, Vitest 5.0.3, pinned with a lockfile; `legacy-peer-deps` works around an npm 10 crash on optional peers |
 | Q9 | Gemini CLI † | Google's terminal agent | Fourth runner, for teams without Anthropic or OpenAI | Apache-2.0 · `command` template first, native adapter only if demand appears | 🟡 later |
 
 ---
