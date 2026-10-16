@@ -50,9 +50,9 @@ Every change must work on all three. CI (`.github/workflows/tests.yml`) runs the
   network. Never run the kit against a real project to test it. If the sandbox is missing, `reset` creates it
   (first run clones from GitHub); say so rather than skipping silently.
 
-### 2.3 Backward compatibility (3.x)
+### 2.3 Backward compatibility (3.x and 4.x)
 
-- Any project created by any **3.x** kit must keep opening and working with the new kit, without manual steps.
+- Any project created by any **3.x or 4.x** kit must keep opening and working with the new kit, without manual steps.
 - Pre-3.0 layouts are handled by `camaron migrate` (`lib/migrate.py`); do not break that path.
 - Never rename or drop a CLI command, flag, `workspace.yaml` key, frontmatter field (`x-sources`, `x-owner`,
   `x-confirmed`, `x-translation-of`…), `plan.yaml`/`.state.json` field or file location without: reading the old form,

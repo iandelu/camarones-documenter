@@ -36,7 +36,7 @@ def test_gemini_ships_as_a_builtin_plugin(plugins, kit):
 
 
 def test_a_config_only_project_plugin_is_active(plugins, kit):
-    make(kit, "adr-style", {"name": "adr-style", "version": "1.0.0", "kit": ">=3.16,<4",
+    make(kit, "adr-style", {"name": "adr-style", "version": "1.0.0", "kit": ">=3.16,<5",
                             "provides": {"prompts": ["prompts/adr.md"]}})
     p = by_name(plugins.discover())["adr-style"]
     assert p.source == "project" and not p.runs_code and p.active and p.steers_agents
