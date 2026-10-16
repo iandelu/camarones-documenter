@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.29.0-ff875f?style=flat-square" alt="Versión 3.29.0">
+  <img src="https://img.shields.io/badge/version-4.0.0-ff875f?style=flat-square" alt="Versión 4.0.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -469,9 +469,9 @@ El resultado de las preguntas de oro se guarda para el equipo y `kpis` muestra l
 
 **Qué modelo local usar.** `camaron doctor --local` mira la memoria de tu equipo y propone un modelo libre y de pesos abiertos de la familia Qwen. Te dice qué falta (OpenCode, Ollama o el modelo) y qué línea de `routing` añadir. No instala nada.
 
-## Hacia un harness enchufable (propuesta)
+## Un harness enchufable (4.0)
 
-La siguiente versión quiere convertir el kit en un *harness*: un pipeline declarativo en YAML que el proyecto puede ampliar. Cada paso usa un adaptador intercambiable (Claude Code, Codex, OpenCode o cualquier comando, motores de diagramas, wikis, checks y publicadores). Las unidades independientes corren en paralelo, cada una en su propio worktree, y luego se consolidan. Los modelos locales se encargan de las tareas acotadas. Además habrá KPIs de coste, calidad, frescura y utilidad, con una comparación «con cam-docs frente a sin cam-docs», y un portal nuevo con vista de pipeline en vivo. La decisión y el diseño están en [harness-refactor.md](docs/research/harness-refactor.md), y el orden de trabajo, PR a PR, en [roadmap.md](docs/research/roadmap.md). **Ya están** los agentes intercambiables, los modelos locales, el plan en YAML, los plugins y la documentación en paralelo de la sección anterior. Lo demás (KPIs, evaluaciones y el portal nuevo) está en marcha.
+Desde la versión 4.0 el kit es un *harness*: un pipeline declarativo en YAML que el proyecto puede ampliar. Cada paso usa un adaptador intercambiable (Claude Code, Codex, OpenCode o cualquier comando, motores de diagramas, wikis, checks y publicadores). Las unidades independientes corren en paralelo, cada una en su propio worktree, y luego se consolidan. Los modelos locales se encargan de las tareas acotadas. Además mide KPIs de coste, calidad, frescura y utilidad, con una comparación «con cam-docs frente a sin cam-docs», y trae un portal nuevo con vista de pipeline en vivo. La decisión y el diseño están en [harness-refactor.md](docs/research/harness-refactor.md), y el orden de trabajo, PR a PR, en [roadmap.md](docs/research/roadmap.md). **Ya están** los agentes intercambiables, los modelos locales, el plan en YAML, los plugins, la documentación en paralelo, los KPIs, las evaluaciones, la comparación A/B, el portal nuevo en `/next`, la frescura y las páginas pensadas para agentes. Lo que falta (MCP por secciones, el job de frescura en las PR y el resto de las oleadas 2 y 3) sigue el roadmap.
 
 ## Desarrollo
 
@@ -479,7 +479,7 @@ Cada cambio en el kit sigue estas reglas (la versión completa para agentes est�
 
 - **macOS, Windows y Linux, siempre.** La [CI](.github/workflows/tests.yml) pasa los tests en los tres sistemas; si uno falla, falla el cambio. Los lanzadores van por parejas (`.cmd` ↔ `.command`, `install-global.cmd` ↔ `.sh`) y se cambian juntos.
 - **TDD.** Primero el test que falla y después el código. Un bug se corrige con un test que lo reproduce, y el comportamiento sin tests se fija antes de tocarlo.
-- **Retrocompatible dentro de 3.x.** Un proyecto creado con cualquier versión 3.x sigue abriendo sin pasos manuales. Si cambia un formato, el kit lee el antiguo, lo convierte solo y hay un test que parte de él. Los nombres antiguos se quedan como alias y nunca se reescribe lo que ha escrito o confirmado una persona. Lo anterior a 3.0 pasa por `camaron migrate`.
+- **Retrocompatible desde 3.0.** Un proyecto creado con cualquier versión 3.x o 4.x sigue abriendo sin pasos manuales. Si cambia un formato, el kit lee el antiguo, lo convierte solo y hay un test que parte de él. Los nombres antiguos se quedan como alias y nunca se reescribe lo que ha escrito o confirmado una persona. Lo anterior a 3.0 pasa por `camaron migrate`.
 - **README y tutorial al día.** Todo cambio que note el usuario actualiza en el mismo commit este README y el tutorial en español e inglés: las páginas del asistente (`lib/tutorial.py`, de donde sale `TUTORIAL.md`) y la guía de comandos que se instala en cada proyecto.
 - **Herramientas nuevas, solo si son un quick win** (ver [los criterios](#herramientas-que-evaluamos-y-descartamos)).
 - **Fácil y con la voz del becario gamba.** Un paso claro por pantalla, valores por defecto sensatos y cada texto en español e inglés. Humor blanco y natural, como mucho una broma por pantalla y ninguna en errores, decisiones, `uninstall` o salida para CI.
