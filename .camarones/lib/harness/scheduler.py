@@ -131,8 +131,8 @@ def _loop(jobs, lang, max_parallel, per_runner, max_units, poll_seconds, include
     units = {u["id"]: u for u in plan.load()["units"]}
     for w in Worktrees(CTX).list():                  # work finished earlier but never merged (crash, main was busy)
         u = units.get(w.unit) or {}
-        waiting = u.get("status") == "blocked" and str(u.get("notes", "")).startswith("integrate: uncommitted")
-        if u.get("status") == "done" or waiting:
+        waiting = u.get("status") == "blocked" and str(u.get("notes", "")).startswith("integrate:")
+        if u.get("status") == "done" or waiting:                   # merging again is free: no agent involved
             if waiting:
                 plan.set_status(w.unit, "done", record=False)
             pending.append(w.unit)
@@ -197,6 +197,9 @@ def _loop(jobs, lang, max_parallel, per_runner, max_units, poll_seconds, include
                 if res.outcome in ("merged", "nothing"):
                     done += 1
                     log(f"{uid} merged into {CAM_DIR}/")
+                    fix = next((u for u in plan.load()["units"] if u["id"] == f"integrate:{uid}"), None)
+                    if fix and fix["status"] not in ("done", "dropped"):
+                        plan.set_status(fix["id"], "dropped", "merged by the kit, nothing left to resolve")
                 else:
                     log(f"{uid} could not be merged ({res.outcome}): {res.detail[:300]}")
             pending.clear()

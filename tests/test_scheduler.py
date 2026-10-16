@@ -201,3 +201,17 @@ def test_finished_work_left_in_a_worktree_is_integrated_first(wired, fake):
     assert done == 2 and not fake["entries"]()                          # no agent was started
     assert (wired.root / "docs" / "notes" / "left.md").exists() and (wired.root / "docs" / "notes" / "web.md").exists()
     assert status(wired, "discovery:api") == "done" and any("finished work" in l for l in out)
+
+
+def test_a_unit_blocked_by_integration_is_retried_and_its_fix_unit_dropped(wired, fake):
+    from lib.harness.worktrees import Worktrees
+    fake["configure"](["fake"], sleep="0.1")
+    wired.plan.set_status("setup", "done")
+    w = Worktrees(wired.common.CTX).add("discovery:api")
+    (w.path / "docs" / "notes").mkdir(parents=True)
+    (w.path / "docs" / "notes" / "api.md").write_text("---\ntitle: api\n---\n# api\n", encoding="utf-8")
+    wired.plan.set_status("discovery:api", "blocked", "integrate: conflicts with the main docs in docs/x.md")
+    wired.plan.ensure("integrate:discovery:api", "integrate", title="Integrate discovery:api")
+    done, out = run(wired, max_parallel=1, per_runner={"fake": 1}, max_units=0)
+    assert done == 1 and status(wired, "discovery:api") == "done" and not fake["entries"]()
+    assert status(wired, "integrate:discovery:api") == "dropped"

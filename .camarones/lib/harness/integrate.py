@@ -21,6 +21,7 @@ from .worktrees import Worktrees
 DERIVED = ("docs/llms.txt", "docs/.status.json")         # regenerated from the pages; never merged by hand
 SHARED_C4 = tuple(f"docs/architecture/{n}" for n in ("model.c4", "spec.c4", "views.c4", "deployment.c4"))
 EXCLUDED = (*DERIVED, "docs/.work")                       # plan state lives in the main cam-docs only
+UNION = ("docs/interview/open-questions.md",)               # append-only lists: keep every unit's additions
 
 GATE_SCRIPT = {
     "check": "from lib import docs\nprint(json.dumps(docs.check()[0]))",
@@ -119,6 +120,18 @@ def _restore_state(path: Path, target: str) -> None:
              check=True)
 
 
+def _union_merge(repo: Path) -> None:
+    """git's built-in union driver for append-only lists, set in the repo's local info/attributes: shared by all its
+    worktrees, never committed, so existing projects need no template change."""
+    common = Path(_git(repo, "rev-parse", "--git-common-dir", check=True).stdout.strip())
+    attrs = (common if common.is_absolute() else repo / common) / "info" / "attributes"
+    have = attrs.read_text(encoding="utf-8").splitlines() if attrs.exists() else []
+    lines = [f"{p} merge=union" for p in UNION if f"{p} merge=union" not in have]
+    if lines:
+        attrs.parent.mkdir(parents=True, exist_ok=True)
+        attrs.write_text("\n".join([*have, *lines]) + "\n", encoding="utf-8", newline="\n")
+
+
 def _block(uid: str, why: str, fix: str | None) -> None:
     from .. import plan
     plan.set_status(uid, "blocked", f"integrate: {why}")
@@ -141,11 +154,19 @@ def integrate(uid: str, ctx: Ctx, gates=GATES, policy: str = "on-conflict", emit
             wts.remove(uid)
             return Result(uid, "nothing")
         target = _git(main, "rev-parse", "HEAD", check=True).stdout.strip()
+        _union_merge(main)
         shared = sorted(_git(main, "diff", "--name-only", f"{target}...{w.branch}", "--", *SHARED_C4).stdout.split())
         if shared:                     # parallel units are meant to write their own fragment (CONVENTIONS §4)
             emit("c4.shared", unit=uid, files=shared)
-        if _git(w.path, *_ident(w.path), "merge", "--no-edit", "-m", f"docs(camarones): {uid} on main", target).returncode:
-            files = sorted(_git(w.path, "diff", "--name-only", "--diff-filter=U").stdout.split())
+        merging = _git(w.path, *_ident(w.path), "merge", "--no-edit", "-m", f"docs(camarones): {uid} on main", target)
+        files = sorted(_git(w.path, "diff", "--name-only", "--diff-filter=U").stdout.split()) if merging.returncode else []
+        resolved = bool(files) and all(f in DERIVED or f.startswith("docs/.work/") for f in files)
+        if resolved:                     # derived files and plan state: take main's; they are regenerated below
+            _git(w.path, "checkout", "--theirs", "--", *files)
+            _git(w.path, "add", "--", *files)
+            _git(w.path, *_ident(w.path), "commit", "-q", "--no-verify", "--no-edit", check=True)
+        if merging.returncode and not resolved:
+            files = files or [(merging.stderr or merging.stdout).strip()[-200:]]
             _git(w.path, "merge", "--abort")
             emit("merge.conflict", unit=uid, files=files)
             _block(uid, f"conflicts with the main docs in {', '.join(files)}",
