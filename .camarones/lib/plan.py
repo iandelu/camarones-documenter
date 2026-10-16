@@ -461,7 +461,8 @@ def prompt(uid: str, lang: str = "es", unattended: bool = False) -> str:
     elif u.get("type") == "doc-fixes":
         extra = (f"\nInput: run `{cli} check` and `{cli} status`. Fix every ERROR, orphaned `x-sources`, `needs-reconfirm` "
                  "pages (re-verify them against the code and summarise the change for the human — never write `x-confirmed`), "
-                 f"outdated/missing translations (then `{cli} translated <files>`) and structure WARNs (CONVENTIONS §11). "
+                 f"outdated/missing translations (then `{cli} translated <files>`), generated-block WARNs (`{cli} blocks`) "
+                 "and structure WARNs (CONVENTIONS §11). "
                  f"Finish with `{cli} llms` and a clean `check`.\n")
     elif u.get("type") in INTERVIEW_TYPES and docs.interview_mode() == "team":
         qdir = ws_rel("docs/interview/questionnaire")

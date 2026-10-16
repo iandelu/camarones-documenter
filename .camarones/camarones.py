@@ -65,6 +65,9 @@
   fresh [--json] [--ack PAGE… --by NAME] [--plan]
                             pages whose cited code changed (suspect) or is gone (stale); agents are kept off them.
                             --ack: the page still holds for today's code; --plan: add a unit that refreshes them
+  blocks [--force] [--json]  facts read from the repos, no AI: docs/repos/<repo>/reference.md (commands, env vars,
+                            endpoints, topics) and every <!-- generated:… --> block in the docs. A block edited by hand
+                            is kept and flagged by check; --force takes the code's version. `sync` refreshes them too
   kpis [--json] [--months N] [--no-check] [--compare RUN_A RUN_B]
                             is it working? cost and speed of runs (the team's, per month), coverage, trust, usage;
                             --compare puts two runs side by side
@@ -225,6 +228,7 @@ def main() -> int:
     ev.add_argument("--all", action="store_true"); ev.add_argument("--json", action="store_true"); ev.add_argument("--by", default="")
     abp = sp.add_parser("ab"); abp.add_argument("--qa", default=""); abp.add_argument("--golden", action="store_true")
     abp.add_argument("--runner", default=""); abp.add_argument("--judge", default=""); abp.add_argument("--json", action="store_true")
+    bl = sp.add_parser("blocks"); bl.add_argument("--force", action="store_true"); bl.add_argument("--json", action="store_true")
     fr = sp.add_parser("fresh"); fr.add_argument("--json", action="store_true"); fr.add_argument("--ack", nargs="+", default=[])
     fr.add_argument("--by", default=""); fr.add_argument("--plan", action="store_true")
     kp = sp.add_parser("kpis"); kp.add_argument("--json", action="store_true"); kp.add_argument("--months", type=int, default=3)
@@ -318,6 +322,9 @@ def main() -> int:
         plan.sync()                             # install's marker lookup (find_project_marker) needs it on disk
     elif a.cmd == "sync":
         docs.sync_repos()
+        from lib import genblocks
+        if r := genblocks.refresh()["updated"]:
+            print(f"✔ generated blocks refreshed in {len(r)} page(s)")
     elif a.cmd == "detect":
         ws = docs.workspace()
         known = set(docs.repo_names())
@@ -429,6 +436,8 @@ def main() -> int:
         return cmd_kpis(a)
     elif a.cmd == "fresh":
         return cmd_fresh(a)
+    elif a.cmd == "blocks":
+        return cmd_blocks(a)
     elif a.cmd == "eval":
         return cmd_eval(a)
     elif a.cmd == "ab":
@@ -672,6 +681,22 @@ def cmd_ab(a) -> int:
     if r["tokens_saved_pct"] is not None:
         print(f"cam-docs read {r['tokens_saved_pct']}% less context (input + cached tokens)" if r["tokens_saved_pct"] >= 0
               else f"cam-docs read {-r['tokens_saved_pct']}% more context (input + cached tokens)")
+    return 0
+
+
+def cmd_blocks(a) -> int:
+    from lib import genblocks
+    out = {"created": genblocks.write_reference(), **genblocks.refresh(force=a.force)}
+    if a.json:
+        print(json.dumps(out, indent=2, ensure_ascii=False))
+        return 0
+    print(f"✔ {len(out['created'])} reference page(s) created, {len(out['updated'])} page(s) refreshed")
+    for e in out["edited"]:
+        print(f"  · kept, edited by hand: {e}")
+    for h in out["human"]:
+        print(f"  · not touched, owned by a person: {h}")
+    if out["edited"]:
+        print(f"Fix the source in the repo, or `{cli_cmd()} blocks --force` to take the code's version.")
     return 0
 
 

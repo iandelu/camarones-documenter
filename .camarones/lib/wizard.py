@@ -19,7 +19,7 @@ from rich.text import Text
 
 from .common import (ROOT, HOME, PREFS, WORK, WS_FILE, CACHE, IS_WIN, IS_MAC, CAM_DIR, CAM_LAYOUT, WORKSPACE, which, cli_cmd,
                      load_json, save_json, out, repo_dir)
-from . import docs, env, plan, creds, questionnaire, quickarch, radar, tutorial, upgrade, usage
+from . import docs, env, genblocks, plan, creds, questionnaire, quickarch, radar, tutorial, upgrade, usage
 from .adapters import runners
 from .harness.ports import RunRequest
 from .common import VERSIONS, ws_rel
@@ -772,6 +772,13 @@ T = {
     },
 }
 
+
+
+def scan_repos(log=print) -> None:
+    """The no-AI base: stack and tooling page, plus each repo's reference page (commands, env vars, endpoints, topics)."""
+    radar.run(log=log)
+    genblocks.write_reference(log=log)
+    genblocks.refresh()
 
 class W:
     def __init__(self):
@@ -1526,7 +1533,7 @@ Talk to the user in {talk}. Do not modify application code.
         scan = True
         while True:
             if scan:
-                self.safe(self.busy, radar.run, total=1)
+                self.safe(self.busy, scan_repos, total=1 + len(docs.repo_names()))
                 scan = False
             result = load_json(radar.CACHE_FILE, {})
             self.banner()

@@ -151,7 +151,8 @@ The foundation for one repo — after this unit the repo is useful on its own:
    the brief), how to build/test/run, interfaces, data owned,
    doc pointers and the Mermaid component diagram (`likec4 gen mermaid docs/architecture -o build/mmd` →
    `build/mmd/repos/<repo_snake>_components.mmd`). Do not edit the repo's own README/AGENTS.md/CLAUDE.md.
-Skeleton: `repo-brief.md`.
+Skeleton: `repo-brief.md`. Commands, env vars, endpoints and topics come from `docs/repos/<repo>/reference.md`
+(`CLI blocks`, no AI): embed its `<!-- generated:… -->` blocks or link to it, never copy those tables by hand.
 
 ## repo-wiki
 Generate the OpenWiki of one repo. The unit exists only for the repos the user chose (`wiki: true` in
@@ -301,7 +302,9 @@ Triggered from the wizard's "Documentation status". Run `CLI check` and `CLI sta
 3. `needs-reconfirm` pages: diff what changed since confirmation, verify it against the code, and write a short summary
    for the user of what changed (they re-confirm it in the wizard). Do not revert human edits.
 4. Missing / outdated translations → translate, then `CLI translated <files>`.
-5. Structure `WARN`s (CONVENTIONS §11): add the TL;DR, the skeleton's missing sections (`TODO(question)` when the
+5. Generated-block `WARN`s: an out-of-date block → `CLI blocks`; one edited by hand → move the fix to the repo's
+   source if it belongs there, then `CLI blocks --force`.
+6. Structure `WARN`s (CONVENTIONS §11): add the TL;DR, the skeleton's missing sections (`TODO(question)` when the
    content is unknown), split pages over budget, replace vague references. Do not touch `x-owner: human` pages.
 Finish with `CLI llms`, a clean `CLI check` and `CLI checkpoint "doc-fixes"`.
 
