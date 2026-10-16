@@ -440,6 +440,8 @@ sidecar. A `refresh-suspect` pipeline node re-documents only suspect pages.
 | Human (portal, CLI) | Shown | Shown with a banner (what changed, since when) and a "refresh" action | Shown with its trust pill |
 
 - The rule is deterministic: no model decides whether a page is still right. Same sidecar, same answer.
+- **Decided 2026-10-16:** strict for every page without sources, OpenWiki wiki pages included. Agents do not get a
+  wiki page until a person confirms it. Safer than useful by design; revisit only with real usage data.
 - **Granularity is the section** when sources are cited inline per section (W5 in ai-first-docs.md): only the
   affected H2 is withheld and the rest of the page is served. Otherwise it is the page.
 - A person can re-validate without rewriting: `camaron fresh --ack <page>` records the new hashes when the change did
