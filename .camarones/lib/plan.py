@@ -661,6 +661,22 @@ def run_autopilot(lang: str = "es", max_units: int | None = None, poll_seconds: 
         _autopilot_log("Autopilot: no agent from the agentic-heavy routing is installed (default: `claude`, `codex`) "
                        "— nothing to run.", echo)
         return 0
+    from .harness.locks import FileLock, LockBusy
+    from .harness.scheduler import RUN_LOCK
+    lock = FileLock(RUN_LOCK, wait=0, info={"what": "autopilot"})
+    try:
+        lock.acquire()
+    except LockBusy as e:
+        _autopilot_log(f"Autopilot: another documentation run is in progress (pid {e.holder.get('pid')}) — nothing "
+                       "started.", echo)
+        return 0
+    try:
+        return _recorded_autopilot(agents, lang, max_units, poll_seconds, include_interviews, echo)
+    finally:
+        lock.release()
+
+
+def _recorded_autopilot(agents, lang, max_units, poll_seconds, include_interviews, echo) -> int:
     run_id = f"r-{dt.datetime.now():%Y%m%d-%H%M%S}-{os.getpid()}"
     with recording(EventLog(CTX.runs / run_id / "events.jsonl"), run_id):
         _emit("run.started", agents=agents, max_units=max_units)

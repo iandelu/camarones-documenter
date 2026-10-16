@@ -72,3 +72,13 @@ h1 { font-size: 28px; letter-spacing: -0.03em; margin: 0 0 6px; }
 .log { font: 12px/1.5 var(--mono); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px;
        white-space: pre-wrap; overflow-wrap: anywhere; max-height: 40vh; overflow-y: auto; margin: 0; }
 @media (max-width: 720px) { .board { grid-template-columns: repeat(5, 72vw); } }
+
+.actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-left: auto; }
+.actions label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+.actions select { font: inherit; background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+.btn { font: inherit; border: 1px solid var(--line); background: var(--bg); color: var(--fg); padding: 6px 14px; border-radius: 8px; cursor: pointer; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.btn:disabled { opacity: .5; cursor: default; }
+.error { color: var(--bad); font-size: 13px; }
+.drawer .btn { margin-top: 12px; }

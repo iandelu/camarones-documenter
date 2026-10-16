@@ -2,7 +2,7 @@ import { Background, Controls, Handle, Position, ReactFlow } from '@xyflow/react
 import '@xyflow/react/dist/style.css'
 import { AnimatePresence, motion } from 'motion/react'
 import { memo, useEffect, useMemo, useReducer, useRef, useState } from 'react'
-import { getJSON } from './api.js'
+import { getJSON, postJSON } from './api.js'
 import { apply, changedRun, COLUMNS, columns, initial, layout } from './board.js'
 
 const LABEL = { todo: 'To do', running: 'Running', blocked: 'Blocked', done: 'Done', dropped: 'Dropped' }
@@ -18,6 +18,7 @@ function usePipeline() {
   const [state, dispatch] = useReducer(reducer, null)
   const [error, setError] = useState(null)
   const shown = useRef(null)
+  const reload = useRef(() => {})
   useEffect(() => {
     let source = null
     let stop = false
@@ -48,6 +49,7 @@ function usePipeline() {
       }
     }
     load()
+    reload.current = () => load()
     const timer = setInterval(async () => {
       if (source || stop) return
       try {
@@ -57,7 +59,42 @@ function usePipeline() {
     }, 5000)
     return () => { stop = true; clearInterval(timer); if (source) source.close() }
   }, [])
-  return { state, error }
+  return { state, error, reload: () => reload.current() }
+}
+
+function Actions({ run, finished, onDone }) {
+  const [parallel, setParallel] = useState(2)
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState(null)
+  const running = run && !finished
+  async function act(fn) {
+    setBusy(true)
+    setMessage(null)
+    try {
+      await fn()
+      onDone()
+      for (const ms of [1200, 3000]) setTimeout(onDone, ms)   // a new run writes its first event a moment later
+    } catch (e) { setMessage(e.message) } finally { setBusy(false) }
+  }
+  return (
+    <div className="actions">
+      {running ? (
+        <button className="btn" disabled={busy}
+                onClick={() => act(() => postJSON(`runs/${encodeURIComponent(run.run)}/cancel`))}>Cancel run</button>
+      ) : (
+        <>
+          <label className="muted">at once
+            <select value={parallel} onChange={(e) => setParallel(Number(e.target.value))} disabled={busy}>
+              {[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </label>
+          <button className="btn primary" disabled={busy}
+                  onClick={() => act(() => postJSON('runs', { parallel, per_runner: '' }))}>Run</button>
+        </>
+      )}
+      {message ? <span className="error" role="alert">{message}</span> : null}
+    </div>
+  )
 }
 
 const UnitNode = memo(function UnitNode({ data }) {
@@ -106,7 +143,11 @@ function Board({ units, onSelect }) {
   )
 }
 
-function Drawer({ unit, onClose }) {
+function Drawer({ unit, onClose, onChanged }) {
+  const [message, setMessage] = useState(null)
+  async function retry() {
+    try { await postJSON('units/retry', { unit: unit.id }); onChanged() } catch (e) { setMessage(e.message) }
+  }
   const l = unit.live
   const rows = [['status', unit.status], ['agent', l.runner], ['outcome', l.outcome], ['merge', l.merge],
     ['time', l.seconds != null ? `${l.seconds}s` : null], ['works in', unit.isolation === 'worktree' ? 'its own copy' : 'cam-docs'],
@@ -120,6 +161,8 @@ function Drawer({ unit, onClose }) {
       <p className="muted">{unit.title}</p>
       <dl>{rows.filter(([, v]) => v != null && v !== '').map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{String(v)}</dd></div>)}</dl>
       {unit.notes ? <p className="note">{unit.notes}</p> : null}
+      {unit.status === 'blocked' ? <button className="btn" onClick={retry}>Retry this unit</button> : null}
+      {message ? <p className="error" role="alert">{message}</p> : null}
       <h3>Live log</h3>
       <pre className="log">{l.log.length ? l.log.join('\n') : 'Nothing yet in this run.'}</pre>
     </motion.aside>
@@ -127,7 +170,7 @@ function Drawer({ unit, onClose }) {
 }
 
 export default function Pipeline({ arg }) {
-  const { state, error } = usePipeline()
+  const { state, error, reload } = usePipeline()
   const [mode, setMode] = useState('graph')
   const [selected, setSelected] = useState(arg)
   useEffect(() => setSelected(arg), [arg])
@@ -146,6 +189,7 @@ export default function Pipeline({ arg }) {
             {run ? ` · last run ${run.run} ${state.finished ? 'finished' : 'running now'}` : ' · no run yet: camaron run'}
           </p>
         </div>
+        <Actions run={run} finished={state.finished} onDone={reload} />
         <div className="seg" role="tablist">
           {['graph', 'board'].map((m) => (
             <button key={m} role="tab" aria-selected={mode === m} className={mode === m ? 'on' : ''}
@@ -154,7 +198,9 @@ export default function Pipeline({ arg }) {
         </div>
       </div>
       {mode === 'graph' ? <Graph units={state.units} onSelect={setSelected} /> : <Board units={state.units} onSelect={setSelected} />}
-      <AnimatePresence>{unit ? <Drawer key={unit.id} unit={unit} onClose={() => setSelected(null)} /> : null}</AnimatePresence>
+      <AnimatePresence>
+        {unit ? <Drawer key={unit.id} unit={unit} onClose={() => setSelected(null)} onChanged={reload} /> : null}
+      </AnimatePresence>
     </section>
   )
 }

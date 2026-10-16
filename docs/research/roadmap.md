@@ -41,7 +41,7 @@ flowchart LR
 
 ## Wave 1A: harness core (no visible change until R7)
 
-Done: R1–R6 (2026-10-09, kit 3.14.0), R7 (2026-10-13), R8 (2026-10-14, kit 3.15.0), R9, R10 (2026-10-15, kit 3.16.0), R11–R13 (2026-10-15), R14 (2026-10-16, kit 3.17.0), R15 (kit 3.18.0: autopilot stays sequential; `run` is the parallel mode). R16 (kit 3.19.0), R17 (kit 3.20.0), R18 (kit 3.21.0), R19 (kit 3.22.0). Waves 1A–1C complete. R20 (kit 3.25.0), R21 (kit 3.26.0).
+Done: R1–R6 (2026-10-09, kit 3.14.0), R7 (2026-10-13), R8 (2026-10-14, kit 3.15.0), R9, R10 (2026-10-15, kit 3.16.0), R11–R13 (2026-10-15), R14 (2026-10-16, kit 3.17.0), R15 (kit 3.18.0: autopilot stays sequential; `run` is the parallel mode). R16 (kit 3.19.0), R17 (kit 3.20.0), R18 (kit 3.21.0), R19 (kit 3.22.0). Waves 1A–1C complete. R20 (kit 3.25.0), R21 (kit 3.26.0), R22 (kit 3.27.0). Wave 1 complete; approve waits for units with a human gate.
 
 | ID | PR | Test first | Depends | Decisions |
 |---|---|---|---|---|

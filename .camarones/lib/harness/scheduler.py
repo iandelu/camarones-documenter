@@ -16,9 +16,31 @@ from . import awake, kpis, routing
 from .ctx import Ctx
 from .events import EventLog
 from .integrate import GATES, _kit, integrate
+from .locks import FileLock, LockBusy
 from .worktrees import Worktrees, slug
 
 RESYNC = 10.0          # seconds between plan syncs while nothing changes (agents add units such as flows)
+RUN_LOCK = CTX.state_root / ".camarones" / ".cache" / "locks" / "run.lock"   # one run at a time, CLI or portal
+
+
+def busy() -> dict | None:
+    """Who holds the run lock (a run is in progress somewhere), or None."""
+    try:
+        with FileLock(RUN_LOCK, wait=0):
+            return None
+    except LockBusy as e:
+        return e.holder
+
+
+def cancel_file(run_id: str):
+    return CTX.runs / run_id / "cancel"
+
+
+def request_cancel(run_id: str) -> None:
+    """Ask a run to stop, whichever process runs it: the scheduler checks for this file on every tick."""
+    f = cancel_file(run_id)
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text("cancel\n", encoding="utf-8")
 
 
 def parse_slots(text: str) -> dict[str, int]:
@@ -86,7 +108,21 @@ def run_parallel(lang: str = "es", max_parallel: int = 2, per_runner: dict[str, 
                  max_units: int | None = None, poll_seconds: int = 900, include_interviews: bool = False,
                  policy: str = "on-conflict", gates=GATES, echo=print, poll: float = 0.5) -> int:
     """Run ready agent units, up to `max_parallel` at once and `per_runner[runner]` (default 1) per runner. Returns
-    the units finished and merged. Every run is recorded in .camarones/.cache/runs/<run>/events.jsonl."""
+    the units finished and merged. Every run is recorded in .camarones/.cache/runs/<run>/events.jsonl. One run at a
+    time: a second one (CLI or portal) raises RuntimeError naming who holds the run lock."""
+    lock = FileLock(RUN_LOCK, wait=0, info={"what": "documentation run"})
+    try:
+        lock.acquire()
+    except LockBusy as e:
+        raise RuntimeError(f"another documentation run is in progress (pid {e.holder.get('pid')} on "
+                           f"{e.holder.get('host') or 'this machine'}) — wait for it or cancel it") from None
+    try:
+        return _run(lang, max_parallel, per_runner, max_units, poll_seconds, include_interviews, policy, gates, echo, poll)
+    finally:
+        lock.release()
+
+
+def _run(lang, max_parallel, per_runner, max_units, poll_seconds, include_interviews, policy, gates, echo, poll) -> int:
     run_id = f"r-{dt.datetime.now():%Y%m%d-%H%M%S}-{os.getpid()}"
     events = EventLog(CTX.runs / run_id / "events.jsonl")
 
@@ -97,7 +133,7 @@ def run_parallel(lang: str = "es", max_parallel: int = 2, per_runner: dict[str, 
     try:
         with awake.keep_awake():
             done = _loop(jobs, lang, max_parallel, per_runner or {}, max_units, poll_seconds, include_interviews, policy,
-                         gates, emit, echo, poll)
+                         gates, emit, echo, poll, run_id)
     except BaseException:                       # Ctrl+C or a crash: stop the agents, and say the run ended
         for j in jobs.values():
             if j.proc is not None and j.proc.poll() is None:
@@ -105,13 +141,14 @@ def run_parallel(lang: str = "es", max_parallel: int = 2, per_runner: dict[str, 
         emit("run.finished", interrupted=True)
         kpis.record_run(run_id)
         raise
-    emit("run.finished", done=done)
+    cancelled = cancel_file(run_id).exists()
+    emit("run.finished", done=done, **({"interrupted": True, "cancelled": True} if cancelled else {}))
     kpis.record_run(run_id)
     return done
 
 
 def _loop(jobs, lang, max_parallel, per_runner, max_units, poll_seconds, include_interviews, policy, gates, emit,
-          echo, poll) -> int:
+          echo, poll, run_id: str = "") -> int:
     log = lambda t: plan._autopilot_log(t, echo)                               # noqa: E731
     noted: set[str] = set()
 
@@ -144,7 +181,14 @@ def _loop(jobs, lang, max_parallel, per_runner, max_units, poll_seconds, include
             if per_runner.get(rid, 1) * len(agents) < max_parallel:
                 log(f"{rid}: {per_runner.get(rid, 1)} session at a time — --per-runner {rid}={max_parallel} lets it "
                     "take more (each session uses your quota)")
+    cancelled = False
     while True:
+        if not cancelled and run_id and cancel_file(run_id).exists():          # 0. a cancel from the portal
+            cancelled, stop = True, "cancelled"
+            for j in jobs.values():
+                if j.proc is not None and j.proc.poll() is None:
+                    j.proc.kill()
+            log("Cancelling: stopping the agents; their units go back to the queue (worktrees are kept)")
         for uid, j in list(jobs.items()):                                       # 1. collect finished sessions
             if j.thread.is_alive():
                 continue
@@ -158,6 +202,12 @@ def _loop(jobs, lang, max_parallel, per_runner, max_units, poll_seconds, include
             output = f"{j.result.stdout or ''}\n{j.result.stderr or ''}"
             outcome = plan._runner(j.target)[0].classify(j.result.returncode, output)
             st = plan.get(plan.load(), uid)["status"]
+            if cancelled and st != "done":
+                if st == "doing":
+                    plan.set_status(uid, "todo", record=False)
+                emit("unit.finished", unit=uid, runner=j.target, outcome="cancelled", rc=j.result.returncode,
+                     status="todo" if st == "doing" else st, seconds=seconds)
+                continue
             emit("unit.finished", unit=uid, runner=j.target, outcome=outcome, rc=j.result.returncode, status=st,
                  seconds=seconds)
             if outcome == "limited":

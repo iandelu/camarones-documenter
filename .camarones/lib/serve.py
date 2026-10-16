@@ -100,6 +100,35 @@ def create(path: str, title: str) -> dict:
     return read(path)
 
 
+def start_run(b: dict) -> tuple[dict, int]:
+    """A documentation run as a background job of this server; refused while another run (CLI or portal) holds the
+    run lock."""
+    from .harness import scheduler
+    holder = scheduler.busy()
+    if holder:
+        return {"error": f"a documentation run is already in progress (pid {holder.get('pid')})"}, 409
+    try:
+        slots = scheduler.parse_slots(str(b.get("per_runner") or ""))
+    except ValueError as e:
+        return {"error": f"per_runner {e}"}, 400
+    parallel = max(1, min(8, int(b.get("parallel") or 2)))
+    max_units = int(b["max_units"]) if b.get("max_units") not in (None, "") else None
+
+    def go(log):
+        scheduler.run_parallel(lang=b.get("lang") or "en", max_parallel=parallel, per_runner=slots,
+                               max_units=max_units, echo=log)
+    return start_job("run", "documentation run", go), 200
+
+
+def retry_unit(uid: str) -> tuple[dict, int]:
+    u = next((x for x in plan.load()["units"] if x["id"] == uid), None)
+    if not u:
+        return {"error": f"unknown unit {uid}"}, 404
+    if u["status"] != "blocked":
+        return {"error": f"{uid} is {u['status']}: only blocked units are retried"}, 409
+    return plan.set_status(uid, "todo", "retry requested from the portal"), 200
+
+
 def api_pipeline() -> dict:
     """The plan as a graph for the Pipeline tab: every unit with its status and dependencies, how it runs (isolation,
     tier, runner), and the latest run."""
@@ -374,6 +403,14 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json(build(b))
             if p == "/api/wiki":
                 return self.json(wiki(b))
+            if p == "/api/runs":
+                return self.json(*start_run(b))
+            if m := re.fullmatch(r"/api/runs/([\w.-]+)/cancel", p):
+                from .harness import scheduler
+                scheduler.request_cancel(m.group(1))
+                return self.json({"cancelling": m.group(1)})
+            if p == "/api/units/retry":
+                return self.json(*retry_unit(b.get("unit", "")))
             self.json({"error": "not found"}, 404)
         except (KeyError, ValueError, RuntimeError) as e:
             self.json({"error": str(e)}, 400)
