@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.26.0-ff875f?style=flat-square" alt="Versión 3.26.0">
+  <img src="https://img.shields.io/badge/version-3.27.0-ff875f?style=flat-square" alt="Versión 3.27.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -303,7 +303,7 @@ camaron down
 - **Tablero:** columnas por hacer, en curso, bloqueadas, hechas y descartadas.
 - **Panel de cada unidad:** agente, resultado, tiempo, tokens, coste, si trabaja en su propia copia y el log de lo que hace el agente, línea a línea.
 
-Si lanzas `camaron run` con el portal abierto, lo detecta solo y sigue la ejecución en directo.
+Si lanzas `camaron run` con el portal abierto, lo detecta solo y sigue la ejecución en directo. Desde la propia pestaña puedes **lanzar** una ejecución (eligiendo cuántas unidades a la vez), **cancelarla** (se paran los agentes y sus unidades vuelven a la cola, sin perder lo que haya en su copia) y **reintentar** una unidad bloqueada. Solo puede haber una ejecución a la vez, se lance desde el portal o desde la terminal.
 
 Abre **http://localhost:8080**. Es un único portal 🦐 con pestañas, en español o inglés (el mismo selector cambia la interfaz y las traducciones de la documentación):
 
