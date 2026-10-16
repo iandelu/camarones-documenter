@@ -126,6 +126,9 @@ One portal, two modes, the same interface. Tabs: **Docs** (tree, search, trust b
 change requests, code changed since the docs, `check`). The language switch changes the interface and the docs; a page
 not translated yet is shown in English with a notice.
 
+The next portal is being built at `http://127.0.0.1:8080/next/` (black and white, dark mode, and soon the live
+view of runs). It ships already built with the kit: no Node needed.
+
 | | Command | What it is |
 |---|---|---|
 | Local, editable | `camaron up` (wizard → 🌐 Portal → 📝 Open the portal) | `http://127.0.0.1:8080`, only on your machine |

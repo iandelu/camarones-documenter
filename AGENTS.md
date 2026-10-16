@@ -97,7 +97,7 @@ self-aware about being small.
 | `.camarones/lib/plugins/` | the kit's own plugins (`plugin.yaml` manifests, e.g. `gemini`); `harness/plugins.py` loads them and a project's `.camarones/plugins/` |
 | `.camarones/lib/adapters/` | pluggable adapters; `runners/` holds the agent CLIs (`claude`, `codex`, `opencode`, command templates such as Gemini) behind the `Runner` port; autopilot, the wizard and wiki generation launch agents only through it |
 | `.camarones/templates/` | files copied into projects (`AGENTS.md`, docs skeleton, i18n) — changes here reach old projects: see 2.3 |
-| `.camarones/portal/` | live/static portal |
+| `.camarones/portal/` | `live/` the current portal (no build); `app/` the next one (React + Vite source, `npm` only in the kit repo) built into `app-build/` (committed, served at `/next`; CI fails if it does not match its source) |
 | `tests/` | pytest suite; `pyproject.toml` holds dev deps only |
 | `scripts/sandbox.py` | real-repo test bench (Spring PetClinic) |
 

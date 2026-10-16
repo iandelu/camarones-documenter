@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.24.0-ff875f?style=flat-square" alt="Versión 3.24.0">
+  <img src="https://img.shields.io/badge/version-3.25.0-ff875f?style=flat-square" alt="Versión 3.25.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -296,6 +296,8 @@ camaron up          # portal local: leer, editar, confirmar, pedir cambios, gene
 camaron wiki orders-api   # generar o actualizar la wiki OpenWiki de un repo (lo mismo que la pestaña Wikis)
 camaron down
 ```
+
+**Portal nuevo, en pruebas:** en **http://localhost:8080/next/** está el portal que lo sustituirá: blanco y negro, modo oscuro automático y, pronto, la vista en vivo de las ejecuciones. Viene ya compilado con el kit, así que no hace falta Node.
 
 Abre **http://localhost:8080**. Es un único portal 🦐 con pestañas, en español o inglés (el mismo selector cambia la interfaz y las traducciones de la documentación):
 
