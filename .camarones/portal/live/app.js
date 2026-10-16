@@ -10,7 +10,8 @@ function drawChrome(active, { viewer = false, bare = false } = {}) {
   const wikis = !STATIC || T.docs.some((d) => d.space === 'wiki');
   const code = (T.codeMaps || []).length || T.codeGraphs.length;
   const tabs = [['docs', '#/'], ['c4', '#/c4'], ...(code ? [['code', '#/code']] : []), ...(wikis ? [['wikis', '#/wikis']] : []), ['review', '#/review']];
-  $('#tabs').innerHTML = tabs.map(([k, href]) => `<a href="${href}" class="${k === active ? 'on' : ''}">${esc(t(k === 'code' ? 'codeTab' : k))}</a>`).join('');
+  $('#tabs').innerHTML = tabs.map(([k, href]) => `<a href="${href}" class="${k === active ? 'on' : ''}">${esc(t(k === 'code' ? 'codeTab' : k))}</a>`).join('')
+    + (!STATIC ? `<a href="/next/#/pipeline" title="${esc(t('pipelineHint'))}">${esc(t('pipelineTab'))}</a>` : '');
   $('#search-label').textContent = t('search');
   $('#theme').title = t('theme');
   $('#menu').title = t('menu');

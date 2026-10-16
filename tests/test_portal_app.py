@@ -63,3 +63,21 @@ def test_the_live_portal_serves_the_app_at_next(server):
 def test_the_classic_portal_stays_the_default(server):
     status, _, body = get(f"{server}/")
     assert status == 200 and b"app.js" in body
+
+
+def test_the_classic_portal_links_to_the_pipeline_in_live_mode(kit):
+    app = (kit.kit_dir / "portal" / "live" / "app.js").read_text(encoding="utf-8")
+    core = (kit.kit_dir / "portal" / "live" / "core.js").read_text(encoding="utf-8")
+    assert '(!STATIC ? `<a href="/next/#/pipeline"' in app                               # the static export has no /next
+    assert core.count("pipelineTab:") == 2                                                # en + es
+
+
+def test_status_without_check_answers_fast_and_check_has_its_own_endpoint(server, kit, monkeypatch):
+    import json
+    calls = []
+    monkeypatch.setattr(kit.serve.docs, "check", lambda *a, **k: calls.append(1) or (["e"], ["w"]))
+    s = json.loads(get(f"{server}/api/status?check=0")[2])
+    assert s["check"] is None and "plan" in s and calls == []
+    c = json.loads(get(f"{server}/api/check")[2])
+    assert c == {"errors": ["e"], "warnings": ["w"]} and calls == [1]
+    assert json.loads(get(f"{server}/api/status")[2])["check"]["errors"] == ["e"]       # old callers unchanged

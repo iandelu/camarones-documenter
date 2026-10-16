@@ -137,7 +137,8 @@ One portal, two modes, the same interface. Tabs: **Docs** (tree, search, trust b
 change requests, code changed since the docs, `check`). The language switch changes the interface and the docs; a page
 not translated yet is shown in English with a notice.
 
-The next portal is being built at `http://127.0.0.1:8080/next/` (black and white, dark mode; it ships already built
+The next portal is being built at `http://127.0.0.1:8080/next/`, one click away from the classic portal's **Pipeline ↗**
+tab (black and white, dark mode; it ships already built
 with the kit, no Node needed). Its **Pipeline** tab shows the plan live: a graph of the units by phase, a board by
 status, and per unit its agent, outcome, time, tokens, cost and the agent's log line by line. Start `camaron run` with
 the page open and it picks the run up by itself. From the tab you can also start a run, cancel it (the agents stop and

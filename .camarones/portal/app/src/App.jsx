@@ -24,11 +24,17 @@ function Stat({ label, value, tone }) {
 
 function Home() {
   const [status, setStatus] = useState(null)
+  const [check, setCheck] = useState(null)
   const [error, setError] = useState(null)
-  useEffect(() => { getJSON('status').then(setStatus, (e) => setError(e.message)) }, [])
+  useEffect(() => {
+    getJSON('status?check=0').then(setStatus, (e) => setError(e.message))
+    getJSON('check').then(setCheck, () => setCheck({ errors: [], warnings: [], failed: true }))   // slow on big projects
+  }, [])
   if (error) return <p className="muted">The portal server is not answering ({error}). Start it with <code>camaron up</code>.</p>
   if (!status) return <p className="muted">Loading…</p>
   const changed = Object.values(status.changes || {}).filter((c) => c.status === 'changed').length
+  const errors = check ? (check.failed ? '?' : check.errors.length) : '…'
+  const tone = !check || check.failed ? '' : check.errors.length ? 'bad' : 'good'
   return (
     <section>
       <h1>Project brain</h1>
@@ -36,9 +42,10 @@ function Home() {
       <div className="stats">
         <Stat label="plan units done" value={`${status.plan.done}/${status.plan.total}`} />
         <Stat label="pages to review" value={status.queue.length} tone={status.queue.length ? 'warn' : ''} />
-        <Stat label="check errors" value={status.check.errors.length} tone={status.check.errors.length ? 'bad' : 'good'} />
+        <Stat label={check ? 'check errors' : 'check errors (checking…)'} value={errors} tone={tone} />
         <Stat label="repos changed since documented" value={changed} tone={changed ? 'warn' : ''} />
       </div>
+      <p><a className="go" href={href('pipeline')}>Open the pipeline →</a></p>
     </section>
   )
 }
