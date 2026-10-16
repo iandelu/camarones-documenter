@@ -10,6 +10,9 @@ from ...harness.ports import Outcome
 # error) so a unit documenting a rate-limited API isn't misread; anything else stops the loop instead
 LIMIT_HINTS = ("usage limit", "rate limit", "rate_limit", "limit reached", "try again later",
                "too many requests", "resets at", "limit will reset", "quota exceeded")
+# the session broke for a reason that may not happen again (sleep, network, an overloaded API): worth one more try
+TRANSIENT_HINTS = ("went to sleep", "socket hang up", "econnreset", "connection reset", "connection error",
+                   "network error", "overloaded", "fetch failed", "503 service", "502 bad gateway")
 
 
 class CliRunner:
@@ -38,4 +41,7 @@ class CliRunner:
     def classify(self, rc: int, tail: str) -> Outcome:
         if rc == 0:
             return "ok"
-        return "limited" if any(h in tail[-2000:].lower() for h in LIMIT_HINTS) else "failed"
+        end = tail[-2000:].lower()
+        if any(h in end for h in LIMIT_HINTS):
+            return "limited"
+        return "retry" if any(h in end for h in TRANSIENT_HINTS) else "failed"

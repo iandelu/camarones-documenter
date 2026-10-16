@@ -192,6 +192,9 @@ en `.cw/<n>/`) y se integran al terminar, si `check` y `arch-validate` no muestr
 van de una en una, y una unidad espera a que se integre lo que necesita. Si hay un choque, la unidad se bloquea,
 `cam-docs/` no se toca y se añade una unidad `integrate:<unidad>`. `camaron runs` muestra qué hizo y cuánto costó cada
 ejecución; `camaron pipeline show` lista las unidades y dónde trabaja cada una. `autopilot` sigue siendo secuencial.
+Las ejecuciones mantienen el ordenador despierto (un portátil que se duerme corta la sesión del agente); una sesión
+cortada por algo pasajero (suspensión, red, API saturada) se reintenta una vez. Por defecto, una sesión por agente: con
+un solo agente instalado, `--per-runner claude=2` le deja hacer más.
 
 **¿Está funcionando?** `camaron kpis` muestra las ejecuciones del equipo por mes (tiempo, tokens, coste por unidad,
 paralelismo, límites, fallos), la cobertura (repos con ficha, flujos, ficheros C4, errores de `check`), la confianza

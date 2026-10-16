@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal, Protocol
 
-Outcome = Literal["ok", "limited", "failed"]
+Outcome = Literal["ok", "limited", "retry", "failed"]
 
 
 @dataclass(frozen=True)

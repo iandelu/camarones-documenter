@@ -185,7 +185,9 @@ briefs and flows each work in their own copy of `cam-docs/` (a git worktree in `
 they finish, after `check` and `arch-validate` show no new errors; other units run one at a time, and a unit waits for
 what it needs to be merged. A clash blocks the unit, leaves `cam-docs/` untouched and adds an `integrate:<unit>` unit.
 `camaron runs` shows what each run did and cost; `camaron pipeline show` lists the units and where each one works.
-`autopilot` stays sequential.
+`autopilot` stays sequential. Runs keep the computer awake (a laptop that sleeps breaks the agent's session); a
+session cut by something passing (sleep, network, an overloaded API) is retried once. One session per agent by default:
+with a single agent installed, `--per-runner claude=2` lets it take more.
 
 **Is it working?** `camaron kpis` shows the team's runs per month (time, tokens, cost per unit, parallelism, limits,
 failures), coverage (repos with a brief, flows, C4 files, `check` errors), trust (confirmed, drafts, re-confirmations,
