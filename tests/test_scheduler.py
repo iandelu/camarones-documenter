@@ -181,3 +181,23 @@ def test_a_transient_failure_is_retried_once(wired, fake):
     done, out = run(wired, max_parallel=1, per_runner={"flaky": 1}, max_units=1)
     assert done == 1 and status(wired, "discovery:api") == "done"
     assert any("retrying once" in l for l in out)
+
+
+def test_finished_work_left_in_a_worktree_is_integrated_first(wired, fake):
+    """A crash between a unit's done and its merge, or a merge that waited for main: the next run merges it
+    without starting an agent again."""
+    from lib.harness.worktrees import Worktrees
+    fake["configure"](["fake"], sleep="0.1")
+    wired.plan.set_status("setup", "done")
+    w = Worktrees(wired.common.CTX).add("discovery:api")
+    (w.path / "docs" / "notes").mkdir(parents=True)
+    (w.path / "docs" / "notes" / "left.md").write_text("---\ntitle: left\n---\n# left\n", encoding="utf-8")
+    wired.plan.set_status("discovery:api", "blocked", "integrate: uncommitted changes in the main docs would be overwritten")
+    w2 = Worktrees(wired.common.CTX).add("discovery:web")
+    (w2.path / "docs" / "notes").mkdir(parents=True)
+    (w2.path / "docs" / "notes" / "web.md").write_text("---\ntitle: web\n---\n# web\n", encoding="utf-8")
+    wired.plan.set_status("discovery:web", "done")
+    done, out = run(wired, max_parallel=1, per_runner={"fake": 1}, max_units=0)
+    assert done == 2 and not fake["entries"]()                          # no agent was started
+    assert (wired.root / "docs" / "notes" / "left.md").exists() and (wired.root / "docs" / "notes" / "web.md").exists()
+    assert status(wired, "discovery:api") == "done" and any("finished work" in l for l in out)

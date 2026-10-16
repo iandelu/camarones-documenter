@@ -128,6 +128,15 @@ def _loop(jobs, lang, max_parallel, per_runner, max_units, poll_seconds, include
     synced = 0.0
     for problem in plan.pipeline_problems():
         log(f"pipeline.yaml: {problem} — the plan is used as it was")
+    units = {u["id"]: u for u in plan.load()["units"]}
+    for w in Worktrees(CTX).list():                  # work finished earlier but never merged (crash, main was busy)
+        u = units.get(w.unit) or {}
+        waiting = u.get("status") == "blocked" and str(u.get("notes", "")).startswith("integrate: uncommitted")
+        if u.get("status") == "done" or waiting:
+            if waiting:
+                plan.set_status(w.unit, "done", record=False)
+            pending.append(w.unit)
+            log(f"{w.unit}: finished work found in {plan._at(w.path)} — merging it before anything else")
     log(f"Parallel run started: up to {max_parallel} unit(s) at a time" + (f", max {max_units}" if max_units else ""))
     agents = {routing.parse(t).runner for t in plan._agents(lambda _: None)}
     if 0 < len(agents) < max_parallel:                 # one session per agent by default (quotas): say how to allow more
