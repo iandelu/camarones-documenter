@@ -20,8 +20,13 @@ def _from(d: dict) -> CommandRunner:
 
 
 def builtin() -> list:
-    kit = [_from(d) for p in plugins.kit() if p.active for d in p.provides.get("runners") or []]
-    return [*_CODE.values(), *(r for r in kit if r.id not in _CODE)]
+    """Code adapters, then the kit's plugin runners, then those of project plugins this machine approved."""
+    out = dict(_CODE)
+    for p in plugins.discover():
+        if p.active:
+            for d in p.provides.get("runners") or []:
+                out.setdefault(d["id"], _from(d))
+    return list(out.values())
 
 
 def machine() -> list:

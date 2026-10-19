@@ -91,7 +91,9 @@ un error, el plan se queda como estaba y `camaron plan` dice dónde (`patch[1].n
 **Plugins.** Un plugin es una carpeta en `.camarones/plugins/<nombre>/` con un `plugin.yaml` (`name`, `version`, rango
 `kit`, `provides`). `camaron plugins` lista los del kit y los del proyecto, qué aportan y si ejecutan código. Un plugin
 que ejecuta código (comandos de agente, hooks, servidores MCP, scripts) llega a todo el equipo a través del repo, así
-que no se carga hasta que se aprueba en cada máquina.
+que no se carga hasta que se aprueba en cada máquina: el asistente lo pregunta junto al resto de la configuración de
+agentes, o `camaron trust` (`--yes` para aprobar). La aprobación cubre todos los ficheros de la carpeta del plugin:
+cualquier cambio vuelve a preguntar. Los agentes que aporte un plugin aprobado quedan disponibles como los del kit.
 
 ## 3. Confianza: borradores de IA frente a doc confirmada
 
