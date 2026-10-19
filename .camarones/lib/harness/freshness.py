@@ -63,25 +63,26 @@ def _lines(repo, path) -> list[str] | None:
         return None
 
 
-def fingerprint(ref: str) -> dict | None:
-    """The cited code as {h, n}: hash and number of meaningful lines. None when the file or the range is missing."""
+def fingerprint(ref: str, read=None) -> dict | None:
+    """The cited code as {h, n}: hash and number of meaningful lines. None when the file or the range is missing.
+    `read(repo, path)` gives the file's lines some other way (another commit); default: the working tree."""
     repo, path, span = parse(ref)
-    lines = _lines(repo, path)
+    lines = (read or _lines)(repo, path)
     if lines is None or (span and span[1] > len(lines)):
         return None
     block = _norm(lines[span[0] - 1:span[1]] if span else lines)
     return {"h": _hash(block), "n": len(block)}
 
 
-def check_source(ref: str, stamp: dict | None) -> str:
+def check_source(ref: str, stamp: dict | None, read=None) -> str:
     """fresh | changed | missing, for one source against its fingerprint."""
     if stamp is None:
         return "missing"
     repo, path, span = parse(ref)
-    lines = _lines(repo, path)
+    lines = (read or _lines)(repo, path)
     if lines is None:
         return "missing"
-    now = fingerprint(ref)
+    now = fingerprint(ref, read)
     if now and now["h"] == stamp["h"]:
         return "fresh"
     if span:                                    # the same code moved inside the file (lines added above it)

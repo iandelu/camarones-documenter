@@ -198,13 +198,21 @@ Antes de subir la rama de actualización se ejecuta `camaron check --secrets`: s
 Variables necesarias: `ANTHROPIC_API_KEY` u `OPENAI_API_KEY`, y un token de bot para abrir MRs/PRs. En GitLab, además, tienes que
 permitir que el job token del proyecto `cam-docs` clone cada repo de servicio (repo → Settings → CI/CD → Job token permissions).
 
+**En cada pull request, sin IA.** `camaron ci` también escribe `.camarones/ci/docs-fresh.github.yml` (o `.gitlab-ci.yml`)
+para cada repo de servicio. En cada PR/MR comenta qué páginas deja desactualizadas el cambio y cuáles ya lo estaban; un
+solo comentario por PR, que se actualiza con cada push. No necesita clave de IA y nunca bloquea el merge. Necesita
+`DOCS_REPO_URL` y un `DOCS_READ_TOKEN` que pueda leer `cam-docs` (en GitLab, además, `DOCS_BOT_TOKEN` para comentar). En
+local: `camaron pr fresh <repo> --base main`. Por defecto corre en runners alojados; para que use los vuestros, pon
+`ci: {target: self-hosted, runner_labels: [self-hosted, docs], runner_tags: [docs]}` en `workspace.yaml` y vuelve a
+ejecutar `camaron ci`. Las PR del propio `cam-docs` solo pasan `check`.
+
 ## 9. Comandos (para scripts y agentes)
 
 `camaron help` (copia por proyecto: `./camaron.command help`, en Windows `camaron.cmd help`) lista: `setup`, `sync`,
 `detect`, `plan`, `plan next`, `status`, `check [--strict|--secrets]`, `confirm`, `feedback`, `checkpoint`, `graph`, `arch` (editor C4 en vivo),
 `arch-validate`, `wiki <repo>`, `portal` (exportación), `up [--static|--docker]`, `down`, `ci`, `prompt <unidad>`, `migrate`, `doctor`,
 `doctor --local` (propone un modelo local libre para este equipo, sin instalar nada), `autopilot`, `plugins [--json]`,
-`run`, `runs`, `kpis`, `eval`, `ab`, `pipeline show|validate` y `blocks [--force]`.
+`run`, `runs`, `kpis`, `eval`, `ab`, `pipeline show|validate`, `blocks [--force]` y `pr fresh <repo>`.
 
 **Datos del código, sin IA.** `camaron blocks` escribe `docs/repos/<repo>/reference.md` para cada repo: comandos
 (Maven, Gradle, `package.json`, Makefile, Docker Compose), variables de entorno (placeholders `${VAR:valor}` de Spring,

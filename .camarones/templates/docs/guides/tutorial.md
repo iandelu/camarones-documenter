@@ -190,13 +190,21 @@ Before the update branch is pushed, `camaron check --secrets` runs: a possible s
 Variables: `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`, a bot token to open MRs/PRs; on GitLab allow the `cam-docs` project's
 job token to clone each service repo (repo → Settings → CI/CD → Job token permissions).
 
+**Every pull request, no AI.** `camaron ci` also writes `.camarones/ci/docs-fresh.github.yml` (or `.gitlab-ci.yml`) for
+each service repo. On every PR/MR it comments which pages the change leaves out of date, and which were already out of
+date before; one comment per PR, updated on each push. It needs no API key and never blocks the merge. It needs
+`DOCS_REPO_URL` and a `DOCS_READ_TOKEN` that can read `cam-docs` (on GitLab also `DOCS_BOT_TOKEN` to comment). Locally:
+`camaron pr fresh <repo> --base main`. It runs on hosted runners by default; to keep it on your own runners, set
+`ci: {target: self-hosted, runner_labels: [self-hosted, docs], runner_tags: [docs]}` in `workspace.yaml` and run
+`camaron ci` again. Pull requests on `cam-docs` itself only run `check`.
+
 ## 9. Commands (for scripts and agents)
 
 `camaron help` (per-project copy: `./camaron.command help`, Windows `camaron.cmd help`): `setup`, `sync`, `detect`,
 `plan`, `plan next`, `status`, `check [--strict|--secrets]`, `confirm`, `feedback`, `checkpoint`, `graph`, `arch` (live C4 editor), `arch-validate`,
 `wiki <repo>`, `portal` (export), `up [--static|--docker]`, `down`, `ci`, `prompt <unit>`, `migrate`, `doctor`,
 `doctor --local` (proposes a free local model for this computer, installs nothing), `autopilot`, `plugins [--json]`,
-`run`, `runs`, `kpis`, `eval`, `ab`, `pipeline show|validate`, `blocks [--force]`.
+`run`, `runs`, `kpis`, `eval`, `ab`, `pipeline show|validate`, `blocks [--force]`, `pr fresh <repo>`.
 
 **Facts from the code, no AI.** `camaron blocks` writes `docs/repos/<repo>/reference.md` for each repo: commands
 (Maven, Gradle, `package.json`, Makefile, Docker Compose), env vars (Spring `${VAR:default}` placeholders,

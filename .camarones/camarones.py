@@ -68,6 +68,10 @@
   blocks [--force] [--json]  facts read from the repos, no AI: docs/repos/<repo>/reference.md (commands, env vars,
                             endpoints, topics) and every <!-- generated:… --> block in the docs. A block edited by hand
                             is kept and flagged by check; --force takes the code's version. `sync` refreshes them too
+  pr fresh REPO [--base REF | --files F…] [--json] [--post] [--lang en|es]
+                            what a pull request does to the docs, no AI: the pages whose cited code it changes (left
+                            out of date by it, or already before). --post writes or updates one comment on the PR/MR
+                            (GitHub Actions or GitLab CI); it never fails the pipeline
   kpis [--json] [--months N] [--no-check] [--compare RUN_A RUN_B]
                             is it working? cost and speed of runs (the team's, per month), coverage, trust, usage;
                             --compare puts two runs side by side
@@ -228,6 +232,9 @@ def main() -> int:
     ev.add_argument("--all", action="store_true"); ev.add_argument("--json", action="store_true"); ev.add_argument("--by", default="")
     abp = sp.add_parser("ab"); abp.add_argument("--qa", default=""); abp.add_argument("--golden", action="store_true")
     abp.add_argument("--runner", default=""); abp.add_argument("--judge", default=""); abp.add_argument("--json", action="store_true")
+    prp = sp.add_parser("pr"); prp.add_argument("action", choices=["fresh"]); prp.add_argument("repo")
+    prp.add_argument("--base", default=""); prp.add_argument("--files", nargs="+"); prp.add_argument("--json", action="store_true")
+    prp.add_argument("--post", action="store_true"); prp.add_argument("--lang", default="en", choices=["en", "es"])
     bl = sp.add_parser("blocks"); bl.add_argument("--force", action="store_true"); bl.add_argument("--json", action="store_true")
     fr = sp.add_parser("fresh"); fr.add_argument("--json", action="store_true"); fr.add_argument("--ack", nargs="+", default=[])
     fr.add_argument("--by", default=""); fr.add_argument("--plan", action="store_true")
@@ -438,6 +445,8 @@ def main() -> int:
         return cmd_fresh(a)
     elif a.cmd == "blocks":
         return cmd_blocks(a)
+    elif a.cmd == "pr":
+        return cmd_pr(a)
     elif a.cmd == "eval":
         return cmd_eval(a)
     elif a.cmd == "ab":
@@ -682,6 +691,23 @@ def cmd_ab(a) -> int:
         print(f"cam-docs read {r['tokens_saved_pct']}% less context (input + cached tokens)" if r["tokens_saved_pct"] >= 0
               else f"cam-docs read {-r['tokens_saved_pct']}% more context (input + cached tokens)")
     return 0
+
+
+def cmd_pr(a) -> int:
+    from lib import pr
+    if a.repo not in docs.repo_names():
+        print(f"unknown repo {a.repo}: one of {', '.join(docs.repo_names()) or '—'}", file=sys.stderr)
+        return 2
+    base = a.base or (None if a.files else "main")
+    result = pr.impact(a.repo, base=base, files=a.files)
+    if a.json:
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+        return 0
+    body = pr.comment(result, a.lang)
+    print(body)
+    if a.post:
+        print(pr.post(body, affected=bool(result["pages"])))
+    return 0                                     # a warning, never a failed pipeline (H27)
 
 
 def cmd_blocks(a) -> int:

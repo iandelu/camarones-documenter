@@ -4,6 +4,7 @@
 name: docs
 on:
   push: { branches: [main] }
+  pull_request:                                       # docs edits: `check` only, never the AI job
   schedule: [{ cron: "0 5 * * 1-5" }]
   workflow_dispatch:
   repository_dispatch: { types: [service-changed] }   # sent by each service repo after merges
@@ -16,7 +17,29 @@ env:
   CAMARONES_KIT_REPO: https://github.com/iandelu/camarones-documenter.git   # or an internal mirror
 
 jobs:
+  check:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - uses: astral-sh/setup-uv@v6
+      - name: Check the docs (no AI)
+        env: { REPOS_TOKEN: "${{ secrets.REPOS_TOKEN }}" }
+        run: |
+          if [ -n "$REPOS_TOKEN" ]; then
+            git config --global url."https://x-access-token:${REPOS_TOKEN}@github.com/".insteadOf "git@github.com:"
+          fi
+          sudo git clone -q --depth 1 "$CAMARONES_KIT_REPO" /opt/camarones-kit
+          printf '#!/bin/sh\nexec uv run --quiet --script /opt/camarones-kit/.camarones/camarones.py "$@"\n' | sudo tee /usr/local/bin/camaron >/dev/null && sudo chmod +x /usr/local/bin/camaron
+          export CAMARONES_ROOT=$GITHUB_WORKSPACE
+          camaron setup --ci
+          camaron check
+
   docs:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,9 +51,10 @@ jobs:
         run: |
           git config --global url."https://x-access-token:${{ secrets.REPOS_TOKEN }}@github.com/".insteadOf "git@github.com:"
           sudo git clone -q --depth 1 "$CAMARONES_KIT_REPO" /opt/camarones-kit
-          printf '#!/bin/sh\nexec uv run --quiet --script /opt/camarones-kit/.camarones/camarones.py "$@"\n' | sudo tee /usr/local/bin/camarones >/dev/null && sudo chmod +x /usr/local/bin/camarones
+          printf '#!/bin/sh\nexec uv run --quiet --script /opt/camarones-kit/.camarones/camarones.py "$@"\n' | sudo tee /usr/local/bin/camaron >/dev/null && sudo chmod +x /usr/local/bin/camaron
+          sudo ln -sf /usr/local/bin/camaron /usr/local/bin/camarones
           echo "CAMARONES_ROOT=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
-          CAMARONES_ROOT=$GITHUB_WORKSPACE camarones setup --ci
+          CAMARONES_ROOT=$GITHUB_WORKSPACE camaron setup --ci
           camaron graph && camaron arch-validate
       - name: AI update
         if: github.event_name != 'push'

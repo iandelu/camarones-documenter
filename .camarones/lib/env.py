@@ -1319,8 +1319,12 @@ def install_ci(forge: str | None = None, log: Log = print) -> Path:
     snippet = f"repo.{'github.yml' if forge == 'github' else 'gitlab-ci.yml'}"
     (ROOT / ".camarones" / "ci").mkdir(parents=True, exist_ok=True)
     shutil.copyfile(KIT / "ci" / snippet, ROOT / ".camarones" / "ci" / snippet)   # service repos include it from here
+    from . import ci
+    fresh = ROOT / ".camarones" / "ci" / ci.FILES[forge]
+    fresh.write_text(ci.render(forge), encoding="utf-8", newline="\n")      # generated from lib/ci.py, ci: in workspace.yaml
     log(f"  ✔ {dst.relative_to(ROOT)} (docs repo pipeline)")
     log(f"  → per-repo snippet: .camarones/ci/{snippet}")
+    log(f"  → per-repo pull request check (no AI): .camarones/ci/{ci.FILES[forge]}")
     return dst
 
 
