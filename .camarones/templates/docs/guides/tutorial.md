@@ -87,7 +87,9 @@ mistake, the plan stays as it was and `camaron plan` says where (`patch[1].node:
 **Plugins.** A plugin is a folder in `.camarones/plugins/<name>/` with a `plugin.yaml` (`name`, `version`, `kit`
 range, `provides`). `camaron plugins` lists the kit's and the project's, what they provide and whether they run code.
 A plugin that runs code (agent commands, hooks, MCP servers, scripts) is shared with the whole team through the repo,
-so it is not loaded until it is approved on each machine.
+so it is not loaded until it is approved on each machine: the wizard asks along with the rest of the agent config, or
+`camaron trust` (`--yes` to approve). The approval covers every file of the plugin folder: any change asks again.
+An approved plugin's agent runners are then available like the built-in ones.
 
 ## 3. Trust: AI drafts vs confirmed
 

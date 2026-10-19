@@ -83,14 +83,14 @@ T = {
         "migrate_ask": "Este proyecto usa la estructura antigua (docs y config en la raíz y dentro de cada repo). "
                        "¿Lo paso a {cam}/ ahora? Verás la lista de cambios antes de confirmar.",
         "trust_title": "Configuración de agentes sin aprobar en esta máquina",
-        "trust_intro": "{cam}/ trae hooks, servidores MCP, ajustes o skills que este kit no ha escrito y que aquí aún no has "
-                       "aprobado. Claude Code y Codex los cargarían al abrir el workspace. Revisa qué ejecutan:",
+        "trust_intro": "{cam}/ trae hooks, servidores MCP, ajustes, skills o plugins que este kit no ha escrito y que aquí "
+                       "aún no has aprobado. Claude Code, Codex o el propio kit los cargarían. Revisa qué ejecutan:",
         "trust_cols": ("Tipo", "Qué", "Detalle", "Estado"),
         "trust_new": "nuevo", "trust_changed": "cambiado",
         "trust_q": "¿Apruebas todo lo de la lista en esta máquina?",
         "trust_ok": "✔ Aprobado: los agentes del workspace cargan esta configuración.",
-        "trust_no": "Sin aprobar: los agentes del workspace no cargan .claude, .codex, .agents ni .mcp.json. "
-                    "Cuando lo revises, apruébalo con `{cli} trust`.",
+        "trust_no": "Sin aprobar: los agentes del workspace no cargan .claude, .codex, .agents ni .mcp.json, y los "
+                    "plugins que ejecutan código quedan apagados. Cuando lo revises, apruébalo con `{cli} trust`.",
         "sessions_intro": "Ahora el trabajo va por sesiones: cada una hace UNA unidad del plan (p. ej. analizar un repo). "
                           "Al acabar, la IA guarda el progreso y te pregunta qué seguir. Tú vuelves aquí → «Siguiente paso».",
         "menu": "¿Qué hacemos?",
@@ -439,14 +439,14 @@ T = {
         "migrate_ask": "This project uses the old layout (docs and config at the root and inside every repo). "
                        "Move it to {cam}/ now? You'll see the list of changes before confirming.",
         "trust_title": "Agent config not approved on this machine",
-        "trust_intro": "{cam}/ brings hooks, MCP servers, settings or skills this kit did not write and you have not "
-                       "approved here. Claude Code and Codex would load them when you open the workspace. Check what they run:",
+        "trust_intro": "{cam}/ brings hooks, MCP servers, settings, skills or plugins this kit did not write and you have "
+                       "not approved here. Claude Code, Codex or the kit itself would load them. Check what they run:",
         "trust_cols": ("Kind", "What", "Detail", "Status"),
         "trust_new": "new", "trust_changed": "changed",
         "trust_q": "Approve everything in the list on this machine?",
         "trust_ok": "✔ Approved: the workspace's agents load this config.",
-        "trust_no": "Not approved: the workspace's agents do not load .claude, .codex, .agents or .mcp.json. "
-                    "Once you have checked it, approve it with `{cli} trust`.",
+        "trust_no": "Not approved: the workspace's agents do not load .claude, .codex, .agents or .mcp.json, and plugins "
+                    "that run code stay off. Once you have checked it, approve it with `{cli} trust`.",
         "sessions_intro": "From now on work happens in sessions: each one does ONE plan unit (e.g. analyze a repo). When it "
                           "finishes, the AI saves progress and asks what next. You come back here → “Next step”.",
         "menu": "What shall we do?",

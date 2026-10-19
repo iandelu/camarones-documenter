@@ -176,9 +176,9 @@ def cmd_trust(a) -> int:
     rows = trust.grouped(trust.pending())
     if not rows:
         env.link_workspace()
-        print("✔ nothing to approve: the agent config is the kit's own or already approved on this machine")
+        print("✔ nothing to approve: the agent config and plugins are the kit's own or already approved on this machine")
         return 0
-    print("Agent config not approved on this machine (Claude Code / Codex would load it from the workspace):\n")
+    print("Agent config and plugins not approved on this machine (Claude Code, Codex or the kit would load them):\n")
     for kind, label, detail, status in rows:
         print(f"  {status:<8} {kind:<8} {label}\n           {detail}")
     if not a.yes:
@@ -192,7 +192,7 @@ def cmd_trust(a) -> int:
             return 1
         if answer.strip().lower() not in ("y", "yes", "s", "si", "sí"):
             trust.decline()
-            print("not approved: the workspace does not link .claude, .codex, .agents or .mcp.json")
+            print("not approved: nothing in the list is loaded on this machine")
             return 1
     n = trust.approve()
     env.link_workspace()

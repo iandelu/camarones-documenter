@@ -1,9 +1,10 @@
 """Plugins (R10): a folder with a plugin.yaml manifest. The kit's own pieces live in lib/plugins/; a project's in
 cam-docs/.camarones/plugins/. Whether a plugin runs code is computed from what it provides and the files it ships,
-never trusted from the manifest. A project plugin that runs code is not loaded until it is approved."""
+never trusted from the manifest. A project plugin that runs code is not loaded until this machine approves it
+(lib/trust.py, R28); any change to its files asks again."""
 from __future__ import annotations
 
-import functools
+import functools, hashlib, os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -48,9 +49,44 @@ class Plugin:
     def steers_agents(self) -> bool:
         return any(self.provides.get(k) for k in STEERING_KINDS)
 
+    def fingerprint(self) -> str:
+        """Every file of the folder (links by target, never followed): what an approval covers."""
+        h = hashlib.sha256()
+        for f in sorted(p for p in self.path.rglob("*") if p.is_file() or p.is_symlink()):
+            rel = f.relative_to(self.path).as_posix()
+            if "__pycache__" in rel:
+                continue
+            data = f"link:{os.readlink(f)}".encode() if f.is_symlink() else f.read_bytes().replace(b"\r\n", b"\n")
+            h.update(rel.encode("utf-8") + b"\0" + hashlib.sha256(data).digest())
+        return h.hexdigest()
+
+    def summary(self) -> str:
+        """What it would run, as shown when asking for approval."""
+        parts = []
+        for r in self.provides.get("runners") or []:
+            argv = " ".join(map(str, r.get("argv") or [])) if isinstance(r, dict) else ""
+            parts.append(f"runners: {r.get('id')} ({argv})" if isinstance(r, dict) else f"runners: {r}")
+        for h in self.provides.get("hooks") or []:
+            parts.append(f"hooks: {h.get('event')} ({h.get('command')})" if isinstance(h, dict) else f"hooks: {h}")
+        for m in self.provides.get("mcp") or []:
+            parts.append(f"mcp: {m.get('name')} ({m.get('command')})" if isinstance(m, dict) else f"mcp: {m}")
+        for c in self.provides.get("checks") or []:
+            if isinstance(c, dict) and c.get("entry"):
+                parts.append(f"checks: {c.get('id')} ({c['entry']})")
+        code = [f.relative_to(self.path).as_posix() for f in sorted(self.path.rglob("*"))
+                if f.is_file() and f.suffix.lower() in CODE_FILES]
+        if code:
+            parts.append("code files: " + ", ".join(code[:6]) + (" …" if len(code) > 6 else ""))
+        return f"{self.path.name}/ — " + " · ".join(parts)
+
     @property
     def active(self) -> bool:
-        return not self.errors and (self.source == "kit" or not self.runs_code)
+        if self.errors:
+            return False
+        if self.source == "kit" or not self.runs_code:
+            return True
+        from .. import trust
+        return trust.plugin_approved(self)
 
     @property
     def status(self) -> str:
@@ -120,9 +156,9 @@ def kit() -> tuple[Plugin, ...]:
     return tuple(_load(folder, "kit", set()) for folder in _folders(KIT_DIR))
 
 
-def discover() -> list[Plugin]:
+def discover(project_dir: Path | None = None) -> list[Plugin]:
     taken = {p.name for p in kit()}
-    return [*kit(), *(_load(folder, "project", taken) for folder in _folders(PROJECT_DIR))]
+    return [*kit(), *(_load(folder, "project", taken) for folder in _folders(project_dir or PROJECT_DIR))]
 
 
 def provided(kind: str) -> list[dict]:
