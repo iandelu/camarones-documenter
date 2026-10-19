@@ -237,11 +237,13 @@ PAGES = {
                   |-- IA actualiza solo las paginas afectadas
                   |-- check --secrets  (un secreto para aqui: no hay MR)
                   |-- check (enlaces, diagramas, fuentes, confianza)
-                  +-- exporta el portal (camaron portal) --> imagen nginx / Pages""",
+                  +-- exporta el portal (camaron portal) --> imagen nginx / Pages
+   PR en un repo --> comentario sin IA: que paginas deja desactualizadas""",
          "text": "Opcional: un pipeline que, tras cada cambio en los repos o en cam-docs, actualiza la documentación "
                  "afectada y publica el portal de solo lectura. Así, un merge request hecho desde «Editar» del portal "
                  "desplegado aparece publicado al fusionarse. Se configura en «Equipo › CI». También se puede hacer a mano "
-                 "con «🔄 Actualizar doc tras cambios» y «🌐 Portal › 📦 Exportar el portal»."},
+                 "con «🔄 Actualizar doc tras cambios» y «🌐 Portal › 📦 Exportar el portal». Y en cada pull request de "
+                 "un repo, un job sin IA comenta qué páginas deja desactualizadas el cambio (`camaron pr fresh`)."},
         {"icon": "🧰", "title": "Piezas de apoyo",
          "art": r"""
    uv        -> ejecuta Camarones (Python) sin instalar nada mas
@@ -505,11 +507,13 @@ PAGES = {
                   |-- AI updates only the affected pages
                   |-- check --secrets  (a secret stops here: no MR)
                   |-- check (links, diagrams, sources, trust)
-                  +-- exports the portal (camaron portal) --> nginx image / Pages""",
+                  +-- exports the portal (camaron portal) --> nginx image / Pages
+   PR in a repo --> comment, no AI: which pages it leaves out of date""",
          "text": "Optional: a pipeline that, after each change in the repos or in cam-docs, updates the affected docs and "
                  "publishes the read-only portal. So a merge request opened from the deployed portal's “Edit” shows up "
                  "once merged. Set it up in “Team › CI”. You can also do it by hand with “🔄 Update docs after changes” and "
-                 "“🌐 Portal › 📦 Export the portal”."},
+                 "“🌐 Portal › 📦 Export the portal”. And on every pull request in a repo, a job without AI comments "
+                 "which pages the change leaves out of date (`camaron pr fresh`)."},
         {"icon": "🧰", "title": "Supporting pieces",
          "art": r"""
    uv        -> runs Camarones (Python) without installing anything else
