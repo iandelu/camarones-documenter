@@ -408,6 +408,13 @@ def check_structure(rows: list[dict], strict: bool = False) -> Issues:
     return (issues, []) if strict else ([], issues)
 
 
+def check_plugins(rows: list[dict], strict: bool = False) -> Issues:
+    """Team plugins against .camarones/plugins.lock (R37): hand edits, unknown folders, locked plugins gone."""
+    from .harness import plugin_store
+    found = plugin_store.issues()
+    return (found, []) if strict else ([], found)
+
+
 def check_generated(rows: list[dict], strict: bool = False) -> Issues:
     """Generated blocks (X3) edited by hand or behind the code."""
     from . import genblocks
@@ -415,4 +422,4 @@ def check_generated(rows: list[dict], strict: bool = False) -> Issues:
 
 
 CHECKS = (check_links, check_mermaid, check_secrets, check_terms, check_diagrams, check_fresh,
-          check_structure, check_generated)
+          check_structure, check_generated, check_plugins)

@@ -258,8 +258,8 @@ PAGES = {
                  "ventana la primera vez. Sin IA, cada repo recibe también `docs/repos/<repo>/reference.md`: comandos, "
                  "variables de entorno, endpoints y topics leídos de sus ficheros, que `camaron blocks` y `sync` "
                  "mantienen al día. Las extensiones del equipo van como plugins en `.camarones/plugins/` "
-                 "(`camaron plugins` las lista); las que ejecutan código no se cargan hasta que las apruebas en tu "
-                 "máquina, y cualquier cambio en sus ficheros vuelve a preguntar."},
+                 "(`camaron plugins add` las trae y las fija en plugins.lock); las que ejecutan código o guían a los "
+                 "agentes no se cargan hasta que las apruebas en tu máquina, y cualquier cambio vuelve a preguntar."},
         {"icon": "🗺", "title": "Tu día a día",
          "art": r"""
    1. camarones              -> abre el asistente del proyecto (cam-docs)
@@ -528,9 +528,9 @@ PAGES = {
                  "and gitleaks) comes with the full install; mermaid-cli downloads a headless Chromium the first time. "
                  "Without AI, each repo also gets `docs/repos/<repo>/reference.md`: commands, env vars, endpoints and "
                  "topics read from its files, kept current by `camaron blocks` and `sync`. "
-                 "Team extensions go in `.camarones/plugins/` as plugins (`camaron plugins` lists them); the ones that "
-                 "run code are not loaded until you approve them on your machine, and any change to their files asks "
-                 "again."},
+                 "Team extensions go in `.camarones/plugins/` as plugins (`camaron plugins add` brings one in and pins "
+                 "it in plugins.lock); the ones that run code or steer agents are not loaded until you approve them on "
+                 "your machine, and any change asks again."},
         {"icon": "🗺", "title": "Your day to day",
          "art": r"""
    1. camarones              -> opens the project's wizard (cam-docs)

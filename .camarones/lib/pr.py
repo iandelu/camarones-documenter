@@ -3,10 +3,10 @@ checked against the fingerprints in docs/.work/fresh.json: left out of date by t
 its base. One PR/MR comment, found by its marker and updated in place. It warns; it never fails a pipeline (H27)."""
 from __future__ import annotations
 
-import json, os, subprocess
+import json, os
 import urllib.error, urllib.request
 
-from .common import repo_dir
+from .common import repo_dir, run
 from . import docs
 from .harness import freshness
 
@@ -38,8 +38,7 @@ T = {
 
 
 def _git(repo, *args: str) -> str | None:
-    r = subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True, encoding="utf-8",
-                       errors="replace")
+    r = run(["git", "-C", str(repo), *args], check=False, capture=True)
     return r.stdout if r.returncode == 0 else None
 
 

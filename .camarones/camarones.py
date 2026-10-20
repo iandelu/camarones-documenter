@@ -78,7 +78,10 @@
   pipeline show|validate [--json]   the project's plan as units (kit pipeline + .camarones/pipeline.yaml);
                             validate exits 1 when pipeline.yaml has problems (for CI)
   plugins [--json]          plugins of the kit and of this project (.camarones/plugins/): what they provide, whether
-                            they run code, and whether they are loaded (code needs approval first)
+                            they run code, and whether they are loaded (code and prompts need approval: `trust`)
+  plugins add SOURCE        vendor a team plugin from a folder or git:<url>@<tag>[#subfolder]; pinned in plugins.lock
+  plugins update [NAME] [--to TAG] | outdated | remove NAME
+                            re-fetch (shows what changed; changed code asks trust again), newer versions, drop one
   install DEST --profile quick|full [--dry-run]   copy kit into an explicit project folder
   upgrade SOURCE [--dry-run]  update kit files with backups; preserve project configuration
   profile quick|full        change the work plan without losing checkpoints
@@ -223,6 +226,8 @@ def main() -> int:
         sp.add_parser(c)
     dr = sp.add_parser("doctor"); dr.add_argument("--local", action="store_true")
     pg = sp.add_parser("plugins"); pg.add_argument("--json", action="store_true")
+    pg.add_argument("action", nargs="?", default="list", choices=["list", "add", "update", "outdated", "remove"])
+    pg.add_argument("target", nargs="?"); pg.add_argument("--to", default="")
     rn = sp.add_parser("run"); rn.add_argument("--parallel", type=int, default=2); rn.add_argument("--per-runner", default="")
     rn.add_argument("--max-units", type=int); rn.add_argument("--lang", default="es")
     rn.add_argument("--include-interviews", action="store_true"); rn.add_argument("--poll-seconds", type=int, default=900)
@@ -453,6 +458,8 @@ def main() -> int:
         return cmd_ab(a)
     elif a.cmd == "pipeline":
         return cmd_pipeline(a)
+    elif a.cmd == "plugins" and a.action != "list":
+        return cmd_plugin_store(a)
     elif a.cmd == "plugins":
         from lib.harness import plugins
         rows = plugins.rows()
@@ -690,6 +697,48 @@ def cmd_ab(a) -> int:
     if r["tokens_saved_pct"] is not None:
         print(f"cam-docs read {r['tokens_saved_pct']}% less context (input + cached tokens)" if r["tokens_saved_pct"] >= 0
               else f"cam-docs read {-r['tokens_saved_pct']}% more context (input + cached tokens)")
+    return 0
+
+
+def cmd_plugin_store(a) -> int:
+    from lib.harness import plugin_store
+    try:
+        if a.action == "add":
+            if not a.target:
+                print("usage: plugins add <folder | git:<url>@<tag>[#subfolder]>", file=sys.stderr)
+                return 2
+            p = plugin_store.add(a.target)
+            print(f"✔ {p.name} {p.manifest.get('version')} vendored in .camarones/plugins/{p.name} (plugins.lock)")
+            if p.needs_trust:
+                print(f"  It {'runs code' if p.runs_code else 'steers agents'}: approve it on this machine with "
+                      f"`{cli_cmd()} trust` before it is used.")
+        elif a.action == "update":
+            changes = plugin_store.update(a.target or None, to=a.to or None)
+            for c in changes:
+                f = c["files"]
+                print(f"✔ {c['name']} {c['from']} → {c['to']}: +{len(f['added'])} −{len(f['removed'])} ~{len(f['changed'])}")
+                for kind, mark in (("added", "+"), ("removed", "-"), ("changed", "~")):
+                    for name in f[kind]:
+                        print(f"    {mark} {name}")
+                if c["needs_trust"]:
+                    print(f"  It changed: `{cli_cmd()} trust` asks you to approve it again.")
+            if not changes:
+                print("✔ plugins already match their source")
+        elif a.action == "outdated":
+            rows = plugin_store.outdated()
+            if a.json:
+                print(json.dumps(rows, indent=2))
+                return 0
+            for r in rows:
+                print(f"  {r['name']:<16} {r['version']} → {r['latest']}   ({r['source']})")
+            if not rows:
+                print("✔ every vendored plugin is on its latest version")
+        else:
+            plugin_store.remove(a.target or "")
+            print(f"✔ {a.target} removed from .camarones/plugins and plugins.lock")
+    except plugin_store.PluginError as e:
+        print(f"✖ {e}", file=sys.stderr)
+        return 2
     return 0
 
 

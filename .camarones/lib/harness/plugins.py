@@ -21,7 +21,7 @@ STEERING_KINDS = ("prompts", "skills", "types")       # text that reaches an age
 CODE_FILES = {".py", ".sh", ".js", ".mjs", ".cjs", ".ts", ".cmd", ".bat", ".ps1", ".exe", ".command"}
 NAME = re.compile(r"[a-z0-9][a-z0-9-]*")
 SEMVER = re.compile(r"\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?")
-NEEDS_APPROVAL = "not loaded: runs code and needs approval"
+NEEDS_APPROVAL = "not loaded: needs approval on this machine"
 
 
 @dataclass
@@ -77,13 +77,21 @@ class Plugin:
                 if f.is_file() and f.suffix.lower() in CODE_FILES]
         if code:
             parts.append("code files: " + ", ".join(code[:6]) + (" …" if len(code) > 6 else ""))
+        steer = [f"{k}: {', '.join(map(str, self.provides[k]))}" for k in STEERING_KINDS if self.provides.get(k)]
+        if steer and not self.runs_code:
+            parts.append("steers agents — " + " · ".join(steer))
         return f"{self.path.name}/ — " + " · ".join(parts)
+
+    @property
+    def needs_trust(self) -> bool:
+        """Runs code or steers an agent, and arrived with the team's repo: approved per machine (R28, RFC §2.4)."""
+        return self.source == "project" and (self.runs_code or self.steers_agents)
 
     @property
     def active(self) -> bool:
         if self.errors:
             return False
-        if self.source == "kit" or not self.runs_code:
+        if not self.needs_trust:
             return True
         from .. import trust
         return trust.plugin_approved(self)

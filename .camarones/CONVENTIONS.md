@@ -181,6 +181,7 @@ then stamp it: `CLI translated <files>`. `CLI status` shows missing/outdated tra
 | Missing diagram (flow without a sequence, lifecycle told only in prose) | WARN (ERROR with `--strict`) | — |
 | Cited code changed or gone since the page was written (`CLI fresh`) | WARN (ERROR with `--strict`) | — |
 | Generated block edited by hand or behind the code (`CLI blocks`) | WARN (ERROR with `--strict`) | — |
+| Team plugin folder that no longer matches `.camarones/plugins.lock`, or is not in it (`CLI plugins`) | WARN (ERROR with `--strict`) | — |
 | Page structure (section 11): type, title, description, one H1, TL;DR, skeleton sections, budgets, vague references | WARN (ERROR with `--strict`) | — |
 
 A check whose tool is missing prints one WARN and is skipped. `CLI check --secrets` runs only the secret scan (CI gate).
