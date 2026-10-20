@@ -86,10 +86,16 @@ mistake, the plan stays as it was and `camaron plan` says where (`patch[1].node:
 
 **Plugins.** A plugin is a folder in `.camarones/plugins/<name>/` with a `plugin.yaml` (`name`, `version`, `kit`
 range, `provides`). `camaron plugins` lists the kit's and the project's, what they provide and whether they run code.
-A plugin that runs code (agent commands, hooks, MCP servers, scripts) is shared with the whole team through the repo,
-so it is not loaded until it is approved on each machine: the wizard asks along with the rest of the agent config, or
-`camaron trust` (`--yes` to approve). The approval covers every file of the plugin folder: any change asks again.
-An approved plugin's agent runners are then available like the built-in ones.
+A plugin that runs code (agent commands, hooks, MCP servers, scripts) or steers agents (prompts, skills) is shared
+with the whole team through the repo, so it is not loaded until it is approved on each machine: the wizard asks along
+with the rest of the agent config, or `camaron trust` (`--yes` to approve). The approval covers every file of the
+plugin folder: any change asks again. An approved plugin's agent runners are then available like the built-in ones.
+
+Team plugins are vendored and pinned: `camaron plugins add <folder | git:<url>@<tag>[#subfolder]>` copies one into
+`.camarones/plugins/` and records its version, source and fingerprint in `.camarones/plugins.lock`; a plugin whose
+`kit` range does not include this kit is refused. `plugins outdated` lists newer versions, `plugins update [name]
+[--to <tag>]` re-fetches and lists the files that changed, `plugins remove <name>` drops one. `check` warns when a
+folder no longer matches the lock. A pipeline node can pin a major version: `uses: adr-lint@0`.
 
 ## 3. Trust: AI drafts vs confirmed
 
@@ -206,7 +212,8 @@ date before; one comment per PR, updated on each push. It needs no API key and n
 `plan`, `plan next`, `status`, `check [--strict|--secrets]`, `confirm`, `feedback`, `checkpoint`, `graph`, `arch` (live C4 editor), `arch-validate`,
 `wiki <repo>`, `portal` (export), `up [--static|--docker]`, `down`, `ci`, `prompt <unit>`, `migrate`, `doctor`,
 `doctor --local` (proposes a free local model for this computer, installs nothing), `autopilot`, `plugins [--json]`,
-`run`, `runs`, `kpis`, `eval`, `ab`, `pipeline show|validate`, `blocks [--force]`, `pr fresh <repo>`.
+`run`, `runs`, `kpis`, `eval`, `ab`, `pipeline show|validate`, `blocks [--force]`, `pr fresh <repo>`,
+`plugins add|update|outdated|remove`.
 
 **Facts from the code, no AI.** `camaron blocks` writes `docs/repos/<repo>/reference.md` for each repo: commands
 (Maven, Gradle, `package.json`, Makefile, Docker Compose), env vars (Spring `${VAR:default}` placeholders,

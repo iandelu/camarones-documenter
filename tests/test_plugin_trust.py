@@ -1,6 +1,7 @@
 """R28: a project plugin that runs code (runner, hook, MCP server, check entry point, code files) arrives with the
 team's cam-docs, so it is approved per machine like the rest of the agent config (lib/trust.py, "plugin" items). Until
-then nothing it provides is used; a change to any of its files asks again. Plugins that only carry text need nothing."""
+then nothing it provides is used; a change to any of its files asks again. Prompts and skills steer agents, so they ask
+too (like skills in .claude/); only plain config (pipelines) needs nothing."""
 from __future__ import annotations
 
 import os, subprocess, sys
@@ -68,11 +69,18 @@ def test_a_new_file_in_an_approved_plugin_asks_again(trusted):
     assert [s for _, s in trusted.trust.pending()] == ["changed"]
 
 
-def test_text_only_plugins_need_no_approval(trusted):
+def test_prompt_plugins_ask_as_steering_agents(trusted):
     make(trusted, "adr-style", {"name": "adr-style", "version": "1.0.0", "provides": {"prompts": ["adr.md"]}},
          {"adr.md": "Write ADRs like this.\n"})
-    assert trusted.trust.pending() == []
+    [(item, _)] = trusted.trust.pending()
+    assert item.id == "plugin adr-style" and "steers agents — prompts: adr.md" in item.detail
+    trusted.trust.approve()
     assert next(p for p in trusted.plugins.discover() if p.name == "adr-style").active
+
+
+def test_plain_config_plugins_need_nothing(trusted):
+    make(trusted, "plans", {"name": "plans", "version": "1.0.0", "provides": {"pipelines": ["p.yaml"]}})
+    assert trusted.trust.pending() == []
 
 
 def test_the_kits_own_plugins_never_ask(trusted):

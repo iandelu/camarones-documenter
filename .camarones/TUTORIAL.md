@@ -227,7 +227,7 @@ Optional: a pipeline that, after each change in the repos or in cam-docs, update
    Java      -> only for Java/Kotlin repos (SDKMAN is detected)
 ```
 
-The wizard checks all of this and installs it for you (winget on Windows, Homebrew on Mac) when you choose “Install everything recommended”. Only git and Node.js are required. The quality gate (mermaid-cli and gitleaks) comes with the full install; mermaid-cli downloads a headless Chromium the first time. Without AI, each repo also gets `docs/repos/<repo>/reference.md`: commands, env vars, endpoints and topics read from its files, kept current by `camaron blocks` and `sync`. Team extensions go in `.camarones/plugins/` as plugins (`camaron plugins` lists them); the ones that run code are not loaded until you approve them on your machine, and any change to their files asks again.
+The wizard checks all of this and installs it for you (winget on Windows, Homebrew on Mac) when you choose “Install everything recommended”. Only git and Node.js are required. The quality gate (mermaid-cli and gitleaks) comes with the full install; mermaid-cli downloads a headless Chromium the first time. Without AI, each repo also gets `docs/repos/<repo>/reference.md`: commands, env vars, endpoints and topics read from its files, kept current by `camaron blocks` and `sync`. Team extensions go in `.camarones/plugins/` as plugins (`camaron plugins add` brings one in and pins it in plugins.lock); the ones that run code or steer agents are not loaded until you approve them on your machine, and any change asks again.
 
 ### 16. 🗺 Your day to day
 
@@ -472,7 +472,7 @@ Opcional: un pipeline que, tras cada cambio en los repos o en cam-docs, actualiz
    Java      -> solo si hay repos Java/Kotlin (se detecta SDKMAN)
 ```
 
-El asistente comprueba todo esto y lo instala por ti (winget en Windows, Homebrew en Mac) si eliges «Instalar todo lo recomendado». Solo git y Node.js son obligatorios. El control de calidad (mermaid-cli y gitleaks) viene con la instalación completa; mermaid-cli descarga un Chromium sin ventana la primera vez. Sin IA, cada repo recibe también `docs/repos/<repo>/reference.md`: comandos, variables de entorno, endpoints y topics leídos de sus ficheros, que `camaron blocks` y `sync` mantienen al día. Las extensiones del equipo van como plugins en `.camarones/plugins/` (`camaron plugins` las lista); las que ejecutan código no se cargan hasta que las apruebas en tu máquina, y cualquier cambio en sus ficheros vuelve a preguntar.
+El asistente comprueba todo esto y lo instala por ti (winget en Windows, Homebrew en Mac) si eliges «Instalar todo lo recomendado». Solo git y Node.js son obligatorios. El control de calidad (mermaid-cli y gitleaks) viene con la instalación completa; mermaid-cli descarga un Chromium sin ventana la primera vez. Sin IA, cada repo recibe también `docs/repos/<repo>/reference.md`: comandos, variables de entorno, endpoints y topics leídos de sus ficheros, que `camaron blocks` y `sync` mantienen al día. Las extensiones del equipo van como plugins en `.camarones/plugins/` (`camaron plugins add` las trae y las fija en plugins.lock); las que ejecutan código o guían a los agentes no se cargan hasta que las apruebas en tu máquina, y cualquier cambio vuelve a preguntar.
 
 ### 16. 🗺 Tu día a día
 

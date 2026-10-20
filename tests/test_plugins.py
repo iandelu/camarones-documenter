@@ -36,10 +36,16 @@ def test_gemini_ships_as_a_builtin_plugin(plugins, kit):
 
 
 def test_a_config_only_project_plugin_is_active(plugins, kit):
+    make(kit, "plans", {"name": "plans", "version": "1.0.0", "kit": ">=3.16,<5", "provides": {"pipelines": ["p.yaml"]}})
+    p = by_name(plugins.discover())["plans"]
+    assert p.source == "project" and not p.runs_code and not p.steers_agents and p.active
+
+
+def test_a_prompt_plugin_steers_agents_and_waits_for_approval(plugins, kit):
     make(kit, "adr-style", {"name": "adr-style", "version": "1.0.0", "kit": ">=3.16,<5",
                             "provides": {"prompts": ["prompts/adr.md"]}})
     p = by_name(plugins.discover())["adr-style"]
-    assert p.source == "project" and not p.runs_code and p.active and p.steers_agents
+    assert not p.runs_code and p.steers_agents and p.needs_trust and not p.active
 
 
 @pytest.mark.parametrize("provides,files", [
@@ -96,7 +102,7 @@ def test_the_cli_lists_plugins_as_json(kit, plugins, capsys):
     assert "gemini" in names and "adr-style" in names
     row = next(r for r in rows if r["name"] == "adr-style")
     assert row == {"name": "adr-style", "version": "1.0.0", "source": "project", "provides": ["prompts"],
-                   "runs_code": False, "status": "active", "errors": []}
+                   "runs_code": False, "status": plugins.NEEDS_APPROVAL, "errors": []}
     json.dumps(rows)
 
 

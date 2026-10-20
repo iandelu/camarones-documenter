@@ -1330,7 +1330,7 @@ def install_ci(forge: str | None = None, log: Log = print) -> Path:
 
 # ---------- progress safety: local checkpoint commits in the umbrella repo ----------
 CHECKPOINT_PATHS = ["docs", "wikis", "evals", ".camarones/workspace.yaml", ".camarones/PLAYBOOK.md", ".camarones/CONVENTIONS.md",
-                    ".camarones/skeletons", ".camarones/.kit-docs.json", ".camarones/ci", ".claude", ".codex", ".agents", ".mcp.json", "AGENTS.md", "CLAUDE.md",
+                    ".camarones/skeletons", ".camarones/plugins", ".camarones/plugins.lock", ".camarones/.kit-docs.json", ".camarones/ci", ".claude", ".codex", ".agents", ".mcp.json", "AGENTS.md", "CLAUDE.md",
                     ".gitignore", ".gitlab-ci.yml", ".github"]
 
 

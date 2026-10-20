@@ -150,11 +150,30 @@ def validate(spec: dict) -> list[str]:
         for need in n.get("needs") or []:
             if not _target(need, ids):
                 errors.append(f"{path}.needs: unknown node '{need}'")
+        if "uses" in n:
+            problem = _uses(str(n["uses"]))
+            if problem:
+                errors.append(f"{path}.uses: {problem}")
     cycle = _cycle({n["id"]: [t for need in n.get("needs") or [] for t in _target(need, ids)]
                     for _, n in flat if n.get("id")})
     if cycle:
         errors.append(f"nodes: dependency cycle {' → '.join(cycle)}")
     return errors
+
+
+def _uses(spec: str) -> str | None:
+    """`<plugin>@<major>` (or just `<plugin>`): the vendored plugin exists, is active and has that major version."""
+    from . import plugins
+    name, _, major = spec.partition("@")
+    p = next((x for x in plugins.discover() if x.name == name), None)
+    if not p:
+        return f"no plugin '{name}'"
+    if not p.active:
+        return f"{name} is {p.status}"
+    version = str(p.manifest.get("version", ""))
+    if major and version.split(".")[0] != major:
+        return f"{name} is {version}, the node needs {major}.x"
+    return None
 
 
 def _target(need: str, ids: set) -> list[str]:

@@ -144,7 +144,7 @@ def items(root: Path | None = None) -> dict[str, Item]:
 
     from .harness import plugins
     for p in plugins.discover(root / ".camarones" / "plugins"):
-        if p.source == "project" and p.runs_code and not p.errors:
+        if p.needs_trust and not p.errors:
             add(f"plugin {p.name}", "plugin", p.fingerprint(), p.summary())
     return found
 
