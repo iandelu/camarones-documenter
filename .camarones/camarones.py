@@ -60,6 +60,11 @@
                             golden questions (evals/questions.yaml): run asks the confirmed ones to an agent that may
                             only read the docs and scores cited pages + exact identifiers; draft adds a unit that
                             proposes questions; confirm approves them
+  eval comply UNIT [--runner T] [--json]
+                            run one ready unit for real and score what it wrote against the method (structure, links,
+                            sources), without AI: compare playbook or prompt changes. Use the sandbox, not CI
+  hooks [on|off]            method hooks for Claude Code in cam-docs: the plan state at session start, a check of each
+                            docs page right after it is edited, a reminder to update the docs before stopping
   ab --qa "QUESTION" | --golden [--runner T] [--judge T] [--json]
                             the same question with cam-docs and without it (only the code, in a throwaway folder that
                             links the repos): tokens, time, tool calls and identifiers named, side by side
@@ -236,6 +241,8 @@ def main() -> int:
     sp.add_parser("init")
     for c in ("sync", "detect", "changes", "llms", "graph", "arch", "arch-validate", "portal", "down", "wizard", "version"):
         sp.add_parser(c)
+    hk = sp.add_parser("hook"); hk.add_argument("name", choices=["session-start", "post-edit", "stop"])
+    hks = sp.add_parser("hooks"); hks.add_argument("state", nargs="?", choices=["on", "off"])
     mc = sp.add_parser("mcp"); mc.add_argument("--http", action="store_true"); mc.add_argument("--port", type=int, default=8765)
     dr = sp.add_parser("doctor"); dr.add_argument("--local", action="store_true")
     pg = sp.add_parser("plugins"); pg.add_argument("--json", action="store_true")
@@ -246,7 +253,7 @@ def main() -> int:
     rn.add_argument("--include-interviews", action="store_true"); rn.add_argument("--poll-seconds", type=int, default=900)
     rn.add_argument("--policy", choices=["on-conflict", "never"], default="on-conflict")
     rn.add_argument("--only", nargs="+", default=None, help="run only these units (when they are ready)")
-    ev = sp.add_parser("eval"); ev.add_argument("action", nargs="?", default="list", choices=["list", "run", "draft", "confirm"])
+    ev = sp.add_parser("eval"); ev.add_argument("action", nargs="?", default="list", choices=["list", "run", "draft", "confirm", "comply"])
     ev.add_argument("ids", nargs="*"); ev.add_argument("--runner", default=""); ev.add_argument("--judge", default="")
     ev.add_argument("--all", action="store_true"); ev.add_argument("--json", action="store_true"); ev.add_argument("--by", default="")
     abp = sp.add_parser("ab"); abp.add_argument("--qa", default=""); abp.add_argument("--golden", action="store_true")
@@ -446,6 +453,16 @@ def main() -> int:
         from lib import uninstall
         return uninstall.main(include_global=a.user_level, dry_run=a.dry_run, yes=a.yes, backup=not a.no_backup,
                               backup_dir=a.backup_dir)
+    elif a.cmd == "hook":
+        from lib import hooks
+        return hooks.main(a.name)
+    elif a.cmd == "hooks":
+        from lib import hooks
+        if a.state:
+            hooks.set_enabled(a.state == "on")
+        print(f"method hooks: {'on' if hooks.enabled() else 'off'}" + (
+            " — SessionStart (plan state), PostToolUse (check the page just edited), Stop (remind once to update docs)"
+            if hooks.enabled() else ""))
     elif a.cmd == "mcp" and a.http:
         from lib import mcp
         srv = mcp.http_server(port=a.port)
@@ -649,6 +666,22 @@ def cmd_runs(a) -> int:
 
 def cmd_eval(a) -> int:
     from lib.harness import evals
+    if a.action == "comply":
+        from lib.harness import comply
+        if len(a.ids) != 1:
+            print("usage: eval comply UNIT [--runner T] [--json]  (run it on the sandbox, not on a real project)",
+                  file=sys.stderr)
+            return 2
+        r = comply.run(a.ids[0], runner=a.runner or None, echo=(lambda _: None) if a.json else print)
+        if a.json:
+            print(json.dumps(r, indent=2, ensure_ascii=False))
+            return 0
+        print(f"{r['unit']}: {r['status']} · {r['pages']} page(s) written · {r['compliant']} follow the method"
+              + (f" · score {r['score']}" if r["score"] is not None else ""))
+        for path, v in r["by_page"].items():
+            for issue in v["issues"] + [f"missing source {s}" for s in v["orphan_sources"]]:
+                print(f"  {path}: {issue}")
+        return 0
     if a.action == "draft":
         u = evals.draft_unit()
         print(f"✔ unit {u['id']} added: run it from the wizard, `{cli_cmd()} run` or `{cli_cmd()} autopilot`")

@@ -158,6 +158,8 @@ def owned() -> dict[str, set[str]]:
     out.update({f"mcp {k}": {_digest(v)} for k, v in servers.items()})
     out["codex mcp block"] = {_digest(env.codex_block(dict(sub)).strip())
                               for n in (1, 2) for sub in itertools.combinations(servers.items(), n)}
+    from . import hooks
+    out.update(hooks.owned())                        # the method hooks (R36), when the project turned them on
     return out
 
 
