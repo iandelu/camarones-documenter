@@ -1,5 +1,6 @@
-"""The next portal (R20): a React app built in the kit's CI into portal/app-build (committed, so users never run npm)
-and served by the live portal at /next. The old portal stays the default."""
+"""The portal (R20, R29): one app built in the kit's CI into portal/app-build (committed, so users never run npm) and
+served at /: the React views (Pipeline, Boards, Ask) plus the docs views (public/legacy/, plain scripts). /next, the
+preview address of earlier versions, redirects to it."""
 from __future__ import annotations
 
 import json, re, threading, urllib.request
@@ -15,8 +16,11 @@ SOURCE = REPO / ".camarones" / "portal" / "app"
 
 def test_the_build_is_committed_and_complete():
     html = (BUILD / "index.html").read_text(encoding="utf-8")
-    refs = re.findall(r'(?:src|href)="/next/([^"]+)"', html)
+    refs = [r.removeprefix("./") for r in re.findall(r'(?:src|href)="((?:\./)?(?:assets|legacy)/[^"]+)"', html)]
     assert refs and all((BUILD / r).is_file() for r in refs)
+    assert '="/' not in html.replace('href="#/', '')                     # relative: the export works under a sub-path
+    for script in ("core", "doc", "c4", "code", "wiki", "app"):
+        assert f'<script defer src="legacy/{script}.js">' in html
     manifest = json.loads((BUILD / ".vite" / "manifest.json").read_text(encoding="utf-8"))
     assert all((BUILD / entry["file"]).is_file() for entry in manifest.values())
 
@@ -50,26 +54,37 @@ def get(url):
         return r.status, r.headers.get("Content-Type", ""), r.read()
 
 
-def test_the_live_portal_serves_the_app_at_next(server):
-    status, ctype, body = get(f"{server}/next/")
-    assert status == 200 and "text/html" in ctype and b'id="root"' in body
-    asset = re.search(rb'src="(/next/assets/[^"]+\.js)"', body).group(1).decode()
-    status, ctype, _ = get(server + asset)
+def test_the_portal_is_served_at_the_root(server):
+    status, ctype, body = get(f"{server}/")
+    assert status == 200 and "text/html" in ctype and b'id="native"' in body and b"legacy/app.js" in body
+    asset = re.search(rb'src="\./(assets/[^"]+\.js)"', body).group(1).decode()
+    status, ctype, _ = get(f"{server}/{asset}")
     assert status == 200 and "javascript" in ctype
-    status, _, again = get(f"{server}/next/pipeline")                 # app routes fall back to the app
-    assert status == 200 and again == body
+    assert get(f"{server}/legacy/doc.js")[0] == 200
+    assert get(f"{server}/anything-without-a-suffix")[2] == body
 
 
-def test_the_classic_portal_stays_the_default(server):
-    status, _, body = get(f"{server}/")
-    assert status == 200 and b"app.js" in body
+def test_the_old_next_address_redirects(server):
+    import urllib.error
+    req = urllib.request.Request(f"{server}/next/")
+
+    class NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, *a, **k):
+            return None
+    try:
+        urllib.request.build_opener(NoRedirect).open(req, timeout=10)
+        raise AssertionError("expected a redirect")
+    except urllib.error.HTTPError as e:
+        assert e.code == 301 and e.headers["Location"] == "/"
 
 
-def test_the_classic_portal_links_to_the_pipeline_in_live_mode(kit):
-    app = (kit.kit_dir / "portal" / "live" / "app.js").read_text(encoding="utf-8")
-    core = (kit.kit_dir / "portal" / "live" / "core.js").read_text(encoding="utf-8")
-    assert '(!STATIC ? `<a href="/next/#/pipeline"' in app                               # the static export has no /next
-    assert core.count("pipelineTab:") == 2                                                # en + es
+def test_the_react_views_are_tabs_of_the_portal(kit):
+    legacy = kit.kit_dir / "portal" / "app" / "public" / "legacy"
+    app = (legacy / "app.js").read_text(encoding="utf-8")
+    core = (legacy / "core.js").read_text(encoding="utf-8")
+    assert "['ask', '#/ask'], ['boards', '#/boards'], ['pipeline', '#/pipeline']" in app
+    assert "window.CamaronNative.show(view, rest)" in app
+    assert core.count("boards:") == 2 and core.count("ask:") == 2                         # en + es
 
 
 def test_status_without_check_answers_fast_and_check_has_its_own_endpoint(server, kit, monkeypatch):

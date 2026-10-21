@@ -102,6 +102,11 @@ x-owner: ai                  # ai (agent may rewrite) | human (agent never rewri
 
 ## 6. Page templates
 
+Directives the portal renders (and agents read as plain Markdown): `:::tabs` with `::tab Label` lines for alternatives
+(per language, tool or environment), `:::steps` around a numbered list, `:::details Summary` for content that can stay
+folded, `:::cards` around a list of `[Title](link): text`, `:::tech` around details only engineers need and `:::business`
+around a plain-language explanation. Use them only when they help a reader; plain Markdown is always fine.
+
 Start every page from its skeleton in `.camarones/skeletons/` (one per `type`, or per path with `x-skeleton-for`):
 frontmatter, H1, TL;DR and the required `##` sections. `CLI check` reads the skeletons to know which sections a page
 needs; one marked `<!-- optional -->` may be left out. The team may edit them; an edited copy survives kit upgrades.

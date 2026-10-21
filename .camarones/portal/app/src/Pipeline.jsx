@@ -77,9 +77,9 @@ function Actions({ run, finished, onDone }) {
     } catch (e) { setMessage(e.message) } finally { setBusy(false) }
   }
   return (
-    <div className="actions">
+    <div className="run-actions">
       {running ? (
-        <button className="btn" disabled={busy}
+        <button className="ghost small" disabled={busy}
                 onClick={() => act(() => postJSON(`runs/${encodeURIComponent(run.run)}/cancel`))}>Cancel run</button>
       ) : (
         <>
@@ -88,7 +88,7 @@ function Actions({ run, finished, onDone }) {
               {[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}</option>)}
             </select>
           </label>
-          <button className="btn primary" disabled={busy}
+          <button className="small" disabled={busy}
                   onClick={() => act(() => postJSON('runs', { parallel, per_runner: '' }))}>Run</button>
         </>
       )}
@@ -131,7 +131,7 @@ function Board({ units, onSelect }) {
         <div key={c} className="col">
           <div className="col-head">{LABEL[c]} <span>{cols[c].length}</span></div>
           {cols[c].map((u) => (
-            <motion.button layout="position" key={u.id} className={`card s-${u.status}`} onClick={() => onSelect(u.id)}
+            <motion.button layout="position" key={u.id} className={`unit s-${u.status}`} onClick={() => onSelect(u.id)}
                            transition={{ duration: 0.2 }}>
               <span className="card-id">{u.id}</span>
               <span className="card-meta">{u.live.runner ? `${u.live.runner} · ` : ''}phase {u.phase}</span>
@@ -161,7 +161,7 @@ function Drawer({ unit, onClose, onChanged }) {
       <p className="muted">{unit.title}</p>
       <dl>{rows.filter(([, v]) => v != null && v !== '').map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{String(v)}</dd></div>)}</dl>
       {unit.notes ? <p className="note">{unit.notes}</p> : null}
-      {unit.status === 'blocked' ? <button className="btn" onClick={retry}>Retry this unit</button> : null}
+      {unit.status === 'blocked' ? <button className="small" onClick={retry}>Retry this unit</button> : null}
       {message ? <p className="error" role="alert">{message}</p> : null}
       <h3>Live log</h3>
       <pre className="log">{l.log.length ? l.log.join('\n') : 'Nothing yet in this run.'}</pre>
@@ -180,7 +180,7 @@ export default function Pipeline({ arg }) {
   const unit = selected && state.units[selected]
   const counts = columns(state.units)
   return (
-    <section className="pipeline">
+    <section className="pipeline view">
       <div className="pipe-head">
         <div>
           <h1>Pipeline</h1>

@@ -499,8 +499,10 @@ React + Vite. TanStack Table for live tables, React Flow for the pipeline DAG, M
 lazy-loaded. The source is in `portal/app/` and the build is committed in `portal/app-build/`. An ubuntu-only CI job
 runs the build and vitest and fails when a rebuild differs from the commit. The pytest matrix stays Node-free.
 
-Rollout: the new app is served at `/next` while the current UI stays the default. Each tab is rebuilt behind `/next`.
-`/next` becomes the default once it has parity (R29), and the old UI is then removed. Heavy chunks are lazy so that
+Rollout: the new app was served at `/next` while the old UI stayed the default. **What shipped (R29, kit 4.17):** one
+app at `/`. The docs views (docs, C4, code map, wikis, review, search, editor) moved into it unchanged as plain scripts
+(`portal/app/public/legacy/`) instead of being rewritten in React, which kept every behaviour and its tests; the new
+views (Pipeline, Ask, Boards) are React, and both share one design system. `/next` redirects to `/`. Heavy chunks are lazy so that
 `self-update` (`git pull`, `upgrade.py:86`) does not grow much per release.
 
 Design: black and white, one accent for status only (trust and run state), generous whitespace, mono for

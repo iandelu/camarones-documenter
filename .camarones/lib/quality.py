@@ -46,7 +46,7 @@ def prose_lines(text: str):
 
 
 def resolve(base: str, href: str) -> str:
-    """Mirror of resolve() in portal/live/app.js: relative to the page's logical folder."""
+    """Mirror of resolve() in portal/app/public/legacy/doc.js: relative to the page's logical folder."""
     parts = base.split("/")[:-1]
     for p in href.split("/"):
         if p == "..":

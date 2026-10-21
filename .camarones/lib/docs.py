@@ -441,7 +441,7 @@ def llms() -> int:
     for r in ok:
         if r["type"] == "interview" or r["path"].startswith("interview/"):
             continue
-        body = split_fm((ROOT / r["file"]).read_text(encoding="utf-8", errors="replace"))[1].strip()
+        body = flatten_directives(split_fm((ROOT / r["file"]).read_text(encoding="utf-8", errors="replace"))[1]).strip()
         desc = f" · {r['description']}" if r["description"] else ""
         full += [f"<!-- {r['path']} · {r['trust']}{desc} -->", "", body, ""]
     (DOCS / "llms-full.txt").write_text("\n".join(full).rstrip() + "\n", encoding="utf-8", newline="\n")
@@ -491,7 +491,7 @@ def heading_text(md: str) -> str:
 
 
 def slug(heading: str) -> str:
-    """Mirror of the portal's slugify (portal/live/doc.js): lower case, letters/digits/space/_/- kept, spaces → -."""
+    """Mirror of the portal's slugify (portal/app/public/legacy/doc.js): lower case, letters/digits/space/_/- kept, spaces → -."""
     return re.sub(r"\s+", "-", re.sub(r"[^\w\s-]", "", heading_text(heading).lower().strip()))
 
 
@@ -556,6 +556,38 @@ def section_text(body: str, key: str) -> tuple[dict, str] | None:
 STOPWORDS = set("how are is was the an what which who does do did of to in on at for and or with by from it this that "
                 "can should when where why be".split()) | set("que qué como cómo el la los las de del en es un una y o "
                                                             "por para con se lo al cuál cual quién quien dónde donde".split())
+
+
+DIRECTIVES = ("tabs", "cards", "steps", "details", "tech", "business")
+
+
+def flatten_directives(md: str) -> str:
+    """`:::` blocks (portal/app/src/content/directives.js) as plain Markdown for agents and exports: a tab or details
+    summary becomes a bold line, the rest keeps its content. Code fences and unknown kinds are left alone."""
+    lines, out, i, fence = md.split("\n"), [], 0, None
+    while i < len(lines):
+        line = lines[i]
+        f = re.match(r"^\s*(```|~~~)", line)
+        if f:
+            fence = None if fence and line.strip().startswith(fence) else (fence or f.group(1))
+        m = None if fence else re.match(r"^:::\s*(\w+)\s*(.*)$", line)
+        end = next((j for j in range(i + 1, len(lines)) if re.match(r"^:::\s*$", lines[j])), None) if m else None
+        if m and m.group(1).lower() in DIRECTIVES and end is not None:
+            kind, arg, body = m.group(1).lower(), m.group(2).strip(), lines[i + 1:end]
+            if kind == "tabs":
+                for b in body:
+                    t = re.match(r"^::tab\s+(.+)$", b)
+                    out += ["", f"**{t.group(1).strip()}**", ""] if t else [b]
+            elif kind == "details":
+                out += [f"**{arg or 'Details'}**", "", *body]
+            else:
+                out += body
+            i = end + 1
+            continue
+        out.append(line)
+        i += 1
+    text = re.sub(r"\n{3,}", "\n\n", "\n".join(out))
+    return text.lstrip("\n") if not md.startswith("\n") else text
 
 
 def search(query: str, limit: int = 20) -> list[dict]:

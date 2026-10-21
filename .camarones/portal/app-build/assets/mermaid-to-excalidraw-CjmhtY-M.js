@@ -1,0 +1,1 @@
+async function e(){throw Error(`Mermaid import is not available in the Camarón portal: start a board from a C4 view instead.`)}export{e as parseMermaidToExcalidraw};

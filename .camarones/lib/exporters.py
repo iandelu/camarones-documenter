@@ -108,7 +108,7 @@ def pages() -> list[tuple[dict, str]]:
     for r in docs.readable():
         if r["type"] == "interview" or r["path"].startswith("interview/") or r.get("space", "docs") != "docs":
             continue
-        out.append((r, docs.split_fm((ROOT / r["file"]).read_text(encoding="utf-8"))[1]))
+        out.append((r, docs.flatten_directives(docs.split_fm((ROOT / r["file"]).read_text(encoding="utf-8"))[1])))
     return out
 
 

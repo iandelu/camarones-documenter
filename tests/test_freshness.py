@@ -191,5 +191,5 @@ def test_the_portal_page_says_its_code_changed(kit, fresh):
     serve = importlib.import_module("lib.serve")
     d = serve.read("flows/a.md")
     assert d["fresh"] == "suspect" and d["freshness"]["changed"] == [f"api:{API}#L3-L5"]
-    core = (kit.kit_dir / "portal" / "live" / "core.js").read_text(encoding="utf-8")
+    core = (kit.kit_dir / "portal" / "app" / "public" / "legacy" / "core.js").read_text(encoding="utf-8")
     assert core.count("'banner.suspect'") == 2 and core.count("'banner.stale'") == 2          # en + es

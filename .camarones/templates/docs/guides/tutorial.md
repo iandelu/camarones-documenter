@@ -146,13 +146,16 @@ once). Without them `check` prints one warning and skips that check.
 ## 5. Portal
 
 One portal, two modes, the same interface. Tabs: **Docs** (tree, search, trust badges), **Architecture (C4)**,
-**Code graph** (all repos or one), **Wikis** (OpenWiki per repo, its pages and graph) and **Review** (pending pages,
-change requests, code changed since the docs, `check`). The language switch changes the interface and the docs; a page
-not translated yet is shown in English with a notice.
+**Code graph** (all repos or one), **Wikis** (OpenWiki per repo, its pages and graph), **Review** (pending pages, reviews
+an agent is waiting for, change requests, code changed since the docs, `check`), **Ask** (the sections that best answer
+a question, with citations, no AI), **Boards** (Excalidraw whiteboards in `docs/boards/`, blank or sketched from a C4
+view) and **Pipeline**. The language switch changes the interface and the docs; a page not translated yet is shown in
+English with a notice. Tables sort by column (long ones filter), `:::tabs`/`:::steps`/`:::details`/`:::cards` render
+as tabs, steps, folds and cards, an "All / Business" switch hides `:::tech` blocks, and Mermaid names that match a page
+or a repo are links.
 
-The next portal is being built at `http://127.0.0.1:8080/next/`, one click away from the classic portal's **Pipeline ↗**
-tab (black and white, dark mode; it ships already built
-with the kit, no Node needed). Its **Pipeline** tab shows the plan live: a graph of the units by phase, a board by
+The **Pipeline** tab (black and white, dark mode; it ships already built
+with the kit, no Node needed) shows the plan live: a graph of the units by phase, a board by
 status, and per unit its agent, outcome, time, tokens, cost and the agent's log line by line. Start `camaron run` with
 the page open and it picks the run up by itself. From the tab you can also start a run, cancel it (the agents stop and
 their units go back to the queue, keeping their work) and retry a blocked unit. One run at a time, CLI or portal.
