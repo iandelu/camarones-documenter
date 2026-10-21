@@ -16,7 +16,7 @@ DIR = Path(__file__).resolve().parent.parent / "pipelines"
 KIT_PIPELINES = ("full", "quick")
 FAN_OUT = ("repos",)
 CONDITIONS = ("team-interviews",)
-SETTINGS = ("tier", "runner", "allow_local", "isolation")
+SETTINGS = ("tier", "runner", "allow_local", "isolation", "uses")
 ISOLATION = ("none", "worktree")
 OPS = {"disable": (), "needs": ("add", "remove"), "set": SETTINGS}
 

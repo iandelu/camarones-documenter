@@ -139,6 +139,33 @@ def blueprint(repos: list[str]) -> list[dict]:
     return [unit(n["id"], n["type"], n["needs"], repo=n["repo"]) for n in _nodes(repos) if not n["disabled"]]
 
 
+def plugin_guidance(uid: str) -> str:
+    """The team plugin a node `uses` (R25): its prompts inline and where its skills are. Only an approved plugin with
+    the pinned major version; anything else is a pipeline problem and adds nothing."""
+    try:
+        uses = settings(uid).get("uses")
+    except Exception:  # noqa: BLE001 — a broken pipeline is reported elsewhere; the prompt still works
+        return ""
+    if not uses:
+        return ""
+    from .harness import plugins
+    name, _, major = str(uses).partition("@")
+    p = next((x for x in plugins.discover() if x.name == name), None)
+    version = str(p.manifest.get("version", "")) if p else ""
+    if not p or not p.active or (major and version.split(".")[0] != major):
+        return ""
+    rel = lambda f: ws_rel(rel_file(f))  # noqa: E731
+    parts = [f"\nTeam guidance — plugin {name} {version} (`{rel(p.path)}`), follow it in this unit:"]
+    for item in p.provides.get("prompts") or []:
+        f = p.path / str(item)
+        if f.is_file():
+            parts.append(f.read_text(encoding="utf-8").strip())
+    skills = [rel(p.path / str(s)) for s in p.provides.get("skills") or [] if (p.path / str(s)).exists()]
+    if skills:
+        parts.append("Skills to read before writing: " + ", ".join(f"`{s}`" for s in skills))
+    return "\n".join(parts) + "\n"
+
+
 def settings(uid: str) -> dict:
     """How a unit runs: its type's tier and isolation, then what the pipeline sets for that node."""
     try:
@@ -472,6 +499,8 @@ def prompt(uid: str, lang: str = "es", unattended: bool = False) -> str:
                  "what nobody answered and where people disagree. Consolidate the answers as the playbook section "
                  "\"interview\" (team mode) says: agreed answers to the dated interview file, citing who said what; "
                  "disagreements and unanswered questions to `docs/interview/open-questions.md`.\n")
+    guidance = plugin_guidance(uid)
+    extra += guidance
     in_tree = CTX.root != CTX.state_root          # a parallel unit in its own worktree of cam-docs
     if in_tree:                     # this exact kit: an older `camaron` on PATH would not find the shared plan
         cli = f'"{which("uv") or "uv"}" run --quiet --script "{KIT / "camarones.py"}"'

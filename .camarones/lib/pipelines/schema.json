@@ -27,7 +27,8 @@
         "tier": {"$ref": "#/$defs/tier"},
         "runner": {"type": "string", "description": "runner or runner:model, e.g. codex:o5 or opencode:ollama/qwen3-coder:30b"},
         "allow_local": {"type": "boolean"},
-        "isolation": {"$ref": "#/$defs/isolation"}
+        "isolation": {"$ref": "#/$defs/isolation"},
+        "uses": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*(@[0-9]+)?$", "description": "A team plugin this unit follows (prompts, skills), optionally pinned to a major version: adr-style@1."}
       },
       "additionalProperties": false
     },
@@ -58,7 +59,8 @@
         "tier": {"$ref": "#/$defs/tier"},
         "runner": {"type": "string"},
         "allow_local": {"type": "boolean"},
-        "isolation": {"$ref": "#/$defs/isolation"}
+        "isolation": {"$ref": "#/$defs/isolation"},
+        "uses": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*(@[0-9]+)?$", "description": "A team plugin this unit follows (prompts, skills), optionally pinned to a major version: adr-style@1."}
       },
       "additionalProperties": false
     }

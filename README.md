@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.8.0-ff875f?style=flat-square" alt="Versión 4.8.0">
+  <img src="https://img.shields.io/badge/version-4.9.0-ff875f?style=flat-square" alt="Versión 4.9.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -473,7 +473,7 @@ El resultado de las preguntas de oro se guarda para el equipo y `kpis` muestra l
 
 **Plugins.** Lo que se enchufa al kit (agentes, checks, prompts, tipos de unidad) va en carpetas con un `plugin.yaml`. El propio kit trae así Gemini CLI, y cada proyecto puede añadir los suyos en `cam-docs/.camarones/plugins/`. El kit calcula si un plugin ejecuta código (comandos de agente, hooks, servidores MCP, scripts) en lugar de fiarse de lo que diga el manifiesto. Un plugin que ejecuta código, o que guía a los agentes con prompts o skills, no se carga hasta que se aprueba en tu máquina, porque llega a todo el equipo a través del repo: el asistente lo pregunta junto al resto de la configuración de agentes, o `camaron trust`. La aprobación cubre todos los ficheros de la carpeta, así que cualquier cambio vuelve a preguntar, y vive en `~/.camarones/trust/`, fuera del repo. `camaron plugins` muestra qué hay, qué aporta cada uno y en qué estado está. Los agentes que aporta un plugin aprobado ya se pueden usar en `routing`; el resto de lo que aportan (checks, hooks, prompts) se irá conectando.
 
-Los plugins del equipo se copian en `cam-docs` y se fijan, sin registro ni descargas al ejecutar: `camaron plugins add <carpeta | git:<url>@<tag>>` lo copia en `.camarones/plugins/` y apunta versión, origen y huella en `.camarones/plugins.lock`. Si su rango `kit` no incluye tu kit, se rechaza. `plugins outdated` dice si hay versiones nuevas, `plugins update [nombre] [--to <tag>]` lo actualiza y lista los ficheros que cambian (si cambian, `trust` vuelve a preguntar) y `plugins remove` lo quita. `check` avisa si alguien edita a mano la carpeta de un plugin, y un nodo del pipeline puede fijar una versión mayor con `uses: adr-lint@0`.
+Los plugins del equipo se copian en `cam-docs` y se fijan, sin registro ni descargas al ejecutar: `camaron plugins add <carpeta | git:<url>@<tag>>` lo copia en `.camarones/plugins/` y apunta versión, origen y huella en `.camarones/plugins.lock`. Si su rango `kit` no incluye tu kit, se rechaza. `plugins outdated` dice si hay versiones nuevas, `plugins update [nombre] [--to <tag>]` lo actualiza y lista los ficheros que cambian (si cambian, `trust` vuelve a preguntar) y `plugins remove` lo quita. `check` avisa si alguien edita a mano la carpeta de un plugin, y un nodo del pipeline puede seguir un plugin fijado a una versión mayor (`uses: adr-style@1`, también con `patch: set` en `pipeline.yaml`): el prompt de esa unidad lleva los prompts del plugin y le indica sus skills.
 
 **Qué modelo local usar.** `camaron doctor --local` mira la memoria de tu equipo y propone un modelo libre y de pesos abiertos de la familia Qwen. Te dice qué falta (OpenCode, Ollama o el modelo) y qué línea de `routing` añadir. No instala nada.
 
