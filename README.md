@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.13.0-ff875f?style=flat-square" alt="Versión 4.13.0">
+  <img src="https://img.shields.io/badge/version-4.14.0-ff875f?style=flat-square" alt="Versión 4.14.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -421,6 +421,12 @@ El MCP ya lee por secciones: cada resultado de `search_docs` dice en qué secci�
 El MCP también escribe, pero solo borradores: `propose_edit` cambia un borrador de IA y nunca toca una página que una persona confirmó o es suya (deja la propuesta en `docs/.work/proposals/` y en Revisión), `add_feedback` deja un comentario de revisión y `mark_suspect` retiene una página que ya no cuadra con el código. Nada de lo que hace confirma una página. `pipeline_status`, `run_events` y `kpis` informan del plan, y `run_node` lanza una unidad solo si `mcp: {pipeline_control: true}` está en `workspace.yaml`. `camaron mcp --http` sirve lo mismo en `http://127.0.0.1:8765/mcp` (Streamable HTTP) con el token de tu máquina (`~/.camarones/mcp-token`).
 
 ## Agentes y modelos locales
+
+**Hooks del método (opcionales).** `camaron hooks on` añade tres hooks de Claude Code que son del kit, así que `trust` no pregunta por ellos: al empezar la sesión, el agente recibe el estado del plan, el último relevo y las revisiones pendientes; justo después de editar una página de la doc, esa página se revisa y los problemas vuelven al agente; antes de terminar, si los repos han cambiado desde la doc, se le recuerda una vez actualizarla. `camaron hooks off` los quita.
+
+**¿Se cumple el método?** `camaron eval comply <unidad>` ejecuta de verdad una unidad y puntúa lo que ha escrito (estructura, enlaces, fuentes que existen), sin IA. Sirve para comparar un cambio del playbook o de un prompt antes y después; se usa en el sandbox, no en CI.
+
+**Gemini y un servidor para todo el equipo.** Gemini CLI sigue con la plantilla de comando genérica: no ha hecho falta un adaptador propio. Un servidor MCP central para el equipo está propuesto en [team-server.md](docs/research/team-server.md), sin construir.
 
 El asistente, el piloto automático (`camaron autopilot`) y la generación de wikis lanzan los agentes a través de un adaptador común, así que no dependen de uno concreto:
 

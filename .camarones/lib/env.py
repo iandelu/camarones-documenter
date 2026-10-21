@@ -472,7 +472,8 @@ def write_agent_config(comps: list[str]) -> None:
     save_json(mcp_file, cfg)
     write_codex_mcp({k: servers[k] for k in ("camarones", "likec4") if k in servers})
     settings = ROOT / ".claude" / "settings.json"
-    st = without_graphify_hooks(load_json(settings, {}))
+    from . import hooks
+    st = hooks.apply(without_graphify_hooks(load_json(settings, {})))           # method hooks, when the project opts in
     st["enabledMcpjsonServers"] = sorted(set(st.get("enabledMcpjsonServers", [])) | set(servers))
     save_json(settings, st)
 

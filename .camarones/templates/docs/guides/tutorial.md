@@ -228,6 +228,14 @@ owns (the proposal is saved in `docs/.work/proposals/` and listed in Review), `a
 `http://127.0.0.1:8765/mcp` for clients that speak Streamable HTTP; they need `Authorization: Bearer <token>`, with the
 token in `~/.camarones/mcp-token`, and requests from other origins are refused.
 
+**Method hooks (opt-in).** `camaron hooks on` adds three Claude Code hooks to `cam-docs/.claude/settings.json`, which
+the kit owns (`trust` does not ask about them): at session start the agent gets the plan state, the last handoff and
+pending reviews; right after it edits a docs page, that page is checked and the problems go back to the agent; before
+it stops, if the repos moved on since the docs, it is reminded once to update them. `camaron hooks off` removes them.
+
+**Does the method hold?** `camaron eval comply <unit>` runs one ready unit for real and scores what it wrote (structure,
+links, sources), without AI. Use it on the sandbox to compare a playbook or prompt change before and after.
+
 ## 9. Commands (for scripts and agents)
 
 `camaron help` (per-project copy: `./camaron.command help`, Windows `camaron.cmd help`): `setup`, `sync`, `detect`,
