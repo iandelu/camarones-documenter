@@ -63,6 +63,11 @@
   ab --qa "QUESTION" | --golden [--runner T] [--judge T] [--json]
                             the same question with cam-docs and without it (only the code, in a throwaway folder that
                             links the repos): tokens, time, tool calls and identifiers named, side by side
+  ab --task "TASK" [--check "CMD"] | --replay [--max N]
+                            a coding task twice, in throwaway worktrees of the repos (with cam-docs and without):
+                            tokens, time, files changed, the diff, and whether CMD (e.g. the tests) passes in each
+  ab sampling on|off        opt in on this machine to keep a sample of real prompts (needs ab.sampling.enabled in
+                            workspace.yaml; stored in ~/.camarones/ab-samples/, never in the repo); --replay runs them
   fresh [--json] [--ack PAGE… --by NAME] [--plan]
                             pages whose cited code changed (suspect) or is gone (stale); agents are kept off them.
                             --ack: the page still holds for today's code; --plan: add a unit that refreshes them
@@ -178,7 +183,7 @@ elif os.environ.get("CAMARONES_GLOBAL") and not os.environ.get("CAMARONES_ROOT")
         _relaunch(_dest, sys.argv[1:])
 
 from lib import docs, env, plan                     # noqa: E402
-from lib.common import VERSIONS, cli_cmd, ROOT, CACHE, load_json   # noqa: E402
+from lib.common import VERSIONS, PREFS, cli_cmd, ROOT, CACHE, load_json   # noqa: E402
 
 
 def cmd_trust(a) -> int:
@@ -245,6 +250,9 @@ def main() -> int:
     ev.add_argument("ids", nargs="*"); ev.add_argument("--runner", default=""); ev.add_argument("--judge", default="")
     ev.add_argument("--all", action="store_true"); ev.add_argument("--json", action="store_true"); ev.add_argument("--by", default="")
     abp = sp.add_parser("ab"); abp.add_argument("--qa", default=""); abp.add_argument("--golden", action="store_true")
+    abp.add_argument("action", nargs="?", choices=["sample", "sampling"]); abp.add_argument("state", nargs="?", choices=["on", "off"])
+    abp.add_argument("--task", default=""); abp.add_argument("--check", default="")
+    abp.add_argument("--replay", action="store_true"); abp.add_argument("--max", type=int, default=3)
     abp.add_argument("--runner", default=""); abp.add_argument("--judge", default=""); abp.add_argument("--json", action="store_true")
     prp = sp.add_parser("pr"); prp.add_argument("action", choices=["fresh", "propose"]); prp.add_argument("repo")
     prp.add_argument("--head", default=""); prp.add_argument("--ref", default=""); prp.add_argument("--runner", default="")
@@ -692,8 +700,50 @@ def cmd_eval(a) -> int:
 
 def cmd_ab(a) -> int:
     from lib.harness import ab, evals
+    if a.action == "sample":                        # Claude Code's UserPromptSubmit hook: silent, never fails
+        ab.sample_from_hook()
+        return 0
+    if a.action == "sampling":
+        if a.state not in ("on", "off"):
+            s = ab.sampling()
+            print(f"project: {'on' if s['enabled'] else 'off'} (rate {s['rate']}) · this machine: "
+                  f"{'on' if load_json(PREFS, {}).get('ab_sampling') else 'off'} · samples kept: {len(ab.samples())}")
+            return 0
+        on = a.state == "on"
+        ab.set_machine_sampling(on)
+        (ab.install_hook if on else ab.remove_hook)()
+        print(f"✔ sampling {'on' if on else 'off'} on this machine" + (
+            "" if not on or ab.sampling()["enabled"] else
+            " — the project still has it off: set `ab: {sampling: {enabled: true, rate: 0.05}}` in workspace.yaml"))
+        return 0
+    if a.task or a.replay:
+        if not ab.enabled():
+            print("✖ A/B runs are turned off for this project (ab.enabled: false in workspace.yaml)", file=sys.stderr)
+            return 1
+        runner = a.runner or next(iter(plan._agents(lambda _: None)), None)
+        if not runner:
+            print("✖ no agent installed (see `camaron doctor`)", file=sys.stderr)
+            return 1
+        import shlex
+        check = shlex.split(a.check) if a.check else None
+        tasks = [a.task] if a.task else [s["prompt"] for s in ab.samples()[-a.max:]]
+        if not tasks:
+            print("No sampled prompts on this machine yet (`camaron ab sampling on`).", file=sys.stderr)
+            return 1
+        out = [ab.run_task(t, runner, check=check, echo=(lambda _: None) if a.json else print) for t in tasks]
+        if a.json:
+            print(json.dumps(out if len(out) > 1 else out[0], indent=2, ensure_ascii=False))
+            return 0
+        for r in out:
+            print(f"\n{r['task'][:100]}")
+            for side in ("with", "without"):
+                s = r[side]
+                print(f"  {side + ' cam-docs':<18} {s['tokens_in'] + s['tokens_cache']:>9} context tokens  {s['seconds']:>6}s  "
+                      f"{s['tool_calls']:>3} tool calls  {s['files_changed']:>2} files  check: {s['check'] or '-'}")
+        return 0
     if not a.qa and not a.golden:
-        print('usage: ab --qa "QUESTION" | --golden [--runner T] [--judge T] [--json]', file=sys.stderr)
+        print('usage: ab --qa "QUESTION" | --golden | --task "TASK" [--check CMD] | --replay | sampling on|off',
+              file=sys.stderr)
         return 2
     if not ab.enabled():
         print("✖ A/B runs are turned off for this project (ab.enabled: false in workspace.yaml)", file=sys.stderr)

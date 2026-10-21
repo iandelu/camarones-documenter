@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.12.0-ff875f?style=flat-square" alt="Versión 4.12.0">
+  <img src="https://img.shields.io/badge/version-4.13.0-ff875f?style=flat-square" alt="Versión 4.13.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -470,6 +470,8 @@ Cada máquina acumula sus ejecuciones en `docs/.work/kpis/` (se commitea y `shar
 - `camaron eval run` se las pregunta a un agente que solo puede leer la documentación (las herramientas MCP de `camarones`, sin editar nada) y puntúa sin IA: páginas citadas e identificadores mencionados. `--judge` añade la nota de un modelo, que también puede ser local.
 
 **¿Ayuda cam-docs?** `camaron ab --qa "¿cómo se procesa un reembolso?"` hace la misma pregunta dos veces. La primera, con la documentación; la segunda, solo con el código, en una carpeta temporal fuera del proyecto que enlaza los repos y nada más (sin `cam-docs`, sin `AGENTS.md` y sin MCP). Compara el contexto leído (tokens de entrada más los que pasan por la caché, porque Claude no cuenta estos últimos como entrada), el tiempo, el coste, las herramientas usadas y los identificadores exactos que nombra cada respuesta. En el sandbox de PetClinic, una pregunta sobre puertos y URL se respondió leyendo un 55 % menos de contexto, en 18 s frente a 52 s y con 4 herramientas frente a 11; el coste fue parecido. `camaron ab --golden` hace lo mismo con las preguntas de oro. Los repos no se tocan y el resultado queda para el equipo; `kpis` muestra la última comparación. Si el equipo no quiere que se use, `ab: {enabled: false}` en `workspace.yaml` lo desactiva.
+
+Con una tarea de código: `camaron ab --task "añade un endpoint de reembolsos" --check "./mvnw test"` la hace dos veces, cada una en worktrees desechables de los repos (con un worktree de `cam-docs` y la configuración de agentes, y sin ellos), y compara tokens, tiempo, herramientas, ficheros cambiados, el diff y si pasan los tests en cada una. Tus checkouts no se tocan. Para medir con trabajo real, `camaron ab sampling on` guarda en tu máquina una muestra de los prompts que das a Claude Code (solo si el proyecto también lo activa con `ab: {sampling: {enabled: true, rate: 0.05}}`; nunca va al repo) y `camaron ab --replay` los repite como tareas.
 
 El resultado de las preguntas de oro se guarda para el equipo y `kpis` muestra la última nota. El kit trae su propio examen para el sandbox de PetClinic (`scripts/evals/petclinic.yaml`, `uv run pytest -m eval`).
 

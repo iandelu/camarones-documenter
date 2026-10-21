@@ -270,6 +270,11 @@ the code, in a temporary folder outside the project that links the repos and not
 `AGENTS.md`, no MCP). It compares the context read (input plus cached tokens), time, cost, tool calls and the exact
 identifiers each answer names; `--golden`
 does it for the golden questions. The repos are never touched. `ab: {enabled: false}` in `workspace.yaml` turns it off.
+`camaron ab --task "<task>" [--check "<test command>"]` does a coding task twice, each time in throwaway git worktrees
+of the repos (with a worktree of cam-docs and the agent config, and without): it compares tokens, time, tool calls,
+files changed and the diff, and whether the check passes in each. Your checkouts are not touched. `camaron ab sampling
+on` keeps a sample of real prompts on this machine (only if `ab: {sampling: {enabled: true, rate: 0.05}}` is set too;
+stored in `~/.camarones/ab-samples/`, never in the repo) and `ab --replay` runs them as tasks.
 
 **Which agent runs what.** Each kind of work has an ordered list and the first installed agent runs it:
 `agentic-heavy` (long units), `bounded` (translations, summaries) and `judge` (eval scoring). `runner:model` also picks

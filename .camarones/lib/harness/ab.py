@@ -10,7 +10,7 @@ import os
 import tempfile
 from pathlib import Path
 
-from ..common import IS_WIN, WORK, WORKSPACE, load_json, repo_dir, run, save_json
+from ..common import IS_WIN, WORK, WORKSPACE, load_json, repo_dir, run as run_cmd, save_json
 from . import evals
 from .ports import RunRequest
 
@@ -50,7 +50,7 @@ def _link(dst: Path, target: Path) -> None:
     try:
         dst.symlink_to(target, target_is_directory=True)
     except OSError:
-        if not IS_WIN or run(["cmd", "/c", "mklink", "/J", str(dst), str(target)], check=False, quiet=True).returncode:
+        if not IS_WIN or run_cmd(["cmd", "/c", "mklink", "/J", str(dst), str(target)], check=False, quiet=True).returncode:
             raise
 
 
@@ -108,3 +108,189 @@ def run(questions: list[dict], target: str, judge: str | None = None, echo=print
 def latest() -> dict | None:
     files = sorted(RESULTS.glob("*.json")) if RESULTS.is_dir() else []
     return load_json(files[-1], None) if files else None
+
+
+# ---------- coding tasks on throwaway worktrees (R33) ----------
+DOC_LINKS = (".claude", ".codex", ".agents")
+DOC_FILES = (".mcp.json", "AGENTS.md", "CLAUDE.md")
+
+
+def _git(*args: str, cwd: Path) -> str:
+    r = run_cmd(["git", *args], cwd=cwd, check=False, capture=True)
+    return r.stdout or ""
+
+
+@contextlib.contextmanager
+def task_workspace(with_docs: bool):
+    """A folder outside the project with a detached git worktree of every repo at HEAD (and, with docs, of cam-docs,
+    with the agent config next to it like the real workspace). Your checkouts are never touched; the worktrees are
+    removed afterwards."""
+    from .. import docs
+    from ..common import ROOT
+    tmp = Path(tempfile.mkdtemp(prefix="camaron-ab-task-")).resolve()
+    made: list[tuple[Path, Path]] = []
+    try:
+        for r in docs.repo_names():
+            if repo_dir(r).is_dir():
+                _git("worktree", "add", "-q", "--detach", str(tmp / r), "HEAD", cwd=repo_dir(r))
+                made.append((repo_dir(r), tmp / r))
+        if with_docs:
+            _git("worktree", "add", "-q", "--detach", str(tmp / "cam-docs"), "HEAD", cwd=ROOT)
+            made.append((ROOT, tmp / "cam-docs"))
+            for name in DOC_LINKS:
+                if (tmp / "cam-docs" / name).is_dir():
+                    _link(tmp / name, tmp / "cam-docs" / name)
+            for name in DOC_FILES:
+                if (tmp / "cam-docs" / name).is_file():
+                    (tmp / name).write_bytes((tmp / "cam-docs" / name).read_bytes())
+        yield tmp
+    finally:
+        from .. import env
+        for child in list(tmp.iterdir()):
+            if env._is_link(child):
+                try:
+                    child.unlink()
+                except OSError:
+                    os.rmdir(child)
+        for repo, path in made:
+            _git("worktree", "remove", "--force", str(path), cwd=repo)
+            _git("worktree", "prune", cwd=repo)
+        import shutil
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _task_prompt(task: str) -> str:
+    return (f"Do this task in the software project in this folder (one subfolder per repo): {task} Change the code as "
+            "needed; do not commit or push. End with one JSON object on the last line: "
+            '{"summary": "<what you changed>", "files": ["<repo>/<path>", ...]}')
+
+
+def _diff(tmp: Path) -> tuple[int, str]:
+    from .. import docs
+    files, text = 0, []
+    for r in docs.repo_names():
+        if (tmp / r).is_dir():
+            _git("add", "-A", "-N", ".", cwd=tmp / r)                 # new files show in the diff too
+            names = [l for l in _git("diff", "--name-only", cwd=tmp / r).splitlines() if l.strip()]
+            files += len(names)
+            if names:
+                text.append(_git("diff", cwd=tmp / r))
+    return files, "\n".join(text)[:20000]
+
+
+def run_task(task: str, target: str, check: list[str] | None = None, echo=print) -> dict:
+    """The same coding task with cam-docs and without it; tokens, time, tool calls, files changed, the diff, and
+    whether `check` (e.g. the tests) passes in each variant."""
+    import subprocess
+    if not enabled():
+        raise RuntimeError("A/B runs are turned off for this project (ab.enabled: false in workspace.yaml)")
+    result = {"at": dt.datetime.now().replace(microsecond=0).isoformat(), "runner": target, "task": task}
+    for side in ("with", "without"):
+        with task_workspace(side == "with") as tmp:
+            echo(f"{'with' if side == 'with' else 'without'} cam-docs: {target} works on the task…")
+            env = {"CAMARONES_ROOT": str(tmp / "cam-docs") if side == "with" else str(tmp)}
+            got = evals._ask(target, RunRequest(prompt=_task_prompt(task), cwd=tmp, env=env, stream=True))
+            files, diff = _diff(tmp)
+            outcome = None
+            if check:
+                r = subprocess.run(check, cwd=str(tmp), capture_output=True, text=True, encoding="utf-8",
+                                   errors="replace", stdin=subprocess.DEVNULL)
+                outcome = "passed" if r.returncode == 0 else "failed"
+            result[side] = {**{k: got.get(k, 0) for k in ("seconds", "tokens_in", "tokens_cache", "tokens_out",
+                                                         "cost_usd", "tool_calls", "rc")},
+                            "files_changed": files, "diff": diff, "check": outcome,
+                            "summary": "\n".join(got.get("lines", []))[-2000:]}
+    RESULTS.mkdir(parents=True, exist_ok=True)
+    save_json(RESULTS / f"{result['at'].replace(':', '').replace('-', '')}-task.json", result)
+    return result
+
+
+# ---------- sampling real prompts: off unless the project and this machine both opt in ----------
+import hashlib, json, random, sys  # noqa: E402
+
+
+def _samples_file() -> Path:
+    from ..common import HOME, ROOT
+    key = hashlib.sha256(os.path.normcase(str(ROOT.resolve())).encode("utf-8")).hexdigest()[:16]
+    return HOME / ".camarones" / "ab-samples" / f"{key}.jsonl"
+
+
+def sampling() -> dict:
+    from .. import docs
+    s = (docs.workspace().get("ab") or {}).get("sampling") or {}
+    return {"enabled": bool(s.get("enabled")), "rate": float(s.get("rate", 0.05))}
+
+
+def set_machine_sampling(on: bool) -> None:
+    from ..common import PREFS
+    prefs = load_json(PREFS, {})
+    prefs["ab_sampling"] = bool(on)
+    save_json(PREFS, prefs)
+
+
+def sample_from_hook() -> bool:
+    """Claude Code's UserPromptSubmit hook: keep this prompt for a later A/B replay, at the project's rate, only on a
+    machine that opted in. Stored on this machine, never in the repo. Never fails the session."""
+    try:
+        from ..common import PREFS
+        s = sampling()
+        if not s["enabled"] or not load_json(PREFS, {}).get("ab_sampling") or not enabled():
+            return False
+        data = json.loads(sys.stdin.read() or "{}")
+        prompt = str(data.get("prompt") or "").strip()
+        if not prompt or random.random() >= s["rate"]:
+            return False
+        f = _samples_file()
+        f.parent.mkdir(parents=True, exist_ok=True)
+        with f.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps({"at": dt.datetime.now().replace(microsecond=0).isoformat(), "prompt": prompt,
+                                 "session": data.get("session_id")}, ensure_ascii=False) + "\n")
+        return True
+    except Exception:  # noqa: BLE001 — a hook must never break the agent session
+        return False
+
+
+def samples() -> list[dict]:
+    f = _samples_file()
+    return [json.loads(l) for l in f.read_text(encoding="utf-8").splitlines() if l.strip()] if f.is_file() else []
+
+
+HOOK_MARK = " ab sample"
+HOOK_ID = "claude hook UserPromptSubmit (local)"           # lib/trust.py's id for this hook in settings.local.json
+
+
+def _settings_local() -> Path:
+    from ..common import ROOT
+    return ROOT / ".claude" / "settings.local.json"
+
+
+def install_hook() -> None:
+    """The sampling hook in cam-docs/.claude/settings.local.json (git-ignored: this machine only), approved here
+    because you asked for it."""
+    from ..common import KIT, uv
+    from .. import trust
+    f = _settings_local()
+    st = load_json(f, {}) if f.is_file() else {}
+    cmd = f'"{uv()}" run --quiet --script "{KIT / "camarones.py"}"{HOOK_MARK}'
+    groups = [g for g in (st.setdefault("hooks", {}).get("UserPromptSubmit") or [])
+              if not any(HOOK_MARK in str(h.get("command", "")) for h in g.get("hooks") or [])]
+    st["hooks"]["UserPromptSubmit"] = groups + [{"hooks": [{"type": "command", "command": cmd}]}]
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text(json.dumps(st, indent=2) + "\n", encoding="utf-8")
+    trust.approve([HOOK_ID])
+
+
+def remove_hook() -> None:
+    from .. import trust
+    f = _settings_local()
+    if not f.is_file():
+        return
+    st = load_json(f, {})
+    groups = [g for g in ((st.get("hooks") or {}).get("UserPromptSubmit") or [])
+              if not any(HOOK_MARK in str(h.get("command", "")) for h in g.get("hooks") or [])]
+    if groups:
+        st["hooks"]["UserPromptSubmit"] = groups
+    else:
+        (st.get("hooks") or {}).pop("UserPromptSubmit", None)
+    f.write_text(json.dumps(st, indent=2) + "\n", encoding="utf-8")
+    trust.approve([HOOK_ID])
