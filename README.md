@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.10.0-ff875f?style=flat-square" alt="Versión 4.10.0">
+  <img src="https://img.shields.io/badge/version-4.11.0-ff875f?style=flat-square" alt="Versión 4.11.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -415,6 +415,8 @@ Las páginas que escriben las unidades del plan están pensadas primero para que
 Cada tipo de página tiene su plantilla en `cam-docs/.camarones/skeletons/` (flujo, modelo de datos, decisión, glosario, contextos, despliegue, deuda técnica, visión general y ficha de repo). El agente parte de ella, y `check` la usa para saber qué secciones `##` necesita la página. Si el equipo edita una plantilla, su copia se conserva al actualizar el kit. `check` avisa de lo que no cumpla, y con `--strict` es un error. Las entrevistas, las guías, las wikis y las páginas con `x-owner: human` no se revisan. Las páginas que el kit genera sin IA (`tooling.md`, `first-look.md`) ya cumplen.
 
 El MCP ya lee por secciones: cada resultado de `search_docs` dice en qué sección está y cuál es su confianza y frescura, y `read_doc(path, section)` devuelve el TL;DR y esa sección. El servidor también ofrece cada página como recurso (`camdocs://<ruta>`), dos prompts (`implement-feature` y `update-docs`) y la herramienta `ask`, que devuelve las secciones que mejor responden a una pregunta, cada una con su cita `[ruta#sección]`, sin llamar a ningún modelo. `llms.txt` sigue [llmstxt.org](https://llmstxt.org) (las entrevistas van en `## Optional`) y `llms-full.txt` reúne en un fichero todas las páginas que los agentes pueden leer. Todo pasa por la misma puerta de frescura: nada sospechoso, obsoleto o sin revisar.
+
+El MCP también escribe, pero solo borradores: `propose_edit` cambia un borrador de IA y nunca toca una página que una persona confirmó o es suya (deja la propuesta en `docs/.work/proposals/` y en Revisión), `add_feedback` deja un comentario de revisión y `mark_suspect` retiene una página que ya no cuadra con el código. Nada de lo que hace confirma una página. `pipeline_status`, `run_events` y `kpis` informan del plan, y `run_node` lanza una unidad solo si `mcp: {pipeline_control: true}` está en `workspace.yaml`. `camaron mcp --http` sirve lo mismo en `http://127.0.0.1:8765/mcp` (Streamable HTTP) con el token de tu máquina (`~/.camarones/mcp-token`).
 
 ## Agentes y modelos locales
 

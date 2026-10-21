@@ -205,6 +205,15 @@ def ack(logicals: list[str], by: str) -> list[str]:
     return done
 
 
+def flag(logical: str, reason: str, by: str = "agent") -> None:
+    """Someone (an agent through the MCP) says the page no longer matches the code: suspect until it is rewritten or
+    acknowledged — both stamp it again, which drops the flag."""
+    with FileLock(LOCK):
+        data = _load()
+        data["pages"].setdefault(logical, {"sources": {}})["flag"] = {"reason": reason, "by": by, "at": _now()}
+        save_json(FILE, data)
+
+
 def states() -> dict[str, dict]:
     """Every page's freshness: {state, changed, missing}. New or rewritten pages get their fingerprints first."""
     pages = _pages()
@@ -216,6 +225,9 @@ def states() -> dict[str, dict]:
         if srcs:                                     # pages without sources stay out: _settle calls them unverified
             stamps = (data.get(logical) or {}).get("sources", {})
             out[logical] = {s: check_source(s, stamps.get(s)) for s in srcs if kind(s) != "doc"}
+        flagged = (data.get(logical) or {}).get("flag")
+        if flagged:
+            out.setdefault(logical, {})[f"flagged: {flagged['reason']} ({flagged.get('by', '?')})"] = "changed"
     return _settle(pages, out)
 
 

@@ -106,7 +106,8 @@ def _work(job: Job, lang: str, emit, echo) -> None:
 
 def run_parallel(lang: str = "es", max_parallel: int = 2, per_runner: dict[str, int] | None = None,
                  max_units: int | None = None, poll_seconds: int = 900, include_interviews: bool = False,
-                 policy: str = "on-conflict", gates=GATES, echo=print, poll: float = 0.5) -> int:
+                 policy: str = "on-conflict", gates=GATES, echo=print, poll: float = 0.5,
+                 only: set[str] | None = None) -> int:
     """Run ready agent units, up to `max_parallel` at once and `per_runner[runner]` (default 1) per runner. Returns
     the units finished and merged. Every run is recorded in .camarones/.cache/runs/<run>/events.jsonl. One run at a
     time: a second one (CLI or portal) raises RuntimeError naming who holds the run lock."""
@@ -117,12 +118,14 @@ def run_parallel(lang: str = "es", max_parallel: int = 2, per_runner: dict[str, 
         raise RuntimeError(f"another documentation run is in progress (pid {e.holder.get('pid')} on "
                            f"{e.holder.get('host') or 'this machine'}) — wait for it or cancel it") from None
     try:
-        return _run(lang, max_parallel, per_runner, max_units, poll_seconds, include_interviews, policy, gates, echo, poll)
+        return _run(lang, max_parallel, per_runner, max_units, poll_seconds, include_interviews, policy, gates, echo, poll,
+                    only)
     finally:
         lock.release()
 
 
-def _run(lang, max_parallel, per_runner, max_units, poll_seconds, include_interviews, policy, gates, echo, poll) -> int:
+def _run(lang, max_parallel, per_runner, max_units, poll_seconds, include_interviews, policy, gates, echo, poll,
+         only=None) -> int:
     run_id = f"r-{dt.datetime.now():%Y%m%d-%H%M%S}-{os.getpid()}"
     events = EventLog(CTX.runs / run_id / "events.jsonl")
 
@@ -133,7 +136,7 @@ def _run(lang, max_parallel, per_runner, max_units, poll_seconds, include_interv
     try:
         with awake.keep_awake():
             done = _loop(jobs, lang, max_parallel, per_runner or {}, max_units, poll_seconds, include_interviews, policy,
-                         gates, emit, echo, poll, run_id)
+                         gates, emit, echo, poll, run_id, only)
     except BaseException:                       # Ctrl+C or a crash: stop the agents, and say the run ended
         for j in jobs.values():
             if j.proc is not None and j.proc.poll() is None:
@@ -148,7 +151,7 @@ def _run(lang, max_parallel, per_runner, max_units, poll_seconds, include_interv
 
 
 def _loop(jobs, lang, max_parallel, per_runner, max_units, poll_seconds, include_interviews, policy, gates, emit,
-          echo, poll, run_id: str = "") -> int:
+          echo, poll, run_id: str = "", only: set[str] | None = None) -> int:
     log = lambda t: plan._autopilot_log(t, echo)                               # noqa: E731
     noted: set[str] = set()
 
@@ -268,7 +271,8 @@ def _loop(jobs, lang, max_parallel, per_runner, max_units, poll_seconds, include
             hold = set(jobs) | set(pending)
             view = {**data, "units": [{**u, "status": "doing"} if u["id"] in hold else u for u in data["units"]]}
             ready = [u for u in plan.available(view) if u["id"] not in hold]
-            queue = [u for u in ready if u["runner"] == "agent" and u["type"] not in skip]
+            queue = [u for u in ready if u["runner"] == "agent" and u["type"] not in skip
+                     and (only is None or u["id"] in only)]
             waiting_on_limits = False
             for u in queue:
                 if len(jobs) >= max_parallel or (max_units is not None and started >= max_units):
