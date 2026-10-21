@@ -15,7 +15,7 @@ from ..common import CTX, VERSIONS
 
 KIT_DIR = Path(__file__).resolve().parent.parent / "plugins"
 PROJECT_DIR = CTX.root / ".camarones" / "plugins"
-KINDS = ("checks", "hooks", "mcp", "pipelines", "prompts", "runners", "skills", "types")
+KINDS = ("checks", "exporters", "hooks", "mcp", "pipelines", "prompts", "runners", "skills", "types")
 CODE_KINDS = ("runners", "hooks", "mcp")              # a command template is code execution too
 STEERING_KINDS = ("prompts", "skills", "types")       # text that reaches an agent
 CODE_FILES = {".py", ".sh", ".js", ".mjs", ".cjs", ".ts", ".cmd", ".bat", ".ps1", ".exe", ".command"}
@@ -88,10 +88,15 @@ class Plugin:
         return self.source == "project" and (self.runs_code or self.steers_agents)
 
     @property
+    def sends_data(self) -> bool:
+        """Sends the docs to a third party (Confluence, Notion): off until enabled on this machine (R35)."""
+        return bool(self.manifest.get("sends_data"))
+
+    @property
     def active(self) -> bool:
         if self.errors:
             return False
-        if not self.needs_trust:
+        if not self.needs_trust and not self.sends_data:
             return True
         from .. import trust
         return trust.plugin_approved(self)
@@ -167,6 +172,25 @@ def kit() -> tuple[Plugin, ...]:
 def discover(project_dir: Path | None = None) -> list[Plugin]:
     taken = {p.name for p in kit()}
     return [*kit(), *(_load(folder, "project", taken) for folder in _folders(project_dir or PROJECT_DIR))]
+
+
+def enable(name: str) -> bool:
+    """Turn on a plugin that sends data (or approve a project plugin) on this machine, as it is now."""
+    from .. import trust
+    p = next((x for x in discover() if x.name == name), None)
+    if not p or p.errors:
+        return False
+    trust.approve_plugin(p)
+    return True
+
+
+def disable(name: str) -> bool:
+    from .. import trust
+    p = next((x for x in discover() if x.name == name), None)
+    if not p:
+        return False
+    trust.revoke_plugin(p)
+    return True
 
 
 def provided(kind: str) -> list[dict]:

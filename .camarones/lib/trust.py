@@ -229,11 +229,24 @@ def decline(root: Path | None = None) -> list[str]:
 
 
 def plugin_approved(plugin, root: Path | None = None) -> bool:
-    """A project plugin's files, as they are now, were approved on this machine (older single-folder layouts: yes)."""
-    if not CAM_LAYOUT:
+    """A plugin's files, as they are now, were approved on this machine. Older single-folder layouts approve project
+    plugins as before; a plugin that sends data is always asked for."""
+    if not CAM_LAYOUT and not getattr(plugin, "sends_data", False):
         return True
     approved = (_store(root) or {}).get("approved") or {}
     return approved.get(f"plugin {plugin.name}") == _digest(plugin.fingerprint())
+
+
+def approve_plugin(plugin, root: Path | None = None) -> None:
+    approved = (_store(root) or {}).get("approved") or {}
+    approved[f"plugin {plugin.name}"] = _digest(plugin.fingerprint())
+    _save(approved, root)
+
+
+def revoke_plugin(plugin, root: Path | None = None) -> None:
+    approved = (_store(root) or {}).get("approved") or {}
+    approved.pop(f"plugin {plugin.name}", None)
+    _save(approved, root)
 
 
 def forget(root: Path | None = None) -> None:

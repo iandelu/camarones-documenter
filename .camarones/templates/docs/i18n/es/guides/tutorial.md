@@ -248,6 +248,14 @@ vuelven al agente; antes de terminar, si los repos han cambiado desde la doc, se
 (estructura, enlaces, fuentes), sin IA. Úsalo en el sandbox para comparar un cambio del playbook o de un prompt antes y
 después.
 
+**Exportar.** `camaron export pdf` junta en una sola página lista para imprimir todas las páginas que pueden leer los
+agentes y la convierte en PDF con Chrome, Chromium o Edge sin ventana si hay alguno (si no, imprime la página a PDF
+desde el navegador). `camaron export tour flows/<flujo>.md` hace un recorrido guiado de un flujo de negocio, una
+diapositiva por fila de su tabla de pasos. `camaron export confluence` y `export notion` publican la documentación en
+esas herramientas; como la sacan de tu máquina, no funcionan hasta que ejecutas `camaron plugins enable confluence` (o
+`notion`) y pones su URL y token (`CONFLUENCE_URL`, `CONFLUENCE_USER`, `CONFLUENCE_TOKEN`, `CONFLUENCE_SPACE`;
+`NOTION_TOKEN`, `NOTION_PARENT_PAGE`).
+
 ## 9. Comandos (para scripts y agentes)
 
 `camaron help` (copia por proyecto: `./camaron.command help`, en Windows `camaron.cmd help`) lista: `setup`, `sync`,
