@@ -14,8 +14,8 @@ from pathlib import Path
 from .common import CTX, KIT, ROOT, DOCS, CACHE, VERSIONS, out, rel_file
 from . import codemap, docs, env, plan, usage
 
-UI = KIT / "portal" / "live"
-APP = KIT / "portal" / "app-build"           # the next portal (React), built in the kit's CI; served at /next
+APP = KIT / "portal" / "app-build"           # the portal: React views + the docs views (portal/app), built in the kit's CI
+UI = APP                                     # the old name, kept for callers
 SITE = CACHE / "site"
 UI_LIBS = (("marked", "15.0.12", "lib/marked.umd.js"), ("dompurify", "3.2.6", "dist/purify.min.js"),
            ("mermaid", "11.4.1", "dist/mermaid.min.js"), ("@highlightjs/cdn-assets", "11.11.1", "highlight.min.js"),
@@ -315,16 +315,14 @@ class Handler(BaseHTTPRequestHandler):
                 return self.file(f, local_cdn=True) if f else self.not_found()
             if m := re.match(r"^/wiki-graph/([\w.-]+)/(.*)$", p):
                 return self.static(env.VIEWERS / "wiki-graph" / m.group(1), m.group(2), local_cdn=True) or self.not_found()
-            if p == "/next":
-                return self.send(301, b"", "text/plain", {"Location": "/next/"})
-            if p.startswith("/next/"):
-                return self.static(APP, p[len("/next/"):], spa=True) or self.not_found()
+            if p == "/next" or p.startswith("/next/"):            # the preview address of 3.26–4.16: one portal now
+                return self.send(301, b"", "text/plain", {"Location": "/"})
             if p in ("/", "/index.html"):
-                return self.file(UI / "index.html")
-            if self.static(UI, p):
+                return self.file(APP / "index.html")
+            if self.static(APP, p):
                 return
             if not Path(p).suffix:
-                return self.file(UI / "index.html")
+                return self.file(APP / "index.html")
             self.not_found()
         except KeyError as e:
             self.json({"error": f"missing or unknown: {e}"}, 404)

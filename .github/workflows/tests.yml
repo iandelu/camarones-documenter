@@ -19,7 +19,7 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - run: uv run pytest
 
-  # The next portal (React) is built here and committed, so users never need Node for it.
+  # The portal (React views + the docs views) is built here and committed, so users never need Node for it.
   portal:
     runs-on: ubuntu-latest
     defaults:

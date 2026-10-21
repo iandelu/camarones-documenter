@@ -111,6 +111,8 @@ def read_doc(path: str, section: str | None = None) -> str:
         return notice
     text = f.read_text(encoding="utf-8")
     fm, body = docs.split_fm(text)
+    body = docs.flatten_directives(body)                 # agents read plain Markdown, never portal syntax
+    text = docs.join_fm(fm, body) if fm else body
     outline = ", ".join(s["slug"] for s in docs.sections(body))
     head = (f"<!-- trust: {r.get('trust', '?')} · freshness: {r.get('fresh', '?')} · file: {r.get('file', '')}"
             + (f" · sections: {outline}" if outline else "") + " -->\n")
@@ -166,7 +168,7 @@ def ask(question: str, limit: int = 3) -> str:
         f = _file(h["path"])
         if not ok or not f:
             continue
-        body = docs.split_fm(f.read_text(encoding="utf-8"))[1]
+        body = docs.flatten_directives(docs.split_fm(f.read_text(encoding="utf-8"))[1])
         found = docs.section_text(body, h["section"]) if h.get("section") else None
         cite = h["path"] + (f"#{h['section']}" if found else "")
         tl = docs.tldr(body)

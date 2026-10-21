@@ -152,14 +152,17 @@ Chromium sin ventana). Si faltan, `check` lo avisa una vez y se salta esa compro
 
 ## 5. Portal
 
-Un solo portal, dos modos, la misma interfaz. Pestañas: **Docs** (árbol, buscador, marcas de confianza),
-**Arquitectura (C4)**, **Grafo de código** (todos los repos o uno), **Wikis** (la OpenWiki de cada repo, sus páginas y su
-grafo) y **Revisión** (páginas pendientes, peticiones de cambio, código cambiado desde la doc, `check`). El selector de
-idioma cambia la interfaz y la doc; una página sin traducir se muestra en inglés con un aviso.
+Un solo portal, dos modos y la misma interfaz. Pestañas: **Docs** (árbol, búsqueda, confianza), **Arquitectura (C4)**,
+**Grafo de código** (todos los repos o uno), **Wikis** (OpenWiki por repo, sus páginas y su grafo), **Revisión**
+(páginas pendientes, revisiones que espera un agente, peticiones de cambio, código cambiado desde la doc, `check`),
+**Preguntar** (las secciones que mejor responden a una pregunta, con citas, sin IA), **Pizarras** (pizarras de
+Excalidraw en `docs/boards/`, en blanco o desde una vista C4) y **Pipeline**. El selector de idioma cambia la interfaz y
+la documentación. Las tablas se ordenan por columna (las largas se filtran), `:::tabs`/`:::steps`/`:::details`/`:::cards`
+se ven como pestañas, pasos, desplegables y tarjetas, un interruptor «Todo / Negocio» oculta los bloques `:::tech`, y en
+Mermaid los nombres que coinciden con una página o un repo son enlaces.
 
-El portal nuevo se está construyendo en `http://127.0.0.1:8080/next/`, a un clic desde la pestaña **Pipeline ↗** del
-portal de siempre (blanco y negro, modo oscuro; viene ya compilado
-con el kit, no hace falta Node). Su pestaña **Pipeline** muestra el plan en vivo: un grafo de las unidades por fase, un
+La pestaña **Pipeline** (blanco y negro, modo oscuro; viene ya compilada
+con el kit, no hace falta Node) muestra el plan en vivo: un grafo de las unidades por fase, un
 tablero por estado y, por unidad, su agente, resultado, tiempo, tokens, coste y el log del agente línea a línea. Si lanzas
 `camaron run` con la página abierta, la ejecución aparece sola. Desde la pestaña también puedes lanzar una ejecución,
 cancelarla (los agentes se paran y sus unidades vuelven a la cola sin perder su trabajo) y reintentar una unidad

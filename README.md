@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.16.0-ff875f?style=flat-square" alt="Versión 4.16.0">
+  <img src="https://img.shields.io/badge/version-4.17.0-ff875f?style=flat-square" alt="Versión 4.17.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -312,9 +312,9 @@ camaron wiki orders-api   # generar o actualizar la wiki OpenWiki de un repo (lo
 camaron down
 ```
 
-Los dos portales comparten estilo: blanco y negro, con el color reservado al estado (confirmada, pendiente, error), modo claro y oscuro, y animaciones discretas solo cuando algo cambia (la página que entra, las tarjetas, la pestaña activa). Quien tenga activado «reducir movimiento» en el sistema no ve ninguna.
+El portal es blanco y negro, con el color reservado al estado (confirmada, pendiente, error), modo claro y oscuro, y animaciones discretas solo cuando algo cambia (la página que entra, las tarjetas, la pestaña activa). Quien tenga activado «reducir movimiento» en el sistema no ve ninguna.
 
-**Portal nuevo, en pruebas:** en **http://localhost:8080/next/** está el portal que lo sustituirá; la pestaña **Pipeline ↗** del portal de siempre lleva a él. Su inicio enseña al momento cuántas unidades están hechas, qué espera revisión y qué repos cambiaron, y el número de errores de `check` llega después, porque en proyectos grandes tarda unos segundos. Viene ya compilado con el kit, así que no hace falta Node. Su pestaña **Pipeline** muestra el plan en vivo:
+**Pipeline:** la pestaña Pipeline muestra el plan en vivo:
 
 - **Grafo:** las unidades por fase, con sus dependencias y su estado.
 - **Tablero:** columnas por hacer, en curso, bloqueadas, hechas y descartadas.
@@ -328,7 +328,12 @@ Abre **http://localhost:8080**. Es un único portal 🦐 con pestañas, en espa�
 - **Arquitectura**: galería de las vistas C4 (sistema, contenedores, flujos, despliegue) interactivas y el explorador LikeC4 completo, con botón para reconstruirlo.
 - **Código**: el grafo de graphify convertido en un mapa legible: los módulos de cada repo y sus dependencias, los ficheros más usados, sus paquetes y, por fichero, qué usa y quién lo usa, con buscador. El grafo completo de graphify sigue a un clic.
 - **Wikis**: cada repo se abre en el visor de OpenWiki (grafo de páginas conectadas y lector; se regenera solo si la wiki cambió). «Leer las páginas» la muestra dentro del portal, con menú propio y «Enlazada desde». Cada wiki aspira a ser completa (arquitectura del repo, una página por API y área de lógica, configuración, tests, operación y deuda); si una se escribió con el alcance antiguo, más escueto, el asistente, el portal y `check` avisan, y actualizarla la amplía. También está el botón para generarla o actualizarla con un log en vivo. Sin clave de proveedor de OpenWiki, la genera Claude Code o Codex a través del MCP de OpenWiki.
-- **Review**: lo pendiente de revisar, las peticiones de cambio y los repos cuyo código cambió.
+- **Review**: lo pendiente de revisar, las revisiones que espera un agente (aprobar o pedir cambios), las peticiones de cambio y los repos cuyo código cambió.
+- **Preguntar**: escribe una pregunta y te devuelve las secciones que mejor la responden, con su cita y su confianza, igual que se las daría a un agente (sin IA).
+- **Pizarras**: pizarras de Excalidraw guardadas en `cam-docs/docs/boards/`, en blanco o empezando desde una vista C4 (una caja por elemento y una flecha por relación) para anotarla en equipo.
+- **Pipeline**: el plan en vivo (abajo).
+
+Las páginas también son más interactivas: las tablas se ordenan pulsando una columna (y las largas se filtran), los bloques `:::tabs`, `:::steps`, `:::details` y `:::cards` se ven como pestañas, pasos numerados, desplegables y tarjetas, un interruptor «Todo / Negocio» oculta los detalles técnicos (`:::tech`) a quien no los necesita, y en los diagramas Mermaid los nombres que coinciden con una página o un repo se pueden pulsar para ir a ella. Los agentes leen esos bloques como Markdown normal.
 
 Para publicarlo (CI / hosting), `camaron portal` exporta la misma aplicación en modo solo lectura (HTML + JSON, sin npm) a `.camarones/.cache/site`. Se sirve con `camaron up --static`, con `camaron up --docker` o desde cualquier hosting estático; los enlaces «Editar» llevan al fichero en GitLab/GitHub.
 
@@ -499,7 +504,7 @@ Los plugins del equipo se copian en `cam-docs` y se fijan, sin registro ni desca
 
 ## Un harness enchufable (4.0)
 
-Desde la versión 4.0 el kit es un *harness*: un pipeline declarativo en YAML que el proyecto puede ampliar. Cada paso usa un adaptador intercambiable (Claude Code, Codex, OpenCode o cualquier comando, motores de diagramas, wikis, checks y publicadores). Las unidades independientes corren en paralelo, cada una en su propio worktree, y luego se consolidan. Los modelos locales se encargan de las tareas acotadas. Además mide KPIs de coste, calidad, frescura y utilidad, con una comparación «con cam-docs frente a sin cam-docs», y trae un portal nuevo con vista de pipeline en vivo. La decisión y el diseño están en [harness-refactor.md](docs/research/harness-refactor.md), y el orden de trabajo, PR a PR, en [roadmap.md](docs/research/roadmap.md). **Ya están** los agentes intercambiables, los modelos locales, el plan en YAML, los plugins, la documentación en paralelo, los KPIs, las evaluaciones, la comparación A/B, el portal nuevo en `/next`, la frescura y las páginas pensadas para agentes. Lo que falta del roadmap está en [roadmap.md](docs/research/roadmap.md).
+Desde la versión 4.0 el kit es un *harness*: un pipeline declarativo en YAML que el proyecto puede ampliar. Cada paso usa un adaptador intercambiable (Claude Code, Codex, OpenCode o cualquier comando, motores de diagramas, wikis, checks y publicadores). Las unidades independientes corren en paralelo, cada una en su propio worktree, y luego se consolidan. Los modelos locales se encargan de las tareas acotadas. Además mide KPIs de coste, calidad, frescura y utilidad, con una comparación «con cam-docs frente a sin cam-docs», y trae un portal nuevo con vista de pipeline en vivo. La decisión y el diseño están en [harness-refactor.md](docs/research/harness-refactor.md), y el orden de trabajo, PR a PR, en [roadmap.md](docs/research/roadmap.md). **Ya están** los agentes intercambiables, los modelos locales, el plan en YAML, los plugins, la documentación en paralelo, los KPIs, las evaluaciones, la comparación A/B, el portal único con Pipeline, Preguntar y Pizarras, la frescura y las páginas pensadas para agentes. Lo que falta del roadmap está en [roadmap.md](docs/research/roadmap.md).
 
 ## Desarrollo
 

@@ -179,7 +179,7 @@ PAGES = {
         {"icon": "🌐", "title": "El portal: la documentación como web",
          "art": r"""
    +----------------------------------------------------------------------------+
-   | Camarones  Mi Proyecto  [Docs] Arquitectura Wikis Revision Pipeline   Esp v|
+   | Camarones  Mi Proyecto  [Docs] Arquitectura Wikis Revision Preguntar  Es v|
    |                         [ Buscar en la doc...            ]                 |
    +----------------------------------------------------------------------------+
    | ARQUITECTURA     |  Arquitectura: primer vistazo                           |
@@ -192,8 +192,8 @@ PAGES = {
                  "interfaz: el portal local (`camaron up`, o asistente → 🌐 Portal → 📝 Abrir el portal), donde se "
                  "puede editar, y la exportación de solo lectura (`camaron portal`) que se despliega con Docker o en "
                  "cualquier hosting estático. `camaron up --static` te enseña la exportación tal cual. Todo funciona "
-                 "sin Internet (on-premise). Es blanco y negro, con modo claro y oscuro. La pestaña «Pipeline ↗» del portal local abre el portal nuevo (/next): el "
-                 "plan como grafo en vivo, qué agente hace cada unidad, y botones para lanzar, cancelar o reintentar."},
+                 "sin Internet (on-premise). Es blanco y negro, con modo claro y oscuro. Además: Preguntar (las secciones que responden, con su cita), "
+                 "Pizarras (Excalidraw, desde una vista C4) y Pipeline (el plan en vivo, con lanzar, cancelar y reintentar)."},
         {"icon": "✏️", "title": "Dónde y cuándo se puede editar",
          "art": r"""
    DONDE                        QUE PUEDES HACER                     DONDE QUEDA
@@ -451,7 +451,7 @@ PAGES = {
         {"icon": "🌐", "title": "The portal: docs as a website",
          "art": r"""
    +----------------------------------------------------------------------------+
-   | Camarones  My Project  [Docs] Architecture Wikis Review Pipeline English v |
+   | Camarones  My Project  [Docs] Architecture Wikis Review Ask Boards Pipeline|
    |                        [ Search the docs...             ]                  |
    +----------------------------------------------------------------------------+
    | ARCHITECTURE     |  Architecture: first look                               |
@@ -464,8 +464,8 @@ PAGES = {
                  "the local portal (`camaron up`, or wizard → 🌐 Portal → 📝 Open the portal), where you can edit, and "
                  "the read-only export (`camaron portal`) that is deployed with Docker or on any static host. "
                  "`camaron up --static` shows you the export as is. Everything works offline (on-premise). It is black and white, "
-                 "light or dark. The local portal's “Pipeline ↗” tab opens the new portal (/next): the plan as a live graph, which agent does each "
-                 "unit, and buttons to run, cancel or retry."},
+                 "light or dark. Also: Ask (the sections that answer, with citations), Boards (Excalidraw, from a C4 view) "
+                 "and Pipeline (the plan live, with run, cancel and retry)."},
         {"icon": "✏️", "title": "Where and when you can edit",
          "art": r"""
    WHERE                        WHAT YOU CAN DO                      WHERE IT GOES
