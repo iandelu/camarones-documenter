@@ -72,7 +72,14 @@
   pr fresh REPO [--base REF | --files F…] [--json] [--post] [--lang en|es]
                             what a pull request does to the docs, no AI: the pages whose cited code it changes (left
                             out of date by it, or already before). --post writes or updates one comment on the PR/MR
-                            (GitHub Actions or GitLab CI); it never fails the pipeline
+                            (GitHub Actions or GitLab CI); it never fails the pipeline. --head REF: the PR's commit
+                            when it is not checked out
+  pr propose PR_URL [--ref REF] [--base REF] [--runner R] [--dry-run [--json]] [--comment]
+                            AI: an agent updates the pages the PR leaves out of date on cam-docs branch
+                            docs/pr-<repo>-<n> (its own worktree); the kit commits, pushes and opens the docs PR.
+                            The PR is fetched into refs/camaron/pr/<n> (your checkout is not touched); --dry-run shows
+                            the plan; --comment links the docs PR on the service PR; --preview exports the docs
+                            branch as a static portal in .camarones/.cache/previews/
   kpis [--json] [--months N] [--no-check] [--compare RUN_A RUN_B]
                             is it working? cost and speed of runs (the team's, per month), coverage, trust, usage;
                             --compare puts two runs side by side
@@ -239,7 +246,10 @@ def main() -> int:
     ev.add_argument("--all", action="store_true"); ev.add_argument("--json", action="store_true"); ev.add_argument("--by", default="")
     abp = sp.add_parser("ab"); abp.add_argument("--qa", default=""); abp.add_argument("--golden", action="store_true")
     abp.add_argument("--runner", default=""); abp.add_argument("--judge", default=""); abp.add_argument("--json", action="store_true")
-    prp = sp.add_parser("pr"); prp.add_argument("action", choices=["fresh"]); prp.add_argument("repo")
+    prp = sp.add_parser("pr"); prp.add_argument("action", choices=["fresh", "propose"]); prp.add_argument("repo")
+    prp.add_argument("--head", default=""); prp.add_argument("--ref", default=""); prp.add_argument("--runner", default="")
+    prp.add_argument("--dry-run", action="store_true"); prp.add_argument("--comment", action="store_true")
+    prp.add_argument("--preview", action="store_true")
     prp.add_argument("--base", default=""); prp.add_argument("--files", nargs="+"); prp.add_argument("--json", action="store_true")
     prp.add_argument("--post", action="store_true"); prp.add_argument("--lang", default="en", choices=["en", "es"])
     bl = sp.add_parser("blocks"); bl.add_argument("--force", action="store_true"); bl.add_argument("--json", action="store_true")
@@ -756,11 +766,30 @@ def cmd_plugin_store(a) -> int:
 
 def cmd_pr(a) -> int:
     from lib import pr
+    if a.action == "propose":
+        from lib import propose
+        try:
+            if a.dry_run:
+                p = propose.plan_for(a.repo, ref=a.ref or None, base=a.base or None, runner=a.runner or None,
+                                     lang=a.lang)
+                print(json.dumps(p, indent=2, ensure_ascii=False) if a.json else
+                      f"branch {p['branch']} · runner {p['target']} · base {p['base']} · ref {p['ref']}\n"
+                      f"fetch: {' '.join(p['fetch']) if p['fetch'] else '(already local)'}\n"
+                      f"agent: {' '.join(p['argv'])}\n\n{p['prompt']}")
+                return 0
+            r = propose.propose(a.repo, ref=a.ref or None, base=a.base or None, runner=a.runner or None, lang=a.lang,
+                                comment=a.comment, with_preview=a.preview)
+        except propose.ProposeError as e:
+            print(f"✖ {e}", file=sys.stderr)
+            return 2
+        print(json.dumps(r, indent=2, ensure_ascii=False) if a.json else
+              "\n".join(f"{k}: {v}" for k, v in r.items() if v not in ("", None)))
+        return 0
     if a.repo not in docs.repo_names():
         print(f"unknown repo {a.repo}: one of {', '.join(docs.repo_names()) or '—'}", file=sys.stderr)
         return 2
     base = a.base or (None if a.files else "main")
-    result = pr.impact(a.repo, base=base, files=a.files)
+    result = pr.impact(a.repo, base=base, files=a.files, head=a.head or None)
     if a.json:
         print(json.dumps(result, indent=2, ensure_ascii=False))
         return 0

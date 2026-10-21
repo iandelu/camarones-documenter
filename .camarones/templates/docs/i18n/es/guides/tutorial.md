@@ -221,6 +221,13 @@ local: `camaron pr fresh <repo> --base main`. Por defecto corre en runners aloja
 `ci: {target: self-hosted, runner_labels: [self-hosted, docs], runner_tags: [docs]}` en `workspace.yaml` y vuelve a
 ejecutar `camaron ci`. Las PR del propio `cam-docs` solo pasan `check`.
 
+**Una propuesta con IA para una PR.** `camaron pr propose <url de la PR>` trae la PR a `refs/camaron/pr/<n>` del repo
+de servicio (tu checkout no se toca) y un agente actualiza las páginas que deja desactualizadas en la rama de cam-docs
+`docs/pr-<repo>-<n>`, en su propio worktree. El kit hace el commit, la sube y abre la PR de documentación (`--comment`
+la enlaza en la PR del servicio, `--preview` exporta esa rama como portal estático); `--dry-run` enseña antes el plan. Con `ci.target: self-hosted`, `camaron ci` escribe
+también `docs-propose`: el mismo comando en vuestro runner cuando alguien del proyecto etiqueta una PR con
+`docs:update`, nunca para forks. Cómo montar el runner: [guía del runner propio](self-hosted-runner.md).
+
 **El servidor MCP.** Los agentes llegan a la documentación con el servidor MCP `camarones`: `search_docs`,
 `read_doc(path, section)`, `ask` (las secciones que mejor responden a una pregunta, con citas), los recursos
 `camdocs://<página>` y dos prompts. También puede escribir, pero solo borradores: `propose_edit` cambia un borrador de IA
@@ -238,7 +245,7 @@ informan del plan; `run_node` lanza una unidad solo con `mcp: {pipeline_control:
 `arch-validate`, `wiki <repo>`, `portal` (exportación), `up [--static|--docker]`, `down`, `ci`, `prompt <unidad>`, `migrate`, `doctor`,
 `doctor --local` (propone un modelo local libre para este equipo, sin instalar nada), `autopilot`, `plugins [--json]`,
 `run`, `runs`, `kpis`, `eval`, `ab`, `pipeline show|validate`, `blocks [--force]`, `pr fresh <repo>` y
-`plugins add|update|outdated|remove`.
+`plugins add|update|outdated|remove`, `pr propose <url>`.
 
 **Datos del código, sin IA.** `camaron blocks` escribe `docs/repos/<repo>/reference.md` para cada repo: comandos
 (Maven, Gradle, `package.json`, Makefile, Docker Compose), variables de entorno (placeholders `${VAR:valor}` de Spring,
