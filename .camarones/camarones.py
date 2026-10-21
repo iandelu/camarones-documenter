@@ -66,6 +66,9 @@
   export pdf | print | tour FLOW | confluence | notion
                             the docs agents may read as one print-ready page (PDF with a headless Chrome), a guided
                             tour of a business flow, or published to Confluence/Notion (plugins: `plugins enable` first)
+  review request PAGE [--note T] | wait ID [--timeout S] | list
+                            an agent asks a person to review a page and waits for the answer (approve / changes, as
+                            JSON); people answer in the portal's Review tab
   hooks [on|off]            method hooks for Claude Code in cam-docs: the plan state at session start, a check of each
                             docs page right after it is edited, a reminder to update the docs before stopping
   ab --qa "QUESTION" | --golden [--runner T] [--judge T] [--json]
@@ -244,6 +247,9 @@ def main() -> int:
     sp.add_parser("init")
     for c in ("sync", "detect", "changes", "llms", "graph", "arch", "arch-validate", "portal", "down", "wizard", "version"):
         sp.add_parser(c)
+    rv = sp.add_parser("review"); rv.add_argument("action", choices=["request", "wait", "list"])
+    rv.add_argument("target", nargs="?"); rv.add_argument("--note", default=""); rv.add_argument("--by", default="agent")
+    rv.add_argument("--timeout", type=float, default=3600)
     hk = sp.add_parser("hook"); hk.add_argument("name", choices=["session-start", "post-edit", "stop"])
     hks = sp.add_parser("hooks"); hks.add_argument("state", nargs="?", choices=["on", "off"])
     mc = sp.add_parser("mcp"); mc.add_argument("--http", action="store_true"); mc.add_argument("--port", type=int, default=8765)
@@ -459,6 +465,22 @@ def main() -> int:
         from lib import uninstall
         return uninstall.main(include_global=a.user_level, dry_run=a.dry_run, yes=a.yes, backup=not a.no_backup,
                               backup_dir=a.backup_dir)
+    elif a.cmd == "review":
+        from lib import review
+        if a.action == "list":
+            print(json.dumps(review.open_requests(), indent=2, ensure_ascii=False))
+        elif not a.target:
+            print("usage: review request PAGE [--note TEXT] | review wait ID [--timeout S]", file=sys.stderr)
+            return 2
+        elif a.action == "request":
+            rid = review.request(a.target, by=a.by, note=a.note)
+            print(json.dumps({"id": rid, "path": a.target, "next": f"{cli_cmd()} review wait {rid}"}))
+        else:
+            try:
+                print(json.dumps(review.wait(a.target, timeout=a.timeout), ensure_ascii=False))
+            except KeyError:
+                print(f"✖ no review request {a.target}", file=sys.stderr)
+                return 2
     elif a.cmd == "hook":
         from lib import hooks
         return hooks.main(a.name)

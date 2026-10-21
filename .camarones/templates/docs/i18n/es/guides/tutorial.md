@@ -256,6 +256,11 @@ esas herramientas; como la sacan de tu máquina, no funcionan hasta que ejecutas
 `notion`) y pones su URL y token (`CONFLUENCE_URL`, `CONFLUENCE_USER`, `CONFLUENCE_TOKEN`, `CONFLUENCE_SPACE`;
 `NOTION_TOKEN`, `NOTION_PARENT_PAGE`).
 
+**Pedir una revisión y esperar.** Un agente que necesita la respuesta de una persona sobre una página ejecuta
+`camaron review request <página>` y luego `camaron review wait <id>`: se queda esperando hasta que alguien la aprueba o
+pide cambios en la pestaña Revisión del portal, y recibe la decisión en JSON. Los comentarios de revisión pueden
+apuntar a una sección: guardan su slug y una cita corta, así que se encuentran aunque cambie el título.
+
 ## 9. Comandos (para scripts y agentes)
 
 `camaron help` (copia por proyecto: `./camaron.command help`, en Windows `camaron.cmd help`) lista: `setup`, `sync`,

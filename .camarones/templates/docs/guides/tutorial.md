@@ -243,6 +243,11 @@ with a headless Chrome, Chromium or Edge when there is one (otherwise print the 
 machine, so they are off until you run `camaron plugins enable confluence` (or `notion`) and set their URL and token
 (`CONFLUENCE_URL`, `CONFLUENCE_USER`, `CONFLUENCE_TOKEN`, `CONFLUENCE_SPACE`; `NOTION_TOKEN`, `NOTION_PARENT_PAGE`).
 
+**Ask a person and wait.** An agent that needs a human answer on a page runs `camaron review request <page>` and then
+`camaron review wait <id>`: it blocks until someone approves or asks for changes in the portal's Review tab, and gets
+the decision as JSON. Review comments can point at a section: they keep the section's slug and a short quote, so they
+are found again after a heading is renamed.
+
 ## 9. Commands (for scripts and agents)
 
 `camaron help` (per-project copy: `./camaron.command help`, Windows `camaron.cmd help`): `setup`, `sync`, `detect`,

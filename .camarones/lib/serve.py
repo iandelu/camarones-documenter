@@ -65,6 +65,29 @@ def read(path: str, lang: str = "") -> dict:
             "feedback": [l for l in docs.pending_feedback() if f"`{row.get('file')}`" in l]}
 
 
+def api_ask(question: str) -> dict:
+    """Ask the docs (R34): the sections that best answer a question, each with its citation, trust and freshness.
+    No model: the same retrieval as the MCP `ask`, through the same freshness gate."""
+    from .harness import freshness
+    hits = docs.search(question, 20) if question.strip() else []
+    usage.record("portal:ask", channel="human", hit=bool(hits))
+    rows, out = {r["path"]: r for r in docs.collect()}, []
+    for h in hits:
+        r = rows.get(h["path"], {})
+        ok, notice = freshness.gate(h["path"], r.get("trust", "draft"), r.get("freshness"))
+        f = dict(docs.iter_docs()).get(h["path"])
+        if not f:
+            continue
+        body = docs.split_fm(f.read_text(encoding="utf-8"))[1]
+        found = docs.section_text(body, h["section"]) if h.get("section") else None
+        out.append({"cite": h["path"] + (f"#{h['section']}" if found else ""), "title": h["title"],
+                    "trust": r.get("trust"), "fresh": r.get("fresh"), "notice": notice, "withheld_for_agents": not ok,
+                    "tldr": docs.tldr(body), "text": found[1] if found else body.strip()[:3000]})
+        if len(out) >= 3:
+            break
+    return {"question": question, "sections": out}
+
+
 def api_doc(q: dict) -> dict:
     """A page the reader opened (`track`), not the extra reads the UI does for fallbacks and the home page."""
     d = read(q["path"], q.get("lang", ""))
@@ -330,6 +353,20 @@ class Handler(BaseHTTPRequestHandler):
             return self.json([{k: v for k, v in j.items() if k != "log"} for j in JOBS.values()])
         if name == "pipeline":
             return self.json(api_pipeline())
+        if name == "ask":
+            return self.json(api_ask(q.get("q", "")))
+        if name == "boards":
+            from . import boards
+            return self.json(boards.boards())
+        if name == "board":
+            from . import boards
+            return self.json(boards.read(q.get("name", "")))
+        if name == "sketch":
+            from . import boards
+            return self.json(boards.sketch(q.get("view", "")))
+        if name == "reviews":
+            from . import review
+            return self.json(review.open_requests())
         if name == "runs":
             from .harness import runs
             return self.json(runs.rows())
@@ -396,9 +433,16 @@ class Handler(BaseHTTPRequestHandler):
                 docs.confirm([str(doc_file(b["path"], b.get("lang", "")))], by)
                 return self.json(read(b["path"], b.get("lang", "")))
             if p == "/api/feedback":
-                docs.add_feedback(read(b["path"])["file"], b["text"], by)
+                from . import review
+                review.comment(b["path"], b["text"], by, b.get("slug", ""), b.get("snippet", ""))
                 plan.ensure("review-fixes", "review-fixes")
                 return self.json(read(b["path"]))
+            if p == "/api/board":
+                from . import boards
+                return self.json(boards.save(b.get("name", ""), b.get("scene")))
+            if p == "/api/review/decide":
+                from . import review
+                return self.json(review.decide(b["id"], b["decision"], by, b.get("comments", "")))
             if p == "/api/commit":
                 docs.llms()
                 ok = env.checkpoint_commit(b.get("message") or "docs edited in the portal")
