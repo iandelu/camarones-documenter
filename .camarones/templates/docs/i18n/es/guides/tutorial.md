@@ -117,6 +117,9 @@ reciben páginas sospechosas ni obsoletas, ni páginas sin fuentes que nadie ha 
 y les indican el código. Las personas las siguen viendo, con un aviso. `camaron fresh` las lista, `fresh --plan` añade
 una unidad para actualizarlas y `fresh --ack <página> --by <nombre>` dice que una sigue siendo válida. Con
 `freshness: {ai_policy: warn}` en `workspace.yaml` se entregan con una advertencia en lugar de retenerlas.
+Mejor citar un símbolo que unas líneas (`orders:src/…/OrderService.java#OrderService.place`): se vuelve a encontrar
+aunque se mueva, así que solo cuenta un cambio en su propio cuerpo. Una página que se apoya en otras páginas o en
+elementos C4 los cita (`docs/flows/checkout.md`, `c4:shop.orders`) y pasa a sospechosa cuando alguno lo es.
 
 Para proteger un párrafo de los agentes:
 

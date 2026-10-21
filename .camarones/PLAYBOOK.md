@@ -49,8 +49,9 @@ or `.\camaron.cmd`).
    session you close the unit as usual (step 5), and questions go to `docs/interview/open-questions.md`.
 7. Never write `x-confirmed`; never rewrite `<!-- human -->` blocks, `x-owner: human` files or confirmed pages silently.
 8. **Write for agents first** (CONVENTIONS §11): start each page from its skeleton in `.camarones/skeletons/`, TL;DR
-   under the H1, sections that read alone, exact identifiers, tables for facts. A unit is done when `CLI check` shows
-   no structure WARN on the pages it wrote.
+   under the H1, sections that read alone, exact identifiers, tables for facts. In `x-sources`, cite a symbol
+   (`repo:path#Class.method`) rather than line ranges, and the pages or C4 elements a derived page builds on
+   (`docs/flows/x.md`, `c4:system.container`). A unit is done when `CLI check` shows no structure WARN on its pages.
 
 ## setup
 Done by the wizard (`CLI setup`). If an agent lands here: run it, report missing prerequisites with the fix, mark done.
