@@ -100,7 +100,10 @@ Los plugins del equipo se copian en el repo y se fijan: `camaron plugins add <ca
 lo copia en `.camarones/plugins/` y apunta versión, origen y huella en `.camarones/plugins.lock`; si su rango `kit` no
 incluye este kit, se rechaza. `plugins outdated` lista versiones nuevas, `plugins update [nombre] [--to <tag>]` lo vuelve
 a traer y lista los ficheros que cambian, y `plugins remove <nombre>` lo quita. `check` avisa si una carpeta ya no
-coincide con el lock. Un nodo del pipeline puede fijar una versión mayor: `uses: adr-lint@0`.
+coincide con el lock. Un nodo del pipeline puede seguir un plugin, fijado a una versión mayor: en
+`.camarones/pipeline.yaml`, `patch: [{op: set, node: decisions-quality, uses: adr-style@1}]`. El prompt de esa unidad
+lleva entonces los prompts del plugin y le indica sus skills; una versión mayor distinta o un plugin sin aprobar es un
+error del pipeline.
 
 ## 3. Confianza: borradores de IA frente a doc confirmada
 

@@ -95,7 +95,9 @@ Team plugins are vendored and pinned: `camaron plugins add <folder | git:<url>@<
 `.camarones/plugins/` and records its version, source and fingerprint in `.camarones/plugins.lock`; a plugin whose
 `kit` range does not include this kit is refused. `plugins outdated` lists newer versions, `plugins update [name]
 [--to <tag>]` re-fetches and lists the files that changed, `plugins remove <name>` drops one. `check` warns when a
-folder no longer matches the lock. A pipeline node can pin a major version: `uses: adr-lint@0`.
+folder no longer matches the lock. A pipeline node can follow a plugin, pinned to a major version: in
+`.camarones/pipeline.yaml`, `patch: [{op: set, node: decisions-quality, uses: adr-style@1}]`. That unit's prompt then
+carries the plugin's prompts and points to its skills; a wrong major or an unapproved plugin is a pipeline error.
 
 ## 3. Trust: AI drafts vs confirmed
 
