@@ -77,7 +77,7 @@ def test_manifest_problems_are_reported_by_path(plugins, kit):
     assert "name: use lowercase letters, digits and dashes (got 'Bad Name')" in p.errors
     assert "version: not a semantic version (got 'one')" in p.errors
     assert any(e.startswith("kit: needs kit >=9,<10") for e in p.errors)
-    assert "provides.widgets: unknown kind (use checks, hooks, mcp, pipelines, prompts, runners, skills, types)" in p.errors
+    assert "provides.widgets: unknown kind (use checks, exporters, hooks, mcp, pipelines, prompts, runners, skills, types)" in p.errors
 
 
 def test_a_folder_without_a_readable_manifest_is_reported(plugins, kit):

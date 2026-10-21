@@ -63,6 +63,9 @@
   eval comply UNIT [--runner T] [--json]
                             run one ready unit for real and score what it wrote against the method (structure, links,
                             sources), without AI: compare playbook or prompt changes. Use the sandbox, not CI
+  export pdf | print | tour FLOW | confluence | notion
+                            the docs agents may read as one print-ready page (PDF with a headless Chrome), a guided
+                            tour of a business flow, or published to Confluence/Notion (plugins: `plugins enable` first)
   hooks [on|off]            method hooks for Claude Code in cam-docs: the plan state at session start, a check of each
                             docs page right after it is edited, a reminder to update the docs before stopping
   ab --qa "QUESTION" | --golden [--runner T] [--judge T] [--json]
@@ -98,7 +101,7 @@
   plugins [--json]          plugins of the kit and of this project (.camarones/plugins/): what they provide, whether
                             they run code, and whether they are loaded (code and prompts need approval: `trust`)
   plugins add SOURCE        vendor a team plugin from a folder or git:<url>@<tag>[#subfolder]; pinned in plugins.lock
-  plugins update [NAME] [--to TAG] | outdated | remove NAME
+  plugins update [NAME] [--to TAG] | outdated | remove NAME | enable NAME | disable NAME
                             re-fetch (shows what changed; changed code asks trust again), newer versions, drop one
   install DEST --profile quick|full [--dry-run]   copy kit into an explicit project folder
   upgrade SOURCE [--dry-run]  update kit files with backups; preserve project configuration
@@ -246,7 +249,10 @@ def main() -> int:
     mc = sp.add_parser("mcp"); mc.add_argument("--http", action="store_true"); mc.add_argument("--port", type=int, default=8765)
     dr = sp.add_parser("doctor"); dr.add_argument("--local", action="store_true")
     pg = sp.add_parser("plugins"); pg.add_argument("--json", action="store_true")
-    pg.add_argument("action", nargs="?", default="list", choices=["list", "add", "update", "outdated", "remove"])
+    pg.add_argument("action", nargs="?", default="list",
+                    choices=["list", "add", "update", "outdated", "remove", "enable", "disable"])
+    exp = sp.add_parser("export"); exp.add_argument("what", choices=["pdf", "print", "tour", "confluence", "notion"])
+    exp.add_argument("page", nargs="?")
     pg.add_argument("target", nargs="?"); pg.add_argument("--to", default="")
     rn = sp.add_parser("run"); rn.add_argument("--parallel", type=int, default=2); rn.add_argument("--per-runner", default="")
     rn.add_argument("--max-units", type=int); rn.add_argument("--lang", default="es")
@@ -505,8 +511,32 @@ def main() -> int:
         return cmd_ab(a)
     elif a.cmd == "pipeline":
         return cmd_pipeline(a)
+    elif a.cmd == "plugins" and a.action in ("enable", "disable"):
+        from lib.harness import plugins
+        ok = (plugins.enable if a.action == "enable" else plugins.disable)(a.target or "")
+        if not ok:
+            print(f"✖ no plugin called {a.target}", file=sys.stderr)
+            return 2
+        print(f"✔ {a.target} {'enabled' if a.action == 'enable' else 'disabled'} on this machine")
     elif a.cmd == "plugins" and a.action != "list":
         return cmd_plugin_store(a)
+    elif a.cmd == "export":
+        from lib import exporters
+        try:
+            if a.what in ("pdf", "print"):
+                out = exporters.export_pdf() if a.what == "pdf" else exporters.export_print()
+                print(f"✔ {out}" + ("" if out.suffix == ".pdf" or a.what == "print" else
+                                    "  (no headless Chrome/Chromium/Edge found: print this page to PDF from a browser)"))
+            elif a.what == "tour":
+                if not a.page:
+                    print("usage: export tour flows/<flow>.md", file=sys.stderr)
+                    return 2
+                print(f"✔ {exporters.export_tour(a.page)}  (open it; → and ← move between steps)")
+            else:
+                print(f"✔ {exporters.export_to(a.what)} page(s) published to {a.what}")
+        except exporters.ExportError as e:
+            print(f"✖ {e}", file=sys.stderr)
+            return 2
     elif a.cmd == "plugins":
         from lib.harness import plugins
         rows = plugins.rows()

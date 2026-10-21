@@ -236,6 +236,13 @@ it stops, if the repos moved on since the docs, it is reminded once to update th
 **Does the method hold?** `camaron eval comply <unit>` runs one ready unit for real and scores what it wrote (structure,
 links, sources), without AI. Use it on the sandbox to compare a playbook or prompt change before and after.
 
+**Export.** `camaron export pdf` writes every page agents may read into one print-ready page and turns it into a PDF
+with a headless Chrome, Chromium or Edge when there is one (otherwise print the page to PDF from a browser).
+`camaron export tour flows/<flow>.md` makes a guided tour of a business flow, one slide per row of its Steps table.
+`camaron export confluence` and `export notion` publish the docs to those tools; they send the docs outside your
+machine, so they are off until you run `camaron plugins enable confluence` (or `notion`) and set their URL and token
+(`CONFLUENCE_URL`, `CONFLUENCE_USER`, `CONFLUENCE_TOKEN`, `CONFLUENCE_SPACE`; `NOTION_TOKEN`, `NOTION_PARENT_PAGE`).
+
 ## 9. Commands (for scripts and agents)
 
 `camaron help` (per-project copy: `./camaron.command help`, Windows `camaron.cmd help`): `setup`, `sync`, `detect`,
