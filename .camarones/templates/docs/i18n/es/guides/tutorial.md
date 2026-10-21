@@ -221,6 +221,16 @@ local: `camaron pr fresh <repo> --base main`. Por defecto corre en runners aloja
 `ci: {target: self-hosted, runner_labels: [self-hosted, docs], runner_tags: [docs]}` en `workspace.yaml` y vuelve a
 ejecutar `camaron ci`. Las PR del propio `cam-docs` solo pasan `check`.
 
+**El servidor MCP.** Los agentes llegan a la documentación con el servidor MCP `camarones`: `search_docs`,
+`read_doc(path, section)`, `ask` (las secciones que mejor responden a una pregunta, con citas), los recursos
+`camdocs://<página>` y dos prompts. También puede escribir, pero solo borradores: `propose_edit` cambia un borrador de IA
+y nunca toca una página que una persona confirmó o es suya (la propuesta se guarda en `docs/.work/proposals/` y aparece
+en Revisión), `add_feedback` deja un comentario de revisión y `mark_suspect` retiene una página hasta que se actualiza o
+se confirma que sigue valiendo. Nada de lo que hace confirma una página. `pipeline_status`, `run_events` y `kpis`
+informan del plan; `run_node` lanza una unidad solo con `mcp: {pipeline_control: true}` en `workspace.yaml`.
+`camaron mcp --http` sirve lo mismo en `http://127.0.0.1:8765/mcp` para clientes que hablen Streamable HTTP: necesitan
+`Authorization: Bearer <token>`, con el token en `~/.camarones/mcp-token`, y se rechazan peticiones de otros orígenes.
+
 ## 9. Comandos (para scripts y agentes)
 
 `camaron help` (copia por proyecto: `./camaron.command help`, en Windows `camaron.cmd help`) lista: `setup`, `sync`,

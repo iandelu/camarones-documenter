@@ -26,7 +26,8 @@
   uninstall [--dry-run] [--yes] [--global] [--no-backup] [--backup-dir DIR]
                             undo the project: back up and delete cam-docs, remove every kit trace from the repos
                             and the workspace folder (--global: also ~/.camarones*, saved tokens)
-  mcp                       stdio MCP server: agents search/read the docs and the code graph
+  mcp [--http [--port N]]   MCP server: agents search/read the docs and the code graph, propose draft edits and
+                            feedback; --http serves it on 127.0.0.1 with this machine's token (~/.camarones/mcp-token)
   ci [gitlab|github]        install the umbrella CI pipeline
   plan [sync|next|start|note|done|block|drop|add|redo] …   session work plan (docs/.work/plan.yaml)
   plan note UNIT "text"     save a progress checkpoint of a unit (a closed session resumes from it)
@@ -51,7 +52,7 @@
   doctor [--local]          check prerequisites and tool versions; --local: propose a free local model for this
                             machine (bounded/judge work, through OpenCode) without installing anything
   run [--parallel N] [--per-runner claude=2,codex=1] [--max-units N] [--lang es|en] [--include-interviews]
-      [--policy on-conflict|never] [--poll-seconds N]
+      [--policy on-conflict|never] [--poll-seconds N] [--only UNIT…]
                             run ready units in parallel: discovery, repo briefs and flows each in their own copy of
                             cam-docs (merged back when done), other units one at a time. autopilot stays sequential
   runs [RUN] [--json]       what past runs did: units, outcome, merges, time, tokens and cost
@@ -221,9 +222,9 @@ def main() -> int:
     sp.add_parser("unlink")
     prof = sp.add_parser("profile"); prof.add_argument("name", choices=["quick", "full"])
     sp.add_parser("init")
-    for c in ("sync", "detect", "changes", "llms", "graph", "arch", "arch-validate", "portal", "down", "wizard", "version",
-              "mcp"):
+    for c in ("sync", "detect", "changes", "llms", "graph", "arch", "arch-validate", "portal", "down", "wizard", "version"):
         sp.add_parser(c)
+    mc = sp.add_parser("mcp"); mc.add_argument("--http", action="store_true"); mc.add_argument("--port", type=int, default=8765)
     dr = sp.add_parser("doctor"); dr.add_argument("--local", action="store_true")
     pg = sp.add_parser("plugins"); pg.add_argument("--json", action="store_true")
     pg.add_argument("action", nargs="?", default="list", choices=["list", "add", "update", "outdated", "remove"])
@@ -232,6 +233,7 @@ def main() -> int:
     rn.add_argument("--max-units", type=int); rn.add_argument("--lang", default="es")
     rn.add_argument("--include-interviews", action="store_true"); rn.add_argument("--poll-seconds", type=int, default=900)
     rn.add_argument("--policy", choices=["on-conflict", "never"], default="on-conflict")
+    rn.add_argument("--only", nargs="+", default=None, help="run only these units (when they are ready)")
     ev = sp.add_parser("eval"); ev.add_argument("action", nargs="?", default="list", choices=["list", "run", "draft", "confirm"])
     ev.add_argument("ids", nargs="*"); ev.add_argument("--runner", default=""); ev.add_argument("--judge", default="")
     ev.add_argument("--all", action="store_true"); ev.add_argument("--json", action="store_true"); ev.add_argument("--by", default="")
@@ -426,6 +428,15 @@ def main() -> int:
         from lib import uninstall
         return uninstall.main(include_global=a.user_level, dry_run=a.dry_run, yes=a.yes, backup=not a.no_backup,
                               backup_dir=a.backup_dir)
+    elif a.cmd == "mcp" and a.http:
+        from lib import mcp
+        srv = mcp.http_server(port=a.port)
+        print(f"camarones MCP on http://127.0.0.1:{srv.server_address[1]}/mcp — header "
+              f"`Authorization: Bearer <token>`, token in {mcp.TOKEN_FILE}", file=sys.stderr)
+        try:
+            srv.serve_forever()
+        except KeyboardInterrupt:
+            pass
     elif a.cmd == "mcp":
         from lib import mcp
         mcp.serve_stdio()
@@ -441,7 +452,8 @@ def main() -> int:
             print(f"✖ --per-runner {e}", file=sys.stderr)
             return 2
         scheduler.run_parallel(lang=a.lang, max_parallel=max(1, a.parallel), per_runner=slots, max_units=a.max_units,
-                               poll_seconds=a.poll_seconds, include_interviews=a.include_interviews, policy=a.policy)
+                               poll_seconds=a.poll_seconds, include_interviews=a.include_interviews, policy=a.policy,
+                               only=set(a.only) if a.only else None)
     elif a.cmd == "runs":
         return cmd_runs(a)
     elif a.cmd == "kpis":

@@ -211,6 +211,16 @@ date before; one comment per PR, updated on each push. It needs no API key and n
 `ci: {target: self-hosted, runner_labels: [self-hosted, docs], runner_tags: [docs]}` in `workspace.yaml` and run
 `camaron ci` again. Pull requests on `cam-docs` itself only run `check`.
 
+**The MCP server.** Agents reach the docs through the `camarones` MCP server: `search_docs`, `read_doc(path, section)`,
+`ask` (the best sections for a question, with citations), resources `camdocs://<page>` and two prompts. It can also
+write, but only drafts: `propose_edit` changes an AI draft in place and never touches a page a person confirmed or
+owns (the proposal is saved in `docs/.work/proposals/` and listed in Review), `add_feedback` leaves a review comment,
+`mark_suspect` withholds a page from agents until it is refreshed or acknowledged. Nothing it does confirms a page.
+`pipeline_status`, `run_events` and `kpis` report on the plan; `run_node` starts a unit only with
+`mcp: {pipeline_control: true}` in `workspace.yaml`. `camaron mcp --http` serves the same tools on
+`http://127.0.0.1:8765/mcp` for clients that speak Streamable HTTP; they need `Authorization: Bearer <token>`, with the
+token in `~/.camarones/mcp-token`, and requests from other origins are refused.
+
 ## 9. Commands (for scripts and agents)
 
 `camaron help` (per-project copy: `./camaron.command help`, Windows `camaron.cmd help`): `setup`, `sync`, `detect`,
