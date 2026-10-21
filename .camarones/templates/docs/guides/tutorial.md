@@ -110,6 +110,9 @@ is **suspect**; if it is gone, **stale** (moved code does not count). Agents are
 unreviewed pages without sources: the MCP, `llms.txt` and `llms-full.txt` withhold them and point to the code. People still see them,
 with a banner. `camaron fresh` lists them, `fresh --plan` adds a unit to refresh them, `fresh --ack <page> --by <name>`
 says one still holds. `freshness: {ai_policy: warn}` in `workspace.yaml` serves them with a warning instead.
+Cite a symbol rather than lines when you can (`orders:src/…/OrderService.java#OrderService.place`): it is found again
+wherever it moves, so only a change to its own body counts. A page built on other pages or C4 elements cites them
+(`docs/flows/checkout.md`, `c4:shop.orders`) and becomes suspect when one of them does.
 
 To protect a paragraph from agents:
 

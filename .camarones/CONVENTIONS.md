@@ -39,7 +39,9 @@ description: One or two retrieval-oriented sentences (what question does this pa
 x-answers:                   # optional, up to 5 questions as an agent would ask them
   - How is an order placed?
 tags: [orders, payments]     # only repo names, glossary terms and C4 ids
-x-sources:                   # evidence, "<repo>:<path>" (optionally #L10-L40). Drives orphan detection.
+x-sources:                   # evidence: "<repo>:<path>", "#L10-L40" for lines, "#Class.method" for a symbol (it is
+                             # followed when it moves); "docs/<page>.md" or "c4:<element>" for what a derived page
+                             # builds on. Drives orphan detection and freshness.
   - orders-service:src/main/java/com/acme/orders/OrderService.java#L12-L30
 x-owner: ai                  # ai (agent may rewrite) | human (agent never rewrites; proposes in docs/interview/open-questions.md)
 ---

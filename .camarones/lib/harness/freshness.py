@@ -1,7 +1,9 @@
-"""Freshness (R23: H14 level 1, H27). When a page is written, each of its x-sources (`repo:path#Lx-Ly` or a whole
-file) is fingerprinted: its lines without whitespace, blank or comment-only lines. Later the page is `fresh` (same
-code, or the same code moved elsewhere in the file), `suspect` (the cited code changed), `stale` (file or lines gone)
-or `unverified` (no sources). Fingerprints live in docs/.work/fresh.json (main cam-docs, never in unit worktrees).
+"""Freshness (R23, R30: H14, H27). When a page is written, each of its x-sources is fingerprinted: its lines without
+whitespace, blank or comment-only lines. L1: `repo:path#Lx-Ly` or a whole file. L2: `repo:path#Class.method`, a
+symbol found again wherever it moved (lib/harness/symbols.py). L3: `docs/<page>.md` and `c4:<element>`, the pages and
+C4 elements a derived page builds on. Later the page is `fresh`, `suspect` (the cited code or element changed, or a
+cited page is suspect), `stale` (gone) or `unverified` (no sources). Fingerprints live in docs/.work/fresh.json (main
+cam-docs, never in unit worktrees).
 
 The AI gate: with `freshness: {ai_policy: block}` (the default) agents never get suspect or stale pages, nor
 unreviewed pages without sources — better no information than wrong information. People still see them."""
@@ -55,6 +57,42 @@ def _hash(lines: list[str]) -> str:
     return hashlib.sha256("\n".join(lines).encode("utf-8")).hexdigest()[:16]
 
 
+def kind(ref: str) -> str:
+    """code | symbol | doc | c4, from how the source is written."""
+    raw = str(ref).strip()
+    if raw.startswith("c4:"):
+        return "c4"
+    repo, path, span = parse(raw)
+    if repo in (None, "", "umbrella", ".", CAM_DIR) and path.startswith("docs/") and path.endswith(".md"):
+        return "doc"
+    from .symbols import PY, BRACES
+    anchor = raw.partition("#")[2]
+    return "symbol" if anchor and span is None and Path(path).suffix.lower() in (*PY, *BRACES) else "code"
+
+
+def _c4_lines(element: str) -> list[str] | None:
+    from .symbols import locate
+    for f in sorted((ROOT / "docs" / "architecture").rglob("*.c4")) if (ROOT / "docs" / "architecture").is_dir() else []:
+        lines = f.read_text(encoding="utf-8", errors="replace").splitlines()
+        found = locate(lines, element, ".c4")
+        if found:
+            return lines[found[0]:found[1] + 1]
+    return None
+
+
+def _block(ref: str, read=None) -> list[str] | None:
+    """The lines a symbol or C4 source stands for now, or None when it is gone."""
+    from .symbols import locate
+    if kind(ref) == "c4":
+        return _c4_lines(str(ref).strip()[3:])
+    repo, path, _ = parse(ref)
+    lines = (read or _lines)(repo, path)
+    if lines is None:
+        return None
+    found = locate(lines, str(ref).partition("#")[2].strip(), Path(path).suffix)
+    return lines[found[0]:found[1] + 1] if found else None
+
+
 def _lines(repo, path) -> list[str] | None:
     f = _file(repo, path)
     try:
@@ -66,6 +104,12 @@ def _lines(repo, path) -> list[str] | None:
 def fingerprint(ref: str, read=None) -> dict | None:
     """The cited code as {h, n}: hash and number of meaningful lines. None when the file or the range is missing.
     `read(repo, path)` gives the file's lines some other way (another commit); default: the working tree."""
+    k = kind(ref)
+    if k == "doc":
+        return {"k": "doc"}                         # L3: a cited page counts through its own state, not its text
+    if k in ("symbol", "c4"):
+        block = _block(ref, read)
+        return {"h": _hash(_norm(block)), "n": len(_norm(block)), "k": k} if block is not None else None
     repo, path, span = parse(ref)
     lines = (read or _lines)(repo, path)
     if lines is None or (span and span[1] > len(lines)):
@@ -78,7 +122,14 @@ def check_source(ref: str, stamp: dict | None, read=None) -> str:
     """fresh | changed | missing, for one source against its fingerprint."""
     if stamp is None:
         return "missing"
+    k = kind(ref)
+    if k in ("symbol", "c4") and stamp.get("k"):
+        now = fingerprint(ref, read)
+        return "missing" if now is None else "fresh" if now["h"] == stamp["h"] else "changed"
     repo, path, span = parse(ref)
+    if k == "symbol":                               # stamped before L2: the whole file was fingerprinted
+        lines = (read or _lines)(repo, path)
+        return "missing" if lines is None else "fresh" if _hash(_norm(lines)) == stamp["h"] else "changed"
     lines = (read or _lines)(repo, path)
     if lines is None:
         return "missing"
@@ -162,16 +213,37 @@ def states() -> dict[str, dict]:
     out = {}
     for logical, (fm, _) in pages.items():
         srcs = _sources(fm)
-        if not srcs:
-            out[logical] = {"state": "unverified", "changed": [], "missing": []}
-            continue
-        stamps = (data.get(logical) or {}).get("sources", {})
-        results = {s: check_source(s, stamps.get(s)) for s in srcs}
-        changed = [s for s, r in results.items() if r == "changed"]
-        missing = [s for s, r in results.items() if r == "missing"]
-        out[logical] = {"state": "stale" if missing else "suspect" if changed else "fresh", "changed": changed,
-                        "missing": missing}
-    return out
+        if srcs:                                     # pages without sources stay out: _settle calls them unverified
+            stamps = (data.get(logical) or {}).get("sources", {})
+            out[logical] = {s: check_source(s, stamps.get(s)) for s in srcs if kind(s) != "doc"}
+    return _settle(pages, out)
+
+
+def _settle(pages: dict, own: dict) -> dict[str, dict]:
+    """L3: a cited page passes on its state. Repeated until nothing changes, so chains and cycles settle."""
+    docs_of = {logical: [s for s in _sources(fm) if kind(s) == "doc"] for logical, (fm, _) in pages.items()}
+    result: dict[str, dict] = {}
+
+    def summarise(logical: str) -> dict:
+        if logical not in own:
+            return {"state": "unverified", "changed": [], "missing": []}
+        res = dict(own[logical])
+        for s in docs_of[logical]:
+            cited = parse(s)[1][len("docs/"):]
+            if cited not in pages:
+                res[s] = "missing"
+            else:
+                res[s] = "changed" if result.get(cited, {}).get("state") in OUT_OF_DATE else "fresh"
+        changed = [s for s, r in res.items() if r == "changed"]
+        missing = [s for s, r in res.items() if r == "missing"]
+        return {"state": "stale" if missing else "suspect" if changed else "fresh", "changed": changed,
+                "missing": missing}
+    for _ in range(len(pages) + 1):
+        new = {logical: summarise(logical) for logical in pages}
+        if new == result:
+            break
+        result = new
+    return result
 
 
 def status(logical: str) -> dict:
@@ -187,8 +259,13 @@ def code_paths(refs: list[str]) -> list[str]:
     """Sources as paths an agent can open from the workspace: <repo>/<path>[#Lx-Ly]."""
     out = []
     for ref in refs:
+        k = kind(ref)
+        if k == "c4":
+            out.append(str(ref).strip())
+            continue
         repo, path, span = parse(ref)
-        out.append(f"{repo + '/' if repo else ''}{path}" + (f"#L{span[0]}-L{span[1]}" if span else ""))
+        anchor = f"#L{span[0]}-L{span[1]}" if span else f"#{str(ref).partition('#')[2]}" if k == "symbol" else ""
+        out.append(f"{repo + '/' if repo else ''}{path}{anchor}")
     return out
 
 
