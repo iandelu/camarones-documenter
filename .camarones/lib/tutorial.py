@@ -238,7 +238,8 @@ PAGES = {
                   |-- check --secrets  (un secreto para aqui: no hay MR)
                   |-- check (enlaces, diagramas, fuentes, confianza)
                   +-- exporta el portal (camaron portal) --> imagen nginx / Pages
-   PR en un repo --> comentario sin IA: que paginas deja desactualizadas""",
+   PR en un repo --> comentario sin IA: que paginas deja desactualizadas
+                 --> camaron pr propose: un agente propone la doc en otra PR""",
          "text": "Opcional: un pipeline que, tras cada cambio en los repos o en cam-docs, actualiza la documentación "
                  "afectada y publica el portal de solo lectura. Así, un merge request hecho desde «Editar» del portal "
                  "desplegado aparece publicado al fusionarse. Se configura en «Equipo › CI». También se puede hacer a mano "
@@ -509,7 +510,8 @@ PAGES = {
                   |-- check --secrets  (a secret stops here: no MR)
                   |-- check (links, diagrams, sources, trust)
                   +-- exports the portal (camaron portal) --> nginx image / Pages
-   PR in a repo --> comment, no AI: which pages it leaves out of date""",
+   PR in a repo --> comment, no AI: which pages it leaves out of date
+                --> camaron pr propose: an agent proposes the docs in a PR""",
          "text": "Optional: a pipeline that, after each change in the repos or in cam-docs, updates the affected docs and "
                  "publishes the read-only portal. So a merge request opened from the deployed portal's “Edit” shows up "
                  "once merged. Set it up in “Team › CI”. You can also do it by hand with “🔄 Update docs after changes” and "

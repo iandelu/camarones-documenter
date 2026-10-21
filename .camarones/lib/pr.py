@@ -42,11 +42,11 @@ def _git(repo, *args: str) -> str | None:
     return r.stdout if r.returncode == 0 else None
 
 
-def changed_files(repo: str, base: str) -> list[str]:
+def changed_files(repo: str, base: str, head: str = "HEAD") -> list[str]:
     d = repo_dir(repo)
-    out = _git(d, "diff", "--name-only", f"{base}...HEAD")
+    out = _git(d, "diff", "--name-only", f"{base}...{head}")
     if out is None:                                 # no merge base (shallow clone): compare the trees directly
-        out = _git(d, "diff", "--name-only", base, "HEAD") or ""
+        out = _git(d, "diff", "--name-only", base, head) or ""
     return sorted({l.strip() for l in out.splitlines() if l.strip()})
 
 
@@ -57,10 +57,12 @@ def _reader_at(base: str):
     return read
 
 
-def impact(repo: str, base: str | None = None, files: list[str] | None = None) -> dict:
+def impact(repo: str, base: str | None = None, files: list[str] | None = None, head: str | None = None) -> dict:
     """{repo, base, files, pages: [{path, title, trust, state, since: pr|before, code}]} for the pages citing the files
-    this PR changes; pages whose cited code only moved or was reformatted are left out."""
-    files = sorted(set(files)) if files is not None else changed_files(repo, base or "main")
+    this PR changes; pages whose cited code only moved or was reformatted are left out. `head` is the PR's commit when
+    it is not checked out (read from git); default: the working tree."""
+    files = sorted(set(files)) if files is not None else changed_files(repo, base or "main", head or "HEAD")
+    at_head = _reader_at(head) if head else None
     touched = set(files)
     rows = {r["path"]: r for r in docs.collect()}
     pages_now = freshness._pages()
@@ -73,7 +75,7 @@ def impact(repo: str, base: str | None = None, files: list[str] | None = None) -
         if not mine:
             continue
         stamps = (data.get(logical) or {}).get("sources", {})
-        now = {s: freshness.check_source(s, stamps.get(s)) for s in mine}
+        now = {s: freshness.check_source(s, stamps.get(s), at_head) for s in mine}
         hit = [s for s, r in now.items() if r != "fresh"]
         if not hit:
             continue
@@ -129,7 +131,8 @@ def _target(env: dict) -> dict | None:
     return None
 
 
-def post(body: str, env: dict | None = None, opener=urllib.request.urlopen, affected: bool = True) -> str:
+def post(body: str, env: dict | None = None, opener=urllib.request.urlopen, affected: bool = True,
+         marker: str = MARKER) -> str:
     """created | updated | skipped | not in a PR … | failed: …  — never raises."""
     env = dict(os.environ) if env is None else env
     target = _target(env)
@@ -143,7 +146,7 @@ def post(body: str, env: dict | None = None, opener=urllib.request.urlopen, affe
         with opener(req, timeout=20) as r:
             return json.loads(r.read() or b"null")
     try:
-        existing = next((c["id"] for c in call("GET", target["list"]) or [] if MARKER in (c.get("body") or "")), None)
+        existing = next((c["id"] for c in call("GET", target["list"]) or [] if marker in (c.get("body") or "")), None)
         if existing is not None:
             call(target["edit"], target["update"](existing), {"body": body})
             return "updated"

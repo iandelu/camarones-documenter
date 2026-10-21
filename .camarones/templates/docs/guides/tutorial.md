@@ -211,6 +211,13 @@ date before; one comment per PR, updated on each push. It needs no API key and n
 `ci: {target: self-hosted, runner_labels: [self-hosted, docs], runner_tags: [docs]}` in `workspace.yaml` and run
 `camaron ci` again. Pull requests on `cam-docs` itself only run `check`.
 
+**An AI proposal for a PR.** `camaron pr propose <PR url>` fetches the PR into `refs/camaron/pr/<n>` of the service
+repo (your checkout is not touched), and an agent updates the pages it leaves out of date on the cam-docs branch
+`docs/pr-<repo>-<n>`, in its own worktree. The kit commits, pushes and opens the docs PR (`--comment` links it on the
+service PR, `--preview` exports that branch as a static portal); `--dry-run` shows the plan first. With `ci.target: self-hosted`, `camaron ci` also writes `docs-propose`:
+the same command on your runner when a member labels a PR `docs:update`, never for forks. Setting up the runner:
+[self-hosted runner guide](self-hosted-runner.md).
+
 **The MCP server.** Agents reach the docs through the `camarones` MCP server: `search_docs`, `read_doc(path, section)`,
 `ask` (the best sections for a question, with citations), resources `camdocs://<page>` and two prompts. It can also
 write, but only drafts: `propose_edit` changes an AI draft in place and never touches a page a person confirmed or
@@ -228,7 +235,7 @@ token in `~/.camarones/mcp-token`, and requests from other origins are refused.
 `wiki <repo>`, `portal` (export), `up [--static|--docker]`, `down`, `ci`, `prompt <unit>`, `migrate`, `doctor`,
 `doctor --local` (proposes a free local model for this computer, installs nothing), `autopilot`, `plugins [--json]`,
 `run`, `runs`, `kpis`, `eval`, `ab`, `pipeline show|validate`, `blocks [--force]`, `pr fresh <repo>`,
-`plugins add|update|outdated|remove`.
+`plugins add|update|outdated|remove`, `pr propose <url>`.
 
 **Facts from the code, no AI.** `camaron blocks` writes `docs/repos/<repo>/reference.md` for each repo: commands
 (Maven, Gradle, `package.json`, Makefile, Docker Compose), env vars (Spring `${VAR:default}` placeholders,

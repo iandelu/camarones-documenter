@@ -1325,6 +1325,10 @@ def install_ci(forge: str | None = None, log: Log = print) -> Path:
     log(f"  ✔ {dst.relative_to(ROOT)} (docs repo pipeline)")
     log(f"  → per-repo snippet: .camarones/ci/{snippet}")
     log(f"  → per-repo pull request check (no AI): .camarones/ci/{ci.FILES[forge]}")
+    proposal = ci.render_propose(forge)
+    if proposal:                                    # ci.target: self-hosted — the AI job runs on the team's runner
+        (ROOT / ".camarones" / "ci" / ci.FILES_PROPOSE[forge]).write_text(proposal, encoding="utf-8", newline="\n")
+        log(f"  → per-repo docs proposal (AI, self-hosted runner): .camarones/ci/{ci.FILES_PROPOSE[forge]}")
     return dst
 
 
