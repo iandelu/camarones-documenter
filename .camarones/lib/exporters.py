@@ -196,6 +196,54 @@ def export_tour(path: str) -> Path:
     return out
 
 
+def _evidence(ref: str, repo: str) -> tuple[str, int] | None:
+    """(workspace-relative file, 1-based line) for a Steps row's evidence, or None when the code is not there."""
+    from .common import WORKSPACE
+    from .harness import freshness
+    from .harness.symbols import locate
+    if not ref:
+        return None
+    r, path, span = freshness.parse(ref if ":" in ref.partition("#")[0] or not repo else f"{repo}:{ref}")
+    f = freshness._file(r, path)
+    if not f.is_file():
+        return None
+    line, anchor = 1, ref.partition("#")[2]
+    if span:
+        line = span[0]
+    elif anchor:
+        found = locate(f.read_text(encoding="utf-8", errors="replace").splitlines(), anchor, f.suffix)
+        line = found[0] + 1 if found else 1
+    try:
+        return f.resolve().relative_to(WORKSPACE.resolve()).as_posix(), line
+    except ValueError:
+        return None
+
+
+def export_codetour(path: str) -> Path:
+    """The flow as a VS Code CodeTour (X10): .tours/<flow>.tour in cam-docs, linked at the workspace root."""
+    from .common import WORKSPACE
+    from . import env
+    t = tour(path)
+    steps = [{"title": t["title"], "description": t["summary"] or t["title"]}]
+    for n, s in enumerate(t["steps"], 1):
+        where = _evidence(s["evidence"], s["repo"])
+        text = f"**{s['title']}**" + (f" — `{s['entrypoint']}`" if s["entrypoint"] else "") + \
+               (f" ({s['repo']})" if s["repo"] else "")
+        step = {"title": f"{n}. {s['title']}", "description": text}
+        if where:
+            step.update(file=where[0], line=where[1])
+        elif s["evidence"]:
+            step["description"] += f"\n\nEvidence not found in the code: `{s['evidence']}`"
+        steps.append(step)
+    out = ROOT / ".tours" / f"{Path(t['path']).stem}.tour"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps({"$schema": "https://aka.ms/codetour-schema", "title": t["title"],
+                               "description": f"From {t['path']} (Camarón)", "steps": steps},
+                              indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
+    env.link(WORKSPACE / ".tours", out.parent, log=lambda _: None)
+    return out
+
+
 # ---------- third-party: Confluence, Notion (kit plugins that send data; enabled per machine) ----------
 def _enabled(name: str) -> None:
     from .harness import plugins

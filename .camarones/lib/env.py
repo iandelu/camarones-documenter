@@ -306,7 +306,7 @@ def install_tools(log: Log = print, comps: list[str] | None = None) -> None:
 
 
 # ---------- wiring: everything lives in cam-docs, the service repos stay clean ----------
-LINKS = (".claude", ".codex", ".agents", ".mcp.json", "AGENTS.md", "CLAUDE.md")   # workspace root → cam-docs
+LINKS = (".claude", ".codex", ".agents", ".mcp.json", "AGENTS.md", "CLAUDE.md", ".tours")   # workspace root → cam-docs
 POINTER_START, POINTER_END = "<!-- cam-docs:start -->", "<!-- cam-docs:end -->"
 
 

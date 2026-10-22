@@ -66,9 +66,10 @@
   eval comply UNIT [--runner T] [--json]
                             run one ready unit for real and score what it wrote against the method (structure, links,
                             sources), without AI: compare playbook or prompt changes. Use the sandbox, not CI
-  export pdf | print | tour FLOW | confluence | notion
+  export pdf | print | tour FLOW | codetour FLOW | confluence | notion
                             the docs agents may read as one print-ready page (PDF with a headless Chrome), a guided
-                            tour of a business flow, or published to Confluence/Notion (plugins: `plugins enable` first)
+                            tour of a business flow (HTML slides, or a VS Code CodeTour in .tours/ opened at each
+                            step's code), or published to Confluence/Notion (plugins: `plugins enable` first)
   repair                    put back what the kit owns in this project: its skills and agent config, the agent tools'
                             skills, the workspace and wiki links (never the team's pages)
   removed add WHAT --why WHY [--decision decisions/NNNN-x.md]
@@ -268,7 +269,7 @@ def main() -> int:
     pg = sp.add_parser("plugins"); pg.add_argument("--json", action="store_true")
     pg.add_argument("action", nargs="?", default="list",
                     choices=["list", "add", "update", "outdated", "remove", "enable", "disable"])
-    exp = sp.add_parser("export"); exp.add_argument("what", choices=["pdf", "print", "tour", "confluence", "notion"])
+    exp = sp.add_parser("export"); exp.add_argument("what", choices=["pdf", "print", "tour", "codetour", "confluence", "notion"])
     exp.add_argument("page", nargs="?")
     pg.add_argument("target", nargs="?"); pg.add_argument("--to", default="")
     rn = sp.add_parser("run"); rn.add_argument("--parallel", type=int, default=2); rn.add_argument("--per-runner", default="")
@@ -570,11 +571,15 @@ def main() -> int:
                 out = exporters.export_pdf() if a.what == "pdf" else exporters.export_print()
                 print(f"✔ {out}" + ("" if out.suffix == ".pdf" or a.what == "print" else
                                     "  (no headless Chrome/Chromium/Edge found: print this page to PDF from a browser)"))
-            elif a.what == "tour":
+            elif a.what in ("tour", "codetour"):
                 if not a.page:
-                    print("usage: export tour flows/<flow>.md", file=sys.stderr)
+                    print(f"usage: export {a.what} flows/<flow>.md", file=sys.stderr)
                     return 2
-                print(f"✔ {exporters.export_tour(a.page)}  (open it; → and ← move between steps)")
+                if a.what == "tour":
+                    print(f"✔ {exporters.export_tour(a.page)}  (open it; → and ← move between steps)")
+                else:
+                    print(f"✔ {exporters.export_codetour(a.page)}  (VS Code with the CodeTour extension: "
+                          f"open the workspace folder, then CodeTour: Start Tour)")
             else:
                 print(f"✔ {exporters.export_to(a.what)} page(s) published to {a.what}")
         except exporters.ExportError as e:
