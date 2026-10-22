@@ -134,7 +134,7 @@ can **discard** in a second pass. Nothing here is a decision.
 |---|---|---|---|---|---|
 | I1 | [Swimm](https://swimm.io) (reference) | Docs coupled to code via "smart tokens"; auto-sync through refactors; CI flags stale docs | Idea to borrow: anchor `x-sources` to **symbols** (class/method) instead of line ranges, so refactors don't orphan pages | SaaS; borrow the idea, not the tool | 🟡 idea |
 | I2 | [DeepDocs](https://medium.com/@deepdocs/deepdocs-keep-your-documentation-in-sync-with-your-code-73699b73c1d2) (reference) | GitHub agent: on each commit, proposes doc updates on a branch with a report | Same pattern as our CI `update` templates; compare their report format | GitHub-only SaaS | 🔴 |
-| I3 | code-maat / CodeScene † | Behavioural code analysis from git: hotspots, temporal coupling, knowledge loss | Evidence for `architecture-review` and tech debt; "who knows this repo" for the interviews | code-maat is OSS (JVM); CodeScene is commercial | 🟡 |
+| I3 | code-maat / CodeScene † | Behavioural code analysis from git: hotspots, temporal coupling, knowledge loss | Evidence for `architecture-review` and tech debt; "who knows this repo" for the interviews | code-maat is OSS (JVM); CodeScene is commercial | ⚪ covered without the tool: `camaron history` (X11, 4.23.0) |
 | I4 | Symbol anchors via B1/B5 | Resolve `x-sources` like `orders:OrderService#place` through the code graph/LSP | Sources that survive line shifts; orphan detection gets precise | Needs a stable graph API | 🟡 |
 
 ## J. Retrieval for agents and the portal (`camarones` MCP, search)

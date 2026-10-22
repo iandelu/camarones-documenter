@@ -42,7 +42,7 @@ ECC's adoption figures (stars, "used at Tesla…", the GateGuard A/B) are self-r
 | X8 | **Business rules as `Requirement` / `Invariant` blocks** with a stable `id`, `enforced: Class.method()` and `test:` anchors; `check` verifies the symbol still exists through graphify | `agents/spec-miner.md` | Checkable rules; same goal as I4 in tooling-candidates | ✅ 4.21.0 |
 | X9 | **Status page with a delete-zone**: what was removed on purpose and why, so agents do not recreate it; AGENTS.md routing reads map → status → relevant ADRs | `skills/living-docs-governance` | Fits P9 (agent entry points) | ✅ 4.18.0 |
 | X10 | **CodeTour export**: `.tours/` in cam-docs (linked like `.claude`), steps anchored from a flow page's `x-sources` | `skills/code-tour` | Guided onboarding in VS Code; plain JSON, no dependency | ✅ 4.22.0 |
-| X11 | **Local git-history mining, no AI**: hotspots, owners, co-change across repos, commit conventions → `docs/overview/history.md` and "who to interview" | the ECC GitHub App (done server-side there) | Same as I3 in tooling-candidates, without code leaving the machine | 🟡 |
+| X11 | **Local git-history mining, no AI**: hotspots, owners, co-change across repos, commit conventions → `docs/overview/history.md` and "who to interview" | the ECC GitHub App (done server-side there) | Same as I3 in tooling-candidates, without code leaving the machine | ✅ 4.23.0 |
 | X12 | **Handoff that separates verified results from intents** (objective, state, evidence, commands run, remaining, next action) | `skills/unified-memory` | Small tweak to `handoff.md` | ✅ 4.18.0 |
 
 ## 4. Not to copy

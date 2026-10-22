@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.22.0-ff875f?style=flat-square" alt="Versión 4.22.0">
+  <img src="https://img.shields.io/badge/version-4.23.0-ff875f?style=flat-square" alt="Versión 4.23.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -93,6 +93,7 @@ Camarón te habla como tu becario gamba al que has mandado a documentar: con gan
 - **Inglés y español.** Documentación canónica en inglés, traducciones al español y seguimiento de traducciones pendientes o desactualizadas.
 - **Un primer mapa sin IA.** `arch-draft` realiza un análisis estático y propone un borrador C4 que después hay que verificar.
 - **Datos del código, sin IA.** Cada repo tiene `docs/repos/<repo>/reference.md` con sus comandos (Maven, Gradle, `package.json`, Makefile, Docker Compose), variables de entorno (placeholders `${VAR:valor}` de Spring, `.env.example`, `environment.ts` de Angular), endpoints HTTP (OpenAPI o anotaciones de Spring) y topics de mensajería, cada fila con el fichero y la línea de donde sale. Los valores por defecto que parecen secretos se ocultan. Son bloques `<!-- generated:… -->` que se pueden poner en cualquier página; `camaron blocks` y `camaron sync` los actualizan. Si alguien edita uno a mano, se conserva y `check` lo avisa (`blocks --force` toma la versión del código).
+- **Historial de git, sin IA.** `camaron history [--months 12]` escribe `docs/overview/history.md` (y su traducción): los ficheros con más commits, quién tiene más commits en cada repo y en qué carpeta trabaja (solo nombres, sin correos), los ficheros que cambian juntos, los tickets que aparecen en commits de varios repos y qué parte de los commits sigue Conventional Commits. Deja fuera bots y lockfiles. Sirve para saber a quién entrevistar y por dónde empezar.
 - **Aprovecha lo que ya usáis.** `radar` detecta el stack de cada repo y sus herramientas (Backstage, Sonar, librería de componentes, linters, contratos, CI) y lo deja en `docs/overview/tooling.md`; `stack` corrige un stack mal detectado.
 - **Control de calidad en cada unidad.** Enlaces rotos y diagramas Mermaid inválidos son errores; un posible secreto bloquea el commit de checkpoint, la exportación del portal y la rama de CI, sin mostrar nunca su valor.
 - **Nada se ejecuta a ciegas.** Los hooks, servidores MCP, ajustes y skills que llegan con el `cam-docs` del equipo y que no ha escrito el kit se te enseñan antes de que los carguen Claude Code o Codex; las aprobaciones son de tu máquina y ningún push puede darlas por ti.

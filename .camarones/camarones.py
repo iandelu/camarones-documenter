@@ -70,6 +70,8 @@
                             the docs agents may read as one print-ready page (PDF with a headless Chrome), a guided
                             tour of a business flow (HTML slides, or a VS Code CodeTour in .tours/ opened at each
                             step's code), or published to Confluence/Notion (plugins: `plugins enable` first)
+  history [--months 12]     docs/overview/history.md from git, no AI: hotspots, who to ask per repo, files that
+                            change together, tickets that span repos, commit conventions
   repair                    put back what the kit owns in this project: its skills and agent config, the agent tools'
                             skills, the workspace and wiki links (never the team's pages)
   removed add WHAT --why WHY [--decision decisions/NNNN-x.md]
@@ -256,6 +258,7 @@ def main() -> int:
     for c in ("sync", "detect", "changes", "llms", "graph", "arch", "arch-validate", "portal", "down", "wizard", "version"):
         sp.add_parser(c)
     sp.add_parser("repair")
+    sp.add_parser("history").add_argument("--months", type=int, default=12)
     rmv = sp.add_parser("removed"); rmv.add_argument("action", choices=["add"]); rmv.add_argument("what")
     rmv.add_argument("--why", required=True); rmv.add_argument("--decision", default="")
     rv = sp.add_parser("review"); rv.add_argument("action", choices=["request", "wait", "list"])
@@ -477,6 +480,10 @@ def main() -> int:
         from lib import uninstall
         return uninstall.main(include_global=a.user_level, dry_run=a.dry_run, yes=a.yes, backup=not a.no_backup,
                               backup_dir=a.backup_dir)
+    elif a.cmd == "history":
+        from lib import history
+        from lib.common import rel_file
+        print(f"✔ {rel_file(history.write(a.months))}: last {a.months} months of git history")
     elif a.cmd == "repair":
         from lib import install_state
         left = install_state.repair()
