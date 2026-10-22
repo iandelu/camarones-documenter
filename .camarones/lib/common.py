@@ -12,7 +12,7 @@ HOME = Path.home()
 PREFS = HOME / ".camarones.json"              # per-machine choices: language, models, runners, routing
 
 VERSIONS = {
-    "kit": "4.26.3",
+    "kit": "4.26.4",
     "openwiki": "0.5.2",
     "likec4": "1.59.4",
     "graphify": "0.9.65",
@@ -105,7 +105,19 @@ ensure_path()
 
 
 def which(name: str) -> str | None:
-    return shutil.which(name)
+    """shutil.which, except that on Windows only PATH is searched: shutil looks in the current folder first, so a
+    launcher or a planted program in the folder a command runs from would win over the real one."""
+    if not IS_WIN or os.path.dirname(name):
+        return shutil.which(name)
+    exts = [e for e in os.environ.get("PATHEXT", ".COM;.EXE;.BAT;.CMD").split(";") if e]
+    names = [name] if any(name.lower().endswith(e.lower()) for e in exts) else [name + e for e in exts]
+    for d in os.environ.get("PATH", "").split(os.pathsep):
+        d = d.strip().strip('"')
+        for n in names if d else ():
+            f = os.path.join(d, n)
+            if os.path.isfile(f):
+                return f
+    return None
 
 
 def run(cmd: list[str], cwd: Path | None = None, check: bool = True, quiet: bool = False,
