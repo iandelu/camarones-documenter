@@ -36,7 +36,9 @@ get no kit files; paths below are relative to `cam-docs/`.
 
 The agents' setup is shared with the team, so it is never loaded blindly: hooks, MCP servers, settings and skills the
 kit did not write are listed when you open the wizard, and the workspace only links them once you approve them on this
-machine (`camaron trust`). Approvals live in `~/.camarones/trust/`, never in the repo.
+machine (`camaron trust`). Approvals live in `~/.camarones/trust/`, never in the repo. What the kit installed on this
+machine (its skills, graphify's and OpenWiki's, recorded in `~/.camarones/install/`) is recognised without asking;
+`camaron doctor` shows a kit file edited or a link gone, and `camaron repair` puts them back.
 
 ## 2. The guided flow
 
@@ -266,7 +268,7 @@ next action apart.
 `doctor --local` (proposes a free local model for this computer, installs nothing), `doctor --context` (the tokens
 every agent session loads before reading a page, against `context.budget`), `autopilot`, `plugins [--json]`,
 `run`, `runs`, `kpis`, `eval`, `ab`, `pipeline show|validate`, `blocks [--force]`, `pr fresh <repo>`,
-`plugins add|update|outdated|remove`, `pr propose <url>`, `removed add`.
+`plugins add|update|outdated|remove`, `pr propose <url>`, `removed add`, `repair`.
 
 **Facts from the code, no AI.** `camaron blocks` writes `docs/repos/<repo>/reference.md` for each repo: commands
 (Maven, Gradle, `package.json`, Makefile, Docker Compose), env vars (Spring `${VAR:default}` placeholders,

@@ -439,9 +439,13 @@ def without_graphify_hooks(data: dict) -> dict:
     return data
 
 
+OPENWIKI_INSTALL = [["openwiki", "integrations", "install", host, "--project", "."] for host in ("claude", "codex")]
+
+
 def install_graphify_skill() -> None:
     """Only the skill: `graphify install --project` would also add hooks and rules pointing at graphify-out/."""
     import tempfile
+    from . import install_state
     with tempfile.TemporaryDirectory() as tmp:
         run(["graphify", "install", "--project"], cwd=Path(tmp), check=False, quiet=True)
         run(["graphify", "install", "--project", "--platform", "codex"], cwd=Path(tmp), check=False, quiet=True)
@@ -449,6 +453,7 @@ def install_graphify_skill() -> None:
             src = Path(tmp) / host / "skills" / "graphify"
             if src.is_dir():
                 shutil.copytree(src, ROOT / host / "skills" / "graphify", dirs_exist_ok=True)
+                install_state.record_from(src, f"{host}/skills/graphify")
 
 
 def write_agent_config(comps: list[str]) -> None:
@@ -531,8 +536,10 @@ def wire_umbrella(log: Log = print, comps: list[str] | None = None) -> None:
     if "agents" in comps:
         q = dict(cwd=ROOT, check=False, quiet=True)
         if "openwiki" in comps:
-            for host in ("claude", "codex"):
-                run(["openwiki", "integrations", "install", host, "--project", "."], **q)
+            from . import install_state
+            install_state.learn(OPENWIKI_INSTALL)
+            for cmd in OPENWIKI_INSTALL:
+                run(cmd, **q)
         if "graphify" in comps:
             install_graphify_skill()
         init_templates(log=lambda _: None)          # kit skills + AGENTS.md/CLAUDE.md

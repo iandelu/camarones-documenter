@@ -69,6 +69,8 @@
   export pdf | print | tour FLOW | confluence | notion
                             the docs agents may read as one print-ready page (PDF with a headless Chrome), a guided
                             tour of a business flow, or published to Confluence/Notion (plugins: `plugins enable` first)
+  repair                    put back what the kit owns in this project: its skills and agent config, the agent tools'
+                            skills, the workspace and wiki links (never the team's pages)
   removed add WHAT --why WHY [--decision decisions/NNNN-x.md]
                             record something removed on purpose (docs/overview/removed.md) so agents do not recreate it
   review request PAGE [--note T] | wait ID [--timeout S] | list
@@ -252,6 +254,7 @@ def main() -> int:
     sp.add_parser("init")
     for c in ("sync", "detect", "changes", "llms", "graph", "arch", "arch-validate", "portal", "down", "wizard", "version"):
         sp.add_parser(c)
+    sp.add_parser("repair")
     rmv = sp.add_parser("removed"); rmv.add_argument("action", choices=["add"]); rmv.add_argument("what")
     rmv.add_argument("--why", required=True); rmv.add_argument("--decision", default="")
     rv = sp.add_parser("review"); rv.add_argument("action", choices=["request", "wait", "list"])
@@ -473,6 +476,13 @@ def main() -> int:
         from lib import uninstall
         return uninstall.main(include_global=a.user_level, dry_run=a.dry_run, yes=a.yes, backup=not a.no_backup,
                               backup_dir=a.backup_dir)
+    elif a.cmd == "repair":
+        from lib import install_state
+        left = install_state.repair()
+        print("✔ kit files and links restored" if not left else "\n".join(
+            [f"⚠ still off ({len(left)}):"] + [f"    {d['state']:<10} {d['path']}" for d in left]
+            + ([f"  links held back: review the agent config with `{cli_cmd()} trust`"]
+               if any(d["state"] == "not linked" for d in left) else [])))
     elif a.cmd == "removed":
         from lib import removed
         print(f"✔ {removed.add(a.what, a.why, a.decision)}: {a.what}")
@@ -598,6 +608,14 @@ def main() -> int:
                 print(f"          {v['note']}")
         for tname in ("graphify", "likec4", "mmdc"):
             print(f"  {tname:<9} {env.tool_version(tname) or 'missing'} (pinned {VERSIONS[tname]})")
+        from lib import install_state
+        from lib.common import WS_FILE
+        if WS_FILE.exists():
+            off = install_state.drift()
+            print("✔ kit files and links as installed" if not off else
+                  f"⚠ {len(off)} kit file(s) or link(s) off — `{cli_cmd()} repair` puts them back:")
+            for d in off:
+                print(f"    {d['state']:<10} {d['path']}  ({d['what']})")
         print(f"  openwiki  {'ok' if env.openwiki_installed() else 'missing'} (pinned {VERSIONS['openwiki']})")
         print(f"  gitleaks  {'ok' if env.tool_ok('gitleaks') else 'missing'} (pinned {VERSIONS['gitleaks']})")
     elif a.cmd == "plan":

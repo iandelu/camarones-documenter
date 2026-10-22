@@ -158,8 +158,10 @@ def owned() -> dict[str, set[str]]:
     out.update({f"mcp {k}": {_digest(v)} for k, v in servers.items()})
     out["codex mcp block"] = {_digest(env.codex_block(dict(sub)).strip())
                               for n in (1, 2) for sub in itertools.combinations(servers.items(), n)}
-    from . import hooks
+    from . import hooks, install_state
     out.update(hooks.owned())                        # the method hooks (R36), when the project turned them on
+    for k, v in install_state.owned().items():       # agent tools' skills the kit installed on this machine (X4)
+        out.setdefault(k, set()).update(v)
     return out
 
 

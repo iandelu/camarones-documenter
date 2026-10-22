@@ -229,7 +229,9 @@ PAGES = {
                  "configuración de agentes que llega con el cam-docs del equipo recibe el mismo cuidado: los hooks, "
                  "servidores MCP, ajustes y skills que no ha escrito el kit se listan al abrir el asistente, y Claude Code "
                  "/ Codex solo los cargan cuando los apruebas en esta máquina (o con `camaron trust`). Las aprobaciones "
-                 "viven en ~/.camarones/trust/, nunca en el repo, así que nadie puede aprobarlas por ti con un push."},
+                 "viven en ~/.camarones/trust/, nunca en el repo, así que nadie puede aprobarlas por ti con un push. Lo "
+                 "que el kit instaló en esta máquina (sus skills y los de graphify y OpenWiki) lo reconoce sin "
+                 "preguntar, y `camaron repair` lo devuelve a su sitio si alguien lo edita o lo borra."},
         {"icon": "⚙️", "title": "CI: documentación que se actualiza sola",
          "art": r"""
    git push --> pipeline (GitLab CI / GitHub Actions)
@@ -501,7 +503,8 @@ PAGES = {
                  "gets the same care: hooks, MCP servers, settings and skills the kit did not write are listed when you "
                  "open the wizard, and Claude Code / Codex only load them once you approve them on this machine (or with "
                  "`camaron trust`). Approvals live in ~/.camarones/trust/, never in the repo, so nobody can approve them "
-                 "for you with a push."},
+                 "for you with a push. What the kit installed on this machine (its skills, graphify's and OpenWiki's) is "
+                 "recognised without asking, and `camaron repair` puts it back if someone edits or deletes it."},
         {"icon": "⚙️", "title": "CI: docs that update themselves",
          "art": r"""
    git push --> pipeline (GitLab CI / GitHub Actions)
