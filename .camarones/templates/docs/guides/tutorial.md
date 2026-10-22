@@ -218,7 +218,8 @@ date before; one comment per PR, updated on each push. It needs no API key and n
 repo (your checkout is not touched), and an agent updates the pages it leaves out of date on the cam-docs branch
 `docs/pr-<repo>-<n>`, in its own worktree. The kit commits, pushes and opens the docs PR (`--comment` links it on the
 service PR, `--preview` exports that branch as a static portal); `--dry-run` shows the plan first. With `ci.target: self-hosted`, `camaron ci` also writes `docs-propose`:
-the same command on your runner when a member labels a PR `docs:update`, never for forks. Setting up the runner:
+the same command on your runner when a member labels a PR `docs:update` (another label: `ci: {propose_label: …}` in
+`workspace.yaml`), never for forks. Setting up the runner:
 [self-hosted runner guide](self-hosted-runner.md).
 
 **The MCP server.** Agents reach the docs through the `camarones` MCP server: `search_docs`, `read_doc(path, section)`,
@@ -251,6 +252,12 @@ machine, so they are off until you run `camaron plugins enable confluence` (or `
 the decision as JSON. Review comments can point at a section: they keep the section's slug and a short quote, so they
 are found again after a heading is renamed.
 
+**What was removed on purpose.** `camaron removed add "SOAP billing endpoint" --why "replaced by the REST API"
+--decision decisions/0007-drop-soap.md` adds a row to `docs/overview/removed.md` (what, when, why, the decision).
+Agents read it before recreating something; the project's `AGENTS.md` also has a "Where to look" table for each task.
+Each session ends with a handoff that keeps what was verified (with evidence), what was not, the commands run and the
+next action apart.
+
 ## 9. Commands (for scripts and agents)
 
 `camaron help` (per-project copy: `./camaron.command help`, Windows `camaron.cmd help`): `setup`, `sync`, `detect`,
@@ -258,7 +265,7 @@ are found again after a heading is renamed.
 `wiki <repo>`, `portal` (export), `up [--static|--docker]`, `down`, `ci`, `prompt <unit>`, `migrate`, `doctor`,
 `doctor --local` (proposes a free local model for this computer, installs nothing), `autopilot`, `plugins [--json]`,
 `run`, `runs`, `kpis`, `eval`, `ab`, `pipeline show|validate`, `blocks [--force]`, `pr fresh <repo>`,
-`plugins add|update|outdated|remove`, `pr propose <url>`.
+`plugins add|update|outdated|remove`, `pr propose <url>`, `removed add`.
 
 **Facts from the code, no AI.** `camaron blocks` writes `docs/repos/<repo>/reference.md` for each repo: commands
 (Maven, Gradle, `package.json`, Makefile, Docker Compose), env vars (Spring `${VAR:default}` placeholders,

@@ -515,11 +515,13 @@ def prompt(uid: str, lang: str = "es", unattended: bool = False) -> str:
               "Never write kit files into the service repos.\n") if CAM_LAYOUT else (
               "\nLayout: this project uses the older single-folder layout — its docs are `docs/` and `.camarones/` of "
               f"this folder ({ROOT}). Ignore the playbook's `{CAM_DIR}/` prefix and any other `{CAM_DIR}/` folder you see.\n")
-    finish = (f"""write your handoff (done, decisions, pending, files to read first next time) to
+    sections = ("objective, Verified (with evidence), Not verified / assumptions, Commands run, decisions, remaining, "
+                "Next action, files to read first next time")
+    finish = (f"""write your handoff ({sections}) to
    `{_at(handoff_file(u['id']))}`, run `{cli} check` and fix what it reports on your pages, then
    `{cli} plan done {u['id']} --note "<one line>"` (or `plan block … --note "why"`).""" if in_tree else
               f"""`{cli} plan done {u['id']} --note "<one line>"` (or `plan block … --note "why"`), rewrite the
-   "Last session" section of `{_at(HANDOFF)}` (done, decisions, pending, files to read first next time),
+   "Last session" section of `{_at(HANDOFF)}` ({sections}),
    run `{cli} check` and `{cli} checkpoint "{u['id']}"` (local commit of the docs so nothing is lost).""")
     return f"""Camarón session — unit `{u['id']}`: {u['title']}
 {redo_txt}{resume}{extra}{layout}
