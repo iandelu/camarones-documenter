@@ -18,3 +18,27 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
       - run: uv run pytest
+
+  # The portal (React views + the docs views) is built here and committed, so users never need Node for it.
+  portal:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .camarones/portal/app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: the committed build matches its source
+        working-directory: .
+        run: |
+          changes="$(git status --porcelain -- .camarones/portal/app-build)"
+          if [ -n "$changes" ]; then
+            echo "Rebuild the portal and commit it: cd .camarones/portal/app && npm ci && npm run build"
+            echo "$changes"
+            exit 1
+          fi

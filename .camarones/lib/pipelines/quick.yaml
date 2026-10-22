@@ -1,0 +1,12 @@
+# The quick plan: discover each repo, then one overview page, the portal and a review. Same format as full.yaml.
+version: 1
+name: quick
+nodes:
+  - {id: setup, type: setup}
+  - for_each: repos
+    nodes:
+      - {id: "discovery:{repo}", type: discovery, needs: [setup]}
+  - {id: quick-overview, type: quick-overview, needs: ["discovery:*"]}
+  - {id: portal, type: portal, needs: [quick-overview]}
+  - {id: confirm, type: confirm, needs: [quick-overview]}
+  - {id: handover, type: handover, needs: [portal, confirm]}

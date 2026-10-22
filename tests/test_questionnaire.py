@@ -83,13 +83,13 @@ def pilot(kit, monkeypatch):
     plan = kit.plan
     calls = []
 
-    def run_agent(agent, text, lang, uid, echo, **kw):
+    def run_agent(agent, text, lang, uid, echo):
         calls.append(uid)
         plan.set_status(uid, "done")
         return subprocess.CompletedProcess([agent], 0, "", "")
     monkeypatch.setattr(plan, "which", lambda name: f"/bin/{name}")
     monkeypatch.setattr(plan, "_run_agent", run_agent)
-    monkeypatch.setattr(plan, "prompt", lambda uid, lang="es", unattended=False, **kw: f"prompt {uid}")
+    monkeypatch.setattr(plan, "prompt", lambda uid, lang="es", unattended=False: f"prompt {uid}")
     return calls
 
 
@@ -126,7 +126,7 @@ def test_autopilot_leaves_live_interviews_to_a_human_but_keeps_drafting(kit, pil
     assert not any(uid.startswith("interview-") for uid in pilot)
     assert {"repo-brief:api", "domain", "data", "decisions-quality"} <= set(pilot)    # provisional drafts
     assert "i18n" not in pilot                                                         # waits for the interviews
-    assert any("interview-context" in l and "need you" in l for l in echo)
+    assert any("interview-context" in l and "needs you" in l for l in echo)
 
 
 # ---------- questionnaire: format, export, import, status ----------
@@ -301,7 +301,7 @@ def quiet(kit, monkeypatch):
 @pytest.fixture
 def launched(kit, monkeypatch):
     prompts = []
-    monkeypatch.setattr(kit.wizard.W, "launch_agent", lambda self, prompt, resume_agent=None, **kw: prompts.append(prompt) or "bg")
+    monkeypatch.setattr(kit.wizard.W, "launch_agent", lambda self, prompt, resume_agent=None: prompts.append(prompt) or "bg")
     return prompts
 
 

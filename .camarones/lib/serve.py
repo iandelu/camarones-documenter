@@ -11,10 +11,11 @@ import itertools, json, mimetypes, re, threading, time, urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from .common import KIT, ROOT, DOCS, CACHE, VERSIONS, out, rel_file
+from .common import CTX, KIT, ROOT, DOCS, CACHE, VERSIONS, out, rel_file
 from . import codemap, docs, env, plan, usage
 
-UI = KIT / "portal" / "live"
+APP = KIT / "portal" / "app-build"           # the portal: React views + the docs views (portal/app), built in the kit's CI
+UI = APP                                     # the old name, kept for callers
 SITE = CACHE / "site"
 UI_LIBS = (("marked", "15.0.12", "lib/marked.umd.js"), ("dompurify", "3.2.6", "dist/purify.min.js"),
            ("mermaid", "11.4.1", "dist/mermaid.min.js"), ("@highlightjs/cdn-assets", "11.11.1", "highlight.min.js"),
@@ -60,7 +61,33 @@ def read(path: str, lang: str = "") -> dict:
     return {"path": path, "lang": lang, "file": rel_file(f), "raw": raw, "exists": f.exists(),
             "title": fm.get("title") or docs.first_heading(body) or Path(path).stem, "trust": row.get("trust"),
             "owner": row.get("owner"), "sources": fm.get("x-sources") or [], "confirmed": fm.get("x-confirmed"),
+            "fresh": row.get("fresh"), "freshness": row.get("freshness"),
             "feedback": [l for l in docs.pending_feedback() if f"`{row.get('file')}`" in l]}
+
+
+def api_ask(question: str) -> dict:
+    """Ask the docs (R34): the sections that best answer a question, each with its citation, trust and freshness.
+    No model: the same retrieval as the MCP `ask`, through the same freshness gate."""
+    from .harness import freshness
+    hits = docs.search(question, 20) if question.strip() else []
+    usage.record("portal:ask", channel="human", hit=bool(hits))
+    rows, out = {r["path"]: r for r in docs.collect()}, []
+    for h in hits:
+        r = rows.get(h["path"], {})
+        ok, notice = freshness.gate(h["path"], r.get("trust", "draft"), r.get("freshness"))
+        f = dict(docs.iter_docs()).get(h["path"])
+        if not f:
+            continue
+        body = docs.split_fm(f.read_text(encoding="utf-8"))[1]
+        found = docs.section_text(body, h["section"]) if h.get("section") else None
+        out.append({"cite": h["path"] + (f"#{h['section']}" if found else ""), "title": h["title"],
+                    "trust": r.get("trust"), "fresh": r.get("fresh"), "notice": notice, "withheld_for_agents": not ok,
+                    "tldr": docs.tldr(body), "text": found[1] if found else body.strip()[:3000]})
+        if len(out) >= 3:
+            break
+    from . import answers
+    readable = any(not s["withheld_for_agents"] for s in out)          # the AI only reads what agents may read
+    return {"question": question, "sections": out, "ai": answers.runner() if readable else None}
 
 
 def api_doc(q: dict) -> dict:
@@ -99,10 +126,69 @@ def create(path: str, title: str) -> dict:
     return read(path)
 
 
-def status() -> dict:
+def start_run(b: dict) -> tuple[dict, int]:
+    """A documentation run as a background job of this server; refused while another run (CLI or portal) holds the
+    run lock."""
+    from .harness import scheduler
+    holder = scheduler.busy()
+    if holder:
+        return {"error": f"a documentation run is already in progress (pid {holder.get('pid')})"}, 409
+    try:
+        slots = scheduler.parse_slots(str(b.get("per_runner") or ""))
+    except ValueError as e:
+        return {"error": f"per_runner {e}"}, 400
+    parallel = max(1, min(8, int(b.get("parallel") or 2)))
+    max_units = int(b["max_units"]) if b.get("max_units") not in (None, "") else None
+
+    def go(log):
+        scheduler.run_parallel(lang=b.get("lang") or "en", max_parallel=parallel, per_runner=slots,
+                               max_units=max_units, echo=log)
+    return start_job("run", "documentation run", go), 200
+
+
+def retry_unit(uid: str) -> tuple[dict, int]:
+    u = next((x for x in plan.load()["units"] if x["id"] == uid), None)
+    if not u:
+        return {"error": f"unknown unit {uid}"}, 404
+    if u["status"] != "blocked":
+        return {"error": f"{uid} is {u['status']}: only blocked units are retried"}, 409
+    return plan.set_status(uid, "todo", "retry requested from the portal"), 200
+
+
+def approve_unit(uid: str) -> tuple[dict, int]:
+    u = next((x for x in plan.load()["units"] if x["id"] == uid), None)
+    if not u:
+        return {"error": f"unknown unit {uid}"}, 404
+    if not plan.awaiting(u):
+        return {"error": f"{uid} is not awaiting approval"}, 409
+    return plan.approve(uid, by=reviewer()), 200
+
+
+def api_pipeline() -> dict:
+    """The plan as a graph for the Pipeline tab: every unit with its status and dependencies, how it runs (isolation,
+    tier, runner), and the latest run."""
+    from .harness import pipeline, runs
+    try:
+        nodes = {u["id"]: u for u in plan.pipeline_units()}
+    except plan.PipelineError:
+        nodes = {}
+    types = pipeline.types()
+    units = []
+    for u in plan.load()["units"]:
+        t, n = types.get(u["type"], {}), nodes.get(u["id"], {})
+        units.append({**{k: u.get(k) for k in ("id", "title", "type", "phase", "status", "deps", "repo", "notes", "runner")},
+                      "isolation": n.get("isolation") or t.get("isolation", "none"),
+                      "tier": n.get("tier") or t.get("tier", "agentic-heavy"), "agent": n.get("runner"),
+                      "approval": bool(n.get("approval")), "awaiting": plan.awaiting(u)})
+    latest = runs.ids()
+    return {"units": units, "run": runs.summary(latest[0]) if latest else None}
+
+
+def status(check: bool = True) -> dict:
+    """`check=False` skips the full quality check (seconds on a big project): the page shows the rest at once."""
     return {"queue": [{k: r[k] for k in ("path", "title", "trust", "type")} for r in docs.review_queue()],
-            "feedback": docs.pending_feedback(), "changes": docs.changes(), "check": dict(zip(("errors", "warnings"),
-                                                                                          docs.check())),
+            "feedback": docs.pending_feedback(), "changes": docs.changes(),
+            "check": dict(zip(("errors", "warnings"), docs.check())) if check else None,
             "plan": dict(zip(("done", "total"), plan.progress()))}
 
 
@@ -241,12 +327,14 @@ class Handler(BaseHTTPRequestHandler):
                 return self.file(f, local_cdn=True) if f else self.not_found()
             if m := re.match(r"^/wiki-graph/([\w.-]+)/(.*)$", p):
                 return self.static(env.VIEWERS / "wiki-graph" / m.group(1), m.group(2), local_cdn=True) or self.not_found()
+            if p == "/next" or p.startswith("/next/"):            # the preview address of 3.26–4.16: one portal now
+                return self.send(301, b"", "text/plain", {"Location": "/"})
             if p in ("/", "/index.html"):
-                return self.file(UI / "index.html")
-            if self.static(UI, p):
+                return self.file(APP / "index.html")
+            if self.static(APP, p):
                 return
             if not Path(p).suffix:
-                return self.file(UI / "index.html")
+                return self.file(APP / "index.html")
             self.not_found()
         except KeyError as e:
             self.json({"error": f"missing or unknown: {e}"}, 404)
@@ -259,7 +347,9 @@ class Handler(BaseHTTPRequestHandler):
         if name == "doc":
             return self.json(api_doc(q))
         if name == "status":
-            return self.json(status())
+            return self.json(status(check=q.get("check") != "0"))
+        if name == "check":
+            return self.json(dict(zip(("errors", "warnings"), docs.check())))
         if name == "search":
             return self.json(api_search(q))
         if name == "wikis":
@@ -271,11 +361,66 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(env.viewers())
         if name == "jobs":
             return self.json([{k: v for k, v in j.items() if k != "log"} for j in JOBS.values()])
+        if name == "pipeline":
+            return self.json(api_pipeline())
+        if name == "ask":
+            return self.json(api_ask(q.get("q", "")))
+        if name == "boards":
+            from . import boards
+            return self.json(boards.boards())
+        if name == "board":
+            from . import boards
+            return self.json(boards.read(q.get("name", "")))
+        if name == "sketch":
+            from . import boards
+            return self.json(boards.sketch(q.get("view", "")))
+        if name == "reviews":
+            from . import review
+            return self.json(review.open_requests())
+        if name == "runs":
+            from .harness import runs
+            return self.json(runs.rows())
+        if m := re.fullmatch(r"runs/([\w.-]+)(/events)?", name):
+            from .harness import runs
+            if m.group(1) not in runs.ids():
+                return self.json({"error": f"no run {m.group(1)}"}, 404)
+            if m.group(2):
+                return self.stream_events(m.group(1), int(self.headers.get("Last-Event-ID") or q.get("from") or 0))
+            return self.json(runs.detail(m.group(1)))
         if name.startswith("jobs/") and name[5:] in JOBS:
             j = JOBS[name[5:]]
             since = int(q.get("since", 0))
             return self.json({**j, "log": j["log"][since:], "lines": len(j["log"])})
         self.json({"error": "not found"}, 404)
+
+    def stream_events(self, run_id: str, offset: int) -> None:
+        """Server-sent events: one message per run event, its id the byte offset after it. Ends with the run, or
+        after an hour with nothing new (a run killed without run.finished)."""
+        from .harness.events import EventLog
+        log = EventLog(CTX.runs / run_id / "events.jsonl")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        quiet = beat = time.monotonic()
+        try:
+            while time.monotonic() - quiet < 3600:
+                batch = log.read_lines(offset)
+                for ev, offset in batch:
+                    self.wfile.write(f"id: {offset}\ndata: {json.dumps(ev, ensure_ascii=False)}\n\n".encode("utf-8"))
+                    if ev.get("type") == "run.finished":
+                        self.wfile.flush()
+                        return
+                if batch:
+                    self.wfile.flush()
+                    quiet = time.monotonic()
+                elif time.monotonic() - beat > 15:
+                    self.wfile.write(b": keep-alive\n\n")
+                    self.wfile.flush()
+                    beat = time.monotonic()
+                time.sleep(0.3)
+        except (BrokenPipeError, ConnectionResetError):
+            return
 
     def do_PUT(self):
         self.do_POST()
@@ -298,9 +443,16 @@ class Handler(BaseHTTPRequestHandler):
                 docs.confirm([str(doc_file(b["path"], b.get("lang", "")))], by)
                 return self.json(read(b["path"], b.get("lang", "")))
             if p == "/api/feedback":
-                docs.add_feedback(read(b["path"])["file"], b["text"], by)
+                from . import review
+                review.comment(b["path"], b["text"], by, b.get("slug", ""), b.get("snippet", ""))
                 plan.ensure("review-fixes", "review-fixes")
                 return self.json(read(b["path"]))
+            if p == "/api/board":
+                from . import boards
+                return self.json(boards.save(b.get("name", ""), b.get("scene")))
+            if p == "/api/review/decide":
+                from . import review
+                return self.json(review.decide(b["id"], b["decision"], by, b.get("comments", "")))
             if p == "/api/commit":
                 docs.llms()
                 ok = env.checkpoint_commit(b.get("message") or "docs edited in the portal")
@@ -309,6 +461,19 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json(build(b))
             if p == "/api/wiki":
                 return self.json(wiki(b))
+            if p == "/api/runs":
+                return self.json(*start_run(b))
+            if m := re.fullmatch(r"/api/runs/([\w.-]+)/cancel", p):
+                from .harness import scheduler
+                scheduler.request_cancel(m.group(1))
+                return self.json({"cancelling": m.group(1)})
+            if p == "/api/units/retry":
+                return self.json(*retry_unit(b.get("unit", "")))
+            if p == "/api/ask/answer":
+                from . import answers
+                return self.json(answers.answer(str(b.get("q", ""))))
+            if p == "/api/units/approve":
+                return self.json(*approve_unit(b.get("unit", "")))
             self.json({"error": "not found"}, 404)
         except (KeyError, ValueError, RuntimeError) as e:
             self.json({"error": str(e)}, 400)

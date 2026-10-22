@@ -1,0 +1,11 @@
+# Publishes the docs agents may read to a Confluence space (R35). It sends the docs outside this machine, so it stays
+# off until someone runs `camaron plugins enable confluence` here. Needs CONFLUENCE_URL, CONFLUENCE_USER,
+# CONFLUENCE_TOKEN and CONFLUENCE_SPACE in the environment. Run with `camaron export confluence`.
+name: confluence
+version: 1.0.0
+description: Publish the docs to a Confluence space.
+sends_data: true
+provides:
+  exporters:
+    - id: confluence
+      label: Confluence

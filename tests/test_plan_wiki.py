@@ -102,11 +102,12 @@ def test_one_wiki_run_at_a_time(wired, monkeypatch):
     env = wired.env
     env.WIKI_LOCK.parent.mkdir(parents=True, exist_ok=True)
     env.WIKI_LOCK.write_text('{"pid": 999999, "repo": "web"}', encoding="utf-8")
-    monkeypatch.setattr(env, "pid_alive", lambda pid: True)
+    from lib.harness import locks                                         # liveness moved there with the shared FileLock
+    monkeypatch.setattr(locks, "pid_alive", lambda pid: True)
     with pytest.raises(RuntimeError, match="another OpenWiki run"):
         with env.wiki_lock("api"):
             pass
-    monkeypatch.setattr(env, "pid_alive", lambda pid: False)              # a dead holder does not block
+    monkeypatch.setattr(locks, "pid_alive", lambda pid: False)            # a dead holder does not block
     with env.wiki_lock("api"):
         assert f'"pid": {os.getpid()}' in env.WIKI_LOCK.read_text(encoding="utf-8")
     assert not env.WIKI_LOCK.exists()

@@ -14,5 +14,6 @@ package = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["e2e: clones real repos from GitHub (network); run with -m e2e"]
-addopts = "-m 'not e2e' -p no:cacheprovider"
+markers = ["e2e: clones real repos from GitHub (network); run with -m e2e",
+           "eval: asks a real agent the sandbox's golden questions (spends tokens); run with -m eval"]
+addopts = "-m 'not e2e and not eval' -p no:cacheprovider"

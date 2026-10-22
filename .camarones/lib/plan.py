@@ -8,62 +8,45 @@ and docs/.work/handoff.md carries the baton between sessions.
 """
 from __future__ import annotations
 
+import contextlib
 import datetime as dt
+import functools
 import json
 import os
 import subprocess
 import threading
-import re
 import time
-import uuid
+from contextvars import ContextVar
 from pathlib import Path
 
 import yaml
 
-from .common import (ROOT, DOCS, WORK, CACHE, CAM_LAYOUT, CAM_DIR, WORKSPACE, cli_cmd, ws_rel, rel_file, IS_WIN, which,
-                     file_lock, pid_alive)
+from .common import CTX, KIT, PREFS, ROOT, load_json, WORK, CAM_LAYOUT, CAM_DIR, WORKSPACE, cli_cmd, ws_rel, rel_file, IS_WIN, which
 from . import docs
+from .adapters import runners
+from .adapters.runners.base import LIMIT_HINTS  # noqa: F401  (kept for callers)
+from .harness import awake, drafts, freshness, kpis, pipeline, routing
+from .harness.events import EventLog
+from .harness.locks import FileLock
+from .harness.ports import RunRequest
 
 PLAN = WORK / "plan.yaml"
+PLAN_LOCK = CTX.state_root / ".camarones" / ".cache" / "locks" / "plan.lock"   # git-ignored, shared by worktrees
 HANDOFF = WORK / "handoff.md"
 LOG = WORK / "log.md"
-PLAN_LOCK = CACHE / "plan.lock"          # git-ignored: several sessions (windows, autopilot workers) share one plan
-CLAIM_TTL = dt.timedelta(minutes=30)     # a claim nobody touched (plan note) for this long is free again: closed window
 DONE = ("done", "dropped")
 NO_WIKI = "No wiki for this repo (wizard → Wikis → choose repos)"
 LIVE_INTERVIEWS = "Interviews are done live, not by team questionnaire"
+OFF_PROFILE = "Not part of the selected profile"
+DISABLED = "Disabled in .camarones/pipeline.yaml"
+OVERRIDE = CTX.state_root / ".camarones" / "pipeline.yaml"   # the project's changes to the kit pipeline (R8), read from main
 
-# unit type → (phase, runner, title template, playbook section)
-TYPES = {
-    "quick-overview":   (2, "agent", "First overview: purpose, run instructions, one flow and sources", "quick-overview"),
-    "setup":            (0, "wizard", "Environment ready (tools, repos, agent wiring)", "setup"),
-    "discovery":        (1, "agent",  "Discovery of {repo}", "discovery"),
-    "discovery-cross":  (1, "agent",  "Cross-repo correlation (integrations, shared DBs, candidate flows)", "discovery-cross"),
-    "questionnaire":    (2, "agent",  "Team questionnaire: inferred answers and options to share with the team", "questionnaire"),
-    "answers":          (2, "wizard", "Team answers: share the questionnaire and import the answers", "answers"),
-    "interview-context":  (2, "agent", "Interview 1: bounded contexts, external actors, environments", "interview"),
-    "interview-language": (2, "agent", "Interview 2: DDD glossary, SLAs / NFRs", "interview"),
-    "interview-history":  (2, "agent", "Interview 3: historical decisions, known debt, validate integrations/flows/data", "interview"),
-    "repo-brief":       (3, "agent",  "{repo}: README + AGENTS.md/CLAUDE.md (stack) + C4 components + OpenWiki brief", "repo-brief"),
-    "repo-wiki":        (3, "agent",  "{repo}: OpenWiki repository wiki", "repo-wiki"),
-    "arch-system":      (4, "agent",  "C4 system: context + containers views", "arch-system"),
-    "domain":           (4, "agent",  "Domain: bounded contexts, context map, glossary, actors", "domain"),
-    "data":             (4, "agent",  "Data models: ERDs, ownership, shared DBs", "data"),
-    "deployment":       (4, "agent",  "Deployment: environments + C4 deployment views", "deployment"),
-    "decisions-quality": (4, "agent", "ADRs, SLAs, tech debt", "decisions-quality"),
-    "security-review":  (5, "agent",  "[beta] Security review: threats and vulnerabilities", "security-review"),
-    "architecture-review": (5, "agent", "[beta] Architecture review: coupling, duplication, tech debt", "architecture-review"),
-    "flows-catalog":    (5, "agent",  "Business flows catalog (propose, validate, create flow units)", "flows-catalog"),
-    "flow":             (5, "agent",  "Flow: {slug}", "flow"),
-    "diagrams":         (5, "agent",  "Diagrams: sequences, lifecycles (state), data and context maps where pages lack them", "diagrams"),
-    "i18n":             (6, "agent",  "Spanish translations + index", "i18n"),
-    "portal":           (7, "wizard", "Build and run the portal", "portal"),
-    "ci":               (7, "wizard", "CI pipelines (umbrella + per-repo snippets)", "ci"),
-    "confirm":          (7, "wizard", "Human review: confirm pages", "confirm"),
-    "handover":         (7, "agent",  "Handover: summary, commits on branches, next steps", "handover"),
-    "review-fixes":     (7, "agent",  "Apply human review feedback", "review-fixes"),
-    "doc-fixes":        (7, "agent",  "Fix documentation problems (check errors, orphans, re-confirmations, translations)", "doc-fixes"),
-}
+
+class PipelineError(RuntimeError):
+    """The project's pipeline.yaml cannot be used; the stored plan is left as it was."""
+
+# unit type → (phase, runner, title template, playbook section); the catalog lives in lib/pipelines/units.yaml
+TYPES = {k: (v["phase"], v["runner"], v["title"], v["playbook"]) for k, v in pipeline.types().items()}
 
 
 def now() -> str:
@@ -80,34 +63,31 @@ def load() -> dict:
     return data
 
 
+def locked(fn):
+    """Read-modify-write of plan.yaml under the plan lock, so parallel sessions never lose each other's updates."""
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        with FileLock(PLAN_LOCK):
+            return fn(*args, **kwargs)
+    return wrapper
+
+
+@locked
 def save(data: dict) -> None:
-    """Write the whole plan atomically: a reader (another session) never sees half a file."""
+    """Write the plan atomically: readers without the lock see the old file or the new one, never half of one."""
     WORK.mkdir(parents=True, exist_ok=True)
-    CACHE.mkdir(parents=True, exist_ok=True)
-    tmp = CACHE / f"plan.{os.getpid()}.{threading.get_ident()}.tmp"
+    tmp = PLAN_LOCK.with_name(f"plan.{os.getpid()}.tmp")    # git-ignored if a crash leaves it; same disk as PLAN
     tmp.write_text("# Camarón work plan — one unit per agent session. Managed by the camarones CLI.\n"
-                   + yaml.safe_dump(data, sort_keys=False, allow_unicode=True, width=120), encoding="utf-8")
-    for _ in range(40):
+                   + yaml.safe_dump(data, sort_keys=False, allow_unicode=True, width=120), encoding="utf-8",
+                   newline="\n")
+    for attempt in range(50):
         try:
             os.replace(tmp, PLAN)
             return
-        except PermissionError:          # Windows: another process has plan.yaml open for a moment
-            time.sleep(0.05)
-    os.replace(tmp, PLAN)
-
-
-def locked():
-    """Hold the plan lock: every load → change → save of plan.yaml goes through it."""
-    return file_lock(PLAN_LOCK)
-
-
-def mutate(fn):
-    """load → fn(data) → save under the plan lock; returns what fn returns."""
-    with locked():
-        data = load()
-        result = fn(data)
-        save(data)
-        return result
+        except PermissionError:              # Windows: a reader has the file open for a moment
+            if attempt == 49:
+                raise
+            time.sleep(0.02)
 
 
 def unit(uid: str, type_: str, deps: list[str], repo: str | None = None, slug: str | None = None, title: str | None = None,
@@ -120,77 +100,120 @@ def unit(uid: str, type_: str, deps: list[str], repo: str | None = None, slug: s
             "deps": deps, **({"soft": soft} if soft else {}), "repo": repo, "notes": "", "updated": None}
 
 
+def project_pipeline() -> tuple[dict, list[str]]:
+    """The kit pipeline of the project's profile, with .camarones/pipeline.yaml applied when there is one."""
+    default = "quick" if docs.workspace()["project"].get("profile") == "quick" else "full"
+    if not OVERRIDE.exists():
+        return pipeline.load(default), []
+    try:
+        override = yaml.safe_load(OVERRIDE.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError as e:
+        return pipeline.load(default), [f"pipeline.yaml is not valid YAML: {e}"]
+    if not isinstance(override, dict):
+        return pipeline.load(default), ["pipeline.yaml: expected a mapping (extends, nodes, patch)"]
+    return pipeline.compose(override, default)
+
+
+def pipeline_problems() -> list[str]:
+    return project_pipeline()[1]
+
+
+def pipeline_units() -> list[dict]:
+    """The project's pipeline expanded for its repos, with how each unit runs (for `pipeline show`)."""
+    out = []
+    for n in _nodes(docs.repo_names()):
+        t = pipeline.types().get(n["type"], {})
+        s = {"tier": t.get("tier", "agentic-heavy"), "isolation": t.get("isolation", "none"), "runner": None,
+             **n["settings"]}
+        out.append({"id": n["id"], "type": n["type"], "needs": n["needs"], "soft": n["soft"], "tier": s["tier"],
+                    "isolation": s["isolation"], "runner": s["runner"], "disabled": n["disabled"],
+                    "approval": bool(s.get("approval"))})
+    return out
+
+
+def _nodes(repos: list[str]) -> list[dict]:
+    spec, problems = project_pipeline()
+    if problems:
+        raise PipelineError("; ".join(problems))
+    return pipeline.expand(spec, repos, {"team-interviews": docs.interview_mode() == "team"})
+
+
 def blueprint(repos: list[str]) -> list[dict]:
-    disc = [f"discovery:{r}" for r in repos]
-    briefs = [f"repo-brief:{r}" for r in repos]
-    wikis = [f"repo-wiki:{r}" for r in repos]
-    if docs.workspace()['project'].get('profile') == 'quick':
-        return [unit('setup', 'setup', []),
-                *[unit(f'discovery:{r}', 'discovery', ['setup'], repo=r) for r in repos],
-                unit('quick-overview', 'quick-overview', disc),
-                unit('portal', 'portal', ['quick-overview']),
-                unit('confirm', 'confirm', ['quick-overview']),
-                unit('handover', 'handover', ['portal', 'confirm'])]
-    u = [unit("setup", "setup", [])]
-    u += [unit(f"discovery:{r}", "discovery", ["setup"], repo=r) for r in repos]
-    u += [unit("discovery-cross", "discovery-cross", disc)]
-    first_interview = ["discovery-cross"]
-    if docs.interview_mode() == "team":      # the team answers a questionnaire; the interview units consolidate it
-        u += [unit("questionnaire", "questionnaire", ["discovery-cross"]),
-              unit("answers", "answers", ["questionnaire"])]
-        first_interview = ["answers"]
-    interviews = ["interview-context", "interview-language", "interview-history"]
-    u += [unit("interview-context", "interview-context", first_interview),
-          unit("interview-language", "interview-language", ["interview-context"]),
-          unit("interview-history", "interview-history", ["interview-context"])]
-    # drafting never waits for the interviews (soft): it starts from code + discovery and is refined afterwards
-    for r in repos:
-        u += [unit(f"repo-brief:{r}", "repo-brief", ["discovery-cross"], repo=r, soft=["interview-context"]),
-              unit(f"repo-wiki:{r}", "repo-wiki", [f"repo-brief:{r}"], repo=r)]
-    u += [unit("arch-system", "arch-system", briefs),
-          unit("domain", "domain", ["discovery-cross"], soft=["interview-language"]),
-          unit("data", "data", ["discovery-cross"], soft=["interview-history"]),
-          unit("deployment", "deployment", ["arch-system"]),
-          unit("decisions-quality", "decisions-quality", ["discovery-cross"], soft=["interview-history"]),
-          unit("flows-catalog", "flows-catalog", ["arch-system"], soft=["interview-history"]),
-          unit("diagrams", "diagrams", ["domain", "data", "flows-catalog"]),
-          # translating or confirming drafts that the interviews will still change is wasted work: these wait
-          unit("i18n", "i18n", ["domain", "flows-catalog", *interviews]),
-          unit("portal", "portal", ["arch-system"]),
-          unit("ci", "ci", ["setup"]),
-          unit("confirm", "confirm", ["domain", "decisions-quality", "flows-catalog", *interviews]),
-          unit("handover", "handover", ["i18n", "portal", "confirm", *wikis])]
-    return u
+    """The plan's units for these repos, from the project's pipeline (lib/pipelines/ + .camarones/pipeline.yaml)."""
+    return [unit(n["id"], n["type"], n["needs"], repo=n["repo"], soft=n["soft"]) for n in _nodes(repos) if not n["disabled"]]
 
 
+def plugin_guidance(uid: str) -> str:
+    """The team plugin a node `uses` (R25): its prompts inline and where its skills are. Only an approved plugin with
+    the pinned major version; anything else is a pipeline problem and adds nothing."""
+    try:
+        uses = settings(uid).get("uses")
+    except Exception:  # noqa: BLE001 — a broken pipeline is reported elsewhere; the prompt still works
+        return ""
+    if not uses:
+        return ""
+    from .harness import plugins
+    name, _, major = str(uses).partition("@")
+    p = next((x for x in plugins.discover() if x.name == name), None)
+    version = str(p.manifest.get("version", "")) if p else ""
+    if not p or not p.active or (major and version.split(".")[0] != major):
+        return ""
+    rel = lambda f: ws_rel(rel_file(f))  # noqa: E731
+    parts = [f"\nTeam guidance — plugin {name} {version} (`{rel(p.path)}`), follow it in this unit:"]
+    for item in p.provides.get("prompts") or []:
+        f = p.path / str(item)
+        if f.is_file():
+            parts.append(f.read_text(encoding="utf-8").strip())
+    skills = [rel(p.path / str(s)) for s in p.provides.get("skills") or [] if (p.path / str(s)).exists()]
+    if skills:
+        parts.append("Skills to read before writing: " + ", ".join(f"`{s}`" for s in skills))
+    return "\n".join(parts) + "\n"
+
+
+def settings(uid: str) -> dict:
+    """How a unit runs: its type's tier and isolation, then what the pipeline sets for that node."""
+    try:
+        node = next((n for n in _nodes(docs.repo_names()) if n["id"] == uid), None)
+    except PipelineError:
+        node = None
+    type_ = node["type"] if node else next((u["type"] for u in load()["units"] if u["id"] == uid), "")
+    t = pipeline.types().get(type_, {})
+    return {"tier": t.get("tier", "agentic-heavy"), "isolation": t.get("isolation", "none"),
+            **(node["settings"] if node else {})}
+
+
+@locked
 def sync() -> dict:
     """Merge the blueprint into the stored plan: keep statuses/notes, add units for new repos, drop removed repos."""
-    with locked():
-        return _sync()
-
-
-def _sync() -> dict:
     data = load()
     old_profile = data.get('profile', 'full')
     profile = docs.workspace()['project'].get('profile', 'full')
     repos = docs.repo_names()
+    try:
+        nodes = _nodes(repos)
+    except PipelineError:
+        return data                        # a broken pipeline.yaml must not switch units on or off; `plan` says why
+    disabled = {n["id"] for n in nodes if n["disabled"]}
     existing = {u["id"]: u for u in data["units"]}
     merged = []
-    for bu in blueprint(repos):
+    for bu in (unit(n["id"], n["type"], n["needs"], repo=n["repo"], soft=n["soft"]) for n in nodes if not n["disabled"]):
         cur = existing.pop(bu["id"], None)
         if cur:
-            bu.update({k: cur[k] for k in ("status", "notes", "updated", "redo", "owner", "provisional", "refine", "chat")
-                       if k in cur})
+            bu.update({k: cur[k] for k in ("status", "notes", "updated", "redo", "provisional", "refine") if k in cur})
             if cur.get("status") == "dropped" and bu.get("repo") in repos:
                 bu["status"] = "todo"
-            if cur.get('notes') == 'Not part of the selected profile':
+            if cur.get('notes') in (OFF_PROFILE, DISABLED):
                 bu['status'], bu['notes'] = 'todo', ''
             if old_profile != profile and bu['id'] in ('setup', 'portal', 'confirm', 'handover'):
                 bu['status'] = 'todo'
         merged.append(bu)
     for leftover in existing.values():     # dynamic units (flows, splits) or units of removed repos
-        if profile == 'quick' and leftover['type'] not in ('flow', 'doc-fixes', 'review-fixes') and leftover['status'] == 'todo':
-            leftover['status'], leftover['notes'] = 'dropped', 'Not part of the selected profile'
+        if profile == 'quick' and leftover['type'] not in ('flow', 'doc-fixes', 'review-fixes', 'integrate', 'eval-questions', 'refresh-docs') and leftover['status'] == 'todo':
+            leftover['status'], leftover['notes'] = 'dropped', OFF_PROFILE
+        if leftover["status"] in ("todo", "blocked") and leftover["id"] in disabled:
+            leftover["status"], leftover["notes"] = "dropped", DISABLED
+        elif leftover["status"] in ("todo", "blocked") and OVERRIDE.exists() and leftover["type"] in pipeline.kit_types():
+            leftover["status"], leftover["notes"] = "dropped", OFF_PROFILE     # left out by the project's pipeline
         if leftover.get("repo") and leftover["repo"] not in repos:
             leftover["status"] = "dropped"
         merged.append(leftover)
@@ -231,19 +254,18 @@ def _sync() -> dict:
     return data
 
 
+@locked
 def set_interview_mode(mode: str) -> dict:
     """Switch how the interviews run. In team mode a live interview that was already started goes back to todo: it now
     waits for the team's answers (its checkpoints stay, so the consolidation sees what was said live)."""
-    with locked():
-        docs.set_interview_mode(mode)
-        data = sync()
-        if mode == "team" and any(u["type"] in INTERVIEW_TYPES and u["status"] == "doing" for u in data["units"]):
-            for u in data["units"]:
-                if u["type"] in INTERVIEW_TYPES and u["status"] == "doing":
-                    u["status"] = "todo"
-                    u.pop("owner", None)
-            save(data)
-        return data
+    docs.set_interview_mode(mode)
+    data = sync()
+    if mode == "team" and any(u["type"] in INTERVIEW_TYPES and u["status"] == "doing" for u in data["units"]):
+        for u in data["units"]:
+            if u["type"] in INTERVIEW_TYPES and u["status"] == "doing":
+                u["status"] = "todo"
+        save(data)
+    return data
 
 
 def get(data: dict, uid: str) -> dict:
@@ -253,26 +275,7 @@ def get(data: dict, uid: str) -> dict:
     raise KeyError(f"unknown unit '{uid}' — see `{cli_cmd()} plan`")
 
 
-def taken_by(u: dict, session: str | None = None) -> str | None:
-    """The live session holding a unit, unless it is `session` itself. A unit `doing` without an owner (3.x plans,
-    or a session that ended without closing it), whose owner went quiet for CLAIM_TTL, or whose window is known to
-    be closed (its pid is gone) is free."""
-    o = u.get("owner")
-    if u.get("status") != "doing" or not isinstance(o, dict):
-        return None
-    try:
-        seen = dt.datetime.fromisoformat(str(o.get("seen") or o.get("since")))
-    except ValueError:
-        return None
-    if dt.datetime.now() - seen >= CLAIM_TTL or o.get("session") == session:
-        return None
-    if o.get("pid") and not pid_alive(int(o["pid"])):
-        return None
-    return str(o.get("session"))
-
-
-def available(data: dict | None = None, session: str | None = None) -> list[dict]:
-    """Units whose dependencies are done. With `session`, leave out those another live session holds."""
+def available(data: dict | None = None) -> list[dict]:
     data = data or load()
     st = {u["id"]: u["status"] for u in data["units"]}
     redone = {u["id"] for u in data["units"] if u.get("redo")}
@@ -288,31 +291,60 @@ def available(data: dict | None = None, session: str | None = None) -> list[dict
             up |= frontier
             frontier = {d for f in frontier for d in links.get(f, [])} - up
         return [d for d in up if d in redone or d in u["deps"]]
-    ready = [u for u in data["units"] if u["status"] in ("todo", "doing", "blocked")
-             and all(st.get(d, "done") in DONE for d in waits_on(u))
-             and not (session and taken_by(u, session))]
+    ready = [u for u in data["units"] if u["status"] in ("todo", "doing", "blocked") and not awaiting(u)
+             and all(st.get(d, "done") in DONE for d in waits_on(u))]
     order = {"doing": 0, "todo": 1, "blocked": 2}
     return sorted(ready, key=lambda u: (order[u["status"]], u["phase"]))
 
 
-def set_status(uid: str, status: str, note: str | None = None, record: bool = True) -> dict:
-    """record=False puts a unit back where it was (a failed run) without logging it as a new transition."""
-    with locked():
-        data = load()
-        u = get(data, uid)
-        u["status"] = status
-        if status in DONE:
-            u.pop("redo", None)
-        if status == "done":
-            u.pop("refine", None)
-        if status != "doing":
-            u.pop("owner", None)             # closed or put back: free for any session
-        if record:
-            u["updated"] = now()
-        if note:
-            u["notes"] = note
-        reopened = _refine_after(data, uid) if status == "done" else []
-        save(data)
+AWAITING = "awaiting approval"
+
+
+def awaiting(u: dict) -> bool:
+    """Finished, but its node asks a person to approve it before anything builds on it."""
+    return u.get("status") == "blocked" and str(u.get("notes") or "").startswith(AWAITING)
+
+
+def _needs_approval(uid: str) -> bool:
+    try:
+        return bool(settings(uid).get("approval"))
+    except (PipelineError, KeyError):
+        return False
+
+
+@locked
+def set_status(uid: str, status: str, note: str | None = None, record: bool = True, approved: bool = False) -> dict:
+    """record=False puts a unit back where it was (a failed run) without logging it as a new transition. A unit whose
+    node sets `approval: true` does not finish on its own: it waits, blocked, until approve()."""
+    data = load()
+    u = get(data, uid)
+    if status == "done" and record and not approved and _needs_approval(uid):
+        status, note = "blocked", (f"{AWAITING}: review its pages, then `{cli_cmd()} plan approve {uid}` (or Approve "
+                                   "in the portal's Pipeline)") + (f" — {note}" if note else "")
+    u["status"] = status
+    if status in DONE:
+        u.pop("redo", None)
+    if status == "done":
+        u.pop("refine", None)
+    if status == "doing":
+        st = {x["id"]: x["status"] for x in data["units"]}
+        pending = [d for d in u.get("soft") or [] if st.get(d, "done") not in DONE]
+        if pending:
+            u["provisional"] = pending           # written without these: reopened to refine when they are done
+        else:
+            u.pop("provisional", None)
+    if record:
+        u["updated"] = now()
+    if note:
+        u["notes"] = note
+    reopened = _refine_after(data, uid) if status == "done" else []
+    save(data)
+    if record and status == "done":
+        try:
+            drafts.snapshot(uid)              # the AI's version of its pages, to compare with what people confirm
+            freshness.stamp_all()             # the pages it wrote reflect today's code
+        except Exception:  # noqa: BLE001 — a measurement must never fail closing a unit
+            pass
     if record and status in ("done", "blocked", "dropped"):
         WORK.mkdir(parents=True, exist_ok=True)
         with LOG.open("a", encoding="utf-8") as fh:
@@ -346,111 +378,62 @@ def _refine_after(data: dict, uid: str) -> list[str]:
     return reopened
 
 
-def _archive_notes(uid: str, stamp: str) -> None:
-    f = note_file(uid)
-    if f.exists():
-        f.rename(f.with_name(f"{f.stem}.before-redo-{stamp.replace(':', '')}.md"))
+def early_draft(u: dict, data: dict) -> bool:
+    """Not finished and an interview that feeds it has not happened yet: it is (or will be) a provisional draft."""
+    st = {x["id"]: x["status"] for x in data["units"]}
+    return u["status"] in ("todo", "doing") and any(st.get(d, "done") not in DONE for d in u.get("soft") or [])
 
 
+def approve(uid: str, by: str) -> dict:
+    u = get(load(), uid)
+    if not awaiting(u):
+        raise ValueError(f"{uid} is not awaiting approval (it is {u['status']})")
+    return set_status(uid, "done", f"approved by {by}", approved=True)
+
+
+@locked
 def add(uid: str, title: str, type_: str = "flow", deps: list[str] | None = None) -> dict:
-    with locked():
-        data = load()
-        if any(u["id"] == uid for u in data["units"]):
-            raise ValueError(f"unit {uid} already exists")
-        slug = uid.split(":", 1)[1] if ":" in uid else uid
-        nu = unit(uid, type_, deps if deps is not None else (["flows-catalog"] if type_ == "flow" else []), slug=slug, title=title)
-        data["units"].append(nu)
-        save(data)
-        sync()
-        return nu
+    data = load()
+    if any(u["id"] == uid for u in data["units"]):
+        raise ValueError(f"unit {uid} already exists")
+    slug = uid.split(":", 1)[1] if ":" in uid else uid
+    nu = unit(uid, type_, deps if deps is not None else (["flows-catalog"] if type_ == "flow" else []), slug=slug, title=title)
+    data["units"].append(nu)
+    save(data)
+    sync()
+    return nu
 
 
+@locked
 def ensure(uid: str, type_: str, title: str | None = None) -> dict:
     """Add a dynamic unit, or put it back to todo if it was done (e.g. new review feedback arrived)."""
-    with locked():
-        data = load()
-        for u in data["units"]:
-            if u["id"] == uid:
-                if u["status"] in DONE:
-                    u["status"], u["updated"] = "todo", now()
-                    save(data)
-                return u
-        nu = unit(uid, type_, [], title=title)
-        data["units"].append(nu)
-        save(data)
-        return nu
-
-
-class Taken(RuntimeError):
-    """The unit is being worked on by another live session."""
-
-
-def _claim(data: dict, u: dict, session: str | None, agent: str | None) -> None:
-    stamp = now()
-    u["status"], u["updated"] = "doing", stamp
-    u["owner"] = {"session": session or "manual", "since": stamp, "seen": stamp, **({"agent": agent} if agent else {})}
-    st = {x["id"]: x["status"] for x in data["units"]}
-    pending = [d for d in u.get("soft") or [] if st.get(d, "done") not in DONE]
-    if pending:
-        u["provisional"] = pending           # written without these: reopened to refine when they are done
-    else:
-        u.pop("provisional", None)
-
-
-def claim(uid: str, session: str | None = None, agent: str | None = None, force: bool = False) -> dict:
-    """Start a unit for one session (`plan start`). Refuses a unit another live session holds unless `force`."""
-    with locked():
-        data = load()
-        u = get(data, uid)
-        who = taken_by(u, session or "manual")
-        if who and not force:
-            raise Taken(f"{uid} is taken by session {who} (since {u['owner'].get('since')}) — pick another unit "
-                        f"(`{cli_cmd()} plan next`) or take it over with `{cli_cmd()} plan start {uid} --force`")
-        _claim(data, u, session, agent)
-        save(data)
-        return u
-
-
-def claim_next(session: str, pick, agent: str | None = None) -> dict | None:
-    """Atomically choose a ready unit no other session holds (`pick(ready) → unit | None`) and claim it."""
-    with locked():
-        data = load()
-        chosen = pick(available(data, session=session))
-        if chosen is None:
-            return None
-        u = get(data, chosen["id"])
-        _claim(data, u, session, agent)
-        save(data)
-        return u
-
-
-def touch(uid: str) -> None:
-    """A sign of life from the session holding the unit (every `plan note`): keeps its claim from going stale."""
-    with locked():
-        data = load()
-        u = next((x for x in data["units"] if x["id"] == uid), None)
-        if u and isinstance(u.get("owner"), dict):
-            u["owner"]["seen"] = now()
-            save(data)
+    data = load()
+    for u in data["units"]:
+        if u["id"] == uid:
+            if u["status"] in DONE:
+                u["status"], u["updated"] = "todo", now()
+                save(data)
+            return u
+    nu = unit(uid, type_, [], title=title)
+    data["units"].append(nu)
+    save(data)
+    return nu
 
 
 def dependents(data: dict, uid: str) -> list[dict]:
     """Finished units built on `uid`, directly or through other units (plan order): what a redo may leave outdated."""
     found, frontier = set(), {uid}
     while frontier:
-        frontier = {u["id"] for u in data["units"] if u["id"] not in found and frontier & set(u["deps"] + (u.get("soft") or []))}
+        frontier = {u["id"] for u in data["units"]
+                    if u["id"] not in found and frontier & set(u["deps"] + (u.get("soft") or []))}
         found |= frontier
     return [u for u in data["units"] if u["id"] in found and u["status"] == "done"]
 
 
+@locked
 def redo(uid: str, also: list[str] | tuple = ()) -> list[dict]:
     """Reopen a finished unit (and the chosen dependents) for a review-and-update session: nothing is deleted,
     the old checkpoints are archived and `redo` keeps when it was finished so the prompt can say so."""
-    with locked():
-        return _redo(uid, also)
-
-
-def _redo(uid: str, also) -> list[dict]:
     data = load()
     targets = [get(data, i) for i in dict.fromkeys([uid, *also])]
     for u in targets:
@@ -471,8 +454,26 @@ def _redo(uid: str, also) -> list[dict]:
 UNITS_DIR = WORK / "units"
 
 
+def _archive_notes(uid: str, stamp: str) -> None:
+    """A reopened unit starts a fresh checkpoint file; the old one stays next to it for the prompt to point at."""
+    f = note_file(uid)
+    if f.exists():
+        f.rename(f.with_name(f"{f.stem}.before-redo-{stamp.replace(':', '')}.md"))
+
+
 def note_file(uid: str) -> Path:
     return UNITS_DIR / (uid.replace(":", "__").replace("/", "_") + ".md")
+
+
+def handoff_file(uid: str) -> Path:
+    """Where a unit that runs in its own worktree leaves its handoff; integration folds it into handoff.md."""
+    f = note_file(uid)
+    return f.with_name(f"{f.stem}.handoff.md")
+
+
+def _at(path: Path) -> str:
+    """Any path as seen from the workspace, where agents run."""
+    return Path(os.path.relpath(path, WORKSPACE)).as_posix()
 
 
 def old_notes(uid: str) -> list[Path]:
@@ -489,70 +490,7 @@ def note(uid: str, text: str) -> Path:
         f.write_text(f"# Checkpoints — {uid}\n\n", encoding="utf-8")
     with f.open("a", encoding="utf-8") as fh:
         fh.write(f"- {now()} {text.strip()}\n")
-    touch(uid)
     return f
-
-
-OPEN_QUESTIONS = DOCS / "interview" / "open-questions.md"
-TOPICS = {"interview-context": "context", "interview-language": "language", "interview-history": "history"}
-SHARED_LOCK = CACHE / "shared-files.lock"
-
-
-def ask(uid: str, question: str, topic: str | None = None) -> Path:
-    """Append a question for the interviews to open-questions.md (under a lock: sessions run side by side). The topic
-    defaults to the interview the unit was drafted without."""
-    if not topic:
-        u = next((x for x in load()["units"] if x["id"] == uid), {})
-        soft = [d for d in u.get("soft") or [] if d in TOPICS]
-        topic = TOPICS.get(uid) or (TOPICS[soft[0]] if soft else "general")
-    line = f"- [ ] ({now()[:10]}, {topic} · {uid}) {' '.join(question.split())}\n"
-    with file_lock(SHARED_LOCK):
-        if not OPEN_QUESTIONS.exists():
-            OPEN_QUESTIONS.parent.mkdir(parents=True, exist_ok=True)
-            OPEN_QUESTIONS.write_text("---\ntype: interview\ntitle: Open questions\ndescription: Questions agents could not "
-                                      "answer from the code; answer them in the next interview or inline.\n---\n"
-                                      "# Open questions\n\n", encoding="utf-8", newline="\n")
-        text = OPEN_QUESTIONS.read_text(encoding="utf-8")
-        with OPEN_QUESTIONS.open("a", encoding="utf-8", newline="\n") as fh:
-            fh.write(("" if text.endswith("\n") else "\n") + line)
-    return OPEN_QUESTIONS
-
-
-HANDOFF_KEEP = 10                    # older entries stay in units/<id>.md and log.md
-_OLD_INTRO = 'Each agent session rewrites "Last session" when it finishes a plan unit.'
-_NEW_INTRO = "Each agent session adds its entry with `plan handoff <unit> \"…\"` when it finishes a plan unit (newest first)."
-
-
-def handoff(uid: str, text: str) -> Path:
-    """Add a session's handoff entry on top of "Recent sessions". The single "Last session" section of 3.x handoffs
-    (which parallel sessions would overwrite) becomes the first entry, once."""
-    body = "\n".join(("#### " + l.lstrip("#").strip()) if l.startswith("#") else l for l in text.strip().splitlines())
-    entry = f"### {uid} — {now()[:16].replace('T', ' ')}\n{body}\n"
-    with file_lock(SHARED_LOCK):
-        cur = HANDOFF.read_text(encoding="utf-8") if HANDOFF.exists() else "# Session handoff 🦐\n\n" + _NEW_INTRO + "\n"
-        head, entries = _split_handoff(cur)
-        entries = [entry, *entries][:HANDOFF_KEEP]
-        HANDOFF.parent.mkdir(parents=True, exist_ok=True)
-        HANDOFF.write_text(head.rstrip() + "\n\n## Recent sessions\n\n" + "\n".join(e.rstrip() + "\n" for e in entries),
-                           encoding="utf-8", newline="\n")
-    return HANDOFF
-
-
-def _split_handoff(text: str) -> tuple[str, list[str]]:
-    text = text.replace("\r\n", "\n").replace(_OLD_INTRO, _NEW_INTRO)
-    m = re.search(r"^## Recent sessions[^\n]*\n", text, flags=re.M)
-    if m:
-        head, rest = text[:m.start()], text[m.end():]
-        parts = re.split(r"^(?=### (?!#))", rest, flags=re.M)
-        return head, [p for p in parts if p.startswith("### ")]
-    m = re.search(r"^## Last session(?: — (.*))?\n", text, flags=re.M)
-    if not m:
-        return text, []
-    nxt = re.search(r"^## ", text[m.end():], flags=re.M)
-    end = m.end() + nxt.start() if nxt else len(text)
-    old = text[m.end():end].strip()
-    head = text[:m.start()] + text[end:]
-    return head, ([f"### {(m.group(1) or 'earlier').strip()} — earlier\n{old}\n"] if old else [])
 
 
 def last_note(uid: str) -> str:
@@ -578,9 +516,9 @@ def render(data: dict | None = None) -> str:
         if u["phase"] != phase:
             phase = u["phase"]
             lines.append(f"\nPhase {phase}")
-        who = taken_by(u)
-        mark = (" ← ready" if u["id"] in ready and u["status"] == "todo" else "") + (" ↻ redo" if u.get("redo") else "") \
-            + (f" [taken: {who}]" if who else "")
+        mark = ((" ← ready" if u["id"] in ready and u["status"] == "todo" else "")
+                + (" ↻ refine" if u.get("refine") else " ↻ redo" if u.get("redo") else "")
+                + (" ✎ draft (before its interview)" if early_draft(u, data) else ""))
         note = f"  ({u['notes']})" if u.get("notes") else ""
         lines.append(f"  {icon[u['status']]} {u['id']:<28} {u['title']}{mark}{note}")
     d, t = progress(data)
@@ -588,17 +526,7 @@ def render(data: dict | None = None) -> str:
 
 
 # ---------- session prompts ----------
-def new_session() -> str:
-    return uuid.uuid4().hex[:8]
-
-
-def prompt_file(uid: str) -> Path:
-    """Each unit's session prompt has its own file: sessions launched side by side never overwrite each other's."""
-    return WORK / "prompts" / (uid.replace(":", "__").replace("/", "_") + ".md")
-
-
-def prompt(uid: str, lang: str = "es", unattended: bool = False, session: str | None = None) -> str:
-    session = session or os.environ.get("CAMARONES_SESSION") or new_session()
+def prompt(uid: str, lang: str = "es", unattended: bool = False) -> str:
     from . import env                    # lazy: env imports plan
     env.sync_kit_docs()                  # the session reads the project's PLAYBOOK copy: bring it up to this kit
     data = load()
@@ -619,15 +547,16 @@ def prompt(uid: str, lang: str = "es", unattended: bool = False, session: str | 
                   f"read its checkpoints in `{rel}`" + (f" (last: {last_note(u['id'])})" if last_note(u["id"]) else "") +
                   f", look at `git status` / `git diff` in `{ws_rel('.')}` for work that was written but not committed, "
                   "check which of the unit's output files already exist, and continue from there.\n")
-    st = {x["id"]: x["status"] for x in data["units"]}
+    st = {x["id"]: x["status"] for x in data.get("units", [])}
     pending = [d for d in u.get("soft") or [] if st.get(d, "done") not in DONE]
     provisional = ""
     if pending:
+        tags = " / ".join(f"`- [ ] (YYYY-MM-DD, {d.split('-', 1)[1]} · {u['id']}) <question> — <evidence>`" for d in pending)
         provisional = (f"\nPROVISIONAL — {', '.join(f'`{d}`' for d in pending)} has not happened yet. Do not wait for it: write "
                        "from the code and the discovery notes (`docs/interview/discovery/`) and never invent business intent, "
-                       "names or decisions. Mark what you infer `TODO(question)` and record every question for that "
-                       f"interview with `{cli} plan ask {u['id']} \"<question>\" --topic <context|language|history>`. "
-                       "ADRs stay `proposed`. When the interview is done this unit is reopened to refine it.\n")
+                       "names or decisions. Mark what you infer `TODO(question)` and add every question for that interview "
+                       f"to `docs/interview/open-questions.md` as {tags}. ADRs stay `proposed`. When the "
+                       "interview is done this unit is reopened to refine it.\n")
     refine_txt = ""
     if u.get("refine"):
         names = ", ".join(f"`{d}`" for d in u["refine"])
@@ -661,7 +590,9 @@ def prompt(uid: str, lang: str = "es", unattended: bool = False, session: str | 
     elif u.get("type") == "doc-fixes":
         extra = (f"\nInput: run `{cli} check` and `{cli} status`. Fix every ERROR, orphaned `x-sources`, `needs-reconfirm` "
                  "pages (re-verify them against the code and summarise the change for the human — never write `x-confirmed`), "
-                 f"and outdated/missing translations (then `{cli} translated <files>`). Finish with `{cli} llms` and a clean `check`.\n")
+                 f"outdated/missing translations (then `{cli} translated <files>`), generated-block WARNs (`{cli} blocks`) "
+                 "and structure WARNs (CONVENTIONS §11). "
+                 f"Finish with `{cli} llms` and a clean `check`.\n")
     elif u.get("type") in INTERVIEW_TYPES and docs.interview_mode() == "team":
         qdir = ws_rel("docs/interview/questionnaire")
         extra = (f"\nTEAM MODE — do not interview anyone: the team already answered a questionnaire. Input: "
@@ -671,41 +602,73 @@ def prompt(uid: str, lang: str = "es", unattended: bool = False, session: str | 
                  "\"interview\" (team mode) says: agreed answers to the dated interview file, citing who said what; "
                  "disagreements and unanswered questions to `docs/interview/open-questions.md`.\n")
     if u.get("type") in INTERVIEW_TYPES:
-        topic = TOPICS[u["type"]]
+        topic = u["type"].split("-", 1)[1]
         extra += (f"\nDRAFT QUESTIONS — other units may already have drafted pages from the code without this interview. "
                   f"Start from the open items tagged `{topic} ·` in `docs/interview/open-questions.md`: they are concrete "
                   "questions grounded in the code. Tick each one you get answered (`- [x]`, with the answer or a pointer "
                   "to the dated interview file); finishing this unit reopens those drafts to refine them.\n")
-    layout = (f"\nLayout: you run in the workspace folder. Docs and agent config live in `{CAM_DIR}/` (its own git repo; every "
+    guidance = plugin_guidance(uid)
+    extra += guidance
+    in_tree = CTX.root != CTX.state_root          # a parallel unit in its own worktree of cam-docs
+    if in_tree:                     # this exact kit: an older `camaron` on PATH would not find the shared plan
+        cli = f'"{which("uv") or "uv"}" run --quiet --script "{KIT / "camarones.py"}"'
+    layout = (f"\nLayout: you run in the workspace folder. This unit writes its docs in `{ws_rel('.')}/`, a private copy "
+              f"of `{CAM_DIR}/` on its own branch: every `docs/…` or `.camarones/…` path in the playbook is relative to it. "
+              f"Other units are working in parallel; the shared plan and handoff stay in `{CAM_DIR}/`, and the `{cli}` "
+              "commands below reach them. Never edit files in another unit's folder or in "
+              f"`{CAM_DIR}/docs/` directly, and do not commit: the kit commits and merges your folder when you are done. "
+              "The service repos are siblings (`<repo>/`); never write kit files into them.\n") if in_tree else (
+              f"\nLayout: you run in the workspace folder. Docs and agent config live in `{CAM_DIR}/` (its own git repo; every "
               f"`docs/…` or `.camarones/…` path in the playbook is relative to it); the service repos are its siblings (`<repo>/`). "
               "Never write kit files into the service repos.\n") if CAM_LAYOUT else (
               "\nLayout: this project uses the older single-folder layout — its docs are `docs/` and `.camarones/` of "
               f"this folder ({ROOT}). Ignore the playbook's `{CAM_DIR}/` prefix and any other `{CAM_DIR}/` folder you see.\n")
+    sections = ("objective, Verified (with evidence), Not verified / assumptions, Commands run, decisions, remaining, "
+                "Next action, files to read first next time")
+    finish = (f"""write your handoff ({sections}) to
+   `{_at(handoff_file(u['id']))}`, run `{cli} check` and fix what it reports on your pages, then
+   `{cli} plan done {u['id']} --note "<one line>"` (or `plan block … --note "why"`).""" if in_tree else
+              f"""`{cli} plan done {u['id']} --note "<one line>"` (or `plan block … --note "why"`), rewrite the
+   "Last session" section of `{_at(HANDOFF)}` ({sections}),
+   run `{cli} check` and `{cli} checkpoint "{u['id']}"` (local commit of the docs so nothing is lost).""")
     return f"""Camarón session — unit `{u['id']}`: {u['title']}
 {redo_txt}{refine_txt}{resume}{provisional}{extra}{layout}
 You are documenting this project with the Camarón kit (works the same in Claude Code and Codex).
 1. Read `{ws_rel('.camarones/PLAYBOOK.md')}` → sections "Session protocol" and "{section}", and `{ws_rel('.camarones/CONVENTIONS.md')}` (binding).
-2. Read `{ws_rel('docs/.work/handoff.md')}` (what previous sessions did and left pending). Do not redo finished work.
-3. Run `{cli} plan start {u['id']} --session {session}`, then do ONLY this unit, as deep as the playbook asks. Other
-   sessions may be working on other units at the same time: if `plan start` says the unit is taken, stop and say so.
-   The CLI is `{cli}` (`{cli} help` lists commands). Write docs in English; talk to the user in {talk}.
+2. Read `{_at(HANDOFF)}` (what previous sessions did and left pending). Do not redo finished work.
+3. Run `{cli} plan start {u['id']}`, then do ONLY this unit, as deep as the playbook asks. The CLI is `{cli}`
+   (`{cli} help` lists commands). Write docs in English; talk to the user in {talk}.
    Save progress as you go (the user may close the session at any time): after each significant step run
    `{cli} plan note {u['id']} "<what is done / what is next>"` and write findings to their files immediately.
-4. Finish: `{cli} plan done {u['id']} --note "<one line>"` (or `plan block … --note "why"`), then
-   `{cli} plan handoff {u['id']} "<done, decisions, pending, files to read first next time>"` (adds your entry to
-   `{ws_rel('docs/.work/handoff.md')}`; never edit that file by hand), then run `{cli} check` and
-   `{cli} checkpoint "{u['id']}"` (local commit of the docs so nothing is lost).
-5. {ask}
+4. Write for agents first, people second (CONVENTIONS §11): start each page from its skeleton in
+   `{ws_rel('.camarones/skeletons/')}`; `> **TL;DR:** …` under the H1; every `##` section reads alone (no "see above");
+   exact identifiers in backticks; tables for facts, commands in fenced blocks; evidence next to the claim; unknown →
+   `TODO(question): …`. `{cli} check` must show no structure WARN on your pages before you finish.
+5. Finish: {finish}
+6. {ask}
 """
 
 
 # ---------- autopilot ----------
-AGENTS = ("claude", "codex")
 INTERVIEW_TYPES = {"interview-context", "interview-language", "interview-history"}
-# best guess at the CLIs' wording, matched only against the end of the output (where the CLI prints its
-# error) so a unit documenting a rate-limited API isn't misread; anything else stops the loop instead
-LIMIT_HINTS = ("usage limit", "rate limit", "rate_limit", "limit reached", "try again later",
-               "too many requests", "resets at", "limit will reset", "quota exceeded")
+AUTOPILOT_PROMPT = WORK / "autopilot-prompt.md"
+_RUN: ContextVar[tuple[EventLog, str] | None] = ContextVar("autopilot_run", default=None)
+
+
+@contextlib.contextmanager
+def recording(log: EventLog, run_id: str):
+    """Within this block, agent sessions and autopilot steps are written to `log` under `run_id`."""
+    token = _RUN.set((log, run_id))
+    try:
+        yield
+    finally:
+        _RUN.reset(token)
+
+
+def _emit(kind: str, **fields) -> None:
+    cur = _RUN.get()
+    if cur:
+        cur[0].emit(kind, run=cur[1], **fields)
 
 
 def _autopilot_log(text: str, echo=print) -> None:
@@ -723,55 +686,72 @@ def _short(s, n: int = 110) -> str:
 
 def _render(agent: str, line: str) -> tuple[list[str], str]:
     """One line of the agent's JSON event stream → (progress lines to show, error/result text for limit checks)."""
-    try:
-        ev = json.loads(line)
-    except ValueError:
-        return ([_short(line, 140)] if line.strip() else []), line
-    kind = ev.get("type")
-    if agent == "claude":
-        if kind == "assistant":
-            shown = []
-            for c in ev.get("message", {}).get("content", []):
-                if c.get("type") == "tool_use":
-                    inp = c.get("input") or {}
-                    arg = next((inp[k] for k in ("file_path", "path", "command", "pattern", "url", "description") if inp.get(k)), "")
-                    shown.append(f"· {c.get('name')} {_short(arg)}")
-                elif c.get("type") == "text" and c.get("text", "").strip():
-                    shown.append(f"» {_short(c['text'], 130)}")
-            return shown, ""
-        if kind == "result":
-            res = str(ev.get("result") or ev.get("subtype") or "")
-            return ([f"= {'error: ' if ev.get('is_error') else ''}{_short(res, 130)}"] if ev.get("is_error") else []), res
-        return [], ""
-    item = ev.get("item") or {}
-    if kind == "item.started" and item.get("type") == "command_execution":
-        cmd = str(item.get("command", ""))
-        return [f"· $ {_short(cmd.split('-Command', 1)[-1].strip(chr(39) + ' '))}"], ""
-    if kind == "item.completed":
-        if item.get("type") == "agent_message":
-            return [f"» {_short(item.get('text'), 130)}"], ""
-        if item.get("type") == "file_change":
-            return [f"· edit {_short(c.get('path'))}" for c in item.get("changes", [])], ""
-        if item.get("type") == "mcp_tool_call":
-            return [f"· {item.get('server')}.{item.get('tool')}"], ""
-    if kind in ("turn.failed", "error"):
-        msg = str((ev.get("error") or {}).get("message") or ev.get("message") or "")
-        return [f"= error: {_short(msg, 130)}"], msg
-    return [], ""
+    return _show(_runner(agent)[0].parse(line))
 
 
-def _run_agent(agent: str, text: str, lang: str, uid: str, echo=print, session: str | None = None) -> subprocess.CompletedProcess:
+def _runner(target: str):
+    """A routing target (`codex` or `codex:o5`) → (its runner, the model to ask for)."""
+    route = routing.parse(target)
+    return runners.get(route.runner), route.model
+
+
+def _agents(log, tier: str = "agentic-heavy", runner: str | None = None, allow_local: bool = False) -> list[str]:
+    """Installed targets for a tier in routing order (defaults: claude, then codex), or for the one runner a
+    pipeline node asks for."""
+    routes = {tier: [runner]} if runner else routing.table(docs.workspace(), load_json(PREFS, {}))
+    keep, notes = routing.candidates(tier, routes, allow_local)
+    out = []
+    for r in keep:
+        try:
+            runner = runners.get(r.runner)
+        except KeyError:
+            notes.append(f"{r}: unknown runner")
+            continue
+        if which(runner.command or runner.id):
+            out.append(str(r))
+    for n in notes:
+        log(f"Routing: {n}")
+    return out
+
+
+def _show(events: list[dict]) -> tuple[list[str], str]:
+    shown, err = [], ""
+    for ev in events:
+        kind, text = ev["type"], ev.get("text")
+        if kind == "tool.call":
+            shown.append(f"· {ev['name']}" + ("" if ev["arg"] is None else f" {_short(ev['arg'])}"))
+        elif kind == "file.changed":
+            shown.append(f"· edit {_short(ev['path'])}")
+        elif kind == "log" and ev.get("raw"):
+            shown += [_short(text, 140)] if text.strip() else []
+            err = text
+        elif kind == "log":
+            shown.append(f"» {_short(text, 130)}")
+        elif kind == "error":
+            shown.append(f"= error: {_short(text, 130)}")
+            err = text
+        elif kind == "result":
+            err = text
+    return shown, err
+
+
+def _run_agent(agent: str, text: str, lang: str, uid: str, echo=print, *, prompt_file: Path | None = None,
+               env: dict | None = None, emit=None, on_start=None) -> subprocess.CompletedProcess:
     """Run one unattended session, streaming a compact view of what the agent does, plus a heartbeat with
-    the unit's last checkpoint when it goes quiet. The returned stdout holds the error/result text only."""
+    the unit's last checkpoint when it goes quiet. The returned stdout holds the error/result text only.
+    The parallel scheduler gives each unit its own prompt file, env (its worktree) and event sink."""
+    emit = emit or _emit
+    prompt_file = prompt_file or AUTOPILOT_PROMPT
     # multi-line args do not survive Windows .cmd shims: hand over a one-line pointer to the prompt file
-    pf = prompt_file(uid)
-    pf.parent.mkdir(parents=True, exist_ok=True)
-    pf.write_text(text, encoding="utf-8")
-    brief = ws_rel(rel_file(pf))
+    prompt_file.parent.mkdir(parents=True, exist_ok=True)
+    prompt_file.write_text(text, encoding="utf-8")
+    brief = _at(prompt_file)
     short = f"Follow the instructions in {brief}" if lang == "en" else f"Sigue las instrucciones de {brief}"
-    cmd = ([which(agent), "-p", short, "--dangerously-skip-permissions", "--output-format", "stream-json", "--verbose"]
-           if agent == "claude" else
-           [which(agent), "exec", "--approve-for-me", "--skip-git-repo-check", "--json", short])
+    # pin the project: the agent's own `camarones …` calls must hit this plan, whatever folder it cds into
+    runner, model = _runner(agent)
+    inv = runner.build(RunRequest(prompt=short, cwd=WORKSPACE,
+                                  env={**os.environ, "CAMARONES_ROOT": str(ROOT), **(env or {})}, model=model))
+    cmd = inv.argv
     start = last = time.monotonic()
     seen_note = last_note(uid)
     stop = threading.Event()
@@ -779,10 +759,6 @@ def _run_agent(agent: str, text: str, lang: str, uid: str, echo=print, session: 
     def heartbeat() -> None:
         nonlocal seen_note
         while not stop.wait(30):
-            try:
-                touch(uid)                   # keep this worker's claim alive however long the unit takes
-            except RuntimeError:
-                pass
             if time.monotonic() - last < 60:
                 continue
             ckpt = last_note(uid)
@@ -792,17 +768,20 @@ def _run_agent(agent: str, text: str, lang: str, uid: str, echo=print, session: 
 
     tail: list[str] = []
     try:
-        # pin the project: the agent's own `camarones …` calls must hit this plan, whatever folder it cds into
-        p = subprocess.Popen(cmd, cwd=str(WORKSPACE), stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+        p = subprocess.Popen(cmd, cwd=str(inv.cwd), stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                              stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace", bufsize=1,
-                             env={**os.environ, "CAMARONES_ROOT": str(ROOT), "CAMARONES_AGENT": agent,
-                                  **({"CAMARONES_SESSION": session} if session else {})})
+                             env=inv.env)
     except OSError as e:
         return subprocess.CompletedProcess(cmd, 127, str(e), "")
+    if on_start:
+        on_start(p)
     threading.Thread(target=heartbeat, daemon=True).start()
     try:
         for line in p.stdout:
-            shown, err = _render(agent, line.rstrip("\n"))
+            events = runner.parse(line.rstrip("\n"))
+            for ev in events:
+                emit(ev["type"], unit=uid, runner=agent, **{k: v for k, v in ev.items() if k != "type"})
+            shown, err = _show(events)
             for s in shown:
                 echo(f"  {s}")
             if shown:
@@ -818,140 +797,118 @@ def _run_agent(agent: str, text: str, lang: str, uid: str, echo=print, session: 
     return subprocess.CompletedProcess(cmd, rc, "\n".join(tail), "")
 
 
-# units that touch many shared files (the system C4 model, every page, translations): never next to another unit
-GLOBAL_TYPES = {"arch-system", "deployment", "diagrams", "i18n", "handover", "review-fixes", "doc-fixes"}
-
-
-def release(uid: str) -> None:
-    """Drop a session's claim and leave the status as the session left it (a `doing` unit is resumed next time)."""
-    def drop(data: dict) -> None:
-        get(data, uid).pop("owner", None)
-    mutate(drop)
-
-
 def run_autopilot(lang: str = "es", max_units: int | None = None, poll_seconds: int = 900,
-                  include_interviews: bool = False, echo=print, jobs: int = 1) -> int:
-    """Run ready units, one fresh unattended session each and up to `jobs` side by side, switching between Claude
-    Code and Codex when one hits its usage limit and waiting while both are limited. Each worker claims its unit, so
-    windows the user opened meanwhile are left alone; units in GLOBAL_TYPES run alone. Returns units completed."""
-    import queue as queue_mod
-    log = lambda t: _autopilot_log(t, echo)                                    # noqa: E731
-    agents = [a for a in AGENTS if which(a)]
+                  include_interviews: bool = False, echo=print) -> int:
+    """Run ready units back to back, one fresh unattended session each, switching between Claude Code and
+    Codex when one hits its usage limit and waiting while both are limited. Returns units completed.
+    Every run is recorded in .camarones/.cache/runs/<run>/events.jsonl."""
+    agents = _agents(lambda t: _autopilot_log(t, echo))
     if not agents:
-        log("Autopilot: neither `claude` nor `codex` is installed — nothing to run.")
+        _autopilot_log("Autopilot: no agent from the agentic-heavy routing is installed (default: `claude`, `codex`) "
+                       "— nothing to run.", echo)
         return 0
-    jobs = max(1, int(jobs or 1))
+    from .harness.locks import FileLock, LockBusy
+    from .harness.scheduler import RUN_LOCK
+    lock = FileLock(RUN_LOCK, wait=0, info={"what": "autopilot"})
+    try:
+        lock.acquire()
+    except LockBusy as e:
+        _autopilot_log(f"Autopilot: another documentation run is in progress (pid {e.holder.get('pid')}) — nothing "
+                       "started.", echo)
+        return 0
+    try:
+        return _recorded_autopilot(agents, lang, max_units, poll_seconds, include_interviews, echo)
+    finally:
+        lock.release()
+
+
+def _recorded_autopilot(agents, lang, max_units, poll_seconds, include_interviews, echo) -> int:
+    run_id = f"r-{dt.datetime.now():%Y%m%d-%H%M%S}-{os.getpid()}"
+    with recording(EventLog(CTX.runs / run_id / "events.jsonl"), run_id):
+        _emit("run.started", agents=agents, max_units=max_units)
+        try:
+            with awake.keep_awake():           # a laptop that sleeps mid-session breaks the agent's connection
+                done = _autopilot(agents, lang, max_units, poll_seconds, include_interviews, echo)
+        except BaseException:                  # Ctrl+C or a crash: the log must still say the run ended
+            _emit("run.finished", interrupted=True)
+            kpis.record_run(run_id)
+            raise
+        _emit("run.finished", done=done)
+    kpis.record_run(run_id)
+    return done
+
+
+def _autopilot(agents: list[str], lang: str, max_units: int | None, poll_seconds: int, include_interviews: bool,
+               echo) -> int:
+    log = lambda t: _autopilot_log(t, echo)                                    # noqa: E731
     # team interviews only consolidate written answers: nothing to ask, so they can run unattended
     skip = set() if include_interviews or docs.interview_mode() == "team" else INTERVIEW_TYPES
     limited: dict[str, dt.datetime] = {}
-    running: dict[str, tuple[str, str]] = {}               # uid → (agent, worker session)
-    results: queue_mod.Queue = queue_mod.Queue()
-    out_lock = threading.Lock()
-    done, stopping = 0, False
-    log(f"Autopilot started with {', '.join(agents)}" + (f", {jobs} units at a time" if jobs > 1 else "")
-        + (f" (max {max_units} units)" if max_units else ""))
+    noted: set[str] = set()
 
-    def worker_echo(name: str, uid: str):
-        if jobs == 1:
-            return echo
-
-        def say(text: str) -> None:
-            with out_lock:
-                echo(f"[{name.removeprefix('autopilot-')} {uid}] {str(text).strip()}")
-        return say
-
-    def work(agent: str, uid: str, session: str) -> None:
-        try:
-            r = _run_agent(agent, prompt(uid, lang=lang, unattended=True, session=session), lang, uid,
-                           worker_echo(session, uid), session=session)
-        except Exception as e:                              # a crashed worker must not hang the scheduler
-            r = subprocess.CompletedProcess([agent], 1, f"{type(e).__name__}: {e}", "")
-        results.put((uid, r))
-
-    def finished(uid: str, r: subprocess.CompletedProcess) -> bool:
-        """Handle one result; False stops starting new units."""
-        nonlocal done
-        agent, _ = running.pop(uid)
-        output = f"{r.stdout or ''}\n{r.stderr or ''}"
-        if r.returncode == 0:
-            status = get(load(), uid)["status"]
-            log(f"{agent} finished {uid} (status: {status})")
-            if status in ("todo", "doing"):
-                release(uid)
-                log(f"Autopilot stopped: {uid} ended without `plan done`/`plan block` — check its checkpoints "
-                    f"in {ws_rel(rel_file(note_file(uid)))} before continuing.")
-                return False
-            done += 1
-            return True
-        release(uid)
-        if any(h in output[-2000:].lower() for h in LIMIT_HINTS):
-            limited[agent] = dt.datetime.now() + dt.timedelta(seconds=poll_seconds)
-            others = [a for a in agents if limited.get(a, dt.datetime.min) <= dt.datetime.now()]
-            log(f"{agent} hit its usage limit" + (f" — switching to {others[0]}" if others else ""))
-            return True
-        log(f"Autopilot stopped: {agent} failed on {uid} (exit {r.returncode}). Last output:\n" + output.strip()[-1500:])
-        return False
-
-    while True:
-        while not results.empty():                          # collect whatever finished meanwhile
-            if not finished(*results.get()):
-                stopping = True
-        room = (not stopping and len(running) < jobs and (max_units is None or done + len(running) < max_units)
-                and not any(get(load(), uid)["type"] in GLOBAL_TYPES for uid in running))
-        if room:
-            free = [a for a in agents if limited.get(a, dt.datetime.min) <= dt.datetime.now()]
-            if not free and not running:
-                soonest = min(limited.values())
-                wait = max(60, min(poll_seconds, int((soonest - dt.datetime.now()).total_seconds())))
-                log(f"All agents are at their usage limit — retrying in {wait // 60} min "
-                    f"(machine must stay on; Ctrl+C to stop, progress is saved).")
-                time.sleep(wait)
-                continue
-            if free:
-                busy = {s for _, s in running.values()}
-                session = next(f"autopilot-w{k}" for k in range(1, jobs + 1) if f"autopilot-w{k}" not in busy)
-
-                def pick(ready: list[dict]) -> dict | None:
-                    for u in ready:
-                        if u["runner"] != "agent" or u["type"] in skip or u["id"] in running:
-                            continue
-                        if u["type"] in GLOBAL_TYPES and running:
-                            return None                     # it runs alone: wait for the others to finish first
-                        return u
-                    return None
-                sync()
-                u = claim_next(session, pick, agent=free[0])
-                if u:
-                    running[u["id"]] = (free[0], session)
-                    log(f"{free[0]} → {u['id']}: {u['title']}" + (f" [{session.removeprefix('autopilot-')}]" if jobs > 1 else ""))
-                    threading.Thread(target=work, args=(free[0], u["id"], session), daemon=True).start()
-                    continue
-        if running:
-            try:
-                uid, r = results.get(timeout=1)
-            except queue_mod.Empty:
-                continue
-            if not finished(uid, r):
-                stopping = True
-            continue
-        # nothing running and nothing more to start: say why
-        if stopping:
-            return done
-        if max_units is not None and done >= max_units:
-            log(f"Autopilot stopped: reached the limit of {max_units} unit(s).")
-            return done
+    def log_once(text: str) -> None:           # routing notes once per run, not once per unit
+        if text not in noted:
+            noted.add(text)
+            log(text)
+    done = 0
+    for problem in pipeline_problems():
+        log(f"pipeline.yaml: {problem} — the plan is used as it was")
+    log(f"Autopilot started with {', '.join(agents)}" + (f" (max {max_units} units)" if max_units else ""))
+    while max_units is None or done < max_units:
         data = sync()
         ready = available(data)
-        wizard = [u["id"] for u in ready if u["runner"] == "wizard"]
-        interviews = [u["id"] for u in ready if u["type"] in skip]
-        taken = [f"{u['id']} ({taken_by(u)})" for u in ready if taken_by(u)]
-        if wizard or interviews or taken:
-            why = ([f"wizard step(s) {', '.join(wizard)} (run `{cli_cmd()}`)"] if wizard else []) + \
-                  ([f"interview(s) {', '.join(interviews)} (need you, in an interactive session)"] if interviews else []) + \
-                  ([f"unit(s) another session is working on: {', '.join(taken)}"] if taken else [])
-            log(f"Autopilot stopped: what is left needs you — {'; '.join(why)}. Then start autopilot again.")
-        else:
-            d, t = progress(data)
-            log(f"Autopilot stopped: nothing ready — {d}/{t} units done "
-                "(finished, or waiting on blocked units / docs/interview/open-questions.md).")
+        queue = [u for u in ready if u["runner"] == "agent" and u["type"] not in skip]
+        if not queue:
+            wizard = [u["id"] for u in ready if u["runner"] == "wizard"]
+            interviews = [u["id"] for u in ready if u["type"] in skip]
+            if wizard or interviews:
+                why = ([f"wizard step(s) {', '.join(wizard)} (run `{cli_cmd()}`)"] if wizard else []) + \
+                      ([f"interview(s) {', '.join(interviews)} (need you, in an interactive session)"] if interviews else [])
+                log(f"Autopilot stopped: what is left needs you — {'; '.join(why)}. Then start autopilot again.")
+            else:
+                d, t = progress(data)
+                log(f"Autopilot stopped: nothing ready — {d}/{t} units done "
+                    "(finished, or waiting on blocked units / docs/interview/open-questions.md).")
+            return done
+        u = queue[0]
+        s = settings(u["id"])
+        targets = _agents(log_once, s["tier"], s.get("runner"), bool(s.get("allow_local")))
+        if not targets:
+            log(f"Autopilot stopped: no installed agent can run {u['id']} ({s.get('runner') or s['tier']}).")
+            return done
+        free = [a for a in targets if limited.get(a, dt.datetime.min) <= dt.datetime.now()]
+        if not free:
+            soonest = min(limited[a] for a in targets)
+            wait = max(60, min(poll_seconds, int((soonest - dt.datetime.now()).total_seconds())))
+            log(f"All agents are at their usage limit — retrying in {wait // 60} min "
+                f"(machine must stay on; Ctrl+C to stop, progress is saved).")
+            time.sleep(wait)
+            continue
+        agent = free[0]
+        log(f"{agent} → {u['id']}: {u['title']}")
+        _emit("unit.started", unit=u["id"], runner=agent)
+        started = time.monotonic()
+        r = _run_agent(agent, prompt(u["id"], lang=lang, unattended=True), lang, u["id"], echo)
+        output = f"{r.stdout or ''}\n{r.stderr or ''}"
+        outcome = _runner(agent)[0].classify(r.returncode, output)
+        status = get(load(), u["id"])["status"]
+        _emit("unit.finished", unit=u["id"], runner=agent, outcome=outcome, rc=r.returncode, status=status,
+              seconds=round(time.monotonic() - started, 1))
+        if outcome == "ok":
+            log(f"{agent} finished {u['id']} (status: {status})")
+            if status in ("todo", "doing"):
+                log(f"Autopilot stopped: {u['id']} ended without `plan done`/`plan block` — check its checkpoints "
+                    f"in {ws_rel(rel_file(note_file(u['id'])))} before continuing.")
+                return done
+            done += 1
+            continue
+        if outcome == "limited":
+            limited[agent] = dt.datetime.now() + dt.timedelta(seconds=poll_seconds)
+            others = [a for a in targets if limited.get(a, dt.datetime.min) <= dt.datetime.now()]
+            log(f"{agent} hit its usage limit" + (f" — switching to {others[0]}" if others else ""))
+            continue
+        log(f"Autopilot stopped: {agent} failed on {u['id']} (exit {r.returncode}). Last output:\n"
+            + output.strip()[-1500:])
         return done
+    log(f"Autopilot stopped: reached the limit of {max_units} unit(s).")
+    return done

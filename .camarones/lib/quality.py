@@ -46,7 +46,7 @@ def prose_lines(text: str):
 
 
 def resolve(base: str, href: str) -> str:
-    """Mirror of resolve() in portal/live/app.js: relative to the page's logical folder."""
+    """Mirror of resolve() in portal/app/public/legacy/doc.js: relative to the page's logical folder."""
     parts = base.split("/")[:-1]
     for p in href.split("/"):
         if p == "..":
@@ -59,17 +59,32 @@ def resolve(base: str, href: str) -> str:
 
 # ---------- H1: internal links ----------
 def check_links(rows: list[dict], strict: bool = False) -> Issues:
-    known = {r["path"] for r in rows}
-    errors = []
-    for logical, f, _ in pages(rows):
+    """Broken page links are errors; a `#anchor` the target page has no heading for is a WARN (ERROR with --strict).
+    Anchors resolve like the portal: docs.slug() of the heading. Translations are skipped for anchors."""
+    known = {r["path"]: ROOT / r["file"] for r in rows}
+    slugs: dict[str, set[str]] = {}
+
+    def anchors(path: str) -> set[str]:
+        if path not in slugs:
+            body = docs.split_fm(known[path].read_text(encoding="utf-8", errors="replace"))[1]
+            slugs[path] = {h["slug"] for h in docs.headings(body)}
+        return slugs[path]
+    errors, warns = [], []
+    for logical, f, lang in pages(rows):
         for n, line in prose_lines(f.read_text(encoding="utf-8", errors="replace")):
             for href in LINK_RE.findall(line) + REF_DEF_RE.findall(line):
-                if re.match(r"^[a-z][a-z0-9+.-]*:|^#|^/", href, re.I):     # external, anchor-only, absolute: skipped
+                if re.match(r"^[a-z][a-z0-9+.-]*:|^/", href, re.I):          # external, absolute: skipped
                     continue
-                target = unquote(href.split("#", 1)[0].split("?", 1)[0])
-                if target.endswith(".md") and resolve(logical, target) not in known:
+                target, _, anchor = unquote(href.split("?", 1)[0]).partition("#")
+                if target and not target.endswith(".md"):
+                    continue
+                page = resolve(logical, target) if target else logical
+                if target and page not in known:
                     errors.append(f"{rel_file(f)}:{n}: broken link → {href}")
-    return errors, []
+                elif (anchor and anchor != "top" and not lang and page in known
+                      and docs.slug(anchor) not in anchors(page)):
+                    warns.append(f"{rel_file(f)}:{n}: no heading for #{anchor} in {page}")
+    return (errors + warns, []) if strict else (errors, warns)
 
 
 # ---------- G1: Mermaid diagrams ----------
@@ -267,4 +282,168 @@ def check_diagrams(rows: list[dict], strict: bool = False) -> Issues:
     return [], warns
 
 
-CHECKS = (check_links, check_mermaid, check_secrets, check_terms, check_diagrams)
+def check_fresh(rows: list[dict], strict: bool = False) -> Issues:
+    """Pages whose cited code changed or disappeared since they were written (agents are kept off them)."""
+    from .harness.freshness import code_paths
+    warns = []
+    for r in rows:
+        st = r.get("freshness") or {}
+        if r.get("fresh") == "suspect":
+            warns.append(f"{r['file']}: its code changed since it was written ({', '.join(code_paths(st.get('changed', [])))}) "
+                         "— refresh it, or `fresh --ack` if it still holds")
+        elif r.get("fresh") == "stale":
+            warns.append(f"{r['file']}: its code is gone ({', '.join(code_paths(st.get('missing', [])))}) — refresh it")
+    return ([], warns) if not strict else (warns, [])
+
+
+
+
+# ---------- structure: pages written for agents first (CONVENTIONS §11) ----------
+TYPES = ("overview", "architecture", "domain", "glossary", "business-flow", "data-model", "deployment", "decision",
+         "quality", "guide", "interview")
+EXEMPT_TYPES = ("interview", "guide")          # working notes and the human guides keep their own shape
+DESCRIPTION = (40, 300)                        # characters: a line in llms.txt and in search results
+PAGE_WORDS, SECTION_WORDS = 1500, 400          # prose only, tables and code left out
+VAGUE = re.compile(r"\b(see (above|below)|as (mentioned|said|stated) (above|before|earlier)|click here|ver (arriba|abajo)|como se (mencion[óo]|dijo) (arriba|antes)|haz clic aqu[íi])\b", re.I)
+HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*(<!--\s*optional\s*-->)?\s*$")
+TLDR = re.compile(r"^>\s*\*\*TL;DR:?\*\*", re.I)
+
+
+def _norm_heading(text: str) -> str:
+    return re.sub(r"[^\w ]+", "", re.sub(r"<!--.*?-->", "", text)).strip().lower()
+
+
+def skeleton_dirs() -> list[Path]:
+    """The project's copy first (the team may adapt it), then the kit's."""
+    from .common import KIT
+    return [ROOT / ".camarones" / "skeletons", KIT / "templates" / "skeletons"]
+
+
+def skeletons() -> list[dict]:
+    """[{name, type, for, required}] — `x-skeleton-for` (a path glob) wins over `type`."""
+    seen, out = set(), []
+    for d in skeleton_dirs():
+        for f in sorted(d.glob("*.md")) if d.is_dir() else []:
+            if f.name in seen or f.name == "README.md":
+                continue
+            seen.add(f.name)
+            fm, body = docs.split_fm(f.read_text(encoding="utf-8"))
+            required = [_norm_heading(m.group(2)) for line in body.splitlines()
+                        if (m := HEADING.match(line)) and len(m.group(1)) == 2 and not m.group(3)]
+            out.append({"name": f.stem, "type": fm.get("type"), "for": fm.get("x-skeleton-for"), "required": required})
+    return out
+
+
+def skeleton_for(path: str, page_type: str, known: list[dict]) -> dict | None:
+    from fnmatch import fnmatch
+    by_path = next((s for s in known if s["for"] and fnmatch(path, s["for"])), None)
+    return by_path or next((s for s in known if not s["for"] and s["type"] == page_type), None)
+
+
+def structure_issues(path: str, text: str, known: list[dict]) -> list[str]:
+    fm, body = docs.split_fm(text)
+    kind, out = fm.get("type"), []
+    if kind not in TYPES:
+        out.append(f"type '{kind}' is not one of {', '.join(TYPES)}" if kind else "no type in the frontmatter")
+    if not fm.get("title"):
+        out.append("no title in the frontmatter")
+    desc = str(fm.get("description") or "")
+    if not DESCRIPTION[0] <= len(desc) <= DESCRIPTION[1]:
+        out.append(f"description should say in {DESCRIPTION[0]}–{DESCRIPTION[1]} characters which question the page "
+                   f"answers (it has {len(desc)})")
+    heads, prev, fence = [], 1, None
+    for line in body.splitlines():
+        if FENCE_RE.match(line):
+            fence = None if fence else True
+            continue
+        m = None if fence else HEADING.match(line)
+        if m:
+            level = len(m.group(1))
+            if heads and level > prev + 1:
+                out.append(f"heading '{m.group(2)}' skips a level (h{prev} → h{level})")
+            heads.append((level, _norm_heading(m.group(2))))
+            prev = level
+    if sum(1 for lv, _ in heads if lv == 1) != 1:
+        out.append(f"{sum(1 for lv, _ in heads if lv == 1)} H1 headings (one per page)")
+    after_h1 = body.split("\n", 1)[1] if body.lstrip().startswith("# ") else body
+    first = next((l for l in after_h1.splitlines() if l.strip()), "")
+    if not TLDR.match(first.strip()):
+        out.append("no `> **TL;DR:** …` right under the H1 (agents decide from it whether to read on)")
+    sk = skeleton_for(path, kind, known)
+    if sk:
+        have = {h for lv, h in heads if lv == 2}
+        missing = [h for h in sk["required"] if h not in have]
+        if missing:
+            out.append(f"missing sections from the {sk['name']} skeleton: {', '.join(missing)}")
+    words, section, section_words = 0, None, {}
+    for _, line in prose_lines(text):
+        m = HEADING.match(line)
+        if m:
+            section = m.group(2) if len(m.group(1)) == 2 else section
+            continue
+        if line.lstrip().startswith("|"):
+            continue
+        n = len(line.split())
+        words += n
+        if section:
+            section_words[section] = section_words.get(section, 0) + n
+        if VAGUE.search(line):
+            out.append(f"vague reference '{VAGUE.search(line).group(0)}': name the thing instead (sections are read alone)")
+    if words > PAGE_WORDS:
+        out.append(f"{words} words of prose (budget {PAGE_WORDS}): split the page")
+    out += [f"section '{s}' has {n} words of prose (budget {SECTION_WORDS})" for s, n in section_words.items()
+            if n > SECTION_WORDS]
+    return out
+
+
+def check_structure(rows: list[dict], strict: bool = False) -> Issues:
+    """Pages written for agents first: answer first, sections that stand alone, the skeleton's sections, budgets."""
+    known, issues = skeletons(), []
+    for r in rows:
+        if r.get("space", "docs") != "docs" or r.get("type") in EXEMPT_TYPES or r.get("owner") == "human":
+            continue
+        f = ROOT / r["file"]
+        for i in structure_issues(r["path"], f.read_text(encoding="utf-8", errors="replace"), known):
+            issues.append(f"{rel_file(f)}: {i}")
+    return (issues, []) if strict else ([], issues)
+
+
+def check_plugins(rows: list[dict], strict: bool = False) -> Issues:
+    """Team plugins against .camarones/plugins.lock (R37): hand edits, unknown folders, locked plugins gone."""
+    from .harness import plugin_store
+    found = plugin_store.issues()
+    return (found, []) if strict else ([], found)
+
+
+def check_generated(rows: list[dict], strict: bool = False) -> Issues:
+    """Generated blocks (X3) edited by hand or behind the code."""
+    from . import genblocks
+    return genblocks.check(rows, strict)
+
+
+def check_rules(rows: list[dict], strict: bool = False) -> Issues:
+    """`:::rule` blocks (X8): one page per id, and every `enforced:` / `test:` symbol still where the anchor says."""
+    from .harness import freshness
+    errors, warns, seen = [], [], {}
+    for r in rows:
+        if r.get("space", "docs") != "docs":
+            continue
+        f = ROOT / r["file"]
+        for rule in docs.rules(f.read_text(encoding="utf-8", errors="replace")):
+            rid, where = rule["id"], rel_file(f)
+            if rid in seen:
+                errors.append(f"{where}: rule {rid} is already defined in {seen[rid]}")
+                continue
+            seen[rid] = where
+            if not rule["enforced"]:
+                warns.append(f"{where}: rule {rid} has no enforced: anchor (repo:path#Symbol of the code that applies it)")
+            for ref in rule["enforced"] + rule["test"]:
+                if freshness.kind(ref) != "symbol":
+                    warns.append(f"{where}: rule {rid}: {ref} — write it as repo:path#Symbol so check can find it")
+                elif freshness._block(ref) is None:
+                    errors.append(f"{where}: rule {rid}: {ref.partition('#')[2]} not found in {ref.partition('#')[0]}")
+    return (errors + warns, []) if strict else (errors, warns)
+
+
+CHECKS = (check_links, check_mermaid, check_secrets, check_terms, check_diagrams, check_fresh,
+          check_structure, check_generated, check_plugins, check_rules)

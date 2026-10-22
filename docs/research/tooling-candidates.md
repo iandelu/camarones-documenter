@@ -28,7 +28,7 @@ can **discard** in a second pass. Nothing here is a decision.
 | Quality gate | `CLI check` (`lib/docs.py:338`) | Checks frontmatter, orphan `x-sources`, trust, i18n. **No link check** (the PLAYBOOK's `doc-fixes` step assumes one), no prose lint, no secret scan, no claim verification |
 | Agent retrieval | `camarones` MCP `search_docs` (`lib/docs.py:354`) | Naive term counting over every file per query; no ranking, no semantic match |
 | Portal | Own no-build app (marked, DOMPurify, Mermaid, highlight.js, vis-network, LikeC4 web component) | Static export search is client-side; no catalog export |
-| Plan / sessions | `plan.yaml`, `handoff.md`, checkpoints | Custom; parallel sessions since kit 3.14.0 (file lock, per-unit claims, `autopilot --jobs N`), same tree, no worktrees |
+| Plan / sessions | `plan.yaml`, `handoff.md`, checkpoints | Custom; fine for one agent, untested for parallel agents |
 | i18n | Agent translates, hash stamp via `CLI translated` | Every translation is a full agent pass |
 | Opt-in reviews | `security-review`, `architecture-review` (beta) | Pure LLM reasoning; no scanner evidence |
 
@@ -38,10 +38,10 @@ can **discard** in a second pass. Nothing here is a decision.
 
 | ID | Tool | What it is | What it would improve here | Notes | Signal |
 |---|---|---|---|---|---|
-| A1 | [CodeWiki (FSoft-AI4Code)](https://github.com/FSoft-AI4Code/CodeWiki) | Open-source repo-level doc generator (ACL 2026). Builds a dependency graph, clusters it into a module tree, one agent per leaf module, parents written from children, Mermaid diagrams | Scales to very large repos (1M+ LOC) where a single OpenWiki run struggles; ships **CodeWikiBench**, a benchmark we could reuse to score our own wikis | 11 languages incl. Java/Kotlin/TS. Needs an LLM provider key; check if it can drive Claude Code/Codex headless | 🟡 |
-| A2 | [deepwiki-open (AsyncFuncAI)](https://github.com/AsyncFuncAI/deepwiki-open) | Self-hosted DeepWiki clone: RAG over the repo, wiki + diagrams + chat | Supports Ollama → fully local generation for sensitive code | Web app + API server (heavier than the kit); local-path / self-hosted GitLab support was an open issue | 🟡 |
+| A1 | [CodeWiki (FSoft-AI4Code)](https://github.com/FSoft-AI4Code/CodeWiki) | Open-source repo-level doc generator (ACL 2026). Builds a dependency graph, clusters it into a module tree, one agent per leaf module, parents written from children, Mermaid diagrams | Scales to very large repos (1M+ LOC) where a single OpenWiki run struggles; ships **CodeWikiBench**, a benchmark we could reuse to score our own wikis | 11 languages incl. Java/Kotlin/TS. Needs an LLM provider key; check if it can drive Claude Code/Codex headless | 🔴 overlap: OpenWiki is the wiki engine; a second one doubles agent runs (2.4.1) |
+| A2 | [deepwiki-open (AsyncFuncAI)](https://github.com/AsyncFuncAI/deepwiki-open) | Self-hosted DeepWiki clone: RAG over the repo, wiki + diagrams + chat | Supports Ollama → fully local generation for sensitive code | Web app + API server (heavier than the kit); local-path / self-hosted GitLab support was an open issue | 🔴 overlap with OpenWiki, and it runs a server that calls hosted models (2.4.1, 2.4.4) |
 | A3 | [RepoWiki](https://github.com/he-yufeng/RepoWiki) | Open-source DeepWiki alternative, terminal or browser | Lightweight CLI option | Small project; maturity unknown | 🔴 |
-| A4 | [repowise](https://github.com/repowise-dev/repowise) | Self-hosted "codebase intelligence": dependency graph + git analytics (churn, ownership, bus factor) + auto docs + decisions, served over MCP; SQLite; AGPL-3.0 | Adds **git behavioural signals** we lack (hotspots, ownership, dead code) — useful for `architecture-review`, `decisions-quality` and the update loop | AGPL: fine to run as a tool, not to embed. Overlaps graphify + OpenWiki; would be a replacement, not an add-on | 🟡 |
+| A4 | [repowise](https://github.com/repowise-dev/repowise) | Self-hosted "codebase intelligence": dependency graph + git analytics (churn, ownership, bus factor) + auto docs + decisions, served over MCP; SQLite; AGPL-3.0 | Adds **git behavioural signals** we lack (hotspots, ownership, dead code) — useful for `architecture-review`, `decisions-quality` and the update loop | AGPL: fine to run as a tool, not to embed. Overlaps graphify + OpenWiki; would be a replacement, not an add-on | 🔴 overlap with OpenWiki + graphify (2.4.1) |
 | A5 | [DeepWiki (Cognition)](https://deepwiki.com) | Hosted wiki for public GitHub repos + MCP server | Useful for **third-party / OSS dependencies** the project uses, not for private repos | Public repos only | 🔴 for private code, 🟡 as a lookup MCP |
 | A6 | [Google Code Wiki](https://developers.googleblog.com/introducing-code-wiki-accelerating-your-code-understanding/) | Gemini-generated, auto-updating wikis with architecture/class/sequence diagrams | Same use as A5 | Public preview; private-repo Gemini CLI extension still on a waitlist | 🔴 |
 | A7 | Swimm / Mintlify / GitBook / DeepDocs (SaaS) | Commercial doc platforms with AI generation and code coupling | Reference for features (see section I) | Code leaves the machine; cost | 🔴 |
@@ -51,39 +51,39 @@ can **discard** in a second pass. Nothing here is a decision.
 | ID | Tool | What it is | What it would improve here | Notes | Signal |
 |---|---|---|---|---|---|
 | B1 | [codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp) | Tree-sitter → SQLite knowledge graph, single static C binary, 14 MCP tools, incremental re-index by content hash, HTTP routes and cross-service links | Paper reports ~10× fewer tokens and ~2× fewer tool calls across 31 repos. Zero deps fits the kit; **cross-service links** is exactly `discovery-cross` | Very young project (Feb 2026); verify Windows build and Java/Kotlin quality | 🟢 |
-| B2 | [GitNexus](https://github.com/abhigyanpatwari/GitNexus) | Tree-sitter graph + MCP (16 tools): impact/blast radius with confidence, process-grouped search, change detection; one global registry serves many repos | **Impact analysis** would sharpen the `update` unit (changed file → affected flows/pages); multi-repo registry matches our workspace | Stores the graph in KuzuDB† (Kùzu's upstream status should be checked); browser mode also exists | 🟡 |
+| B2 | [GitNexus](https://github.com/abhigyanpatwari/GitNexus) | Tree-sitter graph + MCP (16 tools): impact/blast radius with confidence, process-grouped search, change detection; one global registry serves many repos | **Impact analysis** would sharpen the `update` unit (changed file → affected flows/pages); multi-repo registry matches our workspace | Stores the graph in KuzuDB† (Kùzu's upstream status should be checked); browser mode also exists | 🔴 overlap with graphify; L2 symbol anchors (4.11) covered the gap that mattered (2.4.1) |
 | B3 | [CodeGraphContext](https://github.com/CodeGraphContext/CodeGraphContext) | MCP + CLI indexing code into a graph DB | Similar to B1/B2 | Needs a graph DB service | 🔴 |
-| B4 | [code-graph-mcp](https://github.com/sdsrss/code-graph-mcp) | AST graph MCP for Claude Code: semantic search, call graph, **HTTP route tracing**, impact | Route tracing helps flow documentation | 10 languages; small project | 🟡 |
-| B5 | [Serena](https://github.com/oraios/serena) | MCP server backed by real language servers (LSP): `find_symbol`, `find_referencing_symbols`… 30+ languages, MIT | **Exact** references (graphify is AST-only, so cross-file calls through interfaces/DI can be missed). Good for evidence lines `#Lx-Ly` | Needs each language server installed (jdtls for Java is heavy); per-repo project activation | 🟡 |
+| B4 | [code-graph-mcp](https://github.com/sdsrss/code-graph-mcp) | AST graph MCP for Claude Code: semantic search, call graph, **HTTP route tracing**, impact | Route tracing helps flow documentation | 10 languages; small project | 🔴 overlap with graphify + `repo_graph` (2.4.1) |
+| B5 | [Serena](https://github.com/oraios/serena) | MCP server backed by real language servers (LSP): `find_symbol`, `find_referencing_symbols`… 30+ languages, MIT | **Exact** references (graphify is AST-only, so cross-file calls through interfaces/DI can be missed). Good for evidence lines `#Lx-Ly` | Needs each language server installed (jdtls for Java is heavy); per-repo project activation | 🟡 later: only if the regex symbol anchors (`harness/symbols.py`) fall short; language servers per language are heavy (2.4.3) |
 | B6 | Sourcegraph SCIP indexers (scip-java, scip-typescript…) † | Precise, compiler-grade code index format | Precise cross-repo navigation | Needs builds to succeed; heavy for a local kit | 🔴 |
 | B7 | ast-grep † | Structural search/rewrite with tree-sitter patterns (CLI + MCP) | Replace some `quickarch.py` regexes (listeners, clients, `convertAndSend`) with AST patterns → fewer false positives | Single binary; rules as YAML | 🟢 |
-| B8 | Semgrep (CE) † | Pattern-based static analysis, many rulesets | Same as B7 for extraction, plus evidence for `security-review` (see N1) | LGPL engine; some rules are commercial | 🟡 |
-| B9 | Aider repo-map † | Tree-sitter + PageRank "most relevant symbols" summary | Idea to borrow: a ranked, token-budgeted repo map in each `discovery` prompt | Technique, not a dependency | 🟡 |
+| B8 | Semgrep (CE) † | Pattern-based static analysis, many rulesets | Same as B7 for extraction, plus evidence for `security-review` (see N1) | LGPL engine; some rules are commercial | 🟡 later, with N1: evidence for the review units; the rules licence needs a check first (2.4.4) |
+| B9 | Aider repo-map † | Tree-sitter + PageRank "most relevant symbols" summary | Idea to borrow: a ranked, token-budgeted repo map in each `discovery` prompt | Technique, not a dependency | 🔴 overlap with graphify (2.4.1) |
 | B10 | Zoekt † | Fast trigram code search (Sourcegraph/Google) | Fast grep across all repos for agents and the portal | Server process; overkill for local | 🔴 |
 
 ## C. Static and runtime architecture extraction — complements to `quickarch` and discovery
 
 | ID | Tool | What it is | What it would improve here | Notes | Signal |
 |---|---|---|---|---|---|
-| C1 | springdoc-openapi (build-time plugin) † | Generates OpenAPI from Spring controllers at build | Discovery's "truth order" starts at OpenAPI; many repos have none. Generating it gives the agent a contract instead of reading controllers | Requires the repo to build; run in a temp dir, never commit into the service repo | 🟡 |
-| C2 | Springwolf † | Generates **AsyncAPI** from Spring Kafka/Rabbit/SQS listeners and producers | Same as C1 for events; direct input for EventCatalog (D1) and for `-[async]->` edges | Library added at build time; same "no files in repo" caveat | 🟡 |
+| C1 | springdoc-openapi (build-time plugin) † | Generates OpenAPI from Spring controllers at build | Discovery's "truth order" starts at OpenAPI; many repos have none. Generating it gives the agent a contract instead of reading controllers | Requires the repo to build; run in a temp dir, never commit into the service repo | 🔴 changes the service's build: no kit files in service repos; the OpenAPI block (X3) reads committed specs |
+| C2 | Springwolf † | Generates **AsyncAPI** from Spring Kafka/Rabbit/SQS listeners and producers | Same as C1 for events; direct input for EventCatalog (D1) and for `-[async]->` edges | Library added at build time; same "no files in repo" caveat | 🔴 a dependency in the service: no kit files in service repos |
 | C3 | Spring Modulith Documenter † | Generates C4/PlantUML component diagrams and module canvases from a Spring Modulith app | Component views for `repos/<repo>.c4` with real module boundaries | Only useful for repos using Spring Modulith | 🔴 |
 | C4 | [jQAssistant](https://jqassistant.github.io/jqassistant/current/) | Scans bytecode, Maven, git into Neo4j; Cypher rules; arc42 reports | Queryable structural facts for Java repos; rule reports usable as `architecture-review` evidence | Needs Neo4j (embedded available); Java-only | 🔴 |
 | C5 | ArchUnit † | Architecture rules as JUnit tests | Turn documented architecture (hexagonal layers, allowed deps) into executable checks → docs that fail when code drifts | Lives in the service repo's tests (conflicts with "no kit files"); propose to teams, don't install | 🟡 as a recommendation in `decisions-quality` |
 | C6 | dependency-cruiser / Madge † | Dependency graphs and rules for JS/TS | Same as C5 for the frontend repos | JS/TS only | 🔴 |
 | C7 | [OpenTelemetry service graph](https://oneuptime.com/blog/post/2026-02-06-living-architecture-diagram-otel-service-graph/view) (Collector `servicegraph` connector, Tempo, Jaeger dependencies) | Service-to-service edges derived from real traces | **Runtime evidence** for C4 relationships and flows: confirm INFERRED cross-repo edges, find calls the code scan missed | Only if the project already has tracing; import as a read-only source (e.g. `CLI import-traces`) | 🟢 where tracing exists |
 | C8 | KubeDiagrams † | Diagrams from Kubernetes manifests / Helm charts | Draft `deployment.c4` from real Helm/K8s files | Output is images, not LikeC4; would need a converter | 🔴 |
-| C9 | Syft (SBOM) † | Software bill of materials for a repo or image | Exact stack/versions for discovery's "Stack" section and `security-review` | Single binary; CycloneDX/SPDX output | 🟡 |
+| C9 | Syft (SBOM) † | Software bill of materials for a repo or image | Exact stack/versions for discovery's "Stack" section and `security-review` | Single binary; CycloneDX/SPDX output | 🔴 overlap with N3 (Trivy also writes an SBOM) (2.4.1) |
 
 ## D. Contracts and event documentation
 
 | ID | Tool | What it is | What it would improve here | Notes | Signal |
 |---|---|---|---|---|---|
-| D1 | [EventCatalog](https://www.eventcatalog.dev/) | Docs-as-code catalog of **domains, services, events, commands, channels, flows**; generators from AsyncAPI/OpenAPI/schema registries; visualizer | Overlaps our `domain` + `flows` output and adds a first-class event/message view we don't have. Could be an export target or a portal tab | Node/Astro site; some features are paid tiers | 🟡 |
+| D1 | [EventCatalog](https://www.eventcatalog.dev/) | Docs-as-code catalog of **domains, services, events, commands, channels, flows**; generators from AsyncAPI/OpenAPI/schema registries; visualizer | Overlaps our `domain` + `flows` output and adds a first-class event/message view we don't have. Could be an export target or a portal tab | Node/Astro site; some features are paid tiers | 🔴 overlap: the portal plus the generated topics block (X3) cover the event catalogue (2.4.1) |
 | D2 | AsyncAPI CLI / Studio † | Validate/render AsyncAPI documents | Validate C2 output; render event contracts in the portal | — | 🔴 unless C2 is adopted |
 | D3 | [Spectral](https://github.com/stoplightio/spectral) | OpenAPI/AsyncAPI linter | Lint contracts found in repos during discovery; findings for `architecture-review` | npm | 🔴 |
-| D4 | [oasdiff](https://github.com/oasdiff/oasdiff) | OpenAPI diff with breaking-change detection | In the `update` loop: "the API changed" → which flows/pages to revisit, with a precise changelog | Single Go binary | 🟡 |
-| D5 | Scalar / Redoc † | OpenAPI reference renderers | Render repo contracts inside the portal (Docs → repos/<repo>/api) | Static JS | 🟡 |
+| D4 | [oasdiff](https://github.com/oasdiff/oasdiff) | OpenAPI diff with breaking-change detection | In the `update` loop: "the API changed" → which flows/pages to revisit, with a precise changelog | Single Go binary | 🟢 next: breaking-API notes in the `pr fresh` comment; Go binary pinned like gitleaks, Apache-2.0 |
+| D5 | Scalar / Redoc † | OpenAPI reference renderers | Render repo contracts inside the portal (Docs → repos/<repo>/api) | Static JS | 🟡 later: an API reference view in the portal; `reference.md` already lists the endpoints |
 
 ## E. Architecture and domain modelling — around LikeC4
 
@@ -92,9 +92,9 @@ can **discard** in a second pass. Nothing here is a decision.
 | E1 | [LikeC4 MCP server + Agent Skills](https://likec4.dev/tooling/ai-tools/) | LikeC4's own MCP (query the model in natural language) and skills that teach agents the DSL | We already pin LikeC4: the skills should cut `arch-validate` failures (the CONVENTIONS "syntax traps" list), the MCP lets implementing agents ask "who calls X?" against the confirmed model | Near-zero cost; check it ships in 1.59.x | 🟢 |
 | E2 | [Structurizr DSL + MCP](https://docs.structurizr.com/ai/mcp) | Reference C4 models-as-code tool; hosted MCP with DSL/PlantUML/Mermaid tools | Alternative engine; its C4 semantics are built in (LikeC4 needs our `spec.c4`) | Switching cost is high; hosted MCP sends the model out | 🔴 |
 | E3 | IcePanel (SaaS) | Visual C4 modelling with flows, for non-technical audiences | Stakeholder-friendly views | Proprietary, cloud | 🔴 |
-| E4 | Context Mapper † | DDD DSL (CML) for bounded contexts and context-map relationships (customer/supplier, ACL, shared kernel); generators to diagrams, service cuts | Turns `domain/bounded-contexts.md` into a validated model — the `interview-context` unit already asks exactly these relationship types | Java/VS Code tooling; a third DSL next to LikeC4 and Mermaid | 🟡 |
+| E4 | Context Mapper † | DDD DSL (CML) for bounded contexts and context-map relationships (customer/supplier, ACL, shared kernel); generators to diagrams, service cuts | Turns `domain/bounded-contexts.md` into a validated model — the `interview-context` unit already asks exactly these relationship types | Java/VS Code tooling; a third DSL next to LikeC4 and Mermaid | 🔴 Eclipse/Java DSL, heavy for a context map a Markdown page and LikeC4 already hold (2.4.2, 2.4.3) |
 | E5 | Egon.io (Domain Storytelling) † | Browser tool to record domain stories as pictographic diagrams | Visual aid during `interview-*` units with business people | Manual, not agent-driven | 🔴 |
-| E6 | arc42 template † | Standard 12-section architecture doc structure | Cross-check that our sections (quality, risks, constraints, crosscutting concepts) cover arc42; map pages to it for teams that require arc42 | Template, not a tool | 🟡 |
+| E6 | arc42 template † | Standard 12-section architecture doc structure | Cross-check that our sections (quality, risks, constraints, crosscutting concepts) cover arc42; map pages to it for teams that require arc42 | Template, not a tool | 🔴 overlap: skeletons + C4 views already cover arc42's sections (2.4.1) |
 | E7 | [log4brains](https://github.com/thomvaill/log4brains) / MADR / adr-tools † | ADR management: templates, CLI to create/supersede, static ADR site with timeline | MADR as the template for `docs/decisions/`; supersede links between ADRs | Our portal already renders ADRs; log4brains' site would duplicate it | 🟡 MADR, 🔴 log4brains |
 
 ## F. Data documentation
@@ -103,7 +103,7 @@ can **discard** in a second pass. Nothing here is a decision.
 |---|---|---|---|---|---|
 | F1 | [tbls](https://github.com/k1LoW/tbls) | CI-friendly DB documenter (Go): Markdown + ER diagrams (incl. **Mermaid**), many engines incl. Postgres, MySQL, SQL Server, DynamoDB | `data` unit gets a real schema (tables, columns, FKs, comments) instead of an agent-inferred `erDiagram`; `tbls diff` detects schema drift | Needs a DB connection: run against a local DB built from the repo's Liquibase/Flyway migrations (compose) | 🟢 |
 | F2 | [SchemaSpy](https://github.com/schemaspy/schemaspy) | Java DB documenter, HTML + ER | Same as F1 | HTML output fits worse than tbls' Markdown | 🔴 |
-| F3 | Liquibase `db-doc` / Flyway info † | Changelog-based docs from the migration tool itself | Migration history per table for the ownership table | Only for repos using them | 🟡 |
+| F3 | Liquibase `db-doc` / Flyway info † | Changelog-based docs from the migration tool itself | Migration history per table for the ownership table | Only for repos using them | 🟡 without the tool: a generated block parsing Liquibase/Flyway files statically (X3 style), no DB or JVM |
 | F4 | Atlas `schema inspect` † | Schema as code; inspect → HCL/SQL/ERD | Alternative to F1 | — | 🔴 |
 
 ## G. Diagrams
@@ -113,20 +113,20 @@ can **discard** in a second pass. Nothing here is a decision.
 | G1 | mermaid-cli (`mmdc`) † | Renders Mermaid headless | **Validate every Mermaid block in `CLI check`** — broken diagrams currently reach the portal silently | Pulls Puppeteer/Chromium (heavy); alternative: validate with Mermaid's `parse()` in Node without a browser | 🟢 |
 | G2 | [Kroki](https://kroki.io/) | One API for D2, PlantUML, Mermaid, Structurizr, Excalidraw, BPMN… | Lets pages use other notations (BPMN for business processes) | Self-host via Docker, or it sends diagrams out | 🔴 |
 | G3 | D2 † | Diagram language with good auto-layout | Nicer large diagrams than Mermaid | Another notation to support | 🔴 |
-| G4 | Mermaid ELK layout † | Alternative layout engine for Mermaid flowcharts | Readability of dense flowcharts without changing notation | Portal-side config | 🟡 |
+| G4 | Mermaid ELK layout † | Alternative layout engine for Mermaid flowcharts | Readability of dense flowcharts without changing notation | Portal-side config | 🟡 later: portal-side layout for big flowcharts; adds weight to the bundle |
 
 ## H. Documentation quality gate (extends `CLI check`)
 
 | ID | Tool | What it is | What it would improve here | Notes | Signal |
 |---|---|---|---|---|---|
 | H1 | [lychee](https://github.com/lycheeverse/lychee) | Fast link checker (Rust) for Markdown/HTML | Implements the **broken-link check the PLAYBOOK already promises** (internal links, anchors, i18n pairs) | Single binary; or do internal links in stdlib Python and skip the dependency | 🟢 |
-| H2 | markdownlint-cli2 † | Markdown structure linter | Consistent headings/lists across agent-written pages | npm; config lives in `cam-docs/` | 🟡 |
+| H2 | markdownlint-cli2 † | Markdown structure linter | Consistent headings/lists across agent-written pages | npm; config lives in `cam-docs/` | 🔴 overlap: `check_structure` (4.0) enforces what matters to agents (2.4.1) |
 | H3 | [Vale](https://vale.sh/) | Prose linter with custom styles and vocabularies | Enforce the **DDD glossary** (preferred terms, banned synonyms) and a house style in EN/ES | Go binary; vocabulary can be generated from `glossary.md` | 🟢 |
-| H4 | [Doc Detective](https://docs.doc-detective.com/) | Executes the procedures in docs (commands, API calls, UI steps) as tests; has agent skills | Verify each repo brief's "how to build/test/run" actually works → confirmed-by-execution | Runs commands: sandbox it; opt-in per repo | 🟡 |
+| H4 | [Doc Detective](https://docs.doc-detective.com/) | Executes the procedures in docs (commands, API calls, UI steps) as tests; has agent skills | Verify each repo brief's "how to build/test/run" actually works → confirmed-by-execution | Runs commands: sandbox it; opt-in per repo | 🔴 drives a browser to test procedures: heavy and out of scope (2.4.3) |
 | H5 | [gitleaks](https://github.com/gitleaks/gitleaks) / TruffleHog | Secret scanners (regex+entropy / live verification) | Discovery copies config snippets into docs: scan `cam-docs/` **before commit and before `portal` export** | gitleaks: single binary, offline, pre-commit-friendly | 🟢 |
-| H6 | [promptfoo](https://www.promptfoo.dev/docs/guides/llm-as-a-judge/) | Eval framework with LLM-as-judge, factuality and grounding assertions | A "claim audit": sample statements + their `x-sources`, ask a judge if the source supports them → score per page before human review | Costs tokens; best as an opt-in unit or CI job | 🟡 |
-| H7 | CodeWikiBench (from A1) | Benchmark/rubric for repo-level documentation quality | Measure whether kit changes make docs better, not just different | Research artefact | 🟡 |
-| H8 | pre-commit framework † | Git hook manager | One place to run H1/H2/H3/H5 on `cam-docs/` commits | Python; fits `uv` | 🟡 |
+| H6 | [promptfoo](https://www.promptfoo.dev/docs/guides/llm-as-a-judge/) | Eval framework with LLM-as-judge, factuality and grounding assertions | A "claim audit": sample statements + their `x-sources`, ask a judge if the source supports them → score per page before human review | Costs tokens; best as an opt-in unit or CI job | ⚪ covered without the tool: `camaron eval` (golden questions, judge) and `eval comply` (4.14) |
+| H7 | CodeWikiBench (from A1) | Benchmark/rubric for repo-level documentation quality | Measure whether kit changes make docs better, not just different | Research artefact | ⚪ covered without the tool: golden questions per project (R17) |
+| H8 | pre-commit framework † | Git hook manager | One place to run H1/H2/H3/H5 on `cam-docs/` commits | Python; fits `uv` | 🔴 overlap: the kit installs its own git hooks; a Python framework adds a dependency (2.4.1) |
 
 ## I. Freshness and drift (extends `changes` / `x-sources`)
 
@@ -134,25 +134,25 @@ can **discard** in a second pass. Nothing here is a decision.
 |---|---|---|---|---|---|
 | I1 | [Swimm](https://swimm.io) (reference) | Docs coupled to code via "smart tokens"; auto-sync through refactors; CI flags stale docs | Idea to borrow: anchor `x-sources` to **symbols** (class/method) instead of line ranges, so refactors don't orphan pages | SaaS; borrow the idea, not the tool | 🟡 idea |
 | I2 | [DeepDocs](https://medium.com/@deepdocs/deepdocs-keep-your-documentation-in-sync-with-your-code-73699b73c1d2) (reference) | GitHub agent: on each commit, proposes doc updates on a branch with a report | Same pattern as our CI `update` templates; compare their report format | GitHub-only SaaS | 🔴 |
-| I3 | code-maat / CodeScene † | Behavioural code analysis from git: hotspots, temporal coupling, knowledge loss | Evidence for `architecture-review` and tech debt; "who knows this repo" for the interviews | code-maat is OSS (JVM); CodeScene is commercial | 🟡 |
-| I4 | Symbol anchors via B1/B5 | Resolve `x-sources` like `orders:OrderService#place` through the code graph/LSP | Sources that survive line shifts; orphan detection gets precise | Needs a stable graph API | 🟡 |
+| I3 | code-maat / CodeScene † | Behavioural code analysis from git: hotspots, temporal coupling, knowledge loss | Evidence for `architecture-review` and tech debt; "who knows this repo" for the interviews | code-maat is OSS (JVM); CodeScene is commercial | ⚪ covered without the tool: `camaron history` (X11, 4.23.0) |
+| I4 | Symbol anchors via B1/B5 | Resolve `x-sources` like `orders:OrderService#place` through the code graph/LSP | Sources that survive line shifts; orphan detection gets precise | Needs a stable graph API | ⚪ covered: symbol anchors in `x-sources` (`harness/symbols.py`, 4.11) |
 
 ## J. Retrieval for agents and the portal (`camarones` MCP, search)
 
 | ID | Tool | What it is | What it would improve here | Notes | Signal |
 |---|---|---|---|---|---|
 | J1 | SQLite FTS5 (Python stdlib `sqlite3`) † | Built-in full-text index with BM25 ranking | Replace the per-query file scan in `search_docs` with a ranked index; **zero new dependencies** | FTS5 is compiled into most Python builds; verify on Windows `uv` Python | 🟢 |
-| J2 | [qmd](https://github.com/tobi/qmd) | Local hybrid search for Markdown: BM25 + vectors + LLM reranking (GGUF models via node-llama-cpp), MCP stdio/HTTP | Semantic search ("how do refunds work?") over docs + wikis, fully local | Downloads local models (hundreds of MB); Node | 🟡 |
+| J2 | [qmd](https://github.com/tobi/qmd) | Local hybrid search for Markdown: BM25 + vectors + LLM reranking (GGUF models via node-llama-cpp), MCP stdio/HTTP | Semantic search ("how do refunds work?") over docs + wikis, fully local | Downloads local models (hundreds of MB); Node | 🔴 semantic search needs GGUF models (GBs) and Bun: fails low weight (2.4.2, 2.4.3); BM25 + sections is enough so far |
 | J3 | sqlite-vec † | Vector search extension for SQLite | Add semantic search on top of J1 without a server | Needs an embedding model | 🔴 |
-| J4 | [Pagefind](https://pagefind.app) † | Static-site search index built at export time | Better search for the **static** portal export (`CLI portal`) with tiny payloads | Binary/npm at build time only | 🟡 |
+| J4 | [Pagefind](https://pagefind.app) † | Static-site search index built at export time | Better search for the **static** portal export (`CLI portal`) with tiny payloads | Binary/npm at build time only | 🟡 later: search for very large static exports; the client-side index is fine today |
 | J5 | Context7 MCP † | Up-to-date docs of third-party libraries for agents | Agents documenting a repo can check framework semantics (Spring, Quarkus versions) | Hosted | 🔴 |
-| J6 | llms.txt conventions (`llms-full.txt`) † | Emerging standard for AI-readable site indexes | We already write `llms.txt`; add `llms-full.txt` in the static export → taken up in [ai-first-docs.md](ai-first-docs.md) (P8) | Trivial | 🟡 |
+| J6 | llms.txt conventions (`llms-full.txt`) † | Emerging standard for AI-readable site indexes | We already write `llms.txt`; add `llms-full.txt` in the static export → taken up in [ai-first-docs.md](ai-first-docs.md) (P8) | Trivial | ⚪ covered: `llms.txt` + `llms-full.txt` (R26), with token estimates (4.19) |
 
 ## K. Portal and publishing
 
 | ID | Tool | What it is | What it would improve here | Notes | Signal |
 |---|---|---|---|---|---|
-| K1 | [Backstage](https://backstage.io/docs/features/software-catalog/descriptor-format/) catalog + TechDocs | Developer portal; `catalog-info.yaml` entities (Component, API, System, Domain, Resource) with typed relations | **Export target**: generate `catalog-info.yaml` from `model.c4` + discovery so companies with Backstage consume our work | Export only — never run Backstage from the kit; writing into service repos would need the teams' consent. **Import side done (3.3):** `lib/radar.py` reads an existing `catalog-info.yaml` (owner, system, lifecycle) into `docs/overview/tooling.md` | 🟡 |
+| K1 | [Backstage](https://backstage.io/docs/features/software-catalog/descriptor-format/) catalog + TechDocs | Developer portal; `catalog-info.yaml` entities (Component, API, System, Domain, Resource) with typed relations | **Export target**: generate `catalog-info.yaml` from `model.c4` + discovery so companies with Backstage consume our work | Export only — never run Backstage from the kit; writing into service repos would need the teams' consent. **Import side done (3.3):** `lib/radar.py` reads an existing `catalog-info.yaml` (owner, system, lifecycle) into `docs/overview/tooling.md` | 🟡 without the tool: export `catalog-info.yaml` per repo for teams that run Backstage |
 | K2 | [Zensical](https://squidfunk.github.io/mkdocs-material/blog/2025/11/05/zensical/) | Successor of Material for MkDocs (which ends maintenance 2026-11-05), MIT | Alternative static export for teams wanting a "standard" docs site | Our own portal already covers this; relevant only if we drop it | 🔴 |
 | K3 | Astro Starlight / Docusaurus / VitePress † | Static docs frameworks | Same as K2 | Build step + npm, against the kit's no-build choice | 🔴 |
 | K4 | Quartz / Obsidian † | Markdown knowledge garden / vault | Open `cam-docs/docs` as an Obsidian vault (graph view, backlinks) with no extra work | Only needs wiki-link compatibility checks | 🔴 |
@@ -164,38 +164,38 @@ can **discard** in a second pass. Nothing here is a decision.
 
 | ID | Tool | What it is | What it would improve here | Notes | Signal |
 |---|---|---|---|---|---|
-| L1 | [Beads (`bd`)](https://github.com/gastownhall/beads) | Git-friendly, dependency-aware issue graph for coding agents (Dolt or SQLite), hash IDs, "ready" detection, memory decay of closed tasks | Replacement for `plan.yaml` if we want **parallel agents** (one per repo) without merge conflicts, plus a standard CLI both Claude and Codex already know | Go binary + DB; our plan is simple and works — high switching cost. Kit 3.14.0 covers parallel agents without it (lock + claims on `plan.yaml`) | 🔴 |
-| L2 | Claude Agent SDK / `claude -p` headless † | Programmatic Claude Code sessions | Run independent units (discovery per repo, wikis) unattended in parallel, with structured JSON results | We already run headless for wikis; generalise to other units | 🟡 |
-| L3 | Codex `exec` † | Codex non-interactive mode | Same as L2 for Codex users | — | 🟡 |
-| L4 | Claude Code subagents / hooks † | Scoped sub-agents and lifecycle hooks | A `discovery` subagent per repo returning only the summary keeps the main context small; a `Stop` hook could enforce `plan note` | Claude-only; keep Codex parity | 🟡 |
+| L1 | [Beads (`bd`)](https://github.com/gastownhall/beads) | Git-friendly, dependency-aware issue graph for coding agents (Dolt or SQLite), hash IDs, "ready" detection, memory decay of closed tasks | Replacement for `plan.yaml` if we want **parallel agents** (one per repo) without merge conflicts, plus a standard CLI both Claude and Codex already know | Go binary + DB; our plan is simple and works — high switching cost | 🔴 overlap with `plan.yaml` and the pipeline (2.4.1) |
+| L2 | Claude Agent SDK / `claude -p` headless † | Programmatic Claude Code sessions | Run independent units (discovery per repo, wikis) unattended in parallel, with structured JSON results | We already run headless for wikis; generalise to other units | ⚪ in use: the `claude` runner adapter |
+| L3 | Codex `exec` † | Codex non-interactive mode | Same as L2 for Codex users | — | ⚪ in use: the `codex` runner adapter |
+| L4 | Claude Code subagents / hooks † | Scoped sub-agents and lifecycle hooks | A `discovery` subagent per repo returning only the summary keeps the main context small; a `Stop` hook could enforce `plan note` | Claude-only; keep Codex parity | ⚪ in use: method hooks (X2, 4.14) |
 | L5 | GitHub Spec Kit / Task Master † | Spec-driven agent workflows | Inspiration only; different goal (building features) | — | 🔴 |
 
 ## M. Interviews and knowledge capture
 
 | ID | Tool | What it is | What it would improve here | Notes | Signal |
 |---|---|---|---|---|---|
-| M1 | Whisper / whisper.cpp † | Local speech-to-text | Record a 30-min interview with an architect, transcribe locally, let the `interview-*` unit extract answers | Local models; privacy consent needed | 🟡 |
+| M1 | Whisper / whisper.cpp † | Local speech-to-text | Record a 30-min interview with an architect, transcribe locally, let the `interview-*` unit extract answers | Local models; privacy consent needed | 🔴 speech models are heavy; teams paste transcripts into the interview units instead (2.4.2) |
 | M2 | NotebookLM (MCP available in this environment) | Grounded Q&A over uploaded sources | Load existing PDFs/Confluence exports as interview material | Sends content to Google | 🔴 for private code |
-| M3 | Confluence / Jira / Notion MCP connectors | Read existing wikis and tickets | Discovery of **historical decisions** (ADRs hidden in tickets and old wiki pages) for `interview-history` | Read-only use; auth per company | 🟡 |
+| M3 | Confluence / Jira / Notion MCP connectors | Read existing wikis and tickets | Discovery of **historical decisions** (ADRs hidden in tickets and old wiki pages) for `interview-history` | Read-only use; auth per company | ⚪ partly covered: Confluence/Notion exporters (4.15); reading from them stays in the user's own MCP connectors |
 | M4 | Doc import from exported files (Confluence/Notion HTML or Markdown export, Word) | The user hands the kit an up-to-date export; pages enter as a new `imported` trust state (below `draft`) and a unit reconciles each claim against the code (truth order) — matches become drafts with both sources, contradictions go to `open-questions.md` | Reuses what teams already wrote instead of re-interviewing | Deferred after the 3.3 radar (scope). Files first: no credentials, works on the three OSes; MCP (M3) only as an optional shortcut | 🟡 next |
-| M5 | Radar follow-ups: SonarQube/Backstage **API** reads, per-stack tool installs | Metrics (coverage, debt) and catalog relations from the company's servers; e.g. springdoc/Springwolf builds (C1/C2) when the stack is Spring | Richer evidence for `decisions-quality` and contracts | API reads need a server + token (`creds.py`), so optional and degradable; installs must pass AGENTS.md §2.4 one by one. The 3.3 radar only reads files in the repos | 🟡 |
+| M5 | Radar follow-ups: SonarQube/Backstage **API** reads, per-stack tool installs | Metrics (coverage, debt) and catalog relations from the company's servers; e.g. springdoc/Springwolf builds (C1/C2) when the stack is Spring | Richer evidence for `decisions-quality` and contracts | API reads need a server + token (`creds.py`), so optional and degradable; installs must pass AGENTS.md §2.4 one by one. The 3.3 radar only reads files in the repos | 🟡 later, as an opt-in plugin: needs each team's credentials and network |
 
 ## N. Evidence for the beta review units
 
 | ID | Tool | What it is | What it would improve here | Notes | Signal |
 |---|---|---|---|---|---|
-| N1 | Semgrep CE † | SAST rules | `security-review` findings with scanner evidence instead of pure LLM reasoning | See B8 | 🟡 |
+| N1 | Semgrep CE † | SAST rules | `security-review` findings with scanner evidence instead of pure LLM reasoning | See B8 | 🟡 later: evidence for the security review unit (see B8) |
 | N2 | OSV-Scanner † | Known-vulnerability scan of lockfiles/SBOMs | "Outdated dependency" findings with CVE IDs | Offline DB download possible | 🟢 |
-| N3 | Trivy † | Vulns, misconfig (Dockerfile, Helm, K8s), secrets | One binary covers deployment misconfig + deps | Large DB download | 🟡 |
-| N4 | [Threagile](https://versprite.com/threat-modeling-tools/threat-modeling-tools-compared/) | Threat model as YAML → risk rules, diagrams, reports | Generate `threat-model.md` from a YAML derived from `model.c4` (actors, trust boundaries, data assets) | Another model to keep in sync | 🟡 |
-| N5 | [OWASP pytm](https://devguide.owasp.org/en/04-design/01-threat-modeling/02-pytm/) | Threat model in Python, reports/diagrams as outputs | Same as N4, Python-native (fits `uv`) | — | 🟡 |
+| N3 | Trivy † | Vulns, misconfig (Dockerfile, Helm, K8s), secrets | One binary covers deployment misconfig + deps | Large DB download | 🟡 later: dependency and SBOM evidence for the security review unit; pinned binary |
+| N4 | [Threagile](https://versprite.com/threat-modeling-tools/threat-modeling-tools-compared/) | Threat model as YAML → risk rules, diagrams, reports | Generate `threat-model.md` from a YAML derived from `model.c4` (actors, trust boundaries, data assets) | Another model to keep in sync | 🔴 niche: threat models from YAML; the security review unit asks the team instead |
+| N5 | [OWASP pytm](https://devguide.owasp.org/en/04-design/01-threat-modeling/02-pytm/) | Threat model in Python, reports/diagrams as outputs | Same as N4, Python-native (fits `uv`) | — | 🔴 niche: threat models as Python code (see N4) |
 | N6 | [OWASP Threat Dragon](https://owasp.org/projects/threat-dragon) | Visual threat-modelling app | Manual workshops | Diagram-first, not code-first | 🔴 |
 
 ## O. Translations
 
 | ID | Tool | What it is | What it would improve here | Notes | Signal |
 |---|---|---|---|---|---|
-| O1 | [Lingo.dev CLI](https://lingo.dev/en/cli) | Localisation CLI for Markdown/JSON/YAML with `i18n.lock` (SHA-256 per string) and bring-your-own LLM (incl. Anthropic, Ollama) | **Segment-level** incremental translation (only changed paragraphs) instead of retranslating whole pages; our `translated` stamp is per file | Needs a provider key or Ollama; would run outside Claude/Codex sessions | 🟡 |
+| O1 | [Lingo.dev CLI](https://lingo.dev/en/cli) | Localisation CLI for Markdown/JSON/YAML with `i18n.lock` (SHA-256 per string) and bring-your-own LLM (incl. Anthropic, Ollama) | **Segment-level** incremental translation (only changed paragraphs) instead of retranslating whole pages; our `translated` stamp is per file | Needs a provider key or Ollama; would run outside Claude/Codex sessions | 🔴 sends the text to a hosted service: code and docs never leave the machine (2.4.4) |
 | O2 | DeepL API † | Machine translation with glossaries | Glossary-enforced EN→ES from `glossary.md` | Paid API, sends text out | 🔴 |
 | O3 | po4a / mdpo † | Markdown ↔ gettext PO | Human translators could use Weblate/Crowdin on PO files | Heavy workflow for a two-language kit | 🔴 |
 
@@ -205,6 +205,24 @@ can **discard** in a second pass. Nothing here is a decision.
 |---|---|---|---|---|---|
 | P1 | [mani](https://dev.to/alajmo/mani-a-cli-tool-to-manage-multiple-repositories-1eg) | Repo list with tags + run commands across repos (Go) | Replace parts of `sync_repos` / per-repo loops | We already have `workspace.yaml` + sync; little gain | 🔴 |
 | P2 | [gita](https://terminaltrove.com/gita/) | Batch git ops over many repos (Python) | Same as P1 | — | 🔴 |
+
+## Q. Harness refactor (added 2026-10-09)
+
+Candidates from [harness-refactor.md](harness-refactor.md). All have to pass AGENTS.md §2.4 at implementation time,
+when versions get pinned. The portal libraries are **build-time dependencies of the kit repo only**. They are compiled
+into `portal/app-build/` in the kit's CI, so users never install npm packages for them.
+
+| ID | Tool | What it is | What it would improve here | §2.4 check (first pass) | Signal |
+|---|---|---|---|---|---|
+| Q1 | [OpenCode](https://opencode.ai) | Open-source terminal coding agent with many providers, including Ollama and LM Studio; headless `run` | Third built-in runner (H9). The most direct path to local models with real tool use (H10) | MIT · npm/binary on the 3 OSes · one adapter (R6) · local when pointed at a local provider | 🟢 |
+| Q2 | Ollama † | Local model server, OpenAI-compatible API | Reference local backend for the `bounded` and `judge` tiers, **reached only through OpenCode** (H21) | MIT · installers for the 3 OSes · the kit never installs or calls it directly · fully local | 🟢 as optional |
+| Q3 | LM Studio † | Desktop app serving local models over an OpenAI-compatible API | Alternative to Q2 for people who prefer a GUI, also as an OpenCode provider | Proprietary freeware: never shipped, installed or called directly by the kit | 🔴 overlap with Ollama behind OpenCode (2.4.1) |
+| Q4 | [React Flow (xyflow)](https://reactflow.dev) | React library for node graphs | Live pipeline DAG in the Pipeline tab (R21) | MIT · build-time only · lazy chunk | ✅ **adopted (3.26.0):** @xyflow/react 12.12.0, pinned, loaded only with the Pipeline tab |
+| Q5 | [TanStack Table](https://tanstack.com/table) | Headless table logic: sort, filter, group | Live tables (R29) | MIT · build-time only · small | 🟢 |
+| Q6 | [Excalidraw](https://github.com/excalidraw/excalidraw) | Embeddable whiteboard with a JSON file format | `.excalidraw` whiteboards versioned in cam-docs (R34) | MIT · build-time only · heavy, so lazy. tldraw is ruled out because its licence requires a watermark or a paid key | ✅ adopted in R29 (0.18.1, lazy chunk; fonts served by the portal, no CDN; its Mermaid import dialog stubbed out to keep ~3 MB off the build) |
+| Q7 | [Motion](https://motion.dev) | Animation library for React | State-change animations in the new portal | MIT · build-time only | ✅ **adopted (3.26.0):** motion 13.5.0, pinned, loaded only with the Pipeline tab |
+| Q8 | Vite + React † | Build tool and UI library | New portal app (R20). The current vanilla JS portal would not scale to kanban, a DAG and a whiteboard | MIT · only in the kit repo's CI, ubuntu job | ✅ **adopted (3.25.0):** React 19.3.0, Vite 8.3.1, @vitejs/plugin-react 6.1.1, Vitest 5.0.3, pinned with a lockfile; `legacy-peer-deps` works around an npm 10 crash on optional peers |
+| Q9 | Gemini CLI † | Google's terminal agent | Fourth runner, for teams without Anthropic or OpenAI | Apache-2.0 · `command` template first, native adapter only if demand appears | 🟡 later |
 
 ---
 
@@ -240,6 +258,19 @@ Bigger bets worth a spike:
 8. **F1 tbls** for the `data` unit against migration-built local DBs.
 9. **C7 OpenTelemetry service graph** as runtime evidence where tracing exists.
 10. **A1 CodeWiki** as a second wiki engine for very large repos.
+
+## Triage of the 🟡 candidates (2026-10-22, kit 4.26)
+
+Every 🟡 row now has a verdict against AGENTS.md §2.4 (real value without overlap · installs on all three OSes ·
+integrated in one session · local and licence-compatible):
+
+- ⚪ **covered** by something the kit already has: H6, H7, I3, I4, J6, L2, L3, L4, M3.
+- 🟢 **next**: D4 oasdiff (breaking API changes in the `pr fresh` comment).
+- 🟡 **later, with a trigger**: B5 (if symbol anchors fall short), B8/N1/N3 (when the security review unit wants
+  evidence), D5, G4, J4, M5. **Without the tool**: F3 (static migration parsing), K1 (`catalog-info.yaml` export).
+- 🔴 **dropped**, with the failed criterion on each row: A1, A2, A4, B2, B4, B9, C1, C2, C9, D1, E4, E6, H2, H4, H8, J2,
+  L1, M1, N4, N5, O1, Q3. The rule that drops most of them: one tool per job (OpenWiki, graphify, Ollama) and no kit
+  files in service repos.
 
 ## Sources
 

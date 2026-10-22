@@ -1,0 +1,11 @@
+# Publishes the docs agents may read as pages under a Notion page (R35). It sends the docs outside this machine, so it
+# stays off until someone runs `camaron plugins enable notion` here. Needs NOTION_TOKEN (an internal integration) and
+# NOTION_PARENT_PAGE (shared with that integration). Run with `camaron export notion`.
+name: notion
+version: 1.0.0
+description: Publish the docs to Notion.
+sends_data: true
+provides:
+  exporters:
+    - id: notion
+      label: Notion
