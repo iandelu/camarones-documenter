@@ -165,7 +165,9 @@ Un solo portal, dos modos y la misma interfaz. Pestañas: **Docs** (árbol, bús
 **Preguntar** (las secciones que mejor responden a una pregunta, con citas, sin IA), **Pizarras** (pizarras de
 Excalidraw en `docs/boards/`, en blanco o desde una vista C4) y **Pipeline**. El selector de idioma cambia la interfaz y
 la documentación. Las tablas se ordenan por columna (las largas se filtran), `:::tabs`/`:::steps`/`:::details`/`:::cards`
-se ven como pestañas, pasos, desplegables y tarjetas, un interruptor «Todo / Negocio» oculta los bloques `:::tech`, y en
+se ven como pestañas, pasos, desplegables y tarjetas, un interruptor «Todo / Negocio» (en cada página y encima del menú) oculta los bloques `:::tech` y, en Negocio, deja
+en el menú y en la portada solo las páginas de visión general, dominio, glosario, flujos y decisiones; la portada tiene
+además una caja «¿Cómo funciona…?» que lleva la pregunta a Preguntar, y en
 Mermaid los nombres que coinciden con una página o un repo son enlaces. Un bloque `:::rule ORD-1 Título` explica una
 regla de negocio con anclas `enforced:`/`test:` (`repo:ruta#Símbolo`); `check` falla si ese código ya no existe.
 

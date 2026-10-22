@@ -157,7 +157,9 @@ an agent is waiting for, change requests, code changed since the docs, `check`),
 a question, with citations, no AI), **Boards** (Excalidraw whiteboards in `docs/boards/`, blank or sketched from a C4
 view) and **Pipeline**. The language switch changes the interface and the docs; a page not translated yet is shown in
 English with a notice. Tables sort by column (long ones filter), `:::tabs`/`:::steps`/`:::details`/`:::cards` render
-as tabs, steps, folds and cards, an "All / Business" switch hides `:::tech` blocks, and Mermaid names that match a page
+as tabs, steps, folds and cards, an "All / Business" switch (on each page and above the menu) hides `:::tech` blocks and, in Business, keeps
+only the overview, domain, glossary, flow and decision pages in the menu and on the home page, which also has a "How
+does … work?" box that sends the question to Ask, and Mermaid names that match a page
 or a repo are links. A `:::rule ORD-1 Title` block states a business rule with `enforced:`/`test:` anchors
 (`repo:path#Symbol`); `check` fails when that code is gone.
 

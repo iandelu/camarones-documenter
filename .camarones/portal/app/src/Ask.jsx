@@ -13,13 +13,17 @@ function Section({ text, path }) {
   return <div ref={ref} />
 }
 
-export default function Ask() {
+export default function Ask({ arg }) {
   const [q, setQ] = useState('')
   const [turns, setTurns] = useState([])
   const [busy, setBusy] = useState(false)
+  useEffect(() => { if (arg) run(arg) }, [arg])                // #/ask/<question>: the home page's question box
   async function ask(e) {
     e.preventDefault()
-    const question = q.trim()
+    await run(q)
+  }
+  async function run(text) {
+    const question = text.trim()
     if (!question) return
     setBusy(true)
     try {
