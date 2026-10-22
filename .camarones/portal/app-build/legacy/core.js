@@ -8,6 +8,10 @@ const TRUST = { confirmed: '✅', draft: '✨', 'needs-reconfirm': '⚠️' };
 const LANG_NAMES = { en: 'English', es: 'Español', fr: 'Français', de: 'Deutsch', pt: 'Português', it: 'Italiano' };
 const SECTION_ICONS = { overview: '🧭', architecture: '🏗️', domain: '📖', flows: '🔀', data: '🗄️', deployment: '🚀',
   decisions: '⚖️', quality: '🧪', guides: '🧑‍🏫', repos: '📦', security: '🔒', interview: '🎙️' };
+// The Business view: pages a product person reads (what the system does and why), not how it is built.
+const BUSINESS_SECTIONS = ['overview', 'domain', 'flows', 'decisions'];
+const BUSINESS_TYPES = ['overview', 'domain', 'glossary', 'business-flow', 'decision'];
+const forBusiness = (d) => d.path === 'index.md' || BUSINESS_TYPES.includes(d.type) || BUSINESS_SECTIONS.includes(d.path.split('/')[0]);
 
 const I18N = {
   en: {
@@ -32,6 +36,8 @@ const I18N = {
     homeEmpty: 'Nothing documented yet — your intern shrimp is still peeling the repos.',
     statPages: '{n} pages', statConfirmed: '{n}% confirmed', statFlows: '{n} flows', statViews: '{n} C4 views',
     systemContext: 'System context', explore: 'Explore',
+    homeAsk: 'Ask', homeAskPh: 'How does … work? For example: how is an order paid?',
+    businessOn: 'Business view: only what the system does and why. Switch to All for the technical pages.',
     edit: 'Edit', editForge: 'Edit in the repository', confirm: '✅ Confirm as correct', requestChange: '✏️ Request a change',
     'banner.draft': 'AI-generated draft — not yet confirmed by a human. Verify it against the code before relying on it.',
     'banner.needs-reconfirm': 'Changed after a human confirmed it — pending re-confirmation.',
@@ -104,6 +110,8 @@ const I18N = {
     homeEmpty: 'Aún no hay nada documentado: tu camarón becario sigue pelando los repos.',
     statPages: '{n} páginas', statConfirmed: '{n} % confirmado', statFlows: '{n} flujos', statViews: '{n} vistas C4',
     systemContext: 'Contexto del sistema', explore: 'Explorar',
+    homeAsk: 'Preguntar', homeAskPh: '¿Cómo funciona…? Por ejemplo: ¿cómo se paga un pedido?',
+    businessOn: 'Vista de negocio: solo qué hace el sistema y por qué. Cambia a Todo para ver las páginas técnicas.',
     edit: 'Editar', editForge: 'Editar en el repositorio', confirm: '✅ Confirmar como correcta', requestChange: '✏️ Pedir un cambio',
     'banner.draft': 'Borrador generado por IA — aún no confirmado por un humano. Verifícalo contra el código antes de fiarte.',
     'banner.needs-reconfirm': 'Modificado tras la confirmación humana — pendiente de reconfirmar.',

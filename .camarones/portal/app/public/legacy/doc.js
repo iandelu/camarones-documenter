@@ -276,11 +276,13 @@ function applyAudience() {
   document.body.dataset.audience = store.get('cam-audience') || 'all';
   $$('.audience button').forEach((b) => b.classList.toggle('on', b.dataset.audience === document.body.dataset.audience));
 }
+const audienceSeg = (cls = '') => `<div class="audience seg ${cls}" title="${esc(t('audienceHint'))}">
+    <button type="button" data-audience="all">${esc(t('audienceAll'))}</button>
+    <button type="button" data-audience="business">${esc(t('audienceBusiness'))}</button></div>`;
+const isBusiness = () => store.get('cam-audience') === 'business';
 function audienceSwitch(el) {
   if (!$('[data-audience]', el)) return;
-  el.insertAdjacentHTML('afterbegin', `<div class="audience seg" title="${esc(t('audienceHint'))}">
-    <button type="button" data-audience="all">${esc(t('audienceAll'))}</button>
-    <button type="button" data-audience="business">${esc(t('audienceBusiness'))}</button></div>`);
+  el.insertAdjacentHTML('afterbegin', audienceSeg());
   applyAudience();
 }
 
@@ -340,7 +342,13 @@ document.addEventListener('click', async (e) => {
     return;
   }
   const aud = e.target.closest('.audience button');
-  if (aud) { store.set('cam-audience', aud.dataset.audience); applyAudience(); return; }
+  if (aud) {
+    const changed = store.get('cam-audience') !== aud.dataset.audience;
+    store.set('cam-audience', aud.dataset.audience);
+    applyAudience();
+    if (changed && aud.closest('.side-audience')) route();          // the sidebar and the home cards follow it
+    return;
+  }
   const fig = e.target.closest('figure.diagram');
   if (fig && !e.target.closest('a')) openZoom(fig);
 });

@@ -96,3 +96,12 @@ def test_status_without_check_answers_fast_and_check_has_its_own_endpoint(server
     c = json.loads(get(f"{server}/api/check")[2])
     assert c == {"errors": ["e"], "warnings": ["w"]} and calls == [1]
     assert json.loads(get(f"{server}/api/status")[2])["check"]["errors"] == ["e"]       # old callers unchanged
+
+
+def test_the_business_view_uses_real_page_types():
+    """core.js keeps the Business view's page types; each must be a type CONVENTIONS §2 defines."""
+    core = (REPO / ".camarones" / "portal" / "app" / "public" / "legacy" / "core.js").read_text(encoding="utf-8")
+    types = re.findall(r"'([\w-]+)'", re.search(r"BUSINESS_TYPES = \[(.*?)\]", core).group(1))
+    conventions = (REPO / ".camarones" / "CONVENTIONS.md").read_text(encoding="utf-8")
+    known = re.search(r"type: [\w-]+\s+# ([\w|-]+)", conventions).group(1).split("|")
+    assert types and set(types) <= set(known), (types, known)

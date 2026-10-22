@@ -71,13 +71,15 @@ function drawNode(node, active) {
 }
 
 function drawDocsSide(active) {
-  const docs = buildTree(T.docs.filter((d) => d.space === 'docs'));
+  const docs = buildTree(T.docs.filter((d) => d.space === 'docs' && (!isBusiness() || forBusiness(d) || d.path === active)));
   let notes = buildTree(T.docs.filter((d) => d.space === 'notes'));
   if (!notes.pages.length && Object.keys(notes.dirs).length === 1 && notes.dirs.interview) notes = { ...notes.dirs.interview, path: '' };
   const home = BY_PATH['index.md'];
   DOCS_ORDER = [...(home ? ['index.md'] : []), ...flatten({ ...docs, dirs: {} }), ...sortedDirs(docs).flatMap((n) => flatten(n))];
   NOTES_ORDER = flatten(notes);
-  $('#side-head').innerHTML = STATIC ? '' : `<a href="#/new" class="button ghost small newpage">${esc(t('newPage'))}</a>`;
+  $('#side-head').innerHTML = audienceSeg('side-audience') +
+    (STATIC ? '' : `<a href="#/new" class="button ghost small newpage">${esc(t('newPage'))}</a>`);
+  applyAudience();
   const general = docs.pages.length ? `<div class="group"><div class="group-title">${esc(t('general'))}</div>${drawNode({ ...docs, dirs: {} }, active)}</div>` : '';
   const sections = sortedDirs(docs).map((n) => {
     const title = `${SECTION_ICONS[n.name] || '📁'} ${esc(sectionLabel(n.name))}`;
@@ -97,8 +99,8 @@ async function showHome() {
   drawChrome('docs');
   drawDocsSide('');
   CURRENT = '';
-  const docs = T.docs.filter((d) => d.space === 'docs');
-  const wikiPages = T.docs.filter((d) => d.space === 'wiki').length;
+  const docs = T.docs.filter((d) => d.space === 'docs' && (!isBusiness() || forBusiness(d)));
+  const wikiPages = isBusiness() ? 0 : T.docs.filter((d) => d.space === 'wiki').length;
   if (!docs.length && !T.views.length) {
     drawToc(null);
     $('#main').innerHTML = `<div class="page hero empty"><div class="hero-logo">🦐</div><h1>${esc(T.project)}</h1>
@@ -123,11 +125,19 @@ async function showHome() {
   $('#main').innerHTML = `<div class="page wide home">
     <header class="hero"><h1>${esc(home?.title && home.title !== 'index' ? home.title : T.project)}</h1>
       <p class="lead">${esc(home?.description || t('homeLead'))}</p>
-      <div class="stats">${stats.map((s) => `<span class="pill">${esc(s)}</span>`).join('')}</div></header>
+      <div class="stats">${stats.map((s) => `<span class="pill">${esc(s)}</span>`).join('')}</div>
+      ${STATIC ? '' : `<form class="home-ask" id="home-ask"><input name="q" placeholder="${esc(t('homeAskPh'))}"
+        aria-label="${esc(t('homeAsk'))}" autocomplete="off"><button type="submit">${esc(t('homeAsk'))}</button></form>`}
+      ${isBusiness() ? `<p class="muted small">${esc(t('businessOn'))}</p>` : ''}</header>
     <div class="cards">${cards.join('')}</div>
     ${context ? `<h2 class="home-h">${esc(t('systemContext'))}</h2><div class="c4embed" data-view="index"></div>` : ''}
     <div id="body"></div></div>`;
   drawToc(null);
+  $('#home-ask')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const q = e.target.q.value.trim();
+    if (q) location.hash = `#/ask/${encodeURIComponent(q)}`;
+  });
   const tasks = [drawC4($('#main'))];
   if (home) {
     const d = await api('doc', { path: 'index.md', lang });
