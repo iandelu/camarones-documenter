@@ -148,3 +148,13 @@ def test_comply_runs_one_unit_and_scores_what_it_wrote(wired, tmp_path, monkeypa
     assert r["status"] == "done" and r["written"] == ["notes/discovery-api.md"]
     assert r["pages"] == 1 and r["score"] == 0.0                      # the fake writes a page without TL;DR or type
     assert list((wired.root / "docs" / ".work" / "evals" / "comply").glob("*.json"))
+
+
+def test_comply_refuses_a_unit_that_is_not_ready(wired):
+    """Found on the sandbox: comply on repo-brief (waiting for the interviews) printed '0 pages' and exit 0."""
+    import pytest
+    wired.plan.sync()
+    from lib.harness import comply
+    with pytest.raises(ValueError, match="interview-context"):
+        comply.run("repo-brief:api", echo=lambda _: None)
+    assert not list((wired.root / "docs" / ".work" / "evals" / "comply").glob("*.json"))

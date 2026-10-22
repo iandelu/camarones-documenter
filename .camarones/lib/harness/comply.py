@@ -38,6 +38,12 @@ def run(unit: str, runner: str | None = None, echo=print) -> dict:
     """Run one ready unit (through the scheduler, so it is recorded like any run) and score the pages it wrote."""
     from . import scheduler
     from .. import plan
+    data = plan.sync()
+    if unit not in {u["id"] for u in plan.available(data)}:
+        u = plan.get(data, unit)
+        waits = [d for d in u["deps"] if plan.get(data, d)["status"] not in plan.DONE]
+        raise ValueError(f"{unit} is not ready ({u['status']})" + (f": it waits for {', '.join(waits)}" if waits else "")
+                         + " — finish those first, or pick a ready unit (`plan next`)")
     before = _snapshot()
     if runner:
         from ..common import PREFS, load_json
