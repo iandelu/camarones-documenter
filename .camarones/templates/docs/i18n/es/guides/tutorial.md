@@ -162,7 +162,8 @@ Chromium sin ventana). Si faltan, `check` lo avisa una vez y se salta esa compro
 Un solo portal, dos modos y la misma interfaz. Pestañas: **Docs** (árbol, búsqueda, confianza), **Arquitectura (C4)**,
 **Grafo de código** (todos los repos o uno), **Wikis** (OpenWiki por repo, sus páginas y su grafo), **Revisión**
 (páginas pendientes, revisiones que espera un agente, peticiones de cambio, código cambiado desde la doc, `check`),
-**Preguntar** (las secciones que mejor responden a una pregunta, con citas, sin IA), **Pizarras** (pizarras de
+**Preguntar** (las secciones que mejor responden a una pregunta, con citas, sin IA; con un agente configurado, «Answer
+with AI» redacta la respuesta solo con ellas), **Pizarras** (pizarras de
 Excalidraw en `docs/boards/`, en blanco o desde una vista C4) y **Pipeline**. El selector de idioma cambia la interfaz y
 la documentación. Las tablas se ordenan por columna (las largas se filtran), `:::tabs`/`:::steps`/`:::details`/`:::cards`
 se ven como pestañas, pasos, desplegables y tarjetas, un interruptor «Todo / Negocio» (en cada página y encima del menú) oculta los bloques `:::tech` y, en Negocio, deja
