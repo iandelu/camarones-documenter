@@ -17,8 +17,7 @@ and never receive kit files.
 
 ## Where to look
 
-Search first (`search_docs`, then `read_doc(path, section)` for the section a hit names; `ask` gives the best sections
-for a question with citations), then go straight to:
+Search as above (`ask` gives the best sections for a question, with citations), or go straight to:
 
 | To… | Read |
 |---|---|

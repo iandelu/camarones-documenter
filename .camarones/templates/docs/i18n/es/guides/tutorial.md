@@ -36,7 +36,10 @@ repos de servicio no reciben archivos del kit; las rutas de abajo son relativas 
 
 La configuración de los agentes se comparte con el equipo, así que nunca se carga a ciegas: los hooks, servidores MCP,
 ajustes y skills que no ha escrito el kit se listan al abrir el asistente, y el workspace solo los enlaza cuando los
-apruebas en esta máquina (`camaron trust`). Las aprobaciones viven en `~/.camarones/trust/`, nunca en el repo.
+apruebas en esta máquina (`camaron trust`). Las aprobaciones viven en `~/.camarones/trust/`, nunca en el repo. Lo que
+el kit instaló en esta máquina (sus skills y los de graphify y OpenWiki, anotados en `~/.camarones/install/`) se
+reconoce sin preguntar; `camaron doctor` enseña un fichero del kit editado o un enlace que falta, y `camaron repair` los
+devuelve a su sitio.
 
 ## 2. El flujo guiado
 
@@ -278,7 +281,7 @@ comprobado, los comandos ejecutados y la siguiente acción.
 `doctor --local` (propone un modelo local libre para este equipo, sin instalar nada), `doctor --context` (los tokens
 que carga cada sesión de un agente antes de leer una página, frente a `context.budget`), `autopilot`, `plugins [--json]`,
 `run`, `runs`, `kpis`, `eval`, `ab`, `pipeline show|validate`, `blocks [--force]`, `pr fresh <repo>` y
-`plugins add|update|outdated|remove`, `pr propose <url>`, `removed add`.
+`plugins add|update|outdated|remove`, `pr propose <url>`, `removed add`, `repair`.
 
 **Datos del código, sin IA.** `camaron blocks` escribe `docs/repos/<repo>/reference.md` para cada repo: comandos
 (Maven, Gradle, `package.json`, Makefile, Docker Compose), variables de entorno (placeholders `${VAR:valor}` de Spring,
