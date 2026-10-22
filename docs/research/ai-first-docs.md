@@ -1,6 +1,6 @@
 # AI-first documentation: prompts and quality gate
 
-Proposal, 2026-09-25. **Status: proposed**, not implemented yet. The goal is to have the plan units write docs that
+Proposal, 2026-09-25. **Status: implemented** (P1–P8 and P10 in R24/R26, P9 in 4.18.0). The goal is to have the plan units write docs that
 **AI agents can read first** and that humans still find pleasant: pages an agent can find, read in pieces and trust
 without going back to the code for every claim.
 

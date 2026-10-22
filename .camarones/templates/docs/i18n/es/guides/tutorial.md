@@ -229,7 +229,7 @@ de servicio (tu checkout no se toca) y un agente actualiza las páginas que deja
 `docs/pr-<repo>-<n>`, en su propio worktree. El kit hace el commit, la sube y abre la PR de documentación (`--comment`
 la enlaza en la PR del servicio, `--preview` exporta esa rama como portal estático); `--dry-run` enseña antes el plan. Con `ci.target: self-hosted`, `camaron ci` escribe
 también `docs-propose`: el mismo comando en vuestro runner cuando alguien del proyecto etiqueta una PR con
-`docs:update`, nunca para forks. Cómo montar el runner: [guía del runner propio](self-hosted-runner.md).
+`docs:update` (otra etiqueta: `ci: {propose_label: …}` en `workspace.yaml`), nunca para forks. Cómo montar el runner: [guía del runner propio](self-hosted-runner.md).
 
 **El servidor MCP.** Los agentes llegan a la documentación con el servidor MCP `camarones`: `search_docs`,
 `read_doc(path, section)`, `ask` (las secciones que mejor responden a una pregunta, con citas), los recursos
@@ -264,6 +264,12 @@ esas herramientas; como la sacan de tu máquina, no funcionan hasta que ejecutas
 pide cambios en la pestaña Revisión del portal, y recibe la decisión en JSON. Los comentarios de revisión pueden
 apuntar a una sección: guardan su slug y una cita corta, así que se encuentran aunque cambie el título.
 
+**Lo que se quitó a propósito.** `camaron removed add "endpoint SOAP de facturación" --why "lo sustituye la API REST"
+--decision decisions/0007-drop-soap.md` añade una fila a `docs/overview/removed.md` (qué, cuándo, por qué y la
+decisión). Los agentes la leen antes de volver a crear algo; el `AGENTS.md` del proyecto también tiene una tabla
+«Where to look» para cada tarea. Cada sesión termina con un relevo que separa lo comprobado (con pruebas), lo no
+comprobado, los comandos ejecutados y la siguiente acción.
+
 ## 9. Comandos (para scripts y agentes)
 
 `camaron help` (copia por proyecto: `./camaron.command help`, en Windows `camaron.cmd help`) lista: `setup`, `sync`,
@@ -271,7 +277,7 @@ apuntar a una sección: guardan su slug y una cita corta, así que se encuentran
 `arch-validate`, `wiki <repo>`, `portal` (exportación), `up [--static|--docker]`, `down`, `ci`, `prompt <unidad>`, `migrate`, `doctor`,
 `doctor --local` (propone un modelo local libre para este equipo, sin instalar nada), `autopilot`, `plugins [--json]`,
 `run`, `runs`, `kpis`, `eval`, `ab`, `pipeline show|validate`, `blocks [--force]`, `pr fresh <repo>` y
-`plugins add|update|outdated|remove`, `pr propose <url>`.
+`plugins add|update|outdated|remove`, `pr propose <url>`, `removed add`.
 
 **Datos del código, sin IA.** `camaron blocks` escribe `docs/repos/<repo>/reference.md` para cada repo: comandos
 (Maven, Gradle, `package.json`, Makefile, Docker Compose), variables de entorno (placeholders `${VAR:valor}` de Spring,

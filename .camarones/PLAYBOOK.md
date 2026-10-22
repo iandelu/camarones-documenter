@@ -32,11 +32,16 @@ or `.\camaron.cmd`).
    the `## Last session` section of `docs/.work/handoff.md`:
    ```markdown
    ## Last session — <unit id> (<date>, <agent>)
-   - Done: …
+   - Objective: what this unit set out to do
+   - Verified (with evidence: file:line, command and its result): …
+   - Not verified / assumptions: what you believe but did not check
+   - Commands run: the ones that matter to repeat or trust the result
    - Decisions / user answers: …
-   - Pending / risks: …
+   - Remaining: …
+   - Next action: the one thing the next session should do first
    - Read first next time: <files>
    ```
+   Keep verified facts and intentions apart: the next session trusts the first list and re-checks the second.
 6. **Ask what next.** Show `CLI plan next` (top 3–4 ready units) and ask the user which one — in Claude Code with
    AskUserQuestion (options = units + "stop here"), in Codex as a numbered list. Recommend a **new session** after heavy
    units (discovery, repo-wiki, flows) — the user reopens the Camarón wizard and picks "Next step".
@@ -274,6 +279,8 @@ Recurring after the first full pass (also what CI runs):
    New capability → draft flow + open question.
 4. Refresh `docs/repos/<repo>/brief.md` if stack/commands/interfaces/diagram changed.
 5. Cleanup (CONVENTIONS §9): orphan drafts deleted (with translations and C4 elements); orphan confirmed pages → question.
+   Something removed from the system on purpose (a capability, an endpoint, a component): add it with
+   `CLI removed add "<what>" --why "<why>" [--decision …]`, so no one recreates it by mistake.
 6. Translations of changed pages + `CLI translated`; `CLI arch-validate`, `CLI llms`, `CLI check`, `CLI mark-documented`.
 7. Short report: pages created/updated/deleted, confirmed pages needing re-confirmation, new questions.
 

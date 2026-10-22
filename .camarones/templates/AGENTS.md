@@ -15,6 +15,21 @@ and never receive kit files.
    then `{{CLI}} check`. The docs are alive: code and docs change together. Through the MCP: `propose_edit` (AI drafts
    change in place; confirmed pages get a proposal for review), `add_feedback`, `mark_suspect` when a page is now wrong.
 
+## Where to look
+
+Search first (`search_docs`, then `read_doc(path, section)` for the section a hit names; `ask` gives the best sections
+for a question with citations), then go straight to:
+
+| To… | Read |
+|---|---|
+| work in a repo | `{{CAM}}docs/repos/<repo>/brief.md`, and `reference.md` next to it (commands, env vars, endpoints, topics) |
+| follow a business flow | `{{CAM}}docs/flows/` (`index.md` lists them) |
+| use the right term | `{{CAM}}docs/domain/glossary.md` |
+| know why something is the way it is | `{{CAM}}docs/decisions/` |
+| avoid bringing back what was removed on purpose | `{{CAM}}docs/overview/removed.md` |
+| see the architecture | `{{CAM}}docs/architecture/*.c4` (or the portal's Architecture tab) |
+| understand code structure | `repo_graph` / graphify, not broad greps |
+
 ## Documentation sessions
 1. Read `{{CAM}}docs/.work/handoff.md` (what the last session did and left pending) and run `{{CLI}} plan next`.
 2. A unit marked `[in progress]` was interrupted: resume it from its checkpoints in `{{CAM}}docs/.work/units/` instead of starting

@@ -66,6 +66,8 @@
   export pdf | print | tour FLOW | confluence | notion
                             the docs agents may read as one print-ready page (PDF with a headless Chrome), a guided
                             tour of a business flow, or published to Confluence/Notion (plugins: `plugins enable` first)
+  removed add WHAT --why WHY [--decision decisions/NNNN-x.md]
+                            record something removed on purpose (docs/overview/removed.md) so agents do not recreate it
   review request PAGE [--note T] | wait ID [--timeout S] | list
                             an agent asks a person to review a page and waits for the answer (approve / changes, as
                             JSON); people answer in the portal's Review tab
@@ -247,6 +249,8 @@ def main() -> int:
     sp.add_parser("init")
     for c in ("sync", "detect", "changes", "llms", "graph", "arch", "arch-validate", "portal", "down", "wizard", "version"):
         sp.add_parser(c)
+    rmv = sp.add_parser("removed"); rmv.add_argument("action", choices=["add"]); rmv.add_argument("what")
+    rmv.add_argument("--why", required=True); rmv.add_argument("--decision", default="")
     rv = sp.add_parser("review"); rv.add_argument("action", choices=["request", "wait", "list"])
     rv.add_argument("target", nargs="?"); rv.add_argument("--note", default=""); rv.add_argument("--by", default="agent")
     rv.add_argument("--timeout", type=float, default=3600)
@@ -465,6 +469,9 @@ def main() -> int:
         from lib import uninstall
         return uninstall.main(include_global=a.user_level, dry_run=a.dry_run, yes=a.yes, backup=not a.no_backup,
                               backup_dir=a.backup_dir)
+    elif a.cmd == "removed":
+        from lib import removed
+        print(f"✔ {removed.add(a.what, a.why, a.decision)}: {a.what}")
     elif a.cmd == "review":
         from lib import review
         if a.action == "list":

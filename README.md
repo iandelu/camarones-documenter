@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.17.0-ff875f?style=flat-square" alt="Versión 4.17.0">
+  <img src="https://img.shields.io/badge/version-4.18.0-ff875f?style=flat-square" alt="Versión 4.18.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -341,6 +341,8 @@ Para publicarlo (CI / hosting), `camaron portal` exporta la misma aplicación en
 
 Un agente que necesita la respuesta de una persona sobre una página ejecuta `camaron review request <página>` y después `camaron review wait <id>`: espera hasta que alguien la aprueba o pide cambios en la pestaña Revisión del portal y recibe la decisión en JSON. Los comentarios de revisión pueden apuntar a una sección (guardan su slug y una cita corta), así que siguen encontrándola aunque cambie el título.
 
+**Lo que se quitó a propósito.** `camaron removed add "endpoint SOAP de facturación" --why "lo sustituye la API REST" --decision decisions/0007-drop-soap.md` añade una fila a `docs/overview/removed.md` (qué, cuándo, por qué y la decisión). El `AGENTS.md` del proyecto manda leer esa página antes de volver a crear algo, junto con una tabla de dónde mirar para cada tarea (brief y `reference.md` del repo, flujos, glosario, decisiones, C4). Al terminar cada sesión, el agente deja en `docs/.work/handoff.md` qué comprobó con pruebas, qué no comprobó, los comandos que ejecutó y la siguiente acción, separados, para que la siguiente sesión sepa de qué fiarse.
+
 ### Exporta la documentación
 
 `camaron export pdf` junta en una sola página lista para imprimir todo lo que pueden leer los agentes y la convierte en PDF con Chrome, Chromium o Edge sin ventana si hay alguno. `camaron export tour flows/<flujo>.md` hace un recorrido guiado de un flujo de negocio, una diapositiva por paso. `camaron export confluence` y `export notion` publican en esas herramientas; como sacan la documentación de tu máquina, no funcionan hasta `camaron plugins enable confluence` (o `notion`) y su URL y token. Nunca se exporta una página retenida por la puerta de frescura.
@@ -361,7 +363,7 @@ Un agente que necesita la respuesta de una persona sobre una página ejecuta `ca
 
 Se incluyen [plantillas de CI para GitHub y GitLab](.camarones/ci/) para automatizar actualizaciones y construir el portal. Además, `camaron ci` genera un job para cada repo de servicio que, en cada PR/MR y **sin IA**, comenta qué páginas deja desactualizadas el cambio y cuáles ya lo estaban: un solo comentario por PR, que se actualiza con cada push y nunca bloquea el merge. En local es `camaron pr fresh <repo> --base main`. Los jobs de GitHub y GitLab salen de una misma definición, y `ci: {target: self-hosted, runner_labels: […], runner_tags: […]}` en `workspace.yaml` los lleva a vuestros runners. Las PR del propio `cam-docs` solo pasan `check`.
 
-**Propuesta con IA para una PR.** `camaron pr propose <url de la PR>` trae la PR sin tocar tu checkout, y un agente actualiza las páginas que deja desactualizadas en la rama `docs/pr-<repo>-<n>` de `cam-docs`, en su propio worktree. El kit hace el commit, la sube y abre la PR de documentación (`--comment` la enlaza en la PR del servicio, `--preview` exporta esa rama como portal estático para revisarla); `--dry-run` enseña antes qué haría. Con `ci.target: self-hosted`, `camaron ci` genera también el job `docs-propose`, que hace lo mismo en vuestro runner cuando alguien del proyecto etiqueta una PR con `docs:update` y nunca corre para forks. La guía para montar el runner se instala en `docs/guides/self-hosted-runner.md` (es + en). Antes de abrir la PR/MR ejecutan `check --secrets`: si la IA copió un secreto en la documentación, el job falla y la rama no se publica. Requieren configurar accesos, secretos y despliegue según el proyecto; no se activan al descargar este repositorio.
+**Propuesta con IA para una PR.** `camaron pr propose <url de la PR>` trae la PR sin tocar tu checkout, y un agente actualiza las páginas que deja desactualizadas en la rama `docs/pr-<repo>-<n>` de `cam-docs`, en su propio worktree. El kit hace el commit, la sube y abre la PR de documentación (`--comment` la enlaza en la PR del servicio, `--preview` exporta esa rama como portal estático para revisarla); `--dry-run` enseña antes qué haría. Con `ci.target: self-hosted`, `camaron ci` genera también el job `docs-propose`, que hace lo mismo en vuestro runner cuando alguien del proyecto etiqueta una PR con `docs:update` (otra etiqueta con `ci: {propose_label: …}` en `workspace.yaml`) y nunca corre para forks. La guía para montar el runner se instala en `docs/guides/self-hosted-runner.md` (es + en). Antes de abrir la PR/MR ejecutan `check --secrets`: si la IA copió un secreto en la documentación, el job falla y la rama no se publica. Requieren configurar accesos, secretos y despliegue según el proyecto; no se activan al descargar este repositorio.
 
 ### Deshazlo todo
 
