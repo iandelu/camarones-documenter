@@ -771,7 +771,11 @@ def cmd_eval(a) -> int:
             print("usage: eval comply UNIT [--runner T] [--json]  (run it on the sandbox, not on a real project)",
                   file=sys.stderr)
             return 2
-        r = comply.run(a.ids[0], runner=a.runner or None, echo=(lambda _: None) if a.json else print)
+        try:
+            r = comply.run(a.ids[0], runner=a.runner or None, echo=(lambda _: None) if a.json else print)
+        except (KeyError, ValueError) as e:
+            print(f"✖ {e}", file=sys.stderr)
+            return 2
         if a.json:
             print(json.dumps(r, indent=2, ensure_ascii=False))
             return 0
