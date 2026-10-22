@@ -162,7 +162,8 @@ Un solo portal, dos modos y la misma interfaz. Pestañas: **Docs** (árbol, bús
 Excalidraw en `docs/boards/`, en blanco o desde una vista C4) y **Pipeline**. El selector de idioma cambia la interfaz y
 la documentación. Las tablas se ordenan por columna (las largas se filtran), `:::tabs`/`:::steps`/`:::details`/`:::cards`
 se ven como pestañas, pasos, desplegables y tarjetas, un interruptor «Todo / Negocio» oculta los bloques `:::tech`, y en
-Mermaid los nombres que coinciden con una página o un repo son enlaces.
+Mermaid los nombres que coinciden con una página o un repo son enlaces. Un bloque `:::rule ORD-1 Título` explica una
+regla de negocio con anclas `enforced:`/`test:` (`repo:ruta#Símbolo`); `check` falla si ese código ya no existe.
 
 La pestaña **Pipeline** (blanco y negro, modo oscuro; viene ya compilada
 con el kit, no hace falta Node) muestra el plan en vivo: un grafo de las unidades por fase, un

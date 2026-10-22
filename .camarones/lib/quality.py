@@ -421,5 +421,29 @@ def check_generated(rows: list[dict], strict: bool = False) -> Issues:
     return genblocks.check(rows, strict)
 
 
+def check_rules(rows: list[dict], strict: bool = False) -> Issues:
+    """`:::rule` blocks (X8): one page per id, and every `enforced:` / `test:` symbol still where the anchor says."""
+    from .harness import freshness
+    errors, warns, seen = [], [], {}
+    for r in rows:
+        if r.get("space", "docs") != "docs":
+            continue
+        f = ROOT / r["file"]
+        for rule in docs.rules(f.read_text(encoding="utf-8", errors="replace")):
+            rid, where = rule["id"], rel_file(f)
+            if rid in seen:
+                errors.append(f"{where}: rule {rid} is already defined in {seen[rid]}")
+                continue
+            seen[rid] = where
+            if not rule["enforced"]:
+                warns.append(f"{where}: rule {rid} has no enforced: anchor (repo:path#Symbol of the code that applies it)")
+            for ref in rule["enforced"] + rule["test"]:
+                if freshness.kind(ref) != "symbol":
+                    warns.append(f"{where}: rule {rid}: {ref} — write it as repo:path#Symbol so check can find it")
+                elif freshness._block(ref) is None:
+                    errors.append(f"{where}: rule {rid}: {ref.partition('#')[2]} not found in {ref.partition('#')[0]}")
+    return (errors + warns, []) if strict else (errors, warns)
+
+
 CHECKS = (check_links, check_mermaid, check_secrets, check_terms, check_diagrams, check_fresh,
-          check_structure, check_generated, check_plugins)
+          check_structure, check_generated, check_plugins, check_rules)

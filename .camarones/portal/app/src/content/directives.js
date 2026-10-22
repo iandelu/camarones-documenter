@@ -5,7 +5,8 @@
 //   :::steps / 1. …                 a numbered procedure
 //   :::details Summary              folded content
 //   :::tech / :::business           shown or hidden by the business/technical switch
-export const KINDS = ['tabs', 'cards', 'steps', 'details', 'tech', 'business']
+//   :::rule ID Title / enforced: … / test: …   a business rule and the code that applies and tests it (X8)
+export const KINDS = ['tabs', 'cards', 'steps', 'details', 'tech', 'business', 'rule']
 const OPEN = /^:::\s*(\w+)\s*(.*)$/
 const CLOSE = /^:::\s*$/
 
@@ -54,6 +55,18 @@ export function cards(body) {
     .map((m) => ({ title: m[1], href: m[2], text: m[3] }))
 }
 
+export function rule(body) {
+  const out = { enforced: [], test: [], text: [] }
+  for (const line of body.split('\n')) {
+    const m = line.trim().match(/^(enforced|test):\s*(.+)$/)
+    if (m) out[m[1]].push(...m[2].split(',').map((s) => s.trim()).filter(Boolean))
+    else out.text.push(line)
+  }
+  return { ...out, text: out.text.join('\n').trim() }
+}
+
+const refs = (label, xs) => xs.length ? `<p class="dv-rule-refs"><span>${label}</span> ${xs.map((x) => `<code>${esc(x)}</code>`).join(' ')}</p>` : ''
+
 // HTML for a whole page: `md` renders Markdown (marked.parse in the portal).
 export function render(source, md) {
   let n = 0
@@ -71,6 +84,13 @@ export function render(source, md) {
         `${c.text ? `<p class="muted small">${esc(c.text)}</p>` : ''}</div></a>`).join('')}</div>`
     }
     if (p.kind === 'steps') return `<div class="dv-steps">${md(p.body)}</div>`
+    if (p.kind === 'rule') {
+      const [rid, ...title] = p.arg.split(/\s+/)
+      const r = rule(p.body)
+      return `<div class="dv-rule" id="rule-${esc(rid)}"><div class="dv-rule-head"><b>${esc(rid)}</b>` +
+        `${title.length ? ` <span>${esc(title.join(' '))}</span>` : ''}</div>${md(r.text)}` +
+        `${refs('Enforced by', r.enforced)}${refs('Tested by', r.test)}</div>`
+    }
     if (p.kind === 'details') return `<details class="dv-details"><summary>${esc(p.arg || 'Details')}</summary>${md(p.body)}</details>`
     return `<div class="dv-${p.kind}" data-audience="${p.kind}">${md(p.body)}</div>`
   }).join('\n')

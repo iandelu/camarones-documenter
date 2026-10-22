@@ -420,6 +420,13 @@ body.native-mode .side, body.native-mode #main, body.native-mode .toc { display:
 .dv-details > summary { cursor: pointer; font-weight: 600; color: var(--ink); }
 .dv-details[open] > summary { margin-bottom: .6rem; }
 .dv-cards { margin: 0 0 1.25rem; }
+.dv-rule { border: 1px solid var(--line); border-left: 3px solid var(--ink); border-radius: 10px; padding: .7rem 1rem; margin: 0 0 1.25rem; }
+.dv-rule-head { display: flex; gap: .6rem; align-items: baseline; margin-bottom: .35rem; }
+.dv-rule-head b { font: 600 .82rem var(--mono); }
+.dv-rule-head span { font-weight: 600; }
+.dv-rule > p:last-child { margin-bottom: 0; }
+.dv-rule-refs { font-size: .85rem; color: var(--muted); margin: .35rem 0 0; overflow-wrap: anywhere; }
+.dv-rule-refs span { margin-right: .25rem; }
 .dv-business { border-left: 2px solid var(--line); padding-left: 1rem; }
 body[data-audience="business"] .dv-tech { display: none; }
 .audience { display: inline-flex; float: right; border: 1px solid var(--line); border-radius: 8px; padding: 2px; margin: 0 0 .5rem 1rem; }

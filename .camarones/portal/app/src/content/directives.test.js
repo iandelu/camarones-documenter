@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cards, render, split, tabs } from './directives.js'
+import { cards, render, rule, split, tabs } from './directives.js'
 
 const md = (s) => `<md>${s.trim()}</md>`
 
@@ -35,5 +35,17 @@ describe('directives', () => {
 
   it('escapes labels', () => {
     expect(render(':::details <b>x</b>\ny\n:::', md)).toContain('&lt;b&gt;x&lt;/b&gt;')
+  })
+
+  it('renders a business rule with its anchors', () => {
+    const body = 'enforced: api:src/A.java#A.place\ntest: api:src/ATest.java#ATest.empty\nAn order needs a line.'
+    expect(rule(body)).toEqual({ enforced: ['api:src/A.java#A.place'], test: ['api:src/ATest.java#ATest.empty'],
+      text: 'An order needs a line.' })
+    const html = render(`:::rule ORD-1 Non-empty orders\n${body}\n:::`, md)
+    expect(html).toContain('<div class="dv-rule" id="rule-ORD-1">')
+    expect(html).toContain('<b>ORD-1</b>')
+    expect(html).toContain('Non-empty orders')
+    expect(html).toContain('<md>An order needs a line.</md>')
+    expect(html).toContain('<code>api:src/A.java#A.place</code>')
   })
 })

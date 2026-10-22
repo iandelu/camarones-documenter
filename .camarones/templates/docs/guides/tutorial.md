@@ -154,7 +154,8 @@ a question, with citations, no AI), **Boards** (Excalidraw whiteboards in `docs/
 view) and **Pipeline**. The language switch changes the interface and the docs; a page not translated yet is shown in
 English with a notice. Tables sort by column (long ones filter), `:::tabs`/`:::steps`/`:::details`/`:::cards` render
 as tabs, steps, folds and cards, an "All / Business" switch hides `:::tech` blocks, and Mermaid names that match a page
-or a repo are links.
+or a repo are links. A `:::rule ORD-1 Title` block states a business rule with `enforced:`/`test:` anchors
+(`repo:path#Symbol`); `check` fails when that code is gone.
 
 The **Pipeline** tab (black and white, dark mode; it ships already built
 with the kit, no Node needed) shows the plan live: a graph of the units by phase, a board by
