@@ -689,7 +689,7 @@ def main() -> int:
     elif a.cmd == "feedback":
         docs.add_feedback(a.file, a.text, a.by or os.environ.get("USER", "human"))
         plan.ensure("review-fixes", "review-fixes")
-        print(f"feedback recorded in {docs.FEEDBACK.relative_to(ROOT).as_posix()}; unit review-fixes is ready")
+        print(f"feedback recorded in {plan._at(docs.FEEDBACK)}; unit review-fixes is ready")
     elif a.cmd == "prompt":
         print(plan.prompt(a.unit, lang=a.lang, unattended=a.unattended))
     elif a.cmd == "autopilot":
@@ -1133,7 +1133,7 @@ def cmd_plan(a) -> int:
         if not a.unit or not (a.title or a.note):
             print('usage: plan note <unit> "what is done / what is next"'); return 2
         f = plan.note(a.unit, a.title or a.note)
-        print(f"checkpoint saved → {f.relative_to(ROOT).as_posix()}")
+        print(f"checkpoint saved → {plan._at(f)}")
     elif a.action in ("start", "done", "block", "drop"):
         if not a.unit:
             print("unit id required"); return 2

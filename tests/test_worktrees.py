@@ -129,3 +129,21 @@ def test_the_main_session_prompt_is_unchanged(wired):
     wired.plan.sync()
     text = wired.plan.prompt("discovery:api", "en", unattended=True)
     assert "checkpoint \"discovery:api\"" in text and "`cam-docs/docs/.work/handoff.md`" in text and ".cw/" not in text
+
+
+def test_cli_checkpoints_work_from_a_unit_worktree(wired, wt):
+    """Found on the sandbox (eval comply): `plan note` printed the checkpoint path relative to the worktree, but the
+    notes live in main's state root, so it crashed after saving."""
+    import os, sys
+    from conftest import KIT_DIR
+    wired.plan.sync()
+    w = wt.add("discovery:api")
+    env = {**os.environ, "CAMARONES_ROOT": str(w.path), "CAMARONES_STATE_ROOT": str(wired.root),
+           "CAMARONES_WORKSPACE": str(wired.ws)}
+    cli = lambda *a: subprocess.run([sys.executable, str(KIT_DIR / "camarones.py"), *a], env=env,  # noqa: E731
+                                    capture_output=True, text=True, encoding="utf-8")
+    r = cli("plan", "note", "discovery:api", "half done")
+    assert r.returncode == 0 and "cam-docs/docs/.work/units/" in r.stdout, r.stderr
+    assert "half done" in wired.plan.last_note("discovery:api")
+    r = cli("feedback", "docs/overview.md", "too long", "--by", "ana")
+    assert r.returncode == 0, r.stderr
