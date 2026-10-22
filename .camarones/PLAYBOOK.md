@@ -129,7 +129,8 @@ downloads an answers JSON) or `questionnaire.md` (tick boxes, send back or PR), 
 
 ## interview
 Three short units (`interview-context`, `interview-language`, `interview-history`). Show what was inferred, let the user
-validate or correct; ≤4 questions per round.
+validate or correct; ≤4 questions per round. Before `interview-history`, run `CLI history` and read
+`docs/overview/history.md`: its hotspots are what to ask about and "Who to ask" is who knows each repo.
 **Team mode** (`CLI interview mode` says `team`): do not interview. Read `questionnaire.yaml` (this unit's topic) and
 every `responses/*.yaml`; `CLI interview status` lists who answered, gaps and disagreements. Write the agreed answers to
 the dated file below, citing who said what (`— Ana, Bob`); a disagreement or an unanswered question becomes an entry
