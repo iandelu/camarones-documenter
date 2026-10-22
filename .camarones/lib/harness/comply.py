@@ -15,14 +15,16 @@ RESULTS = WORK / "evals" / "comply"
 
 def score(paths: list[str]) -> dict:
     from .. import quality
-    rows = {r["path"]: r for r in docs.collect()}
+    every = docs.collect()
+    rows = {r["path"]: r for r in every}
     chosen = [rows[p] for p in paths if p in rows]
+    found = []
+    for check in (quality.check_structure, quality.check_links):    # over every page: links reach pages not written now
+        errors, warns = check(every)
+        found += errors + warns
     by_page = {}
     for r in chosen:
-        problems = []
-        for check in (quality.check_structure, quality.check_links):
-            errors, warns = check([r])
-            problems += [p.split(": ", 1)[-1] for p in errors + warns if r["file"] in p]
+        problems = [p.split(": ", 1)[-1] for p in found if p.startswith(r["file"] + ":")]
         by_page[r["path"]] = {"issues": problems, "orphan_sources": list(r.get("orphan_sources") or [])}
     compliant = sum(1 for v in by_page.values() if not v["issues"] and not v["orphan_sources"])
     return {"pages": len(by_page), "compliant": compliant,
