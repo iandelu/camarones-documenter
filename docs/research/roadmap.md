@@ -108,6 +108,39 @@ Done: R1–R6 (2026-10-09, kit 3.14.0), R7 (2026-10-13), R8 (2026-10-14, kit 3.1
 | R35 | Exporters as plugins: PDF and guided tour built in; Confluence / Notion opt-in | Tour built from a fixture flow; third-party exporters disabled unless approved | H19 |
 | R36 | X2 hooks, X7 compliance evals on the sandbox, Gemini adapter, central MCP / team server spike (own RFC) | Per item | H9, H16, H20 |
 
+## After the roadmap: the backlog (4.18–4.26)
+
+R1–R37 shipped by 4.17. What was left from the research notes, done the same way (test first, sandbox):
+
+| Version | Item | What changed |
+|---|---|---|
+| 4.18 | P9, X12, X9 | "Where to look" table in AGENTS.md; handoffs split verified / not verified / next action; `removed add` keeps `overview/removed.md`; `ci.propose_label` |
+| 4.19 | X5 | `doctor --context` counts standing tokens; a test caps the kit's share; token estimate per page in `llms.txt` |
+| 4.20 | X4 | per-machine install record: no trust prompts for the kit's own tool skills, drift in `doctor`, `camaron repair` |
+| 4.21 | X8 | `:::rule` blocks with `enforced:`/`test:` symbol anchors, checked by `check`, rendered in the portal |
+| 4.22 | X10 | `export codetour` turns a flow's Steps into a VS Code CodeTour |
+| 4.23 | X11 | `camaron history`: hotspots, who to ask, co-change, tickets across repos, from git without AI |
+| 4.24 | — | `approval: true` on a pipeline node: the unit waits for `plan approve` or the portal's Approve |
+| 4.25 | — | Business view by page type in the portal; "How does … work?" box on the home page |
+| 4.26 | — | optional AI answer in Ask, from the sections agents may read, with checked citations |
+
+Validated on the sandbox with a real agent (claude, 2026-10-22):
+
+- `eval comply discovery:spring-petclinic-rest`: 2 min, score 1.0, but discovery pages are `interview` (exempt from
+  the structure check), so it says little. `repo-brief:spring-petclinic-rest`: 3 min, 4 pages, score 1.0 after the
+  fix below. The brief has 366 words of prose, 65 in its longest section, against budgets of 1500 and 400: real
+  output sits well inside them, so the thresholds stay as they are until a sample hits them.
+- `ab --task` (a "count owners" endpoint), one sample: with cam-docs 1.19M context tokens, 124 s, 20 tool calls; without
+  0.74M, 88 s, 13; both changed 10 files. The sandbox had only discovery notes and one brief, so the agent read docs
+  and then the code anyway. One sample is not a verdict; the comparison needs a documented project.
+- Bugs it found, fixed with a test each: `plan note` / `feedback` crashed inside a unit worktree (4.26.1); `eval
+  comply` ran nothing and exited 0 on a unit that was not ready (4.26.2); the comply score called links to pages
+  written earlier broken (4.26.3).
+- Not measured: Qwen through Ollama (neither Ollama nor OpenCode is installed here; `doctor --local` proposes one).
+
+Still open: D4 oasdiff (next in tooling-candidates.md), and what needs the team: real GitHub/GitLab runs of
+`docs-fresh`/`docs-propose`, real Confluence/Notion spaces, and a local model on hardware that has one.
+
 ## Done means
 
 - `uv run pytest` green on the three OSes; e2e on the sandbox (`uv run scripts/sandbox.py cli …`) for items that run
