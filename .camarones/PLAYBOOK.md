@@ -189,6 +189,8 @@ The `likec4` MCP server (in `.mcp.json` / `.codex/config.toml`) answers question
 ## domain
 `docs/domain/bounded-contexts.md` (context map + repo mapping), `glossary.md`, `actors.md` from the interviews. Fill the
 glossary's **Avoid** column with the synonyms the interviews rejected: `CLI check` flags them across the docs.
+Rules the business states ("an order needs one line") go in `:::rule` blocks (CONVENTIONS §6) next to the flow or
+context they belong to, anchored to the code that enforces them; a rule you cannot anchor is a question for the team.
 Skeletons: `domain.md` (bounded contexts), `glossary.md`.
 
 ## data

@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.20.0-ff875f?style=flat-square" alt="Versión 4.20.0">
+  <img src="https://img.shields.io/badge/version-4.21.0-ff875f?style=flat-square" alt="Versión 4.21.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -335,6 +335,8 @@ Abre **http://localhost:8080**. Es un único portal 🦐 con pestañas, en espa�
 - **Pipeline**: el plan en vivo (abajo).
 
 Las páginas también son más interactivas: las tablas se ordenan pulsando una columna (y las largas se filtran), los bloques `:::tabs`, `:::steps`, `:::details` y `:::cards` se ven como pestañas, pasos numerados, desplegables y tarjetas, un interruptor «Todo / Negocio» oculta los detalles técnicos (`:::tech`) a quien no los necesita, y en los diagramas Mermaid los nombres que coinciden con una página o un repo se pueden pulsar para ir a ella. Los agentes leen esos bloques como Markdown normal.
+
+**Reglas de negocio comprobables.** Un bloque `:::rule ORD-1 Pedidos no vacíos` explica la regla y la ancla al código con líneas `enforced:` y `test:` (`repo:ruta#Símbolo`). `camaron check` busca cada símbolo aunque se haya movido dentro del fichero: falla si ya no existe, avisa si nadie aplica la regla o si un ID se repite. El portal la muestra como una tarjeta con su ID y los agentes la leen como texto (`**Rule ORD-1 — …**`, `Enforced by: …`).
 
 Para publicarlo (CI / hosting), `camaron portal` exporta la misma aplicación en modo solo lectura (HTML + JSON, sin npm) a `.camarones/.cache/site`. Se sirve con `camaron up --static`, con `camaron up --docker` o desde cualquier hosting estático; los enlaces «Editar» llevan al fichero en GitLab/GitHub.
 

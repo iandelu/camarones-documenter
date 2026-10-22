@@ -107,6 +107,19 @@ Directives the portal renders (and agents read as plain Markdown): `:::tabs` wit
 folded, `:::cards` around a list of `[Title](link): text`, `:::tech` around details only engineers need and `:::business`
 around a plain-language explanation. Use them only when they help a reader; plain Markdown is always fine.
 
+Business rules go in `:::rule ID Title` blocks: the rule in plain words, plus `enforced:` (and `test:`) lines with
+`repo:path#Symbol` anchors, comma-separated, to the code that applies it and the test that checks it. IDs are unique
+across the docs (`ORD-1`, `PAY-3`); `CLI check` fails when an anchored symbol is gone and warns about a rule nobody
+enforces.
+
+```
+:::rule ORD-1 Non-empty orders
+enforced: api:src/main/java/shop/OrderService.java#OrderService.place
+test: api:src/test/java/shop/OrderServiceTest.java#OrderServiceTest.rejectsEmptyCart
+An order needs at least one line.
+:::
+```
+
 Start every page from its skeleton in `.camarones/skeletons/` (one per `type`, or per path with `x-skeleton-for`):
 frontmatter, H1, TL;DR and the required `##` sections. `CLI check` reads the skeletons to know which sections a page
 needs; one marked `<!-- optional -->` may be left out. The team may edit them; an edited copy survives kit upgrades.
