@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.25.0-ff875f?style=flat-square" alt="Versión 4.25.0">
+  <img src="https://img.shields.io/badge/version-4.26.0-ff875f?style=flat-square" alt="Versión 4.26.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -331,7 +331,7 @@ Abre **http://localhost:8080**. Es un único portal 🦐 con pestañas, en espa�
 - **Código**: el grafo de graphify convertido en un mapa legible: los módulos de cada repo y sus dependencias, los ficheros más usados, sus paquetes y, por fichero, qué usa y quién lo usa, con buscador. El grafo completo de graphify sigue a un clic.
 - **Wikis**: cada repo se abre en el visor de OpenWiki (grafo de páginas conectadas y lector; se regenera solo si la wiki cambió). «Leer las páginas» la muestra dentro del portal, con menú propio y «Enlazada desde». Cada wiki aspira a ser completa (arquitectura del repo, una página por API y área de lógica, configuración, tests, operación y deuda); si una se escribió con el alcance antiguo, más escueto, el asistente, el portal y `check` avisan, y actualizarla la amplía. También está el botón para generarla o actualizarla con un log en vivo. Sin clave de proveedor de OpenWiki, la genera Claude Code o Codex a través del MCP de OpenWiki.
 - **Review**: lo pendiente de revisar, las revisiones que espera un agente (aprobar o pedir cambios), las peticiones de cambio y los repos cuyo código cambió.
-- **Preguntar**: escribe una pregunta y te devuelve las secciones que mejor la responden, con su cita y su confianza, igual que se las daría a un agente (sin IA).
+- **Preguntar**: escribe una pregunta y te devuelve las secciones que mejor la responden, con su cita y su confianza, igual que se las daría a un agente (sin IA). Si hay un agente configurado, el botón «Answer with AI» le pide una respuesta redactada solo con esas secciones (las que los agentes pueden leer), con citas que enlazan a ellas; usa el agente del trabajo acotado (`bounded`), que puede ser un modelo local, y `ask: {ai: false}` en `workspace.yaml` lo quita.
 - **Pizarras**: pizarras de Excalidraw guardadas en `cam-docs/docs/boards/`, en blanco o empezando desde una vista C4 (una caja por elemento y una flecha por relación) para anotarla en equipo.
 - **Pipeline**: el plan en vivo (abajo).
 

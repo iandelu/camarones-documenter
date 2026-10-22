@@ -85,7 +85,9 @@ def api_ask(question: str) -> dict:
                     "tldr": docs.tldr(body), "text": found[1] if found else body.strip()[:3000]})
         if len(out) >= 3:
             break
-    return {"question": question, "sections": out}
+    from . import answers
+    readable = any(not s["withheld_for_agents"] for s in out)          # the AI only reads what agents may read
+    return {"question": question, "sections": out, "ai": answers.runner() if readable else None}
 
 
 def api_doc(q: dict) -> dict:
@@ -467,6 +469,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json({"cancelling": m.group(1)})
             if p == "/api/units/retry":
                 return self.json(*retry_unit(b.get("unit", "")))
+            if p == "/api/ask/answer":
+                from . import answers
+                return self.json(answers.answer(str(b.get("q", ""))))
             if p == "/api/units/approve":
                 return self.json(*approve_unit(b.get("unit", "")))
             self.json({"error": "not found"}, 404)
