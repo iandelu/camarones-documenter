@@ -67,6 +67,8 @@ def test_pages_are_classified_into_docs_notes_and_wiki(serve_mod):
 def test_sections_order_matches_llms(serve_mod):
     t = serve_mod.serve.tree()
     assert t["sections"] == serve_mod.docs.SECTIONS
+    d = serve_mod.root / "docs"                         # pages without sources reach agents once confirmed (H27)
+    serve_mod.docs.confirm([str(d / "flows/checkout.md"), str(d / "repos/api/brief.md")], by="ana")
     serve_mod.docs.llms()
     text = (serve_mod.root / "docs" / "llms.txt").read_text(encoding="utf-8")
     assert text.index("## flows") < text.index("## repos/api")
@@ -155,7 +157,8 @@ def test_static_export_carries_the_new_fields(serve_mod, monkeypatch):
     assert "flow_checkout" in [v["id"] for v in tree["views"]]
     wikis = json.loads((site / "api" / "wikis.json").read_text(encoding="utf-8"))
     assert next(w for w in wikis if w["repo"] == "api")["nav"]["pages"]
-    assert (site / "doc.js").is_file() and (site / "index.html").is_file()
+    assert (site / "legacy" / "doc.js").is_file() and (site / "index.html").is_file()
+    assert 'content="static"' in (site / "index.html").read_text(encoding="utf-8")
 
 
 def test_wiki_graph_export_does_not_pass_flags_openwiki_rejects(serve_mod, monkeypatch):

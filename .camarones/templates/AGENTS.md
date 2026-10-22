@@ -6,18 +6,33 @@ agent config live in `{{CAM}}` (its own git repo); the service repos listed in `
 and never receive kit files.
 
 ## Implementing a feature (any repo)
-1. Before coding, look it up: `camarones` MCP tools (`search_docs`, `read_doc`, `repo_graph`) or `{{CAM}}docs/llms.txt`.
+1. Before coding, look it up: `camarones` MCP tools (`search_docs`, then `read_doc(path, section)` for the section a hit
+   names; `repo_graph`) or `{{CAM}}docs/llms.txt`.
    `confirmed` pages are the source of truth; `draft` pages must be verified against the code.
 2. Code questions: `graphify query "<question>" --graph {{CAM}}graph/<repo>/graph.json` (one repo) or
    `--graph {{CAM}}.camarones/.cache/graph/graph.json` (all repos).
 3. After changing behaviour, update the affected pages in `{{CAM}}docs/` in the same session (skill `cam-docs-update`),
-   then `{{CLI}} check`. The docs are alive: code and docs change together.
+   then `{{CLI}} check`. The docs are alive: code and docs change together. Through the MCP: `propose_edit` (AI drafts
+   change in place; confirmed pages get a proposal for review), `add_feedback`, `mark_suspect` when a page is now wrong.
+
+## Where to look
+
+Search as above (`ask` gives the best sections for a question, with citations), or go straight to:
+
+| To… | Read |
+|---|---|
+| work in a repo | `{{CAM}}docs/repos/<repo>/brief.md`, and `reference.md` next to it (commands, env vars, endpoints, topics) |
+| follow a business flow | `{{CAM}}docs/flows/` (`index.md` lists them) |
+| use the right term | `{{CAM}}docs/domain/glossary.md` |
+| know why something is the way it is | `{{CAM}}docs/decisions/` |
+| avoid bringing back what was removed on purpose | `{{CAM}}docs/overview/removed.md` |
+| see the architecture | `{{CAM}}docs/architecture/*.c4` (or the portal's Architecture tab) |
+| understand code structure | `repo_graph` / graphify, not broad greps |
 
 ## Documentation sessions
 1. Read `{{CAM}}docs/.work/handoff.md` (what the last session did and left pending) and run `{{CLI}} plan next`.
 2. A unit marked `[in progress]` was interrupted: resume it from its checkpoints in `{{CAM}}docs/.work/units/` instead of starting
-   over. Otherwise propose the next ready unit; one marked `[taken: …]` belongs to another session working right now, leave it
-   alone. Follow `{{CAM}}.camarones/PLAYBOOK.md` ("Session protocol"); save progress often
+   over. Otherwise propose the next ready unit. Follow `{{CAM}}.camarones/PLAYBOOK.md` ("Session protocol"); save progress often
    with `{{CLI}} plan note <unit> "…"`. Human review comments waiting to be applied: `{{CAM}}docs/.work/review-feedback.md`.
 3. Doc rules: `{{CAM}}.camarones/CONVENTIONS.md` (binding). Paths in the playbook and conventions are relative to `{{CAM}}`.
 4. JVM repos with SDKMAN: run `source ~/.sdkman/bin/sdkman-init.sh && sdk env` in the repo before `mvn`/`gradle` (prefer `./mvnw`, `./gradlew`).
@@ -28,6 +43,6 @@ instead of rewriting them. `draft` pages are AI-generated: verify against code. 
 `<!-- human -->` blocks or files with `x-owner: human`.
 
 ## CLI
-`{{CLI}} help` · `plan next` · `plan start|note|done <unit>` · `plan ask|handoff <unit> "…"` · `checkpoint` · `status` · `check` · `changes` ·
+`{{CLI}} help` · `plan next` · `plan start|note|done <unit>` · `checkpoint` · `status` · `check` · `changes` ·
 `arch-validate` · `translated` · `llms` · `up` (portal: read, edit, confirm)
 <!-- camarones:end -->

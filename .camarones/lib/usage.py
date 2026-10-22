@@ -83,12 +83,13 @@ def _months_back(n: int, today: date) -> list[str]:
 
 
 def _doc_commits(keys: list[str]) -> dict[str, tuple[int, set]]:
-    """Commits that changed docs per month, and who wrote them — not the stats or the generated status file."""
+    """Commits that changed docs per month, and who wrote them — not the plan, stats and measurements in docs/.work,
+    nor the generated status file."""
     by = {k: (0, set()) for k in keys}
     if not (ROOT / ".git").exists():
         return by
     r = run(["git", "log", "--format=%ad|%ae", "--date=format:%Y-%m", "--", "docs", "wikis",
-             ":(exclude)docs/.work/usage", ":(exclude)docs/.status.json"], cwd=ROOT, check=False, capture=True)
+             ":(exclude)docs/.work", ":(exclude)docs/.status.json"], cwd=ROOT, check=False, capture=True)
     for line in (r.stdout or "").splitlines() if r.returncode == 0 else []:
         k, _, who = line.partition("|")
         if k in by:

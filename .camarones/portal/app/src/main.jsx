@@ -1,0 +1,25 @@
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import Native from './Native.jsx'
+import * as directives from './content/directives.js'
+import * as tables from './content/tables.js'
+import './styles.css'
+
+// Helpers the docs renderer (legacy/doc.js) uses: directives and live tables.
+window.CamaronContent = { directives, tables }
+
+const host = document.getElementById('native')
+const root = createRoot(host)
+window.CamaronNative = {
+  show(view, arg) {
+    host.hidden = false
+    host.classList.toggle('wide', view === 'boards' && !!arg)
+    root.render(<StrictMode><Native view={view} arg={arg || null} /></StrictMode>)
+  },
+  hide() {
+    if (host.hidden) return
+    host.hidden = true
+    root.render(null)
+  },
+}
+window.dispatchEvent(new Event('camaron:native-ready'))

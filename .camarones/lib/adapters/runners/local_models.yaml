@@ -1,0 +1,17 @@
+# Free, open-weight models that `camaron doctor --local` proposes for bounded and judge work (H26 in
+# docs/research/harness-refactor.md). Data, not code: re-check each Ollama tag, licence and tool-calling support
+# when editing, and keep an entry only while the golden questions on the sandbox show it does the job (roadmap R17).
+- min_gb: 32
+  provider: ollama
+  tag: qwen3-coder:30b
+  name: Qwen3-Coder 30B (mixture of experts, about 3B parameters active)
+  licence: Apache-2.0
+  why: about 19 GB at Q4, long context, trained for tool calling
+  alternatives: [devstral, gpt-oss:20b]
+- min_gb: 16
+  provider: ollama
+  tag: qwen3:14b
+  name: Qwen3 14B
+  licence: Apache-2.0
+  why: about 9 GB at Q4, leaves room for context, supports tool calling
+  alternatives: [qwen3:8b, gpt-oss:20b]

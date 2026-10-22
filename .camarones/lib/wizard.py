@@ -1,7 +1,7 @@
 """Camarón 🦐 — interactive project-documentation wizard (macOS / Windows / Linux terminal)."""
 from __future__ import annotations
 
-import os, platform, random, subprocess, sys, time, uuid
+import dataclasses, os, platform, random, subprocess, sys, time
 from pathlib import Path
 
 import questionary
@@ -17,15 +17,16 @@ from rich.progress import BarColumn, Progress, TextColumn
 from rich.table import Table
 from rich.text import Text
 
-from .common import (ROOT, HOME, WORK, WS_FILE, CACHE, IS_WIN, IS_MAC, CAM_DIR, CAM_LAYOUT, WORKSPACE, which, cli_cmd,
+from .common import (ROOT, HOME, PREFS, WORK, WS_FILE, CACHE, IS_WIN, IS_MAC, CAM_DIR, CAM_LAYOUT, WORKSPACE, which, cli_cmd,
                      load_json, save_json, out, repo_dir)
-from . import docs, env, plan, creds, questionnaire, quickarch, radar, tutorial, upgrade, usage
-from .common import VERSIONS, ws_rel, rel_file
+from . import docs, env, genblocks, plan, creds, questionnaire, quickarch, radar, tutorial, upgrade, usage
+from .adapters import runners
+from .harness.ports import RunRequest
+from .common import VERSIONS, ws_rel
 from rich.tree import Tree
 import webbrowser
 
 console = Console(highlight=False)
-PREFS = HOME / ".camarones.json"
 MODELS = ["sonnet", "opus", "haiku"]           # Claude Code's --model aliases; the default is set in do_model / launch_agent
 CODEX_MODEL_DEFAULT = "gpt-5.6-terra"          # Codex's model slugs rotate, so this is just a starting default, not a fixed list
 FIRSTRUN = CACHE / "firstrun.json"     # first-run wizard position (so closing the window never loses it)
@@ -82,14 +83,14 @@ T = {
         "migrate_ask": "Este proyecto usa la estructura antigua (docs y config en la raíz y dentro de cada repo). "
                        "¿Lo paso a {cam}/ ahora? Verás la lista de cambios antes de confirmar.",
         "trust_title": "Configuración de agentes sin aprobar en esta máquina",
-        "trust_intro": "{cam}/ trae hooks, servidores MCP, ajustes o skills que este kit no ha escrito y que aquí aún no has "
-                       "aprobado. Claude Code y Codex los cargarían al abrir el workspace. Revisa qué ejecutan:",
+        "trust_intro": "{cam}/ trae hooks, servidores MCP, ajustes, skills o plugins que este kit no ha escrito y que aquí "
+                       "aún no has aprobado. Claude Code, Codex o el propio kit los cargarían. Revisa qué ejecutan:",
         "trust_cols": ("Tipo", "Qué", "Detalle", "Estado"),
         "trust_new": "nuevo", "trust_changed": "cambiado",
         "trust_q": "¿Apruebas todo lo de la lista en esta máquina?",
         "trust_ok": "✔ Aprobado: los agentes del workspace cargan esta configuración.",
-        "trust_no": "Sin aprobar: los agentes del workspace no cargan .claude, .codex, .agents ni .mcp.json. "
-                    "Cuando lo revises, apruébalo con `{cli} trust`.",
+        "trust_no": "Sin aprobar: los agentes del workspace no cargan .claude, .codex, .agents ni .mcp.json, y los "
+                    "plugins que ejecutan código quedan apagados. Cuando lo revises, apruébalo con `{cli} trust`.",
         "sessions_intro": "Ahora el trabajo va por sesiones: cada una hace UNA unidad del plan (p. ej. analizar un repo). "
                           "Al acabar, la IA guarda el progreso y te pregunta qué seguir. Tú vuelves aquí → «Siguiente paso».",
         "menu": "¿Qué hacemos?",
@@ -162,20 +163,11 @@ T = {
         "bye": "¡Hasta la próxima! Camarón que se duerme… 🦐",
         "ready_units": "Unidades listas para hacer:",
         "autopilot": "▶▶ Piloto automático: encadenar unidades sin preguntar (Claude Code + Codex)",
-        "autopilot_info": ("Ejecuta las unidades listas, cada una en una sesión nueva y desatendida, y si quieres varias a "
-                           "la vez. Si Claude o Codex llegan a su límite de uso cambia al otro, y si ambos lo alcanzan espera "
-                           "y reintenta (deja el equipo encendido). No hace las entrevistas ni los pasos del asistente, pero "
-                           "no se para por ellas: redacta desde el código y deja las dudas en "
-                           "docs/interview/open-questions.md para la entrevista."),
+        "autopilot_info": ("Ejecuta las unidades listas una tras otra, cada una en una sesión nueva y desatendida. Si Claude "
+                           "o Codex llegan a su límite de uso cambia al otro, y si ambos lo alcanzan espera y reintenta "
+                           "(deja el equipo encendido). Se salta las entrevistas y los pasos del asistente; las dudas "
+                           "quedan en docs/interview/open-questions.md."),
         "autopilot_bg": "Piloto automático en marcha en otra ventana. Registro: docs/.work/log.md. Ctrl+C allí para pararlo.",
-        "ap_jobs_q": "¿Cuántas unidades a la vez? Cada una es una sesión de agente y gasta su cuota.",
-        "ap_jobs_1": "1 — una tras otra",
-        "ap_jobs_n": "{n} a la vez",
-        "ap_crew": "Un camarón no da abasto: llamo a {n} primos. 🦐",
-        "taken_lbl": "en curso en otra ventana ({who})",
-        "draft_lbl": "borrador, sin esperar a la entrevista",
-        "takeover_q": ("Otra sesión ({who}) trabaja en {u} desde {since}. Si esa ventana ya está cerrada, puedes tomar "
-                       "el relevo. ¿Tomar el relevo?"),
         "all_done": "¡Plan completado! Usa «Actualizar doc tras cambios» cuando haya cambios en el código.",
         "which_agent": "¿Con qué agente?",
         "which_model_agent": "¿Modelo de qué agente quieres ajustar?",
@@ -185,8 +177,8 @@ T = {
         "copy_prompt": "📋 Copiar el prompt (lo pego yo)",
         "launching": "Abriendo {agent}. Cuando termine la sesión, vuelve aquí.",
         "launched_bg": "🦐 Se abrió en una ventana nueva. Este menú sigue disponible: revisa «📋 Plan» o «🔎 Estado» para ver el progreso.",
-        "copied": "Prompt copiado al portapapeles y guardado en {path}",
-        "saved_prompt": "Prompt guardado en {path}",
+        "copied": "Prompt copiado al portapapeles y guardado en docs/.work/next-prompt.md",
+        "saved_prompt": "Prompt guardado en docs/.work/next-prompt.md",
         "after": "Sesión terminada. Progreso: {d}/{t}.",
         "back": "↩ Volver",
         "nothing_confirm": "No hay páginas pendientes de confirmar.",
@@ -336,6 +328,7 @@ T = {
         "u_backup": "Copia de seguridad de cam-docs: {path}",
         "d_doing": "En curso", "d_last": "último checkpoint", "d_fb": "correcciones tuyas pendientes",
         "k_doing": "En curso", "k_todo": "Por hacer", "k_blocked": "Bloqueadas", "k_done": "Hechas", "k_ready": "← lista",
+        "draft_lbl": "borrador, sin esperar a la entrevista",
         "res_q": "«{u}» se quedó a medias. ¿Cómo sigo?",
         "res_new": "▶ Nueva sesión que retoma desde el último checkpoint (recomendado)",
         "res_cont": "💬 Reabrir la última conversación de {agent}",
@@ -447,14 +440,14 @@ T = {
         "migrate_ask": "This project uses the old layout (docs and config at the root and inside every repo). "
                        "Move it to {cam}/ now? You'll see the list of changes before confirming.",
         "trust_title": "Agent config not approved on this machine",
-        "trust_intro": "{cam}/ brings hooks, MCP servers, settings or skills this kit did not write and you have not "
-                       "approved here. Claude Code and Codex would load them when you open the workspace. Check what they run:",
+        "trust_intro": "{cam}/ brings hooks, MCP servers, settings, skills or plugins this kit did not write and you have "
+                       "not approved here. Claude Code, Codex or the kit itself would load them. Check what they run:",
         "trust_cols": ("Kind", "What", "Detail", "Status"),
         "trust_new": "new", "trust_changed": "changed",
         "trust_q": "Approve everything in the list on this machine?",
         "trust_ok": "✔ Approved: the workspace's agents load this config.",
-        "trust_no": "Not approved: the workspace's agents do not load .claude, .codex, .agents or .mcp.json. "
-                    "Once you have checked it, approve it with `{cli} trust`.",
+        "trust_no": "Not approved: the workspace's agents do not load .claude, .codex, .agents or .mcp.json, and plugins "
+                    "that run code stay off. Once you have checked it, approve it with `{cli} trust`.",
         "sessions_intro": "From now on work happens in sessions: each one does ONE plan unit (e.g. analyze a repo). When it "
                           "finishes, the AI saves progress and asks what next. You come back here → “Next step”.",
         "menu": "What shall we do?",
@@ -527,20 +520,11 @@ T = {
         "bye": "See you! 🦐",
         "ready_units": "Units ready to do:",
         "autopilot": "▶▶ Autopilot: chain units without asking (Claude Code + Codex)",
-        "autopilot_info": ("Runs the ready units, each in a fresh unattended session, several at once if you like. If "
-                           "Claude or Codex hits its usage limit it switches to the other, and if both do it waits and "
-                           "retries (leave the machine on). It does not run interviews or wizard steps, but it does not "
-                           "stop for them either: it drafts from the code and leaves the questions in "
-                           "docs/interview/open-questions.md for the interview."),
+        "autopilot_info": ("Runs the ready units one after another, each in a fresh unattended session. If Claude or Codex "
+                           "hits its usage limit it switches to the other, and if both do it waits and retries (leave the "
+                           "machine on). Interviews and wizard steps are skipped; questions go to "
+                           "docs/interview/open-questions.md."),
         "autopilot_bg": "Autopilot running in another window. Log: docs/.work/log.md. Ctrl+C there to stop it.",
-        "ap_jobs_q": "How many units at once? Each one is an agent session and uses its quota.",
-        "ap_jobs_1": "1 — one after another",
-        "ap_jobs_n": "{n} at once",
-        "ap_crew": "One shrimp can't keep up: calling in {n} cousins. 🦐",
-        "taken_lbl": "in progress in another window ({who})",
-        "draft_lbl": "draft, without waiting for the interview",
-        "takeover_q": ("Another session ({who}) has been working on {u} since {since}. If that window is already closed "
-                       "you can take over. Take over?"),
         "all_done": "Plan complete! Use “Update docs after changes” when the code changes.",
         "which_agent": "Which agent?",
         "which_model_agent": "Which agent's model do you want to set?",
@@ -550,8 +534,8 @@ T = {
         "copy_prompt": "📋 Copy the prompt (I'll paste it)",
         "launching": "Opening {agent}. Come back here when the session ends.",
         "launched_bg": "🦐 Opened in a new window. This menu stays available — check “📋 Plan” or “🔎 Status” to see progress.",
-        "copied": "Prompt copied to clipboard and saved to {path}",
-        "saved_prompt": "Prompt saved to {path}",
+        "copied": "Prompt copied to clipboard and saved to docs/.work/next-prompt.md",
+        "saved_prompt": "Prompt saved to docs/.work/next-prompt.md",
         "after": "Session finished. Progress: {d}/{t}.",
         "back": "↩ Back",
         "nothing_confirm": "No pages waiting for confirmation.",
@@ -701,6 +685,7 @@ T = {
         "u_backup": "Backup of cam-docs: {path}",
         "d_doing": "In progress", "d_last": "last checkpoint", "d_fb": "your corrections pending",
         "k_doing": "Doing", "k_todo": "To do", "k_blocked": "Blocked", "k_done": "Done", "k_ready": "← ready",
+        "draft_lbl": "draft, without waiting for the interview",
         "res_q": "“{u}” was left half done. How shall I continue?",
         "res_new": "▶ New session resuming from the last checkpoint (recommended)",
         "res_cont": "💬 Reopen the last {agent} conversation",
@@ -789,6 +774,13 @@ T = {
     },
 }
 
+
+
+def scan_repos(log=print) -> None:
+    """The no-AI base: stack and tooling page, plus each repo's reference page (commands, env vars, endpoints, topics)."""
+    radar.run(log=log)
+    genblocks.write_reference(log=log)
+    genblocks.refresh()
 
 class W:
     def __init__(self):
@@ -1543,7 +1535,7 @@ Talk to the user in {talk}. Do not modify application code.
         scan = True
         while True:
             if scan:
-                self.safe(self.busy, radar.run, total=1)
+                self.safe(self.busy, scan_repos, total=1 + len(docs.repo_names()))
                 scan = False
             result = load_json(radar.CACHE_FILE, {})
             self.banner()
@@ -1588,6 +1580,11 @@ Talk to the user in {talk}. Do not modify application code.
         self.arch_flow()
 
     # ---------- menu actions ----------
+    def unit_label(self, u: dict, data: dict) -> str:
+        """A ready unit in the menus: ▶ in progress, and whether it is an early draft (its interview is still to come)."""
+        mark = "▶ " if u["status"] == "doing" else ""
+        return f"{mark}{u['id']} — {u['title']}" + (f"  · {self.t('draft_lbl')}" if plan.early_draft(u, data) else "")
+
     def do_next(self) -> None:
         plan.sync()
         ready = plan.available()
@@ -1604,15 +1601,6 @@ Talk to the user in {talk}. Do not modify application code.
             self.do_autopilot()
         elif u:
             self.run_unit(u)
-
-    def unit_label(self, u: dict, data: dict) -> str:
-        """A ready unit in the menus: ▶ in progress here, ⏸ another window holds it, and whether it is an early draft."""
-        st = {x["id"]: x["status"] for x in data["units"]}
-        who = plan.taken_by(u)
-        tags = ([self.t("taken_lbl", who=who)] if who else []) + \
-               ([self.t("draft_lbl")] if any(st.get(d, "done") not in plan.DONE for d in u.get("soft") or []) else [])
-        mark = "⏸ " if who else ("▶ " if u["status"] == "doing" else "")
-        return f"{mark}{u['id']} — {u['title']}" + (f"  · {' · '.join(tags)}" if tags else "")
 
     def do_redo(self) -> None:
         data = plan.sync()
@@ -1711,19 +1699,12 @@ Talk to the user in {talk}. Do not modify application code.
 
     def do_autopilot(self) -> None:
         self.say(self.t("autopilot_info"), "grey62")
-        jobs = self.sel(self.t("ap_jobs_q"), [Choice(self.t("ap_jobs_1"), 1), Choice(self.t("ap_jobs_n", n=2), 2),
-                                              Choice(self.t("ap_jobs_n", n=3), 3)], default=2)
-        if jobs is None:
-            return
-        cmd = [sys.executable, str(Path(__file__).resolve().parent.parent / "camarones.py"), "autopilot", "--lang", self.lang,
-               "--jobs", str(jobs)]
+        cmd = [sys.executable, str(Path(__file__).resolve().parent.parent / "camarones.py"), "autopilot", "--lang", self.lang]
         # the new window must work on THIS project, not whatever a walk up from WORKSPACE finds first
         os.environ["CAMARONES_ROOT"] = str(ROOT)
         if not IS_WIN:
             cmd = ["env", f"CAMARONES_ROOT={ROOT}", *cmd]      # a macOS/Linux terminal window does not inherit it
         if env.open_new_terminal(cmd, WORKSPACE):     # long-lived loop in its own window; the wizard stays usable
-            if jobs > 1:
-                self.say(self.t("ap_crew", n=jobs), f"bold {ORANGE}")
             self.say(self.t("autopilot_bg"), "green")
             self.pause()
             return
@@ -1737,7 +1718,7 @@ Talk to the user in {talk}. Do not modify application code.
             self.banner()
         self.pause()
 
-    def run_unit(self, u: dict, takeover: bool = False) -> None:
+    def run_unit(self, u: dict) -> None:
         if u["type"] in plan.INTERVIEW_TYPES and u["status"] in ("todo", "doing") and \
                 "interviews" not in docs.workspace()["project"] and \
                 plan.get(plan.load(), "interview-context")["status"] != "done":
@@ -1767,12 +1748,6 @@ Talk to the user in {talk}. Do not modify application code.
                 ok = self.safe(self.busy, env.openwiki_generate, u["repo"], engine=self.wiki_engine() or engines[0])
                 self.say(self.t("w_done", repo=u["repo"]) if ok else self.t("w_fail", repo=u["repo"]), "green" if ok else "yellow")
                 return
-        cur = plan.get(plan.load(), u["id"])
-        if not takeover and (who := plan.taken_by(cur)):  # another window (or the autopilot) is on it
-            if not self.yes(self.t("takeover_q", who=who, u=u["id"], since=str(cur["owner"].get("since", ""))[11:16]),
-                            default=False):
-                return
-            takeover = True
         resume_agent = None
         if u["status"] == "doing":                      # interrupted session: offer how to pick it up again
             last = plan.last_note(u["id"])
@@ -1797,19 +1772,9 @@ Talk to the user in {talk}. Do not modify application code.
                 plan.set_status(u["id"], "todo")
             if c == "continue":
                 resume_agent = prev
-        # claimed for the window about to open: other windows and the autopilot leave it alone, and a closed
-        # window still shows what was in progress
-        session = plan.new_session()
-        try:
-            claimed = plan.claim(u["id"], session, force=takeover)
-        except plan.Taken as e:
-            self.say(str(e), "yellow")
-            self.pause()
-            return
-        if resume_agent == "codex" and any(plan.taken_by(x, session) for x in plan.load()["units"]):
-            resume_agent = None             # `resume --last` could pick up another window's conversation
-        prompt = plan.prompt(u["id"], lang=self.lang, session=session)
-        res = self.launch_agent(prompt, resume_agent=resume_agent, uid=u["id"], chat=claimed.get("chat"))
+        plan.set_status(u["id"], "doing")               # so a closed window still knows what was in progress
+        prompt = plan.prompt(u["id"], lang=self.lang)
+        res = self.launch_agent(prompt, resume_agent=resume_agent)
         if not res:
             return
         if res == "bg":               # own window: it updates plan.yaml itself, nothing to report here yet
@@ -1826,27 +1791,23 @@ Talk to the user in {talk}. Do not modify application code.
         if env.checkpoint_commit(what):
             self.say(self.t("saved_ckpt"), "grey62")
 
-    def launch_agent(self, prompt: str, resume_agent: str | None = None, uid: str | None = None,
-                     chat: str | None = None) -> bool | str:
+    def launch_agent(self, prompt: str, resume_agent: str | None = None) -> bool | str:
         """Returns "bg" when the session was launched in its own window (the wizard stays usable), True when it
         ran to completion in this terminal (no terminal emulator was found), or False when nothing was launched.
-        resume_agent reopens that agent's conversation for the unit (`chat`, Claude Code) or its last one."""
-        pfile = plan.prompt_file(uid) if uid else WORK / "next-prompt.md"     # one per unit: windows side by side
-        pfile.parent.mkdir(parents=True, exist_ok=True)
-        pfile.write_text(prompt, encoding="utf-8")
-        brief = ws_rel(rel_file(pfile))
+        resume_agent reopens that agent's last conversation."""
+        WORK.mkdir(parents=True, exist_ok=True)
+        (WORK / "next-prompt.md").write_text(prompt, encoding="utf-8")
         if resume_agent:
             agent = resume_agent
         else:
-            agents = [Choice("Claude Code", "claude")] if which("claude") else []
-            agents += [Choice("Codex", "codex")] if which("codex") else []
+            agents = [Choice(r.label, r.id) for r in runners.all() if which(r.command or r.id)]
             agents += [Choice(self.t("copy_prompt"), "copy")]
             agent = self.sel(self.t("which_agent"), agents, default=self.prefs.get("last_agent") if which(
                 self.prefs.get("last_agent") or "-") else None)
         if not agent:
             return False
         if agent == "copy":
-            self.say(self.t("copied", path=brief) if copy_clipboard(prompt) else self.t("saved_prompt", path=brief), "green")
+            self.say(self.t("copied") if copy_clipboard(prompt) else self.t("saved_prompt"), "green")
             console.print(Panel(prompt, border_style="grey50"))
             self.pause()
             return False
@@ -1854,27 +1815,16 @@ Talk to the user in {talk}. Do not modify application code.
         save_json(PREFS, self.prefs)
         self.say(self.t("launching", agent=agent), f"bold {ORANGE}")
         # multi-line args do not survive Windows .cmd shims: hand over a one-line pointer to the prompt file
+        brief = ws_rel("docs/.work/next-prompt.md")
         short = f"Follow the instructions in {brief}" if self.lang == "en" else f"Sigue las instrucciones de {brief}"
-        model = self.prefs.get("model", "sonnet")
-        codex_model = self.prefs.get("codex_model", CODEX_MODEL_DEFAULT)
-        model_args = ["--model", model] if agent == "claude" and model else (
-            ["--model", codex_model] if agent == "codex" and codex_model else [])
+        model = {"claude": self.prefs.get("model", "sonnet"), "codex": self.prefs.get("codex_model", CODEX_MODEL_DEFAULT)
+                 }.get(agent, self.prefs.get(f"{agent}_model"))
         if resume_agent == "claude" and not claude_history(WORKSPACE):
             resume_agent = None                          # nothing to continue here: `--continue` would just error out
-        if resume_agent == "claude":
-            cmd = [which("claude"), *model_args, *(["--resume", chat] if chat else ["--continue"]), short]
-        elif resume_agent == "codex":
-            cmd = [which("codex"), "resume", "--last"]
-        elif agent == "claude" and uid:
-            # its own conversation id, so "continue" later reopens this unit's conversation, not another window's
-            chat = str(uuid.uuid4())
-            plan.mutate(lambda data: plan.get(data, uid).update(chat=chat))
-            cmd = [which(agent), *model_args, "--session-id", chat, short]
-        else:
-            cmd = [which(agent), *model_args, short]
-        if opened := env.open_new_terminal(cmd, WORKSPACE):   # own window, in the workspace: sees every repo + cam-docs
-            if uid and type(opened) is int:              # Windows: the window's pid, so closing it frees the unit
-                plan.mutate(lambda data: (plan.get(data, uid).get("owner") or {}).update(pid=opened))
+        runner = runners.get(agent)
+        req = RunRequest(prompt=short, cwd=WORKSPACE, model=model or None, interactive=True, resume=bool(resume_agent))
+        cmd = runner.build(req).argv
+        if env.open_new_terminal(cmd, WORKSPACE):   # own window, in the workspace: the agent sees every repo + cam-docs
             self.say(self.t("launched_bg"), "green")
             self.pause()
             return "bg"
@@ -1882,7 +1832,7 @@ Talk to the user in {talk}. Do not modify application code.
         try:
             r = subprocess.run(cmd, cwd=str(WORKSPACE))
             if resume_agent and r.returncode != 0:          # nothing to resume (or old CLI): fresh session instead
-                subprocess.run([which(agent), *model_args, short], cwd=str(WORKSPACE))
+                subprocess.run(runner.build(dataclasses.replace(req, resume=False)).argv, cwd=str(WORKSPACE))
         finally:
             console.set_alt_screen(True)
             self.banner()
@@ -1961,6 +1911,7 @@ Talk to the user in {talk}. Do not modify application code.
             bucket = st if st in buckets else "done"      # dynamic/legacy statuses land with the finished work
             mark = f"  [grey62]{self.t('k_ready')}[/]" if u["id"] in ready and st == "todo" else ""
             mark += f"  [{ORANGE}]↻[/]" if u.get("redo") else ""
+            mark += f"  [grey62]✎ {self.t('draft_lbl')}[/]" if plan.early_draft(u, data) else ""
             note = f"\n  [grey50]{u['notes']}[/]" if u.get("notes") and st == "blocked" else ""
             buckets[bucket].append(f"[{ORANGE}]{u['id']}[/]{mark}\n  [grey62]{u['title']}[/]{note}")
         tbl = Table(box=box.SIMPLE_HEAVY, expand=True, pad_edge=False)

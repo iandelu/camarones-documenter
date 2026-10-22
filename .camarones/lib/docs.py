@@ -316,6 +316,14 @@ def doc_status(logical: str, f: Path, langs: list[str]) -> dict:
 def collect() -> list[dict]:
     langs = workspace()["project"].get("translations", [])
     rows = [doc_status(l, f, langs) for l, f in iter_docs()]
+    try:
+        from .harness import freshness
+        states = freshness.states()
+    except Exception:  # noqa: BLE001 — a repo that cannot be read must not hide the docs
+        states = {}
+    for r in rows:
+        st = states.get(r["path"], {"state": "unverified", "changed": [], "missing": []})
+        r["fresh"], r["freshness"] = st["state"], st
     save_json(STATUS_FILE, {"generated_at": now(), "docs": rows})
     return rows
 
@@ -345,6 +353,14 @@ def confirm(files: list[str], by: str) -> list[str]:
         fm["x-confirmed"] = {"by": by, "at": now(), "body_sha": body_sha(body)}
         f.write_text(join_fm(fm, body), encoding="utf-8")
         done.append(p)
+        logical = next((lp for lp, df in iter_docs() if df.resolve() == f.resolve()), None)
+        if logical:
+            from .harness import drafts, freshness
+            try:
+                drafts.record_confirmation(logical, body, by)
+            except Exception:  # noqa: BLE001 — a measurement must never fail a confirmation
+                pass
+            freshness.ack([logical], by)          # a person checked it against today's code
     return done
 
 
@@ -365,25 +381,71 @@ def translated(files: list[str]) -> list[str]:
     return done
 
 
+def readable() -> list[dict]:
+    """Rows an agent may read today (the freshness gate), in llms.txt order; interviews last."""
+    from .harness import freshness
+    rows = collect()
+    block = freshness.policy() == "block"
+    ok = [r for r in rows if not block or freshness.gate(r["path"], r["trust"], r.get("freshness"))[0]]
+    return sorted(ok, key=_llms_key)
+
+
+def _llms_key(r: dict) -> tuple:
+    head = r["path"].split("/")[0]
+    return (r["type"] == "interview" or head == "interview",
+            SECTIONS.index(head) if head in SECTIONS else len(SECTIONS), r["path"])
+
+
 def llms() -> int:
+    """docs/llms.txt (index, llmstxt.org) and docs/llms-full.txt (every page agents may read, one file)."""
+    from .harness import freshness
     ws, rows = workspace(), collect()
-    def key(r):
-        head = r["path"].split("/")[0]
-        return (SECTIONS.index(head) if head in SECTIONS else len(SECTIONS), r["path"])
+    home = next((r for r in rows if r["path"] == "index.md"), None)
+    intro = (home or {}).get("description") or f"Living documentation of {ws['project']['name']}."
     lines = [f"# {ws['project']['name']}", "",
-             "> Documentation index for AI agents. Trust: `confirmed` = verified by a human (source of truth); "
-             "`draft` = AI-generated, verify against code; `needs-reconfirm` = confirmed, then changed.", ""]
+             f"> {intro} Trust: `confirmed` = verified by a human (source of truth); `draft` = AI-generated, verify "
+             "against code; `needs-reconfirm` = confirmed, then changed.", "",
+             "Every page below in one file: [llms-full.txt](llms-full.txt).", ""]
+    ok = readable()
+    served = {r["path"] for r in ok}
     section = None
-    for r in sorted(rows, key=key):
-        head = "repos/" + r["path"].split("/")[1] if r["path"].startswith("repos/") else (r["path"].split("/")[0] if "/" in r["path"] else "root")
+    for r in ok:
+        notes = r["type"] == "interview" or r["path"].startswith("interview/")
+        head = "Optional" if notes else ("repos/" + r["path"].split("/")[1] if r["path"].startswith("repos/")
+                                         else (r["path"].split("/")[0] if "/" in r["path"] else "root"))
         if head != section:
             lines += ["", f"## {head}"]
             section = head
         link = os.path.relpath(ROOT / r["file"], DOCS).replace("\\", "/")
         desc = f": {r['description']}" if r["description"] else ""
-        lines.append(f"- [{r['title']}]({link}) [{r['trust']}]{desc}")
+        size = (len(split_fm((ROOT / r["file"]).read_text(encoding="utf-8"))[1]) + 3) // 4
+        lines.append(f"- [{r['title']}]({link}) [{r['trust']}] (~{size} tokens){desc}")
+    held = sorted((r for r in rows if r["path"] not in served), key=_llms_key)
+    if section == "Optional":                        # llmstxt.org: Optional comes last
+        tail = lines[lines.index("## Optional") - 1:]
+        lines = lines[:lines.index("## Optional") - 1]
+    else:
+        tail = []
+    old = [r for r in held if r["fresh"] in freshness.OUT_OF_DATE]
+    if old:
+        lines += ["", "## Out of date (read the code instead)", ""]
+        lines += [f"- {r['path']}: {', '.join(freshness.code_paths(r['freshness']['missing'] + r['freshness']['changed']))}"
+                  for r in old]
+    waiting = [r for r in held if r["fresh"] not in freshness.OUT_OF_DATE]
+    if waiting:
+        lines += ["", "## Awaiting review (no sources to check them against)", ""]
+        lines += [f"- {r['path']}" for r in waiting]
+    lines += tail
     DOCS.mkdir(exist_ok=True)
     (DOCS / "llms.txt").write_text(re.sub(r"\n{3,}", "\n\n", "\n".join(lines)) + "\n", encoding="utf-8")
+    full = [f"# {ws['project']['name']} — full documentation", "", f"> {intro}", ""]
+    for r in ok:
+        if r["type"] == "interview" or r["path"].startswith("interview/"):
+            continue
+        body = flatten_directives(split_fm((ROOT / r["file"]).read_text(encoding="utf-8", errors="replace"))[1]).strip()
+        desc = f" · {r['description']}" if r["description"] else ""
+        full += [f"<!-- {r['path']} · {r['trust']}{desc} -->", "", body, ""]
+    (DOCS / "llms-full.txt").write_text("\n".join(full).rstrip() + "\n", encoding="utf-8", newline="\n")
     return len(rows)
 
 
@@ -417,28 +479,181 @@ def check(strict: bool = False, secrets_only: bool = False) -> tuple[list[str], 
 
 
 # ---------- search (portal + MCP): BM25 over body tokens, prefix-matched (pedido → pedidos) ----------
+COMMENT_RE = re.compile(r"<!--.*?-->", re.S)
+HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*#*\s*$")
+TLDR_RE = re.compile(r"^>\s*\*\*TL;DR:?\*\*", re.I)
+
+
+def heading_text(md: str) -> str:
+    """What a reader sees of a Markdown heading (the portal slugs its textContent)."""
+    md = re.sub(r"<!--.*?-->", "", md)
+    md = re.sub(r"!?\[([^\]]*)\]\([^)]*\)", r"\1", md)
+    return re.sub(r"[`*]|(?<!\w)_|_(?!\w)", "", md).strip()
+
+
+def slug(heading: str) -> str:
+    """Mirror of the portal's slugify (portal/app/public/legacy/doc.js): lower case, letters/digits/space/_/- kept, spaces → -."""
+    return re.sub(r"\s+", "-", re.sub(r"[^\w\s-]", "", heading_text(heading).lower().strip()))
+
+
+def headings(body: str) -> list[dict]:
+    """Every heading outside code: {level, title, slug, line}; a repeated slug gets -1, -2… like the portal."""
+    out, seen, fence = [], {}, None
+    for i, line in enumerate(body.splitlines()):
+        if re.match(r"^\s*(```|~~~)", line):
+            fence = None if fence else True
+            continue
+        m = None if fence else HEADING_RE.match(line)
+        if not m:
+            continue
+        s = slug(m.group(2)) or "section"
+        if s in seen:
+            seen[s] += 1
+            s = f"{s}-{seen[s]}"
+        else:
+            seen[s] = 0
+        out.append({"level": len(m.group(1)), "title": heading_text(m.group(2)), "slug": s, "line": i})
+    return out
+
+
+def sections(body: str) -> list[dict]:
+    """The page's H2 sections: {title, slug, start, end} as line ranges (a section runs to the next H1/H2)."""
+    hs = headings(body)
+    n = len(body.splitlines())
+    h2 = [h for h in hs if h["level"] == 2]
+    out = []
+    for h in h2:
+        end = next((x["line"] for x in hs if x["line"] > h["line"] and x["level"] <= 2), n)
+        out.append({"title": h["title"], "slug": h["slug"], "start": h["line"], "end": end})
+    return out
+
+
+def section_of(body: str, line: int, secs: list[dict] | None = None) -> str | None:
+    return next((s["slug"] for s in (secs if secs is not None else sections(body)) if s["start"] <= line < s["end"]), None)
+
+
+def tldr(body: str) -> str:
+    lines = body.splitlines()
+    i = next((i for i, l in enumerate(lines) if TLDR_RE.match(l.strip())), None)
+    if i is None:
+        return ""
+    out = []
+    for l in lines[i:]:
+        if not l.strip().startswith(">"):
+            break
+        out.append(l)
+    return "\n".join(out)
+
+
+def section_text(body: str, key: str) -> tuple[dict, str] | None:
+    """The section whose slug or title is `key`, with its text (heading included)."""
+    k = key.strip().lstrip("#").lower()
+    s = next((s for s in sections(body) if s["slug"] == k or s["title"].lower() == k or s["slug"] == slug(key)), None)
+    if not s:
+        return None
+    return s, "\n".join(body.splitlines()[s["start"]:s["end"]]).strip()
+
+
+STOPWORDS = set("how are is was the an what which who does do did of to in on at for and or with by from it this that "
+                "can should when where why be".split()) | set("que qué como cómo el la los las de del en es un una y o "
+                                                            "por para con se lo al cuál cual quién quien dónde donde".split())
+
+
+DIRECTIVES = ("tabs", "cards", "steps", "details", "tech", "business", "rule")
+RULE_META = re.compile(r"^(enforced|test):\s*(.+)$")
+
+
+def _rule(arg: str, body: list[str]) -> dict:
+    rid, _, title = arg.partition(" ")
+    meta, text = {"enforced": [], "test": []}, []
+    for line in body:
+        m = RULE_META.match(line.strip())
+        if m:
+            meta[m.group(1)] += [r.strip() for r in m.group(2).split(",") if r.strip()]
+        else:
+            text.append(line)
+    return {"id": rid, "title": title.strip(), "text": "\n".join(text).strip(), **meta}
+
+
+def rules(md: str) -> list[dict]:
+    """The `:::rule ID [title]` blocks of a page (X8): `enforced:` / `test:` lines hold `repo:path#Symbol` anchors."""
+    out, fence, lines = [], None, md.split("\n")
+    for i, line in enumerate(lines):
+        f = re.match(r"^\s*(```|~~~)", line)
+        if f:
+            fence = None if fence and line.strip().startswith(fence) else (fence or f.group(1))
+        m = None if fence else re.match(r"^:::\s*rule\s+(.+)$", line, re.I)
+        end = next((j for j in range(i + 1, len(lines)) if re.match(r"^:::\s*$", lines[j])), None) if m else None
+        if m and end is not None:
+            out.append(_rule(m.group(1).strip(), lines[i + 1:end]))
+    return out
+
+
+def flatten_directives(md: str) -> str:
+    """`:::` blocks (portal/app/src/content/directives.js) as plain Markdown for agents and exports: a tab or details
+    summary becomes a bold line, the rest keeps its content. Code fences and unknown kinds are left alone."""
+    lines, out, i, fence = md.split("\n"), [], 0, None
+    while i < len(lines):
+        line = lines[i]
+        f = re.match(r"^\s*(```|~~~)", line)
+        if f:
+            fence = None if fence and line.strip().startswith(fence) else (fence or f.group(1))
+        m = None if fence else re.match(r"^:::\s*(\w+)\s*(.*)$", line)
+        end = next((j for j in range(i + 1, len(lines)) if re.match(r"^:::\s*$", lines[j])), None) if m else None
+        if m and m.group(1).lower() in DIRECTIVES and end is not None:
+            kind, arg, body = m.group(1).lower(), m.group(2).strip(), lines[i + 1:end]
+            if kind == "tabs":
+                for b in body:
+                    t = re.match(r"^::tab\s+(.+)$", b)
+                    out += ["", f"**{t.group(1).strip()}**", ""] if t else [b]
+            elif kind == "details":
+                out += [f"**{arg or 'Details'}**", "", *body]
+            elif kind == "rule":
+                r = _rule(arg, body)
+                out += [f"**Rule {r['id']}" + (f" — {r['title']}" if r["title"] else "") + "**", "", r["text"]]
+                out += [f"{label}: " + ", ".join(f"`{x}`" for x in r[key])
+                        for key, label in (("enforced", "Enforced by"), ("test", "Tested by")) if r[key]]
+            else:
+                out += body
+            i = end + 1
+            continue
+        out.append(line)
+        i += 1
+    text = re.sub(r"\n{3,}", "\n\n", "\n".join(out))
+    return text.lstrip("\n") if not md.startswith("\n") else text
+
+
 def search(query: str, limit: int = 20) -> list[dict]:
-    terms = list(dict.fromkeys(t for t in re.findall(r"\w+", query.lower()) if len(t) > 1))
+    words = list(dict.fromkeys(t for t in re.findall(r"\w+", query.lower()) if len(t) > 1))
+    terms = [w for w in words if w not in STOPWORDS] or words
     if not terms:
         return []
     pages = []
     for logical, f in iter_docs():
         fm, body = split_fm(f.read_text(encoding="utf-8", errors="replace"))
+        trust = trust_of(fm, body_sha(body))
+        body = COMMENT_RE.sub(lambda m: "\n" * m.group().count("\n"), body)     # markers are not content
         toks = Counter(re.findall(r"\w+", body.lower()))
         tf = {t: sum(c for w, c in toks.items() if w.startswith(t)) for t in terms}
         title = fm.get("title") or first_heading(body) or f.stem
-        pages.append((logical, fm, body, sum(toks.values()), tf, str(title)))
+        meta = " ".join([str(title), str(fm.get("description") or ""), *map(str, fm.get("x-answers") or [])]).lower()
+        pages.append((logical, trust, body, sum(toks.values()), tf, str(title), meta))
     if not pages:
         return []
     n, avg = len(pages), max(1.0, sum(p[3] for p in pages) / len(pages))
     idf = {t: math.log(1 + (n - (df := sum(1 for p in pages if p[4][t])) + 0.5) / (df + 0.5)) for t in terms}
     k1, b, hits = 1.2, 0.75, []
-    for logical, fm, body, length, tf, title in pages:
+    for logical, trust, body, length, tf, title, meta in pages:
         score = sum(idf[t] * tf[t] * (k1 + 1) / (tf[t] + k1 * (1 - b + b * length / avg)) for t in terms)
-        score += sum(2 * idf[t] for t in terms if t in title.lower() or t in logical.lower())
+        score += sum(2 * idf[t] for t in terms if t in meta or t in logical.lower())
         if score:
-            hits.append({"path": logical, "title": title, "trust": trust_of(fm, body_sha(body)), "score": round(score, 2),
-                         "lines": [l.strip()[:240] for l in body.splitlines() if any(t in l.lower() for t in terms)][:3]})
+            lines = body.splitlines()
+            at = [i for i, l in enumerate(lines) if any(t in l.lower() for t in terms)]
+            secs = sections(body)
+            per = Counter(s for i in at if (s := section_of(body, i, secs)))
+            hits.append({"path": logical, "title": title, "trust": trust, "score": round(score, 2),
+                         "section": per.most_common(1)[0][0] if per else None,
+                         "lines": [lines[i].strip()[:240] for i in at[:3]]})
     hits.sort(key=lambda h: -h["score"])
     return hits[:limit]
 

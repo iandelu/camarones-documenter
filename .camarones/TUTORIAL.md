@@ -36,7 +36,7 @@ Camarón turns several repos into living documentation that serves both people a
    session 1 --> [x]   session 2 --> [x]   session 3 --> [>] (closed)  --> session 4 resumes
 ```
 
-Documenting a project in depth doesn't fit in one AI conversation, so the work is split into small units. Every “🦐 Next step” opens a session that does ONE unit. The AI saves checkpoints while it works: if you close the terminal or the laptop, next time you get “▶ Continue” and it resumes from the last checkpoint. Each finished unit is committed locally in cam-docs so nothing is lost; “🤝 Share with the team” (or `camaron share`) pulls the team's work and publishes yours when you decide.
+Documenting a project in depth doesn't fit in one AI conversation, so the work is split into small units. Every “🦐 Next step” opens a session that does ONE unit. The AI saves checkpoints while it works: if you close the terminal or the laptop, next time you get “▶ Continue” and it resumes from the last checkpoint. Each finished unit is committed locally in cam-docs so nothing is lost; “🤝 Share with the team” (or `camaron share`) pulls the team's work and publishes yours when you decide. Want a different plan? `.camarones/pipeline.yaml` lets you drop, add or rewire units without touching the kit (the command guide has examples). The interviews don't hold you up: what depends on them is drafted first and refined once you have them. In a hurry? `camaron run` does several units at once, each in its own copy of cam-docs, and `camaron kpis` tells you what it cost and whether it was worth it. `camaron eval` tests the docs with golden questions the team approves, and `camaron ab` compares the same question with and without cam-docs.
 
 ### 3. 🗂 The menu: daily work on top, the rest in sections
 
@@ -68,7 +68,7 @@ On top there is only what you use every day, and the cursor already points at th
         +-----------------------------+      you only need ONE of them
 ```
 
-Claude Code (Anthropic) and Codex (OpenAI) are agents that work in your terminal: they read code, run commands and write files. Camarones gives them the instructions for each unit (PLAYBOOK) and the format rules (CONVENTIONS). One of them is enough. With none, you can copy the prompt and paste it anywhere. Later, when you implement features, the AI looks the docs up through the “camarones” MCP server (search, read pages, repo graph).
+Claude Code (Anthropic) and Codex (OpenAI) are agents that work in your terminal: they read code, run commands and write files. Camarones gives them the instructions for each unit (PLAYBOOK) and the format rules (CONVENTIONS). One of them is enough. With none, you can copy the prompt and paste it anywhere. OpenCode (the way to local models, such as Qwen on Ollama) and Gemini CLI work too; `camaron doctor --local` proposes a local model that fits your computer's memory. Later, when you implement features, the AI looks the docs up through the “camarones” MCP server (ask with citations, search, read a page or just the section it needs, repo graph).
 
 ### 5. 📖 OpenWiki: each repo's wiki
 
@@ -130,7 +130,7 @@ C4 draws architecture at zoom levels: the system and who uses it (context), the 
                    "request changes" --> the AI fixes it in the next session
 ```
 
-Every page has a trust mark. ✨ Draft: written by the AI, nobody reviewed it. ✅ Confirmed: a person read it and said “looks right”; from then on AIs treat it as the truth and don't rewrite it silently. ⚠️ Re-confirm: a confirmed page changed (by hand, in the portal or by the AI) and needs another look. Review in the portal (Confirm and Request changes buttons on every page; the Review tab lists what's pending) or in the wizard's “✅ Review”.
+Every page has a trust mark. ✨ Draft: written by the AI, nobody reviewed it. ✅ Confirmed: a person read it and said “looks right”; from then on AIs treat it as the truth and don't rewrite it silently. ⚠️ Re-confirm: a confirmed page changed (by hand, in the portal or by the AI) and needs another look. Review in the portal (Confirm and Request changes buttons on every page; the Review tab lists what's pending) or in the wizard's “✅ Review”. If the code a page cites changes, the page turns suspect and AIs stop reading it until it is refreshed (`camaron fresh`): no information beats wrong information.
 
 ### 9. 🧪 Quality gate: what check looks at
 
@@ -140,10 +140,12 @@ Every page has a trust mark. ✨ Draft: written by the AI, nobody reviewed it. �
      |-- Mermaid diagrams that don't render   ERROR   (mermaid-cli)
      |-- secrets copied into the docs         ERROR   (gitleaks: blocks commit and portal)
      |-- glossary words to avoid              warning (ERROR with --strict)
+     |-- structure: TL;DR, sections, size     warning (ERROR with --strict)
+     |-- :::rule blocks whose code is gone    ERROR
      +-- sources, frontmatter, translations   ERROR / warning
 ```
 
-The AI writes fast and sometimes slips on small things: a link to a page that doesn't exist, a diagram that doesn't render or a token copied from a config file. “camaron check” looks for them when each unit closes and in CI. Secrets are special: while gitleaks finds one, the checkpoint commit and the portal export don't happen (the value is never shown, only file and line). Fill the glossary's “Avoid” column (say “purchase, request” for Order) and check warns wherever those words appear. mermaid-cli and gitleaks come with the full install; without them, check says so once and skips that check.
+The AI writes fast and sometimes slips on small things: a link to a page that doesn't exist, a diagram that doesn't render or a token copied from a config file. “camaron check” looks for them when each unit closes and in CI. Secrets are special: while gitleaks finds one, the checkpoint commit and the portal export don't happen (the value is never shown, only file and line). Fill the glossary's “Avoid” column (say “purchase, request” for Order) and check warns wherever those words appear. Pages are written for agents first: a TL;DR under the title, sections that read alone, the ones their skeleton asks for (.camarones/skeletons/) and a size budget; check warns about what is missing. mermaid-cli and gitleaks come with the full install; without them, check says so once and skips that check. Business rules can go in `:::rule` blocks anchored to the method that applies them: if that code disappears, check fails.
 
 ### 10. 🌍 Bilingual: English + Spanish
 
@@ -160,7 +162,7 @@ Docs are written in English (best for AIs and mixed teams) and translated to Spa
 
 ```text
    +----------------------------------------------------------------------------+
-   | Camarones  My Project  [Docs] Architecture Graph Wikis Review   English v  |
+   | Camarones  My Project  [Docs] Architecture Wikis Review Ask Boards Pipeline|
    |                        [ Search the docs...             ]                  |
    +----------------------------------------------------------------------------+
    | ARCHITECTURE     |  Architecture: first look                               |
@@ -170,7 +172,7 @@ Docs are written in English (best for AIs and mixed teams) and translated to Spa
    +----------------------------------------------------------------------------+
 ```
 
-The 🦐 portal brings the docs (with search, editing and review), the C4 explorer, the code graph and the OpenWiki wikis together in one site, in English or Spanish. It has two modes with the same interface: the local portal (`camaron up`, or wizard → 🌐 Portal → 📝 Open the portal), where you can edit, and the read-only export (`camaron portal`) that is deployed with Docker or on any static host. `camaron up --static` shows you the export as is. Everything works offline (on-premise).
+The 🦐 portal brings the docs (with search, editing and review), the C4 explorer, the code graph and the OpenWiki wikis together in one site, in English or Spanish. It has two modes with the same interface: the local portal (`camaron up`, or wizard → 🌐 Portal → 📝 Open the portal), where you can edit, and the read-only export (`camaron portal`) that is deployed with Docker or on any static host. `camaron up --static` shows you the export as is. Everything works offline (on-premise). It is black and white, light or dark. Also: Ask (the sections that answer, with citations), Boards (Excalidraw, from a C4 view) and Pipeline (the plan live, with run, cancel, retry and approve). The “All / Business” switch keeps only the pages about what the system does and why; the home page has a “How does … work?” box, and with an agent set up, Ask can also write the answer from those sections.
 
 ### 12. ✏️ Where and when you can edit
 
@@ -187,7 +189,7 @@ The 🦐 portal brings the docs (with search, editing and review), the C4 explor
                                 confirmed pages silently
 ```
 
-In the local portal, “Edit” opens the markdown with a live preview; saving writes to cam-docs/docs and, with “commit to cam-docs” ticked, makes a local commit (sharing it with git push is up to you). “+ New page” creates a page of your own and “Confirm” signs with your git user name. With Spanish selected you edit the translation. The deployed portal doesn't edit: it's a snapshot of the last export; its “Edit” button takes you to the file in GitLab/GitHub (when cam-docs has a remote), the change goes in as a merge request and CI publishes it again. Editing a ✅ page turns it ⚠️ until someone checks it. Don't hand-edit generated files (llms.txt, .status.json, viewers); wikis are better regenerated from the Wikis tab, since an update can rewrite what you change.
+In the local portal, “Edit” opens the markdown with a live preview; saving writes to cam-docs/docs and, with “commit to cam-docs” ticked, makes a local commit (sharing it with git push is up to you). “+ New page” creates a page of your own and “Confirm” signs with your git user name. With Spanish selected you edit the translation. The deployed portal doesn't edit: it's a snapshot of the last export; its “Edit” button takes you to the file in GitLab/GitHub (when cam-docs has a remote), the change goes in as a merge request and CI publishes it again. Editing a ✅ page turns it ⚠️ until someone checks it. Don't hand-edit generated files (llms.txt, llms-full.txt, .status.json, viewers); wikis are better regenerated from the Wikis tab, since an update can rewrite what you change.
 
 ### 13. 🔑 GitLab / GitHub tokens
 
@@ -199,7 +201,7 @@ In the local portal, “Edit” opens the markdown with a live preview; saving w
    project folder  ---X--->  token             (never written there)
 ```
 
-If your repos are private, Camarones needs a token to clone and update them. It is stored in your OS keychain and used only by Camarones' own git commands: never written to the project or git config, never shared with Claude, Codex or other third parties. When you join a team's cam-docs repo, Camarones first tries your own git (keychain, credential manager, SSH keys) and asks for a token only if that is refused. Manage them in “Settings › Tokens”. The agent config that comes with the team's cam-docs gets the same care: hooks, MCP servers, settings and skills the kit did not write are listed when you open the wizard, and Claude Code / Codex only load them once you approve them on this machine (or with `camaron trust`). Approvals live in ~/.camarones/trust/, never in the repo, so nobody can approve them for you with a push.
+If your repos are private, Camarones needs a token to clone and update them. It is stored in your OS keychain and used only by Camarones' own git commands: never written to the project or git config, never shared with Claude, Codex or other third parties. When you join a team's cam-docs repo, Camarones first tries your own git (keychain, credential manager, SSH keys) and asks for a token only if that is refused. Manage them in “Settings › Tokens”. The agent config that comes with the team's cam-docs gets the same care: hooks, MCP servers, settings and skills the kit did not write are listed when you open the wizard, and Claude Code / Codex only load them once you approve them on this machine (or with `camaron trust`). Approvals live in ~/.camarones/trust/, never in the repo, so nobody can approve them for you with a push. What the kit installed on this machine (its skills, graphify's and OpenWiki's) is recognised without asking, and `camaron repair` puts it back if someone edits or deletes it.
 
 ### 14. ⚙️ CI: docs that update themselves
 
@@ -210,9 +212,11 @@ If your repos are private, Camarones needs a token to clone and update them. It 
                   |-- check --secrets  (a secret stops here: no MR)
                   |-- check (links, diagrams, sources, trust)
                   +-- exports the portal (camaron portal) --> nginx image / Pages
+   PR in a repo --> comment, no AI: which pages it leaves out of date
+                --> camaron pr propose: an agent proposes the docs in a PR
 ```
 
-Optional: a pipeline that, after each change in the repos or in cam-docs, updates the affected docs and publishes the read-only portal. So a merge request opened from the deployed portal's “Edit” shows up once merged. Set it up in “Team › CI”. You can also do it by hand with “🔄 Update docs after changes” and “🌐 Portal › 📦 Export the portal”.
+Optional: a pipeline that, after each change in the repos or in cam-docs, updates the affected docs and publishes the read-only portal. So a merge request opened from the deployed portal's “Edit” shows up once merged. Set it up in “Team › CI”. You can also do it by hand with “🔄 Update docs after changes” and “🌐 Portal › 📦 Export the portal”. And on every pull request in a repo, a job without AI comments which pages the change leaves out of date (`camaron pr fresh`).
 
 ### 15. 🧰 Supporting pieces
 
@@ -225,7 +229,7 @@ Optional: a pipeline that, after each change in the repos or in cam-docs, update
    Java      -> only for Java/Kotlin repos (SDKMAN is detected)
 ```
 
-The wizard checks all of this and installs it for you (winget on Windows, Homebrew on Mac) when you choose “Install everything recommended”. Only git and Node.js are required. The quality gate (mermaid-cli and gitleaks) comes with the full install; mermaid-cli downloads a headless Chromium the first time.
+The wizard checks all of this and installs it for you (winget on Windows, Homebrew on Mac) when you choose “Install everything recommended”. Only git and Node.js are required. The quality gate (mermaid-cli and gitleaks) comes with the full install; mermaid-cli downloads a headless Chromium the first time. Without AI, each repo also gets `docs/repos/<repo>/reference.md`: commands, env vars, endpoints and topics read from its files, kept current by `camaron blocks` and `sync`. Team extensions go in `.camarones/plugins/` as plugins (`camaron plugins add` brings one in and pins it in plugins.lock); the ones that run code or steer agents are not loaded until you approve them on your machine, and any change asks again. Also without AI: `camaron history` reads the git history (hotspots, who to ask), `camaron doctor --context` counts what every agent session loads and `camaron repair` puts the kit's files back if someone touches them.
 
 ### 16. 🗺 Your day to day
 
@@ -279,7 +283,7 @@ Camarón convierte varios repos en una documentación viva que sirve a personas 
    sesion 1 --> [x]   sesion 2 --> [x]   sesion 3 --> [>] (cerraste)  --> sesion 4 continua
 ```
 
-Documentar a fondo un proyecto no cabe en una sola conversación con la IA, así que el trabajo se divide en unidades pequeñas. Cada vez que eliges «🦐 Siguiente paso» se abre una sesión que hace UNA unidad. La IA guarda checkpoints mientras trabaja: si cierras la terminal o el portátil, la próxima vez aparece «▶ Continuar» y retoma desde el último checkpoint. Al terminar cada unidad se hace un commit local en cam-docs para que nada se pierda; «🤝 Compartir con el equipo» (o `camaron share`) trae el trabajo del equipo y publica el tuyo cuando tú decides.
+Documentar a fondo un proyecto no cabe en una sola conversación con la IA, así que el trabajo se divide en unidades pequeñas. Cada vez que eliges «🦐 Siguiente paso» se abre una sesión que hace UNA unidad. La IA guarda checkpoints mientras trabaja: si cierras la terminal o el portátil, la próxima vez aparece «▶ Continuar» y retoma desde el último checkpoint. Al terminar cada unidad se hace un commit local en cam-docs para que nada se pierda; «🤝 Compartir con el equipo» (o `camaron share`) trae el trabajo del equipo y publica el tuyo cuando tú decides. ¿Queréis otro plan? En `.camarones/pipeline.yaml` podéis quitar, añadir o reordenar unidades sin tocar el kit (la guía de comandos trae ejemplos). Las entrevistas no te frenan: lo que depende de ellas se escribe antes como borrador y se afina cuando las haces. ¿Con prisa? `camaron run` hace varias unidades a la vez, cada una en su propia copia de cam-docs, y `camaron kpis` te dice cuánto costó y si mereció la pena. `camaron eval` examina la documentación con preguntas de oro que el equipo aprueba, y `camaron ab` compara la misma pregunta con y sin cam-docs.
 
 ### 3. 🗂 El menú: lo de cada día arriba, lo demás por secciones
 
@@ -311,7 +315,7 @@ Arriba está solo lo que usas cada día, y el cursor ya apunta a lo recomendado 
         +-----------------------------+      solo necesitas UNO de los dos
 ```
 
-Claude Code (Anthropic) y Codex (OpenAI) son agentes que trabajan en tu terminal: leen el código, ejecutan comandos y escriben ficheros. Camarones les prepara las instrucciones de cada unidad (PLAYBOOK) y las reglas de formato (CONVENTIONS). Con tener uno instalado basta. Si no tienes ninguno, puedes copiar el prompt y pegarlo donde quieras. Cuando luego implementéis features, la IA consulta la documentación con el servidor MCP «camarones» (buscar, leer páginas, grafo del repo).
+Claude Code (Anthropic) y Codex (OpenAI) son agentes que trabajan en tu terminal: leen el código, ejecutan comandos y escriben ficheros. Camarones les prepara las instrucciones de cada unidad (PLAYBOOK) y las reglas de formato (CONVENTIONS). Con tener uno instalado basta. Si no tienes ninguno, puedes copiar el prompt y pegarlo donde quieras. También sirven OpenCode (la vía para modelos locales, como Qwen con Ollama) y Gemini CLI; `camaron doctor --local` te propone un modelo local según la memoria de tu equipo. Cuando luego implementéis features, la IA consulta la documentación con el servidor MCP «camarones» (preguntar con citas, buscar, leer una página o solo la sección que hace falta, grafo del repo).
 
 ### 5. 📖 OpenWiki: la wiki de cada repo
 
@@ -373,7 +377,7 @@ C4 es una forma de dibujar la arquitectura por niveles de zoom: el sistema y qui
                    "pedir cambios" --> la IA lo corrige en la siguiente sesion
 ```
 
-Cada página lleva una marca de confianza. ✨ Borrador: la escribió la IA y nadie la ha revisado. ✅ Confirmada: una persona la leyó y dijo «está bien»; a partir de ahí las IAs la tratan como verdad y no la reescriben sin avisar. ⚠️ Re-confirmar: alguien cambió una página confirmada (a mano, en el portal o la IA) y hay que volver a mirarla. Puedes revisar en el portal (botones Confirmar y Pedir cambios en cada página; la pestaña Revisión lista lo pendiente) o en «✅ Revisar» del asistente.
+Cada página lleva una marca de confianza. ✨ Borrador: la escribió la IA y nadie la ha revisado. ✅ Confirmada: una persona la leyó y dijo «está bien»; a partir de ahí las IAs la tratan como verdad y no la reescriben sin avisar. ⚠️ Re-confirmar: alguien cambió una página confirmada (a mano, en el portal o la IA) y hay que volver a mirarla. Puedes revisar en el portal (botones Confirmar y Pedir cambios en cada página; la pestaña Revisión lista lo pendiente) o en «✅ Revisar» del asistente. Si el código que cita una página cambia, la página queda sospechosa y las IAs dejan de leerla hasta que se actualice (`camaron fresh`): mejor sin información que con información equivocada.
 
 ### 9. 🧪 Control de calidad: lo que revisa check
 
@@ -383,10 +387,12 @@ Cada página lleva una marca de confianza. ✨ Borrador: la escribió la IA y na
      |-- diagramas Mermaid que no se dibujan  ERROR   (mermaid-cli)
      |-- secretos copiados en la doc          ERROR   (gitleaks: bloquea commit y portal)
      |-- palabras a evitar del glosario       aviso   (ERROR con --strict)
+     |-- estructura: TL;DR, secciones, largo  aviso   (ERROR con --strict)
+     |-- reglas :::rule sin su codigo         ERROR
      +-- fuentes, frontmatter, traducciones   ERROR / aviso
 ```
 
-La IA escribe rápido y a veces falla en lo pequeño: un enlace a una página que no existe, un diagrama que no se dibuja o un token copiado de un fichero de configuración. «camaron check» lo revisa al cerrar cada unidad y en el CI. Los secretos son especiales: mientras gitleaks encuentre uno, no se hace el commit de checkpoint ni se exporta el portal (nunca se muestra el valor, solo fichero y línea). Si en el glosario rellenas la columna «Avoid» (por ejemplo «compra, petición» para Pedido), check avisa donde aparezcan esas palabras. mermaid-cli y gitleaks vienen con la instalación completa; si faltan, check lo avisa una vez y se salta esa comprobación.
+La IA escribe rápido y a veces falla en lo pequeño: un enlace a una página que no existe, un diagrama que no se dibuja o un token copiado de un fichero de configuración. «camaron check» lo revisa al cerrar cada unidad y en el CI. Los secretos son especiales: mientras gitleaks encuentre uno, no se hace el commit de checkpoint ni se exporta el portal (nunca se muestra el valor, solo fichero y línea). Si en el glosario rellenas la columna «Avoid» (por ejemplo «compra, petición» para Pedido), check avisa donde aparezcan esas palabras. Las páginas se escriben primero para agentes: un TL;DR bajo el título, secciones que se leen solas y las de su plantilla (.camarones/skeletons/), y un tamaño máximo; check avisa de lo que falte. mermaid-cli y gitleaks vienen con la instalación completa; si faltan, check lo avisa una vez y se salta esa comprobación. Las reglas de negocio pueden ir en bloques `:::rule` anclados al método que las aplica: si ese código desaparece, check falla.
 
 ### 10. 🌍 Bilingüe: inglés + español
 
@@ -403,7 +409,7 @@ La documentación se escribe en inglés (lo que mejor entienden las IAs y los eq
 
 ```text
    +----------------------------------------------------------------------------+
-   | Camarones  Mi Proyecto  [Docs] Arquitectura Grafo Wikis Revision  Espanol v|
+   | Camarones  Mi Proyecto  [Docs] Arquitectura Wikis Revision Preguntar  Es v|
    |                         [ Buscar en la doc...            ]                 |
    +----------------------------------------------------------------------------+
    | ARQUITECTURA     |  Arquitectura: primer vistazo                           |
@@ -413,7 +419,7 @@ La documentación se escribe en inglés (lo que mejor entienden las IAs y los eq
    +----------------------------------------------------------------------------+
 ```
 
-El portal 🦐 junta en una sola web la documentación (con buscador, edición y revisión), el explorador C4, el grafo de código y las wikis de OpenWiki, en español o inglés. Tiene dos modos con la misma interfaz: el portal local (`camaron up`, o asistente → 🌐 Portal → 📝 Abrir el portal), donde se puede editar, y la exportación de solo lectura (`camaron portal`) que se despliega con Docker o en cualquier hosting estático. `camaron up --static` te enseña la exportación tal cual. Todo funciona sin Internet (on-premise).
+El portal 🦐 junta en una sola web la documentación (con buscador, edición y revisión), el explorador C4, el grafo de código y las wikis de OpenWiki, en español o inglés. Tiene dos modos con la misma interfaz: el portal local (`camaron up`, o asistente → 🌐 Portal → 📝 Abrir el portal), donde se puede editar, y la exportación de solo lectura (`camaron portal`) que se despliega con Docker o en cualquier hosting estático. `camaron up --static` te enseña la exportación tal cual. Todo funciona sin Internet (on-premise). Es blanco y negro, con modo claro y oscuro. Además: Preguntar (las secciones que responden, con su cita), Pizarras (Excalidraw, desde una vista C4) y Pipeline (el plan en vivo, con lanzar, cancelar, reintentar y aprobar). El interruptor «Todo / Negocio» deja solo las páginas de qué hace el sistema y por qué; la portada tiene una caja «¿Cómo funciona…?», y si hay un agente configurado, Preguntar también puede redactar la respuesta con esas secciones.
 
 ### 12. ✏️ Dónde y cuándo se puede editar
 
@@ -430,7 +436,7 @@ El portal 🦐 junta en una sola web la documentación (con buscador, edición y
                                 confirmado sin avisar
 ```
 
-En el portal local, «Editar» abre el markdown con vista previa; al guardar se escribe en cam-docs/docs y, si marcas «commit en cam-docs», se hace un commit local (compartirlo con git push es cosa tuya). «+ Nueva página» crea una página tuya y «Confirmar» firma con tu usuario de git. Con el idioma en español editas la traducción. El portal desplegado no edita: es una foto de la última exportación; su botón «Editar» te lleva al fichero en GitLab/GitHub (si cam-docs tiene remote) y el cambio entra por merge request, y el CI vuelve a publicar. Editar una página ✅ la pasa a ⚠️ hasta que alguien la mire. No edites a mano lo generado (llms.txt, .status.json, visores): las wikis mejor regenerarlas desde la pestaña Wikis, porque una actualización puede reescribir lo que cambies.
+En el portal local, «Editar» abre el markdown con vista previa; al guardar se escribe en cam-docs/docs y, si marcas «commit en cam-docs», se hace un commit local (compartirlo con git push es cosa tuya). «+ Nueva página» crea una página tuya y «Confirmar» firma con tu usuario de git. Con el idioma en español editas la traducción. El portal desplegado no edita: es una foto de la última exportación; su botón «Editar» te lleva al fichero en GitLab/GitHub (si cam-docs tiene remote) y el cambio entra por merge request, y el CI vuelve a publicar. Editar una página ✅ la pasa a ⚠️ hasta que alguien la mire. No edites a mano lo generado (llms.txt, llms-full.txt, .status.json, visores): las wikis mejor regenerarlas desde la pestaña Wikis, porque una actualización puede reescribir lo que cambies.
 
 ### 13. 🔑 Tokens de GitLab / GitHub
 
@@ -442,7 +448,7 @@ En el portal local, «Editar» abre el markdown con vista previa; al guardar se 
    carpeta del proyecto ---X---> token         (nunca se escribe)
 ```
 
-Si tus repos son privados, Camarones necesita un token para clonarlos y actualizarlos. Se guarda en el llavero de tu sistema operativo y solo lo usa Camarones en sus propios comandos git: no se escribe en el proyecto, ni en git config, ni se comparte con Claude, Codex u otros terceros. Al unirte al repo de cam-docs de un equipo, Camarones prueba primero con tu propio git (llavero, gestor de credenciales, claves SSH) y solo te pide un token si eso no entra. Los gestionas en «Ajustes › Tokens». La configuración de agentes que llega con el cam-docs del equipo recibe el mismo cuidado: los hooks, servidores MCP, ajustes y skills que no ha escrito el kit se listan al abrir el asistente, y Claude Code / Codex solo los cargan cuando los apruebas en esta máquina (o con `camaron trust`). Las aprobaciones viven en ~/.camarones/trust/, nunca en el repo, así que nadie puede aprobarlas por ti con un push.
+Si tus repos son privados, Camarones necesita un token para clonarlos y actualizarlos. Se guarda en el llavero de tu sistema operativo y solo lo usa Camarones en sus propios comandos git: no se escribe en el proyecto, ni en git config, ni se comparte con Claude, Codex u otros terceros. Al unirte al repo de cam-docs de un equipo, Camarones prueba primero con tu propio git (llavero, gestor de credenciales, claves SSH) y solo te pide un token si eso no entra. Los gestionas en «Ajustes › Tokens». La configuración de agentes que llega con el cam-docs del equipo recibe el mismo cuidado: los hooks, servidores MCP, ajustes y skills que no ha escrito el kit se listan al abrir el asistente, y Claude Code / Codex solo los cargan cuando los apruebas en esta máquina (o con `camaron trust`). Las aprobaciones viven en ~/.camarones/trust/, nunca en el repo, así que nadie puede aprobarlas por ti con un push. Lo que el kit instaló en esta máquina (sus skills y los de graphify y OpenWiki) lo reconoce sin preguntar, y `camaron repair` lo devuelve a su sitio si alguien lo edita o lo borra.
 
 ### 14. ⚙️ CI: documentación que se actualiza sola
 
@@ -453,9 +459,11 @@ Si tus repos son privados, Camarones necesita un token para clonarlos y actualiz
                   |-- check --secrets  (un secreto para aqui: no hay MR)
                   |-- check (enlaces, diagramas, fuentes, confianza)
                   +-- exporta el portal (camaron portal) --> imagen nginx / Pages
+   PR en un repo --> comentario sin IA: que paginas deja desactualizadas
+                 --> camaron pr propose: un agente propone la doc en otra PR
 ```
 
-Opcional: un pipeline que, tras cada cambio en los repos o en cam-docs, actualiza la documentación afectada y publica el portal de solo lectura. Así, un merge request hecho desde «Editar» del portal desplegado aparece publicado al fusionarse. Se configura en «Equipo › CI». También se puede hacer a mano con «🔄 Actualizar doc tras cambios» y «🌐 Portal › 📦 Exportar el portal».
+Opcional: un pipeline que, tras cada cambio en los repos o en cam-docs, actualiza la documentación afectada y publica el portal de solo lectura. Así, un merge request hecho desde «Editar» del portal desplegado aparece publicado al fusionarse. Se configura en «Equipo › CI». También se puede hacer a mano con «🔄 Actualizar doc tras cambios» y «🌐 Portal › 📦 Exportar el portal». Y en cada pull request de un repo, un job sin IA comenta qué páginas deja desactualizadas el cambio (`camaron pr fresh`).
 
 ### 15. 🧰 Piezas de apoyo
 
@@ -468,7 +476,7 @@ Opcional: un pipeline que, tras cada cambio en los repos o en cam-docs, actualiz
    Java      -> solo si hay repos Java/Kotlin (se detecta SDKMAN)
 ```
 
-El asistente comprueba todo esto y lo instala por ti (winget en Windows, Homebrew en Mac) si eliges «Instalar todo lo recomendado». Solo git y Node.js son obligatorios. El control de calidad (mermaid-cli y gitleaks) viene con la instalación completa; mermaid-cli descarga un Chromium sin ventana la primera vez.
+El asistente comprueba todo esto y lo instala por ti (winget en Windows, Homebrew en Mac) si eliges «Instalar todo lo recomendado». Solo git y Node.js son obligatorios. El control de calidad (mermaid-cli y gitleaks) viene con la instalación completa; mermaid-cli descarga un Chromium sin ventana la primera vez. Sin IA, cada repo recibe también `docs/repos/<repo>/reference.md`: comandos, variables de entorno, endpoints y topics leídos de sus ficheros, que `camaron blocks` y `sync` mantienen al día. Las extensiones del equipo van como plugins en `.camarones/plugins/` (`camaron plugins add` las trae y las fija en plugins.lock); las que ejecutan código o guían a los agentes no se cargan hasta que las apruebas en tu máquina, y cualquier cambio vuelve a preguntar. También sin IA: `camaron history` lee el historial de git (ficheros más tocados, a quién preguntar), `camaron doctor --context` cuenta lo que carga cada sesión de un agente y `camaron repair` devuelve a su sitio los ficheros del kit si alguien los toca.
 
 ### 16. 🗺 Tu día a día
 

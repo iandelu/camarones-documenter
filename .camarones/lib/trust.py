@@ -3,7 +3,8 @@
 cam-docs is the team's repo (join/share) and its .claude/.codex/.agents/.mcp.json are linked into the workspace root,
 so anyone who can push to it could add a hook or an MCP server that runs on every teammate's machine. This module
 lists those surfaces, recognises what this kit writes itself (env.refresh_agent_config re-renders it for this machine)
-and keeps approvals per machine in ~/.camarones/trust/ — outside the repo, so nothing committed can approve itself."""
+and keeps approvals per machine in ~/.camarones/trust/ — outside the repo, so nothing committed can approve itself.
+Project plugins that run code (.camarones/plugins/, R28) are approved the same way, as one item per plugin folder."""
 from __future__ import annotations
 
 import hashlib, itertools, json, os
@@ -140,6 +141,11 @@ def items(root: Path | None = None) -> dict[str, Item]:
                     add(f"file {rel}", kind, f"link:{target}", f"{rel} → {target}", _group(rel))
                 else:
                     add(f"file {rel}", kind, p.read_bytes(), rel, _group(rel))
+
+    from .harness import plugins
+    for p in plugins.discover(root / ".camarones" / "plugins"):
+        if p.needs_trust and not p.errors:
+            add(f"plugin {p.name}", "plugin", p.fingerprint(), p.summary())
     return found
 
 
@@ -152,6 +158,10 @@ def owned() -> dict[str, set[str]]:
     out.update({f"mcp {k}": {_digest(v)} for k, v in servers.items()})
     out["codex mcp block"] = {_digest(env.codex_block(dict(sub)).strip())
                               for n in (1, 2) for sub in itertools.combinations(servers.items(), n)}
+    from . import hooks, install_state
+    out.update(hooks.owned())                        # the method hooks (R36), when the project turned them on
+    for k, v in install_state.owned().items():       # agent tools' skills the kit installed on this machine (X4)
+        out.setdefault(k, set()).update(v)
     return out
 
 
@@ -185,11 +195,12 @@ def pending(root: Path | None = None) -> list[tuple[Item, str]]:
     root = root or ROOT
     store = _store(root)
     if store is None:
-        if _linked_here():
-            _save({i.id: i.digest for i in items(root).values()}, root)
-            return []
-        _save({}, root)
-        store = {"approved": {}}
+        if _linked_here():                           # plugin code was never loaded before R28: it is never pre-approved
+            _save({i.id: i.digest for i in items(root).values() if i.kind != "plugin"}, root)
+            store = _store(root)
+        else:
+            _save({}, root)
+            store = {"approved": {}}
     approved = store.get("approved") or {}
     own = owned()
     out = []
@@ -214,8 +225,30 @@ def decline(root: Path | None = None) -> list[str]:
     """Keep the agents of this machine away from the config: drop the workspace links (never a real file or folder).
     The approvals stay as they are, so the same items are asked again. Returns the links removed."""
     from . import env
-    pending(root)                                    # makes sure the store exists: no later "first look" trust
+    if all(it.kind == "plugin" for it, _ in pending(root)):    # plugins simply stay off; the agent config is fine
+        return []
     return env.unlink_agent_config()
+
+
+def plugin_approved(plugin, root: Path | None = None) -> bool:
+    """A plugin's files, as they are now, were approved on this machine. Older single-folder layouts approve project
+    plugins as before; a plugin that sends data is always asked for."""
+    if not CAM_LAYOUT and not getattr(plugin, "sends_data", False):
+        return True
+    approved = (_store(root) or {}).get("approved") or {}
+    return approved.get(f"plugin {plugin.name}") == _digest(plugin.fingerprint())
+
+
+def approve_plugin(plugin, root: Path | None = None) -> None:
+    approved = (_store(root) or {}).get("approved") or {}
+    approved[f"plugin {plugin.name}"] = _digest(plugin.fingerprint())
+    _save(approved, root)
+
+
+def revoke_plugin(plugin, root: Path | None = None) -> None:
+    approved = (_store(root) or {}).get("approved") or {}
+    approved.pop(f"plugin {plugin.name}", None)
+    _save(approved, root)
 
 
 def forget(root: Path | None = None) -> None:

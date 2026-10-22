@@ -233,7 +233,7 @@ def render(result: dict) -> str:
           "x-sources": list(dict.fromkeys(e for r in result.values() for t in r["tools"] for e in t["evidence"])),
           "x-owner": "ai"}
     lines = ["# Stack and tooling", "",
-             "Static scan of the repositories (no AI): each repo's stack and the tools the team already uses. "
+             "> **TL;DR:** Static scan of the repositories (no AI): each repo's stack and the tools the team already uses. "
              "Discovery reads this page first and verifies it. Fix a wrong stack with "
              "`camaron stack <repo> \"<stack>\"`, then `camaron radar` to refresh the page.", ""]
     for name, r in result.items():

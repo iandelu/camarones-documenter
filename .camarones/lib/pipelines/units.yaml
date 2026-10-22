@@ -1,0 +1,35 @@
+# Every unit type the kit knows. phase orders the plan; runner says who does it (agent session or wizard step);
+# title is what people see ({repo} / {slug} filled in); playbook is the PLAYBOOK.md section the agent follows.
+# tier (default agentic-heavy) picks the runner through the routing table: bounded work can go to a local model.
+# isolation: worktree runs the unit in its own copy of cam-docs when units run in parallel (default: none).
+quick-overview:      {phase: 2, runner: agent,  playbook: quick-overview,      title: "First overview: purpose, run instructions, one flow and sources"}
+setup:               {phase: 0, runner: wizard, playbook: setup,               title: "Environment ready (tools, repos, agent wiring)"}
+discovery:           {phase: 1, runner: agent,  playbook: discovery,           isolation: worktree, title: "Discovery of {repo}"}
+discovery-cross:     {phase: 1, runner: agent,  playbook: discovery-cross,     title: "Cross-repo correlation (integrations, shared DBs, candidate flows)"}
+questionnaire:       {phase: 2, runner: agent,  playbook: questionnaire,       title: "Team questionnaire: inferred answers and options to share with the team"}
+answers:             {phase: 2, runner: wizard, playbook: answers,             title: "Team answers: share the questionnaire and import the answers"}
+interview-context:   {phase: 2, runner: agent,  playbook: interview,           title: "Interview 1: bounded contexts, external actors, environments"}
+interview-language:  {phase: 2, runner: agent,  playbook: interview,           title: "Interview 2: DDD glossary, SLAs / NFRs"}
+interview-history:   {phase: 2, runner: agent,  playbook: interview,           title: "Interview 3: historical decisions, known debt, validate integrations/flows/data"}
+repo-brief:          {phase: 3, runner: agent,  playbook: repo-brief,          isolation: worktree, title: "{repo}: README + AGENTS.md/CLAUDE.md (stack) + C4 components + OpenWiki brief"}
+repo-wiki:           {phase: 3, runner: agent,  playbook: repo-wiki,           title: "{repo}: OpenWiki repository wiki"}
+arch-system:         {phase: 4, runner: agent,  playbook: arch-system,         title: "C4 system: context + containers views"}
+domain:              {phase: 4, runner: agent,  playbook: domain,              title: "Domain: bounded contexts, context map, glossary, actors"}
+data:                {phase: 4, runner: agent,  playbook: data,                title: "Data models: ERDs, ownership, shared DBs"}
+deployment:          {phase: 4, runner: agent,  playbook: deployment,          title: "Deployment: environments + C4 deployment views"}
+decisions-quality:   {phase: 4, runner: agent,  playbook: decisions-quality,   title: "ADRs, SLAs, tech debt"}
+security-review:     {phase: 5, runner: agent,  playbook: security-review,     title: "[beta] Security review: threats and vulnerabilities"}
+architecture-review: {phase: 5, runner: agent,  playbook: architecture-review, title: "[beta] Architecture review: coupling, duplication, tech debt"}
+flows-catalog:       {phase: 5, runner: agent,  playbook: flows-catalog,       title: "Business flows catalog (propose, validate, create flow units)"}
+flow:                {phase: 5, runner: agent,  playbook: flow,                isolation: worktree, title: "Flow: {slug}"}
+diagrams:            {phase: 5, runner: agent,  playbook: diagrams,            title: "Diagrams: sequences, lifecycles (state), data and context maps where pages lack them"}
+i18n:                {phase: 6, runner: agent,  playbook: i18n,                tier: bounded, title: "Spanish translations + index"}
+portal:              {phase: 7, runner: wizard, playbook: portal,              title: "Build and run the portal"}
+ci:                  {phase: 7, runner: wizard, playbook: ci,                  title: "CI pipelines (umbrella + per-repo snippets)"}
+confirm:             {phase: 7, runner: wizard, playbook: confirm,             title: "Human review: confirm pages"}
+handover:            {phase: 7, runner: agent,  playbook: handover,            title: "Handover: summary, commits on branches, next steps"}
+review-fixes:        {phase: 7, runner: agent,  playbook: review-fixes,        title: "Apply human review feedback"}
+doc-fixes:           {phase: 7, runner: agent,  playbook: doc-fixes,           title: "Fix documentation problems (check errors, orphans, re-confirmations, translations)"}
+refresh-docs:        {phase: 7, runner: agent,  playbook: refresh-docs,        title: "Refresh the pages whose code changed"}
+eval-questions:      {phase: 7, runner: agent,  playbook: eval-questions,      tier: bounded, title: "Golden questions: draft what the docs must answer"}
+integrate:           {phase: 7, runner: agent,  playbook: integrate,           title: "Integrate {slug}: resolve it against the main docs"}

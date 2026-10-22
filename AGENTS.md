@@ -50,9 +50,9 @@ Every change must work on all three. CI (`.github/workflows/tests.yml`) runs the
   network. Never run the kit against a real project to test it. If the sandbox is missing, `reset` creates it
   (first run clones from GitHub); say so rather than skipping silently.
 
-### 2.3 Backward compatibility (3.x)
+### 2.3 Backward compatibility (3.x and 4.x)
 
-- Any project created by any **3.x** kit must keep opening and working with the new kit, without manual steps.
+- Any project created by any **3.x or 4.x** kit must keep opening and working with the new kit, without manual steps.
 - Pre-3.0 layouts are handled by `camaron migrate` (`lib/migrate.py`); do not break that path.
 - Never rename or drop a CLI command, flag, `workspace.yaml` key, frontmatter field (`x-sources`, `x-owner`,
   `x-confirmed`, `x-translation-of`…), `plan.yaml`/`.state.json` field or file location without: reading the old form,
@@ -91,9 +91,13 @@ self-aware about being small.
 | Path | What |
 |---|---|
 | `.camarones/camarones.py` | entry point (uv inline script; its header lists runtime deps) |
-| `.camarones/lib/` | `common` (paths, versions, processes), `wizard`, `install`, `env`, `plan`, `docs`, `quality`, `quickarch`, `migrate`, `upgrade`, `uninstall`, `mcp`, `serve`… |
+| `.camarones/lib/` | `common` (paths, versions, processes), `wizard`, `install`, `env`, `plan`, `docs`, `quality`, `quickarch`, `migrate`, `upgrade`, `uninstall`, `mcp`, `serve`, `install_state` (what the kit wrote on this machine: trust, drift, `repair`), `budget` (`doctor --context`), `history` (git mining), `removed`, `answers` (Ask's AI answer), `exporters`, `boards`, `review`, `hooks`… |
+| `.camarones/lib/harness/` | harness core ([RFC](docs/research/harness-refactor.md)): `ctx` (project paths as a value), `events` (run log), `ports` (adapter interfaces), `routing` (which runner does each tier), `pipeline` (YAML plans → units), `locks` (cross-process file locks: plan.yaml, wiki runs), `worktrees` (a unit's own cam-docs worktree in `<workspace>/.cw/<n>`), `integrate` (merge a unit's worktree back: main first into the branch, gates, then a merge that cannot conflict), `scheduler` (parallel runs: worktree units side by side, one in-place unit at a time, integration before dependents), `runs`/`kpis` (what runs did and cost, team roll-ups), `evals` (golden questions), `ab` (with vs without cam-docs), `drafts` (AI draft vs confirmed edits) |
+| `.camarones/lib/pipelines/` | the plans as data: `units.yaml` (unit types), `full.yaml`, `quick.yaml`; `plan.blueprint()` expands them |
+| `.camarones/lib/plugins/` | the kit's own plugins (`plugin.yaml` manifests, e.g. `gemini`); `harness/plugins.py` loads them and a project's `.camarones/plugins/` |
+| `.camarones/lib/adapters/` | pluggable adapters; `runners/` holds the agent CLIs (`claude`, `codex`, `opencode`, command templates such as Gemini) behind the `Runner` port; autopilot, the wizard and wiki generation launch agents only through it |
 | `.camarones/templates/` | files copied into projects (`AGENTS.md`, docs skeleton, i18n) — changes here reach old projects: see 2.3 |
-| `.camarones/portal/` | live/static portal |
+| `.camarones/portal/` | `app/` the portal: React views (`src/`: Pipeline, Boards, Ask, content helpers) plus the docs views as plain scripts (`public/legacy/`), React + Vite, `npm` only in the kit repo; built into `app-build/` (committed, served at `/`; CI fails if it does not match its source) |
 | `tests/` | pytest suite; `pyproject.toml` holds dev deps only |
 | `scripts/sandbox.py` | real-repo test bench (Spring PetClinic) |
 
@@ -102,3 +106,20 @@ self-aware about being small.
 - Code, comments, commit messages and these docs are in English; user-facing strings in `es` + `en`.
 - Conventional commits (`feat(scope): …`, `fix(scope): …`), small and focused.
 - Other agent sessions may be editing the tree in parallel: stage and commit only your own hunks.
+
+### 5.1 README and tutorial move with the code
+
+Any change a user can notice (command, flag, wizard screen, default, workflow, output, portal view) updates the user
+docs **in the same commit**:
+
+- `README.md` (Spanish): the feature description, commands and examples; the version badge when `VERSIONS["kit"]`
+  changes.
+- The tutorial, in `es` and `en`:
+  - `lib/tutorial.py` (the wizard's tutorial pages). Regenerate `.camarones/TUTORIAL.md` from it; `test_wizard.py`
+    fails if they differ. From `.camarones/`:
+    `uv run python -c "from lib import tutorial; open('TUTORIAL.md','w',encoding='utf-8',newline='\n').write(tutorial.markdown())"`
+  - The command guide shipped to projects: `templates/docs/guides/tutorial.md` and its twin
+    `templates/docs/i18n/es/guides/tutorial.md`. Templates are copied once, so existing projects keep their copy;
+    say so in the commit when the change matters to them.
+
+If a change has nothing a user can notice, say so in the commit body instead of skipping the docs silently.

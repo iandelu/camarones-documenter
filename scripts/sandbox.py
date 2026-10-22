@@ -86,6 +86,8 @@ def traces(folder: Path, home: Path | None = None) -> list[str]:
     found = []
     if (folder / CAM_DIR).exists():
         found.append(f"{CAM_DIR}/ exists")
+    if (folder / ".cw").exists():
+        found.append(".cw/ (unit worktrees) exists")
     for n in LINKS:
         p = folder / n
         if p.exists() or p.is_symlink():
@@ -111,6 +113,10 @@ def traces(folder: Path, home: Path | None = None) -> list[str]:
         root = json.loads(f.read_text(encoding="utf-8") or "{}").get("root", "")
         if root and Path(root).resolve().is_relative_to(folder.resolve()):
             found.append(f"agent-config approvals {f.name} ({root})")
+    for f in sorted(((home or Path.home()) / ".camarones" / "install").glob("*.json")):   # lib/install_state.py
+        root = json.loads(f.read_text(encoding="utf-8") or "{}").get("root", "")
+        if root and Path(root).resolve().is_relative_to(folder.resolve()):
+            found.append(f"install record {f.name} ({root})")
     return found
 
 

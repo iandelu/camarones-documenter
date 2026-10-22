@@ -34,12 +34,11 @@ questions:
 def ui(kit, monkeypatch):
     """ui.play(*keys, fn=callable) runs fn with the keys queued; ui.launched / ui.revealed record the side effects."""
     wz = kit.wizard
-    box = {"launched": [], "revealed": [], "prompts": []}
+    box = {"launched": [], "revealed": []}
     monkeypatch.setattr(wz.time, "sleep", lambda _s: None)
     monkeypatch.setattr(wz.console, "clear", lambda *a, **kw: None)
     monkeypatch.setattr(wz.W, "launch_agent",
-                        lambda self, prompt, resume_agent=None, **kw: (box["prompts"].append(prompt),
-                                                                        box["launched"].append(prompt.splitlines()[0]))[-1] or "bg")
+                        lambda self, prompt, resume_agent=None: box["launched"].append(prompt.splitlines()[0]) or "bg")
     monkeypatch.setattr(wz.W, "reveal", lambda self, folder: box["revealed"].append(folder))
     monkeypatch.setattr(wz.env, "open_url", lambda url: pytest.fail(f"opened {url}"))
 
@@ -105,9 +104,8 @@ def test_escape_on_the_mode_question_changes_nothing(kit, ui):
 def test_the_question_is_asked_once(kit, ui):
     started_interview(kit)
     ui.play(ENTER, DOWN, ENTER, ENTER, ESC, YES, fn=kit.wizard.W()._run)      # live · new session
-    # next time "continue" goes to the resume menu (new session / continue / done / restart), not the mode question;
-    # the window just opened may still be working on it, so first: take over? yes
-    ui.play(ENTER, YES, ENTER, ESC, YES, fn=kit.wizard.W()._run)
+    # next time "continue" goes to the resume menu (new session / continue / done / restart), not the mode question
+    ui.play(ENTER, ENTER, ESC, YES, fn=kit.wizard.W()._run)
     assert len(ui.launched) == 2 and ui.launched[1].startswith("Camarón session — unit `interview-context`")
 
 
@@ -161,60 +159,3 @@ def test_a_wrong_path_is_reported_and_the_menu_stays(kit, ui, tmp_path):
             fn=lambda: kit.wizard.W().run_unit(unit(kit, "answers")))
     assert kit.questionnaire.responses() == {}
     assert unit(kit, "answers")["status"] == "todo"
-
-
-# ---------- several windows on one plan ----------
-def drafts_ready(kit):
-    kit.common.save_json(kit.wizard.FIRSTRUN, {"step": 6, "done": True})
-    kit.wizard.usage.set_enabled(True)
-    kit.plan.sync()
-    for u in kit.plan.load()["units"]:
-        if u["id"].startswith(("setup", "discovery")):
-            kit.plan.set_status(u["id"], "done")
-
-
-def test_launching_a_unit_claims_it_for_its_window(kit, ui):
-    drafts_ready(kit)
-    kit.plan.claim("interview-context", "window-1")                 # the first ready unit is taken
-    kit.plan.set_status("interview-context", "done")
-    ui.play(ENTER, fn=kit.wizard.W().do_next)
-    uid = ui.launched[0].split("`")[1]
-    owner = unit(kit, uid)["owner"]["session"]
-    assert f"plan start {uid} --session {owner}" in ui.prompts[0]
-
-
-def test_a_unit_another_window_holds_asks_before_taking_over(kit, ui):
-    drafts_ready(kit)
-    kit.plan.claim("repo-brief:api", "window-1")
-    ui.play(ENTER, "n", fn=kit.wizard.W().do_next)                  # ⏸ repo-brief:api is listed first · no
-    assert ui.launched == [] and unit(kit, "repo-brief:api")["owner"]["session"] == "window-1"
-    ui.play(ENTER, YES, ENTER, fn=kit.wizard.W().do_next)           # yes · resume menu: new session
-    assert ui.launched[0].startswith("Camarón session — unit `repo-brief:api`")
-    assert unit(kit, "repo-brief:api")["owner"]["session"] != "window-1"
-
-
-def test_a_closed_window_frees_its_unit(kit, monkeypatch):
-    drafts_ready(kit)
-    kit.plan.claim("repo-brief:api", "window-1")
-    kit.plan.mutate(lambda d: kit.plan.get(d, "repo-brief:api")["owner"].update(pid=424242))
-    monkeypatch.setattr(kit.plan, "pid_alive", lambda pid: pid != 424242)
-    assert kit.plan.taken_by(unit(kit, "repo-brief:api")) is None
-
-
-def test_menu_labels_show_taken_units_and_drafts(kit):
-    drafts_ready(kit)
-    kit.plan.claim("repo-brief:api", "window-1")
-    data = kit.plan.load()
-    w = kit.wizard.W()
-    assert w.unit_label(kit.plan.get(data, "repo-brief:api"), data).startswith("⏸ repo-brief:api")
-    assert "window-1" in w.unit_label(kit.plan.get(data, "repo-brief:api"), data)
-    assert w.t("draft_lbl") in w.unit_label(kit.plan.get(data, "domain"), data)
-    assert w.t("draft_lbl") not in w.unit_label(kit.plan.get(data, "discovery-cross"), data)
-
-
-def test_autopilot_asks_how_many_units_at_once(kit, ui, monkeypatch):
-    drafts_ready(kit)
-    opened = []
-    monkeypatch.setattr(kit.wizard.env, "open_new_terminal", lambda cmd, cwd: opened.append(cmd) or True)
-    ui.play(ENTER, ENTER, fn=kit.wizard.W().do_autopilot)           # default: 2 at once · ↩
-    assert opened and opened[0][-2:] == ["--jobs", "2"]

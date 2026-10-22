@@ -31,12 +31,16 @@ variables:
     - git config --global url."https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/".insteadOf "git@${CI_SERVER_HOST}:"
     - git config --global --add url."https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/".insteadOf "https://${CI_SERVER_HOST}/"
     - git clone -q --depth 1 --branch "$CAMARONES_KIT_REF" "$CAMARONES_KIT_REPO" /opt/camarones-kit
-    - printf '#!/bin/sh\nexec uv run --quiet --script /opt/camarones-kit/.camarones/camarones.py "$@"\n' > /usr/local/bin/camarones && chmod +x /usr/local/bin/camarones
-    - camarones setup --ci
+    - printf '#!/bin/sh\nexec uv run --quiet --script /opt/camarones-kit/.camarones/camarones.py "$@"\n' > /usr/local/bin/camaron && chmod +x /usr/local/bin/camaron
+    - ln -sf /usr/local/bin/camaron /usr/local/bin/camarones
+    - camaron setup --ci
 
 docs:verify:
   extends: .kit
   stage: verify
+  rules:                         # merge requests on the docs too: `check` only, the AI job keeps its own rules
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH'
   script:
     - camaron graph
     - camaron arch-validate

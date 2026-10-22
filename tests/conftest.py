@@ -18,7 +18,7 @@ for p in (str(KIT_DIR), str(TESTS)):
 
 from fixtures.builder import make_workspace  # noqa: E402
 
-MODULES = ("common", "docs", "env", "plan", "projects", "migrate", "quality", "codemap", "install", "quickarch", "creds", "questionnaire", "usage", "wizard")
+MODULES = ("common", "docs", "env", "plan", "serve", "projects", "migrate", "quality", "codemap", "install", "quickarch", "creds", "questionnaire", "usage", "wizard")
 
 
 def purge_kit_modules() -> None:
@@ -38,7 +38,7 @@ def isolated_env(tmp_path, monkeypatch):
     for k, v in {"HOME": home, "USERPROFILE": home, "GIT_CONFIG_GLOBAL": gitconfig, "GIT_CONFIG_NOSYSTEM": "1",
                  "PYTHON_KEYRING_BACKEND": "keyring.backends.null.Keyring", "LANG": "es_ES.UTF-8"}.items():
         monkeypatch.setenv(k, str(v))
-    for k in ("CAMARONES_ROOT", "CAMARONES_GLOBAL"):
+    for k in ("CAMARONES_ROOT", "CAMARONES_GLOBAL", "CAMARONES_STATE_ROOT"):
         monkeypatch.delenv(k, raising=False)
     yield home
     os.environ.clear()

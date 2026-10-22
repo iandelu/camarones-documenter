@@ -1,0 +1,10 @@
+# Gemini CLI as a command template (H28): no code adapter until real use shows the template is not enough.
+name: gemini
+version: 1.0.0
+description: Google's Gemini CLI as an agent runner.
+provides:
+  runners:
+    - id: gemini
+      label: Gemini CLI
+      argv: [gemini, "{model_args}", -p, "{prompt}", --yolo]
+      interactive: [gemini, "{model_args}", -i, "{prompt}"]

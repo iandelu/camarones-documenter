@@ -1,15 +1,18 @@
 """Environment: templates, prerequisites, pinned tools, repo wiring, code graph, C4, portal, docker, CI."""
 from __future__ import annotations
 
-import json, os, posixpath, re, shutil, subprocess, sys, time, webbrowser
+import json, os, posixpath, re, shutil, subprocess, sys, webbrowser
 from collections import deque
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable
 
-from .common import (KIT, ROOT, DOCS, HOME, CACHE, IS_WIN, IS_MAC, VERSIONS, CAM_DIR, CAM_LAYOUT, WORKSPACE, WS_FILE, GRAPHS, run, out,
+from .common import (CTX, KIT, ROOT, DOCS, HOME, CACHE, IS_WIN, IS_MAC, VERSIONS, CAM_DIR, CAM_LAYOUT, WORKSPACE, WS_FILE, GRAPHS, run, out,
                      which, uv, ensure_path, cli_cmd, sdkman_dir, repo_dir, ws_rel, rel_file, load_json, save_json)
-from . import binaries, common, docs
+from . import binaries, docs
+from .adapters import runners
+from .harness.ports import RunRequest
+from .harness.locks import FileLock, LockBusy, pid_alive  # noqa: F401  (pid_alive re-exported)
 from .projects import git_failure  # noqa: F401 — share() and callers of env.git_failure
 
 Log = Callable[[str], None]
@@ -50,7 +53,7 @@ def init_templates(project_name: str | None = None, log: Log = print) -> list[st
         if src.is_dir():
             continue
         rel = src.relative_to(TEMPLATES)
-        if rel.parts[0] == "skills":
+        if rel.parts[0] in ("skills", "skeletons"):      # skills go to the agent hosts, skeletons via sync_kit_docs
             continue
         dst = ROOT / rel
         if dst.exists():
@@ -80,14 +83,16 @@ def ensure_agents_import(claude_md: Path) -> None:
 
 
 def sync_kit_docs() -> list[str]:
-    """Copy PLAYBOOK/CONVENTIONS into the project's .camarones/ (versioned with the docs). A copy the team edited
+    """Copy PLAYBOOK/CONVENTIONS and the page skeletons into the project's .camarones/ (versioned with the docs). A copy the team edited
     since the last sync is kept as is — only untouched copies follow kit upgrades."""
     if (ROOT / ".camarones").resolve() == KIT.resolve():
         return []                                   # legacy: the kit itself lives in this project
     import hashlib
     stamp, changed = load_json(KIT_DOCS_STAMP, {}), []
-    for n in KIT_DOCS:
-        src, dst = KIT / n, ROOT / ".camarones" / n
+    files = [(n, KIT / n) for n in KIT_DOCS]
+    files += [(f"skeletons/{f.name}", f) for f in sorted((TEMPLATES / "skeletons").glob("*.md"))]
+    for n, src in files:
+        dst = ROOT / ".camarones" / n
         cur = hashlib.sha256(dst.read_bytes()).hexdigest() if dst.exists() else None
         new = hashlib.sha256(src.read_bytes()).hexdigest()
         if cur == new or (cur and stamp.get(n) != cur):
@@ -301,7 +306,7 @@ def install_tools(log: Log = print, comps: list[str] | None = None) -> None:
 
 
 # ---------- wiring: everything lives in cam-docs, the service repos stay clean ----------
-LINKS = (".claude", ".codex", ".agents", ".mcp.json", "AGENTS.md", "CLAUDE.md")   # workspace root → cam-docs
+LINKS = (".claude", ".codex", ".agents", ".mcp.json", "AGENTS.md", "CLAUDE.md", ".tours")   # workspace root → cam-docs
 POINTER_START, POINTER_END = "<!-- cam-docs:start -->", "<!-- cam-docs:end -->"
 
 
@@ -434,9 +439,13 @@ def without_graphify_hooks(data: dict) -> dict:
     return data
 
 
+OPENWIKI_INSTALL = [["openwiki", "integrations", "install", host, "--project", "."] for host in ("claude", "codex")]
+
+
 def install_graphify_skill() -> None:
     """Only the skill: `graphify install --project` would also add hooks and rules pointing at graphify-out/."""
     import tempfile
+    from . import install_state
     with tempfile.TemporaryDirectory() as tmp:
         run(["graphify", "install", "--project"], cwd=Path(tmp), check=False, quiet=True)
         run(["graphify", "install", "--project", "--platform", "codex"], cwd=Path(tmp), check=False, quiet=True)
@@ -444,6 +453,7 @@ def install_graphify_skill() -> None:
             src = Path(tmp) / host / "skills" / "graphify"
             if src.is_dir():
                 shutil.copytree(src, ROOT / host / "skills" / "graphify", dirs_exist_ok=True)
+                install_state.record_from(src, f"{host}/skills/graphify")
 
 
 def write_agent_config(comps: list[str]) -> None:
@@ -467,7 +477,8 @@ def write_agent_config(comps: list[str]) -> None:
     save_json(mcp_file, cfg)
     write_codex_mcp({k: servers[k] for k in ("camarones", "likec4") if k in servers})
     settings = ROOT / ".claude" / "settings.json"
-    st = without_graphify_hooks(load_json(settings, {}))
+    from . import hooks
+    st = hooks.apply(without_graphify_hooks(load_json(settings, {})))           # method hooks, when the project opts in
     st["enabledMcpjsonServers"] = sorted(set(st.get("enabledMcpjsonServers", [])) | set(servers))
     save_json(settings, st)
 
@@ -525,8 +536,10 @@ def wire_umbrella(log: Log = print, comps: list[str] | None = None) -> None:
     if "agents" in comps:
         q = dict(cwd=ROOT, check=False, quiet=True)
         if "openwiki" in comps:
-            for host in ("claude", "codex"):
-                run(["openwiki", "integrations", "install", host, "--project", "."], **q)
+            from . import install_state
+            install_state.learn(OPENWIKI_INSTALL)
+            for cmd in OPENWIKI_INSTALL:
+                run(cmd, **q)
         if "graphify" in comps:
             install_graphify_skill()
         init_templates(log=lambda _: None)          # kit skills + AGENTS.md/CLAUDE.md
@@ -731,7 +744,7 @@ def repo_changed_at(repo: str) -> float:
 
 def viewers() -> dict:
     c4_at = newest([VIEWERS / "architecture" / "index.html"])
-    model_at = newest(arch_dir().glob("*.c4")) if arch_dir().is_dir() else 0.0
+    model_at = newest(arch_dir().rglob("*.c4")) if arch_dir().is_dir() else 0.0     # fragments in repos/, flows/ too
     graphs = {n: {"at": newest([f]), "stale": n != "all" and repo_changed_at(n) > newest([f])}
               for n, f in code_graphs().items()}
     return {"c4": {"exists": bool(c4_at), "at": c4_at, "stale": bool(c4_at) and model_at > c4_at, "model": bool(model_at)},
@@ -877,8 +890,8 @@ def wiki_prompt(repo: str, mode: str) -> str:
             f"`{CAM_DIR}/wikis/{repo}/`, removes what OpenWiki adds to the repo (AGENTS.md, CLAUDE.md, .github/) and marks "
             f"the plan unit — do none of that yourself, never run `{cli} wiki`, and do not touch other repo files.\n"
             f"Progress: after each page run `{cli} plan note {uid} \"<page done / next>\"`. This run is unattended: never "
-            f"ask; record questions with `{cli} plan ask {uid} \"<question>\"`. At the end add your handoff entry with "
-            f"`{cli} plan handoff {uid} \"<done, pending>\"`.\n")
+            f"ask; append questions to `{ws_rel('docs/interview/open-questions.md')}`. At the end rewrite the \"Last "
+            f"session\" section of `{ws_rel('docs/.work/handoff.md')}`.\n")
 
 
 OPENWIKI_REPO_FILES = ("AGENTS.md", "CLAUDE.md", ".github/workflows/openwiki-update.yml")
@@ -946,22 +959,19 @@ def wiki_workdir(repo: str, log: Log = print):
 WIKI_LOCK = CACHE / "wiki.lock"
 
 
-pid_alive = common.pid_alive          # kept here: callers and tests patch env.pid_alive
-
-
 @contextmanager
 def wiki_lock(repo: str):
     """One OpenWiki run at a time across the wizard, the portal and the CLI: parallel runs share the agent's quota."""
-    other = load_json(WIKI_LOCK, {}) if WIKI_LOCK.exists() else {}
-    pid = other.get("pid") if isinstance(other, dict) else None
-    if pid and pid != os.getpid() and pid_alive(int(pid)):
-        raise RuntimeError(f"another OpenWiki run is in progress ({other.get('repo')}, pid {pid}) — wait for it to finish")
-    WIKI_LOCK.parent.mkdir(parents=True, exist_ok=True)
-    WIKI_LOCK.write_text(json.dumps({"pid": os.getpid(), "repo": repo}), encoding="utf-8")
+    lock = FileLock(WIKI_LOCK, wait=0, info={"repo": repo})
+    try:
+        lock.acquire()
+    except LockBusy as e:
+        raise RuntimeError(f"another OpenWiki run is in progress ({e.holder.get('repo')}, pid {e.holder.get('pid')}) "
+                           "— wait for it to finish") from None
     try:
         yield
     finally:
-        WIKI_LOCK.unlink(missing_ok=True)
+        lock.release()
 
 
 class WikiAbort(RuntimeError):
@@ -1005,12 +1015,11 @@ def openwiki_generate(repo: str, mode: str = "", log: Log = print, engine: str =
         with wiki_workdir(repo, log):
             if engine == "openwiki":
                 rc = stream(["openwiki", "code", f"--{mode}", "--print"], repo_dir(repo), tee)
-            elif engine == "claude":
-                rc = stream(["claude", "-p", wiki_prompt(repo, mode), "--permission-mode", "acceptEdits", "--allowedTools",
-                             "mcp__openwiki Skill Read Write Edit Glob Grep Bash(git:*) Bash(ls:*) Bash(graphify:*) "
-                             f"Bash({cli_cmd()} plan note:*)"], WORKSPACE, tee)
             else:
-                rc = stream(["codex", "exec", "--full-auto", "-C", str(WORKSPACE), wiki_prompt(repo, mode)], WORKSPACE, tee)
+                tools = ("mcp__openwiki", "Skill", "Read", "Write", "Edit", "Glob", "Grep", "Bash(git:*)", "Bash(ls:*)",
+                         "Bash(graphify:*)", f"Bash({cli_cmd()} plan note:*)")
+                req = RunRequest(prompt=wiki_prompt(repo, mode), cwd=WORKSPACE, allow_tools=tools)
+                rc = stream(runners.get(engine).build(req).argv, WORKSPACE, tee)
     ok = rc == 0 and bool(wiki_pages(repo))
     if ok:
         brief = docs.wiki_dir(repo) / "INSTRUCTIONS.md"
@@ -1057,6 +1066,7 @@ def export_site(log: Log = print) -> Path:
     (tmp / "index.html").write_text(html.replace('content="live"', 'content="static"'), encoding="utf-8")
     docs.llms()
     shutil.copyfile(DOCS / "llms.txt", tmp / "llms.txt")
+    shutil.copyfile(DOCS / "llms-full.txt", tmp / "llms-full.txt")
     api = tmp / "api"
 
     def dump(rel: str, data) -> None:
@@ -1266,15 +1276,15 @@ def open_url(url: str) -> None:
     webbrowser.open(url)
 
 
-def open_new_terminal(cmd: list[str], cwd: Path) -> bool | int:
+def open_new_terminal(cmd: list[str], cwd: Path) -> bool:
     """Launch `cmd` in its own terminal window, detached from this process, so an interactive agent session
     does not block the wizard. Returns False when no terminal emulator could be found — caller then falls
-    back to running `cmd` in the current terminal. On Windows it returns the pid of `cmd` itself (the window
-    closes with it), so callers can tell a closed window from a busy one; elsewhere True."""
+    back to running `cmd` in the current terminal."""
     import shlex
     try:
         if IS_WIN:
-            return subprocess.Popen(cmd, cwd=str(cwd), creationflags=subprocess.CREATE_NEW_CONSOLE).pid or True
+            subprocess.Popen(cmd, cwd=str(cwd), creationflags=subprocess.CREATE_NEW_CONSOLE)
+            return True
         if IS_MAC:
             script = f"cd {shlex.quote(str(cwd))} && exec {shlex.join(cmd)}"
             subprocess.Popen(["osascript", "-e", f'tell application "Terminal" to do script {json.dumps(script)}'])
@@ -1317,40 +1327,33 @@ def install_ci(forge: str | None = None, log: Log = print) -> Path:
     snippet = f"repo.{'github.yml' if forge == 'github' else 'gitlab-ci.yml'}"
     (ROOT / ".camarones" / "ci").mkdir(parents=True, exist_ok=True)
     shutil.copyfile(KIT / "ci" / snippet, ROOT / ".camarones" / "ci" / snippet)   # service repos include it from here
+    from . import ci
+    fresh = ROOT / ".camarones" / "ci" / ci.FILES[forge]
+    fresh.write_text(ci.render(forge), encoding="utf-8", newline="\n")      # generated from lib/ci.py, ci: in workspace.yaml
     log(f"  ✔ {dst.relative_to(ROOT)} (docs repo pipeline)")
     log(f"  → per-repo snippet: .camarones/ci/{snippet}")
+    log(f"  → per-repo pull request check (no AI): .camarones/ci/{ci.FILES[forge]}")
+    proposal = ci.render_propose(forge)
+    if proposal:                                    # ci.target: self-hosted — the AI job runs on the team's runner
+        (ROOT / ".camarones" / "ci" / ci.FILES_PROPOSE[forge]).write_text(proposal, encoding="utf-8", newline="\n")
+        log(f"  → per-repo docs proposal (AI, self-hosted runner): .camarones/ci/{ci.FILES_PROPOSE[forge]}")
     return dst
 
 
 # ---------- progress safety: local checkpoint commits in the umbrella repo ----------
-CHECKPOINT_PATHS = ["docs", "wikis", ".camarones/workspace.yaml", ".camarones/PLAYBOOK.md", ".camarones/CONVENTIONS.md",
-                    ".camarones/.kit-docs.json", ".camarones/ci", ".claude", ".codex", ".agents", ".mcp.json", "AGENTS.md", "CLAUDE.md",
+CHECKPOINT_PATHS = ["docs", "wikis", "evals", ".camarones/workspace.yaml", ".camarones/PLAYBOOK.md", ".camarones/CONVENTIONS.md",
+                    ".camarones/skeletons", ".camarones/plugins", ".camarones/plugins.lock", ".camarones/.kit-docs.json", ".camarones/ci", ".claude", ".codex", ".agents", ".mcp.json", "AGENTS.md", "CLAUDE.md",
                     ".gitignore", ".gitlab-ci.yml", ".github"]
 
 
-CHECKPOINT_LOCK = CACHE / "checkpoint.lock"
-
-
 def checkpoint_commit(message: str) -> bool:
-    """Commit docs progress locally. Keeps work safe if a session or the computer closes; pushes only with auto-share.
-    Sessions running side by side take turns (git's own index.lock would make one of them fail); each commit holds
-    whatever every session has written so far, which is fine for a local safety net."""
+    """Commit docs progress locally. Keeps work safe if a session or the computer closes; pushes only with auto-share."""
     if not (ROOT / ".git").exists():
         return False
-    try:
-        with common.file_lock(CHECKPOINT_LOCK, timeout=120, stale=300):
-            for _ in range(100):                     # an agent's own git command may hold the index for a moment
-                if not (ROOT / ".git" / "index.lock").exists():
-                    break
-                time.sleep(0.1)
-            return _checkpoint_commit(message)
-    except RuntimeError as e:
-        print(f"🦐✖ checkpoint not committed — {e}", file=sys.stderr)
-        return False
-
-
-def _checkpoint_commit(message: str) -> bool:
     paths = [p for p in CHECKPOINT_PATHS if (ROOT / p).exists()]
+    if CTX.root != CTX.state_root:   # a unit's worktree: its pages only; derived files and plan state belong to main
+        paths += [":(exclude)docs/.work", ":(exclude)docs/.status.json", ":(exclude)docs/llms.txt",
+                  ":(exclude)docs/llms-full.txt"]
     run(["git", "add", "--", *paths], cwd=ROOT, check=False, quiet=True)
     if run(["git", "diff", "--cached", "--quiet"], cwd=ROOT, check=False, quiet=True).returncode == 0:
         return False

@@ -24,7 +24,8 @@ def test_broken_internal_links_are_errors(kit):
                              "```\n[in code](nowhere.md)\n```\nInline `[code](nope.md)` is not a link.\n")
     page(kit, "c.md", "# C\n")
     errors, warns = kit.quality.check_links(kit.docs.collect())
-    assert errors == ["docs/guides/a.md:6: broken link → b.md"] and warns == []
+    assert errors == ["docs/guides/a.md:6: broken link → b.md"]
+    assert warns == ["docs/guides/a.md:6: no heading for #x in guides/a.md"]          # #top always exists
 
 
 def test_links_resolve_like_the_portal(kit):

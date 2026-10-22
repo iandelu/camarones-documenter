@@ -1,69 +1,37 @@
 """Shared paths, versions and cross-platform process helpers (macOS, Windows, Linux)."""
 from __future__ import annotations
 
-import json, os, platform, shutil, subprocess, sys, threading, time
-from contextlib import contextmanager
+import json, os, platform, shutil, stat, subprocess, sys
 from pathlib import Path
 
-KIT = Path(__file__).resolve().parent.parent          # .camarones/
+from .harness.ctx import KIT, CAM_DIR, Ctx, docs_root, find_project_marker, find_root  # noqa: F401  (re-exported)
+
 IS_WIN = platform.system() == "Windows"
 IS_MAC = platform.system() == "Darwin"
 HOME = Path.home()
+PREFS = HOME / ".camarones.json"              # per-machine choices: language, models, runners, routing
 
 VERSIONS = {
-    "kit": "3.14.0",
+    "kit": "4.27.0",
     "openwiki": "0.5.2",
     "likec4": "1.59.4",
     "graphify": "0.9.65",
     "mmdc": "11.17.0",        # mermaid-cli 11.x = mermaid 11, the major the portal renders with (serve.py VENDOR)
     "gitleaks": "8.30.1",
     "node_min_major": 22,
+    "uv": "0.12.18",          # the uv image the generated GitLab jobs run in (lib/ci.py)
 }
 
 
-CAM_DIR = "cam-docs"      # per-workspace folder (its own git repo) holding docs + agent config, next to the repos
-
-
-def find_project_marker(start: Path) -> Path | None:
-    """Walk up from `start` (like git does for .git/) looking for a project's .camarones/workspace.yaml, either
-    directly or inside a sibling cam-docs/ folder (the workspace root that holds all repos). Lets one central kit
-    (global install) serve many projects without CAMARONES_ROOT set by hand."""
-    cur = start.resolve()
-    for d in (cur, *cur.parents):
-        # cam-docs first: a workspace folder that holds a cam-docs project is never a project of its own
-        if (d / CAM_DIR / ".camarones" / "workspace.yaml").exists():
-            return d / CAM_DIR
-        if (d / ".camarones" / "workspace.yaml").exists():
-            return d
-    return None
-
-
-def docs_root(path: Path) -> Path:
-    """A registered/requested project path → its docs root: the workspace folder of a cam-docs project means
-    its cam-docs/ (otherwise opening the workspace folder would bootstrap a second, legacy project there)."""
-    path = path.resolve()
-    return path / CAM_DIR if (path / CAM_DIR / ".camarones" / "workspace.yaml").exists() else path
-
-
-def find_root() -> Path:
-    """The docs root = <workspace>/cam-docs (legacy: the umbrella folder itself), overridable with CAMARONES_ROOT.
-    Resolution order: CAMARONES_ROOT env var > a workspace.yaml found walking up from the cwd > KIT.parent
-    (legacy: the kit copy lives inside the project it documents)."""
-    env = os.environ.get("CAMARONES_ROOT")
-    if env:
-        return docs_root(Path(env))
-    marker = find_project_marker(Path.cwd())
-    return marker if marker else KIT.parent
-
-
-ROOT = find_root()
-CAM_LAYOUT = ROOT.name == CAM_DIR                  # cam-docs layout: repos are ROOT's siblings, not its children
-WORKSPACE = ROOT.parent if CAM_LAYOUT else ROOT     # folder holding the repos; agents are launched here
-DOCS = ROOT / "docs"
-WORK = DOCS / ".work"          # plan, handoff, session log (committed, hidden from portal)
-WS_FILE = ROOT / ".camarones" / "workspace.yaml"   # project config: per-project, never shared across projects
-CACHE = ROOT / ".camarones" / ".cache"             # generated, git-ignored: portal build, site, code graph, vendor cache
-GRAPHS = ROOT / "graph"                            # per-repo graphify output (git-ignored), kept out of the repos
+CTX = Ctx.from_env()
+ROOT = CTX.root
+CAM_LAYOUT = CTX.cam_layout                        # cam-docs layout: repos are ROOT's siblings, not its children
+WORKSPACE = CTX.workspace                          # folder holding the repos; agents are launched here
+DOCS = CTX.docs
+WORK = CTX.work                # plan, handoff, session log (committed, hidden from portal); CAMARONES_STATE_ROOT moves it
+WS_FILE = CTX.ws_file                              # project config: per-project, never shared across projects
+CACHE = CTX.cache                                  # generated, git-ignored: portal build, site, code graph, vendor cache
+GRAPHS = CTX.graphs                                # per-repo graphify output (git-ignored), kept out of the repos
 
 
 def repo_dir(name: str) -> Path:
@@ -71,8 +39,9 @@ def repo_dir(name: str) -> Path:
 
 
 def ws_rel(path: str) -> str:
-    """A ROOT-relative path as seen from WORKSPACE, where agents run (cam-docs/docs/… vs docs/… in legacy layout)."""
-    return f"{CAM_DIR}/{path}" if CAM_LAYOUT else path
+    """A ROOT-relative path as seen from WORKSPACE, where agents run: cam-docs/docs/…, docs/… in the legacy layout,
+    .cw/<n>/docs/… in a unit's worktree."""
+    return Path(os.path.relpath(ROOT / path, WORKSPACE)).as_posix()
 
 
 def rel_file(f: Path) -> str:
@@ -136,7 +105,19 @@ ensure_path()
 
 
 def which(name: str) -> str | None:
-    return shutil.which(name)
+    """shutil.which, except that on Windows only PATH is searched: shutil looks in the current folder first, so a
+    launcher or a planted program in the folder a command runs from would win over the real one."""
+    if not IS_WIN or os.path.dirname(name):
+        return shutil.which(name)
+    exts = [e for e in os.environ.get("PATHEXT", ".COM;.EXE;.BAT;.CMD").split(";") if e]
+    names = [name] if any(name.lower().endswith(e.lower()) for e in exts) else [name + e for e in exts]
+    for d in os.environ.get("PATH", "").split(os.pathsep):
+        d = d.strip().strip('"')
+        for n in names if d else ():
+            f = os.path.join(d, n)
+            if os.path.isfile(f):
+                return f
+    return None
 
 
 def run(cmd: list[str], cwd: Path | None = None, check: bool = True, quiet: bool = False,
@@ -189,83 +170,9 @@ def py() -> str:
     return sys.executable
 
 
-def pid_alive(pid: int) -> bool:
-    if IS_WIN:                                  # os.kill(pid, 0) would terminate the process on Windows
-        r = run(["tasklist", "/FI", f"PID eq {pid}", "/NH"], check=False, capture=True)
-        return str(pid) in (r.stdout or "")
-    try:
-        os.kill(pid, 0)
-    except PermissionError:
-        return True
-    except OSError:
-        return False
-    return True
-
-
-_LOCKS: dict[str, threading.RLock] = {}
-_HELD: dict[str, int] = {}
-_LOCKS_GUARD = threading.Lock()
-
-
-def _lock_is_stale(path: Path, stale: float) -> bool:
-    try:
-        age = time.time() - path.stat().st_mtime
-        pid = int(path.read_text(encoding="utf-8").strip() or 0)
-    except (OSError, ValueError):
-        return False                            # being written or just removed: look again on the next try
-    return age > stale or bool(pid and pid != os.getpid() and not pid_alive(pid))
-
-
-@contextmanager
-def file_lock(path: Path, timeout: float = 15, stale: float = 120, reentrant: bool = True):
-    """Mutual exclusion across processes and threads (macOS, Windows, Linux): an O_EXCL lock file holding the
-    holder's pid. A lock left by a dead process, or older than `stale` seconds, is taken over. Re-entrant within
-    one thread, so a locked helper may call another."""
-    key = os.path.normcase(os.path.abspath(path))
-    with _LOCKS_GUARD:
-        rl = _LOCKS.setdefault(key, threading.RLock())
-    if not rl.acquire(timeout=timeout):
-        raise RuntimeError(f"{path.name} is busy (another session is writing) — try again")
-    try:
-        if _HELD.get(key):
-            if not reentrant:
-                raise RuntimeError(f"{path.name} is busy (another session is writing) — try again")
-            _HELD[key] += 1
-            try:
-                yield
-            finally:
-                _HELD[key] -= 1
-            return
-        path.parent.mkdir(parents=True, exist_ok=True)
-        deadline, checked = time.monotonic() + timeout, 0.0
-        while True:
-            try:
-                fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-                break
-            except (FileExistsError, PermissionError):  # Windows: PermissionError while the old one is being deleted
-                pass
-            now = time.monotonic()
-            if now - checked > 1:
-                checked = now
-                if _lock_is_stale(path, stale):
-                    try:
-                        path.unlink(missing_ok=True)
-                    except PermissionError:
-                        pass
-                    continue
-            if now > deadline:
-                raise RuntimeError(f"{path.name} is busy (another session is writing) — try again")
-            time.sleep(0.03)
-        with os.fdopen(fd, "w", encoding="utf-8") as fh:
-            fh.write(str(os.getpid()))
-        _HELD[key] = 1
-        try:
-            yield
-        finally:
-            _HELD[key] = 0
-            try:
-                path.unlink(missing_ok=True)
-            except PermissionError:
-                pass
-    finally:
-        rl.release()
+def rmtree(path: Path) -> None:
+    """shutil.rmtree that also removes read-only files (git objects on Windows)."""
+    def onerror(fn, p, _exc):
+        os.chmod(p, stat.S_IWRITE)
+        fn(p)
+    shutil.rmtree(path, onerror=onerror)
