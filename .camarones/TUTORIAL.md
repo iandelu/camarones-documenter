@@ -141,10 +141,11 @@ Every page has a trust mark. ✨ Draft: written by the AI, nobody reviewed it. �
      |-- secrets copied into the docs         ERROR   (gitleaks: blocks commit and portal)
      |-- glossary words to avoid              warning (ERROR with --strict)
      |-- structure: TL;DR, sections, size     warning (ERROR with --strict)
+     |-- :::rule blocks whose code is gone    ERROR
      +-- sources, frontmatter, translations   ERROR / warning
 ```
 
-The AI writes fast and sometimes slips on small things: a link to a page that doesn't exist, a diagram that doesn't render or a token copied from a config file. “camaron check” looks for them when each unit closes and in CI. Secrets are special: while gitleaks finds one, the checkpoint commit and the portal export don't happen (the value is never shown, only file and line). Fill the glossary's “Avoid” column (say “purchase, request” for Order) and check warns wherever those words appear. Pages are written for agents first: a TL;DR under the title, sections that read alone, the ones their skeleton asks for (.camarones/skeletons/) and a size budget; check warns about what is missing. mermaid-cli and gitleaks come with the full install; without them, check says so once and skips that check.
+The AI writes fast and sometimes slips on small things: a link to a page that doesn't exist, a diagram that doesn't render or a token copied from a config file. “camaron check” looks for them when each unit closes and in CI. Secrets are special: while gitleaks finds one, the checkpoint commit and the portal export don't happen (the value is never shown, only file and line). Fill the glossary's “Avoid” column (say “purchase, request” for Order) and check warns wherever those words appear. Pages are written for agents first: a TL;DR under the title, sections that read alone, the ones their skeleton asks for (.camarones/skeletons/) and a size budget; check warns about what is missing. mermaid-cli and gitleaks come with the full install; without them, check says so once and skips that check. Business rules can go in `:::rule` blocks anchored to the method that applies them: if that code disappears, check fails.
 
 ### 10. 🌍 Bilingual: English + Spanish
 
@@ -171,7 +172,7 @@ Docs are written in English (best for AIs and mixed teams) and translated to Spa
    +----------------------------------------------------------------------------+
 ```
 
-The 🦐 portal brings the docs (with search, editing and review), the C4 explorer, the code graph and the OpenWiki wikis together in one site, in English or Spanish. It has two modes with the same interface: the local portal (`camaron up`, or wizard → 🌐 Portal → 📝 Open the portal), where you can edit, and the read-only export (`camaron portal`) that is deployed with Docker or on any static host. `camaron up --static` shows you the export as is. Everything works offline (on-premise). It is black and white, light or dark. Also: Ask (the sections that answer, with citations), Boards (Excalidraw, from a C4 view) and Pipeline (the plan live, with run, cancel and retry).
+The 🦐 portal brings the docs (with search, editing and review), the C4 explorer, the code graph and the OpenWiki wikis together in one site, in English or Spanish. It has two modes with the same interface: the local portal (`camaron up`, or wizard → 🌐 Portal → 📝 Open the portal), where you can edit, and the read-only export (`camaron portal`) that is deployed with Docker or on any static host. `camaron up --static` shows you the export as is. Everything works offline (on-premise). It is black and white, light or dark. Also: Ask (the sections that answer, with citations), Boards (Excalidraw, from a C4 view) and Pipeline (the plan live, with run, cancel, retry and approve). The “All / Business” switch keeps only the pages about what the system does and why; the home page has a “How does … work?” box, and with an agent set up, Ask can also write the answer from those sections.
 
 ### 12. ✏️ Where and when you can edit
 
@@ -228,7 +229,7 @@ Optional: a pipeline that, after each change in the repos or in cam-docs, update
    Java      -> only for Java/Kotlin repos (SDKMAN is detected)
 ```
 
-The wizard checks all of this and installs it for you (winget on Windows, Homebrew on Mac) when you choose “Install everything recommended”. Only git and Node.js are required. The quality gate (mermaid-cli and gitleaks) comes with the full install; mermaid-cli downloads a headless Chromium the first time. Without AI, each repo also gets `docs/repos/<repo>/reference.md`: commands, env vars, endpoints and topics read from its files, kept current by `camaron blocks` and `sync`. Team extensions go in `.camarones/plugins/` as plugins (`camaron plugins add` brings one in and pins it in plugins.lock); the ones that run code or steer agents are not loaded until you approve them on your machine, and any change asks again.
+The wizard checks all of this and installs it for you (winget on Windows, Homebrew on Mac) when you choose “Install everything recommended”. Only git and Node.js are required. The quality gate (mermaid-cli and gitleaks) comes with the full install; mermaid-cli downloads a headless Chromium the first time. Without AI, each repo also gets `docs/repos/<repo>/reference.md`: commands, env vars, endpoints and topics read from its files, kept current by `camaron blocks` and `sync`. Team extensions go in `.camarones/plugins/` as plugins (`camaron plugins add` brings one in and pins it in plugins.lock); the ones that run code or steer agents are not loaded until you approve them on your machine, and any change asks again. Also without AI: `camaron history` reads the git history (hotspots, who to ask), `camaron doctor --context` counts what every agent session loads and `camaron repair` puts the kit's files back if someone touches them.
 
 ### 16. 🗺 Your day to day
 
@@ -387,10 +388,11 @@ Cada página lleva una marca de confianza. ✨ Borrador: la escribió la IA y na
      |-- secretos copiados en la doc          ERROR   (gitleaks: bloquea commit y portal)
      |-- palabras a evitar del glosario       aviso   (ERROR con --strict)
      |-- estructura: TL;DR, secciones, largo  aviso   (ERROR con --strict)
+     |-- reglas :::rule sin su codigo         ERROR
      +-- fuentes, frontmatter, traducciones   ERROR / aviso
 ```
 
-La IA escribe rápido y a veces falla en lo pequeño: un enlace a una página que no existe, un diagrama que no se dibuja o un token copiado de un fichero de configuración. «camaron check» lo revisa al cerrar cada unidad y en el CI. Los secretos son especiales: mientras gitleaks encuentre uno, no se hace el commit de checkpoint ni se exporta el portal (nunca se muestra el valor, solo fichero y línea). Si en el glosario rellenas la columna «Avoid» (por ejemplo «compra, petición» para Pedido), check avisa donde aparezcan esas palabras. Las páginas se escriben primero para agentes: un TL;DR bajo el título, secciones que se leen solas y las de su plantilla (.camarones/skeletons/), y un tamaño máximo; check avisa de lo que falte. mermaid-cli y gitleaks vienen con la instalación completa; si faltan, check lo avisa una vez y se salta esa comprobación.
+La IA escribe rápido y a veces falla en lo pequeño: un enlace a una página que no existe, un diagrama que no se dibuja o un token copiado de un fichero de configuración. «camaron check» lo revisa al cerrar cada unidad y en el CI. Los secretos son especiales: mientras gitleaks encuentre uno, no se hace el commit de checkpoint ni se exporta el portal (nunca se muestra el valor, solo fichero y línea). Si en el glosario rellenas la columna «Avoid» (por ejemplo «compra, petición» para Pedido), check avisa donde aparezcan esas palabras. Las páginas se escriben primero para agentes: un TL;DR bajo el título, secciones que se leen solas y las de su plantilla (.camarones/skeletons/), y un tamaño máximo; check avisa de lo que falte. mermaid-cli y gitleaks vienen con la instalación completa; si faltan, check lo avisa una vez y se salta esa comprobación. Las reglas de negocio pueden ir en bloques `:::rule` anclados al método que las aplica: si ese código desaparece, check falla.
 
 ### 10. 🌍 Bilingüe: inglés + español
 
@@ -417,7 +419,7 @@ La documentación se escribe en inglés (lo que mejor entienden las IAs y los eq
    +----------------------------------------------------------------------------+
 ```
 
-El portal 🦐 junta en una sola web la documentación (con buscador, edición y revisión), el explorador C4, el grafo de código y las wikis de OpenWiki, en español o inglés. Tiene dos modos con la misma interfaz: el portal local (`camaron up`, o asistente → 🌐 Portal → 📝 Abrir el portal), donde se puede editar, y la exportación de solo lectura (`camaron portal`) que se despliega con Docker o en cualquier hosting estático. `camaron up --static` te enseña la exportación tal cual. Todo funciona sin Internet (on-premise). Es blanco y negro, con modo claro y oscuro. Además: Preguntar (las secciones que responden, con su cita), Pizarras (Excalidraw, desde una vista C4) y Pipeline (el plan en vivo, con lanzar, cancelar y reintentar).
+El portal 🦐 junta en una sola web la documentación (con buscador, edición y revisión), el explorador C4, el grafo de código y las wikis de OpenWiki, en español o inglés. Tiene dos modos con la misma interfaz: el portal local (`camaron up`, o asistente → 🌐 Portal → 📝 Abrir el portal), donde se puede editar, y la exportación de solo lectura (`camaron portal`) que se despliega con Docker o en cualquier hosting estático. `camaron up --static` te enseña la exportación tal cual. Todo funciona sin Internet (on-premise). Es blanco y negro, con modo claro y oscuro. Además: Preguntar (las secciones que responden, con su cita), Pizarras (Excalidraw, desde una vista C4) y Pipeline (el plan en vivo, con lanzar, cancelar, reintentar y aprobar). El interruptor «Todo / Negocio» deja solo las páginas de qué hace el sistema y por qué; la portada tiene una caja «¿Cómo funciona…?», y si hay un agente configurado, Preguntar también puede redactar la respuesta con esas secciones.
 
 ### 12. ✏️ Dónde y cuándo se puede editar
 
@@ -474,7 +476,7 @@ Opcional: un pipeline que, tras cada cambio en los repos o en cam-docs, actualiz
    Java      -> solo si hay repos Java/Kotlin (se detecta SDKMAN)
 ```
 
-El asistente comprueba todo esto y lo instala por ti (winget en Windows, Homebrew en Mac) si eliges «Instalar todo lo recomendado». Solo git y Node.js son obligatorios. El control de calidad (mermaid-cli y gitleaks) viene con la instalación completa; mermaid-cli descarga un Chromium sin ventana la primera vez. Sin IA, cada repo recibe también `docs/repos/<repo>/reference.md`: comandos, variables de entorno, endpoints y topics leídos de sus ficheros, que `camaron blocks` y `sync` mantienen al día. Las extensiones del equipo van como plugins en `.camarones/plugins/` (`camaron plugins add` las trae y las fija en plugins.lock); las que ejecutan código o guían a los agentes no se cargan hasta que las apruebas en tu máquina, y cualquier cambio vuelve a preguntar.
+El asistente comprueba todo esto y lo instala por ti (winget en Windows, Homebrew en Mac) si eliges «Instalar todo lo recomendado». Solo git y Node.js son obligatorios. El control de calidad (mermaid-cli y gitleaks) viene con la instalación completa; mermaid-cli descarga un Chromium sin ventana la primera vez. Sin IA, cada repo recibe también `docs/repos/<repo>/reference.md`: comandos, variables de entorno, endpoints y topics leídos de sus ficheros, que `camaron blocks` y `sync` mantienen al día. Las extensiones del equipo van como plugins en `.camarones/plugins/` (`camaron plugins add` las trae y las fija en plugins.lock); las que ejecutan código o guían a los agentes no se cargan hasta que las apruebas en tu máquina, y cualquier cambio vuelve a preguntar. También sin IA: `camaron history` lee el historial de git (ficheros más tocados, a quién preguntar), `camaron doctor --context` cuenta lo que carga cada sesión de un agente y `camaron repair` devuelve a su sitio los ficheros del kit si alguien los toca.
 
 ### 16. 🗺 Tu día a día
 

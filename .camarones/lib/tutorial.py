@@ -156,6 +156,7 @@ PAGES = {
      |-- secretos copiados en la doc          ERROR   (gitleaks: bloquea commit y portal)
      |-- palabras a evitar del glosario       aviso   (ERROR con --strict)
      |-- estructura: TL;DR, secciones, largo  aviso   (ERROR con --strict)
+     |-- reglas :::rule sin su codigo         ERROR
      +-- fuentes, frontmatter, traducciones   ERROR / aviso""",
          "text": "La IA escribe rápido y a veces falla en lo pequeño: un enlace a una página que no existe, un diagrama "
                  "que no se dibuja o un token copiado de un fichero de configuración. «camaron check» lo revisa al "
@@ -165,7 +166,8 @@ PAGES = {
                  "donde aparezcan esas palabras. Las páginas se escriben primero para agentes: un TL;DR bajo el título, "
                  "secciones que se leen solas y las de su plantilla (.camarones/skeletons/), y un tamaño máximo; check "
                  "avisa de lo que falte. mermaid-cli y gitleaks vienen con la instalación completa; si faltan, "
-                 "check lo avisa una vez y se salta esa comprobación."},
+                 "check lo avisa una vez y se salta esa comprobación. Las reglas de negocio pueden ir en bloques `:::rule` "
+                 "anclados al método que las aplica: si ese código desaparece, check falla."},
         {"icon": "🌍", "title": "Bilingüe: inglés + español",
          "art": r"""
    docs/domain/glossary.md              (ingles, la version oficial)
@@ -193,7 +195,10 @@ PAGES = {
                  "puede editar, y la exportación de solo lectura (`camaron portal`) que se despliega con Docker o en "
                  "cualquier hosting estático. `camaron up --static` te enseña la exportación tal cual. Todo funciona "
                  "sin Internet (on-premise). Es blanco y negro, con modo claro y oscuro. Además: Preguntar (las secciones que responden, con su cita), "
-                 "Pizarras (Excalidraw, desde una vista C4) y Pipeline (el plan en vivo, con lanzar, cancelar y reintentar)."},
+                 "Pizarras (Excalidraw, desde una vista C4) y Pipeline (el plan en vivo, con lanzar, cancelar, reintentar y "
+                 "aprobar). El interruptor «Todo / Negocio» deja solo las páginas de qué hace el sistema y por qué; la "
+                 "portada tiene una caja «¿Cómo funciona…?», y si hay un agente configurado, Preguntar también puede "
+                 "redactar la respuesta con esas secciones."},
         {"icon": "✏️", "title": "Dónde y cuándo se puede editar",
          "art": r"""
    DONDE                        QUE PUEDES HACER                     DONDE QUEDA
@@ -262,7 +267,10 @@ PAGES = {
                  "variables de entorno, endpoints y topics leídos de sus ficheros, que `camaron blocks` y `sync` "
                  "mantienen al día. Las extensiones del equipo van como plugins en `.camarones/plugins/` "
                  "(`camaron plugins add` las trae y las fija en plugins.lock); las que ejecutan código o guían a los "
-                 "agentes no se cargan hasta que las apruebas en tu máquina, y cualquier cambio vuelve a preguntar."},
+                 "agentes no se cargan hasta que las apruebas en tu máquina, y cualquier cambio vuelve a preguntar. "
+                 "También sin IA: `camaron history` lee el historial de git (ficheros más tocados, a quién preguntar), "
+                 "`camaron doctor --context` cuenta lo que carga cada sesión de un agente y `camaron repair` devuelve a "
+                 "su sitio los ficheros del kit si alguien los toca."},
         {"icon": "🗺", "title": "Tu día a día",
          "art": r"""
    1. camarones              -> abre el asistente del proyecto (cam-docs)
@@ -430,6 +438,7 @@ PAGES = {
      |-- secrets copied into the docs         ERROR   (gitleaks: blocks commit and portal)
      |-- glossary words to avoid              warning (ERROR with --strict)
      |-- structure: TL;DR, sections, size     warning (ERROR with --strict)
+     |-- :::rule blocks whose code is gone    ERROR
      +-- sources, frontmatter, translations   ERROR / warning""",
          "text": "The AI writes fast and sometimes slips on small things: a link to a page that doesn't exist, a diagram "
                  "that doesn't render or a token copied from a config file. “camaron check” looks for them when each "
@@ -439,7 +448,8 @@ PAGES = {
                  "Pages are written for agents first: a TL;DR under the title, sections that read alone, the ones "
                  "their skeleton asks for (.camarones/skeletons/) and a size budget; check warns about what is missing. "
                  "mermaid-cli and gitleaks come with the full install; without them, check says so once and skips "
-                 "that check."},
+                 "that check. Business rules can go in `:::rule` blocks anchored to the method that applies them: if "
+                 "that code disappears, check fails."},
         {"icon": "🌍", "title": "Bilingual: English + Spanish",
          "art": r"""
    docs/domain/glossary.md              (English, the official version)
@@ -467,7 +477,9 @@ PAGES = {
                  "the read-only export (`camaron portal`) that is deployed with Docker or on any static host. "
                  "`camaron up --static` shows you the export as is. Everything works offline (on-premise). It is black and white, "
                  "light or dark. Also: Ask (the sections that answer, with citations), Boards (Excalidraw, from a C4 view) "
-                 "and Pipeline (the plan live, with run, cancel and retry)."},
+                 "and Pipeline (the plan live, with run, cancel, retry and approve). The “All / Business” switch keeps only "
+                 "the pages about what the system does and why; the home page has a “How does … work?” box, and with "
+                 "an agent set up, Ask can also write the answer from those sections."},
         {"icon": "✏️", "title": "Where and when you can edit",
          "art": r"""
    WHERE                        WHAT YOU CAN DO                      WHERE IT GOES
@@ -535,7 +547,9 @@ PAGES = {
                  "topics read from its files, kept current by `camaron blocks` and `sync`. "
                  "Team extensions go in `.camarones/plugins/` as plugins (`camaron plugins add` brings one in and pins "
                  "it in plugins.lock); the ones that run code or steer agents are not loaded until you approve them on "
-                 "your machine, and any change asks again."},
+                 "your machine, and any change asks again. Also without AI: `camaron history` reads the git history "
+                 "(hotspots, who to ask), `camaron doctor --context` counts what every agent session loads and "
+                 "`camaron repair` puts the kit's files back if someone touches them."},
         {"icon": "🗺", "title": "Your day to day",
          "art": r"""
    1. camarones              -> opens the project's wizard (cam-docs)
