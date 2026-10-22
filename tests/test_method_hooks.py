@@ -158,3 +158,15 @@ def test_comply_refuses_a_unit_that_is_not_ready(wired):
     with pytest.raises(ValueError, match="interview-context"):
         comply.run("repo-brief:api", echo=lambda _: None)
     assert not list((wired.root / "docs" / ".work" / "evals" / "comply").glob("*.json"))
+
+
+def test_comply_follows_links_to_pages_it_did_not_write(wired):
+    """Found on the sandbox: the score checked links against the written pages only, so a brief linking its
+    reference.md (written earlier) counted as broken while `check` was clean."""
+    docs_dir = wired.root / "docs" / "flows"
+    docs_dir.mkdir(parents=True, exist_ok=True)
+    (docs_dir / "other.md").write_text("---\ntitle: Other\n---\n# Other\n", encoding="utf-8")
+    (docs_dir / "good.md").write_text(GOOD.rstrip() + "\n\nSee [the other flow](other.md).\n", encoding="utf-8")
+    from lib.harness import comply
+    s = comply.score(["flows/good.md"])
+    assert s["by_page"]["flows/good.md"]["issues"] == [], s
