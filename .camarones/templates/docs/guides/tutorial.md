@@ -245,7 +245,8 @@ links, sources), without AI. Use it on the sandbox to compare a playbook or prom
 
 **Export.** `camaron export pdf` writes every page agents may read into one print-ready page and turns it into a PDF
 with a headless Chrome, Chromium or Edge when there is one (otherwise print the page to PDF from a browser).
-`camaron export tour flows/<flow>.md` makes a guided tour of a business flow, one slide per row of its Steps table.
+`camaron export tour flows/<flow>.md` makes a guided tour of a business flow, one slide per row of its Steps table;
+`export codetour flows/<flow>.md` writes it as a VS Code CodeTour (`.tours/<flow>.tour`) that opens each step's code.
 `camaron export confluence` and `export notion` publish the docs to those tools; they send the docs outside your
 machine, so they are off until you run `camaron plugins enable confluence` (or `notion`) and set their URL and token
 (`CONFLUENCE_URL`, `CONFLUENCE_USER`, `CONFLUENCE_TOKEN`, `CONFLUENCE_SPACE`; `NOTION_TOKEN`, `NOTION_PARENT_PAGE`).
@@ -269,7 +270,7 @@ next action apart.
 `doctor --local` (proposes a free local model for this computer, installs nothing), `doctor --context` (the tokens
 every agent session loads before reading a page, against `context.budget`), `autopilot`, `plugins [--json]`,
 `run`, `runs`, `kpis`, `eval`, `ab`, `pipeline show|validate`, `blocks [--force]`, `pr fresh <repo>`,
-`plugins add|update|outdated|remove`, `pr propose <url>`, `removed add`, `repair`.
+`plugins add|update|outdated|remove`, `pr propose <url>`, `removed add`, `repair`, `export codetour <flow>`.
 
 **Facts from the code, no AI.** `camaron blocks` writes `docs/repos/<repo>/reference.md` for each repo: commands
 (Maven, Gradle, `package.json`, Makefile, Docker Compose), env vars (Spring `${VAR:default}` placeholders,
