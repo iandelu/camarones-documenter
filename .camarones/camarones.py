@@ -49,8 +49,11 @@
   interview export [--lang es|en]   questionnaire → offline HTML form + Markdown copy to share with the team
   interview import FILE|DIR…   import the team's answers (form JSON or filled Markdown)
   interview status [--json]    who answered, unanswered questions, disagreements
-  doctor [--local]          check prerequisites and tool versions; --local: propose a free local model for this
-                            machine (bounded/judge work, through OpenCode) without installing anything
+  doctor [--local|--context [--json]]
+                            check prerequisites and tool versions; --context: the tokens every agent session loads
+                            before reading a page (AGENTS.md, skills, MCP schemas) against context.budget;
+                            --local: propose a free local model for this machine (bounded/judge work, through
+                            OpenCode) without installing anything
   run [--parallel N] [--per-runner claude=2,codex=1] [--max-units N] [--lang es|en] [--include-interviews]
       [--policy on-conflict|never] [--poll-seconds N] [--only UNIT…]
                             run ready units in parallel: discovery, repo briefs and flows each in their own copy of
@@ -258,6 +261,7 @@ def main() -> int:
     hks = sp.add_parser("hooks"); hks.add_argument("state", nargs="?", choices=["on", "off"])
     mc = sp.add_parser("mcp"); mc.add_argument("--http", action="store_true"); mc.add_argument("--port", type=int, default=8765)
     dr = sp.add_parser("doctor"); dr.add_argument("--local", action="store_true")
+    dr.add_argument("--context", action="store_true"); dr.add_argument("--json", action="store_true")
     pg = sp.add_parser("plugins"); pg.add_argument("--json", action="store_true")
     pg.add_argument("action", nargs="?", default="list",
                     choices=["list", "add", "update", "outdated", "remove", "enable", "disable"])
@@ -580,6 +584,10 @@ def main() -> int:
                 print(f"    {e}")
         if not any(r["source"] == "project" for r in rows):
             print(f"No project plugins yet: add a folder with a plugin.yaml in {plugins.PROJECT_DIR.relative_to(ROOT.parent)}")
+    elif a.cmd == "doctor" and a.context:
+        from lib import budget
+        r = budget.standing()
+        print(json.dumps(r, indent=2) if a.json else "\n".join(budget.report(r)))
     elif a.cmd == "doctor" and a.local:
         from lib.adapters.runners import local
         print("\n".join(local.report()))

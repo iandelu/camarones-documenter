@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.18.0-ff875f?style=flat-square" alt="Versión 4.18.0">
+  <img src="https://img.shields.io/badge/version-4.19.0-ff875f?style=flat-square" alt="Versión 4.19.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -503,6 +503,8 @@ El resultado de las preguntas de oro se guarda para el equipo y `kpis` muestra l
 Los plugins del equipo se copian en `cam-docs` y se fijan, sin registro ni descargas al ejecutar: `camaron plugins add <carpeta | git:<url>@<tag>>` lo copia en `.camarones/plugins/` y apunta versión, origen y huella en `.camarones/plugins.lock`. Si su rango `kit` no incluye tu kit, se rechaza. `plugins outdated` dice si hay versiones nuevas, `plugins update [nombre] [--to <tag>]` lo actualiza y lista los ficheros que cambian (si cambian, `trust` vuelve a preguntar) y `plugins remove` lo quita. `check` avisa si alguien edita a mano la carpeta de un plugin, y un nodo del pipeline puede seguir un plugin fijado a una versión mayor (`uses: adr-style@1`, también con `patch: set` en `pipeline.yaml`): el prompt de esa unidad lleva los prompts del plugin y le indica sus skills.
 
 **Qué modelo local usar.** `camaron doctor --local` mira la memoria de tu equipo y propone un modelo libre y de pesos abiertos de la familia Qwen. Te dice qué falta (OpenCode, Ollama o el modelo) y qué línea de `routing` añadir. No instala nada.
+
+**Cuánto contexto gasta cada sesión.** `camaron doctor --context` suma los tokens que cada sesión de un agente carga antes de leer una página: `AGENTS.md`, la descripción de cada skill y los esquemas de las herramientas MCP (el cuerpo de un skill solo cuenta cuando se usa). Avisa si pasa de 6000 (`context: {budget: N}` en `workspace.yaml` lo cambia); `--json` da el detalle. La parte del kit ronda los 2000 tokens y un test impide que crezca. `llms.txt` indica también cuántos tokens cuesta leer cada página.
 
 ## Un harness enchufable (4.0)
 

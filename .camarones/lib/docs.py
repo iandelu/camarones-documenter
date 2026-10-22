@@ -418,7 +418,8 @@ def llms() -> int:
             section = head
         link = os.path.relpath(ROOT / r["file"], DOCS).replace("\\", "/")
         desc = f": {r['description']}" if r["description"] else ""
-        lines.append(f"- [{r['title']}]({link}) [{r['trust']}]{desc}")
+        size = (len(split_fm((ROOT / r["file"]).read_text(encoding="utf-8"))[1]) + 3) // 4
+        lines.append(f"- [{r['title']}]({link}) [{r['trust']}] (~{size} tokens){desc}")
     held = sorted((r for r in rows if r["path"] not in served), key=_llms_key)
     if section == "Optional":                        # llmstxt.org: Optional comes last
         tail = lines[lines.index("## Optional") - 1:]

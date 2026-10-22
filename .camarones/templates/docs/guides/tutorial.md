@@ -263,7 +263,8 @@ next action apart.
 `camaron help` (per-project copy: `./camaron.command help`, Windows `camaron.cmd help`): `setup`, `sync`, `detect`,
 `plan`, `plan next`, `status`, `check [--strict|--secrets]`, `confirm`, `feedback`, `checkpoint`, `graph`, `arch` (live C4 editor), `arch-validate`,
 `wiki <repo>`, `portal` (export), `up [--static|--docker]`, `down`, `ci`, `prompt <unit>`, `migrate`, `doctor`,
-`doctor --local` (proposes a free local model for this computer, installs nothing), `autopilot`, `plugins [--json]`,
+`doctor --local` (proposes a free local model for this computer, installs nothing), `doctor --context` (the tokens
+every agent session loads before reading a page, against `context.budget`), `autopilot`, `plugins [--json]`,
 `run`, `runs`, `kpis`, `eval`, `ab`, `pipeline show|validate`, `blocks [--force]`, `pr fresh <repo>`,
 `plugins add|update|outdated|remove`, `pr propose <url>`, `removed add`.
 
