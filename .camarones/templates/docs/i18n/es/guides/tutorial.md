@@ -86,7 +86,11 @@ patch:
   - {op: disable, node: ci}              # la unidad se descarta; quita la línea y vuelve
   - {op: needs, node: domain, add: [data]}
   - {op: set, node: i18n, runner: "opencode:ollama/qwen3-coder:30b"}   # o tier: bounded / judge
+  - {op: set, node: "repo-brief:*", approval: true}   # una persona aprueba cada brief antes de seguir
 ```
+
+Una unidad con `approval: true` se queda «awaiting approval» cuando su agente termina; las que dependen de ella empiezan
+tras `camaron plan approve <unidad>` o el botón «Approve» de la pestaña Pipeline del portal.
 
 `node` es el id tal como lo escribe el kit (`discovery:{repo}`) o un prefijo con `*` (`repo-wiki:*`). Si el fichero tiene
 un error, el plan se queda como estaba y `camaron plan` dice dónde (`patch[1].node: unknown node 'cii'`).

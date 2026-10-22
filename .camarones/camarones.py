@@ -32,6 +32,8 @@
   plan [sync|next|start|note|done|block|drop|add|redo] …   session work plan (docs/.work/plan.yaml)
   plan note UNIT "text"     save a progress checkpoint of a unit (a closed session resumes from it)
   plan redo UNIT [--also U…]  reopen a finished unit (e.g. an interview) to review and update it
+  plan approve UNIT          close a unit that waits for a person (`approval: true` in pipeline.yaml); its
+                            dependents start after this
   checkpoint ["message"]    commit docs progress locally in the umbrella repo (never pushes)
   remote [URL]              show / set the team's cam-docs repo (origin)
   share [--auto on|off]     checkpoint, pull the team's work (rebase) and push cam-docs; --auto: after every checkpoint
@@ -322,7 +324,7 @@ def main() -> int:
     un.add_argument("--backup-dir", type=Path)
     ci = sp.add_parser("ci"); ci.add_argument("forge", nargs="?", choices=["gitlab", "github"])
     pl = sp.add_parser("plan"); pl.add_argument("action", nargs="?", default="show",
-                                                choices=["show", "sync", "next", "start", "note", "done", "block", "drop", "add", "redo"])
+                                                choices=["show", "sync", "next", "start", "note", "done", "block", "drop", "add", "redo", "approve"])
     pl.add_argument("unit", nargs="?"); pl.add_argument("title", nargs="?")
     pl.add_argument("--note"); pl.add_argument("--type", default="flow"); pl.add_argument("--deps", nargs="*")
     pl.add_argument("--json", action="store_true")
@@ -1137,8 +1139,19 @@ def cmd_plan(a) -> int:
             print("unit id required"); return 2
         status = {"start": "doing", "done": "done", "block": "blocked", "drop": "dropped"}[a.action]
         u = plan.set_status(a.unit, status, a.note)
-        print(f"{u['id']} → {status}")
-        if status != "doing" and env.checkpoint_commit(f"{u['id']} {status}"):
+        print(f"{u['id']} → {u['status']}" + (f": {u['notes']}" if plan.awaiting(u) else ""))
+        if status != "doing" and env.checkpoint_commit(f"{u['id']} {u['status']}"):
+            print("✔ docs committed locally (checkpoint)")
+    elif a.action == "approve":
+        if not a.unit:
+            print("usage: plan approve <unit>"); return 2
+        from lib.common import out
+        try:
+            u = plan.approve(a.unit, by=out(["git", "-C", str(ROOT), "config", "user.name"]) or "cli")
+        except ValueError as e:
+            print(f"✖ {e}", file=sys.stderr); return 2
+        print(f"{u['id']} → done ({u['notes']})")
+        if env.checkpoint_commit(f"{u['id']} approved"):
             print("✔ docs committed locally (checkpoint)")
     elif a.action == "redo":
         if not a.unit:

@@ -153,6 +153,15 @@ def retry_unit(uid: str) -> tuple[dict, int]:
     return plan.set_status(uid, "todo", "retry requested from the portal"), 200
 
 
+def approve_unit(uid: str) -> tuple[dict, int]:
+    u = next((x for x in plan.load()["units"] if x["id"] == uid), None)
+    if not u:
+        return {"error": f"unknown unit {uid}"}, 404
+    if not plan.awaiting(u):
+        return {"error": f"{uid} is not awaiting approval"}, 409
+    return plan.approve(uid, by=reviewer()), 200
+
+
 def api_pipeline() -> dict:
     """The plan as a graph for the Pipeline tab: every unit with its status and dependencies, how it runs (isolation,
     tier, runner), and the latest run."""
@@ -167,7 +176,8 @@ def api_pipeline() -> dict:
         t, n = types.get(u["type"], {}), nodes.get(u["id"], {})
         units.append({**{k: u.get(k) for k in ("id", "title", "type", "phase", "status", "deps", "repo", "notes", "runner")},
                       "isolation": n.get("isolation") or t.get("isolation", "none"),
-                      "tier": n.get("tier") or t.get("tier", "agentic-heavy"), "agent": n.get("runner")})
+                      "tier": n.get("tier") or t.get("tier", "agentic-heavy"), "agent": n.get("runner"),
+                      "approval": bool(n.get("approval")), "awaiting": plan.awaiting(u)})
     latest = runs.ids()
     return {"units": units, "run": runs.summary(latest[0]) if latest else None}
 
@@ -457,6 +467,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json({"cancelling": m.group(1)})
             if p == "/api/units/retry":
                 return self.json(*retry_unit(b.get("unit", "")))
+            if p == "/api/units/approve":
+                return self.json(*approve_unit(b.get("unit", "")))
             self.json({"error": "not found"}, 404)
         except (KeyError, ValueError, RuntimeError) as e:
             self.json({"error": str(e)}, 400)

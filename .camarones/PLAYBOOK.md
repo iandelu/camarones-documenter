@@ -53,6 +53,7 @@ or `.\camaron.cmd`).
    only those are left, when a unit fails, or when a unit ends without `plan done`/`plan block`. In an autopilot
    session you close the unit as usual (step 5), and questions go to `docs/interview/open-questions.md`.
 7. Never write `x-confirmed`; never rewrite `<!-- human -->` blocks, `x-owner: human` files or confirmed pages silently.
+   A unit left "awaiting approval" after `plan done` is for a person: never run `CLI plan approve` yourself.
 8. **Write for agents first** (CONVENTIONS §11): start each page from its skeleton in `.camarones/skeletons/`, TL;DR
    under the H1, sections that read alone, exact identifiers, tables for facts. In `x-sources`, cite a symbol
    (`repo:path#Class.method`) rather than line ranges, and the pages or C4 elements a derived page builds on

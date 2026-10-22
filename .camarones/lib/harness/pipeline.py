@@ -16,7 +16,7 @@ DIR = Path(__file__).resolve().parent.parent / "pipelines"
 KIT_PIPELINES = ("full", "quick")
 FAN_OUT = ("repos",)
 CONDITIONS = ("team-interviews",)
-SETTINGS = ("tier", "runner", "allow_local", "isolation", "uses")
+SETTINGS = ("tier", "runner", "allow_local", "isolation", "uses", "approval")
 ISOLATION = ("none", "worktree")
 OPS = {"disable": (), "needs": ("add", "remove"), "set": SETTINGS}
 
@@ -145,6 +145,8 @@ def validate(spec: dict) -> list[str]:
                 errors.append(f"{path}.{key}: unknown condition '{n[key]}'")
         if "tier" in n and n["tier"] not in TIERS:
             errors.append(f"{path}.tier: unknown tier '{n['tier']}' (use {', '.join(TIERS)})")
+        if "approval" in n and not isinstance(n["approval"], bool):
+            errors.append(f"{path}.approval: must be true or false")
         if "isolation" in n and n["isolation"] not in ISOLATION:
             errors.append(f"{path}.isolation: unknown isolation '{n['isolation']}' (use {', '.join(ISOLATION)})")
         for need in n.get("needs") or []:
