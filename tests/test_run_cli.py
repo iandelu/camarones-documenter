@@ -73,7 +73,7 @@ def test_pipeline_show_lists_the_units_with_how_they_run(wired):
     assert data["pipeline"] == "full" and data["override"] is False and data["problems"] == []
     disc = next(u for u in data["units"] if u["id"] == "discovery:api")
     assert disc == {"id": "discovery:api", "type": "discovery", "needs": ["setup"], "tier": "agentic-heavy",
-                    "isolation": "worktree", "runner": None, "disabled": False}
+                    "isolation": "worktree", "runner": None, "disabled": False, "approval": False}
     assert "discovery:api" in cli(wired, "pipeline", "show").stdout
 
 
