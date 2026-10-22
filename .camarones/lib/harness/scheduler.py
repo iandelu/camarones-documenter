@@ -172,7 +172,7 @@ def _loop(jobs, lang, max_parallel, per_runner, max_units, poll_seconds, include
     for w in Worktrees(CTX).list():                  # work finished earlier but never merged (crash, main was busy)
         u = units.get(w.unit) or {}
         waiting = u.get("status") == "blocked" and str(u.get("notes", "")).startswith("integrate:")
-        if u.get("status") == "done" or waiting:                   # merging again is free: no agent involved
+        if u.get("status") == "done" or waiting or plan.awaiting(u):   # merging again is free: no agent involved
             if waiting:
                 plan.set_status(w.unit, "done", record=False)
             pending.append(w.unit)
@@ -229,8 +229,8 @@ def _loop(jobs, lang, max_parallel, per_runner, max_units, poll_seconds, include
             elif outcome != "ok":
                 stop = stop or (f"{j.target} failed on {uid} (exit {j.result.returncode}). Last output:\n"
                                 + output.strip()[-1500:])
-            elif st == "done":
-                log(f"{j.target} finished {uid}")
+            elif st == "done" or plan.awaiting(plan.get(plan.load(), uid)):     # awaiting: merged, so it can be reviewed
+                log(f"{j.target} finished {uid}" + ("" if st == "done" else f" — {plan.AWAITING}"))
                 if j.inplace:
                     done += 1
                 else:

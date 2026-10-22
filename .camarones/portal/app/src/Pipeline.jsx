@@ -100,10 +100,10 @@ function Actions({ run, finished, onDone }) {
 const UnitNode = memo(function UnitNode({ data }) {
   const u = data.unit
   return (
-    <div className={`node s-${u.status}`} title={u.title}>
+    <div className={`node s-${u.status}${u.awaiting ? ' awaiting' : ''}`} title={u.title}>
       <Handle type="target" position={Position.Left} />
       <div className="node-id">{u.id}</div>
-      <div className="node-meta">{u.live.runner || u.status}{u.isolation === 'worktree' ? ' · own copy' : ''}</div>
+      <div className="node-meta">{u.awaiting ? 'awaiting approval' : (u.live.runner || u.status)}{u.isolation === 'worktree' ? ' · own copy' : ''}</div>
       <Handle type="source" position={Position.Right} />
     </div>
   )
@@ -134,7 +134,7 @@ function Board({ units, onSelect }) {
             <motion.button layout="position" key={u.id} className={`unit s-${u.status}`} onClick={() => onSelect(u.id)}
                            transition={{ duration: 0.2 }}>
               <span className="card-id">{u.id}</span>
-              <span className="card-meta">{u.live.runner ? `${u.live.runner} · ` : ''}phase {u.phase}</span>
+              <span className="card-meta">{u.awaiting ? 'awaiting approval · ' : ''}{u.live.runner ? `${u.live.runner} · ` : ''}phase {u.phase}</span>
             </motion.button>
           ))}
         </div>
@@ -145,8 +145,8 @@ function Board({ units, onSelect }) {
 
 function Drawer({ unit, onClose, onChanged }) {
   const [message, setMessage] = useState(null)
-  async function retry() {
-    try { await postJSON('units/retry', { unit: unit.id }); onChanged() } catch (e) { setMessage(e.message) }
+  async function act(path) {
+    try { await postJSON(path, { unit: unit.id }); onChanged() } catch (e) { setMessage(e.message) }
   }
   const l = unit.live
   const rows = [['status', unit.status], ['agent', l.runner], ['outcome', l.outcome], ['merge', l.merge],
@@ -161,7 +161,9 @@ function Drawer({ unit, onClose, onChanged }) {
       <p className="muted">{unit.title}</p>
       <dl>{rows.filter(([, v]) => v != null && v !== '').map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{String(v)}</dd></div>)}</dl>
       {unit.notes ? <p className="note">{unit.notes}</p> : null}
-      {unit.status === 'blocked' ? <button className="small" onClick={retry}>Retry this unit</button> : null}
+      {unit.awaiting
+        ? <button className="small" onClick={() => act('units/approve')}>Approve — let the next units start</button>
+        : unit.status === 'blocked' ? <button className="small" onClick={() => act('units/retry')}>Retry this unit</button> : null}
       {message ? <p className="error" role="alert">{message}</p> : null}
       <h3>Live log</h3>
       <pre className="log">{l.log.length ? l.log.join('\n') : 'Nothing yet in this run.'}</pre>

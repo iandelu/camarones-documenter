@@ -21,6 +21,7 @@
 #native .s-done { border-color: var(--fg); }
 #native .s-doing { border-color: var(--good); box-shadow: 0 0 0 3px color-mix(in srgb, var(--good) 25%, transparent); animation: pulse 1.6s ease-in-out infinite; }
 #native .s-blocked { border-color: var(--warn); }
+#native .s-blocked.awaiting { border-style: dashed; }
 #native .s-dropped { opacity: .45; text-decoration: line-through; }
 @keyframes pulse { 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--ok) 10%, transparent); } }
 #native .board { display: grid; grid-template-columns: repeat(5, minmax(160px, 1fr)); gap: 12px; margin-top: 20px; overflow-x: auto; }

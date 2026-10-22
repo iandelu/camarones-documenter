@@ -39,7 +39,7 @@ NO_WIKI = "No wiki for this repo (wizard → Wikis → choose repos)"
 LIVE_INTERVIEWS = "Interviews are done live, not by team questionnaire"
 OFF_PROFILE = "Not part of the selected profile"
 DISABLED = "Disabled in .camarones/pipeline.yaml"
-OVERRIDE = CTX.root / ".camarones" / "pipeline.yaml"      # the project's own changes to the kit pipeline (R8)
+OVERRIDE = CTX.state_root / ".camarones" / "pipeline.yaml"   # the project's changes to the kit pipeline (R8), read from main
 
 
 class PipelineError(RuntimeError):
@@ -123,7 +123,8 @@ def pipeline_units() -> list[dict]:
         s = {"tier": t.get("tier", "agentic-heavy"), "isolation": t.get("isolation", "none"), "runner": None,
              **n["settings"]}
         out.append({"id": n["id"], "type": n["type"], "needs": n["needs"], "tier": s["tier"],
-                    "isolation": s["isolation"], "runner": s["runner"], "disabled": n["disabled"]})
+                    "isolation": s["isolation"], "runner": s["runner"], "disabled": n["disabled"],
+                    "approval": bool(s.get("approval"))})
     return out
 
 
@@ -284,17 +285,36 @@ def available(data: dict | None = None) -> list[dict]:
             up |= frontier
             frontier = {d for f in frontier for d in deps.get(f, [])} - up
         return list(up)
-    ready = [u for u in data["units"] if u["status"] in ("todo", "doing", "blocked")
+    ready = [u for u in data["units"] if u["status"] in ("todo", "doing", "blocked") and not awaiting(u)
              and all(st.get(d, "done") in DONE for d in waits_on(u))]
     order = {"doing": 0, "todo": 1, "blocked": 2}
     return sorted(ready, key=lambda u: (order[u["status"]], u["phase"]))
 
 
+AWAITING = "awaiting approval"
+
+
+def awaiting(u: dict) -> bool:
+    """Finished, but its node asks a person to approve it before anything builds on it."""
+    return u.get("status") == "blocked" and str(u.get("notes") or "").startswith(AWAITING)
+
+
+def _needs_approval(uid: str) -> bool:
+    try:
+        return bool(settings(uid).get("approval"))
+    except (PipelineError, KeyError):
+        return False
+
+
 @locked
-def set_status(uid: str, status: str, note: str | None = None, record: bool = True) -> dict:
-    """record=False puts a unit back where it was (a failed run) without logging it as a new transition."""
+def set_status(uid: str, status: str, note: str | None = None, record: bool = True, approved: bool = False) -> dict:
+    """record=False puts a unit back where it was (a failed run) without logging it as a new transition. A unit whose
+    node sets `approval: true` does not finish on its own: it waits, blocked, until approve()."""
     data = load()
     u = get(data, uid)
+    if status == "done" and record and not approved and _needs_approval(uid):
+        status, note = "blocked", (f"{AWAITING}: review its pages, then `{cli_cmd()} plan approve {uid}` (or Approve "
+                                   "in the portal's Pipeline)") + (f" — {note}" if note else "")
     u["status"] = status
     if status in DONE:
         u.pop("redo", None)
@@ -314,6 +334,13 @@ def set_status(uid: str, status: str, note: str | None = None, record: bool = Tr
         with LOG.open("a", encoding="utf-8") as fh:
             fh.write(f"- {u['updated']} **{uid}** → {status}" + (f": {note}" if note else "") + "\n")
     return u
+
+
+def approve(uid: str, by: str) -> dict:
+    u = get(load(), uid)
+    if not awaiting(u):
+        raise ValueError(f"{uid} is not awaiting approval (it is {u['status']})")
+    return set_status(uid, "done", f"approved by {by}", approved=True)
 
 
 @locked
