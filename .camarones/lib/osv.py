@@ -88,7 +88,7 @@ def attach(rows: list[dict], log=print) -> dict | None:
     if not exe:
         log("⚠ OSV-Scanner is not available on this machine: the inventory has no vulnerabilities")
         return None
-    found: dict[tuple[str, str], list[dict]] = {}
+    found: dict[tuple[str, str, str], list[dict]] = {}        # (repo, ecosystem, name): a finding stays in its repo
     failed = []
     repos = sorted({r["repo"] for r in rows} | {n for n in docs.repo_names() if repo_dir(n).is_dir()})
     for name in repos:
@@ -97,11 +97,11 @@ def attach(rows: list[dict], log=print) -> dict | None:
         if data is None:
             failed.append(name)
             continue
-        for key, vulns in parse(data).items():
-            found.setdefault(key, []).extend(vulns)
+        for (eco, pkg), vulns in parse(data).items():
+            found.setdefault((name, eco, pkg), []).extend(vulns)
     for row in rows:
         version = (row.get("version") or "").lstrip("v")
-        hits = [v for v in found.get((row["ecosystem"], row["name"]), [])
+        hits = [v for v in found.get((row["repo"], row["ecosystem"], row["name"]), [])
                 if not version or (v["version"] or "").lstrip("v") in ("", version)]
         row["vulns"] = [{k: v[k] for k in ("id", "cve", "summary", "severity", "score", "fixed")}
                         for v in {v["id"]: v for v in hits}.values()]

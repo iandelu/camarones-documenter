@@ -116,3 +116,11 @@ def test_the_pinned_binary_is_a_single_file_checked_by_sha256(kit, monkeypatch, 
     exe.unlink()
     binaries.ensure("osv-scanner", log=lambda _: None)
     assert not binaries.pinned_path("osv-scanner").exists()                             # checksum mismatch: not installed
+
+
+def test_a_finding_stays_with_the_repo_it_was_found_in(kit, repos, scanner):  # noqa: F811
+    (kit.ws / "web" / "pom.xml").write_text(POM, encoding="utf-8")     # postgresql managed by the parent here too
+    repos.run(log=lambda _: None, cves=True)
+    rows = {(r["repo"], r["name"]): r for r in repos.load()["libraries"]}
+    assert rows[("api", "org.postgresql:postgresql")]["vulns"]
+    assert rows[("web", "org.postgresql:postgresql")]["vulns"] == []    # OSV found nothing in web's pom
