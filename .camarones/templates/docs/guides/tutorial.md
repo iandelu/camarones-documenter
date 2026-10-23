@@ -160,7 +160,7 @@ One portal, two modes, the same interface. Tabs: **Docs** (tree, search, trust b
 an agent is waiting for, change requests, code changed since the docs, `check`), **Ask** (the sections that best answer
 a question, with citations, no AI; "database" also finds PostgreSQL and Spanish questions find English pages; with an agent set up, "Answer with AI" writes the answer from them
 alone), **Boards** (Excalidraw whiteboards in `docs/boards/`, blank or sketched from a C4
-view, named `<view>-draft` unless you type a name) and **Pipeline**. The language switch changes the interface and the docs; a page not translated yet is shown in
+view, named `<view>-draft` unless you type a name, laid out in rows: people, apps, services, stores, external systems) and **Pipeline**. The language switch changes the interface and the docs; a page not translated yet is shown in
 English with a notice. Tables sort by column (long ones filter), `:::tabs`/`:::steps`/`:::details`/`:::cards` render
 as tabs, steps, folds and cards, an "All / Business" switch (on each page and above the menu) hides `:::tech` blocks and, in Business, keeps
 only the overview, domain, glossary, flow and decision pages in the menu and on the home page, which also has a "How

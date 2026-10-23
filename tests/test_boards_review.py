@@ -85,11 +85,12 @@ def test_a_c4_view_becomes_a_sketch(kit, portal):
     boxes = {e["id"] for e in s["elements"] if e["type"] == "rectangle"}
     assert boxes == {"el-shop.orders", "el-shop.billing"}
     arrows = [e for e in s["elements"] if e["type"] == "arrow"]
-    assert len(arrows) == 1 and arrows[0]["label"] == "charges"
+    labels = {e["containerId"]: e["text"] for e in s["elements"] if e["type"] == "text"}
+    assert len(arrows) == 1 and labels[arrows[0]["id"]] == "charges"
     assert arrows[0]["startBinding"]["elementId"] == "el-shop.orders"
     top = get(f"{portal}/api/sketch?view=index")
     assert {e["id"] for e in top["elements"] if e["type"] == "rectangle"} == {"el-customer", "el-shop"}
-    assert any(e.get("label") == "places orders" for e in top["elements"] if e["type"] == "arrow")
+    assert "places orders" in {e["text"] for e in top["elements"] if e["type"] == "text"}
 
 
 # ---------- ask the docs ----------
