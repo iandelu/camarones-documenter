@@ -794,7 +794,9 @@ def viewers() -> dict:
     model_at = newest(arch_dir().rglob("*.c4")) if arch_dir().is_dir() else 0.0     # fragments in repos/, flows/ too
     graphs = {n: {"at": newest([f]), "stale": n != "all" and repo_changed_at(n) > newest([f])}
               for n, f in code_graphs().items()}
-    return {"c4": {"exists": bool(c4_at), "at": c4_at, "stale": bool(c4_at) and model_at > c4_at, "model": bool(model_at)},
+    model = bool(model_at) and any(re.search(r"^\s*model\s*\{", f.read_text(encoding="utf-8", errors="replace"), re.M)
+                                   for f in arch_dir().rglob("*.c4"))     # the kit's spec.c4 alone is not a model
+    return {"c4": {"exists": bool(c4_at), "at": c4_at, "stale": bool(c4_at) and model_at > c4_at, "model": model},
             "graphs": graphs, "graphify": "graphify" in components(), "likec4": "likec4" in components()}
 
 

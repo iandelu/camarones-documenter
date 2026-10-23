@@ -136,9 +136,10 @@ async function drawElements(id) {
 async function showExplorer() {
   const v = (await loadViewers()).c4;
   $('#main').innerHTML = viewerBar([`<b>${esc(t('explorer'))}</b>`, c4State(v),
-    v.exists ? `<a href="architecture/" target="_blank" rel="noopener">${esc(t('openTab'))} ↗</a>` : ''], v.model ? (v.exists ? t('rebuild') : t('build')) : '')
+    v.exists ? `<a href="architecture/" target="_blank" rel="noopener">${esc(t('openTab'))} ↗</a>` : ''],
+    v.model ? (v.exists ? t('rebuild') : t('build')) : t('firstLook'))
     + (v.exists ? '<iframe class="viewer" src="architecture/" title="C4"></iframe>' : '');
-  bindBuild('c4', '', () => location.reload());
+  bindBuild(v.model ? 'c4' : 'first-look', '', () => location.reload());   // no model yet: draft it from the code
 }
 
 async function showCode(repo) {

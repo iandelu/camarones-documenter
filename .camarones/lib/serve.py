@@ -47,7 +47,7 @@ def tree() -> dict:
     ws = docs.workspace()
     return {"project": ws["project"]["name"], "langs": ws["project"].get("translations", []), "reviewer": reviewer(),
             "summary": docs.summary(rows), "feedback": len(docs.pending_feedback()), "kit": VERSIONS["kit"],
-            "repos": docs.repo_names(), "codeGraphs": list(env.code_graphs()), "engines": env.wiki_engines(), "engineHelp": env.wiki_engine_help(),
+            "repos": docs.repo_names(), "codeGraphs": list(env.code_graphs()), "engines": env.wiki_engines(), "engineHelp": env.wiki_engine_help(), "kitGuides": sorted(docs.kit_guides()),
             "sections": docs.SECTIONS, "views": env.c4_views(), "codeMaps": codemap.available(), "editBase": "",
             "docs": [{k: r[k] for k in ("path", "file", "title", "description", "type", "space", "trust", "owner", "i18n",
                                         "orphan_sources")} for r in rows]}
@@ -276,8 +276,23 @@ def start_job(kind: str, label: str, fn) -> dict:
     return job
 
 
+def first_look(log) -> bool:
+    """A fresh project's first pages without AI, from the static scan: the C4 draft and its page, the stack and tools,
+    llms.txt; then the C4 explorer when LikeC4 is installed. What the empty Docs and Architecture tabs offer."""
+    from . import quickarch, radar
+    quickarch.save(quickarch.draft(log=log))
+    radar.run(log=log)
+    docs.llms()
+    if env.which("likec4"):
+        env.build_c4(log=log)
+    log("✔ first look written: architecture/first-look.md, overview/tooling.md and the C4 draft")
+    return True
+
+
 def build(b: dict) -> dict:
     what, repo = b.get("what"), b.get("repo") or ""
+    if what == "first-look":
+        return start_job("first-look", "First look (no AI)", first_look)
     if what == "c4":
         return start_job("c4", "C4 explorer", lambda log: env.build_c4(log=log))
     if what == "graph":
