@@ -75,3 +75,47 @@ def test_without_the_flags_the_portal_changes_nothing(wired, engine):  # noqa: F
     with pytest.raises(ValueError, match="not chosen"):
         wired.serve.wiki({"repo": "api"})
     assert not (wired.root / "wikis" / "api" / "INSTRUCTIONS.md").exists() and engine["calls"] == 0
+
+
+
+@pytest.fixture
+def installer(wired, engine, monkeypatch):  # noqa: F811
+    """No OpenWiki MCP in the project yet; `openwiki integrations install <host> --project .` (as setup runs it)
+    writes it, unless `fail` is set."""
+    import importlib, json
+    mcp = wired.root / ".mcp.json"
+    cfg = json.loads(mcp.read_text(encoding="utf-8"))
+    cfg["mcpServers"].pop("openwiki", None)
+    mcp.write_text(json.dumps(cfg), encoding="utf-8")
+    box = {"calls": [], "fail": False}
+
+    def run(cmd, cwd=None, **kw):
+        box["calls"].append(cmd)
+        if cmd[:3] == ["openwiki", "integrations", "install"] and not box["fail"]:
+            data = json.loads(mcp.read_text(encoding="utf-8"))
+            data["mcpServers"]["openwiki"] = {"command": "openwiki", "args": ["mcp", "--host", cmd[3]]}
+            mcp.write_text(json.dumps(data), encoding="utf-8")
+        return type("Done", (), {"returncode": 1 if box["fail"] else 0})()
+    monkeypatch.setattr(wired.env, "run", run)
+    monkeypatch.setattr(importlib.import_module("lib.install_state"), "learn", lambda cmds, **kw: None)
+    (wired.root / "wikis" / "api" / "INSTRUCTIONS.md").write_text("brief", encoding="utf-8")
+    return box
+
+
+def test_a_run_connects_openwiki_to_the_agent_first(wired, engine, installer):  # noqa: F811
+    import json
+    assert not wired.env.openwiki_wired("claude")
+    assert wired.env.openwiki_generate("api", log=lambda _: None) is True
+    assert ["openwiki", "integrations", "install", "claude", "--project", "."] in installer["calls"]
+    settings = json.loads((wired.root / ".claude" / "settings.json").read_text(encoding="utf-8"))
+    assert "openwiki" in settings["enabledMcpjsonServers"]                       # a headless run loads it unasked
+    installer["calls"].clear()
+    wired.env.openwiki_generate("api", log=lambda _: None)
+    assert not any(c[:3] == ["openwiki", "integrations", "install"] for c in installer["calls"])
+
+
+def test_when_openwiki_cannot_be_connected_the_run_says_so(wired, engine, installer):  # noqa: F811
+    installer["fail"] = True
+    with pytest.raises(RuntimeError, match="camaron setup"):
+        wired.env.openwiki_generate("api", log=lambda _: None)
+    assert engine["calls"] == 0
