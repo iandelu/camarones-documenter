@@ -80,6 +80,7 @@ CALLS = [
     ("jobs", lambda d: isinstance(d, list)),
     ("kpis", lambda d: d["coverage"]["byRepo"] and d["c4"]["elements"] == 4),
     ("ci", lambda d: d["installed"] and d["snippets"]["fresh"]),
+    ("inventory", lambda d: any(r["repo"] == "web" and r["name"] == "react" for r in d["libraries"])),
 ]
 
 

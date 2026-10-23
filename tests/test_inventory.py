@@ -196,3 +196,17 @@ def test_the_cli(kit, repos):
     data = json.loads(r.stdout)
     assert {x["repo"] for x in data["libraries"]} == {"api", "web", "worker"} and data["vulns"] is None
     assert (kit.root / "docs" / "overview" / "libraries.md").is_file()
+
+
+def test_the_portal_reads_it_and_refreshes_it(kit, repos):
+    import time
+    from lib import serve
+    first = serve.api_inventory()
+    assert first["libraries"] and first["vulns"] is None and not (kit.root / "docs" / ".work" / "inventory.json").exists()
+    job = serve.inventory_job({"cves": False})
+    for _ in range(200):
+        if serve.JOBS[job["id"]]["status"] != "running":
+            break
+        time.sleep(0.05)
+    assert serve.JOBS[job["id"]]["status"] == "done"
+    assert serve.api_inventory()["libraries"] == repos.load()["libraries"]

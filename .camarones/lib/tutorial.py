@@ -198,7 +198,7 @@ PAGES = {
                  "cualquier hosting estático. `camaron up --static` te enseña la exportación tal cual. Todo funciona "
                  "sin Internet (on-premise). Es blanco y negro, con modo claro y oscuro. Las pestañas de un proyecto nuevo ofrecen un primer vistazo desde el código, sin IA. Además: Preguntar (las secciones que responden, con su cita; entiende el sentido: «base de datos» encuentra PostgreSQL), "
                  "Pizarras (Excalidraw, desde una vista C4), Pipeline (el plan en vivo, con lanzar, cancelar, reintentar y "
-                 "aprobar), KPIs (cuánto está confirmado, qué se ha quedado viejo, el coste de IA y las preguntas que nadie encontró) y CI (los ficheros del pipeline, un botón para generarlos y el último pipeline). El interruptor «Todo / Negocio» deja solo las páginas de qué hace el sistema y por qué; la "
+                 "aprobar), Librerías (dependencias por servicio y vulnerabilidades en rojo), KPIs (cuánto está confirmado, qué se ha quedado viejo, el coste de IA y las preguntas que nadie encontró) y CI (los ficheros del pipeline, un botón para generarlos y el último pipeline). El interruptor «Todo / Negocio» deja solo las páginas de qué hace el sistema y por qué; la "
                  "portada tiene una caja «¿Cómo funciona…?», y si hay un agente configurado, Preguntar también puede "
                  "redactar la respuesta con esas secciones."},
         {"icon": "✏️", "title": "Dónde y cuándo se puede editar",
@@ -482,7 +482,7 @@ PAGES = {
                  "the read-only export (`camaron portal`) that is deployed with Docker or on any static host. "
                  "`camaron up --static` shows you the export as is. Everything works offline (on-premise). It is black and white, "
                  "light or dark. A fresh project's empty tabs offer a first look from the code, no AI. Also: Ask (the sections that answer, with citations; it goes by meaning: “database” finds PostgreSQL), Boards (Excalidraw, from a C4 view) "
-                 "Pipeline (the plan live, with run, cancel, retry and approve) KPIs (confirmed share, pages out of date, AI cost and the questions nobody found) and CI (the pipeline files, a button to generate them and the last run). The “All / Business” switch keeps only "
+                 "Pipeline (the plan live, with run, cancel, retry and approve), Libraries (dependencies per service, known vulnerabilities in red), KPIs (confirmed share, pages out of date, AI cost and the questions nobody found) and CI (the pipeline files, a button to generate them and the last run). The “All / Business” switch keeps only "
                  "the pages about what the system does and why; the home page has a “How does … work?” box, and with "
                  "an agent set up, Ask can also write the answer from those sections."},
         {"icon": "✏️", "title": "Where and when you can edit",
