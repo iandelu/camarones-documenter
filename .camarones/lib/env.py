@@ -390,8 +390,9 @@ def unlink_agent_config() -> list[str]:
 
 def camarones_mcp() -> dict:
     """MCP entry for the kit's own server — no API keys; it resolves the project by walking up from its cwd."""
-    if cli_cmd() == "camarones":
-        return {"command": "camarones", "args": ["mcp"]}
+    if cli_cmd() in ("camaron", "camarones"):              # a global install: the same command on every machine
+        cli = cli_cmd()                                    # Windows: a .cmd shim, which MCP hosts cannot spawn
+        return {"command": "cmd", "args": ["/c", cli, "mcp"]} if IS_WIN else {"command": cli, "args": ["mcp"]}
     return {"command": "uv", "args": ["run", "--quiet", "--script", str(KIT / "camarones.py"), "mcp"]}
 
 
