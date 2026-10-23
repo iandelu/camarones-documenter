@@ -78,7 +78,9 @@ x-owner: ai                  # ai (agent may rewrite) | human (agent never rewri
   Components follow the real structure (hexagonal: in-adapters, application services, domain, out-adapters).
 - Relationships: `-[sync]->` for HTTP/gRPC, `-[async]->` for AMQP/Kafka/events, always with `technology '…'` and a label
   that names the endpoint/exchange/topic. Shared databases: tag the database `#shared-db` and draw one edge per service.
-- New or unvalidated elements carry `#ai-draft`; replace with `#confirmed` after the interview.
+- New or unvalidated elements carry `#ai-draft`; replace with `#confirmed` after the interview. People confirm in the
+  portal (Architecture → a view → its elements), which also writes `confirmed-by`/`confirmed-at` in the element's
+  `metadata`: never put `#ai-draft` back on a `#confirmed` element; change it and say so in the handoff instead.
 - `views.c4`: `index` (context), `containers`, `deployment view deploy_<env>` per environment; flow views live in `flows/<slug>.c4`.
   The portal embeds `flow_<slug>` interactively at the top of `docs/flows/<slug>.md` (slug `-` → `_`), and `index` on the
   home page. Any other page can embed a view with a fenced block: ```` ```likec4-view ```` containing the view id.

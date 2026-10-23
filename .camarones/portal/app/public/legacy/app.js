@@ -11,8 +11,9 @@ function drawChrome(active, { viewer = false, bare = false, nativeView = false }
   const code = (T.codeMaps || []).length || T.codeGraphs.length;
   const live = !STATIC && window.CamaronNative;                  // the React views need the live server
   const tabs = [['docs', '#/'], ['c4', '#/c4'], ...(code ? [['code', '#/code']] : []), ...(wikis ? [['wikis', '#/wikis']] : []),
-    ['review', '#/review'], ...(live ? [['ask', '#/ask'], ['boards', '#/boards'], ['pipeline', '#/pipeline']] : [])];
+    ['review', '#/review'], ...(live ? [['ask', '#/ask'], ['boards', '#/boards'], ['pipeline', '#/pipeline'], ['libs', '#/libs'], ['data', '#/data'], ['kpis', '#/kpis'], ['ci', '#/ci']] : [])];
   $('#tabs').innerHTML = tabs.map(([k, href]) => `<a href="${href}" class="${k === active ? 'on' : ''}">${esc(t(k === 'code' ? 'codeTab' : k))}</a>`).join('');
+  requestAnimationFrame(() => $('#tabs a.on')?.scrollIntoView({ block: 'nearest', inline: 'center' }));   // the bar scrolls when the tabs do not fit
   $('#search-label').textContent = t('search');
   $('#theme').title = t('theme');
   $('#menu').title = t('menu');
@@ -101,10 +102,15 @@ async function showHome() {
   CURRENT = '';
   const docs = T.docs.filter((d) => d.space === 'docs' && (!isBusiness() || forBusiness(d)));
   const wikiPages = isBusiness() ? 0 : T.docs.filter((d) => d.space === 'wiki').length;
-  if (!docs.length && !T.views.length) {
+  const kit = new Set(T.kitGuides || []);                         // the kit's own guides do not document the project
+  if (!docs.some((d) => !kit.has(d.path) && d.type !== 'interview') && !T.views.length) {
     drawToc(null);
     $('#main').innerHTML = `<div class="page hero empty"><div class="hero-logo">🦐</div><h1>${esc(T.project)}</h1>
-      <p class="lead">${esc(t('homeEmpty'))}</p><p class="muted">${esc(t('noDocsHelp'))}</p></div>`;
+      <p class="lead">${esc(t('homeEmpty'))}</p><p class="muted">${esc(t('noDocsHelp'))}</p>
+      ${STATIC ? '' : `<div class="row center"><button id="first-look" type="button">${esc(t('firstLook'))}</button>
+        <a class="button ghost" href="#/pipeline">${esc(t('nextUnit'))} →</a></div><pre id="first-log" class="joblog" hidden></pre>`}
+      ${T.kitGuides?.length ? `<p class="small"><a href="${esc(hrefFor(T.kitGuides.find((g) => g.endsWith('tutorial.md')) || T.kitGuides[0]))}">📘 ${esc(t('readTutorial'))}</a></p>` : ''}</div>`;
+    $('#first-look')?.addEventListener('click', (e) => startBuild('first-look', '', e.target, $('#first-log'), () => location.reload()));
     return;
   }
   const home = BY_PATH['index.md'];
@@ -444,7 +450,7 @@ async function routeNow() {
   const h = decodeURIComponent(location.hash.slice(1));
   const [, view = '', rest = ''] = h.match(/^\/([\w-]*)\/?(.*)$/) || [];
   if ($('#palette').open) $('#palette').close();
-  if (['pipeline', 'boards', 'ask'].includes(view) && !STATIC && window.CamaronNative) {
+  if (['pipeline', 'boards', 'ask', 'kpis', 'ci', 'libs', 'data'].includes(view) && !STATIC && window.CamaronNative) {
     CURRENT = '';
     drawChrome(view, { nativeView: true });
     drawToc(null);

@@ -46,6 +46,11 @@
                             run ready units back to back unattended (Claude Code / Codex, waits out usage limits)
   arch-draft [--save]       quick static architecture scan → C4 draft (first look, no AI)
   radar [--json]            stack + tools the repos already use (Backstage, Sonar, linters…) → docs/overview/tooling.md
+  schemas [--json]          each repo's tables and collections from migrations, schema files, entity classes, Mongo and
+                          Firestore (no AI) → docs/data/<repo>.md with an ER diagram the kit keeps in sync with the code
+  inventory [--cves] [--json]   every repo's direct dependencies by category (framework, data, cache, security…)
+                          → docs/overview/libraries.md, no AI; --cves adds known vulnerabilities (OSV-Scanner with
+                          its offline database, so no package name leaves the machine); exit 1 if one is high/critical
   stack REPO [TEXT|--reset] fix a repo's stack in workspace.yaml (--reset: back to the detected one)
   interview mode [team|live]   how interviews run: team questionnaire answered offline, or live with the agent
   interview export [--lang es|en]   questionnaire → offline HTML form + Markdown copy to share with the team
@@ -339,6 +344,9 @@ def main() -> int:
     fb = sp.add_parser("feedback"); fb.add_argument("file"); fb.add_argument("text"); fb.add_argument("--by", default="")
     ad = sp.add_parser("arch-draft"); ad.add_argument("--save", action="store_true"); ad.add_argument("--overwrite", action="store_true")
     rd = sp.add_parser("radar"); rd.add_argument("--json", action="store_true")
+    inv = sp.add_parser("inventory"); inv.add_argument("--json", action="store_true")
+    inv.add_argument("--cves", action="store_true")
+    sch = sp.add_parser("schemas"); sch.add_argument("--json", action="store_true")
     iv = sp.add_parser("interview"); iv.add_argument("action", choices=["mode", "export", "import", "status"])
     iv.add_argument("args", nargs="*"); iv.add_argument("--lang", default="es", choices=["es", "en"])
     iv.add_argument("--json", action="store_true")
@@ -652,6 +660,29 @@ def main() -> int:
                 print(f"{name:<20} {r['stack']}")
                 print(f"{'':<20} " + (", ".join(t["label"] for t in r["tools"]) or "-"))
             print(f"→ {page.relative_to(ROOT).as_posix()}")
+    elif a.cmd == "inventory":
+        from lib import inventory
+        page = inventory.run(log=(lambda _: None) if a.json else print, cves=a.cves)
+        data = inventory.load()
+        if a.json:
+            print(json.dumps(data, indent=2, ensure_ascii=False))
+        else:
+            print(f"→ {page.relative_to(ROOT).as_posix()}")
+        serious = [v for r in data["libraries"] for v in r.get("vulns") or [] if v["severity"] in ("critical", "high")]
+        return 1 if a.cves and serious else 0
+    elif a.cmd == "schemas":
+        from lib import genblocks, schemas
+        found = schemas.scan()
+        if a.json:
+            print(json.dumps(found, indent=2, ensure_ascii=False))
+            return 0
+        written = schemas.write_pages()
+        updated = genblocks.refresh()["updated"]
+        for name, r in found.items():
+            n = sum(len(s["entities"]) for s in r["stores"])
+            print(f"{name:<20} {n} tables/collections" + (f" ({', '.join(r['tools'])})" if r["tools"] else ""))
+        for f in written + [u for u in updated if u.startswith("docs/data/")]:
+            print(f"→ {f}")
     elif a.cmd == "stack":
         from lib import radar
         if not a.reset and not a.text:

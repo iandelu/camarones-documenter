@@ -185,7 +185,7 @@ can **discard** in a second pass. Nothing here is a decision.
 | ID | Tool | What it is | What it would improve here | Notes | Signal |
 |---|---|---|---|---|---|
 | N1 | Semgrep CE † | SAST rules | `security-review` findings with scanner evidence instead of pure LLM reasoning | See B8 | 🟡 later: evidence for the security review unit (see B8) |
-| N2 | OSV-Scanner † | Known-vulnerability scan of lockfiles/SBOMs | "Outdated dependency" findings with CVE IDs | Offline DB download possible | 🟢 |
+| N2 | OSV-Scanner † | Known-vulnerability scan of lockfiles/SBOMs | "Outdated dependency" findings with CVE IDs | Offline DB download possible | ✅ **adopted (4.37.0):** osv-scanner 2.6.0, pinned per OS with SHA-256 in `lib/binaries.py`; offline databases in `~/.camarones/osv-db` (≈220 MB for Maven + npm), online API only with `osv: {online: true}` in `~/.camarones.json`; `camaron inventory --cves` |
 | N3 | Trivy † | Vulns, misconfig (Dockerfile, Helm, K8s), secrets | One binary covers deployment misconfig + deps | Large DB download | 🟡 later: dependency and SBOM evidence for the security review unit; pinned binary |
 | N4 | [Threagile](https://versprite.com/threat-modeling-tools/threat-modeling-tools-compared/) | Threat model as YAML → risk rules, diagrams, reports | Generate `threat-model.md` from a YAML derived from `model.c4` (actors, trust boundaries, data assets) | Another model to keep in sync | 🔴 niche: threat models from YAML; the security review unit asks the team instead |
 | N5 | [OWASP pytm](https://devguide.owasp.org/en/04-design/01-threat-modeling/02-pytm/) | Threat model in Python, reports/diagrams as outputs | Same as N4, Python-native (fits `uv`) | — | 🔴 niche: threat models as Python code (see N4) |
@@ -223,6 +223,7 @@ into `portal/app-build/` in the kit's CI, so users never install npm packages fo
 | Q7 | [Motion](https://motion.dev) | Animation library for React | State-change animations in the new portal | MIT · build-time only | ✅ **adopted (3.26.0):** motion 13.5.0, pinned, loaded only with the Pipeline tab |
 | Q8 | Vite + React † | Build tool and UI library | New portal app (R20). The current vanilla JS portal would not scale to kanban, a DAG and a whiteboard | MIT · only in the kit repo's CI, ubuntu job | ✅ **adopted (3.25.0):** React 19.3.0, Vite 8.3.1, @vitejs/plugin-react 6.1.1, Vitest 5.0.3, pinned with a lockfile; `legacy-peer-deps` works around an npm 10 crash on optional peers |
 | Q9 | Gemini CLI † | Google's terminal agent | Fourth runner, for teams without Anthropic or OpenAI | Apache-2.0 · `command` template first, native adapter only if demand appears | 🟡 later |
+| Q10 | [Playwright](https://playwright.dev) | Browser automation for end-to-end tests | A smoke test that clicks every portal tab in a real browser and fails on a console error (roadmap-solid-base S17) | Apache-2.0 · dev-only · pinned npm package, but each OS needs its ~150 MB browser download in CI, and the failures it would catch first are already caught offline: `tests/test_portal_smoke.py` checks every tab's endpoint, every served script and that every tab has a route and a view | 🟡 later: add it when a regression gets past the API smoke and the vitest helpers; the in-app browser check on the sandbox covers the visual part until then |
 
 ---
 

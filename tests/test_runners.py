@@ -73,6 +73,21 @@ def test_codex_argv_is_todays(runners, kit):
     assert runners.get("codex").build(RunRequest(prompt="p", cwd=kit.ws, env={}, model="o5")).argv[-3:] == ["--model", "o5", "p"]
 
 
+def test_an_empty_tool_list_means_no_tools_and_no_project_mcp(runners, kit):
+    from lib.harness.ports import RunRequest
+    argv = runners.get("claude").build(RunRequest(prompt="p", cwd=kit.ws, allow_tools=(), stream=True)).argv
+    assert argv[argv.index("--tools") + 1] == "" and "--strict-mcp-config" in argv and "--allowedTools" not in argv
+    scoped = runners.get("claude").build(RunRequest(prompt="p", cwd=kit.ws, allow_tools=("Read",))).argv
+    assert "--tools" not in scoped and scoped[scoped.index("--allowedTools") + 1] == "Read"
+
+
+def test_codex_without_tools_is_read_only_and_needs_no_git_repo(runners, kit):
+    from lib.harness.ports import RunRequest
+    argv = runners.get("codex").build(RunRequest(prompt="p", cwd=kit.ws, allow_tools=())).argv
+    assert argv[:2] == ["/bin/codex", "exec"] and "--full-auto" not in argv
+    assert argv[argv.index("-s") + 1] == "read-only" and "--skip-git-repo-check" in argv and argv[-1] == "p"
+
+
 def test_autopilot_session_launches_the_runner_argv(kit, monkeypatch):
     seen = {}
 

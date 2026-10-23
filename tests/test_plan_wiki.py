@@ -1,7 +1,7 @@
 """Work plan units and the OpenWiki run lifecycle (choice of repos, brief requirement, open/close, one run at a time)."""
 from __future__ import annotations
 
-import os
+import json, os
 
 import pytest
 
@@ -125,6 +125,10 @@ def engine(wired, monkeypatch):
         log("session limit reached" if box["rc"] else "ok")
         return box["rc"]
     monkeypatch.setattr(env, "wiki_engines", lambda: ["claude"])
+    mcp = wired.root / ".mcp.json"                                       # setup connected OpenWiki to the agents
+    cfg = json.loads(mcp.read_text(encoding="utf-8"))
+    cfg["mcpServers"]["openwiki"] = {"command": "openwiki", "args": ["mcp", "--host", "claude"]}
+    mcp.write_text(json.dumps(cfg), encoding="utf-8")
     monkeypatch.setattr(env, "stream", stream)
     monkeypatch.setattr(env, "wiki_graph", lambda *a, **kw: True)
     monkeypatch.setattr(env, "checkpoint_commit", lambda *a, **kw: True)

@@ -114,3 +114,30 @@ def report(months: int = 3, today: date | None = None, run_check: bool = True) -
                            "ab": {"at": comp.get("at"), "questions": len(comp.get("questions") or []),
                                   "tokens_saved_pct": comp.get("tokens_saved_pct"), "delta": comp.get("delta")}
                            if comp else None}}
+
+
+def dashboard(months: int = 6, today: date | None = None) -> dict:
+    """Everything the portal's KPIs tab shows, in one call: the CLI's `kpis` and `stats`, plus coverage per repo,
+    freshness, the C4 model's confirmed share and this machine's questions nobody found an answer to."""
+    from .. import c4edit, docs, usage
+    from . import freshness
+    r = report(months=months, today=today, run_check=False)
+    repos = docs.repo_names()
+    by = {n: {"repo": n, "pages": 0, "confirmed": 0, "draft": 0, "needsReconfirm": 0} for n in [*repos, "(project)"]}
+    for row in docs.collect():
+        owner = next((n for n in repos if row["path"].startswith(f"repos/{n}/")), "(project)")
+        key = {"confirmed": "confirmed", "draft": "draft", "needs-reconfirm": "needsReconfirm"}.get(row.get("trust"))
+        by[owner]["pages"] += 1
+        if key:
+            by[owner][key] += 1
+    states = freshness.states()
+    fresh = {s: sum(1 for v in states.values() if v["state"] == s) for s in ("fresh", "suspect", "stale", "unverified")}
+    els = c4edit.index()["elements"].values()
+    u = usage.report(months=1, today=today)
+    return {"runs": r["runs"], "trust": r["trust"], "usefulness": r["usefulness"],
+            "coverage": {**r["coverage"], "byRepo": list(by.values())},
+            "freshness": {**fresh, "outOfDate": sorted(p for p, v in states.items() if v["state"] in freshness.OUT_OF_DATE)},
+            "c4": {"elements": len(els), "confirmed": sum(1 for e in els if e["confirmed"]),
+                   "draft": sum(1 for e in els if e["draft"])},
+            "topPages": u["top_pages"], "unreadPages": len(u["unread_pages"]), "people": u["people"],
+            "recording": u["recording"], "misses": usage.misses()}

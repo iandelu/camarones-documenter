@@ -47,7 +47,10 @@ La primera vez te lleva por 6 pasos:
 1. **Workspace:** nombre del proyecto y repos.
 2. **Herramientas:** tabla con lo que tienes y lo que falta; eliges **instalar todo (recomendado)** o **qué instalar** (git, Node, Docker, Java, Claude/Codex, graphify, LikeC4, OpenWiki, hooks…).
 3. **Setup:** herramientas, repos, conexión de Claude/Codex y hooks de git.
-4. **Stack y herramientas:** el stack de cada repo y las herramientas que ya usáis (Backstage, Sonar, librería de componentes, linters, contratos, CI), detectados sin IA; si un stack está mal lo corriges ahí o luego con `camaron stack`. Queda en `docs/overview/tooling.md`.
+4. **Stack y herramientas:** el stack de cada repo y las herramientas que ya usáis (Backstage, Sonar, librería de componentes, linters, contratos, CI), detectados sin IA; si un stack está mal lo corriges ahí o luego con `camaron stack`. Queda en `docs/overview/tooling.md`, y cada dependencia directa por categoría (framework, datos, caché, seguridad,
+   mensajería, tests…) en `docs/overview/libraries.md` (también `camaron inventory`; `--cves` añade las vulnerabilidades conocidas
+   con la base de datos offline de OSV-Scanner), y las tablas y colecciones de cada repo, con su diagrama ER, en
+   `docs/data/<repo>.md` (también `camaron schemas`).
 5. **Diagrama C4 rápido:** un primer borrador de la arquitectura, también sin IA.
 6. **Sesiones:** te explica cómo funcionan.
 
@@ -164,12 +167,19 @@ Chromium sin ventana). Si faltan, `check` lo avisa una vez y se salta esa compro
 
 ## 5. Portal
 
-Un solo portal, dos modos y la misma interfaz. Pestañas: **Docs** (árbol, búsqueda, confianza), **Arquitectura (C4)**,
+Las pestañas de un proyecto recién instalado nunca están en blanco: Docs y Arquitectura ofrecen un **primer vistazo
+desde el código (sin IA)** —el borrador C4 con su página, el stack y las herramientas— y Código ofrece construir el grafo.
+
+Un solo portal, dos modos y la misma interfaz. Pestañas: **Docs** (árbol, búsqueda, confianza), **Arquitectura (C4)** (bajo cada vista, sus elementos: edita título,
+tecnología, descripción y relaciones, y confirma lo que redactó la IA, de uno en uno o la vista entera),
 **Grafo de código** (todos los repos o uno), **Wikis** (OpenWiki por repo, sus páginas y su grafo), **Revisión**
 (páginas pendientes, revisiones que espera un agente, peticiones de cambio, código cambiado desde la doc, `check`),
-**Preguntar** (las secciones que mejor responden a una pregunta, con citas, sin IA; con un agente configurado, «Answer
+**Preguntar** (las secciones que mejor responden a una pregunta, con citas, sin IA; «base de datos» también encuentra PostgreSQL y las preguntas en español encuentran páginas en inglés; con un agente configurado, «Answer
 with AI» redacta la respuesta solo con ellas), **Pizarras** (pizarras de
-Excalidraw en `docs/boards/`, en blanco o desde una vista C4) y **Pipeline**. El selector de idioma cambia la interfaz y
+Excalidraw en `docs/boards/`, en blanco o desde una vista C4, con el nombre `<vista>-draft` si no escribes otro, ordenada en filas: personas, apps, servicios, almacenes, sistemas externos), **Librerías** (las dependencias de cada repo como matriz librería × servicio, con filtros por
+categoría, lenguaje, repo o ámbito y las vulnerabilidades conocidas en rojo), **Datos** (las tablas y colecciones de cada
+repo leídas del código, como diagrama ER), **Pipeline** y **KPIs** (páginas y elementos C4 confirmados, páginas desactualizadas, coste de IA por
+mes y las preguntas que nadie encontró, que con un clic pasan a pregunta abierta). El selector de idioma cambia la interfaz y
 la documentación. Las tablas se ordenan por columna (las largas se filtran), `:::tabs`/`:::steps`/`:::details`/`:::cards`
 se ven como pestañas, pasos, desplegables y tarjetas, un interruptor «Todo / Negocio» (en cada página y encima del menú) oculta los bloques `:::tech` y, en Negocio, deja
 en el menú y en la portada solo las páginas de visión general, dominio, glosario, flujos y decisiones; la portada tiene
@@ -220,13 +230,19 @@ al terminar.
 Cada wiki es una sesión de agente completa, así que solo la llevan los repos que elijas: asistente → **📚 Wikis** →
 **Elegir qué repos tienen wiki** (se guarda como `wiki: true` en `.camarones/workspace.yaml`). Elige los servicios con
 lógica, no librerías ni repos de CI. La primera wiki de un repo espera a su brief (`wikis/<repo>/INSTRUCTIONS.md`, que
-escribe la unidad repo-brief) para usar tu glosario; `camaron wiki <repo> --force` se salta esa comprobación. Se lanzan
+escribe la unidad repo-brief) para usar tu glosario; `camaron wiki <repo> --force` se salta esa comprobación. En la
+pestaña Wikis del portal todos los repos tienen el botón: si el repo aún no está elegido, lo elige, y si no tiene brief,
+antes escribe uno inicial con el análisis estático (sin IA), que la unidad repo-brief sustituye después. Si no hay motor
+que pueda lanzarla, la pestaña dice qué falta. Se lanzan
 de una en una, y un lote se para en cuanto el motor se queda sin cuota o sin sesión, en vez de fallar todos los repos
 que quedan.
 
 ## 8. CI
 
 En el asistente, **⚙️ CI** instala el pipeline en `cam-docs` (GitLab o GitHub): actualiza la doc afectada, pasa `check`, exporta el portal y lo publica. Las plantillas para cada repo de servicio están en `.camarones/ci/repo.*`.
+La pestaña **CI** del portal enseña lo mismo: qué ficheros de pipeline hay y si siguen igual que la definición del kit, un
+botón para generarlos para GitHub o GitLab, el `check` y la frescura actuales, los ficheros de cada repo para copiar y el
+último pipeline cuando `gh` o `glab` está instalado y con sesión.
 Antes de subir la rama de actualización se ejecuta `camaron check --secrets`: si encuentra un posible secreto, el job falla y no se abre el MR/PR.
 
 Variables necesarias: `ANTHROPIC_API_KEY` u `OPENAI_API_KEY`, y un token de bot para abrir MRs/PRs. En GitLab, además, tienes que
@@ -256,6 +272,11 @@ se confirma que sigue valiendo. Nada de lo que hace confirma una página. `pipel
 informan del plan; `run_node` lanza una unidad solo con `mcp: {pipeline_control: true}` en `workspace.yaml`.
 `camaron mcp --http` sirve lo mismo en `http://127.0.0.1:8765/mcp` para clientes que hablen Streamable HTTP: necesitan
 `Authorization: Bearer <token>`, con el token en `~/.camarones/mcp-token`, y se rechazan peticiones de otros orígenes.
+
+**Claude Code dentro de un repo.** `setup` (y `repair`) registra el servidor MCP `camarones` en el ámbito local de
+Claude Code para la carpeta de cada repo, así que una sesión abierta en `<repo>/` también busca y lee la documentación.
+Vive en tu propia configuración de Claude Code (`~/.claude.json`), nunca en el repo; `doctor` avisa si a un repo le
+falta y `uninstall` lo quita.
 
 **Hooks del método (opcionales).** `camaron hooks on` añade tres hooks de Claude Code en `cam-docs/.claude/settings.json`,
 que son del kit (`trust` no pregunta por ellos): al empezar la sesión el agente recibe el estado del plan, el último

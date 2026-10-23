@@ -104,6 +104,9 @@ def drift() -> list[dict]:
             d = repo_dir(r)
             if d.is_dir() and os.path.realpath(d / "openwiki") != os.path.realpath(ROOT / "wikis" / r):
                 out.append({"path": f"{r}/openwiki", "state": "not linked", "what": "repo wiki link"})
+    if "agents" in env.components() and env.which("claude"):
+        out += [{"path": r, "state": "not registered", "what": "repo MCP (Claude Code)"} for r in docs.repo_names()
+                if repo_dir(r).is_dir() and not env.repo_mcp_registered(r)]
     return out
 
 
@@ -119,6 +122,9 @@ def repair(log=print) -> list[dict]:
         for r in docs.repo_names():
             if repo_dir(r).is_dir():
                 env.link_repo_wiki(r, log)
+    if "agents" in comps:
+        for r in docs.repo_names():
+            env.wire_repo_mcp(r, log)
     return drift()
 
 

@@ -81,28 +81,30 @@ async function showWikis(open) {
   const engSel = engines.length > 1 ? `<select class="w-eng">${engines.map((e) => `<option>${esc(e)}</option>`).join('')}</select>` : '';
   $('#main').innerHTML = `<div class="page wide"><h1>📚 ${esc(t('wikis'))} <span class="muted small">OpenWiki</span></h1>
     <p class="lead">${esc(t('wikisHelp'))}</p>
-    ${!STATIC && !engines.length ? `<div class="banner">${esc(t('noEngine'))}</div>` : ''}
+    ${!STATIC && !engines.length ? `<div class="banner">${esc(t(T.engineHelp && T.engineHelp !== 'key' ? 'noEngine.' + T.engineHelp : 'noEngine'))}</div>` : ''}
     <div class="cards">${rows.map((w) => `<div class="card ${w.repo === open ? 'open' : ''}" data-repo="${esc(w.repo)}">
       <div class="card-h">${w.pages ? `<a href="#/wiki/${esc(w.repo)}"><b>${esc(w.repo)}</b></a>` : `<b>${esc(w.repo)}</b>`}
         <span class="muted small">${w.pages ? esc(t('pages', { n: w.pages })) + ' · ' + esc(t('updated', { when: ago(w.at) })) : esc(w.cloned ? t('noWiki') : t('notCloned'))}</span>
         ${w.stale ? `<span class="warn small">⚠️ ${esc(t('stale'))}</span>` : ''}
-        ${w.unit ? `<span class="chip">${esc(t('unit'))}: ${esc(w.unit)}</span>` : ''}</div>
+        ${w.unit ? `<span class="chip">${esc(t('unit'))}: ${esc(w.unit)}</span>` : ''}
+        ${w.brief === 'starter' ? `<span class="chip">${esc(t('starterBrief'))}</span>` : ''}</div>
       <div class="row">
         ${w.pages ? `<a class="button small" href="#/wiki/${esc(w.repo)}">🕸️ ${esc(t('graph'))}</a>
           <a class="button ghost small" href="${esc(hrefFor(w.nav.home))}">📄 ${esc(t('readPages'))}</a>` : ''}
-        ${!STATIC && !w.chosen && !w.pages ? `<span class="muted small">${esc(t('notChosen'))}</span>` : ''}
-        ${!STATIC && w.chosen && !w.ready ? `<span class="muted small">${esc(t('needBrief'))}</span>` : ''}
-        ${!STATIC && engines.length && w.cloned && (w.chosen || w.pages) && w.ready ? `<button class="ghost small w-gen" type="button">${esc(w.pages ? t('update') : t('generate'))}</button>${engSel ? ` ${esc(t('via'))} ${engSel}` : ` <span class="muted small">${esc(t('via'))} ${esc(engines[0])}</span>`}` : ''}
+        ${!STATIC && w.canGenerate && !w.chosen && !w.pages ? `<span class="muted small">${esc(t('notChosen'))}</span>` : ''}
+        ${!STATIC && w.canGenerate && !w.brief && !w.pages ? `<span class="muted small">${esc(t('needBrief'))}</span>` : ''}
+        ${!STATIC && w.canGenerate ? `<button class="ghost small w-gen" type="button">${esc(w.pages ? t('update') : t('generate'))}</button>${engSel ? ` ${esc(t('via'))} ${engSel}` : ` <span class="muted small">${esc(t('via'))} ${esc(engines[0])}</span>`}` : ''}
       </div>
       ${w.old ? `<p class="warn small">${esc(t('wikiOld'))}</p>` : ''}
       <pre class="joblog" hidden></pre></div>`).join('')}</div></div>`;
   $$('#main .card').forEach((card) => {
     const repo = card.dataset.repo;
+    const w = rows.find((r) => r.repo === repo);
     card.querySelector('.w-gen')?.addEventListener('click', async (e) => {
       e.target.disabled = true;
       const engine = card.querySelector('.w-eng')?.value || '';
       try {
-        watchJob(await api('wiki', {}, { repo, engine }), card.querySelector('.joblog'), async (j) => {
+        watchJob(await api('wiki', {}, { repo, engine, choose: !w.chosen, starter: !w.brief && !w.pages }), card.querySelector('.joblog'), async (j) => {
           await loadTree();
           if (j.status === 'done' && location.hash.startsWith('#/wikis')) showWikis(repo); else e.target.disabled = false;
         });

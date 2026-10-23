@@ -45,7 +45,9 @@ machine (its skills, graphify's and OpenWiki's, recorded in `~/.camarones/instal
 The first run walks you through: workspace (project name) → repos → tools (install everything — recommended — or pick
 what to install) → setup (repos, Claude/Codex wiring, git hooks) → stack & tools (each repo's stack and the tools you
 already use — Backstage, Sonar, component library, linters, contracts, CI — found without AI; fix a wrong stack there
-or later with `camaron stack`; saved in `docs/overview/tooling.md`) → quick C4 draft → how sessions work. Esc always goes one step back; long
+or later with `camaron stack`; saved in `docs/overview/tooling.md`, with every direct dependency by category in
+`docs/overview/libraries.md`, also `camaron inventory`; `--cves` adds known vulnerabilities from OSV-Scanner's offline
+database; and each repo's tables and collections in `docs/data/<repo>.md`, also `camaron schemas`) → quick C4 draft → how sessions work. Esc always goes one step back; long
 tasks show what they are doing, a progress bar and crustacean facts. After that the main menu shows the plan progress and the next step.
 
 **🦐 Next step** lists the plan units that are ready (their dependencies are done). Pick one and choose Claude Code, Codex
@@ -155,12 +157,19 @@ once). Without them `check` prints one warning and skips that check.
 
 ## 5. Portal
 
-One portal, two modes, the same interface. Tabs: **Docs** (tree, search, trust badges), **Architecture (C4)**,
+A fresh project's tabs are never blank: Docs and Architecture offer a **first look from the code (no AI)** — the C4
+draft and its page, the stack and tools — and Code offers to build the code graph.
+
+One portal, two modes, the same interface. Tabs: **Docs** (tree, search, trust badges), **Architecture (C4)** (under each view, its elements: edit title,
+technology, description and relations, and confirm what the AI drafted, one by one or the whole view),
 **Code graph** (all repos or one), **Wikis** (OpenWiki per repo, its pages and graph), **Review** (pending pages, reviews
 an agent is waiting for, change requests, code changed since the docs, `check`), **Ask** (the sections that best answer
-a question, with citations, no AI; with an agent set up, "Answer with AI" writes the answer from them
+a question, with citations, no AI; "database" also finds PostgreSQL and Spanish questions find English pages; with an agent set up, "Answer with AI" writes the answer from them
 alone), **Boards** (Excalidraw whiteboards in `docs/boards/`, blank or sketched from a C4
-view) and **Pipeline**. The language switch changes the interface and the docs; a page not translated yet is shown in
+view, named `<view>-draft` unless you type a name, laid out in rows: people, apps, services, stores, external systems), **Libraries** (every repo's dependencies as a library × service matrix, filtered by category,
+language, repo or scope, with known vulnerabilities in red), **Data** (each repo's tables and collections from the code,
+as an ER diagram), **Pipeline** and **KPIs** (pages and C4 elements confirmed, pages out of date, AI cost by month and
+the questions nobody found, which one click turns into an open question). The language switch changes the interface and the docs; a page not translated yet is shown in
 English with a notice. Tables sort by column (long ones filter), `:::tabs`/`:::steps`/`:::details`/`:::cards` render
 as tabs, steps, folds and cards, an "All / Business" switch (on each page and above the menu) hides `:::tech` blocks and, in Business, keeps
 only the overview, domain, glossary, flow and decision pages in the menu and on the home page, which also has a "How
@@ -210,12 +219,17 @@ the run ends.
 Each wiki is a full agent run, so only the repos you choose get one: wizard → **📚 Wikis** → **Choose which repos get a
 wiki** (stored as `wiki: true` in `.camarones/workspace.yaml`). Pick the services with logic, not libraries or CI repos.
 A first wiki waits for the repo's brief (`wikis/<repo>/INSTRUCTIONS.md`, written by the repo-brief unit) so it uses your
-glossary; `camaron wiki <repo> --force` skips that check. Runs go one at a time, and a batch stops as soon as the
+glossary; `camaron wiki <repo> --force` skips that check. In the portal's Wikis tab every repo has the button: for a
+repo not chosen yet it chooses it, and without a brief it first writes a starter one from the static scan (no AI), which
+the repo-brief unit replaces later. When no engine can run, the tab says what is missing. Runs go one at a time, and a batch stops as soon as the
 engine is out of quota or logged out instead of failing every remaining repo.
 
 ## 8. CI
 
 Wizard → **⚙️ CI** installs the pipeline in `cam-docs` (GitLab or GitHub): update the affected docs, `check`, export the portal and publish it. Per-repo snippets: `.camarones/ci/repo.*`.
+The portal's **CI** tab shows the same: which pipeline files exist and whether they still match the kit's definition,
+a button to generate them for GitHub or GitLab, the current `check` and freshness, the per-repo files to copy, and the last
+pipeline run when `gh` or `glab` is installed and logged in.
 Before the update branch is pushed, `camaron check --secrets` runs: a possible secret fails the job, so no MR/PR is opened.
 Variables: `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`, a bot token to open MRs/PRs; on GitLab allow the `cam-docs` project's
 job token to clone each service repo (repo → Settings → CI/CD → Job token permissions).
@@ -245,6 +259,10 @@ owns (the proposal is saved in `docs/.work/proposals/` and listed in Review), `a
 `mcp: {pipeline_control: true}` in `workspace.yaml`. `camaron mcp --http` serves the same tools on
 `http://127.0.0.1:8765/mcp` for clients that speak Streamable HTTP; they need `Authorization: Bearer <token>`, with the
 token in `~/.camarones/mcp-token`, and requests from other origins are refused.
+
+**Claude Code inside one repo.** `setup` (and `repair`) registers the `camarones` MCP server in Claude Code's local
+scope for each repo folder, so a session opened in `<repo>/` searches and reads the docs too. It lives in your own
+Claude Code config (`~/.claude.json`), never in the repo; `doctor` says when a repo lacks it and `uninstall` removes it.
 
 **Method hooks (opt-in).** `camaron hooks on` adds three Claude Code hooks to `cam-docs/.claude/settings.json`, which
 the kit owns (`trust` does not ask about them): at session start the agent gets the plan state, the last handoff and

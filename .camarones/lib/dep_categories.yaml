@@ -1,0 +1,53 @@
+# What a dependency is for, by name (lib/inventory.py). Patterns are lowercase fnmatch globs tried against the whole
+# name and, for Maven, the artifact alone. The first category with a match wins, so order matters: testing before
+# security (spring-security-test is a test library), cache before data (spring-boot-starter-data-redis is a cache).
+testing: [junit*, "org.junit*", mockito*, assertj*, hamcrest*, testcontainers*, "*-test", "*_test", "spring-boot-starter-test",
+          rest-assured, wiremock*, mockk*, kotest*, jest, "@jest/*", ts-jest, vitest, "@vitest/*", mocha, chai, sinon,
+          "@testing-library/*", cypress, playwright, "@playwright/test", karma*, jasmine*, supertest, nock, msw,
+          pytest*, hypothesis, coverage, tox, phpunit*, mockery/*, xunit*, nunit*, moq, fluentassertions, flutter_test,
+          mocktail, mockito, integration_test, "github.com/stretchr/testify", jsdom, happy-dom, json-path,
+          "com.jayway.jsonpath*"]
+security: ["spring-boot-starter-security", "spring-security*", "spring-boot-starter-oauth2*", "*oauth*", jjwt*,
+           "*jwt*", jose*, nimbus-jose*, keycloak*, bcrypt*, argon2*, passport*, helmet, csurf, next-auth, "@auth/*",
+           firebase_auth, "@firebase/auth", firebase-auth*, authlib, python-jose, pyjwt, django-allauth, "*saml*",
+           "microsoft.identity*", "microsoft.aspnetcore.authentication*", "golang.org/x/crypto"]
+cache: ["*redis*", ioredis, caffeine, "*ehcache*", "*hazelcast*", "*memcache*", "spring-boot-starter-cache",
+        cache-manager, "@nestjs/cache-manager", lru-cache, node-cache, cachetools, valkey*]
+data: ["spring-boot-starter-data-*", "spring-boot-starter-jdbc", "spring-data-*", "*jdbc*", "*jpa*", hibernate*,
+       postgresql, "*postgres*", "mysql*", "mariadb*", "ojdbc*", "mssql*", "h2", "hsqldb", sqlite*, "*mongodb*", mongoose,
+       mongoengine, motor, pymongo, prisma, "@prisma/*", typeorm, sequelize, knex, drizzle-orm, pg, mysql2, better-sqlite3,
+       sqlalchemy, alembic, psycopg*, asyncpg, "django-*db*", peewee, liquibase*, flyway*, "*cassandra*", "*couchbase*",
+       "*dynamodb*", "*firestore*", cloud_firestore, "@google-cloud/firestore", firebase_database, sqflite, hive,
+       drift, isar, npgsql, "entityframework*", "microsoft.entityframeworkcore*", dapper, "doctrine/*", "gorm.io/*",
+       "github.com/jackc/pgx*", "github.com/lib/pq", "go.mongodb.org/*", diesel, sqlx, "sea-orm", mybatis*, jooq*, r2dbc*]
+messaging: ["*kafka*", "*amqp*", "*rabbit*", "*pubsub*", "*jms*", activemq*, "*nats*", "*sqs*", "*sns*", bullmq, bull,
+            celery, kombu, "@nestjs/microservices", "spring-cloud-stream*", "*eventbridge*", "masstransit*",
+            "firebase_messaging", "@firebase/messaging"]
+observability: [micrometer*, "*actuator*", "*opentelemetry*", "@opentelemetry/*", "*prometheus*", "*sentry*",
+                "@sentry/*", logback*, "log4j*", "slf4j*", winston, pino*, morgan, newrelic, "*datadog*", dd-trace,
+                structlog, loguru, serilog*, "nlog*", "go.uber.org/zap", "github.com/sirupsen/logrus", firebase_crashlytics,
+                firebase_analytics, "@firebase/analytics"]
+api: ["springdoc*", "*swagger*", "*openapi*", "graphql*", "*-graphql", "@apollo/*", apollo*, "@nestjs/swagger",
+      "*grpc*", "*protobuf*", "spring-boot-starter-hateoas", "spring-boot-starter-validation", "jakarta.validation*",
+      "hibernate-validator", pydantic, marshmallow, zod, joi, class-validator, mapstruct*, "jackson*",
+      "*.jackson.*", gson, moshi, "kotlinx-serialization*"]
+http: ["*webflux*", "okhttp*", "retrofit*", "*feign*", "spring-boot-starter-webclient", axios, node-fetch, got, ky,
+       superagent, requests, httpx, aiohttp, urllib3, "guzzlehttp/*", dio, http, "github.com/go-resty/*", reqwest]
+cloud-sdk: ["firebase", "@firebase/*", "firebase-*", "firebase_*", cloud_functions, "aws-sdk*", "@aws-sdk/*",
+            "software.amazon.awssdk*", "com.amazonaws*", boto3, botocore, "google-cloud*", "@google-cloud/*",
+            "com.google.cloud*", "azure*", "@azure/*", "com.azure*", "microsoft.azure*"]
+ui: ["@angular/material", "@angular/cdk", "@angular/animations", "@angular/forms", "@angular/router", "react-dom",
+     "react-router*", "vue-router", "@mui/*", "@material-ui/*", primeng, primeicons, "bootstrap*", "tailwindcss",
+     "@tailwindcss/*", "@chakra-ui/*", antd, "@radix-ui/*", "styled-components", "@emotion/*", "@fortawesome/*",
+     "cupertino_icons", "google_fonts", "provider", "flutter_bloc", "riverpod", "get", "go_router"]
+framework: ["spring-boot-starter*", "spring-boot", "org.springframework*", "spring-*", "quarkus*", "io.quarkus*",
+            "micronaut*", "io.micronaut*", "ktor-server*", "io.ktor*", "@angular/core", "@angular/*", react, vue, svelte,
+            next, nuxt, express, fastify, koa, "@nestjs/*", "@remix-run/*", astro, django, flask, fastapi, starlette,
+            "laravel/framework", "symfony/*", "slim/*", rails, "github.com/gin-gonic/gin", "github.com/labstack/echo*",
+            "github.com/gofiber/fiber*", tokio, actix-web, axum, rocket, flutter, "microsoft.aspnetcore*", jakarta.*,
+            javax.*, firebase-functions, firebase-admin]
+build: [typescript, "ts-node", tsx, webpack*, vite, "@vitejs/*", rollup*, esbuild, babel*, "@babel/*", "eslint*",
+        "@typescript-eslint/*", "prettier*", nodemon, "lombok", "org.projectlombok*", "maven-*", "*-maven-plugin",
+        "@angular/cli", "@angular-devkit/*", "@angular/compiler*", "build_runner", "flutter_lints", lints, ruff, black,
+        mypy, isort, flake8, setuptools, wheel, hatchling, poetry-core, "kotlin-gradle-plugin", "tslib", "zone.js",
+        "@types/*", "*eslint*", core-js]

@@ -232,3 +232,74 @@ jobs:
     when: always
     expire_in: 2 weeks
 """
+
+
+# ---------- the portal's CI tab ----------
+def _probe(cmd: list[str]) -> str | None:
+    """A forge CLI's output, or None when it is missing, logged out, offline or slow. Never raises."""
+    import subprocess
+    from .common import ROOT, which
+    exe = which(cmd[0])
+    if not exe:
+        return None
+    try:
+        r = subprocess.run([exe, *cmd[1:]], cwd=str(ROOT), capture_output=True, text=True, encoding="utf-8",
+                           errors="replace", timeout=10, stdin=subprocess.DEVNULL)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return r.stdout if r.returncode == 0 else None
+
+
+def last_pipeline(forge: str) -> dict | None:
+    """The docs repo's last pipeline run, through `gh` or `glab` with the person's own login: {status, title, url, at}."""
+    import json
+    if forge == "github":
+        raw = _probe(["gh", "run", "list", "--limit", "1", "--json", "status,conclusion,displayTitle,url,createdAt"])
+    else:
+        raw = _probe(["glab", "ci", "list", "--per-page", "1", "--output", "json"])
+    try:
+        row = (json.loads(raw) or [None])[0] if raw else None
+    except (ValueError, TypeError):
+        return None
+    if not isinstance(row, dict):
+        return None
+    if forge == "github":
+        return {"status": row.get("conclusion") or row.get("status"), "title": row.get("displayTitle"),
+                "url": row.get("url"), "at": row.get("createdAt")}
+    return {"status": row.get("status"), "title": row.get("ref"), "url": row.get("web_url"), "at": row.get("created_at")}
+
+
+def status(forge: str | None = None) -> dict:
+    """What the CI tab shows: the pipelines `camaron ci` writes (installed, out of date against the definition), the
+    files service repos copy, the last check and freshness, and the last pipeline run."""
+    from .common import KIT, ROOT, out
+    from . import env
+    from .harness import freshness
+    forge = forge or env.detect_forge()
+    cfg = config()
+    rel = lambda p: p.relative_to(ROOT).as_posix()  # noqa: E731
+    if forge == "github":
+        umbrella = ROOT / ".github" / "workflows" / "docs.yml"
+    else:
+        umbrella = next((p for p in (ROOT / ".gitlab-ci.yml", ROOT / ".gitlab-ci.camarones.yml")
+                         if p.is_file() and "camarones" in p.read_text(encoding="utf-8", errors="replace")),
+                        ROOT / ".gitlab-ci.yml")
+    snippet = f"repo.{'github.yml' if forge == 'github' else 'gitlab-ci.yml'}"
+    wanted = {"umbrella": (umbrella, (KIT / "ci" / f"umbrella.{'github.yml' if forge == 'github' else 'gitlab-ci.yml'}")
+                           .read_text(encoding="utf-8")),
+              "snippet": (ROOT / ".camarones" / "ci" / snippet, (KIT / "ci" / snippet).read_text(encoding="utf-8")),
+              "fresh": (ROOT / ".camarones" / "ci" / FILES[forge], render(forge))}
+    proposal = render_propose(forge)
+    if proposal:
+        wanted["propose"] = (ROOT / ".camarones" / "ci" / FILES_PROPOSE[forge], proposal)
+    installed = {k: {"path": rel(p) if p.is_file() else None,
+                     "outdated": p.is_file() and p.read_text(encoding="utf-8", errors="replace") != text}
+                 for k, (p, text) in wanted.items()}
+    errors, warnings = docs.check()
+    states = freshness.states()
+    return {"forge": forge, "target": cfg["target"], "kitRef": cfg["kit_ref"], "installed": installed,
+            "remote": out(["git", "remote", "get-url", "origin"], cwd=ROOT) or None,
+            "snippets": {"repo": wanted["snippet"][1], "fresh": wanted["fresh"][1], "propose": proposal},
+            "check": {"errors": len(errors), "warnings": len(warnings), "first": [str(e) for e in errors[:5]]},
+            "freshness": {s: sum(1 for v in states.values() if v["state"] == s) for s in ("fresh", "suspect", "stale")},
+            "pipeline": last_pipeline(forge), "guide": "guides/self-hosted-runner.md"}

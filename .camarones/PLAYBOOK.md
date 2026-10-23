@@ -161,6 +161,7 @@ The foundation for one repo — after this unit the repo is useful on its own:
    key glossary terms, integrations, what to emphasize, and a `## Coverage` section listing the pages its wiki needs
    (modules/layers, one per API surface — endpoints, events, jobs — and per logic area, data, configuration, testing,
    operations, known issues). OpenWiki's own engine reads only this brief, so the list is what makes its wiki complete.
+   A brief that starts with `<!-- camarones:starter-brief -->` was written without AI from the static scan: replace it whole.
 2. C4, all in `docs/architecture/repos/<repo>.c4` (this unit may run in parallel with other repos' briefs, so do not
    edit `model.c4`, `views.c4` or `spec.c4`): if `model.c4` has no container for this repo yet, declare it here with
    `extend <system> { <container> = service '…' { metadata { repo '<repo>' } } }`; then
@@ -209,6 +210,10 @@ Skeletons: `domain.md` (bounded contexts), `glossary.md`.
 ## data
 `docs/data/<store>.md` per datastore: `erDiagram`, ownership table (table → writers → readers), migration source,
 `#shared-db` tag in C4 + warning section when shared. Skeleton: `data-model.md`.
+Start from the facts: `docs/data/<repo>.md` (`CLI schemas`, no AI) already has each repo's tables and collections in a
+`<!-- generated:schema repo=<repo> -->` block (ER diagram, keys, references, sources). Keep that block as it is (it is
+refreshed from the code); write around it what the tables mean, who owns them and what is shared. A store page may
+embed the same block for its repo instead of redrawing the diagram.
 
 ## deployment
 `docs/architecture/deployment.c4` + `deployment view deploy_<env>` per environment; `docs/deployment/environments.md`.

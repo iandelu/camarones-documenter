@@ -390,8 +390,9 @@ def unlink_agent_config() -> list[str]:
 
 def camarones_mcp() -> dict:
     """MCP entry for the kit's own server — no API keys; it resolves the project by walking up from its cwd."""
-    if cli_cmd() == "camarones":
-        return {"command": "camarones", "args": ["mcp"]}
+    if cli_cmd() in ("camaron", "camarones"):              # a global install: the same command on every machine
+        cli = cli_cmd()                                    # Windows: a .cmd shim, which MCP hosts cannot spawn
+        return {"command": "cmd", "args": ["/c", cli, "mcp"]} if IS_WIN else {"command": cli, "args": ["mcp"]}
     return {"command": "uv", "args": ["run", "--quiet", "--script", str(KIT / "camarones.py"), "mcp"]}
 
 
@@ -497,10 +498,57 @@ def wire_repo(name: str, log: Log = print, comps: list[str] | None = None) -> No
     comps = components() if comps is None else comps
     if "openwiki" in comps and CAM_LAYOUT:
         link_repo_wiki(name, log)
+    if "agents" in comps and CAM_LAYOUT:
+        wire_repo_mcp(name, log)
     if "graphify" in comps:
         log(f"{name}: building the code graph…")
         if not graph_repo(name):
             log(f"⚠ {name}: graphify build failed")
+
+
+def claude_config() -> Path:
+    """Claude Code's own config file, where `--scope local` MCP servers live per folder."""
+    return Path(os.environ.get("CLAUDE_CONFIG_DIR") or HOME) / ".claude.json"
+
+
+def repo_mcp_entry(name: str) -> dict | None:
+    """The `camarones` MCP server Claude Code has for this repo's folder in its local scope, if any."""
+    data = load_json(claude_config(), {}) if claude_config().is_file() else {}
+    want = os.path.normcase(str(repo_dir(name).resolve()))
+    for folder, cfg in (data.get("projects") or {}).items():
+        if os.path.normcase(str(Path(folder).resolve())) == want and isinstance(cfg, dict):
+            entry = (cfg.get("mcpServers") or {}).get("camarones")
+            return entry if isinstance(entry, dict) else None
+    return None
+
+
+def repo_mcp_registered(name: str) -> bool:
+    entry = repo_mcp_entry(name)
+    return bool(entry) and (entry.get("env") or {}).get("CAMARONES_ROOT") == str(ROOT)
+
+
+def wire_repo_mcp(name: str, log: Log = print) -> bool:
+    """Claude Code opened inside a service repo reaches the docs: the `camarones` MCP server in Claude Code's local
+    scope for that folder (stored in the user's Claude config, nothing in the repo), pointed at this cam-docs.
+    Returns whether it registered it now."""
+    if not which("claude") or not repo_dir(name).is_dir() or repo_mcp_registered(name):
+        return False
+    if repo_mcp_entry(name):                                  # registered for another cam-docs (moved project)
+        run(["claude", "mcp", "remove", "--scope", "local", "camarones"], cwd=repo_dir(name), check=False, quiet=True)
+    m = camarones_mcp()
+    r = run(["claude", "mcp", "add", "--scope", "local", "camarones", "-e", f"CAMARONES_ROOT={ROOT}", "--",
+             m["command"], *m["args"]], cwd=repo_dir(name), check=False, quiet=True)   # -e takes many: name first
+    ok = r.returncode == 0 and repo_mcp_registered(name)
+    log(f"✔ {name}: Claude Code opened in this repo finds the docs (camarones MCP)" if ok
+        else f"⚠ {name}: could not register the camarones MCP for Claude Code")
+    return ok
+
+
+def unwire_repo_mcp(name: str) -> bool:
+    if not repo_mcp_entry(name) or not which("claude") or not repo_dir(name).is_dir():
+        return False
+    run(["claude", "mcp", "remove", "--scope", "local", "camarones"], cwd=repo_dir(name), check=False, quiet=True)
+    return repo_mcp_entry(name) is None
 
 
 def link_repo_wiki(name: str, log: Log = print) -> None:
@@ -747,7 +795,9 @@ def viewers() -> dict:
     model_at = newest(arch_dir().rglob("*.c4")) if arch_dir().is_dir() else 0.0     # fragments in repos/, flows/ too
     graphs = {n: {"at": newest([f]), "stale": n != "all" and repo_changed_at(n) > newest([f])}
               for n, f in code_graphs().items()}
-    return {"c4": {"exists": bool(c4_at), "at": c4_at, "stale": bool(c4_at) and model_at > c4_at, "model": bool(model_at)},
+    model = bool(model_at) and any(re.search(r"^\s*model\s*\{", f.read_text(encoding="utf-8", errors="replace"), re.M)
+                                   for f in arch_dir().rglob("*.c4"))     # the kit's spec.c4 alone is not a model
+    return {"c4": {"exists": bool(c4_at), "at": c4_at, "stale": bool(c4_at) and model_at > c4_at, "model": model},
             "graphs": graphs, "graphify": "graphify" in components(), "likec4": "likec4" in components()}
 
 
@@ -770,6 +820,46 @@ def wiki_engines() -> list[str]:
         return []
     return [e for e, ok in (("openwiki", openwiki_credentials()), ("claude", bool(which("claude"))),
                             ("codex", bool(which("codex")))) if ok]
+
+
+ENGINE_HELP = {
+    "off": "OpenWiki is not one of this project's components: add it with the wizard (⚙️ Settings → components) "
+           "or `camaron setup` after adding `openwiki` to project.components in workspace.yaml",
+    "missing": "OpenWiki is not installed on this machine: run `camaron setup`",
+    "key": "no way to run OpenWiki headless: save a provider key with `openwiki auth configure <provider>` "
+           "(or set OPENAI_API_KEY / ANTHROPIC_API_KEY), or install Claude Code / Codex",
+}
+
+
+def openwiki_wired(host: str) -> bool:
+    """Whether the agent can reach OpenWiki's MCP tools in this project (what `openwiki integrations install` writes)."""
+    if host == "claude":
+        return "openwiki" in (load_json(ROOT / ".mcp.json", {}).get("mcpServers") or {})
+    cfg = ROOT / ".codex" / "config.toml"
+    return cfg.is_file() and "openwiki" in cfg.read_text(encoding="utf-8", errors="replace")
+
+
+def wire_openwiki(host: str, log: Log = print) -> None:
+    """An agent writes the wiki through OpenWiki's MCP server: connect it the way setup does when it is missing
+    (a project set up without the agents step, or a config someone removed), and let headless runs load it."""
+    if openwiki_wired(host):
+        return
+    from . import install_state
+    cmd = next(c for c in OPENWIKI_INSTALL if c[3] == host)
+    log(f"Connecting OpenWiki to {host} in this project…")
+    install_state.learn([cmd])
+    if run(cmd, cwd=ROOT, check=False, quiet=True).returncode != 0 or not openwiki_wired(host):
+        raise RuntimeError(f"OpenWiki could not be connected to {host} in this project: run `camaron setup`")
+    write_agent_config(components())
+
+
+def wiki_engine_help() -> str | None:
+    """Why no engine can write a wiki here (a key of ENGINE_HELP), or None when one can."""
+    if wiki_engines():
+        return None
+    if "openwiki" not in components():
+        return "off"
+    return "key" if openwiki_installed() else "missing"
 
 
 def wiki_pages(repo: str) -> list[Path]:
@@ -835,6 +925,74 @@ def old_wikis() -> list[str]:
     return [n for n in docs.repo_names() if wiki_old(n)]
 
 
+STARTER_MARK = "<!-- camarones:starter-brief -->"
+COVERAGE = ("Overview: what the repo does for the project and how to run it locally", "Modules and layers",
+            "Configuration and environment variables", "Testing: how to run the tests and what they cover",
+            "Build, CI and deployment", "Known issues and technical debt")
+
+
+def starter_brief(repo: str) -> bool:
+    """A brief written without AI from the static scan (stack, tools, detected relations), so a first wiki does not
+    wait for repo-brief; repo-brief replaces it (it starts with STARTER_MARK). Never written over an existing brief."""
+    f = docs.wiki_dir(repo) / "INSTRUCTIONS.md"
+    if f.exists():
+        return False
+    from . import quickarch, radar
+    path = repo_dir(repo)
+    cfg = next((r for r in docs.workspace()["repos"] if r["name"] == repo), {})
+    stack = cfg.get("stack") or quickarch.stack(path, quickarch.repo_blob(path)) or "an undetected stack"
+    tools = radar.scan_repo(repo, path)
+    cats = {t["category"] for t in tools}
+    edges = [e for e in quickarch.scan()["edges"] if repo in (e[0], e[1])]
+    talks = [f"- {'→ ' + e[1] if e[0] == repo else '← ' + e[0]}: {e[3]}" for e in edges]
+    tooling = [f"- {radar.CATEGORIES.get(c, c)}: {', '.join(t['label'] for t in tools if t['category'] == c)}"
+               for c in sorted(cats)]
+    coverage = list(COVERAGE[:2])
+    if "contracts" in cats or any("HTTP" in e[3] for e in edges) or cfg.get("kind", "service") == "service":
+        coverage.append("API surface: one page per group of endpoints, events or jobs")
+    if "data" in cats or any(e[3] == "reads/writes" for e in edges):
+        coverage.append("Data: what it stores, schema and migrations")
+    if "ui" in cats:
+        coverage.append("Screens and navigation")
+    coverage += COVERAGE[2:]
+    project = docs.workspace()["project"]["name"]
+    text = "\n".join([
+        STARTER_MARK,
+        f"# {repo} — wiki brief",
+        "",
+        f"Starter brief written without AI from a static scan of the repo. The repo-brief unit replaces it with the "
+        f"repo's role, bounded context and glossary; until then, read the code for what this page does not say.",
+        "",
+        "## Role",
+        f"`{repo}` is a {cfg.get('kind', 'service')} of {project}, built with {stack}.",
+        "",
+        "## Talks to",
+        *(talks or ["- Nothing detected by the static scan."]),
+        "",
+        "## Tooling",
+        *(tooling or ["- Nothing detected by the static scan."]),
+        "",
+        "## What to emphasize",
+        "What the code does for the project and why, in the project's own terms; link the pages under `docs/` for "
+        "the cross-repo domain, flows and C4 instead of repeating them.",
+        "",
+        "## Coverage",
+        *[f"- {c}" for c in coverage],
+        "",
+    ])
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text(text, encoding="utf-8", newline="\n")
+    return True
+
+
+def wiki_brief_kind(repo: str) -> str | None:
+    """`ai` (written by repo-brief or a person), `starter` (STARTER_MARK) or None (no brief yet)."""
+    f = docs.wiki_dir(repo) / "INSTRUCTIONS.md"
+    if not f.is_file():
+        return None
+    return "starter" if f.read_text(encoding="utf-8", errors="replace").startswith(STARTER_MARK) else "ai"
+
+
 def wiki_brief_ready(repo: str) -> bool:
     """A first wiki needs the brief that repo-brief writes (role, bounded context, glossary), or OpenWiki writes a
     generic wiki that ignores the project's language and repeats what docs/ already covers."""
@@ -845,6 +1003,7 @@ def wikis() -> list[dict]:
     from . import plan
     units = {u["id"]: u["status"] for u in plan.load()["units"]}
     chosen = docs.wiki_repos()
+    can_run = bool(wiki_engines())
     rows = []
     for n in docs.repo_names():
         pages, nav = wiki_pages(n), wiki_nav(n)
@@ -853,6 +1012,7 @@ def wikis() -> list[dict]:
                      "graph": bool(graph_at), "graphStale": bool(graph_at) and at > graph_at, "old": wiki_old(n),
                      "unit": units.get(f"repo-wiki:{n}"),
                      "cloned": repo_dir(n).is_dir(), "chosen": n in chosen, "ready": bool(pages) or wiki_brief_ready(n),
+                     "brief": wiki_brief_kind(n), "canGenerate": can_run and repo_dir(n).is_dir(),
                      "index": next((f"repos/{n}/{p}" for p in ("quickstart.md", "index.md", "README.md")
                                     if (docs.wiki_dir(n) / p).exists()), None)})
     return rows
@@ -992,8 +1152,7 @@ def openwiki_generate(repo: str, mode: str = "", log: Log = print, engine: str =
     engines = wiki_engines()
     engine = engine or (engines[0] if engines else "")
     if engine not in engines:
-        raise RuntimeError("no way to run OpenWiki headless: save a provider key with `openwiki auth configure <provider>` "
-                           "(or set OPENAI_API_KEY / ANTHROPIC_API_KEY), or install Claude Code / Codex")
+        raise RuntimeError(ENGINE_HELP[wiki_engine_help() or "key"])
     link_repo_wiki(repo, log)
     mode = mode or ("update" if wiki_pages(repo) else "init")
     if mode == "init" and not force and not wiki_brief_ready(repo):
@@ -1008,6 +1167,8 @@ def openwiki_generate(repo: str, mode: str = "", log: Log = print, engine: str =
         tail.append(line)
         log(line)
 
+    if engine != "openwiki":
+        wire_openwiki(engine, log)
     with wiki_lock(repo):
         if known:
             plan.set_status(uid, "doing")
