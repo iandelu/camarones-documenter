@@ -295,8 +295,9 @@ def first_look(log) -> bool:
     from . import quickarch, radar
     quickarch.save(quickarch.draft(log=log))
     radar.run(log=log)
-    from . import inventory
+    from . import inventory, schemas
     inventory.run(log=log)
+    schemas.write_pages(log=log)
     docs.llms()
     if env.which("likec4"):
         env.build_c4(log=log)

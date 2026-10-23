@@ -780,8 +780,9 @@ def scan_repos(log=print) -> None:
     """The no-AI base: stack and tooling page, the libraries page, and each repo's reference page (commands, env vars,
     endpoints, topics)."""
     radar.run(log=log)
-    from . import inventory
+    from . import inventory, schemas
     inventory.run(log=log)
+    schemas.write_pages(log=log)
     genblocks.write_reference(log=log)
     genblocks.refresh()
 
