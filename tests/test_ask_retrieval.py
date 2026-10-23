@@ -76,3 +76,12 @@ def test_ask_answers_with_the_first_look_section(kit):
     from lib import serve
     first = serve.api_ask("which database does it use?")["sections"][0]
     assert first["cite"] == "architecture/first-look.md#detected-relations"
+
+
+def test_a_whole_page_hit_does_not_repeat_its_tldr(kit):
+    write(kit, "overview/tooling.md", TOOLING.replace("# Stack and tooling\n", "# Stack and tooling\n\n"
+                                                      "> **TL;DR:** What each repo is built with.\n"), confirm=False)
+    from lib import serve
+    hit = serve.api_ask("maven docker")["sections"][0]
+    assert hit["tldr"] == "> **TL;DR:** What each repo is built with."
+    assert "TL;DR" not in hit["text"] and "Maven" in hit["text"]
