@@ -253,6 +253,10 @@ owns (the proposal is saved in `docs/.work/proposals/` and listed in Review), `a
 `http://127.0.0.1:8765/mcp` for clients that speak Streamable HTTP; they need `Authorization: Bearer <token>`, with the
 token in `~/.camarones/mcp-token`, and requests from other origins are refused.
 
+**Claude Code inside one repo.** `setup` (and `repair`) registers the `camarones` MCP server in Claude Code's local
+scope for each repo folder, so a session opened in `<repo>/` searches and reads the docs too. It lives in your own
+Claude Code config (`~/.claude.json`), never in the repo; `doctor` says when a repo lacks it and `uninstall` removes it.
+
 **Method hooks (opt-in).** `camaron hooks on` adds three Claude Code hooks to `cam-docs/.claude/settings.json`, which
 the kit owns (`trust` does not ask about them): at session start the agent gets the plan state, the last handoff and
 pending reviews; right after it edits a docs page, that page is checked and the problems go back to the agent; before

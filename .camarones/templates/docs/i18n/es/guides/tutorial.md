@@ -265,6 +265,11 @@ informan del plan; `run_node` lanza una unidad solo con `mcp: {pipeline_control:
 `camaron mcp --http` sirve lo mismo en `http://127.0.0.1:8765/mcp` para clientes que hablen Streamable HTTP: necesitan
 `Authorization: Bearer <token>`, con el token en `~/.camarones/mcp-token`, y se rechazan peticiones de otros orígenes.
 
+**Claude Code dentro de un repo.** `setup` (y `repair`) registra el servidor MCP `camarones` en el ámbito local de
+Claude Code para la carpeta de cada repo, así que una sesión abierta en `<repo>/` también busca y lee la documentación.
+Vive en tu propia configuración de Claude Code (`~/.claude.json`), nunca en el repo; `doctor` avisa si a un repo le
+falta y `uninstall` lo quita.
+
 **Hooks del método (opcionales).** `camaron hooks on` añade tres hooks de Claude Code en `cam-docs/.claude/settings.json`,
 que son del kit (`trust` no pregunta por ellos): al empezar la sesión el agente recibe el estado del plan, el último
 relevo y las revisiones pendientes; justo después de editar una página de la doc, esa página se revisa y los problemas

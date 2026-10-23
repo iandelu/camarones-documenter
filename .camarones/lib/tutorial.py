@@ -81,7 +81,7 @@ PAGES = {
                  "Ollama) y Gemini CLI; `camaron doctor --local` te propone un modelo local según la memoria de tu "
                  "equipo. Cuando luego implementéis features, la IA consulta la documentación con el servidor MCP "
                  "«camarones» (preguntar con citas, buscar, leer una página o solo la sección que hace falta, grafo del "
-                 "repo)."},
+                 "repo), también con Claude Code abierto dentro de un solo repo."},
         {"icon": "📖", "title": "OpenWiki: la wiki de cada repo",
          "art": r"""
    cam-docs/wikis/repo-a/     <- la wiki vive aqui, versionada con el resto de la doc
@@ -366,7 +366,8 @@ PAGES = {
                  "OpenCode (the way to local models, such as Qwen on Ollama) and Gemini CLI work too; "
                  "`camaron doctor --local` proposes a local model that fits your computer's memory. Later, when you "
                  "implement features, the AI looks the docs up through the “camarones” MCP server (ask with citations, "
-                 "search, read a page or just the section it needs, repo graph)."},
+                 "search, read a page or just the section it needs, repo graph), also with Claude Code opened inside "
+                 "a single repo."},
         {"icon": "📖", "title": "OpenWiki: each repo's wiki",
          "art": r"""
    cam-docs/wikis/repo-a/     <- the wiki lives here, versioned with the rest of the docs

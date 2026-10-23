@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.33.0-ff875f?style=flat-square" alt="Versión 4.33.0">
+  <img src="https://img.shields.io/badge/version-4.34.0-ff875f?style=flat-square" alt="Versión 4.34.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -47,7 +47,7 @@ Camarón te habla como tu becario gamba al que has mandado a documentar: con gan
 1. **Instala e integra las herramientas de IA** (Claude Code, Codex, graphify, LikeC4, OpenWiki, MCP, mermaid-cli, gitleaks) con un asistente.
 2. **Estandariza la documentación** con un plan de unidades, un playbook, convenciones y skills para los agentes.
 3. **Las personas consultan, editan y verifican** la documentación en el portal vivo (`camaron up`) o con la CLI.
-4. **La IA tiene la documentación a mano al implementar**: servidor MCP `camarones` (`ask` con citas, `search_docs` con ranking, que dice en qué sección está cada resultado; `read_doc` de una página entera o solo de una sección, con su TL;DR; `repo_graph`…), servidor MCP `likec4` para preguntar al modelo de arquitectura, ambos en Claude Code y en Codex, y skills `cam-docs-lookup` / `cam-docs-update`.
+4. **La IA tiene la documentación a mano al implementar**: servidor MCP `camarones` (`ask` con citas, `search_docs` con ranking, que dice en qué sección está cada resultado; `read_doc` de una página entera o solo de una sección, con su TL;DR; `repo_graph`…), servidor MCP `likec4` para preguntar al modelo de arquitectura, ambos en Claude Code y en Codex, y skills `cam-docs-lookup` / `cam-docs-update`. Funciona también con Claude Code abierto dentro de un solo repo: `setup` registra el MCP `camarones` en el ámbito local de Claude Code para la carpeta de cada repo (en tu `~/.claude.json`, nunca en el repo), `doctor` avisa si falta, `repair` lo vuelve a poner y `uninstall` lo quita.
 5. **Documentación viva y revisada**: el código y la doc cambian juntos; `changes`, `check` y la trazabilidad `x-sources` señalan lo que quedó atrás, y `check` además detecta enlaces rotos, diagramas que no se dibujan, secretos copiados y términos que el glosario pide evitar.
 6. **Todo vive en `cam-docs/`**, una carpeta junto a tus repos que es su propio repo Git: docs, `.camarones`, `.claude`, `.codex`, `.agents`, `.mcp.json`. Los repos de servicio no reciben archivos del kit, y la configuración de agentes que llega del equipo solo se carga cuando la apruebas en tu máquina.
 

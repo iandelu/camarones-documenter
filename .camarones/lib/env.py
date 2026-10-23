@@ -497,10 +497,57 @@ def wire_repo(name: str, log: Log = print, comps: list[str] | None = None) -> No
     comps = components() if comps is None else comps
     if "openwiki" in comps and CAM_LAYOUT:
         link_repo_wiki(name, log)
+    if "agents" in comps and CAM_LAYOUT:
+        wire_repo_mcp(name, log)
     if "graphify" in comps:
         log(f"{name}: building the code graph…")
         if not graph_repo(name):
             log(f"⚠ {name}: graphify build failed")
+
+
+def claude_config() -> Path:
+    """Claude Code's own config file, where `--scope local` MCP servers live per folder."""
+    return Path(os.environ.get("CLAUDE_CONFIG_DIR") or HOME) / ".claude.json"
+
+
+def repo_mcp_entry(name: str) -> dict | None:
+    """The `camarones` MCP server Claude Code has for this repo's folder in its local scope, if any."""
+    data = load_json(claude_config(), {}) if claude_config().is_file() else {}
+    want = os.path.normcase(str(repo_dir(name).resolve()))
+    for folder, cfg in (data.get("projects") or {}).items():
+        if os.path.normcase(str(Path(folder).resolve())) == want and isinstance(cfg, dict):
+            entry = (cfg.get("mcpServers") or {}).get("camarones")
+            return entry if isinstance(entry, dict) else None
+    return None
+
+
+def repo_mcp_registered(name: str) -> bool:
+    entry = repo_mcp_entry(name)
+    return bool(entry) and (entry.get("env") or {}).get("CAMARONES_ROOT") == str(ROOT)
+
+
+def wire_repo_mcp(name: str, log: Log = print) -> bool:
+    """Claude Code opened inside a service repo reaches the docs: the `camarones` MCP server in Claude Code's local
+    scope for that folder (stored in the user's Claude config, nothing in the repo), pointed at this cam-docs.
+    Returns whether it registered it now."""
+    if not which("claude") or not repo_dir(name).is_dir() or repo_mcp_registered(name):
+        return False
+    if repo_mcp_entry(name):                                  # registered for another cam-docs (moved project)
+        run(["claude", "mcp", "remove", "--scope", "local", "camarones"], cwd=repo_dir(name), check=False, quiet=True)
+    m = camarones_mcp()
+    r = run(["claude", "mcp", "add", "--scope", "local", "camarones", "-e", f"CAMARONES_ROOT={ROOT}", "--",
+             m["command"], *m["args"]], cwd=repo_dir(name), check=False, quiet=True)   # -e takes many: name first
+    ok = r.returncode == 0 and repo_mcp_registered(name)
+    log(f"✔ {name}: Claude Code opened in this repo finds the docs (camarones MCP)" if ok
+        else f"⚠ {name}: could not register the camarones MCP for Claude Code")
+    return ok
+
+
+def unwire_repo_mcp(name: str) -> bool:
+    if not repo_mcp_entry(name) or not which("claude") or not repo_dir(name).is_dir():
+        return False
+    run(["claude", "mcp", "remove", "--scope", "local", "camarones"], cwd=repo_dir(name), check=False, quiet=True)
+    return repo_mcp_entry(name) is None
 
 
 def link_repo_wiki(name: str, log: Log = print) -> None:
