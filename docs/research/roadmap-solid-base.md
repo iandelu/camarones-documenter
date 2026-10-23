@@ -32,6 +32,16 @@ MCP server (`.mcp.json` lives in the workspace root) and the repo pointer is opt
 
 ## Phase 0 — make what exists work
 
+Done 2026-10-23 (kit 4.28.0–4.30.2), checked on the sandbox: S1 (4.28.0), S2 (4.28.1), S3 (4.28.2), S4 (4.29.0),
+S5 (4.29.1), S6 (4.30.0). Two fixes the sandbox run turned up: a wiki run connects OpenWiki's MCP to the agent when
+setup did not (4.30.1), and `first-look.md` cites the files it was read from, so the freshness gate lets agents and
+Ask's AI answer use it on a fresh install (4.30.2). Measured: the same AI answer went from $0.21 to $0.0016 (haiku,
+6 s), and "qué base de datos usa" now answers PostgreSQL and MySQL with the citation.
+
+Not done from these items: indexing the `.c4` model itself in search (S1; first-look carries the same facts) and
+"nothing found" listing the closest titles (S1). New: `GET /api/tree` takes seconds because `wiki_engines()` runs
+`npm ls -g` twice on every call; cache it per process.
+
 | ID | Change | Test first |
 |---|---|---|
 | S1 | **Ask retrieval.** Index the C4 model (titles, technology, descriptions) and the facts pages of S5/S8; a synonym table in a data file (`database` → PostgreSQL, MySQL, Mongo, Firestore…, ES ↔ EN pairs from the glossary); kit guides out of project search unless the query names the kit; "nothing found" lists the closest page titles | Fixture: "what database does it use" and "qué base de datos usa" both return the page naming PostgreSQL first; a kit guide never outranks a project page |
