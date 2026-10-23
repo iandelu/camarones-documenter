@@ -155,7 +155,8 @@ once). Without them `check` prints one warning and skips that check.
 
 ## 5. Portal
 
-One portal, two modes, the same interface. Tabs: **Docs** (tree, search, trust badges), **Architecture (C4)**,
+One portal, two modes, the same interface. Tabs: **Docs** (tree, search, trust badges), **Architecture (C4)** (under each view, its elements: edit title,
+technology, description and relations, and confirm what the AI drafted, one by one or the whole view),
 **Code graph** (all repos or one), **Wikis** (OpenWiki per repo, its pages and graph), **Review** (pending pages, reviews
 an agent is waiting for, change requests, code changed since the docs, `check`), **Ask** (the sections that best answer
 a question, with citations, no AI; "database" also finds PostgreSQL and Spanish questions find English pages; with an agent set up, "Answer with AI" writes the answer from them

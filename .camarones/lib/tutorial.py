@@ -191,7 +191,7 @@ PAGES = {
    | DOMINIO          |  [Editar] [Confirmar] [Pedir cambios]                   |
    |  > Glosario      |  ...                                                    |
    +----------------------------------------------------------------------------+""",
-         "text": "El portal 🦐 junta en una sola web la documentación (con buscador, edición y revisión), el explorador C4, "
+         "text": "El portal 🦐 junta en una sola web la documentación (con buscador, edición y revisión), el explorador C4 (bajo cada vista, sus elementos para corregir y confirmar lo que redactó la IA), "
                  "el grafo de código y las wikis de OpenWiki, en español o inglés. Tiene dos modos con la misma "
                  "interfaz: el portal local (`camaron up`, o asistente → 🌐 Portal → 📝 Abrir el portal), donde se "
                  "puede editar, y la exportación de solo lectura (`camaron portal`) que se despliega con Docker o en "
@@ -475,7 +475,7 @@ PAGES = {
    | DOMAIN           |  [Edit] [Confirm] [Request changes]                     |
    |  > Glossary      |  ...                                                    |
    +----------------------------------------------------------------------------+""",
-         "text": "The 🦐 portal brings the docs (with search, editing and review), the C4 explorer, the code graph and the "
+         "text": "The 🦐 portal brings the docs (with search, editing and review), the C4 explorer (under each view, its elements to fix and confirm what the AI drafted), the code graph and the "
                  "OpenWiki wikis together in one site, in English or Spanish. It has two modes with the same interface: "
                  "the local portal (`camaron up`, or wizard → 🌐 Portal → 📝 Open the portal), where you can edit, and "
                  "the read-only export (`camaron portal`) that is deployed with Docker or on any static host. "
