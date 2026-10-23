@@ -90,6 +90,16 @@ deep the page sits.
 
 ## Phase 4 — Claude Code and the safety net
 
+Done 2026-10-23: S16 (kit 4.34.0), S17 (tests only), S18 (kit 4.35.0), checked on the sandbox and on a fresh copy of it.
+
+- S16: before the change, Claude Code opened in a repo already saw the workspace's `.mcp.json`, but as "pending
+  approval". Now it is "Local config ✔ Connected", and a haiku session in `spring-petclinic-rest/` answered through
+  `search_docs` ($0.006). `claude mcp add`'s `-e` takes several values, so the server name goes before it; the test's
+  fake CLI parses it the same way.
+- S17 is API-level: Playwright stays a candidate (tooling-candidates.md, Q10).
+- S18: a fresh install was never "empty" (the kit's two guides), and the kit's `spec.c4` counted as a model. Both now
+  read as empty. Still open: the Pipeline tab's strings are English only (they predate the i18n of the React views).
+
 | ID | Change | Test first |
 |---|---|---|
 | S16 | **Claude Code inside each repo.** `setup` registers the `camarones` MCP for every repo path with `claude mcp add --scope local` (stored in the user's Claude config, nothing written in the repo); `uninstall` removes it; `doctor` reports it. Verify on the sandbox with `ab --qa` started from inside `spring-petclinic-rest` | argv of the registration and removal; `traces` exit 0 after uninstall; sandbox: the in-repo session calls `search_docs` |
