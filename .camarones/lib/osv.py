@@ -1,0 +1,111 @@
+"""Known vulnerabilities of the inventory's libraries (S8), from OSV-Scanner (lib/binaries.py pins and checks it).
+
+Offline by default: the scanner downloads OSV's per-ecosystem databases once into ~/.camarones/osv-db and matches the
+repo's packages on this machine, so no package name leaves it. The online API (more precise for unresolved Maven
+versions) sends package coordinates to osv.dev, so it runs only when this machine opts in: `osv: {online: true}` in
+~/.camarones.json. Never raises: a missing binary or a failed scan leaves the inventory without vulnerabilities."""
+from __future__ import annotations
+
+import json, os, subprocess
+from datetime import datetime, timezone
+
+from .common import HOME, PREFS, load_json, repo_dir
+from . import binaries, docs
+
+DB_DIR = HOME / ".camarones" / "osv-db"
+TIMEOUT = 900                 # the first offline run downloads the databases
+
+
+def online() -> bool:
+    return bool((load_json(PREFS, {}).get("osv") or {}).get("online"))
+
+
+def _run(argv: list[str], env: dict) -> tuple[int, str]:
+    try:
+        r = subprocess.run(argv, capture_output=True, text=True, encoding="utf-8", errors="replace", env=env,
+                           timeout=TIMEOUT, stdin=subprocess.DEVNULL)
+        return r.returncode, r.stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return 127, ""
+
+
+def severity(score: float | None, label: str | None) -> str:
+    if score is not None:
+        return "critical" if score >= 9 else "high" if score >= 7 else "medium" if score >= 4 else "low"
+    return {"CRITICAL": "critical", "HIGH": "high", "MODERATE": "medium", "MEDIUM": "medium", "LOW": "low"}.get(
+        (label or "").upper(), "unknown")
+
+
+def _fixed(vuln: dict, name: str) -> str | None:
+    for aff in vuln.get("affected") or []:
+        if (aff.get("package") or {}).get("name", name) != name:
+            continue
+        for rng in aff.get("ranges") or []:
+            for ev in rng.get("events") or []:
+                if ev.get("fixed"):
+                    return ev["fixed"]
+    return None
+
+
+def parse(data: dict) -> dict[tuple[str, str], list[dict]]:
+    """(ecosystem, name) → [{id, cve, summary, severity, score, fixed, version}] from OSV-Scanner's JSON."""
+    out: dict[tuple[str, str], list[dict]] = {}
+    for result in data.get("results") or []:
+        for pkg in result.get("packages") or []:
+            p = pkg.get("package") or {}
+            scores = {i: g.get("max_severity") for g in pkg.get("groups") or [] for i in g.get("ids") or []}
+            for v in pkg.get("vulnerabilities") or []:
+                try:
+                    score = float(scores.get(v.get("id")) or "")
+                except ValueError:
+                    score = None
+                out.setdefault((p.get("ecosystem", ""), p.get("name", "")), []).append({
+                    "id": v.get("id"), "cve": next((a for a in v.get("aliases") or [] if a.startswith("CVE-")), None),
+                    "summary": v.get("summary") or "", "score": score,
+                    "severity": severity(score, (v.get("database_specific") or {}).get("severity")),
+                    "fixed": _fixed(v, p.get("name", "")), "version": p.get("version")})
+    return out
+
+
+def scan_repo(exe: str, name: str) -> dict | None:
+    argv = [str(exe), "scan", "source", "--format", "json", "--recursive"]
+    if not online():
+        argv += ["--offline-vulnerabilities", "--download-offline-databases"]
+    argv.append(str(repo_dir(name)))
+    DB_DIR.mkdir(parents=True, exist_ok=True)
+    rc, stdout = _run(argv, {**os.environ, "OSV_SCANNER_LOCAL_DB_CACHE_DIRECTORY": str(DB_DIR)})
+    if rc not in (0, 1, 128):                            # 1: vulnerabilities found, 128: no packages to scan
+        return None
+    try:
+        return json.loads(stdout) if stdout.strip() else {"results": []}
+    except ValueError:
+        return None
+
+
+def attach(rows: list[dict], log=print) -> dict | None:
+    """Scan every repo and put `vulns` on each inventory row. Returns the scan's summary, or None without the binary."""
+    exe = binaries.ensure("osv-scanner", log=log)
+    if not exe:
+        log("⚠ OSV-Scanner is not available on this machine: the inventory has no vulnerabilities")
+        return None
+    found: dict[tuple[str, str], list[dict]] = {}
+    failed = []
+    repos = sorted({r["repo"] for r in rows} | {n for n in docs.repo_names() if repo_dir(n).is_dir()})
+    for name in repos:
+        log(f"{name}: scanning for known vulnerabilities{' (offline database)' if not online() else ''}…")
+        data = scan_repo(exe, name)
+        if data is None:
+            failed.append(name)
+            continue
+        for key, vulns in parse(data).items():
+            found.setdefault(key, []).extend(vulns)
+    for row in rows:
+        version = (row.get("version") or "").lstrip("v")
+        hits = [v for v in found.get((row["ecosystem"], row["name"]), [])
+                if not version or (v["version"] or "").lstrip("v") in ("", version)]
+        row["vulns"] = [{k: v[k] for k in ("id", "cve", "summary", "severity", "score", "fixed")}
+                        for v in {v["id"]: v for v in hits}.values()]
+    vulnerable = sum(1 for r in rows if r["vulns"])
+    log(f"✔ {vulnerable} libraries with known vulnerabilities" + (f" ({', '.join(failed)}: scan failed)" if failed else ""))
+    return {"scanned": len(repos) - len(failed), "failed": failed, "online": online(), "vulnerable": vulnerable,
+            "at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
