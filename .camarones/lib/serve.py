@@ -47,7 +47,7 @@ def tree() -> dict:
     ws = docs.workspace()
     return {"project": ws["project"]["name"], "langs": ws["project"].get("translations", []), "reviewer": reviewer(),
             "summary": docs.summary(rows), "feedback": len(docs.pending_feedback()), "kit": VERSIONS["kit"],
-            "repos": docs.repo_names(), "codeGraphs": list(env.code_graphs()), "engines": env.wiki_engines(),
+            "repos": docs.repo_names(), "codeGraphs": list(env.code_graphs()), "engines": env.wiki_engines(), "engineHelp": env.wiki_engine_help(),
             "sections": docs.SECTIONS, "views": env.c4_views(), "codeMaps": codemap.available(), "editBase": "",
             "docs": [{k: r[k] for k in ("path", "file", "title", "description", "type", "space", "trust", "owner", "i18n",
                                         "orphan_sources")} for r in rows]}
@@ -235,9 +235,18 @@ def build(b: dict) -> dict:
 
 
 def wiki(b: dict) -> dict:
+    """`choose`: add the repo to the ones with a wiki (its plan unit comes back); `starter`: write a starter brief
+    (no AI) when repo-brief has not written one. The card says both before the click."""
     repo, mode, engine = b.get("repo", ""), b.get("mode", ""), b.get("engine", "")
     if repo not in docs.repo_names() or mode not in ("", "init", "update"):
         raise ValueError("unknown repo or mode")
+    if repo not in docs.wiki_repos() and not env.wiki_pages(repo):
+        if not b.get("choose"):
+            raise ValueError(f"{repo} is not chosen for a wiki")
+        docs.set_wiki_repos([*docs.wiki_repos(), repo])
+        plan.sync()
+    if b.get("starter"):
+        env.starter_brief(repo)
     return start_job("wiki", f"OpenWiki {repo}", lambda log: env.openwiki_generate(repo, mode, log, engine))
 
 

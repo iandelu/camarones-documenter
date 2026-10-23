@@ -210,7 +210,9 @@ the run ends.
 Each wiki is a full agent run, so only the repos you choose get one: wizard → **📚 Wikis** → **Choose which repos get a
 wiki** (stored as `wiki: true` in `.camarones/workspace.yaml`). Pick the services with logic, not libraries or CI repos.
 A first wiki waits for the repo's brief (`wikis/<repo>/INSTRUCTIONS.md`, written by the repo-brief unit) so it uses your
-glossary; `camaron wiki <repo> --force` skips that check. Runs go one at a time, and a batch stops as soon as the
+glossary; `camaron wiki <repo> --force` skips that check. In the portal's Wikis tab every repo has the button: for a
+repo not chosen yet it chooses it, and without a brief it first writes a starter one from the static scan (no AI), which
+the repo-brief unit replaces later. When no engine can run, the tab says what is missing. Runs go one at a time, and a batch stops as soon as the
 engine is out of quota or logged out instead of failing every remaining repo.
 
 ## 8. CI

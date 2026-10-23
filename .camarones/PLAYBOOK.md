@@ -161,6 +161,7 @@ The foundation for one repo — after this unit the repo is useful on its own:
    key glossary terms, integrations, what to emphasize, and a `## Coverage` section listing the pages its wiki needs
    (modules/layers, one per API surface — endpoints, events, jobs — and per logic area, data, configuration, testing,
    operations, known issues). OpenWiki's own engine reads only this brief, so the list is what makes its wiki complete.
+   A brief that starts with `<!-- camarones:starter-brief -->` was written without AI from the static scan: replace it whole.
 2. C4, all in `docs/architecture/repos/<repo>.c4` (this unit may run in parallel with other repos' briefs, so do not
    edit `model.c4`, `views.c4` or `spec.c4`): if `model.c4` has no container for this repo yet, declare it here with
    `extend <system> { <container> = service '…' { metadata { repo '<repo>' } } }`; then
