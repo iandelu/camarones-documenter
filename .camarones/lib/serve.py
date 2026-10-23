@@ -7,7 +7,7 @@ Binds 127.0.0.1 only. Mutating calls need the X-Camarones header, which a cross-
 CORS preflight this server never grants."""
 from __future__ import annotations
 
-import itertools, json, mimetypes, re, threading, time, urllib.parse
+import datetime as dt, itertools, json, mimetypes, re, threading, time, urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -70,7 +70,7 @@ def api_ask(question: str) -> dict:
     No model: the same retrieval as the MCP `ask`, through the same freshness gate."""
     from .harness import freshness
     hits = docs.search(question, 20) if question.strip() else []
-    usage.record("portal:ask", channel="human", hit=bool(hits))
+    usage.record("portal:ask", channel="human", hit=bool(hits), query=question)
     rows, out = {r["path"]: r for r in docs.collect()}, []
     for h in hits:
         r = rows.get(h["path"], {})
@@ -107,6 +107,30 @@ def api_c4_view(view: str) -> dict:
                           "in": [rel(r) for r in idx["relations"] if r["to"] == f]} for f in shown]}
 
 
+def kpis_miss(b: dict) -> dict:
+    """A question nobody found an answer to: `question` adds it to the open questions for the next interview,
+    `dismiss` just forgets it."""
+    q, action = str(b.get("q") or ""), b.get("action")
+    if q not in {m["q"] for m in usage.misses()}:
+        raise KeyError(q)
+    if action == "question":
+        n = next(m["n"] for m in usage.misses() if m["q"] == q)
+        f = DOCS / "interview" / "open-questions.md"
+        if not f.exists():
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text("---\ntype: interview\ntitle: Open questions\ndescription: Questions agents could not answer "
+                         "from the code; answer them in the next interview or inline.\n---\n# Open questions\n",
+                         encoding="utf-8", newline="\n")
+        text = f.read_text(encoding="utf-8")
+        line = (f"- [ ] ({dt.date.today().isoformat()}, docs-gap) {q} — asked {n}× in the portal or by agents; "
+                "no page answered it\n")
+        f.write_text(text.rstrip("\n") + "\n" + line, encoding="utf-8", newline="\n")
+    elif action != "dismiss":
+        raise ValueError("action: question or dismiss")
+    usage.forget(q)
+    return {"misses": usage.misses()}
+
+
 def c4_change(path: str, b: dict, by: str) -> dict:
     from . import c4edit
     if path == "element":
@@ -133,7 +157,7 @@ def api_search(q: dict) -> list[dict]:
     """Only full searches (`track`) count: the palette searches on every keystroke."""
     hits = docs.search(q.get("q", ""))
     if q.get("track"):
-        usage.record("portal:search", channel="human", hit=bool(hits))
+        usage.record("portal:search", channel="human", hit=bool(hits), query=q.get("q", ""))
     return hits
 
 
@@ -405,6 +429,9 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(api_pipeline())
         if name == "ask":
             return self.json(api_ask(q.get("q", "")))
+        if name == "kpis":
+            from .harness import kpis
+            return self.json(kpis.dashboard())
         if name == "c4/view":
             return self.json(api_c4_view(q.get("id", "")))
         if name == "boards":
@@ -511,6 +538,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json({"cancelling": m.group(1)})
             if p == "/api/units/retry":
                 return self.json(*retry_unit(b.get("unit", "")))
+            if p == "/api/kpis/miss":
+                try:
+                    return self.json(kpis_miss(b))
+                except KeyError as e:
+                    return self.json({"error": f"not in the list: {e}"}, 404)
             if m := re.fullmatch(r"/api/c4/(element|confirm|relation)", p):
                 try:
                     return self.json(c4_change(m.group(1), b, by))

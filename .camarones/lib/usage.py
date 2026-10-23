@@ -1,10 +1,11 @@
 """Team usage stats: how the docs are consulted (agents through MCP, people through the portal), which features are
 used and what searches find nothing. Counters only, no query text: one file per person and machine in
-docs/.work/usage/, committed, so `share` brings in the whole team's. Recording is decided per machine (setup asks;
+docs/.work/usage/, committed, so `share` brings in the whole team's. The text of the questions nothing answered stays
+on this machine (MISSES, never committed), without e-mails or long numbers, for the portal's KPIs tab. Recording is decided per machine (setup asks;
 an upgraded project records unless turned off) and never gets in the way of the tool."""
 from __future__ import annotations
 
-import hashlib, json, os, platform, getpass
+import hashlib, json, os, platform, getpass, re
 from collections import Counter
 from datetime import date, datetime
 from functools import lru_cache
@@ -13,6 +14,9 @@ from .common import ROOT, CACHE, WORK, WS_FILE, run, out, load_json, save_json
 
 DIR = WORK / "usage"
 SETTING = CACHE / "usage.json"
+MISSES = CACHE / "usage-misses.json"
+MAX_MISSES = 50
+PRIVATE = re.compile(r"\S+@\S+|\d[\d\s-]{6,}\d")       # e-mails, phone, card and account numbers
 TOP = 10
 
 
@@ -44,8 +48,9 @@ def _inc(d: dict, key: str) -> None:
 
 
 def record(event: str, *, channel: str | None = None, hit: bool | None = None, page: str | None = None,
-           now: datetime | None = None) -> None:
-    """Count one use: `event` is "<source>:<what>"; a search adds hit/miss, a read adds the page, both per channel."""
+           now: datetime | None = None, query: str | None = None) -> None:
+    """Count one use: `event` is "<source>:<what>"; a search adds hit/miss, a read adds the page, both per channel.
+    A search that found nothing also keeps its `query` on this machine (see misses)."""
     try:
         if not WS_FILE.exists() or not enabled():
             return
@@ -68,8 +73,37 @@ def record(event: str, *, channel: str | None = None, hit: bool | None = None, p
         tmp.write_text(json.dumps(data, indent=1, sort_keys=True, ensure_ascii=False) + "\n", encoding="utf-8",
                        newline="\n")
         os.replace(tmp, f)
+        if hit is False and query:
+            _miss(query, now)
     except Exception:  # noqa: BLE001 — a stats failure must never break a search, a page or a command
         pass
+
+
+def _clean(query: str) -> str:
+    return PRIVATE.sub("…", " ".join(query.lower().split()))[:160]
+
+
+def _miss(query: str, now: datetime) -> None:
+    q = _clean(query)
+    if not q:
+        return
+    rows = [m for m in misses() if m["q"] != q]
+    old = next((m for m in misses() if m["q"] == q), {"n": 0})
+    rows.insert(0, {"q": q, "n": old["n"] + 1, "last": now.strftime("%Y-%m-%d")})
+    save_json(MISSES, {"v": 1, "misses": rows[:MAX_MISSES]})
+
+
+def misses() -> list[dict]:
+    """Questions nothing in the docs answered, newest first: {q, n, last}. This machine only."""
+    rows = load_json(MISSES, {}).get("misses") if MISSES.exists() else []
+    return rows if isinstance(rows, list) else []
+
+
+def forget(query: str) -> None:
+    rows = misses()
+    if not any(m["q"] == query for m in rows):
+        raise KeyError(query)
+    save_json(MISSES, {"v": 1, "misses": [m for m in rows if m["q"] != query]})
 
 
 # ---------- report ----------
