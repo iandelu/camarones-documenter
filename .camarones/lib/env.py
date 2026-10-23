@@ -772,6 +772,24 @@ def wiki_engines() -> list[str]:
                             ("codex", bool(which("codex")))) if ok]
 
 
+ENGINE_HELP = {
+    "off": "OpenWiki is not one of this project's components: add it with the wizard (⚙️ Settings → components) "
+           "or `camaron setup` after adding `openwiki` to project.components in workspace.yaml",
+    "missing": "OpenWiki is not installed on this machine: run `camaron setup`",
+    "key": "no way to run OpenWiki headless: save a provider key with `openwiki auth configure <provider>` "
+           "(or set OPENAI_API_KEY / ANTHROPIC_API_KEY), or install Claude Code / Codex",
+}
+
+
+def wiki_engine_help() -> str | None:
+    """Why no engine can write a wiki here (a key of ENGINE_HELP), or None when one can."""
+    if wiki_engines():
+        return None
+    if "openwiki" not in components():
+        return "off"
+    return "key" if openwiki_installed() else "missing"
+
+
 def wiki_pages(repo: str) -> list[Path]:
     """Generated pages only: INSTRUCTIONS.md is the user-authored brief, not a page."""
     wiki = docs.wiki_dir(repo)
@@ -835,6 +853,74 @@ def old_wikis() -> list[str]:
     return [n for n in docs.repo_names() if wiki_old(n)]
 
 
+STARTER_MARK = "<!-- camarones:starter-brief -->"
+COVERAGE = ("Overview: what the repo does for the project and how to run it locally", "Modules and layers",
+            "Configuration and environment variables", "Testing: how to run the tests and what they cover",
+            "Build, CI and deployment", "Known issues and technical debt")
+
+
+def starter_brief(repo: str) -> bool:
+    """A brief written without AI from the static scan (stack, tools, detected relations), so a first wiki does not
+    wait for repo-brief; repo-brief replaces it (it starts with STARTER_MARK). Never written over an existing brief."""
+    f = docs.wiki_dir(repo) / "INSTRUCTIONS.md"
+    if f.exists():
+        return False
+    from . import quickarch, radar
+    path = repo_dir(repo)
+    cfg = next((r for r in docs.workspace()["repos"] if r["name"] == repo), {})
+    stack = cfg.get("stack") or quickarch.stack(path, quickarch.repo_blob(path)) or "an undetected stack"
+    tools = radar.scan_repo(repo, path)
+    cats = {t["category"] for t in tools}
+    edges = [e for e in quickarch.scan()["edges"] if repo in (e[0], e[1])]
+    talks = [f"- {'→ ' + e[1] if e[0] == repo else '← ' + e[0]}: {e[3]}" for e in edges]
+    tooling = [f"- {radar.CATEGORIES.get(c, c)}: {', '.join(t['label'] for t in tools if t['category'] == c)}"
+               for c in sorted(cats)]
+    coverage = list(COVERAGE[:2])
+    if "contracts" in cats or any("HTTP" in e[3] for e in edges) or cfg.get("kind", "service") == "service":
+        coverage.append("API surface: one page per group of endpoints, events or jobs")
+    if "data" in cats or any(e[3] == "reads/writes" for e in edges):
+        coverage.append("Data: what it stores, schema and migrations")
+    if "ui" in cats:
+        coverage.append("Screens and navigation")
+    coverage += COVERAGE[2:]
+    project = docs.workspace()["project"]["name"]
+    text = "\n".join([
+        STARTER_MARK,
+        f"# {repo} — wiki brief",
+        "",
+        f"Starter brief written without AI from a static scan of the repo. The repo-brief unit replaces it with the "
+        f"repo's role, bounded context and glossary; until then, read the code for what this page does not say.",
+        "",
+        "## Role",
+        f"`{repo}` is a {cfg.get('kind', 'service')} of {project}, built with {stack}.",
+        "",
+        "## Talks to",
+        *(talks or ["- Nothing detected by the static scan."]),
+        "",
+        "## Tooling",
+        *(tooling or ["- Nothing detected by the static scan."]),
+        "",
+        "## What to emphasize",
+        "What the code does for the project and why, in the project's own terms; link the pages under `docs/` for "
+        "the cross-repo domain, flows and C4 instead of repeating them.",
+        "",
+        "## Coverage",
+        *[f"- {c}" for c in coverage],
+        "",
+    ])
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text(text, encoding="utf-8", newline="\n")
+    return True
+
+
+def wiki_brief_kind(repo: str) -> str | None:
+    """`ai` (written by repo-brief or a person), `starter` (STARTER_MARK) or None (no brief yet)."""
+    f = docs.wiki_dir(repo) / "INSTRUCTIONS.md"
+    if not f.is_file():
+        return None
+    return "starter" if f.read_text(encoding="utf-8", errors="replace").startswith(STARTER_MARK) else "ai"
+
+
 def wiki_brief_ready(repo: str) -> bool:
     """A first wiki needs the brief that repo-brief writes (role, bounded context, glossary), or OpenWiki writes a
     generic wiki that ignores the project's language and repeats what docs/ already covers."""
@@ -845,6 +931,7 @@ def wikis() -> list[dict]:
     from . import plan
     units = {u["id"]: u["status"] for u in plan.load()["units"]}
     chosen = docs.wiki_repos()
+    can_run = bool(wiki_engines())
     rows = []
     for n in docs.repo_names():
         pages, nav = wiki_pages(n), wiki_nav(n)
@@ -853,6 +940,7 @@ def wikis() -> list[dict]:
                      "graph": bool(graph_at), "graphStale": bool(graph_at) and at > graph_at, "old": wiki_old(n),
                      "unit": units.get(f"repo-wiki:{n}"),
                      "cloned": repo_dir(n).is_dir(), "chosen": n in chosen, "ready": bool(pages) or wiki_brief_ready(n),
+                     "brief": wiki_brief_kind(n), "canGenerate": can_run and repo_dir(n).is_dir(),
                      "index": next((f"repos/{n}/{p}" for p in ("quickstart.md", "index.md", "README.md")
                                     if (docs.wiki_dir(n) / p).exists()), None)})
     return rows
@@ -992,8 +1080,7 @@ def openwiki_generate(repo: str, mode: str = "", log: Log = print, engine: str =
     engines = wiki_engines()
     engine = engine or (engines[0] if engines else "")
     if engine not in engines:
-        raise RuntimeError("no way to run OpenWiki headless: save a provider key with `openwiki auth configure <provider>` "
-                           "(or set OPENAI_API_KEY / ANTHROPIC_API_KEY), or install Claude Code / Codex")
+        raise RuntimeError(ENGINE_HELP[wiki_engine_help() or "key"])
     link_repo_wiki(repo, log)
     mode = mode or ("update" if wiki_pages(repo) else "init")
     if mode == "init" and not force and not wiki_brief_ready(repo):

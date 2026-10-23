@@ -98,7 +98,8 @@ PAGES = {
                  "portal (pestaña Wikis, con el log en directo), desde el asistente (📚 Wikis) o con "
                  "«camaron wiki <repo>»; sus páginas aparecen en Docs, en repos/<repo>/. Cada wiki es una sesión de "
                  "agente completa, así que solo la llevan los repos que elijas (asistente > Wikis > elegir), y la primera "
-                 "espera al repo-brief, que le da el rol y el glosario del repo. Se lanzan de una en una. Camarones rellena "
+                 "espera al repo-brief, que le da el rol y el glosario del repo (desde el portal puedes lanzarla igual: "
+                 "elige el repo y escribe un brief inicial sin IA). Se lanzan de una en una. Camarones rellena "
                  "lo que OpenWiki no cubre: visión del proyecto entero, dominio, flujos de negocio, despliegue y decisiones."},
         {"icon": "🕸", "title": "graphify: el grafo del código",
          "art": r"""
@@ -381,7 +382,8 @@ PAGES = {
                  "the service repo stays clean. Generate or update it from the portal (Wikis tab, with a live log), from "
                  "the wizard (📚 Wikis) or with “camaron wiki <repo>”; its pages show up under Docs as repos/<repo>/. "
                  "Each wiki is a full agent run, so only the repos you choose get one (wizard > Wikis > choose), and the "
-                 "first one waits for the repo-brief, which gives it the repo's role and glossary. They run one at a time. "
+                 "first one waits for the repo-brief, which gives it the repo's role and glossary (from the portal you can "
+                 "start one anyway: it chooses the repo and writes a starter brief without AI). They run one at a time. "
                  "Camarones fills what OpenWiki doesn't cover: the whole-project view, domain, business flows, deployment "
                  "and decisions."},
         {"icon": "🕸", "title": "graphify: the code graph",

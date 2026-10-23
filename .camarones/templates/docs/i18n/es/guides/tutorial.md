@@ -220,7 +220,10 @@ al terminar.
 Cada wiki es una sesión de agente completa, así que solo la llevan los repos que elijas: asistente → **📚 Wikis** →
 **Elegir qué repos tienen wiki** (se guarda como `wiki: true` en `.camarones/workspace.yaml`). Elige los servicios con
 lógica, no librerías ni repos de CI. La primera wiki de un repo espera a su brief (`wikis/<repo>/INSTRUCTIONS.md`, que
-escribe la unidad repo-brief) para usar tu glosario; `camaron wiki <repo> --force` se salta esa comprobación. Se lanzan
+escribe la unidad repo-brief) para usar tu glosario; `camaron wiki <repo> --force` se salta esa comprobación. En la
+pestaña Wikis del portal todos los repos tienen el botón: si el repo aún no está elegido, lo elige, y si no tiene brief,
+antes escribe uno inicial con el análisis estático (sin IA), que la unidad repo-brief sustituye después. Si no hay motor
+que pueda lanzarla, la pestaña dice qué falta. Se lanzan
 de una en una, y un lote se para en cuanto el motor se queda sin cuota o sin sesión, en vez de fallar todos los repos
 que quedan.
 
