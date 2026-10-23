@@ -777,8 +777,11 @@ T = {
 
 
 def scan_repos(log=print) -> None:
-    """The no-AI base: stack and tooling page, plus each repo's reference page (commands, env vars, endpoints, topics)."""
+    """The no-AI base: stack and tooling page, the libraries page, and each repo's reference page (commands, env vars,
+    endpoints, topics)."""
     radar.run(log=log)
+    from . import inventory
+    inventory.run(log=log)
     genblocks.write_reference(log=log)
     genblocks.refresh()
 
