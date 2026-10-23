@@ -220,6 +220,9 @@ engine is out of quota or logged out instead of failing every remaining repo.
 ## 8. CI
 
 Wizard → **⚙️ CI** installs the pipeline in `cam-docs` (GitLab or GitHub): update the affected docs, `check`, export the portal and publish it. Per-repo snippets: `.camarones/ci/repo.*`.
+The portal's **CI** tab shows the same: which pipeline files exist and whether they still match the kit's definition,
+a button to generate them for GitHub or GitLab, the current `check` and freshness, the per-repo files to copy, and the last
+pipeline run when `gh` or `glab` is installed and logged in.
 Before the update branch is pushed, `camaron check --secrets` runs: a possible secret fails the job, so no MR/PR is opened.
 Variables: `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`, a bot token to open MRs/PRs; on GitLab allow the `cam-docs` project's
 job token to clone each service repo (repo → Settings → CI/CD → Job token permissions).

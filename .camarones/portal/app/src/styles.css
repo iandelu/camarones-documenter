@@ -102,3 +102,17 @@
 #native .misses .q { font-weight: 500; }
 #native .misses .acts { margin-left: auto; display: flex; gap: .4rem; }
 @media (max-width: 640px) { #native .kpi-table .barcol { display: none; } }
+
+/* CI */
+#native .ci h2 { font-size: 1.15rem; margin: 2.25rem 0 .6rem; }
+#native .ci-facts { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-top: 1rem; }
+#native .pill.ok, #native .pill.run.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, var(--line)); }
+#native .pill.bad, #native .pill.run.bad { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); }
+#native .pill.warn, #native .pill.run.running { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, var(--line)); }
+#native .ci-state.missing { color: var(--muted); }
+#native .ci-state.outdated { color: var(--warn); }
+#native .ci-state.current { color: var(--ok); }
+#native .ci-gen { gap: .6rem; align-items: center; flex-wrap: wrap; margin-top: .9rem; }
+#native .ci-snippet { border: 1px solid var(--line); border-radius: 10px; padding: .6rem .9rem; margin-bottom: .6rem; background: var(--raise); }
+#native .ci-snippet summary { cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: .6rem; }
+#native .ci-snippet pre { margin-top: .6rem; }

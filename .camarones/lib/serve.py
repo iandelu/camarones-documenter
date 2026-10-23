@@ -429,6 +429,9 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(api_pipeline())
         if name == "ask":
             return self.json(api_ask(q.get("q", "")))
+        if name == "ci":
+            from . import ci
+            return self.json(ci.status())
         if name == "kpis":
             from .harness import kpis
             return self.json(kpis.dashboard())
@@ -538,6 +541,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json({"cancelling": m.group(1)})
             if p == "/api/units/retry":
                 return self.json(*retry_unit(b.get("unit", "")))
+            if p == "/api/ci":
+                from . import ci
+                if b.get("forge") not in ("github", "gitlab"):
+                    raise ValueError("forge: github or gitlab")
+                env.install_ci(b["forge"], log=lambda _: None)
+                return self.json(ci.status(b["forge"]))
             if p == "/api/kpis/miss":
                 try:
                     return self.json(kpis_miss(b))
