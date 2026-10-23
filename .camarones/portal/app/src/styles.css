@@ -75,3 +75,30 @@
 #native .boards-bar select, #native .boards-bar input { font-size: .88rem; }
 #native .boards-stage { height: calc(100vh - var(--top) - 2.9rem); }
 #native .boards-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr)); gap: .9rem; margin-top: 1.5rem; }
+
+/* KPIs: tiles, then tables; colour only for state, always next to its label */
+#native .kpis h2 { font-size: 1.15rem; margin: 2.25rem 0 .6rem; }
+#native .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr)); gap: .75rem; margin-top: 1.5rem; }
+#native .tile { border: 1px solid var(--line); border-radius: 12px; padding: .8rem 1rem; background: var(--raise); display: flex;
+                flex-direction: column; gap: .15rem; min-width: 0; }
+#native .tile b { font-size: 1.6rem; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+#native .tile-label { font-size: .8rem; color: var(--muted); }
+#native .tile-sub { font-size: .78rem; color: var(--muted); }
+#native .tile.warn { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
+#native .tile.warn b { color: var(--warn); }
+#native .kpi-table { width: 100%; border-collapse: collapse; font-size: .88rem; font-variant-numeric: tabular-nums; }
+#native .kpi-table th { text-align: left; font-weight: 500; color: var(--muted); border-bottom: 1px solid var(--line); padding: .4rem .6rem; }
+#native .kpi-table td { border-bottom: 1px solid var(--line); padding: .45rem .6rem; }
+#native .kpi-table .barcol { width: 30%; }
+#native .bar { display: flex; gap: 2px; height: 10px; }
+#native .seg { border-radius: 4px; min-width: 4px; }
+#native .seg.confirmed, #native .sw.confirmed { background: var(--ok); }
+#native .seg.draft, #native .sw.draft { background: var(--muted); opacity: .55; }
+#native .seg.needsReconfirm, #native .sw.needsReconfirm { background: var(--warn); }
+#native .legend { display: flex; gap: 1rem; flex-wrap: wrap; font-size: .82rem; color: var(--muted); margin: 0 0 .4rem; }
+#native .sw { display: inline-block; width: .7rem; height: .7rem; border-radius: 3px; vertical-align: -1px; }
+#native .misses { list-style: none; padding: 0; margin: 0; }
+#native .misses li { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .8rem; padding: .5rem 0; border-bottom: 1px solid var(--line); }
+#native .misses .q { font-weight: 500; }
+#native .misses .acts { margin-left: auto; display: flex; gap: .4rem; }
+@media (max-width: 640px) { #native .kpi-table .barcol { display: none; } }

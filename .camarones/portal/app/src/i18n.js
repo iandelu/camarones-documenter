@@ -10,6 +10,25 @@ const S = {
     boardsTitle: 'Boards', boardsLead: 'Whiteboards versioned in cam-docs (docs/boards/). Start one blank or from a C4 view.',
     newBoard: 'New board', name: 'name', blank: 'Blank', fromView: 'From C4 view', open: 'Open', save: 'Save', saved: 'Saved',
     allBoards: '← All boards', noBoards: 'No boards yet.', loading: 'Loading…', readOnly: 'Read-only in the exported portal.',
+    kpisTitle: 'KPIs', kpisLead: 'Is the documentation working? What a person has confirmed, what went out of date, what '
+      + 'people and agents could not find and what the AI runs cost: the numbers of `camaron kpis` and `camaron stats`.',
+    'tile.confirmed': 'Pages confirmed', 'sub.confirmed': '{n} pages', 'tip.confirmed': 'Pages a person confirmed as correct',
+    'tile.c4': 'C4 elements confirmed', 'sub.c4': '{n} elements', 'tip.c4': 'Architecture elements a person confirmed',
+    'tile.outOfDate': 'Pages out of date', 'sub.outOfDate': '{n} cite no code to check', 'tip.outOfDate': 'Pages whose cited code changed or is gone',
+    'tile.noAnswer': 'Searches with no answer', 'sub.noAnswer': 'of {n} this month', 'tip.noAnswer': 'Searches and questions no page answered',
+    'tile.plan': 'Plan units done', 'sub.plan': '{n}', 'tip.plan': 'Documentation plan progress',
+    'tile.cost': 'AI cost this month', 'sub.cost': '{n} units done', 'tip.cost': 'What the AI runs cost this month',
+    'tile.eval': 'Golden questions', 'sub.eval': '', 'tip.eval': 'Score of the last `camaron eval` run',
+    kpisRepos: 'Trust per repo', confirmedPages: 'Confirmed', draftPages: 'Draft', reconfirmPages: 'To reconfirm', repo: 'Repo',
+    pagesCol: 'Pages', wholeProject: 'Whole project', kpisMisses: 'Questions nobody found',
+    kpisMissesLead: 'Searches and questions (here or from agents) that no page answered. Kept on this machine only, without '
+      + 'e-mails or long numbers. Turn one into an open question for the next interview, or dismiss it.',
+    toQuestion: 'Add to open questions', dismiss: 'Dismiss', noMisses: 'Every search found something.',
+    kpisStale: 'Pages out of date', kpisRuns: 'AI runs by month', month: 'Month', runsCol: 'Runs', unitsDone: 'Units done',
+    hours: 'Hours', tokens: 'Tokens', cost: 'Cost', costPerUnit: 'Cost per unit', noRuns: 'No AI runs recorded yet.',
+    kpisTop: 'Most read pages this month', page: 'Page', reads: 'Reads', byAgents: 'By agents', byPeople: 'By people',
+    recordingOn: 'Usage counts are recorded on this machine.',
+    recordingOff: 'Usage counts are off on this machine (`camaron stats --record on`).', kpisCli: 'In a terminal: `camaron kpis`, `camaron stats`.',
   },
   es: {
     askTitle: 'Pregunta a la documentación', askLead: 'Las secciones que mejor responden a tu pregunta, con su origen, '
@@ -23,6 +42,25 @@ const S = {
     newBoard: 'Nueva pizarra', name: 'nombre', blank: 'En blanco', fromView: 'Desde vista C4', open: 'Abrir', save: 'Guardar',
     saved: 'Guardada', allBoards: '← Todas las pizarras', noBoards: 'Aún no hay pizarras.', loading: 'Cargando…',
     readOnly: 'Solo lectura en el portal exportado.',
+    kpisTitle: 'KPIs', kpisLead: '¿Funciona la documentación? Lo que ha confirmado una persona, lo que se ha quedado viejo, lo '
+      + 'que personas y agentes no encontraron y lo que cuestan las ejecuciones de IA: las cifras de `camaron kpis` y `camaron stats`.',
+    'tile.confirmed': 'Páginas confirmadas', 'sub.confirmed': '{n} páginas', 'tip.confirmed': 'Páginas que una persona confirmó como correctas',
+    'tile.c4': 'Elementos C4 confirmados', 'sub.c4': '{n} elementos', 'tip.c4': 'Elementos de arquitectura que una persona confirmó',
+    'tile.outOfDate': 'Páginas desactualizadas', 'sub.outOfDate': '{n} no citan código', 'tip.outOfDate': 'Páginas cuyo código citado cambió o ya no está',
+    'tile.noAnswer': 'Búsquedas sin respuesta', 'sub.noAnswer': 'de {n} este mes', 'tip.noAnswer': 'Búsquedas y preguntas que ninguna página respondió',
+    'tile.plan': 'Unidades del plan hechas', 'sub.plan': '{n}', 'tip.plan': 'Avance del plan de documentación',
+    'tile.cost': 'Coste de IA este mes', 'sub.cost': '{n} unidades hechas', 'tip.cost': 'Lo que han costado las ejecuciones de IA este mes',
+    'tile.eval': 'Preguntas de control', 'sub.eval': '', 'tip.eval': 'Nota de la última ejecución de `camaron eval`',
+    kpisRepos: 'Confianza por repo', confirmedPages: 'Confirmadas', draftPages: 'Borrador', reconfirmPages: 'Por reconfirmar', repo: 'Repo',
+    pagesCol: 'Páginas', wholeProject: 'Proyecto entero', kpisMisses: 'Preguntas que nadie encontró',
+    kpisMissesLead: 'Búsquedas y preguntas (aquí o de agentes) que ninguna página respondió. Se guardan solo en esta máquina, sin '
+      + 'correos ni números largos. Conviértelas en pregunta abierta para la próxima entrevista o descártalas.',
+    toQuestion: 'Añadir a preguntas abiertas', dismiss: 'Descartar', noMisses: 'Todas las búsquedas encontraron algo.',
+    kpisStale: 'Páginas desactualizadas', kpisRuns: 'Ejecuciones de IA por mes', month: 'Mes', runsCol: 'Ejecuciones', unitsDone: 'Unidades hechas',
+    hours: 'Horas', tokens: 'Tokens', cost: 'Coste', costPerUnit: 'Coste por unidad', noRuns: 'Aún no hay ejecuciones de IA registradas.',
+    kpisTop: 'Páginas más leídas este mes', page: 'Página', reads: 'Lecturas', byAgents: 'Por agentes', byPeople: 'Por personas',
+    recordingOn: 'Esta máquina registra los contadores de uso.',
+    recordingOff: 'Esta máquina no registra los contadores de uso (`camaron stats --record on`).', kpisCli: 'En una terminal: `camaron kpis`, `camaron stats`.',
   },
 }
 
