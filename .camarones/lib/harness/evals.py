@@ -120,7 +120,7 @@ def request(prompt_question: str, cwd: Path, model: str | None = None) -> RunReq
     return RunRequest(prompt=prompt, cwd=cwd, env={}, model=model, allow_tools=READ_ONLY, stream=True)
 
 
-def _ask(target: str, req: RunRequest) -> dict:
+def _ask(target: str, req: RunRequest, timeout: int = TIMEOUT) -> dict:
     """One headless question: the answer's text lines plus time, exit code, tokens, cost and tool calls."""
     from .. import plan
     runner, model = plan._runner(target)
@@ -132,12 +132,13 @@ def _ask(target: str, req: RunRequest) -> dict:
     start = time.monotonic()
     try:
         r = subprocess.run(inv.argv, cwd=str(inv.cwd), env={**os.environ, "CAMARONES_ROOT": str(ROOT), **inv.env},
-                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=TIMEOUT,
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout,
                            stdin=subprocess.DEVNULL)
-        out, rc = r.stdout or "", r.returncode
+        out, rc, late = r.stdout or "", r.returncode, False
     except (OSError, subprocess.TimeoutExpired) as e:
-        out, rc = str(e), 124
-    got = {"lines": [], "seconds": round(time.monotonic() - start, 1), "rc": rc, "tokens_in": 0, "tokens_cache": 0,
+        out, rc, late = str(e), 124, isinstance(e, subprocess.TimeoutExpired)
+    got = {"lines": [], "seconds": round(time.monotonic() - start, 1), "rc": rc, "timed_out": late, "tokens_in": 0,
+           "tokens_cache": 0,
            "tokens_out": 0, "cost_usd": 0.0, "tool_calls": 0}
     for raw in out.splitlines():
         for ev in runner.parse(raw):

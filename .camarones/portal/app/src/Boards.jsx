@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { getJSON, postJSON } from './api.js'
 import { t } from './i18n.js'
+import { nameAfterPick, slug } from './boardName.js'
 
 const Canvas = lazy(() => import('./BoardCanvas.jsx'))          // Excalidraw is heavy: only when a board opens
 
@@ -13,18 +14,25 @@ function List() {
   const [boards, setBoards] = useState(null)
   const [name, setName] = useState('')
   const [view, setView] = useState('')
+  const [autoName, setAutoName] = useState('')
   const [error, setError] = useState('')
   useEffect(() => { getJSON('boards').then(setBoards, (e) => setError(e.message)) }, [])
   const views = window.camaronTree?.().views || []
+  function pick(id) {
+    const next = nameAfterPick(name, autoName, views.find((v) => v.id === id) || null, (boards || []).map((b) => b.name))
+    setView(id)
+    setName(next)
+    if (!name || name === autoName) setAutoName(next)
+  }
   async function create(e) {
     e.preventDefault()
-    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-    if (!slug) return
+    const board = slug(name)
+    if (!board) return
     try {
       const scene = view ? await getJSON(`sketch?view=${encodeURIComponent(view)}`)
         : { type: 'excalidraw', version: 2, elements: [], appState: {}, files: {} }
-      await postJSON('board', { name: slug, scene })
-      location.hash = `#/boards/${slug}`
+      await postJSON('board', { name: board, scene })
+      location.hash = `#/boards/${board}`
     } catch (err) { setError(err.message) }
   }
   return (
@@ -34,7 +42,7 @@ function List() {
       <form className="row box" onSubmit={create}>
         <b>{t('newBoard')}</b>
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('name')} aria-label={t('name')} />
-        <select value={view} onChange={(e) => setView(e.target.value)} aria-label={t('fromView')}>
+        <select value={view} onChange={(e) => pick(e.target.value)} aria-label={t('fromView')}>
           <option value="">{t('blank')}</option>
           {views.map((v) => <option key={v.id} value={v.id}>{t('fromView')}: {v.title}</option>)}
         </select>

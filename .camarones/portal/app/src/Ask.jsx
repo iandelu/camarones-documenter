@@ -16,16 +16,25 @@ function Section({ text, path }) {
 // Opt-in, one click per question: the runner for bounded work answers from the sections Ask found, citing them.
 function AiAnswer({ question, runner, link }) {
   const [state, setState] = useState(null)
+  const [waited, setWaited] = useState(0)
+  useEffect(() => {
+    if (!state?.busy) return undefined
+    const started = Date.now()
+    const id = setInterval(() => setWaited(Math.round((Date.now() - started) / 1000)), 1000)
+    return () => clearInterval(id)
+  }, [state?.busy])
   async function go() {
+    setWaited(0)
     setState({ busy: true })
     try { setState(await postJSON('ask/answer', { q: question })) } catch (e) { setState({ error: e.message }) }
   }
   if (!state) return <button type="button" className="ghost small ai-go" onClick={go}>✨ {t('aiAnswer')} · {runner}</button>
-  if (state.busy) return <p className="muted ai-busy">{t('aiBusy')}</p>
+  if (state.busy) return <p className="muted ai-busy" role="status">{t('aiBusy')} {waited ? `${waited} s` : ''}</p>
   if (state.error) return <p className="error" role="alert">{state.error}</p>
+  const cost = state.cost_usd ? ` · $${state.cost_usd.toFixed(3)}` : ''
   return (
     <div className="ai-answer">
-      <p className="muted small">{t('aiBy')} {state.runner}. {t('aiCheck')}</p>
+      <p className="muted small">{t('aiBy')} {state.runner}{state.model ? ` (${state.model})` : ''} · {state.seconds} s{cost}. {t('aiCheck')}</p>
       <p>{state.answer || t('aiNone')}</p>
       {state.cited?.length ? <p className="small">{state.cited.map((c) => <a key={c} href={link(c)}>{c}</a>)}</p> : null}
     </div>
@@ -49,6 +58,8 @@ export default function Ask({ arg }) {
       const r = await getJSON(`ask?q=${encodeURIComponent(question)}`)
       setTurns((ts) => [{ question, sections: r.sections, ai: r.ai }, ...ts])
       setQ('')
+    } catch (e) {
+      setTurns((ts) => [{ question, sections: [], error: e.message }, ...ts])
     } finally { setBusy(false) }
   }
   const link = (cite) => {
@@ -59,9 +70,12 @@ export default function Ask({ arg }) {
     <section className="ask view">
       <h1>{t('askTitle')}</h1>
       <p className="lede">{t('askLead')}</p>
+      {window.camaronTree && !(window.camaronTree().docs || []).some((d) => !(window.camaronTree().kitGuides || []).includes(d.path)
+        && d.type !== 'interview')
+        ? <p className="banner"><a href="#/">{t('askEmpty')}</a></p> : null}
       <form onSubmit={ask}>
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('askPh')} aria-label={t('askTitle')} autoFocus />
-        <button type="submit" disabled={busy}>{t('ask')}</button>
+        <button type="submit" disabled={busy}>{busy ? t('asking') : t('ask')}</button>
       </form>
       {turns.map((turn, i) => (
         <div className="turn" key={turns.length - i}>
@@ -76,7 +90,8 @@ export default function Ask({ arg }) {
               </div>
               <Section text={(s.tldr ? s.tldr + '\n\n' : '') + s.text} path={s.cite.split('#')[0]} />
             </article>
-          )) : <p className="muted">{t('nothing')}</p>}
+          )) : turn.error ? <p className="error" role="alert">{t('askFailed')} {turn.error}</p>
+            : <p className="muted">{t('nothing')}</p>}
         </div>
       ))}
     </section>

@@ -75,3 +75,69 @@
 #native .boards-bar select, #native .boards-bar input { font-size: .88rem; }
 #native .boards-stage { height: calc(100vh - var(--top) - 2.9rem); }
 #native .boards-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr)); gap: .9rem; margin-top: 1.5rem; }
+
+/* KPIs: tiles, then tables; colour only for state, always next to its label */
+#native .kpis h2 { font-size: 1.15rem; margin: 2.25rem 0 .6rem; }
+#native .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr)); gap: .75rem; margin-top: 1.5rem; }
+#native .tile { border: 1px solid var(--line); border-radius: 12px; padding: .8rem 1rem; background: var(--raise); display: flex;
+                flex-direction: column; gap: .15rem; min-width: 0; }
+#native .tile b { font-size: 1.6rem; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+#native .tile-label { font-size: .8rem; color: var(--muted); }
+#native .tile-sub { font-size: .78rem; color: var(--muted); }
+#native .tile.warn { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
+#native .tile.warn b { color: var(--warn); }
+#native .kpi-table { width: 100%; border-collapse: collapse; font-size: .88rem; font-variant-numeric: tabular-nums; }
+#native .kpi-table th { text-align: left; font-weight: 500; color: var(--muted); border-bottom: 1px solid var(--line); padding: .4rem .6rem; }
+#native .kpi-table td { border-bottom: 1px solid var(--line); padding: .45rem .6rem; }
+#native .kpi-table .barcol { width: 30%; }
+#native .bar { display: flex; gap: 2px; height: 10px; }
+#native .seg { border-radius: 4px; min-width: 4px; }
+#native .seg.confirmed, #native .sw.confirmed { background: var(--ok); }
+#native .seg.draft, #native .sw.draft { background: var(--muted); opacity: .55; }
+#native .seg.needsReconfirm, #native .sw.needsReconfirm { background: var(--warn); }
+#native .legend { display: flex; gap: 1rem; flex-wrap: wrap; font-size: .82rem; color: var(--muted); margin: 0 0 .4rem; }
+#native .sw { display: inline-block; width: .7rem; height: .7rem; border-radius: 3px; vertical-align: -1px; }
+#native .misses { list-style: none; padding: 0; margin: 0; }
+#native .misses li { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .8rem; padding: .5rem 0; border-bottom: 1px solid var(--line); }
+#native .misses .q { font-weight: 500; }
+#native .misses .acts { margin-left: auto; display: flex; gap: .4rem; }
+@media (max-width: 640px) { #native .kpi-table .barcol { display: none; } }
+
+/* CI */
+#native .ci h2 { font-size: 1.15rem; margin: 2.25rem 0 .6rem; }
+#native .ci-facts { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-top: 1rem; }
+#native .pill.ok, #native .pill.run.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, var(--line)); }
+#native .pill.bad, #native .pill.run.bad { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); }
+#native .pill.warn, #native .pill.run.running { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, var(--line)); }
+#native .ci-state.missing { color: var(--muted); }
+#native .ci-state.outdated { color: var(--warn); }
+#native .ci-state.current { color: var(--ok); }
+#native .ci-gen { gap: .6rem; align-items: center; flex-wrap: wrap; margin-top: .9rem; }
+#native .ci-snippet { border: 1px solid var(--line); border-radius: 10px; padding: .6rem .9rem; margin-bottom: .6rem; background: var(--raise); }
+#native .ci-snippet summary { cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: .6rem; }
+#native .ci-snippet pre { margin-top: .6rem; }
+
+/* Libraries: a library × service matrix; red only for known vulnerabilities, always with the severity word */
+#native .libs-summary { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-top: 1rem; }
+#native .libs-actions { margin-left: auto; display: flex; gap: .5rem; }
+#native .libs-filters { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin: 1.25rem 0 .75rem; }
+#native .libs-filters input[type=search] { flex: 1 1 12rem; min-width: 0; }
+#native .libs-filters select { flex: 0 1 auto; min-width: 0; }
+#native .libs-scroll { overflow-x: auto; }
+#native .libs-table td, #native .libs-table th { white-space: nowrap; }
+#native .libs-table tr.vuln { cursor: pointer; }
+#native .libs-table tr.vuln.sev-bad td:first-child { box-shadow: inset 3px 0 0 var(--bad); }
+#native .libs-table tr.vuln.sev-warn td:first-child { box-shadow: inset 3px 0 0 var(--warn); }
+#native .libs-table td.cell-vuln { color: var(--bad); font-weight: 600; }
+#native .libs-table .pill { margin-left: .4rem; }
+#native .pill.muted { color: var(--muted); }
+#native .vuln-detail td { white-space: normal; background: var(--panel); }
+#native .vuln-detail li { padding: .25rem 0; }
+
+/* Data */
+#native .data-repos { margin-top: 1rem; flex-wrap: wrap; }
+#native .data-repos a { padding: 6px 12px; border-radius: 6px; color: var(--muted); text-decoration: none; }
+#native .data-repos a.on { background: var(--panel); color: var(--fg); }
+#native .data-meta { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin: 1rem 0; }
+#native .data-actions { margin-left: auto; }
+#native .data .doc { min-width: 0; overflow-x: auto; }

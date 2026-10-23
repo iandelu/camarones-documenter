@@ -7,7 +7,7 @@ Binds 127.0.0.1 only. Mutating calls need the X-Camarones header, which a cross-
 CORS preflight this server never grants."""
 from __future__ import annotations
 
-import itertools, json, mimetypes, re, threading, time, urllib.parse
+import datetime as dt, itertools, json, mimetypes, re, threading, time, urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -47,7 +47,7 @@ def tree() -> dict:
     ws = docs.workspace()
     return {"project": ws["project"]["name"], "langs": ws["project"].get("translations", []), "reviewer": reviewer(),
             "summary": docs.summary(rows), "feedback": len(docs.pending_feedback()), "kit": VERSIONS["kit"],
-            "repos": docs.repo_names(), "codeGraphs": list(env.code_graphs()), "engines": env.wiki_engines(),
+            "repos": docs.repo_names(), "codeGraphs": list(env.code_graphs()), "engines": env.wiki_engines(), "engineHelp": env.wiki_engine_help(), "kitGuides": sorted(docs.kit_guides()),
             "sections": docs.SECTIONS, "views": env.c4_views(), "codeMaps": codemap.available(), "editBase": "",
             "docs": [{k: r[k] for k in ("path", "file", "title", "description", "type", "space", "trust", "owner", "i18n",
                                         "orphan_sources")} for r in rows]}
@@ -70,7 +70,7 @@ def api_ask(question: str) -> dict:
     No model: the same retrieval as the MCP `ask`, through the same freshness gate."""
     from .harness import freshness
     hits = docs.search(question, 20) if question.strip() else []
-    usage.record("portal:ask", channel="human", hit=bool(hits))
+    usage.record("portal:ask", channel="human", hit=bool(hits), query=question)
     rows, out = {r["path"]: r for r in docs.collect()}, []
     for h in hits:
         r = rows.get(h["path"], {})
@@ -80,14 +80,103 @@ def api_ask(question: str) -> dict:
             continue
         body = docs.split_fm(f.read_text(encoding="utf-8"))[1]
         found = docs.section_text(body, h["section"]) if h.get("section") else None
+        tldr = docs.tldr(body)
+        whole = body.replace(tldr, "", 1) if tldr else body              # the portal shows the TL;DR above the text
         out.append({"cite": h["path"] + (f"#{h['section']}" if found else ""), "title": h["title"],
                     "trust": r.get("trust"), "fresh": r.get("fresh"), "notice": notice, "withheld_for_agents": not ok,
-                    "tldr": docs.tldr(body), "text": found[1] if found else body.strip()[:3000]})
+                    "tldr": tldr, "text": found[1] if found else whole.strip()[:3000]})
         if len(out) >= 3:
             break
     from . import answers
     readable = any(not s["withheld_for_agents"] for s in out)          # the AI only reads what agents may read
     return {"question": question, "sections": out, "ai": answers.runner() if readable else None}
+
+
+def api_c4_view(view: str) -> dict:
+    """A C4 view's elements for the portal's panel: fields, draft/confirmed, and the relations in and out of each."""
+    from . import c4edit
+    idx = c4edit.index()
+    shown = c4edit.view_elements(view, idx)
+    keep = ("fqn", "kind", "title", "technology", "description", "tags", "draft", "confirmed", "confirmedBy",
+            "confirmedAt", "file", "line")
+    rel = lambda r: {k: r[k] for k in ("from", "to", "label", "kind")}  # noqa: E731
+    return {"view": view, "kinds": idx["kinds"], "relKinds": idx["relKinds"], "editable": not STATIC,
+            "all": [{"fqn": f, "title": e["title"]} for f, e in idx["elements"].items()],
+            "elements": [{**{k: idx["elements"][f][k] for k in keep},
+                          "out": [rel(r) for r in idx["relations"] if r["from"] == f],
+                          "in": [rel(r) for r in idx["relations"] if r["to"] == f]} for f in shown]}
+
+
+def api_schemas() -> dict:
+    """Each repo's tables and collections (lib/schemas.py) with the same markdown its data page holds."""
+    from . import schemas
+    out = []
+    for name, r in schemas.scan().items():
+        page = schemas.PAGE.format(repo=name)
+        out.append({"repo": name, "tools": r["tools"], "stores": [{"kind": s["kind"], "engines": s["engines"],
+                                                                   "entities": s["entities"]} for s in r["stores"]],
+                    "entities": sum(len(s["entities"]) for s in r["stores"]), "markdown": schemas.block_body(r),
+                    "page": page if (DOCS / page).is_file() else None})
+    return {"repos": out}
+
+
+def schemas_write() -> dict:
+    from . import genblocks, schemas
+    written = schemas.write_pages(log=lambda _: None)
+    genblocks.refresh()
+    docs.llms()
+    return {"written": written}
+
+
+def api_inventory() -> dict:
+    """The last inventory (docs/.work/inventory.json), or a fresh scan of the manifests when there is none yet."""
+    from . import inventory
+    return inventory.load() or inventory.scan()
+
+
+def inventory_job(b: dict) -> dict:
+    from . import inventory
+    cves = bool(b.get("cves"))
+    return start_job("inventory", "Libraries" + (" + vulnerabilities" if cves else ""),
+                     lambda log: bool(inventory.run(log=log, cves=cves)))
+
+
+def kpis_miss(b: dict) -> dict:
+    """A question nobody found an answer to: `question` adds it to the open questions for the next interview,
+    `dismiss` just forgets it."""
+    q, action = str(b.get("q") or ""), b.get("action")
+    if q not in {m["q"] for m in usage.misses()}:
+        raise KeyError(q)
+    if action == "question":
+        n = next(m["n"] for m in usage.misses() if m["q"] == q)
+        f = DOCS / "interview" / "open-questions.md"
+        if not f.exists():
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text("---\ntype: interview\ntitle: Open questions\ndescription: Questions agents could not answer "
+                         "from the code; answer them in the next interview or inline.\n---\n# Open questions\n",
+                         encoding="utf-8", newline="\n")
+        text = f.read_text(encoding="utf-8")
+        line = (f"- [ ] ({dt.date.today().isoformat()}, docs-gap) {q} — asked {n}× in the portal or by agents; "
+                "no page answered it\n")
+        f.write_text(text.rstrip("\n") + "\n" + line, encoding="utf-8", newline="\n")
+    elif action != "dismiss":
+        raise ValueError("action: question or dismiss")
+    usage.forget(q)
+    return {"misses": usage.misses()}
+
+
+def c4_change(path: str, b: dict, by: str) -> dict:
+    from . import c4edit
+    if path == "element":
+        changes = {k: b[k] for k in c4edit.EDITABLE if k in b}
+        return c4edit.edit(b["fqn"], **changes)
+    if path == "confirm":
+        return {"confirmed": c4edit.confirm_view(b["view"], by) if b.get("view") else c4edit.confirm(b["fqns"], by)}
+    if path == "relation" and b.get("action") == "add":
+        return c4edit.add_relation(b["from"], b["to"], str(b.get("label") or ""), b.get("kind") or None)
+    if path == "relation" and b.get("action") == "remove":
+        return c4edit.remove_relation(b["from"], b["to"], str(b.get("label") or ""))
+    raise ValueError(f"unknown C4 change {path!r}")
 
 
 def api_doc(q: dict) -> dict:
@@ -102,7 +191,7 @@ def api_search(q: dict) -> list[dict]:
     """Only full searches (`track`) count: the palette searches on every keystroke."""
     hits = docs.search(q.get("q", ""))
     if q.get("track"):
-        usage.record("portal:search", channel="human", hit=bool(hits))
+        usage.record("portal:search", channel="human", hit=bool(hits), query=q.get("q", ""))
     return hits
 
 
@@ -221,8 +310,26 @@ def start_job(kind: str, label: str, fn) -> dict:
     return job
 
 
+def first_look(log) -> bool:
+    """A fresh project's first pages without AI, from the static scan: the C4 draft and its page, the stack and tools,
+    llms.txt; then the C4 explorer when LikeC4 is installed. What the empty Docs and Architecture tabs offer."""
+    from . import quickarch, radar
+    quickarch.save(quickarch.draft(log=log))
+    radar.run(log=log)
+    from . import inventory, schemas
+    inventory.run(log=log)
+    schemas.write_pages(log=log)
+    docs.llms()
+    if env.which("likec4"):
+        env.build_c4(log=log)
+    log("✔ first look written: architecture/first-look.md, overview/tooling.md and the C4 draft")
+    return True
+
+
 def build(b: dict) -> dict:
     what, repo = b.get("what"), b.get("repo") or ""
+    if what == "first-look":
+        return start_job("first-look", "First look (no AI)", first_look)
     if what == "c4":
         return start_job("c4", "C4 explorer", lambda log: env.build_c4(log=log))
     if what == "graph":
@@ -233,9 +340,18 @@ def build(b: dict) -> dict:
 
 
 def wiki(b: dict) -> dict:
+    """`choose`: add the repo to the ones with a wiki (its plan unit comes back); `starter`: write a starter brief
+    (no AI) when repo-brief has not written one. The card says both before the click."""
     repo, mode, engine = b.get("repo", ""), b.get("mode", ""), b.get("engine", "")
     if repo not in docs.repo_names() or mode not in ("", "init", "update"):
         raise ValueError("unknown repo or mode")
+    if repo not in docs.wiki_repos() and not env.wiki_pages(repo):
+        if not b.get("choose"):
+            raise ValueError(f"{repo} is not chosen for a wiki")
+        docs.set_wiki_repos([*docs.wiki_repos(), repo])
+        plan.sync()
+    if b.get("starter"):
+        env.starter_brief(repo)
     return start_job("wiki", f"OpenWiki {repo}", lambda log: env.openwiki_generate(repo, mode, log, engine))
 
 
@@ -365,6 +481,18 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(api_pipeline())
         if name == "ask":
             return self.json(api_ask(q.get("q", "")))
+        if name == "inventory":
+            return self.json(api_inventory())
+        if name == "schemas":
+            return self.json(api_schemas())
+        if name == "ci":
+            from . import ci
+            return self.json(ci.status())
+        if name == "kpis":
+            from .harness import kpis
+            return self.json(kpis.dashboard())
+        if name == "c4/view":
+            return self.json(api_c4_view(q.get("id", "")))
         if name == "boards":
             from . import boards
             return self.json(boards.boards())
@@ -469,6 +597,26 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json({"cancelling": m.group(1)})
             if p == "/api/units/retry":
                 return self.json(*retry_unit(b.get("unit", "")))
+            if p == "/api/schemas":
+                return self.json(schemas_write())
+            if p == "/api/inventory":
+                return self.json(inventory_job(b))
+            if p == "/api/ci":
+                from . import ci
+                if b.get("forge") not in ("github", "gitlab"):
+                    raise ValueError("forge: github or gitlab")
+                env.install_ci(b["forge"], log=lambda _: None)
+                return self.json(ci.status(b["forge"]))
+            if p == "/api/kpis/miss":
+                try:
+                    return self.json(kpis_miss(b))
+                except KeyError as e:
+                    return self.json({"error": f"not in the list: {e}"}, 404)
+            if m := re.fullmatch(r"/api/c4/(element|confirm|relation)", p):
+                try:
+                    return self.json(c4_change(m.group(1), b, by))
+                except KeyError as e:
+                    return self.json({"error": f"not in the model: {e}"}, 404)
             if p == "/api/ask/answer":
                 from . import answers
                 return self.json(answers.answer(str(b.get("q", ""))))

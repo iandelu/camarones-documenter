@@ -53,18 +53,93 @@ async function showArch(rest) {
       </div>
     </div>
     ${viewerBar([c4State(v)], v.model ? (v.exists ? t('rebuild') : t('build')) : '')}
-    <div class="c4stage"></div></div>`;
+    <div class="c4stage"></div><section id="c4-elements" class="c4el-panel"></section></div>`;
   bindBuild('c4', '', () => location.reload());
   $('.c4stage').append(c4Box(id));
-  await drawC4($('#main'), { caption: false, maxH: () => Math.max(320, innerHeight - $('.c4stage').getBoundingClientRect().top - 32) });
+  await Promise.all([drawC4($('#main'), { caption: false, maxH: () => Math.max(320, innerHeight * 0.7) }), drawElements(id)]);
+}
+
+// ---------- the view's elements: review, edit and confirm what the AI drafted (lib/c4edit.py) ----------
+function elementCard(e, v, edit) {
+  const title = (fqn) => v.all.find((x) => x.fqn === fqn)?.title || fqn;
+  const status = e.confirmed
+    ? `<span class="pill trust confirmed">✓ ${esc(t('c4ConfirmedBy', { by: e.confirmedBy || '?', at: e.confirmedAt || '' }))}</span>`
+    : e.draft ? `<span class="pill trust draft">${esc(t('c4Draft'))}</span>` : '';
+  const rel = (r, out) => `<li>${out ? '→' : '←'} <b>${esc(title(out ? r.to : r.from))}</b>${r.label ? ` <span class="muted">${esc(r.label)}</span>` : ''}
+    ${r.kind ? `<span class="chip">${esc(r.kind)}</span>` : ''}
+    ${edit && out ? `<button class="ghost small c4x" type="button" data-act="unrel" data-to="${esc(r.to)}" data-label="${esc(r.label)}" title="${esc(t('c4RemoveRel'))}">×</button>` : ''}</li>`;
+  const opts = (list, cur) => list.map((k) => `<option ${k === cur ? 'selected' : ''}>${esc(k)}</option>`).join('');
+  return `<article class="c4el ${e.draft ? 'draft' : ''}" data-fqn="${esc(e.fqn)}">
+    <div class="c4el-h"><b>${esc(e.title)}</b><span class="chip">${esc(e.kind)}</span><code class="small muted">${esc(e.fqn)}</code>${status}
+      ${edit ? `<span class="c4el-act"><button class="ghost small" type="button" data-act="edit">${esc(t('edit'))}</button>
+        ${e.confirmed && !e.draft ? '' : `<button class="small" type="button" data-act="confirm">✓ ${esc(t('c4Confirm'))}</button>`}</span>` : ''}</div>
+    ${e.technology || e.description ? `<p class="small">${e.technology ? `<b>${esc(e.technology)}</b>` : ''}${e.technology && e.description ? ' · ' : ''}${esc(e.description)}</p>` : ''}
+    ${e.out.length || e.in.length ? `<ul class="c4rels">${e.out.map((r) => rel(r, true)).join('')}${e.in.map((r) => rel(r, false)).join('')}</ul>` : ''}
+    ${edit ? `<form class="c4el-form" hidden>
+      <label>${esc(t('c4Title'))}<input name="title" value="${esc(e.title)}" required></label>
+      <label>${esc(t('c4Kind'))}<select name="kind">${opts(v.kinds, e.kind)}</select></label>
+      <label>${esc(t('c4Tech'))}<input name="technology" value="${esc(e.technology)}"></label>
+      <label class="wide">${esc(t('c4Desc'))}<input name="description" value="${esc(e.description)}"></label>
+      <div class="row"><button type="submit" class="small">${esc(t('save'))}</button><button type="button" class="ghost small" data-act="close">${esc(t('cancel'))}</button></div>
+    </form>
+    <form class="c4rel-form row">
+      <select name="to" aria-label="${esc(t('c4To'))}"><option value="">${esc(t('c4AddRel'))} ${esc(t('c4To'))}…</option>
+        ${v.all.filter((x) => x.fqn !== e.fqn).map((x) => `<option value="${esc(x.fqn)}">${esc(x.title)} (${esc(x.fqn)})</option>`).join('')}</select>
+      <input name="label" placeholder="${esc(t('c4Label'))}" aria-label="${esc(t('c4Label'))}">
+      <select name="kind" aria-label="${esc(t('c4Kind'))}"><option value="">—</option>${opts(v.relKinds, '')}</select>
+      <button type="submit" class="ghost small">${esc(t('c4AddRel'))}</button>
+    </form>` : ''}
+  </article>`;
+}
+
+async function drawElements(id) {
+  const host = $('#c4-elements');
+  if (!host) return;
+  let v;
+  try { v = await api('c4/view', { id }); } catch { host.remove(); return; }
+  if (!v.elements.length) { host.remove(); return; }
+  const edit = v.editable && !STATIC;
+  const drafts = v.elements.filter((e) => e.draft).length;
+  host.innerHTML = `<div class="c4el-head"><h2>${esc(t('c4Elements'))}</h2>
+      <span class="muted small">${esc(t('c4Count', { n: v.elements.length, d: drafts }))}</span>
+      ${edit && drafts ? `<button class="small" id="c4-confirm-all" type="button">✓ ${esc(t('c4ConfirmAll'))}</button>` : ''}</div>
+    ${edit ? `<p class="muted small">${esc(t('c4Help'))}</p>` : ''}
+    <div class="c4el-list">${v.elements.map((e) => elementCard(e, v, edit)).join('')}</div>`;
+  if (!edit) return;
+  const change = async (path, body) => {
+    try {
+      await api(`c4/${path}`, {}, body);
+      toast(t('c4Saved'));
+      await drawElements(id);
+      if ((await loadViewers()).c4.model) watchJob(await api('build', {}, { what: 'c4' }), $('#v-log'), () => location.reload());
+    } catch (err) { toast(err.message); }
+  };
+  $('#c4-confirm-all')?.addEventListener('click', () => change('confirm', { view: id }));
+  host.addEventListener('click', (ev) => {
+    const b = ev.target.closest('button[data-act]');
+    const card = b?.closest('.c4el');
+    if (!card) return;
+    const fqn = card.dataset.fqn;
+    if (b.dataset.act === 'edit') card.querySelector('.c4el-form').hidden = false;
+    else if (b.dataset.act === 'close') card.querySelector('.c4el-form').hidden = true;
+    else if (b.dataset.act === 'confirm') change('confirm', { fqns: [fqn] });
+    else if (b.dataset.act === 'unrel') change('relation', { action: 'remove', from: fqn, to: b.dataset.to, label: b.dataset.label });
+  });
+  host.addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    const f = ev.target, fqn = f.closest('.c4el').dataset.fqn, data = Object.fromEntries(new FormData(f));
+    if (f.classList.contains('c4el-form')) change('element', { fqn, ...data });
+    else if (data.to) change('relation', { action: 'add', from: fqn, to: data.to, label: data.label, kind: data.kind || null });
+  });
 }
 
 async function showExplorer() {
   const v = (await loadViewers()).c4;
   $('#main').innerHTML = viewerBar([`<b>${esc(t('explorer'))}</b>`, c4State(v),
-    v.exists ? `<a href="architecture/" target="_blank" rel="noopener">${esc(t('openTab'))} ↗</a>` : ''], v.model ? (v.exists ? t('rebuild') : t('build')) : '')
+    v.exists ? `<a href="architecture/" target="_blank" rel="noopener">${esc(t('openTab'))} ↗</a>` : ''],
+    v.model ? (v.exists ? t('rebuild') : t('build')) : t('firstLook'))
     + (v.exists ? '<iframe class="viewer" src="architecture/" title="C4"></iframe>' : '');
-  bindBuild('c4', '', () => location.reload());
+  bindBuild(v.model ? 'c4' : 'first-look', '', () => location.reload());   // no model yet: draft it from the code
 }
 
 async function showCode(repo) {

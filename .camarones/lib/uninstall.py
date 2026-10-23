@@ -1,7 +1,8 @@
 """`uninstall`: undo everything the kit did to one project, so the workspace looks as if it had never been documented.
 
 Project (always): stop the portal, finish an interrupted OpenWiki run, back up cam-docs/ to a .zip, remove the kit's
-traces from every repo (openwiki link, its .git/info/exclude line, the CLAUDE.md pointer block, pre-3.0 leftovers),
+traces from every repo (openwiki link, its .git/info/exclude line, the CLAUDE.md pointer block, pre-3.0 leftovers, the
+camarones MCP setup registered for the repo's folder in Claude Code's local config),
 remove the workspace-root links into cam-docs/, delete cam-docs/ and its registry entry. The repos' own files and
 history are never touched: a tracked file goes back to its HEAD bytes, an untracked one the kit alone wrote is deleted.
 User level (opt-in, shared by every project): ~/.camarones.json, ~/.camarones/ (registry, saved credentials, pinned
@@ -55,6 +56,11 @@ class RepoCleaner(migrate.Cleaner):
                 and env.POINTER_START not in (migrate.head_text(self.repo, "CLAUDE.md") or ""):
             self.settle("CLAUDE.md", POINTER_RE.sub("", text))
         return super().run()
+
+
+def forget_repo_mcp(name: str) -> bool:
+    """The `camarones` MCP server setup registered for this repo in Claude Code's local config."""
+    return env.unwire_repo_mcp(name)
 
 
 def repo_names() -> list[str]:
@@ -167,6 +173,8 @@ def steps(include_global: bool = False, backup: bool = True) -> list[Step]:
         out.append(Step("backup", f"back up {CAM_DIR}/ to {BACKUP_DIR}{os.sep}{env.project_id()}-<date>.zip"))
     for name in repo_names():
         out += [Step("repo", a) for a in RepoCleaner(name, dry=True).run()]
+        if env.repo_mcp_entry(name):
+            out.append(Step("registry", f"Claude Code's local config for {name}: the camarones MCP server"))
     out += [Step("link", f"{WORKSPACE.name}/{n} → {CAM_DIR}/{n} (link)") for n in root_links()]
     if (WORKSPACE / ".cw").exists():
         out.append(Step("delete", f"{WORKSPACE.name}/.cw/ — the units' worktrees (work not integrated yet is lost)"))
@@ -226,6 +234,8 @@ def run(include_global: bool = False, backup: bool = True, backup_dir: Path | No
         log(f"✔ backup: {zipped}")
     for name in repo_names():
         acts = RepoCleaner(name, dry=False).run()
+        if forget_repo_mcp(name):
+            acts.append("camarones MCP")
         log(f"✔ {name}: " + (f"{len(acts)} trace(s) removed" if acts else "clean"))
     for n in root_links():
         remove_link(WORKSPACE / n)

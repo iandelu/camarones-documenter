@@ -7,6 +7,12 @@ import json, os, subprocess, sys
 from conftest import KIT_DIR
 
 
+def no_claude(kit, monkeypatch):
+    """Without Claude Code on PATH, whatever this machine has: the repo MCP has its own tests (test_repo_mcp.py)."""
+    real = kit.env.which
+    monkeypatch.setattr(kit.env, "which", lambda name: None if name == "claude" else real(name))
+
+
 def fake_tools(kit, monkeypatch, evil: bool = False):
     real = kit.env.run
 
@@ -29,6 +35,7 @@ def fake_tools(kit, monkeypatch, evil: bool = False):
             return subprocess.CompletedProcess(cmd, 0, "", "")
         return real(cmd, cwd=cwd, **kw)
     monkeypatch.setattr(kit.env, "run", run)
+    no_claude(kit, monkeypatch)
 
 
 def pending_ids(kit):
@@ -99,8 +106,9 @@ def test_a_teammates_copy_of_the_tool_output_is_the_tools(kit, monkeypatch):
     assert "file .agents/skills/openwiki/SKILL.md" not in pending_ids(kit)
 
 
-def test_a_project_without_a_record_still_checks(wired):
+def test_a_project_without_a_record_still_checks(wired, monkeypatch):
     """3.x/4.x projects have no record: drift falls back to the kit's own files and links, nothing is written."""
     from lib import install_state
+    no_claude(wired, monkeypatch)
     install_state.forget()
     assert install_state.drift() == [] and not install_state.store_path().exists()

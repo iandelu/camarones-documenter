@@ -113,6 +113,13 @@ def traces(folder: Path, home: Path | None = None) -> list[str]:
         root = json.loads(f.read_text(encoding="utf-8") or "{}").get("root", "")
         if root and Path(root).resolve().is_relative_to(folder.resolve()):
             found.append(f"agent-config approvals {f.name} ({root})")
+    claude_cfg = Path(os.environ.get("CLAUDE_CONFIG_DIR") or (home or Path.home())) / ".claude.json"
+    if claude_cfg.is_file():                                      # lib/env.py wire_repo_mcp: Claude Code's local scope
+        data = json.loads(claude_cfg.read_text(encoding="utf-8") or "{}")
+        for path, cfg in (data.get("projects") or {}).items():
+            servers = (cfg or {}).get("mcpServers") or {}
+            if "camarones" in servers and Path(path).resolve().is_relative_to(folder.resolve()):
+                found.append(f"Claude Code local MCP for {path}")
     for f in sorted(((home or Path.home()) / ".camarones" / "install").glob("*.json")):   # lib/install_state.py
         root = json.loads(f.read_text(encoding="utf-8") or "{}").get("root", "")
         if root and Path(root).resolve().is_relative_to(folder.resolve()):

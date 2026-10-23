@@ -5,7 +5,7 @@ renders LikeC4 files + a terminal tree, and lets the user accept it as the AI-dr
 """
 from __future__ import annotations
 
-import re, shutil
+import json, re, shutil
 from pathlib import Path
 
 from .common import DOCS, CACHE, run, which, repo_dir
@@ -26,13 +26,18 @@ DB_PATTERNS = [
 ]
 DEP_DB = {"postgresql": "PostgreSQL", "mysql-connector": "MySQL", "mariadb": "MySQL", "ojdbc": "Oracle",
           "mssql-jdbc": "SQL Server", "spring-boot-starter-data-mongodb": "MongoDB", "mongoose": "MongoDB",
-          "psycopg": "PostgreSQL", "pg\"": "PostgreSQL", "cloud_firestore": "Firestore", "firebase-admin": "Firestore",
-          "sqflite": "SQLite (device)", "hibernate-reactive": None}
+          "psycopg": "PostgreSQL", "pg\"": "PostgreSQL", "sqflite": "SQLite (device)", "hibernate-reactive": None}
+# Firebase: one Firestore and one Storage per Firebase project (.firebaserc), shared by every repo that uses them
+FIREBASE = {"Firestore": ("cloud_firestore", "firebase/firestore", "@google-cloud/firestore", "getfirestore(",
+                          "firebasefirestore.instance", ".firestore()", "firestore.client(", "firebase_admin.firestore"),
+            "Firebase Storage": ("firebase_storage", "firebase/storage", "getstorage(", "firebasestorage.instance",
+                                 ".storage().bucket")}
+FUNCTION_CALLS = ("httpscallable", "cloud_functions", "firebase/functions", "firebasefunctions.instance")
 CACHE_DEPS = ("spring-boot-starter-data-redis", "redisson", "ioredis", "\"redis\"", "jedis", "lettuce", "quarkus-redis")
 RABBIT_DEPS = ("spring-boot-starter-amqp", "spring-rabbit", "amqplib", "pika", "rabbitmq", "smallrye-reactive-messaging-rabbitmq")
 KAFKA_DEPS = ("spring-kafka", "kafka-clients", "kafkajs", "confluent-kafka", "smallrye-reactive-messaging-kafka", "sarama")
 IDP_HINTS = (("keycloak", "Keycloak"), ("auth0", "Auth0"), ("cognito", "AWS Cognito"), ("firebase_auth", "Firebase Auth"),
-             ("okta", "Okta"))
+             ("firebase/auth", "Firebase Auth"), ("firebaseauth.instance", "Firebase Auth"), ("okta", "Okta"))
 PUBLISH = [r"convertAndSend\(\s*\"([\w.\-]+)\"", r"kafkaTemplate\.send\(\s*\"([\w.\-]+)\"", r"@Outgoing\(\s*\"([\w.\-]+)\"",
            r"\.publish\(\s*['\"]([\w.\-]+)['\"]", r"producer\.send\(\s*\{?\s*topic:\s*['\"]([\w.\-]+)['\"]"]
 CONSUME = [r"@RabbitListener\([^)]*queues\s*=\s*\{?\s*\"([\w.\-]+)\"", r"@KafkaListener\([^)]*topics\s*=\s*\{?\s*\"([\w.\-]+)\"",
@@ -110,21 +115,86 @@ def repo_blob(repo: Path) -> str:
     return "".join(texts)
 
 
+MANIFESTS = ("pom.xml", "build.gradle", "build.gradle.kts", "package.json", "pyproject.toml", "requirements.txt",
+             "go.mod", "pubspec.yaml")
+
+
+def _source(blob: str, at: int) -> str | None:
+    """The file a match comes from: the nearest `### <path>` header before it (see repo_blob)."""
+    i = blob.rfind("\n### ", 0, max(at, 0) + 1)
+    return blob[i + 5:blob.index("\n", i + 1)] if i >= 0 else None
+
+
+def _functions_dir(repo: Path) -> str | None:
+    """The repo's Cloud Functions folder: firebase.json's `functions.source` (default `functions`) with firebase-functions."""
+    try:
+        cfg = json.loads((repo / "firebase.json").read_text(encoding="utf-8")) if (repo / "firebase.json").is_file() else {}
+    except (OSError, ValueError):
+        cfg = {}
+    fn = cfg.get("functions") if isinstance(cfg, dict) else None
+    src = (fn[0] if isinstance(fn, list) and fn else fn or {}).get("source", "functions") if isinstance(fn, (dict, list)) else "functions"
+    pkg = repo / src / "package.json"
+    try:
+        return src if pkg.is_file() and "firebase-functions" in pkg.read_text(encoding="utf-8", errors="ignore") else None
+    except OSError:
+        return None
+
+
+def _firebase_project(repo: Path, blob: str) -> str | None:
+    try:
+        rc = json.loads((repo / ".firebaserc").read_text(encoding="utf-8")) if (repo / ".firebaserc").is_file() else {}
+        if (rc.get("projects") or {}).get("default"):
+            return rc["projects"]["default"]
+    except (OSError, ValueError, AttributeError):
+        pass
+    m = re.search(r"projectId\s*[:=]\s*['\"]([\w-]+)['\"]|\"project_id\"\s*:\s*\"([\w-]+)\"", blob)
+    return (m.group(1) or m.group(2)) if m else None
+
+
+def _split(blob: str, prefix: str) -> tuple[str, str]:
+    """(the blob without the files under `prefix`, those files) — repo_blob's `### <path>` sections."""
+    keep, moved = [], []
+    for part in re.split(r"(?=\n### )", blob):
+        (moved if part.startswith(f"\n### {prefix}/") else keep).append(part)
+    return "".join(keep), "".join(moved)
+
+
 def scan() -> dict:
-    """Returns {repos: {name: {...}}, dbs: {key: {...}}, brokers: set, idps: set, edges: [...]}."""
+    """Returns {repos: {name: {...}}, dbs: {key: {...}}, brokers: set, idps: set, edges: [...], sources: set}; sources
+    are the `repo:path` files the stack and the relations were read from, for the first-look page's x-sources."""
     ws = docs.workspace()
     names = [r["name"] for r in ws["repos"] if repo_dir(r["name"]).is_dir()]
     kinds = {r["name"]: r.get("kind", "service") for r in ws["repos"]}
     fixed = {r["name"]: r["stack"] for r in ws["repos"] if r.get("stack")}    # stack confirmed by a human or an agent
-    model = {"repos": {}, "dbs": {}, "brokers": set(), "idps": set(), "edges": [], "caches": set()}
+    model = {"repos": {}, "dbs": {}, "brokers": set(), "idps": set(), "edges": [], "caches": set(), "sources": set()}
     blobs = {}
     for n in names:
         repo = repo_dir(n)
         blob = repo_blob(repo)
         blobs[n] = blob
+        model["sources"] |= {f"{n}:{m}" for m in MANIFESTS if (repo / m).is_file()}
         model["repos"][n] = {"kind": kinds.get(n, "service"), "tech": fixed.get(n) or stack(repo, blob)}
+        if src := _functions_dir(repo):                    # Cloud Functions: a container of their own
+            fn = f"{n} Cloud Functions"
+            blobs[n], blobs[fn] = _split(blob, src)
+            lang = "TypeScript" if (repo / src / "tsconfig.json").is_file() else "Node.js"
+            model["repos"][fn] = {"kind": "service", "tech": f"Cloud Functions · {lang}", "repo": n}
+    owner = {n: r.get("repo", n) for n, r in model["repos"].items()}
+    projects = {n: _firebase_project(repo_dir(n), blobs[n]) for n in names}
+    found_projects = {p for p in projects.values() if p}
+    default_project = next(iter(found_projects)) if len(found_projects) == 1 else ws["project"]["name"]
     for n, blob in blobs.items():
         low = blob.lower()
+
+        def cite(at: int, n=n, blob=blob) -> None:
+            if at >= 0 and (path := _source(blob, at)):
+                model["sources"].add(f"{owner[n]}:{path}")
+        for label, hints in FIREBASE.items():
+            hit = next((low.find(h) for h in hints if h in low), -1)
+            if hit >= 0:
+                proj = projects.get(owner[n]) or default_project
+                model["dbs"].setdefault(f"{label}:{proj}", {"label": label, "name": proj, "users": set()})["users"].add(n)
+                cite(hit)
         # datastores (explicit URLs first → shared DB detection by host/name)
         found_db = False
         for pat, label in DB_PATTERNS:
@@ -134,18 +204,21 @@ def scan() -> dict:
                     host, db = g[0], g[1]
                     key = f"{label}:{db}" if host in ("localhost", "127.0.0.1", "db", "postgres", "mysql", "mongo") else f"{label}:{host}/{db}"
                     model["dbs"].setdefault(key, {"label": label, "name": db, "users": set()})["users"].add(n)
+                    cite(m.start())
                     found_db = True
         if not found_db:
             for dep, label in DEP_DB.items():
                 if label and dep in low:
                     key = f"{label}:{n}"
                     model["dbs"].setdefault(key, {"label": label, "name": f"{n} db", "users": set()})["users"].add(n)
+                    cite(low.find(dep))
                     break
         if any(d in low for d in CACHE_DEPS):
             model["caches"].add(n)
         for label, deps in (("RabbitMQ", RABBIT_DEPS), ("Kafka", KAFKA_DEPS)):
             if any(d in low for d in deps):
                 model["brokers"].add(label)
+                cite(min(low.find(d) for d in deps if d in low))
                 pubs = {m for p in PUBLISH for m in re.findall(p, blob)}
                 subs = {m for p in CONSUME for m in re.findall(p, blob)}
                 if pubs:
@@ -157,14 +230,23 @@ def scan() -> dict:
         for key, label in IDP_HINTS:
             if key in low:
                 model["idps"].add(label)
+                cite(low.find(key))
                 model["edges"].append((n, label, "sync", "authenticates with"))
         # HTTP calls to sibling repos: their name used as a host / service reference
         for other in names:
             if other == n:
                 continue
-            if re.search(rf"(https?://|//|\b){re.escape(other)}(?=[:/.\"'\s]|$)", blob) or \
-               re.search(rf"{re.escape(other)}[.-]?(url|host|base-?url|endpoint|uri)", low):
+            hit = re.search(rf"(https?://|//|\b){re.escape(other)}(?=[:/.\"'\s]|$)", blob) or \
+                re.search(rf"{re.escape(other)}[.-]?(url|host|base-?url|endpoint|uri)", low)
+            if hit:
                 model["edges"].append((n, other, "sync", "calls (HTTP)"))
+                cite(hit.start())
+    functions = [n for n, r in model["repos"].items() if r.get("repo")]
+    for n in names:                                       # apps calling Cloud Functions (httpsCallable, cloud_functions)
+        low = blobs[n].lower()
+        if functions and any(h in low for h in FUNCTION_CALLS):
+            for fn in [f for f in functions if owner[f] == n] or functions:
+                model["edges"].append((n, fn, "sync", "calls"))
     for key, d in model["dbs"].items():
         for u in sorted(d["users"]):
             model["edges"].append((u, key, "sync", "reads/writes"))
@@ -180,7 +262,7 @@ def render_c4(model: dict, project: str) -> dict[str, str]:
              "model {", "  user = actor 'User' 'Uses the system' { #ai-draft }", "", f"  {sys_id} = system '{q(project)}' {{"]
     for n, r in model["repos"].items():
         lines += [f"    {ids[n]} = {kind_map.get(r['kind'], 'service')} '{q(n)}' {{", "      #ai-draft",
-                  f"      technology '{q(r['tech'])}'", f"      metadata {{ repo '{q(n)}' }}", "    }"]
+                  f"      technology '{q(r['tech'])}'", f"      metadata {{ repo '{q(r.get('repo', n))}' }}", "    }"]
     ext_ids = {}
     for key, d in model["dbs"].items():
         i = ident(f"db {d['label']} {d['name']}")
@@ -269,10 +351,12 @@ def save(model: dict, overwrite: bool = False) -> list[str]:
         return written                      # the kept model has its own (maybe AI-verified) page: don't contradict it
     rows = "\n".join(f"| {n} | {r['kind']} | {r['tech']} |" for n, r in model["repos"].items())
     rels = "\n".join(f"- {a} → {b}: {label}" for a, b, _, label in model["edges"]) or "- (none detected)"
+    sources = sorted(model.get("sources") or ())                 # facts read from code: agents may use the page
+    cited = "\nx-sources:" + "".join(f"\n  - {s}" for s in sources) if sources else ""
     page.write_text(f"""---
 type: architecture
 title: Architecture — first look
-description: Automatic first draft of the system architecture (static scan, no AI). Starting point for the C4 model.
+description: Automatic first draft of the system architecture (static scan, no AI). Starting point for the C4 model.{cited}
 ---
 # Architecture — first look
 

@@ -81,7 +81,7 @@ PAGES = {
                  "Ollama) y Gemini CLI; `camaron doctor --local` te propone un modelo local según la memoria de tu "
                  "equipo. Cuando luego implementéis features, la IA consulta la documentación con el servidor MCP "
                  "«camarones» (preguntar con citas, buscar, leer una página o solo la sección que hace falta, grafo del "
-                 "repo)."},
+                 "repo), también con Claude Code abierto dentro de un solo repo."},
         {"icon": "📖", "title": "OpenWiki: la wiki de cada repo",
          "art": r"""
    cam-docs/wikis/repo-a/     <- la wiki vive aqui, versionada con el resto de la doc
@@ -98,7 +98,8 @@ PAGES = {
                  "portal (pestaña Wikis, con el log en directo), desde el asistente (📚 Wikis) o con "
                  "«camaron wiki <repo>»; sus páginas aparecen en Docs, en repos/<repo>/. Cada wiki es una sesión de "
                  "agente completa, así que solo la llevan los repos que elijas (asistente > Wikis > elegir), y la primera "
-                 "espera al repo-brief, que le da el rol y el glosario del repo. Se lanzan de una en una. Camarones rellena "
+                 "espera al repo-brief, que le da el rol y el glosario del repo (desde el portal puedes lanzarla igual: "
+                 "elige el repo y escribe un brief inicial sin IA). Se lanzan de una en una. Camarones rellena "
                  "lo que OpenWiki no cubre: visión del proyecto entero, dominio, flujos de negocio, despliegue y decisiones."},
         {"icon": "🕸", "title": "graphify: el grafo del código",
          "art": r"""
@@ -190,14 +191,14 @@ PAGES = {
    | DOMINIO          |  [Editar] [Confirmar] [Pedir cambios]                   |
    |  > Glosario      |  ...                                                    |
    +----------------------------------------------------------------------------+""",
-         "text": "El portal 🦐 junta en una sola web la documentación (con buscador, edición y revisión), el explorador C4, "
+         "text": "El portal 🦐 junta en una sola web la documentación (con buscador, edición y revisión), el explorador C4 (bajo cada vista, sus elementos para corregir y confirmar lo que redactó la IA), "
                  "el grafo de código y las wikis de OpenWiki, en español o inglés. Tiene dos modos con la misma "
                  "interfaz: el portal local (`camaron up`, o asistente → 🌐 Portal → 📝 Abrir el portal), donde se "
                  "puede editar, y la exportación de solo lectura (`camaron portal`) que se despliega con Docker o en "
                  "cualquier hosting estático. `camaron up --static` te enseña la exportación tal cual. Todo funciona "
-                 "sin Internet (on-premise). Es blanco y negro, con modo claro y oscuro. Además: Preguntar (las secciones que responden, con su cita), "
-                 "Pizarras (Excalidraw, desde una vista C4) y Pipeline (el plan en vivo, con lanzar, cancelar, reintentar y "
-                 "aprobar). El interruptor «Todo / Negocio» deja solo las páginas de qué hace el sistema y por qué; la "
+                 "sin Internet (on-premise). Es blanco y negro, con modo claro y oscuro. Las pestañas de un proyecto nuevo ofrecen un primer vistazo desde el código, sin IA. Además: Preguntar (las secciones que responden, con su cita; entiende el sentido: «base de datos» encuentra PostgreSQL), "
+                 "Pizarras (Excalidraw, desde una vista C4), Pipeline (el plan en vivo, con lanzar, cancelar, reintentar y "
+                 "aprobar), Librerías (dependencias por servicio y vulnerabilidades en rojo), Datos (tablas y colecciones como diagrama ER), KPIs (cuánto está confirmado, qué se ha quedado viejo, el coste de IA y las preguntas que nadie encontró) y CI (los ficheros del pipeline, un botón para generarlos y el último pipeline). El interruptor «Todo / Negocio» deja solo las páginas de qué hace el sistema y por qué; la "
                  "portada tiene una caja «¿Cómo funciona…?», y si hay un agente configurado, Preguntar también puede "
                  "redactar la respuesta con esas secciones."},
         {"icon": "✏️", "title": "Dónde y cuándo se puede editar",
@@ -365,7 +366,8 @@ PAGES = {
                  "OpenCode (the way to local models, such as Qwen on Ollama) and Gemini CLI work too; "
                  "`camaron doctor --local` proposes a local model that fits your computer's memory. Later, when you "
                  "implement features, the AI looks the docs up through the “camarones” MCP server (ask with citations, "
-                 "search, read a page or just the section it needs, repo graph)."},
+                 "search, read a page or just the section it needs, repo graph), also with Claude Code opened inside "
+                 "a single repo."},
         {"icon": "📖", "title": "OpenWiki: each repo's wiki",
          "art": r"""
    cam-docs/wikis/repo-a/     <- the wiki lives here, versioned with the rest of the docs
@@ -381,7 +383,8 @@ PAGES = {
                  "the service repo stays clean. Generate or update it from the portal (Wikis tab, with a live log), from "
                  "the wizard (📚 Wikis) or with “camaron wiki <repo>”; its pages show up under Docs as repos/<repo>/. "
                  "Each wiki is a full agent run, so only the repos you choose get one (wizard > Wikis > choose), and the "
-                 "first one waits for the repo-brief, which gives it the repo's role and glossary. They run one at a time. "
+                 "first one waits for the repo-brief, which gives it the repo's role and glossary (from the portal you can "
+                 "start one anyway: it chooses the repo and writes a starter brief without AI). They run one at a time. "
                  "Camarones fills what OpenWiki doesn't cover: the whole-project view, domain, business flows, deployment "
                  "and decisions."},
         {"icon": "🕸", "title": "graphify: the code graph",
@@ -473,13 +476,13 @@ PAGES = {
    | DOMAIN           |  [Edit] [Confirm] [Request changes]                     |
    |  > Glossary      |  ...                                                    |
    +----------------------------------------------------------------------------+""",
-         "text": "The 🦐 portal brings the docs (with search, editing and review), the C4 explorer, the code graph and the "
+         "text": "The 🦐 portal brings the docs (with search, editing and review), the C4 explorer (under each view, its elements to fix and confirm what the AI drafted), the code graph and the "
                  "OpenWiki wikis together in one site, in English or Spanish. It has two modes with the same interface: "
                  "the local portal (`camaron up`, or wizard → 🌐 Portal → 📝 Open the portal), where you can edit, and "
                  "the read-only export (`camaron portal`) that is deployed with Docker or on any static host. "
                  "`camaron up --static` shows you the export as is. Everything works offline (on-premise). It is black and white, "
-                 "light or dark. Also: Ask (the sections that answer, with citations), Boards (Excalidraw, from a C4 view) "
-                 "and Pipeline (the plan live, with run, cancel, retry and approve). The “All / Business” switch keeps only "
+                 "light or dark. A fresh project's empty tabs offer a first look from the code, no AI. Also: Ask (the sections that answer, with citations; it goes by meaning: “database” finds PostgreSQL), Boards (Excalidraw, from a C4 view) "
+                 "Pipeline (the plan live, with run, cancel, retry and approve), Libraries (dependencies per service, known vulnerabilities in red), Data (tables and collections as an ER diagram), KPIs (confirmed share, pages out of date, AI cost and the questions nobody found) and CI (the pipeline files, a button to generate them and the last run). The “All / Business” switch keeps only "
                  "the pages about what the system does and why; the home page has a “How does … work?” box, and with "
                  "an agent set up, Ask can also write the answer from those sections."},
         {"icon": "✏️", "title": "Where and when you can edit",

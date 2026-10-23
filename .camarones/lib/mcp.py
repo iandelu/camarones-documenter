@@ -78,7 +78,7 @@ def search_docs(query: str, limit: int = 8) -> str:
     if not re.search(r"\w\w", query):
         return "Empty query."
     hits = docs.search(query, limit)
-    usage.record("mcp:search_docs", channel="agent", hit=bool(hits))
+    usage.record("mcp:search_docs", channel="agent", hit=bool(hits), query=query)
     if not hits:
         return f"No page mentions: {query}"
     rows, served, held = _rows(), [], []
@@ -160,7 +160,7 @@ def repo_graph(question: str, repo: str | None = None) -> str:
 
 def ask(question: str, limit: int = 3) -> str:
     hits = docs.search(question, 20) if re.search(r"\w\w", question) else []
-    usage.record("mcp:ask", channel="agent", hit=bool(hits))
+    usage.record("mcp:ask", channel="agent", hit=bool(hits), query=question)
     rows, parts = _rows(), []
     for h in hits:
         r = rows.get(h["path"], {})
