@@ -93,3 +93,20 @@ def test_uninstall_removes_it(kit, claude):
     data = json.loads(cfg.read_text(encoding="utf-8"))
     assert not any(p.get("mcpServers", {}).get("camarones") for p in data["projects"].values())
     assert not any("camarones MCP" in s.label for s in uninstall.steps(backup=False))
+
+
+@pytest.mark.parametrize("cli, portable", [("camaron", True), ("camarones", True), ("./camaron.command", False)])
+def test_the_shared_mcp_entry_names_the_cli_not_a_path_on_this_machine(kit, monkeypatch, cli, portable):
+    """.mcp.json is committed to the team's cam-docs: with a global install it must say `camaron mcp`, not a path."""
+    monkeypatch.setattr(kit.env, "cli_cmd", lambda: cli)
+    entry = kit.env.camarones_mcp()
+    if portable:
+        assert entry == {"command": cli, "args": ["mcp"]}
+    else:
+        assert entry["command"] == "uv" and entry["args"][-1] == "mcp"
+
+
+def test_on_windows_the_cmd_shim_goes_through_cmd(kit, monkeypatch):
+    monkeypatch.setattr(kit.env, "cli_cmd", lambda: "camaron")
+    monkeypatch.setattr(kit.env, "IS_WIN", True)
+    assert kit.env.camarones_mcp() == {"command": "cmd", "args": ["/c", "camaron", "mcp"]}
