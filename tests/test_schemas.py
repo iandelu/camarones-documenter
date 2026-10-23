@@ -212,3 +212,14 @@ def test_the_cli(kit, repos):
     assert {e["name"] for s in data["api"]["stores"] for e in s["entities"]} >= {"owners", "pets", "visits", "vets"}
     r = run()
     assert r.returncode == 0 and "→ docs/data/api.md" in r.stdout and (kit.root / "docs" / "data" / "api.md").is_file()
+
+
+def test_the_portal_serves_each_repos_model_and_writes_the_pages(kit, repos):
+    from lib import serve
+    d = serve.api_schemas()
+    api = next(r for r in d["repos"] if r["repo"] == "api")
+    assert api["entities"] >= 4 and "erDiagram" in api["markdown"] and api["page"] is None
+    assert next(r for r in d["repos"] if r["repo"] == "worker")["entities"] == 0
+    r = serve.schemas_write()
+    assert r["written"] == ["docs/data/api.md", "docs/data/web.md"]
+    assert next(x for x in serve.api_schemas()["repos"] if x["repo"] == "api")["page"] == "data/api.md"

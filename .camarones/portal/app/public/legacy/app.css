@@ -72,7 +72,8 @@ mark { background: color-mix(in srgb, var(--ink) 14%, transparent); color: inher
 .brand-text b { font-size: .98rem; font-weight: 700; letter-spacing: -.02em; overflow: hidden; text-overflow: ellipsis; }
 .brand-sub { font-size: .7rem; color: var(--muted); letter-spacing: .04em; }
 .menu { display: none; font-size: 1.15rem; }
-.tabs { display: flex; gap: .25rem; height: 100%; }
+.tabs { display: flex; gap: .25rem; height: 100%; flex: 0 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }          /* many tabs scroll sideways; search and language stay visible */
 .tabs a { position: relative; display: flex; align-items: center; padding: 0 .7rem; color: var(--muted); font-size: .9rem; font-weight: 500;
           margin-bottom: -1px; white-space: nowrap; transition: color .15s var(--ease); }
 .tabs a::after { content: ""; position: absolute; left: .7rem; right: .7rem; bottom: 0; height: 2px; background: var(--ink);

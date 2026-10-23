@@ -107,6 +107,27 @@ def api_c4_view(view: str) -> dict:
                           "in": [rel(r) for r in idx["relations"] if r["to"] == f]} for f in shown]}
 
 
+def api_schemas() -> dict:
+    """Each repo's tables and collections (lib/schemas.py) with the same markdown its data page holds."""
+    from . import schemas
+    out = []
+    for name, r in schemas.scan().items():
+        page = schemas.PAGE.format(repo=name)
+        out.append({"repo": name, "tools": r["tools"], "stores": [{"kind": s["kind"], "engines": s["engines"],
+                                                                   "entities": s["entities"]} for s in r["stores"]],
+                    "entities": sum(len(s["entities"]) for s in r["stores"]), "markdown": schemas.block_body(r),
+                    "page": page if (DOCS / page).is_file() else None})
+    return {"repos": out}
+
+
+def schemas_write() -> dict:
+    from . import genblocks, schemas
+    written = schemas.write_pages(log=lambda _: None)
+    genblocks.refresh()
+    docs.llms()
+    return {"written": written}
+
+
 def api_inventory() -> dict:
     """The last inventory (docs/.work/inventory.json), or a fresh scan of the manifests when there is none yet."""
     from . import inventory
@@ -462,6 +483,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(api_ask(q.get("q", "")))
         if name == "inventory":
             return self.json(api_inventory())
+        if name == "schemas":
+            return self.json(api_schemas())
         if name == "ci":
             from . import ci
             return self.json(ci.status())
@@ -574,6 +597,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json({"cancelling": m.group(1)})
             if p == "/api/units/retry":
                 return self.json(*retry_unit(b.get("unit", "")))
+            if p == "/api/schemas":
+                return self.json(schemas_write())
             if p == "/api/inventory":
                 return self.json(inventory_job(b))
             if p == "/api/ci":

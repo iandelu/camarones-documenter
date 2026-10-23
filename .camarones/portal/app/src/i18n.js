@@ -30,6 +30,11 @@ const S = {
     kpisTop: 'Most read pages this month', page: 'Page', reads: 'Reads', byAgents: 'By agents', byPeople: 'By people',
     recordingOn: 'Usage counts are recorded on this machine.',
     recordingOff: 'Usage counts are off on this machine (`camaron stats --record on`).', kpisCli: 'In a terminal: `camaron kpis`, `camaron stats`.',
+    dataTitle: 'Data', dataLead: 'The tables and collections each repo declares, read from its migrations, schema files and '
+      + 'entity classes without AI: keys, references and where each one comes from.',
+    dataNone: 'No tables or collections found in the code yet.', 'dataKind.sql': 'SQL', 'dataKind.document': 'Documents',
+    dataFrom: 'read from', dataPage: 'Its data page', dataWrite: 'Write the data pages',
+    dataCli: 'In a terminal: `camaron schemas`. The data unit then explains what each table means and who owns it.',
     libsTitle: 'Libraries', libsLead: 'Every repo\'s direct dependencies, read from its manifests without AI: what each is for, '
       + 'its version in each service and its known vulnerabilities. Click a library in red to see them.',
     libsCount: '{n} libraries', libsVulnerable: '{n} with known vulnerabilities', libsDrift: '{n} at different versions',
@@ -85,6 +90,11 @@ const S = {
     kpisTop: 'Páginas más leídas este mes', page: 'Página', reads: 'Lecturas', byAgents: 'Por agentes', byPeople: 'Por personas',
     recordingOn: 'Esta máquina registra los contadores de uso.',
     recordingOff: 'Esta máquina no registra los contadores de uso (`camaron stats --record on`).', kpisCli: 'En una terminal: `camaron kpis`, `camaron stats`.',
+    dataTitle: 'Datos', dataLead: 'Las tablas y colecciones que declara cada repo, leídas sin IA de sus migraciones, ficheros de '
+      + 'esquema y clases de entidad: claves, referencias y de dónde sale cada una.',
+    dataNone: 'Aún no se han encontrado tablas ni colecciones en el código.', 'dataKind.sql': 'SQL', 'dataKind.document': 'Documentos',
+    dataFrom: 'leído de', dataPage: 'Su página de datos', dataWrite: 'Escribir las páginas de datos',
+    dataCli: 'En una terminal: `camaron schemas`. Después la unidad de datos explica qué significa cada tabla y de quién es.',
     libsTitle: 'Librerías', libsLead: 'Las dependencias directas de cada repo, leídas de sus manifiestos sin IA: para qué sirve cada '
       + 'una, su versión en cada servicio y sus vulnerabilidades conocidas. Pulsa una librería en rojo para verlas.',
     libsCount: '{n} librerías', libsVulnerable: '{n} con vulnerabilidades conocidas', libsDrift: '{n} con versiones distintas',
