@@ -166,7 +166,8 @@ technology, description and relations, and confirm what the AI drafted, one by o
 an agent is waiting for, change requests, code changed since the docs, `check`), **Ask** (the sections that best answer
 a question, with citations, no AI; "database" also finds PostgreSQL and Spanish questions find English pages; with an agent set up, "Answer with AI" writes the answer from them
 alone), **Boards** (Excalidraw whiteboards in `docs/boards/`, blank or sketched from a C4
-view, named `<view>-draft` unless you type a name, laid out in rows: people, apps, services, stores, external systems), **Pipeline** and **KPIs** (pages and C4 elements confirmed, pages out of date, AI cost by month and
+view, named `<view>-draft` unless you type a name, laid out in rows: people, apps, services, stores, external systems), **Libraries** (every repo's dependencies as a library × service matrix, filtered by category,
+language, repo or scope, with known vulnerabilities in red), **Pipeline** and **KPIs** (pages and C4 elements confirmed, pages out of date, AI cost by month and
 the questions nobody found, which one click turns into an open question). The language switch changes the interface and the docs; a page not translated yet is shown in
 English with a notice. Tables sort by column (long ones filter), `:::tabs`/`:::steps`/`:::details`/`:::cards` render
 as tabs, steps, folds and cards, an "All / Business" switch (on each page and above the menu) hides `:::tech` blocks and, in Business, keeps

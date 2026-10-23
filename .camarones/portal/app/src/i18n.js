@@ -30,6 +30,16 @@ const S = {
     kpisTop: 'Most read pages this month', page: 'Page', reads: 'Reads', byAgents: 'By agents', byPeople: 'By people',
     recordingOn: 'Usage counts are recorded on this machine.',
     recordingOff: 'Usage counts are off on this machine (`camaron stats --record on`).', kpisCli: 'In a terminal: `camaron kpis`, `camaron stats`.',
+    libsTitle: 'Libraries', libsLead: 'Every repo\'s direct dependencies, read from its manifests without AI: what each is for, '
+      + 'its version in each service and its known vulnerabilities. Click a library in red to see them.',
+    libsCount: '{n} libraries', libsVulnerable: '{n} with known vulnerabilities', libsDrift: '{n} at different versions',
+    libsNoScan: 'Not scanned for vulnerabilities yet.', libsOffline: 'offline database', libsOnline: 'osv.dev API',
+    libsScan: 'Scan for vulnerabilities', libsRefresh: 'Read the manifests again', libsScanning: 'Scanning with OSV-Scanner… (the first time it downloads its offline database)',
+    libsRefreshing: 'Reading the manifests…', libsSearch: 'Search a library', libsCategory: 'Category', libsLanguage: 'Language',
+    libsRepo: 'Repo', libsScope: 'Scope', libsOnlyVulnerable: 'Only vulnerable', libsLibrary: 'Library', libsVersions: 'versions differ',
+    libsFixed: 'fixed in {v}', libsNone: 'No library matches.', all: 'all',
+    libsCli: 'In a terminal: `camaron inventory --cves` (exit 1 on a high or critical one, for CI).',
+    'sev.critical': 'critical', 'sev.high': 'high', 'sev.medium': 'medium', 'sev.low': 'low', 'sev.unknown': 'unrated',
     ciTitle: 'CI', ciLead: 'The docs repo pipeline and the checks each service repo runs on its pull requests, generated from '
       + 'one definition. None of them needs AI, except the optional docs proposal on your own runners.',
     ciSelfHosted: 'your own runners', ciHosted: 'hosted runners', ciLast: 'last pipeline', 'ci.passed': 'passed',
@@ -75,6 +85,16 @@ const S = {
     kpisTop: 'Páginas más leídas este mes', page: 'Página', reads: 'Lecturas', byAgents: 'Por agentes', byPeople: 'Por personas',
     recordingOn: 'Esta máquina registra los contadores de uso.',
     recordingOff: 'Esta máquina no registra los contadores de uso (`camaron stats --record on`).', kpisCli: 'En una terminal: `camaron kpis`, `camaron stats`.',
+    libsTitle: 'Librerías', libsLead: 'Las dependencias directas de cada repo, leídas de sus manifiestos sin IA: para qué sirve cada '
+      + 'una, su versión en cada servicio y sus vulnerabilidades conocidas. Pulsa una librería en rojo para verlas.',
+    libsCount: '{n} librerías', libsVulnerable: '{n} con vulnerabilidades conocidas', libsDrift: '{n} con versiones distintas',
+    libsNoScan: 'Aún no se han buscado vulnerabilidades.', libsOffline: 'base de datos offline', libsOnline: 'API de osv.dev',
+    libsScan: 'Buscar vulnerabilidades', libsRefresh: 'Releer los manifiestos', libsScanning: 'Analizando con OSV-Scanner… (la primera vez descarga su base de datos offline)',
+    libsRefreshing: 'Leyendo los manifiestos…', libsSearch: 'Busca una librería', libsCategory: 'Categoría', libsLanguage: 'Lenguaje',
+    libsRepo: 'Repo', libsScope: 'Ámbito', libsOnlyVulnerable: 'Solo vulnerables', libsLibrary: 'Librería', libsVersions: 'versiones distintas',
+    libsFixed: 'corregida en {v}', libsNone: 'Ninguna librería coincide.', all: 'todas',
+    libsCli: 'En una terminal: `camaron inventory --cves` (sale con 1 si hay alguna alta o crítica, para CI).',
+    'sev.critical': 'crítica', 'sev.high': 'alta', 'sev.medium': 'media', 'sev.low': 'baja', 'sev.unknown': 'sin nota',
     ciTitle: 'CI', ciLead: 'El pipeline del repo de documentación y las comprobaciones que cada repo de servicio lanza en sus pull '
       + 'requests, generados desde una sola definición. Ninguno necesita IA, salvo la propuesta de docs opcional en tus runners.',
     ciSelfHosted: 'tus propios runners', ciHosted: 'runners de la plataforma', ciLast: 'último pipeline', 'ci.passed': 'correcto',

@@ -107,6 +107,19 @@ def api_c4_view(view: str) -> dict:
                           "in": [rel(r) for r in idx["relations"] if r["to"] == f]} for f in shown]}
 
 
+def api_inventory() -> dict:
+    """The last inventory (docs/.work/inventory.json), or a fresh scan of the manifests when there is none yet."""
+    from . import inventory
+    return inventory.load() or inventory.scan()
+
+
+def inventory_job(b: dict) -> dict:
+    from . import inventory
+    cves = bool(b.get("cves"))
+    return start_job("inventory", "Libraries" + (" + vulnerabilities" if cves else ""),
+                     lambda log: bool(inventory.run(log=log, cves=cves)))
+
+
 def kpis_miss(b: dict) -> dict:
     """A question nobody found an answer to: `question` adds it to the open questions for the next interview,
     `dismiss` just forgets it."""
@@ -446,6 +459,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(api_pipeline())
         if name == "ask":
             return self.json(api_ask(q.get("q", "")))
+        if name == "inventory":
+            return self.json(api_inventory())
         if name == "ci":
             from . import ci
             return self.json(ci.status())
@@ -558,6 +573,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json({"cancelling": m.group(1)})
             if p == "/api/units/retry":
                 return self.json(*retry_unit(b.get("unit", "")))
+            if p == "/api/inventory":
+                return self.json(inventory_job(b))
             if p == "/api/ci":
                 from . import ci
                 if b.get("forge") not in ("github", "gitlab"):
