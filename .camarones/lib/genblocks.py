@@ -14,7 +14,7 @@ import yaml
 from .common import DOCS, ROOT, cli_cmd, repo_dir, rel_file
 from . import docs, quickarch
 
-KINDS = ("commands", "env", "endpoints", "topics")
+KINDS = ("commands", "env", "endpoints", "topics", "schema")
 BLOCK_RE = re.compile(r"<!-- generated:(?P<kind>[\w-]+) repo=(?P<repo>[\w.\-]+)(?: sha=(?P<sha>[0-9a-f]+))? -->\n"
                       r"(?P<body>.*?)<!-- /generated:(?P=kind) -->", re.S)
 PLACEHOLDER = re.compile(r"\$\{([A-Z][A-Z0-9_]*)(?::([^}]*))?\}")
@@ -191,6 +191,9 @@ def _where(source: str) -> str:
 
 def render(kind: str, name: str, repo: Path) -> tuple[str, list[str]]:
     """(block body, sources it was read from)."""
+    if kind == "schema":
+        from . import schemas
+        return schemas.render_block(name, repo)
     if kind == "env":
         rows = env_rows(name, repo)
         lines = ["| Variable | Default | Where |", "|---|---|---|"] + [

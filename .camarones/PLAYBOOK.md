@@ -210,6 +210,10 @@ Skeletons: `domain.md` (bounded contexts), `glossary.md`.
 ## data
 `docs/data/<store>.md` per datastore: `erDiagram`, ownership table (table → writers → readers), migration source,
 `#shared-db` tag in C4 + warning section when shared. Skeleton: `data-model.md`.
+Start from the facts: `docs/data/<repo>.md` (`CLI schemas`, no AI) already has each repo's tables and collections in a
+`<!-- generated:schema repo=<repo> -->` block (ER diagram, keys, references, sources). Keep that block as it is (it is
+refreshed from the code); write around it what the tables mean, who owns them and what is shared. A store page may
+embed the same block for its repo instead of redrawing the diagram.
 
 ## deployment
 `docs/architecture/deployment.c4` + `deployment view deploy_<env>` per environment; `docs/deployment/environments.md`.
