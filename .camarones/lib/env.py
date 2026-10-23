@@ -781,6 +781,28 @@ ENGINE_HELP = {
 }
 
 
+def openwiki_wired(host: str) -> bool:
+    """Whether the agent can reach OpenWiki's MCP tools in this project (what `openwiki integrations install` writes)."""
+    if host == "claude":
+        return "openwiki" in (load_json(ROOT / ".mcp.json", {}).get("mcpServers") or {})
+    cfg = ROOT / ".codex" / "config.toml"
+    return cfg.is_file() and "openwiki" in cfg.read_text(encoding="utf-8", errors="replace")
+
+
+def wire_openwiki(host: str, log: Log = print) -> None:
+    """An agent writes the wiki through OpenWiki's MCP server: connect it the way setup does when it is missing
+    (a project set up without the agents step, or a config someone removed), and let headless runs load it."""
+    if openwiki_wired(host):
+        return
+    from . import install_state
+    cmd = next(c for c in OPENWIKI_INSTALL if c[3] == host)
+    log(f"Connecting OpenWiki to {host} in this project…")
+    install_state.learn([cmd])
+    if run(cmd, cwd=ROOT, check=False, quiet=True).returncode != 0 or not openwiki_wired(host):
+        raise RuntimeError(f"OpenWiki could not be connected to {host} in this project: run `camaron setup`")
+    write_agent_config(components())
+
+
 def wiki_engine_help() -> str | None:
     """Why no engine can write a wiki here (a key of ENGINE_HELP), or None when one can."""
     if wiki_engines():
@@ -1095,6 +1117,8 @@ def openwiki_generate(repo: str, mode: str = "", log: Log = print, engine: str =
         tail.append(line)
         log(line)
 
+    if engine != "openwiki":
+        wire_openwiki(engine, log)
     with wiki_lock(repo):
         if known:
             plan.set_status(uid, "doing")
