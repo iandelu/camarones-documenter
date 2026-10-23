@@ -64,6 +64,12 @@ Not done from these items: indexing the `.c4` model itself in search (S1; first-
 
 ## Phase 2 — confirm the C4 on screen
 
+Done 2026-10-23 (kit 4.31.0), checked on the sandbox (confirm, edit and a new relation: minimal diff in `model.c4`,
+`likec4 validate` ✓, the diagram rebuilt with the new arrow). Clicking an element inside the LikeC4 web component was
+not used: its nodes live in a shadow DOM the portal does not own, so the panel lists the view's elements under the
+diagram instead. Which elements a view shows comes from its `of` scope, `include` list and dynamic steps, read from the
+.c4 files without LikeC4; views built from predicates (`include * -> x`) may show fewer elements than the diagram.
+
 | ID | Change | Test first |
 |---|---|---|
 | S13 | **C4 element panel.** Click an element in a view → side panel with title, kind, technology, description, tags and relations. Edit → `lib/c4edit.py` rewrites only that element block in its `.c4` file, runs `arch-validate`, and refuses to save an invalid model. **Confirm** removes `#ai-draft` and adds `#confirmed` with `confirmed-by`/date metadata; "Confirm view" does it for every element in the view. Add/remove a relation from the panel. Freshness L3 already marks confirmed elements suspect when their sources change | Round-trip: edit one element, every other byte of the file unchanged; invalid edit → 400 and file untouched; confirm on a fixture view removes every `#ai-draft` in it; a fragment file under `fragments/` is edited in place under the `c4-model` lock |
