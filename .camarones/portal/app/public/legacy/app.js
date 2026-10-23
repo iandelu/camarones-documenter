@@ -11,8 +11,9 @@ function drawChrome(active, { viewer = false, bare = false, nativeView = false }
   const code = (T.codeMaps || []).length || T.codeGraphs.length;
   const live = !STATIC && window.CamaronNative;                  // the React views need the live server
   const tabs = [['docs', '#/'], ['c4', '#/c4'], ...(code ? [['code', '#/code']] : []), ...(wikis ? [['wikis', '#/wikis']] : []),
-    ['review', '#/review'], ...(live ? [['ask', '#/ask'], ['boards', '#/boards'], ['pipeline', '#/pipeline'], ['libs', '#/libs'], ['kpis', '#/kpis'], ['ci', '#/ci']] : [])];
+    ['review', '#/review'], ...(live ? [['ask', '#/ask'], ['boards', '#/boards'], ['pipeline', '#/pipeline'], ['libs', '#/libs'], ['data', '#/data'], ['kpis', '#/kpis'], ['ci', '#/ci']] : [])];
   $('#tabs').innerHTML = tabs.map(([k, href]) => `<a href="${href}" class="${k === active ? 'on' : ''}">${esc(t(k === 'code' ? 'codeTab' : k))}</a>`).join('');
+  requestAnimationFrame(() => $('#tabs a.on')?.scrollIntoView({ block: 'nearest', inline: 'center' }));   // the bar scrolls when the tabs do not fit
   $('#search-label').textContent = t('search');
   $('#theme').title = t('theme');
   $('#menu').title = t('menu');
@@ -449,7 +450,7 @@ async function routeNow() {
   const h = decodeURIComponent(location.hash.slice(1));
   const [, view = '', rest = ''] = h.match(/^\/([\w-]*)\/?(.*)$/) || [];
   if ($('#palette').open) $('#palette').close();
-  if (['pipeline', 'boards', 'ask', 'kpis', 'ci', 'libs'].includes(view) && !STATIC && window.CamaronNative) {
+  if (['pipeline', 'boards', 'ask', 'kpis', 'ci', 'libs', 'data'].includes(view) && !STATIC && window.CamaronNative) {
     CURRENT = '';
     drawChrome(view, { nativeView: true });
     drawToc(null);

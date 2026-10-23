@@ -133,3 +133,11 @@
 #native .pill.muted { color: var(--muted); }
 #native .vuln-detail td { white-space: normal; background: var(--panel); }
 #native .vuln-detail li { padding: .25rem 0; }
+
+/* Data */
+#native .data-repos { margin-top: 1rem; flex-wrap: wrap; }
+#native .data-repos a { padding: 6px 12px; border-radius: 6px; color: var(--muted); text-decoration: none; }
+#native .data-repos a.on { background: var(--panel); color: var(--fg); }
+#native .data-meta { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin: 1rem 0; }
+#native .data-actions { margin-left: auto; }
+#native .data .doc { min-width: 0; overflow-x: auto; }
