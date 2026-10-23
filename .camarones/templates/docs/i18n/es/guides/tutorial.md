@@ -169,7 +169,7 @@ Un solo portal, dos modos y la misma interfaz. Pestañas: **Docs** (árbol, bús
 (páginas pendientes, revisiones que espera un agente, peticiones de cambio, código cambiado desde la doc, `check`),
 **Preguntar** (las secciones que mejor responden a una pregunta, con citas, sin IA; «base de datos» también encuentra PostgreSQL y las preguntas en español encuentran páginas en inglés; con un agente configurado, «Answer
 with AI» redacta la respuesta solo con ellas), **Pizarras** (pizarras de
-Excalidraw en `docs/boards/`, en blanco o desde una vista C4) y **Pipeline**. El selector de idioma cambia la interfaz y
+Excalidraw en `docs/boards/`, en blanco o desde una vista C4, con el nombre `<vista>-draft` si no escribes otro) y **Pipeline**. El selector de idioma cambia la interfaz y
 la documentación. Las tablas se ordenan por columna (las largas se filtran), `:::tabs`/`:::steps`/`:::details`/`:::cards`
 se ven como pestañas, pasos, desplegables y tarjetas, un interruptor «Todo / Negocio» (en cada página y encima del menú) oculta los bloques `:::tech` y, en Negocio, deja
 en el menú y en la portada solo las páginas de visión general, dominio, glosario, flujos y decisiones; la portada tiene
