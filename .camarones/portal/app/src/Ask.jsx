@@ -70,6 +70,9 @@ export default function Ask({ arg }) {
     <section className="ask view">
       <h1>{t('askTitle')}</h1>
       <p className="lede">{t('askLead')}</p>
+      {window.camaronTree && !(window.camaronTree().docs || []).some((d) => !(window.camaronTree().kitGuides || []).includes(d.path)
+        && d.type !== 'interview')
+        ? <p className="banner"><a href="#/">{t('askEmpty')}</a></p> : null}
       <form onSubmit={ask}>
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('askPh')} aria-label={t('askTitle')} autoFocus />
         <button type="submit" disabled={busy}>{busy ? t('asking') : t('ask')}</button>

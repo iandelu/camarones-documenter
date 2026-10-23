@@ -463,3 +463,5 @@ body[data-audience="business"] .dv-tech { display: none; }
 .c4rel-form { margin-top: .6rem; gap: .4rem; flex-wrap: wrap; }
 .c4rel-form select, .c4rel-form input { flex: 1 1 8rem; min-width: 0; }
 @media (max-width: 640px) { .c4el-panel { padding: 0 1rem 2rem; } .c4el-form { grid-template-columns: 1fr; } }
+.hero.empty .row { justify-content: center; gap: .6rem; margin-top: 1.25rem; flex-wrap: wrap; }
+.hero.empty .joblog { text-align: left; margin-top: 1rem; }

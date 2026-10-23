@@ -155,6 +155,9 @@ once). Without them `check` prints one warning and skips that check.
 
 ## 5. Portal
 
+A fresh project's tabs are never blank: Docs and Architecture offer a **first look from the code (no AI)** — the C4
+draft and its page, the stack and tools — and Code offers to build the code graph.
+
 One portal, two modes, the same interface. Tabs: **Docs** (tree, search, trust badges), **Architecture (C4)** (under each view, its elements: edit title,
 technology, description and relations, and confirm what the AI drafted, one by one or the whole view),
 **Code graph** (all repos or one), **Wikis** (OpenWiki per repo, its pages and graph), **Review** (pending pages, reviews

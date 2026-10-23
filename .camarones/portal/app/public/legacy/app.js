@@ -101,10 +101,15 @@ async function showHome() {
   CURRENT = '';
   const docs = T.docs.filter((d) => d.space === 'docs' && (!isBusiness() || forBusiness(d)));
   const wikiPages = isBusiness() ? 0 : T.docs.filter((d) => d.space === 'wiki').length;
-  if (!docs.length && !T.views.length) {
+  const kit = new Set(T.kitGuides || []);                         // the kit's own guides do not document the project
+  if (!docs.some((d) => !kit.has(d.path) && d.type !== 'interview') && !T.views.length) {
     drawToc(null);
     $('#main').innerHTML = `<div class="page hero empty"><div class="hero-logo">🦐</div><h1>${esc(T.project)}</h1>
-      <p class="lead">${esc(t('homeEmpty'))}</p><p class="muted">${esc(t('noDocsHelp'))}</p></div>`;
+      <p class="lead">${esc(t('homeEmpty'))}</p><p class="muted">${esc(t('noDocsHelp'))}</p>
+      ${STATIC ? '' : `<div class="row center"><button id="first-look" type="button">${esc(t('firstLook'))}</button>
+        <a class="button ghost" href="#/pipeline">${esc(t('nextUnit'))} →</a></div><pre id="first-log" class="joblog" hidden></pre>`}
+      ${T.kitGuides?.length ? `<p class="small"><a href="${esc(hrefFor(T.kitGuides.find((g) => g.endsWith('tutorial.md')) || T.kitGuides[0]))}">📘 ${esc(t('readTutorial'))}</a></p>` : ''}</div>`;
+    $('#first-look')?.addEventListener('click', (e) => startBuild('first-look', '', e.target, $('#first-log'), () => location.reload()));
     return;
   }
   const home = BY_PATH['index.md'];

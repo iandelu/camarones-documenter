@@ -112,3 +112,41 @@ def test_every_tab_has_a_route_and_every_react_view_a_component(kit):
         assert re.search(rf"\b{'codeTab' if tab == 'code' else tab}: '", core), f"tab {tab} has no label"
     for view in react:
         assert re.search(rf"\b{view}: \w+", components), f"React view {view} has no component"
+
+
+# ---------- empty states (S18): an empty tab offers the one button that fills it ----------
+def test_a_fresh_project_gets_its_first_look_from_the_portal(kit, monkeypatch):
+    import time
+    from lib import quickarch, serve
+    monkeypatch.setattr(quickarch, "which", lambda name: None)                     # no LikeC4 build in tests
+    monkeypatch.setattr(serve.env, "build_c4", lambda log=print: True)
+    assert not (kit.root / "docs" / "architecture" / "first-look.md").exists()
+    job = serve.build({"what": "first-look"})
+    for _ in range(200):
+        if serve.JOBS[job["id"]]["status"] != "running":
+            break
+        time.sleep(0.05)
+    assert serve.JOBS[job["id"]]["status"] == "done", serve.JOBS[job["id"]]["log"]
+    for page in ("architecture/first-look.md", "overview/tooling.md"):
+        assert (kit.root / "docs" / page).is_file(), page
+    assert (kit.root / "docs" / "architecture" / "model.c4").is_file()
+    assert "first-look" in (kit.root / "docs" / "llms.txt").read_text(encoding="utf-8")
+    assert any(d["path"] == "architecture/first-look.md" for d in serve.tree()["docs"])
+
+
+def test_the_tree_names_the_kit_guides_so_an_install_with_only_them_reads_as_empty(kit):
+    from lib import serve
+    (kit.root / "docs" / "guides").mkdir(parents=True, exist_ok=True)
+    (kit.root / "docs" / "guides" / "tutorial.md").write_text("---\ntitle: Tutorial\n---\n# Tutorial\n", encoding="utf-8")
+    t = serve.tree()
+    assert "guides/tutorial.md" in t["kitGuides"] and any(d["path"] == "guides/tutorial.md" for d in t["docs"])
+
+
+def test_only_the_kit_spec_is_not_a_model_yet(kit):
+    arch = kit.root / "docs" / "architecture"
+    arch.mkdir(parents=True, exist_ok=True)
+    (arch / "spec.c4").write_text("specification {\n  element system\n}\n", encoding="utf-8")
+    (arch / "likec4.config.json").write_text('{"name": "demo"}', encoding="utf-8")
+    assert kit.env.viewers()["c4"]["model"] is False                    # the empty tab offers a first look, not a build
+    (arch / "model.c4").write_text("model {\n  a = system 'A'\n}\n", encoding="utf-8")
+    assert kit.env.viewers()["c4"]["model"] is True

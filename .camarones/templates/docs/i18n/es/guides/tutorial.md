@@ -164,6 +164,9 @@ Chromium sin ventana). Si faltan, `check` lo avisa una vez y se salta esa compro
 
 ## 5. Portal
 
+Las pestañas de un proyecto recién instalado nunca están en blanco: Docs y Arquitectura ofrecen un **primer vistazo
+desde el código (sin IA)** —el borrador C4 con su página, el stack y las herramientas— y Código ofrece construir el grafo.
+
 Un solo portal, dos modos y la misma interfaz. Pestañas: **Docs** (árbol, búsqueda, confianza), **Arquitectura (C4)** (bajo cada vista, sus elementos: edita título,
 tecnología, descripción y relaciones, y confirma lo que redactó la IA, de uno en uno o la vista entera),
 **Grafo de código** (todos los repos o uno), **Wikis** (OpenWiki por repo, sus páginas y su grafo), **Revisión**
