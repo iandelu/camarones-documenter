@@ -85,3 +85,17 @@ def test_a_whole_page_hit_does_not_repeat_its_tldr(kit):
     hit = serve.api_ask("maven docker")["sections"][0]
     assert hit["tldr"] == "> **TL;DR:** What each repo is built with."
     assert "TL;DR" not in hit["text"] and "Maven" in hit["text"]
+
+
+def test_the_first_look_cites_what_it_read_so_agents_may_use_it(kit, monkeypatch):
+    conf = kit.ws / "api" / "src" / "main" / "resources" / "application.properties"
+    conf.parent.mkdir(parents=True)
+    conf.write_text("spring.datasource.url=jdbc:postgresql://localhost:5432/petclinic\n", encoding="utf-8")
+    from lib import quickarch, serve
+    monkeypatch.setattr(quickarch, "which", lambda name: None)                     # no LikeC4 build in tests
+    quickarch.save(quickarch.draft(log=lambda _: None))
+    fm = kit.docs.split_fm((kit.root / "docs" / "architecture" / "first-look.md").read_text(encoding="utf-8"))[0]
+    assert "api:src/main/resources/application.properties" in fm["x-sources"] and "api:pom.xml" in fm["x-sources"]
+    assert fm["x-sources"] == sorted(fm["x-sources"])
+    hit = serve.api_ask("which database does it use?")["sections"][0]
+    assert hit["cite"].startswith("architecture/first-look.md") and not hit["withheld_for_agents"]
