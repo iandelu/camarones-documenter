@@ -16,16 +16,25 @@ function Section({ text, path }) {
 // Opt-in, one click per question: the runner for bounded work answers from the sections Ask found, citing them.
 function AiAnswer({ question, runner, link }) {
   const [state, setState] = useState(null)
+  const [waited, setWaited] = useState(0)
+  useEffect(() => {
+    if (!state?.busy) return undefined
+    const started = Date.now()
+    const id = setInterval(() => setWaited(Math.round((Date.now() - started) / 1000)), 1000)
+    return () => clearInterval(id)
+  }, [state?.busy])
   async function go() {
+    setWaited(0)
     setState({ busy: true })
     try { setState(await postJSON('ask/answer', { q: question })) } catch (e) { setState({ error: e.message }) }
   }
   if (!state) return <button type="button" className="ghost small ai-go" onClick={go}>✨ {t('aiAnswer')} · {runner}</button>
-  if (state.busy) return <p className="muted ai-busy">{t('aiBusy')}</p>
+  if (state.busy) return <p className="muted ai-busy" role="status">{t('aiBusy')} {waited ? `${waited} s` : ''}</p>
   if (state.error) return <p className="error" role="alert">{state.error}</p>
+  const cost = state.cost_usd ? ` · $${state.cost_usd.toFixed(3)}` : ''
   return (
     <div className="ai-answer">
-      <p className="muted small">{t('aiBy')} {state.runner}. {t('aiCheck')}</p>
+      <p className="muted small">{t('aiBy')} {state.runner}{state.model ? ` (${state.model})` : ''} · {state.seconds} s{cost}. {t('aiCheck')}</p>
       <p>{state.answer || t('aiNone')}</p>
       {state.cited?.length ? <p className="small">{state.cited.map((c) => <a key={c} href={link(c)}>{c}</a>)}</p> : null}
     </div>
