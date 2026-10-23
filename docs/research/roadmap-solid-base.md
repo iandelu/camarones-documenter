@@ -76,6 +76,13 @@ diagram instead. Which elements a view shows comes from its `of` scope, `include
 
 ## Phase 3 — screens that measure it
 
+Done 2026-10-23: S14 (kit 4.32.0), S15 (kit 4.33.0), checked on the sandbox. The questions nobody found are kept on the
+machine only (`.camarones/.cache/usage-misses.json`): the committed usage stats stay counters, as `usage.py` promised.
+"Each one can become a doc task" became "add it to `docs/interview/open-questions.md`", which the interviews already
+read. The CI tab's first run on the sandbox showed 5 broken links in the generated wiki: the agent wrote
+`../../../docs/…` from top-level wiki pages, one `../` too many. `check` catches it; the repo-wiki prompt could say how
+deep the page sits.
+
 | ID | Change | Test first |
 |---|---|---|
 | S14 | **KPIs view.** From `kpis --json` and `stats --json`: coverage per repo (confirmed / draft / needs-reconfirm), suspect pages, runs (time, tokens, cost per unit and month), AI-draft edit distance, eval score trend, Ask and search hit rate and **the questions that found nothing** (each one can become a doc task) | pytest `/api/kpis` from fixture events; zero-result queries are recorded without personal data |
