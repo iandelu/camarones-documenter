@@ -29,6 +29,18 @@ const S = {
     kpisTop: 'Most read pages this month', page: 'Page', reads: 'Reads', byAgents: 'By agents', byPeople: 'By people',
     recordingOn: 'Usage counts are recorded on this machine.',
     recordingOff: 'Usage counts are off on this machine (`camaron stats --record on`).', kpisCli: 'In a terminal: `camaron kpis`, `camaron stats`.',
+    ciTitle: 'CI', ciLead: 'The docs repo pipeline and the checks each service repo runs on its pull requests, generated from '
+      + 'one definition. None of them needs AI, except the optional docs proposal on your own runners.',
+    ciSelfHosted: 'your own runners', ciHosted: 'hosted runners', ciLast: 'last pipeline', 'ci.passed': 'passed',
+    'ci.failed': 'failed', 'ci.running': 'running', ciNoRun: 'Last pipeline: unknown (install and log in to gh or glab to see it).',
+    ciFiles: 'Pipeline files', 'ciFile.umbrella': 'Docs repo pipeline', 'ciFile.snippet': 'Service repo job (wiki refresh)',
+    'ciFile.fresh': 'Service repo pull request check (no AI)', 'ciFile.propose': 'Service repo docs proposal (AI, your runners)',
+    'ciState.missing': 'not generated', 'ciState.outdated': 'differs from the definition', 'ciState.current': 'up to date',
+    ciGenerate: 'Generate the pipeline', ciRegenerate: 'Regenerate', ciOther: 'Or for', ciNoPush: 'Writes the files in cam-docs; '
+      + 'commit and push them yourself.', ciChecks: 'Checks now', ciErrors: '{n} check errors', ciWarnings: '{n} warnings',
+    ciOutOfDate: '{n} pages out of date', ciReview: 'Review', ciRepos: 'For each service repo',
+    ciReposLead: 'Copy these into each service repo (or include them from cam-docs). The pull request check comments which docs '
+      + 'the change touches and never blocks the merge.', copy: 'Copy', copied: 'Copied', ciGuide: 'Guide: run the AI job on your own runner',
   },
   es: {
     askTitle: 'Pregunta a la documentación', askLead: 'Las secciones que mejor responden a tu pregunta, con su origen, '
@@ -61,6 +73,18 @@ const S = {
     kpisTop: 'Páginas más leídas este mes', page: 'Página', reads: 'Lecturas', byAgents: 'Por agentes', byPeople: 'Por personas',
     recordingOn: 'Esta máquina registra los contadores de uso.',
     recordingOff: 'Esta máquina no registra los contadores de uso (`camaron stats --record on`).', kpisCli: 'En una terminal: `camaron kpis`, `camaron stats`.',
+    ciTitle: 'CI', ciLead: 'El pipeline del repo de documentación y las comprobaciones que cada repo de servicio lanza en sus pull '
+      + 'requests, generados desde una sola definición. Ninguno necesita IA, salvo la propuesta de docs opcional en tus runners.',
+    ciSelfHosted: 'tus propios runners', ciHosted: 'runners de la plataforma', ciLast: 'último pipeline', 'ci.passed': 'correcto',
+    'ci.failed': 'fallido', 'ci.running': 'en curso', ciNoRun: 'Último pipeline: desconocido (instala gh o glab e inicia sesión para verlo).',
+    ciFiles: 'Ficheros de pipeline', 'ciFile.umbrella': 'Pipeline del repo de documentación', 'ciFile.snippet': 'Job del repo de servicio (refresco de la wiki)',
+    'ciFile.fresh': 'Comprobación de pull requests del repo de servicio (sin IA)', 'ciFile.propose': 'Propuesta de docs del repo de servicio (IA, tus runners)',
+    'ciState.missing': 'sin generar', 'ciState.outdated': 'distinto de la definición', 'ciState.current': 'al día',
+    ciGenerate: 'Generar el pipeline', ciRegenerate: 'Regenerar', ciOther: 'O para', ciNoPush: 'Escribe los ficheros en cam-docs; '
+      + 'el commit y el push los haces tú.', ciChecks: 'Comprobaciones ahora', ciErrors: '{n} errores de check', ciWarnings: '{n} avisos',
+    ciOutOfDate: '{n} páginas desactualizadas', ciReview: 'Revisión', ciRepos: 'Para cada repo de servicio',
+    ciReposLead: 'Copia esto en cada repo de servicio (o inclúyelo desde cam-docs). La comprobación de pull requests comenta qué '
+      + 'documentación toca el cambio y nunca bloquea el merge.', copy: 'Copiar', copied: 'Copiado', ciGuide: 'Guía: el job de IA en tu propio runner',
   },
 }
 

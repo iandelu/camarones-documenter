@@ -232,6 +232,9 @@ que quedan.
 ## 8. CI
 
 En el asistente, **⚙️ CI** instala el pipeline en `cam-docs` (GitLab o GitHub): actualiza la doc afectada, pasa `check`, exporta el portal y lo publica. Las plantillas para cada repo de servicio están en `.camarones/ci/repo.*`.
+La pestaña **CI** del portal enseña lo mismo: qué ficheros de pipeline hay y si siguen igual que la definición del kit, un
+botón para generarlos para GitHub o GitLab, el `check` y la frescura actuales, los ficheros de cada repo para copiar y el
+último pipeline cuando `gh` o `glab` está instalado y con sesión.
 Antes de subir la rama de actualización se ejecuta `camaron check --secrets`: si encuentra un posible secreto, el job falla y no se abre el MR/PR.
 
 Variables necesarias: `ANTHROPIC_API_KEY` u `OPENAI_API_KEY`, y un token de bot para abrir MRs/PRs. En GitLab, además, tienes que
