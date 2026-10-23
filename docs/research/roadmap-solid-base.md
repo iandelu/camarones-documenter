@@ -53,6 +53,21 @@ Not done from these items: indexing the `.c4` model itself in search (S1; first-
 
 ## Phase 1 — facts without AI
 
+Done 2026-10-23: S7 (kit 4.36.0), S8 (4.37.0), S9 (4.38.0), S10 (4.39.0), S11 (4.40.0), S12 (4.41.0), checked on the
+sandbox.
+
+- S7: 57 libraries in the two PetClinic repos, two left as "other" (moment, rxjs). The inventory page is
+  `overview/libraries.md` (the roadmap said `dependencies.md`).
+- S8: OSV-Scanner 2.6.0 offline: 1m19s and ≈220 MB of databases the first time; 5 vulnerable libraries found
+  (`@angular/router`, `jackson-databind`…). Maven versions managed by a parent are matched by name, so a finding there
+  may concern another version; the online API resolves them better when a machine opts in.
+- S10: the ER diagram is a `schema` generated block in `docs/data/<repo>.md` (one page per repo, not per store as the
+  roadmap said), so genblocks keeps it in sync and the `data` unit writes around it. PetClinic: 9 tables with their
+  keys and foreign keys. Not covered: DynamoDB tables in CDK/Terraform, Redis key patterns, Firestore fields written
+  through variables rather than object literals.
+- S12 was tested on a fixture shaped like enjoy-the-club; it has not run on that project.
+- With twelve tabs the top bar scrolls sideways now (S11).
+
 | ID | Change | Test first |
 |---|---|---|
 | S7 | **Library inventory.** `lib/inventory.py`: direct dependencies per repo from manifests and lockfiles — Maven (`pom.xml`, properties, BOM imports best effort), Gradle (version catalog, lockfile), npm/pnpm/yarn, Python (`pyproject`, `uv.lock`, `requirements*.txt`), Go, .NET, Composer, Cargo. Each row: repo, ecosystem, name, version, scope (runtime/test/build), category from `lib/data/dep-categories.yaml` (framework, cache, security, data, messaging, testing, observability, http, cloud-sdk, ui, build, language-runtime). Writes `docs/.work/inventory.json` and a generated block in `overview/dependencies.md`; runs in `setup` and `radar` | Golden output for PetClinic REST + Angular fixtures; unknown libraries land in `other`, never dropped; a lib used by two repos with two versions is flagged |
