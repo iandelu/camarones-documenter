@@ -1,7 +1,8 @@
 """Known vulnerabilities of the inventory's libraries (S8), from OSV-Scanner (lib/binaries.py pins and checks it).
 
 Offline by default: the scanner downloads OSV's per-ecosystem databases once into ~/.camarones/osv-db and matches the
-repo's packages on this machine, so no package name leaves it. The online API (more precise for unresolved Maven
+repo's packages on this machine without resolving transitive dependencies (that would fetch parent poms, internal ones
+included, from Maven Central), so no package name leaves it. The online API (more precise for unresolved Maven
 versions) sends package coordinates to osv.dev, so it runs only when this machine opts in: `osv: {online: true}` in
 ~/.camarones.json. Never raises: a missing binary or a failed scan leaves the inventory without vulnerabilities."""
 from __future__ import annotations
@@ -69,8 +70,8 @@ def parse(data: dict) -> dict[tuple[str, str], list[dict]]:
 
 def scan_repo(exe: str, name: str) -> dict | None:
     argv = [str(exe), "scan", "source", "--format", "json", "--recursive"]
-    if not online():
-        argv += ["--offline-vulnerabilities", "--download-offline-databases"]
+    if not online():                                     # --no-resolve: fetching a parent pom from Maven Central
+        argv += ["--offline-vulnerabilities", "--download-offline-databases", "--no-resolve"]   # would send its coordinates
     argv.append(str(repo_dir(name)))
     DB_DIR.mkdir(parents=True, exist_ok=True)
     rc, stdout = _run(argv, {**os.environ, "OSV_SCANNER_LOCAL_DB_CACHE_DIRECTORY": str(DB_DIR)})

@@ -67,6 +67,7 @@ def test_the_offline_database_is_the_default(kit, repos, scanner):  # noqa: F811
     repos.run(log=lambda _: None, cves=True)
     argv, env = scanner[0]
     assert "--offline-vulnerabilities" in argv and "--download-offline-databases" in argv
+    assert "--no-resolve" in argv                 # resolving a parent pom would send its coordinates to Maven Central
     assert env["OSV_SCANNER_LOCAL_DB_CACHE_DIRECTORY"].endswith("osv-db")
 
 
@@ -74,7 +75,7 @@ def test_online_only_when_this_machine_says_so(kit, repos, scanner):  # noqa: F8
     from lib.common import PREFS, save_json
     save_json(PREFS, {"osv": {"online": True}})
     repos.run(log=lambda _: None, cves=True)
-    assert all("--offline-vulnerabilities" not in argv for argv, _ in scanner)
+    assert all("--offline-vulnerabilities" not in argv and "--no-resolve" not in argv for argv, _ in scanner)
     assert repos.load()["vulns"]["online"] is True
 
 
