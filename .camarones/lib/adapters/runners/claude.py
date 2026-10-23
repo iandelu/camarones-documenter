@@ -15,6 +15,9 @@ class Claude(CliRunner):
         model = ["--model", req.model] if req.model else []
         if req.interactive:
             argv = [self.exe(), *model, *(["--continue"] if req.resume else []), req.prompt]
+        elif req.allow_tools == ():               # an answer from the prompt alone: no tools, no project MCP servers
+            argv = [self.exe(), "-p", req.prompt, "--tools", "", "--strict-mcp-config", *model,
+                    *(["--output-format", "stream-json", "--verbose"] if req.stream else [])]
         elif req.allow_tools is not None:
             argv = [self.exe(), "-p", req.prompt, "--permission-mode", "acceptEdits", "--allowedTools",
                     " ".join(req.allow_tools), *model,
