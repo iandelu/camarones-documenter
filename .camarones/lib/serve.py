@@ -80,9 +80,11 @@ def api_ask(question: str) -> dict:
             continue
         body = docs.split_fm(f.read_text(encoding="utf-8"))[1]
         found = docs.section_text(body, h["section"]) if h.get("section") else None
+        tldr = docs.tldr(body)
+        whole = body.replace(tldr, "", 1) if tldr else body              # the portal shows the TL;DR above the text
         out.append({"cite": h["path"] + (f"#{h['section']}" if found else ""), "title": h["title"],
                     "trust": r.get("trust"), "fresh": r.get("fresh"), "notice": notice, "withheld_for_agents": not ok,
-                    "tldr": docs.tldr(body), "text": found[1] if found else body.strip()[:3000]})
+                    "tldr": tldr, "text": found[1] if found else whole.strip()[:3000]})
         if len(out) >= 3:
             break
     from . import answers

@@ -3,7 +3,8 @@ const S = {
   en: {
     askTitle: 'Ask the docs', askLead: 'The sections that best answer your question, each with where it comes from, found '
       + 'without AI the same way agents search. If an agent is set up, it can also write an answer from them.',
-    askPh: 'How is a payment retried?', ask: 'Ask', nothing: 'Nothing in the docs answers this.', withheld: 'agents do not get this page yet',
+    askPh: 'How is a payment retried?', ask: 'Ask', asking: 'Searching…',
+    askFailed: 'The search did not run:', nothing: 'Nothing in the docs answers this.', withheld: 'agents do not get this page yet',
     aiAnswer: 'Answer with AI', aiBusy: 'Reading these sections…', aiBy: 'AI answer from the sections below, by',
     aiNone: 'The AI found no answer in these sections.', aiCheck: 'Check it against the sections it cites.',
     boardsTitle: 'Boards', boardsLead: 'Whiteboards versioned in cam-docs (docs/boards/). Start one blank or from a C4 view.',
@@ -13,7 +14,8 @@ const S = {
   es: {
     askTitle: 'Pregunta a la documentación', askLead: 'Las secciones que mejor responden a tu pregunta, con su origen, '
       + 'encontradas sin IA igual que buscan los agentes. Si hay un agente configurado, también puede redactar la respuesta.',
-    askPh: '¿Cómo se reintenta un pago?', ask: 'Preguntar', nothing: 'Nada en la documentación responde a esto.',
+    askPh: '¿Cómo se reintenta un pago?', ask: 'Preguntar', asking: 'Buscando…',
+    askFailed: 'La búsqueda no se pudo hacer:', nothing: 'Nada en la documentación responde a esto.',
     withheld: 'los agentes aún no reciben esta página',
     aiAnswer: 'Responder con IA', aiBusy: 'Leyendo estas secciones…', aiBy: 'Respuesta de la IA con las secciones de abajo, por',
     aiNone: 'La IA no encontró la respuesta en estas secciones.', aiCheck: 'Compruébala con las secciones que cita.',

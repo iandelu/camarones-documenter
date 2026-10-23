@@ -58,6 +58,8 @@ export default function Ask({ arg }) {
       const r = await getJSON(`ask?q=${encodeURIComponent(question)}`)
       setTurns((ts) => [{ question, sections: r.sections, ai: r.ai }, ...ts])
       setQ('')
+    } catch (e) {
+      setTurns((ts) => [{ question, sections: [], error: e.message }, ...ts])
     } finally { setBusy(false) }
   }
   const link = (cite) => {
@@ -70,7 +72,7 @@ export default function Ask({ arg }) {
       <p className="lede">{t('askLead')}</p>
       <form onSubmit={ask}>
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('askPh')} aria-label={t('askTitle')} autoFocus />
-        <button type="submit" disabled={busy}>{t('ask')}</button>
+        <button type="submit" disabled={busy}>{busy ? t('asking') : t('ask')}</button>
       </form>
       {turns.map((turn, i) => (
         <div className="turn" key={turns.length - i}>
@@ -85,7 +87,8 @@ export default function Ask({ arg }) {
               </div>
               <Section text={(s.tldr ? s.tldr + '\n\n' : '') + s.text} path={s.cite.split('#')[0]} />
             </article>
-          )) : <p className="muted">{t('nothing')}</p>}
+          )) : turn.error ? <p className="error" role="alert">{t('askFailed')} {turn.error}</p>
+            : <p className="muted">{t('nothing')}</p>}
         </div>
       ))}
     </section>
