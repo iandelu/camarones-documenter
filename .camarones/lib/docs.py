@@ -8,8 +8,8 @@ from typing import Callable
 
 import yaml
 
-from .common import (ROOT, DOCS, WS_FILE, CACHE, WORKSPACE, CAM_DIR, CAM_LAYOUT, repo_dir, rel_file, run, load_json,
-                     save_json)
+from .common import (KIT, ROOT, DOCS, WS_FILE, CACHE, WORKSPACE, CAM_DIR, CAM_LAYOUT, repo_dir, rel_file, run,
+                     load_json, save_json)
 
 STATE_FILE = DOCS / ".state.json"
 STATUS_FILE = DOCS / ".status.json"
@@ -555,8 +555,12 @@ def section_text(body: str, key: str) -> tuple[dict, str] | None:
 
 
 STOPWORDS = set("how are is was the an what which who does do did of to in on at for and or with by from it this that "
-                "can should when where why be".split()) | set("que qué como cómo el la los las de del en es un una y o "
-                                                            "por para con se lo al cuál cual quién quien dónde donde".split())
+                "can should when where why be use uses used using we our my".split()) | set(
+    "que qué como cómo el la los las de del en es un una y o por para con se lo al cuál cual quién quien dónde donde "
+    "usa usan usar utiliza utilizan hay".split())
+TERMS_FILE = Path(__file__).with_name("search_terms.yaml")
+IMPLIED = 0.6                  # a word the question implies (search_terms.yaml) weighs less than one it says
+KIT_WORDS = {"camaron", "camarón", "camarones", "kit", "wizard", "tutorial"}
 
 
 DIRECTIVES = ("tabs", "cards", "steps", "details", "tech", "business", "rule")
@@ -623,9 +627,36 @@ def flatten_directives(md: str) -> str:
     return text.lstrip("\n") if not md.startswith("\n") else text
 
 
+def search_terms() -> dict[str, list[str]]:
+    return yaml.safe_load(TERMS_FILE.read_text(encoding="utf-8")) or {}
+
+
+def expand(query: str) -> dict[str, float]:
+    """term → weight: the question's own words, then what they also mean (search_terms.yaml), followed once. A phrase
+    key ("base de datos") stands for its words, so they are not searched one by one."""
+    text = " ".join(re.findall(r"\w+", query.lower()))
+    words = list(dict.fromkeys(t for t in text.split() if len(t) > 1))
+    table = search_terms()
+    norm = lambda k: " ".join(re.findall(r"\w+", str(k).lower()))  # noqa: E731
+    keys = [k for k in table if re.search(r"(?<!\w)" + re.escape(norm(k)) + r"(?!\w)", text)]
+    phrased = {w for k in keys if " " in k for w in k.split()}
+    weights = {w: 1.0 for w in words if w not in STOPWORDS and w not in phrased} or \
+        {w: 1.0 for w in words if w not in phrased}
+    for k in keys:
+        for e in table[k]:
+            for t in [e, *table.get(e, [])]:
+                weights.setdefault(str(t).lower(), IMPLIED)
+    return weights
+
+
+def kit_guides() -> set[str]:
+    """Logical paths of the guides the kit copies into every project: about Camarón, not about the project."""
+    return {f"guides/{f.name}" for f in (KIT / "templates" / "docs" / "guides").glob("*.md")}
+
+
 def search(query: str, limit: int = 20) -> list[dict]:
-    words = list(dict.fromkeys(t for t in re.findall(r"\w+", query.lower()) if len(t) > 1))
-    terms = [w for w in words if w not in STOPWORDS] or words
+    weights = expand(query)
+    terms = list(weights)
     if not terms:
         return []
     pages = []
@@ -644,8 +675,8 @@ def search(query: str, limit: int = 20) -> list[dict]:
     idf = {t: math.log(1 + (n - (df := sum(1 for p in pages if p[4][t])) + 0.5) / (df + 0.5)) for t in terms}
     k1, b, hits = 1.2, 0.75, []
     for logical, trust, body, length, tf, title, meta in pages:
-        score = sum(idf[t] * tf[t] * (k1 + 1) / (tf[t] + k1 * (1 - b + b * length / avg)) for t in terms)
-        score += sum(2 * idf[t] for t in terms if t in meta or t in logical.lower())
+        score = sum(weights[t] * idf[t] * tf[t] * (k1 + 1) / (tf[t] + k1 * (1 - b + b * length / avg)) for t in terms)
+        score += sum(2 * weights[t] * idf[t] for t in terms if t in meta or t in logical.lower())
         if score:
             lines = body.splitlines()
             at = [i for i, l in enumerate(lines) if any(t in l.lower() for t in terms)]
@@ -654,7 +685,8 @@ def search(query: str, limit: int = 20) -> list[dict]:
             hits.append({"path": logical, "title": title, "trust": trust, "score": round(score, 2),
                          "section": per.most_common(1)[0][0] if per else None,
                          "lines": [lines[i].strip()[:240] for i in at[:3]]})
-    hits.sort(key=lambda h: -h["score"])
+    guides = set() if KIT_WORDS & set(re.findall(r"\w+", query.lower())) else kit_guides()
+    hits.sort(key=lambda h: (h["path"] in guides, -h["score"]))
     return hits[:limit]
 
 
