@@ -307,7 +307,8 @@ def render(result: dict) -> str:
     vulns = result.get("vulns") is not None
     lines = ["# Libraries", "",
              "> **TL;DR:** Static scan of each repo's manifests and lockfiles (no AI): the direct dependencies, what they "
-             "are for and their versions" + (", with the known vulnerabilities (OSV)." if vulns else ".") + "", ""]
+             "are for and their versions" + (", with the known vulnerabilities (OSV)." if vulns else ". Run `camaron "
+             "inventory --cves` for the known vulnerabilities.") + " The portal's Libraries tab filters it.", ""]
     for repo in dict.fromkeys(r["repo"] for r in rows):
         lines += [f"## {repo}", "", "| Category | Library | Version | Scope |" + (" Vulnerabilities |" if vulns else ""),
                   "|---|---|---|---|" + ("---|" if vulns else "")]
@@ -315,7 +316,8 @@ def render(result: dict) -> str:
             version = r["version"] or (f"managed ({r['managedBy'].rsplit(':', 1)[-1]})" if r["managedBy"] else r["declared"]) or "—"
             row = f"| {r['category']} | `{cell(r['name'])}` | {cell(version)}{' ⚠️ drift' if r['drift'] else ''} | {r['scope']} |"
             if vulns:
-                row += " " + (", ".join(f"{v['id']} ({v['severity']})" for v in r.get("vulns") or []) or "—") + " |"
+                row += " " + (", ".join(f"{v['cve'] or v['id']} ({v['severity']}" + (f", fixed in {v['fixed']})" if v["fixed"] else ")")
+                                        for v in r.get("vulns") or []) or "—") + " |"
             lines.append(row)
         lines.append("")
     if not rows:
@@ -323,9 +325,20 @@ def render(result: dict) -> str:
     return docs.join_fm(fm, "\n".join(lines))
 
 
-def run(log=print) -> Path:
-    """Scan, keep the result in docs/.work/inventory.json and write docs/overview/libraries.md (never over a human's)."""
+def run(log=print, cves: bool = False) -> Path:
+    """Scan, keep the result in docs/.work/inventory.json and write docs/overview/libraries.md (never over a human's).
+    `cves`: add the known vulnerabilities (lib/osv.py); otherwise the last scan's findings are kept for unchanged rows."""
     result = scan()
+    if cves:
+        from . import osv
+        result["vulns"] = osv.attach(result["libraries"], log=log)
+    else:
+        last = load()
+        old = {(r["repo"], r["ecosystem"], r["name"], r["version"]): r.get("vulns") for r in last.get("libraries") or []}
+        for r in result["libraries"]:
+            if (key := (r["repo"], r["ecosystem"], r["name"], r["version"])) in old and old[key] is not None:
+                r["vulns"] = old[key]
+        result["vulns"] = last.get("vulns") if any("vulns" in r for r in result["libraries"]) else None
     save_json(DATA, result)
     old = docs.split_fm(PAGE.read_text(encoding="utf-8"))[0] if PAGE.exists() else {}
     if old.get("x-owner") == "human":

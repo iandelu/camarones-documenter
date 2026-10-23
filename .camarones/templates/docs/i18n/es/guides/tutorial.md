@@ -48,7 +48,8 @@ La primera vez te lleva por 6 pasos:
 2. **Herramientas:** tabla con lo que tienes y lo que falta; eliges **instalar todo (recomendado)** o **qué instalar** (git, Node, Docker, Java, Claude/Codex, graphify, LikeC4, OpenWiki, hooks…).
 3. **Setup:** herramientas, repos, conexión de Claude/Codex y hooks de git.
 4. **Stack y herramientas:** el stack de cada repo y las herramientas que ya usáis (Backstage, Sonar, librería de componentes, linters, contratos, CI), detectados sin IA; si un stack está mal lo corriges ahí o luego con `camaron stack`. Queda en `docs/overview/tooling.md`, y cada dependencia directa por categoría (framework, datos, caché, seguridad,
-   mensajería, tests…) en `docs/overview/libraries.md` (también `camaron inventory`).
+   mensajería, tests…) en `docs/overview/libraries.md` (también `camaron inventory`; `--cves` añade las vulnerabilidades conocidas
+   con la base de datos offline de OSV-Scanner).
 5. **Diagrama C4 rápido:** un primer borrador de la arquitectura, también sin IA.
 6. **Sesiones:** te explica cómo funcionan.
 

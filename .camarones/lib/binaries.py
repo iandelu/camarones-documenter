@@ -1,4 +1,4 @@
-"""Pinned single-binary tools from GitHub releases (gitleaks), installed once per machine under ~/.camarones/bin —
+"""Pinned single-binary tools from GitHub releases (gitleaks, osv-scanner), installed once per machine under ~/.camarones/bin —
 never into cam-docs/ or a service repo. stdlib only, SHA-256 verified. Never raises: None means "not available"."""
 from __future__ import annotations
 
@@ -20,6 +20,19 @@ RELEASES = {
             "linux_x64": "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb",
             "windows_arm64": "b95f5e4f5c425cedca7ee203d9afd29597e692c4924a12ed42f970537c72cc0f",
             "windows_x64": "d29144deff3a68aa93ced33dddf84b7fdc26070add4aa0f4513094c8332afc4e",
+        },
+    },
+    "osv-scanner": {                      # a bare executable per platform, no archive
+        "url": "https://github.com/google/osv-scanner/releases/download/v{v}/osv-scanner_{os}_{arch}{suffix}",
+        "raw": True,
+        "arch": {"x64": "amd64", "arm64": "arm64"},
+        "sha256": {   # from the release's osv-scanner_SHA256SUMS — re-pin together with VERSIONS["osv-scanner"]
+            "darwin_arm64": "98c460dcd37de25819babd757d04542045b6243113e209edcd4d89fedb0256b4",
+            "darwin_x64": "60c5296637e977b28eeda5c7f13573e447659a632922737f94d11fa7e30ad6ca",
+            "linux_arm64": "2c71403eb443d05891c4f268c3ad771cf4f16e5443463fd7851ef8f454d3c7e4",
+            "linux_x64": "ca69b3d3cd08f889a49dc0a383122f71cc528b83803671df5fd874d97485b108",
+            "windows_arm64": "ca1379da0e408279ef2c85cde0846a903495738a91c7b065a208048437c1686c",
+            "windows_x64": "e0ed7644118b717b028c249ee9d3515024e55e8510747ca08906eb96765354d6",
         },
     },
 }
@@ -71,12 +84,14 @@ def ensure(name: str, log: Callable[[str], None] = print) -> Path | None:
         log(f"⚠ {name}: no pinned build for {platform.system()} {platform.machine()}")
         return bin_path(name)
     try:
-        with urllib.request.urlopen(rel["url"].format(v=v, os=os_, arch=arch, ext=ext), timeout=120) as r:
+        url = rel["url"].format(v=v, os=os_, arch=rel.get("arch", {}).get(arch, arch), ext=ext,
+                                suffix=".exe" if os_ == "windows" else "")
+        with urllib.request.urlopen(url, timeout=120) as r:
             data = r.read()
         if hashlib.sha256(data).hexdigest() != want:
             log(f"⚠ {name}: checksum mismatch — not installed")
             return bin_path(name)
-        body = _member(data, ext, _exe(name))
+        body = data if rel.get("raw") else _member(data, ext, _exe(name))
         exe.parent.mkdir(parents=True, exist_ok=True)
         tmp = exe.with_name(exe.name + ".part")
         tmp.write_bytes(body)
