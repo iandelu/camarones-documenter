@@ -42,6 +42,13 @@ function readArgs(argv) {
   return { token: get('token'), origin: get('origin'), hub: argv.includes('--camaron-hub') }
 }
 
+// Whether `p` is `root` or lies under it, after resolving `..`: the app reveals files of its own project only.
+function inside(root, p) {
+  if (typeof p !== 'string' || typeof root !== 'string') return false
+  const rel = path.relative(path.resolve(root), path.resolve(p))
+  return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel))
+}
+
 function lastJson(text) {
   const lines = String(text).trim().split(/\r?\n/).reverse()
   for (const l of lines) {
@@ -51,4 +58,4 @@ function lastJson(text) {
 }
 
 module.exports = { backendArgv, cliArgv, cliEnv, backendEnv, parseReady, sameOrigin, externalOk, killCommand,
-  windowArgs, readArgs, lastJson }
+  windowArgs, readArgs, inside, lastJson }

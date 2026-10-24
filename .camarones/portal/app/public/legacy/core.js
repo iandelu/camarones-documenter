@@ -103,7 +103,7 @@ const I18N = {
     // Home, zones and views (src/zones.js)
     'zone.docs': 'Docs', 'zone.arch': 'Architecture', 'zone.plan': 'Plan', 'zone.quality': 'Quality', 'zone.review': 'Review',
     'zoned.docs': 'Every page, its trust and the repo wikis', 'zoned.arch': 'C4 model, code, data, libraries and boards',
-    'zoned.plan': 'The documentation plan and what the agents ran', 'zoned.quality': 'Is the documentation working? KPIs and CI',
+    'zoned.plan': 'The documentation plan, the interview and what the agents ran', 'zoned.quality': 'Is the documentation working? KPIs and CI',
     'zoned.review': 'Pages and answers waiting for a person',
     'view.pages': 'Pages', 'view.wikis': 'Wikis', 'view.c4': 'C4 model', 'view.code': 'Code graph', 'view.data': 'Data',
     'view.libs': 'Libraries', 'view.boards': 'Boards', 'view.pipeline': 'Pipeline', 'view.kpis': 'KPIs', 'view.ci': 'CI',
@@ -111,6 +111,7 @@ const I18N = {
     'zone.taller': 'Workshop', 'zoned.taller': 'What runs on your machine: AI, scans, checks and setup',
     'view.generate': 'Generate', 'view.analyze': 'Analyze', 'view.check': 'Check', 'view.interviews': 'Interviews',
     'view.team': 'Team', 'view.machine': 'This machine', 'view.kitdev': 'Kit dev',
+    'view.interview': 'Interview', 'viewd.interview': 'The team questionnaire: answer it here',
     'viewd.generate': 'The plan, runs, wikis and pull requests, with AI', 'viewd.analyze': 'Facts read from the code, no AI',
     'viewd.check': 'Prerequisites, quality gate, golden questions', 'viewd.interviews': 'The questionnaire: export and import',
     'viewd.team': 'Shared repo, agent config, plugins and CI', 'viewd.machine': 'Tools, repos, kit updates and uninstall',
@@ -215,7 +216,7 @@ const I18N = {
     // Inicio, zonas y vistas (src/zones.js)
     'zone.docs': 'Docs', 'zone.arch': 'Arquitectura', 'zone.plan': 'Plan', 'zone.quality': 'Calidad', 'zone.review': 'Revisión',
     'zoned.docs': 'Todas las páginas, su estado y las wikis de cada repo', 'zoned.arch': 'Modelo C4, código, datos, librerías y pizarras',
-    'zoned.plan': 'El plan de documentación y lo que han ejecutado los agentes', 'zoned.quality': '¿Funciona la documentación? KPIs y CI',
+    'zoned.plan': 'El plan de documentación, la entrevista y lo que han ejecutado los agentes', 'zoned.quality': '¿Funciona la documentación? KPIs y CI',
     'zoned.review': 'Páginas y respuestas que esperan a una persona',
     'view.pages': 'Páginas', 'view.wikis': 'Wikis', 'view.c4': 'Modelo C4', 'view.code': 'Grafo de código', 'view.data': 'Datos',
     'view.libs': 'Librerías', 'view.boards': 'Pizarras', 'view.pipeline': 'Pipeline', 'view.kpis': 'KPIs', 'view.ci': 'CI',
@@ -223,6 +224,7 @@ const I18N = {
     'zone.taller': 'Taller', 'zoned.taller': 'Lo que corre en tu máquina: IA, análisis, comprobaciones y ajustes',
     'view.generate': 'Generar', 'view.analyze': 'Analizar', 'view.check': 'Comprobar', 'view.interviews': 'Entrevistas',
     'view.team': 'Equipo', 'view.machine': 'Esta máquina', 'view.kitdev': 'Desarrollo del kit',
+    'view.interview': 'Entrevista', 'viewd.interview': 'El cuestionario del equipo: respóndelo aquí',
     'viewd.generate': 'El plan, las ejecuciones, wikis y pull requests, con IA', 'viewd.analyze': 'Datos leídos del código, sin IA',
     'viewd.check': 'Requisitos, puerta de calidad, preguntas de control', 'viewd.interviews': 'El cuestionario: exportar e importar',
     'viewd.team': 'Repo compartido, configuración de agentes, plugins y CI', 'viewd.machine': 'Herramientas, repos, actualizar el kit y desinstalar',

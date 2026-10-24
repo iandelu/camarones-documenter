@@ -116,7 +116,8 @@ async function openProject(root) {
 }
 
 const fromHub = (e) => hub && !hub.isDestroyed() && e.sender === hub.webContents
-const fromProject = (e) => [...projects.values()].some((p) => !p.win.isDestroyed() && e.sender === p.win.webContents)
+const projectOf = (e) => [...projects.entries()].find(([, p]) => !p.win.isDestroyed() && e.sender === p.win.webContents)
+const fromProject = (e) => !!projectOf(e)
 
 async function pickFolder(title) {
   const r = await dialog.showOpenDialog(hub, { title, properties: ['openDirectory', 'createDirectory'] })
@@ -157,6 +158,21 @@ function handlers() {
   })
   ipcMain.handle('app:hub', (e) => (fromProject(e) ? openHub() : null))
   ipcMain.handle('app:external', (e, url) => (fromProject(e) && core.externalOk(url) ? shell.openExternal(url) : null))
+  // A file of this window's project in the system file manager (the exported questionnaire, a report…).
+  ipcMain.handle('app:reveal', (e, file) => {
+    const [root] = projectOf(e) || []
+    if (!root || !core.inside(path.dirname(root), file) || !fs.existsSync(file)) return false
+    shell.showItemInFolder(path.resolve(file))
+    return true
+  })
+  // Files the person picks to hand to a CLI command (answers to import): only their paths go back to the page.
+  ipcMain.handle('app:pick', async (e, kind) => {
+    const p = projectOf(e)
+    if (!p) return []
+    const filters = kind === 'answers' ? [{ name: 'Answers', extensions: ['json', 'yaml', 'yml', 'md'] }] : []
+    const r = await dialog.showOpenDialog(p[1].win, { properties: ['openFile', 'multiSelections'], filters })
+    return r.canceled ? [] : r.filePaths
+  })
 }
 
 function menu() {

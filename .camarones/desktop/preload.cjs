@@ -22,5 +22,7 @@ if (process.argv.includes('--camaron-hub')) {
     token,
     hub: () => ipcRenderer.invoke('app:hub'),
     openExternal: (url) => ipcRenderer.invoke('app:external', url),
+    reveal: (file) => ipcRenderer.invoke('app:reveal', file),
+    pickFiles: (kind) => ipcRenderer.invoke('app:pick', kind),
   })
 }
