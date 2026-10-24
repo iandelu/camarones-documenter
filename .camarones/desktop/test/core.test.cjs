@@ -62,3 +62,12 @@ test('the last JSON line of a CLI answer', () => {
   assert.deepEqual(core.lastJson('🦐 cloning…\n{"path": "/a/cam-docs"}\n'), { path: '/a/cam-docs' })
   assert.equal(core.lastJson('no json here'), null)
 })
+
+test('a path the app may reveal lies inside the project', () => {
+  const root = path.join(KIT, '..', 'shop', 'cam-docs')
+  assert.equal(core.inside(root, path.join(root, 'docs', 'interview', 'q.html')), true)
+  assert.equal(core.inside(root, root), true)
+  assert.equal(core.inside(root, path.join(root, '..', 'secrets.txt')), false)
+  assert.equal(core.inside(root, path.join(root + '-evil', 'x')), false)
+  assert.equal(core.inside(root, 42), false)
+})

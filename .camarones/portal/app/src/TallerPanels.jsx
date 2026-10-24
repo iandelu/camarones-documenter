@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { getJSON } from './api.js'
-import { t } from './i18n.js'
+import AgentLaunch from './AgentLaunch.jsx'
+import { APP, getJSON } from './api.js'
+import { lang, t } from './i18n.js'
 import { severities, shape } from './result.js'
 import { useJob } from './useJob.js'
 
@@ -10,6 +11,7 @@ import { useJob } from './useJob.js'
 export default function TallerPanels({ zone }) {
   if (zone === 'check') return <div className="tw-list"><Doctor /><Context /><Evals /><Ab /></div>
   if (zone === 'analyze') return <div className="tw-list"><Cves /><Fresh /><Blocks /></div>
+  if (zone === 'interviews') return <div className="tw-list"><Interviews /></div>
   return null
 }
 
@@ -245,6 +247,86 @@ function Blocks() {
         <p className="small">{['created', 'updated', 'edited', 'human'].map((k) => <span key={k} className="pill">{t(`bl.${k}`)}: {r[k].length}</span>)}</p>
       ) : null}
       {r?.edited.length ? <p className="aviso small">{t('blEdited')}</p> : null}
+    </Card>
+  )
+}
+
+// ---------- Entrevistas ----------
+
+const INTERVIEW_UNITS = ['questionnaire', 'answers', 'interview-context', 'interview-language', 'interview-history']
+
+// How the interviews run, and everything around them on this machine: the questionnaire exported to share, the
+// answers that come back imported, the round of answers closed, and each interview unit opened with an agent.
+function Interviews() {
+  const [d, setD] = useState(null)
+  const [units, setUnits] = useState([])
+  const [root, setRoot] = useState('')
+  const job = useJob()
+  const load = () => {
+    getJSON('interview').then(setD, () => {})
+    getJSON('pipeline').then((p) => setUnits(p.units.filter((u) => INTERVIEW_UNITS.includes(u.id))), () => {})
+  }
+  useEffect(() => { load(); info().then((i) => setRoot(i.root), () => {}) }, [])
+  async function step(args) {
+    const end = await job.start('interview', args)
+    if (end) load()
+    return end
+  }
+  async function exportIt() {
+    const end = await step({ action: 'export', lang: lang() })
+    if (end?.status === 'done' && root) {
+      const sep = root.includes('\\') ? '\\' : '/'
+      APP?.reveal([root, 'docs', 'interview', 'questionnaire', 'questionnaire.html'].join(sep))
+    }
+  }
+  async function importIt() {
+    const files = await APP?.pickFiles('answers')
+    if (files?.length) step({ action: 'import', args: files })
+  }
+  async function closeRound() {
+    const end = await job.start('plan', { action: 'done', unit: 'answers' })
+    if (end) load()
+  }
+  const team = d?.mode === 'team'
+  const s = d?.status
+  const answersUnit = units.find((u) => u.id === 'answers')
+  return (
+    <Card title={t('inTitle')} cmd="interview" lead={t('inLead')}>
+      {d ? (
+        <div className="row tw-actions">
+          <span>{t('inMode')}: <b>{team ? t('inTeam') : t('inLive')}</b></span>
+          <button type="button" className="ghost small" disabled={job.running}
+                  onClick={() => step({ action: 'mode', args: [team ? 'live' : 'team'] })}>{team ? t('inToLive') : t('inToTeam')}</button>
+        </div>
+      ) : <div className="co-esqueleto skeleton" aria-busy="true" />}
+      {team ? (
+        <div className="tw-block">
+          {d.available ? (<>
+            <p className="small">{t('ivQuestions').replace('{n}', s.questions)} · {t('ivPeople').replace('{n}', s.respondents.length)}
+              {s.respondents.length ? <span className="muted"> ({s.respondents.map((r) => r.name).join(', ')})</span> : null}
+              {s.conflicts.length ? <span className="warn"> · {t('ivConflicts').replace('{n}', s.conflicts.length)}</span> : null}</p>
+            <div className="row tw-actions">
+              <a className="button small" href="#/interview">{t('inAnswer')} →</a>
+              <button type="button" className="ghost small" disabled={job.running} onClick={exportIt}>{t('inExport')}</button>
+              <button type="button" className="ghost small" disabled={job.running} onClick={importIt}>{t('inImport')}</button>
+              {answersUnit && answersUnit.status !== 'done' && s.respondents.length
+                ? <button type="button" className="ghost small" disabled={job.running} onClick={closeRound}>{t('inClose')}</button> : null}
+            </div>
+          </>) : <p className="aviso small">{t('inNoForm')}</p>}
+        </div>
+      ) : null}
+      <div className="row tw-actions"><JobLine j={job} /></div>
+      {units.filter((u) => u.runner === 'agent').length ? (
+        <div className="tw-block">
+          <h3 className="small">{t('inUnits')}</h3>
+          {units.filter((u) => u.runner === 'agent').map((u) => (
+            <div key={u.id} className="in-unit">
+              <span><code>{u.id}</code> <span className="muted small">{u.status}</span></span>
+              <AgentLaunch unit={u} title={false} />
+            </div>
+          ))}
+        </div>
+      ) : null}
     </Card>
   )
 }

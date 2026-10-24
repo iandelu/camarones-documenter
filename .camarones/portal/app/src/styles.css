@@ -162,7 +162,7 @@
 #native .tw-dialog { border: 1px solid var(--line); border-radius: var(--consola-radio-tarjeta); padding: 1.25rem 1.4rem; max-width: 32rem;
   background: var(--color-canvas-elevated); color: var(--ink); box-shadow: var(--sombra-modal); }
 #native .tw-dialog .row { gap: .6rem; justify-content: flex-end; margin-top: 1rem; }
-#native .tw-dialog::backdrop { background: rgba(10, 10, 10, .35); }
+#native .tw-dialog::backdrop { background: color-mix(in srgb, var(--color-ink) 35%, transparent); }
 
 /* Pipeline in the desktop app: run options and the agent session of a unit */
 #native .run-opts { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: .6rem 1rem; align-items: end; }
@@ -181,3 +181,23 @@
 #native .tw-grow { flex: 1 1 16rem; min-width: 0; }
 #native .tw-out { margin-top: .5rem; flex-basis: 100%; }
 #native .tw-drift { margin-top: .8rem; }
+
+/* Interview: the team questionnaire answered in the portal */
+#native .iv-state { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin: 1rem 0; }
+#native .iv-form { display: grid; gap: 1.25rem; }
+#native .iv-who { display: flex; flex-wrap: wrap; gap: 1rem; }
+#native .iv-who label, #native .iv-opts label:not(.check), #native .iv-comment { display: grid; gap: .25rem; color: var(--muted); font-size: 13px; }
+#native .iv-topic { border: 1px solid var(--line); border-radius: var(--consola-radio-tarjeta); padding: 1rem 1.1rem; display: grid; gap: 1.1rem; }
+#native .iv-topic legend { font-family: var(--font-impact); font-weight: 600; font-size: 1.25rem; padding: 0 .4rem; }
+#native .iv-q { display: grid; gap: .45rem; }
+#native .iv-opts { display: flex; flex-wrap: wrap; gap: .4rem 1rem; align-items: end; }
+#native .iv-opts label.check { display: flex; align-items: center; gap: .35rem; }
+#native .iv-form .co-input { font: inherit; font-size: 14px; padding: .45rem .65rem; border: 1px solid var(--line);
+  border-radius: var(--consola-radio-control); background: var(--bg); color: var(--ink); min-width: 0; }
+#native .iv-send { gap: .75rem; align-items: center; }
+#native .interview .ok { color: var(--ok); }
+#native .interview .warn { color: var(--warn); }
+
+#native .tw-block { margin-top: .9rem; }
+#native .in-unit { display: grid; gap: .25rem; padding: .6rem 0; border-top: 1px solid var(--line); }
+#native .iv-q p { margin: 0; }

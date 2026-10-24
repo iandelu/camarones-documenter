@@ -504,7 +504,7 @@ async function routeNow() {
   try { h = decodeURIComponent(raw); } catch { /* a bare % in a file name: route the address as it is */ }
   const [, view = '', rest = ''] = h.match(/^\/([\w-]*)\/?(.*)$/) || [];
   if ($('#palette').open) $('#palette').close();
-  if (['pipeline', 'boards', 'ask', 'kpis', 'ci', 'libs', 'data'].includes(view) && !STATIC && window.CamaronNative
+  if (['pipeline', 'boards', 'ask', 'kpis', 'ci', 'libs', 'data', 'interview'].includes(view) && !STATIC && window.CamaronNative
       || RUNS && TALLER.includes(view) && window.CamaronNative) {
     CURRENT = '';
     drawChrome(view, { nativeView: true });

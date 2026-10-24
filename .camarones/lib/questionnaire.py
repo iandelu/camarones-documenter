@@ -209,19 +209,36 @@ def import_files(paths: list) -> list[tuple[Path, str | None, str | None]]:
         except (OSError, ValueError, yaml.YAMLError) as e:
             results.append((f, None, f"cannot read it: {e}"))
             continue
-        if not r["respondent"]:
-            results.append((f, None, "no name in the file"))
+        try:
+            _store(r, data)
+        except ValueError as e:
+            results.append((f, None, str(e)))
             continue
-        if not r["answers"]:
-            results.append((f, None, "no answers to this questionnaire's questions"))
-            continue
-        RESPONSES.mkdir(parents=True, exist_ok=True)
-        rec = {"respondent": r["respondent"], "role": r["role"], "date": r.get("date") or dt.date.today().isoformat(),
-               "questionnaire": data["id"], "answers": r["answers"]}
-        (RESPONSES / f"{_slug(r['respondent'])}.yaml").write_text(
-            yaml.safe_dump(rec, sort_keys=False, allow_unicode=True, width=1000), encoding="utf-8", newline="\n")
         results.append((f, r["respondent"], None))
     return results
+
+
+def _store(r: dict, data: dict) -> Path:
+    """One person's answers → responses/<name>.yaml (their newer answers replace the older ones)."""
+    if not r["respondent"]:
+        raise ValueError("no name in the file")
+    if not r["answers"]:
+        raise ValueError("no answers to this questionnaire's questions")
+    RESPONSES.mkdir(parents=True, exist_ok=True)
+    rec = {"respondent": r["respondent"], "role": r["role"], "date": r.get("date") or dt.date.today().isoformat(),
+           "questionnaire": data["id"], "answers": r["answers"]}
+    f = RESPONSES / f"{_slug(r['respondent'])}.yaml"
+    f.write_text(yaml.safe_dump(rec, sort_keys=False, allow_unicode=True, width=1000), encoding="utf-8", newline="\n")
+    return f
+
+
+def answer(raw: dict) -> Path:
+    """The questionnaire answered online in the portal: the same record an imported form file gives."""
+    data = load()
+    kinds = {q["id"]: q for q in data["questions"]}
+    answers = {k: a for k, v in (raw.get("answers") or {}).items() if k in kinds and (a := _clean(v, kinds[k]))}
+    return _store({"respondent": str(raw.get("respondent") or "").strip(), "role": str(raw.get("role") or "").strip(),
+                   "date": str(raw.get("date") or ""), "answers": answers}, data)
 
 
 def responses() -> dict[str, dict]:

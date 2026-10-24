@@ -72,6 +72,8 @@ Close the agent and come back to the wizard for the next unit (a fresh session =
 The interviews do not block drafting: repo briefs, domain, data, decisions and the flows catalog start from the code as
 provisional drafts (`✎ draft` in `plan`), leave their questions in `docs/interview/open-questions.md`, and are reopened
 to refine when the interview is done. Translations and confirmation still wait for the interviews.
+As a team questionnaire, each person answers it in the portal (Plan › Interview) or in the offline form
+(`camaron interview export`, then `interview import`); both write the same `responses/<name>.yaml`.
 
 Big unit? The agent splits it and adds the remainder to the plan. Everything survives between sessions and computers
 (the plan is committed with the docs).

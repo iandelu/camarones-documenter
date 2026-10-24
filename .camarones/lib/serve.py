@@ -286,6 +286,20 @@ def api_pipeline() -> dict:
     return {"units": units, "run": runs.summary(latest[0]) if latest else None}
 
 
+def api_interview(who: str = "") -> dict:
+    """The team questionnaire for the portal's Interview view: the questions, the labels of the offline form (both
+    languages), who answered and, with `who`, that person's own answers to edit them."""
+    from . import questionnaire
+    try:
+        data = questionnaire.load()
+    except ValueError as e:
+        return {"available": False, "reason": str(e), "mode": docs.interview_mode()}
+    mine = next((r for n, r in questionnaire.responses().items() if who and n.strip().lower() == who.strip().lower()), None)
+    return {"available": True, "mode": docs.interview_mode(), "id": data["id"], "title": data.get("title") or "",
+            "intro": data.get("intro") or "", "questions": data["questions"], "labels": questionnaire.LABELS,
+            "status": questionnaire.status(), "user": reviewer(), "mine": mine}
+
+
 def status(check: bool = True) -> dict:
     """`check=False` skips the full quality check (seconds on a big project): the page shows the rest at once."""
     return {"queue": [{k: r[k] for k in ("path", "title", "trust", "type")} for r in docs.review_queue()],
@@ -549,6 +563,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(api_pipeline())
         if name == "ask":
             return self.json(api_ask(q.get("q", "")))
+        if name == "interview":
+            return self.json(api_interview(q.get("who", "")))
         if name == "inventory":
             return self.json(api_inventory())
         if name == "schemas":
@@ -665,6 +681,10 @@ class Handler(BaseHTTPRequestHandler):
                 review.comment(b["path"], b["text"], by, b.get("slug", ""), b.get("snippet", ""))
                 plan.ensure("review-fixes", "review-fixes")
                 return self.json(read(b["path"]))
+            if p == "/api/interview/answer":
+                from . import questionnaire
+                questionnaire.answer(b)
+                return self.json(questionnaire.status())
             if p == "/api/board":
                 from . import boards
                 return self.json(boards.save(b.get("name", ""), b.get("scene")))

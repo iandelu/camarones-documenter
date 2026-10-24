@@ -78,7 +78,9 @@ Cierra el agente y vuelve al asistente para la siguiente unidad: una sesión nue
 Las entrevistas no frenan la redacción: las fichas de repo, el dominio, los datos, las decisiones y el catálogo de flujos
 empiezan desde el código como borradores provisionales (`✎ draft` en `plan`), dejan sus preguntas en
 `docs/interview/open-questions.md` y se reabren para afinarlas cuando termina la entrevista. Las traducciones y la
-confirmación sí esperan a las entrevistas.
+confirmación sí esperan a las entrevistas. Como cuestionario del equipo, cada persona lo responde en el portal
+(Plan › Entrevista) o en el formulario sin conexión (`camaron interview export` y después `interview import`); las dos
+vías escriben el mismo `responses/<nombre>.yaml`.
 
 ¿Una unidad es demasiado grande para una sesión? El agente la divide y añade lo que falta al plan. Todo se conserva entre sesiones
 y entre ordenadores, porque el plan se commitea junto con la doc.
