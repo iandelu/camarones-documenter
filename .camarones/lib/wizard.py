@@ -27,7 +27,7 @@ from rich.tree import Tree
 import webbrowser
 
 console = Console(highlight=False)
-MODELS = ["sonnet", "opus", "haiku"]           # Claude Code's --model aliases; the default is set in do_model / launch_agent
+from .machine import MODELS                   # noqa: E402 — Claude Code's --model aliases; one list with the app
 from .agents import CODEX_MODEL_DEFAULT, claude_history   # noqa: E402,F401 — the launch itself lives in lib/agents.py
 from . import agents as agent_sessions                      # noqa: E402
 FIRSTRUN = CACHE / "firstrun.json"     # first-run wizard position (so closing the window never loses it)

@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.47.0-ff875f?style=flat-square" alt="Versión 4.47.0">
+  <img src="https://img.shields.io/badge/version-4.48.0-ff875f?style=flat-square" alt="Versión 4.48.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -345,6 +345,7 @@ La app junta las dos caras de Camarón. El **portal** es el visor del equipo: le
 | **Responder la entrevista del equipo** | ✅ | ✅ |
 | **Sincronizar con el equipo (pull y push)** | ✅ | ✅ |
 | **Fijar el repo del equipo, aprobar su configuración de agentes, hooks y plugins** | — | ✅ |
+| **Tokens, idioma y modelos, repos, actualizar el kit, desinstalar** | — | ✅ |
 | **Ejecutar el plan, piloto automático, sesión con un agente** | — aviso «ábrelo en la app» | ✅ |
 | **Wikis, C4, grafo de código, vulnerabilidades, CI** | — aviso «ábrelo en la app» | ✅ |
 | **Requisitos, instalar herramientas, actualizar, desinstalar** | — | ✅ |
@@ -358,7 +359,7 @@ La app junta las dos caras de Camarón. El **portal** es el visor del equipo: le
 | ✅ **Comprobar** | **Requisitos y herramientas** con su botón «Instalar» o «repair», el **contexto** que carga cada sesión de agente frente al presupuesto, **preguntas de control** (confirmar y lanzar), **con y sin cam-docs**, `check`, KPIs |
 | 🎙️ **Entrevistas** | Cuestionario del equipo o en vivo, **exportar** el formulario sin conexión y abrir su carpeta, **importar** respuestas con un selector de ficheros, cerrar la ronda y abrir cada unidad de entrevista con un agente |
 | 🤝 **Equipo** | El **repo del equipo** (fijarlo, compartir cada checkpoint o no, ir a Sincronizar), la **configuración de agentes** que llegó con él para aprobarla en esta máquina, los **hooks** del método, los **plugins** (qué aportan, si ejecutan código, activar o desactivar), CI y exportaciones |
-| 🧰 **Esta máquina** | Herramientas, repos, perfil, actualizar el kit, `repair`, `migrate` y, aparte y preguntando antes, `uninstall` |
+| 🧰 **Esta máquina** | **Preparar la máquina** (`setup`) con barra de progreso, **idioma y modelos** de Claude Code y Codex, **tokens de GitLab y GitHub** (se comprueban con la forja y se guardan en el llavero del sistema, nunca en una línea de comandos), **repos** (clonados o no, su stack editable, clonar o actualizar, detectar) y el **plan** rápido o completo, **actualizar el kit** y reiniciar la app con la versión nueva, `repair`, `migrate` y, aparte, **desinstalar**: primero «Ver qué borraría» y después un diálogo que repite la lista |
 
 Cada comando de la CLI tiene su formulario, que sale del propio parser (`camaron catalog`). Lo que borra o mueve datos va en su propio bloque, al final, y pide confirmación en un diálogo que dice qué va a pasar.
 

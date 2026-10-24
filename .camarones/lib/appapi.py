@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import functools, json, os, signal, subprocess, sys, threading
 
-from .common import IS_WIN, KIT, ROOT, VERSIONS, out, run
+from .common import HOME, IS_WIN, KIT, ROOT, VERSIONS, out, run
 
 HUB = {"new", "join", "switch"}       # the app's hub opens projects itself; from the CLI these reopen the wizard
 PROCS: dict[str, dict] = {}           # job id → {"proc": Popen} for cancel
@@ -114,7 +114,8 @@ def start(b: dict, start_job) -> dict:
     holder: dict = {}
 
     def go(log):
-        pr = subprocess.Popen([sys.executable, str(KIT / "camarones.py"), *cmd], cwd=str(ROOT),
+        # cwd outside the project (CAMARONES_ROOT names it): Windows cannot delete a folder a process works in
+        pr = subprocess.Popen([sys.executable, str(KIT / "camarones.py"), *cmd], cwd=str(HOME),
                               env={**os.environ, "CAMARONES_ROOT": str(ROOT), "PYTHONUTF8": "1"},
                               stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                               text=True, encoding="utf-8", errors="replace", start_new_session=not IS_WIN)

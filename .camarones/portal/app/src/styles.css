@@ -214,3 +214,8 @@
 #native .sy-actions { gap: .6rem; align-items: center; flex-wrap: wrap; margin: .5rem 0 1.5rem; }
 #native .sync .ok { color: var(--ok); }
 #native .sy-files { columns: 2 18rem; padding-left: 1.1rem; }
+
+/* This machine: setup progress */
+#native .mc-progress { height: 6px; border-radius: var(--radius-pildora); background: var(--line); overflow: hidden; margin-top: .8rem; }
+#native .mc-progress span { display: block; height: 100%; background: var(--ink); transform-origin: left; transition: transform 400ms var(--ease); }
+@media (prefers-reduced-motion: reduce) { #native .mc-progress span { transition: none; } }

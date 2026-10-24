@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import AgentLaunch from './AgentLaunch.jsx'
-import { APP, getJSON } from './api.js'
+import { APP, getJSON, postJSON } from './api.js'
 import { lang, t } from './i18n.js'
 import { severities, shape } from './result.js'
 import { useJob } from './useJob.js'
@@ -13,6 +13,7 @@ export default function TallerPanels({ zone }) {
   if (zone === 'analyze') return <div className="tw-list"><Cves /><Fresh /><Blocks /></div>
   if (zone === 'interviews') return <div className="tw-list"><Interviews /></div>
   if (zone === 'team') return <div className="tw-list"><Remote /><Trust /><Plugins /></div>
+  if (zone === 'machine') return <div className="tw-list"><Setup /><Settings /><Tokens /><Repos /><Kit /></div>
   return null
 }
 
@@ -434,5 +435,215 @@ function Plugins() {
         <JobLine j={act} />
       </div>
     </Card>
+  )
+}
+
+// ---------- Esta máquina ----------
+
+let MACHINE = null
+const machine = (fresh) => { if (fresh) MACHINE = null; return (MACHINE ||= getJSON('app/machine').catch((e) => { MACHINE = null; throw e })) }
+
+// `setup` with a progress bar: the steps it reports done (✔) against the steps it will take on this machine.
+function Setup() {
+  const j = useJob()
+  const [steps, setSteps] = useState(0)
+  useEffect(() => { machine().then((m) => setSteps(m.setup_steps), () => {}) }, [])
+  const done = (j.job?.lines || []).filter((l) => l.trim().startsWith('✔')).length
+  const pct = steps ? Math.min(100, Math.round((done / steps) * 100)) : 0
+  return (
+    <Card title={t('mcSetup')} cmd="setup" lead={t('mcSetupLead')}>
+      {j.job ? (
+        <div className="mc-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={j.running ? pct : 100}>
+          <span style={{ transform: `scaleX(${(j.running ? pct : 100) / 100})` }} />
+        </div>
+      ) : null}
+      <div className="row tw-actions">
+        <button type="button" className="small" disabled={j.running} onClick={() => j.start('setup', {})}>{t('mcSetupGo')}</button>
+        {j.running ? <span className="muted small">{done}/{steps}</span> : null}
+        <JobLine j={j} />
+      </div>
+    </Card>
+  )
+}
+
+function Settings() {
+  const [m, setM] = useState(null)
+  const [codex, setCodex] = useState('')
+  const j = useJob()
+  const load = (fresh) => machine(fresh).then((x) => { setM(x); setCodex(x.settings.codex_model) }, () => {})
+  useEffect(() => { load(false) }, [])
+  async function set(key, value) {
+    const end = await j.start('config', { action: 'set', key, value })
+    if (end) load(true)
+  }
+  if (!m) return null
+  const s = m.settings
+  return (
+    <Card title={t('mcSettings')} cmd="config" lead={t('mcSettingsLead')}>
+      <div className="tw-fields">
+        <div className="tw-field"><label htmlFor="mc-lang">{t('mcLang')}</label>
+          <select id="mc-lang" className="co-input" value={s.lang} disabled={j.running} onChange={(e) => set('lang', e.target.value)}>
+            <option value="es">Español</option><option value="en">English</option></select></div>
+        <div className="tw-field"><label htmlFor="mc-model">{t('mcModel')}</label>
+          <select id="mc-model" className="co-input" value={s.model} disabled={j.running} onChange={(e) => set('model', e.target.value)}>
+            {m.models.map((x) => <option key={x} value={x}>{x}</option>)}</select></div>
+        <div className="tw-field"><label htmlFor="mc-codex">{t('mcCodex')}</label>
+          <input id="mc-codex" className="co-input" value={codex} disabled={j.running} onChange={(e) => setCodex(e.target.value)}
+                 onBlur={() => codex.trim() && codex.trim() !== s.codex_model && set('codex_model', codex.trim())} /></div>
+      </div>
+      <p className="muted small">{t('mcAgents')}: {m.agents.length ? m.agents.map((a) => a.label).join(', ') : t('mcNoAgents')}</p>
+      <div className="row tw-actions"><JobLine j={j} /></div>
+    </Card>
+  )
+}
+
+// GitLab / GitHub tokens, kept in the OS keychain. They go to the app's server in the request body only (never on a
+// command line) and never come back.
+function Tokens() {
+  const [d, setD] = useState(null)
+  const [form, setForm] = useState({ host: '', kind: 'gitlab', token: '' })
+  const [state, setState] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const load = () => getJSON('app/creds').then(setD, (e) => setState({ error: e.message }))
+  useEffect(() => { load() }, [])
+  async function act(path, body, okMsg) {
+    setBusy(true)
+    setState(null)
+    try { const r = await postJSON(path, body); setState({ ok: okMsg(r) }); await load(); return true } catch (e) { setState({ error: e.message }); return false } finally { setBusy(false) }
+  }
+  async function save(anyway) {
+    if (await act('app/creds', { ...form, anyway }, (r) => t('mcTokSaved').replace('{host}', r.host).replace('{user}', r.user || '—')))
+      setForm((f) => ({ ...f, token: '' }))
+  }
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
+  return (
+    <Card title={t('mcTokens')} lead={t('mcTokensLead')}>
+      {d?.hosts.length ? (
+        <div className="tw-scroll"><table className="kpi-table tw-table"><tbody>
+          {d.hosts.map((h) => <tr key={h.host}><th>{h.host}</th><td className="small">{h.kind}{h.user ? ` · ${h.user}` : ''}</td>
+            <td className={h.saved ? 'ok small' : 'warn small'}>{h.saved ? t('mcTokOk') : t('mcTokMissing')}</td>
+            <td><button type="button" className="ghost small" disabled={busy}
+                        onClick={() => act('app/creds/test', { host: h.host }, (r) => (r.ok ? t('mcTokWorks').replace('{user}', r.info) : t('mcTokFails').replace('{err}', r.info)))}>{t('mcTokTest')}</button>
+              <button type="button" className="ghost small" disabled={busy}
+                      onClick={() => act('app/creds/delete', { host: h.host }, () => t('mcTokDeleted'))}>{t('mcTokDelete')}</button></td></tr>)}
+        </tbody></table></div>
+      ) : d ? <p className="muted small">{t('mcTokNone')}</p> : null}
+      <form className="tw-fields" onSubmit={(e) => { e.preventDefault(); save(false) }}>
+        <div className="tw-field"><label htmlFor="tk-host">{t('mcTokHost')}</label>
+          <input id="tk-host" className="co-input" value={form.host} onChange={set('host')} placeholder="gitlab.example.com" required /></div>
+        <div className="tw-field"><label htmlFor="tk-kind">{t('mcTokKind')}</label>
+          <select id="tk-kind" className="co-input" value={form.kind} onChange={set('kind')}><option value="gitlab">GitLab</option><option value="github">GitHub</option></select></div>
+        <div className="tw-field"><label htmlFor="tk-token">{t('mcTokToken')}</label>
+          <input id="tk-token" className="co-input" type="password" autoComplete="off" value={form.token} onChange={set('token')} required /></div>
+        <div className="tw-field"><button type="submit" className="small" disabled={busy || !form.host.trim() || !form.token.trim()}>{t('mcTokSave')}</button></div>
+      </form>
+      {state?.ok ? <p className="ok small" role="status">{state.ok}</p> : null}
+      {state?.error ? (
+        <p className="error small" role="alert">{state.error}{form.token ? <> <button type="button" className="ghost small" disabled={busy} onClick={() => save(true)}>{t('mcTokAnyway')}</button></> : null}</p>
+      ) : null}
+      <p className="muted small">{t('mcTokWhere').replace('{where}', d?.backend || '…')}</p>
+    </Card>
+  )
+}
+
+function Repos() {
+  const [m, setM] = useState(null)
+  const [stacks, setStacks] = useState({})
+  const j = useJob()
+  const load = (fresh) => machine(fresh).then((x) => { setM(x); setStacks(Object.fromEntries(x.repos.map((r) => [r.name, r.stack]))) }, () => {})
+  useEffect(() => { load(false) }, [])
+  async function run(cmd, args) {
+    const end = await j.start(cmd, args)
+    if (end) load(true)
+  }
+  if (!m) return null
+  return (
+    <Card title={t('mcRepos')} cmd="sync · detect · stack · profile" lead={t('mcReposLead')}>
+      {m.repos.length ? (
+        <div className="tw-scroll"><table className="kpi-table tw-table"><tbody>
+          {m.repos.map((r) => <tr key={r.name}><th>{r.name}</th>
+            <td className={r.cloned ? 'ok small' : 'warn small'}>{r.cloned ? t('mcCloned') : t('mcNotCloned')}</td>
+            <td><input className="co-input" value={stacks[r.name] || ''} placeholder={t('mcStackDetected')} aria-label={`stack ${r.name}`}
+                       onChange={(e) => setStacks((s) => ({ ...s, [r.name]: e.target.value }))} /></td>
+            <td>{(stacks[r.name] || '') !== (r.stack || '') ? (
+              <button type="button" className="ghost small" disabled={j.running}
+                      onClick={() => run('stack', stacks[r.name]?.trim() ? { repo: r.name, text: stacks[r.name].trim() } : { repo: r.name, reset: true })}>{t('mcSave')}</button>
+            ) : r.stack ? <button type="button" className="ghost small" disabled={j.running} onClick={() => run('stack', { repo: r.name, reset: true })}>{t('mcReset')}</button> : null}</td></tr>)}
+        </tbody></table></div>
+      ) : <p className="muted small">{t('mcNoRepos')}</p>}
+      <div className="row tw-actions">
+        <button type="button" className="small" disabled={j.running} onClick={() => run('sync', {})}>{t('mcSync')}</button>
+        <button type="button" className="ghost small" disabled={j.running} onClick={() => run('detect', {})}>{t('mcDetect')}</button>
+        <label className="muted small">{t('mcProfile')}{' '}
+          <select className="co-input" value={m.profile || ''} disabled={j.running} onChange={(e) => e.target.value && run('profile', { name: e.target.value })}>
+            {!m.profile ? <option value="">—</option> : null}<option value="quick">{t('mcQuick')}</option><option value="full">{t('mcFull')}</option></select></label>
+        <JobLine j={j} />
+      </div>
+    </Card>
+  )
+}
+
+function Kit() {
+  const [m, setM] = useState(null)
+  const j = useJob()
+  const [updated, setUpdated] = useState(false)
+  useEffect(() => { machine().then(setM, () => {}) }, [])
+  async function update() {
+    const end = await j.start('self-update', {})
+    if (end?.status === 'done') setUpdated(true)
+  }
+  if (!m) return null
+  return (
+    <Card title={t('mcKit')} cmd="self-update · repair" lead={t('mcKitLead').replace('{v}', m.kit.version)}>
+      <div className="row tw-actions">
+        {m.kit.global ? <button type="button" className="small" disabled={j.running} onClick={update}>{t('mcUpdate')}</button>
+          : <span className="muted small">{t('mcLocalKit')}</span>}
+        <button type="button" className="ghost small" disabled={j.running} onClick={() => j.start('repair', {})}>{t('mcRepair')}</button>
+        {updated && APP?.relaunch ? <button type="button" className="small" onClick={() => APP.relaunch()}>{t('mcRelaunch')}</button> : null}
+        <JobLine j={j} />
+      </div>
+    </Card>
+  )
+}
+
+// Uninstall, previewed first: `uninstall --dry-run` lists what goes (it only reads, so it runs without asking), and only
+// then the real one, behind a dialog that repeats that list. No jokes here.
+export function Uninstall() {
+  const preview = useJob()
+  const go = useJob()
+  const [opts, setOpts] = useState({ user_level: false, no_backup: false })
+  const dialog = useRef(null)
+  const lines = preview.job?.status === 'done' ? preview.job.lines : null
+  const args = (dry) => ({ ...(opts.user_level ? { user_level: true } : {}), ...(opts.no_backup && !dry ? { no_backup: true } : {}), ...(dry ? { dry_run: true } : {}) })
+  const set = (k) => (e) => setOpts((o) => ({ ...o, [k]: e.target.checked }))
+  return (
+    <div className="co-card tw-cmd destructive">
+      <div className="tw-head"><b>{t('unTitle')}</b> <code className="muted">camaron uninstall</code><span className="pill warn">{t('twDestructive')}</span></div>
+      <p className="muted small">{t('unLead')}</p>
+      <div className="tw-fields">
+        <div className="tw-field check"><input id="un-global" type="checkbox" checked={opts.user_level} onChange={set('user_level')} disabled={go.running} />
+          <label htmlFor="un-global">{t('unGlobal')}</label></div>
+        <div className="tw-field check"><input id="un-nobackup" type="checkbox" checked={opts.no_backup} onChange={set('no_backup')} disabled={go.running} />
+          <label htmlFor="un-nobackup">{t('unNoBackup')}</label></div>
+      </div>
+      <div className="row tw-actions">
+        <button type="button" className="ghost small" disabled={preview.running || go.running} onClick={() => preview.start('uninstall', args(true))}>{t('unPreview')}</button>
+        {lines ? <button type="button" className="ghost small" disabled={go.running} onClick={() => dialog.current.showModal()}>{t('unGo')}</button> : null}
+        <JobLine j={go.job ? go : preview} />
+      </div>
+      {lines && !go.job ? <pre className="joblog tw-log">{lines.join('\n')}</pre> : null}
+      {go.job?.status === 'done' ? (
+        <p className="small">{t('unDone')} {APP?.hub ? <button type="button" className="small" onClick={() => APP.hub()}>{t('unHub')}</button> : null}</p>
+      ) : null}
+      <dialog ref={dialog} className="tw-dialog">
+        <h2>{t('unConfirmTitle')}</h2>
+        <p>{opts.no_backup ? t('unConfirmNoBackup') : t('unConfirmBackup')}</p>
+        {lines ? <pre className="joblog tw-log">{lines.filter((l) => l.trim().startsWith('•')).join('\n')}</pre> : null}
+        <div className="row">
+          <button type="button" className="ghost small" onClick={() => dialog.current.close()}>{t('twConfirmNo')}</button>
+          <button type="button" className="small" onClick={() => { dialog.current.close(); go.start('uninstall', args(false), true) }}>{t('unGo')}</button>
+        </div>
+      </dialog>
+    </div>
   )
 }

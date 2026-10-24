@@ -12,7 +12,7 @@ every command either way.
 | `confirm` | — |  |  |  |
 | `feedback` | — |  |  |  |
 
-## Desktop app (41)
+## Desktop app (42)
 
 | Command | Zone | AI | Destructive | --json |
 |---|---|---|---|---|
@@ -23,6 +23,7 @@ every command either way.
 | `blocks` | analyze |  |  | yes |
 | `check` | check |  |  |  |
 | `ci` | team |  |  |  |
+| `config` | machine |  |  | yes |
 | `detect` | machine |  |  |  |
 | `doctor` | check |  |  | yes |
 | `down` | machine |  |  |  |

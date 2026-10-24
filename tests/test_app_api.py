@@ -118,8 +118,9 @@ def test_argv_refuses_what_the_parser_would_not_take(kit, entries, cmd, args, ms
 def test_a_yes_flag_is_only_sent_after_the_app_asked(kit, entries):
     from lib import appapi
     with pytest.raises(PermissionError):
-        appapi.argv(entries["uninstall"], {"dry_run": True})
-    assert appapi.argv(entries["uninstall"], {"dry_run": True}, confirmed=True) == ["uninstall", "--dry-run", "--yes"]
+        appapi.argv(entries["uninstall"], {"no_backup": True})
+    assert appapi.argv(entries["uninstall"], {"no_backup": True}, confirmed=True) == ["uninstall", "--no-backup", "--yes"]
+    assert appapi.argv(entries["uninstall"], {"dry_run": True}) == ["uninstall", "--dry-run"]   # a preview: no asking
     with pytest.raises(ValueError, match="yes"):
         appapi.argv(entries["uninstall"], {"yes": True}, confirmed=True)        # never set by the caller itself
 

@@ -286,6 +286,35 @@ def api_pipeline() -> dict:
     return {"units": units, "run": runs.summary(latest[0]) if latest else None}
 
 
+def app_creds(action: str, b: dict) -> tuple[dict, int]:
+    """The desktop app's tokens for GitLab / GitHub (lib/creds.py, the OS keychain): saved only after the forge accepts
+    them (or with `anyway`), tested, or deleted. A token is never sent back."""
+    from . import creds
+    raw = str(b.get("host") or "").strip()
+    host = creds.host_of(raw if "://" in raw else f"https://{raw}") or raw
+    if not host or host.startswith("-") or "/" in host:
+        return {"error": "host: like gitlab.example.com"}, 400
+    if action == "/delete":
+        creds.delete(host)
+        return {"deleted": host}, 200
+    if action == "/test":
+        tok = creds.get(host)
+        if not tok:
+            return {"error": f"no token saved for {host}"}, 404
+        ok, info = creds.verify(host, creds.hosts().get(host, {}).get("kind") or creds.guess_kind(host), tok)
+        return {"ok": ok, "info": info}, 200
+    if action:
+        return {"error": "not found"}, 404
+    kind, token = b.get("kind") or creds.guess_kind(host), str(b.get("token") or "").strip()
+    if kind not in ("gitlab", "github") or not token:
+        return {"error": "kind (gitlab or github) and token are required"}, 400
+    ok, info = creds.verify(host, kind, token)
+    if not ok and not b.get("anyway"):
+        return {"error": f"{host} did not accept the token: {info}"}, 400
+    where = creds.save(host, kind, token, info if ok else "")
+    return {"host": host, "user": info if ok else "", "where": where}, 200
+
+
 def api_interview(who: str = "") -> dict:
     """The team questionnaire for the portal's Interview view: the questions, the labels of the offline form (both
     languages), who answered and, with `who`, that person's own answers to edit them."""
@@ -478,6 +507,14 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(appapi.info())
         if name == "catalog":
             return self.json(appapi.catalog())
+        if name == "machine":
+            from . import machine
+            return self.json(machine.panel())
+        if name == "creds":
+            from . import creds
+            return self.json({"backend": creds.backend_name(), "hosts": [
+                {"host": h, "kind": m.get("kind", ""), "user": m.get("user", ""), "saved": bool(creds.get(h))}
+                for h, m in creds.hosts().items()]})
         if name == "agents":
             from . import agents
             from .common import PREFS, load_json
@@ -662,6 +699,8 @@ class Handler(BaseHTTPRequestHandler):
                     return self.json({"error": str(e), "confirm": True}, 409)
                 except KeyError as e:
                     return self.json({"error": f"unknown command {e}"}, 404)
+            if p.startswith("/api/app/creds"):           # tokens only ever travel in this body, never on a command line
+                return self.json(*app_creds(p[len("/api/app/creds"):], b))
             if p == "/api/app/agent":
                 from . import agents
                 agent, lang = str(b.get("agent", "")), b.get("lang") or "es"

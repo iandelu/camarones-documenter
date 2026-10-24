@@ -41,6 +41,8 @@
   stats [--json] [--months N] [--record on|off]   team usage KPIs (who consults the docs, what they find, what
                             is read most); --record: whether this machine adds its counts
   version                   kit and pinned tool versions
+  config [get|set] [KEY] [VALUE] [--json]   this machine's settings the wizard keeps: lang (es|en), model (Claude
+                            Code: sonnet|opus|haiku), codex_model
   projects [--json] [--add FOLDER]   the projects registered on this machine, most recent first; --add registers one
   app                       the desktop app: run the plan, wikis, scans and checks, and read the portal, in one window
                             (installs its pinned Electron into ~/.camarones/desktop once; needs Node.js)
@@ -382,6 +384,8 @@ def build_parser() -> argparse.ArgumentParser:
     cat.add_argument("--markdown", action="store_true"); cat.add_argument("--check", action="store_true")
     pj = sp.add_parser("projects"); pj.add_argument("--json", action="store_true"); pj.add_argument("--add", type=Path)
     sp.add_parser("app")
+    cf = sp.add_parser("config"); cf.add_argument("action", nargs="?", default="get", choices=["get", "set"])
+    cf.add_argument("key", nargs="?"); cf.add_argument("value", nargs="?"); cf.add_argument("--json", action="store_true")
     return p
 
 
@@ -417,6 +421,26 @@ def main() -> int:
         print(__doc__)
     elif a.cmd == "catalog":
         return cmd_catalog(a, p)
+    elif a.cmd == "config":
+        from lib import machine
+        try:
+            if a.action == "set":
+                if not a.key or a.value is None:
+                    raise ValueError("usage: config set KEY VALUE")
+                machine.set_setting(a.key, a.value)
+            s = machine.settings()
+            if a.key and a.key not in s:
+                raise ValueError(f"unknown setting {a.key}: one of {', '.join(s)}")
+        except ValueError as e:
+            print(f"✖ {e}", file=sys.stderr)
+            return 2
+        if a.json:
+            print(json.dumps(s if not a.key else {a.key: s[a.key]}))
+        elif a.key:
+            print(s[a.key])
+        else:
+            for k, v in s.items():
+                print(f"{k:<12} {v}")
     elif a.cmd == "app":
         from lib import desktop
         desktop.launch()
