@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { getJSON, postJSON, streamEvents } from './api.js'
+import { getJSON, postJSON } from './api.js'
 import { fields, toArgs } from './cmdform.js'
 import { lang, t } from './i18n.js'
+import TallerPanels from './TallerPanels.jsx'
+import { useJob } from './useJob.js'
 
 // The Taller (desktop app only): every catalog command of one zone (lib/catalog.py), with a form read from the CLI's
 // parser, its output live and its exit code. The server checks the arguments again and runs the real CLI.
@@ -24,6 +26,7 @@ export default function Taller({ zone }) {
       {error ? <p className="error" role="alert">{t('twCatalogFailed')} {error}</p> : null}
       {!cmds && !error ? <div className="co-esqueleto skeleton" aria-busy="true" /> : null}
       {zone === 'generate' && cmds ? <div className="tw-list"><UpdateSession /><PrPropose /></div> : null}
+      {cmds ? <TallerPanels zone={zone} /> : null}
       <div className="tw-list">{safe.map((c) => <Command key={c.name} entry={c} />)}</div>
       {careful.length ? (
         <div className="tw-careful">
@@ -54,35 +57,6 @@ function Field({ f, value, onChange, disabled }) {
       )}
     </div>
   )
-}
-
-// A catalog command as a job of the app's server: its lines as they come, then its status and exit code.
-function useJob() {
-  const [job, setJob] = useState(null)          // {id, status, rc, result, lines[]}
-  const [error, setError] = useState('')
-  const abort = useRef(null)
-  useEffect(() => () => abort.current?.abort(), [])
-  async function start(cmd, args, confirmed = false) {
-    setError('')
-    try {
-      const j = await postJSON('app/cmd', { cmd, args, confirmed })
-      setJob({ id: j.id, status: 'running', lines: [] })
-      abort.current = new AbortController()
-      await streamEvents(`app/jobs/${j.id}/events`, (ev) => {
-        if (ev.type === 'line') setJob((cur) => ({ ...cur, lines: [...cur.lines, ev.text] }))
-        else if (ev.type === 'end') setJob((cur) => ({ ...cur, status: ev.status, rc: ev.rc, result: ev.result }))
-      }, abort.current.signal)
-    } catch (e) {
-      if (e.name !== 'AbortError') setError(e.message)
-    }
-  }
-  async function stop() {
-    try { await postJSON(`app/jobs/${job.id}/cancel`, {}) } catch (e) { setError(e.message) }
-  }
-  const running = job?.status === 'running'
-  const status = !job ? null : running ? t('twRunning') : job.status === 'done' ? t('twDone')
-    : job.rc == null ? t('twStopped') : t('twFailed').replace('{rc}', job.rc)
-  return { job, error, start, stop, running, status }
 }
 
 // The docs update (what changed in the code since the docs were written) as an interactive agent session in its own

@@ -75,7 +75,7 @@ function Actions({ run, finished, onDone }) {
   const [pilot, setPilot] = useState(null)         // the autopilot job, while it runs
   const running = run && !finished
   useEffect(() => {
-    getJSON('jobs').then((jobs) => setPilot(jobs.find((j) => j.kind === 'cmd:autopilot' && j.status === 'running') || null), () => {})
+    getJSON('jobs').then((jobs) => setPilot(jobs.find((j) => j.kind.startsWith('cmd:autopilot') && j.status === 'running') || null), () => {})
   }, [])
   useEffect(() => {
     if (!pilot) return undefined

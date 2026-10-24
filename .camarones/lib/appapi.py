@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import functools, json, os, signal, subprocess, sys, threading
 
-from .common import IS_WIN, KIT, ROOT, VERSIONS, run
+from .common import IS_WIN, KIT, ROOT, VERSIONS, out, run
 
 HUB = {"new", "join", "switch"}       # the app's hub opens projects itself; from the CLI these reopen the wizard
 PROCS: dict[str, dict] = {}           # job id → {"proc": Popen} for cancel
@@ -32,7 +32,7 @@ def entry(name: str) -> dict:
 
 
 def info() -> dict:
-    return {"kit": VERSIONS["kit"], "root": str(ROOT),
+    return {"kit": VERSIONS["kit"], "root": str(ROOT), "user": out(["git", "config", "user.name"], cwd=ROOT) or "",
             "kitdev": (KIT.parent / "tests").is_dir() and (KIT.parent / "scripts" / "sandbox.py").is_file()}
 
 
@@ -133,7 +133,7 @@ def start(b: dict, start_job) -> dict:
                 pass
         return {"rc": rc, "result": result, "argv": cmd}
 
-    job = start_job(f"cmd:{e['name']}", " ".join(cmd), go)
+    job = start_job("cmd:" + " ".join(cmd), " ".join(cmd), go)    # the same command line twice attaches to the first
     PROCS[job["id"]] = holder
     return job
 

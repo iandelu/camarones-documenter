@@ -313,6 +313,7 @@ comprobado, los comandos ejecutados y la siguiente acción.
 `camaron help` (copia por proyecto: `./camaron.command help`, en Windows `camaron.cmd help`) lista: `setup`, `sync`,
 `detect`, `plan`, `plan next`, `status`, `check [--strict|--secrets]`, `confirm`, `feedback`, `checkpoint`, `graph`, `arch` (editor C4 en vivo),
 `arch-validate`, `wiki <repo>`, `portal` (exportación), `up [--static|--docker]`, `down`, `ci`, `prompt <unidad>`, `migrate`, `doctor`,
+`doctor --json` (cada comprobación con el comando que la arregla), `doctor --install git|node|docker|java|claude|codex`,
 `doctor --local` (propone un modelo local libre para este equipo, sin instalar nada), `doctor --context` (los tokens
 que carga cada sesión de un agente antes de leer una página, frente a `context.budget`), `autopilot`, `plugins [--json]`,
 `run`, `runs`, `kpis`, `eval`, `ab`, `pipeline show|validate`, `blocks [--force]`, `pr fresh <repo>` y
