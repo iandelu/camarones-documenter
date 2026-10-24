@@ -43,8 +43,7 @@ def portal(kit, monkeypatch):
     (arch / "model.c4").write_text(C4, encoding="utf-8")
     (arch / "likec4.config.json").write_text('{"name": "shop"}', encoding="utf-8")
     wired.plan.sync()
-    from lib import boards, ci
-    boards.save("ideas", {"type": "excalidraw", "elements": []})
+    from lib import ci
     monkeypatch.setattr(ci, "_probe", lambda cmd: None)                                  # no forge CLI, no network
     srv = ThreadingHTTPServer(("127.0.0.1", 0), wired.serve.Handler)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
@@ -71,9 +70,6 @@ CALLS = [
     ("wikis", lambda d: len(d) == 3),
     ("viewers", lambda d: "c4" in d),
     ("pipeline", lambda d: d["units"]),
-    ("boards", lambda d: d[0]["name"] == "ideas"),
-    ("board?name=ideas", lambda d: d["type"] == "excalidraw"),
-    ("sketch?view=shop_containers", lambda d: [e for e in d["elements"] if e["type"] == "rectangle"]),
     ("c4/view?id=shop_containers", lambda d: {e["fqn"] for e in d["elements"]} >= {"shop.orders", "shop.db"}),
     ("reviews", lambda d: isinstance(d, list)),
     ("runs", lambda d: isinstance(d, list)),

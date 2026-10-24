@@ -10,7 +10,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@excalidraw/excalidraw": "0.18.1",
     "@xyflow/react": "12.12.0",
     "motion": "13.5.0",
     "react": "19.3.0",
