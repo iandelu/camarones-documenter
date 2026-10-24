@@ -194,6 +194,34 @@ their units go back to the queue, keeping their work) and retry a blocked unit. 
 The export is plain static files (nginx image, GitLab/GitHub Pages) and works without internet. On a server, run the image
 CI pushed: `docker run -d -p 8080:80 <registry>/<group>/cam-docs/portal:latest`.
 
+### 🖥️ The desktop app
+
+The same portal plus one more zone, the **Workshop**: everything that runs on your machine. The browser portal stays the
+team's viewer (read, edit, review, pipeline status, the interview); whatever starts a process or calls a model shows
+"open it in the app" there.
+
+| Workshop zone | What you do there |
+|---|---|
+| ✨ Generate | run the plan in parallel, the autopilot, a unit in a terminal with the agent you pick, the docs update, wikis, a PR's docs |
+| 🔬 Analyze | no AI: known vulnerabilities, pages out of date, generated blocks, C4 draft, stack, data, history |
+| ✅ Check | prerequisites and tools with Install / repair, the context every agent session loads, golden questions, with vs without cam-docs |
+| 🎙️ Interviews | team questionnaire or live, export the offline form, import answers, close the round |
+| 🤝 Team | shared repo, trust, hooks, plugins, CI, exports |
+| 🧰 This machine | tools, repos, kit updates, repair, migrate and, apart and asking first, uninstall |
+
+**Install and open it**
+
+1. The kit installed (global install: the `camaron` command on your PATH).
+2. Node.js 22 or newer: `node --version`. Missing? `camaron doctor --install node` (winget on Windows, Homebrew on macOS).
+3. `camaron app`. The first time it downloads Electron (pinned, about 100 MB) into `~/.camarones/desktop`, with no admin
+   rights and nothing in your projects; then it opens at once.
+
+From a project's folder it opens that project; from anywhere else, the picker: open a project, create one, join the
+team's `cam-docs` with its URL or add a folder that already has one. The wizard has the same entry (🖥️ Desktop app).
+Inside, <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>O</kbd> goes back to the projects and **camarón › Open in
+the browser** opens the same portal outside. On Linux with restricted user namespaces (Ubuntu 24.04+) the kit starts
+it with `--no-sandbox`: its windows only load your project's local server.
+
 ## 6. Editing: where and when
 
 | Where | What you can do | Where the change goes |
@@ -369,3 +397,6 @@ work. `autopilot` and `run` read it unit by unit. Each run is logged in `.camaro
 | OpenWiki tools missing in the agent | restart Claude Code / Codex in the workspace folder (the one that holds `cam-docs/`) |
 | The deployed portal has no **Edit** button | `cam-docs` has no git remote: add one and export again |
 | A wiki run failed | the ⚠ line says why (quota or login → wait or log in again); run `camaron wiki <repo>` again — an interrupted run resumes |
+| `camaron app`: "needs Node.js >= 22" | install Node 22 (`camaron doctor --install node`) and run `camaron app` again |
+| The app opens the project picker, not your project | you ran it outside the project's folder: open it from the list or **Add folder** |
+| A portal button says "open it in the desktop app" | on purpose: the browser portal does not start processes; use `camaron app` |

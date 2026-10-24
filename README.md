@@ -17,6 +17,7 @@
 
 <p align="center">
   <a href="#empieza-aquí">Empezar</a> ·
+  <a href="#app-de-escritorio">App de escritorio</a> ·
   <a href="#del-código-al-mapa-del-proyecto">Cómo funciona</a> ·
   <a href="#una-sesión-una-unidad-de-trabajo">Sesiones</a> ·
   <a href=".camarones/TUTORIAL.md">Tutorial ES / EN</a>
@@ -65,6 +66,12 @@ Camarón te habla como tu becario gamba al que has mandado a documentar: con gan
 
 <p align="center"><em>Revisa borradores, confirma páginas y deja correcciones para la siguiente sesión.</em></p>
 
+<p align="center">
+  <img src=".github/media/app-tour.gif" alt="Recorrido por la app de escritorio de Camarón." width="960">
+</p>
+
+<p align="center"><em>Y en la app de escritorio, el Taller: el plan con IA, análisis, comprobaciones y entrevistas con un clic. <a href="#app-de-escritorio">Cómo instalarla y abrirla →</a></em></p>
+
 <details>
 <summary><strong>Más capturas del portal</strong></summary>
 
@@ -107,6 +114,7 @@ Camarón te habla como tu becario gamba al que has mandado a documentar: con gan
 - **uv**, que gestiona Python 3.10+ y las dependencias del CLI. El lanzador puede instalarlo con WinGet en Windows o Homebrew en macOS; en otros casos indica cómo continuar.
 - **Claude Code o Codex**, instalado y autenticado, para las sesiones de documentación con IA. También sirven OpenCode y Gemini CLI (ver [Agentes y modelos locales](#agentes-y-modelos-locales)). El asistente también permite copiar el prompt.
 - **Docker es opcional**: el portal también se puede servir con Python.
+- **La app de escritorio es opcional**: necesita Node.js 22 (el mismo de arriba) y la primera vez descarga Electron en `~/.camarones/desktop`.
 
 El asistente comprueba los requisitos y permite elegir componentes. La primera instalación descarga herramientas y dependencias. El acceso a modelos de IA depende de la configuración y cuenta de tu agente.
 
@@ -191,7 +199,15 @@ mi-proyecto/
 
 También puedes empezar con la carpeta vacía y añadir repositorios desde el asistente. La carpeta contenedora será el centro de documentación; los repositorios de servicio conservan su propio historial Git.
 
-### 2. Abre el asistente
+### 2. Abre la app de escritorio
+
+```sh
+camaron app
+```
+
+Dentro de un proyecto abre ese proyecto; en cualquier otra carpeta, el selector para abrir, crear o unirte a uno. La primera vez descarga Electron (unos 100 MB). Todo el detalle, las capturas y qué hacer si algo falla, en [La app de escritorio](#app-de-escritorio).
+
+### 3. …o el asistente en la terminal
 
 **Instalación global** — desde la carpeta del workspace o cualquier carpeta dentro de ella (o corre `camaron switch` para elegir un proyecto):
 
@@ -215,7 +231,7 @@ sh camaron.command
 
 En Windows también puedes abrir `camaron.cmd` con doble clic. En macOS, si el sistema bloquea el lanzador descargado, ejecútalo una primera vez desde Terminal con el comando anterior.
 
-### 3. Sigue el plan
+### 4. Sigue el plan
 
 Configura el proyecto, selecciona repositorios y componentes, prepara el entorno y elige el siguiente paso. Camarones prepara las instrucciones de cada unidad para el agente. Revisa los resultados antes de confirmarlos.
 
@@ -307,13 +323,118 @@ mi-proyecto/cam-docs/
 └── CLAUDE.md
 ```
 
-### La app de escritorio
+<a id="app-de-escritorio"></a>
 
-`camaron app` (o asistente → 🖥️ App de escritorio) abre una ventana con el mismo portal y una zona más, el **Taller**: todo lo que corre en tu máquina. El portal del navegador queda como visor del equipo (leer, editar, revisar, ver la pipeline); lo que lanza procesos o llama a un modelo, como ejecutar el plan, generar wikis, reconstruir el C4 o el grafo, buscar vulnerabilidades, instalar la CI o pedir una respuesta a la IA, se hace desde la app, y el portal lo indica con un aviso.
+### 🖥️ La app de escritorio
 
-- **Proyectos:** al abrirla eliges proyecto, creas uno nuevo o te unes al `cam-docs` del equipo. Cada proyecto abre su propia ventana.
-- **Taller:** Generar (el plan con IA, una sesión que actualiza la documentación con lo que cambió en el código, wikis y la documentación de un pull request: primero «Ver qué haría» y, si te convence, el agente escribe en su rama, se hace push y se abre el PR de docs), Analizar (sin IA: vulnerabilidades conocidas con su resumen por gravedad y enlace a Librerías, páginas desactualizadas con «Sigue valiendo» o una unidad que las actualice, bloques generados, borrador C4, stack, datos, historia), Comprobar (requisitos y herramientas con su botón «Instalar» o «repair», el contexto que carga cada sesión de agente frente al presupuesto, preguntas de control para confirmar y lanzar, la comparación con y sin cam-docs, `check`, KPIs), Entrevistas (cuestionario del equipo o en vivo, exportar el formulario sin conexión y abrir su carpeta, importar ficheros de respuestas, cerrar la ronda y abrir cada unidad de entrevista en una terminal con un agente), Equipo (repo compartido, agentes, plugins, CI) y Esta máquina (herramientas, repos, actualizar, desinstalar). Cada comando de la CLI tiene su formulario, sacado del propio parser, su salida en vivo y su resultado. Lo que borra o mueve datos va aparte y pregunta antes.
-- **Por dentro:** la app es Electron fijado a una versión (`VERSIONS["electron"]`), instalado la primera vez en `~/.camarones/desktop` con npm, sin permisos de administrador. Necesita Node.js; sin él, la CLI y el asistente funcionan igual. Cada ventana es el servidor del portal de ese proyecto, arrancado con un token que solo tiene la app; sin ese token el servidor no lanza procesos.
+<p align="center">
+  <img src=".github/media/app-taller.png" alt="Las seis zonas del Taller en la app de escritorio." width="49%">
+  <img src=".github/media/app-generate.png" alt="Generar: actualizar la documentación, el PR de docs y el piloto automático." width="49%">
+</p>
+
+<p align="center"><em>El mismo portal y, además, el Taller: todo lo que corre en tu máquina, en una ventana.</em></p>
+
+La app junta las dos caras de Camarón. El **portal** es el visor del equipo: leer, editar, revisar, ver la pipeline y responder la entrevista. El **Taller** es todo lo que pasa en tu máquina: agentes de IA, análisis del código, comprobaciones e instalación. Cada botón del Taller ejecuta el mismo comando que escribirías en la terminal, con su salida en vivo, así que nada de lo que ves es magia aparte.
+
+| | 🌐 Portal en el navegador (`camaron up`) | 🖥️ App de escritorio (`camaron app`) |
+|---|---|---|
+| **Para quién** | Todo el equipo, también desplegado como web | Quien documenta en su máquina |
+| **Leer, buscar, preguntar** | ✅ | ✅ |
+| **Editar, confirmar, revisar, comentar** | ✅ | ✅ |
+| **Pipeline: estado en vivo, reintentar, aprobar** | ✅ | ✅ |
+| **Responder la entrevista del equipo** | ✅ | ✅ |
+| **Ejecutar el plan, piloto automático, sesión con un agente** | — aviso «ábrelo en la app» | ✅ |
+| **Wikis, C4, grafo de código, vulnerabilidades, CI** | — aviso «ábrelo en la app» | ✅ |
+| **Requisitos, instalar herramientas, actualizar, desinstalar** | — | ✅ |
+
+#### El Taller, zona a zona
+
+| Zona | Qué haces ahí |
+|---|---|
+| ✨ **Generar** | Ejecutar el plan en paralelo (sesiones por agente, máximo de unidades, incluir entrevistas), el **piloto automático**, abrir una unidad en una **terminal con el agente** que elijas, la sesión que **actualiza la documentación** con lo que cambió en el código, las **wikis** y la documentación de un **pull request** (primero «Ver qué haría», después el PR de docs) |
+| 🔬 **Analizar** | Sin IA: **vulnerabilidades conocidas** por gravedad con enlace a Librerías, **páginas desactualizadas** («Sigue valiendo» o una unidad que las actualice), **bloques generados**, borrador C4, stack, datos, historia |
+| ✅ **Comprobar** | **Requisitos y herramientas** con su botón «Instalar» o «repair», el **contexto** que carga cada sesión de agente frente al presupuesto, **preguntas de control** (confirmar y lanzar), **con y sin cam-docs**, `check`, KPIs |
+| 🎙️ **Entrevistas** | Cuestionario del equipo o en vivo, **exportar** el formulario sin conexión y abrir su carpeta, **importar** respuestas con un selector de ficheros, cerrar la ronda y abrir cada unidad de entrevista con un agente |
+| 🤝 **Equipo** | Repo `cam-docs` compartido (`remote`, `share`, `checkpoint`), aprobar la configuración de agentes (`trust`), hooks, plugins, CI y exportaciones |
+| 🧰 **Esta máquina** | Herramientas, repos, perfil, actualizar el kit, `repair`, `migrate` y, aparte y preguntando antes, `uninstall` |
+
+Cada comando de la CLI tiene su formulario, que sale del propio parser (`camaron catalog`). Lo que borra o mueve datos va en su propio bloque, al final, y pide confirmación en un diálogo que dice qué va a pasar.
+
+<details>
+<summary><strong>📸 Más capturas de la app</strong></summary>
+
+| Proyectos | Taller | Generar |
+|---|---|---|
+| ![Selector de proyectos](.github/media/app-hub.png) | ![Las zonas del Taller](.github/media/app-taller.png) | ![Generar: actualizar docs, PR y piloto automático](.github/media/app-generate.png) |
+
+| Pipeline con sesión de agente | Comprobar | Analizar |
+|---|---|---|
+| ![Pipeline con el panel de una unidad](.github/media/app-pipeline.png) | ![Requisitos, contexto y preguntas de control](.github/media/app-check.png) | ![Vulnerabilidades, páginas desactualizadas y bloques](.github/media/app-analyze.png) |
+
+| Un comando en vivo | Entrevista del equipo | Librerías y vulnerabilidades |
+|---|---|---|
+| ![La salida de un comando del Taller](.github/media/app-job.png) | ![El cuestionario respondido en la app](.github/media/app-interview.png) | ![Librerías con sus vulnerabilidades](.github/media/app-libs.png) |
+
+</details>
+
+#### 📦 Instala y abre la app
+
+> **En una línea:** con el kit instalado y Node.js 22 o superior, `camaron app`. La primera vez descarga Electron (unos 100 MB) en `~/.camarones/desktop` y abre la ventana. Las siguientes, se abre al momento.
+
+**1. Ten el kit instalado.** Si aún no lo tienes, sigue [Instala el kit](#1-instala-el-kit): una línea en macOS/Linux o en PowerShell, y el comando `camaron` queda en tu PATH.
+
+**2. Comprueba que tienes Node.js 22 o superior.** Es lo único extra que necesita la app; la CLI, el asistente y el portal funcionan sin ella.
+
+```sh
+node --version             # v22 o superior
+camaron doctor --install node   # si no lo tienes: winget en Windows, Homebrew en macOS
+```
+
+**3. Ábrela.** Tres formas, la que te venga mejor:
+
+```sh
+cd ~/Documents/mi-proyecto   # dentro de un proyecto: abre ese proyecto directamente
+camaron app
+
+camaron app                  # en cualquier otra carpeta: abre el selector de proyectos
+```
+
+- **Desde el asistente:** `camaron` y en el menú principal **🖥️ App de escritorio**.
+- **Desde el selector de proyectos:** abre un proyecto registrado, **crea uno** (eliges la carpeta donde va), **únete al del equipo** con la URL de su `cam-docs` o **añade una carpeta** que ya tenga `cam-docs`. Cada proyecto abre su propia ventana.
+- **Dentro de la app:** <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>O</kbd> vuelve a los proyectos, y **camarón › Abrir en el navegador** abre el mismo portal en tu navegador para compartir la pantalla o un enlace local.
+
+**4. Empieza por el Taller.** En Inicio, la tarjeta **Taller** lleva a las seis zonas. Un buen primer paso: **Comprobar › Requisitos y herramientas** para ver qué falta, y **Analizar** para el primer vistazo sin IA.
+
+<details>
+<summary><strong>🪟 🍎 🐧 Notas por sistema operativo</strong></summary>
+
+| Sistema | Qué tener en cuenta |
+|---|---|
+| **Windows** | Nada extra. `camaron app` abre la ventana sin consola. Si Node no está, `camaron doctor --install node` lo instala con winget. |
+| **macOS** | El Electron que descarga npm viene firmado por el proyecto Electron. Si tienes Homebrew, `camaron doctor --install node` instala Node 22. |
+| **Linux** | En Ubuntu 24.04 o posterior el sistema limita los *user namespaces* y el sandbox de Chromium no arranca desde la copia de npm. Camarón lo detecta y abre la app con `--no-sandbox`: sus ventanas solo cargan el servidor local de tu proyecto. |
+
+</details>
+
+<details>
+<summary><strong>🛟 Si algo no va</strong></summary>
+
+| Lo que ves | Qué hacer |
+|---|---|
+| `the desktop app needs Node.js >= 22` | Instala Node 22 (`camaron doctor --install node`) y vuelve a lanzar `camaron app`. |
+| Se abre el selector en vez de tu proyecto | Estabas fuera de la carpeta del proyecto: ábrelo desde la lista o usa **Añadir carpeta**. |
+| «No he podido arrancar el servidor del proyecto» | El cuadro trae el error del servidor. `camaron doctor` en esa carpeta suele decir qué falta. |
+| Un botón del portal dice «ábrelo en la app» | Es a propósito: el portal del navegador no lanza procesos. Ábrelo desde la app. |
+| Quieres reinstalar Electron | Borra `~/.camarones/desktop` y lanza `camaron app`: lo descarga otra vez. |
+
+</details>
+
+#### 🔧 Por dentro
+
+- **Electron fijado** (`VERSIONS["electron"]`, hoy 44.7.0) en `~/.camarones/desktop`, instalado con npm y sin permisos de administrador. Nada de la app vive en tus proyectos. Al actualizar el kit (`camaron self-update`), si la versión fijada cambia, la siguiente `camaron app` descarga la nueva.
+- **Cada ventana es el servidor del portal de su proyecto**, arrancado por la app con un **token de un solo uso**. Sin ese token el servidor no lanza procesos ni llama a modelos, y con él rechaza peticiones de otro `Host` (protección contra *DNS rebinding*). Las ventanas no pueden navegar fuera de su servidor: los enlaces externos se abren en tu navegador.
+- **La CLI es la API de la app.** El Taller ejecuta `camaron <comando>` con los argumentos validados contra el parser, sin shell de por medio. Parar un comando para también lo que arrancó (agentes, npm, git).
+- `camaron uninstall --global` borra también `~/.camarones/desktop`.
 
 ### Explora y edita en el portal
 

@@ -224,6 +224,27 @@ PAGES = {
                  "unes al del equipo. El portal del navegador queda como visor del equipo: leer, editar, revisar y ver el "
                  "estado; lo que lanza procesos o llama a un modelo dice «ábrelo en la app». La primera vez instala Electron en "
                  "~/.camarones/desktop (necesita Node.js); sin él, la CLI y este asistente funcionan igual."},
+        {"icon": "📦", "title": "Instalar y abrir la app de escritorio",
+         "art": r"""
+   +----------------------------------------------------------------------------+
+   | 1  el kit instalado            camaron  (instalación global, una línea)    |
+   | 2  Node.js 22 o superior       node --version                              |
+   |                                si falta: camaron doctor --install node     |
+   | 3  abrir la app                camaron app                                 |
+   |                                (la 1.ª vez descarga Electron, ~100 MB)     |
+   |                                                                            |
+   |    dentro de un proyecto  ->  abre ese proyecto                            |
+   |    en otra carpeta        ->  selector: abrir · crear · unirse · añadir    |
+   |    en el asistente        ->  menú › App de escritorio                     |
+   +----------------------------------------------------------------------------+""",
+         "text": "La app no se instala aparte: viene con el kit. Solo necesita Node.js 22 o superior (`camaron doctor --install "
+                 "node` lo instala con winget en Windows o Homebrew en macOS). Lanza `camaron app`: la primera vez descarga "
+                 "Electron, fijado a una versión, en ~/.camarones/desktop, sin permisos de administrador y sin tocar tus "
+                 "proyectos. Desde la carpeta de un proyecto abre ese proyecto; desde cualquier otra, el selector, donde abres "
+                 "uno, creas uno nuevo, te unes al cam-docs del equipo con su URL o añades una carpeta. Dentro, Ctrl o Cmd + "
+                 "Shift + O vuelve a los proyectos y «camarón › Abrir en el navegador» abre el mismo portal fuera. Un buen "
+                 "primer paso: Taller › Comprobar para ver qué falta, y Analizar para el primer vistazo sin IA. Si algo "
+                 "falla, el aviso dice qué; borrar ~/.camarones/desktop fuerza a descargar Electron otra vez."},
         {"icon": "✏️", "title": "Dónde y cuándo se puede editar",
          "art": r"""
    DONDE                        QUE PUEDES HACER                     DONDE QUEDA
@@ -531,6 +552,28 @@ PAGES = {
                  "stays the team's viewer: reading, editing, review and status; whatever starts a process or calls a model says "
                  "\"open it in the app\". The first time it installs Electron into ~/.camarones/desktop (needs Node.js); without it "
                  "the CLI and this wizard work the same."},
+        {"icon": "📦", "title": "Installing and opening the desktop app",
+         "art": r"""
+   +----------------------------------------------------------------------------+
+   | 1  the kit installed           camaron  (global install, one line)         |
+   | 2  Node.js 22 or newer         node --version                              |
+   |                                if missing: camaron doctor --install node   |
+   | 3  open the app                camaron app                                 |
+   |                                (the first time it downloads Electron, ~100 MB) |
+   |                                                                            |
+   |    inside a project       ->  opens that project                           |
+   |    in any other folder    ->  picker: open · create · join · add           |
+   |    in the wizard          ->  menu › Desktop app                           |
+   +----------------------------------------------------------------------------+""",
+         "text": "The app is not installed separately: it comes with the kit. It only needs Node.js 22 or newer (`camaron "
+                 "doctor --install node` installs it with winget on Windows or Homebrew on macOS). Run `camaron app`: the "
+                 "first time it downloads Electron, pinned to one version, into ~/.camarones/desktop, with no admin rights "
+                 "and nothing in your projects. From a project's folder it opens that project; from anywhere else, the "
+                 "picker, where you open one, create a new one, join the team's cam-docs with its URL or add a folder. "
+                 "Inside, Ctrl or Cmd + Shift + O goes back to the projects and \"camarón › Open in the browser\" opens the "
+                 "same portal outside. A good first step: Workshop › Check to see what is missing, and Analyze for the first "
+                 "look without AI. If something fails, the notice says what; deleting ~/.camarones/desktop makes it download "
+                 "Electron again."},
         {"icon": "✏️", "title": "Where and when you can edit",
          "art": r"""
    WHERE                        WHAT YOU CAN DO                      WHERE IT GOES
