@@ -15,8 +15,7 @@ export const ZONES = [
     { id: 'c4', href: '#/c4' },
     { id: 'code', href: '#/code', needs: hasCode },
     { id: 'data', href: '#/data', live: true },
-    { id: 'libs', href: '#/libs', live: true },
-    { id: 'boards', href: '#/boards', live: true }] },
+    { id: 'libs', href: '#/libs', live: true }] },
   { id: 'plan', href: '#/plan', views: [{ id: 'pipeline', href: '#/pipeline', live: true },
     { id: 'interview', href: '#/interview', live: true }, { id: 'sync', href: '#/sync', live: true }] },
   { id: 'quality', href: '#/quality', views: [{ id: 'kpis', href: '#/kpis', live: true }, { id: 'ci', href: '#/ci', live: true }] },
@@ -34,7 +33,7 @@ export const TALLER = ['generate', 'analyze', 'check', 'interviews', 'team', 'ma
 // The first segment of an address → its zone and view. Old addresses (doc, status, wiki) keep working.
 const ROUTES = {
   docs: ['docs', 'pages'], doc: ['docs', 'pages'], wikis: ['docs', 'wikis'], wiki: ['docs', 'wikis'],
-  c4: ['arch', 'c4'], code: ['arch', 'code'], data: ['arch', 'data'], libs: ['arch', 'libs'], boards: ['arch', 'boards'],
+  c4: ['arch', 'c4'], code: ['arch', 'code'], data: ['arch', 'data'], libs: ['arch', 'libs'],
   pipeline: ['plan', 'pipeline'], interview: ['plan', 'interview'], sync: ['plan', 'sync'], kpis: ['quality', 'kpis'], ci: ['quality', 'ci'],
   review: ['review', 'review'], status: ['review', 'review'],
   ...Object.fromEntries(TALLER.map((v) => [v, ['taller', v]])),

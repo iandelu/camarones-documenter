@@ -1,56 +1,25 @@
 {
-  "_AgentLaunch-C0WoEU5z.js": {
-    "file": "assets/AgentLaunch-C0WoEU5z.js",
+  "_AgentLaunch-D3W7LZf_.js": {
+    "file": "assets/AgentLaunch-D3W7LZf_.js",
     "name": "AgentLaunch",
     "imports": [
-      "_rolldown-runtime-COiEfhsA.js",
-      "_jsx-runtime-a0FhZzgl.js",
-      "_i18n-Dpq6qYUi.js"
+      "_i18n-rPHJu3Lj.js"
     ]
   },
-  "_chunk-EIO257PC-6JRJ9ooI.js": {
-    "file": "assets/chunk-EIO257PC-6JRJ9ooI.js",
-    "name": "chunk-EIO257PC",
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "_i18n-Dpq6qYUi.js": {
-    "file": "assets/i18n-Dpq6qYUi.js",
+  "_i18n-rPHJu3Lj.js": {
+    "file": "assets/i18n-rPHJu3Lj.js",
     "name": "i18n"
   },
-  "_jsx-runtime-a0FhZzgl.js": {
-    "file": "assets/jsx-runtime-a0FhZzgl.js",
-    "name": "jsx-runtime",
-    "imports": [
-      "_rolldown-runtime-COiEfhsA.js"
-    ]
-  },
-  "_rolldown-runtime-COiEfhsA.js": {
-    "file": "assets/rolldown-runtime-COiEfhsA.js",
-    "name": "rolldown-runtime"
-  },
-  "_with-selector-BcjJGeF6.js": {
-    "file": "assets/with-selector-BcjJGeF6.js",
-    "name": "with-selector",
-    "imports": [
-      "_rolldown-runtime-COiEfhsA.js",
-      "_jsx-runtime-a0FhZzgl.js"
-    ]
-  },
   "index.html": {
-    "file": "assets/index-Y9YW6hj3.js",
+    "file": "assets/index-yTjJFs_f.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
     "imports": [
-      "_rolldown-runtime-COiEfhsA.js",
-      "_jsx-runtime-a0FhZzgl.js",
-      "_i18n-Dpq6qYUi.js"
+      "_i18n-rPHJu3Lj.js"
     ],
     "dynamicImports": [
       "src/Pipeline.jsx",
-      "src/Boards.jsx",
       "src/Kpis.jsx",
       "src/Ci.jsx",
       "src/Libs.jsx",
@@ -60,814 +29,88 @@
       "src/Sync.jsx"
     ],
     "css": [
-      "assets/index-CKOEIWa0.css"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/data/image-GAAHSSAO.js": {
-    "file": "assets/image-GAAHSSAO-DqUOWl9w.js",
-    "name": "image-GAAHSSAO",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/data/image-GAAHSSAO.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/fonts/Assistant/Assistant-Bold.woff2": {
-    "file": "assets/Assistant-Bold-gm-uSS1B.woff2",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/fonts/Assistant/Assistant-Bold.woff2"
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/fonts/Assistant/Assistant-Medium.woff2": {
-    "file": "assets/Assistant-Medium-DrcxCXg3.woff2",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/fonts/Assistant/Assistant-Medium.woff2"
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/fonts/Assistant/Assistant-Regular.woff2": {
-    "file": "assets/Assistant-Regular-DVxZuzxb.woff2",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/fonts/Assistant/Assistant-Regular.woff2"
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/fonts/Assistant/Assistant-SemiBold.woff2": {
-    "file": "assets/Assistant-SemiBold-SCI4bEL9.woff2",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/fonts/Assistant/Assistant-SemiBold.woff2"
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/ar-SA-G6X2FPQ2.js": {
-    "file": "assets/ar-SA-G6X2FPQ2-Cudn9r-Y.js",
-    "name": "ar-SA-G6X2FPQ2",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/ar-SA-G6X2FPQ2.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/az-AZ-76LH7QW2.js": {
-    "file": "assets/az-AZ-76LH7QW2-D4yz0EH5.js",
-    "name": "az-AZ-76LH7QW2",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/az-AZ-76LH7QW2.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/bg-BG-XCXSNQG7.js": {
-    "file": "assets/bg-BG-XCXSNQG7-CLtk13mh.js",
-    "name": "bg-BG-XCXSNQG7",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/bg-BG-XCXSNQG7.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/bn-BD-2XOGV67Q.js": {
-    "file": "assets/bn-BD-2XOGV67Q-_xqbzoNR.js",
-    "name": "bn-BD-2XOGV67Q",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/bn-BD-2XOGV67Q.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/ca-ES-6MX7JW3Y.js": {
-    "file": "assets/ca-ES-6MX7JW3Y-d6NXnHig.js",
-    "name": "ca-ES-6MX7JW3Y",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/ca-ES-6MX7JW3Y.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/cs-CZ-2BRQDIVT.js": {
-    "file": "assets/cs-CZ-2BRQDIVT-DSOhqGDL.js",
-    "name": "cs-CZ-2BRQDIVT",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/cs-CZ-2BRQDIVT.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/da-DK-5WZEPLOC.js": {
-    "file": "assets/da-DK-5WZEPLOC-mWIAg56d.js",
-    "name": "da-DK-5WZEPLOC",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/da-DK-5WZEPLOC.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/de-DE-XR44H4JA.js": {
-    "file": "assets/de-DE-XR44H4JA-BTRVVWb1.js",
-    "name": "de-DE-XR44H4JA",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/de-DE-XR44H4JA.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/el-GR-BZB4AONW.js": {
-    "file": "assets/el-GR-BZB4AONW-DXjb0sFS.js",
-    "name": "el-GR-BZB4AONW",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/el-GR-BZB4AONW.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/en-B4ZKOASM.js": {
-    "file": "assets/en-B4ZKOASM-B6rqzotx.js",
-    "name": "en-B4ZKOASM",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/en-B4ZKOASM.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/es-ES-U4NZUMDT.js": {
-    "file": "assets/es-ES-U4NZUMDT-BwI0diWQ.js",
-    "name": "es-ES-U4NZUMDT",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/es-ES-U4NZUMDT.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/eu-ES-A7QVB2H4.js": {
-    "file": "assets/eu-ES-A7QVB2H4-DtoRRN5K.js",
-    "name": "eu-ES-A7QVB2H4",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/eu-ES-A7QVB2H4.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/fa-IR-HGAKTJCU.js": {
-    "file": "assets/fa-IR-HGAKTJCU-CUw3A6_L.js",
-    "name": "fa-IR-HGAKTJCU",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/fa-IR-HGAKTJCU.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/fi-FI-Z5N7JZ37.js": {
-    "file": "assets/fi-FI-Z5N7JZ37-6wF2LJy-.js",
-    "name": "fi-FI-Z5N7JZ37",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/fi-FI-Z5N7JZ37.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/fr-FR-RHASNOE6.js": {
-    "file": "assets/fr-FR-RHASNOE6-CkdysEI3.js",
-    "name": "fr-FR-RHASNOE6",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/fr-FR-RHASNOE6.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/gl-ES-HMX3MZ6V.js": {
-    "file": "assets/gl-ES-HMX3MZ6V-CUJPGGyp.js",
-    "name": "gl-ES-HMX3MZ6V",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/gl-ES-HMX3MZ6V.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/he-IL-6SHJWFNN.js": {
-    "file": "assets/he-IL-6SHJWFNN-DBARzJKy.js",
-    "name": "he-IL-6SHJWFNN",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/he-IL-6SHJWFNN.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/hi-IN-IWLTKZ5I.js": {
-    "file": "assets/hi-IN-IWLTKZ5I-CGQXvCTK.js",
-    "name": "hi-IN-IWLTKZ5I",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/hi-IN-IWLTKZ5I.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/hu-HU-A5ZG7DT2.js": {
-    "file": "assets/hu-HU-A5ZG7DT2-C44H5Ljm.js",
-    "name": "hu-HU-A5ZG7DT2",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/hu-HU-A5ZG7DT2.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/id-ID-SAP4L64H.js": {
-    "file": "assets/id-ID-SAP4L64H-mxPMJ5YP.js",
-    "name": "id-ID-SAP4L64H",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/id-ID-SAP4L64H.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/it-IT-JPQ66NNP.js": {
-    "file": "assets/it-IT-JPQ66NNP-BxnscvuS.js",
-    "name": "it-IT-JPQ66NNP",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/it-IT-JPQ66NNP.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/ja-JP-DBVTYXUO.js": {
-    "file": "assets/ja-JP-DBVTYXUO-YFcp3nj7.js",
-    "name": "ja-JP-DBVTYXUO",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/ja-JP-DBVTYXUO.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/kaa-6HZHGXH3.js": {
-    "file": "assets/kaa-6HZHGXH3-DuOgVLWf.js",
-    "name": "kaa-6HZHGXH3",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/kaa-6HZHGXH3.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/kab-KAB-ZGHBKWFO.js": {
-    "file": "assets/kab-KAB-ZGHBKWFO-uqDIWx21.js",
-    "name": "kab-KAB-ZGHBKWFO",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/kab-KAB-ZGHBKWFO.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/kk-KZ-P5N5QNE5.js": {
-    "file": "assets/kk-KZ-P5N5QNE5-BCe2JbO5.js",
-    "name": "kk-KZ-P5N5QNE5",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/kk-KZ-P5N5QNE5.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/km-KH-HSX4SM5Z.js": {
-    "file": "assets/km-KH-HSX4SM5Z-DP7Acb3Q.js",
-    "name": "km-KH-HSX4SM5Z",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/km-KH-HSX4SM5Z.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/ko-KR-MTYHY66A.js": {
-    "file": "assets/ko-KR-MTYHY66A-CwRSzJKA.js",
-    "name": "ko-KR-MTYHY66A",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/ko-KR-MTYHY66A.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/ku-TR-6OUDTVRD.js": {
-    "file": "assets/ku-TR-6OUDTVRD-D-PYYZxh.js",
-    "name": "ku-TR-6OUDTVRD",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/ku-TR-6OUDTVRD.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/lt-LT-XHIRWOB4.js": {
-    "file": "assets/lt-LT-XHIRWOB4-CNdOhqE_.js",
-    "name": "lt-LT-XHIRWOB4",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/lt-LT-XHIRWOB4.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/lv-LV-5QDEKY6T.js": {
-    "file": "assets/lv-LV-5QDEKY6T-BGT6FbNg.js",
-    "name": "lv-LV-5QDEKY6T",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/lv-LV-5QDEKY6T.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/mr-IN-CRQNXWMA.js": {
-    "file": "assets/mr-IN-CRQNXWMA-BwAsZZSE.js",
-    "name": "mr-IN-CRQNXWMA",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/mr-IN-CRQNXWMA.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/my-MM-5M5IBNSE.js": {
-    "file": "assets/my-MM-5M5IBNSE-CgY-Uxwu.js",
-    "name": "my-MM-5M5IBNSE",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/my-MM-5M5IBNSE.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/nb-NO-T6EIAALU.js": {
-    "file": "assets/nb-NO-T6EIAALU-CoTqj1nX.js",
-    "name": "nb-NO-T6EIAALU",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/nb-NO-T6EIAALU.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/nl-NL-IS3SIHDZ.js": {
-    "file": "assets/nl-NL-IS3SIHDZ-Dbw2BWBs.js",
-    "name": "nl-NL-IS3SIHDZ",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/nl-NL-IS3SIHDZ.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/nn-NO-6E72VCQL.js": {
-    "file": "assets/nn-NO-6E72VCQL-BNXP3nwB.js",
-    "name": "nn-NO-6E72VCQL",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/nn-NO-6E72VCQL.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/oc-FR-POXYY2M6.js": {
-    "file": "assets/oc-FR-POXYY2M6-BPSlOAiv.js",
-    "name": "oc-FR-POXYY2M6",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/oc-FR-POXYY2M6.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/pa-IN-N4M65BXN.js": {
-    "file": "assets/pa-IN-N4M65BXN-Bvb51RO3.js",
-    "name": "pa-IN-N4M65BXN",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/pa-IN-N4M65BXN.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/percentages-BXMCSKIN.js": {
-    "file": "assets/percentages-BXMCSKIN-Bf_K_TIA.js",
-    "name": "percentages-BXMCSKIN",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/percentages-BXMCSKIN.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/pl-PL-T2D74RX3.js": {
-    "file": "assets/pl-PL-T2D74RX3-S4C0ubwi.js",
-    "name": "pl-PL-T2D74RX3",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/pl-PL-T2D74RX3.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/pt-BR-5N22H2LF.js": {
-    "file": "assets/pt-BR-5N22H2LF-CYR_wCQI.js",
-    "name": "pt-BR-5N22H2LF",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/pt-BR-5N22H2LF.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/pt-PT-UZXXM6DQ.js": {
-    "file": "assets/pt-PT-UZXXM6DQ-F42n4XQb.js",
-    "name": "pt-PT-UZXXM6DQ",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/pt-PT-UZXXM6DQ.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/ro-RO-JPDTUUEW.js": {
-    "file": "assets/ro-RO-JPDTUUEW--wifdT9x.js",
-    "name": "ro-RO-JPDTUUEW",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/ro-RO-JPDTUUEW.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/ru-RU-B4JR7IUQ.js": {
-    "file": "assets/ru-RU-B4JR7IUQ-Bc0iGq83.js",
-    "name": "ru-RU-B4JR7IUQ",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/ru-RU-B4JR7IUQ.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/si-LK-N5RQ5JYF.js": {
-    "file": "assets/si-LK-N5RQ5JYF-T0Q5Ppav.js",
-    "name": "si-LK-N5RQ5JYF",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/si-LK-N5RQ5JYF.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/sk-SK-C5VTKIMK.js": {
-    "file": "assets/sk-SK-C5VTKIMK-C08refdT.js",
-    "name": "sk-SK-C5VTKIMK",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/sk-SK-C5VTKIMK.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/sl-SI-NN7IZMDC.js": {
-    "file": "assets/sl-SI-NN7IZMDC-DKtuKY16.js",
-    "name": "sl-SI-NN7IZMDC",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/sl-SI-NN7IZMDC.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/sv-SE-XGPEYMSR.js": {
-    "file": "assets/sv-SE-XGPEYMSR-DOzlnn-1.js",
-    "name": "sv-SE-XGPEYMSR",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/sv-SE-XGPEYMSR.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/ta-IN-2NMHFXQM.js": {
-    "file": "assets/ta-IN-2NMHFXQM-B66YgAoT.js",
-    "name": "ta-IN-2NMHFXQM",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/ta-IN-2NMHFXQM.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/th-TH-HPSO5L25.js": {
-    "file": "assets/th-TH-HPSO5L25-BOs8dBZ4.js",
-    "name": "th-TH-HPSO5L25",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/th-TH-HPSO5L25.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/tr-TR-DEFEU3FU.js": {
-    "file": "assets/tr-TR-DEFEU3FU-Cg1erRd5.js",
-    "name": "tr-TR-DEFEU3FU",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/tr-TR-DEFEU3FU.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/uk-UA-QMV73CPH.js": {
-    "file": "assets/uk-UA-QMV73CPH-Dqsu3H3I.js",
-    "name": "uk-UA-QMV73CPH",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/uk-UA-QMV73CPH.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/vi-VN-M7AON7JQ.js": {
-    "file": "assets/vi-VN-M7AON7JQ-C49RRdDE.js",
-    "name": "vi-VN-M7AON7JQ",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/vi-VN-M7AON7JQ.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/zh-CN-LNUGB5OW.js": {
-    "file": "assets/zh-CN-LNUGB5OW-Dj1lOlYt.js",
-    "name": "zh-CN-LNUGB5OW",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/zh-CN-LNUGB5OW.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/zh-HK-E62DVLB3.js": {
-    "file": "assets/zh-HK-E62DVLB3-C5EEsVEI.js",
-    "name": "zh-HK-E62DVLB3",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/zh-HK-E62DVLB3.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/locales/zh-TW-RAJ6MFWO.js": {
-    "file": "assets/zh-TW-RAJ6MFWO-DYvdDy7g.js",
-    "name": "zh-TW-RAJ6MFWO",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/zh-TW-RAJ6MFWO.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/subset-shared.chunk.js": {
-    "file": "assets/subset-shared.chunk-DK7smGNm.js",
-    "name": "subset-shared.chunk",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/subset-shared.chunk.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "_chunk-EIO257PC-6JRJ9ooI.js",
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/@excalidraw/excalidraw/dist/prod/subset-worker.chunk.js": {
-    "file": "assets/subset-worker.chunk-BQDX9CbO.js",
-    "name": "subset-worker.chunk",
-    "src": "node_modules/@excalidraw/excalidraw/dist/prod/subset-worker.chunk.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "_chunk-EIO257PC-6JRJ9ooI.js",
-      "src/BoardCanvas.jsx"
-    ]
-  },
-  "node_modules/browser-fs-access/dist/directory-open-01563666.js": {
-    "file": "assets/directory-open-01563666-D4xXyWb_.js",
-    "name": "directory-open-01563666",
-    "src": "node_modules/browser-fs-access/dist/directory-open-01563666.js",
-    "isDynamicEntry": true
-  },
-  "node_modules/browser-fs-access/dist/directory-open-4ed118d0.js": {
-    "file": "assets/directory-open-4ed118d0-1i309Asm.js",
-    "name": "directory-open-4ed118d0",
-    "src": "node_modules/browser-fs-access/dist/directory-open-4ed118d0.js",
-    "isDynamicEntry": true
-  },
-  "node_modules/browser-fs-access/dist/file-open-002ab408.js": {
-    "file": "assets/file-open-002ab408-BHUWm0Sh.js",
-    "name": "file-open-002ab408",
-    "src": "node_modules/browser-fs-access/dist/file-open-002ab408.js",
-    "isDynamicEntry": true
-  },
-  "node_modules/browser-fs-access/dist/file-open-7c801643.js": {
-    "file": "assets/file-open-7c801643-DZtJT5zp.js",
-    "name": "file-open-7c801643",
-    "src": "node_modules/browser-fs-access/dist/file-open-7c801643.js",
-    "isDynamicEntry": true
-  },
-  "node_modules/browser-fs-access/dist/file-save-3189631c.js": {
-    "file": "assets/file-save-3189631c-CO9S4HFW.js",
-    "name": "file-save-3189631c",
-    "src": "node_modules/browser-fs-access/dist/file-save-3189631c.js",
-    "isDynamicEntry": true
-  },
-  "node_modules/browser-fs-access/dist/file-save-745eba88.js": {
-    "file": "assets/file-save-745eba88-Bwdfz6OZ.js",
-    "name": "file-save-745eba88",
-    "src": "node_modules/browser-fs-access/dist/file-save-745eba88.js",
-    "isDynamicEntry": true
-  },
-  "node_modules/canvas-roundrect-polyfill/roundRect.js": {
-    "file": "assets/roundRect-D01gJrlt.js",
-    "name": "roundRect",
-    "src": "node_modules/canvas-roundrect-polyfill/roundRect.js",
-    "isDynamicEntry": true
-  },
-  "node_modules/image-blob-reduce/dist/image-blob-reduce.esm.mjs": {
-    "file": "assets/image-blob-reduce.esm-Fj7y_Tzy.js",
-    "name": "image-blob-reduce.esm",
-    "src": "node_modules/image-blob-reduce/dist/image-blob-reduce.esm.mjs",
-    "isDynamicEntry": true
-  },
-  "node_modules/pica/dist/pica.js": {
-    "file": "assets/pica-CXv_OHDX.js",
-    "name": "pica",
-    "src": "node_modules/pica/dist/pica.js",
-    "isDynamicEntry": true,
-    "imports": [
-      "_rolldown-runtime-COiEfhsA.js"
-    ]
-  },
-  "src/BoardCanvas.jsx": {
-    "file": "assets/BoardCanvas-CeFsnieR.js",
-    "name": "BoardCanvas",
-    "src": "src/BoardCanvas.jsx",
-    "isDynamicEntry": true,
-    "imports": [
-      "_rolldown-runtime-COiEfhsA.js",
-      "_jsx-runtime-a0FhZzgl.js",
-      "index.html",
-      "_with-selector-BcjJGeF6.js"
-    ],
-    "dynamicImports": [
-      "node_modules/browser-fs-access/dist/file-open-002ab408.js",
-      "node_modules/browser-fs-access/dist/file-open-7c801643.js",
-      "node_modules/browser-fs-access/dist/directory-open-4ed118d0.js",
-      "node_modules/browser-fs-access/dist/directory-open-01563666.js",
-      "node_modules/browser-fs-access/dist/file-save-745eba88.js",
-      "node_modules/browser-fs-access/dist/file-save-3189631c.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/subset-worker.chunk.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/subset-shared.chunk.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/data/image-GAAHSSAO.js",
-      "node_modules/pica/dist/pica.js",
-      "node_modules/image-blob-reduce/dist/image-blob-reduce.esm.mjs",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/ar-SA-G6X2FPQ2.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/az-AZ-76LH7QW2.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/bg-BG-XCXSNQG7.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/bn-BD-2XOGV67Q.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/ca-ES-6MX7JW3Y.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/cs-CZ-2BRQDIVT.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/da-DK-5WZEPLOC.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/de-DE-XR44H4JA.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/el-GR-BZB4AONW.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/en-B4ZKOASM.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/es-ES-U4NZUMDT.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/eu-ES-A7QVB2H4.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/fa-IR-HGAKTJCU.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/fi-FI-Z5N7JZ37.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/fr-FR-RHASNOE6.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/gl-ES-HMX3MZ6V.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/he-IL-6SHJWFNN.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/hi-IN-IWLTKZ5I.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/hu-HU-A5ZG7DT2.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/id-ID-SAP4L64H.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/it-IT-JPQ66NNP.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/ja-JP-DBVTYXUO.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/kaa-6HZHGXH3.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/kab-KAB-ZGHBKWFO.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/kk-KZ-P5N5QNE5.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/km-KH-HSX4SM5Z.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/ko-KR-MTYHY66A.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/ku-TR-6OUDTVRD.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/lt-LT-XHIRWOB4.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/lv-LV-5QDEKY6T.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/mr-IN-CRQNXWMA.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/my-MM-5M5IBNSE.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/nb-NO-T6EIAALU.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/nl-NL-IS3SIHDZ.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/nn-NO-6E72VCQL.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/oc-FR-POXYY2M6.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/pa-IN-N4M65BXN.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/percentages-BXMCSKIN.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/pl-PL-T2D74RX3.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/pt-BR-5N22H2LF.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/pt-PT-UZXXM6DQ.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/ro-RO-JPDTUUEW.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/ru-RU-B4JR7IUQ.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/si-LK-N5RQ5JYF.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/sk-SK-C5VTKIMK.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/sl-SI-NN7IZMDC.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/sv-SE-XGPEYMSR.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/ta-IN-2NMHFXQM.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/th-TH-HPSO5L25.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/tr-TR-DEFEU3FU.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/uk-UA-QMV73CPH.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/vi-VN-M7AON7JQ.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/zh-CN-LNUGB5OW.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/zh-HK-E62DVLB3.js",
-      "node_modules/@excalidraw/excalidraw/dist/prod/locales/zh-TW-RAJ6MFWO.js",
-      "src/stubs/mermaid-to-excalidraw.js",
-      "node_modules/canvas-roundrect-polyfill/roundRect.js"
-    ],
-    "css": [
-      "assets/BoardCanvas-D_O2bRP1.css"
-    ],
-    "assets": [
-      "assets/Assistant-Regular-DVxZuzxb.woff2",
-      "assets/Assistant-Medium-DrcxCXg3.woff2",
-      "assets/Assistant-SemiBold-SCI4bEL9.woff2",
-      "assets/Assistant-Bold-gm-uSS1B.woff2"
-    ]
-  },
-  "src/Boards.jsx": {
-    "file": "assets/Boards-DdlLh8As.js",
-    "name": "Boards",
-    "src": "src/Boards.jsx",
-    "isDynamicEntry": true,
-    "imports": [
-      "_rolldown-runtime-COiEfhsA.js",
-      "_jsx-runtime-a0FhZzgl.js",
-      "_i18n-Dpq6qYUi.js",
-      "index.html"
-    ],
-    "dynamicImports": [
-      "src/BoardCanvas.jsx"
+      "assets/index-C3w_-TKr.css"
     ]
   },
   "src/Ci.jsx": {
-    "file": "assets/Ci-pAYO4qdO.js",
+    "file": "assets/Ci-W2KssB7M.js",
     "name": "Ci",
     "src": "src/Ci.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_rolldown-runtime-COiEfhsA.js",
-      "_jsx-runtime-a0FhZzgl.js",
-      "_i18n-Dpq6qYUi.js",
+      "_i18n-rPHJu3Lj.js",
       "index.html"
     ]
   },
   "src/Data.jsx": {
-    "file": "assets/Data-q-lNmOST.js",
+    "file": "assets/Data-BGY3cvp6.js",
     "name": "Data",
     "src": "src/Data.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_rolldown-runtime-COiEfhsA.js",
-      "_jsx-runtime-a0FhZzgl.js",
-      "_i18n-Dpq6qYUi.js",
+      "_i18n-rPHJu3Lj.js",
       "index.html"
     ]
   },
   "src/Interview.jsx": {
-    "file": "assets/Interview-9ub4jLb_.js",
+    "file": "assets/Interview-C6gc_uGP.js",
     "name": "Interview",
     "src": "src/Interview.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_rolldown-runtime-COiEfhsA.js",
-      "_jsx-runtime-a0FhZzgl.js",
-      "_i18n-Dpq6qYUi.js"
+      "_i18n-rPHJu3Lj.js"
     ]
   },
   "src/Kpis.jsx": {
-    "file": "assets/Kpis-CLtymW9F.js",
+    "file": "assets/Kpis-ZDVmc9lK.js",
     "name": "Kpis",
     "src": "src/Kpis.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_rolldown-runtime-COiEfhsA.js",
-      "_jsx-runtime-a0FhZzgl.js",
-      "_i18n-Dpq6qYUi.js"
+      "_i18n-rPHJu3Lj.js"
     ]
   },
   "src/Libs.jsx": {
-    "file": "assets/Libs-BzeTLiYB.js",
+    "file": "assets/Libs-CsgiFr9_.js",
     "name": "Libs",
     "src": "src/Libs.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_rolldown-runtime-COiEfhsA.js",
-      "_jsx-runtime-a0FhZzgl.js",
-      "_i18n-Dpq6qYUi.js",
+      "_i18n-rPHJu3Lj.js",
       "index.html"
     ]
   },
   "src/Pipeline.jsx": {
-    "file": "assets/Pipeline-BjEXzxw1.js",
+    "file": "assets/Pipeline-DG5e9sqC.js",
     "name": "Pipeline",
     "src": "src/Pipeline.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_rolldown-runtime-COiEfhsA.js",
-      "_jsx-runtime-a0FhZzgl.js",
-      "_i18n-Dpq6qYUi.js",
+      "_i18n-rPHJu3Lj.js",
       "index.html",
-      "_with-selector-BcjJGeF6.js",
-      "_AgentLaunch-C0WoEU5z.js"
+      "_AgentLaunch-D3W7LZf_.js"
     ],
     "css": [
       "assets/Pipeline-DLioOiRN.css"
     ]
   },
   "src/Sync.jsx": {
-    "file": "assets/Sync-C6jxOmOJ.js",
+    "file": "assets/Sync-Czb_jjTu.js",
     "name": "Sync",
     "src": "src/Sync.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_rolldown-runtime-COiEfhsA.js",
-      "_jsx-runtime-a0FhZzgl.js",
-      "_i18n-Dpq6qYUi.js"
+      "_i18n-rPHJu3Lj.js"
     ]
   },
   "src/Taller.jsx": {
-    "file": "assets/Taller-Cr4jhw9a.js",
+    "file": "assets/Taller-X0-DcbrD.js",
     "name": "Taller",
     "src": "src/Taller.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_rolldown-runtime-COiEfhsA.js",
-      "_jsx-runtime-a0FhZzgl.js",
-      "_i18n-Dpq6qYUi.js",
-      "_AgentLaunch-C0WoEU5z.js"
+      "_i18n-rPHJu3Lj.js",
+      "_AgentLaunch-D3W7LZf_.js"
     ]
-  },
-  "src/stubs/mermaid-to-excalidraw.js": {
-    "file": "assets/mermaid-to-excalidraw-CjmhtY-M.js",
-    "name": "mermaid-to-excalidraw",
-    "src": "src/stubs/mermaid-to-excalidraw.js",
-    "isDynamicEntry": true
   }
 }

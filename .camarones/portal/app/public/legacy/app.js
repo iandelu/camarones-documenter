@@ -504,7 +504,7 @@ async function routeNow() {
   try { h = decodeURIComponent(raw); } catch { /* a bare % in a file name: route the address as it is */ }
   const [, view = '', rest = ''] = h.match(/^\/([\w-]*)\/?(.*)$/) || [];
   if ($('#palette').open) $('#palette').close();
-  if (['pipeline', 'boards', 'ask', 'kpis', 'ci', 'libs', 'data', 'interview', 'sync'].includes(view) && !STATIC && window.CamaronNative
+  if (['pipeline', 'ask', 'kpis', 'ci', 'libs', 'data', 'interview', 'sync'].includes(view) && !STATIC && window.CamaronNative
       || RUNS && TALLER.includes(view) && window.CamaronNative) {
     CURRENT = '';
     drawChrome(view, { nativeView: true });
@@ -513,6 +513,7 @@ async function routeNow() {
   }
   window.CamaronNative?.hide();
   try {
+    if (view === 'boards') return location.replace('#/arch');   // boards were removed in 4.49
     if (view === 'docs' || view === 'doc') {
       if (!rest) return await showDocsHome();
       const [path, anchor] = rest.split('::');

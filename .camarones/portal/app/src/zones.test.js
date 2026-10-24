@@ -21,8 +21,9 @@ test('static export: live-only zones and views are gone', () => {
 
 test('live: every zone, code only with a graph', () => {
   expect(zonesFor('live', idx).map((x) => x.id)).toEqual(['docs', 'arch', 'plan', 'quality', 'review'])
-  expect(zonesFor('live', idx).find((x) => x.id === 'arch').views.map((v) => v.id)).toEqual(['c4', 'data', 'libs', 'boards'])
+  expect(zonesFor('live', idx).find((x) => x.id === 'arch').views.map((v) => v.id)).toEqual(['c4', 'data', 'libs'])
   expect(zonesFor('live', { ...idx, codeMaps: ['api'] }).find((x) => x.id === 'arch').views[1].id).toBe('code')
+  expect(paletteEntries('live', idx).map((e) => e.href)).not.toContain('#/boards')
 })
 
 test('wikis show in the static export only when there are wiki pages', () => {
@@ -56,8 +57,7 @@ test('zone covers and views', () => {
   expect(crumbs('#/arch', 'live', idx)).toEqual([{ key: 'zone.arch', href: '#/arch' }])
   expect(crumbs('#/review', 'live', idx)).toEqual([{ key: 'zone.review', href: '#/review' }])
   expect(crumbs('#/wikis', 'live', idx)).toEqual([{ key: 'zone.docs', href: '#/docs' }, { key: 'view.wikis', href: '#/wikis' }])
-  expect(crumbs('#/boards/team-map', 'live', idx)).toEqual([
-    { key: 'zone.arch', href: '#/arch' }, { key: 'view.boards', href: '#/boards' }, { text: 'team-map', href: null }])
+  expect(crumbs('#/boards/team-map', 'live', idx)).toEqual([])                  // boards were removed in 4.49
 })
 
 test('old routes keep their crumbs', () => {
