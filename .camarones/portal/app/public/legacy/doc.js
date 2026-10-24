@@ -226,7 +226,8 @@ async function c4Available() {
 function c4Missing(box, v) {
   if (STATIC) { box.remove(); return; }
   box.innerHTML = `<div class="c4missing"><span class="muted">${esc(v.exists ? t('c4Unavailable') : t('c4Missing'))}</span>
-    ${v.model ? `<button class="small" type="button">${esc(v.exists ? t('rebuild') : t('build'))}</button>` : ''}
+    ${v.model && RUNS ? `<button class="small" type="button">${esc(v.exists ? t('rebuild') : t('build'))}</button>` : ''}
+    ${v.model && !RUNS ? `<span class="aviso small">${esc(t('appOnly'))}</span>` : ''}
     <pre class="joblog" hidden></pre></div>`;
   box.querySelector('button')?.addEventListener('click', (e) =>
     startBuild('c4', '', e.target, box.querySelector('pre'), () => location.reload()));

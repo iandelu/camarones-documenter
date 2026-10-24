@@ -4,6 +4,10 @@ const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const STATIC = $('meta[name="cam-mode"]').content === 'static';
+// The desktop app's window (its preload sets window.camaronApp): only there do builds, wikis and runs start. In the
+// browser portal those buttons give way to a note (appOnly).
+const APP = window.camaronApp?.token ? window.camaronApp : null;
+const RUNS = !STATIC && !!APP;
 const TRUST = { confirmed: '✅', draft: '✨', 'needs-reconfirm': '⚠️' };
 const LANG_NAMES = { en: 'English', es: 'Español', fr: 'Français', de: 'Deutsch', pt: 'Português', it: 'Italiano' };
 const SECTION_ICONS = { overview: '🧭', architecture: '🏗️', domain: '📖', flows: '🔀', data: '🗄️', deployment: '🚀',
@@ -55,6 +59,7 @@ const I18N = {
     nothingToCommit: 'Saved (nothing to commit)', confirmedToast: 'Confirmed', commentSaved: 'Comment saved',
     translation: 'translation', newTitle: 'Title', newPath: 'section/page.md (e.g. guides/onboarding.md)',
     noDocs: 'No documentation yet', noDocsHelp: 'Start with a first look drawn from the code, no AI needed (stack, tools and a C4 draft); then run the next unit from the Pipeline (Plan).',
+    appOnly: 'This runs on your machine: open it in the desktop app (camaron app).',
     firstLook: '🦐 First look from the code (no AI)', readTutorial: 'How Camarón works (tutorial)', nextUnit: 'Next unit in the Pipeline', noGraphify: 'graphify is not installed: run `camaron setup` in a terminal.',
     noMatch: 'No pages match.', results: 'Results for', noResults: 'No page mentions it.',
     reviewTitle: 'Review & status', planUnits: 'Plan {done}/{total} units · {pages} pages',
@@ -103,6 +108,13 @@ const I18N = {
     'view.pages': 'Pages', 'view.wikis': 'Wikis', 'view.c4': 'C4 model', 'view.code': 'Code graph', 'view.data': 'Data',
     'view.libs': 'Libraries', 'view.boards': 'Boards', 'view.pipeline': 'Pipeline', 'view.kpis': 'KPIs', 'view.ci': 'CI',
     'view.review': 'Review queue',
+    'zone.taller': 'Workshop', 'zoned.taller': 'What runs on your machine: AI, scans, checks and setup',
+    'view.generate': 'Generate', 'view.analyze': 'Analyze', 'view.check': 'Check', 'view.interviews': 'Interviews',
+    'view.team': 'Team', 'view.machine': 'This machine', 'view.kitdev': 'Kit dev',
+    'viewd.generate': 'The plan, runs, wikis and pull requests, with AI', 'viewd.analyze': 'Facts read from the code, no AI',
+    'viewd.check': 'Prerequisites, quality gate, golden questions', 'viewd.interviews': 'The questionnaire: export and import',
+    'viewd.team': 'Shared repo, agent config, plugins and CI', 'viewd.machine': 'Tools, repos, kit updates and uninstall',
+    'viewd.kitdev': 'Sandbox and tests of this kit checkout',
     'viewd.pages': 'Every page with its trust: confirmed, draft or to reconfirm', 'viewd.wikis': 'Per-repo wikis, every claim anchored to code',
     'viewd.c4': 'Interactive C4 diagrams and their elements to review', 'viewd.code': 'How the code is wired, across repos',
     'viewd.data': 'Each store: its tables, fields and who reads or writes them',
@@ -159,6 +171,7 @@ const I18N = {
     nothingToCommit: 'Guardado (nada que commitear)', confirmedToast: 'Confirmada', commentSaved: 'Comentario guardado',
     translation: 'traducción', newTitle: 'Título', newPath: 'seccion/pagina.md (p. ej. guides/onboarding.md)',
     noDocs: 'Aún no hay documentación', noDocsHelp: 'Empieza con un primer vistazo sacado del código, sin IA (stack, herramientas y un borrador C4); después lanza la siguiente unidad desde el Pipeline (Plan).',
+    appOnly: 'Esto se ejecuta en tu máquina: ábrelo en la app de escritorio (camaron app).',
     firstLook: '🦐 Primer vistazo desde el código (sin IA)', readTutorial: 'Cómo funciona Camarón (tutorial)', nextUnit: 'Siguiente unidad en el Pipeline', noGraphify: 'graphify no está instalado: ejecuta `camaron setup` en una terminal.',
     noMatch: 'Ninguna página coincide.', results: 'Resultados de', noResults: 'Ninguna página lo menciona.',
     reviewTitle: 'Revisión y estado', planUnits: 'Plan {done}/{total} unidades · {pages} páginas',
@@ -207,6 +220,13 @@ const I18N = {
     'view.pages': 'Páginas', 'view.wikis': 'Wikis', 'view.c4': 'Modelo C4', 'view.code': 'Grafo de código', 'view.data': 'Datos',
     'view.libs': 'Librerías', 'view.boards': 'Pizarras', 'view.pipeline': 'Pipeline', 'view.kpis': 'KPIs', 'view.ci': 'CI',
     'view.review': 'Cola de revisión',
+    'zone.taller': 'Taller', 'zoned.taller': 'Lo que corre en tu máquina: IA, análisis, comprobaciones y ajustes',
+    'view.generate': 'Generar', 'view.analyze': 'Analizar', 'view.check': 'Comprobar', 'view.interviews': 'Entrevistas',
+    'view.team': 'Equipo', 'view.machine': 'Esta máquina', 'view.kitdev': 'Desarrollo del kit',
+    'viewd.generate': 'El plan, las ejecuciones, wikis y pull requests, con IA', 'viewd.analyze': 'Datos leídos del código, sin IA',
+    'viewd.check': 'Requisitos, puerta de calidad, preguntas de control', 'viewd.interviews': 'El cuestionario: exportar e importar',
+    'viewd.team': 'Repo compartido, configuración de agentes, plugins y CI', 'viewd.machine': 'Herramientas, repos, actualizar el kit y desinstalar',
+    'viewd.kitdev': 'Sandbox y tests de este checkout del kit',
     'viewd.pages': 'Cada página con su estado: confirmada, borrador o por reconfirmar', 'viewd.wikis': 'Wikis por repo, cada afirmación anclada al código',
     'viewd.c4': 'Diagramas C4 interactivos y sus elementos por revisar', 'viewd.code': 'Cómo está cableado el código entre repos',
     'viewd.data': 'Cada almacén: sus tablas, campos y quién los lee o escribe',
@@ -265,8 +285,9 @@ async function api(name, params = {}, body) {
     return r.json();
   }
   const qs = new URLSearchParams(params).toString();
-  const r = await fetch(`api/${name}${qs ? '?' + qs : ''}`, body === undefined ? {} : {
-    method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Camarones': '1' }, body: JSON.stringify(body),
+  const tok = APP ? { 'X-Camaron-Token': APP.token } : {};
+  const r = await fetch(`api/${name}${qs ? '?' + qs : ''}`, body === undefined ? { headers: tok } : {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Camarones': '1', ...tok }, body: JSON.stringify(body),
   });
   const data = await r.json();
   if (!r.ok) throw new Error(data.error || r.statusText);

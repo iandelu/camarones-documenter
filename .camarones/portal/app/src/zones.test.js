@@ -97,3 +97,19 @@ test('home KPIs come from the index only, none for an empty project', () => {
     .toEqual(['ok', null, null, null])
   expect(homeKpis({ ...idx, summary: { ...idx.summary, confirmed: 0 } })[0]).toEqual({ id: 'confirmed', value: '0/3', tone: null })
 })
+
+test('desktop app: every live view plus the Taller, which the browser portal never shows', () => {
+  expect(zonesFor('app', idx).map((x) => x.id)).toEqual(['docs', 'arch', 'plan', 'quality', 'review', 'taller'])
+  expect(zonesFor('app', idx).find((x) => x.id === 'taller').views.map((v) => v.id))
+    .toEqual(['generate', 'analyze', 'check', 'interviews', 'team', 'machine'])
+  expect(zonesFor('app', { ...idx, kitdev: true }).find((x) => x.id === 'taller').views.map((v) => v.id)).toContain('kitdev')
+  expect(zonesFor('live', idx).map((x) => x.id)).not.toContain('taller')
+  expect(zonesFor('app', idx).find((x) => x.id === 'docs').views.map((v) => v.id)).toEqual(['pages', 'wikis'])
+  expect(paletteEntries('app', idx).map((e) => e.href)).toContain('#/generate')
+  expect(paletteEntries('live', idx).map((e) => e.href)).not.toContain('#/generate')
+})
+
+test('crumbs of a Taller view', () => {
+  expect(crumbs('#/generate', 'app', idx)).toEqual([{ key: 'zone.taller', href: '#/taller' }, { key: 'view.generate', href: '#/generate' }])
+  expect(crumbs('#/generate', 'live', idx)).toEqual([])
+})

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { getJSON, postJSON } from './api.js'
 import { t } from './i18n.js'
+import AppOnly from './AppOnly.jsx'
 
 const link = (path) => (window.hrefFor ? window.hrefFor(path) : `#/docs/${path}`)
 
@@ -46,7 +47,7 @@ export default function Data({ arg }) {
           {repo.tools.length ? <span className="muted small">{t('dataFrom')} {repo.tools.join(', ')}</span> : null}
           <span className="data-actions">
             {repo.page ? <a className="button ghost small" href={link(repo.page)}>📄 {t('dataPage')}</a>
-              : <button type="button" className="small" disabled={busy} onClick={write}>{t('dataWrite')}</button>}
+              : <AppOnly inline><button type="button" className="small" disabled={busy} onClick={write}>{t('dataWrite')}</button></AppOnly>}
           </span>
         </div>
         <Model markdown={repo.markdown} path={repo.page || `data/${repo.repo}.md`} />

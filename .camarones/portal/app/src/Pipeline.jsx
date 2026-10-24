@@ -3,6 +3,7 @@ import '@xyflow/react/dist/style.css'
 import { AnimatePresence, motion } from 'motion/react'
 import { memo, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { getJSON, postJSON } from './api.js'
+import AppOnly from './AppOnly.jsx'
 import { apply, changedRun, COLUMNS, columns, initial, layout } from './board.js'
 
 const LABEL = { todo: 'To do', running: 'Running', blocked: 'Blocked', done: 'Done', dropped: 'Dropped' }
@@ -191,7 +192,7 @@ export default function Pipeline({ arg }) {
             {run ? ` · last run ${run.run} ${state.finished ? 'finished' : 'running now'}` : ' · no run yet: camaron run'}
           </p>
         </div>
-        <Actions run={run} finished={state.finished} onDone={reload} />
+        <AppOnly inline><Actions run={run} finished={state.finished} onDone={reload} /></AppOnly>
         <div className="seg" role="tablist">
           {['graph', 'board'].map((m) => (
             <button key={m} role="tab" aria-selected={mode === m} className={mode === m ? 'on' : ''}

@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { getJSON, postJSON } from './api.js'
 import { t } from './i18n.js'
+import AppOnly from './AppOnly.jsx'
 import { applyFilter, facets, matrix } from './libs.js'
 
 const SEV = { critical: 'bad', high: 'bad', medium: 'warn', low: 'muted', unknown: 'muted' }
@@ -53,10 +54,10 @@ export default function Libs() {
           : <span className="muted small">{t('libsNoScan')}</span>}
         {drift ? <span className="pill warn">{t('libsDrift').replace('{n}', drift)}</span> : null}
         {data.vulns ? <span className="muted small">{t(data.vulns.online ? 'libsOnline' : 'libsOffline')} · {data.vulns.at?.slice(0, 10)}</span> : null}
-        <span className="libs-actions">
+        <span className="libs-actions"><AppOnly inline>
           <button type="button" disabled={!!busy} onClick={() => refresh(true)}>{t('libsScan')}</button>
           <button type="button" className="ghost small" disabled={!!busy} onClick={() => refresh(false)}>{t('libsRefresh')}</button>
-        </span>
+        </AppOnly></span>
       </div>
       {busy ? <p className="muted small" role="status">{busy}</p> : null}
       {error ? <p className="error" role="alert">{error}</p> : null}

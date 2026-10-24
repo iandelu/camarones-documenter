@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getJSON, postJSON } from './api.js'
 import { t } from './i18n.js'
+import AppOnly from './AppOnly.jsx'
 import { pipelineState, rows } from './ci.js'
 
 const link = (path) => (window.hrefFor ? window.hrefFor(path) : `#/docs/${path}`)
@@ -46,13 +47,13 @@ export default function Ci() {
           <tr key={r.key}><td>{t(`ciFile.${r.key}`)}</td><td><code>{r.path || '—'}</code></td>
             <td className={`ci-state ${r.state}`}>{t(`ciState.${r.state}`)}</td></tr>))}</tbody>
       </table>
-      <div className="row ci-gen">
+      <div className="row ci-gen"><AppOnly inline>
         <button type="button" disabled={busy} onClick={() => generate(s.forge)}>
           {anyMissing ? t('ciGenerate') : t('ciRegenerate')} ({s.forge === 'github' ? 'GitHub' : 'GitLab'})</button>
         <button type="button" className="ghost small" disabled={busy} onClick={() => generate(other)}>
           {t('ciOther')} {other === 'github' ? 'GitHub' : 'GitLab'}</button>
         <span className="muted small">{t('ciNoPush')}</span>
-      </div>
+      </AppOnly></div>
 
       <h2>{t('ciChecks')}</h2>
       <p>

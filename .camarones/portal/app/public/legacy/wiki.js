@@ -56,13 +56,13 @@ async function showWikiGraph(repo) {
     `<a href="${esc(hrefFor(w.nav.home))}">📄 ${esc(t('readPages'))}</a>`,
     w.graph ? `<a href="${src}" target="_blank" rel="noopener">${esc(t('openTab'))} ↗</a>` : ''], rebuild);
   const oldNote = w.old ? `<div class="banner flush">${esc(t('wikiOld'))} <a href="#/wikis/">${esc(t('wikis'))} →</a></div>` : '';
-  if (w.graph && (STATIC || !w.graphStale)) {
+  if (w.graph && (!RUNS || !w.graphStale)) {
     $('#main').innerHTML = oldNote + bar(`<span class="muted small">${esc(t('pages', { n: w.pages }))}</span>`, t('rebuild'))
       + `<iframe class="viewer" src="${src}" title="wiki graph"></iframe>`;
     bindBuild('wiki-graph', repo, () => { WIKIS = null; route(); });
     return;
   }
-  if (STATIC) return location.replace(hrefFor(w.nav.home));
+  if (!RUNS) return location.replace(hrefFor(w.nav.home));
   $('#main').innerHTML = bar(`<span class="muted small">${esc(t('graphBuilding'))}</span>`, '');
   startBuild('wiki-graph', repo, {}, $('#v-log'), (j) => {
     WIKIS = null;
@@ -80,7 +80,8 @@ async function showWikis(open) {
   const engSel = engines.length > 1 ? `<select class="w-eng">${engines.map((e) => `<option>${esc(e)}</option>`).join('')}</select>` : '';
   $('#main').innerHTML = `<div class="page wide"><h1>📚 ${esc(t('wikis'))} <span class="muted small">OpenWiki</span></h1>
     <p class="lead">${esc(t('wikisHelp'))}</p>
-    ${!STATIC && !engines.length ? `<div class="banner">${esc(t(T.engineHelp && T.engineHelp !== 'key' ? 'noEngine.' + T.engineHelp : 'noEngine'))}</div>` : ''}
+    ${!STATIC && !RUNS ? `<p class="aviso small">${esc(t('appOnly'))}</p>` : ''}
+    ${RUNS && !engines.length ? `<div class="banner">${esc(t(T.engineHelp && T.engineHelp !== 'key' ? 'noEngine.' + T.engineHelp : 'noEngine'))}</div>` : ''}
     <div class="cards">${rows.map((w) => `<div class="card ${w.repo === open ? 'open' : ''}" data-repo="${esc(w.repo)}">
       <div class="card-h">${w.pages ? `<a href="#/wiki/${esc(w.repo)}"><b>${esc(w.repo)}</b></a>` : `<b>${esc(w.repo)}</b>`}
         <span class="muted small">${w.pages ? esc(t('pages', { n: w.pages })) + ' · ' + esc(t('updated', { when: ago(w.at) })) : esc(w.cloned ? t('noWiki') : t('notCloned'))}</span>
@@ -90,9 +91,9 @@ async function showWikis(open) {
       <div class="row">
         ${w.pages ? `<a class="button small" href="#/wiki/${esc(w.repo)}">🕸️ ${esc(t('graph'))}</a>
           <a class="button ghost small" href="${esc(hrefFor(w.nav.home))}">📄 ${esc(t('readPages'))}</a>` : ''}
-        ${!STATIC && w.canGenerate && !w.chosen && !w.pages ? `<span class="muted small">${esc(t('notChosen'))}</span>` : ''}
-        ${!STATIC && w.canGenerate && !w.brief && !w.pages ? `<span class="muted small">${esc(t('needBrief'))}</span>` : ''}
-        ${!STATIC && w.canGenerate ? `<button class="ghost small w-gen" type="button">${esc(w.pages ? t('update') : t('generate'))}</button>${engSel ? ` ${esc(t('via'))} ${engSel}` : ` <span class="muted small">${esc(t('via'))} ${esc(engines[0])}</span>`}` : ''}
+        ${RUNS && w.canGenerate && !w.chosen && !w.pages ? `<span class="muted small">${esc(t('notChosen'))}</span>` : ''}
+        ${RUNS && w.canGenerate && !w.brief && !w.pages ? `<span class="muted small">${esc(t('needBrief'))}</span>` : ''}
+        ${RUNS && w.canGenerate ? `<button class="ghost small w-gen" type="button">${esc(w.pages ? t('update') : t('generate'))}</button>${engSel ? ` ${esc(t('via'))} ${engSel}` : ` <span class="muted small">${esc(t('via'))} ${esc(engines[0])}</span>`}` : ''}
       </div>
       ${w.old ? `<p class="warn small">${esc(t('wikiOld'))}</p>` : ''}
       <pre class="joblog" hidden></pre></div>`).join('')}</div></div>`;
@@ -110,7 +111,7 @@ async function showWikis(open) {
       } catch (err) { toast(err.message); e.target.disabled = false; }
     });
   });
-  if (!STATIC) {       // reattach to a wiki run started earlier (from this page or another tab)
+  if (RUNS) {         // reattach to a wiki run started earlier (from this page or another tab)
     const jobs = await api('jobs');
     for (const j of jobs.filter((x) => x.kind === 'wiki' && x.status === 'running')) {
       const card = $$('#main .card').find((c) => j.label.endsWith(' ' + c.dataset.repo));

@@ -4,10 +4,15 @@ Live mode (`camaron up`): people read the docs as they are right now, edit, conf
 actions as the CLI, on the same files — and browse / rebuild the C4 explorer, the code graphs and the OpenWiki wikis.
 Static mode (`up --static`): serves the read-only export (`portal`) exactly like nginx would.
 Binds 127.0.0.1 only. Mutating calls need the X-Camarones header, which a cross-site page cannot send without a
-CORS preflight this server never grants."""
+CORS preflight this server never grants.
+
+The portal is the team's viewer. Work that starts a process or calls a model (runs, wikis, builds, scans, CI files,
+Ask's AI answer) belongs to the desktop app: it starts this server with CAMARONES_APP_TOKEN and sends the token on
+each request (lib/appapi.py); without it those calls answer 403 with `"app": true`. With a token set, a request whose
+Host is not this server is refused (a DNS-rebinding page would otherwise be same-origin)."""
 from __future__ import annotations
 
-import datetime as dt, itertools, json, mimetypes, re, threading, time, urllib.parse
+import datetime as dt, hmac, itertools, json, mimetypes, os, re, sys, threading, time, urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -22,6 +27,9 @@ UI_LIBS = (("marked", "15.0.12", "lib/marked.umd.js"), ("dompurify", "3.2.6", "d
            ("vis-network", "9.1.6", "standalone/umd/vis-network.min.js"))     # the code map, loaded on its tab only
 VENDOR_RE = re.compile(r"^/vendor/((?:@[\w.-]+/)?[\w.-]+)@([\w.+-]+)/([\w./+-]+)$")
 STATIC = False
+APP_TOKEN = ""                               # set by the desktop app (CAMARONES_APP_TOKEN); empty: browser portal only
+APP_ONLY = re.compile(r"^/api/(runs|runs/[\w.-]+/cancel|wiki|build|inventory|schemas|ci|ask/answer)$")
+APP_ONLY_MSG = "this runs on your machine: open it in the desktop app (`camaron app`)"
 mimetypes.add_type("text/javascript", ".js")    # Windows may map .js to text/plain in the registry
 mimetypes.add_type("font/woff2", ".woff2")    # the portal theme fonts; older Pythons do not know the type
 
@@ -301,6 +309,9 @@ def start_job(kind: str, label: str, fn) -> dict:
     def work():
         try:
             ok = fn(job["log"].append)
+            if isinstance(ok, dict):                 # a command job: its exit code decides
+                job.update(ok)
+                ok = ok.get("rc", 0) == 0
             job["status"] = "done" if ok is not False else "failed"
         except Exception as e:  # noqa: BLE001
             job["log"].append(f"⚠ {e}")
@@ -411,6 +422,48 @@ class Handler(BaseHTTPRequestHandler):
     def do_HEAD(self):
         self.do_GET()
 
+    def is_app(self) -> bool:
+        return bool(APP_TOKEN) and hmac.compare_digest(self.headers.get("X-Camaron-Token", ""), APP_TOKEN)
+
+    def foreign_host(self) -> bool:
+        if not APP_TOKEN:
+            return False
+        port = self.server.server_address[1]
+        return self.headers.get("Host", "") not in (f"127.0.0.1:{port}", f"localhost:{port}")
+
+    def stream_job(self, job: dict, offset: int) -> None:
+        """Server-sent events of a job's log: one `line` per log line (its id the line count after it), then `end`."""
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        try:
+            while True:
+                lines, running = job["log"][offset:], job["status"] == "running"
+                for line in lines:
+                    offset += 1
+                    ev = {"type": "line", "n": offset, "text": line}
+                    self.wfile.write(f"id: {offset}\ndata: {json.dumps(ev, ensure_ascii=False)}\n\n".encode("utf-8"))
+                if not running and offset >= len(job["log"]):
+                    end = {"type": "end", "status": job["status"], "rc": job.get("rc"), "result": job.get("result")}
+                    self.wfile.write(f"data: {json.dumps(end, ensure_ascii=False)}\n\n".encode("utf-8"))
+                    self.wfile.flush()
+                    return
+                self.wfile.flush()
+                time.sleep(0.2)
+        except (BrokenPipeError, ConnectionResetError):
+            return
+
+    def api_app_get(self, name: str, q: dict):
+        from . import appapi
+        if name == "info":
+            return self.json(appapi.info())
+        if name == "catalog":
+            return self.json(appapi.catalog())
+        if (m := re.fullmatch(r"jobs/([\w.-]+)/events", name)) and m.group(1) in JOBS:
+            return self.stream_job(JOBS[m.group(1)], int(self.headers.get("Last-Event-ID") or q.get("from") or 0))
+        self.json({"error": "not found"}, 404)
+
     def get_static_site(self, p: str) -> None:
         if p.startswith("/architecture/") and self.static(SITE / "architecture", p[len("/architecture/"):], spa=True):
             return
@@ -424,7 +477,13 @@ class Handler(BaseHTTPRequestHandler):
         u = urllib.parse.urlparse(self.path)
         q = {k: v[0] for k, v in urllib.parse.parse_qs(u.query).items()}
         p = urllib.parse.unquote(u.path)
+        if self.foreign_host():
+            return self.json({"error": "forbidden host"}, 403)
         try:
+            if p.startswith("/api/app/"):
+                if not self.is_app():
+                    return self.json({"error": APP_ONLY_MSG, "app": True}, 403)
+                return self.api_app_get(p[len("/api/app/"):], q)
             if STATIC:
                 return self.get_static_site(p)
             if p.startswith("/api/"):
@@ -555,15 +614,31 @@ class Handler(BaseHTTPRequestHandler):
         self.do_POST()
 
     def do_POST(self):
+        try:                    # read the body first: answering before it is read resets the connection on Windows
+            raw = self.rfile.read(int(self.headers.get("Content-Length") or 0))
+        except ValueError:
+            raw = b""
         if STATIC:
             return self.json({"error": "read-only portal — run `camaron up` to edit"}, 405)
-        if self.headers.get("X-Camarones") != "1":
+        if self.headers.get("X-Camarones") != "1" or self.foreign_host():
             return self.json({"error": "forbidden"}, 403)
+        p = urllib.parse.urlparse(self.path).path
+        if (APP_ONLY.match(p) or p.startswith("/api/app/")) and not self.is_app():
+            return self.json({"error": APP_ONLY_MSG, "app": True}, 403)
         try:
-            n = int(self.headers.get("Content-Length") or 0)
-            b = json.loads(self.rfile.read(n) or b"{}")
-            p = urllib.parse.urlparse(self.path).path
+            b = json.loads(raw or b"{}")
             by = (b.get("by") or reviewer()).strip()
+            if p == "/api/app/cmd":
+                from . import appapi
+                try:
+                    return self.json(appapi.start(b, start_job))
+                except PermissionError as e:
+                    return self.json({"error": str(e), "confirm": True}, 409)
+                except KeyError as e:
+                    return self.json({"error": f"unknown command {e}"}, 404)
+            if m := re.fullmatch(r"/api/app/jobs/([\w.-]+)/cancel", p):
+                from . import appapi
+                return self.json(appapi.cancel(m.group(1)))
             if p == "/api/doc":
                 return self.json(write(b["path"], b["raw"], b.get("lang", "")))
             if p == "/api/new":
@@ -631,11 +706,15 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def run_server(port: int = 8080, static: bool = False) -> None:
-    global STATIC
+    global STATIC, APP_TOKEN
     STATIC = static
+    APP_TOKEN = os.environ.get("CAMARONES_APP_TOKEN", "")
     if static and not (SITE / "index.html").exists():
         raise RuntimeError("the portal is not exported yet — run `camaron portal` first")
     httpd = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    if APP_TOKEN:                            # the app reads the port (0 = any free one) from this first line
+        print(json.dumps({"ready": True, "port": httpd.server_address[1]}), flush=True)
+        sys.stdout.flush()
     try:
         httpd.serve_forever()
     finally:

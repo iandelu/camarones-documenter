@@ -5,8 +5,10 @@ let CURRENT = '';            // page on screen: a hash change that only moves th
 let DOCS_ORDER = [];
 let NOTES_ORDER = [];
 
-// The React views need the live server; the zones (src/zones.js) know what each mode has.
-const MODE = () => (STATIC || !window.CamaronNative ? 'static' : 'live');
+// The React views need the live server; the zones (src/zones.js) know what each mode has. `app`: the desktop app's
+// window, which also has the Taller (machine work).
+const MODE = () => (STATIC || !window.CamaronNative ? 'static' : RUNS ? 'app' : 'live');
+const TALLER = ['generate', 'analyze', 'check', 'interviews', 'team', 'machine', 'kitdev'];
 
 // Where the reader is, from the address: camarón / zone / view / page. No tab bar: Home tiles, zone covers and ⌘K
 // reach every view. `active` is kept for callers; the address alone decides the crumbs.
@@ -114,8 +116,9 @@ function drawEmptyProject() {
   drawToc(null);
   $('#main').innerHTML = `<div class="page hero empty aurora-bg"><div class="hero-logo">🦐</div><h1>${esc(T.project)}</h1>
     <p class="lead">${esc(t('homeEmpty'))}</p><p class="muted">${esc(t('noDocsHelp'))}</p>
-    ${STATIC ? '' : `<div class="row center"><button id="first-look" type="button">${esc(t('firstLook'))}</button>
-      <a class="button ghost" href="#/pipeline">${esc(t('nextUnit'))} →</a></div><pre id="first-log" class="joblog" hidden></pre>`}
+    ${STATIC ? '' : `<div class="row center">${RUNS ? `<button id="first-look" type="button">${esc(t('firstLook'))}</button>` : ''}
+      <a class="button ghost" href="#/pipeline">${esc(t('nextUnit'))} →</a></div><pre id="first-log" class="joblog" hidden></pre>
+      ${RUNS ? '' : `<p class="aviso small">${esc(t('appOnly'))}</p>`}`}
     ${T.kitGuides?.length ? `<p class="small"><a href="${esc(hrefFor(T.kitGuides.find((g) => g.endsWith('tutorial.md')) || T.kitGuides[0]))}">📘 ${esc(t('readTutorial'))}</a></p>` : ''}</div>`;
   $('#first-look')?.addEventListener('click', (e) => startBuild('first-look', '', e.target, $('#first-log'), () => location.reload()));
 }
@@ -501,7 +504,8 @@ async function routeNow() {
   try { h = decodeURIComponent(raw); } catch { /* a bare % in a file name: route the address as it is */ }
   const [, view = '', rest = ''] = h.match(/^\/([\w-]*)\/?(.*)$/) || [];
   if ($('#palette').open) $('#palette').close();
-  if (['pipeline', 'boards', 'ask', 'kpis', 'ci', 'libs', 'data'].includes(view) && !STATIC && window.CamaronNative) {
+  if (['pipeline', 'boards', 'ask', 'kpis', 'ci', 'libs', 'data'].includes(view) && !STATIC && window.CamaronNative
+      || RUNS && TALLER.includes(view) && window.CamaronNative) {
     CURRENT = '';
     drawChrome(view, { nativeView: true });
     drawToc(null);
@@ -531,7 +535,7 @@ async function routeNow() {
     if (view === 'review' || view === 'status') return await showReview();
     if (view === 'search') return await showSearch(rest);
     if (view === 'new' && !STATIC) return newPage();
-    if (['arch', 'plan', 'quality'].includes(view)) return showZone(view);
+    if (['arch', 'plan', 'quality', 'taller'].includes(view)) return showZone(view);
     return await showStart();                 // #/, an unknown address, or a live-only view in the static export
   } catch (e) {
     drawToc(null);
@@ -562,7 +566,9 @@ const zonesReady = () => (window.CamaronZones ? Promise.resolve() : new Promise(
   addEventListener('camaron:native-ready', ok, { once: true });
   addEventListener('load', ok, { once: true });
 }));
-Promise.all([loadTree(), zonesReady()]).then(() => {
+// In the app, whether this kit is a checkout with its tests (the Taller's Kit dev view).
+const appInfo = () => (RUNS ? api('app/info').then((i) => { T.kitdev = i.kitdev; }, () => {}) : Promise.resolve());
+Promise.all([loadTree(), zonesReady()]).then(appInfo).then(() => {
   if (!store.get('cam-lang')) {           // first visit: the browser's language when the docs are translated to it
     const nav = (navigator.language || 'en').slice(0, 2);
     if (T.langs.includes(nav)) lang = nav;

@@ -199,12 +199,31 @@ PAGES = {
                  "sin Internet (on-premise), también sus fuentes. Sigue el sistema de diseño de Cofundo con la marca Camarón, en claro u oscuro. "
                  "Inicio pregunta primero, enseña el estado del proyecto y lleva a cinco zonas: Docs (páginas y wikis), "
                  "Arquitectura (C4, grafo de código, Datos como diagrama ER, Librerías con las vulnerabilidades en rojo y Pizarras de Excalidraw), "
-                 "Plan (el Pipeline en vivo, con lanzar, cancelar, reintentar y aprobar), Calidad (KPIs: cuánto está confirmado, qué se ha quedado viejo, "
+                 "Plan (el Pipeline en vivo: reintentar y aprobar aquí; lanzar y cancelar, en la app de escritorio), Calidad (KPIs: cuánto está confirmado, qué se ha quedado viejo, "
                  "el coste de IA y las preguntas que nadie encontró; y CI) y Revisión. La barra de arriba dice dónde estás y Ctrl K salta a "
-                 "cualquier página, zona o vista. Un proyecto nuevo ofrece un primer vistazo desde el código, sin IA. Preguntar da las "
+                 "cualquier página, zona o vista. Un proyecto nuevo ofrece un primer vistazo desde el código, sin IA, desde la app. Preguntar da las "
                  "secciones que responden, con su cita (entiende el sentido: «base de datos» encuentra PostgreSQL), y si hay un agente "
                  "configurado también puede redactar la respuesta con ellas. El interruptor «Todo / Negocio» deja solo las páginas de qué "
                  "hace el sistema y por qué."},
+        {"icon": "🖥", "title": "La app de escritorio: tu taller",
+         "art": r"""
+   +----------------------------------------------------------------------------+
+   | camarón  / Taller / Generar                                                |
+   |                                                                            |
+   | Documentar las unidades listas en paralelo   camaron run        [IA]       |
+   |   --parallel [ 2 ]   [ ] --include-interviews                              |
+   |   ( Ejecutar run )   Pelándolo para ti…                                    |
+   |   unit.started repo-brief:api …                                            |
+   +----------------------------------------------------------------------------+""",
+         "text": "`camaron app` (o asistente → 🖥️ App de escritorio) abre una ventana con el mismo portal y una zona más, el "
+                 "Taller: todo lo que corre en tu máquina. Generar (el plan con IA, wikis, pull requests), Analizar (sin IA: "
+                 "borrador C4, stack, dependencias y vulnerabilidades, datos, historia), Comprobar (requisitos, check, preguntas "
+                 "de control, KPIs), Entrevistas, Equipo (repo compartido, agentes, plugins, CI) y Esta máquina (herramientas, "
+                 "repos, actualizar, desinstalar). Cada comando de la CLI tiene ahí su formulario, su salida en vivo y su "
+                 "resultado; lo que borra o mueve datos va aparte y pregunta antes. Al abrirla eliges proyecto, creas uno o te "
+                 "unes al del equipo. El portal del navegador queda como visor del equipo: leer, editar, revisar y ver el "
+                 "estado; lo que lanza procesos o llama a un modelo dice «ábrelo en la app». La primera vez instala Electron en "
+                 "~/.camarones/desktop (necesita Node.js); sin él, la CLI y este asistente funcionan igual."},
         {"icon": "✏️", "title": "Dónde y cuándo se puede editar",
          "art": r"""
    DONDE                        QUE PUEDES HACER                     DONDE QUEDA
@@ -487,12 +506,31 @@ PAGES = {
                  "`camaron up --static` shows you the export as is. Everything works offline (on-premise), its fonts too. "
                  "It follows Cofundo's design system with the Camarón brand, light or dark. Home asks first, shows the project's state and "
                  "leads to five zones: Docs (pages and wikis), Architecture (C4, code graph, Data as an ER diagram, Libraries with known "
-                 "vulnerabilities in red, and Excalidraw Boards), Plan (the live Pipeline, with run, cancel, retry and approve), Quality "
+                 "vulnerabilities in red, and Excalidraw Boards), Plan (the live Pipeline: retry and approve here; run and cancel in the desktop app), Quality "
                  "(KPIs: confirmed share, pages out of date, AI cost and the questions nobody found; and CI) and Review. The top bar says "
-                 "where you are and Ctrl K jumps to any page, zone or view. A fresh project offers a first look from the code, no AI. Ask "
+                 "where you are and Ctrl K jumps to any page, zone or view. A fresh project offers a first look from the code, no AI, from the app. Ask "
                  "gives the sections that answer, with citations (it goes by meaning: “database” finds PostgreSQL), and with an agent set "
                  "up it can also write the answer from them. The “All / Business” switch keeps only the pages about what the system does "
                  "and why."},
+        {"icon": "🖥", "title": "The desktop app: your workshop",
+         "art": r"""
+   +----------------------------------------------------------------------------+
+   | camarón  / Workshop / Generate                                             |
+   |                                                                            |
+   | Document the ready units in parallel   camaron run              [AI]       |
+   |   --parallel [ 2 ]   [ ] --include-interviews                              |
+   |   ( Run run )   Peeling it for you…                                        |
+   |   unit.started repo-brief:api …                                            |
+   +----------------------------------------------------------------------------+""",
+         "text": "`camaron app` (or wizard → 🖥️ Desktop app) opens a window with the same portal plus one more zone, the "
+                 "Workshop: everything that runs on your machine. Generate (the plan with AI, wikis, pull requests), Analyze "
+                 "(no AI: C4 draft, stack, dependencies and vulnerabilities, data, history), Check (prerequisites, check, golden "
+                 "questions, KPIs), Interviews, Team (shared repo, agents, plugins, CI) and This machine (tools, repos, updates, "
+                 "uninstall). Every CLI command has its form there, its live output and its result; what deletes or moves data "
+                 "sits apart and asks first. When it opens you pick a project, create one or join the team's. The browser portal "
+                 "stays the team's viewer: reading, editing, review and status; whatever starts a process or calls a model says "
+                 "\"open it in the app\". The first time it installs Electron into ~/.camarones/desktop (needs Node.js); without it "
+                 "the CLI and this wizard work the same."},
         {"icon": "✏️", "title": "Where and when you can edit",
          "art": r"""
    WHERE                        WHAT YOU CAN DO                      WHERE IT GOES

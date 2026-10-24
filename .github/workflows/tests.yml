@@ -42,3 +42,20 @@ jobs:
             echo "$changes"
             exit 1
           fi
+
+  # The desktop app's main process (`camaron app`): its pure helpers on every OS, no Electron download needed.
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: .camarones/desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test

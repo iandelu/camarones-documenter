@@ -318,7 +318,9 @@ que carga cada sesión de un agente antes de leer una página, frente a `context
 `run`, `runs`, `kpis`, `eval`, `ab`, `pipeline show|validate`, `blocks [--force]`, `pr fresh <repo>` y
 `plugins add|update|outdated|remove`, `pr propose <url>`, `removed add`, `repair`, `export codetour <flujo>`,
 `history [--months 12]` (puntos calientes, a quién preguntar en cada repo, ficheros que cambian juntos, leídos de git sin
-IA en `docs/overview/history.md`).
+IA en `docs/overview/history.md`), `catalog [--json|--check]` (cada comando con dónde vive: portal, app de escritorio o
+solo CLI, y sus argumentos) y `projects [--json]` (los proyectos registrados en esta máquina) y `app` (la app de escritorio: el portal más el Taller,
+donde se lanzan ejecuciones, wikis, análisis y comprobaciones; el portal del navegador solo las enseña).
 
 **Datos del código, sin IA.** `camaron blocks` escribe `docs/repos/<repo>/reference.md` para cada repo: comandos
 (Maven, Gradle, `package.json`, Makefile, Docker Compose), variables de entorno (placeholders `${VAR:valor}` de Spring,

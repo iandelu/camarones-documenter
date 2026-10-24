@@ -1,10 +1,14 @@
 {
-  "_chunk-EIO257PC-CKNPwYQI.js": {
-    "file": "assets/chunk-EIO257PC-CKNPwYQI.js",
+  "_chunk-EIO257PC-Sf5c7PuY.js": {
+    "file": "assets/chunk-EIO257PC-Sf5c7PuY.js",
     "name": "chunk-EIO257PC",
     "imports": [
       "src/BoardCanvas.jsx"
     ]
+  },
+  "_i18n-D7Zxwtth.js": {
+    "file": "assets/i18n-D7Zxwtth.js",
+    "name": "i18n"
   },
   "_jsx-runtime-a0FhZzgl.js": {
     "file": "assets/jsx-runtime-a0FhZzgl.js",
@@ -26,13 +30,14 @@
     ]
   },
   "index.html": {
-    "file": "assets/index-BMJNdiZW.js",
+    "file": "assets/index-D5-PaDjO.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
     "imports": [
       "_rolldown-runtime-COiEfhsA.js",
-      "_jsx-runtime-a0FhZzgl.js"
+      "_jsx-runtime-a0FhZzgl.js",
+      "_i18n-D7Zxwtth.js"
     ],
     "dynamicImports": [
       "src/Pipeline.jsx",
@@ -40,14 +45,15 @@
       "src/Kpis.jsx",
       "src/Ci.jsx",
       "src/Libs.jsx",
-      "src/Data.jsx"
+      "src/Data.jsx",
+      "src/Taller.jsx"
     ],
     "css": [
-      "assets/index-CeOk7Or_.css"
+      "assets/index-DdsSsPEc.css"
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/data/image-GAAHSSAO.js": {
-    "file": "assets/image-GAAHSSAO-Chr9yxJs.js",
+    "file": "assets/image-GAAHSSAO-Dq-mxfcu.js",
     "name": "image-GAAHSSAO",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/data/image-GAAHSSAO.js",
     "isDynamicEntry": true,
@@ -72,7 +78,7 @@
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/fonts/Assistant/Assistant-SemiBold.woff2"
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/ar-SA-G6X2FPQ2.js": {
-    "file": "assets/ar-SA-G6X2FPQ2-5MMRd-ZV.js",
+    "file": "assets/ar-SA-G6X2FPQ2-eDvDR-jp.js",
     "name": "ar-SA-G6X2FPQ2",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/ar-SA-G6X2FPQ2.js",
     "isDynamicEntry": true,
@@ -81,7 +87,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/az-AZ-76LH7QW2.js": {
-    "file": "assets/az-AZ-76LH7QW2-BBBd_9Ek.js",
+    "file": "assets/az-AZ-76LH7QW2-BfCmooV2.js",
     "name": "az-AZ-76LH7QW2",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/az-AZ-76LH7QW2.js",
     "isDynamicEntry": true,
@@ -90,7 +96,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/bg-BG-XCXSNQG7.js": {
-    "file": "assets/bg-BG-XCXSNQG7-B-iGyynp.js",
+    "file": "assets/bg-BG-XCXSNQG7-D5kddztv.js",
     "name": "bg-BG-XCXSNQG7",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/bg-BG-XCXSNQG7.js",
     "isDynamicEntry": true,
@@ -99,7 +105,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/bn-BD-2XOGV67Q.js": {
-    "file": "assets/bn-BD-2XOGV67Q-Ca_sw2HK.js",
+    "file": "assets/bn-BD-2XOGV67Q-Uvbxtq80.js",
     "name": "bn-BD-2XOGV67Q",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/bn-BD-2XOGV67Q.js",
     "isDynamicEntry": true,
@@ -108,7 +114,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/ca-ES-6MX7JW3Y.js": {
-    "file": "assets/ca-ES-6MX7JW3Y-BkaOcF7S.js",
+    "file": "assets/ca-ES-6MX7JW3Y-mqU3q7-2.js",
     "name": "ca-ES-6MX7JW3Y",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/ca-ES-6MX7JW3Y.js",
     "isDynamicEntry": true,
@@ -117,7 +123,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/cs-CZ-2BRQDIVT.js": {
-    "file": "assets/cs-CZ-2BRQDIVT-BNlYyi21.js",
+    "file": "assets/cs-CZ-2BRQDIVT-D2pm2HhV.js",
     "name": "cs-CZ-2BRQDIVT",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/cs-CZ-2BRQDIVT.js",
     "isDynamicEntry": true,
@@ -126,7 +132,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/da-DK-5WZEPLOC.js": {
-    "file": "assets/da-DK-5WZEPLOC--pzC_Xu0.js",
+    "file": "assets/da-DK-5WZEPLOC-DzwQnf1o.js",
     "name": "da-DK-5WZEPLOC",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/da-DK-5WZEPLOC.js",
     "isDynamicEntry": true,
@@ -135,7 +141,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/de-DE-XR44H4JA.js": {
-    "file": "assets/de-DE-XR44H4JA-B-v6pGWv.js",
+    "file": "assets/de-DE-XR44H4JA-BPuWt1Pj.js",
     "name": "de-DE-XR44H4JA",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/de-DE-XR44H4JA.js",
     "isDynamicEntry": true,
@@ -144,7 +150,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/el-GR-BZB4AONW.js": {
-    "file": "assets/el-GR-BZB4AONW-DWuufhzS.js",
+    "file": "assets/el-GR-BZB4AONW-DLBbgh-Q.js",
     "name": "el-GR-BZB4AONW",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/el-GR-BZB4AONW.js",
     "isDynamicEntry": true,
@@ -153,7 +159,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/en-B4ZKOASM.js": {
-    "file": "assets/en-B4ZKOASM-CjzXF-v4.js",
+    "file": "assets/en-B4ZKOASM-SK6QppYF.js",
     "name": "en-B4ZKOASM",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/en-B4ZKOASM.js",
     "isDynamicEntry": true,
@@ -162,7 +168,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/es-ES-U4NZUMDT.js": {
-    "file": "assets/es-ES-U4NZUMDT-C1MjQQfY.js",
+    "file": "assets/es-ES-U4NZUMDT-BF5gqXiJ.js",
     "name": "es-ES-U4NZUMDT",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/es-ES-U4NZUMDT.js",
     "isDynamicEntry": true,
@@ -171,7 +177,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/eu-ES-A7QVB2H4.js": {
-    "file": "assets/eu-ES-A7QVB2H4-1qdBnJYD.js",
+    "file": "assets/eu-ES-A7QVB2H4-CVOsrPss.js",
     "name": "eu-ES-A7QVB2H4",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/eu-ES-A7QVB2H4.js",
     "isDynamicEntry": true,
@@ -180,7 +186,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/fa-IR-HGAKTJCU.js": {
-    "file": "assets/fa-IR-HGAKTJCU-CYLY3QGm.js",
+    "file": "assets/fa-IR-HGAKTJCU-m0PKdCYF.js",
     "name": "fa-IR-HGAKTJCU",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/fa-IR-HGAKTJCU.js",
     "isDynamicEntry": true,
@@ -189,7 +195,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/fi-FI-Z5N7JZ37.js": {
-    "file": "assets/fi-FI-Z5N7JZ37-DVRHU0lW.js",
+    "file": "assets/fi-FI-Z5N7JZ37-D1e4nzBD.js",
     "name": "fi-FI-Z5N7JZ37",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/fi-FI-Z5N7JZ37.js",
     "isDynamicEntry": true,
@@ -198,7 +204,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/fr-FR-RHASNOE6.js": {
-    "file": "assets/fr-FR-RHASNOE6-AJgWyPXU.js",
+    "file": "assets/fr-FR-RHASNOE6-1vuaqqak.js",
     "name": "fr-FR-RHASNOE6",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/fr-FR-RHASNOE6.js",
     "isDynamicEntry": true,
@@ -207,7 +213,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/gl-ES-HMX3MZ6V.js": {
-    "file": "assets/gl-ES-HMX3MZ6V-CFpaE1EC.js",
+    "file": "assets/gl-ES-HMX3MZ6V-zv7BU0XF.js",
     "name": "gl-ES-HMX3MZ6V",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/gl-ES-HMX3MZ6V.js",
     "isDynamicEntry": true,
@@ -216,7 +222,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/he-IL-6SHJWFNN.js": {
-    "file": "assets/he-IL-6SHJWFNN-Dze7Z1aq.js",
+    "file": "assets/he-IL-6SHJWFNN-DYnNCo1G.js",
     "name": "he-IL-6SHJWFNN",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/he-IL-6SHJWFNN.js",
     "isDynamicEntry": true,
@@ -225,7 +231,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/hi-IN-IWLTKZ5I.js": {
-    "file": "assets/hi-IN-IWLTKZ5I-E85dyxmy.js",
+    "file": "assets/hi-IN-IWLTKZ5I-Ceo1ha3q.js",
     "name": "hi-IN-IWLTKZ5I",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/hi-IN-IWLTKZ5I.js",
     "isDynamicEntry": true,
@@ -234,7 +240,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/hu-HU-A5ZG7DT2.js": {
-    "file": "assets/hu-HU-A5ZG7DT2-CApS1fb8.js",
+    "file": "assets/hu-HU-A5ZG7DT2-DlCiI827.js",
     "name": "hu-HU-A5ZG7DT2",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/hu-HU-A5ZG7DT2.js",
     "isDynamicEntry": true,
@@ -243,7 +249,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/id-ID-SAP4L64H.js": {
-    "file": "assets/id-ID-SAP4L64H-BP3hMTI2.js",
+    "file": "assets/id-ID-SAP4L64H-1GHk1Du3.js",
     "name": "id-ID-SAP4L64H",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/id-ID-SAP4L64H.js",
     "isDynamicEntry": true,
@@ -252,7 +258,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/it-IT-JPQ66NNP.js": {
-    "file": "assets/it-IT-JPQ66NNP-DES21HFS.js",
+    "file": "assets/it-IT-JPQ66NNP-B2SS9Ugc.js",
     "name": "it-IT-JPQ66NNP",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/it-IT-JPQ66NNP.js",
     "isDynamicEntry": true,
@@ -261,7 +267,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/ja-JP-DBVTYXUO.js": {
-    "file": "assets/ja-JP-DBVTYXUO-DpVQej9q.js",
+    "file": "assets/ja-JP-DBVTYXUO-B0Fx7j6r.js",
     "name": "ja-JP-DBVTYXUO",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/ja-JP-DBVTYXUO.js",
     "isDynamicEntry": true,
@@ -270,7 +276,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/kaa-6HZHGXH3.js": {
-    "file": "assets/kaa-6HZHGXH3-DwDomhzp.js",
+    "file": "assets/kaa-6HZHGXH3-CMgsyzux.js",
     "name": "kaa-6HZHGXH3",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/kaa-6HZHGXH3.js",
     "isDynamicEntry": true,
@@ -279,7 +285,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/kab-KAB-ZGHBKWFO.js": {
-    "file": "assets/kab-KAB-ZGHBKWFO-bhobenGI.js",
+    "file": "assets/kab-KAB-ZGHBKWFO-BoDZnnKu.js",
     "name": "kab-KAB-ZGHBKWFO",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/kab-KAB-ZGHBKWFO.js",
     "isDynamicEntry": true,
@@ -288,7 +294,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/kk-KZ-P5N5QNE5.js": {
-    "file": "assets/kk-KZ-P5N5QNE5-DvH4ixXx.js",
+    "file": "assets/kk-KZ-P5N5QNE5-BxwrSLTo.js",
     "name": "kk-KZ-P5N5QNE5",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/kk-KZ-P5N5QNE5.js",
     "isDynamicEntry": true,
@@ -297,7 +303,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/km-KH-HSX4SM5Z.js": {
-    "file": "assets/km-KH-HSX4SM5Z-ziBGdlta.js",
+    "file": "assets/km-KH-HSX4SM5Z-DHnmSz28.js",
     "name": "km-KH-HSX4SM5Z",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/km-KH-HSX4SM5Z.js",
     "isDynamicEntry": true,
@@ -306,7 +312,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/ko-KR-MTYHY66A.js": {
-    "file": "assets/ko-KR-MTYHY66A-CRbAA_5f.js",
+    "file": "assets/ko-KR-MTYHY66A-H_gCpMO0.js",
     "name": "ko-KR-MTYHY66A",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/ko-KR-MTYHY66A.js",
     "isDynamicEntry": true,
@@ -315,7 +321,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/ku-TR-6OUDTVRD.js": {
-    "file": "assets/ku-TR-6OUDTVRD-CLEjRk56.js",
+    "file": "assets/ku-TR-6OUDTVRD-DbJ11Bzq.js",
     "name": "ku-TR-6OUDTVRD",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/ku-TR-6OUDTVRD.js",
     "isDynamicEntry": true,
@@ -324,7 +330,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/lt-LT-XHIRWOB4.js": {
-    "file": "assets/lt-LT-XHIRWOB4-DpOTIHVM.js",
+    "file": "assets/lt-LT-XHIRWOB4-C8jOgnKf.js",
     "name": "lt-LT-XHIRWOB4",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/lt-LT-XHIRWOB4.js",
     "isDynamicEntry": true,
@@ -333,7 +339,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/lv-LV-5QDEKY6T.js": {
-    "file": "assets/lv-LV-5QDEKY6T-DyTSU8D4.js",
+    "file": "assets/lv-LV-5QDEKY6T-DYYLpebI.js",
     "name": "lv-LV-5QDEKY6T",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/lv-LV-5QDEKY6T.js",
     "isDynamicEntry": true,
@@ -342,7 +348,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/mr-IN-CRQNXWMA.js": {
-    "file": "assets/mr-IN-CRQNXWMA-rTvqKGlV.js",
+    "file": "assets/mr-IN-CRQNXWMA-DdmYBII4.js",
     "name": "mr-IN-CRQNXWMA",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/mr-IN-CRQNXWMA.js",
     "isDynamicEntry": true,
@@ -351,7 +357,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/my-MM-5M5IBNSE.js": {
-    "file": "assets/my-MM-5M5IBNSE-D6a9Kyo3.js",
+    "file": "assets/my-MM-5M5IBNSE-BhRxk_aB.js",
     "name": "my-MM-5M5IBNSE",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/my-MM-5M5IBNSE.js",
     "isDynamicEntry": true,
@@ -360,7 +366,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/nb-NO-T6EIAALU.js": {
-    "file": "assets/nb-NO-T6EIAALU-qywQtlCX.js",
+    "file": "assets/nb-NO-T6EIAALU-CszNH8It.js",
     "name": "nb-NO-T6EIAALU",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/nb-NO-T6EIAALU.js",
     "isDynamicEntry": true,
@@ -369,7 +375,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/nl-NL-IS3SIHDZ.js": {
-    "file": "assets/nl-NL-IS3SIHDZ-0mUZsypE.js",
+    "file": "assets/nl-NL-IS3SIHDZ-Bb60rBAS.js",
     "name": "nl-NL-IS3SIHDZ",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/nl-NL-IS3SIHDZ.js",
     "isDynamicEntry": true,
@@ -378,7 +384,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/nn-NO-6E72VCQL.js": {
-    "file": "assets/nn-NO-6E72VCQL-B4tB423j.js",
+    "file": "assets/nn-NO-6E72VCQL-BHs3UPY1.js",
     "name": "nn-NO-6E72VCQL",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/nn-NO-6E72VCQL.js",
     "isDynamicEntry": true,
@@ -387,7 +393,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/oc-FR-POXYY2M6.js": {
-    "file": "assets/oc-FR-POXYY2M6-5a__fmj3.js",
+    "file": "assets/oc-FR-POXYY2M6-hfUx-51W.js",
     "name": "oc-FR-POXYY2M6",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/oc-FR-POXYY2M6.js",
     "isDynamicEntry": true,
@@ -396,7 +402,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/pa-IN-N4M65BXN.js": {
-    "file": "assets/pa-IN-N4M65BXN-C1P676SC.js",
+    "file": "assets/pa-IN-N4M65BXN-DqND4jty.js",
     "name": "pa-IN-N4M65BXN",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/pa-IN-N4M65BXN.js",
     "isDynamicEntry": true,
@@ -405,7 +411,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/percentages-BXMCSKIN.js": {
-    "file": "assets/percentages-BXMCSKIN-5xr1hiMv.js",
+    "file": "assets/percentages-BXMCSKIN-XHA4CkDq.js",
     "name": "percentages-BXMCSKIN",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/percentages-BXMCSKIN.js",
     "isDynamicEntry": true,
@@ -414,7 +420,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/pl-PL-T2D74RX3.js": {
-    "file": "assets/pl-PL-T2D74RX3-CHcd_oY0.js",
+    "file": "assets/pl-PL-T2D74RX3-CB9grgco.js",
     "name": "pl-PL-T2D74RX3",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/pl-PL-T2D74RX3.js",
     "isDynamicEntry": true,
@@ -423,7 +429,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/pt-BR-5N22H2LF.js": {
-    "file": "assets/pt-BR-5N22H2LF-CEM0TUWF.js",
+    "file": "assets/pt-BR-5N22H2LF-I4hlNqlI.js",
     "name": "pt-BR-5N22H2LF",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/pt-BR-5N22H2LF.js",
     "isDynamicEntry": true,
@@ -432,7 +438,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/pt-PT-UZXXM6DQ.js": {
-    "file": "assets/pt-PT-UZXXM6DQ-Bh0WkWBI.js",
+    "file": "assets/pt-PT-UZXXM6DQ-C40loF6H.js",
     "name": "pt-PT-UZXXM6DQ",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/pt-PT-UZXXM6DQ.js",
     "isDynamicEntry": true,
@@ -441,7 +447,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/ro-RO-JPDTUUEW.js": {
-    "file": "assets/ro-RO-JPDTUUEW-CCa1kktc.js",
+    "file": "assets/ro-RO-JPDTUUEW-D7Ek7s47.js",
     "name": "ro-RO-JPDTUUEW",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/ro-RO-JPDTUUEW.js",
     "isDynamicEntry": true,
@@ -450,7 +456,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/ru-RU-B4JR7IUQ.js": {
-    "file": "assets/ru-RU-B4JR7IUQ-CrCJrqBd.js",
+    "file": "assets/ru-RU-B4JR7IUQ-BaGw4XS6.js",
     "name": "ru-RU-B4JR7IUQ",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/ru-RU-B4JR7IUQ.js",
     "isDynamicEntry": true,
@@ -459,7 +465,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/si-LK-N5RQ5JYF.js": {
-    "file": "assets/si-LK-N5RQ5JYF-BF3UjMsv.js",
+    "file": "assets/si-LK-N5RQ5JYF-CIO9qkNW.js",
     "name": "si-LK-N5RQ5JYF",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/si-LK-N5RQ5JYF.js",
     "isDynamicEntry": true,
@@ -468,7 +474,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/sk-SK-C5VTKIMK.js": {
-    "file": "assets/sk-SK-C5VTKIMK-Bmso29x5.js",
+    "file": "assets/sk-SK-C5VTKIMK-Yv3E4zkl.js",
     "name": "sk-SK-C5VTKIMK",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/sk-SK-C5VTKIMK.js",
     "isDynamicEntry": true,
@@ -477,7 +483,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/sl-SI-NN7IZMDC.js": {
-    "file": "assets/sl-SI-NN7IZMDC-D6gE77n5.js",
+    "file": "assets/sl-SI-NN7IZMDC-CtvrfXc5.js",
     "name": "sl-SI-NN7IZMDC",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/sl-SI-NN7IZMDC.js",
     "isDynamicEntry": true,
@@ -486,7 +492,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/sv-SE-XGPEYMSR.js": {
-    "file": "assets/sv-SE-XGPEYMSR-78WGhnby.js",
+    "file": "assets/sv-SE-XGPEYMSR-Q7QeAmQy.js",
     "name": "sv-SE-XGPEYMSR",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/sv-SE-XGPEYMSR.js",
     "isDynamicEntry": true,
@@ -495,7 +501,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/ta-IN-2NMHFXQM.js": {
-    "file": "assets/ta-IN-2NMHFXQM-BIa4MY1R.js",
+    "file": "assets/ta-IN-2NMHFXQM-Ba3z9ekK.js",
     "name": "ta-IN-2NMHFXQM",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/ta-IN-2NMHFXQM.js",
     "isDynamicEntry": true,
@@ -504,7 +510,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/th-TH-HPSO5L25.js": {
-    "file": "assets/th-TH-HPSO5L25-C_abNERM.js",
+    "file": "assets/th-TH-HPSO5L25-MQDWVYj0.js",
     "name": "th-TH-HPSO5L25",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/th-TH-HPSO5L25.js",
     "isDynamicEntry": true,
@@ -513,7 +519,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/tr-TR-DEFEU3FU.js": {
-    "file": "assets/tr-TR-DEFEU3FU-DTeCbXNi.js",
+    "file": "assets/tr-TR-DEFEU3FU-BgWbCbrx.js",
     "name": "tr-TR-DEFEU3FU",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/tr-TR-DEFEU3FU.js",
     "isDynamicEntry": true,
@@ -522,7 +528,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/uk-UA-QMV73CPH.js": {
-    "file": "assets/uk-UA-QMV73CPH-DJPirl0F.js",
+    "file": "assets/uk-UA-QMV73CPH-B2xXkppu.js",
     "name": "uk-UA-QMV73CPH",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/uk-UA-QMV73CPH.js",
     "isDynamicEntry": true,
@@ -531,7 +537,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/vi-VN-M7AON7JQ.js": {
-    "file": "assets/vi-VN-M7AON7JQ-BRJeH7UF.js",
+    "file": "assets/vi-VN-M7AON7JQ-CRPAd742.js",
     "name": "vi-VN-M7AON7JQ",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/vi-VN-M7AON7JQ.js",
     "isDynamicEntry": true,
@@ -540,7 +546,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/zh-CN-LNUGB5OW.js": {
-    "file": "assets/zh-CN-LNUGB5OW-CpEF6MQJ.js",
+    "file": "assets/zh-CN-LNUGB5OW-7z7R8YTb.js",
     "name": "zh-CN-LNUGB5OW",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/zh-CN-LNUGB5OW.js",
     "isDynamicEntry": true,
@@ -549,7 +555,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/zh-HK-E62DVLB3.js": {
-    "file": "assets/zh-HK-E62DVLB3-D3WTJWOp.js",
+    "file": "assets/zh-HK-E62DVLB3-5FpgQXLf.js",
     "name": "zh-HK-E62DVLB3",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/zh-HK-E62DVLB3.js",
     "isDynamicEntry": true,
@@ -558,7 +564,7 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/locales/zh-TW-RAJ6MFWO.js": {
-    "file": "assets/zh-TW-RAJ6MFWO-DpZ692we.js",
+    "file": "assets/zh-TW-RAJ6MFWO-C6QNBwjt.js",
     "name": "zh-TW-RAJ6MFWO",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/locales/zh-TW-RAJ6MFWO.js",
     "isDynamicEntry": true,
@@ -567,22 +573,22 @@
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/subset-shared.chunk.js": {
-    "file": "assets/subset-shared.chunk-Du2Bc6Zv.js",
+    "file": "assets/subset-shared.chunk-BTD6RZzm.js",
     "name": "subset-shared.chunk",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/subset-shared.chunk.js",
     "isDynamicEntry": true,
     "imports": [
-      "_chunk-EIO257PC-CKNPwYQI.js",
+      "_chunk-EIO257PC-Sf5c7PuY.js",
       "src/BoardCanvas.jsx"
     ]
   },
   "node_modules/@excalidraw/excalidraw/dist/prod/subset-worker.chunk.js": {
-    "file": "assets/subset-worker.chunk-D1mnbruR.js",
+    "file": "assets/subset-worker.chunk-4mG50LU6.js",
     "name": "subset-worker.chunk",
     "src": "node_modules/@excalidraw/excalidraw/dist/prod/subset-worker.chunk.js",
     "isDynamicEntry": true,
     "imports": [
-      "_chunk-EIO257PC-CKNPwYQI.js",
+      "_chunk-EIO257PC-Sf5c7PuY.js",
       "src/BoardCanvas.jsx"
     ]
   },
@@ -644,7 +650,7 @@
     ]
   },
   "src/BoardCanvas.jsx": {
-    "file": "assets/BoardCanvas-Ysyau6Qo.js",
+    "file": "assets/BoardCanvas-CvB_Y5IO.js",
     "name": "BoardCanvas",
     "src": "src/BoardCanvas.jsx",
     "isDynamicEntry": true,
@@ -735,13 +741,14 @@
     ]
   },
   "src/Boards.jsx": {
-    "file": "assets/Boards-oou2TNNI.js",
+    "file": "assets/Boards-Dnqq7K3l.js",
     "name": "Boards",
     "src": "src/Boards.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-COiEfhsA.js",
       "_jsx-runtime-a0FhZzgl.js",
+      "_i18n-D7Zxwtth.js",
       "index.html"
     ],
     "dynamicImports": [
@@ -749,62 +756,77 @@
     ]
   },
   "src/Ci.jsx": {
-    "file": "assets/Ci-MJnlOXE7.js",
+    "file": "assets/Ci-BilpRD1a.js",
     "name": "Ci",
     "src": "src/Ci.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-COiEfhsA.js",
       "_jsx-runtime-a0FhZzgl.js",
+      "_i18n-D7Zxwtth.js",
       "index.html"
     ]
   },
   "src/Data.jsx": {
-    "file": "assets/Data-W139mnBc.js",
+    "file": "assets/Data-DCGjJCdl.js",
     "name": "Data",
     "src": "src/Data.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-COiEfhsA.js",
       "_jsx-runtime-a0FhZzgl.js",
+      "_i18n-D7Zxwtth.js",
       "index.html"
     ]
   },
   "src/Kpis.jsx": {
-    "file": "assets/Kpis-KB-tMrI3.js",
+    "file": "assets/Kpis-CNav665h.js",
     "name": "Kpis",
     "src": "src/Kpis.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-COiEfhsA.js",
       "_jsx-runtime-a0FhZzgl.js",
-      "index.html"
+      "_i18n-D7Zxwtth.js"
     ]
   },
   "src/Libs.jsx": {
-    "file": "assets/Libs-RW93xUj5.js",
+    "file": "assets/Libs-DEwqNZXL.js",
     "name": "Libs",
     "src": "src/Libs.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-COiEfhsA.js",
       "_jsx-runtime-a0FhZzgl.js",
+      "_i18n-D7Zxwtth.js",
       "index.html"
     ]
   },
   "src/Pipeline.jsx": {
-    "file": "assets/Pipeline-IdWRphIy.js",
+    "file": "assets/Pipeline-DXdd6TAL.js",
     "name": "Pipeline",
     "src": "src/Pipeline.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-COiEfhsA.js",
       "_jsx-runtime-a0FhZzgl.js",
+      "_i18n-D7Zxwtth.js",
       "index.html",
       "_with-selector-BcjJGeF6.js"
     ],
     "css": [
       "assets/Pipeline-DLioOiRN.css"
+    ]
+  },
+  "src/Taller.jsx": {
+    "file": "assets/Taller-Baz6zLEG.js",
+    "name": "Taller",
+    "src": "src/Taller.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-COiEfhsA.js",
+      "_jsx-runtime-a0FhZzgl.js",
+      "_i18n-D7Zxwtth.js"
     ]
   },
   "src/stubs/mermaid-to-excalidraw.js": {
