@@ -9,3 +9,4 @@
 *.png binary
 *.gif binary
 *.woff2 binary
+tests/fixtures/backlogmd/crlf.md -text

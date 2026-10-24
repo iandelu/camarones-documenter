@@ -1,0 +1,3 @@
+criterios de aceptación cumplidos
+documentación vinculada actualizada y confirmada
+PR revisada
