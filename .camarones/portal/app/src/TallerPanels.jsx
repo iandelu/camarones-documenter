@@ -13,6 +13,7 @@ export default function TallerPanels({ zone }) {
   if (zone === 'analyze') return <div className="tw-list"><Cves /><Fresh /><Blocks /></div>
   if (zone === 'interviews') return <div className="tw-list"><Interviews /></div>
   if (zone === 'team') return <div className="tw-list"><Remote /><Trust /><Plugins /></div>
+  if (zone === 'kitdev') return <div className="tw-list"><KitSandbox /><KitTests /><KitPortal /></div>
   if (zone === 'machine') return <div className="tw-list"><Setup /><Settings /><Tokens /><Repos /><Kit /></div>
   return null
 }
@@ -645,5 +646,118 @@ export function Uninstall() {
         </div>
       </dialog>
     </div>
+  )
+}
+
+// ---------- Kit dev (a checkout of the kit only) ----------
+
+const kitTask = (task, body) => postJSON('app/kitdev', { task, ...(body || {}) })
+const useKit = () => useJob(kitTask)
+
+function KitSandbox() {
+  const [info, setInfo] = useState(null)
+  const [line, setLine] = useState('status')
+  const [opened, setOpened] = useState(null)
+  const j = useKit()
+  const dialog = useRef(null)
+  const load = () => getJSON('app/kitdev').then(setInfo, () => {})
+  useEffect(() => { load() }, [])
+  const lastTraces = j.job?.argv?.includes?.('traces')
+  async function run(task, body) {
+    const end = await j.start(task, body)
+    if (end) load()
+  }
+  async function openWizard() {
+    try { const r = await kitTask('sandbox-open'); setOpened(r.opened ? 'ok' : 'none') } catch (e) { setOpened(e.message) }
+  }
+  return (
+    <Card title={t('kdSandbox')} cmd="scripts/sandbox.py" lead={t('kdSandboxLead')}>
+      {info ? <p className="small"><code>{info.sandbox}</code> · {info.sandbox_exists ? <span className="ok">{t('kdExists')}</span>
+        : <span className="warn">{t('kdMissing')}</span>}</p> : null}
+      <div className="row tw-actions">
+        <button type="button" className="small" disabled={j.running} onClick={() => run('sandbox-traces')}>{t('kdTraces')}</button>
+        <button type="button" className="ghost small" disabled={j.running} onClick={openWizard}>{t('kdOpen')}</button>
+        <button type="button" className="ghost small" disabled={j.running} onClick={() => dialog.current.showModal()}>{t('kdReset')}</button>
+      </div>
+      <div className="row tw-actions">
+        <code className="muted">camaron</code>
+        <input className="co-input tw-grow" value={line} onChange={(e) => setLine(e.target.value)} aria-label={t('kdCli')} />
+        <button type="button" className="ghost small" disabled={j.running || !line.trim()} onClick={() => run('sandbox-cli', { line })}>{t('kdRunCli')}</button>
+      </div>
+      {opened ? <p className={opened === 'ok' ? 'ok small' : 'error small'}>{opened === 'ok' ? t('kdOpened') : opened === 'none' ? t('kdNoTerminal') : opened}</p> : null}
+      <div className="row tw-actions">
+        {j.job && !j.running && j.job.lines.some((l) => l.includes('pristine')) ? <span className="ok">{t('kdPristine')}</span> : null}
+        {/* traces exits 1 when the kit left something: with the project installed that is expected, not a failure */}
+        {lastTraces && !j.running && j.job.rc === 1 ? <span className="warn" role="status">{t('kdTraced')}</span> : <JobLine j={j} />}
+      </div>
+      {j.job?.lines.length ? <pre className="joblog tw-log">{j.job.lines.join('\n')}</pre> : null}
+      <dialog ref={dialog} className="tw-dialog">
+        <h2>{t('kdResetTitle')}</h2>
+        <p>{t('kdResetText')}</p>
+        <div className="row">
+          <button type="button" className="ghost small" onClick={() => dialog.current.close()}>{t('twConfirmNo')}</button>
+          <button type="button" className="small" onClick={() => { dialog.current.close(); run('sandbox-reset') }}>{t('kdReset')}</button>
+        </div>
+      </dialog>
+    </Card>
+  )
+}
+
+// The last "N passed, M failed …" line pytest prints, as pills.
+const pytestSummary = (lines) => {
+  const last = [...(lines || [])].reverse().find((l) => /\d+ (passed|failed|error)/.test(l))
+  return last ? [...last.matchAll(/(\d+) (passed|failed|errors?|skipped|deselected)/g)].map((m) => [m[2], m[1]]) : []
+}
+
+function KitTests() {
+  const [k, setK] = useState('')
+  const [paths, setPaths] = useState('')
+  const j = useKit()
+  const sum = pytestSummary(j.job?.lines)
+  return (
+    <Card title={t('kdTests')} cmd="uv run pytest" lead={t('kdTestsLead')}>
+      <div className="tw-fields">
+        <div className="tw-field"><label htmlFor="kd-k"><code>-k</code></label>
+          <input id="kd-k" className="co-input" value={k} onChange={(e) => setK(e.target.value)} placeholder="catalog and not drift" /></div>
+        <div className="tw-field"><label htmlFor="kd-paths">{t('kdPaths')}</label>
+          <input id="kd-paths" className="co-input" value={paths} onChange={(e) => setPaths(e.target.value)} placeholder="tests/test_catalog.py" /></div>
+      </div>
+      <div className="row tw-actions">
+        {j.running ? <button type="button" className="ghost small" onClick={j.stop}>{t('twStop')}</button>
+          : <button type="button" className="small" onClick={() => j.start('pytest', { k: k.trim(), paths: paths.split(/\s+/).filter(Boolean) })}>{t('kdRunTests')}</button>}
+        {sum.map(([w, n]) => <span key={w} className={`pill ${w === 'passed' ? 'ok' : w === 'skipped' || w === 'deselected' ? '' : 'bad'}`}>{n} {w}</span>)}
+        <JobLine j={j} />
+      </div>
+      {j.job?.lines.length ? <pre className="joblog tw-log">{j.job.lines.slice(-200).join('\n')}</pre> : null}
+    </Card>
+  )
+}
+
+function KitPortal() {
+  const [info, setInfo] = useState(null)
+  const j = useKit()
+  const [diff, setDiff] = useState(null)
+  useEffect(() => { getJSON('app/kitdev').then(setInfo, () => {}) }, [])
+  async function check() {
+    setDiff(null)
+    const end = await j.start('build-diff')
+    // `git status --porcelain` prints nothing when app-build is as committed
+    if (end) setDiff(end.status === 'done' ? 'pending' : null)
+  }
+  useEffect(() => { if (diff === 'pending' && j.job && !j.running) setDiff(j.job.lines.every((l) => !l.trim())) }, [diff, j.job?.status])
+  return (
+    <Card title={t('kdPortal')} cmd="npm · node --test" lead={t('kdPortalLead')}>
+      {info && !info.has_node_modules ? <p className="aviso small">{t('kdNoModules')}</p> : null}
+      <div className="row tw-actions">
+        <button type="button" className="ghost small" disabled={j.running} onClick={() => j.start('portal-ci')}>npm ci</button>
+        <button type="button" className="small" disabled={j.running} onClick={() => j.start('portal-test')}>npm test</button>
+        <button type="button" className="ghost small" disabled={j.running} onClick={() => j.start('portal-build')}>npm run build</button>
+        <button type="button" className="ghost small" disabled={j.running} onClick={check}>{t('kdDiff')}</button>
+        <button type="button" className="ghost small" disabled={j.running} onClick={() => j.start('desktop-test')}>{t('kdDesktop')}</button>
+        {typeof diff === 'boolean' && !j.running ? <span className={diff ? 'ok' : 'warn'}>{diff ? t('kdBuildSame') : t('kdBuildDiff')}</span> : null}
+        <JobLine j={j} />
+      </div>
+      {j.job?.lines.length ? <pre className="joblog tw-log">{j.job.lines.slice(-200).join('\n')}</pre> : null}
+    </Card>
   )
 }

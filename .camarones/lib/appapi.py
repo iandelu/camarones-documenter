@@ -32,8 +32,9 @@ def entry(name: str) -> dict:
 
 
 def info() -> dict:
+    from . import kitdev
     return {"kit": VERSIONS["kit"], "root": str(ROOT), "user": out(["git", "config", "user.name"], cwd=ROOT) or "",
-            "kitdev": (KIT.parent / "tests").is_dir() and (KIT.parent / "scripts" / "sandbox.py").is_file()}
+            "kitdev": kitdev.available()}
 
 
 def _value(row: dict, v) -> list[str]:
@@ -111,14 +112,23 @@ def start(b: dict, start_job) -> dict:
     and (for --json) its parsed output to the job."""
     e = entry(str(b.get("cmd", "")))
     cmd = argv(e, b.get("args") or {}, bool(b.get("confirmed")))
+    # cwd outside the project (CAMARONES_ROOT names it): Windows cannot delete a folder a process works in
+    return stream_job(start_job, "cmd:" + " ".join(cmd), [sys.executable, str(KIT / "camarones.py"), *cmd], HOME,
+                      {**os.environ, "CAMARONES_ROOT": str(ROOT), "PYTHONUTF8": "1"}, parse_json="--json" in cmd,
+                      label=" ".join(cmd), shown=cmd)
+
+
+def stream_job(start_job, kind: str, argv: list[str], cwd, env: dict, parse_json: bool = False, label: str = "",
+               shown: list[str] | None = None) -> dict:
+    """A process as a job of the server: stdout and stderr lines go to the job log as they come, its exit code (and,
+    with parse_json, its parsed stdout) to the job. The same kind twice attaches to the running one (the same command
+    line twice is one job); cancel() stops the process and what it started."""
     holder: dict = {}
 
     def go(log):
-        # cwd outside the project (CAMARONES_ROOT names it): Windows cannot delete a folder a process works in
-        pr = subprocess.Popen([sys.executable, str(KIT / "camarones.py"), *cmd], cwd=str(HOME),
-                              env={**os.environ, "CAMARONES_ROOT": str(ROOT), "PYTHONUTF8": "1"},
-                              stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                              text=True, encoding="utf-8", errors="replace", start_new_session=not IS_WIN)
+        pr = subprocess.Popen(argv, cwd=str(cwd), env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace",
+                              start_new_session=not IS_WIN)
         holder["proc"] = pr
         err = threading.Thread(target=lambda: [log(line.rstrip("\n")) for line in pr.stderr], daemon=True)
         err.start()
@@ -129,14 +139,14 @@ def start(b: dict, start_job) -> dict:
         rc = pr.wait()
         err.join(timeout=5)
         result = None
-        if "--json" in cmd:
+        if parse_json:
             try:
                 result = json.loads("\n".join(lines))
             except json.JSONDecodeError:
                 pass
-        return {"rc": rc, "result": result, "argv": cmd}
+        return {"rc": rc, "result": result, "argv": shown or argv}
 
-    job = start_job("cmd:" + " ".join(cmd), " ".join(cmd), go)    # the same command line twice attaches to the first
+    job = start_job(kind, label or " ".join(argv), go)
     PROCS[job["id"]] = holder
     return job
 
