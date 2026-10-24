@@ -15,7 +15,7 @@ export default function Native({ view, arg }) {
   if (!View) return null
   return (
     <MotionConfig reducedMotion="user">
-      <Suspense fallback={<p className="muted">…</p>}><View key={view + (arg || '')} arg={arg} /></Suspense>
+      <Suspense fallback={<div className="skeleton" aria-busy="true" />}><View key={view + (arg || '')} arg={arg} /></Suspense>
     </MotionConfig>
   )
 }
