@@ -205,6 +205,35 @@ bloqueada. Una ejecución a la vez, desde la terminal o desde el portal.
 La exportación son ficheros estáticos (imagen nginx, GitLab/GitHub Pages) y funciona sin internet. En un servidor, arranca la
 imagen que publicó el CI: `docker run -d -p 8080:80 <registry>/<grupo>/cam-docs/portal:latest`.
 
+### 🖥️ La app de escritorio
+
+El mismo portal y una zona más, el **Taller**: todo lo que corre en tu máquina. El portal del navegador queda como visor
+del equipo (leer, editar, revisar, estado de la pipeline, la entrevista); lo que lanza procesos o llama a un modelo
+muestra allí «ábrelo en la app».
+
+| Zona del Taller | Qué haces ahí |
+|---|---|
+| ✨ Generar | el plan en paralelo, el piloto automático, una unidad en una terminal con el agente que elijas, la actualización de la doc, wikis, la doc de un PR |
+| 🔬 Analizar | sin IA: vulnerabilidades conocidas, páginas desactualizadas, bloques generados, borrador C4, stack, datos, historia |
+| ✅ Comprobar | requisitos y herramientas con Instalar / repair, el contexto que carga cada sesión de agente, preguntas de control, con y sin cam-docs |
+| 🎙️ Entrevistas | cuestionario del equipo o en vivo, exportar el formulario sin conexión, importar respuestas, cerrar la ronda |
+| 🤝 Equipo | repo compartido, trust, hooks, plugins, CI, exportaciones |
+| 🧰 Esta máquina | herramientas, repos, actualizar el kit, repair, migrate y, aparte y preguntando antes, uninstall |
+
+**Instalarla y abrirla**
+
+1. El kit instalado (instalación global: el comando `camaron` en tu PATH).
+2. Node.js 22 o superior: `node --version`. ¿Falta? `camaron doctor --install node` (winget en Windows, Homebrew en
+   macOS).
+3. `camaron app`. La primera vez descarga Electron (fijado, unos 100 MB) en `~/.camarones/desktop`, sin permisos de
+   administrador y sin tocar tus proyectos; después se abre al momento.
+
+Desde la carpeta de un proyecto abre ese proyecto; desde cualquier otra, el selector: abrir un proyecto, crear uno,
+unirte al `cam-docs` del equipo con su URL o añadir una carpeta que ya lo tenga. El asistente tiene la misma entrada
+(🖥️ App de escritorio). Dentro, <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>O</kbd> vuelve a los proyectos y
+**camarón › Abrir en el navegador** abre el mismo portal fuera. En Linux con los *user namespaces* restringidos (Ubuntu
+24.04 o posterior) el kit la arranca con `--no-sandbox`: sus ventanas solo cargan el servidor local de tu proyecto.
+
 ## 6. Editar: dónde y cuándo
 
 | Dónde | Qué puedes hacer | Dónde queda el cambio |
@@ -391,3 +420,6 @@ hacen trabajo `agentic-heavy`. `autopilot` y `run` lo leen unidad a unidad. Cada
 | El agente no tiene las herramientas de OpenWiki | reinicia Claude Code / Codex en la carpeta del workspace (la que contiene `cam-docs/`) |
 | El portal desplegado no tiene botón **Editar** | `cam-docs` no tiene remote de git: añádelo y vuelve a exportar |
 | Falló la generación de una wiki | la línea ⚠ dice por qué (cuota o sesión → espera o vuelve a iniciar sesión); lanza otra vez `camaron wiki <repo>`: un run interrumpido se reanuda |
+| `camaron app`: "needs Node.js >= 22" | instala Node 22 (`camaron doctor --install node`) y vuelve a lanzar `camaron app` |
+| La app abre el selector de proyectos y no tu proyecto | la lanzaste fuera de la carpeta del proyecto: ábrelo desde la lista o con **Añadir carpeta** |
+| Un botón del portal dice «ábrelo en la app de escritorio» | es a propósito: el portal del navegador no lanza procesos; usa `camaron app` |
