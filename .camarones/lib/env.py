@@ -53,7 +53,7 @@ def init_templates(project_name: str | None = None, log: Log = print) -> list[st
         if src.is_dir():
             continue
         rel = src.relative_to(TEMPLATES)
-        if rel.parts[0] in ("skills", "skeletons"):      # skills go to the agent hosts, skeletons via sync_kit_docs
+        if rel.parts[0] in ("skills", "skeletons", "board"):   # skills go to the agent hosts, skeletons via sync_kit_docs, board stays in the kit
             continue
         dst = ROOT / rel
         if dst.exists():
