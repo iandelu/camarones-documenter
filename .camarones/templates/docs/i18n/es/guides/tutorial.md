@@ -98,7 +98,7 @@ patch:
 ```
 
 Una unidad con `approval: true` se queda «awaiting approval» cuando su agente termina; las que dependen de ella empiezan
-tras `camaron plan approve <unidad>` o el botón «Approve» de la pestaña Pipeline del portal.
+tras `camaron plan approve <unidad>` o el botón «Approve» del Pipeline del portal (zona Plan).
 
 `node` es el id tal como lo escribe el kit (`discovery:{repo}`) o un prefijo con `*` (`repo-wiki:*`). Si el fichero tiene
 un error, el plan se queda como estaba y `camaron plan` dice dónde (`patch[1].node: unknown node 'cii'`).
@@ -123,7 +123,7 @@ error del pipeline.
 ## 3. Confianza: borradores de IA frente a doc confirmada
 
 Toda página nace como **✨ borrador** (el portal lo muestra con un banner). Confírmalas en el portal (**Confirmar** en cada
-página; la pestaña **Revisión** lista lo pendiente) o en el asistente con **✅ Revisar y confirmar páginas**. La confirmación queda ligada al contenido: si alguien edita la página después, pasa a
+página; la zona **Revisión** lista lo pendiente) o en el asistente con **✅ Revisar y confirmar páginas**. La confirmación queda ligada al contenido: si alguien edita la página después, pasa a
 **⚠️ pendiente de reconfirmar**. Los agentes tratan las páginas confirmadas como la fuente de verdad.
 
 **Frescura.** Cuando se escribe una página, se guarda una huella del código que cita (`x-sources`). Si ese código cambia,
@@ -167,10 +167,10 @@ Chromium sin ventana). Si faltan, `check` lo avisa una vez y se salta esa compro
 
 ## 5. Portal
 
-Las pestañas de un proyecto recién instalado nunca están en blanco: Docs y Arquitectura ofrecen un **primer vistazo
+Un proyecto recién instalado nunca enseña vistas en blanco: Inicio, Docs y Arquitectura ofrecen un **primer vistazo
 desde el código (sin IA)** —el borrador C4 con su página, el stack y las herramientas— y Código ofrece construir el grafo.
 
-Un solo portal, dos modos y la misma interfaz. Pestañas: **Docs** (árbol, búsqueda, confianza), **Arquitectura (C4)** (bajo cada vista, sus elementos: edita título,
+Un solo portal, dos modos y la misma interfaz, con el lenguaje visual de Cofundo y la marca Camarón (claro u oscuro, con las fuentes servidas por el propio portal). No hay barra de pestañas: **Inicio** pregunta primero (Preguntar en vivo, el buscador en el exportado), enseña el estado del proyecto (confirmadas, por reconfirmar, borradores, feedback pendiente) y lleva a cinco zonas —Docs, Arquitectura, Plan, Calidad y Revisión—; la barra de arriba dice dónde estás y Ctrl K / ⌘K salta a cualquier página, zona o vista. Las direcciones de siempre (`#/c4`, `#/docs/…`) siguen funcionando. Las vistas: **Docs** (árbol, búsqueda, confianza), **Arquitectura (C4)** (bajo cada vista, sus elementos: edita título,
 tecnología, descripción y relaciones, y confirma lo que redactó la IA, de uno en uno o la vista entera),
 **Grafo de código** (todos los repos o uno), **Wikis** (OpenWiki por repo, sus páginas y su grafo), **Revisión**
 (páginas pendientes, revisiones que espera un agente, peticiones de cambio, código cambiado desde la doc, `check`),
@@ -187,10 +187,10 @@ además una caja «¿Cómo funciona…?» que lleva la pregunta a Preguntar, y e
 Mermaid los nombres que coinciden con una página o un repo son enlaces. Un bloque `:::rule ORD-1 Título` explica una
 regla de negocio con anclas `enforced:`/`test:` (`repo:ruta#Símbolo`); `check` falla si ese código ya no existe.
 
-La pestaña **Pipeline** (blanco y negro, modo oscuro; viene ya compilada
+La vista **Pipeline** (zona Plan; viene ya compilada
 con el kit, no hace falta Node) muestra el plan en vivo: un grafo de las unidades por fase, un
 tablero por estado y, por unidad, su agente, resultado, tiempo, tokens, coste y el log del agente línea a línea. Si lanzas
-`camaron run` con la página abierta, la ejecución aparece sola. Desde la pestaña también puedes lanzar una ejecución,
+`camaron run` con la página abierta, la ejecución aparece sola. Desde la vista también puedes lanzar una ejecución,
 cancelarla (los agentes se paran y sus unidades vuelven a la cola sin perder su trabajo) y reintentar una unidad
 bloqueada. Una ejecución a la vez, desde la terminal o desde el portal.
 
@@ -216,7 +216,7 @@ imagen que publicó el CI: `docker run -d -p 8080:80 <registry>/<grupo>/cam-docs
   `review-fixes` que la IA aplica en la siguiente sesión.
 - Con el idioma en español, **Editar** edita la traducción (`docs/i18n/es/…`).
 - Editar una página ✅ la pasa a **⚠️ pendiente de reconfirmar** hasta que alguien la vuelva a mirar.
-- No edites a mano lo generado (`llms.txt`, `llms-full.txt`, `docs/.status.json`, los visores). Las wikis mejor regenerarlas desde la pestaña
+- No edites a mano lo generado (`llms.txt`, `llms-full.txt`, `docs/.status.json`, los visores). Las wikis mejor regenerarlas desde la vista
   **Wikis**: una actualización de OpenWiki puede reescribir lo que cambies.
 
 ## 7. OpenWiki: una wiki por repo
@@ -231,16 +231,16 @@ Cada wiki es una sesión de agente completa, así que solo la llevan los repos q
 **Elegir qué repos tienen wiki** (se guarda como `wiki: true` en `.camarones/workspace.yaml`). Elige los servicios con
 lógica, no librerías ni repos de CI. La primera wiki de un repo espera a su brief (`wikis/<repo>/INSTRUCTIONS.md`, que
 escribe la unidad repo-brief) para usar tu glosario; `camaron wiki <repo> --force` se salta esa comprobación. En la
-pestaña Wikis del portal todos los repos tienen el botón: si el repo aún no está elegido, lo elige, y si no tiene brief,
+vista Wikis del portal todos los repos tienen el botón: si el repo aún no está elegido, lo elige, y si no tiene brief,
 antes escribe uno inicial con el análisis estático (sin IA), que la unidad repo-brief sustituye después. Si no hay motor
-que pueda lanzarla, la pestaña dice qué falta. Se lanzan
+que pueda lanzarla, la vista dice qué falta. Se lanzan
 de una en una, y un lote se para en cuanto el motor se queda sin cuota o sin sesión, en vez de fallar todos los repos
 que quedan.
 
 ## 8. CI
 
 En el asistente, **⚙️ CI** instala el pipeline en `cam-docs` (GitLab o GitHub): actualiza la doc afectada, pasa `check`, exporta el portal y lo publica. Las plantillas para cada repo de servicio están en `.camarones/ci/repo.*`.
-La pestaña **CI** del portal enseña lo mismo: qué ficheros de pipeline hay y si siguen igual que la definición del kit, un
+La vista **CI** del portal (zona Calidad) enseña lo mismo: qué ficheros de pipeline hay y si siguen igual que la definición del kit, un
 botón para generarlos para GitHub o GitLab, el `check` y la frescura actuales, los ficheros de cada repo para copiar y el
 último pipeline cuando `gh` o `glab` está instalado y con sesión.
 Antes de subir la rama de actualización se ejecuta `camaron check --secrets`: si encuentra un posible secreto, el job falla y no se abre el MR/PR.
@@ -299,7 +299,7 @@ esas herramientas; como la sacan de tu máquina, no funcionan hasta que ejecutas
 
 **Pedir una revisión y esperar.** Un agente que necesita la respuesta de una persona sobre una página ejecuta
 `camaron review request <página>` y luego `camaron review wait <id>`: se queda esperando hasta que alguien la aprueba o
-pide cambios en la pestaña Revisión del portal, y recibe la decisión en JSON. Los comentarios de revisión pueden
+pide cambios en la zona Revisión del portal, y recibe la decisión en JSON. Los comentarios de revisión pueden
 apuntar a una sección: guardan su slug y una cita corta, así que se encuentran aunque cambie el título.
 
 **Lo que se quitó a propósito.** `camaron removed add "endpoint SOAP de facturación" --why "lo sustituye la API REST"

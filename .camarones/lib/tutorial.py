@@ -95,7 +95,7 @@ PAGES = {
          "text": "OpenWiki escribe una wiki estándar de cada repo donde cada afirmación está anclada a un fichero y línea "
                  "del código: la IA no se inventa cosas y cualquiera puede comprobarlas. La wiki se guarda en "
                  "cam-docs/wikis/<repo>, así que el repo de servicio queda limpio. La generas o actualizas desde el "
-                 "portal (pestaña Wikis, con el log en directo), desde el asistente (📚 Wikis) o con "
+                 "portal (Docs › Wikis, con el log en directo), desde el asistente (📚 Wikis) o con "
                  "«camaron wiki <repo>»; sus páginas aparecen en Docs, en repos/<repo>/. Cada wiki es una sesión de "
                  "agente completa, así que solo la llevan los repos que elijas (asistente > Wikis > elegir), y la primera "
                  "espera al repo-brief, que le da el rol y el glosario del repo (desde el portal puedes lanzarla igual: "
@@ -114,8 +114,8 @@ PAGES = {
    graphify query "¿quien llama a PaymentClient?"
 """,
          "text": "graphify recorre el código y construye un grafo: clases, funciones, llamadas y dependencias entre repos. "
-                 "La IA lo usa para responder preguntas sin leer miles de ficheros, y tú lo exploras en la pestaña "
-                 "«Grafo de código» del portal (todos los repos juntos o uno a uno). Se actualiza solo con un hook de git, "
+                 "La IA lo usa para responder preguntas sin leer miles de ficheros, y tú lo exploras en el "
+                 "«Grafo de código» del portal, en la zona Arquitectura (todos los repos juntos o uno a uno). Se actualiza solo con un hook de git, "
                  "o con «Reconstruir» en el portal local."},
         {"icon": "🏗", "title": "LikeC4: diagramas de arquitectura (modelo C4)",
          "art": r"""
@@ -130,7 +130,7 @@ PAGES = {
          "text": "C4 es una forma de dibujar la arquitectura por niveles de zoom: el sistema y quién lo usa (contexto), "
                  "las aplicaciones y bases de datos (contenedores) y las piezas de cada aplicación (componentes). LikeC4 "
                  "guarda todo como código en docs/architecture/*.c4: un solo modelo genera todos los diagramas, así que "
-                 "nunca se contradicen. Lo navegas en la pestaña «Arquitectura (C4)» del portal. Al instalar verás un "
+                 "nunca se contradicen. Lo navegas en Arquitectura › Modelo C4 del portal. Al instalar verás un "
                  "primer borrador automático («¿Está bien? ¿Lo guardo?»). La IA también consulta el modelo mientras "
                  "escribe, con el servidor MCP «likec4» (¿quién llama a este servicio?, ¿qué hay entre A y B?)."},
         {"icon": "✅", "title": "Revisar y verificar: la confianza de cada página",
@@ -147,7 +147,7 @@ PAGES = {
                  "✅ Confirmada: una persona la leyó y dijo «está bien»; a partir de ahí las IAs la tratan como verdad y "
                  "no la reescriben sin avisar. ⚠️ Re-confirmar: alguien cambió una página confirmada (a mano, en el "
                  "portal o la IA) y hay que volver a mirarla. Puedes revisar en el portal (botones Confirmar y Pedir "
-                 "cambios en cada página; la pestaña Revisión lista lo pendiente) o en «✅ Revisar» del asistente. Si el "
+                 "cambios en cada página; la zona Revisión lista lo pendiente) o en «✅ Revisar» del asistente. Si el "
                  "código que cita una página cambia, la página queda sospechosa y las IAs dejan de leerla hasta que se "
                  "actualice (`camaron fresh`): mejor sin información que con información equivocada."},
         {"icon": "🧪", "title": "Control de calidad: lo que revisa check",
@@ -183,24 +183,28 @@ PAGES = {
         {"icon": "🌐", "title": "El portal: la documentación como web",
          "art": r"""
    +----------------------------------------------------------------------------+
-   | Camarones  Mi Proyecto  [Docs] Arquitectura Wikis Revision Preguntar  Es v|
-   |                         [ Buscar en la doc...            ]                 |
-   +----------------------------------------------------------------------------+
-   | ARQUITECTURA     |  Arquitectura: primer vistazo                           |
-   |  > Contexto      |  (borrador)  docs/architecture/first-look.md            |
-   | DOMINIO          |  [Editar] [Confirmar] [Pedir cambios]                   |
-   |  > Glosario      |  ...                                                    |
+   | camarón  / Arquitectura / Modelo C4          [ Buscar  Ctrl K ]  Es v      |
+   |                                                                            |
+   | Pregunta lo que sea del proyecto.                                          |
+   | Te contesto con la página de la que sale.  [ ¿Dónde se valida...?  → ]     |
+   |                                                                            |
+   | ESTADO   Confirmadas 41/57 · Por reconfirmar 6 · Borradores 9              |
+   | EXPLORA  [Docs] [Arquitectura] [Plan] [Calidad] [Revisión]                 |
    +----------------------------------------------------------------------------+""",
          "text": "El portal 🦐 junta en una sola web la documentación (con buscador, edición y revisión), el explorador C4 (bajo cada vista, sus elementos para corregir y confirmar lo que redactó la IA), "
                  "el grafo de código y las wikis de OpenWiki, en español o inglés. Tiene dos modos con la misma "
                  "interfaz: el portal local (`camaron up`, o asistente → 🌐 Portal → 📝 Abrir el portal), donde se "
                  "puede editar, y la exportación de solo lectura (`camaron portal`) que se despliega con Docker o en "
                  "cualquier hosting estático. `camaron up --static` te enseña la exportación tal cual. Todo funciona "
-                 "sin Internet (on-premise). Es blanco y negro, con modo claro y oscuro. Las pestañas de un proyecto nuevo ofrecen un primer vistazo desde el código, sin IA. Además: Preguntar (las secciones que responden, con su cita; entiende el sentido: «base de datos» encuentra PostgreSQL), "
-                 "Pizarras (Excalidraw, desde una vista C4), Pipeline (el plan en vivo, con lanzar, cancelar, reintentar y "
-                 "aprobar), Librerías (dependencias por servicio y vulnerabilidades en rojo), Datos (tablas y colecciones como diagrama ER), KPIs (cuánto está confirmado, qué se ha quedado viejo, el coste de IA y las preguntas que nadie encontró) y CI (los ficheros del pipeline, un botón para generarlos y el último pipeline). El interruptor «Todo / Negocio» deja solo las páginas de qué hace el sistema y por qué; la "
-                 "portada tiene una caja «¿Cómo funciona…?», y si hay un agente configurado, Preguntar también puede "
-                 "redactar la respuesta con esas secciones."},
+                 "sin Internet (on-premise), también sus fuentes. Sigue el sistema de diseño de Cofundo con la marca Camarón, en claro u oscuro. "
+                 "Inicio pregunta primero, enseña el estado del proyecto y lleva a cinco zonas: Docs (páginas y wikis), "
+                 "Arquitectura (C4, grafo de código, Datos como diagrama ER, Librerías con las vulnerabilidades en rojo y Pizarras de Excalidraw), "
+                 "Plan (el Pipeline en vivo, con lanzar, cancelar, reintentar y aprobar), Calidad (KPIs: cuánto está confirmado, qué se ha quedado viejo, "
+                 "el coste de IA y las preguntas que nadie encontró; y CI) y Revisión. La barra de arriba dice dónde estás y Ctrl K salta a "
+                 "cualquier página, zona o vista. Un proyecto nuevo ofrece un primer vistazo desde el código, sin IA. Preguntar da las "
+                 "secciones que responden, con su cita (entiende el sentido: «base de datos» encuentra PostgreSQL), y si hay un agente "
+                 "configurado también puede redactar la respuesta con ellas. El interruptor «Todo / Negocio» deja solo las páginas de qué "
+                 "hace el sistema y por qué."},
         {"icon": "✏️", "title": "Dónde y cuándo se puede editar",
          "art": r"""
    DONDE                        QUE PUEDES HACER                     DONDE QUEDA
@@ -220,7 +224,7 @@ PAGES = {
                  "botón «Editar» te lleva al fichero en GitLab/GitHub (si cam-docs tiene remote) y el cambio entra por "
                  "merge request, y el CI vuelve a publicar. Editar una página ✅ la pasa a ⚠️ hasta que alguien la mire. "
                  "No edites a mano lo generado (llms.txt, llms-full.txt, .status.json, visores): las wikis mejor regenerarlas desde la "
-                 "pestaña Wikis, porque una actualización puede reescribir lo que cambies."},
+                 "vista Wikis, porque una actualización puede reescribir lo que cambies."},
         {"icon": "🔑", "title": "Tokens de GitLab / GitHub",
          "art": r"""
    llavero del sistema  --->  Camarones  --->  git clone / pull   (OK)
@@ -380,7 +384,7 @@ PAGES = {
    generate or update:  portal > Wikis  |  wizard > Wikis  |  camaron wiki repo-a""",
          "text": "OpenWiki writes a standard wiki for each repo where every claim is anchored to a file and line of code, "
                  "so the AI can't make things up and anyone can check. The wiki is stored in cam-docs/wikis/<repo>, so "
-                 "the service repo stays clean. Generate or update it from the portal (Wikis tab, with a live log), from "
+                 "the service repo stays clean. Generate or update it from the portal (Docs › Wikis, with a live log), from "
                  "the wizard (📚 Wikis) or with “camaron wiki <repo>”; its pages show up under Docs as repos/<repo>/. "
                  "Each wiki is a full agent run, so only the repos you choose get one (wizard > Wikis > choose), and the "
                  "first one waits for the repo-brief, which gives it the repo's role and glossary (from the portal you can "
@@ -401,7 +405,7 @@ PAGES = {
 """,
          "text": "graphify walks the code and builds a graph: classes, functions, calls and cross-repo dependencies. The AI "
                  "uses it to answer questions without reading thousands of files, and you explore it in the portal's "
-                 "“Code graph” tab (all repos together or one at a time). A git hook keeps it up to date, or press "
+                 "“Code graph” view, in the Architecture zone (all repos together or one at a time). A git hook keeps it up to date, or press "
                  "“Rebuild” in the local portal."},
         {"icon": "🏗", "title": "LikeC4: architecture diagrams (C4 model)",
          "art": r"""
@@ -416,7 +420,7 @@ PAGES = {
          "text": "C4 draws architecture at zoom levels: the system and who uses it (context), the applications and databases "
                  "(containers) and the parts of each application (components). LikeC4 keeps it as code in "
                  "docs/architecture/*.c4: one model generates every diagram, so they never contradict each other. You "
-                 "browse it in the portal's “Architecture (C4)” tab. After installing you'll see an automatic first draft "
+                 "browse it in the portal under Architecture › C4 model. After installing you'll see an automatic first draft "
                  "(“Does it look right? Shall I save it?”). The AI also queries the model while it writes, through the "
                  "“likec4” MCP server (who calls this service? what sits between A and B?)."},
         {"icon": "✅", "title": "Review & verify: how much to trust each page",
@@ -432,7 +436,7 @@ PAGES = {
          "text": "Every page has a trust mark. ✨ Draft: written by the AI, nobody reviewed it. ✅ Confirmed: a person read "
                  "it and said “looks right”; from then on AIs treat it as the truth and don't rewrite it silently. "
                  "⚠️ Re-confirm: a confirmed page changed (by hand, in the portal or by the AI) and needs another look. "
-                 "Review in the portal (Confirm and Request changes buttons on every page; the Review tab lists what's "
+                 "Review in the portal (Confirm and Request changes buttons on every page; the Review zone lists what's "
                  "pending) or in the wizard's “✅ Review”. If the code a page cites changes, the page turns suspect and "
                  "AIs stop reading it until it is refreshed (`camaron fresh`): no information beats wrong information."},
         {"icon": "🧪", "title": "Quality gate: what check looks at",
@@ -468,23 +472,27 @@ PAGES = {
         {"icon": "🌐", "title": "The portal: docs as a website",
          "art": r"""
    +----------------------------------------------------------------------------+
-   | Camarones  My Project  [Docs] Architecture Wikis Review Ask Boards Pipeline|
-   |                        [ Search the docs...             ]                  |
-   +----------------------------------------------------------------------------+
-   | ARCHITECTURE     |  Architecture: first look                               |
-   |  > Context       |  (draft)  docs/architecture/first-look.md               |
-   | DOMAIN           |  [Edit] [Confirm] [Request changes]                     |
-   |  > Glossary      |  ...                                                    |
+   | camarón  / Architecture / C4 model            [ Search  Ctrl K ]  En v     |
+   |                                                                            |
+   | Ask anything about the project.                                            |
+   | I answer with the page it comes from.   [ Where is a date checked?  → ]    |
+   |                                                                            |
+   | STATE    Confirmed 41/57 · To reconfirm 6 · Drafts 9                       |
+   | EXPLORE  [Docs] [Architecture] [Plan] [Quality] [Review]                   |
    +----------------------------------------------------------------------------+""",
          "text": "The 🦐 portal brings the docs (with search, editing and review), the C4 explorer (under each view, its elements to fix and confirm what the AI drafted), the code graph and the "
                  "OpenWiki wikis together in one site, in English or Spanish. It has two modes with the same interface: "
                  "the local portal (`camaron up`, or wizard → 🌐 Portal → 📝 Open the portal), where you can edit, and "
                  "the read-only export (`camaron portal`) that is deployed with Docker or on any static host. "
-                 "`camaron up --static` shows you the export as is. Everything works offline (on-premise). It is black and white, "
-                 "light or dark. A fresh project's empty tabs offer a first look from the code, no AI. Also: Ask (the sections that answer, with citations; it goes by meaning: “database” finds PostgreSQL), Boards (Excalidraw, from a C4 view) "
-                 "Pipeline (the plan live, with run, cancel, retry and approve), Libraries (dependencies per service, known vulnerabilities in red), Data (tables and collections as an ER diagram), KPIs (confirmed share, pages out of date, AI cost and the questions nobody found) and CI (the pipeline files, a button to generate them and the last run). The “All / Business” switch keeps only "
-                 "the pages about what the system does and why; the home page has a “How does … work?” box, and with "
-                 "an agent set up, Ask can also write the answer from those sections."},
+                 "`camaron up --static` shows you the export as is. Everything works offline (on-premise), its fonts too. "
+                 "It follows Cofundo's design system with the Camarón brand, light or dark. Home asks first, shows the project's state and "
+                 "leads to five zones: Docs (pages and wikis), Architecture (C4, code graph, Data as an ER diagram, Libraries with known "
+                 "vulnerabilities in red, and Excalidraw Boards), Plan (the live Pipeline, with run, cancel, retry and approve), Quality "
+                 "(KPIs: confirmed share, pages out of date, AI cost and the questions nobody found; and CI) and Review. The top bar says "
+                 "where you are and Ctrl K jumps to any page, zone or view. A fresh project offers a first look from the code, no AI. Ask "
+                 "gives the sections that answer, with citations (it goes by meaning: “database” finds PostgreSQL), and with an agent set "
+                 "up it can also write the answer from them. The “All / Business” switch keeps only the pages about what the system does "
+                 "and why."},
         {"icon": "✏️", "title": "Where and when you can edit",
          "art": r"""
    WHERE                        WHAT YOU CAN DO                      WHERE IT GOES
@@ -504,7 +512,7 @@ PAGES = {
                  "export; its “Edit” button takes you to the file in GitLab/GitHub (when cam-docs has a remote), the "
                  "change goes in as a merge request and CI publishes it again. Editing a ✅ page turns it ⚠️ until "
                  "someone checks it. Don't hand-edit generated files (llms.txt, llms-full.txt, .status.json, viewers); wikis are "
-                 "better regenerated from the Wikis tab, since an update can rewrite what you change."},
+                 "better regenerated from the Wikis view, since an update can rewrite what you change."},
         {"icon": "🔑", "title": "GitLab / GitHub tokens",
          "art": r"""
    OS keychain          --->  Camarones  --->  git clone / pull   (OK)
