@@ -1,6 +1,21 @@
 // Strings of the React views, in the reader's portal language (the classic views keep theirs in legacy/core.js).
 const S = {
   en: {
+    appOnly: 'This runs on your machine: open it in the desktop app (camaron app).',
+    'tw.generate': 'Generate', 'twd.generate': 'Documentation written by AI agents: the plan, runs, wikis and pull requests.',
+    'tw.analyze': 'Analyze', 'twd.analyze': 'Facts read from the code without AI: C4 draft, stack, dependencies, data and history.',
+    'tw.check': 'Check', 'twd.check': 'Is it right and is it working: prerequisites, the quality gate, golden questions, KPIs.',
+    'tw.interviews': 'Interviews', 'twd.interviews': 'The interview questionnaire: how it runs, export it to the team, import the answers.',
+    'tw.team': 'Team', 'twd.team': 'The shared cam-docs repo, agent config, plugins, CI and exports.',
+    'tw.machine': 'This machine', 'twd.machine': 'Tools, repos, kit updates and uninstall.',
+    'tw.kitdev': 'Kit dev', 'twd.kitdev': 'The sandbox and the tests of this kit checkout.',
+    twRun: 'Run', twRunning: 'Peeling it for you…', twDone: 'Done', twFailed: 'Failed (exit code {rc})',
+    twStop: 'Stop', twStopped: 'Stopped', twAi: 'AI', twDestructive: 'deletes or moves data', twCareful: 'Careful',
+    twCarefulLead: 'These change or remove things on this machine. Each one asks first and says what happens.',
+    twRequired: 'required', twCatalogFailed: 'I could not read the command list from the server:',
+    twConfirmTitle: 'Run {cmd}?', twConfirmGo: 'Yes, run it', twConfirmNo: 'Cancel',
+    twConfirmText: 'This changes your machine or the project and cannot be undone from here. Try it first with its dry-run option when it has one.',
+    twLog: 'Output', twResult: 'Result',
     askTitle: 'Ask the docs', askLead: 'The sections that best answer your question, each with where it comes from, found '
       + 'without AI the same way agents search. If an agent is set up, it can also write an answer from them.',
     askPh: 'How is a payment retried?', ask: 'Ask', asking: 'Searching…', askEmpty: 'There is no documentation to search yet. '
@@ -59,6 +74,21 @@ const S = {
       + 'the change touches and never blocks the merge.', copy: 'Copy', copied: 'Copied', ciGuide: 'Guide: run the AI job on your own runner',
   },
   es: {
+    appOnly: 'Esto se ejecuta en tu máquina: ábrelo en la app de escritorio (camaron app).',
+    'tw.generate': 'Generar', 'twd.generate': 'Documentación escrita por agentes de IA: el plan, las ejecuciones, las wikis y los pull requests.',
+    'tw.analyze': 'Analizar', 'twd.analyze': 'Datos leídos del código sin IA: borrador C4, stack, dependencias, datos e historia.',
+    'tw.check': 'Comprobar', 'twd.check': '¿Está bien y funciona? Requisitos, la puerta de calidad, preguntas de control y KPIs.',
+    'tw.interviews': 'Entrevistas', 'twd.interviews': 'El cuestionario de entrevista: cómo se hace, exportarlo al equipo e importar las respuestas.',
+    'tw.team': 'Equipo', 'twd.team': 'El repo cam-docs compartido, la configuración de agentes, plugins, CI y exportaciones.',
+    'tw.machine': 'Esta máquina', 'twd.machine': 'Herramientas, repos, actualizar el kit y desinstalar.',
+    'tw.kitdev': 'Desarrollo del kit', 'twd.kitdev': 'El sandbox y los tests de este checkout del kit.',
+    twRun: 'Ejecutar', twRunning: 'Pelándolo para ti…', twDone: 'Hecho', twFailed: 'Ha fallado (código de salida {rc})',
+    twStop: 'Parar', twStopped: 'Parado', twAi: 'IA', twDestructive: 'borra o mueve datos', twCareful: 'Con cuidado',
+    twCarefulLead: 'Estos cambian o quitan cosas de esta máquina. Cada uno pregunta antes y dice qué pasa.',
+    twRequired: 'obligatorio', twCatalogFailed: 'No he podido leer la lista de comandos del servidor:',
+    twConfirmTitle: '¿Ejecutar {cmd}?', twConfirmGo: 'Sí, ejecutar', twConfirmNo: 'Cancelar',
+    twConfirmText: 'Esto cambia tu máquina o el proyecto y no se deshace desde aquí. Pruébalo antes con su opción de simulación (dry-run) si la tiene.',
+    twLog: 'Salida', twResult: 'Resultado',
     askTitle: 'Pregunta a la documentación', askLead: 'Las secciones que mejor responden a tu pregunta, con su origen, '
       + 'encontradas sin IA igual que buscan los agentes. Si hay un agente configurado, también puede redactar la respuesta.',
     askPh: '¿Cómo se reintenta un pago?', ask: 'Preguntar', asking: 'Buscando…', askEmpty: 'Aún no hay documentación en la que buscar. '
@@ -120,8 +150,15 @@ const S = {
   },
 }
 
+// The reader's choice, else the language the docs router picked on a first visit (legacy/app.js sets <html lang>
+// from the browser without storing it).
+export function lang() {
+  let l = ''
+  try { l = localStorage.getItem('cam-lang') || '' } catch { /* private mode */ }
+  if (!S[l]) l = typeof document === 'undefined' ? '' : document.documentElement.lang
+  return S[l] ? l : 'en'
+}
+
 export function t(key) {
-  let lang = ''
-  try { lang = localStorage.getItem('cam-lang') || '' } catch { /* private mode */ }
-  return (S[lang] || S.en)[key] ?? S.en[key] ?? key
+  return S[lang()][key] ?? S.en[key] ?? key
 }

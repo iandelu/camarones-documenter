@@ -300,7 +300,10 @@ next action apart.
 every agent session loads before reading a page, against `context.budget`), `autopilot`, `plugins [--json]`,
 `run`, `runs`, `kpis`, `eval`, `ab`, `pipeline show|validate`, `blocks [--force]`, `pr fresh <repo>`,
 `plugins add|update|outdated|remove`, `pr propose <url>`, `removed add`, `repair`, `export codetour <flow>`, `history [--months 12]`
-(hotspots, who to ask per repo, files that change together, read from git without AI into `docs/overview/history.md`).
+(hotspots, who to ask per repo, files that change together, read from git without AI into `docs/overview/history.md`),
+`catalog [--json|--check]` (every command with where it lives: portal, desktop app or CLI only, and its arguments),
+`projects [--json]` (the projects registered on this machine), `app` (the desktop app: the portal plus the Workshop,
+where runs, wikis, scans and checks start; the browser portal only shows them).
 
 **Facts from the code, no AI.** `camaron blocks` writes `docs/repos/<repo>/reference.md` for each repo: commands
 (Maven, Gradle, `package.json`, Makefile, Docker Compose), env vars (Spring `${VAR:default}` placeholders,

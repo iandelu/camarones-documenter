@@ -141,3 +141,22 @@
 #native .data-meta { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin: 1rem 0; }
 #native .data-actions { margin-left: auto; }
 #native .data .doc { min-width: 0; overflow-x: auto; }
+
+/* Taller (desktop app): one card per command, its form, output and exit status; destructive ones apart, at the end */
+#native .tw-list { display: grid; gap: .9rem; margin-top: 1.25rem; }
+#native .tw-cmd { border: 1px solid var(--line); border-radius: var(--consola-radio-tarjeta); padding: 1rem 1.1rem; background: var(--raise); }
+#native .tw-head { display: flex; flex-wrap: wrap; gap: .5rem; align-items: baseline; }
+#native .tw-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: .6rem; margin-top: .8rem; }
+#native .tw-field { display: grid; gap: .25rem; min-width: 0; }
+#native .tw-field.check { display: flex; align-items: center; gap: .4rem; }
+#native .tw-field .co-input { width: 100%; min-width: 0; box-sizing: border-box; }
+#native .tw-field label code { font-size: .85em; }
+#native .tw-actions { gap: .6rem; align-items: center; margin-top: .8rem; flex-wrap: wrap; }
+#native .tw-status.done { color: var(--ok); }
+#native .tw-status.failed { color: var(--danger); }
+#native .tw-log { max-height: 22rem; overflow: auto; margin-top: .8rem; white-space: pre-wrap; }
+#native .tw-careful { margin-top: 2.5rem; padding-top: 1.25rem; border-top: 1px solid var(--line); }
+#native .tw-dialog { border: 1px solid var(--line); border-radius: var(--consola-radio-tarjeta); padding: 1.25rem 1.4rem; max-width: 32rem;
+  background: var(--color-canvas-elevated); color: var(--ink); box-shadow: var(--sombra-modal); }
+#native .tw-dialog .row { gap: .6rem; justify-content: flex-end; margin-top: 1rem; }
+#native .tw-dialog::backdrop { background: rgba(10, 10, 10, .35); }

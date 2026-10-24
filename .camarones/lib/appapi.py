@@ -1,0 +1,146 @@
+"""The desktop app's side of the portal server. The app launches `up --foreground` with a token
+(CAMARONES_APP_TOKEN); requests that carry it may start processes and call models, and `/api/app/*` runs catalog
+commands as jobs: the CLI is the app's API, so the app never re-implements a command.
+
+Arguments are checked against the parser's own description (lib/catalog.py) before anything runs: unknown names,
+wrong kinds, values outside the choices and values that look like options are refused. A command with `--yes` (or a
+destructive one) runs only once the app has asked the person, and `--yes` is added here, never by the caller."""
+from __future__ import annotations
+
+import functools, json, os, subprocess, sys, threading
+
+from .common import KIT, ROOT, VERSIONS, run
+
+HUB = {"new", "join", "switch"}       # the app's hub opens projects itself; from the CLI these reopen the wizard
+PROCS: dict[str, dict] = {}           # job id → {"proc": Popen} for cancel
+
+
+@functools.lru_cache(maxsize=1)
+def catalog() -> dict:
+    r = run([sys.executable, str(KIT / "camarones.py"), "catalog", "--json"], check=False, capture=True,
+            env={"CAMARONES_ROOT": str(ROOT), "PYTHONUTF8": "1"})
+    return json.loads(r.stdout)
+
+
+def entry(name: str) -> dict:
+    e = next((c for c in catalog()["commands"] if c["name"] == name), None)
+    if e is None:
+        raise KeyError(name)
+    if e["verdict"] not in ("app", "both") or name in HUB:
+        raise ValueError(f"{name} is not run from the app")
+    return e
+
+
+def info() -> dict:
+    return {"kit": VERSIONS["kit"], "root": str(ROOT),
+            "kitdev": (KIT.parent / "tests").is_dir() and (KIT.parent / "scripts" / "sandbox.py").is_file()}
+
+
+def _value(row: dict, v) -> list[str]:
+    dest = row["dest"]
+    if row["many"]:
+        vals = v if isinstance(v, list) else [v]
+    else:
+        if isinstance(v, list):
+            raise ValueError(f"{dest}: one value, not a list")
+        vals = [v]
+    outv = []
+    for x in vals:
+        if row["kind"] in ("int", "float"):
+            if isinstance(x, bool):
+                raise ValueError(f"{dest}: expected a number")
+            try:
+                x = int(x) if row["kind"] == "int" else float(x)
+            except (TypeError, ValueError):
+                raise ValueError(f"{dest}: expected a number") from None
+        elif row["choices"] is not None:
+            if x not in row["choices"]:
+                raise ValueError(f"{dest}: one of {', '.join(map(str, row['choices']))}")
+        elif not isinstance(x, str) or not x.strip():
+            raise ValueError(f"{dest}: expected text")
+        x = str(x)
+        if x.startswith("-") and row["kind"] not in ("int", "float"):
+            raise ValueError(f"{dest}: a value cannot start with '-'")
+        outv.append(x)
+    return outv
+
+
+def argv(e: dict, args: dict, confirmed: bool = False) -> list[str]:
+    """The command line for a catalog entry and the app's form values (keyed by argparse `dest`)."""
+    rows = e["args"]
+    known = {r["dest"] for r in rows}
+    for k in args:
+        if k not in known:
+            raise ValueError(f"unknown argument {k}")
+    if e["confirm"] and args.get("yes"):
+        raise ValueError("yes: the app asks first and adds it")
+    if (e["confirm"] or e["destructive"]) and not confirmed:
+        raise PermissionError(f"{e['name']} needs a confirmation first")
+    pos, opts = [], []
+    for r in rows:
+        if r["dest"] == "yes" and e["confirm"]:
+            continue
+        v = args.get(r["dest"])
+        if r["kind"] == "const":
+            if v not in (None, "") and v == r["const"]:
+                opts.append(r["flag"])
+            elif v not in (None, "") and v not in [x["const"] for x in rows if x["dest"] == r["dest"]]:
+                raise ValueError(f"{r['dest']}: unknown value {v}")
+            continue
+        if v is None or v == "" or v == []:
+            if r["required"]:
+                raise ValueError(f"{r['dest']}: required")
+            continue
+        if r["kind"] == "bool":
+            if not isinstance(v, bool):
+                raise ValueError(f"{r['dest']}: expected true or false")
+            if v:
+                opts.append(r["flag"])
+            continue
+        vals = _value(r, v)
+        (pos.extend(vals) if r["positional"] else opts.extend([r["flag"], *vals]))
+    if e["confirm"]:
+        opts.append("--yes")
+    return [e["name"], *pos, *opts]
+
+
+def start(b: dict, start_job) -> dict:
+    """Run a catalog command as a job of the server: its stdout and stderr lines go to the job log, its exit code
+    and (for --json) its parsed output to the job."""
+    e = entry(str(b.get("cmd", "")))
+    cmd = argv(e, b.get("args") or {}, bool(b.get("confirmed")))
+    holder: dict = {}
+
+    def go(log):
+        pr = subprocess.Popen([sys.executable, str(KIT / "camarones.py"), *cmd], cwd=str(ROOT),
+                              env={**os.environ, "CAMARONES_ROOT": str(ROOT), "PYTHONUTF8": "1"},
+                              stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                              text=True, encoding="utf-8", errors="replace")
+        holder["proc"] = pr
+        err = threading.Thread(target=lambda: [log(line.rstrip("\n")) for line in pr.stderr], daemon=True)
+        err.start()
+        lines = []
+        for line in pr.stdout:
+            lines.append(line.rstrip("\n"))
+            log(lines[-1])
+        rc = pr.wait()
+        err.join(timeout=5)
+        result = None
+        if "--json" in cmd:
+            try:
+                result = json.loads("\n".join(lines))
+            except json.JSONDecodeError:
+                pass
+        return {"rc": rc, "result": result, "argv": cmd}
+
+    job = start_job(f"cmd:{e['name']}", " ".join(cmd), go)
+    PROCS[job["id"]] = holder
+    return job
+
+
+def cancel(job_id: str) -> dict:
+    pr = PROCS.get(job_id, {}).get("proc")
+    if pr is None or pr.poll() is not None:
+        raise KeyError(job_id)
+    pr.terminate()
+    return {"cancelling": job_id}

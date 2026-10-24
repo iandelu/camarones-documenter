@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { getJSON, postJSON } from './api.js'
 import { t } from './i18n.js'
+import AppOnly from './AppOnly.jsx'
 
 // A section rendered by the docs renderer (legacy/doc.js `render`), so it looks exactly like the page it comes from.
 function Section({ text, path }) {
@@ -28,7 +29,7 @@ function AiAnswer({ question, runner, link }) {
     setState({ busy: true })
     try { setState(await postJSON('ask/answer', { q: question })) } catch (e) { setState({ error: e.message }) }
   }
-  if (!state) return <button type="button" className="ghost small ai-go" onClick={go}>✨ {t('aiAnswer')} · {runner}</button>
+  if (!state) return <AppOnly><button type="button" className="ghost small ai-go" onClick={go}>✨ {t('aiAnswer')} · {runner}</button></AppOnly>
   if (state.busy) return <p className="muted ai-busy" role="status">{t('aiBusy')} {waited ? `${waited} s` : ''}</p>
   if (state.error) return <p className="error" role="alert">{state.error}</p>
   const cost = state.cost_usd ? ` · $${state.cost_usd.toFixed(3)}` : ''

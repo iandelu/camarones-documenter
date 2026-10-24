@@ -12,7 +12,7 @@ HOME = Path.home()
 PREFS = HOME / ".camarones.json"              # per-machine choices: language, models, runners, routing
 
 VERSIONS = {
-    "kit": "4.42.0",
+    "kit": "4.43.0",
     "openwiki": "0.5.2",
     "likec4": "1.59.4",
     "graphify": "0.9.65",
@@ -20,6 +20,7 @@ VERSIONS = {
     "gitleaks": "8.30.1",
     "osv-scanner": "2.6.0",
     "node_min_major": 22,
+    "electron": "44.7.0",     # the desktop app (`camaron app`), installed into ~/.camarones/desktop
     "uv": "0.12.18",          # the uv image the generated GitLab jobs run in (lib/ci.py)
 }
 

@@ -1,0 +1,10 @@
+{
+  "name": "camaron",
+  "productName": "camarón",
+  "private": true,
+  "description": "Camarón's desktop app: the portal and the work that runs on your machine, in one window",
+  "main": "main.cjs",
+  "scripts": {
+    "test": "node --test"
+  }
+}

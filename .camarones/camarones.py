@@ -41,6 +41,12 @@
   stats [--json] [--months N] [--record on|off]   team usage KPIs (who consults the docs, what they find, what
                             is read most); --record: whether this machine adds its counts
   version                   kit and pinned tool versions
+  projects [--json] [--add FOLDER]   the projects registered on this machine, most recent first; --add registers one
+  app                       the desktop app: run the plan, wikis, scans and checks, and read the portal, in one window
+                            (installs its pinned Electron into ~/.camarones/desktop once; needs Node.js)
+  new NAME | join URL … --no-open   create or join, print {"path": …} and stop (the desktop app opens it itself)
+  catalog [--json|--markdown|--check]   every command with where it lives (portal / desktop app / CLI) and its
+                            arguments, read from this parser; --check exits 1 when lib/catalog.py is out of sync
   prompt UNIT [--lang es|en] [--unattended]      prompt for an agent session (UNIT may be 'update')
   autopilot [--lang es|en] [--max-units N] [--poll-seconds N] [--include-interviews]
                             run ready units back to back unattended (Claude Code / Codex, waits out usage limits)
@@ -176,15 +182,25 @@ def _team(fn, *args):
 
 
 _cmd0 = sys.argv[1] if len(sys.argv) > 1 else None
+# --no-open (the desktop app's hub): create or join, print {"path": …} and stop instead of opening the wizard.
+_no_open = _cmd0 in ("new", "join") and "--no-open" in sys.argv
+if _no_open:
+    sys.argv.remove("--no-open")
 if _cmd0 == "new" and len(sys.argv) > 2 and not sys.argv[2].startswith("-"):
     _from = sys.argv[sys.argv.index("--from") + 1] if "--from" in sys.argv[3:-1] else ""
     _dest = _team(projects.create, sys.argv[2], None, _from)
+    if _no_open:
+        print(json.dumps({"path": str(_dest)}))
+        sys.exit(0)
     print(f"🦐 {_dest.name} → {_dest}")
     _relaunch(_dest, [])
 elif _cmd0 == "join" and len(sys.argv) > 2 and not sys.argv[2].startswith("-"):
     # The team's cam-docs repo: cloned into <folder or cwd>/cam-docs, or reused if this machine already has it.
     # The wizard then only prepares this machine (tools, repos) — the rest is the team's, already done.
     _dest, _joined = _team(projects.join, sys.argv[2], Path(sys.argv[3]).resolve() if len(sys.argv) > 3 else Path.cwd())
+    if _no_open:
+        print(json.dumps({"path": str(_dest), "joined": _joined}))
+        sys.exit(0)
     print(f"🦐 {'joined' if _joined else 'new project, remote set'} → {_dest}")
     _relaunch(_dest, [])
 elif _cmd0 == "switch":
@@ -204,7 +220,7 @@ elif os.environ.get("CAMARONES_GLOBAL") and not os.environ.get("CAMARONES_ROOT")
     _marker = projects.find_marker(Path.cwd())
     if _marker:
         projects.touch(_marker)
-    elif _cmd0 not in ("help", "version", "self-update", "mcp"):
+    elif _cmd0 not in ("help", "version", "self-update", "mcp", "catalog", "projects", "app"):
         _dest = projects.pick(allow_new=True, here=Path.cwd())
         if _dest is None:
             sys.exit(1)
@@ -244,11 +260,7 @@ def cmd_trust(a) -> int:
     return 0
 
 
-def main() -> int:
-    if len(sys.argv) == 1:
-        from lib.wizard import W
-        W().run()
-        return 0
+def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog=cli_cmd(), description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sp = p.add_subparsers(dest="cmd", required=True)
     sp.add_parser("help")
@@ -257,6 +269,7 @@ def main() -> int:
     ins.add_argument("--profile", choices=["quick", "full"], default="quick"); ins.add_argument("--dry-run", action="store_true")
     upg = sp.add_parser("upgrade"); upg.add_argument("source", type=Path); upg.add_argument("--dry-run", action="store_true")
     nw = sp.add_parser("new"); nw.add_argument("name"); nw.add_argument("--from", dest="from_url", default="")
+    nw.add_argument("--no-open", action="store_true")
     sp.add_parser("switch")
     sp.add_parser("self-update")
     sp.add_parser("unlink")
@@ -339,6 +352,7 @@ def main() -> int:
     sh = sp.add_parser("share"); sh.add_argument("--auto", choices=["on", "off"])
     tr = sp.add_parser("trust"); tr.add_argument("--yes", action="store_true")
     jn = sp.add_parser("join"); jn.add_argument("url"); jn.add_argument("folder", nargs="?", type=Path)
+    jn.add_argument("--no-open", action="store_true")
     us = sp.add_parser("stats"); us.add_argument("--json", action="store_true")
     us.add_argument("--months", type=int, default=3); us.add_argument("--record", choices=["on", "off"])
     fb = sp.add_parser("feedback"); fb.add_argument("file"); fb.add_argument("text"); fb.add_argument("--by", default="")
@@ -356,6 +370,36 @@ def main() -> int:
     pr.add_argument("--unattended", action="store_true")
     ap = sp.add_parser("autopilot"); ap.add_argument("--lang", default="es"); ap.add_argument("--max-units", type=int)
     ap.add_argument("--poll-seconds", type=int, default=900); ap.add_argument("--include-interviews", action="store_true")
+    cat = sp.add_parser("catalog"); cat.add_argument("--json", action="store_true")
+    cat.add_argument("--markdown", action="store_true"); cat.add_argument("--check", action="store_true")
+    pj = sp.add_parser("projects"); pj.add_argument("--json", action="store_true"); pj.add_argument("--add", type=Path)
+    sp.add_parser("app")
+    return p
+
+
+def cmd_catalog(a, parser: argparse.ArgumentParser) -> int:
+    from lib import catalog
+    data = catalog.describe(parser)
+    if a.json:
+        print(json.dumps(data, indent=2, ensure_ascii=False))
+    elif a.markdown:
+        print(catalog.triage_markdown(data["commands"]), end="")
+    elif not a.check:
+        for c in data["commands"]:
+            print(f"{c['name']:<16} {c['verdict']:<7} {c['zone'] or '':<11} {c['en']}")
+    if data["unlisted"] or data["unknown"]:
+        print(f"✖ catalog out of sync — not in lib/catalog.py: {', '.join(data['unlisted']) or '—'}; "
+              f"not in the parser: {', '.join(data['unknown']) or '—'}", file=sys.stderr)
+        return 1
+    return 0
+
+
+def main() -> int:
+    if len(sys.argv) == 1:
+        from lib.wizard import W
+        W().run()
+        return 0
+    p = build_parser()
     a = p.parse_args()
     if a.cmd not in ("help", "mcp", "wizard"):
         from lib import usage
@@ -363,6 +407,28 @@ def main() -> int:
 
     if a.cmd == "help":
         print(__doc__)
+    elif a.cmd == "catalog":
+        return cmd_catalog(a, p)
+    elif a.cmd == "app":
+        from lib import desktop
+        desktop.launch()
+    elif a.cmd == "projects" and a.add:
+        from lib.common import docs_root
+        root = docs_root(a.add)
+        if not (a.add.is_dir() and (root / ".camarones" / "workspace.yaml").is_file()):
+            print(f"✖ {a.add} is not a Camarón project (no cam-docs/.camarones/workspace.yaml)", file=sys.stderr)
+            return 1
+        projects.register(root)
+        row = {"name": root.parent.name if root.name == "cam-docs" else root.name, "path": str(root), "exists": True}
+        print(json.dumps(row, ensure_ascii=False) if a.json else f"✔ {row['name']} → {root}")
+    elif a.cmd == "projects":
+        # a project registered by its docs root is named after its workspace folder, not "cam-docs"
+        rows = [{"name": Path(r["path"]).parent.name if r["name"] == "cam-docs" else r["name"], "path": r["path"],
+                 "exists": Path(r["path"]).is_dir()} for r in projects.load()]
+        if a.json:
+            print(json.dumps(rows, indent=2, ensure_ascii=False))
+        for r in rows if not a.json else ():
+            print(f"{r['name']:<24} {r['path']}{'' if r['exists'] else '  (missing)'}")
     elif a.cmd in ("install", "upgrade"):
         from lib.install import install
         if a.cmd == "install":

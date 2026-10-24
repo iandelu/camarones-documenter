@@ -105,7 +105,7 @@ T = {
         "m_setup": "🛠  Instalar / reparar entorno",
         "m_repos": "📦 Repos",
         "m_confirm": "✅ Revisar y confirmar páginas",
-        "m_portal": "🌐 Portal",
+        "m_portal": "🌐 Portal", "m_app": "🖥️  App de escritorio",
         "m_status": "🔎 Estado de la documentación",
         "m_ci": "⚙️  CI (GitLab / GitHub)",
         "m_extra": "➕ Revisiones extra (seguridad, arquitectura) — beta",
@@ -462,7 +462,7 @@ T = {
         "m_setup": "🛠  Install / repair environment",
         "m_repos": "📦 Repos",
         "m_confirm": "✅ Review & confirm pages",
-        "m_portal": "🌐 Portal",
+        "m_portal": "🌐 Portal", "m_app": "🖥️  Desktop app",
         "m_status": "🔎 Documentation status",
         "m_ci": "⚙️  CI (GitLab / GitHub)",
         "m_extra": "➕ Extra reviews (security, architecture) — beta",
@@ -1002,7 +1002,7 @@ class W:
             choices += [
                 Choice(self.t("m_next"), "next"),
                 Choice(self.t("m_review") + (f"  ({n_rev})" if n_rev else ""), "review"),
-                Choice(self.t("m_portal"), "portal"), Choice(self.t("m_wikis"), "wikis"),
+                Choice(self.t("m_portal"), "portal"), Choice(self.t("m_app"), "app"), Choice(self.t("m_wikis"), "wikis"),
                 Choice(self.t("m_update"), "update"), Choice(self.t("m_share"), "share"), Separator(" ")]
             short, width = self.t("s_short"), max(cell_len(self.t(k)) for k in sections)
             choices += [Choice(self.t(k) + " " * (width - cell_len(self.t(k))) + " ›  " + " · ".join(short[a] for a in acts), k)
@@ -2138,6 +2138,11 @@ Talk to the user in {talk}. Do not modify application code.
                              default=i)
                 if j is not None:
                     i = j
+
+    def do_app(self) -> None:
+        """The desktop app (`camaron app`): the portal plus the Taller, where runs, scans and checks start."""
+        from . import desktop
+        self.safe(self.busy, desktop.launch, total=1)
 
     def do_portal(self) -> None:
         port = int(self.prefs.get("port", 8080))

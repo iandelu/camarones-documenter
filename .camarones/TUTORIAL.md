@@ -172,9 +172,24 @@ Docs are written in English (best for AIs and mixed teams) and translated to Spa
    +----------------------------------------------------------------------------+
 ```
 
-The 🦐 portal brings the docs (with search, editing and review), the C4 explorer (under each view, its elements to fix and confirm what the AI drafted), the code graph and the OpenWiki wikis together in one site, in English or Spanish. It has two modes with the same interface: the local portal (`camaron up`, or wizard → 🌐 Portal → 📝 Open the portal), where you can edit, and the read-only export (`camaron portal`) that is deployed with Docker or on any static host. `camaron up --static` shows you the export as is. Everything works offline (on-premise), its fonts too. It follows Cofundo's design system with the Camarón brand, light or dark. Home asks first, shows the project's state and leads to five zones: Docs (pages and wikis), Architecture (C4, code graph, Data as an ER diagram, Libraries with known vulnerabilities in red, and Excalidraw Boards), Plan (the live Pipeline, with run, cancel, retry and approve), Quality (KPIs: confirmed share, pages out of date, AI cost and the questions nobody found; and CI) and Review. The top bar says where you are and Ctrl K jumps to any page, zone or view. A fresh project offers a first look from the code, no AI. Ask gives the sections that answer, with citations (it goes by meaning: “database” finds PostgreSQL), and with an agent set up it can also write the answer from them. The “All / Business” switch keeps only the pages about what the system does and why.
+The 🦐 portal brings the docs (with search, editing and review), the C4 explorer (under each view, its elements to fix and confirm what the AI drafted), the code graph and the OpenWiki wikis together in one site, in English or Spanish. It has two modes with the same interface: the local portal (`camaron up`, or wizard → 🌐 Portal → 📝 Open the portal), where you can edit, and the read-only export (`camaron portal`) that is deployed with Docker or on any static host. `camaron up --static` shows you the export as is. Everything works offline (on-premise), its fonts too. It follows Cofundo's design system with the Camarón brand, light or dark. Home asks first, shows the project's state and leads to five zones: Docs (pages and wikis), Architecture (C4, code graph, Data as an ER diagram, Libraries with known vulnerabilities in red, and Excalidraw Boards), Plan (the live Pipeline: retry and approve here; run and cancel in the desktop app), Quality (KPIs: confirmed share, pages out of date, AI cost and the questions nobody found; and CI) and Review. The top bar says where you are and Ctrl K jumps to any page, zone or view. A fresh project offers a first look from the code, no AI, from the app. Ask gives the sections that answer, with citations (it goes by meaning: “database” finds PostgreSQL), and with an agent set up it can also write the answer from them. The “All / Business” switch keeps only the pages about what the system does and why.
 
-### 12. ✏️ Where and when you can edit
+### 12. 🖥 The desktop app: your workshop
+
+```text
+   +----------------------------------------------------------------------------+
+   | camarón  / Workshop / Generate                                             |
+   |                                                                            |
+   | Document the ready units in parallel   camaron run              [AI]       |
+   |   --parallel [ 2 ]   [ ] --include-interviews                              |
+   |   ( Run run )   Peeling it for you…                                        |
+   |   unit.started repo-brief:api …                                            |
+   +----------------------------------------------------------------------------+
+```
+
+`camaron app` (or wizard → 🖥️ Desktop app) opens a window with the same portal plus one more zone, the Workshop: everything that runs on your machine. Generate (the plan with AI, wikis, pull requests), Analyze (no AI: C4 draft, stack, dependencies and vulnerabilities, data, history), Check (prerequisites, check, golden questions, KPIs), Interviews, Team (shared repo, agents, plugins, CI) and This machine (tools, repos, updates, uninstall). Every CLI command has its form there, its live output and its result; what deletes or moves data sits apart and asks first. When it opens you pick a project, create one or join the team's. The browser portal stays the team's viewer: reading, editing, review and status; whatever starts a process or calls a model says "open it in the app". The first time it installs Electron into ~/.camarones/desktop (needs Node.js); without it the CLI and this wizard work the same.
+
+### 13. ✏️ Where and when you can edit
 
 ```text
    WHERE                        WHAT YOU CAN DO                      WHERE IT GOES
@@ -191,7 +206,7 @@ The 🦐 portal brings the docs (with search, editing and review), the C4 explor
 
 In the local portal, “Edit” opens the markdown with a live preview; saving writes to cam-docs/docs and, with “commit to cam-docs” ticked, makes a local commit (sharing it with git push is up to you). “+ New page” creates a page of your own and “Confirm” signs with your git user name. With Spanish selected you edit the translation. The deployed portal doesn't edit: it's a snapshot of the last export; its “Edit” button takes you to the file in GitLab/GitHub (when cam-docs has a remote), the change goes in as a merge request and CI publishes it again. Editing a ✅ page turns it ⚠️ until someone checks it. Don't hand-edit generated files (llms.txt, llms-full.txt, .status.json, viewers); wikis are better regenerated from the Wikis view, since an update can rewrite what you change.
 
-### 13. 🔑 GitLab / GitHub tokens
+### 14. 🔑 GitLab / GitHub tokens
 
 ```text
    OS keychain          --->  Camarones  --->  git clone / pull   (OK)
@@ -203,7 +218,7 @@ In the local portal, “Edit” opens the markdown with a live preview; saving w
 
 If your repos are private, Camarones needs a token to clone and update them. It is stored in your OS keychain and used only by Camarones' own git commands: never written to the project or git config, never shared with Claude, Codex or other third parties. When you join a team's cam-docs repo, Camarones first tries your own git (keychain, credential manager, SSH keys) and asks for a token only if that is refused. Manage them in “Settings › Tokens”. The agent config that comes with the team's cam-docs gets the same care: hooks, MCP servers, settings and skills the kit did not write are listed when you open the wizard, and Claude Code / Codex only load them once you approve them on this machine (or with `camaron trust`). Approvals live in ~/.camarones/trust/, never in the repo, so nobody can approve them for you with a push. What the kit installed on this machine (its skills, graphify's and OpenWiki's) is recognised without asking, and `camaron repair` puts it back if someone edits or deletes it.
 
-### 14. ⚙️ CI: docs that update themselves
+### 15. ⚙️ CI: docs that update themselves
 
 ```text
    git push --> pipeline (GitLab CI / GitHub Actions)
@@ -218,7 +233,7 @@ If your repos are private, Camarones needs a token to clone and update them. It 
 
 Optional: a pipeline that, after each change in the repos or in cam-docs, updates the affected docs and publishes the read-only portal. So a merge request opened from the deployed portal's “Edit” shows up once merged. Set it up in “Team › CI”. You can also do it by hand with “🔄 Update docs after changes” and “🌐 Portal › 📦 Export the portal”. And on every pull request in a repo, a job without AI comments which pages the change leaves out of date (`camaron pr fresh`).
 
-### 15. 🧰 Supporting pieces
+### 16. 🧰 Supporting pieces
 
 ```text
    uv        -> runs Camarones (Python) without installing anything else
@@ -231,7 +246,7 @@ Optional: a pipeline that, after each change in the repos or in cam-docs, update
 
 The wizard checks all of this and installs it for you (winget on Windows, Homebrew on Mac) when you choose “Install everything recommended”. Only git and Node.js are required. The quality gate (mermaid-cli and gitleaks) comes with the full install; mermaid-cli downloads a headless Chromium the first time. Without AI, each repo also gets `docs/repos/<repo>/reference.md`: commands, env vars, endpoints and topics read from its files, kept current by `camaron blocks` and `sync`. Team extensions go in `.camarones/plugins/` as plugins (`camaron plugins add` brings one in and pins it in plugins.lock); the ones that run code or steer agents are not loaded until you approve them on your machine, and any change asks again. Also without AI: `camaron history` reads the git history (hotspots, who to ask), `camaron doctor --context` counts what every agent session loads and `camaron repair` puts the kit's files back if someone touches them.
 
-### 16. 🗺 Your day to day
+### 17. 🗺 Your day to day
 
 ```text
    1. camarones              -> opens the project's wizard (cam-docs)
@@ -419,9 +434,24 @@ La documentación se escribe en inglés (lo que mejor entienden las IAs y los eq
    +----------------------------------------------------------------------------+
 ```
 
-El portal 🦐 junta en una sola web la documentación (con buscador, edición y revisión), el explorador C4 (bajo cada vista, sus elementos para corregir y confirmar lo que redactó la IA), el grafo de código y las wikis de OpenWiki, en español o inglés. Tiene dos modos con la misma interfaz: el portal local (`camaron up`, o asistente → 🌐 Portal → 📝 Abrir el portal), donde se puede editar, y la exportación de solo lectura (`camaron portal`) que se despliega con Docker o en cualquier hosting estático. `camaron up --static` te enseña la exportación tal cual. Todo funciona sin Internet (on-premise), también sus fuentes. Sigue el sistema de diseño de Cofundo con la marca Camarón, en claro u oscuro. Inicio pregunta primero, enseña el estado del proyecto y lleva a cinco zonas: Docs (páginas y wikis), Arquitectura (C4, grafo de código, Datos como diagrama ER, Librerías con las vulnerabilidades en rojo y Pizarras de Excalidraw), Plan (el Pipeline en vivo, con lanzar, cancelar, reintentar y aprobar), Calidad (KPIs: cuánto está confirmado, qué se ha quedado viejo, el coste de IA y las preguntas que nadie encontró; y CI) y Revisión. La barra de arriba dice dónde estás y Ctrl K salta a cualquier página, zona o vista. Un proyecto nuevo ofrece un primer vistazo desde el código, sin IA. Preguntar da las secciones que responden, con su cita (entiende el sentido: «base de datos» encuentra PostgreSQL), y si hay un agente configurado también puede redactar la respuesta con ellas. El interruptor «Todo / Negocio» deja solo las páginas de qué hace el sistema y por qué.
+El portal 🦐 junta en una sola web la documentación (con buscador, edición y revisión), el explorador C4 (bajo cada vista, sus elementos para corregir y confirmar lo que redactó la IA), el grafo de código y las wikis de OpenWiki, en español o inglés. Tiene dos modos con la misma interfaz: el portal local (`camaron up`, o asistente → 🌐 Portal → 📝 Abrir el portal), donde se puede editar, y la exportación de solo lectura (`camaron portal`) que se despliega con Docker o en cualquier hosting estático. `camaron up --static` te enseña la exportación tal cual. Todo funciona sin Internet (on-premise), también sus fuentes. Sigue el sistema de diseño de Cofundo con la marca Camarón, en claro u oscuro. Inicio pregunta primero, enseña el estado del proyecto y lleva a cinco zonas: Docs (páginas y wikis), Arquitectura (C4, grafo de código, Datos como diagrama ER, Librerías con las vulnerabilidades en rojo y Pizarras de Excalidraw), Plan (el Pipeline en vivo: reintentar y aprobar aquí; lanzar y cancelar, en la app de escritorio), Calidad (KPIs: cuánto está confirmado, qué se ha quedado viejo, el coste de IA y las preguntas que nadie encontró; y CI) y Revisión. La barra de arriba dice dónde estás y Ctrl K salta a cualquier página, zona o vista. Un proyecto nuevo ofrece un primer vistazo desde el código, sin IA, desde la app. Preguntar da las secciones que responden, con su cita (entiende el sentido: «base de datos» encuentra PostgreSQL), y si hay un agente configurado también puede redactar la respuesta con ellas. El interruptor «Todo / Negocio» deja solo las páginas de qué hace el sistema y por qué.
 
-### 12. ✏️ Dónde y cuándo se puede editar
+### 12. 🖥 La app de escritorio: tu taller
+
+```text
+   +----------------------------------------------------------------------------+
+   | camarón  / Taller / Generar                                                |
+   |                                                                            |
+   | Documentar las unidades listas en paralelo   camaron run        [IA]       |
+   |   --parallel [ 2 ]   [ ] --include-interviews                              |
+   |   ( Ejecutar run )   Pelándolo para ti…                                    |
+   |   unit.started repo-brief:api …                                            |
+   +----------------------------------------------------------------------------+
+```
+
+`camaron app` (o asistente → 🖥️ App de escritorio) abre una ventana con el mismo portal y una zona más, el Taller: todo lo que corre en tu máquina. Generar (el plan con IA, wikis, pull requests), Analizar (sin IA: borrador C4, stack, dependencias y vulnerabilidades, datos, historia), Comprobar (requisitos, check, preguntas de control, KPIs), Entrevistas, Equipo (repo compartido, agentes, plugins, CI) y Esta máquina (herramientas, repos, actualizar, desinstalar). Cada comando de la CLI tiene ahí su formulario, su salida en vivo y su resultado; lo que borra o mueve datos va aparte y pregunta antes. Al abrirla eliges proyecto, creas uno o te unes al del equipo. El portal del navegador queda como visor del equipo: leer, editar, revisar y ver el estado; lo que lanza procesos o llama a un modelo dice «ábrelo en la app». La primera vez instala Electron en ~/.camarones/desktop (necesita Node.js); sin él, la CLI y este asistente funcionan igual.
+
+### 13. ✏️ Dónde y cuándo se puede editar
 
 ```text
    DONDE                        QUE PUEDES HACER                     DONDE QUEDA
@@ -438,7 +468,7 @@ El portal 🦐 junta en una sola web la documentación (con buscador, edición y
 
 En el portal local, «Editar» abre el markdown con vista previa; al guardar se escribe en cam-docs/docs y, si marcas «commit en cam-docs», se hace un commit local (compartirlo con git push es cosa tuya). «+ Nueva página» crea una página tuya y «Confirmar» firma con tu usuario de git. Con el idioma en español editas la traducción. El portal desplegado no edita: es una foto de la última exportación; su botón «Editar» te lleva al fichero en GitLab/GitHub (si cam-docs tiene remote) y el cambio entra por merge request, y el CI vuelve a publicar. Editar una página ✅ la pasa a ⚠️ hasta que alguien la mire. No edites a mano lo generado (llms.txt, llms-full.txt, .status.json, visores): las wikis mejor regenerarlas desde la vista Wikis, porque una actualización puede reescribir lo que cambies.
 
-### 13. 🔑 Tokens de GitLab / GitHub
+### 14. 🔑 Tokens de GitLab / GitHub
 
 ```text
    llavero del sistema  --->  Camarones  --->  git clone / pull   (OK)
@@ -450,7 +480,7 @@ En el portal local, «Editar» abre el markdown con vista previa; al guardar se 
 
 Si tus repos son privados, Camarones necesita un token para clonarlos y actualizarlos. Se guarda en el llavero de tu sistema operativo y solo lo usa Camarones en sus propios comandos git: no se escribe en el proyecto, ni en git config, ni se comparte con Claude, Codex u otros terceros. Al unirte al repo de cam-docs de un equipo, Camarones prueba primero con tu propio git (llavero, gestor de credenciales, claves SSH) y solo te pide un token si eso no entra. Los gestionas en «Ajustes › Tokens». La configuración de agentes que llega con el cam-docs del equipo recibe el mismo cuidado: los hooks, servidores MCP, ajustes y skills que no ha escrito el kit se listan al abrir el asistente, y Claude Code / Codex solo los cargan cuando los apruebas en esta máquina (o con `camaron trust`). Las aprobaciones viven en ~/.camarones/trust/, nunca en el repo, así que nadie puede aprobarlas por ti con un push. Lo que el kit instaló en esta máquina (sus skills y los de graphify y OpenWiki) lo reconoce sin preguntar, y `camaron repair` lo devuelve a su sitio si alguien lo edita o lo borra.
 
-### 14. ⚙️ CI: documentación que se actualiza sola
+### 15. ⚙️ CI: documentación que se actualiza sola
 
 ```text
    git push --> pipeline (GitLab CI / GitHub Actions)
@@ -465,7 +495,7 @@ Si tus repos son privados, Camarones necesita un token para clonarlos y actualiz
 
 Opcional: un pipeline que, tras cada cambio en los repos o en cam-docs, actualiza la documentación afectada y publica el portal de solo lectura. Así, un merge request hecho desde «Editar» del portal desplegado aparece publicado al fusionarse. Se configura en «Equipo › CI». También se puede hacer a mano con «🔄 Actualizar doc tras cambios» y «🌐 Portal › 📦 Exportar el portal». Y en cada pull request de un repo, un job sin IA comenta qué páginas deja desactualizadas el cambio (`camaron pr fresh`).
 
-### 15. 🧰 Piezas de apoyo
+### 16. 🧰 Piezas de apoyo
 
 ```text
    uv        -> ejecuta Camarones (Python) sin instalar nada mas
@@ -478,7 +508,7 @@ Opcional: un pipeline que, tras cada cambio en los repos o en cam-docs, actualiz
 
 El asistente comprueba todo esto y lo instala por ti (winget en Windows, Homebrew en Mac) si eliges «Instalar todo lo recomendado». Solo git y Node.js son obligatorios. El control de calidad (mermaid-cli y gitleaks) viene con la instalación completa; mermaid-cli descarga un Chromium sin ventana la primera vez. Sin IA, cada repo recibe también `docs/repos/<repo>/reference.md`: comandos, variables de entorno, endpoints y topics leídos de sus ficheros, que `camaron blocks` y `sync` mantienen al día. Las extensiones del equipo van como plugins en `.camarones/plugins/` (`camaron plugins add` las trae y las fija en plugins.lock); las que ejecutan código o guían a los agentes no se cargan hasta que las apruebas en tu máquina, y cualquier cambio vuelve a preguntar. También sin IA: `camaron history` lee el historial de git (ficheros más tocados, a quién preguntar), `camaron doctor --context` cuenta lo que carga cada sesión de un agente y `camaron repair` devuelve a su sitio los ficheros del kit si alguien los toca.
 
-### 16. 🗺 Tu día a día
+### 17. 🗺 Tu día a día
 
 ```text
    1. camarones              -> abre el asistente del proyecto (cam-docs)

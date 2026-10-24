@@ -45,10 +45,10 @@ async function showCodeTab(rest) {
   codeSide(repo);
   if (mode === 'graph' || (repo && !(T.codeMaps || []).includes(repo))) return showCode(repo);   // graphify's own page
   if (!repo) {
-    const can = !STATIC && (await loadViewers()).graphify;
+    const can = RUNS && (await loadViewers()).graphify;
     $('#main').innerHTML = `<div class="page"><h1>🧩 ${esc(t('codeTab'))}</h1><p class="muted">${esc(t('noCodeMap'))}</p>
       ${can ? `<p><button id="v-build" type="button">${esc(t('build'))}</button></p><pre id="v-log" class="joblog" hidden></pre>`
-        : STATIC ? '' : `<p class="muted small">${esc(t('noGraphify'))}</p>`}</div>`;
+        : STATIC ? '' : !RUNS ? `<p class="aviso small">${esc(t('appOnly'))}</p>` : `<p class="muted small">${esc(t('noGraphify'))}</p>`}</div>`;
     bindBuild('graph', '', () => location.reload());
     return;
   }

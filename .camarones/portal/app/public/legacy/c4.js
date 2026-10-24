@@ -7,7 +7,7 @@ const defaultView = () => (T.views.find((v) => v.id === 'index') || T.views[0])?
 
 function viewerBar(parts, rebuild) {
   return `<div class="vbar">${parts.filter(Boolean).join('')}
-    ${!STATIC && rebuild ? `<button id="v-build" class="small" type="button">${esc(rebuild)}</button>` : ''}
+    ${RUNS && rebuild ? `<button id="v-build" class="small" type="button">${esc(rebuild)}</button>` : ''}
     <pre id="v-log" class="joblog inline" hidden></pre></div>`;
 }
 
@@ -111,7 +111,7 @@ async function drawElements(id) {
       await api(`c4/${path}`, {}, body);
       toast(t('c4Saved'));
       await drawElements(id);
-      if ((await loadViewers()).c4.model) watchJob(await api('build', {}, { what: 'c4' }), $('#v-log'), () => location.reload());
+      if (RUNS && (await loadViewers()).c4.model) watchJob(await api('build', {}, { what: 'c4' }), $('#v-log'), () => location.reload());
     } catch (err) { toast(err.message); }
   };
   $('#c4-confirm-all')?.addEventListener('click', () => change('confirm', { view: id }));

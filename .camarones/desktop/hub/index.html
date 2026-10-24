@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'">
+  <title>camarón</title>
+  <link rel="stylesheet" href="../../portal/app-build/theme/tokens.css">
+  <link rel="stylesheet" href="hub.css">
+</head>
+<body>
+  <main class="hub">
+    <header class="aurora-bg hero">
+      <span class="wordmark">camarón</span>
+      <h1 id="title"></h1>
+      <p class="lede" id="lede"></p>
+    </header>
+    <section class="block">
+      <div class="block-h"><h2 id="h-projects"></h2>
+        <div class="actions">
+          <button type="button" class="btn" id="new"></button>
+          <button type="button" class="btn ghost" id="join"></button>
+          <button type="button" class="btn ghost" id="add"></button>
+        </div>
+      </div>
+      <form id="form" class="form" hidden>
+        <label for="field" id="field-label"></label>
+        <input id="field" class="input" autocomplete="off">
+        <label for="from" id="from-label"></label>
+        <input id="from" class="input" autocomplete="off" placeholder="https://…">
+        <div class="actions">
+          <button type="submit" class="btn" id="go"></button>
+          <button type="button" class="btn ghost" id="cancel"></button>
+        </div>
+      </form>
+      <p id="status" class="status" role="status"></p>
+      <ul id="list" class="list" aria-busy="true"><li class="skeleton"></li><li class="skeleton"></li></ul>
+    </section>
+  </main>
+  <script src="hub.js"></script>
+</body>
+</html>
