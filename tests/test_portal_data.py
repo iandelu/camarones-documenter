@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 
 import pytest
 
@@ -159,6 +160,11 @@ def test_static_export_carries_the_new_fields(serve_mod, monkeypatch):
     assert next(w for w in wikis if w["repo"] == "api")["nav"]["pages"]
     assert (site / "legacy" / "doc.js").is_file() and (site / "index.html").is_file()
     assert 'content="static"' in (site / "index.html").read_text(encoding="utf-8")
+    assert (site / "theme" / "tokens.css").is_file() and (site / "theme" / "fonts" / "Inter.woff2").is_file()
+    viewers = ("wiki-graph", "architecture", "code-graph")          # pages other tools generate (openwiki, likec4…)
+    texts = [f.read_text(encoding="utf-8", errors="ignore") for f in site.rglob("*")
+             if f.suffix in (".html", ".css", ".js") and f.relative_to(site).parts[0] not in viewers]
+    assert not any(re.search(r"fonts\.(googleapis|gstatic)\.com", t) for t in texts)   # the portal asks no font CDN
 
 
 def test_wiki_graph_export_does_not_pass_flags_openwiki_rejects(serve_mod, monkeypatch):

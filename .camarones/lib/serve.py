@@ -23,6 +23,7 @@ UI_LIBS = (("marked", "15.0.12", "lib/marked.umd.js"), ("dompurify", "3.2.6", "d
 VENDOR_RE = re.compile(r"^/vendor/((?:@[\w.-]+/)?[\w.-]+)@([\w.+-]+)/([\w./+-]+)$")
 STATIC = False
 mimetypes.add_type("text/javascript", ".js")    # Windows may map .js to text/plain in the registry
+mimetypes.add_type("font/woff2", ".woff2")    # the portal theme fonts; older Pythons do not know the type
 
 
 def reviewer() -> str:
