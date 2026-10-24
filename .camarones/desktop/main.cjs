@@ -95,7 +95,8 @@ async function openProject(root) {
   const open = projects.get(root)
   if (open && !open.win.isDestroyed()) { open.win.focus(); return { ok: true } }
   const token = crypto.randomBytes(24).toString('hex')
-  const pr = spawn(PY, core.backendArgv(KIT), { cwd: root, env: core.backendEnv(process.env, root, token),
+  // cwd outside the project: Windows cannot delete a folder a process works in, and `uninstall` runs from here
+  const pr = spawn(PY, core.backendArgv(KIT), { cwd: os.homedir(), env: core.backendEnv(process.env, root, token),
     windowsHide: true, detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe'] })
   let port
   try { port = await waitReady(pr) } catch (e) {
@@ -158,6 +159,14 @@ function handlers() {
   })
   ipcMain.handle('app:hub', (e) => (fromProject(e) ? openHub() : null))
   ipcMain.handle('app:external', (e, url) => (fromProject(e) && core.externalOk(url) ? shell.openExternal(url) : null))
+  // After `self-update`: start again on the kit's new code (the backends go first; app.exit skips before-quit).
+  ipcMain.handle('app:relaunch', (e) => {
+    if (!fromProject(e)) return null
+    for (const p of projects.values()) killTree(p.proc)
+    app.relaunch()
+    app.exit(0)
+    return true
+  })
   // A file of this window's project in the system file manager (the exported questionnaire, a report…).
   ipcMain.handle('app:reveal', (e, file) => {
     const [root] = projectOf(e) || []

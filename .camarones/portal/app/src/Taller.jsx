@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { getJSON, postJSON } from './api.js'
 import { fields, toArgs } from './cmdform.js'
 import { lang, t } from './i18n.js'
-import TallerPanels from './TallerPanels.jsx'
+import TallerPanels, { Uninstall } from './TallerPanels.jsx'
 import { useJob } from './useJob.js'
 
 // The Taller (desktop app only): every catalog command of one zone (lib/catalog.py), with a form read from the CLI's
@@ -18,7 +18,7 @@ export default function Taller({ zone }) {
       (e) => setError(e.message))
   }, [zone])
   const safe = (cmds || []).filter((c) => !c.destructive)
-  const careful = (cmds || []).filter((c) => c.destructive)
+  const careful = (cmds || []).filter((c) => c.destructive && c.name !== 'uninstall')   // uninstall: its own card, previewed
   return (
     <section className="view taller">
       <h1>{t(`tw.${zone}`)}</h1>
@@ -32,7 +32,7 @@ export default function Taller({ zone }) {
         <div className="tw-careful">
           <h2>{t('twCareful')}</h2>
           <p className="muted">{t('twCarefulLead')}</p>
-          <div className="tw-list">{careful.map((c) => <Command key={c.name} entry={c} />)}</div>
+          <div className="tw-list">{zone === 'machine' ? <Uninstall /> : null}{careful.map((c) => <Command key={c.name} entry={c} />)}</div>
         </div>
       ) : null}
     </section>
@@ -142,7 +142,7 @@ function Command({ entry }) {
   const [values, setValues] = useState(() => Object.fromEntries(fs.map((f) => [f.dest, f.initial])))
   const { job, error, start: run, stop, running, status } = useJob()
   const dialog = useRef(null)
-  const asks = !!(entry.confirm || entry.destructive)
+  const asks = !!(entry.confirm || entry.destructive) && !(entry.reads && values[entry.reads])   // a dry run only reads
   const start = (confirmed) => run(entry.name, toArgs(entry, values), confirmed)
   const title = entry[lang()] || entry.en
   return (

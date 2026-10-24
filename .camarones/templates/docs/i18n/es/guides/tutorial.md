@@ -218,7 +218,7 @@ muestra allí «ábrelo en la app».
 | ✅ Comprobar | requisitos y herramientas con Instalar / repair, el contexto que carga cada sesión de agente, preguntas de control, con y sin cam-docs |
 | 🎙️ Entrevistas | cuestionario del equipo o en vivo, exportar el formulario sin conexión, importar respuestas, cerrar la ronda |
 | 🤝 Equipo | el repo del equipo y compartir cada checkpoint, aprobar la configuración de agentes que vino con él, hooks, plugins, CI, exportaciones |
-| 🧰 Esta máquina | herramientas, repos, actualizar el kit, repair, migrate y, aparte y preguntando antes, uninstall |
+| 🧰 Esta máquina | setup con progreso, idioma y modelos, tokens de GitLab / GitHub, repos y su stack, el perfil del plan, actualizar el kit, repair, migrate y, aparte y con vista previa, uninstall |
 
 **Instalarla y abrirla**
 
@@ -351,7 +351,7 @@ que carga cada sesión de un agente antes de leer una página, frente a `context
 `plugins add|update|outdated|remove`, `pr propose <url>`, `removed add`, `repair`, `export codetour <flujo>`,
 `history [--months 12]` (puntos calientes, a quién preguntar en cada repo, ficheros que cambian juntos, leídos de git sin
 IA en `docs/overview/history.md`), `catalog [--json|--check]` (cada comando con dónde vive: portal, app de escritorio o
-solo CLI, y sus argumentos) y `projects [--json]` (los proyectos registrados en esta máquina), `trust --json` y `hooks --json` (lo pendiente de
+solo CLI, y sus argumentos) y `projects [--json]` (los proyectos registrados en esta máquina), `config [get|set CLAVE VALOR]` (lang, model, codex_model: los ajustes del asistente), `trust --json` y `hooks --json` (lo pendiente de
 aprobar, si los hooks del método están activos), **Plan › Sincronizar** en el portal (lo mismo que `share`, con dónde estás) y `app` (la app de escritorio: el portal más el Taller,
 donde se lanzan ejecuciones, wikis, análisis y comprobaciones; el portal del navegador solo las enseña).
 
