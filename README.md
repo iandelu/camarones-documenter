@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.44.0-ff875f?style=flat-square" alt="Versión 4.44.0">
+  <img src="https://img.shields.io/badge/version-4.45.0-ff875f?style=flat-square" alt="Versión 4.45.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -312,7 +312,7 @@ mi-proyecto/cam-docs/
 `camaron app` (o asistente → 🖥️ App de escritorio) abre una ventana con el mismo portal y una zona más, el **Taller**: todo lo que corre en tu máquina. El portal del navegador queda como visor del equipo (leer, editar, revisar, ver la pipeline); lo que lanza procesos o llama a un modelo, como ejecutar el plan, generar wikis, reconstruir el C4 o el grafo, buscar vulnerabilidades, instalar la CI o pedir una respuesta a la IA, se hace desde la app, y el portal lo indica con un aviso.
 
 - **Proyectos:** al abrirla eliges proyecto, creas uno nuevo o te unes al `cam-docs` del equipo. Cada proyecto abre su propia ventana.
-- **Taller:** Generar (el plan con IA, una sesión que actualiza la documentación con lo que cambió en el código, wikis y la documentación de un pull request: primero «Ver qué haría» y, si te convence, el agente escribe en su rama, se hace push y se abre el PR de docs), Analizar (sin IA: borrador C4, stack, dependencias, datos, historia), Comprobar (requisitos, `check`, preguntas de control, KPIs), Entrevistas, Equipo (repo compartido, agentes, plugins, CI) y Esta máquina (herramientas, repos, actualizar, desinstalar). Cada comando de la CLI tiene su formulario, sacado del propio parser, su salida en vivo y su resultado. Lo que borra o mueve datos va aparte y pregunta antes.
+- **Taller:** Generar (el plan con IA, una sesión que actualiza la documentación con lo que cambió en el código, wikis y la documentación de un pull request: primero «Ver qué haría» y, si te convence, el agente escribe en su rama, se hace push y se abre el PR de docs), Analizar (sin IA: vulnerabilidades conocidas con su resumen por gravedad y enlace a Librerías, páginas desactualizadas con «Sigue valiendo» o una unidad que las actualice, bloques generados, borrador C4, stack, datos, historia), Comprobar (requisitos y herramientas con su botón «Instalar» o «repair», el contexto que carga cada sesión de agente frente al presupuesto, preguntas de control para confirmar y lanzar, la comparación con y sin cam-docs, `check`, KPIs), Entrevistas, Equipo (repo compartido, agentes, plugins, CI) y Esta máquina (herramientas, repos, actualizar, desinstalar). Cada comando de la CLI tiene su formulario, sacado del propio parser, su salida en vivo y su resultado. Lo que borra o mueve datos va aparte y pregunta antes.
 - **Por dentro:** la app es Electron fijado a una versión (`VERSIONS["electron"]`), instalado la primera vez en `~/.camarones/desktop` con npm, sin permisos de administrador. Necesita Node.js; sin él, la CLI y el asistente funcionan igual. Cada ventana es el servidor del portal de ese proyecto, arrancado con un token que solo tiene la app; sin ese token el servidor no lanza procesos.
 
 ### Explora y edita en el portal

@@ -76,7 +76,7 @@ def test_with_a_token_a_foreign_host_is_refused(app_server):
 
 def test_info_says_what_the_app_can_show(app_server):
     code, info = call(app_server + "/api/app/info", token=TOKEN)
-    assert code == 200 and info["kitdev"] is True and info["kit"]
+    assert code == 200 and info["kitdev"] is True and info["kit"] and info["user"] == "Test"
     assert call(app_server + "/api/app/info")[0] == 403
 
 
@@ -143,6 +143,8 @@ def wait_job(url, jid, timeout=60):
 def test_a_command_runs_as_a_job_with_its_output(app_server):
     code, job = call(app_server + "/api/app/cmd", {"cmd": "version", "args": {}}, token=TOKEN)
     assert code == 200 and job["kind"] == "cmd:version"
+    code, other = call(app_server + "/api/app/cmd", {"cmd": "status", "args": {"json": True}}, token=TOKEN)
+    assert other["id"] != job["id"] and other["kind"] == "cmd:status --json"
     j = wait_job(app_server, job["id"])
     assert j["status"] == "done" and j["rc"] == 0 and any("Camarón" in line for line in j["log"])
 
@@ -201,14 +203,33 @@ def test_up_with_an_app_token_says_its_port(kit):
         pr.wait(timeout=10)
 
 
-def test_stopping_a_job_stops_the_command(app_server, kit):
+def test_stopping_a_job_stops_the_command_and_its_agent(app_server, kit, tmp_path, monkeypatch):
     code, job = call(app_server + "/api/app/cmd", {"cmd": "review", "args": {}}, token=TOKEN)
     assert code == 400                                                   # CLI-only commands are not run
-    # `autopilot` waits out usage limits for minutes: the longest-running command the app starts
-    code, job = call(app_server + "/api/app/cmd", {"cmd": "autopilot", "args": {"poll_seconds": 900}}, token=TOKEN)
+    # a run on a fake agent that takes long (never a real agent CLI of this machine)
+    from test_scheduler import FAKE
+    from conftest import wire_project
+    wire_project(kit)
+    script = tmp_path / "fake_agent.py"
+    script.write_text(FAKE, encoding="utf-8")
+    from lib.common import PREFS, save_json
+    save_json(PREFS, {"runners": {"fake": {"argv": [sys.executable, str(script), "ok"]}},
+                      "routing": {"agentic-heavy": ["fake"], "bounded": ["fake"]}})
+    log = tmp_path / "fake.log"
+    for k, v in {"FAKE_LOG": str(log), "KIT_DIR": str(kit.kit_dir), "FAKE_SLEEP": "60"}.items():
+        monkeypatch.setenv(k, v)
+    kit.plan.sync()
+    kit.plan.set_status("setup", "done")
+    code, job = call(app_server + "/api/app/cmd", {"cmd": "run", "args": {"max_units": 1, "per_runner": "fake=1"}},
+                     token=TOKEN)
     assert code == 200
-    time.sleep(1.5)
-    code, r = call(f"{app_server}/api/app/jobs/{job['id']}/cancel", {}, token=TOKEN)
-    if code == 200:                                                      # still running: it is stopped
-        j = wait_job(app_server, job["id"])
-        assert j["status"] == "failed" and j["rc"] != 0
+    end = time.monotonic() + 60
+    while not (log.exists() and '"start"' in log.read_text(encoding="utf-8")) and time.monotonic() < end:
+        time.sleep(0.2)
+    assert log.exists(), call(f"{app_server}/api/jobs/{job['id']}")[1]["log"]
+    code, _ = call(f"{app_server}/api/app/jobs/{job['id']}/cancel", {}, token=TOKEN)
+    assert code == 200
+    j = wait_job(app_server, job["id"], timeout=30)
+    assert j["status"] == "failed"
+    time.sleep(1)
+    assert '"end"' not in log.read_text(encoding="utf-8")                 # the agent went with it

@@ -62,8 +62,10 @@
   interview export [--lang es|en]   questionnaire → offline HTML form + Markdown copy to share with the team
   interview import FILE|DIR…   import the team's answers (form JSON or filled Markdown)
   interview status [--json]    who answered, unanswered questions, disagreements
-  doctor [--local|--context [--json]]
-                            check prerequisites and tool versions; --context: the tokens every agent session loads
+  doctor [--json] [--install NAME] [--local|--context [--json]]
+                            check prerequisites and tool versions (--json: with the command that fixes each;
+                            --install git|node|docker|java|claude|codex: with the OS package manager or npm);
+                            --context: the tokens every agent session loads
                             before reading a page (AGENTS.md, skills, MCP schemas) against context.budget;
                             --local: propose a free local model for this machine (bounded/judge work, through
                             OpenCode) without installing anything
@@ -289,6 +291,7 @@ def build_parser() -> argparse.ArgumentParser:
     mc = sp.add_parser("mcp"); mc.add_argument("--http", action="store_true"); mc.add_argument("--port", type=int, default=8765)
     dr = sp.add_parser("doctor"); dr.add_argument("--local", action="store_true")
     dr.add_argument("--context", action="store_true"); dr.add_argument("--json", action="store_true")
+    dr.add_argument("--install", choices=["git", "node", "docker", "java", "claude", "codex"])
     pg = sp.add_parser("plugins"); pg.add_argument("--json", action="store_true")
     pg.add_argument("action", nargs="?", default="list",
                     choices=["list", "add", "update", "outdated", "remove", "enable", "disable"])
@@ -689,6 +692,15 @@ def main() -> int:
     elif a.cmd == "doctor" and a.local:
         from lib.adapters.runners import local
         print("\n".join(local.report()))
+    elif a.cmd == "doctor" and a.install:
+        from lib import doctor
+        ok = doctor.install(a.install)
+        print(f"✔ {a.install} installed" if ok else f"✖ {a.install} could not be installed here: "
+              f"{env.prerequisites().get(a.install, {}).get('hint', a.install)}", file=sys.stdout if ok else sys.stderr)
+        return 0 if ok else 1
+    elif a.cmd == "doctor" and a.json:
+        from lib import doctor
+        print(json.dumps(doctor.report(), indent=2, ensure_ascii=False))
     elif a.cmd == "doctor":
         for k, v in env.prerequisites().items():
             print(f"{'✔' if v['ok'] else ('✖' if v['need'] else '·')} {k:<7} {v.get('found', '')}  {'' if v['ok'] else v['hint']}")

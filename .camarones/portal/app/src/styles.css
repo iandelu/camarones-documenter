@@ -169,3 +169,15 @@
 #native .run-opts label { display: grid; gap: .25rem; color: var(--muted); font-size: 13px; }
 #native .run-opts label.check { display: flex; align-items: center; gap: .4rem; }
 #native .agent-launch .row { gap: .5rem; flex-wrap: wrap; align-items: center; margin-top: .5rem; }
+
+/* Taller panels over --json */
+#native .tw-table th { text-align: left; white-space: nowrap; font-weight: 600; }
+#native .tw-table td, #native .tw-table th { vertical-align: top; padding: .35rem .6rem .35rem 0; }
+#native .tw-scroll { overflow-x: auto; margin-top: .6rem; }
+#native .tw-cmd .ok { color: var(--ok); }
+#native .tw-cmd .bad { color: var(--bad); }
+#native .tw-cmd .warn { color: var(--warn); }
+#native .tw-cmd .pill { margin-right: .35rem; }
+#native .tw-grow { flex: 1 1 16rem; min-width: 0; }
+#native .tw-out { margin-top: .5rem; flex-basis: 100%; }
+#native .tw-drift { margin-top: .8rem; }
