@@ -40,6 +40,13 @@ test('crumbs of a docs page decode, drop the anchor and use the title', () => {
     .toEqual({ text: 'alta nueva.md', href: '#/docs/flows/alta%20nueva.md' })
 })
 
+test('a folder with an index page links to it, as the old in-page crumbs did', () => {
+  const withIndex = { ...idx, docs: [...idx.docs, { path: 'flows/index.md', title: 'Flujos', space: 'docs' }] }
+  expect(crumbs('#/docs/flows/alta-mascota.md', 'live', withIndex)[1]).toEqual({ key: 'sec.flows', href: '#/docs/flows/index.md' })
+  expect(crumbs('#/docs/flows/index.md', 'live', withIndex).map((c) => c.href))
+    .toEqual(['#/docs', null, '#/docs/flows/index.md'])                      // the page itself is not linked twice
+})
+
 test('a malformed escape does not throw', () => {
   expect(crumbs('#/docs/flows/100%.md', 'live', idx).at(-1).text).toBe('100%.md')
 })
@@ -88,4 +95,5 @@ test('home KPIs come from the index only, none for an empty project', () => {
   expect(homeKpis({ ...idx, feedback: undefined }).map((k) => k.id)).not.toContain('feedback')
   expect(homeKpis({ ...idx, summary: { ...idx.summary, 'needs-reconfirm': 0 }, feedback: 0 }).map((k) => k.tone))
     .toEqual(['ok', null, null, null])
+  expect(homeKpis({ ...idx, summary: { ...idx.summary, confirmed: 0 } })[0]).toEqual({ id: 'confirmed', value: '0/3', tone: null })
 })

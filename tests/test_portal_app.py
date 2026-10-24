@@ -87,13 +87,19 @@ def test_the_old_next_address_redirects(server):
         assert e.code == 301 and e.headers["Location"] == "/"
 
 
-def test_the_react_views_are_tabs_of_the_portal(kit):
-    legacy = kit.kit_dir / "portal" / "app" / "public" / "legacy"
-    app = (legacy / "app.js").read_text(encoding="utf-8")
-    core = (legacy / "core.js").read_text(encoding="utf-8")
-    assert "['ask', '#/ask'], ['boards', '#/boards'], ['pipeline', '#/pipeline']" in app
+def test_the_react_views_are_reached_through_zones(kit):
+    """No tab bar since 4.42: Home, zone covers, breadcrumbs and ⌘K reach every view (src/zones.js)."""
+    app_dir = kit.kit_dir / "portal" / "app"
+    app = (app_dir / "public" / "legacy" / "app.js").read_text(encoding="utf-8")
+    core = (app_dir / "public" / "legacy" / "core.js").read_text(encoding="utf-8")
+    zones = (app_dir / "src" / "zones.js").read_text(encoding="utf-8")
+    for href in ("#/boards", "#/pipeline", "#/kpis", "#/ci", "#/libs", "#/data"):      # Ask is reached from the Home hero
+        assert f"'{href}'" in zones
+    assert "#/ask/" in app
     assert "window.CamaronNative.show(view, rest)" in app
-    assert core.count("boards:") == 2 and core.count("ask:") == 2                         # en + es
+    assert 'id="tabs"' not in (app_dir / "index.html").read_text(encoding="utf-8")
+    for key in ("'zone.arch'", "'home.title'"):
+        assert core.count(key) == 2                                                   # en + es
 
 
 def test_status_without_check_answers_fast_and_check_has_its_own_endpoint(server, kit, monkeypatch):

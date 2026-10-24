@@ -58,7 +58,11 @@ export function crumbs(hash, mode, index) {
   if (viewId === 'pages') {
     if (!rest) return out
     const parts = rest.split('/')
-    parts.slice(0, -1).forEach((seg, i) => out.push(i === 0 ? { key: `sec.${seg}`, href: null } : { text: seg, href: null }))
+    parts.slice(0, -1).forEach((seg, i) => {
+      const folderIndex = `${parts.slice(0, i + 1).join('/')}/index.md`
+      const href = folderIndex !== rest && titleOf(index, folderIndex) !== undefined ? `#/docs/${folderIndex}` : null
+      out.push(i === 0 ? { key: `sec.${seg}`, href } : { text: seg, href })
+    })
     return [...out, { text: titleOf(index, rest) || parts.at(-1), href: `#/docs/${raw}` }]
   }
   if (target.href !== zone.href) out.push({ key: `view.${viewId}`, href: target.href })
@@ -84,7 +88,7 @@ export function homeKpis(index) {
   if (!s.total) return []
   const reconfirm = s['needs-reconfirm'] || 0
   const out = [
-    { id: 'confirmed', value: `${s.confirmed || 0}/${s.total}`, tone: 'ok' },
+    { id: 'confirmed', value: `${s.confirmed || 0}/${s.total}`, tone: s.confirmed > 0 ? 'ok' : null },
     { id: 'reconfirm', value: String(reconfirm), tone: reconfirm > 0 ? 'warn' : null },
     { id: 'drafts', value: String(s.draft || 0), tone: null },
   ]

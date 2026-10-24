@@ -33,7 +33,6 @@ async function showWiki(repo, rel, anchor) {
   const back = nav.backlinks[path] || [];
   const title = (p) => nav.pages.find((x) => x.path === p)?.title || p.split('/').pop();
   await showPage(path, anchor, {
-    crumbs: [[`#/wikis`, t('wikis')], [`#/wiki/${repo}`, repo]],
     order: nav.pages.map((p) => p.path),
     extra: `<a class="button ghost small" href="#/wiki/${esc(repo)}">🕸️ ${esc(t('graph'))}</a>`,
     banner: w.old ? `<div class="banner">${esc(t('wikiOld'))} <a href="#/wikis/">${esc(t('wikis'))} →</a></div>` : '',
