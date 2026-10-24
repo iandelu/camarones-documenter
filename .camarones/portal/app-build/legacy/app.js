@@ -126,6 +126,7 @@ async function showStart() {
   drawToc(null);
   if (emptyProject()) return drawEmptyProject();
   const Z = window.CamaronZones;
+  if (!Z) return showDocsHome();           // the bundle did not load: the docs home still works without it
   const kpis = Z.homeKpis(T);
   const askLabel = t(STATIC ? 'search' : 'homeAsk');
   $('#main').innerHTML = `<div class="page wide start">
@@ -151,6 +152,7 @@ async function showStart() {
 
 // A zone's cover (#/arch, #/plan, #/quality): its title and one tile per view this mode has.
 function showZone(id) {
+  if (!window.CamaronZones) return location.replace('#/docs');
   const zone = window.CamaronZones.zonesFor(MODE(), T).find((z) => z.id === id);
   if (!zone) return location.replace('#/');
   drawChrome(id, { bare: true });
@@ -488,12 +490,15 @@ let routing = Promise.resolve();
 let routeSeq = 0;
 function route() {
   const seq = ++routeSeq;
-  routing = routing.then(() => (seq === routeSeq ? routeNow() : undefined));
-  return routing;
+  const run = routing.then(() => (seq === routeSeq ? routeNow() : undefined));
+  routing = run.catch(() => {});          // one address that fails must not stop the next ones
+  return run;
 }
 
 async function routeNow() {
-  const h = decodeURIComponent(location.hash.slice(1));
+  const raw = location.hash.slice(1);
+  let h = raw;
+  try { h = decodeURIComponent(raw); } catch { /* a bare % in a file name: route the address as it is */ }
   const [, view = '', rest = ''] = h.match(/^\/([\w-]*)\/?(.*)$/) || [];
   if ($('#palette').open) $('#palette').close();
   if (['pipeline', 'boards', 'ask', 'kpis', 'ci', 'libs', 'data'].includes(view) && !STATIC && window.CamaronNative) {

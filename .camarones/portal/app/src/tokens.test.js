@@ -49,6 +49,21 @@ test.each(['light', 'dark'])('text tokens reach 4.5:1 on the canvas (%s)', (them
   expect(contrast(t['--color-on-accent'], t['--color-accent'])).toBeGreaterThanOrEqual(4.5)
 })
 
+// The aurora hero carries small text (eyebrow, notes). Over its strongest stop, mixed over the canvas as app.css does
+// (strength 1 light, 0.5 dark), that text uses --color-ink-soft: --color-ink-dim drops to about 3.3:1 there.
+const mix = (fg, pct, bg) => '#' + rgb(fg).map((c, i) => Math.round(255 * (c * pct + rgb(bg)[i] * (1 - pct))))
+  .map((v) => v.toString(16).padStart(2, '0')).join('')
+
+test.each([['light', 1], ['dark', 0.5]])('small text on the aurora stays readable (%s)', (theme, strength) => {
+  const t = tokens(theme)
+  for (const [stop, pct] of [['--color-aurora-cyan', 0.58], ['--color-aurora-violet', 0.62], ['--color-aurora-pink', 0.52]]) {
+    const bg = mix(t[stop], pct * strength, t['--color-canvas'])
+    expect(contrast(t['--color-ink-soft'], bg), `ink-soft on ${stop}`).toBeGreaterThanOrEqual(4.5)
+  }
+  const app = readFileSync(new URL('../public/legacy/app.css', import.meta.url), 'utf-8')
+  expect(app).toMatch(/\.aurora-bg \.eyebrow, \.aurora-bg \.muted \{ color: var\(--color-ink-soft\); \}/)
+})
+
 test('the dark block repeats under prefers-color-scheme', () => {
   const media = block(css, '@media (prefers-color-scheme: dark)')
   expect(declarations(block(media, ':root:not([data-theme="light"])')))
