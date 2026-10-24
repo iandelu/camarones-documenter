@@ -31,7 +31,8 @@ feature.
 
 - Existing `cam-docs/docs/boards/*.excalidraw` files are **never touched**: people made them; they stay in git and open
   in excalidraw.com. No migration deletes or moves them. Nothing in the kit reads them, so nothing breaks.
-- A bookmarked `#/boards` or `#/boards/<name>` falls back like any unknown portal route (no blank page, no error).
+- A bookmarked `#/boards` or `#/boards/<name>` is replaced by `#/arch` (the Architecture zone), the same way
+  `app.js` already redirects old addresses such as `#/wikis/<x>`.
 - `/api/boards`, `/api/board`, `/api/sketch` answer 404 like any unknown route. No CLI command, flag, workspace key or
   frontmatter field changes.
 - Projects keep their copy of the tutorial (templates are copied once); the commit body says so.
@@ -40,8 +41,8 @@ feature.
 ## Tests first
 
 1. `test_portal_app.py`: the Architecture zone links no `#/boards`.
-2. `zones.test.js`: Architecture views are `['c4', 'data', 'libs']`; `crumbs('#/boards/x')` does not throw and returns
-   no boards crumb.
+2. `zones.test.js`: Architecture views are `['c4', 'data', 'libs']`; `crumbs('#/boards/x')` returns `[]` (no boards
+   crumb, no throw). `test_portal_app.py` also asserts `app.js` redirects `boards` to `#/arch`.
 3. New Python test: `/api/boards` and `/api/sketch` → 404; a workspace with `docs/boards/old.excalidraw` still serves
    the portal and `check` passes without mentioning it; the file is unchanged afterwards.
 4. Then delete the code and the board tests; the suite (`uv run pytest`, `npm test`, `node --test` in desktop) is
@@ -51,5 +52,5 @@ feature.
 
 - No `excalidraw`/`boards` reference left outside history, research notes and the Pipeline kanban.
 - Suite green; sandbox: `uv run scripts/sandbox.py cli up` serves the portal with no Boards entry.
-- One conventional commit: `feat(portal)!`-free — `refactor(portal): drop Excalidraw boards` is wrong because users
-  notice it; use `feat(portal): remove Excalidraw boards; existing board files are kept`.
+- One conventional commit, `feat(portal): remove Excalidraw boards; existing board files are kept` (a change users
+  notice, so not `refactor`), with README, tutorial and version in the same commit.
