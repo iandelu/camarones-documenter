@@ -453,6 +453,7 @@ body[data-audience="business"] .dv-tech { display: none; }
     radial-gradient(at 66% 98%, color-mix(in oklch, var(--color-aurora-amber) calc(44% * var(--s)), transparent) 0%, transparent 42%),
     var(--bg);
 }
+.aurora-bg .eyebrow, .aurora-bg .muted { color: var(--color-ink-soft); }   /* ink-dim drops under 4.5:1 on the gradient */
 .aviso { border: 1px solid var(--line); border-left: 3px solid var(--warn); border-radius: var(--radius-campo); background: var(--raise);
          color: var(--ink-2); padding: .55rem .9rem; font-size: var(--text-body-sm); }
 .skeleton { min-height: 9rem; border-radius: var(--consola-radio-tarjeta); background:
