@@ -8,3 +8,4 @@
 *.cmd text eol=crlf
 *.png binary
 *.gif binary
+*.woff2 binary

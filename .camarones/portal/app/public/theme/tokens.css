@@ -1,0 +1,123 @@
+/* The portal's theme: Cofundo's design tokens (the cofundo-design-system skill, web version of 2026-10-02) with the
+   Camarón adaptations of .claude/skills/cofundo-design-system/CAMARON.md. Linked before legacy/app.css, whose
+   variables (--bg, --ink, --line…) are aliases of these, so every view follows one theme.
+   Light is Cofundo's; dark is derived (Cofundo has none) and keeps 4.5:1 for text: src/tokens.test.js checks both.
+   The aurora colours are backgrounds only, never text. Fonts are served from fonts/ (OFL), never from a CDN. */
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url("fonts/Inter.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Big Shoulders";
+  font-style: normal;
+  font-weight: 600 700;
+  font-display: swap;
+  src: url("fonts/BigShoulders.woff2") format("woff2");
+}
+
+:root {
+  /* canvas and ink */
+  --color-canvas: #fafaf7;
+  --color-canvas-elevated: #ffffff;
+  --color-ink: #0a0a0a;
+  --color-ink-soft: #4a4a4a;
+  --color-ink-dim: #6b6b6b;
+  --color-rule: rgba(10, 10, 10, 0.08);
+
+  /* aurora: backgrounds and tints only */
+  --color-aurora-cyan: #6ec8ff;
+  --color-aurora-violet: #b89aff;
+  --color-aurora-pink: #ff9ec4;
+  --color-aurora-coral: #ff8a5b;
+  --color-aurora-amber: #ffb56b;
+
+  /* accent: high contrast, not a hue */
+  --color-accent: #0a0a0a;
+  --color-on-accent: #ffffff;
+  --color-acento-texto: #6d28d9;
+
+  /* states, always with their word */
+  --color-estado-bien: #166534;
+  --color-estado-aviso: #92400e;
+  --color-estado-mal: #b91c1c;
+
+  /* type */
+  --font-impact: "Big Shoulders", "Arial Narrow", Impact, sans-serif;
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Monaco, "Cascadia Code", Consolas, monospace;
+  --text-display-xl: clamp(3.5rem, 9.5vw, 8.5rem);
+  --text-display-lg: clamp(2.75rem, 6vw, 5.5rem);
+  --text-display-md: clamp(2rem, 4vw, 3.5rem);
+  --text-h1: clamp(1.75rem, 2.8vw, 2.5rem);
+  --text-h2: clamp(1.375rem, 2vw, 1.875rem);
+  --text-h3: clamp(1.125rem, 1.5vw, 1.375rem);
+  --text-body: 1.0625rem;
+  --text-body-sm: 0.9375rem;
+  --text-meta: 0.8125rem;
+  --text-micro: 0.6875rem;
+
+  /* shapes and shadows: hierarchy comes from space, shadows only for what floats */
+  --radius-tarjeta: 1.25rem;
+  --radius-campo: 0.7rem;
+  --radius-pildora: 999px;
+  --consola-radio-tarjeta: 1rem;
+  --consola-radio-control: 0.75rem;
+  --consola-radio-chico: 0.5rem;
+  --sombra-hover: 0 24px 48px -24px rgba(10, 10, 10, 0.18);
+  --sombra-modal: 0 40px 80px -24px rgba(10, 10, 10, 0.4);
+  --sombra-menu: 0 12px 28px -18px rgba(0, 0, 0, 0.35);
+
+  /* motion: transform and opacity only */
+  --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-soft: cubic-bezier(0.65, 0, 0.35, 1);
+  --duration-quick: 200ms;
+  --duration-normal: 400ms;
+  --duration-slow: 800ms;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-canvas: #121211;
+    --color-canvas-elevated: #1b1b19;
+    --color-ink: #f2f1ec;
+    --color-ink-soft: #c4c3bd;
+    --color-ink-dim: #9a9993;
+    --color-rule: rgba(242, 241, 236, 0.1);
+    --color-accent: #f2f1ec;
+    --color-on-accent: #121211;
+    --color-acento-texto: #b9a3ff;
+    --color-estado-bien: #6fcf8f;
+    --color-estado-aviso: #f0b36b;
+    --color-estado-mal: #ff8f8f;
+    --sombra-hover: 0 24px 48px -24px rgba(0, 0, 0, 0.5);
+    --sombra-modal: 0 40px 80px -24px rgba(0, 0, 0, 0.7);
+    --sombra-menu: 0 12px 28px -18px rgba(0, 0, 0, 0.6);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --color-canvas: #121211;
+  --color-canvas-elevated: #1b1b19;
+  --color-ink: #f2f1ec;
+  --color-ink-soft: #c4c3bd;
+  --color-ink-dim: #9a9993;
+  --color-rule: rgba(242, 241, 236, 0.1);
+  --color-accent: #f2f1ec;
+  --color-on-accent: #121211;
+  --color-acento-texto: #b9a3ff;
+  --color-estado-bien: #6fcf8f;
+  --color-estado-aviso: #f0b36b;
+  --color-estado-mal: #ff8f8f;
+  --sombra-hover: 0 24px 48px -24px rgba(0, 0, 0, 0.5);
+  --sombra-modal: 0 40px 80px -24px rgba(0, 0, 0, 0.7);
+  --sombra-menu: 0 12px 28px -18px rgba(0, 0, 0, 0.6);
+  color-scheme: dark;
+}

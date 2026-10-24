@@ -16,8 +16,10 @@ SOURCE = REPO / ".camarones" / "portal" / "app"
 
 def test_the_build_is_committed_and_complete():
     html = (BUILD / "index.html").read_text(encoding="utf-8")
-    refs = [r.removeprefix("./") for r in re.findall(r'(?:src|href)="((?:\./)?(?:assets|legacy)/[^"]+)"', html)]
+    refs = [r.removeprefix("./") for r in re.findall(r'(?:src|href)="((?:\./)?(?:assets|legacy|theme)/[^"]+)"', html)]
     assert refs and all((BUILD / r).is_file() for r in refs)
+    theme = '<link rel="stylesheet" href="theme/tokens.css">'
+    assert theme in html and html.index(theme) < html.index('href="legacy/app.css"')     # the theme applies first
     assert '="/' not in html.replace('href="#/', '')                     # relative: the export works under a sub-path
     for script in ("core", "doc", "c4", "code", "wiki", "app"):
         assert f'<script defer src="legacy/{script}.js">' in html
@@ -62,6 +64,13 @@ def test_the_portal_is_served_at_the_root(server):
     assert status == 200 and "javascript" in ctype
     assert get(f"{server}/legacy/doc.js")[0] == 200
     assert get(f"{server}/anything-without-a-suffix")[2] == body
+
+
+def test_the_theme_and_its_fonts_are_served(server):
+    status, ctype, _ = get(f"{server}/theme/tokens.css")
+    assert status == 200 and "text/css" in ctype
+    status, ctype, body = get(f"{server}/theme/fonts/Inter.woff2")
+    assert status == 200 and ctype == "font/woff2" and body[:4] == b"wOF2"      # whatever this OS's registry says
 
 
 def test_the_old_next_address_redirects(server):
