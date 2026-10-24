@@ -74,7 +74,9 @@ def argv(e: dict, args: dict, confirmed: bool = False) -> list[str]:
             raise ValueError(f"unknown argument {k}")
     if e["confirm"] and args.get("yes"):
         raise ValueError("yes: the app asks first and adds it")
-    if (e["confirm"] or e["destructive"]) and not confirmed:
+    reading = bool(e.get("reads") and args.get(e["reads"]))           # e.g. `trust --json` lists, approves nothing
+    asks = (e["confirm"] or e["destructive"]) and not reading
+    if asks and not confirmed:
         raise PermissionError(f"{e['name']} needs a confirmation first")
     pos, opts = [], []
     for r in rows:
@@ -99,7 +101,7 @@ def argv(e: dict, args: dict, confirmed: bool = False) -> list[str]:
             continue
         vals = _value(r, v)
         (pos.extend(vals) if r["positional"] else opts.extend([r["flag"], *vals]))
-    if e["confirm"]:
+    if e["confirm"] and not reading:
         opts.append("--yes")
     return [e["name"], *pos, *opts]
 

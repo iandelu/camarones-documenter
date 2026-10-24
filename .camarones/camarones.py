@@ -94,7 +94,7 @@
   review request PAGE [--note T] | wait ID [--timeout S] | list
                             an agent asks a person to review a page and waits for the answer (approve / changes, as
                             JSON); people answer in the portal's Review tab
-  hooks [on|off]            method hooks for Claude Code in cam-docs: the plan state at session start, a check of each
+  hooks [on|off] [--json]   method hooks for Claude Code in cam-docs: the plan state at session start, a check of each
                             docs page right after it is edited, a reminder to update the docs before stopping
   ab --qa "QUESTION" | --golden [--runner T] [--judge T] [--json]
                             the same question with cam-docs and without it (only the code, in a throwaway folder that
@@ -137,7 +137,7 @@
   new NAME [--from URL]     create ./NAME/cam-docs/, register it, open it (global install); --from joins the team's repo
   join URL [FOLDER]         use the team's cam-docs repo: clone it into FOLDER/cam-docs (default: here) or reuse the
                             copy already on this machine; the wizard then only sets up this machine
-  trust [--yes]             list the agent config (hooks, MCP servers, settings, skills) this machine has not approved;
+  trust [--yes] [--json]    list the agent config (hooks, MCP servers, settings, skills) this machine has not approved;
                             approve it and link it into the workspace (unapproved config is never linked)
   switch                    pick a registered project to open (global install)
   self-update               git pull the central kit in place (global install only)
@@ -236,6 +236,10 @@ def cmd_trust(a) -> int:
     from lib import trust
     env.refresh_agent_config()
     rows = trust.grouped(trust.pending())
+    if a.json:                                  # what is pending, for the desktop app (approving takes --yes)
+        print(json.dumps({"pending": [dict(zip(("kind", "label", "detail", "status"), r)) for r in rows]},
+                         ensure_ascii=False))
+        return 0
     if not rows:
         env.link_workspace()
         print("✔ nothing to approve: the agent config and plugins are the kit's own or already approved on this machine")
@@ -288,6 +292,7 @@ def build_parser() -> argparse.ArgumentParser:
     rv.add_argument("--timeout", type=float, default=3600)
     hk = sp.add_parser("hook"); hk.add_argument("name", choices=["session-start", "post-edit", "stop"])
     hks = sp.add_parser("hooks"); hks.add_argument("state", nargs="?", choices=["on", "off"])
+    hks.add_argument("--json", action="store_true")
     mc = sp.add_parser("mcp"); mc.add_argument("--http", action="store_true"); mc.add_argument("--port", type=int, default=8765)
     dr = sp.add_parser("doctor"); dr.add_argument("--local", action="store_true")
     dr.add_argument("--context", action="store_true"); dr.add_argument("--json", action="store_true")
@@ -353,7 +358,7 @@ def build_parser() -> argparse.ArgumentParser:
     cp = sp.add_parser("checkpoint"); cp.add_argument("message", nargs="?", default="progress")
     rm = sp.add_parser("remote"); rm.add_argument("url", nargs="?")
     sh = sp.add_parser("share"); sh.add_argument("--auto", choices=["on", "off"])
-    tr = sp.add_parser("trust"); tr.add_argument("--yes", action="store_true")
+    tr = sp.add_parser("trust"); tr.add_argument("--yes", action="store_true"); tr.add_argument("--json", action="store_true")
     jn = sp.add_parser("join"); jn.add_argument("url"); jn.add_argument("folder", nargs="?", type=Path)
     jn.add_argument("--no-open", action="store_true")
     us = sp.add_parser("stats"); us.add_argument("--json", action="store_true")
@@ -596,6 +601,9 @@ def main() -> int:
         from lib import hooks
         if a.state:
             hooks.set_enabled(a.state == "on")
+        if a.json:
+            print(json.dumps({"enabled": hooks.enabled()}))
+            return 0
         print(f"method hooks: {'on' if hooks.enabled() else 'off'}" + (
             " — SessionStart (plan state), PostToolUse (check the page just edited), Stop (remind once to update docs)"
             if hooks.enabled() else ""))

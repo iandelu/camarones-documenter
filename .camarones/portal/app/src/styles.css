@@ -201,3 +201,16 @@
 #native .tw-block { margin-top: .9rem; }
 #native .in-unit { display: grid; gap: .25rem; padding: .6rem 0; border-top: 1px solid var(--line); }
 #native .iv-q p { margin: 0; }
+
+/* Sync with the team */
+#native .sy-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); gap: .8rem; margin: 1.25rem 0; }
+#native .sy-tile { display: grid; gap: .3rem; padding: .9rem 1rem; border: 1px solid var(--line); border-radius: var(--consola-radio-tarjeta); background: var(--raise); min-width: 0; }
+#native .sy-tile b { font-family: var(--font-impact); font-size: 1.9rem; line-height: 1; }
+#native .sy-tile b.sy-when { font-size: 1.1rem; }
+#native .sy-tile code { overflow-wrap: anywhere; font-size: .8rem; }
+#native .sy-tile.wide { grid-column: span 2; }
+@media (max-width: 640px) { #native .sy-tile.wide { grid-column: auto; } }
+#native .sy-tile.warn { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
+#native .sy-actions { gap: .6rem; align-items: center; flex-wrap: wrap; margin: .5rem 0 1.5rem; }
+#native .sync .ok { color: var(--ok); }
+#native .sy-files { columns: 2 18rem; padding-left: 1.1rem; }

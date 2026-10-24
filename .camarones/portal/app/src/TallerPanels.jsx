@@ -12,6 +12,7 @@ export default function TallerPanels({ zone }) {
   if (zone === 'check') return <div className="tw-list"><Doctor /><Context /><Evals /><Ab /></div>
   if (zone === 'analyze') return <div className="tw-list"><Cves /><Fresh /><Blocks /></div>
   if (zone === 'interviews') return <div className="tw-list"><Interviews /></div>
+  if (zone === 'team') return <div className="tw-list"><Remote /><Trust /><Plugins /></div>
   return null
 }
 
@@ -327,6 +328,111 @@ function Interviews() {
           ))}
         </div>
       ) : null}
+    </Card>
+  )
+}
+
+// ---------- Equipo ----------
+
+// The team's cam-docs repo on this machine: where it points, whether every checkpoint is shared, and the way to the
+// portal's Sync view, which shares on demand.
+function Remote() {
+  const [s, setS] = useState(null)
+  const [url, setUrl] = useState('')
+  const j = useJob()
+  const load = () => getJSON('sync').then((x) => { setS(x); setUrl(x.remote || '') }, () => {})
+  useEffect(() => { load() }, [])
+  async function run(cmd, args) {
+    const end = await j.start(cmd, args)
+    if (end) load()
+  }
+  return (
+    <Card title={t('tmRemote')} cmd="remote · share" lead={t('tmRemoteLead')}>
+      <div className="row tw-actions">
+        <input className="co-input tw-grow" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="git@github.com:equipo/cam-docs.git"
+               aria-label={t('tmRemote')} />
+        <button type="button" className="small" disabled={j.running || !url.trim() || url.trim() === s?.remote || url.trim().startsWith('-')}
+                onClick={() => run('remote', { url: url.trim() })}>{t('tmSaveRemote')}</button>
+      </div>
+      {s ? (
+        <div className="row tw-actions">
+          <span>{t('tmAuto')}: <b>{s.auto ? t('tmOn') : t('tmOff')}</b></span>
+          <button type="button" className="ghost small" disabled={j.running || !s.remote}
+                  onClick={() => run('share', { auto: s.auto ? 'off' : 'on' })}>{s.auto ? t('tmAutoOff') : t('tmAutoOn')}</button>
+          <a className="button ghost small" href="#/sync">{t('tmSync')} →</a>
+        </div>
+      ) : null}
+      <div className="row tw-actions"><JobLine j={j} /></div>
+    </Card>
+  )
+}
+
+// Agent config and plugins that came with the team's repo and this machine has not approved: nothing of it is loaded
+// until it is. Approving runs `trust --yes` after the app asked.
+function Trust() {
+  const list = useJob()
+  const act = useJob()
+  const hooks = useJob()
+  const load = () => { list.start('trust', { json: true }); hooks.start('hooks', { json: true }) }
+  useEffect(() => { load() }, [])
+  const rows = list.job?.result?.pending
+  const on = hooks.job?.result?.enabled
+  async function approve() {
+    const end = await act.start('trust', {}, true)
+    if (end) load()
+  }
+  async function toggleHooks() {
+    const end = await act.start('hooks', { state: on ? 'off' : 'on' })
+    if (end) load()
+  }
+  return (
+    <Card title={t('tmTrust')} cmd="trust · hooks" lead={t('tmTrustLead')}>
+      {rows ? (rows.length ? (<>
+        <div className="tw-scroll"><table className="kpi-table tw-table"><tbody>
+          {rows.map((r) => <tr key={r.kind + r.label}><th>{r.kind}</th><td><code>{r.label}</code></td>
+            <td className="muted small">{r.detail}</td><td className="warn">{r.status}</td></tr>)}
+        </tbody></table></div>
+        <div className="row tw-actions">
+          <button type="button" className="small" disabled={act.running} onClick={approve}>{t('tmApprove').replace('{n}', rows.length)}</button>
+        </div>
+      </>) : <p className="ok small">{t('tmTrusted')}</p>) : <JobLine j={list} />}
+      {on != null ? (
+        <div className="row tw-actions">
+          <span>{t('tmHooks')}: <b>{on ? t('tmOn') : t('tmOff')}</b></span>
+          <button type="button" className="ghost small" disabled={act.running} onClick={toggleHooks}>{on ? t('tmHooksOff') : t('tmHooksOn')}</button>
+        </div>
+      ) : null}
+      <p className="muted small">{t('tmHooksLead')}</p>
+      <div className="row tw-actions"><JobLine j={act} /></div>
+    </Card>
+  )
+}
+
+function Plugins() {
+  const list = useJob()
+  const act = useJob()
+  useEffect(() => { list.start('plugins', { json: true }) }, [])
+  const rows = list.job?.result || null
+  async function run(action, name) {
+    const end = await act.start('plugins', { action, target: name })
+    if (end) list.start('plugins', { json: true })
+  }
+  return (
+    <Card title={t('tmPlugins')} cmd="plugins" lead={t('tmPluginsLead')}>
+      {rows ? (rows.length ? (
+        <div className="tw-scroll"><table className="kpi-table tw-table"><tbody>
+          {rows.map((p) => <tr key={p.name}><th>{p.name} <span className="muted small">{p.version}</span></th>
+            <td className="small">{(p.provides || []).join(', ')}{p.runs_code ? <span className="pill warn">{t('tmRunsCode')}</span> : null}</td>
+            <td className={p.status === 'active' ? 'ok small' : 'muted small'}>{p.status}</td>
+            <td>{p.status === 'active'
+              ? <button type="button" className="ghost small" disabled={act.running} onClick={() => run('disable', p.name)}>{t('tmDisable')}</button>
+              : <button type="button" className="ghost small" disabled={act.running} onClick={() => run('enable', p.name)}>{t('tmEnable')}</button>}</td></tr>)}
+        </tbody></table></div>
+      ) : <p className="muted small">{t('twNothing')}</p>) : <JobLine j={list} />}
+      <div className="row tw-actions">
+        <a className="button ghost small" href="#/ci">{t('tmCi')} →</a>
+        <JobLine j={act} />
+      </div>
     </Card>
   )
 }

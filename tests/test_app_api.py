@@ -233,3 +233,11 @@ def test_stopping_a_job_stops_the_command_and_its_agent(app_server, kit, tmp_pat
     assert j["status"] == "failed"
     time.sleep(1)
     assert '"end"' not in log.read_text(encoding="utf-8")                 # the agent went with it
+
+
+def test_a_read_only_form_of_a_confirmed_command_needs_no_confirmation(kit, entries):
+    from lib import appapi
+    assert appapi.argv(entries["trust"], {"json": True}) == ["trust", "--json"]          # lists, approves nothing
+    with pytest.raises(PermissionError):
+        appapi.argv(entries["trust"], {})
+    assert appapi.argv(entries["trust"], {}, confirmed=True) == ["trust", "--yes"]

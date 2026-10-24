@@ -10,12 +10,13 @@ const Libs = lazy(() => import('./Libs.jsx'))
 const Data = lazy(() => import('./Data.jsx'))
 const Taller = lazy(() => import('./Taller.jsx'))
 const Interview = lazy(() => import('./Interview.jsx'))
+const Sync = lazy(() => import('./Sync.jsx'))
 const TALLER = ['generate', 'analyze', 'check', 'interviews', 'team', 'machine', 'kitdev']
 
 // The React views of the portal; the docs router (legacy/app.js) shows them through window.CamaronNative.
 export default function Native({ view, arg }) {
   if (TALLER.includes(view)) return <Suspense fallback={<div className="skeleton" aria-busy="true" />}><Taller key={view} zone={view} /></Suspense>
-  const View = { pipeline: Pipeline, boards: Boards, ask: Ask, kpis: Kpis, ci: Ci, libs: Libs, data: Data, interview: Interview }[view]
+  const View = { pipeline: Pipeline, boards: Boards, ask: Ask, kpis: Kpis, ci: Ci, libs: Libs, data: Data, interview: Interview, sync: Sync }[view]
   if (!View) return null
   return (
     <MotionConfig reducedMotion="user">

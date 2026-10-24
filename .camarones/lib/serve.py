@@ -565,6 +565,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(api_ask(q.get("q", "")))
         if name == "interview":
             return self.json(api_interview(q.get("who", "")))
+        if name == "sync":
+            return self.json(env.sync_status(fetch=q.get("fetch") == "1"))
         if name == "inventory":
             return self.json(api_inventory())
         if name == "schemas":
@@ -681,6 +683,8 @@ class Handler(BaseHTTPRequestHandler):
                 review.comment(b["path"], b["text"], by, b.get("slug", ""), b.get("snippet", ""))
                 plan.ensure("review-fixes", "review-fixes")
                 return self.json(read(b["path"]))
+            if p == "/api/sync/share":             # the team action: checkpoint, pull the team's work, push
+                return self.json({"result": env.share(log=lambda _: None), "sync": env.sync_status()})
             if p == "/api/interview/answer":
                 from . import questionnaire
                 questionnaire.answer(b)
