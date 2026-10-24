@@ -1,0 +1,127 @@
+/* Cofundo — tokens.
+   El bloque principal es el @theme de app/globals.css (cristiansanchez-cf/Cofundo @ 5db0fde),
+   copiado tal cual con las fuentes resueltas a sus nombres de Google Fonts. Cárgalas con:
+   https://fonts.googleapis.com/css2?family=Big+Shoulders:wght@500;600;700&family=Bricolage+Grotesque:wght@500&family=Inter:wght@400;500;600&display=swap */
+
+:root {
+  /* === Color: lienzo === */
+  --color-canvas: #fafaf7;             /* base off-white, calidez sutil */
+  --color-canvas-elevated: #ffffff;     /* cards, surfaces */
+  --color-ink: #0a0a0a;                 /* texto principal */
+  --color-ink-soft: #4a4a4a;            /* texto secundario */
+  /* #8a8a8a daba 3.26:1 sobre el canvas — por debajo del 4.5:1 que pide AA,
+     y se usa justo en el texto más pequeño (eyebrows de 11px, meta). #6b6b6b
+     da 5.1:1 y mantiene la jerarquía ink > ink-soft > ink-dim. */
+  --color-ink-dim: #6b6b6b;             /* meta, captions */
+  --color-rule: rgba(10, 10, 10, 0.08); /* bordes hairline */
+
+  /* === Color: gradient hexa-style ===
+     Stops suaves para que el texto oscuro respire por encima. Si en algún
+     momento queremos un aurora más vibrante (para una sección con texto
+     blanco), sumamos `.aurora-bg-vivid` en lugar de subir estos tokens. */
+  --color-aurora-cyan: #6ec8ff;
+  --color-aurora-violet: #b89aff;
+  --color-aurora-pink: #ff9ec4;
+  --color-aurora-coral: #ff8a5b;
+  --color-aurora-amber: #ffb56b;
+
+  /* === Color: accent === */
+  --color-accent: #0a0a0a;              /* el accent principal es alto contraste */
+  --color-accent-soft: #1a1a1a;
+
+  /* El violeta del aurora es un pastel: como FONDO va bien (tinte de burbuja,
+     subrayado, chip), pero como TEXTO da 2.21:1 sobre el lienzo y AA pide
+     4.5. Así que hay dos violetas y no son intercambiables:
+
+        --color-aurora-violet   → fondos y tintes.   NUNCA texto.
+        --color-acento-texto    → texto y bordes.    6.79:1 sobre el lienzo.
+
+     Pasó de verdad: los números del raíl se pusieron en el pastel para
+     "recuperar color vivo" y quedaron ilegibles. */
+  --color-acento-texto: #6d28d9;
+
+  /* === Estados, para la consola ===
+
+     Los tres únicos colores que la paleta no tenía y la consola necesita:
+     `salud: "roto"` no puede verse igual que `"ok"`, y "por debajo del
+     objetivo" no es ninguno de los dos.
+
+     VAN EN @theme Y NO EN EL BLOQUE DE LA CONSOLA A PROPÓSITO: aquí los ve
+     `revisarContraste()` del guard, que lee este fichero por nombre y exige
+     4.5:1 sobre el lienzo. Un color de texto fuera de ese control es el fallo
+     que ya costó --color-ink-dim, que estaba en 3.26:1 y nadie lo vio porque
+     "gris claro" es lo que uno espera ver.
+
+     Elegidos en la misma banda que --color-acento-texto (6.79:1) para que
+     pesen igual: 6.82, 6.78 y 6.19 sobre #fafaf7. */
+  --color-estado-bien: #166534;
+  --color-estado-aviso: #92400e;
+  --color-estado-mal: #b91c1c;
+
+  /* === Tipografía ===
+     --font-inter, --font-bricolage y --font-big-shoulders los inyecta next/font en <html>.
+     Aquí los componemos con fallbacks por si la fuente fallara la descarga. */
+  --font-impact: "Big Shoulders", "Oswald", "Arial Narrow", Impact, sans-serif;
+  --font-display: "Bricolage Grotesque", "PP Editorial New", ui-serif, Georgia, serif;
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Monaco, "Cascadia Code", monospace;
+
+  /* === Tipografía: escala ===
+     Fluida con clamp. Bajado un punto respecto al primer pase para que
+     el hero respire un poco más y no rebose en pantallas estándar. */
+  --text-display-xl: clamp(3.5rem, 9.5vw, 8.5rem);  /* hero */
+  --text-display-lg: clamp(2.75rem, 6vw, 5.5rem);   /* secciones grandes */
+  --text-display-md: clamp(2rem, 4vw, 3.5rem);
+  --text-h1: clamp(1.75rem, 2.8vw, 2.5rem);
+  --text-h2: clamp(1.375rem, 2vw, 1.875rem);
+  --text-h3: clamp(1.125rem, 1.5vw, 1.375rem);
+  --text-body: 1.0625rem;     /* 17px, ligeramente mayor que el 16 estándar */
+  --text-body-sm: 0.9375rem;
+  --text-meta: 0.8125rem;
+  --text-micro: 0.6875rem;     /* etiquetas, eyebrow text */
+
+  /* === Espaciado: usar Tailwind nativo pero con scala "respiramos" === */
+  --section-pad-y: clamp(4rem, 9vw, 10rem);
+  --container-max: 1280px;
+  --container-narrow: 880px;
+
+  /* === Header ===
+     El umbral vive aquí y no dentro del componente: es una decisión de
+     diseño (cuándo la página "reacciona"), no un detalle de implementación. */
+  --header-h: 4.5rem;
+  /* Cuánto hay que bajar para que el header se vuelva sólido.
+     Estaba en 80% del viewport: casi una pantalla entera con el header
+     transparente por encima del contenido, y el wordmark cruzándose con el
+     texto. Basta con haber empezado a bajar — el header tiene 4.5rem, así que
+     con 6rem ya hay contenido pasando por debajo. */
+  --header-threshold: 6rem;
+
+  /* === Animación === */
+  --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-soft: cubic-bezier(0.65, 0, 0.35, 1);
+  --duration-quick: 200ms;
+  --duration-normal: 400ms;
+  --duration-slow: 800ms;
+}
+
+/* Solo para la consola interna (/admin). */
+:root {
+  --consola-radio-tarjeta: 1rem;      /* 16 */
+  --consola-radio-control: 0.75rem;   /* 12 */
+  --consola-radio-chico: 0.5rem;      /*  8 */
+  --consola-peso-fuerte: 600;
+}
+
+/* Nombres para valores que en el código van escritos a mano en cada componente.
+   No existen como variables en la web; están aquí para no reescribirlos al construir. */
+:root {
+  --radius-tarjeta: 1.25rem;   /* tarjetas, bloques, puertas, surface */
+  --radius-marco: 0.875rem;    /* marco de navegador de las capturas */
+  --radius-campo: 0.7rem;      /* campos, avisos, filas de lista */
+  --radius-pildora: 999px;     /* botones y chips: siempre píldora */
+  --sombra-hover: 0 24px 48px -24px rgba(10, 10, 10, 0.18);
+  --sombra-marco: 0 24px 48px -24px rgba(10, 10, 10, 0.28);
+  --sombra-mockup: 0 24px 48px -24px rgba(10, 10, 10, 0.22);
+  --sombra-modal: 0 40px 80px -24px rgba(10, 10, 10, 0.4);
+  --sombra-menu: 0 12px 28px -18px rgba(0, 0, 0, 0.35);
+}

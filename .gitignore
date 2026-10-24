@@ -23,7 +23,8 @@ credentials.json
 *.pem
 *.key
 /.codex/
-/.claude/
+/.claude/*
+!/.claude/skills/
 /.agents/
 
 # OS / editors

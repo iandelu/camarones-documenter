@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cofundo · muestrario</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders:wght@500;600;700&family=Bricolage+Grotesque:wght@500&family=Inter:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="componentes.css">
+<style>
+
+
+.lienzo{position:relative;width:960px;height:300px;overflow:hidden;background:var(--color-canvas)}
+svg{position:absolute;inset:0}
+.violeta{fill:var(--color-aurora-violet)}.coral{fill:var(--color-aurora-coral)}.cian{fill:var(--color-aurora-cyan)}
+.ambar{fill:var(--color-aurora-amber)}.tinta{fill:var(--color-ink)}.hueco{fill:var(--color-canvas)}
+.bloque{rx:var(--radius-tarjeta);ry:var(--radius-tarjeta)}
+.pildora{rx:10px;ry:10px}
+.texto{position:absolute;left:40px;bottom:36px;max-width:440px}
+.nombre{margin:0;font-family:var(--font-impact);font-weight:600;font-size:104px;line-height:0.92;letter-spacing:-0.03em;color:var(--color-ink)}
+.lema{margin:12px 0 0;font-family:var(--font-sans);font-size:14px;line-height:1.4;color:var(--color-ink-dim)}
+
+body{margin:0;background:var(--color-canvas);color:var(--color-ink);font-family:var(--font-sans)}
+.pv{padding:24px;display:flex;flex-wrap:wrap;gap:16px;align-items:center}
+.m-pagina{max-width:1000px;margin:0 auto;padding:40px 20px 80px;display:grid;gap:56px}
+.m-portada{overflow-x:auto;border:1px solid var(--color-rule);border-radius:1.25rem}
+.m-ficha{display:grid;gap:12px}
+.m-nombre{margin:0;font-family:var(--font-impact);font-weight:600;font-size:var(--text-h1);line-height:1.1}
+.m-resumen{margin:0;max-width:62ch;color:var(--color-ink-soft);line-height:1.6}
+.m-muestra{border:1px solid var(--color-rule);border-radius:1.25rem;background:var(--color-canvas);overflow:hidden}
+code{font-family:var(--font-mono);font-size:0.9em}
+</style></head>
+<body><main class="m-pagina">
+<div class="m-portada">
+<div class="lienzo">
+  <svg viewBox="0 0 960 300" width="960" height="300" aria-hidden="true">
+    <!--
+      bloques: color-aurora-violet 200x180, color-aurora-coral 260x112, color-ink 140x160,
+               color-aurora-cyan 104x72, color-aurora-amber 104x72; esquinas radius-tarjeta (1.25rem)
+      disposición: losa alta violeta sangrando por arriba con satélites a la derecha,
+               coral sangrando por la derecha, tinta y ámbar por abajo, todo a la derecha de x=480
+      patrón: píldoras (radius-pildora). Los botones y chips de Cofundo son siempre píldora
+               y sus tarjetas llevan radio grande: la marca se reconoce por esa forma
+      escalas: separación 16px entre bloques; píldoras de 20px de alto (rx 10) recortadas en color-canvas
+    -->
+    <rect class="bloque violeta" x="500" y="-24" width="200" height="180"/>
+    <rect class="bloque coral" x="716" y="24" width="260" height="112"/>
+    <rect class="bloque tinta" x="716" y="152" width="140" height="172"/>
+    <rect class="bloque cian" x="872" y="152" width="104" height="72"/>
+    <rect class="bloque ambar" x="872" y="240" width="104" height="84"/>
+    <rect class="pildora hueco" x="524" y="40" width="96" height="20"/>
+    <rect class="pildora hueco" x="524" y="72" width="64" height="20"/>
+    <rect class="pildora hueco" x="596" y="72" width="80" height="20"/>
+    <rect class="pildora hueco" x="524" y="104" width="128" height="20"/>
+    <rect class="pildora hueco" x="740" y="176" width="72" height="20"/>
+    <rect class="pildora hueco" x="740" y="208" width="48" height="20"/>
+    <rect class="pildora hueco" x="740" y="240" width="92" height="20"/>
+    <rect class="pildora tinta" x="740" y="56" width="112" height="20"/>
+    <rect class="pildora tinta" x="740" y="88" width="64" height="20"/>
+  </svg>
+  <div class="texto">
+    <p class="nombre">Cofundo</p>
+    <p class="lema">Especialistas en la venta de fase temprana.</p>
+  </div>
+</div>
+</div>
+<section class="m-ficha"><h2 class="m-nombre">Aviso</h2><p class="m-resumen"><code>co-aviso</code> es un mensaje neutro dentro de un bloque: texto <code>color-ink-soft</code> sobre <code>color-canvas-elevated</code>, borde <code>color-rule</code> y <code>radius-campo</code>. <code>co-error</code> es lo mismo con el borde teñido de coral. Los enlaces dentro van en <code>color-acento-texto</code>, subrayados.</p><div class="m-muestra">
+<div style="padding:24px;display:grid;gap:12px;max-width:560px">
+  <p class="co-aviso" style="margin:0">No quedan asientos libres: 5 de 5 en uso. Sube el plan o da de baja a alguien.</p>
+  <p class="co-error" style="margin:0">No hemos podido guardarlo ahora mismo. No es que no puedas hacerlo: el servidor no ha contestado. <a href="#">Volver a intentarlo</a></p>
+</div>
+</div></section><section class="m-ficha"><h2 class="m-nombre">Boton</h2><p class="m-resumen"><code>co-btn</code>: la acción principal, en píldora negra (<code>color-accent</code>, texto blanco); <code>co-btn--ghost</code> para la acción secundaria y <code>co-btn--sm</code> para la versión compacta.</p><div class="m-muestra">
+<div class="pv">
+  <a class="co-btn" href="#">Ver el precio <span aria-hidden="true">→</span></a>
+  <a class="co-btn co-btn--ghost" href="#">Cómo funciona</a>
+  <a class="co-btn co-btn--sm" href="#">Empezar</a>
+  <a class="co-btn co-btn--ghost co-btn--sm" href="#">Entrar</a>
+</div>
+</div></section><section class="m-ficha"><h2 class="m-nombre">Campo</h2><p class="m-resumen"><code>co-input</code>: campo de texto de 2.9rem de alto, borde <code>color-rule</code>, <code>radius-campo</code>, fondo <code>color-canvas-elevated</code> y placeholder en <code>color-ink-dim</code>. Va en fila con su botón, que salta a la línea de abajo cuando no cabe.</p><div class="m-muestra">
+<div style="padding:24px;max-width:560px">
+  <label class="text-eyebrow" for="correo" style="display:block;margin-bottom:8px">Tu correo</label>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <input id="correo" class="co-input" type="email" placeholder="tu@empresa.com" style="flex:1 1 14rem">
+    <button class="co-btn" type="button">Enviarme el código</button>
+  </div>
+</div>
+</div></section><section class="m-ficha"><h2 class="m-nombre">Chip</h2><p class="m-resumen"><code>co-chip</code>: etiqueta pequeña en píldora, mayúsculas de 11px y borde <code>color-rule</code>, para marcar un dato al lado de otro («Tú», «No consume asiento», un estado de producto).</p><div class="m-muestra">
+<div class="pv">
+  <span class="co-chip">Disponible</span>
+  <span class="co-chip">En beta</span>
+  <span class="co-chip">Tú</span>
+  <span class="co-chip">No consume asiento</span>
+</div>
+</div></section><section class="m-ficha"><h2 class="m-nombre">Esqueleto</h2><p class="m-resumen"><code>co-esqueleto</code>: la forma de lo que va a llegar, con un brillo que la recorre, mientras se carga. Sustituye al spinner sobre una pantalla vacía, que no dice nada.</p><div class="m-muestra">
+<div style="padding:24px;display:grid;gap:10px;max-width:560px">
+  <div class="co-esqueleto"></div>
+  <div class="co-esqueleto" style="height:2rem;width:70%"></div>
+</div>
+</div></section><section class="m-ficha"><h2 class="m-nombre">Golpe</h2><p class="m-resumen"><code>co-golpe</code>: una afirmación grande y sola que rompe el ritmo de la página, en dos líneas: <code>co-golpe__uno</code> en <code>color-ink</code> y <code>co-golpe__dos</code> en <code>color-ink-dim</code>, en <code>impact</code> a <code>t-display-md</code> con medida de 22ch.</p><div class="m-muestra">
+<div style="padding:28px">
+  <p class="co-golpe" style="margin:0">
+    <span class="co-golpe__uno">Todo el mundo te dice que la venta se aprende practicando.</span>
+    <span class="co-golpe__dos">Nadie te dice qué hacer el martes que el cliente no contesta.</span>
+  </p>
+</div>
+</div></section><section class="m-ficha"><h2 class="m-nombre">Marca</h2><p class="m-resumen">La marca de Cofundo es tipográfica: la wordmark «cofundo» en minúsculas, en Bricolage Grotesque 500 (<code>wordmark</code>), y el monograma «c» cuando el header encoge. No hay logotipo en fichero.</p><div class="m-muestra">
+<div class="pv" style="gap:40px">
+  <span style="font-family:var(--font-display);font-weight:500;font-size:1.5rem;letter-spacing:-0.015em;line-height:1;color:var(--color-ink)">cofundo</span>
+  <span style="font-family:var(--font-display);font-weight:500;font-size:1.5rem;line-height:1;color:var(--color-ink)">c</span>
+  <span style="display:grid;place-items:center;width:64px;height:64px;border-radius:12px;background:var(--color-ink);color:var(--color-canvas);font-size:48px;line-height:1;padding-bottom:6px;box-sizing:border-box">c</span>
+</div>
+</div></section><section class="m-ficha"><h2 class="m-nombre">Puerta</h2><p class="m-resumen"><code>co-puerta</code>: tarjeta grande para elegir entre dos caminos que no se solapan, con titular en <code>impact</code> a <code>t-display-md</code>, un lede en <code>color-ink-soft</code>, una línea de «para quién» separada por <code>color-rule</code> y un enlace con flecha. Van en <code>co-puertas</code>, dos columnas que pasan a una a 899px.</p><div class="m-muestra">
+<div class="pv" style="display:block">
+  <div class="co-puertas" style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+    <a class="co-puerta" href="#" style="color:inherit;text-decoration:none">
+      <p class="co-puerta__titulo" style="margin:0">El Cerebro de ventas</p>
+      <p class="co-puerta__lede" style="margin:0">Metodología de ventas dentro de tu Claude o tu ChatGPT, con el enlace al contenido del que sale.</p>
+      <p class="co-puerta__para" style="margin:0">Para quien vende, y para quien hace vender.</p>
+      <span class="co-puerta__cta">Ver cómo funciona <span aria-hidden="true">→</span></span>
+    </a>
+    <a class="co-puerta" href="#" style="color:inherit;text-decoration:none">
+      <p class="co-puerta__titulo" style="margin:0">Cofundación</p>
+      <p class="co-puerta__lede" style="margin:0">Construimos dentro del proyecto, no desde fuera con un informe.</p>
+      <p class="co-puerta__para" style="margin:0">Para founders en fase temprana.</p>
+      <span class="co-puerta__cta">Cómo trabajamos <span aria-hidden="true">→</span></span>
+    </a>
+  </div>
+</div>
+</div></section><section class="m-ficha"><h2 class="m-nombre">Superficie</h2><p class="m-resumen"><code>aurora-bg</code> es el degradado de marca: cinco radiales de <code>color-aurora-*</code> rebajados sobre <code>color-canvas</code>, con el centro-izquierda casi limpio para que la copia respire. <code>aurora-bg-soft</code> es su versión sutil (violeta y coral). <code>surface</code> es el bloque blanco con borde hairline; <code>surface-on-aurora</code> es su versión translúcida con desenfoque para ir encima del degradado.</p><div class="m-muestra">
+<div class="aurora-bg" style="padding:28px;display:grid;grid-template-columns:1fr 1fr;gap:16px">
+  <div class="surface-on-aurora" style="padding:20px">
+    <p class="text-eyebrow" style="margin:0 0 8px">surface-on-aurora</p>
+    <p class="t-body" style="margin:0">Sobre el degradado, con desenfoque.</p>
+  </div>
+  <div class="surface" style="padding:20px">
+    <p class="text-eyebrow" style="margin:0 0 8px">surface</p>
+    <p class="t-body" style="margin:0">Bloque blanco con borde hairline.</p>
+  </div>
+</div>
+<div class="aurora-bg-soft" style="padding:20px 28px">
+  <p class="text-eyebrow" style="margin:0">aurora-bg-soft</p>
+</div>
+</div></section><section class="m-ficha"><h2 class="m-nombre">Tarjeta</h2><p class="m-resumen"><code>co-card</code>: bloque enlazable con borde hairline, <code>radius-tarjeta</code> y fondo <code>color-canvas-elevated</code>; en hover sube 2px, oscurece el borde y gana <code>sombra-hover</code>. Se colocan en <code>co-cohort</code>, una rejilla de dos columnas que pasa a una a 720px.</p><div class="m-muestra">
+<div class="pv" style="display:block">
+  <div class="co-cohort">
+    <a class="co-card" href="#">
+      <p class="text-eyebrow">Ventas</p>
+      <p class="font-impact" style="font-size:var(--text-h2);margin:12px 0 8px">Qué decir a un cliente que no contesta</p>
+      <p class="t-body" style="margin:0 0 24px">Si insistir o soltar, y con qué frase reabrir sin sonar pesado.</p>
+      <span class="co-card__cta">Leer <span class="co-card__arrow" aria-hidden="true">→</span></span>
+    </a>
+    <a class="co-card" href="#">
+      <p class="text-eyebrow">Cofundación</p>
+      <p class="font-impact" style="font-size:var(--text-h2);margin:12px 0 8px">Socio técnico o agencia de desarrollo</p>
+      <p class="t-body" style="margin:0 0 24px">Qué cambia cuando quien construye tiene parte del resultado.</p>
+      <span class="co-card__cta">Leer <span class="co-card__arrow" aria-hidden="true">→</span></span>
+    </a>
+  </div>
+</div>
+</div></section><section class="m-ficha"><h2 class="m-nombre">Titular</h2><p class="m-resumen">El titular a dos tonos: <code>text-eyebrow</code> encima, <code>t-display-*</code> con la primera mitad en <code>color-ink</code> y la segunda en <code>t-eco</code> (<code>color-ink-dim</code>), y debajo <strong>una sola</strong> cosa más: un <code>t-lede</code> corto o los CTAs.</p><div class="m-muestra">
+<div style="padding:28px">
+  <p class="text-eyebrow" style="margin:0 0 16px">Para quien vende, y para quien tiene que hacer vender</p>
+  <h1 class="t-display-lg" style="margin:0 0 20px">Tu equipo ya tiene IA. <span class="t-eco">Sigue sin saber qué decir.</span></h1>
+  <p class="t-lede" style="margin:0">Le metemos dentro el método de formadores de ventas reales, con el enlace al contenido del que sale.</p>
+</div>
+</div></section>
+</main></body></html>
