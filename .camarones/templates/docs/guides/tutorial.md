@@ -91,7 +91,7 @@ patch:
 ```
 
 A unit with `approval: true` waits as "awaiting approval" when its agent finishes; its dependents start after
-`camaron plan approve <unit>` or the Approve button in the portal's Pipeline tab.
+`camaron plan approve <unit>` or the Approve button in the portal's Pipeline (Plan zone).
 
 `node` is the id as the kit writes it (`discovery:{repo}`) or a prefix with `*` (`repo-wiki:*`). If the file has a
 mistake, the plan stays as it was and `camaron plan` says where (`patch[1].node: unknown node 'cii'`).
@@ -114,7 +114,7 @@ carries the plugin's prompts and points to its skills; a wrong major or an unapp
 ## 3. Trust: AI drafts vs confirmed
 
 Every page starts as **✨ draft** (banner in the portal). Confirm pages in the portal (**Confirm** on each page, the
-**Review** tab lists what is pending) or with **✅ Review & confirm pages** in the wizard; the confirmation is locked to the content — if anyone edits the page later it becomes
+**Review** zone lists what is pending) or with **✅ Review & confirm pages** in the wizard; the confirmation is locked to the content — if anyone edits the page later it becomes
 **⚠️ needs re-confirmation**. Agents treat confirmed pages as the source of truth.
 
 **Freshness.** When a page is written, the code it cites (`x-sources`) is fingerprinted. If that code changes the page
@@ -157,10 +157,10 @@ once). Without them `check` prints one warning and skips that check.
 
 ## 5. Portal
 
-A fresh project's tabs are never blank: Docs and Architecture offer a **first look from the code (no AI)** — the C4
+A fresh project never shows blank views: Home, Docs and Architecture offer a **first look from the code (no AI)** — the C4
 draft and its page, the stack and tools — and Code offers to build the code graph.
 
-One portal, two modes, the same interface. Tabs: **Docs** (tree, search, trust badges), **Architecture (C4)** (under each view, its elements: edit title,
+One portal, two modes, the same interface, in Cofundo's visual language with the Camarón brand (light or dark, fonts served by the portal itself). There is no tab bar: **Home** asks first (Ask live, search in the export), shows the project's state (confirmed, to reconfirm, drafts, pending feedback) and leads to five zones — Docs, Architecture, Plan, Quality and Review; the top bar shows where you are and Ctrl K / ⌘K jumps to any page, zone or view. Old addresses (`#/c4`, `#/docs/…`) still work. The views: **Docs** (tree, search, trust badges), **Architecture (C4)** (under each view, its elements: edit title,
 technology, description and relations, and confirm what the AI drafted, one by one or the whole view),
 **Code graph** (all repos or one), **Wikis** (OpenWiki per repo, its pages and graph), **Review** (pending pages, reviews
 an agent is waiting for, change requests, code changed since the docs, `check`), **Ask** (the sections that best answer
@@ -177,10 +177,10 @@ does … work?" box that sends the question to Ask, and Mermaid names that match
 or a repo are links. A `:::rule ORD-1 Title` block states a business rule with `enforced:`/`test:` anchors
 (`repo:path#Symbol`); `check` fails when that code is gone.
 
-The **Pipeline** tab (black and white, dark mode; it ships already built
+The **Pipeline** view (Plan zone; it ships already built
 with the kit, no Node needed) shows the plan live: a graph of the units by phase, a board by
 status, and per unit its agent, outcome, time, tokens, cost and the agent's log line by line. Start `camaron run` with
-the page open and it picks the run up by itself. From the tab you can also start a run, cancel it (the agents stop and
+the page open and it picks the run up by itself. From the view you can also start a run, cancel it (the agents stop and
 their units go back to the queue, keeping their work) and retry a blocked unit. One run at a time, CLI or portal.
 
 | | Command | What it is |
@@ -206,7 +206,7 @@ CI pushed: `docker run -d -p 8080:80 <registry>/<group>/cam-docs/portal:latest`.
 - With Spanish selected, **Edit** edits the translation (`docs/i18n/es/…`).
 - Editing a ✅ page turns it **⚠️ needs re-confirmation** until someone checks it again.
 - Don't hand-edit generated files (`llms.txt`, `llms-full.txt`, `docs/.status.json`, the viewers). Wikis are better regenerated from the
-  **Wikis** tab: an OpenWiki update can rewrite what you change.
+  **Wikis** view: an OpenWiki update can rewrite what you change.
 
 ## 7. OpenWiki: one wiki per repo
 
@@ -219,15 +219,15 @@ the run ends.
 Each wiki is a full agent run, so only the repos you choose get one: wizard → **📚 Wikis** → **Choose which repos get a
 wiki** (stored as `wiki: true` in `.camarones/workspace.yaml`). Pick the services with logic, not libraries or CI repos.
 A first wiki waits for the repo's brief (`wikis/<repo>/INSTRUCTIONS.md`, written by the repo-brief unit) so it uses your
-glossary; `camaron wiki <repo> --force` skips that check. In the portal's Wikis tab every repo has the button: for a
+glossary; `camaron wiki <repo> --force` skips that check. In the portal's Wikis view every repo has the button: for a
 repo not chosen yet it chooses it, and without a brief it first writes a starter one from the static scan (no AI), which
-the repo-brief unit replaces later. When no engine can run, the tab says what is missing. Runs go one at a time, and a batch stops as soon as the
+the repo-brief unit replaces later. When no engine can run, the view says what is missing. Runs go one at a time, and a batch stops as soon as the
 engine is out of quota or logged out instead of failing every remaining repo.
 
 ## 8. CI
 
 Wizard → **⚙️ CI** installs the pipeline in `cam-docs` (GitLab or GitHub): update the affected docs, `check`, export the portal and publish it. Per-repo snippets: `.camarones/ci/repo.*`.
-The portal's **CI** tab shows the same: which pipeline files exist and whether they still match the kit's definition,
+The portal's **CI** view (Quality zone) shows the same: which pipeline files exist and whether they still match the kit's definition,
 a button to generate them for GitHub or GitLab, the current `check` and freshness, the per-repo files to copy, and the last
 pipeline run when `gh` or `glab` is installed and logged in.
 Before the update branch is pushed, `camaron check --secrets` runs: a possible secret fails the job, so no MR/PR is opened.
@@ -281,7 +281,7 @@ machine, so they are off until you run `camaron plugins enable confluence` (or `
 (`CONFLUENCE_URL`, `CONFLUENCE_USER`, `CONFLUENCE_TOKEN`, `CONFLUENCE_SPACE`; `NOTION_TOKEN`, `NOTION_PARENT_PAGE`).
 
 **Ask a person and wait.** An agent that needs a human answer on a page runs `camaron review request <page>` and then
-`camaron review wait <id>`: it blocks until someone approves or asks for changes in the portal's Review tab, and gets
+`camaron review wait <id>`: it blocks until someone approves or asks for changes in the portal's Review zone, and gets
 the decision as JSON. Review comments can point at a section: they keep the section's slug and a short quote, so they
 are found again after a heading is renamed.
 
