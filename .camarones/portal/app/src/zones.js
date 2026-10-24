@@ -18,7 +18,7 @@ export const ZONES = [
     { id: 'libs', href: '#/libs', live: true },
     { id: 'boards', href: '#/boards', live: true }] },
   { id: 'plan', href: '#/plan', views: [{ id: 'pipeline', href: '#/pipeline', live: true },
-    { id: 'interview', href: '#/interview', live: true }] },
+    { id: 'interview', href: '#/interview', live: true }, { id: 'sync', href: '#/sync', live: true }] },
   { id: 'quality', href: '#/quality', views: [{ id: 'kpis', href: '#/kpis', live: true }, { id: 'ci', href: '#/ci', live: true }] },
   { id: 'review', href: '#/review', views: [{ id: 'review', href: '#/review' }] },
   { id: 'taller', href: '#/taller', views: [
@@ -35,7 +35,7 @@ export const TALLER = ['generate', 'analyze', 'check', 'interviews', 'team', 'ma
 const ROUTES = {
   docs: ['docs', 'pages'], doc: ['docs', 'pages'], wikis: ['docs', 'wikis'], wiki: ['docs', 'wikis'],
   c4: ['arch', 'c4'], code: ['arch', 'code'], data: ['arch', 'data'], libs: ['arch', 'libs'], boards: ['arch', 'boards'],
-  pipeline: ['plan', 'pipeline'], interview: ['plan', 'interview'], kpis: ['quality', 'kpis'], ci: ['quality', 'ci'],
+  pipeline: ['plan', 'pipeline'], interview: ['plan', 'interview'], sync: ['plan', 'sync'], kpis: ['quality', 'kpis'], ci: ['quality', 'ci'],
   review: ['review', 'review'], status: ['review', 'review'],
   ...Object.fromEntries(TALLER.map((v) => [v, ['taller', v]])),
 }

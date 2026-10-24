@@ -206,7 +206,7 @@ team's viewer (read, edit, review, pipeline status, the interview); whatever sta
 | 🔬 Analyze | no AI: known vulnerabilities, pages out of date, generated blocks, C4 draft, stack, data, history |
 | ✅ Check | prerequisites and tools with Install / repair, the context every agent session loads, golden questions, with vs without cam-docs |
 | 🎙️ Interviews | team questionnaire or live, export the offline form, import answers, close the round |
-| 🤝 Team | shared repo, trust, hooks, plugins, CI, exports |
+| 🤝 Team | the team's repo and auto-share, approving the agent config that came with it, hooks, plugins, CI, exports |
 | 🧰 This machine | tools, repos, kit updates, repair, migrate and, apart and asking first, uninstall |
 
 **Install and open it**
@@ -333,7 +333,8 @@ every agent session loads before reading a page, against `context.budget`), `aut
 `plugins add|update|outdated|remove`, `pr propose <url>`, `removed add`, `repair`, `export codetour <flow>`, `history [--months 12]`
 (hotspots, who to ask per repo, files that change together, read from git without AI into `docs/overview/history.md`),
 `catalog [--json|--check]` (every command with where it lives: portal, desktop app or CLI only, and its arguments),
-`projects [--json]` (the projects registered on this machine), `app` (the desktop app: the portal plus the Workshop,
+`projects [--json]` (the projects registered on this machine), `trust --json` and `hooks --json` (what is pending
+approval, whether the method hooks are on), the portal's **Plan › Sync** (the same as `share`, with where you stand), `app` (the desktop app: the portal plus the Workshop,
 where runs, wikis, scans and checks start; the browser portal only shows them).
 
 **Facts from the code, no AI.** `camaron blocks` writes `docs/repos/<repo>/reference.md` for each repo: commands

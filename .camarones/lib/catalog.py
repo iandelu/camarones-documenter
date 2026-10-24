@@ -13,8 +13,10 @@ ZONES = ("projects", "generate", "analyze", "check", "interviews", "team", "mach
 
 
 def _e(verdict: str, zone: str | None = None, es: str = "", en: str = "", ai: bool = False,
-       destructive: bool = False) -> dict:
-    return {"verdict": verdict, "zone": zone, "es": es, "en": en, "ai": ai, "destructive": destructive}
+       destructive: bool = False, reads: str | None = None) -> dict:
+    """`reads`: the argument (dest) that makes the command only read, so a command that otherwise asks first (`trust`
+    approves with --yes) runs without asking when it is set (`trust --json` only lists)."""
+    return {"verdict": verdict, "zone": zone, "es": es, "en": en, "ai": ai, "destructive": destructive, "reads": reads}
 
 
 CLI = _e("cli")
@@ -72,7 +74,7 @@ COMMANDS: dict[str, dict] = {
     "share": _e("both", "team", "Sincronizar con el equipo (pull y push)", "Sync with the team (pull and push)"),
     "checkpoint": _e("both", "team", "Guardar el progreso en un commit local", "Save progress in a local commit"),
     "trust": _e("app", "team", "Aprobar la configuración de agentes de esta máquina",
-                "Approve the agent config on this machine"),
+                "Approve the agent config on this machine", reads="json"),
     "hooks": _e("app", "team", "Hooks del método para Claude Code", "Method hooks for Claude Code"),
     "plugins": _e("app", "team", "Plugins del kit y del proyecto", "Plugins of the kit and the project"),
     "ci": _e("app", "team", "Instalar la pipeline de CI", "Install the CI pipeline"),

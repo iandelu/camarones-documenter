@@ -1,7 +1,7 @@
 """Environment: templates, prerequisites, pinned tools, repo wiring, code graph, C4, portal, docker, CI."""
 from __future__ import annotations
 
-import json, os, posixpath, re, shutil, subprocess, sys, webbrowser
+import datetime as dt, json, os, posixpath, re, shutil, subprocess, sys, webbrowser
 from collections import deque
 from contextlib import contextmanager
 from pathlib import Path
@@ -1538,6 +1538,7 @@ def checkpoint_commit(message: str) -> bool:
 
 # ---------- the team's docs repo: pull + push on demand, or after every checkpoint with auto-share ----------
 AUTO_SHARE = CACHE / "share.json"                   # per machine: one teammate opting in never pushes for the others
+SHARED = CACHE / "shared.json"                      # when this machine last shared (its own file: share.json is the opt-in)
 _sharing = False
 
 
@@ -1548,6 +1549,33 @@ def auto_share() -> bool:
 def set_auto_share(on: bool) -> None:
     AUTO_SHARE.parent.mkdir(parents=True, exist_ok=True)
     save_json(AUTO_SHARE, {"auto": bool(on)})
+
+
+def sync_status(fetch: bool = False) -> dict:
+    """Where cam-docs stands against the team's repo, without the network unless `fetch`: the remote and branch, the
+    commits ahead / behind the last fetched origin, the files not checkpointed yet, the last commit and last share."""
+    git = lambda *a: out(["git", *a], cwd=ROOT)                       # noqa: E731
+    url = docs_remote()
+    branch = git("symbolic-ref", "--short", "HEAD") if (ROOT / ".git").exists() else ""
+    fetched = None
+    if url and fetch:
+        from . import creds
+        r = run(["git", "fetch", "--quiet", "origin"], cwd=ROOT, check=False, quiet=True, env=creds.git_env(url))
+        fetched = {"ok": r.returncode == 0, "reason": "" if r.returncode == 0 else git_failure(r.stderr or r.stdout or "")}
+    ahead = behind = None
+    if url and branch and git("rev-parse", "--verify", "--quiet", f"origin/{branch}"):
+        counts = git("rev-list", "--left-right", "--count", f"HEAD...origin/{branch}").split()
+        if len(counts) == 2:
+            ahead, behind = int(counts[0]), int(counts[1])
+    paths = [p for p in CHECKPOINT_PATHS if (ROOT / p).exists()]
+    pending = []
+    if (ROOT / ".git").exists() and paths:
+        status = run(["git", "status", "--porcelain", "-uall", "--", *paths], cwd=ROOT, check=False, capture=True).stdout or ""
+        pending = sorted({ln[3:].strip().strip('"').split(" -> ")[-1] for ln in status.splitlines() if len(ln) > 3})
+    head = git("log", "-1", "--format=%h%x00%s%x00%cI").split("\x00") if branch else []
+    return {"remote": url, "branch": branch, "ahead": ahead, "behind": behind, "pending": pending,
+            "head": dict(zip(("hash", "subject", "date"), head)) if len(head) == 3 else None,
+            "auto": auto_share(), "last_share": load_json(SHARED, {}).get("last"), "fetched": fetched}
 
 
 def docs_remote() -> str:
@@ -1622,9 +1650,17 @@ def share(log: Log = print) -> dict:
             git("rebase", "--abort")
             return {"status": "conflict", "detail": theirs}
         if out(["git", "rev-list", "--count", f"{theirs}..HEAD"], cwd=ROOT) == "0":
+            _shared()
             return {"status": "up-to-date", "detail": branch}
     log(f"pushing {branch}…")
     r = git("push", "--quiet", "-u", "origin", branch, env=auth)
     if r.returncode:
         return failed(r)
+    _shared()
     return {"status": "pushed", "detail": branch}
+
+
+def _shared() -> None:
+    """Remember when this machine last shared (the portal's Sync view shows it)."""
+    SHARED.parent.mkdir(parents=True, exist_ok=True)
+    save_json(SHARED, {"last": dt.datetime.now().astimezone().isoformat(timespec="seconds")})

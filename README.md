@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.46.0-ff875f?style=flat-square" alt="Versión 4.46.0">
+  <img src="https://img.shields.io/badge/version-4.47.0-ff875f?style=flat-square" alt="Versión 4.47.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -183,7 +183,7 @@ Camarón está pensado para que lo use un equipo. Al crear un proyecto, el asist
 
 Lo que trae el repo del equipo no se ejecuta a ciegas. Si `cam-docs` incluye hooks, servidores MCP, ajustes o skills que no ha escrito el kit, el asistente te enseña qué ejecutan al abrirlo y Claude Code / Codex solo los cargan cuando los apruebas en tu máquina (`camaron trust`). Las aprobaciones se guardan en `~/.camarones/trust/`, fuera del repo. Lo que el kit instaló en tu máquina (sus skills y los de graphify y OpenWiki, anotados en `~/.camarones/install/`) lo reconoce sin preguntar, así que un proyecto recién creado no pide aprobar nada. `camaron doctor` enseña si un fichero del kit se editó o falta un enlace, y `camaron repair` lo devuelve a su sitio sin tocar las páginas del equipo.
 
-Por defecto los checkpoints se guardan solo en local y publicar es un paso explícito: «🤝 Compartir con el equipo» en el menú o `camaron share`, que guarda un checkpoint, rebasa sobre el trabajo del equipo y hace push. Con `camaron share --auto on` (o diciendo que sí tras el primer share en el wizard) cada checkpoint hace ese share solo; es por máquina, así que no activa nada a tus compañeros, y si falla lo avisa sin perder el commit local. Si hay un conflicto, lo deshace y no toca nada; si hay algo que parece un secreto, no publica.
+Por defecto los checkpoints se guardan solo en local y publicar es un paso explícito: «🤝 Compartir con el equipo» en el menú, **Plan › Sincronizar** en el portal o `camaron share`, que guarda un checkpoint, rebasa sobre el trabajo del equipo y hace push. Con `camaron share --auto on` (o diciendo que sí tras el primer share en el wizard) cada checkpoint hace ese share solo; es por máquina, así que no activa nada a tus compañeros, y si falla lo avisa sin perder el commit local. Si hay un conflicto, lo deshace y no toca nada; si hay algo que parece un secreto, no publica.
 
 **Copia local por proyecto (modo clásico).** Descarga este repositorio desde **Code → Download ZIP** o clónalo. Copia **`.camarones/`**, **`camaron.cmd`** y **`camaron.command`** a la carpeta que agrupa el proyecto. Los launchers antiguos `camarones.*` son aliases compatibles. Activa la visualización de archivos ocultos para ver `.camarones/`. Si ya tienes un proyecto así y quieres pasarlo a instalación global sin perder su configuración, corre `camaron unlink` dentro de él.
 
@@ -343,6 +343,8 @@ La app junta las dos caras de Camarón. El **portal** es el visor del equipo: le
 | **Editar, confirmar, revisar, comentar** | ✅ | ✅ |
 | **Pipeline: estado en vivo, reintentar, aprobar** | ✅ | ✅ |
 | **Responder la entrevista del equipo** | ✅ | ✅ |
+| **Sincronizar con el equipo (pull y push)** | ✅ | ✅ |
+| **Fijar el repo del equipo, aprobar su configuración de agentes, hooks y plugins** | — | ✅ |
 | **Ejecutar el plan, piloto automático, sesión con un agente** | — aviso «ábrelo en la app» | ✅ |
 | **Wikis, C4, grafo de código, vulnerabilidades, CI** | — aviso «ábrelo en la app» | ✅ |
 | **Requisitos, instalar herramientas, actualizar, desinstalar** | — | ✅ |
@@ -355,7 +357,7 @@ La app junta las dos caras de Camarón. El **portal** es el visor del equipo: le
 | 🔬 **Analizar** | Sin IA: **vulnerabilidades conocidas** por gravedad con enlace a Librerías, **páginas desactualizadas** («Sigue valiendo» o una unidad que las actualice), **bloques generados**, borrador C4, stack, datos, historia |
 | ✅ **Comprobar** | **Requisitos y herramientas** con su botón «Instalar» o «repair», el **contexto** que carga cada sesión de agente frente al presupuesto, **preguntas de control** (confirmar y lanzar), **con y sin cam-docs**, `check`, KPIs |
 | 🎙️ **Entrevistas** | Cuestionario del equipo o en vivo, **exportar** el formulario sin conexión y abrir su carpeta, **importar** respuestas con un selector de ficheros, cerrar la ronda y abrir cada unidad de entrevista con un agente |
-| 🤝 **Equipo** | Repo `cam-docs` compartido (`remote`, `share`, `checkpoint`), aprobar la configuración de agentes (`trust`), hooks, plugins, CI y exportaciones |
+| 🤝 **Equipo** | El **repo del equipo** (fijarlo, compartir cada checkpoint o no, ir a Sincronizar), la **configuración de agentes** que llegó con él para aprobarla en esta máquina, los **hooks** del método, los **plugins** (qué aportan, si ejecutan código, activar o desactivar), CI y exportaciones |
 | 🧰 **Esta máquina** | Herramientas, repos, perfil, actualizar el kit, `repair`, `migrate` y, aparte y preguntando antes, `uninstall` |
 
 Cada comando de la CLI tiene su formulario, que sale del propio parser (`camaron catalog`). Lo que borra o mueve datos va en su propio bloque, al final, y pide confirmación en un diálogo que dice qué va a pasar.
@@ -471,6 +473,7 @@ Abre **http://localhost:8080**. Es un único portal 🦐, en español o inglés 
 - **KPIs** (zona Calidad): ¿funciona la documentación? Las cifras de `camaron kpis` y `camaron stats` en una pantalla: páginas y elementos C4 confirmados, páginas desactualizadas, búsquedas sin respuesta, avance del plan, coste de IA del mes y la nota de las preguntas de control; la confianza por repo (confirmadas, borrador, por reconfirmar); las ejecuciones de IA por mes y las páginas más leídas. También lista las **preguntas que nadie encontró** (en el portal o desde los agentes): se guardan solo en tu máquina, sin correos ni números largos, y con un clic pasan a `docs/interview/open-questions.md` para la próxima entrevista o se descartan.
 - **Pizarras** (zona Arquitectura): pizarras de Excalidraw guardadas en `cam-docs/docs/boards/`, en blanco o empezando desde una vista C4 para anotarla en equipo. El boceto se ordena como un diagrama: personas arriba, luego apps, servicios y almacenes (bases de datos, colas, buckets) y sistemas externos, cada fila ordenada para cruzar lo menos posible; las cajas miden lo que su título, las flechas rodean las cajas en vez de atravesarlas, hay una sola flecha por par de elementos (con las etiquetas de sus relaciones juntas y doble punta si va en los dos sentidos) y la pizarra se abre ajustada a la pantalla. Al elegir la vista, el nombre se rellena como `<vista>-draft` (`-2`, `-3`… si ya existe), salvo que hayas escrito uno.
 - **Pipeline** (zona Plan): el plan en vivo (arriba).
+- **Sincronizar** (zona Plan): este `cam-docs` frente al repo del equipo: commits tuyos sin compartir, commits del equipo que no tienes (según la última comprobación; «Comprobar si hay novedades» pregunta al remoto), cuándo se compartió por última vez desde esta máquina y los ficheros aún sin checkpoint. «Sincronizar con el equipo» hace lo mismo que `camaron share`: checkpoint, trae el trabajo del equipo y sube el tuyo. Si chocan, lo deshace y no toca nada; si hay algo que parece un secreto, no publica.
 - **Entrevista** (zona Plan): cuando las entrevistas van como cuestionario del equipo, cada persona lo responde aquí: lo que se dedujo del código con su evidencia, las opciones, «Otra» y un comentario. Guarda el mismo fichero que el formulario sin conexión (`docs/interview/questionnaire/responses/<nombre>.yaml`), así que las dos vías se mezclan sin problema, y quien vuelve ve sus respuestas para cambiarlas. Arriba se ve quién ha respondido, qué preguntas siguen sin respuesta y dónde no hay acuerdo.
 
 Las páginas también son más interactivas: las tablas se ordenan pulsando una columna (y las largas se filtran), los bloques `:::tabs`, `:::steps`, `:::details` y `:::cards` se ven como pestañas, pasos numerados, desplegables y tarjetas, un interruptor «Todo / Negocio» (en cada página y arriba del menú) oculta los detalles técnicos (`:::tech`) y, en Negocio, deja en el menú y en la portada solo las páginas de qué hace el sistema y por qué (visión general, dominio, glosario, flujos y decisiones), la portada tiene una caja «¿Cómo funciona…?» que lleva la pregunta a Preguntar, y en los diagramas Mermaid los nombres que coinciden con una página o un repo se pueden pulsar para ir a ella. Los agentes leen esos bloques como Markdown normal.

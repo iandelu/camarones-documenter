@@ -30,7 +30,7 @@ every command either way.
 | `export` | team |  |  |  |
 | `graph` | analyze |  |  |  |
 | `history` | analyze |  |  |  |
-| `hooks` | team |  |  |  |
+| `hooks` | team |  |  | yes |
 | `init` | projects |  |  |  |
 | `join` | projects |  |  |  |
 | `llms` | analyze |  |  |  |
@@ -51,7 +51,7 @@ every command either way.
 | `stack` | machine |  |  |  |
 | `switch` | projects |  |  |  |
 | `sync` | machine |  |  |  |
-| `trust` | team |  |  |  |
+| `trust` | team |  |  | yes |
 | `uninstall` | machine |  | yes |  |
 | `unlink` | machine |  | yes |  |
 | `upgrade` | machine |  |  |  |

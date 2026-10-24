@@ -217,7 +217,7 @@ muestra allí «ábrelo en la app».
 | 🔬 Analizar | sin IA: vulnerabilidades conocidas, páginas desactualizadas, bloques generados, borrador C4, stack, datos, historia |
 | ✅ Comprobar | requisitos y herramientas con Instalar / repair, el contexto que carga cada sesión de agente, preguntas de control, con y sin cam-docs |
 | 🎙️ Entrevistas | cuestionario del equipo o en vivo, exportar el formulario sin conexión, importar respuestas, cerrar la ronda |
-| 🤝 Equipo | repo compartido, trust, hooks, plugins, CI, exportaciones |
+| 🤝 Equipo | el repo del equipo y compartir cada checkpoint, aprobar la configuración de agentes que vino con él, hooks, plugins, CI, exportaciones |
 | 🧰 Esta máquina | herramientas, repos, actualizar el kit, repair, migrate y, aparte y preguntando antes, uninstall |
 
 **Instalarla y abrirla**
@@ -351,7 +351,8 @@ que carga cada sesión de un agente antes de leer una página, frente a `context
 `plugins add|update|outdated|remove`, `pr propose <url>`, `removed add`, `repair`, `export codetour <flujo>`,
 `history [--months 12]` (puntos calientes, a quién preguntar en cada repo, ficheros que cambian juntos, leídos de git sin
 IA en `docs/overview/history.md`), `catalog [--json|--check]` (cada comando con dónde vive: portal, app de escritorio o
-solo CLI, y sus argumentos) y `projects [--json]` (los proyectos registrados en esta máquina) y `app` (la app de escritorio: el portal más el Taller,
+solo CLI, y sus argumentos) y `projects [--json]` (los proyectos registrados en esta máquina), `trust --json` y `hooks --json` (lo pendiente de
+aprobar, si los hooks del método están activos), **Plan › Sincronizar** en el portal (lo mismo que `share`, con dónde estás) y `app` (la app de escritorio: el portal más el Taller,
 donde se lanzan ejecuciones, wikis, análisis y comprobaciones; el portal del navegador solo las enseña).
 
 **Datos del código, sin IA.** `camaron blocks` escribe `docs/repos/<repo>/reference.md` para cada repo: comandos
