@@ -286,6 +286,22 @@ def api_pipeline() -> dict:
     return {"units": units, "run": runs.summary(latest[0]) if latest else None}
 
 
+def app_kitdev(b: dict) -> tuple[dict, int]:
+    """A Kit dev task (lib/kitdev.py) as a job, outside this project's environment (the sandbox is its own project)."""
+    from . import appapi, kitdev
+    task = str(b.get("task", ""))
+    try:
+        if task == "sandbox-open":
+            return {"opened": kitdev.open_wizard()}, 200
+        argv, cwd = kitdev.command(task, b)
+    except PermissionError as e:
+        return {"error": str(e)}, 403
+    env = {k: v for k, v in os.environ.items() if k not in ("CAMARONES_ROOT", "CAMARONES_APP_TOKEN")}
+    label = " ".join([Path(argv[0]).stem, *argv[1:]])
+    return appapi.stream_job(start_job, f"kitdev:{task}", argv, cwd, {**env, "PYTHONUTF8": "1"}, label=label,
+                             shown=[Path(argv[0]).stem, *argv[1:]]), 200
+
+
 def app_creds(action: str, b: dict) -> tuple[dict, int]:
     """The desktop app's tokens for GitLab / GitHub (lib/creds.py, the OS keychain): saved only after the forge accepts
     them (or with `anyway`), tested, or deleted. A token is never sent back."""
@@ -507,6 +523,9 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(appapi.info())
         if name == "catalog":
             return self.json(appapi.catalog())
+        if name == "kitdev":
+            from . import kitdev
+            return self.json(kitdev.info())
         if name == "machine":
             from . import machine
             return self.json(machine.panel())
@@ -699,6 +718,8 @@ class Handler(BaseHTTPRequestHandler):
                     return self.json({"error": str(e), "confirm": True}, 409)
                 except KeyError as e:
                     return self.json({"error": f"unknown command {e}"}, 404)
+            if p == "/api/app/kitdev":                  # the bench of a kit checkout: sandbox, pytest, npm, node --test
+                return self.json(*app_kitdev(b))
             if p.startswith("/api/app/creds"):           # tokens only ever travel in this body, never on a command line
                 return self.json(*app_creds(p[len("/api/app/creds"):], b))
             if p == "/api/app/agent":

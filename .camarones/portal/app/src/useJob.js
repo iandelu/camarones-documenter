@@ -3,8 +3,11 @@ import { postJSON, streamEvents } from './api.js'
 import { t } from './i18n.js'
 
 // A catalog command as a job of the app's server (lib/appapi.py): its lines as they come, then its status, exit code
-// and, for --json, its result. `start` resolves to the finished job, so a panel can chain the next step.
-export function useJob() {
+// and, for --json, its result. `start` resolves to the finished job, so a panel can chain the next step. `post` starts
+// the job (by default a catalog command; Kit dev passes its own).
+const catalogCmd = (cmd, args, confirmed) => postJSON('app/cmd', { cmd, args, confirmed })
+
+export function useJob(post = catalogCmd) {
   const [job, setJob] = useState(null)          // {id, status, rc, result, lines[]}
   const [error, setError] = useState('')
   const abort = useRef(null)
@@ -13,7 +16,7 @@ export function useJob() {
     setError('')
     let end = null
     try {
-      const j = await postJSON('app/cmd', { cmd, args, confirmed })
+      const j = await post(cmd, args, confirmed)
       setJob({ id: j.id, status: 'running', lines: [] })
       abort.current = new AbortController()
       await streamEvents(`app/jobs/${j.id}/events`, (ev) => {

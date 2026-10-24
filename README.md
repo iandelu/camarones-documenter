@@ -359,6 +359,7 @@ La app junta las dos caras de Camarón. El **portal** es el visor del equipo: le
 | ✅ **Comprobar** | **Requisitos y herramientas** con su botón «Instalar» o «repair», el **contexto** que carga cada sesión de agente frente al presupuesto, **preguntas de control** (confirmar y lanzar), **con y sin cam-docs**, `check`, KPIs |
 | 🎙️ **Entrevistas** | Cuestionario del equipo o en vivo, **exportar** el formulario sin conexión y abrir su carpeta, **importar** respuestas con un selector de ficheros, cerrar la ronda y abrir cada unidad de entrevista con un agente |
 | 🤝 **Equipo** | El **repo del equipo** (fijarlo, compartir cada checkpoint o no, ir a Sincronizar), la **configuración de agentes** que llegó con él para aprobarla en esta máquina, los **hooks** del método, los **plugins** (qué aportan, si ejecutan código, activar o desactivar), CI y exportaciones |
+| 🛠️ **Desarrollo del kit** | Solo en un checkout del kit: el sandbox, `pytest`, el build del portal y los tests de escritorio (ver [Desarrollo](#desarrollo)) |
 | 🧰 **Esta máquina** | **Preparar la máquina** (`setup`) con barra de progreso, **idioma y modelos** de Claude Code y Codex, **tokens de GitLab y GitHub** (se comprueban con la forja y se guardan en el llavero del sistema, nunca en una línea de comandos), **repos** (clonados o no, su stack editable, clonar o actualizar, detectar) y el **plan** rápido o completo, **actualizar el kit** y reiniciar la app con la versión nueva, `repair`, `migrate` y, aparte, **desinstalar**: primero «Ver qué borraría» y después un diálogo que repite la lista |
 
 Cada comando de la CLI tiene su formulario, que sale del propio parser (`camaron catalog`). Lo que borra o mueve datos va en su propio bloque, al final, y pide confirmación en un diálogo que dice qué va a pasar.
@@ -683,6 +684,8 @@ uv run scripts/sandbox.py reset      # deshace la documentación y vuelve a clon
 uv run scripts/sandbox.py open       # abre el asistente sobre el sandbox
 uv run scripts/sandbox.py traces     # lista lo que el kit dejó (también aprobaciones en ~/.camarones/trust/); 0 si no queda nada
 ```
+
+**Desde la app de escritorio.** Abierta desde un checkout del kit (`uv run --script .camarones/camarones.py app`), el Taller tiene una zona más, **🛠️ Desarrollo del kit**: el sandbox (traces, reiniciar con confirmación, cualquier comando del kit sobre él y el asistente en su propia terminal), `pytest` con `-k` y rutas bajo `tests/` y su resumen en pastillas, `npm ci`, `npm test` y `npm run build` del portal, la comprobación de que `app-build/` coincide con el del repo y los tests de escritorio (`node --test`). Cada tarea es una lista de argumentos fija, sin shell. No aparece en la instalación global, que también es un clon completo pero la usan los usuarios.
 
 ## Sigue explorando
 
