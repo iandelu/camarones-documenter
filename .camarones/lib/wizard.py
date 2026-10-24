@@ -28,7 +28,8 @@ import webbrowser
 
 console = Console(highlight=False)
 MODELS = ["sonnet", "opus", "haiku"]           # Claude Code's --model aliases; the default is set in do_model / launch_agent
-CODEX_MODEL_DEFAULT = "gpt-5.6-terra"          # Codex's model slugs rotate, so this is just a starting default, not a fixed list
+from .agents import CODEX_MODEL_DEFAULT, claude_history   # noqa: E402,F401 — the launch itself lives in lib/agents.py
+from . import agents as agent_sessions                      # noqa: E402
 FIRSTRUN = CACHE / "firstrun.json"     # first-run wizard position (so closing the window never loses it)
 STEPS = ("name", "repos", "tools", "setup", "stack", "arch", "intro")   # first-run steps, saved by id
 LEGACY_STEPS = ("name", "repos", "tools", "setup", "arch", "intro")     # firstrun.json before 3.3 kept only the index
@@ -1799,8 +1800,7 @@ Talk to the user in {talk}. Do not modify application code.
         """Returns "bg" when the session was launched in its own window (the wizard stays usable), True when it
         ran to completion in this terminal (no terminal emulator was found), or False when nothing was launched.
         resume_agent reopens that agent's last conversation."""
-        WORK.mkdir(parents=True, exist_ok=True)
-        (WORK / "next-prompt.md").write_text(prompt, encoding="utf-8")
+        agent_sessions.write_prompt(prompt)
         if resume_agent:
             agent = resume_agent
         else:
@@ -1818,15 +1818,10 @@ Talk to the user in {talk}. Do not modify application code.
         self.prefs["last_agent"] = agent
         save_json(PREFS, self.prefs)
         self.say(self.t("launching", agent=agent), f"bold {ORANGE}")
-        # multi-line args do not survive Windows .cmd shims: hand over a one-line pointer to the prompt file
-        brief = ws_rel("docs/.work/next-prompt.md")
-        short = f"Follow the instructions in {brief}" if self.lang == "en" else f"Sigue las instrucciones de {brief}"
-        model = {"claude": self.prefs.get("model", "sonnet"), "codex": self.prefs.get("codex_model", CODEX_MODEL_DEFAULT)
-                 }.get(agent, self.prefs.get(f"{agent}_model"))
         if resume_agent == "claude" and not claude_history(WORKSPACE):
             resume_agent = None                          # nothing to continue here: `--continue` would just error out
         runner = runners.get(agent)
-        req = RunRequest(prompt=short, cwd=WORKSPACE, model=model or None, interactive=True, resume=bool(resume_agent))
+        req = agent_sessions.request(agent, self.lang, self.prefs, bool(resume_agent))
         cmd = runner.build(req).argv
         if env.open_new_terminal(cmd, WORKSPACE):   # own window, in the workspace: the agent sees every repo + cam-docs
             self.say(self.t("launched_bg"), "green")
@@ -2524,12 +2519,6 @@ def resume_step(state: dict) -> int:
         return STEPS.index(state["name"])
     i = int(state.get("step", 0))
     return STEPS.index(LEGACY_STEPS[i]) if 0 <= i < len(LEGACY_STEPS) else min(max(i, 0), len(STEPS) - 1)
-
-
-def claude_history(cwd: Path) -> bool:
-    """Whether Claude Code has a saved conversation for `cwd` (its projects dir is the path with / and . → -)."""
-    key = "".join(c if c.isalnum() else "-" for c in str(cwd.resolve()))
-    return any((HOME / ".claude" / "projects" / key).glob("*.jsonl"))
 
 
 def copy_clipboard(text: str) -> bool:

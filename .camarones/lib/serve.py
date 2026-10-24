@@ -237,10 +237,14 @@ def start_run(b: dict) -> tuple[dict, int]:
         return {"error": f"per_runner {e}"}, 400
     parallel = max(1, min(8, int(b.get("parallel") or 2)))
     max_units = int(b["max_units"]) if b.get("max_units") not in (None, "") else None
+    policy = b.get("policy") or "on-conflict"
+    if policy not in ("on-conflict", "never"):
+        return {"error": "policy: on-conflict or never"}, 400
 
     def go(log):
         scheduler.run_parallel(lang=b.get("lang") or "en", max_parallel=parallel, per_runner=slots,
-                               max_units=max_units, echo=log)
+                               max_units=max_units, include_interviews=bool(b.get("include_interviews")),
+                               policy=policy, echo=log)
     return start_job("run", "documentation run", go), 200
 
 
@@ -460,6 +464,10 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(appapi.info())
         if name == "catalog":
             return self.json(appapi.catalog())
+        if name == "agents":
+            from . import agents
+            from .common import PREFS, load_json
+            return self.json({"agents": agents.installed(), "last": load_json(PREFS, {}).get("last_agent")})
         if (m := re.fullmatch(r"jobs/([\w.-]+)/events", name)) and m.group(1) in JOBS:
             return self.stream_job(JOBS[m.group(1)], int(self.headers.get("Last-Event-ID") or q.get("from") or 0))
         self.json({"error": "not found"}, 404)
@@ -636,6 +644,12 @@ class Handler(BaseHTTPRequestHandler):
                     return self.json({"error": str(e), "confirm": True}, 409)
                 except KeyError as e:
                     return self.json({"error": f"unknown command {e}"}, 404)
+            if p == "/api/app/agent":
+                from . import agents
+                agent, lang = str(b.get("agent", "")), b.get("lang") or "es"
+                if b.get("unit") == "update":
+                    return self.json(agents.launch_update(agent, lang))
+                return self.json(agents.launch_unit(str(b.get("unit", "")), agent, lang, b.get("mode") or "new"))
             if m := re.fullmatch(r"/api/app/jobs/([\w.-]+)/cancel", p):
                 from . import appapi
                 return self.json(appapi.cancel(m.group(1)))
