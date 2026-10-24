@@ -216,7 +216,7 @@ PAGES = {
    |   unit.started repo-brief:api …                                            |
    +----------------------------------------------------------------------------+""",
          "text": "`camaron app` (o asistente → 🖥️ App de escritorio) abre una ventana con el mismo portal y una zona más, el "
-                 "Taller: todo lo que corre en tu máquina. Generar (el plan con IA, wikis, pull requests), Analizar (sin IA: "
+                 "Taller: todo lo que corre en tu máquina. Generar (el plan con IA, el piloto automático, una unidad en una terminal con el agente que elijas, wikis, pull requests), Analizar (sin IA: "
                  "borrador C4, stack, dependencias y vulnerabilidades, datos, historia), Comprobar (requisitos, check, preguntas "
                  "de control, KPIs), Entrevistas, Equipo (repo compartido, agentes, plugins, CI) y Esta máquina (herramientas, "
                  "repos, actualizar, desinstalar). Cada comando de la CLI tiene ahí su formulario, su salida en vivo y su "
@@ -523,7 +523,7 @@ PAGES = {
    |   unit.started repo-brief:api …                                            |
    +----------------------------------------------------------------------------+""",
          "text": "`camaron app` (or wizard → 🖥️ Desktop app) opens a window with the same portal plus one more zone, the "
-                 "Workshop: everything that runs on your machine. Generate (the plan with AI, wikis, pull requests), Analyze "
+                 "Workshop: everything that runs on your machine. Generate (the plan with AI, the autopilot, a unit in a terminal with the agent you pick, wikis, pull requests), Analyze "
                  "(no AI: C4 draft, stack, dependencies and vulnerabilities, data, history), Check (prerequisites, check, golden "
                  "questions, KPIs), Interviews, Team (shared repo, agents, plugins, CI) and This machine (tools, repos, updates, "
                  "uninstall). Every CLI command has its form there, its live output and its result; what deletes or moves data "

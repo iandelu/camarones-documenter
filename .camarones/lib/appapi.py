@@ -7,9 +7,9 @@ wrong kinds, values outside the choices and values that look like options are re
 destructive one) runs only once the app has asked the person, and `--yes` is added here, never by the caller."""
 from __future__ import annotations
 
-import functools, json, os, subprocess, sys, threading
+import functools, json, os, signal, subprocess, sys, threading
 
-from .common import KIT, ROOT, VERSIONS, run
+from .common import IS_WIN, KIT, ROOT, VERSIONS, run
 
 HUB = {"new", "join", "switch"}       # the app's hub opens projects itself; from the CLI these reopen the wizard
 PROCS: dict[str, dict] = {}           # job id → {"proc": Popen} for cancel
@@ -115,7 +115,7 @@ def start(b: dict, start_job) -> dict:
         pr = subprocess.Popen([sys.executable, str(KIT / "camarones.py"), *cmd], cwd=str(ROOT),
                               env={**os.environ, "CAMARONES_ROOT": str(ROOT), "PYTHONUTF8": "1"},
                               stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                              text=True, encoding="utf-8", errors="replace")
+                              text=True, encoding="utf-8", errors="replace", start_new_session=not IS_WIN)
         holder["proc"] = pr
         err = threading.Thread(target=lambda: [log(line.rstrip("\n")) for line in pr.stderr], daemon=True)
         err.start()
@@ -142,5 +142,11 @@ def cancel(job_id: str) -> dict:
     pr = PROCS.get(job_id, {}).get("proc")
     if pr is None or pr.poll() is not None:
         raise KeyError(job_id)
-    pr.terminate()
+    if IS_WIN:                  # the command and what it started (agents, npm, git): Windows has no process groups
+        run(["taskkill", "/PID", str(pr.pid), "/T", "/F"], check=False, quiet=True)
+    else:
+        try:
+            os.killpg(pr.pid, signal.SIGTERM)
+        except OSError:
+            pr.terminate()
     return {"cancelling": job_id}

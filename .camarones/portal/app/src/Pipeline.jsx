@@ -4,6 +4,8 @@ import { AnimatePresence, motion } from 'motion/react'
 import { memo, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { getJSON, postJSON } from './api.js'
 import AppOnly from './AppOnly.jsx'
+import { RUNS } from './api.js'
+import { t } from './i18n.js'
 import { apply, changedRun, COLUMNS, columns, initial, layout } from './board.js'
 
 const LABEL = { todo: 'To do', running: 'Running', blocked: 'Blocked', done: 'Done', dropped: 'Dropped' }
@@ -63,11 +65,26 @@ function usePipeline() {
   return { state, error, reload: () => reload.current() }
 }
 
+// In the desktop app: start a parallel run with its options, or the autopilot (one unit after another, as a job of
+// the app's server), and stop either. The browser portal shows the state only (AppOnly).
 function Actions({ run, finished, onDone }) {
-  const [parallel, setParallel] = useState(2)
+  const [opts, setOpts] = useState({ parallel: 2, per_runner: '', max_units: '', include_interviews: false })
+  const [more, setMore] = useState(false)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState(null)
+  const [pilot, setPilot] = useState(null)         // the autopilot job, while it runs
   const running = run && !finished
+  useEffect(() => {
+    getJSON('jobs').then((jobs) => setPilot(jobs.find((j) => j.kind === 'cmd:autopilot' && j.status === 'running') || null), () => {})
+  }, [])
+  useEffect(() => {
+    if (!pilot) return undefined
+    const id = setInterval(() => getJSON(`jobs/${pilot.id}?since=0`).then((j) => {
+      if (j.status !== 'running') { setPilot(null); if (j.status === 'failed') setMessage(j.log.slice(-1)[0] || t('pFailed')) }
+    }, () => {}), 3000)
+    return () => clearInterval(id)
+  }, [pilot])
+  const set = (k) => (e) => setOpts((o) => ({ ...o, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }))
   async function act(fn) {
     setBusy(true)
     setMessage(null)
@@ -77,23 +94,81 @@ function Actions({ run, finished, onDone }) {
       for (const ms of [1200, 3000]) setTimeout(onDone, ms)   // a new run writes its first event a moment later
     } catch (e) { setMessage(e.message) } finally { setBusy(false) }
   }
+  const lang = document.documentElement.lang === 'es' ? 'es' : 'en'
+  const runBody = () => ({ parallel: Number(opts.parallel), per_runner: opts.per_runner.trim(), lang,
+    max_units: opts.max_units === '' ? null : Number(opts.max_units), include_interviews: opts.include_interviews })
+  const pilotArgs = () => ({ lang, include_interviews: opts.include_interviews,
+    ...(opts.max_units === '' ? {} : { max_units: Number(opts.max_units) }) })
   return (
     <div className="run-actions">
-      {running ? (
+      {pilot ? (<>
+        <span className="muted" role="status">{t('pPilotOn')}</span>
         <button className="ghost small" disabled={busy}
-                onClick={() => act(() => postJSON(`runs/${encodeURIComponent(run.run)}/cancel`))}>Cancel run</button>
+                onClick={() => act(async () => { await postJSON(`app/jobs/${pilot.id}/cancel`); setPilot(null) })}>{t('pPilotStop')}</button>
+      </>) : running ? (
+        <button className="ghost small" disabled={busy}
+                onClick={() => act(() => postJSON(`runs/${encodeURIComponent(run.run)}/cancel`))}>{t('pCancel')}</button>
       ) : (
         <>
-          <label className="muted">at once
-            <select value={parallel} onChange={(e) => setParallel(Number(e.target.value))} disabled={busy}>
+          <label className="muted">{t('pAtOnce')}
+            <select value={opts.parallel} onChange={set('parallel')} disabled={busy}>
               {[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}</option>)}
             </select>
           </label>
-          <button className="small" disabled={busy}
-                  onClick={() => act(() => postJSON('runs', { parallel, per_runner: '' }))}>Run</button>
+          <button className="small" disabled={busy} onClick={() => act(() => postJSON('runs', runBody()))}>{t('pRun')}</button>
+          <button className="ghost small" disabled={busy}
+                  onClick={() => act(async () => setPilot(await postJSON('app/cmd', { cmd: 'autopilot', args: pilotArgs() })))}>
+            {t('pPilot')}</button>
+          <button className="ghost small" aria-expanded={more} onClick={() => setMore(!more)}>{t('pOptions')}</button>
         </>
       )}
+      {more && !running && !pilot ? (
+        <div className="run-opts">
+          <label>{t('pPerRunner')}<input className="co-input" value={opts.per_runner} onChange={set('per_runner')} placeholder="claude=2,codex=1" /></label>
+          <label>{t('pMaxUnits')}<input className="co-input" type="number" min="1" value={opts.max_units} onChange={set('max_units')} /></label>
+          <label className="check"><input type="checkbox" checked={opts.include_interviews} onChange={set('include_interviews')} />{t('pInterviews')}</label>
+        </div>
+      ) : null}
       {message ? <span className="error" role="alert">{message}</span> : null}
+    </div>
+  )
+}
+
+// A unit an agent works on, opened as an interactive session in its own terminal window (lib/agents.py).
+function AgentLaunch({ unit }) {
+  const [agents, setAgents] = useState(null)
+  const [agent, setAgent] = useState('')
+  const [state, setState] = useState(null)
+  useEffect(() => {
+    getJSON('app/agents').then((a) => {
+      setAgents(a.agents)
+      setAgent(a.last && a.agents.some((x) => x.id === a.last) ? a.last : a.agents[0]?.id || '')
+    }, (e) => setState({ error: e.message }))
+  }, [])
+  if (unit.runner !== 'agent' || !['todo', 'doing'].includes(unit.status)) return null
+  if (agents && !agents.length) return <p className="aviso small">{t('pNoAgent')}</p>
+  async function open(mode) {
+    setState(null)
+    const lang = document.documentElement.lang === 'es' ? 'es' : 'en'
+    try { await postJSON('app/agent', { unit: unit.id, agent, mode, lang }); setState({ ok: true }) } catch (e) { setState({ error: e.message }) }
+  }
+  return (
+    <div className="agent-launch">
+      <h3>{t('pSession')}</h3>
+      <div className="row">
+        <select className="co-input" value={agent} onChange={(e) => setAgent(e.target.value)} aria-label={t('pAgent')}>
+          {(agents || []).map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
+        </select>
+        <button className="small" disabled={!agent} onClick={() => open('new')}>{t('pOpenTerminal')}</button>
+      </div>
+      {unit.status === 'doing' ? (
+        <div className="row">
+          <button className="ghost small" disabled={!agent} onClick={() => open('continue')}>{t('pContinue')}</button>
+          <button className="ghost small" disabled={!agent} onClick={() => open('restart')}>{t('pRestart')}</button>
+        </div>
+      ) : null}
+      {state?.ok ? <p className="muted small" role="status">{t('pOpened')}</p> : null}
+      {state?.error ? <p className="error" role="alert">{state.error}</p> : null}
     </div>
   )
 }
@@ -166,6 +241,7 @@ function Drawer({ unit, onClose, onChanged }) {
         ? <button className="small" onClick={() => act('units/approve')}>Approve — let the next units start</button>
         : unit.status === 'blocked' ? <button className="small" onClick={() => act('units/retry')}>Retry this unit</button> : null}
       {message ? <p className="error" role="alert">{message}</p> : null}
+      {RUNS ? <AgentLaunch unit={unit} /> : null}
       <h3>Live log</h3>
       <pre className="log">{l.log.length ? l.log.join('\n') : 'Nothing yet in this run.'}</pre>
     </motion.aside>

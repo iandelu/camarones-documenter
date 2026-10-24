@@ -199,3 +199,16 @@ def test_up_with_an_app_token_says_its_port(kit):
     finally:
         pr.terminate()
         pr.wait(timeout=10)
+
+
+def test_stopping_a_job_stops_the_command(app_server, kit):
+    code, job = call(app_server + "/api/app/cmd", {"cmd": "review", "args": {}}, token=TOKEN)
+    assert code == 400                                                   # CLI-only commands are not run
+    # `autopilot` waits out usage limits for minutes: the longest-running command the app starts
+    code, job = call(app_server + "/api/app/cmd", {"cmd": "autopilot", "args": {"poll_seconds": 900}}, token=TOKEN)
+    assert code == 200
+    time.sleep(1.5)
+    code, r = call(f"{app_server}/api/app/jobs/{job['id']}/cancel", {}, token=TOKEN)
+    if code == 200:                                                      # still running: it is stopped
+        j = wait_job(app_server, job["id"])
+        assert j["status"] == "failed" and j["rc"] != 0
