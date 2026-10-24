@@ -4,7 +4,7 @@ const S = {
     askTitle: 'Ask the docs', askLead: 'The sections that best answer your question, each with where it comes from, found '
       + 'without AI the same way agents search. If an agent is set up, it can also write an answer from them.',
     askPh: 'How is a payment retried?', ask: 'Ask', asking: 'Searching…', askEmpty: 'There is no documentation to search yet. '
-      + 'Start with a first look from the code on the Docs tab (no AI).',
+      + 'Start with a first look from the code on Home (no AI).',
     askFailed: 'The search did not run:', nothing: 'Nothing in the docs answers this.', withheld: 'agents do not get this page yet',
     aiAnswer: 'Answer with AI', aiBusy: 'Reading these sections…', aiBy: 'AI answer from the sections below, by',
     aiNone: 'The AI found no answer in these sections.', aiCheck: 'Check it against the sections it cites.',
@@ -62,7 +62,7 @@ const S = {
     askTitle: 'Pregunta a la documentación', askLead: 'Las secciones que mejor responden a tu pregunta, con su origen, '
       + 'encontradas sin IA igual que buscan los agentes. Si hay un agente configurado, también puede redactar la respuesta.',
     askPh: '¿Cómo se reintenta un pago?', ask: 'Preguntar', asking: 'Buscando…', askEmpty: 'Aún no hay documentación en la que buscar. '
-      + 'Empieza con un primer vistazo desde el código en la pestaña Docs (sin IA).',
+      + 'Empieza con un primer vistazo desde el código en Inicio (sin IA).',
     askFailed: 'La búsqueda no se pudo hacer:', nothing: 'Nada en la documentación responde a esto.',
     withheld: 'los agentes aún no reciben esta página',
     aiAnswer: 'Responder con IA', aiBusy: 'Leyendo estas secciones…', aiBy: 'Respuesta de la IA con las secciones de abajo, por',

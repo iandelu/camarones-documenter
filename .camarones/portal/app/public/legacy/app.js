@@ -5,15 +5,20 @@ let CURRENT = '';            // page on screen: a hash change that only moves th
 let DOCS_ORDER = [];
 let NOTES_ORDER = [];
 
+// The React views need the live server; the zones (src/zones.js) know what each mode has.
+const MODE = () => (STATIC || !window.CamaronNative ? 'static' : 'live');
+
+// Where the reader is, from the address: camarón / zone / view / page. No tab bar: Home tiles, zone covers and ⌘K
+// reach every view. `active` is kept for callers; the address alone decides the crumbs.
 function drawChrome(active, { viewer = false, bare = false, nativeView = false } = {}) {
   document.documentElement.lang = lang || 'en';
-  const wikis = !STATIC || T.docs.some((d) => d.space === 'wiki');
-  const code = (T.codeMaps || []).length || T.codeGraphs.length;
-  const live = !STATIC && window.CamaronNative;                  // the React views need the live server
-  const tabs = [['docs', '#/'], ['c4', '#/c4'], ...(code ? [['code', '#/code']] : []), ...(wikis ? [['wikis', '#/wikis']] : []),
-    ['review', '#/review'], ...(live ? [['ask', '#/ask'], ['boards', '#/boards'], ['pipeline', '#/pipeline'], ['libs', '#/libs'], ['data', '#/data'], ['kpis', '#/kpis'], ['ci', '#/ci']] : [])];
-  $('#tabs').innerHTML = tabs.map(([k, href]) => `<a href="${href}" class="${k === active ? 'on' : ''}">${esc(t(k === 'code' ? 'codeTab' : k))}</a>`).join('');
-  requestAnimationFrame(() => $('#tabs a.on')?.scrollIntoView({ block: 'nearest', inline: 'center' }));   // the bar scrolls when the tabs do not fit
+  const crumbs = window.CamaronZones?.crumbs(location.hash, MODE(), T) || [];   // none if the bundle did not load
+  $('#crumbs').innerHTML = crumbs.map((c, i) => {
+    const label = esc(!c.key ? c.text : c.key.startsWith('sec.') ? sectionLabel(c.key.slice(4)) : t(c.key));
+    const last = i === crumbs.length - 1;
+    const item = c.href && !last ? `<a href="${esc(c.href)}">${label}</a>` : `<span${last ? ' aria-current="page"' : ''}>${label}</span>`;
+    return `<span class="sep" aria-hidden="true">/</span>${item}`;
+  }).join('');
   $('#search-label').textContent = t('search');
   $('#theme').title = t('theme');
   $('#menu').title = t('menu');
@@ -89,30 +94,81 @@ function drawDocsSide(active) {
     return `<div class="group">${head}${drawNode({ ...n, index: null }, active)}</div>`;
   }).join('');
   const notesOpen = BY_PATH[active]?.space === 'notes';
-  $('#tree').innerHTML = `<div class="group"><a href="#/" class="${!active ? 'on' : ''}">🏠 ${esc(t('home'))}</a></div>${general}${sections}
+  $('#tree').innerHTML = `<div class="group"><a href="#/docs" class="${!active ? 'on' : ''}">🏠 ${esc(t('docsHome'))}</a></div>${general}${sections}
     ${NOTES_ORDER.length ? `<details class="notes" ${notesOpen ? 'open' : ''}><summary>🗒️ ${esc(t('notes'))} <span class="count">${NOTES_ORDER.length}</span></summary>
       <p class="muted small">${esc(t('notesHelp'))}</p><div class="sub">${drawNode(notes, active)}</div></details>` : ''}`;
   $('#tree .on')?.scrollIntoView({ block: 'nearest' });
 }
 
-// ---------- home ----------
-async function showHome() {
+// ---------- Home (#/): ask first, then the project's state, then the zones ----------
+const homeTile = (href, title, desc) => `<a class="home-tile" href="${esc(href)}"><b>${esc(title)}</b><p>${esc(desc)}</p></a>`;
+
+// The project has nothing of its own yet (the kit's guides and interview notes do not count).
+function emptyProject() {
+  const kit = new Set(T.kitGuides || []);
+  return !T.docs.some((d) => d.space === 'docs' && !kit.has(d.path) && d.type !== 'interview') && !T.views.length;
+}
+
+// One way forward instead of empty tiles: a first look from the code (no AI), or the tutorial.
+function drawEmptyProject() {
+  drawToc(null);
+  $('#main').innerHTML = `<div class="page hero empty aurora-bg"><div class="hero-logo">🦐</div><h1>${esc(T.project)}</h1>
+    <p class="lead">${esc(t('homeEmpty'))}</p><p class="muted">${esc(t('noDocsHelp'))}</p>
+    ${STATIC ? '' : `<div class="row center"><button id="first-look" type="button">${esc(t('firstLook'))}</button>
+      <a class="button ghost" href="#/pipeline">${esc(t('nextUnit'))} →</a></div><pre id="first-log" class="joblog" hidden></pre>`}
+    ${T.kitGuides?.length ? `<p class="small"><a href="${esc(hrefFor(T.kitGuides.find((g) => g.endsWith('tutorial.md')) || T.kitGuides[0]))}">📘 ${esc(t('readTutorial'))}</a></p>` : ''}</div>`;
+  $('#first-look')?.addEventListener('click', (e) => startBuild('first-look', '', e.target, $('#first-log'), () => location.reload()));
+}
+
+async function showStart() {
+  drawChrome('home', { bare: true });
+  CURRENT = '';
+  drawToc(null);
+  if (emptyProject()) return drawEmptyProject();
+  const Z = window.CamaronZones;
+  const kpis = Z.homeKpis(T);
+  const askLabel = t(STATIC ? 'search' : 'homeAsk');
+  $('#main').innerHTML = `<div class="page wide start">
+    <header class="start-hero aurora-bg">
+      <p class="eyebrow">${esc(t('home.eyebrow', { project: T.project, n: T.repos.length }))}</p>
+      <h1 class="t-impact">${esc(t('home.title'))}<br><span class="t-eco">${esc(t('home.eco'))}</span></h1>
+      <form class="start-ask" id="start-ask"><input name="q" placeholder="${esc(t('home.askPh'))}" aria-label="${esc(askLabel)}"
+        autocomplete="off"><button type="submit">${esc(askLabel)} <span aria-hidden="true">→</span></button></form>
+    </header>
+    ${kpis.length ? `<section class="start-sec"><div class="start-h"><h2 class="t-impact">${esc(t('home.state'))}</h2>
+      <span class="eyebrow">${esc(t('home.stateSub'))}</span></div>
+      <div class="home-kpis">${kpis.map((k) => `<div class="home-kpi ${k.tone || ''}"><span class="eyebrow">${esc(t('kpi.' + k.id))}</span>
+        <b>${esc(k.value)}</b><small>${esc(t('kpid.' + k.id))}</small></div>`).join('')}</div></section>` : ''}
+    <section class="start-sec"><div class="start-h"><h2 class="t-impact">${esc(t('home.zones'))}</h2></div>
+      <div class="home-tiles">${Z.zonesFor(MODE(), T).map((z) => homeTile(z.href, t('zone.' + z.id), t('zoned.' + z.id))).join('')}</div></section>
+  </div>`;
+  $('#start-ask').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const q = e.target.q.value.trim();
+    if (q) location.hash = `${STATIC ? '#/search/' : '#/ask/'}${encodeURIComponent(q)}`;
+  });
+}
+
+// A zone's cover (#/arch, #/plan, #/quality): its title and one tile per view this mode has.
+function showZone(id) {
+  const zone = window.CamaronZones.zonesFor(MODE(), T).find((z) => z.id === id);
+  if (!zone) return location.replace('#/');
+  drawChrome(id, { bare: true });
+  CURRENT = '';
+  drawToc(null);
+  $('#main').innerHTML = `<div class="page wide start"><header class="start-head">
+    <h1 class="t-impact">${esc(t('zone.' + id))}<br><span class="t-eco">${esc(t('zoned.' + id))}</span></h1></header>
+    <div class="home-tiles">${zone.views.map((v) => homeTile(v.href, t('view.' + v.id), t('viewd.' + v.id))).join('')}</div></div>`;
+}
+
+// ---------- the Docs zone's cover (#/docs): sections, C4, wikis and the project's index page ----------
+async function showDocsHome() {
   drawChrome('docs');
   drawDocsSide('');
   CURRENT = '';
   const docs = T.docs.filter((d) => d.space === 'docs' && (!isBusiness() || forBusiness(d)));
   const wikiPages = isBusiness() ? 0 : T.docs.filter((d) => d.space === 'wiki').length;
-  const kit = new Set(T.kitGuides || []);                         // the kit's own guides do not document the project
-  if (!docs.some((d) => !kit.has(d.path) && d.type !== 'interview') && !T.views.length) {
-    drawToc(null);
-    $('#main').innerHTML = `<div class="page hero empty"><div class="hero-logo">🦐</div><h1>${esc(T.project)}</h1>
-      <p class="lead">${esc(t('homeEmpty'))}</p><p class="muted">${esc(t('noDocsHelp'))}</p>
-      ${STATIC ? '' : `<div class="row center"><button id="first-look" type="button">${esc(t('firstLook'))}</button>
-        <a class="button ghost" href="#/pipeline">${esc(t('nextUnit'))} →</a></div><pre id="first-log" class="joblog" hidden></pre>`}
-      ${T.kitGuides?.length ? `<p class="small"><a href="${esc(hrefFor(T.kitGuides.find((g) => g.endsWith('tutorial.md')) || T.kitGuides[0]))}">📘 ${esc(t('readTutorial'))}</a></p>` : ''}</div>`;
-    $('#first-look')?.addEventListener('click', (e) => startBuild('first-look', '', e.target, $('#first-log'), () => location.reload()));
-    return;
-  }
+  if (emptyProject()) return drawEmptyProject();
   const home = BY_PATH['index.md'];
   const tree = buildTree(docs);
   const confirmed = docs.length ? Math.round(100 * docs.filter((d) => d.trust === 'confirmed').length / docs.length) : 0;
@@ -153,25 +209,12 @@ async function showHome() {
   await Promise.all(tasks);
 }
 
-// ---------- pages ----------
-function crumbsFor(path) {
-  const row = BY_PATH[path] || {};
-  const parts = path.split('/').slice(0, -1);
-  const out = [['#/', t('home')]];
-  if (row.space === 'notes') out.push(['', t('notes')]);
-  parts.forEach((p, i) => {
-    const idx = parts.slice(0, i + 1).join('/') + '/index.md';
-    const label = i === 0 && row.space !== 'notes' ? sectionLabel(p) : p;
-    out.push([BY_PATH[idx] && idx !== path ? hrefFor(idx) : '', label]);
-  });
-  return out;
-}
-
+// ---------- pages (their breadcrumbs are in the top bar: drawChrome) ----------
 async function showDoc(path, anchor) {
   drawChrome('docs');
   drawDocsSide(path);
   const notes = BY_PATH[path]?.space === 'notes';
-  await showPage(path, anchor, { crumbs: crumbsFor(path), order: notes ? NOTES_ORDER : DOCS_ORDER });
+  await showPage(path, anchor, { order: notes ? NOTES_ORDER : DOCS_ORDER });
 }
 
 async function showPage(path, anchor, ctx) {
@@ -188,7 +231,6 @@ async function showPage(path, anchor, ctx) {
   const i = ctx.order.indexOf(path);
   const pager = (p, cls, label) => (p ? `<a class="${cls}" href="${esc(hrefFor(p))}"><span class="muted small">${esc(label)}</span><b>${esc(BY_PATH[p]?.title || p)}</b></a>` : '<span></span>');
   $('#main').innerHTML = `<article class="page">
-    <nav class="crumbs">${ctx.crumbs.map(([h, l]) => (h ? `<a href="${esc(h)}">${esc(l)}</a>` : `<span>${esc(l)}</span>`)).join('<span class="sep">›</span>')}</nav>
     <h1>${esc(title)}</h1>
     ${row.description ? `<p class="lead">${esc(row.description)}</p>` : ''}
     <div class="meta">
@@ -364,7 +406,11 @@ function paletteInput() {
     sub: sub ?? esc(d.space === 'notes' ? `${d.path} · ${t('inNotes')}` : d.path) });
   const titles = (q ? T.docs.filter((d) => (d.title + ' ' + d.path).toLowerCase().includes(low))
     : DOCS_ORDER.map((p) => BY_PATH[p]).filter(Boolean)).sort((a, b) => (q ? spaceRank(a.path) - spaceRank(b.path) : 0)).slice(0, 8);
-  const groups = [[t('titles'), titles.map((d) => item(d))]];
+  const places = (window.CamaronZones?.paletteEntries(MODE(), T) || [])     // zones and views: "libr" → Libraries
+    .map((e) => ({ ...e, label: t(e.key), where: e.key.startsWith('view.') ? t('zone.' + e.zone) : '' }))
+    .filter((e) => !q || `${e.label} ${e.where}`.toLowerCase().includes(low)).slice(0, 8)
+    .map((e) => ({ href: e.href, icon: '<span aria-hidden="true">→</span>', title: q ? markTerms(e.label, q) : esc(e.label), sub: esc(e.where) }));
+  const groups = [[t('zonesGroup'), places], [t('titles'), titles.map((d) => item(d))]];
   paletteDraw(groups);
   clearTimeout(PAL.timer);
   if (q.length < 2) return;
@@ -459,7 +505,7 @@ async function routeNow() {
   window.CamaronNative?.hide();
   try {
     if (view === 'docs' || view === 'doc') {
-      if (!rest) return await showHome();
+      if (!rest) return await showDocsHome();
       const [path, anchor] = rest.split('::');
       if (BY_PATH[path]?.space === 'wiki') return location.replace(hrefFor(path, anchor));
       if (path === CURRENT && anchor !== undefined && $('#body')) return scrollToAnchor(anchor);
@@ -480,7 +526,8 @@ async function routeNow() {
     if (view === 'review' || view === 'status') return await showReview();
     if (view === 'search') return await showSearch(rest);
     if (view === 'new' && !STATIC) return newPage();
-    return await showHome();
+    if (['arch', 'plan', 'quality'].includes(view)) return showZone(view);
+    return await showStart();                 // #/, an unknown address, or a live-only view in the static export
   } catch (e) {
     drawToc(null);
     $('#main').innerHTML = `<div class="page"><h1>${esc(t('error'))}</h1><p>${esc(e.message)}</p></div>`;
@@ -504,7 +551,13 @@ document.addEventListener('keydown', (e) => {
 addEventListener('hashchange', route);
 applyTheme();
 $('#search-key').textContent = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘K' : 'Ctrl K';
-loadTree().then(() => {
+// The zones come with the React bundle (a module script, run after these scripts): routing waits for both, or for
+// the page's load event if the bundle failed (the docs still show, without breadcrumbs).
+const zonesReady = () => (window.CamaronZones ? Promise.resolve() : new Promise((ok) => {
+  addEventListener('camaron:native-ready', ok, { once: true });
+  addEventListener('load', ok, { once: true });
+}));
+Promise.all([loadTree(), zonesReady()]).then(() => {
   if (!store.get('cam-lang')) {           // first visit: the browser's language when the docs are translated to it
     const nav = (navigator.language || 'en').slice(0, 2);
     if (T.langs.includes(nav)) lang = nav;
