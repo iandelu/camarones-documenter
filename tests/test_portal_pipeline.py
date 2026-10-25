@@ -99,3 +99,14 @@ def test_pipeline_api_has_units_with_status_dependencies_and_how_they_run(kit, s
 def test_run_detail_api(server, run_log):
     d = get_json(f"{server}/api/runs/r-20261016-100000-1")
     assert d["units"][0]["unit"] == "discovery:api" and d["units"][0]["seconds"] == 12.0
+
+
+def test_each_unit_says_whether_it_is_ready(kit, server):
+    """The app's Plan groups the units by what they ask for: `ready` is plan.available's own rule (redo chains, soft
+    links), not a guess from deps on the page."""
+    kit.plan.sync()
+    kit.plan.set_status("setup", "done")
+    units = get_json(server + "/api/pipeline")["units"]
+    ready = {u["id"] for u in kit.plan.available()}
+    assert ready and {u["id"] for u in units if u["ready"]} == ready
+    assert next(u for u in units if u["id"] == "setup")["ready"] is False

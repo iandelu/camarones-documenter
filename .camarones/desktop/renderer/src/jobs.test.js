@@ -12,6 +12,12 @@ test('what runs, and the most recent first', () => {
   expect(arrange(null)).toEqual({ running: [], recent: [] })
 })
 
+test('a panel\'s background read is not a job to show', () => {
+  const { running, recent } = arrange([{ ...job('1', 'running', 1), quiet: true }, job('2', 'done', 2)])
+  expect(running).toEqual([])
+  expect(recent.map((j) => j.id)).toEqual(['2'])
+})
+
 test('each state has its chip and its word; a job a person stopped is stopped, not failed', () => {
   expect(['running', 'done', 'failed', 'odd'].map((s) => chip({ status: s }))).toEqual(['info', 'ok', 'bad', 'warn'])
   expect(chip({ status: 'failed', stopped: true })).toBe('warn')

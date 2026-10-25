@@ -46,6 +46,43 @@ a { color: var(--color-acento-texto); }
 a.dk-stat-n:hover { color: var(--color-acento-texto); }
 .dk-progress { width: 100%; height: .4rem; accent-color: var(--color-ink); }
 
+/* the sections: cards of one task each, the plan's units as rows, folds for what waits, the catalog's forms */
+.dk-run { gap: .6rem; }
+.dk-inline { display: inline-flex; align-items: center; gap: .5rem; color: var(--color-ink-soft); }
+.dk-narrow { min-width: 4rem; }
+.dk-check { display: inline-flex; align-items: center; gap: .5rem; min-height: 1.5rem; cursor: pointer; }
+.dk-check input { width: 1rem; height: 1rem; flex: none; accent-color: var(--color-ink); }
+.dk-check .cu-flag, .cu-field-label .cu-flag { white-space: nowrap; }
+.dk-units-head { margin-top: .25rem; }
+.dk-group-block { display: flex; flex-direction: column; gap: .5rem; }
+.dk-group { margin: .25rem 0 0; }
+.dk-units { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border: 1px solid var(--color-rule);
+            border-radius: var(--consola-radio-tarjeta); background: var(--color-canvas-elevated); }
+.dk-unit { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; padding: .7rem .9rem; }
+.dk-unit + .dk-unit { border-top: 1px solid var(--color-rule); }
+.dk-unit-main { flex: 1 1 18rem; min-width: 0; display: flex; flex-direction: column; gap: .15rem; }
+.dk-unit-acts { flex-wrap: nowrap; }
+.dk-unit-note { flex-basis: 100%; margin: 0; }
+.dk-fold { border-top: 1px solid var(--color-rule); padding-top: .5rem; }
+.dk-fold > summary { cursor: pointer; min-height: 2rem; display: flex; align-items: center; color: var(--color-ink-soft);
+                     font-weight: 500; list-style-position: inside; }
+.dk-fold > summary:focus-visible { outline: 2px solid var(--color-acento-texto); outline-offset: 2px; }
+.dk-fold-body { display: flex; flex-direction: column; gap: .75rem; padding: .5rem 0; }
+.dk-out { display: flex; flex-direction: column; align-items: flex-start; gap: .4rem; }
+.dk-out details { width: 100%; }
+.dk-out .dk-log { max-height: 14rem; }
+.dk-cmds { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr)); gap: .75rem; }
+.dk-cmd { gap: .6rem; }
+.dk-cmd.careful { border-color: var(--color-estado-mal); }
+.dk-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr)); gap: .6rem .9rem; align-items: end; }
+.dk-dialog { max-width: 32rem; border: 1px solid var(--color-rule); border-radius: var(--consola-radio-tarjeta);
+             background: var(--color-canvas-elevated); color: var(--color-ink); padding: 1.25rem; }
+.dk-dialog::backdrop { background: color-mix(in oklch, var(--color-canvas) 60%, transparent); }
+.dk-dialog h2 { margin: 0 0 .5rem; font-size: var(--text-h3); }
+.dk-stats-sm { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; }
+.dk-stats-sm > div { display: flex; flex-direction: column; gap: .2rem; }
+.dk-stat-sm { font-size: var(--text-h2); line-height: 1.1; }
+
 /* the jobs panel: one line, or open with the recent jobs and the output of the one picked */
 .dk-jobs { grid-area: jobs; display: flex; flex-direction: column; border-top: 1px solid var(--color-rule);
            background: var(--color-canvas-elevated); min-width: 0; }

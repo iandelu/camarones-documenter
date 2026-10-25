@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { getJSON, postJSON } from './api.js'
-import { fields, toArgs } from './cmdform.js'
+import { fields, toArgs } from '@camaron/ui/cmdform.js'
 import { lang, t } from './i18n.js'
 import TallerPanels, { Uninstall } from './TallerPanels.jsx'
 import { useJob } from './useJob.js'
