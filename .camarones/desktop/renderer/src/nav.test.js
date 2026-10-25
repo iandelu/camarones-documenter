@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { initials, MACHINE, PROJECT, sectionOf, sections, TALLER_OF } from './nav.js'
+import { initials, MACHINE, PROJECT, sectionOf, sections } from './nav.js'
 
 test('a project has its sections; this machine has its own, Kit dev only in a kit checkout', () => {
   expect(PROJECT).toEqual(['summary', 'plan', 'interviews', 'team', 'quality', 'docs'])
@@ -16,9 +16,6 @@ test('the address picks the section; anything else is the summary', () => {
   expect(sectionOf('#/nope', {})).toBe('summary')
 })
 
-test('every section has its place in the portal while it is rebuilt here', () => {
-  for (const s of [...PROJECT, ...MACHINE]) expect(TALLER_OF[s]).toMatch(/^#\//)
-})
 
 test('the rail names a project by its initials', () => {
   expect(initials('petclinic')).toBe('PE')

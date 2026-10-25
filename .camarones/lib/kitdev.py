@@ -1,5 +1,6 @@
 """Kit dev: the bench of a checkout of this kit, from the desktop app — the sandbox (scripts/sandbox.py), pytest, the
-portal's npm test / build, the desktop helpers' tests and the check that app-build and renderer-build match their source. Only in a kit
+portal's and the app's UI's npm ci / test / build, the desktop helpers' tests and the check that app-build and
+renderer-build match their source. Only in a kit
 checkout (tests/ and scripts/sandbox.py next to .camarones/), only these commands, built as argument lists."""
 from __future__ import annotations
 
@@ -22,7 +23,8 @@ def available() -> bool:
 def info() -> dict:
     sandbox = Path(os.environ.get("CAMARONES_SANDBOX") or Path.home() / "projects" / "camarones-sandbox")
     return {"available": available(), "repo": str(REPO), "sandbox": str(sandbox), "sandbox_exists": sandbox.is_dir(),
-            "has_node_modules": (REPO / ".camarones" / "portal" / "app" / "node_modules").is_dir()}
+            "has_node_modules": (REPO / ".camarones" / "portal" / "app" / "node_modules").is_dir(),
+            "renderer_node_modules": (REPO / ".camarones" / "desktop" / "renderer" / "node_modules").is_dir()}
 
 
 def _tool(name: str) -> str:
@@ -58,8 +60,11 @@ def command(task: str, b: dict) -> tuple[list[str], Path]:
             raise ValueError("-k: an expression, not an option")
         paths = [_test_path(p) for p in b.get("paths") or []]
         return [uv(), "run", "pytest", "-q", *(["-k", k] if k else []), *paths], REPO
+    npm = {"ci": ["ci"], "test": ["test"], "build": ["run", "build"]}
     if task in ("portal-ci", "portal-test", "portal-build"):
-        return [_tool("npm"), *{"portal-ci": ["ci"], "portal-test": ["test"], "portal-build": ["run", "build"]}[task]], app
+        return [_tool("npm"), *npm[task.split("-", 1)[1]]], app
+    if task in ("renderer-ci", "renderer-test", "renderer-build"):           # the desktop app's own UI
+        return [_tool("npm"), *npm[task.split("-", 1)[1]]], REPO / ".camarones" / "desktop" / "renderer"
     if task == "desktop-test":
         # the main process's tests only: the renderer's (desktop/renderer) are Vitest's
         return [_tool("node"), "--test", "test/*.test.cjs"], REPO / ".camarones" / "desktop"

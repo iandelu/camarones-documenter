@@ -12,9 +12,6 @@ export function sectionOf(hash, flags) {
   return all.includes(s) ? s : 'summary'
 }
 
-// Where each section still lives in the portal's Taller while it is rebuilt here.
-export const TALLER_OF = { summary: '#/', plan: '#/pipeline', interviews: '#/interviews', team: '#/team',
-  quality: '#/check', docs: '#/docs', machine: '#/machine', kitdev: '#/kitdev' }
 
 // Two letters for the rail: the first letters of the first two words, or the first two of a single word.
 export function initials(name) {

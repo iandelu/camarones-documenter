@@ -1,5 +1,12 @@
 import { expect, test } from 'vitest'
-import { action } from './summary.js'
+import { action, doctorNote } from './summary.js'
+
+test('the last doctor check, as one notice: what is missing and how many kit files drifted; nothing when all is fine', () => {
+  expect(doctorNote({ missing: ['node'], tools: ['likec4', 'mmdc'], drift: 2 })).toEqual({ names: ['node', 'likec4', 'mmdc'], drift: 2 })
+  expect(doctorNote({ missing: [], tools: [], drift: 1 })).toEqual({ names: [], drift: 1 })
+  expect(doctorNote({ missing: [], tools: [], drift: 0 })).toBeNull()
+  expect(doctorNote(null)).toBeNull()                                     // never checked: the Summary says nothing
+})
 
 const unit = (id, runner, type = id) => ({ id, runner, type, title: `Title of ${id}` })
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Aviso, Button, Card, Skeleton } from '@camaron/ui'
-import { action } from '../summary.js'
+import { action, doctorNote } from '../summary.js'
 import { useAgents, useStore } from '../hooks.js'
 import { AgentPicker, Page } from '../parts.jsx'
 import { lang, t } from '../i18n.js'
@@ -26,6 +26,7 @@ export default function Summary({ srv, jobs }) {
   if (!data) return <Page title={title}><Skeleton lines={5} /></Page>
   const { step, plan, review } = data
   const next = action(step)
+  const doc = doctorNote(data.doctor)
   const start = async () => {
     setLaunch({ busy: true, note: '', error: '' })
     try {
@@ -58,6 +59,12 @@ export default function Summary({ srv, jobs }) {
         {launch.note && <p className="muted small" role="status">{launch.note}</p>}
         {launch.error && <Aviso tone="error" title={t('next.failed')} detail={launch.error} />}
       </Card>
+      {doc ? (
+        <Aviso tone="warn" title={t('sum.doctor')}>
+          <span className="row"><span className="small">{[doc.names.join(', '), doc.drift ? t('sum.drift', { n: doc.drift }) : ''].filter(Boolean).join(' · ')}</span>
+            <Button size="sm" href="#/quality">{t('sum.doctorGo')}</Button></span>
+        </Aviso>
+      ) : null}
       <div className="dk-stats">
         <Card className="dk-stat">
           <span className="eyebrow">{t('stat.plan')}</span>

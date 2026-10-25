@@ -413,8 +413,11 @@ camaron app                  # en cualquier otra carpeta: abre el selector de pr
 - **Plan:** ejecutar las unidades listas en paralelo o con el piloto automático (y pararlo), y debajo las unidades agrupadas por lo que te piden —aprobar, reintentar, seguir, empezar—, con las que esperan a otras y las hechas plegadas. Un solo selector elige el agente de toda la sección. El grafo del plan sigue en el portal.
 - **Entrevistas:** cómo se hacen (cuestionario del equipo o en vivo), el estado del cuestionario con responder, exportar el formulario, importar respuestas y cerrar la ronda, y cada entrevista con su agente.
 - **Equipo:** el repo del equipo y compartir (lo que hay por enviar y por traer, **Compartir ahora**), lo que llegó con ese repo y falta aprobar en esta máquina, los hooks y los plugins.
+- **Calidad:** **Requisitos y herramientas** (el doctor: lo que falta primero, con su botón para instalarlo o reponerlo; se guarda entre visitas y se comprueba de nuevo con **Volver a comprobar**), lo que carga cada sesión de agente, las preguntas de control y la misma pregunta con y sin cam-docs. Debajo, sin IA y desde el código: vulnerabilidades conocidas, páginas desactualizadas y bloques generados. Si al doctor le falta algo, el **Resumen** lo avisa.
+- **Docs** abre la documentación en el portal (leer, revisar, buscar o preguntar).
+- Debajo, a nivel de app, **Máquina** (preparar la máquina con su progreso, idioma y modelos, tokens de GitLab y GitHub, repos y plan, actualizar el kit y, aparte, desinstalar: primero «Ver qué borraría») y, en un checkout del kit, **Kit dev** (sandbox, tests y los builds del portal y de la app).
 
-Al final de cada una, **Todos los comandos** (plegado) tiene el resto de comandos de esa sección con su formulario, sin repetir los que ya tienen panel. Calidad, Docs y, debajo, **Máquina** aún abren su zona del **Taller**, y **Volver a la app** te trae de vuelta. Un buen primer paso: **Comprobar › Requisitos y herramientas** para ver qué falta, y **Analizar** para el primer vistazo sin IA.
+Al final de cada una, **Todos los comandos** (plegado) tiene el resto de comandos de esa sección con su formulario, sin repetir los que ya tienen panel. Un buen primer paso: **Calidad › Requisitos y herramientas** para ver qué falta, y **Plan** para la primera unidad.
 
 <details>
 <summary><strong>🪟 🍎 🐧 Notas por sistema operativo</strong></summary>

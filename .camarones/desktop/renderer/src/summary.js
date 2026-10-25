@@ -12,6 +12,13 @@ const WIZARD = {
 // Where a unit the wizard runs is done in the app (the Plan's rows use it too).
 export const linkFor = (u) => ({ kind: 'link', ...(WIZARD[u.type] || { href: '#/plan', label: 'next.plan' }) })
 
+// What the last doctor check found (lib/doctor.problems), as one notice; null when all is fine or never checked.
+export function doctorNote(p) {
+  if (!p) return null
+  const names = [...p.missing, ...p.tools]
+  return names.length || p.drift ? { names, drift: p.drift } : null
+}
+
 export function action(step) {
   const u = step?.unit
   if (step?.kind === 'resume') return { kind: 'agent', unit: u.id, mode: 'continue', label: 'next.resume' }

@@ -46,3 +46,27 @@ def test_doctor_json_on_the_cli(kit):
     assert {"prerequisites", "tools", "drift", "fix_drift"} <= set(data)
     assert all({"name", "ok", "need", "hint", "fix"} <= set(p) for p in data["prerequisites"])
     assert cli(kit, "doctor", "--install", "nonsense").returncode == 2           # argparse: one of the known names
+
+
+FAKE = {"prerequisites": [{"name": "git", "ok": True, "need": True}, {"name": "node", "ok": False, "need": True},
+                          {"name": "codex", "ok": False, "need": False}],
+        "tools": [{"name": "likec4", "ok": False}, {"name": "mmdc", "ok": True}],
+        "drift": [{"path": "AGENTS.md"}], "fix_drift": {"cmd": "repair", "args": {}}}
+
+
+def test_a_check_is_kept_with_its_time_so_the_app_does_not_run_it_on_every_visit(kit, monkeypatch):
+    from lib import doctor
+    monkeypatch.setattr(doctor, "report", lambda: FAKE)
+    assert doctor.checked() is None                                         # never checked on this project
+    rec = doctor.check(log=lambda _: None)
+    assert rec["result"] == FAKE and rec["at"].endswith("Z")
+    assert doctor.checked() == rec
+    doctor.CACHE_FILE.write_text("{not json", encoding="utf-8")             # a broken cache is no cache
+    assert doctor.checked() is None
+
+
+def test_what_needs_doing_is_counted_for_the_summary(kit):
+    from lib import doctor
+    # node is needed and missing; codex is optional; likec4 is a pinned tool out of date; one kit file drifted
+    assert doctor.problems(FAKE) == {"missing": ["node"], "tools": ["likec4"], "drift": 1}
+    assert doctor.problems({"prerequisites": [], "tools": [], "drift": []}) == {"missing": [], "tools": [], "drift": 0}

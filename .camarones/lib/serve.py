@@ -389,12 +389,16 @@ def api_interview(who: str = "") -> dict:
 
 
 def app_summary() -> dict:
-    """The desktop app's Summary: the next step (the wizard's rule, plan.next_step), the plan's progress and the pages
-    waiting for a person. Reads only: plan.sync() writes, and a page that just looks must not."""
+    """The desktop app's Summary: the next step (the wizard's rule, plan.next_step), the plan's progress, the pages
+    waiting for a person and what the last doctor check found (None: never checked). Reads only: plan.sync() writes,
+    and a page that just looks must not."""
+    from . import doctor
     review = len(docs.review_queue()) if DOCS.exists() else 0
     data = plan.load()
     done, total = plan.progress(data)
-    return {"step": plan.next_step(data, review=review), "plan": {"done": done, "total": total}, "review": review}
+    last = doctor.checked()
+    return {"step": plan.next_step(data, review=review), "plan": {"done": done, "total": total}, "review": review,
+            "doctor": doctor.problems(last["result"]) if last else None}
 
 
 def status(check: bool = True) -> dict:
@@ -665,6 +669,9 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(appapi.catalog())
         if name == "summary":
             return self.json(app_summary())
+        if name == "doctor":
+            from . import doctor
+            return self.json({"checked": doctor.checked()})
         if name == "kitdev":
             from . import kitdev
             return self.json(kitdev.info())
@@ -865,6 +872,9 @@ class Handler(BaseHTTPRequestHandler):
                     return self.json({"error": str(e), "confirm": True}, 409)
                 except KeyError as e:
                     return self.json({"error": f"unknown command {e}"}, 404)
+            if p == "/api/app/doctor":                  # check again: a job that keeps its result (lib/doctor.check)
+                from . import doctor
+                return self.json(start_job("doctor", "doctor", lambda log: bool(doctor.check(log))))
             if p == "/api/app/kitdev":                  # the bench of a kit checkout: sandbox, pytest, npm, node --test
                 return self.json(*app_kitdev(b))
             if p.startswith("/api/app/creds"):           # tokens only ever travel in this body, never on a command line
