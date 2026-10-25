@@ -995,8 +995,7 @@ class W:
             self.banner()
         self.trust_check()
         state = load_json(FIRSTRUN, {})
-        shared = plan.PLAN.exists() and WS_FILE.exists()          # team work that came with the repo (or pre-2.4)
-        mode = first_run_mode(state, shared, local_ready=bool(shared and not state) and self.local_ready())
+        mode = onboard.mode(state)
         if mode != "done":
             if not self.first_run(resume_step(state), mode=mode):
                 return
@@ -2279,10 +2278,6 @@ class W:
                 if (repo_dir(n) / ".git").exists() and not env.repo_graph(n).exists():
                     self.safe(self.busy, env.wire_one, n)
             plan.sync()
-
-    def local_ready(self) -> bool:
-        """This machine already has what setup gives: every repo with a URL cloned and the chosen kit tools."""
-        return onboard.local_ready()
 
     def do_share(self) -> None:
         url = env.docs_remote()
