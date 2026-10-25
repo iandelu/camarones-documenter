@@ -14,9 +14,10 @@ from pathlib import Path
 import yaml
 
 from .common import DOCS, ROOT, cli_cmd, repo_dir, rel_file
-from . import docs, quickarch
+from . import diagrams, docs, quickarch
 
 KINDS = ("commands", "env", "endpoints", "topics", "schema")
+DIAGRAM_KINDS = diagrams.KINDS                                              # not in KINDS: they never join a reference page
 BLOCK_RE = re.compile(r"<!-- generated:(?P<kind>[\w-]+) repo=(?P<repo>[\w.\-]+)(?: id=(?P<id>[\w.\-]+))?"
                       r"(?: confirmed=(?P<confirmed>[0-9a-f]+))?(?: by=(?P<by>[^\s>]+))?(?: sha=(?P<sha>[0-9a-f]+))? -->\n"
                       r"(?P<body>.*?)<!-- /generated:(?P=kind) -->", re.S)
@@ -195,6 +196,8 @@ def _where(source: str) -> str:
 
 def render(kind: str, name: str, repo: Path | None, id: str | None = None) -> tuple[str, list[str]] | None:
     """(block body, sources it was read from); None when the kind has nothing to say without a repo folder."""
+    if kind in DIAGRAM_KINDS:
+        return diagrams.render(kind, name, id)
     if repo is None:
         return None
     if kind == "schema":
@@ -239,7 +242,7 @@ class Scanner:
         self.cache: dict[tuple, tuple[str, list[str]]] = {}
 
     def get(self, kind: str, repo: str, id: str | None = None) -> tuple[str, list[str]] | None:
-        if kind not in KINDS or (repo != SYSTEM and (repo not in self.repos or not repo_dir(repo).is_dir())):
+        if kind not in KINDS + DIAGRAM_KINDS or (repo != SYSTEM and (repo not in self.repos or not repo_dir(repo).is_dir())):
             return None
         if (kind, repo, id) not in self.cache:
             self.cache[(kind, repo, id)] = render(kind, repo, None if repo == SYSTEM else repo_dir(repo), id)
