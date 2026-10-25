@@ -361,18 +361,29 @@ every agent session loads before reading a page, against `context.budget`), `aut
 approval, whether the method hooks are on), the portal's **Plan › Sync** (the same as `share`, with where you stand), `app` (the desktop app: the portal plus the Workshop,
 where runs, wikis, scans and checks start; the browser portal only shows them).
 
-**Facts from the code, no AI.** `camaron blocks` writes `docs/repos/<repo>/reference.md` for each repo: commands
-(Maven, Gradle, `package.json`, Makefile, Docker Compose), env vars (Spring `${VAR:default}` placeholders,
-`.env.example`, Angular `environment.ts`; secret-looking defaults hidden), HTTP endpoints (OpenAPI, else Spring
-annotations) and message topics, each row with its file and line. They are `<!-- generated:<kind> repo=<repo> -->`
-blocks you can put in any page; `blocks` and `sync` refresh them. A block edited by hand is kept and `check` flags it;
-`blocks --force` takes the code's version.
+**Pages from the code, no AI.** The install (and `camaron pages [--json]`, which brings them up to date;
+`camaron diagrams` is its alias) writes `docs/index.md`: what the project is, a card per repo and the context map. For
+each repo it writes `docs/repos/<repo>/index.md`: what it exposes (the endpoints map, with the endpoints table folded),
+what data it stores (ER diagram), its lifecycles (one state diagram per status enum), its messages and what it needs to
+run (env vars and commands, folded). Env vars come from Spring `${VAR:default}` placeholders, `.env.example` and Angular
+`environment.ts` (secret-looking defaults hidden), commands from Maven, Gradle, `package.json`, Makefile and Docker
+Compose, endpoints from OpenAPI (else Spring annotations); each row carries its file and line. With message topics there
+is also `docs/architecture/messaging.md`. They are `<!-- generated:<kind> repo=<repo> -->` blocks you can put in any
+page; `pages`, `blocks` and `sync` refresh them. A block edited by hand is kept and `check` flags it; `blocks --force`
+takes the code's version.
 
-**Diagrams from the code, no AI.** `camaron diagrams [--json]` (also run by the first scan and the first look) draws
-what the code states, in Mermaid, and never guesses: `docs/architecture/system-map.md` has the context map (repos,
-datastores, brokers, identity providers) and one sequence per message topic (who publishes, who consumes);
-`docs/repos/<repo>/diagrams.md` has the repo's endpoints map and one state diagram per status enum, with the states
-only (transitions are not guessed). They are ordinary Docs pages made of generated blocks like the ones above. A
+**Projects from before 4.52** keep their pages (`reference.md`, `diagrams.md`, `system-map.md`, `first-look.md`,
+`data/<repo>.md`) until you run `camaron pages --adopt`. It moves the blocks, with their confirmations, into the new
+pages (filling an agent-written home or repo page with them), deletes only the kit pages it emptied, never writes a page
+a person owns (`x-owner: human`, `x-confirmed`, or no `x-owner`), points the links in agent pages at the new pages and
+lists what it could not touch (pages, links, translations).
+
+**Diagrams from the code, no AI.** `camaron pages` (alias `camaron diagrams`; also run by the first scan and the first
+look) draws what the code states, in Mermaid, and never guesses: the context map (repos, datastores, brokers, identity
+providers) in `docs/index.md`; the repo's endpoints map and one state diagram per status enum, with the states only
+(transitions are not guessed), in `docs/repos/<repo>/index.md`; and one sequence per message topic (who publishes, who
+consumes) in `docs/architecture/messaging.md`. They are ordinary Docs pages made of generated blocks like the ones
+above. A
 person can confirm one by hand: copy the block's `sha=` value into `confirmed=` and put a name in `by=` (one word, or
 quoted when it has spaces: `by="Ana López"`), e.g.
 `<!-- generated:states repo=api id=OrderStatus confirmed=3fa1c2d4e5f6 by=ana sha=3fa1c2d4e5f6 -->`. A refresh then

@@ -379,19 +379,30 @@ solo CLI, y sus argumentos) y `projects [--json]` (los proyectos registrados en 
 aprobar, si los hooks del método están activos), **Plan › Sincronizar** en el portal (lo mismo que `share`, con dónde estás) y `app` (la app de escritorio: el portal más el Taller,
 donde se lanzan ejecuciones, wikis, análisis y comprobaciones; el portal del navegador solo las enseña).
 
-**Datos del código, sin IA.** `camaron blocks` escribe `docs/repos/<repo>/reference.md` para cada repo: comandos
-(Maven, Gradle, `package.json`, Makefile, Docker Compose), variables de entorno (placeholders `${VAR:valor}` de Spring,
-`.env.example`, `environment.ts` de Angular; los valores que parecen secretos se ocultan), endpoints HTTP (OpenAPI o, si
-no hay, anotaciones de Spring) y topics de mensajería, cada fila con su fichero y línea. Son bloques
-`<!-- generated:<tipo> repo=<repo> -->` que puedes poner en cualquier página; `blocks` y `sync` los actualizan. Si
-alguien edita uno a mano, se conserva y `check` lo avisa; `blocks --force` toma la versión del código.
+**Páginas del código, sin IA.** La instalación (y `camaron pages [--json]`, que las pone al día; `camaron diagrams`
+es su alias) escribe `docs/index.md`: qué es el proyecto, una tarjeta por repo y el mapa de contexto. Por cada repo
+escribe `docs/repos/<repo>/index.md`: qué expone (el mapa de endpoints, con la tabla de endpoints plegada), qué datos
+guarda (diagrama ER), sus ciclos de vida (un diagrama de estados por enum de estado), sus mensajes y qué necesita para
+arrancar (variables de entorno y comandos, plegados). Las variables salen de los placeholders `${VAR:valor}` de Spring,
+`.env.example` y `environment.ts` de Angular (los valores que parecen secretos se ocultan), los comandos de Maven,
+Gradle, `package.json`, Makefile y Docker Compose, los endpoints de OpenAPI (o, si no hay, de las anotaciones de
+Spring); cada fila lleva su fichero y línea. Con topics de mensajería hay además `docs/architecture/messaging.md`. Son
+bloques `<!-- generated:<tipo> repo=<repo> -->` que puedes poner en cualquier página; `pages`, `blocks` y `sync` los
+actualizan. Si alguien edita uno a mano, se conserva y `check` lo avisa; `blocks --force` toma la versión del código.
 
-**Diagramas del código, sin IA.** `camaron diagrams [--json]` (también lo ejecutan el primer escaneo y el primer
-vistazo) dibuja en Mermaid lo que el código afirma, sin adivinar: `docs/architecture/system-map.md` trae el mapa de
-contexto (repos, almacenes de datos, brokers, proveedores de identidad) y una secuencia por topic (quién publica, quién
-consume); `docs/repos/<repo>/diagrams.md` trae el mapa de endpoints del repo y un diagrama de estados por cada enum de
-estado, solo con los estados (las transiciones no se adivinan). Son páginas normales de Docs hechas de bloques
-generados como los de arriba. Una persona puede confirmar uno a mano: copia el `sha=` del bloque en `confirmed=` y pon
+**Proyectos anteriores a la 4.52.** Conservan sus páginas (`reference.md`, `diagrams.md`, `system-map.md`,
+`first-look.md`, `data/<repo>.md`) hasta que ejecutes `camaron pages --adopt`. Mueve los bloques, con sus
+confirmaciones, a las páginas nuevas (rellenándolas si el inicio o la página del repo la escribió un agente), borra solo
+las páginas del kit que deja vacías, no escribe nunca una página de una persona (`x-owner: human`, `x-confirmed` o sin
+`x-owner`), apunta los enlaces de las páginas de agente a las páginas nuevas y lista lo que no pudo tocar (páginas,
+enlaces, traducciones).
+
+**Diagramas del código, sin IA.** `camaron pages` (alias `camaron diagrams`; también lo ejecutan el primer escaneo y
+el primer vistazo) dibuja en Mermaid lo que el código afirma, sin adivinar: el mapa de contexto (repos, almacenes de
+datos, brokers, proveedores de identidad) en `docs/index.md`; el mapa de endpoints del repo y un diagrama de estados por
+cada enum de estado, solo con los estados (las transiciones no se adivinan), en `docs/repos/<repo>/index.md`; y una
+secuencia por topic (quién publica, quién consume) en `docs/architecture/messaging.md`. Son páginas normales de Docs
+hechas de bloques generados como los de arriba. Una persona puede confirmar uno a mano: copia el `sha=` del bloque en `confirmed=` y pon
 un nombre en `by=` (una palabra, o entre comillas si lleva espacios: `by="Ana López"`), p. ej.
 `<!-- generated:states repo=api id=OrderStatus confirmed=3fa1c2d4e5f6 by=ana sha=3fa1c2d4e5f6 -->`. Un refresco ya no
 lo reescribe y `check` avisa «el código cambió desde que se confirmó este diagrama» (o que el código ya no tiene la
