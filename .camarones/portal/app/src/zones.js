@@ -30,8 +30,8 @@ export const ZONES = [
     { id: 'kitdev', href: '#/kitdev', app: true, needs: (index) => !!index.kitdev }] },
 ]
 
-// The desktop app lists its zones in the order of the work (next step, plan, board, review), not the portal's.
-const APP_ORDER = ['next', 'plan', 'board', 'review', 'taller']
+// The desktop app lists its zones in the order of the work (next step, plan, review, board), not the portal's.
+const APP_ORDER = ['next', 'plan', 'review', 'board', 'taller']
 
 // The Taller's views are the catalog's zones (lib/catalog.py), one per kind of machine work.
 export const TALLER = ['generate', 'analyze', 'check', 'interviews', 'team', 'machine', 'kitdev']
@@ -51,8 +51,10 @@ const available = (view, mode, index) => (!view.live || mode !== 'static') && (!
   && (!view.needs || view.needs(index, mode))
 
 export function zonesFor(mode, index) {
-  const zones = mode === 'app' ? APP_ORDER.map((id) => ZONES.find((z) => z.id === id)) : ZONES
-  return zones.filter((z) => !(z.portal && mode === 'app')).map((z) => ({ id: z.id, href: z.href,
+  const zones = mode === 'app'                                  // `portal` zones never reach the app window
+    ? ZONES.filter((z) => !z.portal && APP_ORDER.includes(z.id)).sort((a, b) => APP_ORDER.indexOf(a.id) - APP_ORDER.indexOf(b.id))
+    : ZONES
+  return zones.map((z) => ({ id: z.id, href: z.href,
     views: z.views.filter((v) => available(v, mode, index)).map((v) => ({ id: v.id, href: v.href })) }))
     .filter((z) => z.views.length)
 }
