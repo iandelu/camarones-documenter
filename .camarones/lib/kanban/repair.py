@@ -234,6 +234,11 @@ def repair(*, today: date | None = None, log=print) -> dict:
         for p in problems:
             warn(f"{_rel(p['path'])}: unreadable item ({p['error']})")
         links = [(i, str(v)) for i in files for v in _as_list(i.fm.get("documentation"))]
+        for item, v in links:
+            try:
+                xid.parse_link(v)
+            except ops.BoardError:
+                warn(f"{item.id}: unreadable doc link {v!r}")
         if any(_LINK.match(re.split(r"[#@]", v, maxsplit=1)[0]) for _, v in links):
             ids = xid.index()
             for item, v in links:
