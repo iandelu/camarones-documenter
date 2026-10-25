@@ -11,7 +11,7 @@ import functools, json, os, signal, subprocess, sys, threading
 
 from .common import HOME, IS_WIN, KIT, ROOT, VERSIONS, out, run
 
-HUB = {"new", "join", "switch"}       # the app's hub opens projects itself; from the CLI these reopen the wizard
+HUB = {"new", "join", "switch", "projects"}   # the app's hub opens projects itself (incl. projects --inspect/--adopt)
 PROCS: dict[str, dict] = {}           # job id → {"proc": Popen} for cancel
 
 
