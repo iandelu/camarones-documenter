@@ -650,24 +650,32 @@ def _removed_target(href: str, page: str, gone: set[str]) -> str | None:
     return page_to if page_to in gone else None
 
 
-def _relink(gone: set[str], written: set[str]) -> tuple[list[str], list[str]]:
+def _relink(gone: set[str]) -> tuple[list[str], list[str]]:
     """After the deletes: point the links to the pages in `gone` (docs-relative) at the page that took over (`_successor`,
     as a path relative to the linking page, `#anchor` dropped) and return (the pages rewritten, the pages left with such
-    a link, `docs/…`). Every docs page is looked at but the translations (`i18n/`), the dot folders and the pages in
-    `written` (adopt's own). Only the target changes, in the text of the page, frontmatter and the rest byte for byte;
-    only a page that is not a person's (`_status`) is rewritten, and only when the page that took over exists."""
+    a link, `docs/…`). Every docs page is looked at but the translations (`i18n/`) and the dot folders: the pages adopt
+    wrote too, since those it filled keep their prose (a page written whole from kit text links only to new pages). Only
+    the target changes, in the text of the page, frontmatter and the rest byte for byte, and never inside a generated
+    block (an edit there would read as made by hand); only a page that is not a person's (`_status`) is rewritten, and
+    only when the page that took over exists. A page that is not UTF-8 is never written: with such a link it is listed."""
     relinked, left = [], []
     for f in sorted(DOCS.rglob("*.md")):
         rel = f.relative_to(DOCS).as_posix()
-        if rel.split("/")[0] == "i18n" or any(p.startswith(".") for p in rel.split("/")) or rel_file(f) in written:
+        if rel.split("/")[0] == "i18n" or any(p.startswith(".") for p in rel.split("/")):
             continue
+        raw = f.read_bytes()
         try:
-            text = f.read_bytes().decode("utf-8")
+            text = raw.decode("utf-8")
         except UnicodeDecodeError:
+            text = raw.decode("utf-8", errors="replace")
+            if any(_removed_target(h, rel, gone) for _a, _b, h in _link_spans(docs.parse_fm(text)[1])):
+                left.append(rel_file(f))
             continue
         _fm, body, _valid = docs.parse_fm(text)
         start = len(text) - len(body)
-        hits = [(a, b, t) for a, b, href in _link_spans(body) if (t := _removed_target(href, rel, gone))]
+        blocks = [(m.start(), m.end()) for m in genblocks.BLOCK_RE.finditer(body)]
+        hits = [(a, b, t) for a, b, href in _link_spans(body) if (t := _removed_target(href, rel, gone))
+                and not any(x <= a < y for x, y in blocks)]
         if not hits:
             continue
         if _status(f) == "closed" or not all((DOCS / _successor(t)).is_file() for _a, _b, t in hits):
@@ -728,7 +736,7 @@ def adopt(log=lambda _: None) -> dict:
         del removable[rel]
     closed = frozenset(DOCS / rel for rel, _r, _m in _specs(scan.memo)
                        if (DOCS / rel).exists() and _status(DOCS / rel) == "closed")
-    written = set(_write_new(log, exclude=frozenset(old[rel] for rel in removable), frozen=closed))
+    _write_new(log, exclude=frozenset(old[rel] for rel in removable), frozen=closed)
     drafts = _draft_blocks({old[rel].resolve() for rel in removable}, scan)
     puts = {rel: list(blocks) for rel, (blocks, _sources) in drafts.items()}
     for rel in [r for r, (carried, _k) in removable.items()
@@ -752,7 +760,6 @@ def adopt(log=lambda _: None) -> dict:
         new = (docs.join_fm({**fm, "x-sources": list(dict.fromkeys([*(fm.get("x-sources") or []), *sources]))}, new_body)
                if sources else text[:len(text) - len(body)] + new_body)
         f.write_text(new, encoding="utf-8", newline="\n")
-        written.add(rel_file(f))
         log(f"✔ {rel_file(f)}")
     homeless = _homeless({rel: keys for rel, (_c, keys) in removable.items()}, old)
     gone = set()
@@ -763,6 +770,6 @@ def adopt(log=lambda _: None) -> dict:
             old[rel].unlink()
             out["deleted"].append(rel_file(old[rel]))
             gone.add(rel)
-    out["relinked"], out["links"] = _relink(gone, written) if gone else ([], [])
+    out["relinked"], out["links"] = _relink(gone) if gone else ([], [])
     out["translations"] = _translations(gone)
     return _logged(out, log)

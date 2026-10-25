@@ -400,3 +400,48 @@ def test_pages_adopt_prints_one_line_per_relinked_page(old_project):
     out = cli(old_project, "pages", "--adopt").stdout
     assert "relinked docs/repos/api/brief.md" in out and "docs/guides/mine.md" in out
     assert "docs/i18n/es/repos/api/reference.md" in out
+
+
+# ---------- task 6, fix round 1: pages adopt filled, links inside blocks, pages that do not decode ----------
+def test_adopt_relinks_the_prose_of_an_agents_home_it_filled(old_project):
+    write_doc(old_project, "index.md", AGENT_HOME.replace("Pets and owners.", "Pets and owners, see [the reference]"
+              "(repos/api/reference.md#http-endpoints) and [the map](architecture/system-map.md)."))
+    out = old_project.mod.adopt()
+    text = doc(old_project, "index.md").read_text(encoding="utf-8")
+    assert "[the reference](repos/api/index.md) and [the map](index.md)" in text and "docs/index.md" in out["relinked"]
+    assert "generated:repos repo=_system" in text                                # adopt did fill it
+
+
+def test_adopt_relinks_the_prose_of_an_agents_repo_page_it_filled(old_project):
+    write_doc(old_project, "repos/api/index.md", "---\ntitle: api\nx-owner: ai\n---\n# api\n\nSee [the diagrams](diagrams.md).\n")
+    out = old_project.mod.adopt()
+    text = doc(old_project, "repos/api/index.md").read_text(encoding="utf-8")
+    assert "[the diagrams](index.md)" in text and "generated:env repo=api" in text
+    assert "docs/repos/api/index.md" in out["relinked"]
+
+
+def test_adopt_lists_the_link_on_a_persons_home_it_could_not_fill_nor_fix(old_project):
+    write_doc(old_project, "index.md", AGENT_HOME.replace("x-owner: ai", "x-owner: human") + "\n[r](repos/api/reference.md)\n")
+    out = old_project.mod.adopt()                                                # nothing is deleted: the home is closed
+    assert out["deleted"] == [] and out["links"] == []
+
+
+def test_adopt_never_edits_a_generated_block(old_project):
+    page = write_doc(old_project, "guides/blocks.md", "---\ntitle: B\nx-owner: ai\n---\n# B\n\n"
+                     + old_project.gb.block("future-kind", "api", "[r](../repos/api/reference.md)") + "\n")
+    before = page.read_bytes()
+    out = old_project.mod.adopt()
+    assert page.read_bytes() == before and "docs/guides/blocks.md" not in out["relinked"] + out["links"]
+
+
+
+def test_relink_lists_a_page_that_is_not_utf8_and_has_such_a_link(old_project):
+    """`docs.collect` cannot read such a page, so `adopt` never gets here with one: `_relink` is called as it is."""
+    page, other = doc(old_project, "guides/latin.md"), doc(old_project, "guides/latin2.md")
+    page.parent.mkdir(parents=True, exist_ok=True)
+    head = b"---\ntitle: x\nx-owner: ai\n---\n# x\n\n"
+    page.write_bytes(head + b"[r](../repos/api/reference.md) caf\xe9\n")
+    other.write_bytes(head + b"no link caf\xe9\n")
+    before = page.read_bytes()
+    relinked, left = old_project.mod._relink({"repos/api/reference.md"})
+    assert left == ["docs/guides/latin.md"] and relinked == [] and page.read_bytes() == before
