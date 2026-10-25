@@ -60,10 +60,11 @@ every command either way.
 | `version` | machine |  |  |  |
 | `wiki` | generate | yes |  |  |
 
-## Portal shows it, the app runs it (15)
+## Portal shows it, the app runs it (16)
 
 | Command | Zone | AI | Destructive | --json |
 |---|---|---|---|---|
+| `board` | team |  |  | yes |
 | `changes` | analyze |  |  |  |
 | `checkpoint` | team |  |  |  |
 | `fresh` | analyze |  |  | yes |

@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.50.0-ff875f?style=flat-square" alt="Versión 4.50.0">
+  <img src="https://img.shields.io/badge/version-4.51.0-ff875f?style=flat-square" alt="Versión 4.51.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -484,6 +484,28 @@ Las páginas también son más interactivas: las tablas se ordenan pulsando una 
 **Reglas de negocio comprobables.** Un bloque `:::rule ORD-1 Pedidos no vacíos` explica la regla y la ancla al código con líneas `enforced:` y `test:` (`repo:ruta#Símbolo`). `camaron check` busca cada símbolo aunque se haya movido dentro del fichero: falla si ya no existe, avisa si nadie aplica la regla o si un ID se repite. El portal la muestra como una tarjeta con su ID y los agentes la leen como texto (`**Rule ORD-1 — …**`, `Enforced by: …`).
 
 Para publicarlo (CI / hosting), `camaron portal` exporta la misma aplicación en modo solo lectura (HTML + JSON, sin npm) a `.camarones/.cache/site`. Se sirve con `camaron up --static`, con `camaron up --docker` o desde cualquier hosting estático; los enlaces «Editar» llevan al fichero en GitLab/GitHub.
+
+### El Tablero
+
+Un tablero Kanban en `cam-docs/backlog/`, versionado con la documentación y **compatible con [Backlog.md](https://github.com/MrLesk/Backlog.md)**: cada tarjeta es un fichero Markdown (`backlog/tasks/wi-42 - Título.md`) que Backlog.md (probado con la versión 1.55.3) lee y edita sin romper nada, y el estado propio del kit (orden y columna de cada tarjeta) vive en `backlog/board.yaml`, una línea por tarjeta para que git fusione por tarjeta. Las columnas son Backlog, Ready, In Progress, In Review, Done y Blocked. Los tipos son epic, story, bug, spike y task, con prioridad P0–P3, repos, etiquetas, criterios de aceptación y una definición de hecho.
+
+```sh
+camaron board init                                   # activa el tablero (un proyecto sin backlog/ sigue igual)
+camaron board add story "Reintentos idempotentes" --epic WI-3 --repo payments --doc FLOW-k3f9#retries
+camaron board list --status Ready --repo payments    # también --epic, --label y --docs suspect|unconfirmed
+camaron board show WI-42                             # la tarjeta y el estado de confianza de sus páginas
+camaron board move WI-42 "In Progress" --before WI-40
+camaron board assign WI-42 ana
+camaron board link WI-42 flows/payments.md#retries   # enlaza una página (le da un x-id si no lo tenía)
+camaron board archive WI-42
+camaron board repair                                 # deja los ficheros y board.yaml de acuerdo
+```
+
+Todos los comandos aceptan `--json`. Una tarjeta enlaza páginas por su `x-id` (sobrevive a mover o renombrar la página) y guarda el hash de la sección a la que apunta, así que el tablero sabe si lo enlazado **cambió desde que se enlazó**, está sin confirmar o es sospechoso. `init` registra además un *merge driver* de git para `board.yaml` (y la línea de `.gitattributes`), de modo que dos personas que mueven tarjetas distintas no chocan. `repair` también corre solo antes de cada checkpoint y de «Sincronizar»: adopta ficheros nuevos, arregla ids repetidos y archiva lo terminado hace tiempo (`board: {archive_after_days}` en `workspace.yaml`).
+
+En el portal, la zona **Tablero** (`#/kanban`) enseña la vista Kanban (arrastrar y soltar, o con teclado: flechas para elegir, espacio para agarrar, flechas para mover, Enter para soltar), con filtros por repo, epic, etiqueta y estado de la documentación, y el detalle de cada tarjeta (criterios, páginas enlazadas con su confianza e historial). **Escribir** en el tablero pide el token de la máquina: la app de escritorio ya lo manda, y `camaron up` imprime una dirección del tipo `http://localhost:8080/#cam-token=…` que la página guarda para esa pestaña. Sin él el tablero se ve en solo lectura y dice por qué.
+
+Al desinstalar, `camaron uninstall` (CLI) pregunta si conservas o borras `backlog/`; `--keep-board` / `--drop-board` lo deciden sin preguntar, y el asistente y la app de escritorio lo conservan siempre. La desinstalación siempre retira el *merge driver* y la línea de `.gitattributes` que puso. Los proyectos que ya existían no cambian: el tablero llega con `camaron board init`, y su copia de la guía `tutorial.md` es la que tenían (las plantillas se copian una sola vez).
 
 ### Revisión en vivo
 

@@ -285,11 +285,22 @@ function feedbackPanel(d) {
     <p class="muted">${esc(t('fbHelp'))}</p>
     ${sections.length ? `<div class="row"><label class="small muted" for="f-sec">${esc(t('section'))}</label>
       <select id="f-sec"><option value="">${esc(t('wholePage'))}</option>${sections.map((h) =>
-        `<option value="${esc(h.id.slice(2))}">${esc(h.dataset.title)}</option>`).join('')}</select></div>` : ''}
+        `<option value="${esc(h.id.slice(2))}">${esc(h.dataset.title)}</option>`).join('')}</select>
+      <button id="f-item" class="ghost small" type="button" title="${esc(t('createItemHint'))}">${esc(t('createItem'))} →</button></div>`
+      : `<div class="row"><button id="f-item" class="ghost small" type="button" title="${esc(t('createItemHint'))}">${esc(t('createItem'))} →</button></div>`}
     <textarea id="f-text" rows="4"></textarea>
     <div class="row"><input id="f-by" value="${esc(T.reviewer)}" placeholder="${esc(t('yourName'))}" style="max-width:16rem">
     <button id="f-go" type="button">${esc(t('send'))}</button><button id="f-x" class="ghost" type="button">${esc(t('cancel'))}</button></div></div>`;
   $('#f-x').onclick = () => { $('#panel').innerHTML = ''; };
+  $('#f-item').onclick = async () => {       // the Board's add form, with a link to this page (and section) filled in
+    let slug = $('#f-sec')?.value || '';
+    if (slug && lang && d.exists) {           // a translation: links point at the source page, the same H2 by position
+      const i = sections.findIndex((h) => h.id === 'h-' + slug);
+      const src = await api('doc', { path: d.path });
+      slug = ($$('h2', render(src.raw || '', d.path))[i]?.id || '').slice(2);
+    }
+    location.hash = `#/kanban/new?path=${encodeURIComponent(d.path)}${slug ? `&section=${encodeURIComponent(slug)}` : ''}`;
+  };
   $('#f-go').onclick = async () => {
     if (!$('#f-text').value.trim()) return;
     const slug = $('#f-sec')?.value || '';
@@ -504,7 +515,7 @@ async function routeNow() {
   try { h = decodeURIComponent(raw); } catch { /* a bare % in a file name: route the address as it is */ }
   const [, view = '', rest = ''] = h.match(/^\/([\w-]*)\/?(.*)$/) || [];
   if ($('#palette').open) $('#palette').close();
-  if (['pipeline', 'ask', 'kpis', 'ci', 'libs', 'data', 'interview', 'sync'].includes(view) && !STATIC && window.CamaronNative
+  if (['pipeline', 'ask', 'kpis', 'ci', 'libs', 'data', 'interview', 'sync', 'kanban'].includes(view) && !STATIC && window.CamaronNative
       || RUNS && TALLER.includes(view) && window.CamaronNative) {
     CURRENT = '';
     drawChrome(view, { nativeView: true });
