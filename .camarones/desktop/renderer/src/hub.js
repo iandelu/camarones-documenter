@@ -59,7 +59,8 @@ export function adoptSay(found, r) {
 }
 
 // The join form: the token field shows only after `auth` from a host the CLI could name (https), and the folder picked
-// is kept for that retry. Any other result drops both: the token is never kept, the next try asks for the folder.
+// is kept for that retry. Any other result drops both: the token is never kept, the next try asks for the folder. That
+// includes no result and a thrown Error (the project window failed to load after a good retry).
 export const JOIN0 = { showToken: false, token: '', host: '', dir: null, say: null }
 
 export function joinStep(state, r, t = text) {
@@ -71,10 +72,18 @@ export function joinStep(state, r, t = text) {
   return { ...JOIN0, say: joinSay(r, t) }
 }
 
+// One try: hub.join (preload: url, token, dir) and the next state, whatever happens, a rejection included.
+export async function joinOnce(hub, state, url, token, t = text) {
+  let r
+  try { r = await hub.join(url, token, state.dir || undefined) } catch (e) { r = e instanceof Error ? e : new Error(String(e)) }
+  return joinStep(state, r, t)
+}
+
 function joinSay(r, t) {
+  if (r instanceof Error) return { key: 'hub.failed', vars: {}, detail: r.message, error: true }
   if (!r || r.cancelled || r.ok === true) return null
   if (r.ok === false) return { key: 'hub.openFailed', vars: {}, detail: r.error || '', error: true }
   if (!r.error) return null
-  const key = errorKey(r.error, { join: true })
+  const key = r.error === 'network' && !r.host ? 'hub.networkNoHost' : errorKey(r.error, { join: true })
   return { key, vars: { host: r.host || t('hub.server') }, detail: r.detail || (key === 'hub.failed' ? r.error : ''), error: true }
 }

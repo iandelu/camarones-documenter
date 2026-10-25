@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, test } from 'vitest'
 import { Found } from './Hub.jsx'
@@ -53,4 +54,13 @@ test('a refusal shows the hub\'s sentence and the CLI\'s line', () => {
   expect(out).toContain('role="alert"')
   expect(out).toContain('Esa carpeta ya tiene un cam-docs que no es un proyecto de Camarón.')
   expect(out).toContain('<code class="cu-aviso-detail">cam-docs is not empty</code>')
+})
+
+// The join form, read from the source (its state needs clicks): every try goes through joinOnce (hub.js), so a
+// rejected hub.join clears the token like any other non-auth outcome, and the fields wait while a request runs.
+test('the join form clears the token on any outcome and locks its fields while busy', () => {
+  const src = readFileSync(new URL('./Hub.jsx', import.meta.url), 'utf-8')
+  expect(src).toContain('await joinOnce(hub, js, u, token)')
+  expect(src).not.toMatch(/hub\.join\(/)
+  for (const id of ['h-url', 'h-token']) expect(src).toMatch(new RegExp(`<Field id="${id}"[^/]*disabled=\{busy\}`))
 })
