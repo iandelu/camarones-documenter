@@ -321,3 +321,25 @@ def test_repos_step_needs_a_repo_only_for_legacy(kit, fake_wizard, monkeypatch, 
     monkeypatch.setattr(kit.wizard.W, "sel", lambda self, msg, choices, **kw: seen.append(choices[0].disabled) or None)
     assert w.fr_repos(ws) == kit.wizard.BACK
     assert bool(seen[0]) is disabled
+
+
+def test_tool_rows_shape(kit, monkeypatch):
+    """Characterization: the rows the tools screen shows (`W.tool_rows` and `onboard.tool_rows` are the same list)."""
+    pre = {"git": {"ok": True, "need": True, "hint": "git", "found": "2.4"},
+           "claude": {"ok": False, "need": False, "hint": "Claude Code CLI"},
+           "codex": {"ok": True, "need": False, "hint": "Codex CLI", "note": "n"}}
+    monkeypatch.setattr(kit.env, "prerequisites", lambda: pre)
+    monkeypatch.setattr(kit.env, "tool_ok", lambda k: k == "likec4")
+    monkeypatch.setattr(kit.env, "components", lambda: ["openwiki"])
+    monkeypatch.setattr(kit.env, "KIT_TOOLS", {"likec4": "C4"})
+    monkeypatch.setattr(kit.env, "EXTRAS", {"openwiki": "Wiki", "agents": "Agents"})
+    row = lambda i, label, ok, kind, rec, sys_, found="", note="": {"id": i, "label": label, "ok": ok, "kind": kind,
+                                                                    "rec": rec, "sys": sys_, "found": found, "note": note}
+    want = [row("git", "git", True, "t_required", True, True, "2.4"),
+            row("claude", "Claude Code CLI", False, "t_optional", False, True),     # a working codex: claude is not recommended
+            row("codex", "Codex CLI", True, "t_optional", False, True, note="n"),
+            row("likec4", "C4", True, "t_kit", True, False, kit.env.VERSIONS.get("likec4", "")),
+            row("openwiki", "Wiki", True, "t_kit", True, False), row("agents", "Agents", False, "t_kit", True, False)]
+    assert kit.wizard.W().tool_rows() == want
+    if hasattr(kit.onboard, "tool_rows"):
+        assert kit.onboard.tool_rows() == want

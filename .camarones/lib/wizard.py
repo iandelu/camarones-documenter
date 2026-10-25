@@ -1180,20 +1180,7 @@ class W:
 
     # ---------- tools: everything in one table, install all (recommended) or pick ----------
     def tool_rows(self) -> list[dict]:
-        pre = env.prerequisites()
-        have_agent = any(pre[a]["ok"] for a in ("claude", "codex"))
-        rows = []
-        for k, v in pre.items():
-            kind = "t_required" if v["need"] else "t_optional"
-            rec = v["need"] or k in ("docker", "java") or (k == "claude" and not have_agent)
-            rows.append({"id": k, "label": v["hint"], "ok": v["ok"], "kind": kind, "rec": rec, "sys": True,
-                         "found": v.get("found", ""), "note": v.get("note", "")})
-        chosen = env.components()
-        for k, label in {**env.KIT_TOOLS, **env.EXTRAS}.items():
-            installed = env.tool_ok(k) if k in env.KIT_TOOLS else (k in chosen)
-            rows.append({"id": k, "label": label, "ok": installed, "kind": "t_kit", "rec": True, "sys": False,
-                         "found": env.VERSIONS.get(k, "") if installed and k in env.KIT_TOOLS else "", "note": ""})
-        return rows
+        return onboard.tool_rows()
 
     def show_tools(self, rows: list[dict]) -> None:
         tbl = Table(border_style="grey42", title=self.t("t_title"), title_justify="left")
@@ -1222,12 +1209,9 @@ class W:
                          default="all")
             if c is None:
                 return BACK
-            have_agent = any(r["ok"] for r in rows if r["id"] in ("claude", "codex"))
-            if c == "all":
-                sys_pick = [r["id"] for r in rows if r["sys"] and not r["ok"] and r["rec"]
-                            and not (r["id"] in ("claude", "codex") and have_agent)]
-                kit_pick = list(env.ALL_COMPONENTS)
-            elif c == "pick":
+            picked = None
+            if c == "pick":
+                have_agent = any(r["ok"] for r in rows if r["id"] in ("claude", "codex"))
                 opts = []
                 for r in rows:
                     if r["sys"] and r["ok"]:
@@ -1240,18 +1224,11 @@ class W:
                 if picked is None:
                     self.banner()
                     continue
-                sys_pick = [p for p in picked if p in env.prerequisites()]
-                kit_pick = [p for p in picked if p in env.ALL_COMPONENTS]
-            else:
-                sys_pick, kit_pick = [], env.components()
-            env.set_components(kit_pick)
+            sys_pick, kit_pick = onboard.install_choice(rows, c, picked)
             if sys_pick:
                 self.say(f"[bold]{self.t('t_installing')}: {', '.join(sys_pick)}[/]")
-                for k in sys_pick:
-                    if not env.install_prereq(k, log=lambda m: self.say("  " + m, "grey62")):
-                        self.say(self.t("manual", hint=env.prerequisites().get(k, {}).get("hint", k)), "yellow")
-                from .common import ensure_path
-                ensure_path()
+            for k in onboard.install_tools(sys_pick, kit_pick, lambda m: self.say("  " + m, "grey62")):
+                self.say(self.t("manual", hint=env.prerequisites().get(k, {}).get("hint", k)), "yellow")
             if all(v["ok"] for v in env.prerequisites().values() if v["need"]):
                 return None
             self.say(self.t("reopen"), "yellow")
@@ -1262,14 +1239,11 @@ class W:
         self.repo_pointer()
         self.ask_usage()
         self.say(f"[bold]{self.t('setup_run')}[/]")
-        env.init_templates(ws["project"]["name"], log=lambda _: None)
-        ok = self.safe(self.busy, env.setup, total=env.setup_steps())
-        plan.sync()
+        ok = self.safe(self.busy, onboard.run_setup, total=env.setup_steps())
         if ok:
-            plan.set_status("setup", "done", "wizard first run")
             self.say(self.t("setup_ok"), f"bold {ORANGE}")
         while True:
-            missing = [r["name"] for r in docs.workspace()["repos"] if r.get("url") and not (repo_dir(r["name"]) / ".git").exists()]
+            missing = onboard.missing_repos()
             if missing:
                 self.say(self.t("s_missing", repos=", ".join(missing)), "yellow")
             choices = [Choice(self.t("prereq_continue"), "go", disabled=None if ok else "setup ✖")]
@@ -1498,32 +1472,7 @@ class W:
                 return "saved"
 
     def arch_prompt(self) -> str:
-        cli = cli_cmd()
-        talk = "Spanish" if self.lang == "es" else "English"
-        arch = ws_rel("docs/architecture")
-        # the agent runs in WORKSPACE: in the cam-docs layout a bare `docs/…` path would make it write a second,
-        # unused model next to the repos while the portal keeps showing the unrefined draft
-        layout = (f"\nLayout: you run in the workspace folder. Docs live in `{CAM_DIR}/` (its own git repo); the service repos "
-                  f"are its siblings. Edit only the files under `{arch}/` — never create a `docs/` folder anywhere else.\n"
-                  if CAM_LAYOUT else "")
-        code = ("`graphify query` in the repos, " if "graphify" in env.components() else "")
-        return f"""Camarones session — improve the first-look architecture draft.
-{layout}
-`{arch}/model.c4` + `views.c4` hold the architecture draft; it started from a static scan (no AI) that guessed repos,
-datastores, brokers and HTTP calls from manifests, config and code. Read `{ws_rel('.camarones/CONVENTIONS.md')}` §4
-(C4 rules) and the kinds/tags in `{arch}/spec.c4` first (do not edit spec.c4).
-1. Verify every element and relation against the code ({code}OpenAPI/AsyncAPI files, config, client code).
-   Fix technologies, names, directions and labels (endpoint / exchange / topic); remove false positives; add what is missing
-   (external systems, identity provider, shared databases, frontends/apps). A relation is a runtime call or message —
-   hosting/CI/deployment targets belong to the deployment unit, not here.
-2. Keep `views.c4` in step with the model: `index` must show the actors, the system and every external system;
-   `containers` everything inside the system. Remove view references to elements you deleted.
-3. Keep everything `#ai-draft`. Run `{cli} arch-validate` after every edit until it prints ✓ Valid (it validates
-   `{arch}/`, so a model written anywhere else is not checked). Update `{arch}/first-look.md` to match.
-4. Show the user the result as a short tree (containers → relations) and ask whether it is right; apply their corrections.
-   Tell them the portal's Architecture (C4) tab rebuilds from `{arch}/` (`{cli} up`).
-Talk to the user in {talk}. Do not modify application code.
-"""
+        return onboard.arch_prompt(self.lang)
 
     # ---------- stack + tooling radar (static, no AI) ----------
     def show_stack(self, result: dict) -> None:
