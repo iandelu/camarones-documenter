@@ -41,9 +41,13 @@ def launcher() -> list[str]:
 def _write(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".tmp")
-    with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
-        fh.write(text)
-    os.replace(tmp, path)
+    try:
+        with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(text)
+        os.replace(tmp, path)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
 
 
 def _rel(path: Path) -> str:
@@ -277,10 +281,10 @@ def add(type_: str, title: str, *, epic: str | None = None, repos: Sequence[str]
         stamp(card, "status", by, _now())
         _place(cards, items, item_id, "Backlog", by)
         item.fm["ordinal"] = card["ordinal"]
+        save_item(item)                         # the new item first: a failed write leaves its epic as it was
         if parent is not None:
             parent.fm["subtasks"] = [*_as_list(parent.fm.get("subtasks")), item_id]
             save_item(parent)
-        save_item(item)
         save_board(cards)
     _count("add", surface)
     return _row(item, card)

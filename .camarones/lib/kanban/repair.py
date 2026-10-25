@@ -66,6 +66,9 @@ def repair(*, today: date | None = None, log=print) -> dict:
         log(f"  ! {msg}")
 
     with ops.locked():
+        for tmp in BACKLOG.rglob("*.tmp"):       # a write that died half way (every write holds this lock)
+            tmp.unlink(missing_ok=True)
+            log(f"  - {_rel(tmp)}")
         cards, _by_id, problems = ops.load_state()
         files, _ = load_dir(TASKS)
         archived, _ = load_dir(ARCHIVE)
