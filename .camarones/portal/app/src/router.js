@@ -3,7 +3,7 @@
 // #/docs/<a wiki page>, #/boards (removed in 4.49).
 
 // The React views that need the live server, and the Taller (machine work), which needs the desktop app.
-export const NATIVE = ['pipeline', 'ask', 'kpis', 'ci', 'libs', 'data', 'interview', 'sync']
+export const NATIVE = ['pipeline', 'ask', 'kpis', 'ci', 'libs', 'data', 'interview', 'sync', 'kanban']
 export const TALLER = ['generate', 'analyze', 'check', 'interviews', 'team', 'machine', 'kitdev']
 const COVERS = ['arch', 'plan', 'quality', 'taller']
 

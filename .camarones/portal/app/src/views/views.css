@@ -1,4 +1,4 @@
-/* The views written in 4.51 (Home, search, palette, review, doc pages, wikis, code, C4). The older rules they
+/* The views written in 4.52 (Home, search, palette, review, doc pages, wikis, code, C4). The older rules they
    share are in src/portal.css; what is new is here. */
 .pal-tag { display: inline-flex; align-self: flex-start; align-items: center; min-height: 1.25rem; padding: 0 .4rem;
            border: 1px solid var(--line); border-radius: var(--consola-radio-chico); font-size: .7rem; color: var(--muted);

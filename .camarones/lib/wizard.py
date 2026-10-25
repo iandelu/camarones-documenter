@@ -781,9 +781,13 @@ def scan_repos(log=print) -> None:
     """The no-AI base: stack and tooling page, the libraries page, and each repo's reference page (commands, env vars,
     endpoints, topics)."""
     radar.run(log=log)
-    from . import inventory, schemas
+    from . import diagrams, inventory, schemas
     inventory.run(log=log)
     schemas.write_pages(log=log)
+    try:
+        diagrams.write_pages(log=log)
+    except Exception as e:  # noqa: BLE001 — the diagrams are a bonus: the rest of the scan still runs
+        log(f"⚠ diagrams skipped: {e}")
     genblocks.write_reference(log=log)
     genblocks.refresh()
 
@@ -2285,9 +2289,14 @@ Talk to the user in {talk}. Do not modify application code.
         port = int(self.prefs.get("port", 8080))
         with socket.socket() as sck:
             up = sck.connect_ex(("127.0.0.1", port)) == 0
-        url = f"http://localhost:{port}" if up else self.safe(self.busy, env.serve_editor, port, total=1)
+        mine = getattr(self, "_portal_token", {})      # in memory only: the server this wizard started, by port
+        url = env.portal_url(port, mine.get(port), hash_) if up else self.safe(self.busy, env.serve_editor, port, total=1)
+        if url and not up:                       # keep the fresh token, add the route to the same fragment
+            token = env.portal_token(url)
+            self._portal_token = {**mine, port: token}
+            url = env.portal_url(port, token, hash_)
         if url:
-            env.open_url(url + "/" + hash_)
+            env.open_url(url)
 
     def retry_missing(self, missing: list[str]) -> None:
         """A repo with a url but no .git after sync almost always means missing/expired credentials —

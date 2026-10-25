@@ -53,7 +53,7 @@ def init_templates(project_name: str | None = None, log: Log = print) -> list[st
         if src.is_dir():
             continue
         rel = src.relative_to(TEMPLATES)
-        if rel.parts[0] in ("skills", "skeletons"):      # skills go to the agent hosts, skeletons via sync_kit_docs
+        if rel.parts[0] in ("skills", "skeletons", "board"):   # skills go to the agent hosts, skeletons via sync_kit_docs, board stays in the kit
             continue
         dst = ROOT / rel
         if dst.exists():
@@ -69,6 +69,8 @@ def init_templates(project_name: str | None = None, log: Log = print) -> list[st
     if not (ROOT / ".git").exists():
         subprocess.run(["git", "init", "-q", str(ROOT)])
         created.append(".git (docs repo)")
+        from .kanban import ops
+        created += ops.init(log=lambda _: None)             # a new project starts with its board (existing ones opt in)
     docs.write_gitignore()
     for c in created:
         log(f"  + {c}")
@@ -1383,14 +1385,16 @@ def serve_editor(port: int = 8080, log: Log = print, static: bool = False) -> st
     """The default portal: a local server (no Docker, no npm) that renders docs/ live and lets people edit,
     confirm, comment, commit and rebuild the viewers. Detached, so it outlives the wizard; `down` stops it."""
     stop_local()
-    import socket, sys, time
+    import secrets, socket, sys, time
     with socket.socket() as sck:
         if sck.connect_ex(("127.0.0.1", port)) == 0:
             raise RuntimeError(f"port {port} is busy — choose another port")
     CACHE.mkdir(parents=True, exist_ok=True)
+    token = "" if static else secrets.token_urlsafe(24)       # the machine token: lets this browser write the board
+    penv = {k: v for k, v in os.environ.items() if k != "CAMARONES_PORTAL_TOKEN"}
     kw: dict = {"stdout": subprocess.DEVNULL, "stdin": subprocess.DEVNULL,
                 "stderr": (CACHE / "serve.log").open("w", encoding="utf-8"),
-                "env": {**os.environ, "CAMARONES_ROOT": str(ROOT)}}
+                "env": {**penv, "CAMARONES_ROOT": str(ROOT), **({"CAMARONES_PORTAL_TOKEN": token} if token else {})}}
     if IS_WIN:
         kw["creationflags"] = 0x00000008 | 0x00000200          # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
     else:
@@ -1405,9 +1409,21 @@ def serve_editor(port: int = 8080, log: Log = print, static: bool = False) -> st
         with socket.socket() as sck:
             if sck.connect_ex(("127.0.0.1", port)) == 0:
                 break
-    url = f"http://localhost:{port}"
+    url = portal_url(port, token or None)       # the static export takes no writes (POST is 405): no token
     log(f"✔ portal at {url}" + (" (read-only export, no Docker)" if static else " (live: edit · confirm · rebuild · wikis)"))
     return url
+
+
+def portal_url(port: int, token: str | None = None, route: str = "") -> str:
+    """The portal address with ONE fragment: `#<route>&cam-token=<token>` (route like `#/c4`, optional), or
+    `#cam-token=<token>` without a route. The frontend takes `cam-token` out of the fragment and keeps the route."""
+    parts = [p for p in (route.lstrip("#"), f"cam-token={token}" if token else "") if p]
+    return f"http://localhost:{port}/" + (("#" + "&".join(parts)) if parts else "")
+
+
+def portal_token(url: str) -> str | None:
+    m = re.search(r"[#&]cam-token=([\w-]+)", url)
+    return m.group(1) if m else None
 
 
 def stop_local() -> bool:
@@ -1502,20 +1518,53 @@ def install_ci(forge: str | None = None, log: Log = print) -> Path:
 
 
 # ---------- progress safety: local checkpoint commits in the umbrella repo ----------
-CHECKPOINT_PATHS = ["docs", "wikis", "evals", ".camarones/workspace.yaml", ".camarones/PLAYBOOK.md", ".camarones/CONVENTIONS.md",
+CHECKPOINT_PATHS = ["docs", "wikis", "evals", "backlog", ".gitattributes", ".camarones/workspace.yaml", ".camarones/PLAYBOOK.md", ".camarones/CONVENTIONS.md",
                     ".camarones/skeletons", ".camarones/plugins", ".camarones/plugins.lock", ".camarones/.kit-docs.json", ".camarones/ci", ".claude", ".codex", ".agents", ".mcp.json", "AGENTS.md", "CLAUDE.md",
                     ".gitignore", ".gitlab-ci.yml", ".github"]
 
 
-def checkpoint_commit(message: str) -> bool:
-    """Commit docs progress locally. Keeps work safe if a session or the computer closes; pushes only with auto-share."""
+def checkpoint_paths() -> list[str]:
+    """What a checkpoint stages. .gitattributes only on a project with a board: it holds the board's merge driver line,
+    and a project without one may have a root .gitattributes of its own that the kit never committed."""
+    from . import kanban
+    return [p for p in CHECKPOINT_PATHS if (ROOT / p).exists() and (p != ".gitattributes" or kanban.enabled())]
+
+
+def _stderr(line: str) -> None:
+    print(line, file=sys.stderr)
+
+
+def board_repair(warn: Log = _stderr) -> list[str]:
+    """The board's repair pass; what it changed. Its warnings go to `warn`; a failure is a warning, never a blocked
+    commit. Only the main cam-docs has a board to repair: a unit's worktree leaves it to main."""
+    from . import kanban
+    if not kanban.enabled() or CTX.root != CTX.state_root:
+        return []
+    try:
+        from .kanban import repair
+        res = repair.repair(log=lambda _: None)
+    except Exception as e:                                   # noqa: BLE001 — the commit must go on
+        warn(f"🦐⚠ board repair skipped: {e}")
+        return []
+    for w in res["warnings"]:
+        warn(f"🦐⚠ board: {w}")
+    return res["changed"]
+
+
+def checkpoint_commit(message: str, warn: Log = _stderr) -> bool:
+    """Commit docs progress locally. Keeps work safe if a session or the computer closes; pushes only with auto-share.
+    The board repair's warnings go to `warn` (stderr unless a caller such as share() shows them in its own log)."""
     if not (ROOT / ".git").exists():
         return False
-    paths = [p for p in CHECKPOINT_PATHS if (ROOT / p).exists()]
-    if CTX.root != CTX.state_root:   # a unit's worktree: its pages only; derived files and plan state belong to main
+    board_repair(warn)
+    paths = checkpoint_paths()
+    if CTX.root != CTX.state_root:   # a unit's worktree: its pages only; derived files, plan state and the board belong to main
+        paths = [p for p in paths if p not in ("backlog", ".gitattributes")]
         paths += [":(exclude)docs/.work", ":(exclude)docs/.status.json", ":(exclude)docs/llms.txt",
                   ":(exclude)docs/llms-full.txt"]
-    run(["git", "add", "--", *paths], cwd=ROOT, check=False, quiet=True)
+    if paths:                                    # (only exclusions would stage everything else)
+        paths += [":(exclude,glob)backlog/**/*.tmp"]                   # a board write that died half way
+        run(["git", "add", "--", *paths], cwd=ROOT, check=False, quiet=True)
     if run(["git", "diff", "--cached", "--quiet"], cwd=ROOT, check=False, quiet=True).returncode == 0:
         return False
     from . import quality
@@ -1567,7 +1616,7 @@ def sync_status(fetch: bool = False) -> dict:
         counts = git("rev-list", "--left-right", "--count", f"HEAD...origin/{branch}").split()
         if len(counts) == 2:
             ahead, behind = int(counts[0]), int(counts[1])
-    paths = [p for p in CHECKPOINT_PATHS if (ROOT / p).exists()]
+    paths = checkpoint_paths()
     pending = []
     if (ROOT / ".git").exists() and paths:
         status = run(["git", "status", "--porcelain", "-uall", "--", *paths], cwd=ROOT, check=False, capture=True).stdout or ""
@@ -1626,10 +1675,17 @@ def share(log: Log = print) -> dict:
         detail = " · ".join(lines[max(start, 0):])[:400]              # git's last line alone is often a fragment
         return {"status": "error", "reason": reason, "host": host or "", "detail": detail}
 
+    said: set[str] = set()
+
+    def warn(line: str) -> None:                                      # the board's warnings, once each, in this log
+        if line not in said:
+            said.add(line)
+            log(line)
+
     global _sharing
     _sharing = True
     try:
-        checkpoint_commit("share")
+        checkpoint_commit("share", warn=warn)
     finally:
         _sharing = False
     if git("diff", "--cached", "--quiet").returncode != 0:
@@ -1649,6 +1705,14 @@ def share(log: Log = print) -> dict:
         if git(*_ident(), "rebase", "--quiet", "--autostash", theirs).returncode:
             git("rebase", "--abort")
             return {"status": "conflict", "detail": theirs}
+        if board_repair(warn):                                        # a merge can leave duplicate ids or stale mirrors
+            _sharing = True
+            try:
+                checkpoint_commit("board repaired after sync", warn=warn)
+            finally:
+                _sharing = False
+            if git("diff", "--cached", "--quiet").returncode != 0:
+                return {"status": "blocked", "detail": "the board repair was not committed (possible secrets): run check --secrets"}
         if out(["git", "rev-list", "--count", f"{theirs}..HEAD"], cwd=ROOT) == "0":
             _shared()
             return {"status": "up-to-date", "detail": branch}

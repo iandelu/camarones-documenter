@@ -207,3 +207,36 @@ def test_checkpoint_in_a_worktree_leaves_out_derived_files_and_plan_state(wired,
     assert k.env.checkpoint_commit("unit work")
     changed = git(w.path, "show", "--name-only", "--format=", "HEAD").split()
     assert "docs/page.md" in changed and not any(c.startswith("docs/.work") or c.endswith(".status.json") for c in changed)
+
+
+def test_checkpoint_in_a_worktree_leaves_the_board_alone(wired, monkeypatch):
+    """The board belongs to the main cam-docs: a unit's checkpoint neither repairs it nor stages it."""
+    from conftest import load_kit
+    from lib.harness.worktrees import Worktrees
+    wired.plan.sync()
+    w = Worktrees(wired.common.CTX).add("discovery:api")
+    board = w.path / "backlog" / "board.yaml"
+    before = board.read_bytes()
+    (w.path / "backlog" / "tasks").mkdir(exist_ok=True)                 # empty folders are not in git
+    (w.path / "backlog" / "tasks" / "wi-9 - Hand.md").write_text("---\nid: WI-9\ntitle: Hand\nstatus: Ready\n---\n\nx\n",
+                                                                 encoding="utf-8")       # a repair would adopt it
+    attrs = w.path / ".gitattributes"
+    attrs.write_text(attrs.read_text(encoding="utf-8") + "*.png binary\n", encoding="utf-8")
+    (w.path / "docs" / "page.md").write_text("page\n", encoding="utf-8")
+    monkeypatch.setenv("CAMARONES_STATE_ROOT", str(wired.root))
+    monkeypatch.setenv("CAMARONES_WORKSPACE", str(wired.ws))
+    k = load_kit(w.path, wired.home, wired.ws)
+    assert k.env.checkpoint_commit("unit work")
+    changed = git(w.path, "show", "--name-only", "--format=", "HEAD").splitlines()
+    assert "docs/page.md" in changed and not any(c.startswith("backlog/") or c == ".gitattributes" for c in changed)
+    assert board.read_bytes() == before
+
+
+def test_a_unit_never_brings_board_changes(wired, setup):
+    before = (wired.root / "backlog" / "board.yaml").read_bytes()
+    setup["unit"]("discovery:api", {"docs/a.md": "a\n", "backlog/board.yaml": "version: 1\ncards:\n",
+                                    "backlog/tasks/wi-9 - Hand.md": "---\nid: WI-9\ntitle: Hand\n---\n\nx\n"})
+    assert setup["run"]("discovery:api").outcome == "merged"
+    assert (wired.root / "docs" / "a.md").exists()
+    assert (wired.root / "backlog" / "board.yaml").read_bytes() == before
+    assert not (wired.root / "backlog" / "tasks" / "wi-9 - Hand.md").exists()

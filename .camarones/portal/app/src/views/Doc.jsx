@@ -5,7 +5,7 @@ import { docsGet } from '../docsApi.js'
 import { t as tr } from '../i18n.js'
 import { pageBanners, pager } from './docpage.js'
 import Editor from './Editor.jsx'
-import { mountDoc } from '../content/doc.js'
+import { mountDoc, render } from '../content/doc.js'
 import { readerTrees } from './DocsTree.jsx'
 import { core } from '../core.js'
 
@@ -44,7 +44,7 @@ export function DocView({ path, anchor, order, extra = null, banner = null, afte
   useEffect(() => {                                     // the body, once the page is on screen
     if (!d || editing || !body.current) return
     body.current.innerHTML = ''
-    mountDoc(body.current, d.exists ? d.raw : english?.exists ? english.raw : t('emptyPage'), path, anchor)
+    mountDoc(body.current, d.exists ? d.raw : english?.exists ? english.raw : t('emptyPage'), path, anchor, d.exists ? d.blocks : [])
     core.setCurrent(path)
   }, [d, editing])
 
@@ -140,6 +140,17 @@ function FeedbackPanel({ d, body, t, onDone, onCancel }) {
   const [text, setText] = useState('')
   const [by, setBy] = useState(core.tree().reviewer || '')
   const [error, setError] = useState('')
+  // The Board's add form, with a link to this page (and section) filled in. In a translation the link points at the
+  // source page: the same H2 by position.
+  const toBoard = async () => {
+    let section = slug
+    if (section && core.lang() && d.exists) {
+      const i = sections.findIndex((h) => h.id === 'h-' + section)
+      const src = await docsGet('doc', { path: d.path })
+      section = (render(src.raw || '', d.path).querySelectorAll('h2')[i]?.id || '').slice(2)
+    }
+    location.hash = `#/kanban/new?path=${encodeURIComponent(d.path)}${section ? `&section=${encodeURIComponent(section)}` : ''}`
+  }
   const go = async () => {
     const heading = slug && document.getElementById('h-' + slug)
     let snippet = ''
@@ -155,13 +166,14 @@ function FeedbackPanel({ d, body, t, onDone, onCancel }) {
       <b>{t('requestChange')}</b>
       <p className="muted">{t('fbHelp')}</p>
       {error && <Aviso tone="error" title={t('error')} detail={error} />}
-      {sections.length > 0 && (
-        <div className="row"><label className="small muted" htmlFor="f-sec">{t('section')}</label>
+      <div className="row">
+        {sections.length > 0 && <><label className="small muted" htmlFor="f-sec">{t('section')}</label>
           <select id="f-sec" value={slug} onChange={(e) => setSlug(e.target.value)}>
             <option value="">{t('wholePage')}</option>
             {sections.map((h) => <option key={h.id} value={h.id.slice(2)}>{h.dataset.title}</option>)}
-          </select></div>
-      )}
+          </select></>}
+        <Button size="sm" variant="ghost" title={t('createItemHint')} onClick={toBoard}>{t('createItem')} <span aria-hidden="true">→</span></Button>
+      </div>
       <textarea rows="4" value={text} onChange={(e) => setText(e.target.value)} aria-label={t('requestChange')} />
       <div className="row">
         <input className="cu-input" value={by} onChange={(e) => setBy(e.target.value)} placeholder={t('yourName')} aria-label={t('yourName')} />

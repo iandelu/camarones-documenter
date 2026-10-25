@@ -99,6 +99,13 @@ x-owner: ai                  # ai (agent may rewrite) | human (agent never rewri
 - Domain → a context map (`flowchart`). System overview → the C4 context (```` ```likec4-view ```` `index`).
   Deployment → a diagram or the C4 deployment view.
 - Keep diagrams ≤ ~25 nodes; split instead of shrinking.
+- Generated diagrams (`CLI diagrams`: system context map, one sequence per message topic (`messaging`), endpoints map,
+  one state diagram per status enum; business-flow sequences are not generated) sit in
+  `<!-- generated:<kind> … -->` blocks and say only what the code says. They are in one of three states: from the code
+  (facts, no meaning), `confirmed=<sha> by=<name>` (a person verified it; never rewritten, and `CLI check` warns when the
+  code changed since) or a **proposal** (`<!-- proposal:<kind> … base=<sha> -->` right after the block: unreviewed AI
+  work with a "Why" list where every claim cites `repo:path#Symbol`; a person reviews it and applies it).
+- Never edit a generated block: add a proposal. A block may be moved, markers included, to the page it belongs in.
 - `CLI check` warns about the gaps (a flow without its sequence, a lifecycle told only in prose, a structure page with
   no picture); the `diagrams` plan unit fills them.
 

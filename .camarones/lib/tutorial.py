@@ -299,6 +299,22 @@ PAGES = {
                  "desplegado aparece publicado al fusionarse. Se configura en «Equipo › CI». También se puede hacer a mano "
                  "con «🔄 Actualizar doc tras cambios» y «🌐 Portal › 📦 Exportar el portal». Y en cada pull request de "
                  "un repo, un job sin IA comenta qué páginas deja desactualizadas el cambio (`camaron pr fresh`)."},
+        {"icon": "📋", "title": "El Tablero: el trabajo junto a la documentación",
+         "art": r"""
+   cam-docs/backlog/
+     tasks/wi-42 - Titulo.md   -> una tarjeta (Markdown, lo lee Backlog.md)
+     board.yaml                -> columna y orden de cada tarjeta
+   camaron board add story "..." --repo api --doc flows/pago.md
+   camaron board move WI-42 Ready""",
+         "text": "Un Kanban versionado con la documentación: epics, historias, bugs y tareas con repos, criterios de "
+                 "aceptación y páginas enlazadas. Se activa con `camaron board init` (los proyectos sin él siguen igual) "
+                 "y se maneja con `camaron board add|list|show|move|assign|link|archive|repair`, todos con `--json`.\n\n"
+                 "Cada tarjeta es un fichero Markdown compatible con Backlog.md, así que esa herramienta también lo lee y "
+                 "lo edita. Lo que enlazas de la documentación se vigila: el Tablero te dice si la página cambió desde "
+                 "que la enlazaste o si sigue sin confirmar. En el portal, la zona «Tablero» (`#/kanban`) tiene el Kanban, "
+                 "con filtros por repo, epic, etiqueta y estado de la documentación, y el detalle de cada tarjeta; para escribir pide el token, que ya trae la app de escritorio y que "
+                 "`camaron up` imprime en la dirección (`#cam-token=…`). Sin él, solo lectura.\n\n"
+                 "Tu gambita de prácticas ya ha colgado los post-its en su sitio: tú solo los mueves."},
         {"icon": "🧰", "title": "Piezas de apoyo",
          "art": r"""
    uv        -> ejecuta Camarones (Python) sin instalar nada mas
@@ -312,7 +328,17 @@ PAGES = {
                  "(mermaid-cli y gitleaks) viene con la instalación completa; mermaid-cli descarga un Chromium sin "
                  "ventana la primera vez. Sin IA, cada repo recibe también `docs/repos/<repo>/reference.md`: comandos, "
                  "variables de entorno, endpoints y topics leídos de sus ficheros, que `camaron blocks` y `sync` "
-                 "mantienen al día. Las extensiones del equipo van como plugins en `.camarones/plugins/` "
+                 "mantienen al día. También sin IA, `camaron diagrams` dibuja el mapa del sistema "
+                 "(`docs/architecture/system-map.md`: quién habla con quién y quién publica o consume cada topic) y, por repo, "
+                 "`docs/repos/<repo>/diagrams.md` (endpoints y estados de cada enum de estado; las transiciones no se adivinan). "
+                 "Son páginas normales de Docs (en architecture y en cada repo) hechas de bloques generados: una persona puede "
+                 "confirmar uno copiando el `sha=` del bloque en `confirmed=` y poniendo su nombre en `by=` (una palabra, o entre "
+                 "comillas si lleva espacios: `by=\"Ana López\"`), p. ej. "
+                 "`<!-- generated:states repo=api id=OrderStatus confirmed=3fa1c2d4e5f6 by=ana sha=3fa1c2d4e5f6 -->`; "
+                 "entonces el kit ya no lo reescribe, y `check` avisa si el código cambió desde entonces o si ya no tiene "
+                 "la fuente del diagrama. Para quedarte con la versión del código, quita `confirmed=` y `by=` del "
+                 "marcador, ejecuta `camaron diagrams` y vuelve a confirmarlo. El portal dice de cada diagrama si viene "
+                 "del código, si se editó a mano, si lo confirmó alguien o si el código cambió. Las extensiones del equipo van como plugins en `.camarones/plugins/` "
                  "(`camaron plugins add` las trae y las fija en plugins.lock); las que ejecutan código o guían a los "
                  "agentes no se cargan hasta que las apruebas en tu máquina, y cualquier cambio vuelve a preguntar. "
                  "También sin IA: `camaron history` lee el historial de git (ficheros más tocados, a quién preguntar), "
@@ -627,6 +653,22 @@ PAGES = {
                  "once merged. Set it up in “Team › CI”. You can also do it by hand with “🔄 Update docs after changes” and "
                  "“🌐 Portal › 📦 Export the portal”. And on every pull request in a repo, a job without AI comments "
                  "which pages the change leaves out of date (`camaron pr fresh`)."},
+        {"icon": "📋", "title": "The Board: the work next to the docs",
+         "art": r"""
+   cam-docs/backlog/
+     tasks/wi-42 - Title.md    -> one card (Markdown, Backlog.md reads it)
+     board.yaml                -> each card's column and order
+   camaron board add story "..." --repo api --doc flows/payment.md
+   camaron board move WI-42 Ready""",
+         "text": "A Kanban versioned with the docs: epics, stories, bugs and tasks with repos, acceptance criteria and "
+                 "linked pages. Turn it on with `camaron board init` (projects without it stay as they were) and use "
+                 "`camaron board add|list|show|move|assign|link|archive|repair`, all with `--json`.\n\n"
+                 "Each card is a Markdown file compatible with Backlog.md, so that tool reads and edits it too. What "
+                 "you link from the docs is watched: the Board tells you whether the page changed since you linked it "
+                 "or is still unconfirmed. In the portal, the “Board” zone (`#/kanban`) has the Kanban, "
+                 "with filters by repo, epic, label and docs state, and the card detail; writing needs the token, which the desktop app already sends and `camaron up` prints in the "
+                 "URL (`#cam-token=…`). Without it, read-only.\n\n"
+                 "Your intern shrimp has pinned the sticky notes up already: all you do is move them."},
         {"icon": "🧰", "title": "Supporting pieces",
          "art": r"""
    uv        -> runs Camarones (Python) without installing anything else
@@ -640,6 +682,16 @@ PAGES = {
                  "and gitleaks) comes with the full install; mermaid-cli downloads a headless Chromium the first time. "
                  "Without AI, each repo also gets `docs/repos/<repo>/reference.md`: commands, env vars, endpoints and "
                  "topics read from its files, kept current by `camaron blocks` and `sync`. "
+                 "Also without AI, `camaron diagrams` draws the system map (`docs/architecture/system-map.md`: who talks to "
+                 "whom, and who publishes or consumes each topic) and, per repo, `docs/repos/<repo>/diagrams.md` (endpoints and "
+                 "the states of each status enum; transitions are never guessed). They are ordinary Docs pages (under "
+                 "architecture and each repo) made of generated blocks: a person can confirm one by copying the block's `sha=` "
+                 "value into `confirmed=` and putting their name in `by=` (one word, or quoted when it has spaces: "
+                 "`by=\"Ana López\"`), e.g. `<!-- generated:states repo=api id=OrderStatus confirmed=3fa1c2d4e5f6 by=ana "
+                 "sha=3fa1c2d4e5f6 -->`; the kit then stops rewriting it, and `check` warns when the code has changed "
+                 "since or no longer has the diagram's source. To take the code's version, remove `confirmed=` and "
+                 "`by=` from the marker, run `camaron diagrams` and confirm it again. The portal tells you for each "
+                 "diagram whether it comes from the code, was edited by hand, a person confirmed it, or the code changed. "
                  "Team extensions go in `.camarones/plugins/` as plugins (`camaron plugins add` brings one in and pins "
                  "it in plugins.lock); the ones that run code or steer agents are not loaded until you approve them on "
                  "your machine, and any change asks again. Also without AI: `camaron history` reads the git history "

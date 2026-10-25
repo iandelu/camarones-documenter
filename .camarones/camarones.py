@@ -23,7 +23,7 @@
   wiki REPO --open | --close    around a manual OpenWiki MCP session (real openwiki/ folder, then back to cam-docs)
   down                      stop the portal
   migrate [--yes] [--dry-run]   move an older layout into <workspace>/cam-docs and clean kit files out of the repos
-  uninstall [--dry-run] [--yes] [--global] [--no-backup] [--backup-dir DIR]
+  uninstall [--dry-run] [--yes] [--global] [--no-backup] [--backup-dir DIR] [--keep-board|--drop-board]
                             undo the project: back up and delete cam-docs, remove every kit trace from the repos
                             and the workspace folder (--global: also ~/.camarones*, saved tokens)
   mcp [--http [--port N]]   MCP server: agents search/read the docs and the code graph, propose draft edits and
@@ -96,6 +96,10 @@
   review request PAGE [--note T] | wait ID [--timeout S] | list
                             an agent asks a person to review a page and waits for the answer (approve / changes, as
                             JSON); people answer in the portal's Review tab
+  board ACTION [ARGS] [--json]   the board (cam-docs/backlog, Backlog.md-compatible): init | add TYPE TITLE | list |
+                            show ID | move ID STATUS | assign ID WHO | link ID REF | archive ID | repair
+                            (list: --status --epic --repo --label --docs suspect|unconfirmed; add: --epic --repo
+                            --label --priority --doc; move: --before/--after ID); merge-driver is git's, not yours
   hooks [on|off] [--json]   method hooks for Claude Code in cam-docs: the plan state at session start, a check of each
                             docs page right after it is edited, a reminder to update the docs before stopping
   ab --qa "QUESTION" | --golden [--runner T] [--judge T] [--json]
@@ -112,6 +116,9 @@
   blocks [--force] [--json]  facts read from the repos, no AI: docs/repos/<repo>/reference.md (commands, env vars,
                             endpoints, topics) and every <!-- generated:… --> block in the docs. A block edited by hand
                             is kept and flagged by check; --force takes the code's version. `sync` refreshes them too
+  diagrams [--json]         diagrams drawn from the code, no AI: docs/architecture/system-map.md (context map, one
+                            sequence per topic) and docs/repos/<repo>/diagrams.md (endpoints, status enums). A diagram
+                            that moved to another page is not written twice; one edited by hand is kept and flagged
   pr fresh REPO [--base REF | --files F…] [--json] [--post] [--lang en|es]
                             what a pull request does to the docs, no AI: the pages whose cited code it changes (left
                             out of date by it, or already before). --post writes or updates one comment on the PR/MR
@@ -224,7 +231,8 @@ elif os.environ.get("CAMARONES_GLOBAL") and not os.environ.get("CAMARONES_ROOT")
     _marker = projects.find_marker(Path.cwd())
     if _marker:
         projects.touch(_marker)
-    elif _cmd0 not in ("help", "version", "self-update", "mcp", "catalog", "projects", "app"):
+    elif _cmd0 not in ("help", "version", "self-update", "mcp", "catalog", "projects", "app") \
+            and not (_cmd0 == "board" and "merge-driver" in sys.argv[2:3]):
         _dest = projects.pick(allow_new=True, here=Path.cwd())
         if _dest is None:
             sys.exit(1)
@@ -325,6 +333,7 @@ def build_parser() -> argparse.ArgumentParser:
     prp.add_argument("--base", default=""); prp.add_argument("--files", nargs="+"); prp.add_argument("--json", action="store_true")
     prp.add_argument("--post", action="store_true"); prp.add_argument("--lang", default="en", choices=["en", "es"])
     bl = sp.add_parser("blocks"); bl.add_argument("--force", action="store_true"); bl.add_argument("--json", action="store_true")
+    dg = sp.add_parser("diagrams"); dg.add_argument("--json", action="store_true")
     fr = sp.add_parser("fresh"); fr.add_argument("--json", action="store_true"); fr.add_argument("--ack", nargs="+", default=[])
     fr.add_argument("--by", default=""); fr.add_argument("--plan", action="store_true")
     kp = sp.add_parser("kpis"); kp.add_argument("--json", action="store_true"); kp.add_argument("--months", type=int, default=3)
@@ -350,6 +359,9 @@ def build_parser() -> argparse.ArgumentParser:
     un = sp.add_parser("uninstall"); un.add_argument("--yes", action="store_true"); un.add_argument("--dry-run", action="store_true")
     un.add_argument("--global", dest="user_level", action="store_true"); un.add_argument("--no-backup", action="store_true")
     un.add_argument("--backup-dir", type=Path)
+    ub = un.add_mutually_exclusive_group()
+    ub.add_argument("--keep-board", dest="keep_board", action="store_const", const=True, default=None)
+    ub.add_argument("--drop-board", dest="keep_board", action="store_const", const=False)
     ci = sp.add_parser("ci"); ci.add_argument("forge", nargs="?", choices=["gitlab", "github"])
     pl = sp.add_parser("plan"); pl.add_argument("action", nargs="?", default="show",
                                                 choices=["show", "sync", "next", "start", "note", "done", "block", "drop", "add", "redo", "approve"])
@@ -382,6 +394,8 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--poll-seconds", type=int, default=900); ap.add_argument("--include-interviews", action="store_true")
     cat = sp.add_parser("catalog"); cat.add_argument("--json", action="store_true")
     cat.add_argument("--markdown", action="store_true"); cat.add_argument("--check", action="store_true")
+    from lib.kanban import cli as board_cli
+    board_cli.add_parser(sp)
     pj = sp.add_parser("projects"); pj.add_argument("--json", action="store_true"); pj.add_argument("--add", type=Path)
     sp.add_parser("app")
     cf = sp.add_parser("config"); cf.add_argument("action", nargs="?", default="get", choices=["get", "set"])
@@ -413,6 +427,9 @@ def main() -> int:
         return 0
     p = build_parser()
     a = p.parse_args()
+    if a.cmd == "board" and a.action == "merge-driver":     # git runs this from anywhere: no workspace, no usage log
+        from lib.kanban import cli as board_cli
+        return board_cli.run(a)
     if a.cmd not in ("help", "mcp", "wizard"):
         from lib import usage
         usage.record(f"cli:{a.cmd}")
@@ -421,6 +438,9 @@ def main() -> int:
         print(__doc__)
     elif a.cmd == "catalog":
         return cmd_catalog(a, p)
+    elif a.cmd == "board":
+        from lib.kanban import cli as board_cli
+        return board_cli.run(a)
     elif a.cmd == "config":
         from lib import machine
         try:
@@ -587,7 +607,7 @@ def main() -> int:
     elif a.cmd == "uninstall":
         from lib import uninstall
         return uninstall.main(include_global=a.user_level, dry_run=a.dry_run, yes=a.yes, backup=not a.no_backup,
-                              backup_dir=a.backup_dir)
+                              backup_dir=a.backup_dir, keep_board=a.keep_board)
     elif a.cmd == "history":
         from lib import history
         from lib.common import rel_file
@@ -665,6 +685,8 @@ def main() -> int:
         return cmd_fresh(a)
     elif a.cmd == "blocks":
         return cmd_blocks(a)
+    elif a.cmd == "diagrams":
+        return cmd_diagrams(a)
     elif a.cmd == "pr":
         return cmd_pr(a)
     elif a.cmd == "eval":
@@ -1134,6 +1156,24 @@ def cmd_blocks(a) -> int:
         print(json.dumps(out, indent=2, ensure_ascii=False))
         return 0
     print(f"✔ {len(out['created'])} reference page(s) created, {len(out['updated'])} page(s) refreshed")
+    for e in out["edited"]:
+        print(f"  · kept, edited by hand: {e}")
+    for h in out["human"]:
+        print(f"  · not touched, owned by a person: {h}")
+    if out["edited"]:
+        print(f"Fix the source in the repo, or `{cli_cmd()} blocks --force` to take the code's version.")
+    return 0
+
+
+def cmd_diagrams(a) -> int:
+    from lib import diagrams, genblocks
+    out = {"written": diagrams.write_pages(), **genblocks.refresh()}
+    if a.json:
+        print(json.dumps(out, indent=2, ensure_ascii=False))
+        return 0
+    print(f"✔ {len(out['written'])} diagram page(s) written, {len(out['updated'])} page(s) refreshed")
+    for w in out["written"]:
+        print(f"  → {w}")
     for e in out["edited"]:
         print(f"  · kept, edited by hand: {e}")
     for h in out["human"]:

@@ -312,11 +312,14 @@ add the evidence, and ask the user. Tick the line `- [x]` with a short "→ what
 again: tell the user it is ready for another review. Never write `x-confirmed`.
 
 ## diagrams
-Add the diagrams the pages lack (CONVENTIONS §5). Start from `CLI check`: every warning about a missing
-`sequenceDiagram`, `stateDiagram-v2` or diagram is a gap to fill. Then look for lifecycles the check cannot see: search
-the code for status enums, `status`/`state` columns and state machines (`graphify query`, grep `enum .*Status`), and give
-each one a `stateDiagram-v2` on the page that explains it, with the real states and the events or endpoints that move
-them, anchored in `x-sources`. Caches get a `flowchart` of keys, TTLs, writers and readers; the system overview embeds
+Add the diagrams the pages lack (CONVENTIONS §5). Start with `CLI diagrams`: it draws, from the code, the system map,
+each repo's endpoints map and one state diagram per status enum. Never edit a generated block, and never touch a
+`confirmed` one: a diagram that needs transitions or meaning gets a **proposal** right after its block (format in the
+`cam-docs-diagrams` skill: `base` = the block's `sha`, a Why list citing `repo:path#Symbol` for every claim). Then run
+`CLI check`: every warning about a missing `sequenceDiagram`, `stateDiagram-v2` or diagram is a gap to fill. Look for
+lifecycles the generators cannot see: search the code for `status`/`state` columns and state machines (`graphify query`,
+grep `enum .*Status`), and give each one a `stateDiagram-v2` on the page that explains it, with the real states and the
+events or endpoints that move them, anchored in `x-sources`. Caches get a `flowchart` of keys, TTLs, writers and readers; the system overview embeds
 ```` ```likec4-view ```` `index`. Never invent a state or transition: unknown → `TODO(question)` + open-questions.md.
 Adding a diagram to a confirmed page makes it `needs-reconfirm`: list those pages in the handoff. Finish with
 `CLI check` (no diagram warnings left, or each remaining one explained in the handoff) and `CLI checkpoint "diagrams"`.

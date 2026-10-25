@@ -1,6 +1,6 @@
 /* The portal's base styles on the theme of .camarones/ui/theme/tokens.css (Cofundo's language, Camarón's brand; light
    and dark live there). These names predate it and stay: each is an alias of a theme token, so the views never hold a
-   colour. Colour only for state, motion only when something changes. (Was public/legacy/app.css until 4.51.) */
+   colour. Colour only for state, motion only when something changes. (Was public/legacy/app.css until 4.52.) */
 :root {
   --bg: var(--color-canvas); --raise: var(--color-canvas-elevated);
   --panel: color-mix(in oklch, var(--color-ink) 5%, var(--color-canvas));
@@ -142,6 +142,11 @@ body.bare #tree, body.bare #side-head { display: none; }
 .pill.trust.confirmed { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 35%, var(--line)); }
 .pill.trust.draft { color: var(--muted); border-style: dashed; }
 .pill.trust.needs-reconfirm { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, var(--line)); }
+.doc .gen-block { margin: 1rem 0; }
+.doc .gen-badge { display: inline-flex; margin: 0 0 .4rem; padding: .05rem .55rem; font-size: .78rem; color: var(--muted);
+                  border: 1px solid var(--line); border-radius: 99px; background: var(--panel); }
+.doc .gen-block[data-state="confirmed"] .gen-badge { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 35%, var(--line)); }
+.doc .gen-block[data-state="stale"] .gen-badge { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, var(--line)); }
 .banner { border-left: 3px solid var(--warn); background: color-mix(in srgb, var(--warn) 8%, transparent); padding: .5rem .85rem;
           border-radius: 0 8px 8px 0; margin-bottom: 1rem; font-size: .9rem; }
 .banner.draft { border-color: var(--muted); background: var(--panel); color: var(--ink-2); }

@@ -1,5 +1,5 @@
 """The portal (R20, R29): one React app built in the kit's CI into portal/app-build (committed, so users never run npm)
-and served at /. The docs views were plain scripts (public/legacy/) until 4.51. /next, the preview address of earlier
+and served at /. The docs views were plain scripts (public/legacy/) until 4.52. /next, the preview address of earlier
 versions, redirects to it."""
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ def test_the_build_is_committed_and_complete():
     styles = re.search(r'<link rel="stylesheet" crossorigin href="\./assets/[^"]+\.css">', html).group(0)
     assert theme in html and html.index(theme) < html.index(styles)       # the theme applies first
     assert '="/' not in html.replace('href="#/', '')                     # relative: the export works under a sub-path
-    assert "legacy/" not in html and not (BUILD / "legacy").exists()      # no plain scripts since 4.51
+    assert "legacy/" not in html and not (BUILD / "legacy").exists()      # no plain scripts since 4.52
     manifest = json.loads((BUILD / ".vite" / "manifest.json").read_text(encoding="utf-8"))
     assert all((BUILD / entry["file"]).is_file() for entry in manifest.values())
 

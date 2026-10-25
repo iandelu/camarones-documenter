@@ -1,30 +1,30 @@
 {
-  "_AgentLaunch-B4pTa2V4.js": {
-    "file": "assets/AgentLaunch-B4pTa2V4.js",
+  "_AgentLaunch-DJw6WCF_.js": {
+    "file": "assets/AgentLaunch-DJw6WCF_.js",
     "name": "AgentLaunch",
     "imports": [
-      "_i18n-BqMP8iBA.js"
+      "_i18n-C9nqP89u.js"
     ]
   },
-  "_core-C-nlJSkd.js": {
-    "file": "assets/core-C-nlJSkd.js",
+  "_core-u2b30Mei.js": {
+    "file": "assets/core-u2b30Mei.js",
     "name": "core",
     "imports": [
-      "_i18n-BqMP8iBA.js"
+      "_i18n-C9nqP89u.js"
     ]
   },
-  "_i18n-BqMP8iBA.js": {
-    "file": "assets/i18n-BqMP8iBA.js",
+  "_i18n-C9nqP89u.js": {
+    "file": "assets/i18n-C9nqP89u.js",
     "name": "i18n"
   },
   "index.html": {
-    "file": "assets/index-CXNWL5Bk.js",
+    "file": "assets/index-gB_4ppUu.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
     "imports": [
-      "_i18n-BqMP8iBA.js",
-      "_core-C-nlJSkd.js"
+      "_i18n-C9nqP89u.js",
+      "_core-u2b30Mei.js"
     ],
     "dynamicImports": [
       "src/Pipeline.jsx",
@@ -34,94 +34,104 @@
       "src/Data.jsx",
       "src/Taller.jsx",
       "src/Interview.jsx",
-      "src/Sync.jsx"
+      "src/Sync.jsx",
+      "src/Kanban.jsx"
     ],
     "css": [
-      "assets/index-B1BXE4Va.css"
+      "assets/index-DPMnnU-d.css"
     ]
   },
   "src/Ci.jsx": {
-    "file": "assets/Ci-DuDFoSOR.js",
+    "file": "assets/Ci-CGX-GvyK.js",
     "name": "Ci",
     "src": "src/Ci.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-BqMP8iBA.js",
-      "_core-C-nlJSkd.js",
+      "_i18n-C9nqP89u.js",
+      "_core-u2b30Mei.js",
       "index.html"
     ]
   },
   "src/Data.jsx": {
-    "file": "assets/Data-VYbfmiP1.js",
+    "file": "assets/Data-C86ToHnl.js",
     "name": "Data",
     "src": "src/Data.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-BqMP8iBA.js",
-      "_core-C-nlJSkd.js",
+      "_i18n-C9nqP89u.js",
+      "_core-u2b30Mei.js",
       "index.html"
     ]
   },
   "src/Interview.jsx": {
-    "file": "assets/Interview-vAr7qIeH.js",
+    "file": "assets/Interview-NtQYs7T3.js",
     "name": "Interview",
     "src": "src/Interview.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-BqMP8iBA.js"
+      "_i18n-C9nqP89u.js"
+    ]
+  },
+  "src/Kanban.jsx": {
+    "file": "assets/Kanban-BnGzB15z.js",
+    "name": "Kanban",
+    "src": "src/Kanban.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_i18n-C9nqP89u.js"
     ]
   },
   "src/Kpis.jsx": {
-    "file": "assets/Kpis-CQU_Zsd5.js",
+    "file": "assets/Kpis-Dw-Yv5cd.js",
     "name": "Kpis",
     "src": "src/Kpis.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-BqMP8iBA.js",
-      "_core-C-nlJSkd.js"
+      "_i18n-C9nqP89u.js",
+      "_core-u2b30Mei.js"
     ]
   },
   "src/Libs.jsx": {
-    "file": "assets/Libs-CpPop59N.js",
+    "file": "assets/Libs-BWCryV85.js",
     "name": "Libs",
     "src": "src/Libs.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-BqMP8iBA.js",
+      "_i18n-C9nqP89u.js",
       "index.html"
     ]
   },
   "src/Pipeline.jsx": {
-    "file": "assets/Pipeline-SoQh_Qz7.js",
+    "file": "assets/Pipeline-CU7oVGrA.js",
     "name": "Pipeline",
     "src": "src/Pipeline.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-BqMP8iBA.js",
+      "_i18n-C9nqP89u.js",
       "index.html",
-      "_AgentLaunch-B4pTa2V4.js"
+      "_AgentLaunch-DJw6WCF_.js"
     ],
     "css": [
       "assets/Pipeline-DLioOiRN.css"
     ]
   },
   "src/Sync.jsx": {
-    "file": "assets/Sync-ECZOCKbh.js",
+    "file": "assets/Sync-BqWLO75Q.js",
     "name": "Sync",
     "src": "src/Sync.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-BqMP8iBA.js"
+      "_i18n-C9nqP89u.js"
     ]
   },
   "src/Taller.jsx": {
-    "file": "assets/Taller-8T9mr5zP.js",
+    "file": "assets/Taller-B0QgwQIx.js",
     "name": "Taller",
     "src": "src/Taller.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-BqMP8iBA.js",
-      "_AgentLaunch-B4pTa2V4.js"
+      "_i18n-C9nqP89u.js",
+      "_AgentLaunch-DJw6WCF_.js"
     ]
   }
 }

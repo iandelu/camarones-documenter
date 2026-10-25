@@ -34,6 +34,9 @@ test('the React views need the server; in the export they fall back to home', ()
     expect(go(`#/${v}`, { mode: 'static' })).toEqual(HOME)
   }
   expect(go('#/ask/how%20does%20it%20work')).toEqual({ kind: 'native', view: 'ask', arg: 'how does it work' })
+  // the Board's add form, opened from a page with its link filled in
+  expect(go('#/kanban/new?path=domain%2Fvisits.md&section=the-flow'))
+    .toEqual({ kind: 'native', view: 'kanban', arg: 'new?path=domain/visits.md&section=the-flow' })
 })
 
 test('the Taller only in the desktop app', () => {
