@@ -42,7 +42,7 @@ export function resolve(hash, ctx) {
   if (view === 'wikis') return rest ? { kind: 'redirect', to: `#/wiki/${rest}` } : legacy('showWikis')
   if (view === 'c4') return legacy('showArch', rest)
   if (view === 'code') return legacy('showCodeTab', rest)
-  if (view === 'review' || view === 'status') return legacy('showReview')
+  if (view === 'review' || view === 'status') return { kind: 'native', view: 'review', arg: '' }
   if (view === 'search') return { kind: 'native', view: 'search', arg: rest }
   if (view === 'new' && ctx.mode !== 'static') return legacy('newPage')
   const first = COVERS.includes(view) && (view !== 'taller' || ctx.mode === 'app') && ctx.firstView(view)

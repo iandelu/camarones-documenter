@@ -72,6 +72,10 @@
 .cu-crumbs a:hover { color: var(--color-ink); }
 .cu-crumbs [aria-current="page"] { color: var(--color-ink); }
 
+/* read by screen readers, not drawn: a label the layout has no room for */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0);
+           white-space: nowrap; border: 0; }
+
 @media (prefers-reduced-motion: reduce) {
   .cu-btn { transition: none; }
 }
