@@ -292,8 +292,8 @@ function diagramTargets() {
   const map = {};
   for (const d of T.docs) if (d.space === 'docs') map[d.title.toLowerCase()] ||= d.path;
   for (const r of T.repos || []) {
-    const brief = `repos/${r}/brief.md`, ref = `repos/${r}/reference.md`;
-    map[r.toLowerCase()] ||= BY_PATH[brief] ? brief : BY_PATH[ref] ? ref : undefined;
+    const page = `repos/${r}/index.md`, brief = `repos/${r}/brief.md`, ref = `repos/${r}/reference.md`;   // the repo page first
+    map[r.toLowerCase()] ||= BY_PATH[page] ? page : BY_PATH[brief] ? brief : BY_PATH[ref] ? ref : undefined;
   }
   return map;
 }

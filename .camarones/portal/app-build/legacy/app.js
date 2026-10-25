@@ -123,6 +123,13 @@ function drawEmptyProject() {
   $('#first-look')?.addEventListener('click', (e) => startBuild('first-look', '', e.target, $('#first-log'), () => location.reload()));
 }
 
+// The project home (docs/index.md) as the Home's "system" section: the current language's page, else English, without
+// its H1 (the section has its own heading); the TL;DR stays as the page's one-line answer. Frontmatter is left alone.
+const withoutH1 = (raw) => {
+  const fm = raw.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/);
+  const head = fm ? fm[0] : '';
+  return head + raw.slice(head.length).replace(/^# .*(\r?\n|$)/m, '');
+};
 async function showStart() {
   drawChrome('home', { bare: true });
   CURRENT = '';
@@ -139,6 +146,8 @@ async function showStart() {
       <form class="start-ask" id="start-ask"><input name="q" placeholder="${esc(t('home.askPh'))}" aria-label="${esc(askLabel)}"
         autocomplete="off"><button type="submit">${esc(askLabel)} <span aria-hidden="true">→</span></button></form>
     </header>
+    ${BY_PATH['index.md'] ? `<section class="start-sec start-home"><div class="start-h"><h2 class="t-impact">${esc(t('home.system'))}</h2></div>
+      <div id="start-home-body"></div></section>` : ''}
     ${kpis.length ? `<section class="start-sec"><div class="start-h"><h2 class="t-impact">${esc(t('home.state'))}</h2>
       <span class="eyebrow">${esc(t('home.stateSub'))}</span></div>
       <div class="home-kpis">${kpis.map((k) => `<div class="home-kpi ${k.tone || ''}"><span class="eyebrow">${esc(t('kpi.' + k.id))}</span>
@@ -151,6 +160,16 @@ async function showStart() {
     const q = e.target.q.value.trim();
     if (q) location.hash = `${STATIC ? '#/search/' : '#/ask/'}${encodeURIComponent(q)}`;
   });
+  const homeBody = $('#start-home-body');
+  if (homeBody) {
+    try {
+      let d = await api('doc', { path: 'index.md', lang });
+      if (!d.exists) d = await api('doc', { path: 'index.md' });
+      if (!d.exists) throw new Error('no index.md');
+      await mountDoc(homeBody, withoutH1(d.raw), 'index.md', '', d.blocks);
+      drawToc(null);                                        // the Home is bare: no outline of the embedded page
+    } catch { homeBody.closest('.start-home').remove(); }   // the Home still works without its section
+  }
 }
 
 // A zone's cover (#/arch, #/plan, #/quality): its title and one tile per view this mode has.
