@@ -122,3 +122,24 @@ def test_the_business_view_uses_real_page_types():
     conventions = (REPO / ".camarones" / "CONVENTIONS.md").read_text(encoding="utf-8")
     known = re.search(r"type: [\w-]+\s+# ([\w|-]+)", conventions).group(1).split("|")
     assert types and set(types) <= set(known), (types, known)
+
+
+LEGACY = SOURCE / "public" / "legacy"
+
+
+def test_the_home_shows_the_project_home_before_the_kpis():
+    app = LEGACY.joinpath("app.js").read_text(encoding="utf-8")
+    start = app[app.index("async function showStart"):app.index("function showZone")]
+    assert "start-home" in start and "'index.md'" in start and "mountDoc(" in start
+    assert start.index("start-home") < start.index("home-kpis")
+
+
+def test_diagram_nodes_open_the_repo_page_first():
+    doc = LEGACY.joinpath("doc.js").read_text(encoding="utf-8")
+    targets = doc[doc.index("function diagramTargets"):doc.index("function linkDiagrams")]
+    assert targets.index("/index.md") < targets.index("brief.md") < targets.index("reference.md")
+
+
+def test_the_home_section_title_exists_in_both_languages():
+    core = LEGACY.joinpath("core.js").read_text(encoding="utf-8")
+    assert core.count("'home.system'") == 2
