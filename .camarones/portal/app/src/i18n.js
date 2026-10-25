@@ -1,6 +1,7 @@
 // Strings of the React views, in the reader's portal language (the classic views keep theirs in legacy/core.js).
 export const S = {
   en: {
+    'shell.nav': 'Sections', 'shell.theme': 'Light or dark', 'shell.lang': 'Language',
     appOnly: 'This runs on your machine: open it in the desktop app (camaron app).',
     'tw.generate': 'Generate', 'twd.generate': 'Documentation written by AI agents: the plan, runs, wikis and pull requests.',
     'tw.analyze': 'Analyze', 'twd.analyze': 'Facts read from the code without AI: C4 draft, stack, dependencies, data and history.',
@@ -159,6 +160,7 @@ export const S = {
       + 'the change touches and never blocks the merge.', copy: 'Copy', copied: 'Copied', ciGuide: 'Guide: run the AI job on your own runner',
   },
   es: {
+    'shell.nav': 'Secciones', 'shell.theme': 'Claro u oscuro', 'shell.lang': 'Idioma',
     appOnly: 'Esto se ejecuta en tu máquina: ábrelo en la app de escritorio (camaron app).',
     'tw.generate': 'Generar', 'twd.generate': 'Documentación escrita por agentes de IA: el plan, las ejecuciones, las wikis y los pull requests.',
     'tw.analyze': 'Analizar', 'twd.analyze': 'Datos leídos del código sin IA: borrador C4, stack, dependencias, datos e historia.',

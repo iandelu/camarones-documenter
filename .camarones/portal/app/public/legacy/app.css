@@ -120,10 +120,11 @@ body.viewer-mode .layout { grid-template-columns: var(--side) minmax(0, 1fr); ma
 body.viewer-mode .toc { display: none; }
 body.viewer-mode .main { padding: 0; }
 
+/* home and zone covers: the sidebar keeps the zones (src/shell), only the docs tree gives way */
 @media (min-width: 901px) {
-  body.bare .layout { grid-template-columns: minmax(0, 1fr); }
-  body.bare .side { display: none; }
+  body.bare .layout { grid-template-columns: var(--side) minmax(0, 1fr); }
 }
+body.bare #tree, body.bare #side-head { display: none; }
 
 #scrim { display: none; }
 
@@ -376,8 +377,9 @@ dialog[open]::backdrop { animation: fade .18s var(--ease); }
 }
 
 /* ---------- the React views share the shell (src/styles.css styles them inside #native) ---------- */
-body.native-mode .layout { grid-template-columns: minmax(0, 1fr); max-width: none; }
-body.native-mode .side, body.native-mode #main, body.native-mode .toc { display: none; }
+body.native-mode .layout { grid-template-columns: var(--side) minmax(0, 1fr); max-width: none; }
+body.native-mode #main, body.native-mode .toc, body.native-mode #tree, body.native-mode #side-head { display: none; }
+@media (max-width: 900px) { body.native-mode .layout { grid-template-columns: minmax(0, 1fr); } }
 .native[hidden] { display: none !important; }
 
 /* ---------- directives, live tables, business/technical switch, clickable diagrams (R29) ---------- */

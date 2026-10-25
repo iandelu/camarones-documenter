@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { crumbs, homeKpis, paletteEntries, zonesFor } from './zones.js'
+import { crumbs, homeKpis, locate, paletteEntries, zonesFor } from './zones.js'
 
 const idx = {
   project: 'demo', repos: ['api', 'web'],
@@ -112,4 +112,15 @@ test('desktop app: every live view plus the Taller, which the browser portal nev
 test('crumbs of a Taller view', () => {
   expect(crumbs('#/generate', 'app', idx)).toEqual([{ key: 'zone.taller', href: '#/taller' }, { key: 'view.generate', href: '#/generate' }])
   expect(crumbs('#/generate', 'live', idx)).toEqual([])
+})
+
+// The shell's sidebar marks where the reader is: the zone and, inside it, the view.
+test('locate: the zone and view of an address, old addresses included', () => {
+  expect(locate('#/docs/guides/a.md')).toEqual({ zone: 'docs', view: 'pages' })
+  expect(locate('#/wiki/api/x.md')).toEqual({ zone: 'docs', view: 'wikis' })
+  expect(locate('#/status')).toEqual({ zone: 'review', view: 'review' })
+  expect(locate('#/machine')).toEqual({ zone: 'taller', view: 'machine' })
+  expect(locate('#/arch')).toEqual({ zone: 'arch', view: null })
+  expect(locate('#/search/x')).toEqual({ zone: null, view: null })
+  expect(locate('')).toEqual({ zone: null, view: null })
 })

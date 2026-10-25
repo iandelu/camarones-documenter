@@ -320,10 +320,7 @@ async function loadTree() {
   WIKIS = null;
   VIEWERS = null;
   if (!T.langs.includes(lang)) lang = '';
-  document.title = `${T.project} — Camarón`;
-  $('#project').textContent = T.project;
-  const s = T.summary;
-  $('#summary').textContent = `✅ ${s.confirmed} · ✨ ${s.draft} · ⚠️ ${s['needs-reconfirm']}` + (T.feedback ? ` · ✏️ ${T.feedback}` : '');
+  document.title = `${T.project} — Camarón`;            // the header (project, trust summary) is the shell's
 }
 
 async function loadWikis() { WIKIS ||= await api('wikis'); return WIKIS; }
@@ -351,7 +348,6 @@ const isDark = () => (document.documentElement.dataset.theme || (systemDark() ? 
 function applyTheme() {
   const pick = store.get('cam-theme');
   if (pick) document.documentElement.dataset.theme = pick; else delete document.documentElement.dataset.theme;
-  $('#theme').textContent = isDark() ? '☀️' : '🌙';
   if (window.mermaid) mermaid.initialize({ startOnLoad: false, theme: isDark() ? 'dark' : 'neutral', securityLevel: 'strict',
     fontFamily: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif' });
   $$('likec4-view').forEach((v) => v.setAttribute('color-scheme', isDark() ? 'dark' : 'light'));

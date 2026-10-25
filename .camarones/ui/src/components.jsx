@@ -78,13 +78,14 @@ export function Field({ id, label, flag, ...rest }) {
   )
 }
 
-// items: [{ label, href }], the last one is the current page.
+// items: [{ label, href }], the last one is the current page; a step without href is plain text.
 export function Breadcrumbs({ items, lang }) {
   return (
     <nav className="cu-crumbs" aria-label={t('crumbs', lang)}>
       <ol>
         {items.map((it, i) => i < items.length - 1
-          ? <li key={i}><a href={it.href}>{it.label}</a><span className="cu-crumbs-sep" aria-hidden="true">→</span></li>
+          ? <li key={i}>{it.href ? <a href={it.href}>{it.label}</a> : <span>{it.label}</span>}
+              <span className="cu-crumbs-sep" aria-hidden="true">→</span></li>
           : <li key={i}><span aria-current="page">{it.label}</span></li>)}
       </ol>
     </nav>

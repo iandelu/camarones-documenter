@@ -1,41 +1,30 @@
 'use strict';
-// Chrome, the Docs space (tree, home, pages), search, review and routing.
+// The Docs space (tree, home, pages), search and review, painted into the shell's slots (#main, #toc, #tree).
+// The shell (src/shell/Shell.jsx) owns the header, the sidebar's zones and the router; it calls these views through
+// window.CamaronLegacy (bottom of this file) until each one moves to React.
 
 let CURRENT = '';            // page on screen: a hash change that only moves the anchor just scrolls
 let DOCS_ORDER = [];
 let NOTES_ORDER = [];
 
-// The React views need the live server; the zones (src/zones.js) know what each mode has. `app`: the desktop app's
-// window, which also has the Taller (machine work).
-const MODE = () => (STATIC || !window.CamaronNative ? 'static' : RUNS ? 'app' : 'live');
-const TALLER = ['generate', 'analyze', 'check', 'interviews', 'team', 'machine', 'kitdev'];
+// What the zones (src/zones.js) offer: the export, the live server, or the desktop app's window (which also has
+// the Taller, where machine work runs).
+const MODE = () => (STATIC ? 'static' : RUNS ? 'app' : 'live');
 
-// Where the reader is, from the address: camarón / zone / view / page. No tab bar: Home tiles, zone covers and ⌘K
-// reach every view. `active` is kept for callers; the address alone decides the crumbs.
-function drawChrome(active, { viewer = false, bare = false, nativeView = false } = {}) {
+// The layout a view wants; the header and breadcrumbs are the shell's.
+function drawChrome(active, { viewer = false, bare = false } = {}) {
   document.documentElement.lang = lang || 'en';
-  const crumbs = window.CamaronZones?.crumbs(location.hash, MODE(), T) || [];   // none if the bundle did not load
-  $('#crumbs').innerHTML = crumbs.map((c, i) => {
-    const label = esc(!c.key ? c.text : c.key.startsWith('sec.') ? sectionLabel(c.key.slice(4)) : t(c.key));
-    const last = i === crumbs.length - 1;
-    const item = c.href && !last ? `<a href="${esc(c.href)}">${label}</a>` : `<span${last ? ' aria-current="page"' : ''}>${label}</span>`;
-    return `<span class="sep" aria-hidden="true">/</span>${item}`;
-  }).join('');
-  $('#search-label').textContent = t('search');
-  $('#theme').title = t('theme');
-  $('#menu').title = t('menu');
-  $('#ro').hidden = !STATIC;
-  $('#ro').innerHTML = t('readOnly');
-  const langs = ['', ...T.langs];
-  $('#lang').hidden = langs.length < 2;
-  $('#lang').innerHTML = langs.map((l) => `<option value="${l}">${esc(LANG_NAMES[l || 'en'] || l)}</option>`).join('');
-  $('#lang').value = langs.includes(lang) ? lang : '';
   document.body.classList.toggle('viewer-mode', viewer);
   document.body.classList.toggle('bare', bare);
-  document.body.classList.toggle('native-mode', nativeView);
-  document.body.classList.remove('nav-open');
   if (viewer) drawToc(null);
 }
+
+// The docs' trust in words, for the review page (the header shows it as chips).
+const summaryText = () => {
+  const s = T.summary;
+  return [`${s.confirmed} ${t('trust.confirmed')}`, `${s.draft} ${t('trust.draft')}`, `${s['needs-reconfirm']} ${t('trust.needs-reconfirm')}`,
+    ...(T.feedback ? [`${T.feedback} ${t('changeRequests')}`] : [])].join(' · ');
+};
 
 // ---------- the Docs tree: folders in the canonical section order, working notes folded at the bottom ----------
 function buildTree(rows) {
@@ -460,7 +449,7 @@ async function showReview() {
   const requests = STATIC ? [] : await api('reviews').catch(() => []);
   const changed = Object.entries(s.changes).filter(([, c]) => c.status !== 'up-to-date');
   $('#main').innerHTML = `<div class="page"><h1>${esc(t('reviewTitle'))}</h1>
-    <p class="muted">${esc(t('planUnits', { done: s.plan.done, total: s.plan.total, pages: T.summary.total }))} · ${esc($('#summary').textContent)}</p>
+    <p class="muted">${esc(t('planUnits', { done: s.plan.done, total: s.plan.total, pages: T.summary.total }))} · ${esc(summaryText())}</p>
     ${requests.length ? `<div class="box"><b>${esc(t('reviewRequests'))} (${requests.length})</b><ul class="list">${requests.map((r) =>
       `<li class="rv" data-id="${esc(r.id)}"><a href="${esc(hrefFor(r.path))}">${esc(BY_PATH[r.path]?.title || r.path)}</a>
         <span class="muted small">${esc(r.by)}${r.note ? ' · ' + esc(r.note) : ''}</span>
@@ -487,92 +476,57 @@ async function showReview() {
   });
 }
 
-// ---------- routing (old links keep working: #/docs/repos/<repo>/<wiki page>, #/wikis/<repo>, #/c4/code/<repo>) ----------
-// One view renders at a time and a newer hash skips the queued ones, so a slow page never paints over the next.
-let routing = Promise.resolve();
-let routeSeq = 0;
-function route() {
-  const seq = ++routeSeq;
-  const run = routing.then(() => (seq === routeSeq ? routeNow() : undefined));
-  routing = run.catch(() => {});          // one address that fails must not stop the next ones
-  return run;
-}
+// ---------- the bridge: the shell (src/shell/Shell.jsx) routes, these views paint ----------
+// The address table lives in src/router.js. Calls from these scripts that re-show the current address (after a save,
+// a language or audience change) go back through the shell, so one view renders at a time.
+function route() { return window.CamaronShell ? window.CamaronShell.go() : Promise.resolve(); }
 
-async function routeNow() {
-  const raw = location.hash.slice(1);
-  let h = raw;
-  try { h = decodeURIComponent(raw); } catch { /* a bare % in a file name: route the address as it is */ }
-  const [, view = '', rest = ''] = h.match(/^\/([\w-]*)\/?(.*)$/) || [];
-  if ($('#palette').open) $('#palette').close();
-  if (['pipeline', 'ask', 'kpis', 'ci', 'libs', 'data', 'interview', 'sync'].includes(view) && !STATIC && window.CamaronNative
-      || RUNS && TALLER.includes(view) && window.CamaronNative) {
-    CURRENT = '';
-    drawChrome(view, { nativeView: true });
-    drawToc(null);
-    return window.CamaronNative.show(view, rest);
-  }
-  window.CamaronNative?.hide();
-  try {
-    if (view === 'boards') return location.replace('#/arch');   // boards were removed in 4.49
-    if (view === 'docs' || view === 'doc') {
-      if (!rest) return await showDocsHome();
-      const [path, anchor] = rest.split('::');
-      if (BY_PATH[path]?.space === 'wiki') return location.replace(hrefFor(path, anchor));
-      if (path === CURRENT && anchor !== undefined && $('#body')) return scrollToAnchor(anchor);
-      return await showDoc(path, anchor);
-    }
-    if (view === 'wiki') {
-      const [repo = '', ...more] = rest.split('/');
-      const [rel = '', anchor] = more.join('/').split('::');
-      if (rel && `repos/${repo}/${rel}` === CURRENT && anchor !== undefined && $('#body')) return scrollToAnchor(anchor);
-      CURRENT = '';
-      if (!repo) return await showWikis();
-      return rel ? await showWiki(repo, rel, anchor) : await showWikiGraph(repo);
-    }
-    CURRENT = '';
-    if (view === 'wikis') return rest ? location.replace(`#/wiki/${rest}`) : await showWikis();
-    if (view === 'c4') return await showArch(rest);
-    if (view === 'code') return await showCodeTab(rest);
-    if (view === 'review' || view === 'status') return await showReview();
-    if (view === 'search') return await showSearch(rest);
-    if (view === 'new' && !STATIC) return newPage();
-    if (['arch', 'plan', 'quality', 'taller'].includes(view)) return showZone(view);
-    return await showStart();                 // #/, an unknown address, or a live-only view in the static export
-  } catch (e) {
-    drawToc(null);
-    $('#main').innerHTML = `<div class="page"><h1>${esc(t('error'))}</h1><p>${esc(e.message)}</p></div>`;
-  }
-}
+const VIEWS = { showStart, showZone, showDocsHome, showDoc, showSearch, showReview, newPage,
+  showWikis: () => showWikis(), showWiki: (...a) => showWiki(...a), showWikiGraph: (...a) => showWikiGraph(...a),
+  showArch: (...a) => showArch(...a), showCodeTab: (...a) => showCodeTab(...a) };
 
-$('#lang').onchange = (e) => { lang = e.target.value; store.set('cam-lang', lang); CURRENT = ''; route(); };
-$('#theme').onclick = () => { store.set('cam-theme', isDark() ? 'light' : 'dark'); applyTheme(); CURRENT = ''; route(); };
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (!store.get('cam-theme')) { applyTheme(); CURRENT = ''; route(); } });
-$('#menu').onclick = () => document.body.classList.toggle('nav-open');
-$('#scrim').onclick = () => document.body.classList.remove('nav-open');
-$('#search-btn').onclick = openPalette;
+// In the app, whether this kit is a checkout with its tests (the Taller's Kit dev view).
+const appInfo = () => (RUNS ? api('app/info').then((i) => { T.kitdev = i.kitdev; }, () => {}) : Promise.resolve());
+
+window.CamaronLegacy = {
+  // the docs index, the reader's language (the browser's on a first visit, when the docs are translated to it)
+  async boot() {
+    applyTheme();
+    await loadTree();
+    await appInfo();
+    if (!store.get('cam-lang')) {
+      const nav = (navigator.language || 'en').slice(0, 2);
+      if (T.langs.includes(nav)) lang = nav;
+    }
+    document.documentElement.lang = lang || 'en';
+  },
+  async run(fn, args) {
+    CURRENT = '';
+    try { await VIEWS[fn](...args); } catch (e) {
+      drawToc(null);
+      $('#main').innerHTML = `<div class="page"><h1>${esc(t('error'))}</h1><p>${esc(e.message)}</p></div>`;
+    }
+  },
+  leave() { CURRENT = ''; drawToc(null); document.body.classList.remove('viewer-mode', 'bare'); },
+  scroll: (anchor) => scrollToAnchor(anchor),
+  current: () => CURRENT,
+  closePalette() { if ($('#palette').open) $('#palette').close(); },
+  openPalette: () => openPalette(),
+  mode: MODE,
+  isStatic: () => STATIC,
+  tree: () => T,
+  byPath: (p) => BY_PATH[p],
+  hrefFor: (p, a) => hrefFor(p, a),
+  t: (k, vars) => t(k, vars),
+  sectionLabel: (n) => sectionLabel(n),
+  lang: () => lang,
+  langName: (l) => LANG_NAMES[l] || l,
+  setLang(l) { lang = l; store.set('cam-lang', l); CURRENT = ''; },
+  toggleTheme() { store.set('cam-theme', isDark() ? 'light' : 'dark'); applyTheme(); CURRENT = ''; },
+};
+
 $('#pal-q').oninput = paletteInput;
 $('#pal-q').onkeydown = paletteKey;
 $('#palette').addEventListener('click', (e) => { if (e.target === $('#palette')) $('#palette').close(); });
 $('#zoomer').addEventListener('click', (e) => { if (e.target === $('#zoomer') || e.target.closest('#zoomer-close')) $('#zoomer').close(); });
-document.addEventListener('keydown', (e) => {
-  const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '');
-  if ((e.key === 'k' && (e.metaKey || e.ctrlKey)) || (e.key === '/' && !typing)) { e.preventDefault(); openPalette(); }
-});
-addEventListener('hashchange', route);
-applyTheme();
-$('#search-key').textContent = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘K' : 'Ctrl K';
-// The zones come with the React bundle (a module script, run after these scripts): routing waits for both, or for
-// the page's load event if the bundle failed (the docs still show, without breadcrumbs).
-const zonesReady = () => (window.CamaronZones ? Promise.resolve() : new Promise((ok) => {
-  addEventListener('camaron:native-ready', ok, { once: true });
-  addEventListener('load', ok, { once: true });
-}));
-// In the app, whether this kit is a checkout with its tests (the Taller's Kit dev view).
-const appInfo = () => (RUNS ? api('app/info').then((i) => { T.kitdev = i.kitdev; }, () => {}) : Promise.resolve());
-Promise.all([loadTree(), zonesReady()]).then(appInfo).then(() => {
-  if (!store.get('cam-lang')) {           // first visit: the browser's language when the docs are translated to it
-    const nav = (navigator.language || 'en').slice(0, 2);
-    if (T.langs.includes(nav)) lang = nav;
-  }
-  return route();
-}).catch((e) => { drawChrome('docs'); $('#main').innerHTML = `<div class="page"><h1>${esc(t('unreachable'))}</h1><p>${esc(e.message)}</p></div>`; });
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (!store.get('cam-theme')) { applyTheme(); CURRENT = ''; route(); } });
