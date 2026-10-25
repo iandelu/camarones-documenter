@@ -1,23 +1,4 @@
-'use strict';
-// Shared state and helpers. Plain scripts (no modules, no build): core → doc → c4 → wiki → app share one global scope.
-const $ = (s, el = document) => el.querySelector(s);
-const $$ = (s, el = document) => [...el.querySelectorAll(s)];
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const STATIC = $('meta[name="cam-mode"]').content === 'static';
-// The desktop app's window (its preload sets window.camaronApp): only there do builds, wikis and runs start. In the
-// browser portal those buttons give way to a note (appOnly).
-const APP = window.camaronApp?.token ? window.camaronApp : null;
-const RUNS = !STATIC && !!APP;
-const TRUST = { confirmed: '✅', draft: '✨', 'needs-reconfirm': '⚠️' };
-const LANG_NAMES = { en: 'English', es: 'Español', fr: 'Français', de: 'Deutsch', pt: 'Português', it: 'Italiano' };
-const SECTION_ICONS = { overview: '🧭', architecture: '🏗️', domain: '📖', flows: '🔀', data: '🗄️', deployment: '🚀',
-  decisions: '⚖️', quality: '🧪', guides: '🧑‍🏫', repos: '📦', security: '🔒', interview: '🎙️' };
-// The Business view: pages a product person reads (what the system does and why), not how it is built.
-const BUSINESS_SECTIONS = ['overview', 'domain', 'flows', 'decisions'];
-const BUSINESS_TYPES = ['overview', 'domain', 'glossary', 'business-flow', 'decision'];
-const forBusiness = (d) => d.path === 'index.md' || BUSINESS_TYPES.includes(d.type) || BUSINESS_SECTIONS.includes(d.path.split('/')[0]);
-
-const I18N = {
+export const I18N = {
   en: {
     docs: 'Docs', c4: 'Architecture', code: 'Code graph', wikis: 'Wikis', review: 'Review', home: 'Home',
     search: 'Search', searchPh: 'Search pages and content…', searchHint: '↑↓ to move · Enter to open · Esc to close',
@@ -42,13 +23,13 @@ const I18N = {
     systemContext: 'System context', explore: 'Explore',
     homeAsk: 'Ask', homeAskPh: 'How does … work? For example: how is an order paid?',
     businessOn: 'Business view: only what the system does and why. Switch to All for the technical pages.',
-    edit: 'Edit', editForge: 'Edit in the repository', confirm: '✅ Confirm as correct', requestChange: '✏️ Request a change',
+    edit: 'Edit', editForge: 'Edit in the repository', confirm: 'Confirm as correct', requestChange: 'Request a change',
     'banner.draft': 'AI-generated draft — not yet confirmed by a human. Verify it against the code before relying on it.',
     'banner.needs-reconfirm': 'Changed after a human confirmed it — pending re-confirmation.',
     'banner.suspect': 'The code this page cites changed since it was written: AI agents are kept off it until it is refreshed (camaron fresh).',
     'banner.stale': 'The code this page cites is gone: AI agents are kept off it until it is refreshed (camaron fresh).',
     'trust.confirmed': 'Confirmed', 'trust.draft': 'Draft', 'trust.needs-reconfirm': 'Needs re-confirmation',
-    confirmedBy: 'confirmed by', humanOwned: '✍️ human-owned', noTranslation: 'No {lang} translation yet — showing English.',
+    confirmedBy: 'confirmed by', humanOwned: 'human-owned', noTranslation: 'No {lang} translation yet — showing English.',
     outdatedTranslation: 'This translation is older than the English page.',
     pendingComments: 'Pending review comments', sources: 'Sources', emptyPage: '_Nothing here yet — use Edit to write it._',
     confirmTitle: 'Confirm this page', confirmHelp: 'You checked it against how the system really works. Agents will treat it as the source of truth.',
@@ -60,7 +41,7 @@ const I18N = {
     translation: 'translation', newTitle: 'Title', newPath: 'section/page.md (e.g. guides/onboarding.md)',
     noDocs: 'No documentation yet', noDocsHelp: 'Start with a first look drawn from the code, no AI needed (stack, tools and a C4 draft); then run the next unit from the Pipeline (Plan).',
     appOnly: 'This runs on your machine: open it in the desktop app (camaron app).',
-    firstLook: '🦐 First look from the code (no AI)', readTutorial: 'How Camarón works (tutorial)', nextUnit: 'Next unit in the Pipeline', noGraphify: 'graphify is not installed: run `camaron setup` in a terminal.',
+    firstLook: 'First look from the code (no AI)', readTutorial: 'How Camarón works (tutorial)', nextUnit: 'Next unit in the Pipeline', noGraphify: 'graphify is not installed: run `camaron setup` in a terminal.',
     noMatch: 'No pages match.', results: 'Results for', noResults: 'No page mentions it.',
     reviewTitle: 'Review & status', planUnits: 'Plan {done}/{total} units · {pages} pages',
     waiting: 'Waiting for a human', allConfirmed: 'Nothing — all confirmed.', changeRequests: 'Change requests not applied yet',
@@ -90,7 +71,7 @@ const I18N = {
     wikiOld: 'Written with the old, thinner wiki scope. Update it to get a complete wiki (modules, APIs, configuration, operations…).',
     graphBuilding: 'Building the wiki graph…', graphFailed: 'The wiki graph could not be built — read the pages instead.',
     notChosen: 'Generating adds this repo to the ones with a wiki.', needBrief: 'No brief yet: a starter one is written from the static scan (no AI); its repo-brief unit improves it later.',
-    starterBrief: 'starter brief (no AI)', 'noEngine.off': 'OpenWiki is not one of this project’s components: add it in the wizard (⚙️ Settings → components), then run `camaron setup`.',
+    starterBrief: 'starter brief (no AI)', 'noEngine.off': 'OpenWiki is not one of this project’s components: add it in the wizard (Settings → components), then run `camaron setup`.',
     'noEngine.missing': 'OpenWiki is not installed on this machine: run `camaron setup` in a terminal.',
     noEngine: 'OpenWiki cannot run from here yet: save a provider key once with `openwiki auth configure openai` (or anthropic, gemini, openrouter) in a terminal, or install Claude Code / Codex so an agent writes it.',
     running: 'running…', done: 'done', failed: 'failed', jobStarted: 'Started: {label}',
@@ -156,13 +137,13 @@ const I18N = {
     systemContext: 'Contexto del sistema', explore: 'Explorar',
     homeAsk: 'Preguntar', homeAskPh: '¿Cómo funciona…? Por ejemplo: ¿cómo se paga un pedido?',
     businessOn: 'Vista de negocio: solo qué hace el sistema y por qué. Cambia a Todo para ver las páginas técnicas.',
-    edit: 'Editar', editForge: 'Editar en el repositorio', confirm: '✅ Confirmar como correcta', requestChange: '✏️ Pedir un cambio',
+    edit: 'Editar', editForge: 'Editar en el repositorio', confirm: 'Confirmar como correcta', requestChange: 'Pedir un cambio',
     'banner.draft': 'Borrador generado por IA — aún no confirmado por un humano. Verifícalo contra el código antes de fiarte.',
     'banner.needs-reconfirm': 'Modificado tras la confirmación humana — pendiente de reconfirmar.',
     'banner.suspect': 'El código que cita esta página cambió desde que se escribió: los agentes de IA no la leen hasta que se actualice (camaron fresh).',
     'banner.stale': 'El código que cita esta página ya no existe: los agentes de IA no la leen hasta que se actualice (camaron fresh).',
     'trust.confirmed': 'Confirmada', 'trust.draft': 'Borrador', 'trust.needs-reconfirm': 'Pendiente de reconfirmar',
-    confirmedBy: 'confirmada por', humanOwned: '✍️ escrita por un humano', noTranslation: 'Aún no hay traducción {lang} — se muestra en inglés.',
+    confirmedBy: 'confirmada por', humanOwned: 'escrita por un humano', noTranslation: 'Aún no hay traducción {lang} — se muestra en inglés.',
     outdatedTranslation: 'Esta traducción es anterior a la página en inglés.',
     pendingComments: 'Comentarios de revisión pendientes', sources: 'Fuentes', emptyPage: '_Aún no hay nada — usa Editar para escribirla._',
     confirmTitle: 'Confirmar esta página', confirmHelp: 'La has comprobado contra cómo funciona de verdad el sistema. Los agentes la tratarán como fuente de verdad.',
@@ -174,7 +155,7 @@ const I18N = {
     translation: 'traducción', newTitle: 'Título', newPath: 'seccion/pagina.md (p. ej. guides/onboarding.md)',
     noDocs: 'Aún no hay documentación', noDocsHelp: 'Empieza con un primer vistazo sacado del código, sin IA (stack, herramientas y un borrador C4); después lanza la siguiente unidad desde el Pipeline (Plan).',
     appOnly: 'Esto se ejecuta en tu máquina: ábrelo en la app de escritorio (camaron app).',
-    firstLook: '🦐 Primer vistazo desde el código (sin IA)', readTutorial: 'Cómo funciona Camarón (tutorial)', nextUnit: 'Siguiente unidad en el Pipeline', noGraphify: 'graphify no está instalado: ejecuta `camaron setup` en una terminal.',
+    firstLook: 'Primer vistazo desde el código (sin IA)', readTutorial: 'Cómo funciona Camarón (tutorial)', nextUnit: 'Siguiente unidad en el Pipeline', noGraphify: 'graphify no está instalado: ejecuta `camaron setup` en una terminal.',
     noMatch: 'Ninguna página coincide.', results: 'Resultados de', noResults: 'Ninguna página lo menciona.',
     reviewTitle: 'Revisión y estado', planUnits: 'Plan {done}/{total} unidades · {pages} páginas',
     waiting: 'Esperando a un humano', allConfirmed: 'Nada — todo confirmado.', changeRequests: 'Peticiones de cambio sin aplicar',
@@ -204,7 +185,7 @@ const I18N = {
     wikiOld: 'Escrita con el alcance antiguo, más escueto. Actualízala para tener una wiki completa (módulos, APIs, configuración, operación…).',
     graphBuilding: 'Generando el grafo de la wiki…', graphFailed: 'No se pudo generar el grafo de la wiki: lee las páginas.',
     notChosen: 'Al generarla, este repo pasa a tener wiki.', needBrief: 'Aún no hay brief: se escribe uno inicial con el análisis estático (sin IA); su unidad repo-brief lo mejora después.',
-    starterBrief: 'brief inicial (sin IA)', 'noEngine.off': 'OpenWiki no es uno de los componentes de este proyecto: añádelo en el asistente (⚙️ Ajustes → componentes) y ejecuta `camaron setup`.',
+    starterBrief: 'brief inicial (sin IA)', 'noEngine.off': 'OpenWiki no es uno de los componentes de este proyecto: añádelo en el asistente (Ajustes → componentes) y ejecuta `camaron setup`.',
     'noEngine.missing': 'OpenWiki no está instalado en esta máquina: ejecuta `camaron setup` en una terminal.',
     noEngine: 'OpenWiki aún no puede lanzarse desde aquí: guarda una clave de proveedor una vez con `openwiki auth configure openai` (o anthropic, gemini, openrouter) en una terminal, o instala Claude Code / Codex para que la escriba un agente.',
     running: 'en curso…', done: 'hecho', failed: 'falló', jobStarted: 'Lanzado: {label}',
@@ -247,132 +228,3 @@ const I18N = {
     zonesGroup: 'Ir a', docsHome: 'Portada de Docs',
   },
 };
-
-let T = { docs: [], langs: [], codeGraphs: [], engines: [], repos: [], sections: [], views: [], summary: {} };
-window.camaronTree = () => T;              // the React views read the docs tree (a top-level `let` is not on window)
-let BY_PATH = {};
-let WIKIS = null;
-let VIEWERS = null;
-let SEARCH_INDEX = null;
-const store = { get: (k) => { try { return localStorage.getItem(k) || ''; } catch { return ''; } },
-                set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } } };
-let lang = store.get('cam-lang');           // '' = English (canonical docs); otherwise a translation code
-const ui = () => I18N[lang] || I18N.en;
-const t = (k, vars = {}) => (ui()[k] ?? I18N.en[k] ?? k).replace(/\{(\w+)\}/g, (_, v) => vars[v] ?? '');
-const has = (k) => (ui()[k] ?? I18N.en[k]) !== undefined;
-const ago = (sec) => {
-  if (!sec) return '';
-  const d = new Date(sec * 1000);
-  return (Date.now() - d) < 60000 ? t('justNow') : d.toLocaleString(lang || 'en', { dateStyle: 'medium', timeStyle: 'short' });
-};
-const sectionLabel = (name) => (has('sec.' + name) ? t('sec.' + name) : name.replace(/[-_]/g, ' ').replace(/^./, (c) => c.toUpperCase()));
-
-async function api(name, params = {}, body) {
-  if (STATIC) {
-    if (body !== undefined) throw new Error('read-only');
-    if (name === 'doc') {
-      const tryGet = async (l) => { const r = await fetch(`api/doc/${l || '_'}/${params.path}.json`); return r.ok ? r.json() : null; };
-      const d = params.lang && await tryGet(params.lang);
-      if (d) return d;
-      const en = await tryGet('');
-      if (!en) throw new Error(`unknown page ${params.path}`);
-      return params.lang ? { ...en, lang: params.lang, exists: false, raw: '' } : en;
-    }
-    if (name === 'search') return staticSearch(params.q);
-    if (name === 'codemap') {
-      const r = await fetch(`api/codemap/${encodeURIComponent(params.repo)}.json`);
-      if (!r.ok) throw new Error(r.statusText);
-      return r.json();
-    }
-    const r = await fetch(`api/${name}.json`);
-    if (!r.ok) throw new Error(r.statusText);
-    return r.json();
-  }
-  const qs = new URLSearchParams(params).toString();
-  const tok = APP ? { 'X-Camaron-Token': APP.token } : {};
-  const r = await fetch(`api/${name}${qs ? '?' + qs : ''}`, body === undefined ? { headers: tok } : {
-    method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Camarones': '1', ...tok }, body: JSON.stringify(body),
-  });
-  const data = await r.json();
-  if (!r.ok) throw new Error(data.error || r.statusText);
-  return data;
-}
-
-async function staticSearch(q) {
-  SEARCH_INDEX ||= await (await fetch('api/search.json')).json();
-  const terms = (q.toLowerCase().match(/\w+/g) || []).filter((w) => w.length > 1);
-  if (!terms.length) return [];
-  const want = SEARCH_INDEX.some((e) => e.lang === lang) ? lang : '';
-  return SEARCH_INDEX.filter((e) => e.lang === want).map((e) => {
-    const low = e.text.toLowerCase();
-    const score = terms.reduce((s, w) => s + low.split(w).length - 1 + (e.path.toLowerCase().includes(w) ? 5 : 0), 0);
-    const lines = e.text.split('\n').filter((l) => terms.some((w) => l.toLowerCase().includes(w))).slice(0, 3).map((l) => l.trim().slice(0, 240));
-    return { ...e, score, lines };
-  }).filter((e) => e.score).sort((a, b) => b.score - a.score).slice(0, 20);
-}
-
-async function loadTree() {
-  T = await api('tree');
-  T.sections ||= [];
-  T.views ||= [];
-  BY_PATH = Object.fromEntries(T.docs.map((d) => [d.path, { ...d, space: d.space || 'docs' }]));
-  T.docs = Object.values(BY_PATH);
-  WIKIS = null;
-  VIEWERS = null;
-  if (!T.langs.includes(lang)) lang = '';
-  document.title = `${T.project} — Camarón`;            // the header (project, trust summary) is the shell's
-}
-
-async function loadWikis() { WIKIS ||= await api('wikis'); return WIKIS; }
-async function loadViewers() { VIEWERS ||= await api('viewers'); return VIEWERS; }
-
-// A page's route: wiki pages live in their own space, everything else under Docs.
-function hrefFor(path, anchor) {
-  const a = anchor ? '::' + anchor : '';
-  if (BY_PATH[path]?.space === 'wiki') {
-    const [, repo, ...rest] = path.split('/');
-    return `#/wiki/${repo}/${rest.join('/')}${a}`;
-  }
-  return `#/docs/${path}${a}`;
-}
-
-function toast(msg) {
-  const el = $('#toast');
-  el.textContent = msg; el.hidden = false;
-  clearTimeout(toast.h); toast.h = setTimeout(() => { el.hidden = true; }, 3500);
-}
-
-// ---------- theme: follows the OS until the reader picks one ----------
-const systemDark = () => matchMedia('(prefers-color-scheme: dark)').matches;
-const isDark = () => (document.documentElement.dataset.theme || (systemDark() ? 'dark' : 'light')) === 'dark';
-function applyTheme() {
-  const pick = store.get('cam-theme');
-  if (pick) document.documentElement.dataset.theme = pick; else delete document.documentElement.dataset.theme;
-  if (window.mermaid) mermaid.initialize({ startOnLoad: false, theme: isDark() ? 'dark' : 'neutral', securityLevel: 'strict',
-    fontFamily: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif' });
-  $$('likec4-view').forEach((v) => v.setAttribute('color-scheme', isDark() ? 'dark' : 'light'));
-}
-
-// ---------- jobs (live mode: builds and wiki runs) ----------
-function watchJob(job, logEl, onEnd) {
-  let since = 0;
-  toast(t('jobStarted', { label: job.label }));
-  const tick = async () => {
-    try {
-      const j = await api(`jobs/${job.id}`, { since });
-      since = j.lines;
-      if (logEl && j.log.length) { logEl.hidden = false; logEl.textContent += j.log.join('\n') + '\n'; logEl.scrollTop = logEl.scrollHeight; }
-      if (j.status === 'running') return setTimeout(tick, 1000);
-      toast(`${j.label}: ${t(j.status)}`);
-      onEnd?.(j);
-    } catch (e) { toast(e.message); }
-  };
-  tick();
-}
-
-async function startBuild(what, repo, btn, logEl, onEnd) {
-  btn.disabled = true;
-  try {
-    watchJob(await api('build', {}, { what, repo }), logEl, onEnd || (async () => { await loadTree(); route(); }));
-  } catch (e) { toast(e.message); btn.disabled = false; }
-}

@@ -5,7 +5,7 @@ console density. The product stays **Camarón**. Where this note and the rest of
 for the portal.
 
 - **Wordmark**: «camarón», lowercase, Big Shoulders 700. No «cofundo» wordmark and no Bricolage Grotesque. The
-  favicon stays `portal/app/public/legacy/favicon.svg`.
+  favicon stays `portal/app/public/favicon.svg`.
 - **Dark theme**: allowed. The package has none; Camarón derives one in `.camarones/ui/theme/tokens.css` (same
   token names, values chosen to keep 4.5:1 for text). `ui/theme/tokens.test.js` enforces the contrast in both themes.
 - **Radii**: square corners, not pills. Buttons, fields and chips use 3–4px, cards and dialogs 6px; the

@@ -1,25 +1,25 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <!-- One portal: the React views (Pipeline, Ask…) and the docs views in public/legacy/ (plain scripts). -->
+  <!-- The portal: a React app (src/), served by `camaron up` and exported by `camaron portal`. -->
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="cam-mode" content="live">
   <title>Camarón</title>
-  <link rel="icon" href="legacy/favicon.svg">
+  <link rel="icon" href="favicon.svg">
   <link rel="stylesheet" href="theme/tokens.css">
-  <link rel="stylesheet" href="legacy/app.css">
+  <!-- The docs renderer's libraries (src/content/doc.js), served offline by the portal from vendor/. -->
   <script src="vendor/marked@15.0.12/lib/marked.umd.js"></script>
   <script src="vendor/dompurify@3.2.6/dist/purify.min.js"></script>
   <script src="vendor/mermaid@11.4.1/dist/mermaid.min.js"></script>
   <script src="vendor/@highlightjs/cdn-assets@11.11.1/highlight.min.js"></script>
-  <script type="module" crossorigin src="./assets/index-Brz_pr2A.js"></script>
-  <link rel="modulepreload" crossorigin href="./assets/i18n-Cv6tHiCX.js">
-  <link rel="stylesheet" crossorigin href="./assets/index-CAoJu5j2.css">
+  <script type="module" crossorigin src="./assets/index-CXNWL5Bk.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/i18n-BqMP8iBA.js">
+  <link rel="modulepreload" crossorigin href="./assets/core-C-nlJSkd.js">
+  <link rel="stylesheet" crossorigin href="./assets/index-B1BXE4Va.css">
 </head>
 <body>
-  <!-- The shell (src/shell/Shell.jsx) renders the header, sidebar and view slots here. The dialogs below stay in the
-       page: the plain scripts bind them when they load. -->
+  <!-- The shell (src/shell/Shell.jsx) renders the page here; the diagram zoom and the toast stay outside it. -->
   <div id="app"></div>
   <dialog id="zoomer" class="zoomer">
     <div class="zoom-tools">
@@ -30,8 +30,6 @@
     </div>
     <div id="zoomer-body"></div>
   </dialog>
-  <div id="toast" class="toast" hidden></div>
-  <script defer src="legacy/core.js"></script>
-  <script defer src="legacy/app.js"></script>
+  <div id="toast" class="toast" role="status" hidden></div>
 </body>
 </html>

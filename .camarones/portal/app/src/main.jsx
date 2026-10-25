@@ -1,12 +1,8 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import Shell from './shell/Shell.jsx'
-import * as zones from './zones.js'
+import './portal.css'
 import './styles.css'
 
-// Navigation (zones, breadcrumbs, ⌘K entries, Home KPIs), also read by the plain scripts in legacy/core.js.
-window.CamaronZones = zones
-
-// The shell owns the page: header, sidebar, router. The plain scripts (deferred, so they ran before this module)
-// still hold the docs index and the strings, through window.CamaronLegacy.
+// The shell owns the page: header, sidebar, router; the views read the portal's state from core.js.
 createRoot(document.getElementById('app')).render(<StrictMode><Shell /></StrictMode>)

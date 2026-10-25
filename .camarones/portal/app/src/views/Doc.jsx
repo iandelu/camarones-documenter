@@ -7,27 +7,26 @@ import { pageBanners, pager } from './docpage.js'
 import Editor from './Editor.jsx'
 import { mountDoc } from '../content/doc.js'
 import { readerTrees } from './DocsTree.jsx'
+import { core } from '../core.js'
 
-const L = () => window.CamaronLegacy
 const STATE = { draft: 'warn', 'needs-reconfirm': 'info', confirmed: 'ok' }
 const TONE = { info: 'info', warn: 'warn' }
 
 // #/docs/<path>::<anchor>: one page — its state, the banners that matter, the actions a person can take (edit,
-// confirm, ask for a change), the body, where it comes from and the pages around it. The body is still drawn by the
-// docs renderer of the plain scripts (legacy/doc.js: Markdown, Mermaid, C4 embeds, the outline).
+// confirm, ask for a change), the body, where it comes from and the pages around it. The body is drawn by the
+// docs renderer (src/content/doc.js: Markdown, Mermaid, C4 embeds, the outline).
 export default function Doc({ arg }) {
   const [path, anchor] = (arg || '').split('::')
   const trees = readerTrees(path)
-  return <DocView path={path} anchor={anchor} order={L().byPath(path)?.space === 'notes' ? trees.notesOrder : trees.order} />
+  return <DocView path={path} anchor={anchor} order={core.byPath(path)?.space === 'notes' ? trees.notesOrder : trees.order} />
 }
 
 // The page itself, also for a wiki page: `order` drives the pager; `extra` (actions), `banner` and `after` (below
 // the body) are what the wiki adds — its graph, the note on an old wiki, the pages that link here.
 export function DocView({ path, anchor, order, extra = null, banner = null, after = null }) {
-  const legacy = L()
-  const t = legacy.t
-  const live = legacy.mode() !== 'static'
-  const lang = legacy.lang()
+  const t = core.t
+  const live = core.mode() !== 'static'
+  const lang = core.lang()
   const [d, setD] = useState(null)
   const [english, setEnglish] = useState(null)
   const [error, setError] = useState('')
@@ -46,18 +45,18 @@ export function DocView({ path, anchor, order, extra = null, banner = null, afte
     if (!d || editing || !body.current) return
     body.current.innerHTML = ''
     mountDoc(body.current, d.exists ? d.raw : english?.exists ? english.raw : t('emptyPage'), path, anchor)
-    legacy.setCurrent(path)
+    core.setCurrent(path)
   }, [d, editing])
 
   if (error) return <div className="page"><Aviso tone="error" title={t('error')} detail={error} /></div>
   if (!d) return <div className="docpage"><article className="page"><Skeleton lines={6} /></article></div>
   if (editing) return <Editor d={d} onDone={() => setEditing(false)} />
 
-  const row = legacy.byPath(path) || {}
+  const row = core.byPath(path) || {}
   const title = d.exists ? d.title : english?.title || row.title || d.title
   const around = pager(order, path)
   const sources = (d.sources?.length ? d.sources : english?.sources) || []      // a missing translation has none of its own
-  const changed = async (msg) => { legacy.toast(msg); await legacy.reload(); window.CamaronShell.go() }
+  const changed = async (msg) => { core.toast(msg); await core.reload(); window.CamaronShell.go() }
   return (
     <div className="docpage">
       <article className="page">
@@ -70,8 +69,8 @@ export function DocView({ path, anchor, order, extra = null, banner = null, afte
           <code className="file" title={d.file}>{d.file}</code>
           <span className="actions">
             {extra}
-            {!live && legacy.tree().editBase && (
-              <Button size="sm" variant="ghost" href={legacy.tree().editBase + d.file} target="_blank" rel="noopener">
+            {!live && core.tree().editBase && (
+              <Button size="sm" variant="ghost" href={core.tree().editBase + d.file} target="_blank" rel="noopener">
                 {t('editForge')} <span aria-hidden="true">↗</span></Button>)}
             {live && <Button size="sm" onClick={() => setEditing(true)}>{t('edit')}</Button>}
             {live && d.trust !== 'confirmed' && (
@@ -82,7 +81,7 @@ export function DocView({ path, anchor, order, extra = null, banner = null, afte
           </span>
         </div>
         {pageBanners(d, row, lang).map((b) => (
-          <Aviso key={b.key} tone={TONE[b.tone]} title={t(b.key, { lang: legacy.langName(lang) })} detail={b.code || undefined} />
+          <Aviso key={b.key} tone={TONE[b.tone]} title={t(b.key, { lang: core.langName(lang) })} detail={b.code || undefined} />
         ))}
         {banner}
         {panel === 'confirm' && <ConfirmPanel d={d} t={t} onDone={() => changed(t('confirmedToast'))} onCancel={() => setPanel('')} />}
@@ -94,10 +93,10 @@ export function DocView({ path, anchor, order, extra = null, banner = null, afte
         {after}
         {around && (
           <nav className="pager" aria-label={t('prev') + ' / ' + t('next')}>
-            {around.prev ? <a className="prev" href={legacy.hrefFor(around.prev)}><span className="muted small">← {t('prev')}</span>
-              <b>{legacy.byPath(around.prev)?.title || around.prev}</b></a> : <span></span>}
-            {around.next ? <a className="next" href={legacy.hrefFor(around.next)}><span className="muted small">{t('next')} →</span>
-              <b>{legacy.byPath(around.next)?.title || around.next}</b></a> : <span></span>}
+            {around.prev ? <a className="prev" href={core.hrefFor(around.prev)}><span className="muted small">← {t('prev')}</span>
+              <b>{core.byPath(around.prev)?.title || around.prev}</b></a> : <span></span>}
+            {around.next ? <a className="next" href={core.hrefFor(around.next)}><span className="muted small">{t('next')} →</span>
+              <b>{core.byPath(around.next)?.title || around.next}</b></a> : <span></span>}
           </nav>
         )}
       </article>
@@ -115,10 +114,10 @@ export function DocView({ path, anchor, order, extra = null, banner = null, afte
 }
 
 function ConfirmPanel({ d, t, onDone, onCancel }) {
-  const [by, setBy] = useState(L().tree().reviewer || '')
+  const [by, setBy] = useState(core.tree().reviewer || '')
   const [error, setError] = useState('')
   const go = async () => {
-    try { await postJSON('confirm', { path: d.path, lang: L().lang(), by }); onDone() } catch (e) { setError(e.message) }
+    try { await postJSON('confirm', { path: d.path, lang: core.lang(), by }); onDone() } catch (e) { setError(e.message) }
   }
   return (
     <div className="box doc-panel">
@@ -139,7 +138,7 @@ function FeedbackPanel({ d, body, t, onDone, onCancel }) {
   const sections = [...(body.current?.querySelectorAll('.doc h2') || [])]
   const [slug, setSlug] = useState('')
   const [text, setText] = useState('')
-  const [by, setBy] = useState(L().tree().reviewer || '')
+  const [by, setBy] = useState(core.tree().reviewer || '')
   const [error, setError] = useState('')
   const go = async () => {
     const heading = slug && document.getElementById('h-' + slug)

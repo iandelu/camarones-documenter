@@ -1,6 +1,6 @@
-"""The portal (R20, R29): one app built in the kit's CI into portal/app-build (committed, so users never run npm) and
-served at /: the React views (Pipeline, Ask…) plus the docs views (public/legacy/, plain scripts). /next, the
-preview address of earlier versions, redirects to it."""
+"""The portal (R20, R29): one React app built in the kit's CI into portal/app-build (committed, so users never run npm)
+and served at /. The docs views were plain scripts (public/legacy/) until 4.51. /next, the preview address of earlier
+versions, redirects to it."""
 from __future__ import annotations
 
 import json, re, threading, urllib.request
@@ -16,13 +16,13 @@ SOURCE = REPO / ".camarones" / "portal" / "app"
 
 def test_the_build_is_committed_and_complete():
     html = (BUILD / "index.html").read_text(encoding="utf-8")
-    refs = [r.removeprefix("./") for r in re.findall(r'(?:src|href)="((?:\./)?(?:assets|legacy|theme)/[^"]+)"', html)]
+    refs = [r.removeprefix("./") for r in re.findall(r'(?:src|href)="((?:\./)?(?:assets|theme)/[^"]+|favicon\.svg)"', html)]
     assert refs and all((BUILD / r).is_file() for r in refs)
     theme = '<link rel="stylesheet" href="theme/tokens.css">'
-    assert theme in html and html.index(theme) < html.index('href="legacy/app.css"')     # the theme applies first
+    styles = re.search(r'<link rel="stylesheet" crossorigin href="\./assets/[^"]+\.css">', html).group(0)
+    assert theme in html and html.index(theme) < html.index(styles)       # the theme applies first
     assert '="/' not in html.replace('href="#/', '')                     # relative: the export works under a sub-path
-    for script in ("core", "app"):
-        assert f'<script defer src="legacy/{script}.js">' in html
+    assert "legacy/" not in html and not (BUILD / "legacy").exists()      # no plain scripts since 4.51
     manifest = json.loads((BUILD / ".vite" / "manifest.json").read_text(encoding="utf-8"))
     assert all((BUILD / entry["file"]).is_file() for entry in manifest.values())
 
@@ -58,11 +58,11 @@ def get(url):
 
 def test_the_portal_is_served_at_the_root(server):
     status, ctype, body = get(f"{server}/")
-    assert status == 200 and "text/html" in ctype and b'id="app"' in body and b"legacy/app.js" in body
+    assert status == 200 and "text/html" in ctype and b'id="app"' in body
     asset = re.search(rb'src="\./(assets/[^"]+\.js)"', body).group(1).decode()
     status, ctype, _ = get(f"{server}/{asset}")
     assert status == 200 and "javascript" in ctype
-    assert get(f"{server}/legacy/core.js")[0] == 200
+    assert get(f"{server}/favicon.svg")[0] == 200
     assert get(f"{server}/anything-without-a-suffix")[2] == body
 
 
@@ -92,7 +92,7 @@ def test_the_react_views_are_reached_through_zones(kit):
     router (src/router.js) shows them, and a zone's address opens its first view."""
     app_dir = kit.kit_dir / "portal" / "app"
     home = (app_dir / "src" / "views" / "home.js").read_text(encoding="utf-8")
-    core = (app_dir / "public" / "legacy" / "core.js").read_text(encoding="utf-8")
+    core = (app_dir / "src" / "i18n" / "portal.js").read_text(encoding="utf-8")
     zones = (app_dir / "src" / "zones.js").read_text(encoding="utf-8")
     router = (app_dir / "src" / "router.js").read_text(encoding="utf-8")
     for href in ("#/pipeline", "#/kpis", "#/ci", "#/libs", "#/data"):      # Ask is reached from the Home hero
@@ -118,8 +118,8 @@ def test_status_without_check_answers_fast_and_check_has_its_own_endpoint(server
 
 
 def test_the_business_view_uses_real_page_types():
-    """core.js keeps the Business view's page types; each must be a type CONVENTIONS §2 defines."""
-    core = (REPO / ".camarones" / "portal" / "app" / "public" / "legacy" / "core.js").read_text(encoding="utf-8")
+    """src/views/tree.js keeps the Business view's page types; each must be a type CONVENTIONS §2 defines."""
+    core = (REPO / ".camarones" / "portal" / "app" / "src" / "views" / "tree.js").read_text(encoding="utf-8")
     types = re.findall(r"'([\w-]+)'", re.search(r"BUSINESS_TYPES = \[(.*?)\]", core).group(1))
     conventions = (REPO / ".camarones" / "CONVENTIONS.md").read_text(encoding="utf-8")
     known = re.search(r"type: [\w-]+\s+# ([\w|-]+)", conventions).group(1).split("|")

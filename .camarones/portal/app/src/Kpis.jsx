@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { getJSON, postJSON } from './api.js'
 import { t } from './i18n.js'
+import { core } from './core.js'
 import { money, segments, tiles } from './kpis.js'
 
-const link = (path) => (window.hrefFor ? window.hrefFor(path) : `#/docs/${path}`)
+const link = (path) => core.hrefFor(path)
 
 // Is the documentation working? The same numbers as `camaron kpis` and `camaron stats`, plus what nobody found.
 export default function Kpis() {

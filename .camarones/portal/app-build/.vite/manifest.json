@@ -1,22 +1,30 @@
 {
-  "_AgentLaunch-AUc8EUc3.js": {
-    "file": "assets/AgentLaunch-AUc8EUc3.js",
+  "_AgentLaunch-B4pTa2V4.js": {
+    "file": "assets/AgentLaunch-B4pTa2V4.js",
     "name": "AgentLaunch",
     "imports": [
-      "_i18n-Cv6tHiCX.js"
+      "_i18n-BqMP8iBA.js"
     ]
   },
-  "_i18n-Cv6tHiCX.js": {
-    "file": "assets/i18n-Cv6tHiCX.js",
+  "_core-C-nlJSkd.js": {
+    "file": "assets/core-C-nlJSkd.js",
+    "name": "core",
+    "imports": [
+      "_i18n-BqMP8iBA.js"
+    ]
+  },
+  "_i18n-BqMP8iBA.js": {
+    "file": "assets/i18n-BqMP8iBA.js",
     "name": "i18n"
   },
   "index.html": {
-    "file": "assets/index-Brz_pr2A.js",
+    "file": "assets/index-CXNWL5Bk.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
     "imports": [
-      "_i18n-Cv6tHiCX.js"
+      "_i18n-BqMP8iBA.js",
+      "_core-C-nlJSkd.js"
     ],
     "dynamicImports": [
       "src/Pipeline.jsx",
@@ -29,88 +37,91 @@
       "src/Sync.jsx"
     ],
     "css": [
-      "assets/index-CAoJu5j2.css"
+      "assets/index-B1BXE4Va.css"
     ]
   },
   "src/Ci.jsx": {
-    "file": "assets/Ci-Bv74cjXG.js",
+    "file": "assets/Ci-DuDFoSOR.js",
     "name": "Ci",
     "src": "src/Ci.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-Cv6tHiCX.js",
+      "_i18n-BqMP8iBA.js",
+      "_core-C-nlJSkd.js",
       "index.html"
     ]
   },
   "src/Data.jsx": {
-    "file": "assets/Data-SUX1eaFU.js",
+    "file": "assets/Data-VYbfmiP1.js",
     "name": "Data",
     "src": "src/Data.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-Cv6tHiCX.js",
+      "_i18n-BqMP8iBA.js",
+      "_core-C-nlJSkd.js",
       "index.html"
     ]
   },
   "src/Interview.jsx": {
-    "file": "assets/Interview-Ddns59tr.js",
+    "file": "assets/Interview-vAr7qIeH.js",
     "name": "Interview",
     "src": "src/Interview.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-Cv6tHiCX.js"
+      "_i18n-BqMP8iBA.js"
     ]
   },
   "src/Kpis.jsx": {
-    "file": "assets/Kpis-CjG7lviB.js",
+    "file": "assets/Kpis-CQU_Zsd5.js",
     "name": "Kpis",
     "src": "src/Kpis.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-Cv6tHiCX.js"
+      "_i18n-BqMP8iBA.js",
+      "_core-C-nlJSkd.js"
     ]
   },
   "src/Libs.jsx": {
-    "file": "assets/Libs-ge7BqqyD.js",
+    "file": "assets/Libs-CpPop59N.js",
     "name": "Libs",
     "src": "src/Libs.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-Cv6tHiCX.js",
+      "_i18n-BqMP8iBA.js",
       "index.html"
     ]
   },
   "src/Pipeline.jsx": {
-    "file": "assets/Pipeline-BYxyoFeX.js",
+    "file": "assets/Pipeline-SoQh_Qz7.js",
     "name": "Pipeline",
     "src": "src/Pipeline.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-Cv6tHiCX.js",
+      "_i18n-BqMP8iBA.js",
       "index.html",
-      "_AgentLaunch-AUc8EUc3.js"
+      "_AgentLaunch-B4pTa2V4.js"
     ],
     "css": [
       "assets/Pipeline-DLioOiRN.css"
     ]
   },
   "src/Sync.jsx": {
-    "file": "assets/Sync-Brn8IVH_.js",
+    "file": "assets/Sync-ECZOCKbh.js",
     "name": "Sync",
     "src": "src/Sync.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-Cv6tHiCX.js"
+      "_i18n-BqMP8iBA.js"
     ]
   },
   "src/Taller.jsx": {
-    "file": "assets/Taller-BrZaDJKL.js",
+    "file": "assets/Taller-8T9mr5zP.js",
     "name": "Taller",
     "src": "src/Taller.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-Cv6tHiCX.js",
-      "_AgentLaunch-AUc8EUc3.js"
+      "_i18n-BqMP8iBA.js",
+      "_AgentLaunch-B4pTa2V4.js"
     ]
   }
 }

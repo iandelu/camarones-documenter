@@ -5,13 +5,13 @@ import { getJSON, postJSON } from '../api.js'
 import { docsGet } from '../docsApi.js'
 import * as directives from './directives.js'
 import * as tables from './tables.js'
+import { core } from '../core.js'
 
-const L = () => window.CamaronLegacy
 const $ = (s, el = document) => el.querySelector(s)
 const $$ = (s, el = document) => [...el.querySelectorAll(s)]
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
-const t = (k, vars) => L().t(k, vars)
-const index = () => L().tree()
+const t = (k, vars) => core.t(k, vars)
+const index = () => core.tree()
 
 // The same rule as lib/docs.py slugify: lower case, letters/digits/space/_/- kept, spaces → -.
 export const slugify = (s) => String(s).toLowerCase().trim().replace(/[^\p{L}\p{N}\s_-]/gu, '').replace(/\s+/g, '-')
@@ -32,7 +32,7 @@ export function render(md, docPath) {
   el.className = 'doc'
   const toHtml = (s) => window.marked.parse(s, { gfm: true })
   el.innerHTML = window.DOMPurify.sanitize(directives.render(body, toHtml), { ADD_ATTR: ['hidden', 'role'] })
-  const hrefFor = L().hrefFor
+  const hrefFor = core.hrefFor
   const base = docPath.split('/').slice(0, -1)
   const resolve = (href) => {
     const parts = [...base]
@@ -233,20 +233,20 @@ export async function runBuild(what, repo, btn, log, onEnd) {
   if (btn) btn.disabled = true
   try {
     const job = await postJSON('build', { what, repo })
-    L().toast(t('jobStarted', { label: job.label }))
+    core.toast(t('jobStarted', { label: job.label }))
     for (let since = 0; ;) {
       const j = await getJSON(`jobs/${job.id}?since=${since}`)
       since = j.lines
       if (log && j.log.length) { log.hidden = false; log.textContent += j.log.join('\n') + '\n'; log.scrollTop = log.scrollHeight }
-      if (j.status !== 'running') { L().toast(`${j.label}: ${t(j.status)}`); onEnd?.(j); return j }
+      if (j.status !== 'running') { core.toast(`${j.label}: ${t(j.status)}`); onEnd?.(j); return j }
       await new Promise((ok) => setTimeout(ok, 1000))
     }
-  } catch (e) { L().toast(e.message); if (btn) btn.disabled = false }
+  } catch (e) { core.toast(e.message); if (btn) btn.disabled = false }
   return null
 }
 
 function c4Missing(box, v) {
-  const mode = L().mode()
+  const mode = core.mode()
   if (mode === 'static') { box.remove(); return }
   box.innerHTML = `<div class="c4missing"><span class="muted">${esc(v.exists ? t('c4Unavailable') : t('c4Missing'))}</span>
     ${v.model && mode === 'app' ? `<button class="small" type="button">${esc(v.exists ? t('rebuild') : t('build'))}</button>` : ''}
@@ -313,7 +313,7 @@ function audienceSwitch(el) {
 // ---------- clickable diagrams: a node or participant named like a page (or a repo) opens it ----------
 function diagramTargets() {
   const map = {}
-  const byPath = (p) => L().byPath(p)
+  const byPath = (p) => core.byPath(p)
   for (const d of index().docs || []) if ((d.space || 'docs') === 'docs') map[d.title.toLowerCase()] ||= d.path
   for (const r of index().repos || []) {
     const brief = `repos/${r}/brief.md`, ref = `repos/${r}/reference.md`
@@ -328,7 +328,7 @@ function linkDiagrams(root) {
       const path = targets[n.textContent.trim().toLowerCase()]
       if (!path) return
       n.classList.add('mm-link')
-      n.dataset.href = L().hrefFor(path)
+      n.dataset.href = core.hrefFor(path)
       n.setAttribute('role', 'link')
     })
   })

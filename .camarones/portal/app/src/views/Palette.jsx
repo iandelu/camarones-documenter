@@ -4,8 +4,8 @@ import { docsGet } from '../docsApi.js'
 import { paletteEntries } from '../zones.js'
 import { marked, paletteGroups } from './search.js'
 import { readerTrees } from './DocsTree.jsx'
+import { core } from '../core.js'
 
-const L = () => window.CamaronLegacy
 
 export function Marked({ text, q }) {
   return marked(text || '', q).map((p, i) => (p.hit ? <mark key={i}>{p.text}</mark> : <span key={i}>{p.text}</span>))
@@ -18,9 +18,8 @@ export default function Palette({ open, onClose }) {
   const [q, setQ] = useState('')
   const [sel, setSel] = useState(0)
   const [content, setContent] = useState(null)
-  const legacy = L()
-  const t = legacy.t
-  const mode = legacy.mode()
+  const t = core.t
+  const mode = core.mode()
 
   useEffect(() => {
     const d = dialog.current
@@ -34,17 +33,17 @@ export default function Palette({ open, onClose }) {
     if (s.length < 2) return
     let live = true
     const timer = setTimeout(() => {
-      docsGet('search', mode === 'static' ? { q: s, lang: legacy.lang() } : { q: s })
+      docsGet('search', mode === 'static' ? { q: s, lang: core.lang() } : { q: s })
         .then((hits) => { if (live) setContent(hits) }, () => {})
     }, 180)
     return () => { live = false; clearTimeout(timer) }
   }, [q])
 
   if (!open) return <dialog ref={dialog} className="palette" onClose={onClose} />
-  const index = legacy.tree()
+  const index = core.tree()
   const byPath = Object.fromEntries((index.docs || []).map((d) => [d.path, d]))
   const { order } = readerTrees()
-  const groups = paletteGroups({ q, mode, index, order, byPath, content, t, hrefFor: legacy.hrefFor,
+  const groups = paletteGroups({ q, mode, index, order, byPath, content, t, hrefFor: core.hrefFor,
     places: paletteEntries(mode, index) })
   const items = groups.flatMap((g) => g.items)
   const active = Math.min(sel, Math.max(items.length - 1, 0))

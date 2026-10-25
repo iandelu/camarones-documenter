@@ -4,15 +4,14 @@ import { t as tr } from '../i18n.js'
 import { useBuild } from '../useBuild.js'
 import { homeKpis } from '../zones.js'
 import { askHref, emptyProject, kpiHref } from './home.js'
+import { core } from '../core.js'
 
-const L = () => window.CamaronLegacy
 
 // Home (#/): the question first, then the docs' state, each figure a way in. The zones are in the sidebar.
 export default function Home() {
-  const legacy = L()
-  const index = legacy.tree()
-  const mode = legacy.mode()
-  const t = legacy.t
+  const index = core.tree()
+  const mode = core.mode()
+  const t = core.t
   if (emptyProject(index)) return <FirstLook index={index} mode={mode} t={t} />
   const kpis = homeKpis(index)
   return (
@@ -60,7 +59,7 @@ function FirstLook({ index, mode, t }) {
   const run = async () => { const end = await build.start('first-look'); if (end?.status === 'done') location.reload() }
   return (
     <div className="page hero empty aurora-bg">
-      <img className="hero-logo" src="legacy/favicon.svg" alt="" width="72" height="72" />
+      <img className="hero-logo" src="favicon.svg" alt="" width="72" height="72" />
       <h1>{index.project}</h1>
       <p className="lead">{t('homeEmpty')}</p>
       <p className="muted">{t('noDocsHelp')}</p>
@@ -73,7 +72,7 @@ function FirstLook({ index, mode, t }) {
       {mode === 'live' && <p className="aviso small">{t('appOnly')}</p>}
       {build.job && <pre className="joblog" aria-live="polite">{build.job.lines.join('\n')}</pre>}
       {build.error && <Aviso tone="error" title={tr('home.firstLookFailed')} detail={build.error} />}
-      {tutorial && <p className="small"><a href={L().hrefFor(tutorial)}>{t('readTutorial')} <span aria-hidden="true">→</span></a></p>}
+      {tutorial && <p className="small"><a href={core.hrefFor(tutorial)}>{t('readTutorial')} <span aria-hidden="true">→</span></a></p>}
     </div>
   )
 }

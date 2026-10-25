@@ -1,4 +1,4 @@
-// Strings of the React views, in the reader's portal language (the classic views keep theirs in legacy/core.js).
+// Strings of the React views written since 4.42; the docs views' strings are in i18n/portal.js (read through core.t).
 export const S = {
   en: {
     'shell.nav': 'Sections', 'shell.theme': 'Light or dark', 'shell.lang': 'Language',
@@ -337,8 +337,8 @@ export const S = {
   },
 }
 
-// The reader's choice, else the language the docs router picked on a first visit (legacy/app.js sets <html lang>
-// from the browser without storing it).
+// The reader's choice, else the language core.js picked on a first visit (it sets <html lang> from the browser without
+// storing it).
 export function lang() {
   let l = ''
   try { l = localStorage.getItem('cam-lang') || '' } catch { /* private mode */ }

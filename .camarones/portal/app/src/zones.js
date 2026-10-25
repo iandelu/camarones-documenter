@@ -1,8 +1,8 @@
 // How the portal is navigated: zones (Docs, Architecture, Plan, Quality, Review) that group the views, what is
 // available in the static export, on the live server or in the desktop app (mode `app`: everything live has, plus
 // the Taller, where machine work runs), the breadcrumbs of any address and the ⌘K entries.
-// Pure functions over the index the portal loads (`tree`); legacy/app.js reaches them as window.CamaronZones.
-// Labels are i18n keys of legacy/core.js: zone.<id>, zoned.<id>, view.<id>, viewd.<id>, sec.<section>.
+// Pure functions over the index the portal loads (`tree`), used by the shell, Home and the palette.
+// Labels are i18n keys of i18n/portal.js: zone.<id>, zoned.<id>, view.<id>, viewd.<id>, sec.<section>.
 
 const hasWiki = (index) => (index.docs || []).some((d) => d.space === 'wiki')
 const hasCode = (index) => (index.codeMaps || []).length > 0 || (index.codeGraphs || []).length > 0

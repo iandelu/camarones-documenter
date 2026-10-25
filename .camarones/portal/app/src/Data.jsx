@@ -2,17 +2,19 @@ import { useEffect, useRef, useState } from 'react'
 import { getJSON, postJSON } from './api.js'
 import { t } from './i18n.js'
 import AppOnly from './AppOnly.jsx'
+import { core } from './core.js'
+import { drawMermaid, render } from './content/doc.js'
 
-const link = (path) => (window.hrefFor ? window.hrefFor(path) : `#/docs/${path}`)
+const link = (path) => core.hrefFor(path)
 
 // The block the data page holds, drawn by the docs renderer (Mermaid included), so it looks like the page.
 function Model({ markdown, path }) {
   const ref = useRef(null)
   useEffect(() => {
     const el = ref.current
-    if (!el || !window.render) return
-    el.replaceChildren(window.render(markdown, path))
-    window.drawMermaid?.(el)
+    if (!el) return
+    el.replaceChildren(render(markdown, path))
+    drawMermaid(el)
   }, [markdown, path])
   return <div ref={ref} className="doc" />
 }
@@ -25,7 +27,7 @@ export default function Data({ arg }) {
   useEffect(() => { getJSON('schemas').then(setD, (e) => setError(e.message)) }, [])
   async function write() {
     setBusy(true)
-    try { await postJSON('schemas', {}); setD(await getJSON('schemas')); window.loadTree?.() } catch (e) { setError(e.message) } finally { setBusy(false) }
+    try { await postJSON('schemas', {}); setD(await getJSON('schemas')); core.reload() } catch (e) { setError(e.message) } finally { setBusy(false) }
   }
   if (!d) return <section className="view"><h1>{t('dataTitle')}</h1><p className={error ? 'error' : 'muted'}>{error || t('loading')}</p></section>
   const withData = d.repos.filter((r) => r.entities)

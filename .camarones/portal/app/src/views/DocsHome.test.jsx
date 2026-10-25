@@ -1,6 +1,10 @@
 import { renderToStaticMarkup } from 'react-dom/server'
-import { afterEach, expect, test } from 'vitest'
+import { afterEach, expect, test, vi } from 'vitest'
 import DocsHome from './DocsHome.jsx'
+
+// The docs home reads the docs index from the portal's state (core.js); a fake one stands in for it here.
+const state = vi.hoisted(() => ({ core: {} }))
+vi.mock('../core.js', () => ({ core: new Proxy({}, { get: (_, k) => state.core[k] }) }))
 
 const page = (path, title, trust = 'draft', extra = {}) => ({ path, title, trust, space: 'docs', ...extra })
 const index = {
@@ -11,10 +15,10 @@ const index = {
 }
 const fake = (idx) => {
   const byPath = Object.fromEntries(idx.docs.map((d) => [d.path, d]))
-  globalThis.window = { CamaronLegacy: { tree: () => idx, lang: () => '', t: (k, v = {}) => (v.n !== undefined ? `${k}:${v.n}` : k),
-    hrefFor: (p) => `#/docs/${p}`, byPath: (p) => byPath[p], sectionLabel: (n) => n.toUpperCase() } }
+  state.core = { tree: () => idx, lang: () => '', t: (k, v = {}) => (v.n !== undefined ? `${k}:${v.n}` : k),
+    hrefFor: (p) => `#/docs/${p}`, byPath: (p) => byPath[p], sectionLabel: (n) => n.toUpperCase() }
 }
-afterEach(() => { delete globalThis.window; delete globalThis.localStorage })
+afterEach(() => { delete globalThis.localStorage })
 
 test('figures, a card per section (C4 second, wikis last) and the system context', () => {
   fake(index)

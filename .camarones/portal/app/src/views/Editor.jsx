@@ -3,14 +3,13 @@ import { Aviso, Button } from '@camaron/ui'
 import { postJSON } from '../api.js'
 import { newPagePath } from './docpage.js'
 import { drawMermaid, render } from '../content/doc.js'
+import { core } from '../core.js'
 
-const L = () => window.CamaronLegacy
 
 // Edit a page in its Markdown with a live preview; saving can commit it (cam-docs is a git repo).
 export default function Editor({ d, onDone }) {
-  const legacy = L()
-  const t = legacy.t
-  const lang = legacy.lang()
+  const t = core.t
+  const lang = core.lang()
   const [src, setSrc] = useState(d.raw || `---\ntitle: ${d.title}\n---\n\n# ${d.title}\n`)
   const [msg, setMsg] = useState('')
   const [commit, setCommit] = useState(true)
@@ -34,10 +33,10 @@ export default function Editor({ d, onDone }) {
       await postJSON('doc', { path: d.path, lang, raw: src })
       if (commit) {
         const c = await postJSON('commit', { message: msg || `edit ${d.path}` })
-        legacy.toast(c.committed ? `${t('savedCommitted')}: ${c.head}` : t('nothingToCommit'))
-      } else legacy.toast(t('saved'))
-      await legacy.reload()
-      const href = legacy.hrefFor(d.path)
+        core.toast(c.committed ? `${t('savedCommitted')}: ${c.head}` : t('nothingToCommit'))
+      } else core.toast(t('saved'))
+      await core.reload()
+      const href = core.hrefFor(d.path)
       if (location.hash === href) window.CamaronShell.go(); else location.hash = href
     } catch (e) { setError(e.message); setBusy(false) }
   }
@@ -64,18 +63,17 @@ export default function Editor({ d, onDone }) {
 
 // #/new: a page's title and where it goes; once created it opens in the editor.
 export function NewPage() {
-  const legacy = L()
-  const t = legacy.t
+  const t = core.t
   const [title, setTitle] = useState('')
   const [path, setPath] = useState('')
   const [created, setCreated] = useState(null)
   const [error, setError] = useState('')
-  if (created) return <Editor d={created} onDone={() => { location.hash = legacy.hrefFor(created.path) }} />
+  if (created) return <Editor d={created} onDone={() => { location.hash = core.hrefFor(created.path) }} />
   const create = async () => {
     try {
       const d = await postJSON('new', { path, title })
-      await legacy.reload()
-      history.replaceState(null, '', legacy.hrefFor(d.path))
+      await core.reload()
+      history.replaceState(null, '', core.hrefFor(d.path))
       setCreated(d)
     } catch (e) { setError(e.message) }
   }

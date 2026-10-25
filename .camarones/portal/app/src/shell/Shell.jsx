@@ -12,11 +12,11 @@ import { drawToc, scrollToAnchor, wireDocs } from '../content/doc.js'
 import { t as tr } from '../i18n.js'
 import { resolve } from '../router.js'
 import { crumbs, locate, zonesFor } from '../zones.js'
+import { core } from '../core.js'
 import './shell.css'
 import '../views/views.css'
 
 // The portal's shell: header, the sidebar that stays, and the hash router (src/router.js) that picks the view.
-const L = () => window.CamaronLegacy
 const TREE_VIEWS = ['docs', 'doc', 'new']          // the views with the docs tree (DocsTree) under the zones
 const WIKI_VIEWS = ['wikis', 'wikigraph', 'wikipage']
 const VIEWER_VIEWS = ['wikigraph', 'code', 'c4']    // full width, no padding: a visualizer, a graph, a diagram
@@ -32,7 +32,6 @@ function useRouter(onRoute) {
     const seq = ++q.seq
     const run = q.chain.then(async () => {
       if (seq !== q.seq) return
-      const core = L()
       const a = resolve(location.hash, { mode: core.mode(), current: core.current(),
         space: (p) => core.byPath(p)?.space, hrefFor: core.hrefFor,
         firstView: (id) => zonesFor(core.mode(), core.tree()).find((z) => z.id === id)?.views[0]?.href })
@@ -69,11 +68,10 @@ export default function Shell() {
     document.body.classList.add('native-mode')
     document.body.dataset.audience = audience()      // `:::tech` blocks follow the reader's audience (DocsTree)
     wireDocs()
-    L().boot().then(() => { setReady(true); go() }, (e) => setFailed(e.message || String(e)))
+    core.boot().then(() => { setReady(true); go() }, (e) => setFailed(e.message || String(e)))
     return () => { removeEventListener('hashchange', onHash); removeEventListener('keydown', onKey) }
   }, [])
 
-  const core = L()
   const t = core.t
   const index = ready ? core.tree() : null
   const mode = core.mode()
@@ -95,7 +93,7 @@ export default function Shell() {
             onClick={() => { core.toggleTheme(); go() }}>◐</button>
         </div>
       </header>
-      {core.isStatic() && <div className="ro aviso" dangerouslySetInnerHTML={{ __html: t('readOnly') }} />}
+      {core.isStatic() && <div id="ro" className="ro aviso" dangerouslySetInnerHTML={{ __html: t('readOnly') }} />}
       <div className="layout" id="layout">
         <aside className="side" id="side">
           {index && <ZoneNav index={index} mode={mode} t={t} />}
@@ -129,7 +127,7 @@ function Side({ shown, go }) {
 
 // The address as a path: zone › section › page. The brand is the way home.
 function Crumbs({ index, mode, t }) {
-  const label = (c) => (!c.key ? c.text : c.key.startsWith('sec.') ? L().sectionLabel(c.key.slice(4)) : t(c.key))
+  const label = (c) => (!c.key ? c.text : c.key.startsWith('sec.') ? core.sectionLabel(c.key.slice(4)) : t(c.key))
   const items = crumbs(location.hash, mode, index).map((c) => ({ label: label(c), href: c.href }))
   return items.length ? <Breadcrumbs items={items} /> : <span className="crumbs-room" />
 }
