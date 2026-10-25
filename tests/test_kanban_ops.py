@@ -307,3 +307,35 @@ def test_bom_item_is_read(board, kit):
     item = parse_item(f.read_text(encoding="utf-8"), f)
     assert item.title == "Bom" and item.body == "Body\n"
     assert serialize_item(item) == "---\nid: WI-8\ntitle: Bom\nstatus: Backlog\n---\n\nBody\n"
+
+
+def test_a_card_less_item_is_adopted_when_written(board, kit):
+    """A file made by Backlog.md or by hand shows on the board before any repair; moving it must work too."""
+    f = kit.root / "backlog" / "tasks" / "wi-3 - Hand made.md"
+    f.write_text("---\nid: WI-3\ntitle: Hand made\nstatus: in progress\nassignee: ana\n---\n\nBody\n", encoding="utf-8")
+    assert [c["id"] for c in board.list_items()["cards"]] == ["WI-3"]
+    board.move("WI-3", "Done")
+    from lib.kanban.items import parse_item
+    from lib.kanban.state import load_board
+    cards = load_board((kit.root / "backlog" / "board.yaml").read_text(encoding="utf-8"))
+    item = parse_item(f.read_text(encoding="utf-8"))
+    assert cards["WI-3"]["status"] == "Done" and cards["WI-3"]["uid"] == item.uid and item.uid
+    assert item.fm["status"] == "Done" and cards["WI-3"]["assignee"] == ["ana"]
+    g = kit.root / "backlog" / "tasks" / "wi-4 - Other.md"
+    g.write_text("---\nid: WI-4\ntitle: Other\nstatus: Ready\n---\n\nBody\n", encoding="utf-8")
+    board.assign("WI-4", "bo")
+    cards = load_board((kit.root / "backlog" / "board.yaml").read_text(encoding="utf-8"))
+    assert cards["WI-4"]["assignee"] == ["bo"] and cards["WI-4"]["status"] == "Ready"
+
+
+def test_a_uid_mismatch_never_writes_the_wrong_file(board, kit):
+    """Duplicate ids (WI-1 and WI-1~uid after a merge) or a hand-edited x-uid: the card and the file must be the same item."""
+    board.add("task", "Mine")
+    f = next((kit.root / "backlog" / "tasks").glob("wi-1 - *.md"))
+    f.write_text(f.read_text(encoding="utf-8").replace("x-uid: ", "x-uid: zz"), encoding="utf-8")
+    before = tree(kit.root)
+    for write in (lambda: board.move("WI-1", "Done"), lambda: board.assign("WI-1", "ana"),
+                  lambda: board.archive("WI-1")):
+        with pytest.raises(board.BoardError, match="camaron board repair"):
+            write()
+    assert tree(kit.root) == before
