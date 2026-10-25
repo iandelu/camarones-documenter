@@ -353,11 +353,12 @@ def archive(item_id: str, *, by: str | None = None, surface: str = "cli") -> dic
 
 def _row(item: Item, card: dict | None) -> dict:
     fm = item.fm
+    texts = lambda v: [str(x) for x in _as_list(v)]          # noqa: E731  (a hand-written `labels: pay` is one label)
     card = card or {"uid": item.uid, "status": fm.get("status") or STATUSES[0], "ordinal": fm.get("ordinal") or 0,
-                    "assignee": fm.get("assignee") or [], "t": {}}
+                    "assignee": texts(fm.get("assignee")), "t": {}}
     return {"id": item.id, "uid": card["uid"], "title": item.title, "type": item.type, "status": card["status"],
-            "ordinal": card["ordinal"], "assignee": list(card["assignee"]), "labels": list(fm.get("labels") or []),
-            "priority": fm.get("priority"), "epic": fm.get("parent_task_id"), "repos": list(fm.get("x-repos") or []),
+            "ordinal": card["ordinal"], "assignee": list(card["assignee"]), "labels": texts(fm.get("labels")),
+            "priority": fm.get("priority"), "epic": fm.get("parent_task_id"), "repos": texts(fm.get("x-repos")),
             "docs": [str(d) for d in _as_list(fm.get("documentation"))]}
 
 
