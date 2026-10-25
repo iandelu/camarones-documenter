@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs'
 import { expect, test } from 'vitest'
 
-// The theme (public/theme/tokens.css): Cofundo's tokens plus a derived dark theme. Text must stay readable in both.
-const css = readFileSync(new URL('../public/theme/tokens.css', import.meta.url), 'utf-8').replace(/\/\*[\s\S]*?\*\//g, '')
+// The theme shared by the portal and the desktop app: Cofundo's tokens plus a derived dark theme. Text must stay
+// readable in both.
+const css = readFileSync(new URL('./tokens.css', import.meta.url), 'utf-8').replace(/\/\*[\s\S]*?\*\//g, '')
 
 // The body of the first `{ … }` block that follows `head`, nested blocks included.
 function block(text, head) {
@@ -60,7 +61,7 @@ test.each([['light', 1], ['dark', 0.5]])('small text on the aurora stays readabl
     const bg = mix(t[stop], pct * strength, t['--color-canvas'])
     expect(contrast(t['--color-ink-soft'], bg), `ink-soft on ${stop}`).toBeGreaterThanOrEqual(4.5)
   }
-  const app = readFileSync(new URL('../public/legacy/app.css', import.meta.url), 'utf-8')
+  const app = readFileSync(new URL('../../portal/app/public/legacy/app.css', import.meta.url), 'utf-8')
   expect(app).toMatch(/\.aurora-bg \.eyebrow, \.aurora-bg \.muted \{ color: var\(--color-ink-soft\); \}/)
 })
 
@@ -68,6 +69,17 @@ test('the dark block repeats under prefers-color-scheme', () => {
   const media = block(css, '@media (prefers-color-scheme: dark)')
   expect(declarations(block(media, ':root:not([data-theme="light"])')))
     .toEqual(declarations(block(css, ':root[data-theme="dark"]')))
+})
+
+// Camarón's corners are square, not Cofundo's pills (CAMARON.md, Radii).
+test('radii stay square', () => {
+  const radii = Object.entries(tokens('light')).filter(([name]) => /^--(radius|consola-radio)-/.test(name))
+  expect(radii.length).toBeGreaterThan(0)
+  for (const [name, value] of radii) {
+    const px = value.match(/^(\d+(?:\.\d+)?)(px|rem)$/)
+    expect(px, `${name}: ${value}`).not.toBeNull()
+    expect(px[2] === 'rem' ? Number(px[1]) * 16 : Number(px[1]), name).toBeLessThanOrEqual(6)
+  }
 })
 
 test('fonts are self-hosted', () => {

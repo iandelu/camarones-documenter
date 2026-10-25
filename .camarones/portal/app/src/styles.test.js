@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs'
 import { expect, test } from 'vitest'
 
-// The views take every colour from the theme (public/theme/tokens.css): a raw colour here would skip the dark theme
-// and the contrast guard of tokens.test.js.
+// The views take every colour from the theme (.camarones/ui/theme/tokens.css): a raw colour here would skip the dark
+// theme and the contrast guard of ui/theme/tokens.test.js.
 const read = (rel) => readFileSync(new URL(rel, import.meta.url), 'utf-8').replace(/\/\*[\s\S]*?\*\//g, '')
 
 test.each(['../public/legacy/app.css', './styles.css'])('%s defines no raw colours', (rel) => {
