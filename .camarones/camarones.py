@@ -55,7 +55,8 @@
   arch-draft [--save]       quick static architecture scan → C4 draft (first look, no AI)
   radar [--json]            stack + tools the repos already use (Backstage, Sonar, linters…) → docs/overview/tooling.md
   schemas [--json]          each repo's tables and collections from migrations, schema files, entity classes, Mongo and
-                          Firestore (no AI) → docs/data/<repo>.md with an ER diagram the kit keeps in sync with the code
+                          Firestore (no AI) → an ER diagram the kit keeps in sync with the code: in the repo page
+                          (docs/data/<repo>.md is for projects from before 4.52; new projects: the repo page)
   inventory [--cves] [--json]   every repo's direct dependencies by category (framework, data, cache, security…)
                           → docs/overview/libraries.md, no AI; --cves adds known vulnerabilities (OSV-Scanner with
                           its offline database, so no package name leaves the machine); exit 1 if one is high/critical
@@ -113,12 +114,14 @@
   fresh [--json] [--ack PAGE… --by NAME] [--plan]
                             pages whose cited code changed (suspect) or is gone (stale); agents are kept off them.
                             --ack: the page still holds for today's code; --plan: add a unit that refreshes them
-  blocks [--force] [--json]  facts read from the repos, no AI: docs/repos/<repo>/reference.md (commands, env vars,
-                            endpoints, topics) and every <!-- generated:… --> block in the docs. A block edited by hand
-                            is kept and flagged by check; --force takes the code's version. `sync` refreshes them too
-  diagrams [--json]         diagrams drawn from the code, no AI: docs/architecture/system-map.md (context map, one
-                            sequence per topic) and docs/repos/<repo>/diagrams.md (endpoints, status enums). A diagram
-                            that moved to another page is not written twice; one edited by hand is kept and flagged
+  blocks [--force] [--json]  facts read from the repos, no AI: every <!-- generated:… --> block in the docs (new
+                            projects: in the repo page; projects from before 4.52 also docs/repos/<repo>/reference.md,
+                            until `pages --adopt`). A block edited by hand is kept and flagged by check; --force takes
+                            the code's version. `sync` refreshes them too
+  pages [--adopt] [--json]  the docs from the code, no AI: docs/index.md (what the project is, a card per repo, the
+                            context map) and docs/repos/<repo>/index.md (what each repo exposes, stores and needs to
+                            run). Projects from before 4.52 keep their pages; --adopt moves them to this layout
+  diagrams [--json]         alias of pages
   pr fresh REPO [--base REF | --files F…] [--json] [--post] [--lang en|es]
                             what a pull request does to the docs, no AI: the pages whose cited code it changes (left
                             out of date by it, or already before). --post writes or updates one comment on the PR/MR
@@ -333,7 +336,8 @@ def build_parser() -> argparse.ArgumentParser:
     prp.add_argument("--base", default=""); prp.add_argument("--files", nargs="+"); prp.add_argument("--json", action="store_true")
     prp.add_argument("--post", action="store_true"); prp.add_argument("--lang", default="en", choices=["en", "es"])
     bl = sp.add_parser("blocks"); bl.add_argument("--force", action="store_true"); bl.add_argument("--json", action="store_true")
-    dg = sp.add_parser("diagrams"); dg.add_argument("--json", action="store_true")
+    pgs = sp.add_parser("pages"); pgs.add_argument("--adopt", action="store_true"); pgs.add_argument("--json", action="store_true")
+    dg = sp.add_parser("diagrams"); dg.add_argument("--json", action="store_true")             # alias of pages
     fr = sp.add_parser("fresh"); fr.add_argument("--json", action="store_true"); fr.add_argument("--ack", nargs="+", default=[])
     fr.add_argument("--by", default=""); fr.add_argument("--plan", action="store_true")
     kp = sp.add_parser("kpis"); kp.add_argument("--json", action="store_true"); kp.add_argument("--months", type=int, default=3)
@@ -685,8 +689,8 @@ def main() -> int:
         return cmd_fresh(a)
     elif a.cmd == "blocks":
         return cmd_blocks(a)
-    elif a.cmd == "diagrams":
-        return cmd_diagrams(a)
+    elif a.cmd in ("pages", "diagrams"):
+        return cmd_pages(a)
     elif a.cmd == "pr":
         return cmd_pr(a)
     elif a.cmd == "eval":
@@ -775,11 +779,11 @@ def main() -> int:
     elif a.cmd == "plan":
         return cmd_plan(a)
     elif a.cmd == "arch-draft":
-        from lib import quickarch
+        from lib import pages, quickarch
         m = quickarch.draft()
         print((m["dir"] / "model.c4").read_text(encoding="utf-8"))
-        if a.save:
-            print("\n".join(quickarch.save(m, overwrite=a.overwrite)))
+        if a.save:                                                      # the new layout has no first-look.md
+            print("\n".join(quickarch.save(m, overwrite=a.overwrite, page=pages.layout() == "old")))
     elif a.cmd == "interview":
         return cmd_interview(a)
     elif a.cmd == "radar":
@@ -803,12 +807,12 @@ def main() -> int:
         serious = [v for r in data["libraries"] for v in r.get("vulns") or [] if v["severity"] in ("critical", "high")]
         return 1 if a.cves and serious else 0
     elif a.cmd == "schemas":
-        from lib import genblocks, schemas
+        from lib import genblocks, pages, schemas
         found = schemas.scan()
         if a.json:
             print(json.dumps(found, indent=2, ensure_ascii=False))
             return 0
-        written = schemas.write_pages()
+        written = schemas.write_pages() if pages.layout() == "old" else pages.write()   # new: tables in the repo pages
         updated = genblocks.refresh()["updated"]
         for name, r in found.items():
             n = sum(len(s["entities"]) for s in r["stores"])
@@ -1150,12 +1154,15 @@ def cmd_pr(a) -> int:
 
 
 def cmd_blocks(a) -> int:
-    from lib import genblocks
-    out = {"created": genblocks.write_reference(), **genblocks.refresh(force=a.force)}
+    from lib import genblocks, pages
+    old = pages.layout() == "old"                                               # the new layout has no reference.md
+    created = genblocks.write_reference() if old else []
+    out = {"created": created, **genblocks.refresh(force=a.force)}
     if a.json:
         print(json.dumps(out, indent=2, ensure_ascii=False))
         return 0
-    print(f"✔ {len(out['created'])} reference page(s) created, {len(out['updated'])} page(s) refreshed")
+    made = f"{len(out['created'])} reference page(s) created, " if old else ""
+    print(f"✔ {made}{len(out['updated'])} page(s) refreshed")
     for e in out["edited"]:
         print(f"  · kept, edited by hand: {e}")
     for h in out["human"]:
@@ -1165,13 +1172,21 @@ def cmd_blocks(a) -> int:
     return 0
 
 
-def cmd_diagrams(a) -> int:
-    from lib import diagrams, genblocks
-    out = {"written": diagrams.write_pages(), **genblocks.refresh()}
+def cmd_pages(a) -> int:
+    """`pages` and its alias `diagrams`: the pages from the code for the project's layout (`pages.write`), then every
+    block refreshed; `--adopt` (pages only) moves an old-layout project to the new pages."""
+    from lib import genblocks, pages
+    if getattr(a, "adopt", False):
+        out = pages.adopt(log=(lambda _: None) if a.json else print)
+        if a.json:
+            print(json.dumps(out, indent=2, ensure_ascii=False))
+        return 0
+    layout = pages.layout()
+    out = {"layout": layout, "written": pages.write(log=lambda _: None), **genblocks.refresh()}
     if a.json:
         print(json.dumps(out, indent=2, ensure_ascii=False))
         return 0
-    print(f"✔ {len(out['written'])} diagram page(s) written, {len(out['updated'])} page(s) refreshed")
+    print(f"✔ {len(out['written'])} page(s) written, {len(out['updated'])} page(s) refreshed")
     for w in out["written"]:
         print(f"  → {w}")
     for e in out["edited"]:

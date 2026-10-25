@@ -45,5 +45,8 @@
   .docpage { grid-template-columns: minmax(0, 1fr); }
   .doc-aside { position: static; max-width: 48rem; width: 100%; margin: 0 auto; }
 }
+/* the project home inside the Home: a page of its own, under its section title */
+.start-home { display: flex; flex-direction: column; gap: .75rem; margin: 2rem 0; }
+.start-home h2 { font-size: var(--text-h2); margin: 0; }
 .home-kpis a.home-kpi { color: var(--ink); text-decoration: none; }
 .home-kpis a.home-kpi:hover { border-color: var(--muted); }

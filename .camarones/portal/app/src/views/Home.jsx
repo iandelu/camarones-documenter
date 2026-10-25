@@ -1,13 +1,16 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Aviso, Button, Card } from '@camaron/ui'
 import { t as tr } from '../i18n.js'
 import { useBuild } from '../useBuild.js'
 import { homeKpis } from '../zones.js'
-import { askHref, emptyProject, kpiHref } from './home.js'
+import { askHref, emptyProject, kpiHref, withoutH1 } from './home.js'
 import { core } from '../core.js'
+import { docsGet } from '../docsApi.js'
+import { drawToc, mountDoc } from '../content/doc.js'
 
 
-// Home (#/): the question first, then the docs' state, each figure a way in. The zones are in the sidebar.
+// Home (#/): the question first, the project home ("The system") when there is one, then the docs' state, each figure
+// a way in. The zones are in the sidebar.
 export default function Home() {
   const index = core.tree()
   const mode = core.mode()
@@ -21,6 +24,7 @@ export default function Home() {
         <h1 className="t-impact">{t('home.title')}<br /><span className="t-eco">{t('home.eco')}</span></h1>
         <AskForm mode={mode} t={t} />
       </header>
+      {core.byPath('index.md') && <System t={t} />}
       {kpis.length > 0 && (
         <section className="home-kpis" aria-label={t('home.state')}>
           {kpis.map((k) => (
@@ -33,6 +37,32 @@ export default function Home() {
         </section>
       )}
     </div>
+  )
+}
+
+// The project home, in the reader's language when it has one, else English; the Home still works without it.
+function System({ t }) {
+  const body = useRef(null)
+  const [gone, setGone] = useState(false)
+  useEffect(() => {
+    let live = true
+    ;(async () => {
+      let d = await docsGet('doc', { path: 'index.md', lang: core.lang() })
+      if (!d.exists) d = await docsGet('doc', { path: 'index.md' })
+      if (!d.exists) throw new Error('no index.md')
+      if (!live || !body.current) return
+      body.current.replaceChildren()
+      await mountDoc(body.current, withoutH1(d.raw), 'index.md', '', d.blocks)
+      drawToc(null)                                          // the Home is bare: no outline of the embedded page
+    })().catch(() => live && setGone(true))
+    return () => { live = false }
+  }, [])
+  if (gone) return null
+  return (
+    <section className="start-sec start-home" aria-labelledby="home-system">
+      <h2 className="t-impact" id="home-system">{t('home.system')}</h2>
+      <div className="start-home-body" ref={body}></div>
+    </section>
   )
 }
 

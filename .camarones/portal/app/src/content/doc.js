@@ -316,8 +316,8 @@ function diagramTargets() {
   const byPath = (p) => core.byPath(p)
   for (const d of index().docs || []) if ((d.space || 'docs') === 'docs') map[d.title.toLowerCase()] ||= d.path
   for (const r of index().repos || []) {
-    const brief = `repos/${r}/brief.md`, ref = `repos/${r}/reference.md`
-    map[r.toLowerCase()] ||= byPath(brief) ? brief : byPath(ref) ? ref : undefined
+    const page = `repos/${r}/index.md`, brief = `repos/${r}/brief.md`, ref = `repos/${r}/reference.md`   // the repo page first
+    map[r.toLowerCase()] ||= byPath(page) ? page : byPath(brief) ? brief : byPath(ref) ? ref : undefined
   }
   return map
 }

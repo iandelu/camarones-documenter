@@ -3,6 +3,7 @@
 // may load and how a backend's process tree is stopped. Run with `node --test` on macOS, Windows and Linux.
 const test = require('node:test')
 const assert = require('node:assert/strict')
+const fs = require('node:fs')
 const path = require('node:path')
 const core = require('../lib/core.cjs')
 
@@ -70,4 +71,31 @@ test('a path the app may reveal lies inside the project', () => {
   assert.equal(core.inside(root, path.join(root, '..', 'secrets.txt')), false)
   assert.equal(core.inside(root, path.join(root + '-evil', 'x')), false)
   assert.equal(core.inside(root, 42), false)
+})
+
+test('one bar: the portal header is the title bar, the system controls drawn over it in its colours', () => {
+  for (const platform of ['win32', 'linux']) {
+    const light = core.titleBar(platform, false)
+    assert.equal(light.titleBarStyle, 'hidden')
+    assert.deepEqual(light.titleBarOverlay, { color: core.BAR.light.bg, symbolColor: core.BAR.light.ink, height: core.BAR.height })
+    assert.equal(light.trafficLightPosition, undefined)
+    assert.equal(core.titleBar(platform, true).titleBarOverlay.color, core.BAR.dark.bg)
+    assert.deepEqual(core.barColors(platform, true), core.titleBar(platform, true).titleBarOverlay)
+  }
+  const mac = core.titleBar('darwin', true)
+  assert.equal(mac.titleBarStyle, 'hidden')
+  assert.deepEqual(mac.titleBarOverlay, { height: core.BAR.height })          // enables the titlebar-area-* CSS variables
+  assert.deepEqual(mac.trafficLightPosition, { x: 18, y: (core.BAR.height - 16) / 2 })
+  assert.equal(core.barColors('darwin', true), null)                         // the traffic lights keep their own colours
+})
+
+test('the bar\'s colours are the theme\'s canvas and ink, light and dark', () => {
+  const tokens = fs.readFileSync(path.join(__dirname, '..', '..', 'ui', 'theme', 'tokens.css'), 'utf8')
+  const dark = tokens.slice(tokens.indexOf(':root[data-theme="dark"]'))
+  const value = (css, name) => css.match(new RegExp(`--color-${name}:\\s*(#[0-9a-f]{6})`, 'i'))[1].toLowerCase()
+  assert.equal(core.BAR.light.bg, value(tokens, 'canvas'))
+  assert.equal(core.BAR.light.ink, value(tokens, 'ink'))
+  assert.equal(core.BAR.dark.bg, value(dark, 'canvas'))
+  assert.equal(core.BAR.dark.ink, value(dark, 'ink'))
+  assert.equal(core.BAR.height, 56)                                           // the portal's --top, 3.5rem
 })

@@ -25,7 +25,6 @@ every command either way.
 | `ci` | team |  |  |  |
 | `config` | machine |  |  | yes |
 | `detect` | machine |  |  |  |
-| `diagrams` | analyze |  |  | yes |
 | `doctor` | check |  |  | yes |
 | `down` | machine |  |  |  |
 | `eval` | check | yes |  | yes |
@@ -39,6 +38,7 @@ every command either way.
 | `mark-documented` | analyze |  |  |  |
 | `migrate` | machine |  | yes |  |
 | `new` | projects |  |  |  |
+| `pages` | analyze |  |  | yes |
 | `plugins` | team |  |  | yes |
 | `portal` | team |  |  |  |
 | `pr` | generate | yes |  | yes |
@@ -81,13 +81,14 @@ every command either way.
 | `status` | check |  |  | yes |
 | `translated` | team |  |  |  |
 
-## Cli only (11)
+## Cli only (12)
 
 | Command | Zone | AI | Destructive | --json |
 |---|---|---|---|---|
 | `app` | — |  |  |  |
 | `arch` | — |  |  |  |
 | `catalog` | — |  |  | yes |
+| `diagrams` | — |  |  | yes |
 | `help` | — |  |  |  |
 | `hook` | — |  |  |  |
 | `install` | — |  |  |  |

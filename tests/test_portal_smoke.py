@@ -120,11 +120,12 @@ def test_a_fresh_project_gets_its_first_look_from_the_portal(kit, monkeypatch):
             break
         time.sleep(0.05)
     assert serve.JOBS[job["id"]]["status"] == "done", serve.JOBS[job["id"]]["log"]
-    for page in ("architecture/first-look.md", "overview/tooling.md"):
+    for page in ("index.md", "repos/api/index.md", "overview/tooling.md"):           # the new layout's pages
         assert (kit.root / "docs" / page).is_file(), page
     assert (kit.root / "docs" / "architecture" / "model.c4").is_file()
-    assert "first-look" in (kit.root / "docs" / "llms.txt").read_text(encoding="utf-8")
-    assert any(d["path"] == "architecture/first-look.md" for d in serve.tree()["docs"])
+    assert not (kit.root / "docs" / "architecture" / "first-look.md").exists()
+    assert "repos/api/index.md" in (kit.root / "docs" / "llms.txt").read_text(encoding="utf-8")
+    assert any(d["path"] == "repos/api/index.md" for d in serve.tree()["docs"])
 
 
 def test_the_tree_names_the_kit_guides_so_an_install_with_only_them_reads_as_empty(kit):

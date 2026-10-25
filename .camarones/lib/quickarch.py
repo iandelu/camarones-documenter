@@ -335,25 +335,13 @@ def draft(log=print) -> dict:
     return model
 
 
-def save(model: dict, overwrite: bool = False) -> list[str]:
-    """Copy the draft into docs/architecture (the C4 source of truth). Returns the written files."""
-    dst = DOCS / "architecture"
-    dst.mkdir(parents=True, exist_ok=True)
-    written = []
-    for name in ("likec4.config.json", "spec.c4", "model.c4", "views.c4"):
-        target = dst / name
-        if target.exists() and not overwrite and name != "spec.c4":
-            continue
-        shutil.copyfile(model["dir"] / name, target)
-        written.append(f"docs/architecture/{name}")
-    page = DOCS / "architecture" / "first-look.md"
-    if "docs/architecture/model.c4" not in written and page.exists():
-        return written                      # the kept model has its own (maybe AI-verified) page: don't contradict it
+def first_look_page(model: dict) -> str:
+    """The `architecture/first-look.md` text for a draft: its repos, the relations it saw and the code it read."""
     rows = "\n".join(f"| {n} | {r['kind']} | {r['tech']} |" for n, r in model["repos"].items())
     rels = "\n".join(f"- {a} → {b}: {label}" for a, b, _, label in model["edges"]) or "- (none detected)"
     sources = sorted(model.get("sources") or ())                 # facts read from code: agents may use the page
     cited = "\nx-sources:" + "".join(f"\n  - {s}" for s in sources) if sources else ""
-    page.write_text(f"""---
+    return f"""---
 type: architecture
 title: Architecture — first look
 description: Automatic first draft of the system architecture (static scan, no AI). Starting point for the C4 model.{cited}
@@ -369,6 +357,24 @@ description: Automatic first draft of the system architecture (static scan, no A
 
 ## Detected relations
 {rels}
-""", encoding="utf-8")
+"""
+
+
+def save(model: dict, overwrite: bool = False, page: bool = True) -> list[str]:
+    """Copy the draft into docs/architecture (the C4 source of truth) and, with `page` (the old layout), write
+    `first-look.md` from it; `page=False` writes the C4 files only. Returns the written files."""
+    dst = DOCS / "architecture"
+    dst.mkdir(parents=True, exist_ok=True)
+    written = []
+    for name in ("likec4.config.json", "spec.c4", "model.c4", "views.c4"):
+        target = dst / name
+        if target.exists() and not overwrite and name != "spec.c4":
+            continue
+        shutil.copyfile(model["dir"] / name, target)
+        written.append(f"docs/architecture/{name}")
+    first = dst / "first-look.md"
+    if not page or ("docs/architecture/model.c4" not in written and first.exists()):
+        return written                      # the kept model has its own (maybe AI-verified) page: don't contradict it
+    first.write_text(first_look_page(model), encoding="utf-8", newline="\n")
     written.append("docs/architecture/first-look.md")
     return written

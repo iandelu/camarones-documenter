@@ -4,7 +4,7 @@
 // the portal at /, so the app, the portal and the CLI are the same code. The hub (the same UI, from disk)
 // lists, creates and joins projects through the CLI (`projects`, `new`, `join` with --no-open).
 // Started by `camaron app` (lib/desktop.py), which passes the interpreter and kit to call back.
-const { app, BrowserWindow, Menu, dialog, ipcMain, screen, session, shell } = require('electron')
+const { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, screen, session, shell } = require('electron')
 const { spawn, spawnSync } = require('node:child_process')
 const crypto = require('node:crypto')
 const fs = require('node:fs')
@@ -62,9 +62,11 @@ function guard(win, origin) {
   wc.setWindowOpenHandler(({ url }) => (origin && core.sameOrigin(url, origin) ? { action: 'allow' } : (leave(url), { action: 'deny' })))
 }
 
+// The page's header is the title bar (core.titleBar); it starts in the system's theme until the page says its own.
 function windowOptions(extraArgs) {
+  const dark = nativeTheme.shouldUseDarkColors
   return { ...renderer.DEFAULT_BOUNDS, minWidth: renderer.MIN.width, minHeight: renderer.MIN.height, title: 'camarón', show: false,
-    backgroundColor: '#fafaf7',
+    ...core.titleBar(process.platform, dark), backgroundColor: (dark ? core.BAR.dark : core.BAR.light).bg,
     webPreferences: { preload: PRELOAD, contextIsolation: true, sandbox: true, nodeIntegration: false,
       webSecurity: true, spellcheck: false, additionalArguments: extraArgs } }
 }
@@ -198,6 +200,18 @@ function handlers() {
     if (!renderer.switchable(await listed(), target)) return { error: 'project' }
     return openProject(target, { replace: p[1].win })
   })
+  // The portal's light / dark (it can differ from the system's): the controls over its header follow it.
+  ipcMain.handle('app:theme', (e, theme) => {
+    const p = projectOf(e)
+    if (p && ['light', 'dark'].includes(theme)) paintBar(p[1].win, theme === 'dark')
+  })
+  // With no menu bar on screen (Windows, Linux), the header's button opens the app menu under it.
+  ipcMain.handle('app:menu', (e, at) => {
+    const p = projectOf(e)
+    if (!p) return
+    const x = Math.round(Number(at?.x)) || 0, y = Math.round(Number(at?.y)) || 0
+    Menu.getApplicationMenu()?.popup({ window: p[1].win, x, y })
+  })
   ipcMain.handle('app:external', (e, url) => (fromProject(e) && core.externalOk(url) ? shell.openExternal(url) : null))
   // After `self-update`: start again on the kit's new code (the backends go first; app.exit skips before-quit).
   ipcMain.handle('app:relaunch', (e) => {
@@ -224,6 +238,11 @@ function handlers() {
   })
 }
 
+function paintBar(win, dark) {
+  const colors = core.barColors(process.platform, dark)
+  if (colors && !win.isDestroyed()) win.setTitleBarOverlay(colors)
+}
+
 function menu() {
   const current = () => [...projects.values()].find((p) => p.win === BrowserWindow.getFocusedWindow())
   Menu.setApplicationMenu(Menu.buildFromTemplate([
@@ -244,6 +263,7 @@ if (!app.requestSingleInstanceLock()) {
     session.defaultSession.setPermissionRequestHandler((_wc, _perm, done) => done(false))
     handlers()
     menu()
+    nativeTheme.on('updated', () => { if (hub && !hub.isDestroyed()) paintBar(hub, nativeTheme.shouldUseDarkColors) })
     const root = process.env.CAMARONES_ROOT
     if (root && fs.existsSync(root)) openProject(root).then((r) => { if (!r.ok) openHub() }); else openHub()
   })

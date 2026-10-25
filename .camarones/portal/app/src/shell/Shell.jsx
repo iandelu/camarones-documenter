@@ -67,6 +67,7 @@ export default function Shell() {
     addEventListener('hashchange', onHash)
     addEventListener('keydown', onKey)
     document.body.classList.add('native-mode')
+    document.documentElement.classList.toggle('in-app', !!APP)   // the header is the window's title bar (portal.css)
     document.body.dataset.audience = audience()      // `:::tech` blocks follow the reader's audience (DocsTree)
     wireDocs()
     core.boot().then(() => { setReady(true); go() }, (e) => setFailed(e.message || String(e)))
@@ -95,6 +96,9 @@ export default function Shell() {
           {index && <Language index={index} core={core} onChange={go} />}
           <button className="ghost icon" type="button" aria-label={tr('shell.theme')} title={tr('shell.theme')}
             onClick={() => { core.toggleTheme(); go() }}>◐</button>
+          {/* the app has no menu bar on screen (its header is the title bar): this opens the app menu under itself */}
+          {APP?.menu && <button className="ghost icon" type="button" aria-label={t('appMenu')} title={t('appMenu')}
+            onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); APP.menu(r.left, r.bottom) }}>⋯</button>}
         </div>
       </header>
       {core.isStatic() && <div id="ro" className="ro aviso" dangerouslySetInnerHTML={{ __html: t('readOnly') }} />}

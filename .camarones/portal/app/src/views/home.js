@@ -15,3 +15,11 @@ export function askHref(q, mode) {
 }
 
 export const kpiHref = (id) => (id === 'confirmed' ? '#/docs' : '#/review')
+
+// The project home (docs/index.md) as the Home's "system" section: without its H1 (the section has its own heading);
+// the TL;DR stays as the page's one-line answer. Frontmatter is left alone.
+export function withoutH1(raw) {
+  const fm = raw.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/)
+  const head = fm ? fm[0] : ''
+  return head + raw.slice(head.length).replace(/^# .*(\r?\n|$)/m, '')
+}

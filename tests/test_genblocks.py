@@ -181,6 +181,8 @@ def test_an_existing_reference_page_is_not_recreated(kit, gb):
 
 def test_the_blocks_command(kit, gb):
     import json, os, subprocess, sys
+    from fixtures.builder import seed_old_layout
+    seed_old_layout(kit.root)                                                  # reference.md is the old layout's
     env = {**os.environ, "CAMARONES_ROOT": str(kit.root)}
     run = lambda *a: subprocess.run([sys.executable, str(kit.kit_dir / "camarones.py"), "blocks", *a], env=env,  # noqa: E731
                                     capture_output=True, text=True, encoding="utf-8")
@@ -190,6 +192,8 @@ def test_the_blocks_command(kit, gb):
 
 
 def test_the_wizard_stack_step_writes_the_reference_pages(kit, gb):
+    from fixtures.builder import seed_old_layout
+    seed_old_layout(kit.root)                                                  # reference.md is the old layout's
     kit.wizard.scan_repos(log=lambda _: None)
     assert (kit.root / "docs" / "repos" / "web" / "reference.md").exists()
     assert (kit.root / "docs" / "overview" / "tooling.md").exists()

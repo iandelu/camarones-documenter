@@ -1,6 +1,6 @@
 // The portal's state and the helpers every view uses: the docs index, the reader's language and theme, the strings
 // (i18n/portal.js), a page's address, toasts. Moved from the plain scripts (legacy/core.js, legacy/app.js) in 4.52.
-import { RUNS, STATIC } from './api.js'
+import { APP, RUNS, STATIC } from './api.js'
 import { docsGet } from './docsApi.js'
 import { I18N } from './i18n/portal.js'
 
@@ -53,6 +53,7 @@ function applyTheme() {
   window.mermaid?.initialize({ startOnLoad: false, theme: isDark() ? 'dark' : 'neutral', securityLevel: 'strict',
     fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif' })
   document.querySelectorAll('likec4-view').forEach((v) => v.setAttribute('color-scheme', isDark() ? 'dark' : 'light'))
+  APP?.theme?.(isDark() ? 'dark' : 'light')                 // the window controls drawn over the header follow it
 }
 
 async function loadTree() {

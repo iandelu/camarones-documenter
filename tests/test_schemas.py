@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import pytest
 
+from fixtures.builder import seed_old_layout
+
 V1 = """-- init
 CREATE TABLE IF NOT EXISTS owners (
   id INTEGER PRIMARY KEY,
@@ -205,6 +207,7 @@ def test_an_existing_page_is_never_overwritten(kit, repos):
 
 def test_the_cli(kit, repos):
     import json, os, subprocess, sys
+    seed_old_layout(kit.root)                                    # data/<repo>.md is the old layout's
     env = {**os.environ, "CAMARONES_ROOT": str(kit.root)}
     run = lambda *a: subprocess.run([sys.executable, str(kit.kit_dir / "camarones.py"), "schemas", *a], env=env,  # noqa: E731
                                     capture_output=True, text=True, encoding="utf-8", cwd=kit.ws)
@@ -215,6 +218,7 @@ def test_the_cli(kit, repos):
 
 
 def test_the_portal_serves_each_repos_model_and_writes_the_pages(kit, repos):
+    seed_old_layout(kit.root)                                    # data/<repo>.md is the old layout's
     from lib import serve
     d = serve.api_schemas()
     api = next(r for r in d["repos"] if r["repo"] == "api")

@@ -304,11 +304,15 @@ def render(result: dict) -> str:
           "description": "Every repository's direct dependencies by category (framework, data, cache, security, messaging, "
                          "testing…), with versions and known vulnerabilities. Static scan of the manifests, no AI.",
           "tags": ["stack", "dependencies"], "x-sources": sorted({r["source"] for r in rows}), "x-owner": "ai"}
+    from . import pages
     vulns = result.get("vulns") is not None
-    lines = ["# Libraries", "",
-             "> **TL;DR:** Static scan of each repo's manifests and lockfiles (no AI): the direct dependencies, what they "
-             "are for and their versions" + (", with the known vulnerabilities (OSV)." if vulns else ". Run `camaron "
-             "inventory --cves` for the known vulnerabilities.") + " The portal's Libraries tab filters it.", ""]
+    repos = {*docs.repo_names(), *(r["repo"] for r in rows)}                  # the workspace's, manifests or not
+    drift = {r["name"] for r in rows if r["drift"]}
+    vulnerable = {r["name"] for r in rows if r.get("vulns")}
+    tldr = (f"{pages.count(len(rows), 'direct dependency', 'direct dependencies')} across {pages.count(len(repos), 'repo')}" +
+            (f"; {pages.count(len(drift), 'library', 'libraries')} with different versions in different repos" if drift else "") +
+            (f"; {pages.count(len(vulnerable), 'library', 'libraries')} with known vulnerabilities" if vulnerable else "") + ".")
+    lines = ["# Libraries", "", f"> **TL;DR:** {tldr}", ""]
     for repo in dict.fromkeys(r["repo"] for r in rows):
         lines += [f"## {repo}", "", "| Category | Library | Version | Scope |" + (" Vulnerabilities |" if vulns else ""),
                   "|---|---|---|---|" + ("---|" if vulns else "")]
@@ -322,6 +326,8 @@ def render(result: dict) -> str:
         lines.append("")
     if not rows:
         lines += ["No manifests found.", ""]
+    lines += [pages.HOW, "Read from each repo's manifests and lockfiles with no AI. `camaron inventory --cves` adds the known "
+              "vulnerabilities (OSV); the portal's Libraries tab filters this list.", ":::", ""]
     return docs.join_fm(fm, "\n".join(lines))
 
 

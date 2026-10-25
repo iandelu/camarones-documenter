@@ -127,3 +127,25 @@ def test_the_business_view_uses_real_page_types():
     conventions = (REPO / ".camarones" / "CONVENTIONS.md").read_text(encoding="utf-8")
     known = re.search(r"type: [\w-]+\s+# ([\w|-]+)", conventions).group(1).split("|")
     assert types and set(types) <= set(known), (types, known)
+
+
+SRC = SOURCE / "src"
+
+
+def test_the_home_shows_the_project_home_before_the_kpis():
+    home = SRC.joinpath("views", "Home.jsx").read_text(encoding="utf-8")
+    page = home[home.index("export default function Home"):home.index("function System")]
+    assert "core.byPath('index.md')" in page and page.index("<System") < page.index("home-kpis")
+    system = home[home.index("function System"):home.index("function AskForm")]
+    assert "start-home" in system and "path: 'index.md'" in system and "mountDoc(" in system
+
+
+def test_diagram_nodes_open_the_repo_page_first():
+    doc = SRC.joinpath("content", "doc.js").read_text(encoding="utf-8")
+    targets = doc[doc.index("function diagramTargets"):doc.index("function linkDiagrams")]
+    assert targets.index("/index.md") < targets.index("brief.md") < targets.index("reference.md")
+
+
+def test_the_home_section_title_exists_in_both_languages():
+    core = SRC.joinpath("i18n", "portal.js").read_text(encoding="utf-8")
+    assert core.count("'home.system'") == 2

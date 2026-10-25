@@ -305,7 +305,8 @@ def doc_status(logical: str, f: Path, langs: list[str]) -> dict:
             i18n[lang] = "missing"
         else:
             tfm, _ = split_fm(tf.read_text(encoding="utf-8"))
-            i18n[lang] = "current" if (tfm.get("x-translation-of") or {}).get("body_sha") == sha else "outdated"
+            of = tfm.get("x-translation-of")                      # a hand-written one may be just the page's path
+            i18n[lang] = "current" if isinstance(of, dict) and of.get("body_sha") == sha else "outdated"
     return {"path": logical, "file": rel_file(f),
             "title": fm.get("title") or first_heading(body) or f.stem, "description": fm.get("description", ""),
             "type": fm.get("type", ""), "trust": trust, "owner": fm.get("x-owner", "ai"), "orphan_sources": missing,
