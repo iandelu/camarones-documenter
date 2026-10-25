@@ -1509,11 +1509,32 @@ CHECKPOINT_PATHS = ["docs", "wikis", "evals", "backlog", ".gitattributes", ".cam
                     ".gitignore", ".gitlab-ci.yml", ".github"]
 
 
+def checkpoint_paths() -> list[str]:
+    """What a checkpoint stages. .gitattributes only on a project with a board: it holds the board's merge driver line,
+    and a project without one may have a root .gitattributes of its own that the kit never committed."""
+    from . import kanban
+    return [p for p in CHECKPOINT_PATHS if (ROOT / p).exists() and (p != ".gitattributes" or kanban.enabled())]
+
+
+def board_repair(log=lambda _: None) -> list[str]:
+    """The board's repair pass; what it changed. A failure is a warning, never a blocked commit."""
+    from . import kanban
+    if not kanban.enabled():
+        return []
+    try:
+        from .kanban import repair
+        return repair.repair(log=log)["changed"]
+    except Exception as e:                                   # noqa: BLE001 — the commit must go on
+        print(f"🦐⚠ board repair skipped: {e}", file=sys.stderr)
+        return []
+
+
 def checkpoint_commit(message: str) -> bool:
     """Commit docs progress locally. Keeps work safe if a session or the computer closes; pushes only with auto-share."""
     if not (ROOT / ".git").exists():
         return False
-    paths = [p for p in CHECKPOINT_PATHS if (ROOT / p).exists()]
+    board_repair()
+    paths = checkpoint_paths()
     if CTX.root != CTX.state_root:   # a unit's worktree: its pages only; derived files and plan state belong to main
         paths += [":(exclude)docs/.work", ":(exclude)docs/.status.json", ":(exclude)docs/llms.txt",
                   ":(exclude)docs/llms-full.txt"]
@@ -1569,7 +1590,7 @@ def sync_status(fetch: bool = False) -> dict:
         counts = git("rev-list", "--left-right", "--count", f"HEAD...origin/{branch}").split()
         if len(counts) == 2:
             ahead, behind = int(counts[0]), int(counts[1])
-    paths = [p for p in CHECKPOINT_PATHS if (ROOT / p).exists()]
+    paths = checkpoint_paths()
     pending = []
     if (ROOT / ".git").exists() and paths:
         status = run(["git", "status", "--porcelain", "-uall", "--", *paths], cwd=ROOT, check=False, capture=True).stdout or ""
@@ -1651,6 +1672,12 @@ def share(log: Log = print) -> dict:
         if git(*_ident(), "rebase", "--quiet", "--autostash", theirs).returncode:
             git("rebase", "--abort")
             return {"status": "conflict", "detail": theirs}
+        if board_repair():                                            # a merge can leave duplicate ids or stale mirrors
+            _sharing = True
+            try:
+                checkpoint_commit("board repaired after sync")
+            finally:
+                _sharing = False
         if out(["git", "rev-list", "--count", f"{theirs}..HEAD"], cwd=ROOT) == "0":
             _shared()
             return {"status": "up-to-date", "detail": branch}
