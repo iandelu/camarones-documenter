@@ -24,6 +24,8 @@ function drawChrome(active, { viewer = false, bare = false, nativeView = false }
   $('#search-label').textContent = t('search');
   $('#theme').title = t('theme');
   $('#menu').title = t('menu');
+  $('#app-menu').title = t('appMenu');
+  $('#app-menu').setAttribute('aria-label', t('appMenu'));
   $('#ro').hidden = !STATIC;
   $('#ro').innerHTML = t('readOnly');
   const langs = ['', ...T.langs];
@@ -578,6 +580,9 @@ $('#lang').onchange = (e) => { lang = e.target.value; store.set('cam-lang', lang
 $('#theme').onclick = () => { store.set('cam-theme', isDark() ? 'light' : 'dark'); applyTheme(); CURRENT = ''; route(); };
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (!store.get('cam-theme')) { applyTheme(); CURRENT = ''; route(); } });
 $('#menu').onclick = () => document.body.classList.toggle('nav-open');
+// The app has no menu bar on screen (its header is the title bar): this button opens the app menu under itself.
+$('#app-menu').hidden = !APP?.menu;
+$('#app-menu').onclick = (e) => { const r = e.currentTarget.getBoundingClientRect(); APP.menu(r.left, r.bottom); };
 $('#scrim').onclick = () => document.body.classList.remove('nav-open');
 $('#search-btn').onclick = openPalette;
 $('#pal-q').oninput = paletteInput;

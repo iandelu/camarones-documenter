@@ -217,8 +217,9 @@ team's viewer (read, edit, review, pipeline status, the interview); whatever sta
 
 From a project's folder it opens that project; from anywhere else, the picker: open a project, create one, join the
 team's `cam-docs` with its URL or add a folder that already has one. The wizard has the same entry (🖥️ Desktop app).
-Inside, <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>O</kbd> goes back to the projects and **camarón › Open in
-the browser** opens the same portal outside. On Linux with restricted user namespaces (Ubuntu 24.04+) the kit starts
+Inside, the portal's header is the window's title bar (drag it to move the window), <kbd>Ctrl</kbd>/<kbd>⌘</kbd> +
+<kbd>Shift</kbd> + <kbd>O</kbd> goes back to the projects and the bar's **⋯** button opens the app menu, with **Open in
+the browser** for the same portal outside. On Linux with restricted user namespaces (Ubuntu 24.04+) the kit starts
 it with `--no-sandbox`: its windows only load your project's local server.
 
 ### 📋 The board

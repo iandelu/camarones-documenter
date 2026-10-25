@@ -57,5 +57,23 @@ function lastJson(text) {
   return null
 }
 
+// One bar per window: the page's header is the title bar and the system draws its controls over it (Windows and Linux
+// in the header's colours, which are the theme's canvas and ink; macOS keeps its traffic lights, centred in the bar).
+// The overlay is what makes the titlebar-area-* CSS variables exist, so the header knows where the controls sit.
+const BAR = { height: 56, light: { bg: '#fafaf7', ink: '#0a0a0a' }, dark: { bg: '#121211', ink: '#f2f1ec' } }
+
+const barColors = (platform, dark) => {
+  if (platform === 'darwin') return null
+  const c = dark ? BAR.dark : BAR.light
+  return { color: c.bg, symbolColor: c.ink, height: BAR.height }
+}
+
+function titleBar(platform, dark) {
+  if (platform === 'darwin') {
+    return { titleBarStyle: 'hidden', titleBarOverlay: { height: BAR.height }, trafficLightPosition: { x: 18, y: (BAR.height - 16) / 2 } }
+  }
+  return { titleBarStyle: 'hidden', titleBarOverlay: barColors(platform, dark) }
+}
+
 module.exports = { backendArgv, cliArgv, cliEnv, backendEnv, parseReady, sameOrigin, externalOk, killCommand,
-  windowArgs, readArgs, inside, lastJson }
+  windowArgs, readArgs, inside, lastJson, BAR, barColors, titleBar }
