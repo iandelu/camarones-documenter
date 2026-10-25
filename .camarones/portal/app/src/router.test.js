@@ -75,7 +75,10 @@ test('wikis: the list, a repo graph, a page, an anchor on the page shown', () =>
 test('architecture, code, review, search, new page, zone covers', () => {
   expect(go('#/c4')).toEqual(legacy('showArch', ''))
   expect(go('#/c4/index')).toEqual(legacy('showArch', 'index'))
-  expect(go('#/code/api')).toEqual(legacy('showCodeTab', 'api'))
+  expect(go('#/code/api')).toEqual({ kind: 'native', view: 'code', arg: 'api' })
+  expect(go('#/code', { mode: 'static' })).toEqual({ kind: 'native', view: 'code', arg: '' })
+  expect(go('#/c4/code/api')).toEqual({ kind: 'redirect', to: '#/code/api/graph' })        // the old address of graphify's page
+  expect(go('#/c4/code')).toEqual({ kind: 'redirect', to: '#/code/all/graph' })
   expect(go('#/review')).toEqual({ kind: 'native', view: 'review', arg: '' })
   expect(go('#/status')).toEqual({ kind: 'native', view: 'review', arg: '' })
   expect(go('#/review', { mode: 'static' })).toEqual({ kind: 'native', view: 'review', arg: '' })   // read-only there

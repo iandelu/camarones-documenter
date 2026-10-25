@@ -40,8 +40,10 @@ export function resolve(hash, ctx) {
     return rel ? { kind: 'native', view: 'wikipage', arg: rest } : { kind: 'native', view: 'wikigraph', arg: repo }
   }
   if (view === 'wikis') return rest ? { kind: 'redirect', to: `#/wiki/${rest}` } : { kind: 'native', view: 'wikis', arg: '' }
+  if (view === 'c4' && /^code(\/|$)/.test(rest))         // the old address of graphify's page
+    return { kind: 'redirect', to: `#/code/${rest.split('/').slice(1).filter(Boolean).join('/') || 'all'}/graph` }
   if (view === 'c4') return legacy('showArch', rest)
-  if (view === 'code') return legacy('showCodeTab', rest)
+  if (view === 'code') return { kind: 'native', view: 'code', arg: rest }
   if (view === 'review' || view === 'status') return { kind: 'native', view: 'review', arg: '' }
   if (view === 'search') return { kind: 'native', view: 'search', arg: rest }
   if (view === 'new' && ctx.mode !== 'static') return { kind: 'native', view: 'new', arg: '' }

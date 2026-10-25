@@ -141,18 +141,3 @@ async function showExplorer() {
     + (v.exists ? '<iframe class="viewer" src="architecture/" title="C4"></iframe>' : '');
   bindBuild(v.model ? 'c4' : 'first-look', '', () => location.reload());   // no model yet: draft it from the code
 }
-
-async function showCode(repo) {
-  const v = await loadViewers();
-  const names = Object.keys(v.graphs);
-  repo = names.includes(repo) ? repo : (names[0] || '');
-  const g = v.graphs[repo];
-  const src = repo === 'all' ? 'code-graph/' : `code-graph/${encodeURIComponent(repo)}/`;
-  const sel = names.length ? `<select id="v-repo">${names.map((n) => `<option value="${esc(n)}" ${n === repo ? 'selected' : ''}>${esc(n === 'all' ? t('allRepos') : n)}</option>`).join('')}</select>` : '';
-  const state = g ? `<span class="muted small">${esc(t('builtAt', { when: ago(g.at) }))}</span>${g.stale ? ` <span class="warn small">⚠️ ${esc(t('stale'))}</span>` : ''}`
-    : `<span class="muted small">${esc(t('noGraph'))}</span>`;
-  $('#main').innerHTML = viewerBar([`<b>${esc(t('code'))}</b>`, sel, state, g ? `<a href="${src}" target="_blank" rel="noopener">${esc(t('openTab'))} ↗</a>` : ''],
-    v.graphify ? (names.length ? t('rebuild') : t('build')) : '') + (g ? `<iframe class="viewer" src="${src}" title="code graph"></iframe>` : '');
-  $('#v-repo')?.addEventListener('change', (e) => { location.hash = `#/code/${e.target.value}/graph`; });
-  bindBuild('graph');
-}
