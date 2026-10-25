@@ -11,6 +11,12 @@ export const Page = ({ title, children }) => (
   <div className="dk-page"><h1 className="t-impact">{title}</h1>{children}</div>
 )
 
+// A read that failed: what, the server's own message, and a way out.
+export const Failed = ({ title, detail, onRetry }) => (
+  <Aviso tone="error" title={title} detail={detail}
+    action={onRetry ? <Button size="sm" onClick={onRetry}>{t('retry')}</Button> : null} />
+)
+
 export function AgentPicker({ a }) {
   if (!a.agents || a.agents.length < 2) return null
   return (

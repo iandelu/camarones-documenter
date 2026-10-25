@@ -1,6 +1,8 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { getJSON, postJSON } from './api.js'
 import { t } from './i18n.js'
+import { Skeleton } from '@camaron/ui'
+import Failed from './Failed.jsx'
 import AppOnly from './AppOnly.jsx'
 import { applyFilter, facets, matrix } from './libs.js'
 
@@ -22,7 +24,7 @@ export default function Libs() {
   const [busy, setBusy] = useState('')
   const [f, setF] = useState({})
   const [open, setOpen] = useState(null)
-  const load = () => getJSON('inventory').then(setData, (e) => setError(e.message))
+  const load = () => getJSON('inventory').then((x) => { setData(x); setError('') }, (e) => setError(e.message))
   useEffect(() => { load() }, [])
   async function refresh(cves) {
     setBusy(cves ? t('libsScanning') : t('libsRefreshing'))
@@ -40,7 +42,7 @@ export default function Libs() {
   const shown = useMemo(() => applyFilter(rows, f), [rows, f])
   const m = useMemo(() => matrix(shown), [shown])
   const fc = useMemo(() => facets(rows), [rows])
-  if (!data) return <section className="view"><h1>{t('libsTitle')}</h1><p className={error ? 'error' : 'muted'}>{error || t('loading')}</p></section>
+  if (!data) return <section className="view"><h1>{t('libsTitle')}</h1>{error ? <Failed title={t('libsFailed')} detail={error} onRetry={() => { setError(''); load() }} /> : <Skeleton lines={4} />}</section>
   const vulnerable = rows.filter((r) => (r.vulns || []).length).length
   const drift = new Set(rows.filter((r) => r.drift).map((r) => r.name)).size
   const set = (k) => (v) => setF((cur) => ({ ...cur, [k]: v }))

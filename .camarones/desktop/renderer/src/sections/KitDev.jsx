@@ -2,18 +2,20 @@ import { useEffect, useRef, useState } from 'react'
 import { Aviso, Button, Card, Chip } from '@camaron/ui'
 import { pytestSummary } from '../quality.js'
 import { useKit } from '../hooks.js'
-import { JobOutput, Page } from '../parts.jsx'
+import { Failed, JobOutput, Page } from '../parts.jsx'
 import { t } from '../i18n.js'
 
 // Kit dev, in a checkout of the kit only (lib/kitdev.py): the sandbox, the pytest suite, and the two UIs' npm and
 // the desktop helpers' tests, with the check that both committed builds match their source.
 export default function KitDev({ srv, jobs }) {
   const [info, setInfo] = useState(null)
-  const load = () => srv.get('app/kitdev').then(setInfo, () => {})
+  const [error, setError] = useState('')
+  const load = () => srv.get('app/kitdev').then((x) => { setInfo(x); setError('') }, (e) => setError(e.message))
   useEffect(() => { load() }, [])
   const p = { srv, jobs, info, reload: load }
   return (
     <Page title={t('nav.kitdev')}>
+      {error ? <Failed title={t('kd.failed')} detail={error} onRetry={load} /> : null}
       <Sandbox {...p} />
       <Tests {...p} />
       <Builds {...p} />

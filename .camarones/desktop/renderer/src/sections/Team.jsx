@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Aviso, Button, Card, Skeleton } from '@camaron/ui'
 import { useCmd } from '../hooks.js'
-import { JobOutput, Page } from '../parts.jsx'
+import { Failed, JobOutput, Page } from '../parts.jsx'
 import Commands from './Commands.jsx'
 import { t } from '../i18n.js'
 
@@ -29,8 +29,10 @@ function Repo({ srv, jobs }) {
   const [url, setUrl] = useState('')
   const [busy, setBusy] = useState('')
   const [result, setResult] = useState(null)
+  const [error, setError] = useState('')
   const c = useCmd(srv, jobs)
-  const load = (fetch) => srv.get(`sync${fetch ? '?fetch=1' : ''}`).then((x) => { setS(x); setUrl(x.remote || '') }, () => {})
+  const load = (fetch) => srv.get(`sync${fetch ? '?fetch=1' : ''}`)
+    .then((x) => { setS(x); setUrl(x.remote || ''); setError('') }, (e) => setError(e.message))
   useEffect(() => { load(false) }, [])
   const cmd = async (name, args) => { await c.run(name, args); load(false) }
   async function share() {
@@ -51,7 +53,8 @@ function Repo({ srv, jobs }) {
         <Button size="sm" disabled={c.running || !clean || clean === s?.remote || clean.startsWith('-')}
                 onClick={() => cmd('remote', { url: clean })}>{t('tm.save')}</Button>
       </div>
-      {!s ? <Skeleton lines={2} /> : !s.remote ? <p className="muted small">{t('tm.noRemote')}</p> : (<>
+      {error ? <Failed title={t('tm.failed')} detail={error} onRetry={() => { setError(''); load(false) }} />
+        : !s ? <Skeleton lines={2} /> : !s.remote ? <p className="muted small">{t('tm.noRemote')}</p> : (<>
         <div className="dk-stats dk-stats-sm">
           <div><span className="eyebrow">{t('tm.ahead')}</span><b className="dk-stat-sm">{s.ahead ?? '—'}</b></div>
           <div><span className="eyebrow">{t('tm.behind')}</span><b className="dk-stat-sm">{s.behind ?? '—'}</b></div>

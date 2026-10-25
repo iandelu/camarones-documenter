@@ -51,6 +51,12 @@ test('an error Aviso is an alert and shows the server message as it is', () => {
   expect(out).toContain('<code class="cu-aviso-detail">OSError: Address already in use</code>')
 })
 
+// No dead end: the way out (Try again, Fix it) comes last, after the server's message.
+test('an Aviso ends with its action', () => {
+  const out = html(<Aviso tone="error" title="No he podido leer el plan" detail="HTTP 500" action={<Button size="sm">Reintentar</Button>} />)
+  expect(out).toMatch(/<code class="cu-aviso-detail">HTTP 500<\/code><span class="cu-aviso-action"><button type="button" class="cu-btn cu-btn--secondary cu-btn--sm">Reintentar<\/button><\/span><\/div>$/)
+})
+
 test('a warning Aviso is a status, not an alert', () => {
   expect(html(<Aviso tone="warn" title="Borrador de IA" />)).toContain('role="status"')
 })

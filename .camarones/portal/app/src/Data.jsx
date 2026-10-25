@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { getJSON, postJSON } from './api.js'
 import { t } from './i18n.js'
+import { Skeleton } from '@camaron/ui'
+import Failed from './Failed.jsx'
 import AppOnly from './AppOnly.jsx'
 import { core } from './core.js'
 import { drawMermaid, render } from './content/doc.js'
@@ -24,12 +26,13 @@ export default function Data({ arg }) {
   const [d, setD] = useState(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  useEffect(() => { getJSON('schemas').then(setD, (e) => setError(e.message)) }, [])
+  const load = () => getJSON('schemas').then((x) => { setD(x); setError('') }, (e) => setError(e.message))
+  useEffect(() => { load() }, [])
   async function write() {
     setBusy(true)
     try { await postJSON('schemas', {}); setD(await getJSON('schemas')); core.reload() } catch (e) { setError(e.message) } finally { setBusy(false) }
   }
-  if (!d) return <section className="view"><h1>{t('dataTitle')}</h1><p className={error ? 'error' : 'muted'}>{error || t('loading')}</p></section>
+  if (!d) return <section className="view"><h1>{t('dataTitle')}</h1>{error ? <Failed title={t('dataFailed')} detail={error} onRetry={() => { setError(''); load() }} /> : <Skeleton lines={4} />}</section>
   const withData = d.repos.filter((r) => r.entities)
   const repo = withData.find((r) => r.repo === arg) || withData[0]
   return (

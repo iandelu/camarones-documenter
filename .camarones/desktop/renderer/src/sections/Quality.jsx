@@ -4,7 +4,7 @@ import { severities } from '@camaron/ui/result.js'
 import { ago } from '../jobs.js'
 import { doctorRows, seconds } from '../quality.js'
 import { useCmd, useJob } from '../hooks.js'
-import { Fold, JobOutput, Page, ResultView } from '../parts.jsx'
+import { Failed, Fold, JobOutput, Page, ResultView } from '../parts.jsx'
 import Commands from './Commands.jsx'
 import { t } from '../i18n.js'
 
@@ -154,13 +154,15 @@ function Ab({ srv, jobs }) {
 function Cves({ srv, jobs }) {
   const c = useCmd(srv, jobs)
   const [inv, setInv] = useState(null)
-  const load = () => srv.get('inventory').then(setInv, () => {})
+  const [error, setError] = useState('')
+  const load = () => srv.get('inventory').then((x) => { setInv(x); setError('') }, (e) => setError(e.message))
   useEffect(() => { load() }, [])
   const sev = severities(inv?.libraries)
   const sevWord = (s) => { const k = `sev.${s}`; const w = t(k); return w === k ? s : w }
   return (
     <Card className="dk-run">
       <span className="eyebrow">{t('q.cves')}</span>
+      {error ? <Failed title={t('q.cvFailed')} detail={error} onRetry={load} /> : null}
       {inv ? (inv.vulns ? (
         <div className="row">{sev.length ? sev.map(([s, n]) => <Chip key={s} state={['critical', 'high'].includes(s) ? 'bad' : 'warn'}>{n} {sevWord(s)}</Chip>)
           : <Chip state="ok">{t('q.cvClean')}</Chip>}<span className="muted small">{t('q.cvAt', { day: inv.vulns.at?.slice(0, 10) })}</span></div>

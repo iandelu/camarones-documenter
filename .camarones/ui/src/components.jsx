@@ -37,12 +37,13 @@ export function Card({ as: Tag = 'section', className, children, ...rest }) {
 }
 
 // tone: info | warn | error. An error interrupts (alert) and shows the server's message as it is (detail).
-export function Aviso({ tone = 'info', title, detail, children }) {
+export function Aviso({ tone = 'info', title, detail, action, children }) {
   return (
     <div className={`cu-aviso cu-aviso--${tone}`} role={tone === 'error' ? 'alert' : 'status'}>
       <strong className="cu-aviso-title">{title}</strong>
       {children && <span className="cu-aviso-body">{children}</span>}
       {detail && <code className="cu-aviso-detail">{detail}</code>}
+      {action && <span className="cu-aviso-action">{action}</span>}
     </div>
   )
 }

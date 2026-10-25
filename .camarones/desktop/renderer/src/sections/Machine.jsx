@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Aviso, Button, Card, Chip, Skeleton } from '@camaron/ui'
 import { setupProgress } from '../quality.js'
 import { useCmd } from '../hooks.js'
-import { JobOutput, Page } from '../parts.jsx'
+import { Failed, JobOutput, Page } from '../parts.jsx'
 import Commands from './Commands.jsx'
 import { t } from '../i18n.js'
 
@@ -12,12 +12,12 @@ import { t } from '../i18n.js'
 export default function Machine({ srv, jobs, app }) {
   const [m, setM] = useState(null)
   const [error, setError] = useState('')
-  const load = () => srv.get('app/machine').then(setM, (e) => setError(e.message))
+  const load = () => srv.get('app/machine').then((x) => { setM(x); setError('') }, (e) => setError(e.message))
   useEffect(() => { load() }, [])
   const p = { srv, jobs, m, reload: load }
   return (
     <Page title={t('nav.machine')}>
-      {error ? <Aviso tone="error" title={t('mc.failed')} detail={error} /> : null}
+      {error ? <Failed title={t('mc.failed')} detail={error} onRetry={() => { setError(''); load() }} /> : null}
       {!m && !error ? <Skeleton lines={6} /> : null}
       {m ? (<>
         <Setup {...p} />
