@@ -3,11 +3,12 @@ import { createRoot } from 'react-dom/client'
 import Native from './Native.jsx'
 import * as directives from './content/directives.js'
 import * as tables from './content/tables.js'
+import * as generated from './content/generated.js'
 import * as zones from './zones.js'
 import './styles.css'
 
 // Helpers the docs renderer (legacy/doc.js) uses: directives and live tables.
-window.CamaronContent = { directives, tables }
+window.CamaronContent = { directives, tables, generated }
 // Navigation (zones, breadcrumbs, ⌘K entries, Home KPIs) for the router in legacy/app.js.
 window.CamaronZones = zones
 

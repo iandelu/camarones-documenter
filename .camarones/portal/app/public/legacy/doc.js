@@ -11,13 +11,13 @@ const flowViewId = (path) => {
   return m && m[1] !== 'index' ? 'flow_' + m[1].replace(/\W/g, '_') : null;
 };
 
-function render(md, docPath) {
+function render(md, docPath, blocks = []) {
   const body = md.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '').replace(/^\s*#\s+.+\n/, '');   // the page header shows the title
   const el = document.createElement('div');
   el.className = 'doc';
   const C = window.CamaronContent;                         // from the React bundle (src/content/)
   const toHtml = (s) => marked.parse(s, { gfm: true });
-  el.innerHTML = DOMPurify.sanitize(C ? C.directives.render(body, toHtml) : toHtml(body), { ADD_ATTR: ['hidden', 'role'] });
+  el.innerHTML = DOMPurify.sanitize(C ? C.directives.render(C.generated.mark(body, blocks, t), toHtml) : toHtml(body), { ADD_ATTR: ['hidden', 'role'] });
   const base = docPath.split('/').slice(0, -1);
   const resolve = (href) => {
     const parts = [...base];
@@ -311,8 +311,8 @@ function linkDiagrams(root) {
 }
 
 // Render, then everything that needs the element in the DOM.
-async function mountDoc(container, raw, path, anchor) {
-  const el = render(raw, path);
+async function mountDoc(container, raw, path, anchor, blocks = []) {
+  const el = render(raw, path, blocks);
   container.append(el);
   audienceSwitch(el);
   drawToc(el);

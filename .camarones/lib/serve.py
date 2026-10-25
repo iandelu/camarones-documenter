@@ -188,9 +188,19 @@ def c4_change(path: str, b: dict, by: str) -> dict:
     raise ValueError(f"unknown C4 change {path!r}")
 
 
+def _blocks(text: str) -> list[dict]:
+    """The generated blocks of a page and where each stands (the portal's badges); nothing to scan for most pages."""
+    if "<!-- generated:" not in text:
+        return []
+    from . import genblocks
+    return [{"kind": m["kind"], "repo": m["repo"], "id": m["id"], "state": state}
+            for m, state, _ in genblocks.states(text, genblocks.Scanner())]
+
+
 def api_doc(q: dict) -> dict:
     """A page the reader opened (`track`), not the extra reads the UI does for fallbacks and the home page."""
     d = read(q["path"], q.get("lang", ""))
+    d["blocks"] = _blocks(d["raw"])
     if q.get("track"):
         usage.record("portal:doc", channel="human", page=q["path"])
     return d
