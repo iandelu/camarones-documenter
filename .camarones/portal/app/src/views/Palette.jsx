@@ -3,6 +3,7 @@ import { uiText as ui } from '@camaron/ui'
 import { docsGet } from '../docsApi.js'
 import { paletteEntries } from '../zones.js'
 import { marked, paletteGroups } from './search.js'
+import { readerTrees } from './DocsTree.jsx'
 
 const L = () => window.CamaronLegacy
 
@@ -42,7 +43,7 @@ export default function Palette({ open, onClose }) {
   if (!open) return <dialog ref={dialog} className="palette" onClose={onClose} />
   const index = legacy.tree()
   const byPath = Object.fromEntries((index.docs || []).map((d) => [d.path, d]))
-  const order = legacy.docsOrder().length ? legacy.docsOrder() : (index.docs || []).filter((d) => d.space === 'docs').map((d) => d.path)
+  const { order } = readerTrees()
   const groups = paletteGroups({ q, mode, index, order, byPath, content, t, hrefFor: legacy.hrefFor,
     places: paletteEntries(mode, index) })
   const items = groups.flatMap((g) => g.items)

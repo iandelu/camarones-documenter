@@ -46,7 +46,7 @@ test('the Taller only in the desktop app', () => {
 })
 
 test('docs: home, a page, an anchor, the old #/doc alias', () => {
-  expect(go('#/docs')).toEqual(legacy('showDocsHome'))
+  expect(go('#/docs')).toEqual({ kind: 'native', view: 'docs', arg: '' })
   expect(go('#/docs/guides/a.md')).toEqual(DOC('guides/a.md'))
   expect(go('#/docs/guides/a.md::setup')).toEqual(DOC('guides/a.md::setup'))
   expect(go('#/doc/guides/a.md')).toEqual(DOC('guides/a.md'))

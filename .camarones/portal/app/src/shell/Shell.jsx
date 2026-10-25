@@ -4,6 +4,7 @@ import { Brand, Breadcrumbs, Chip, Keys } from '@camaron/ui'
 import '@camaron/ui/ui.css'
 import Native from '../Native.jsx'
 import Palette from '../views/Palette.jsx'
+import DocsTree, { audience } from '../views/DocsTree.jsx'
 import { t as tr } from '../i18n.js'
 import { resolve } from '../router.js'
 import { crumbs, locate, zonesFor } from '../zones.js'
@@ -14,7 +15,7 @@ import '../views/views.css'
 // painted by the plain scripts (window.CamaronLegacy, public/legacy/app.js) into the #main, #toc and #tree slots,
 // which React renders empty and never touches again.
 const L = () => window.CamaronLegacy
-const TREE_VIEWS = ['doc', 'new']                  // React views that keep the docs tree in the sidebar
+const TREE_VIEWS = ['docs', 'doc', 'new']          // the views with the docs tree (DocsTree) under the zones
 const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
 
 function useRouter(onRoute) {
@@ -35,7 +36,6 @@ function useRouter(onRoute) {
       if (a.kind === 'scroll') return legacy.scroll(a.anchor)
       onRoute()
       document.body.classList.toggle('native-mode', a.kind === 'native')   // before painting: #main must be visible
-      document.body.classList.toggle('with-tree', a.kind === 'native' && TREE_VIEWS.includes(a.view))
       document.body.classList.remove('nav-open')
       flushSync(() => setShown({ ...a, at: seq }))    // the slots of this kind exist before the plain scripts paint
       if (a.kind === 'native') return legacy.leave()
@@ -62,6 +62,7 @@ export default function Shell() {
     }
     addEventListener('hashchange', onHash)
     addEventListener('keydown', onKey)
+    document.body.dataset.audience = audience()      // `:::tech` blocks follow the reader's audience (DocsTree)
     L().boot().then(() => { setReady(true); go() }, (e) => setFailed(e.message || String(e)))
     return () => { removeEventListener('hashchange', onHash); removeEventListener('keydown', onKey) }
   }, [])
@@ -92,8 +93,9 @@ export default function Shell() {
       <div className="layout" id="layout">
         <aside className="side" id="side">
           {index && <ZoneNav index={index} mode={mode} t={t} />}
-          <div id="side-head"></div>
-          <nav id="tree" aria-label={t('docs')}></nav>
+          {shown?.kind === 'native' && TREE_VIEWS.includes(shown.view)
+            ? <DocsTree key={shown.at} active={shown.view === 'doc' ? (shown.arg || '').split('::')[0] : ''} onChange={go} />
+            : <><div id="side-head"></div><nav id="tree" aria-label={t('docs')}></nav></>}
         </aside>
         <main id="main" className="main">
           {failed && <div className="page"><h1>{t('unreachable')}</h1><p>{failed}</p></div>}

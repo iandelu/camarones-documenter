@@ -1,11 +1,9 @@
 'use strict';
-// The Docs space (tree, home, pages), search and review, painted into the shell's slots (#main, #toc, #tree).
+// The views still painted by plain scripts into the shell's slots (#main, #toc, #tree): a page's chrome for the wikis (showPage).
 // The shell (src/shell/Shell.jsx) owns the header, the sidebar's zones and the router; it calls these views through
 // window.CamaronLegacy (bottom of this file) until each one moves to React.
 
 let CURRENT = '';            // page on screen: a hash change that only moves the anchor just scrolls
-let DOCS_ORDER = [];
-let NOTES_ORDER = [];
 
 // What the zones (src/zones.js) offer: the export, the live server, or the desktop app's window (which also has
 // the Taller, where machine work runs).
@@ -17,126 +15,6 @@ function drawChrome(active, { viewer = false, bare = false } = {}) {
   document.body.classList.toggle('viewer-mode', viewer);
   document.body.classList.toggle('bare', bare);
   if (viewer) drawToc(null);
-}
-
-// ---------- the Docs tree: folders in the canonical section order, working notes folded at the bottom ----------
-function buildTree(rows) {
-  const root = { name: '', path: '', dirs: {}, pages: [], index: null };
-  for (const d of rows) {
-    if (d.path === 'index.md') continue;                  // the home page
-    const parts = d.path.split('/');
-    let node = root;
-    parts.slice(0, -1).forEach((p, i) => {
-      node = node.dirs[p] ||= { name: p, path: parts.slice(0, i + 1).join('/'), dirs: {}, pages: [], index: null };
-    });
-    if (node !== root && parts.at(-1) === 'index.md') node.index = d; else node.pages.push(d);
-  }
-  return root;
-}
-
-const byTitle = (a, b) => a.title.localeCompare(b.title, lang || 'en');
-function sortedDirs(node) {
-  const rank = (n) => { const i = T.sections.indexOf(n); return i < 0 ? T.sections.length : i; };
-  return Object.values(node.dirs).sort((a, b) => (node.path ? 0 : rank(a.name) - rank(b.name)) || a.name.localeCompare(b.name));
-}
-
-function flatten(node, out = []) {
-  if (node.index) out.push(node.index.path);
-  node.pages.slice().sort(byTitle).forEach((d) => out.push(d.path));
-  sortedDirs(node).forEach((n) => flatten(n, out));
-  return out;
-}
-
-const leaf = (d, active, label) => `<a href="${esc(hrefFor(d.path))}" class="${d.path === active ? 'on' : ''}" title="${esc(t('trust.' + d.trust))}">
-  <span class="dot ${esc(d.trust)}"></span>${esc(label || d.title)}</a>`;
-
-function drawNode(node, active) {
-  const pages = node.pages.slice().sort(byTitle).map((d) => leaf(d, active)).join('');
-  return pages + sortedDirs(node).map((n) => {
-    if (!n.index && !Object.keys(n.dirs).length && n.pages.length === 1) return leaf(n.pages[0], active);
-    const open = active.startsWith(n.path + '/');
-    const label = n.index ? `<a href="${esc(hrefFor(n.index.path))}" class="${n.index.path === active ? 'on' : ''}">${esc(n.name)}</a>` : `<span>${esc(n.name)}</span>`;
-    return `<details ${open ? 'open' : ''}><summary>${label}</summary><div class="sub">${drawNode(n, active)}</div></details>`;
-  }).join('');
-}
-
-function drawDocsSide(active) {
-  const docs = buildTree(T.docs.filter((d) => d.space === 'docs' && (!isBusiness() || forBusiness(d) || d.path === active)));
-  let notes = buildTree(T.docs.filter((d) => d.space === 'notes'));
-  if (!notes.pages.length && Object.keys(notes.dirs).length === 1 && notes.dirs.interview) notes = { ...notes.dirs.interview, path: '' };
-  const home = BY_PATH['index.md'];
-  DOCS_ORDER = [...(home ? ['index.md'] : []), ...flatten({ ...docs, dirs: {} }), ...sortedDirs(docs).flatMap((n) => flatten(n))];
-  NOTES_ORDER = flatten(notes);
-  $('#side-head').innerHTML = audienceSeg('side-audience') +
-    (STATIC ? '' : `<a href="#/new" class="button ghost small newpage">${esc(t('newPage'))}</a>`);
-  applyAudience();
-  const general = docs.pages.length ? `<div class="group"><div class="group-title">${esc(t('general'))}</div>${drawNode({ ...docs, dirs: {} }, active)}</div>` : '';
-  const sections = sortedDirs(docs).map((n) => {
-    const title = `${SECTION_ICONS[n.name] || '📁'} ${esc(sectionLabel(n.name))}`;
-    const head = n.index ? `<a class="group-title ${n.index.path === active ? 'on' : ''}" href="${esc(hrefFor(n.index.path))}">${title}</a>`
-      : `<div class="group-title">${title}</div>`;
-    return `<div class="group">${head}${drawNode({ ...n, index: null }, active)}</div>`;
-  }).join('');
-  const notesOpen = BY_PATH[active]?.space === 'notes';
-  $('#tree').innerHTML = `<div class="group"><a href="#/docs" class="${!active ? 'on' : ''}">🏠 ${esc(t('docsHome'))}</a></div>${general}${sections}
-    ${NOTES_ORDER.length ? `<details class="notes" ${notesOpen ? 'open' : ''}><summary>🗒️ ${esc(t('notes'))} <span class="count">${NOTES_ORDER.length}</span></summary>
-      <p class="muted small">${esc(t('notesHelp'))}</p><div class="sub">${drawNode(notes, active)}</div></details>` : ''}`;
-  $('#tree .on')?.scrollIntoView({ block: 'nearest' });
-}
-
-// ---------- Home and the zones are React (src/views/Home.jsx, the shell's sidebar) ----------
-// The project has nothing of its own yet (the kit's guides and interview notes do not count).
-function emptyProject() {
-  const kit = new Set(T.kitGuides || []);
-  return !T.docs.some((d) => d.space === 'docs' && !kit.has(d.path) && d.type !== 'interview') && !T.views.length;
-}
-
-// ---------- the Docs zone's cover (#/docs): sections, C4, wikis and the project's index page ----------
-async function showDocsHome() {
-  drawChrome('docs');
-  drawDocsSide('');
-  CURRENT = '';
-  const docs = T.docs.filter((d) => d.space === 'docs' && (!isBusiness() || forBusiness(d)));
-  const wikiPages = isBusiness() ? 0 : T.docs.filter((d) => d.space === 'wiki').length;
-  if (emptyProject()) return location.replace('#/');      // Home offers the first look
-  const home = BY_PATH['index.md'];
-  const tree = buildTree(docs);
-  const confirmed = docs.length ? Math.round(100 * docs.filter((d) => d.trust === 'confirmed').length / docs.length) : 0;
-  const flows = T.views.filter((v) => v.kind === 'dynamic').length || (tree.dirs.flows ? tree.dirs.flows.pages.length : 0);
-  const stats = [t('statPages', { n: docs.length }), t('statConfirmed', { n: confirmed }),
-    flows ? t('statFlows', { n: flows }) : '', T.views.length ? t('statViews', { n: T.views.length }) : ''].filter(Boolean);
-  const card = (href, icon, label, desc, count) => `<a class="card link" href="${esc(href)}"><div class="card-icon">${icon}</div>
-    <div><b>${esc(label)}</b>${count ? ` <span class="count">${count}</span>` : ''}<p class="muted small">${esc(desc)}</p></div></a>`;
-  const cards = sortedDirs(tree).map((n) => {
-    const first = n.index?.path || flatten(n)[0];
-    return card(hrefFor(first), SECTION_ICONS[n.name] || '📁', sectionLabel(n.name), has('secd.' + n.name) ? t('secd.' + n.name) : '', flatten(n).length);
-  });
-  if (T.views.length) cards.splice(1, 0, card('#/c4', '🗺️', 'C4', t('secd.c4'), T.views.length));
-  if (wikiPages) cards.push(card('#/wikis', '📚', t('wikis'), t('secd.wikis'), wikiPages));
-  const context = T.views.some((v) => v.id === 'index');
-  $('#main').innerHTML = `<div class="page wide home">
-    <header class="hero"><h1>${esc(home?.title && home.title !== 'index' ? home.title : T.project)}</h1>
-      <p class="lead">${esc(home?.description || t('homeLead'))}</p>
-      <div class="stats">${stats.map((s) => `<span class="pill">${esc(s)}</span>`).join('')}</div>
-      ${STATIC ? '' : `<form class="home-ask" id="home-ask"><input name="q" placeholder="${esc(t('homeAskPh'))}"
-        aria-label="${esc(t('homeAsk'))}" autocomplete="off"><button type="submit">${esc(t('homeAsk'))}</button></form>`}
-      ${isBusiness() ? `<p class="muted small">${esc(t('businessOn'))}</p>` : ''}</header>
-    <div class="cards">${cards.join('')}</div>
-    ${context ? `<h2 class="home-h">${esc(t('systemContext'))}</h2><div class="c4embed" data-view="index"></div>` : ''}
-    <div id="body"></div></div>`;
-  drawToc(null);
-  $('#home-ask')?.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const q = e.target.q.value.trim();
-    if (q) location.hash = `#/ask/${encodeURIComponent(q)}`;
-  });
-  const tasks = [drawC4($('#main'))];
-  if (home) {
-    const d = await api('doc', { path: 'index.md', lang });
-    const raw = d.exists ? d.raw : (await api('doc', { path: 'index.md' })).raw;
-    tasks.push(mountDoc($('#body'), raw, 'index.md'));
-  }
-  await Promise.all(tasks);
 }
 
 // ---------- a page with its chrome: React (src/views/Doc.jsx) for docs; this one stays for the wiki pages (wiki.js) ----------
@@ -270,7 +148,7 @@ async function afterChange(path, msg) {
 // a language or audience change) go back through the shell, so one view renders at a time.
 function route() { return window.CamaronShell ? window.CamaronShell.go() : Promise.resolve(); }
 
-const VIEWS = { showDocsHome,
+const VIEWS = {
   showWikis: () => showWikis(), showWiki: (...a) => showWiki(...a), showWikiGraph: (...a) => showWikiGraph(...a),
   showArch: (...a) => showArch(...a), showCodeTab: (...a) => showCodeTab(...a) };
 
@@ -301,12 +179,10 @@ window.CamaronLegacy = {
   current: () => CURRENT,
   toast: (m) => toast(m),
   reload: () => loadTree(),
-  docsOrder: () => DOCS_ORDER,
-  notesOrder: () => NOTES_ORDER,
   setCurrent: (p) => { CURRENT = p; },
-  // the docs renderer (doc.js) and tree, for the React doc page until they move to src/
-  drawDocsSide: (p) => drawDocsSide(p),
+  // the docs renderer (doc.js), for the React doc pages until it moves to src/
   mountDoc: (el, raw, path, anchor) => mountDoc(el, raw, path, anchor),
+  drawC4: (root) => drawC4(root),
   renderMd: (src, path) => render(src, path),
   drawMermaid: (el) => drawMermaid(el),
   mode: MODE,
