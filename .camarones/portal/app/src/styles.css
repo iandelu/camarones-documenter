@@ -248,3 +248,38 @@
 #native .kb-form-actions button { margin-top: 0; }
 @media (max-width: 720px) { #native .kb-board { grid-template-columns: repeat(6, 78vw); } }
 @media (prefers-reduced-motion: reduce) { #native .kb-col { transition: none; } }
+
+/* First-run wizard (#/start, desktop app): a step row, one panel, Back / Continue; status colours only for status */
+#native .ob { max-width: 52rem; }
+#native .ob h2 { font: 600 1.7rem/1.1 var(--font-impact); margin: 1.5rem 0 .4rem; }
+#native .ob-head { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; flex-wrap: wrap; }
+#native .ob-brand { font-weight: 600; }
+#native .ob-steps { display: flex; flex-wrap: wrap; gap: .35rem; list-style: none; padding: 0; margin: 1rem 0 0; font-size: 13px; }
+#native .ob-steps li { padding: .2rem .7rem; border-radius: var(--radius-pildora); color: var(--muted); }
+#native .ob-steps li.current { color: var(--accent-ink); background: color-mix(in oklch, var(--accent-ink) 12%, transparent); font-weight: 600; }
+#native .ob-steps li.done { color: var(--ok); }
+#native .ob-panel { animation: enter .2s var(--ease) both; }
+#native .ob-rows { list-style: none; padding: 0; margin: 1rem 0 0; border-top: 1px solid var(--line); }
+#native .ob-rows > li { border-bottom: 1px solid var(--line); }
+#native .ob-row { display: flex; align-items: center; gap: .75rem; padding: .6rem 0; min-width: 0; }
+#native .ob-row > span:not(.ok):not(.warn) { display: grid; gap: .1rem; min-width: 0; flex: 1; }
+#native .ob-row code { overflow-wrap: anywhere; }
+#native .ob-row > b { min-width: 7rem; }
+#native .ob .ok { color: var(--ok); }
+#native .ob-row .warn { color: var(--warn); }
+#native .ob-pick { margin-left: auto; }
+#native .ob-add { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; margin-top: .9rem; flex: 1; }
+#native .ob .co-input { font: inherit; font-size: 14px; padding: .45rem .65rem; border: 1px solid var(--line);
+  border-radius: var(--consola-radio-control); background: var(--bg); color: var(--ink); min-width: 0; }
+#native .ob-add .co-input { flex: 1 1 16rem; }
+#native .ob-row .ob-add { margin-top: 0; }
+#native .ob-log { max-height: 16rem; color: var(--muted); }
+#native .ob-actions { gap: .6rem; align-items: center; flex-wrap: wrap; margin-top: 1rem; }
+#native .ob-done { text-align: center; padding: 2rem 0 1rem; }
+#native .ob-done .ob-actions { justify-content: center; }
+#native .ob-check { font-size: 2.5rem; line-height: 1; }
+#native .ob-foot { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-top: 2rem; padding-top: 1rem;
+  border-top: 1px solid var(--line); }
+#native .ob-foot button { white-space: nowrap; flex-shrink: 0; }
+#native .ob-next { display: flex; align-items: center; gap: .5rem .75rem; flex: 1; flex-wrap: wrap; justify-content: flex-end; text-align: right; min-width: 0; }
+#native .ob-next > span { flex: 1 1 14rem; }
