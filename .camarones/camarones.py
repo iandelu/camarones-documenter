@@ -44,9 +44,13 @@
   config [get|set] [KEY] [VALUE] [--json]   this machine's settings the wizard keeps: lang (es|en), model (Claude
                             Code: sonnet|opus|haiku), codex_model
   projects [--json] [--add FOLDER]   the projects registered on this machine, most recent first; --add registers one
+  projects --inspect FOLDER [--json]   what a folder is (project, repo, umbrella, code, empty); reads, never writes
+  projects --adopt FOLDER [--name NAME] [--json]   make FOLDER a project (docs in FOLDER/cam-docs) and register it
   app                       the desktop app: run the plan, wikis, scans and checks, and read the portal, in one window
                             (installs its pinned Electron into ~/.camarones/desktop once; needs Node.js)
-  new NAME | join URL … --no-open   create or join, print {"path": …} and stop (the desktop app opens it itself)
+  new NAME | join URL … --no-open   create or join, print {"path": …} and stop (the desktop app opens it itself);
+                            access refused: {"error": auth|denied|not-found|network|unknown, "host", "detail"}, exit 1
+                            (a token for a private repo comes from CAMARONES_JOIN_TOKEN, never from the command line)
   catalog [--json|--markdown|--check]   every command with where it lives (portal / desktop app / CLI) and its
                             arguments, read from this parser; --check exits 1 when lib/catalog.py is out of sync
   prompt UNIT [--lang es|en] [--unattended]      prompt for an agent session (UNIT may be 'update')
@@ -183,10 +187,18 @@ def _relaunch(root: Path, argv: list[str]) -> None:
 
 def _team(fn, *args):
     """new --from / join: a clone that fails (no access, wrong URL, folder taken) is a short error, not a traceback.
-    Access is checked first with plain git; a token is asked only when that fails and there is a terminal to ask in."""
+    Access is checked first with plain git; a token is asked only when that fails and there is a terminal to ask in.
+    The desktop app has none: it passes the token in CAMARONES_JOIN_TOKEN (never on the command line) and, with
+    --no-open, gets why access failed as one JSON line on stdout."""
     url = args[-1] if fn is projects.create else args[0]
-    if url.strip() and not projects.connect(url, ask=projects.ask_token if sys.stdin.isatty() else None,
-                                            log=lambda m: print(m, file=sys.stderr)):
+    token = os.environ.get("CAMARONES_JOIN_TOKEN") or None
+    ask = projects.ask_token if sys.stdin.isatty() else (lambda host, again: None if again else token) if token else None
+    if url.strip() and not projects.connect(url, ask=ask, log=lambda m: print(m, file=sys.stderr)):
+        if _no_open:
+            from lib import creds
+            reason, detail = projects.reach(url)
+            print(json.dumps({"error": reason or "unknown", "host": creds.host_of(projects.clean_remote(url)) or url,
+                              "detail": detail.replace(token, "***") if token else detail}, ensure_ascii=False))
         sys.exit(1)
     try:
         return fn(*args)
@@ -401,6 +413,7 @@ def build_parser() -> argparse.ArgumentParser:
     from lib.kanban import cli as board_cli
     board_cli.add_parser(sp)
     pj = sp.add_parser("projects"); pj.add_argument("--json", action="store_true"); pj.add_argument("--add", type=Path)
+    pj.add_argument("--inspect", type=Path); pj.add_argument("--adopt", type=Path); pj.add_argument("--name")
     sp.add_parser("app")
     cf = sp.add_parser("config"); cf.add_argument("action", nargs="?", default="get", choices=["get", "set"])
     cf.add_argument("key", nargs="?"); cf.add_argument("value", nargs="?"); cf.add_argument("--json", action="store_true")
@@ -468,6 +481,24 @@ def main() -> int:
     elif a.cmd == "app":
         from lib import desktop
         desktop.launch()
+    elif a.cmd == "projects" and (a.inspect or a.adopt):
+        # the desktop start screen's way in: what a picked folder is, then make it a project (no project globals needed)
+        from lib import onboard
+        try:
+            if a.inspect:
+                if not a.inspect.is_dir():
+                    raise ValueError(f"not a folder: {a.inspect}")
+                info = onboard.inspect(a.inspect)
+                if a.json:
+                    print(json.dumps(info, ensure_ascii=False))
+                for k, v in info.items() if not a.json else ():
+                    print(f"{k:<10} {v}")
+            else:
+                dest = onboard.start(a.adopt, a.name)
+                print(json.dumps({"path": str(dest)}, ensure_ascii=False) if a.json else f"✔ {dest}")
+        except (ValueError, RuntimeError, OSError) as e:
+            print(f"✖ {e}", file=sys.stderr)
+            return 1
     elif a.cmd == "projects" and a.add:
         from lib.common import docs_root
         root = docs_root(a.add)
