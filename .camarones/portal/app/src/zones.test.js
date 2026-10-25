@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { crumbs, homeKpis, paletteEntries, portalOnly, portalUrl, zonesFor } from './zones.js'
+import { appNav, crumbs, homeKpis, paletteEntries, portalOnly, portalUrl, zonesFor } from './zones.js'
 
 const idx = {
   project: 'demo', repos: ['api', 'web'],
@@ -146,6 +146,34 @@ test('the portal address in the browser: its home, or the portal-only page being
   expect(portalUrl(o, '#/docs/flows/alta-mascota.md::pasos')).toBe(`${o}/#/docs/flows/alta-mascota.md::pasos`)
   expect(portalUrl(o, '#/c4')).toBe(`${o}/#/c4`)
   expect(portalUrl(o, '#/search/x')).toBe(`${o}/#/`)
+})
+
+test('the app nav: the five zones in order of the work, with their addresses', () => {
+  const nav = appNav('app', idx, '#/next', { review: 3 })
+  expect(nav.map((n) => [n.id, n.href])).toEqual([['next', '#/next'], ['plan', '#/plan'], ['review', '#/review'], ['board', '#/kanban'], ['taller', '#/taller']])
+  expect(nav.find((n) => n.id === 'review').count).toBe(3)
+  expect(nav.find((n) => n.id === 'plan').count).toBeNull()
+})
+
+test('the app nav highlights the zone of the current address, native views and old addresses included', () => {
+  const on = (hash) => appNav('app', idx, hash).filter((n) => n.current).map((n) => n.id)
+  expect(on('#/next')).toEqual(['next'])
+  expect(on('#/pipeline')).toEqual(['plan'])
+  expect(on('#/plan')).toEqual(['plan'])
+  expect(on('#/review')).toEqual(['review'])
+  expect(on('#/status')).toEqual(['review'])
+  expect(on('#/kanban')).toEqual(['board'])
+  expect(on('#/kanban/new')).toEqual(['board'])
+  expect(on('#/machine')).toEqual(['taller'])
+  expect(on('#/taller')).toEqual(['taller'])
+  expect(on('#/search/x')).toEqual([])
+})
+
+test('no app nav in the browser portal, the static export or the wizard', () => {
+  expect(appNav('live', idx, '#/next')).toEqual([])
+  expect(appNav('static', idx, '#/docs')).toEqual([])
+  expect(appNav('app', idx, '#/start')).toEqual([])
+  expect(appNav('app', idx, '#/start/')).toEqual([])
 })
 
 test('next and start share the Next view; their crumbs exist in the app only', () => {

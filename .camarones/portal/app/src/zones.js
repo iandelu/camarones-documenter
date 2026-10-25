@@ -59,12 +59,24 @@ export function zonesFor(mode, index) {
     .filter((z) => z.views.length)
 }
 
+const segOf = (hash) => (hash || '').replace(/^#/, '').match(/^\/([\w-]+)/)?.[1]
+
+// The zone an address belongs to (old addresses too), or null: `#/pipeline` → plan, `#/status` → review, `#/search/x` → none.
+export function zoneOf(hash) {
+  const seg = segOf(hash)
+  return seg ? ROUTES[seg]?.[0] || ZONES.find((z) => z.href === `#/${seg}`)?.id || null : null
+}
+
 // Does this address open a zone the desktop app leaves to the browser portal? (`#/docs/x.md`, `#/c4`, `#/arch`…)
-export function portalOnly(hash) {
-  const seg = (hash || '').replace(/^#/, '').match(/^\/([\w-]+)/)?.[1]
-  if (!seg) return false
-  const [zoneId] = ROUTES[seg] || [ZONES.find((z) => z.href === `#/${seg}`)?.id]
-  return !!ZONES.find((z) => z.id === zoneId)?.portal
+export const portalOnly = (hash) => !!ZONES.find((z) => z.id === zoneOf(hash))?.portal
+
+// The app window's navigation (sketch D): its zones in the order of the work, the current one marked, and a count where
+// there is one (`counts`: zone id → number, e.g. the drafts waiting in Review). Only in mode `app`, and not in the
+// first-run wizard (#/start), which fills the window.
+export function appNav(mode, index, hash, counts = {}) {
+  if (mode !== 'app' || segOf(hash) === 'start') return []
+  const current = zoneOf(hash)
+  return zonesFor('app', index).map((z) => ({ id: z.id, href: z.href, current: z.id === current, count: counts[z.id] ?? null }))
 }
 
 // The portal's address in the system browser (the same server without the app's token, so read-only): its home, or the

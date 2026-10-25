@@ -33,3 +33,12 @@ test('the app header has View portal and Projects, both hidden until the app sho
   expect(html).toMatch(/<button id="view-portal"[^>]*\shidden/)
   expect(html).toMatch(/<button id="projects"[^>]*\shidden/)
 })
+
+test('the app nav lives in the shell, hidden until the app shows it, and keeps the narrow drawer', () => {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf-8')
+  expect(html).toMatch(/<aside class="side appnav" id="app-nav" hidden>/)         // .side: the #menu drawer opens it
+  const css = read('../public/legacy/app.css')
+  expect(css).toMatch(/body\.app-mode \.side\.appnav\s*\{\s*display:\s*block/)     // wins over native-mode / bare hiding .side
+  expect(css).toMatch(/body\.app-mode #side, body\.app-mode \.toc\s*\{\s*display:\s*none/)   // the docs tree is portal-only
+  expect(css).toMatch(/@media \(max-width: 900px\)\s*\{\s*body\.app-mode \.layout[^}]*minmax\(0, 1fr\)[^}]*\}\s*body\.app-mode \.menu/)
+})
