@@ -221,6 +221,31 @@ Inside, <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>O</kbd> goes ba
 the browser** opens the same portal outside. On Linux with restricted user namespaces (Ubuntu 24.04+) the kit starts
 it with `--no-sandbox`: its windows only load your project's local server.
 
+### 📋 The board
+
+A Kanban stored in `cam-docs/backlog/` and versioned with the docs. Each card is a Markdown file compatible with
+Backlog.md (it reads and edits them without breaking anything); the kit's own state (column and order of each card)
+is in `backlog/board.yaml`, one line per card so git merges per card. Turn it on with `camaron board init`;
+projects without `backlog/` behave as before.
+
+```sh
+camaron board add story "Idempotent retries" --epic WI-3 --repo payments --doc FLOW-k3f9#retries
+camaron board list --status Ready --repo payments     # also --epic, --label, --docs suspect|unconfirmed
+camaron board show WI-42                              # the card and the trust state of its pages
+camaron board move WI-42 "In Progress"                # Backlog, Ready, In Progress, In Review, Done, Blocked
+camaron board assign WI-42 ana
+camaron board link WI-42 flows/payments.md#retries
+camaron board archive WI-42
+camaron board repair                                  # also runs before every checkpoint and share
+```
+
+All of them take `--json`. Links to pages go by `x-id`, so they survive a move or rename, and the board knows whether
+a linked page changed since it was linked. In the portal, the **Board** zone (`#/kanban`) has the Kanban
+with filters by repo, epic, label and docs state, and the card detail; writing needs the machine token (the desktop app sends it; `camaron up` prints it in the
+URL as `#cam-token=…`), without it the board is read-only. On uninstall, the CLI's
+`camaron uninstall` asks whether to keep `backlog/` (`--keep-board` / `--drop-board` choose without asking); the
+wizard and the desktop app always keep it.
+
 ## 6. Editing: where and when
 
 | Where | What you can do | Where the change goes |
@@ -328,7 +353,7 @@ next action apart.
 `doctor --json` (each check with the command that fixes it), `doctor --install git|node|docker|java|claude|codex`,
 `doctor --local` (proposes a free local model for this computer, installs nothing), `doctor --context` (the tokens
 every agent session loads before reading a page, against `context.budget`), `autopilot`, `plugins [--json]`,
-`run`, `runs`, `kpis`, `eval`, `ab`, `pipeline show|validate`, `blocks [--force]`, `pr fresh <repo>`,
+`run`, `runs`, `kpis`, `eval`, `ab`, `pipeline show|validate`, `blocks [--force]`, `diagrams [--json]`, `pr fresh <repo>`,
 `plugins add|update|outdated|remove`, `pr propose <url>`, `removed add`, `repair`, `export codetour <flow>`, `history [--months 12]`
 (hotspots, who to ask per repo, files that change together, read from git without AI into `docs/overview/history.md`),
 `catalog [--json|--check]` (every command with where it lives: portal, desktop app or CLI only, and its arguments),
@@ -342,6 +367,20 @@ where runs, wikis, scans and checks start; the browser portal only shows them).
 annotations) and message topics, each row with its file and line. They are `<!-- generated:<kind> repo=<repo> -->`
 blocks you can put in any page; `blocks` and `sync` refresh them. A block edited by hand is kept and `check` flags it;
 `blocks --force` takes the code's version.
+
+**Diagrams from the code, no AI.** `camaron diagrams [--json]` (also run by the first scan and the first look) draws
+what the code states, in Mermaid, and never guesses: `docs/architecture/system-map.md` has the context map (repos,
+datastores, brokers, identity providers) and one sequence per message topic (who publishes, who consumes);
+`docs/repos/<repo>/diagrams.md` has the repo's endpoints map and one state diagram per status enum, with the states
+only (transitions are not guessed). They are ordinary Docs pages made of generated blocks like the ones above. A
+person can confirm one by hand: copy the block's `sha=` value into `confirmed=` and put a name in `by=` (one word, or
+quoted when it has spaces: `by="Ana López"`), e.g.
+`<!-- generated:states repo=api id=OrderStatus confirmed=3fa1c2d4e5f6 by=ana sha=3fa1c2d4e5f6 -->`. A refresh then
+never rewrites it, and `check` warns "the code changed since this diagram was confirmed" (or that the code no longer
+has the diagram's source). To take the code's version, remove `confirmed=` and `by=` from the marker, run
+`camaron diagrams` (or `blocks`), then confirm it again. The portal labels each diagram "From the code", "Edited by
+hand", "Confirmed by <name>" or "The code changed".
+Agents follow the `cam-docs-diagrams` skill: pick the right diagram, write Mermaid that renders, never edit a generated block.
 
 **Parallel runs.** `camaron run --parallel 3 --per-runner claude=2,codex=1` does several units at once. Discovery, repo
 briefs and flows each work in their own copy of `cam-docs/` (a git worktree in `.cw/<n>/`) and are merged back when

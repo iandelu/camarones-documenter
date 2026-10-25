@@ -17,7 +17,7 @@ test('without a choice or a page, the language is English (the canonical docs)',
   expect(lang()).toBe('en')
 })
 
-// The docs views' dictionary (moved from the plain scripts in 4.51): the same keys in es and en, and no emoji.
+// The docs views' dictionary (moved from the plain scripts in 4.52): the same keys in es and en, and no emoji.
 test('the docs views dictionary has the same keys in es and en, and draws no emoji', async () => {
   const { I18N } = await import('../../portal/app/src/i18n/portal.js')
   expect(Object.keys(I18N.es).sort()).toEqual(Object.keys(I18N.en).sort())

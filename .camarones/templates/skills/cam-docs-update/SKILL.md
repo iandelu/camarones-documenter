@@ -13,5 +13,7 @@ description: Keep {{PROJECT_NAME}}'s documentation alive — after implementing 
    A confirmed page you edit becomes `needs-reconfirm` — say so in your summary so a human re-checks it in the portal.
 4. Something removed on purpose: `{{CLI}} removed add "<what>" --why "<why>"`, so no one recreates it.
 5. New behaviour with no page yet: add it where the conventions say, or `{{CLI}} plan add <id> "<title>"` for a bigger unit.
-6. Run `{{CLI}} check` and `{{CLI}} llms`, then `{{CLI}} checkpoint "docs: <what changed>"` and
+6. A change that touches something drawn (a status, an endpoint, a topic, a call between services): run
+   `{{CLI}} diagrams`, then add a proposal to the affected block; never edit a generated block (skill `cam-docs-diagrams`).
+7. Run `{{CLI}} check` and `{{CLI}} llms`, then `{{CLI}} checkpoint "docs: <what changed>"` and
    `{{CLI}} mark-documented <repo>`.

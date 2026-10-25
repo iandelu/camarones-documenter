@@ -46,6 +46,7 @@ COMMANDS: dict[str, dict] = {
     "schemas": _e("app", "analyze", "Tablas y colecciones de cada repo", "Each repo's tables and collections"),
     "blocks": _e("app", "analyze", "Datos leídos del código para los bloques generados",
                  "Facts read from the code for the generated blocks"),
+    "diagrams": _e("app", "analyze", "Diagramas desde el código, sin IA", "Diagrams from the code, no AI"),
     "history": _e("app", "analyze", "Historia del proyecto desde git", "The project's history from git"),
     "graph": _e("app", "analyze", "Reconstruir el grafo de código", "Rebuild the code graph"),
     "llms": _e("app", "analyze", "Regenerar llms.txt", "Regenerate llms.txt"),
@@ -70,6 +71,7 @@ COMMANDS: dict[str, dict] = {
     "interview": _e("both", "interviews", "Cuestionario de entrevista: modo, exportar, importar, estado",
                     "Interview questionnaire: mode, export, import, status"),
     # team: shared repo, agent config, CI
+    "board": _e("both", "team", "El tablero: historias, épicas y su estado", "The board: stories, epics and their status"),
     "remote": _e("both", "team", "Ver o fijar el repo cam-docs del equipo", "Show or set the team's cam-docs repo"),
     "share": _e("both", "team", "Sincronizar con el equipo (pull y push)", "Sync with the team (pull and push)"),
     "checkpoint": _e("both", "team", "Guardar el progreso en un commit local", "Save progress in a local commit"),

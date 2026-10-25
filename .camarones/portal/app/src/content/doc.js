@@ -4,6 +4,7 @@
 import { getJSON, postJSON } from '../api.js'
 import { docsGet } from '../docsApi.js'
 import * as directives from './directives.js'
+import * as generated from './generated.js'
 import * as tables from './tables.js'
 import { core } from '../core.js'
 
@@ -26,12 +27,12 @@ export const flowViewId = (path) => {
 export const isDark = () => (document.documentElement.dataset.theme
   || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark'
 
-export function render(md, docPath) {
+export function render(md, docPath, blocks = []) {
   const body = md.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '').replace(/^\s*#\s+.+\n/, '')   // the page header shows the title
   const el = document.createElement('div')
   el.className = 'doc'
   const toHtml = (s) => window.marked.parse(s, { gfm: true })
-  el.innerHTML = window.DOMPurify.sanitize(directives.render(body, toHtml), { ADD_ATTR: ['hidden', 'role'] })
+  el.innerHTML = window.DOMPurify.sanitize(directives.render(generated.mark(body, blocks, t), toHtml), { ADD_ATTR: ['hidden', 'role'] })
   const hrefFor = core.hrefFor
   const base = docPath.split('/').slice(0, -1)
   const resolve = (href) => {
@@ -335,8 +336,8 @@ function linkDiagrams(root) {
 }
 
 // Render, then everything that needs the element in the DOM.
-export async function mountDoc(container, raw, path, anchor) {
-  const el = render(raw, path)
+export async function mountDoc(container, raw, path, anchor, blocks = []) {
+  const el = render(raw, path, blocks)
   container.append(el)
   audienceSwitch(el)
   drawToc(el)

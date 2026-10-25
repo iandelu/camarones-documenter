@@ -12,7 +12,7 @@ every command either way.
 | `confirm` | — |  |  |  |
 | `feedback` | — |  |  |  |
 
-## Desktop app (42)
+## Desktop app (43)
 
 | Command | Zone | AI | Destructive | --json |
 |---|---|---|---|---|
@@ -25,6 +25,7 @@ every command either way.
 | `ci` | team |  |  |  |
 | `config` | machine |  |  | yes |
 | `detect` | machine |  |  |  |
+| `diagrams` | analyze |  |  | yes |
 | `doctor` | check |  |  | yes |
 | `down` | machine |  |  |  |
 | `eval` | check | yes |  | yes |
@@ -59,10 +60,11 @@ every command either way.
 | `version` | machine |  |  |  |
 | `wiki` | generate | yes |  |  |
 
-## Portal shows it, the app runs it (15)
+## Portal shows it, the app runs it (16)
 
 | Command | Zone | AI | Destructive | --json |
 |---|---|---|---|---|
+| `board` | team |  |  | yes |
 | `changes` | analyze |  |  |  |
 | `checkpoint` | team |  |  |  |
 | `fresh` | analyze |  |  | yes |

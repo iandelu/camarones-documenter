@@ -1,5 +1,5 @@
 // The portal's state and the helpers every view uses: the docs index, the reader's language and theme, the strings
-// (i18n/portal.js), a page's address, toasts. Moved from the plain scripts (legacy/core.js, legacy/app.js) in 4.51.
+// (i18n/portal.js), a page's address, toasts. Moved from the plain scripts (legacy/core.js, legacy/app.js) in 4.52.
 import { RUNS, STATIC } from './api.js'
 import { docsGet } from './docsApi.js'
 import { I18N } from './i18n/portal.js'

@@ -20,7 +20,7 @@ test('static export: live-only zones and views are gone', () => {
 })
 
 test('live: every zone, code only with a graph', () => {
-  expect(zonesFor('live', idx).map((x) => x.id)).toEqual(['docs', 'arch', 'plan', 'quality', 'review'])
+  expect(zonesFor('live', idx).map((x) => x.id)).toEqual(['docs', 'board', 'arch', 'plan', 'quality', 'review'])
   expect(zonesFor('live', idx).find((x) => x.id === 'arch').views.map((v) => v.id)).toEqual(['c4', 'data', 'libs'])
   expect(zonesFor('live', { ...idx, codeMaps: ['api'] }).find((x) => x.id === 'arch').views[1].id).toBe('code')
   expect(paletteEntries('live', idx).map((e) => e.href)).not.toContain('#/boards')
@@ -99,7 +99,7 @@ test('home KPIs come from the index only, none for an empty project', () => {
 })
 
 test('desktop app: every live view plus the Taller, which the browser portal never shows', () => {
-  expect(zonesFor('app', idx).map((x) => x.id)).toEqual(['docs', 'arch', 'plan', 'quality', 'review', 'taller'])
+  expect(zonesFor('app', idx).map((x) => x.id)).toEqual(['docs', 'board', 'arch', 'plan', 'quality', 'review', 'taller'])
   expect(zonesFor('app', idx).find((x) => x.id === 'taller').views.map((v) => v.id))
     .toEqual(['generate', 'analyze', 'check', 'interviews', 'team', 'machine'])
   expect(zonesFor('app', { ...idx, kitdev: true }).find((x) => x.id === 'taller').views.map((v) => v.id)).toContain('kitdev')
@@ -107,6 +107,26 @@ test('desktop app: every live view plus the Taller, which the browser portal nev
   expect(zonesFor('app', idx).find((x) => x.id === 'docs').views.map((v) => v.id)).toEqual(['pages', 'wikis'])
   expect(paletteEntries('app', idx).map((e) => e.href)).toContain('#/generate')
   expect(paletteEntries('live', idx).map((e) => e.href)).not.toContain('#/generate')
+})
+
+test('the Board: live and app only, its own zone right after Docs', () => {
+  for (const mode of ['live', 'app']) {
+    const board = zonesFor(mode, idx).find((x) => x.id === 'board')
+    expect(board).toEqual({ id: 'board', href: '#/kanban', views: [{ id: 'kanban', href: '#/kanban' }] })
+  }
+  expect(zonesFor('static', idx).map((x) => x.id)).not.toContain('board')
+  expect(paletteEntries('live', idx).filter((e) => e.href === '#/kanban')).toEqual([{ key: 'zone.board', href: '#/kanban', zone: 'board' }])
+  expect(paletteEntries('static', idx).map((e) => e.href)).not.toContain('#/kanban')
+})
+
+test('crumbs of the Board', () => {
+  expect(crumbs('#/kanban', 'live', idx)).toEqual([{ key: 'zone.board', href: '#/kanban' }])
+  expect(crumbs('#/kanban/WI-3', 'app', idx)).toEqual([{ key: 'zone.board', href: '#/kanban' }, { text: 'WI-3', href: null }])
+  expect(crumbs('#/kanban/new?path=flows%2Fa.md&section=x', 'live', idx))
+    .toEqual([{ key: 'zone.board', href: '#/kanban' }, { key: 'kanban.new', href: null }])   // the add form, not its query
+  expect(crumbs('#/kanban', 'static', idx)).toEqual([])
+  expect(crumbs('#/board', 'live', idx)).toEqual([])                        // the address is #/kanban, not the zone id
+  expect(crumbs('#/boards', 'live', idx)).toEqual([])                       // the old whiteboards' address stays apart
 })
 
 test('crumbs of a Taller view', () => {
