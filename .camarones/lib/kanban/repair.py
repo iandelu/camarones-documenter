@@ -11,17 +11,12 @@ from .. import docs
 from ..common import ROOT
 from . import ARCHIVE, BACKLOG, BOARD, CONFIG, STATUSES, TASKS
 from . import ops, xid
-from .items import file_name, load_dir
+from .items import _as_list, file_name, load_dir
 from .state import dump_board, new_uid, next_id, stamp, stamp_time
 
 ARCHIVE_AFTER_DAYS = 14
 _LINK = re.compile(r"^[A-Z]{2,5}-[0-9a-z]{4}$")
 _REF_FIELDS = ("dependencies", "subtasks")
-
-
-def _as_list(v) -> list:
-    """A reference field as people write it: a list, or a lone value."""
-    return [] if v is None else [v] if isinstance(v, str) else list(v)
 
 
 def _rel(path) -> str:

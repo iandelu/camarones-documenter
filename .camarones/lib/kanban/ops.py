@@ -17,7 +17,7 @@ from .. import docs
 from ..common import KIT, ROOT, out, run, which
 from ..harness.locks import FileLock
 from . import ARCHIVE, BACKLOG, BOARD, CONFIG, DRAFTS, LOCK, PREFIX, PRIORITIES, STATUSES, TASKS, TYPES
-from .items import Item, checklist, default_dod, description, file_name, load_dir, new_body, parse_item, serialize_item
+from .items import Item, _as_list, checklist, default_dod, description, file_name, load_dir, new_body, parse_item, serialize_item
 from .merge import driver_command
 from .state import dump_board, load_board, new_uid, next_id, place, stamp, stamp_time
 
@@ -267,7 +267,7 @@ def add(type_: str, title: str, *, epic: str | None = None, repos: Sequence[str]
         _place(cards, items, item_id, "Backlog", by)
         item.fm["ordinal"] = card["ordinal"]
         if parent is not None:
-            parent.fm["subtasks"] = [*(parent.fm.get("subtasks") or []), item_id]
+            parent.fm["subtasks"] = [*_as_list(parent.fm.get("subtasks")), item_id]
             save_item(parent)
         save_item(item)
         save_board(cards)
@@ -327,7 +327,6 @@ def _merge_links(have: list, new: list) -> list[str]:
 def link(item_id: str, ref: str, *, by: str | None = None, surface: str = "cli") -> dict:
     """Link an item to a doc page or section (`FLOW-k3f9#retries` or `flows/payments.md#retries`)."""
     from . import xid
-    from .repair import _as_list
     with FileLock(LOCK):
         cards, items, _ = load_state()
         key, item, card = _find(items, cards, item_id)
@@ -359,7 +358,7 @@ def _row(item: Item, card: dict | None) -> dict:
     return {"id": item.id, "uid": card["uid"], "title": item.title, "type": item.type, "status": card["status"],
             "ordinal": card["ordinal"], "assignee": list(card["assignee"]), "labels": list(fm.get("labels") or []),
             "priority": fm.get("priority"), "epic": fm.get("parent_task_id"), "repos": list(fm.get("x-repos") or []),
-            "docs": list(fm.get("documentation") or [])}
+            "docs": [str(d) for d in _as_list(fm.get("documentation"))]}
 
 
 _DOC_STATES = ("unconfirmed", "suspect", "stale", "changed", "missing")
@@ -385,7 +384,6 @@ def list_items(*, status=None, epic=None, repo=None, label=None, docs=None) -> d
     state = docs in _DOC_STATES
     if state:
         from . import xid
-        from .repair import _as_list
         ids = xid.index()
         want = {ids[xid.parse_link(d)["xid"]] for it in items.values()          # only the pages some item links
                 for d in map(str, _as_list(it.fm.get("documentation"))) if _linked(d, ids)}

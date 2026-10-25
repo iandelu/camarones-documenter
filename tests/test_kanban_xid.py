@@ -237,6 +237,22 @@ def test_malformed_link_is_missing_not_a_crash(board, wired):
     assert any("WI-1" in w and "link" in w for w in out["warnings"])
 
 
+def test_scalar_reference_fields_are_one_entry(board, wired):
+    page(wired, "flows/payments.md", "---\ntitle: P\nx-id: FLOW-k3f9\n---\n# P\n")
+    write_item("FLOW-k3f9")
+    assert board.list_items()["cards"][0]["docs"] == ["FLOW-k3f9"]
+    assert [l["link"] for l in board.show("WI-1")["links"]] == ["FLOW-k3f9"]
+    assert [c["id"] for c in board.list_items(docs="FLOW-k3f9")["cards"]] == ["WI-1"]
+    # a hand-written scalar `subtasks` keeps its entry when a child is added under it
+    from lib.kanban import TASKS
+    f = next(TASKS.glob("wi-1 - *.md"))
+    f.write_text(f.read_text(encoding="utf-8").replace("type: task", "type: epic\nsubtasks: WI-7"), encoding="utf-8")
+    board.add("task", "Child", epic="WI-1")
+    from lib.kanban.items import parse_item
+    parent = parse_item(next(TASKS.glob("wi-1 - *.md")).read_text(encoding="utf-8"))
+    assert parent.fm["subtasks"] == ["WI-7", "WI-2"]
+
+
 def snapshot_files(wired):
     import subprocess
     from lib import docs
