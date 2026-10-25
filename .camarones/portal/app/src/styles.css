@@ -262,7 +262,9 @@
 #native .ob-rows { list-style: none; padding: 0; margin: 1rem 0 0; border-top: 1px solid var(--line); }
 #native .ob-rows > li { border-bottom: 1px solid var(--line); }
 #native .ob-row { display: flex; align-items: center; gap: .75rem; padding: .6rem 0; min-width: 0; }
-#native .ob-row > span:not(.ok):not(.warn) { display: grid; gap: .1rem; min-width: 0; flex: 1; }
+#native .ob-row > span:not(.ok):not(.warn), #native .ob-row > label { display: grid; gap: .1rem; min-width: 0; flex: 1; }
+#native .ob-row .ob-branch { width: 9rem; }
+#native .ob-add .co-input.ob-short { flex: 0 1 9rem; }
 #native .ob-row code { overflow-wrap: anywhere; }
 #native .ob-row > b { min-width: 7rem; }
 #native .ob .ok { color: var(--ok); }

@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest'
 import { STRINGS } from './i18n.js'
-import { STEP_KEYS, canContinue, defaultPicks, errorKey, hostOf, nextStep, prevStep, progress, repoFromUrl, repoRows,
-  setupChoice, stepIndex } from './onboarding.js'
+import { STEP_KEYS, canContinue, defaultPicks, errorKey, hostOf, manualHints, nextStep, prevStep, progress, repoBody, repoFromUrl,
+  repoRows, setupChoice, stepIndex, urlName } from './onboarding.js'
 
 const LEGACY = ['repos', 'tools', 'setup', 'stack', 'arch', 'intro']
 const at = (step, steps = LEGACY) => ({ mode: 'new', kind: 'legacy', steps, step, done: false })
@@ -66,12 +66,18 @@ test('repo rows: the workspace ticked, the rest found in the folder unticked, no
     { name: 'web', url: 'u', branch: 'dev', kind: 'frontend', checked: false }])
 })
 
-test('a code repo added by URL', () => {
+test('a code repo added by URL, with its name and branch (as add_url does)', () => {
   expect(repoFromUrl('https://gitlab.com/shop/payments.git')).toEqual(
-    { name: 'payments', url: 'https://gitlab.com/shop/payments.git', branch: 'main', kind: 'service', checked: true })
+    { name: 'payments', url: 'https://gitlab.com/shop/payments.git', branch: 'main', kind: 'service', checked: true, added: true })
+  expect(repoFromUrl(' https://gitlab.com/shop/payments.git ', ' pay ', ' develop ')).toMatchObject(
+    { name: 'pay', branch: 'develop', url: 'https://gitlab.com/shop/payments.git' })
+  expect(urlName('https://gitlab.com/shop/payments.git/')).toBe('payments')
   expect(repoFromUrl('git@github.com:shop/web')).toMatchObject({ name: 'web' })
   expect(repoFromUrl('  ')).toBeNull()
   expect(repoFromUrl('-x')).toBeNull()                      // git would read it as an option
+  // what the repos step saves: the ticked rows, only the workspace's keys
+  expect(repoBody([{ ...repoFromUrl('https://h/a/x.git', '', 'dev') }, { name: 'y', url: '', branch: 'main', kind: 'service', checked: false }]))
+    .toEqual([{ name: 'x', url: 'https://h/a/x.git', branch: 'dev', kind: 'service' }])
   expect(hostOf('https://gitlab.example.com/a/b.git')).toBe('gitlab.example.com')
   expect(hostOf('git@github.com:a/b.git')).toBe('github.com')
   expect(hostOf('')).toBe('')
@@ -90,6 +96,11 @@ test('tools: recommended picked by default, required ones always; setup gets sys
   const picked = defaultPicks(rows)
   expect(picked.sort()).toEqual(['git', 'java', 'likec4', 'openwiki'])
   expect(setupChoice(rows, ['git', 'likec4'])).toEqual({ system: ['git'], components: ['graphify', 'likec4'] })
+})
+
+test('a tool that failed to install comes with how to install it by hand', () => {
+  const rows = [{ id: 'java', label: 'Java 21 (brew install openjdk@21)' }, { id: 'node', label: 'Node.js 22' }]
+  expect(manualHints(rows, ['java', 'gone'])).toEqual([{ id: 'java', hint: 'Java 21 (brew install openjdk@21)' }, { id: 'gone', hint: '' }])
 })
 
 test('setup progress from the [n/total] lines', () => {
