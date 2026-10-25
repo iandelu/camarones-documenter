@@ -697,23 +697,69 @@ def test_a_page_the_kit_did_not_write_is_left_alone(dg):
     assert any("repos/api/diagrams.md" in line and "not written by the kit" in line for line in logs)
 
 
-def test_api_doc_lists_the_generated_blocks(dg):
+def api_doc_page(dg, name, text):
+    """(fetcher of /api/doc for `name`, stop) with `text` written as a docs page."""
     import json, threading, urllib.request
     from http.server import ThreadingHTTPServer
-    dg.put("api", "src/main/java/demo/OrderStatus.java", ORDER)
-    page = dg.kit.root / "docs" / "states.md"
+    page = dg.kit.root / "docs" / name
     page.parent.mkdir(parents=True, exist_ok=True)
-    fresh = dg.gb.Scanner().get("states", "api", "OrderStatus")[0]
-    page.write_text("---\ntitle: States\n---\n# States\n\n" + dg.gb.block("states", "api", fresh, id="OrderStatus") + "\n\nend\n",
-                    encoding="utf-8", newline="\n")
-    (dg.kit.root / "docs" / "plain.md").write_text("# Plain\n\nno blocks\n", encoding="utf-8", newline="\n")
+    page.write_text(text, encoding="utf-8", newline="\n")
     srv = ThreadingHTTPServer(("127.0.0.1", 0), dg.kit.serve.Handler)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
+
+    def doc():
+        with urllib.request.urlopen(f"http://127.0.0.1:{srv.server_address[1]}/api/doc?path={name}", timeout=30) as r:
+            return json.loads(r.read())
+    return doc, srv.shutdown
+
+
+def states_page(dg, **attrs):
+    fresh = dg.gb.Scanner().get("states", "api", "OrderStatus")[0]
+    return "---\ntitle: States\n---\n# States\n\n" + dg.gb.block("states", "api", fresh, id="OrderStatus", **attrs) + "\n\nend\n"
+
+
+def test_api_doc_lists_the_generated_blocks(dg):
+    dg.put("api", "src/main/java/demo/OrderStatus.java", ORDER)
+    doc, stop = api_doc_page(dg, "states.md", states_page(dg))
+    plain, stop2 = api_doc_page(dg, "plain.md", "# Plain\n\nno blocks\n")
     try:
-        def doc(p):
-            with urllib.request.urlopen(f"http://127.0.0.1:{srv.server_address[1]}/api/doc?path={p}", timeout=30) as r:
-                return json.loads(r.read())
-        assert doc("states.md")["blocks"] == [{"kind": "states", "repo": "api", "id": "OrderStatus", "state": "current"}]
-        assert doc("plain.md")["blocks"] == []
+        assert doc()["blocks"] == [{"kind": "states", "repo": "api", "id": "OrderStatus", "state": "current"}]
+        assert plain()["blocks"] == []
     finally:
-        srv.shutdown()
+        stop(), stop2()
+
+
+def test_a_failing_scan_never_blocks_the_page(dg, monkeypatch):
+    dg.put("api", "src/main/java/demo/OrderStatus.java", ORDER)
+    doc, stop = api_doc_page(dg, "states.md", states_page(dg))
+    monkeypatch.setattr(dg.gb, "states", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("scan blew up")))
+    try:
+        d = doc()
+        assert d["blocks"] == [] and "# States" in d["raw"]
+    finally:
+        stop()
+
+
+def test_blocks_are_scanned_once_within_the_ttl(dg, monkeypatch):
+    dg.put("api", "src/main/java/demo/OrderStatus.java", ORDER)
+    doc, stop = api_doc_page(dg, "states.md", states_page(dg))
+    calls, real = [], dg.gb.Scanner.get
+    monkeypatch.setattr(dg.gb.Scanner, "get", lambda self, *a: calls.append(a) or real(self, *a))
+    try:
+        first = doc()["blocks"]
+        n = len(calls)
+        assert n >= 1 and doc()["blocks"] == first and len(calls) == n
+        (dg.kit.root / "docs" / "states.md").write_text(states_page(dg) + "\nmore\n", encoding="utf-8", newline="\n")
+        doc()
+        assert len(calls) > n                                   # a page that changed is scanned again
+    finally:
+        stop()
+
+
+def test_a_confirmed_block_without_its_repo_on_disk_stays_confirmed(dg):
+    page = dg.gb.block("states", "ghost", "x", id="OrderStatus", confirmed="abc123", by="ana")
+    doc, stop = api_doc_page(dg, "states.md", f"# States\n\n{page}\n")
+    try:
+        assert doc()["blocks"] == [{"kind": "states", "repo": "ghost", "id": "OrderStatus", "state": "confirmed"}]
+    finally:
+        stop()
