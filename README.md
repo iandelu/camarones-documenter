@@ -698,7 +698,7 @@ Cada cambio en el kit sigue estas reglas (la versión completa para agentes est�
 Los tests fijan el comportamiento del kit sobre un workspace sintético de tres repos, con un `HOME` temporal (nunca tocan tu `~/.camarones`):
 
 ```sh
-uv run pytest            # suite rápida, sin red
+uv run pytest -n auto    # suite rápida, sin red, un worker por núcleo (sin -n: en serie)
 uv run pytest -m e2e     # ciclo completo sobre Spring PetClinic (REST + Angular) fijado a un commit
 ```
 

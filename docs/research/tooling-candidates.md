@@ -274,6 +274,14 @@ integrated in one session · local and licence-compatible):
   L1, M1, N4, N5, O1, Q3. The rule that drops most of them: one tool per job (OpenWiki, graphify, Ollama) and no kit
   files in service repos.
 
+## R. The kit's own development tooling (added 2026-10-25)
+
+Dev dependencies only (`pyproject.toml` `dev` group): they never reach a documented project.
+
+| ID | Tool | What it is | What it would improve here | Notes | Signal |
+|---|---|---|---|---|---|
+| R1 | [pytest-xdist](https://github.com/pytest-dev/pytest-xdist) | pytest plugin that spreads tests over worker processes (`-n auto`) | The suite ran serially (~1400 tests, 20+ min on Windows): most of it waits on git and child processes, so it scales with cores | §2.4: (1) no overlap, nothing in the kit runs tests in parallel; (2) pure Python wheel from PyPI via uv, same on all three OSes, no admin rights; (3) one flag, the `serial` marker keeps the tests that need it on one worker, and `-n0` (or leaving `-n` out) runs the old serial way; (4) local, MIT. Locked in `uv.lock` | 🟢 adopted: CI runs `uv run pytest -n auto` |
+
 ## Sources
 
 - Wikis: [CodeWiki](https://github.com/FSoft-AI4Code/CodeWiki) · [CodeWiki paper](https://arxiv.org/html/2510.24428v5) · [deepwiki-open](https://github.com/AsyncFuncAI/deepwiki-open) · [RepoWiki](https://github.com/he-yufeng/RepoWiki) · [repowise](https://github.com/repowise-dev/repowise) · [repowise vs DeepWiki](https://www.repowise.dev/blog/comparisons/repowise-vs-deepwiki) · [Google Code Wiki](https://developers.googleblog.com/introducing-code-wiki-accelerating-your-code-understanding/) · [Code Wiki status](https://pasqualepillitteri.it/en/news/1942/google-code-wiki-automatic-ai-documentation)

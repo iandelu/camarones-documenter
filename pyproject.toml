@@ -6,8 +6,8 @@ requires-python = ">=3.10"
 dependencies = []
 
 [dependency-groups]
-# same runtime dependencies as the inline header of .camarones/camarones.py, plus pytest
-dev = ["pytest>=8", "pyyaml>=6", "rich>=13", "questionary>=2", "keyring>=25"]
+# same runtime dependencies as the inline header of .camarones/camarones.py, plus pytest and pytest-xdist (-n auto)
+dev = ["pytest>=8", "pytest-xdist>=3.6", "pyyaml>=6", "rich>=13", "questionary>=2", "keyring>=25"]
 
 [tool.uv]
 package = false
@@ -15,5 +15,7 @@ package = false
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = ["e2e: clones real repos from GitHub (network); run with -m e2e",
-           "eval: asks a real agent the sandbox's golden questions (spends tokens); run with -m eval"]
-addopts = "-m 'not e2e and not eval' -p no:cacheprovider"
+           "eval: asks a real agent the sandbox's golden questions (spends tokens); run with -m eval",
+           "serial: must not run beside another serial test; with -n auto they all go to one worker, one at a time"]
+# loadgroup: tests marked serial share one xdist group (see conftest.py); without -n it changes nothing
+addopts = "-m 'not e2e and not eval' -p no:cacheprovider --dist loadgroup"
