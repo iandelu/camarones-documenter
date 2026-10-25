@@ -32,7 +32,10 @@ SQL_TABLE = re.compile(r"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?[`\"\[]?([\w.
 SQL_IN = re.compile(r"[`\"\[]?(\w+)[`\"\]]?\s+IN\s*\(([^)]*)\)", re.I)
 COMMENTS = re.compile(r"\"(?:\\.|[^\"\\\n])*\"|'(?:\\.|[^'\\\n])*'|`(?:\\.|[^`\\])*`|//[^\n]*|/\*.*?\*/", re.S)   # strings first
 MERMAID_WORDS = {"end", "state", "note", "class", "classdef", "style", "direction", "click", "hide", "scale", "as", "title",
-                 "subgraph", "graph", "flowchart"}
+                 "subgraph", "graph", "flowchart",
+                 # sequence diagrams: blocks, statements and participants a bare id would be read as
+                 "loop", "alt", "opt", "par", "and", "else", "rect", "box", "break", "critical", "option", "link", "links",
+                 "activate", "deactivate", "autonumber", "participant", "actor", "create", "destroy", "over", "sequencediagram"}
 TRANSITIONS = "transitions: waiting for a proposal"
 
 
@@ -276,7 +279,7 @@ def _context_map() -> dict | None:
     nodes += [(CACHE, "db", "Redis cache")] * bool(model["caches"])
     idps, folded = sorted(model["idps"]), []
     edges = [(a, b, label) for a, b, _kind, label in model["edges"]] + [(n, CACHE, "caches") for n in sorted(model["caches"])]
-    if len(nodes) + len(idps) > NODE_LIMIT and idps:
+    if len(nodes) + len(idps) > NODE_LIMIT and len(idps) > 1:               # one provider alone: a fold saves no node
         folded, nodes = idps, nodes + [(EXTERNAL, "external", f"External ({len(idps)})")]
         edges = [(EXTERNAL if a in idps else a, EXTERNAL if b in idps else b, label) for a, b, label in edges]
     else:
@@ -285,7 +288,7 @@ def _context_map() -> dict | None:
     if len(nodes) > NODE_LIMIT:
         degree = {k: sum(k in (a, b) for a, b, _ in edges) for k, *_ in nodes}
         droppable = sorted((k for k, shape, _ in nodes if shape in ("repo", "db")), key=lambda k: -degree[k])
-        gone = set(droppable[NODE_LIMIT - (len(nodes) - len(droppable)):])
+        gone = set(droppable[max(0, NODE_LIMIT - (len(nodes) - len(droppable))):])
         nodes, dropped = [x for x in nodes if x[0] not in gone], len(gone)
     keep = {k for k, *_ in nodes}
     seen, kept = set(), []
