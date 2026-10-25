@@ -188,19 +188,46 @@ def c4_change(path: str, b: dict, by: str) -> dict:
     raise ValueError(f"unknown C4 change {path!r}")
 
 
-def _blocks(text: str) -> list[dict]:
-    """The generated blocks of a page and where each stands (the portal's badges); nothing to scan for most pages."""
+BLOCKS_TTL = 30.0                                   # seconds: code changes show up in the badges within this long
+_blocks_cache: dict[tuple, tuple[float, list[dict]]] = {}
+
+
+def _compute_blocks(text: str) -> list[dict]:
+    from . import genblocks
+    from .common import repo_dir
+    out = []
+    for m, state, _ in genblocks.states(text, genblocks.Scanner()):
+        # Without the repo on disk (a teammate who cloned only cam-docs) nothing can say the code changed: the marker speaks.
+        if m["repo"] != genblocks.SYSTEM and not repo_dir(m["repo"]).is_dir():
+            state = "confirmed" if m["confirmed"] else state
+        out.append({"kind": m["kind"], "repo": m["repo"], "id": m["id"], "state": state})
+    return out
+
+
+def _blocks(f: Path, text: str) -> list[dict]:
+    """The generated blocks of a page and where each stands (the portal's badges). A badge is a bonus: it never stops
+    a page from opening (on any failure the markers decide), and a scan is reused for a few seconds per page version."""
     if "<!-- generated:" not in text:
         return []
-    from . import genblocks
-    return [{"kind": m["kind"], "repo": m["repo"], "id": m["id"], "state": state}
-            for m, state, _ in genblocks.states(text, genblocks.Scanner())]
+    try:
+        key = (str(f), f.stat().st_mtime_ns if f.exists() else 0, len(text))
+        hit = _blocks_cache.get(key)
+        if hit and time.monotonic() - hit[0] < BLOCKS_TTL:
+            return hit[1]
+        got = _compute_blocks(text)
+    except Exception:
+        return []
+    now = time.monotonic()
+    for k in [k for k, (at, _) in _blocks_cache.items() if now - at >= BLOCKS_TTL]:
+        del _blocks_cache[k]
+    _blocks_cache[key] = (now, got)
+    return got
 
 
 def api_doc(q: dict) -> dict:
     """A page the reader opened (`track`), not the extra reads the UI does for fallbacks and the home page."""
     d = read(q["path"], q.get("lang", ""))
-    d["blocks"] = _blocks(d["raw"])
+    d["blocks"] = _blocks(doc_file(q["path"], q.get("lang", "")), d["raw"])
     if q.get("track"):
         usage.record("portal:doc", channel="human", page=q["path"])
     return d
