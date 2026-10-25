@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json, os, subprocess, sys, zipfile
+from pathlib import Path
 
 import pytest
 
@@ -358,3 +359,50 @@ def test_cli_board_flags(un, before):
     r = cli(un, "--yes", "--no-backup", "--drop-board")
     assert r.returncode == 0, r.stdout + r.stderr
     assert not list(un.ws.glob("backlog*"))
+
+
+# ---------- review round 1 ----------
+def test_board_label_tells_the_truth_about_the_backup(un, before):
+    add_board(un)
+    with_zip = "\n".join(s.label for s in un.uninstall.steps(keep_board=False) if "backlog/" in s.label)
+    assert "backup" in with_zip and "no backup" not in with_zip.lower()
+    no_zip = "\n".join(s.label for s in un.uninstall.steps(backup=False, keep_board=False) if "backlog/" in s.label)
+    assert "deleted" in no_zip and "no backup" in no_zip.lower()
+
+
+def test_dropping_the_board_without_backup_warns_before_deleting(un, before, monkeypatch, capsys):
+    add_board(un)
+    answers = iter(["demo", "n"])
+    monkeypatch.setattr("builtins.input", lambda p="": next(answers))
+    assert un.uninstall.main(backup=False) == 0
+    out = capsys.readouterr().out
+    assert "no backup" in out.lower() and "deleted for good" in out
+
+
+def test_a_failed_board_copy_aborts_before_anything_changes(un, before, monkeypatch):
+    add_board(un)
+    un.projects.register(un.root)
+    def boom(src, dst, **kw):
+        Path(dst).mkdir()
+        raise OSError("disk full")
+    monkeypatch.setattr(un.uninstall.shutil, "copytree", boom)
+    with pytest.raises(OSError):
+        run(un, backup=False)
+    assert un.root.is_dir() and (un.root / "backlog" / "tasks" / ITEM).is_file()
+    assert not (un.ws / "backlog").exists()
+    assert [r["path"] for r in un.projects.load()] and all(un.env._is_link(un.ws / n) for n in un.linked)
+    assert un.stopped == ["portal"]
+
+
+def test_a_seeded_empty_board_asks_nothing_and_copies_nothing(un, before, monkeypatch):
+    assert (un.root / "backlog" / "board.yaml").is_file() and not list((un.root / "backlog").rglob("*.md"))
+    answers = iter(["demo"])
+    monkeypatch.setattr("builtins.input", lambda p="": next(answers))
+    assert not [s for s in un.uninstall.steps() if "backlog/" in s.label]
+    assert un.uninstall.main(backup=False) == 0
+    assert not list(un.ws.glob("backlog*"))
+
+
+def test_keep_and_drop_board_are_exclusive(un, before):
+    r = cli(un, "--dry-run", "--keep-board", "--drop-board")
+    assert r.returncode == 2 and "not allowed with" in r.stderr

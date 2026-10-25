@@ -192,7 +192,8 @@ def steps(include_global: bool = False, backup: bool = True, keep_board: bool | 
         out.append(Step("delete", f"{WORKSPACE.name}/.cw/ — the units' worktrees (work not integrated yet is lost)"))
     if has_board():
         out.append(Step("board", f"backlog/ (the board): " + (
-            f"dropped with {CAM_DIR}/ (the backup zip keeps it)" if keep_board is False else
+            (f"dropped with {CAM_DIR}/ (the backup zip keeps it)" if backup else
+             f"deleted with {CAM_DIR}/ — no backup is being made, so it is gone for good") if keep_board is False else
             f"copied to {WORKSPACE.name}/{board_dest().name}/ next to the repos before {CAM_DIR}/ goes"
             + (" (unless you say no)" if keep_board is None else ""))))
     out.append(Step("delete", f"{CAM_DIR}/ ({ROOT}) — docs, wikis, code graphs, agent config and its git history"))
@@ -250,6 +251,15 @@ def run(include_global: bool = False, backup: bool = True, backup_dir: Path | No
     zipped = backup_zip(backup_dir or BACKUP_DIR) if backup else None
     if zipped:
         log(f"✔ backup: {zipped}")
+    if keep_board and has_board():             # first of the changes: a failed copy aborts with nothing touched
+        dest = board_dest()
+        try:
+            shutil.copytree(ROOT / "backlog", dest, symlinks=True)
+        except BaseException:
+            if dest.exists():
+                rmtree(dest)
+            raise
+        log(f"✔ board kept: {dest}")
     for name in repo_names():
         acts = RepoCleaner(name, dry=False).run()
         if forget_repo_mcp(name):
@@ -264,10 +274,6 @@ def run(include_global: bool = False, backup: bool = True, backup_dir: Path | No
     if (WORKSPACE / ".cw").exists():
         rmtree(WORKSPACE / ".cw")
         log(f"✔ {WORKSPACE.name}/.cw/: unit worktrees removed")
-    if keep_board and has_board():
-        dest = board_dest()
-        shutil.copytree(ROOT / "backlog", dest, symlinks=True)
-        log(f"✔ board kept: {dest}")
     rmtree(ROOT)
     log(f"✔ {CAM_DIR}/ deleted")
     if include_global:
@@ -303,6 +309,8 @@ def main(include_global: bool = False, dry_run: bool = False, yes: bool = False,
             print("Cancelled — nothing was removed.")
             return 1
         if has_board() and keep_board is None:
+            if not backup:
+                print("No backup is being made: if you drop the board it is deleted for good.")
             try:
                 keep_board = input("Keep the board (backlog/) next to the repos? [Y/n] ").strip().casefold() not in ("n", "no")
             except EOFError:
