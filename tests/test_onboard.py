@@ -146,3 +146,130 @@ def test_detect_repos_takes_a_workspace(kit, tmp_path):
     make_repo(other / "solo", {"go.mod": "module solo\n"})
     assert [r["name"] for r in kit.docs.detect_repos(other)] == ["solo"]
     assert [r["name"] for r in kit.docs.detect_repos()] == ["api", "web", "worker"]     # no argument: the kit's workspace
+
+
+# ---------- first-run state shared by the CLI and the app: name, start, steps ----------
+def ws_yaml(root: Path) -> dict:
+    return yaml.safe_load((root / ".camarones" / "workspace.yaml").read_text(encoding="utf-8"))
+
+
+def test_steps_by_mode_and_kind(kit):
+    o = kit.onboard
+    assert o.steps("new", "legacy") == ("name", "repos", "tools", "setup", "stack", "arch", "intro")
+    assert o.steps("new", "greenfield") == ("name", "repos", "tools", "setup", "intro")
+    assert o.steps("join", "legacy") == o.steps("join", "greenfield") == ("tools", "setup", "intro")
+
+
+def test_steps_unknown_kind_reads_legacy(kit):
+    assert kit.onboard.steps("new", "greenfiled") == kit.onboard.steps("new", "legacy")
+
+
+def test_steps_live_in_onboard_and_the_wizard_reexports_them(kit):
+    assert kit.wizard.STEPS is kit.onboard.STEPS and kit.wizard.LEGACY_STEPS is kit.onboard.LEGACY_STEPS
+    assert kit.wizard.JOIN_STEPS == kit.onboard.steps("join", "legacy")
+    assert kit.wizard.first_run_mode is kit.onboard.first_run_mode
+
+
+def test_start_umbrella(kit, tmp_path):
+    ws = umbrella(tmp_path / "u")
+    root = kit.onboard.start(ws)
+    assert root == (ws / "cam-docs").resolve()
+    data = ws_yaml(root)
+    assert data["project"]["kind"] == "legacy"
+    assert [r["name"] for r in data["repos"]] == ["api", "web", "worker"]
+    state = kit.common.load_json(kit.onboard.firstrun_file(root), {})
+    assert (state["name"], state["done"]) == ("repos", False)
+    assert any(Path(r["path"]).resolve() == root for r in kit.projects.load())
+
+
+def test_start_a_repo_preselects_only_it(kit, tmp_path):
+    ws = umbrella(tmp_path / "u")
+    root = kit.onboard.start(ws / "api")
+    assert root == (ws / "cam-docs").resolve()
+    assert [r["name"] for r in ws_yaml(root)["repos"]] == ["api"]
+
+
+def test_start_empty_is_greenfield(kit, tmp_path):
+    (tmp_path / "blank").mkdir()
+    root = kit.onboard.start(tmp_path / "blank")
+    data = ws_yaml(root)
+    assert data["project"]["kind"] == "greenfield" and data["repos"] == []
+
+
+def test_start_is_idempotent(kit, tmp_path):
+    ws = umbrella(tmp_path / "u")
+    root = kit.onboard.start(ws)
+    first = (root / ".camarones" / "workspace.yaml").read_bytes()
+    assert kit.onboard.start(ws) == root
+    assert (root / ".camarones" / "workspace.yaml").read_bytes() == first
+
+
+def test_start_on_a_project_writes_nothing(kit):
+    root = kit.root
+    kit.onboard.save_position(root, "tools", "new")
+    files = [root / ".camarones" / "workspace.yaml", kit.onboard.firstrun_file(root)]
+    before = [f.read_bytes() for f in files]
+    assert kit.onboard.start(kit.ws) == root.resolve()
+    assert [f.read_bytes() for f in files] == before
+
+
+def test_start_keeps_a_human_name(kit, tmp_path):
+    folder = tmp_path / "Mi Proyecto Ñandú"
+    make_repo(folder / "api", {"go.mod": "module api\n"})
+    root = kit.onboard.start(folder)
+    project = ws_yaml(root)["project"]
+    assert project["name"] == "Mi Proyecto Ñandú"
+    assert project["id"] == kit.onboard.name_project({"project": {}}, "Mi Proyecto Ñandú", "x")["project"]["id"]
+    assert root == (folder / "cam-docs").resolve() and not (root / "cam-docs").exists()
+
+
+def test_start_writes_what_the_cli_name_step_writes(kit, fake_wizard, tmp_path):
+    ws = umbrella(tmp_path / "u")
+    project = ws_yaml(kit.onboard.start(ws, "Mi Proyecto"))["project"]
+    project.pop("kind")
+    fake_wizard(["Mi Proyecto"]).fr_name(kit.docs.workspace())
+    cli = kit.docs.workspace()["project"]
+    assert project == {k: cli[k] for k in ("name", "id", "canonical_language", "translations")}
+
+
+def test_start_on_something_that_is_not_a_folder(kit, tmp_path):
+    f = tmp_path / "a-file.txt"
+    f.write_text("x", encoding="utf-8")
+    for bad in (f, tmp_path / "missing"):
+        with pytest.raises(ValueError, match=bad.name):
+            kit.onboard.start(bad)
+
+
+def test_inspect_an_unreadable_folder_reads_as_no_repos(kit, tmp_path, monkeypatch):
+    (tmp_path / "locked").mkdir()
+
+    def denied(*_a, **_k):
+        raise PermissionError("denied")
+
+    monkeypatch.setattr(kit.projects, "has_repos", denied)
+    r = kit.onboard.inspect(tmp_path / "locked")
+    assert (r["case"], r["repos"]) == ("empty", [])
+    monkeypatch.setattr(kit.docs, "detect_repos", denied)
+    assert kit.onboard.inspect(tmp_path / "locked")["repos"] == []
+
+
+def test_name_project_defaults_and_fallback(kit):
+    p = kit.onboard.name_project({"project": {"translations": ["fr"], "canonical_language": "es"}}, "  ", "Demo Dir")["project"]
+    assert (p["name"], p["id"], p["canonical_language"], p["translations"]) == ("Demo Dir", "demo-dir", "es", ["fr"])
+
+
+def test_state_written_by_the_app_resumes_the_cli(kit):
+    o, root = kit.onboard, kit.root
+    o.save_position(root, "setup", "new")
+    state = kit.common.load_json(o.firstrun_file(root), {})
+    assert state == {"step": o.STEPS.index("setup"), "name": "setup", "done": False}
+    assert kit.wizard.resume_step(state) == o.STEPS.index("setup")
+    o.save_position(root, "tools", "join")
+    state = kit.common.load_json(o.firstrun_file(root), {})
+    assert state["mode"] == "join" and o.first_run_mode(state, True, False) == "join"
+    o.finish(root, 3)
+    assert kit.common.load_json(o.firstrun_file(root), {}) == {"step": 3, "done": True}
+
+
+def test_firstrun_file_is_the_wizards(kit):
+    assert kit.onboard.firstrun_file(kit.root) == kit.wizard.FIRSTRUN
