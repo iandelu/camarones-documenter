@@ -15,9 +15,10 @@ from __future__ import annotations
 import functools, re
 from pathlib import Path
 from types import SimpleNamespace
+from urllib.parse import unquote
 
 from .common import DOCS, rel_file, repo_dir
-from . import diagrams, docs, genblocks, inventory, quickarch, schemas
+from . import diagrams, docs, genblocks, inventory, quality, quickarch, schemas
 
 SYSTEM = "_system"                                                          # reserved repo name: the whole system
 HOME = "index.md"
@@ -599,10 +600,90 @@ def _homeless(removable: dict[str, set[Key]], old: dict[str, Path]) -> list[str]
 
 
 def _logged(out: dict, log) -> dict:
-    for mark, key in (("✔ moved", "moved"), ("✖ deleted", "deleted"), ("· kept", "kept")):
+    for mark, key in (("✔ moved", "moved"), ("✖ deleted", "deleted"), ("· kept", "kept"), ("✔ relinked", "relinked"),
+                      ("· links to a removed page, left as they are:", "links"),
+                      ("· translation of a removed page, left as it is:", "translations")):
         for line in out[key]:
             log(f"{mark} {line}")
     return out
+
+
+# ---------- the links to the removed pages ----------
+def _successor(rel: str) -> str:
+    """The new page (docs-relative) that took over the removed old page `rel`: a repo's page, else the home."""
+    parts = rel.split("/")
+    if parts[0] == "repos":
+        return REPO_PAGE.format(repo=parts[1])
+    return REPO_PAGE.format(repo=parts[1][:-len(".md")]) if parts[0] == "data" else HOME
+
+
+def _relative(target: str, page: str) -> str:
+    """The path of docs page `target` as seen from docs page `page` (both docs-relative, posix)."""
+    t, base, n = target.split("/"), page.split("/")[:-1], 0
+    while n < len(base) and n < len(t) - 1 and base[n] == t[n]:
+        n += 1
+    return "/".join([".."] * (len(base) - n) + t[n:])
+
+
+def _link_spans(body: str):
+    """(start, end, href) of every Markdown link target in `body` outside code: inline `[text](target)` and reference
+    definitions `[id]: target` (the quality check's own patterns, so it sees what this sees)."""
+    fence, pos = None, 0
+    for line in body.splitlines(keepends=True):
+        m = quality.FENCE_RE.match(line)
+        if m:
+            fence = None if fence == m.group(1) else (fence or m.group(1))
+        elif fence is None:
+            prose = quality.INLINE_CODE_RE.sub(lambda c: " " * len(c.group(0)), line)
+            for rx in (quality.LINK_RE, quality.REF_DEF_RE):
+                for link in rx.finditer(prose):
+                    yield pos + link.start(1), pos + link.end(1), link.group(1)
+        pos += len(line)
+
+
+def _removed_target(href: str, page: str, gone: set[str]) -> str | None:
+    """The removed page (docs-relative) that `href`, written in docs page `page`, points to; None for any other link."""
+    if re.match(r"^[a-z][a-z0-9+.-]*:|^/", href, re.I):
+        return None
+    target = unquote(href.split("?", 1)[0]).partition("#")[0]
+    page_to = quality.resolve(page, target) if target.endswith(".md") else None
+    return page_to if page_to in gone else None
+
+
+def _relink(gone: set[str], written: set[str]) -> tuple[list[str], list[str]]:
+    """After the deletes: point the links to the pages in `gone` (docs-relative) at the page that took over (`_successor`,
+    as a path relative to the linking page, `#anchor` dropped) and return (the pages rewritten, the pages left with such
+    a link, `docs/…`). Every docs page is looked at but the translations (`i18n/`), the dot folders and the pages in
+    `written` (adopt's own). Only the target changes, in the text of the page, frontmatter and the rest byte for byte;
+    only a page that is not a person's (`_status`) is rewritten, and only when the page that took over exists."""
+    relinked, left = [], []
+    for f in sorted(DOCS.rglob("*.md")):
+        rel = f.relative_to(DOCS).as_posix()
+        if rel.split("/")[0] == "i18n" or any(p.startswith(".") for p in rel.split("/")) or rel_file(f) in written:
+            continue
+        try:
+            text = f.read_bytes().decode("utf-8")
+        except UnicodeDecodeError:
+            continue
+        _fm, body, _valid = docs.parse_fm(text)
+        start = len(text) - len(body)
+        hits = [(a, b, t) for a, b, href in _link_spans(body) if (t := _removed_target(href, rel, gone))]
+        if not hits:
+            continue
+        if _status(f) == "closed" or not all((DOCS / _successor(t)).is_file() for _a, _b, t in hits):
+            left.append(rel_file(f))
+            continue
+        for a, b, t in reversed(hits):
+            body = body[:a] + _relative(_successor(t), rel) + body[b:]
+        f.write_bytes((text[:start] + body).encode("utf-8"))
+        relinked.append(rel_file(f))
+    return relinked, left
+
+
+def _translations(gone: set[str]) -> list[str]:
+    """The translations (`docs/i18n/<lang>/<page>`) that exist of the pages in `gone`; they are only listed."""
+    langs = sorted(d for d in (DOCS / "i18n").glob("*") if d.is_dir())
+    return [rel_file(d / rel) for rel in sorted(gone) for d in langs if (d / rel).is_file()]
 
 
 def adopt(log=lambda _: None) -> dict:
@@ -616,9 +697,11 @@ def adopt(log=lambda _: None) -> dict:
     the removable pages' confirmed, hand-edited and unknown blocks go verbatim into their new page (`place`), the
     others are there fresh. Then a removable page is deleted only when every block it held (but the dropped `gone`
     ones) is in a page that stays, and its carried blocks' pages exist; a failure while writing deletes nothing. Nothing is
-    done while some repo is not on this machine, or while the home is a person's page without the cards. Translations
-    are left as they are. Returns {"moved": ["<kind> <repo>[ <id>] → docs/<page>"], "deleted", "kept": ["docs/<page>:
-    <reason>"], "relinked", "links", "translations"} (`docs/…` paths; the last three are empty here)."""
+    done while some repo is not on this machine, or while the home is a person's page without the cards. Only after the
+    deletes, the links to the deleted pages are pointed at the pages that took over (`_relink`) and their translations
+    are listed, never edited or deleted. Returns {"moved": ["<kind> <repo>[ <id>] → docs/<page>"], "deleted", "kept":
+    ["docs/<page>: <reason>"], "relinked" (pages whose links were rewritten), "links" (pages with a link to a deleted
+    page that were not rewritten), "translations"} (`docs/…` paths)."""
     out = {k: [] for k in ("moved", "deleted", "kept", "relinked", "links", "translations")}
     old = {f.relative_to(DOCS).as_posix(): f for f in old_pages()}
     home = DOCS / HOME
@@ -645,7 +728,7 @@ def adopt(log=lambda _: None) -> dict:
         del removable[rel]
     closed = frozenset(DOCS / rel for rel, _r, _m in _specs(scan.memo)
                        if (DOCS / rel).exists() and _status(DOCS / rel) == "closed")
-    _write_new(log, exclude=frozenset(old[rel] for rel in removable), frozen=closed)
+    written = set(_write_new(log, exclude=frozenset(old[rel] for rel in removable), frozen=closed))
     drafts = _draft_blocks({old[rel].resolve() for rel in removable}, scan)
     puts = {rel: list(blocks) for rel, (blocks, _sources) in drafts.items()}
     for rel in [r for r, (carried, _k) in removable.items()
@@ -669,12 +752,17 @@ def adopt(log=lambda _: None) -> dict:
         new = (docs.join_fm({**fm, "x-sources": list(dict.fromkeys([*(fm.get("x-sources") or []), *sources]))}, new_body)
                if sources else text[:len(text) - len(body)] + new_body)
         f.write_text(new, encoding="utf-8", newline="\n")
+        written.add(rel_file(f))
         log(f"✔ {rel_file(f)}")
     homeless = _homeless({rel: keys for rel, (_c, keys) in removable.items()}, old)
+    gone = set()
     for rel in removable:
         if rel in homeless:
             out["kept"].append(f"{rel_file(old[rel])}: some of its blocks have no other home")
         else:
             old[rel].unlink()
             out["deleted"].append(rel_file(old[rel]))
+            gone.add(rel)
+    out["relinked"], out["links"] = _relink(gone, written) if gone else ([], [])
+    out["translations"] = _translations(gone)
     return _logged(out, log)
