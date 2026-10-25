@@ -96,18 +96,13 @@ def test_the_page_and_its_scripts_are_served(portal):
             assert r.status == 200 and r.read(), src
 
 
-def test_every_tab_has_a_route_and_every_react_view_a_component(kit):
-    app = (kit.kit_dir / "portal" / "app" / "public" / "legacy" / "app.js").read_text(encoding="utf-8")
+def test_every_react_view_has_a_component(kit):
+    """The shell's router (src/router.js) routes these to React; Native.jsx must have each one."""
+    router = (kit.kit_dir / "portal" / "app" / "src" / "router.js").read_text(encoding="utf-8")
     native = (kit.kit_dir / "portal" / "app" / "src" / "Native.jsx").read_text(encoding="utf-8")
-    core = (kit.kit_dir / "portal" / "app" / "public" / "legacy" / "core.js").read_text(encoding="utf-8")
-    tabs = re.findall(r"\['([\w-]+)', '#/[\w-]*'\]", app)
-    react = re.search(r"if \(\[([^\]]+)\]\.includes\(view\)", app).group(1)
-    react = re.findall(r"'([\w-]+)'", react)
+    react = re.findall(r"'([\w-]+)'", re.search(r"export const NATIVE = \[([^\]]+)\]", router).group(1))
     components = re.search(r"const View = \{([^}]+)\}\[view\]", native).group(1)
-    for tab in tabs:
-        routed = tab in react or re.search(rf"view === '{tab}'", app) or tab in ("docs", "c4")
-        assert routed, f"tab {tab} has no route"
-        assert re.search(rf"\b{'codeTab' if tab == 'code' else tab}: '", core), f"tab {tab} has no label"
+    assert react
     for view in react:
         assert re.search(rf"\b{view}: \w+", components), f"React view {view} has no component"
 

@@ -58,7 +58,7 @@ def get(url):
 
 def test_the_portal_is_served_at_the_root(server):
     status, ctype, body = get(f"{server}/")
-    assert status == 200 and "text/html" in ctype and b'id="native"' in body and b"legacy/app.js" in body
+    assert status == 200 and "text/html" in ctype and b'id="app"' in body and b"legacy/app.js" in body
     asset = re.search(rb'src="\./(assets/[^"]+\.js)"', body).group(1).decode()
     status, ctype, _ = get(f"{server}/{asset}")
     assert status == 200 and "javascript" in ctype
@@ -88,17 +88,19 @@ def test_the_old_next_address_redirects(server):
 
 
 def test_the_react_views_are_reached_through_zones(kit):
-    """No tab bar since 4.42: Home, zone covers, breadcrumbs and ⌘K reach every view (src/zones.js)."""
+    """No tab bar since 4.42: the shell's sidebar, Home, zone covers, breadcrumbs and ⌘K reach every view
+    (src/zones.js); the shell's router (src/router.js) shows them."""
     app_dir = kit.kit_dir / "portal" / "app"
     app = (app_dir / "public" / "legacy" / "app.js").read_text(encoding="utf-8")
     core = (app_dir / "public" / "legacy" / "core.js").read_text(encoding="utf-8")
     zones = (app_dir / "src" / "zones.js").read_text(encoding="utf-8")
+    router = (app_dir / "src" / "router.js").read_text(encoding="utf-8")
     for href in ("#/pipeline", "#/kpis", "#/ci", "#/libs", "#/data"):      # Ask is reached from the Home hero
         assert f"'{href}'" in zones
     assert "'#/boards'" not in zones                                              # boards were removed in 4.49
-    assert "if (view === 'boards') return location.replace('#/arch');" in app
+    assert "if (view === 'boards') return { kind: 'redirect', to: '#/arch' }" in router
     assert "#/ask/" in app
-    assert "window.CamaronNative.show(view, rest)" in app
+    assert "return { kind: 'native', view, arg: rest }" in router
     assert 'id="tabs"' not in (app_dir / "index.html").read_text(encoding="utf-8")
     for key in ("'zone.arch'", "'home.title'"):
         assert core.count(key) == 2                                                   # en + es

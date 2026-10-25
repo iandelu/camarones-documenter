@@ -39,6 +39,14 @@ const ROUTES = {
   ...Object.fromEntries(TALLER.map((v) => [v, ['taller', v]])),
 }
 
+// Where an address is, for the sidebar: its zone and view (a zone cover has no view; search and home, no zone).
+export function locate(hash) {
+  const view = ((hash || '').replace(/^#/, '').match(/^\/([\w-]*)/) || [])[1] || ''
+  if (ROUTES[view]) return { zone: ROUTES[view][0], view: ROUTES[view][1] }
+  if (ZONES.some((z) => z.id === view)) return { zone: view, view: null }
+  return { zone: null, view: null }
+}
+
 const available = (view, mode, index) => (!view.live || mode !== 'static') && (!view.app || mode === 'app')
   && (!view.needs || view.needs(index, mode))
 

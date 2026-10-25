@@ -13,30 +13,14 @@
   <script src="vendor/dompurify@3.2.6/dist/purify.min.js"></script>
   <script src="vendor/mermaid@11.4.1/dist/mermaid.min.js"></script>
   <script src="vendor/@highlightjs/cdn-assets@11.11.1/highlight.min.js"></script>
-  <script type="module" crossorigin src="./assets/index-yTjJFs_f.js"></script>
-  <link rel="modulepreload" crossorigin href="./assets/i18n-rPHJu3Lj.js">
-  <link rel="stylesheet" crossorigin href="./assets/index-C3w_-TKr.css">
+  <script type="module" crossorigin src="./assets/index-wphj9qaM.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/i18n-DIQl_ufA.js">
+  <link rel="stylesheet" crossorigin href="./assets/index-Dl88luIY.css">
 </head>
 <body>
-  <header class="top">
-    <button id="menu" class="ghost icon menu" type="button" aria-label="menu">☰</button>
-    <a class="brand" href="#/"><span class="wordmark">camarón</span><span class="brand-sub" id="project"></span></a>
-    <nav class="topcrumbs" id="crumbs" aria-label="breadcrumb"></nav>
-    <button id="search-btn" class="searchbtn" type="button"><span>🔍 <span id="search-label"></span></span><kbd id="search-key">⌘K</kbd></button>
-    <div class="tools">
-      <span id="summary" class="summary"></span>
-      <select id="lang" aria-label="language"></select>
-      <button id="theme" class="ghost icon" type="button" aria-label="theme"></button>
-    </div>
-  </header>
-  <div id="ro" class="ro aviso" hidden></div>
-  <div class="layout" id="layout">
-    <aside class="side" id="side"><div id="side-head"></div><nav id="tree"></nav></aside>
-    <main id="main" class="main"></main>
-    <section id="native" class="main native" hidden></section>
-    <aside class="toc empty" id="toc"></aside>
-  </div>
-  <div id="scrim"></div>
+  <!-- The shell (src/shell/Shell.jsx) renders the header, sidebar and view slots here. The dialogs below stay in the
+       page: the plain scripts bind them when they load. -->
+  <div id="app"></div>
   <dialog id="palette" class="palette">
     <div class="pal">
       <input id="pal-q" type="search" autocomplete="off" spellcheck="false" aria-label="search">

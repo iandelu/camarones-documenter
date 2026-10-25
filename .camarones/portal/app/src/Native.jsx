@@ -12,7 +12,7 @@ const Interview = lazy(() => import('./Interview.jsx'))
 const Sync = lazy(() => import('./Sync.jsx'))
 const TALLER = ['generate', 'analyze', 'check', 'interviews', 'team', 'machine', 'kitdev']
 
-// The React views of the portal; the docs router (legacy/app.js) shows them through window.CamaronNative.
+// The React views of the portal; the shell (shell/Shell.jsx) shows them when the router says `native`.
 export default function Native({ view, arg }) {
   if (TALLER.includes(view)) return <Suspense fallback={<div className="skeleton" aria-busy="true" />}><Taller key={view} zone={view} /></Suspense>
   const View = { pipeline: Pipeline, ask: Ask, kpis: Kpis, ci: Ci, libs: Libs, data: Data, interview: Interview, sync: Sync }[view]
