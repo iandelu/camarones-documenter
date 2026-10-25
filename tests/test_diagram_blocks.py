@@ -125,3 +125,34 @@ def test_a_states_block_refreshes_and_goes_stale_with_the_code(dg):
     assert [s for _, s, _ in dg.gb.states(text, dg.gb.Scanner())] == ["stale"]
     f.unlink()
     assert [s for _, s, _ in dg.gb.states(text, dg.gb.Scanner())] == ["unknown"]
+
+
+@pytest.mark.parametrize("base", ["IntEnum", "StrEnum", "IntFlag", "enum.Enum"])
+def test_python_enum_subclasses_are_detected(dg, base):
+    dg.put("api", "app/jobs.py", f"class JobStatus({base}):\n    QUEUED = 1\n    DONE = 2\n")
+    assert enums(dg)["JobStatus"]["states"] == ["QUEUED", "DONE"]
+
+
+def test_slashes_inside_a_string_do_not_cut_the_list(dg):
+    dg.put("api", "EnvState.java", 'enum EnvState { PROD("https://a.com"), TEST("https://t.com"), DEV("x"); }\n')
+    assert enums(dg)["EnvState"]["states"] == ["PROD", "TEST", "DEV"]
+
+
+def test_an_escaped_quote_inside_a_string_does_not_cut_the_list(dg):
+    dg.put("api", "AStatus.java", 'enum AStatus { A("x\\"y"), B, C }\n')
+    assert enums(dg)["AStatus"]["states"] == ["A", "B", "C"]
+
+
+def test_comments_are_still_ignored_and_line_numbers_kept(dg):
+    dg.put("api", "Doc.java", "/* the states\n   enum FakeState { X } */\n// enum OtherState { Y }\n"
+                              'enum RealState { A("//"), /* skip */ B } // end\n')
+    got = enums(dg)
+    assert list(got) == ["RealState"] and got["RealState"]["states"] == ["A", "B"] and got["RealState"]["source"].endswith("#L4")
+
+
+def test_a_state_named_like_a_mermaid_keyword_gets_an_aliased_id(dg):
+    dg.put("api", "app/run.py", 'class RunState(Enum):\n    start = "s"\n    end = "e"\n    state = "x"\n    note = "n"\n')
+    body, _ = dg.mod.render("states", "api", "RunState")
+    lines = [ln.strip() for ln in body.splitlines()]
+    assert 'state "end" as end_' in lines and 'state "state" as state_' in lines and 'state "note" as note_' in lines
+    assert "start" in lines and not {"end", "state", "note"} & set(lines)
