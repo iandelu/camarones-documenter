@@ -69,6 +69,8 @@ def init_templates(project_name: str | None = None, log: Log = print) -> list[st
     if not (ROOT / ".git").exists():
         subprocess.run(["git", "init", "-q", str(ROOT)])
         created.append(".git (docs repo)")
+        from .kanban import ops
+        created += ops.init(log=lambda _: None)             # a new project starts with its board (existing ones opt in)
     docs.write_gitignore()
     for c in created:
         log(f"  + {c}")
@@ -1502,7 +1504,7 @@ def install_ci(forge: str | None = None, log: Log = print) -> Path:
 
 
 # ---------- progress safety: local checkpoint commits in the umbrella repo ----------
-CHECKPOINT_PATHS = ["docs", "wikis", "evals", ".camarones/workspace.yaml", ".camarones/PLAYBOOK.md", ".camarones/CONVENTIONS.md",
+CHECKPOINT_PATHS = ["docs", "wikis", "evals", "backlog", ".gitattributes", ".camarones/workspace.yaml", ".camarones/PLAYBOOK.md", ".camarones/CONVENTIONS.md",
                     ".camarones/skeletons", ".camarones/plugins", ".camarones/plugins.lock", ".camarones/.kit-docs.json", ".camarones/ci", ".claude", ".codex", ".agents", ".mcp.json", "AGENTS.md", "CLAUDE.md",
                     ".gitignore", ".gitlab-ci.yml", ".github"]
 
