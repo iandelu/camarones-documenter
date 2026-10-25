@@ -47,7 +47,7 @@ export function render(md, docPath, blocks = []) {
     if (s in seen) s += '-' + (++seen[s]); else seen[s] = 0
     h.id = 'h-' + s                        // prefixed: a heading called "main" must not clash with the app's ids
     h.dataset.title = h.textContent
-    h.insertAdjacentHTML('beforeend', `<a class="anchor" href="${esc(hrefFor(docPath, s))}" aria-hidden="true">#</a>`)
+    h.insertAdjacentHTML('beforeend', `<a class="anchor" href="${esc(hrefFor(docPath, s))}" aria-hidden="true" tabindex="-1">#</a>`)
   })
 
   $$('a[href]', el).forEach((a) => {

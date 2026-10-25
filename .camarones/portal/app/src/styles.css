@@ -12,6 +12,10 @@
 #native .seg { display: inline-flex; border: 1px solid var(--line); border-radius: var(--radius-pildora); padding: 2px; }
 #native .seg button { border: 0; background: none; color: var(--muted); padding: 6px 12px; border-radius: var(--radius-pildora); cursor: pointer; font: inherit; }
 #native .seg button.on { background: var(--panel); color: var(--fg); }
+/* React Flow drops the outline of a focused node: the portal's ring comes back */
+#native .react-flow__node:focus-visible { outline: 2px solid var(--color-acento-texto); outline-offset: 2px; }
+#native .kpi-table td a, #native a.more,
+#native ul.plain li > a { display: inline-flex; align-items: center; min-height: 1.5rem; }   /* page links: 24 px targets */
 #native .graph { height: min(70vh, 640px); margin-top: 20px; border: 1px solid var(--line); border-radius: var(--consola-radio-control); overflow: hidden; }
 #native .react-flow { --xy-background-color: var(--bg); --xy-edge-stroke: var(--line); }
 #native .node { width: 220px; padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--consola-radio-chico); background: var(--bg); color: var(--fg); }

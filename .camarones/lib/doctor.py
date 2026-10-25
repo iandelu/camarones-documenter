@@ -43,7 +43,8 @@ def check(log=print) -> dict:
     CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
     CACHE_FILE.write_text(json.dumps(rec, ensure_ascii=False, indent=1), encoding="utf-8", newline="\n")
     p = problems(rec["result"])
-    log(f"missing: {', '.join(p['missing']) or '—'} · tools: {', '.join(p['tools']) or '—'} · drift: {p['drift']}")
+    log(f"missing: {', '.join(p['missing']) or '—'} · tools: {', '.join(p['tools']) or '—'}"
+        f" · kit files not as it left them: {p['drift']}")
     return rec
 
 

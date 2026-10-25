@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { expect, test } from 'vitest'
 import { flowViewId, slugify } from './doc.js'
 
@@ -12,4 +13,11 @@ test('a business flow page and its dynamic C4 view (CONVENTIONS: one view per fl
   expect(flowViewId('flows/book-a-visit.md')).toBe('flow_book_a_visit')
   expect(flowViewId('flows/index.md')).toBeNull()
   expect(flowViewId('domain/visits.md')).toBeNull()
+})
+
+// 4.1.2: a heading's # is the mouse's way to copy a section link; hidden from screen readers, it must not take the
+// keyboard focus either (the heading's own id is the anchor).
+test('the heading anchors stay out of the Tab order', () => {
+  const src = readFileSync(new URL('./doc.js', import.meta.url), 'utf-8')
+  expect(src).toMatch(/<a class="anchor" [^>]*aria-hidden="true" tabindex="-1">#<\/a>/)
 })

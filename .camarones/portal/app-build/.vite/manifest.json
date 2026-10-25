@@ -18,7 +18,7 @@
     "name": "i18n"
   },
   "index.html": {
-    "file": "assets/index-DVNQdwNN.js",
+    "file": "assets/index-CpSfMqxC.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
@@ -37,11 +37,11 @@
       "src/Kanban.jsx"
     ],
     "css": [
-      "assets/index-Qk6D1LH7.css"
+      "assets/index-DtPfPTce.css"
     ]
   },
   "src/Ci.jsx": {
-    "file": "assets/Ci-B3vYeF53.js",
+    "file": "assets/Ci-CMdVPJUj.js",
     "name": "Ci",
     "src": "src/Ci.jsx",
     "isDynamicEntry": true,
@@ -53,7 +53,7 @@
     ]
   },
   "src/Data.jsx": {
-    "file": "assets/Data-C73DtTkL.js",
+    "file": "assets/Data-Cyb9a6pc.js",
     "name": "Data",
     "src": "src/Data.jsx",
     "isDynamicEntry": true,
@@ -96,7 +96,7 @@
     ]
   },
   "src/Libs.jsx": {
-    "file": "assets/Libs-CoJbyUQ9.js",
+    "file": "assets/Libs-CZg8jATk.js",
     "name": "Libs",
     "src": "src/Libs.jsx",
     "isDynamicEntry": true,
@@ -107,7 +107,7 @@
     ]
   },
   "src/Pipeline.jsx": {
-    "file": "assets/Pipeline-KLV55Ans.js",
+    "file": "assets/Pipeline-BPPZeUmZ.js",
     "name": "Pipeline",
     "src": "src/Pipeline.jsx",
     "isDynamicEntry": true,

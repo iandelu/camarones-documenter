@@ -83,9 +83,15 @@ const NODE_TYPES = { unit: UnitNode }
 function Graph({ units, onSelect }) {
   const { nodes, edges } = useMemo(() => layout(units), [units])
   return (
-    <div className="graph">
+    // Enter or Space on a focused node opens it like a click: the nodes are ours (no onNodesChange), so React Flow's
+    // own keyboard selection never lands.
+    <div className="graph" onKeyDown={(e) => {
+      const node = e.target.closest?.('.react-flow__node')
+      if (node && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onSelect(node.dataset.id) }
+    }}>
       <ReactFlow nodes={nodes} edges={edges} nodeTypes={NODE_TYPES} fitView colorMode="system" nodesDraggable={false}
-                 nodesConnectable={false} proOptions={{ hideAttribution: true }} onNodeClick={(_, n) => onSelect(n.id)}>
+                 nodesConnectable={false} edgesFocusable={false} proOptions={{ hideAttribution: true }}
+                 onNodeClick={(_, n) => onSelect(n.id)}>
         <Background gap={24} size={1} />
         <Controls showInteractive={false} />
       </ReactFlow>

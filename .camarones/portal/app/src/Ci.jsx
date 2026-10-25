@@ -65,7 +65,7 @@ export default function Ci() {
         <span className="pill">{t('ciWarnings').replace('{n}', s.check.warnings)}</span>{' '}
         <span className={`pill ${s.freshness.suspect + s.freshness.stale ? 'warn' : ''}`}>
           {t('ciOutOfDate').replace('{n}', s.freshness.suspect + s.freshness.stale)}</span>{' '}
-        <a href="#/review">{t('ciReview')} →</a>
+        <a className="more" href="#/review">{t('ciReview')} →</a>
       </p>
       {s.check.first.length ? <ul className="plain small">{s.check.first.map((e) => <li key={e}><code>{e}</code></li>)}</ul> : null}
 
@@ -77,7 +77,7 @@ export default function Ci() {
           <pre className="log">{text}</pre>
         </details>
       ))}
-      <p className="small"><a href={link(s.guide)}>{t('ciGuide')} →</a></p>
+      <p className="small"><a className="more" href={link(s.guide)}>{t('ciGuide')} →</a></p>
     </section>
   )
 }

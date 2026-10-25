@@ -7,6 +7,9 @@ import { t } from '../i18n.js'
 
 // The team by task: the team's cam-docs repo and sharing with it (where it stands, share now), the agent config and
 // hooks that came with it and this machine has not approved, and the plugins. The board and CI are the portal's.
+// A kind or a state the CLI names in English (trust, plugins), in the user's words; an unknown one as it comes.
+const word = (family, v) => { const k = `${family}.${v}`; const w = t(k); return w === k ? v : w }
+
 export default function Team({ srv, jobs }) {
   return (
     <Page title={t('nav.team')}>
@@ -92,8 +95,8 @@ function Trust({ srv, jobs }) {
       {rows ? (rows.length ? (<>
         <ul className="dk-units">{rows.map((r) => (
           <li key={r.kind + r.label} className="dk-unit"><div className="dk-unit-main"><b>{r.label}</b>
-            <span className="muted small">{r.kind}{r.detail ? ` · ${r.detail}` : ''}</span></div>
-            <span className="cu-chip cu-chip--warn">{r.status}</span></li>))}</ul>
+            <span className="muted small">{word('tk', r.kind)}{r.detail ? ` · ${r.detail}` : ''}</span></div>
+            <span className="cu-chip cu-chip--warn">{word('ts', r.status)}</span></li>))}</ul>
         <div className="row"><Button size="sm" variant="primary" disabled={act.running} onClick={() => dialog.current.showModal()}>
           {t('tm.approve', { n: rows.length })}</Button></div>
         <dialog ref={dialog} className="dk-dialog">
@@ -129,7 +132,7 @@ function Plugins({ srv, jobs }) {
         <ul className="dk-units">{rows.map((p) => (
           <li key={p.name} className="dk-unit">
             <div className="dk-unit-main"><b>{p.name} <span className="muted small">{p.version}</span></b>
-              <span className="muted small">{(p.provides || []).join(', ')}</span></div>
+              <span className="muted small">{(p.provides || []).map((k) => word('pk', k)).join(', ')}</span></div>
             <div className="row dk-unit-acts">
               {p.runs_code ? <span className="cu-chip cu-chip--warn">{t('tm.runsCode')}</span> : null}
               <span className={'cu-chip ' + (p.status === 'active' ? 'cu-chip--ok' : '')}>{p.status === 'active' ? t('tm.active') : t('tm.inactive')}</span>
