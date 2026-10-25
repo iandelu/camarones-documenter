@@ -2,10 +2,7 @@ import { Background, Controls, Handle, Position, ReactFlow } from '@xyflow/react
 import '@xyflow/react/dist/style.css'
 import { AnimatePresence, motion } from 'motion/react'
 import { memo, useEffect, useMemo, useReducer, useRef, useState } from 'react'
-import { getJSON, postJSON } from './api.js'
-import AgentLaunch from './AgentLaunch.jsx'
-import AppOnly from './AppOnly.jsx'
-import { RUNS } from './api.js'
+import { getJSON, postJSON, RUNS } from './api.js'
 import { t } from './i18n.js'
 import { apply, changedRun, COLUMNS, columns, initial, layout } from './board.js'
 
@@ -64,75 +61,6 @@ function usePipeline() {
     return () => { stop = true; clearInterval(timer); if (source) source.close() }
   }, [])
   return { state, error, reload: () => reload.current() }
-}
-
-// In the desktop app: start a parallel run with its options, or the autopilot (one unit after another, as a job of
-// the app's server), and stop either. The browser portal shows the state only (AppOnly).
-function Actions({ run, finished, onDone }) {
-  const [opts, setOpts] = useState({ parallel: 2, per_runner: '', max_units: '', include_interviews: false })
-  const [more, setMore] = useState(false)
-  const [busy, setBusy] = useState(false)
-  const [message, setMessage] = useState(null)
-  const [pilot, setPilot] = useState(null)         // the autopilot job, while it runs
-  const running = run && !finished
-  useEffect(() => {
-    getJSON('jobs').then((jobs) => setPilot(jobs.find((j) => j.kind.startsWith('cmd:autopilot') && j.status === 'running') || null), () => {})
-  }, [])
-  useEffect(() => {
-    if (!pilot) return undefined
-    const id = setInterval(() => getJSON(`jobs/${pilot.id}?since=0`).then((j) => {
-      if (j.status !== 'running') { setPilot(null); if (j.status === 'failed') setMessage(j.log.slice(-1)[0] || t('pFailed')) }
-    }, () => {}), 3000)
-    return () => clearInterval(id)
-  }, [pilot])
-  const set = (k) => (e) => setOpts((o) => ({ ...o, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }))
-  async function act(fn) {
-    setBusy(true)
-    setMessage(null)
-    try {
-      await fn()
-      onDone()
-      for (const ms of [1200, 3000]) setTimeout(onDone, ms)   // a new run writes its first event a moment later
-    } catch (e) { setMessage(e.message) } finally { setBusy(false) }
-  }
-  const lang = document.documentElement.lang === 'es' ? 'es' : 'en'
-  const runBody = () => ({ parallel: Number(opts.parallel), per_runner: opts.per_runner.trim(), lang,
-    max_units: opts.max_units === '' ? null : Number(opts.max_units), include_interviews: opts.include_interviews })
-  const pilotArgs = () => ({ lang, include_interviews: opts.include_interviews,
-    ...(opts.max_units === '' ? {} : { max_units: Number(opts.max_units) }) })
-  return (
-    <div className="run-actions">
-      {pilot ? (<>
-        <span className="muted" role="status">{t('pPilotOn')}</span>
-        <button className="ghost small" disabled={busy}
-                onClick={() => act(async () => { await postJSON(`app/jobs/${pilot.id}/cancel`); setPilot(null) })}>{t('pPilotStop')}</button>
-      </>) : running ? (
-        <button className="ghost small" disabled={busy}
-                onClick={() => act(() => postJSON(`runs/${encodeURIComponent(run.run)}/cancel`))}>{t('pCancel')}</button>
-      ) : (
-        <>
-          <label className="muted">{t('pAtOnce')}
-            <select value={opts.parallel} onChange={set('parallel')} disabled={busy}>
-              {[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}</option>)}
-            </select>
-          </label>
-          <button className="small" disabled={busy} onClick={() => act(() => postJSON('runs', runBody()))}>{t('pRun')}</button>
-          <button className="ghost small" disabled={busy}
-                  onClick={() => act(async () => setPilot(await postJSON('app/cmd', { cmd: 'autopilot', args: pilotArgs() })))}>
-            {t('pPilot')}</button>
-          <button className="ghost small" aria-expanded={more} onClick={() => setMore(!more)}>{t('pOptions')}</button>
-        </>
-      )}
-      {more && !running && !pilot ? (
-        <div className="run-opts">
-          <label>{t('pPerRunner')}<input className="co-input" value={opts.per_runner} onChange={set('per_runner')} placeholder="claude=2,codex=1" /></label>
-          <label>{t('pMaxUnits')}<input className="co-input" type="number" min="1" value={opts.max_units} onChange={set('max_units')} /></label>
-          <label className="check"><input type="checkbox" checked={opts.include_interviews} onChange={set('include_interviews')} />{t('pInterviews')}</label>
-        </div>
-      ) : null}
-      {message ? <span className="error" role="alert">{message}</span> : null}
-    </div>
-  )
 }
 
 const UnitNode = memo(function UnitNode({ data }) {
@@ -203,7 +131,7 @@ function Drawer({ unit, onClose, onChanged }) {
         ? <button className="small" onClick={() => act('units/approve')}>Approve — let the next units start</button>
         : unit.status === 'blocked' ? <button className="small" onClick={() => act('units/retry')}>Retry this unit</button> : null}
       {message ? <p className="error" role="alert">{message}</p> : null}
-      {RUNS ? <AgentLaunch unit={unit} /> : null}
+      {RUNS && unit.runner === 'agent' && ['todo', 'doing'].includes(unit.status) ? <a className="button small" href="./desktop/#/plan">{t('pInApp')}</a> : null}
       <h3>Live log</h3>
       <pre className="log">{l.log.length ? l.log.join('\n') : 'Nothing yet in this run.'}</pre>
     </motion.aside>
@@ -230,7 +158,7 @@ export default function Pipeline({ arg }) {
             {run ? ` · last run ${run.run} ${state.finished ? 'finished' : 'running now'}` : ' · no run yet: camaron run'}
           </p>
         </div>
-        <AppOnly inline><Actions run={run} finished={state.finished} onDone={reload} /></AppOnly>
+        {RUNS ? <a className="button small" href="./desktop/#/plan">{t('pInApp')}</a> : null}
         <div className="seg" role="tablist">
           {['graph', 'board'].map((m) => (
             <button key={m} role="tab" aria-selected={mode === m} className={mode === m ? 'on' : ''}

@@ -69,7 +69,6 @@ export function Wikis() {
     <div className="page wide">
       <h1>{t('wikis')} <span className="muted small">OpenWiki</span></h1>
       <p className="lead">{t('wikisHelp')}</p>
-      {core.mode() === 'live' && <p className="aviso small">{t('appOnly')}</p>}
       {runs() && !engines.length && <Aviso tone="warn" title={t(index.engineHelp && index.engineHelp !== 'key' ? 'noEngine.' + index.engineHelp : 'noEngine')} />}
       {error && <Aviso tone="error" title={t('error')} detail={error} />}
       {!rows && !error && <Skeleton lines={4} />}

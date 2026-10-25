@@ -48,7 +48,7 @@ export default function Ci() {
           <tr key={r.key}><td>{t(`ciFile.${r.key}`)}</td><td><code>{r.path || '—'}</code></td>
             <td className={`ci-state ${r.state}`}>{t(`ciState.${r.state}`)}</td></tr>))}</tbody>
       </table>
-      <div className="row ci-gen"><AppOnly inline>
+      <div className="row ci-gen"><AppOnly>
         <button type="button" disabled={busy} onClick={() => generate(s.forge)}>
           {anyMissing ? t('ciGenerate') : t('ciRegenerate')} ({s.forge === 'github' ? 'GitHub' : 'GitLab'})</button>
         <button type="button" className="ghost small" disabled={busy} onClick={() => generate(other)}>

@@ -2135,7 +2135,7 @@ Talk to the user in {talk}. Do not modify application code.
                     i = j
 
     def do_app(self) -> None:
-        """The desktop app (`camaron app`): the portal plus the Taller, where runs, scans and checks start."""
+        """The desktop app (`camaron app`): the project's sections, where runs, scans and checks start; reading is the portal's."""
         from . import desktop
         self.safe(self.busy, desktop.launch, total=1)
 

@@ -49,7 +49,7 @@ export default function Data({ arg }) {
           {repo.tools.length ? <span className="muted small">{t('dataFrom')} {repo.tools.join(', ')}</span> : null}
           <span className="data-actions">
             {repo.page ? <a className="button ghost small" href={link(repo.page)}>📄 {t('dataPage')}</a>
-              : <AppOnly inline><button type="button" className="small" disabled={busy} onClick={write}>{t('dataWrite')}</button></AppOnly>}
+              : <AppOnly><button type="button" className="small" disabled={busy} onClick={write}>{t('dataWrite')}</button></AppOnly>}
           </span>
         </div>
         <Model markdown={repo.markdown} path={repo.page || `data/${repo.repo}.md`} />

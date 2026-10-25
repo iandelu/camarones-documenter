@@ -95,7 +95,7 @@ def test_a_stopped_job_says_it_was_stopped(kit):
         time.sleep(0.05)
     appapi.cancel(sleeper["id"])
     j = wait_end(sleeper)
-    assert j["status"] == "failed" and j["stopped"] is True               # failed, as the Taller expects; and why
+    assert j["status"] == "failed" and j["stopped"] is True               # failed, as it always was; and why
     quick = wait_end(appapi.stream_job(kit.serve.start_job, "test:quick", [sys.executable, "-c", "print(1)"],
                                        kit.kit_dir, dict(os.environ)))
     assert quick["status"] == "done" and quick["stopped"] is False

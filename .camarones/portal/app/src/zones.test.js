@@ -98,15 +98,11 @@ test('home KPIs come from the index only, none for an empty project', () => {
   expect(homeKpis({ ...idx, summary: { ...idx.summary, confirmed: 0 } })[0]).toEqual({ id: 'confirmed', value: '0/3', tone: null })
 })
 
-test('desktop app: every live view plus the Taller, which the browser portal never shows', () => {
-  expect(zonesFor('app', idx).map((x) => x.id)).toEqual(['docs', 'board', 'arch', 'plan', 'quality', 'review', 'taller'])
-  expect(zonesFor('app', idx).find((x) => x.id === 'taller').views.map((v) => v.id))
-    .toEqual(['generate', 'analyze', 'check', 'interviews', 'team', 'machine'])
-  expect(zonesFor('app', { ...idx, kitdev: true }).find((x) => x.id === 'taller').views.map((v) => v.id)).toContain('kitdev')
-  expect(zonesFor('live', idx).map((x) => x.id)).not.toContain('taller')
+test('desktop app: the same zones as the live portal; machine work is the app\'s own sections (4.53)', () => {
+  expect(zonesFor('app', idx)).toEqual(zonesFor('live', idx))
+  expect(zonesFor('app', idx).map((x) => x.id)).toEqual(['docs', 'board', 'arch', 'plan', 'quality', 'review'])
   expect(zonesFor('app', idx).find((x) => x.id === 'docs').views.map((v) => v.id)).toEqual(['pages', 'wikis'])
-  expect(paletteEntries('app', idx).map((e) => e.href)).toContain('#/generate')
-  expect(paletteEntries('live', idx).map((e) => e.href)).not.toContain('#/generate')
+  expect(paletteEntries('app', { ...idx, kitdev: true }).map((e) => e.href)).not.toContain('#/generate')
 })
 
 test('the Board: live and app only, its own zone right after Docs', () => {
@@ -129,9 +125,9 @@ test('crumbs of the Board', () => {
   expect(crumbs('#/boards', 'live', idx)).toEqual([])                       // the old whiteboards' address stays apart
 })
 
-test('crumbs of a Taller view', () => {
-  expect(crumbs('#/generate', 'app', idx)).toEqual([{ key: 'zone.taller', href: '#/taller' }, { key: 'view.generate', href: '#/generate' }])
-  expect(crumbs('#/generate', 'live', idx)).toEqual([])
+test('the Taller\'s old addresses have no crumbs: the router sends them to the app', () => {
+  expect(crumbs('#/generate', 'app', idx)).toEqual([])
+  expect(crumbs('#/taller', 'app', idx)).toEqual([])
 })
 
 // The shell's sidebar marks where the reader is: the zone and, inside it, the view.
@@ -139,7 +135,7 @@ test('locate: the zone and view of an address, old addresses included', () => {
   expect(locate('#/docs/guides/a.md')).toEqual({ zone: 'docs', view: 'pages' })
   expect(locate('#/wiki/api/x.md')).toEqual({ zone: 'docs', view: 'wikis' })
   expect(locate('#/status')).toEqual({ zone: 'review', view: 'review' })
-  expect(locate('#/machine')).toEqual({ zone: 'taller', view: 'machine' })
+  expect(locate('#/machine')).toEqual({ zone: null, view: null })
   expect(locate('#/arch')).toEqual({ zone: 'arch', view: null })
   expect(locate('#/search/x')).toEqual({ zone: null, view: null })
   expect(locate('')).toEqual({ zone: null, view: null })

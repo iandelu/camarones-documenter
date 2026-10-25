@@ -1,9 +1,7 @@
 import { RUNS } from './api.js'
-import { t } from './i18n.js'
 
-// Machine work (runs, scans, builds, CI files, AI answers) starts only in the desktop app's window; the browser
-// portal, the team's viewer, says where to find it instead of offering a button the server would refuse.
-export default function AppOnly({ children, inline = false }) {
-  if (RUNS) return children
-  return inline ? <span className="aviso small">{t('appOnly')}</span> : <p className="aviso small">{t('appOnly')}</p>
+// Machine work (scans, builds, CI files, AI answers) starts only in the desktop app's window. The browser portal, the
+// team's viewer, does not show what it cannot do (until 4.52 it said "open it in the app").
+export default function AppOnly({ children }) {
+  return RUNS ? children : null
 }

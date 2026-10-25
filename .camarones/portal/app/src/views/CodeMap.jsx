@@ -200,7 +200,7 @@ function NoMap({ t }) {
       <EmptyState title={t('noCodeMap')} action={can
         ? <Button variant="primary" disabled={build.running} onClick={() => build.start('graph').then((s) => { if (s?.status === 'done') location.reload() })}>{t('build')}</Button>
         : <Button href="#/c4">{t('c4')}</Button>}>
-        {core.mode() === 'live' ? t('appOnly') : runs() && v && !v.graphify ? t('noGraphify') : null}
+        {runs() && v && !v.graphify ? t('noGraphify') : null}
       </EmptyState>
       {build.job && <pre className="joblog">{build.job.lines.join('\n')}</pre>}
     </div>

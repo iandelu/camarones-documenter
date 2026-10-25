@@ -1,6 +1,6 @@
 // How the portal is navigated: zones (Docs, Board, Architecture, Plan, Quality, Review) that group the views, what is
-// available in the static export, on the live server or in the desktop app (mode `app`: everything live has, plus
-// the Taller, where machine work runs), the breadcrumbs of any address and the ⌘K entries.
+// available in the static export or on the live server (the desktop app's window shows what live shows; machine work
+// is the app's own sections since 4.53), the breadcrumbs of any address and the ⌘K entries.
 // Pure functions over the index the portal loads (`tree`), used by the shell, Home and the palette.
 // Labels are i18n keys of i18n/portal.js: zone.<id>, zoned.<id>, view.<id>, viewd.<id>, sec.<section>.
 
@@ -21,15 +21,7 @@ export const ZONES = [
     { id: 'interview', href: '#/interview', live: true }, { id: 'sync', href: '#/sync', live: true }] },
   { id: 'quality', href: '#/quality', views: [{ id: 'kpis', href: '#/kpis', live: true }, { id: 'ci', href: '#/ci', live: true }] },
   { id: 'review', href: '#/review', views: [{ id: 'review', href: '#/review' }] },
-  { id: 'taller', href: '#/taller', views: [
-    { id: 'generate', href: '#/generate', app: true }, { id: 'analyze', href: '#/analyze', app: true },
-    { id: 'check', href: '#/check', app: true }, { id: 'interviews', href: '#/interviews', app: true },
-    { id: 'team', href: '#/team', app: true }, { id: 'machine', href: '#/machine', app: true },
-    { id: 'kitdev', href: '#/kitdev', app: true, needs: (index) => !!index.kitdev }] },
 ]
-
-// The Taller's views are the catalog's zones (lib/catalog.py), one per kind of machine work.
-export const TALLER = ['generate', 'analyze', 'check', 'interviews', 'team', 'machine', 'kitdev']
 
 // The first segment of an address → its zone and view. Old addresses (doc, status, wiki) keep working.
 const ROUTES = {
@@ -38,7 +30,6 @@ const ROUTES = {
   c4: ['arch', 'c4'], code: ['arch', 'code'], data: ['arch', 'data'], libs: ['arch', 'libs'],
   pipeline: ['plan', 'pipeline'], interview: ['plan', 'interview'], sync: ['plan', 'sync'], kpis: ['quality', 'kpis'], ci: ['quality', 'ci'],
   review: ['review', 'review'], status: ['review', 'review'],
-  ...Object.fromEntries(TALLER.map((v) => [v, ['taller', v]])),
 }
 
 // Where an address is, for the sidebar: its zone and view (a zone cover has no view; search and home, no zone).
@@ -49,8 +40,7 @@ export function locate(hash) {
   return { zone: null, view: null }
 }
 
-const available = (view, mode, index) => (!view.live || mode !== 'static') && (!view.app || mode === 'app')
-  && (!view.needs || view.needs(index, mode))
+const available = (view, mode, index) => (!view.live || mode !== 'static') && (!view.needs || view.needs(index, mode))
 
 export function zonesFor(mode, index) {
   return ZONES.map((z) => ({ id: z.id, href: z.href,

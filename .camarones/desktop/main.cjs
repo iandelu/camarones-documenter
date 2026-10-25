@@ -1,7 +1,7 @@
 'use strict'
 // Camarón's desktop app, main process. It only runs processes and windows: every project window is served by that
 // project's own server (lib/serve.py, started here with a fresh token): the app's UI at /desktop/ (desktop/renderer),
-// the portal at /, so the app, the portal, the Taller and the CLI are the same code. The hub (the same UI, from disk)
+// the portal at /, so the app, the portal and the CLI are the same code. The hub (the same UI, from disk)
 // lists, creates and joins projects through the CLI (`projects`, `new`, `join` with --no-open).
 // Started by `camaron app` (lib/desktop.py), which passes the interpreter and kit to call back.
 const { app, BrowserWindow, Menu, dialog, ipcMain, screen, session, shell } = require('electron')
