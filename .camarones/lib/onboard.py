@@ -8,9 +8,9 @@ from pathlib import Path
 
 import yaml
 
-from .common import CAM_DIR, find_project_marker, save_json
+from .common import CAM_DIR, CAM_LAYOUT, cli_cmd, ensure_path, find_project_marker, repo_dir, save_json, ws_rel
 from .harness.ctx import Ctx
-from . import docs, projects
+from . import docs, env, plan, projects
 
 STEPS = ("name", "repos", "tools", "setup", "stack", "arch", "intro")   # first-run steps, saved by id
 LEGACY_STEPS = ("name", "repos", "tools", "setup", "arch", "intro")     # firstrun.json before 3.3 kept only the index
@@ -170,3 +170,96 @@ def start(folder: Path, name: str | None = None) -> Path:
     write_workspace(Ctx.for_root(root).ws_file, ws)             # this process's module globals point at another project
     save_position(root, "repos", "new")
     return root
+
+
+# ---------- tools: one table, install all (recommended) or pick ----------
+def tool_rows() -> list[dict]:
+    """Every prerequisite and kit tool as a row: `id, label, ok, kind` (t_required | t_optional | t_kit), `rec`
+    (recommended), `sys` (a system tool, not a kit component), `found` (version) and `note`."""
+    pre = env.prerequisites()
+    have_agent = any(pre[a]["ok"] for a in ("claude", "codex"))
+    rows = []
+    for k, v in pre.items():
+        kind = "t_required" if v["need"] else "t_optional"
+        rec = v["need"] or k in ("docker", "java") or (k == "claude" and not have_agent)
+        rows.append({"id": k, "label": v["hint"], "ok": v["ok"], "kind": kind, "rec": rec, "sys": True,
+                     "found": v.get("found", ""), "note": v.get("note", "")})
+    chosen = env.components()
+    for k, label in {**env.KIT_TOOLS, **env.EXTRAS}.items():
+        installed = env.tool_ok(k) if k in env.KIT_TOOLS else (k in chosen)
+        rows.append({"id": k, "label": label, "ok": installed, "kind": "t_kit", "rec": True, "sys": False,
+                     "found": env.VERSIONS.get(k, "") if installed and k in env.KIT_TOOLS else "", "note": ""})
+    return rows
+
+
+def install_choice(rows: list[dict], choice: str, picked: list[str] | None = None) -> tuple[list[str], list[str]]:
+    """`(system tools to install, kit components to keep)` for `all` (what is recommended and missing, the kit's
+    whole set; one agent CLI is enough), `pick` (the ids in `picked`, split by kind) or `none` (install nothing)."""
+    have_agent = any(r["ok"] for r in rows if r["id"] in ("claude", "codex"))
+    if choice == "all":
+        return ([r["id"] for r in rows if r["sys"] and not r["ok"] and r["rec"]
+                 and not (r["id"] in ("claude", "codex") and have_agent)], list(env.ALL_COMPONENTS))
+    if choice == "pick":
+        picked = picked or []
+        return [p for p in picked if p in env.prerequisites()], [p for p in picked if p in env.ALL_COMPONENTS]
+    return [], env.components()
+
+
+def install_tools(system: list[str], components: list[str], log) -> list[str]:
+    """Save the chosen components, install the system tools in order and refresh PATH; returns the ones that failed."""
+    env.set_components(components)
+    failed = [k for k in system if not env.install_prereq(k, log=log)]
+    ensure_path()
+    return failed
+
+
+# ---------- setup ----------
+def run_setup(log) -> bool:
+    """The setup step's work: templates, `env.setup`, the plan for this workspace (also when setup failed, so the
+    portal has one) and the `setup` unit marked done when it worked. True when setup succeeded."""
+    env.init_templates(docs.workspace()["project"]["name"], log=lambda _: None)   # `log` counts setup's own steps
+    try:
+        ok = env.setup(log=log)
+    finally:
+        plan.sync()                        # a setup that raised still leaves the plan in place
+    if ok:
+        plan.set_status("setup", "done", "first run")
+    return bool(ok)
+
+
+def missing_repos() -> list[str]:
+    """Repos the workspace lists with a URL and no clone on this machine yet."""
+    return [r["name"] for r in docs.workspace()["repos"] if r.get("url") and not (repo_dir(r["name"]) / ".git").exists()]
+
+
+# ---------- architecture (C4) ----------
+def arch_prompt(lang: str) -> str:
+    """The agent prompt that refines the static C4 draft; `lang` (es | en) is the language it talks to the user in."""
+    cli = cli_cmd()
+    talk = "Spanish" if lang == "es" else "English"
+    arch = ws_rel("docs/architecture")
+    # the agent runs in WORKSPACE: in the cam-docs layout a bare `docs/…` path would make it write a second,
+    # unused model next to the repos while the portal keeps showing the unrefined draft
+    layout = (f"\nLayout: you run in the workspace folder. Docs live in `{CAM_DIR}/` (its own git repo); the service repos "
+              f"are its siblings. Edit only the files under `{arch}/` — never create a `docs/` folder anywhere else.\n"
+              if CAM_LAYOUT else "")
+    code = ("`graphify query` in the repos, " if "graphify" in env.components() else "")
+    first_look = (f" Update `{arch}/first-look.md` to match."            # an old-layout project's page
+                  if (docs.DOCS / "architecture" / "first-look.md").exists() else "")
+    return f"""Camarones session — improve the first-look architecture draft.
+{layout}
+`{arch}/model.c4` + `views.c4` hold the architecture draft; it started from a static scan (no AI) that guessed repos,
+datastores, brokers and HTTP calls from manifests, config and code. Read `{ws_rel('.camarones/CONVENTIONS.md')}` §4
+(C4 rules) and the kinds/tags in `{arch}/spec.c4` first (do not edit spec.c4).
+1. Verify every element and relation against the code ({code}OpenAPI/AsyncAPI files, config, client code).
+   Fix technologies, names, directions and labels (endpoint / exchange / topic); remove false positives; add what is missing
+   (external systems, identity provider, shared databases, frontends/apps). A relation is a runtime call or message —
+   hosting/CI/deployment targets belong to the deployment unit, not here.
+2. Keep `views.c4` in step with the model: `index` must show the actors, the system and every external system;
+   `containers` everything inside the system. Remove view references to elements you deleted.
+3. Keep everything `#ai-draft`. Run `{cli} arch-validate` after every edit until it prints ✓ Valid (it validates
+   `{arch}/`, so a model written anywhere else is not checked).{first_look}
+4. Show the user the result as a short tree (containers → relations) and ask whether it is right; apply their corrections.
+   Tell them the portal's Architecture (C4) tab rebuilds from `{arch}/` (`{cli} up`).
+Talk to the user in {talk}. Do not modify application code.
+"""
