@@ -346,7 +346,7 @@ comprobado, los comandos ejecutados y la siguiente acción.
 `doctor --json` (cada comprobación con el comando que la arregla), `doctor --install git|node|docker|java|claude|codex`,
 `doctor --local` (propone un modelo local libre para este equipo, sin instalar nada), `doctor --context` (los tokens
 que carga cada sesión de un agente antes de leer una página, frente a `context.budget`), `autopilot`, `plugins [--json]`,
-`run`, `runs`, `kpis`, `eval`, `ab`, `pipeline show|validate`, `blocks [--force]`, `pr fresh <repo>` y
+`run`, `runs`, `kpis`, `eval`, `ab`, `pipeline show|validate`, `blocks [--force]`, `diagrams [--json]`, `pr fresh <repo>` y
 `plugins add|update|outdated|remove`, `pr propose <url>`, `removed add`, `repair`, `export codetour <flujo>`,
 `history [--months 12]` (puntos calientes, a quién preguntar en cada repo, ficheros que cambian juntos, leídos de git sin
 IA en `docs/overview/history.md`), `catalog [--json|--check]` (cada comando con dónde vive: portal, app de escritorio o
@@ -360,6 +360,16 @@ donde se lanzan ejecuciones, wikis, análisis y comprobaciones; el portal del na
 no hay, anotaciones de Spring) y topics de mensajería, cada fila con su fichero y línea. Son bloques
 `<!-- generated:<tipo> repo=<repo> -->` que puedes poner en cualquier página; `blocks` y `sync` los actualizan. Si
 alguien edita uno a mano, se conserva y `check` lo avisa; `blocks --force` toma la versión del código.
+
+**Diagramas del código, sin IA.** `camaron diagrams [--json]` (también lo ejecutan el primer escaneo y el primer
+vistazo) dibuja en Mermaid lo que el código afirma, sin adivinar: `docs/architecture/system-map.md` trae el mapa de
+contexto (repos, almacenes de datos, brokers, proveedores de identidad) y una secuencia por topic (quién publica, quién
+consume); `docs/repos/<repo>/diagrams.md` trae el mapa de endpoints del repo y un diagrama de estados por cada enum de
+estado, solo con los estados (las transiciones no se adivinan). Son bloques generados como los de arriba. Una persona
+puede confirmar uno añadiendo `confirmed=… by=<nombre>` a su marcador: un refresco ya no lo reescribe y `check` avisa
+«el código cambió desde que se confirmó este diagrama». El portal etiqueta cada diagrama como «Del código», «Confirmado
+por <nombre>» o «El código cambió». Los agentes siguen la skill `cam-docs-diagrams`: elegir el diagrama adecuado,
+escribir Mermaid que se dibuje y no editar nunca un bloque generado.
 
 **En paralelo.** `camaron run --parallel 3 --per-runner claude=2,codex=1` hace varias unidades a la vez. Los
 descubrimientos, las fichas de repo y los flujos trabajan cada uno en su propia copia de `cam-docs/` (un worktree de git
