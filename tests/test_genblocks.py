@@ -201,3 +201,44 @@ def test_a_page_that_only_quotes_the_marker_syntax_is_not_reported(kit, gb):
     f.write_text("---\ntitle: how\nx-owner: human\n---\n# How\n\nUse `<!-- generated:<kind> repo=<repo> -->`.\n",
                  encoding="utf-8")
     assert gb.refresh()["human"] == []
+
+
+def _confirmed_page(kit, gb):
+    """A page with an `endpoints` block a person confirmed against the code as it is now."""
+    fresh = gb.render("endpoints", "api", kit.ws / "api")[0]
+    f = kit.root / "docs" / "repos" / "api" / "api-diagram.md"
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text("---\ntitle: api\n---\n# api\n\n" + gb.block("endpoints", "api", "accepted by a person",
+                                                           confirmed=gb.sha(fresh), by="ana") + "\n", encoding="utf-8")
+    return f
+
+
+def test_a_block_keeps_its_id_and_confirmation(kit, gb):
+    text = gb.block("endpoints", "api", "body", id="pets", confirmed="abc", by="ana")
+    assert text.startswith("<!-- generated:endpoints repo=api id=pets confirmed=abc by=ana sha=")
+    m = gb.BLOCK_RE.search(text)
+    assert (m["id"], m["confirmed"], m["by"]) == ("pets", "abc", "ana")
+
+
+def test_an_old_block_without_new_attributes_reads_as_before(kit, gb):
+    body = gb.render("endpoints", "api", kit.ws / "api")[0]
+    text = f"<!-- generated:endpoints repo=api sha={gb.sha(body)} -->\n{body}\n<!-- /generated:endpoints -->"
+    (m, state, _), = gb.states(text, gb.Scanner())
+    assert state == "current" and m["id"] is None and m["confirmed"] is None and m["by"] is None
+
+
+def test_a_confirmed_block_survives_refresh_even_forced(kit, gb):
+    f = _confirmed_page(kit, gb)
+    before = f.read_bytes()
+    assert gb.refresh(force=True)["updated"] == [] and f.read_bytes() == before
+    assert [s for _, s, _ in gb.states(f.read_text(encoding="utf-8"), gb.Scanner())] == ["confirmed"]
+
+
+def test_the_code_moving_past_a_confirmed_block_is_reported(kit, gb):
+    f = _confirmed_page(kit, gb)
+    put(kit, "api", "src/main/resources/openapi.yml", OPENAPI + "  /owners:\n    get: {summary: List owners}\n")
+    before = f.read_bytes()
+    assert [s for _, s, _ in gb.states(f.read_text(encoding="utf-8"), gb.Scanner())] == ["confirmed-stale"]
+    issues = gb.check(kit.docs.collect())[1]
+    assert len(issues) == 1 and "the code changed since this diagram was confirmed" in issues[0]
+    assert gb.refresh(force=True)["updated"] == [] and f.read_bytes() == before

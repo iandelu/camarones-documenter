@@ -1,8 +1,10 @@
 """Generated blocks (X3): facts read straight from the repos, no AI — env vars, commands, HTTP endpoints, topics.
 
-A block lives in any page as `<!-- generated:<kind> repo=<repo> sha=<hash> -->…<!-- /generated:<kind> -->`. The hash
-is the block's body as the kit wrote it: a body that no longer matches was edited by hand (kept, and `check` says so),
-one that matches but differs from a fresh scan is out of date (refreshed). Each repo gets `docs/repos/<repo>/reference.md`
+A block lives in any page as `<!-- generated:<kind> repo=<repo> sha=<hash> -->…<!-- /generated:<kind> -->`, with an
+optional `id=<id>` (which diagram of a kind) after `repo`. The hash is the block's body as the kit wrote it: a body that
+no longer matches was edited by hand (kept, and `check` says so), one that matches but differs from a fresh scan is out
+of date (refreshed). A person can confirm a block (`confirmed=<hash of the generated body it started from> by=<name>`):
+refresh never touches it, and `check` only says when the code moved past it. Each repo gets `docs/repos/<repo>/reference.md`
 built from these blocks."""
 from __future__ import annotations
 
@@ -15,8 +17,10 @@ from .common import DOCS, ROOT, cli_cmd, repo_dir, rel_file
 from . import docs, quickarch
 
 KINDS = ("commands", "env", "endpoints", "topics", "schema")
-BLOCK_RE = re.compile(r"<!-- generated:(?P<kind>[\w-]+) repo=(?P<repo>[\w.\-]+)(?: sha=(?P<sha>[0-9a-f]+))? -->\n"
+BLOCK_RE = re.compile(r"<!-- generated:(?P<kind>[\w-]+) repo=(?P<repo>[\w.\-]+)(?: id=(?P<id>[\w.\-]+))?"
+                      r"(?: confirmed=(?P<confirmed>[0-9a-f]+))?(?: by=(?P<by>[^\s>]+))?(?: sha=(?P<sha>[0-9a-f]+))? -->\n"
                       r"(?P<body>.*?)<!-- /generated:(?P=kind) -->", re.S)
+SYSTEM = "_system"                                                          # reserved repo name: the whole system, no folder
 PLACEHOLDER = re.compile(r"\$\{([A-Z][A-Z0-9_]*)(?::([^}]*))?\}")
 SECRETISH = re.compile(r"PASS|SECRET|TOKEN|KEY|CREDENTIAL|PRIVATE", re.I)
 CONFIG_FILES = re.compile(r"^(application|bootstrap)[\w-]*\.(ya?ml|properties)$")
@@ -189,8 +193,10 @@ def _where(source: str) -> str:
     return f"`{source.split(':', 1)[1]}`"
 
 
-def render(kind: str, name: str, repo: Path) -> tuple[str, list[str]]:
-    """(block body, sources it was read from)."""
+def render(kind: str, name: str, repo: Path | None, id: str | None = None) -> tuple[str, list[str]] | None:
+    """(block body, sources it was read from); None when the kind has nothing to say without a repo folder."""
+    if repo is None:
+        return None
     if kind == "schema":
         from . import schemas
         return schemas.render_block(name, repo)
@@ -219,31 +225,36 @@ def sha(body: str) -> str:
     return hashlib.sha256(body.strip().encode("utf-8")).hexdigest()[:12]
 
 
-def block(kind: str, repo: str, body: str) -> str:
-    return f"<!-- generated:{kind} repo={repo} sha={sha(body)} -->\n{body.strip()}\n<!-- /generated:{kind} -->"
+def block(kind: str, repo: str, body: str, id: str | None = None, confirmed: str | None = None,
+          by: str | None = None) -> str:
+    attrs = "".join(f" {k}={v}" for k, v in (("id", id), ("confirmed", confirmed), ("by", by)) if v)
+    return f"<!-- generated:{kind} repo={repo}{attrs} sha={sha(body)} -->\n{body.strip()}\n<!-- /generated:{kind} -->"
 
 
 class Scanner:
-    """One scan per (kind, repo) for a whole refresh or check."""
+    """One scan per (kind, repo, id) for a whole refresh or check."""
 
     def __init__(self):
         self.repos = set(docs.repo_names())
         self.cache: dict[tuple, tuple[str, list[str]]] = {}
 
-    def get(self, kind: str, repo: str) -> tuple[str, list[str]] | None:
-        if kind not in KINDS or repo not in self.repos or not repo_dir(repo).is_dir():
+    def get(self, kind: str, repo: str, id: str | None = None) -> tuple[str, list[str]] | None:
+        if kind not in KINDS or (repo != SYSTEM and (repo not in self.repos or not repo_dir(repo).is_dir())):
             return None
-        if (kind, repo) not in self.cache:
-            self.cache[(kind, repo)] = render(kind, repo, repo_dir(repo))
-        return self.cache[(kind, repo)]
+        if (kind, repo, id) not in self.cache:
+            self.cache[(kind, repo, id)] = render(kind, repo, None if repo == SYSTEM else repo_dir(repo), id)
+        return self.cache[(kind, repo, id)]
 
 
 def states(text: str, scan: Scanner):
-    """(match, state, fresh body or None) per block; state: new | current | stale | edited | unknown."""
+    """(match, state, fresh body or None) per block; state: new | current | stale | edited | unknown | confirmed |
+    confirmed-stale (a person confirmed it; the last two are never rewritten)."""
     for m in BLOCK_RE.finditer(text):
-        got = scan.get(m["kind"], m["repo"])
+        got = scan.get(m["kind"], m["repo"], m["id"])
         body = m["body"].strip()
-        if got is None:
+        if m["confirmed"]:
+            yield m, "confirmed" if got and sha(got[0]) == m["confirmed"] else "confirmed-stale", got and got[0]
+        elif got is None:
             yield m, "unknown", None
         elif m["sha"] and m["sha"] != sha(body):
             yield m, "edited", got[0]
@@ -270,13 +281,13 @@ def refresh(force: bool = False) -> dict:
             continue
         parts, last, sources = [], 0, []
         for m, state, body in states(text, scan):
-            if body is None:
+            if body is None or state in ("confirmed", "confirmed-stale"):
                 continue
-            sources += scan.get(m["kind"], m["repo"])[1]
+            sources += scan.get(m["kind"], m["repo"], m["id"])[1]
             if state == "edited" and not force:
                 out["edited"].append(f"{rel_file(f)} ({m['kind']}, {m['repo']})")
                 continue
-            parts += [text[last:m.start()], block(m["kind"], m["repo"], body)]
+            parts += [text[last:m.start()], block(m["kind"], m["repo"], body, id=m["id"])]
             last = m.end()
         new = "".join(parts) + text[last:]
         fm, body_text = docs.split_fm(new)
@@ -354,4 +365,7 @@ def check(rows: list[dict], strict: bool = False) -> tuple[list[str], list[str]]
                               f"`{cli_cmd()} blocks` (`blocks --force` takes the code's version)")
             elif state in ("stale", "new"):
                 issues.append(f"{what} is out of date with the code: run `{cli_cmd()} blocks`")
+            elif state == "confirmed-stale":
+                issues.append(f"{what}: the code changed since this diagram was confirmed — ask for a proposal or "
+                              "confirm it again")
     return (issues, []) if strict else ([], issues)
