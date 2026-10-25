@@ -3,6 +3,13 @@ export const S = {
   en: {
     'shell.nav': 'Sections', 'shell.theme': 'Light or dark', 'shell.lang': 'Language',
     'home.firstLook': 'First look from the code (no AI)', 'home.firstLookFailed': 'The first look did not start',
+    'review.title': 'Review.', 'review.waiting': '{n} pages wait.', 'review.none': 'Nothing waits.',
+    'review.f.all': 'All', 'review.f.draft': 'Drafts', 'review.f.needs-reconfirm': 'To reconfirm',
+    'review.selected': '{n} selected', 'review.confirmN': 'Confirm the {n}', 'review.by': 'Your name',
+    'review.from': 'Comes from', 'review.open': 'Open', 'review.pick': 'Pick a page to see where it comes from.',
+    'review.more': 'More to look at', 'review.keys': 'j / k move · x marks · Enter opens',
+    'review.failed': 'Not everything was confirmed', 'review.loadFailed': 'The review queue did not load',
+    'review.err': 'Error', 'review.warn': 'Warning',
     appOnly: 'This runs on your machine: open it in the desktop app (camaron app).',
     'tw.generate': 'Generate', 'twd.generate': 'Documentation written by AI agents: the plan, runs, wikis and pull requests.',
     'tw.analyze': 'Analyze', 'twd.analyze': 'Facts read from the code without AI: C4 draft, stack, dependencies, data and history.',
@@ -163,6 +170,13 @@ export const S = {
   es: {
     'shell.nav': 'Secciones', 'shell.theme': 'Claro u oscuro', 'shell.lang': 'Idioma',
     'home.firstLook': 'Primer vistazo desde el código (sin IA)', 'home.firstLookFailed': 'El primer vistazo no arrancó',
+    'review.title': 'Revisión.', 'review.waiting': '{n} páginas esperan.', 'review.none': 'Nada espera.',
+    'review.f.all': 'Todas', 'review.f.draft': 'Borradores', 'review.f.needs-reconfirm': 'Por reconfirmar',
+    'review.selected': '{n} seleccionadas', 'review.confirmN': 'Confirmar las {n}', 'review.by': 'Tu nombre',
+    'review.from': 'Sale de', 'review.open': 'Abrir', 'review.pick': 'Elige una página para ver de dónde sale.',
+    'review.more': 'Más por mirar', 'review.keys': 'j / k para moverte · x marca · Enter abre',
+    'review.failed': 'No se confirmó todo', 'review.loadFailed': 'La cola de revisión no cargó',
+    'review.err': 'Error', 'review.warn': 'Aviso',
     appOnly: 'Esto se ejecuta en tu máquina: ábrelo en la app de escritorio (camaron app).',
     'tw.generate': 'Generar', 'twd.generate': 'Documentación escrita por agentes de IA: el plan, las ejecuciones, las wikis y los pull requests.',
     'tw.analyze': 'Analizar', 'twd.analyze': 'Datos leídos del código sin IA: borrador C4, stack, dependencias, datos e historia.',
@@ -332,6 +346,7 @@ export function lang() {
   return S[l] ? l : 'en'
 }
 
-export function t(key) {
-  return S[lang()][key] ?? S.en[key] ?? key
+// vars fill {name} placeholders; one not given stays as it is (callers that .replace() it themselves keep working).
+export function t(key, vars = {}) {
+  return (S[lang()][key] ?? S.en[key] ?? key).replace(/\{(\w+)\}/g, (m, v) => (v in vars ? String(vars[v]) : m))
 }

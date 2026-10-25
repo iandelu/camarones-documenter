@@ -19,13 +19,6 @@ function drawChrome(active, { viewer = false, bare = false } = {}) {
   if (viewer) drawToc(null);
 }
 
-// The docs' trust in words, for the review page (the header shows it as chips).
-const summaryText = () => {
-  const s = T.summary;
-  return [`${s.confirmed} ${t('trust.confirmed')}`, `${s.draft} ${t('trust.draft')}`, `${s['needs-reconfirm']} ${t('trust.needs-reconfirm')}`,
-    ...(T.feedback ? [`${T.feedback} ${t('changeRequests')}`] : [])].join(' · ');
-};
-
 // ---------- the Docs tree: folders in the canonical section order, working notes folded at the bottom ----------
 function buildTree(rows) {
   const root = { name: '', path: '', dirs: {}, pages: [], index: null };
@@ -296,49 +289,14 @@ function newPage() {
 
 // ---------- search and the ⌘K palette are React (src/views/Search.jsx, Palette.jsx) ----------
 
-// ---------- review ----------
-async function showReview() {
-  drawChrome('review');
-  drawDocsSide('');
-  drawToc(null);
-  CURRENT = '';
-  const s = await api('status');
-  const requests = STATIC ? [] : await api('reviews').catch(() => []);
-  const changed = Object.entries(s.changes).filter(([, c]) => c.status !== 'up-to-date');
-  $('#main').innerHTML = `<div class="page"><h1>${esc(t('reviewTitle'))}</h1>
-    <p class="muted">${esc(t('planUnits', { done: s.plan.done, total: s.plan.total, pages: T.summary.total }))} · ${esc(summaryText())}</p>
-    ${requests.length ? `<div class="box"><b>${esc(t('reviewRequests'))} (${requests.length})</b><ul class="list">${requests.map((r) =>
-      `<li class="rv" data-id="${esc(r.id)}"><a href="${esc(hrefFor(r.path))}">${esc(BY_PATH[r.path]?.title || r.path)}</a>
-        <span class="muted small">${esc(r.by)}${r.note ? ' · ' + esc(r.note) : ''}</span>
-        <div class="row"><button class="small rv-ok" type="button">${esc(t('approve'))}</button>
-          <input class="rv-text" placeholder="${esc(t('whatChanges'))}" style="flex:1;min-width:12rem">
-          <button class="ghost small rv-no" type="button">${esc(t('askChanges'))}</button></div></li>`).join('')}</ul></div>` : ''}
-    <div class="box"><b>${esc(t('waiting'))} (${s.queue.length})</b><ul class="list">${s.queue.map((r) =>
-      `<li>${TRUST[r.trust]} <a href="${esc(hrefFor(r.path))}">${esc(r.title)}</a> <span class="muted small">${esc(r.path)}</span></li>`).join('') || `<li class="muted">${esc(t('allConfirmed'))}</li>`}</ul></div>
-    <div class="box"><b>${esc(t('changeRequests'))} (${s.feedback.length})</b><ul class="list">${s.feedback.map((f) => `<li>${esc(f.slice(6))}</li>`).join('') || `<li class="muted">${esc(t('none'))}</li>`}</ul></div>
-    <div class="box"><b>${esc(t('codeChanged'))} (${changed.length})</b><ul class="list">${changed.map(([n, c]) =>
-      `<li><b>${esc(n)}</b> — ${esc(c.status)}${c.files ? ` (${c.files.length} ${esc(t('files'))})` : ''}</li>`).join('') || `<li class="muted">${esc(t('allDocumented'))}</li>`}</ul>
-      <p class="muted small">${esc(t('askAgent'))}</p></div>
-    <div class="box"><b>${esc(t('checks'))}</b><ul class="list">${[...s.check.errors.map((e) => `<li>❌ ${esc(e)}</li>`), ...s.check.warnings.map((w) => `<li>⚠️ ${esc(w)}</li>`)].join('') || `<li class="muted">${esc(t('allPass'))}</li>`}</ul></div></div>`;
-  $$('#main .rv').forEach((li) => {
-    const send = async (decision) => {
-      const comments = $('.rv-text', li).value.trim();
-      if (decision === 'changes' && !comments) { $('.rv-text', li).focus(); return; }
-      await api('review/decide', {}, { id: li.dataset.id, decision, comments, by: T.reviewer });
-      toast(t('decided'));
-      showReview();
-    };
-    $('.rv-ok', li).onclick = () => send('approve');
-    $('.rv-no', li).onclick = () => send('changes');
-  });
-}
+// ---------- review is React (src/views/Review.jsx) ----------
 
 // ---------- the bridge: the shell (src/shell/Shell.jsx) routes, these views paint ----------
 // The address table lives in src/router.js. Calls from these scripts that re-show the current address (after a save,
 // a language or audience change) go back through the shell, so one view renders at a time.
 function route() { return window.CamaronShell ? window.CamaronShell.go() : Promise.resolve(); }
 
-const VIEWS = { showDocsHome, showDoc, showReview, newPage,
+const VIEWS = { showDocsHome, showDoc, newPage,
   showWikis: () => showWikis(), showWiki: (...a) => showWiki(...a), showWikiGraph: (...a) => showWikiGraph(...a),
   showArch: (...a) => showArch(...a), showCodeTab: (...a) => showCodeTab(...a) };
 
@@ -367,6 +325,8 @@ window.CamaronLegacy = {
   leave() { CURRENT = ''; drawToc(null); document.body.classList.remove('viewer-mode', 'bare'); },
   scroll: (anchor) => scrollToAnchor(anchor),
   current: () => CURRENT,
+  toast: (m) => toast(m),
+  reload: () => loadTree(),
   docsOrder: () => DOCS_ORDER,
   mode: MODE,
   isStatic: () => STATIC,

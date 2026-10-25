@@ -164,7 +164,7 @@ draft and its page, the stack and tools — and Code offers to build the code gr
 
 One portal, two modes, the same interface, in Cofundo's visual language with the Camarón brand (light or dark, fonts served by the portal itself). There is no tab bar: **Home** asks first (Ask live, search in the export), shows the project's state (confirmed, to reconfirm, drafts, pending feedback); the sidebar keeps five zones — Docs, Architecture, Plan, Quality and Review — on every view; the top bar shows where you are and Ctrl K / ⌘K jumps to any page, zone or view, or (live) takes the question to Ask. Old addresses (`#/c4`, `#/docs/…`) still work. The views: **Docs** (tree, search, trust badges), **Architecture (C4)** (under each view, its elements: edit title,
 technology, description and relations, and confirm what the AI drafted, one by one or the whole view),
-**Code graph** (all repos or one), **Wikis** (OpenWiki per repo, its pages and graph), **Review** (pending pages, reviews
+**Code graph** (all repos or one), **Wikis** (OpenWiki per repo, its pages and graph), **Review** (pending pages with their sources, confirmed several at once; reviews
 an agent is waiting for, change requests, code changed since the docs, `check`), **Ask** (the sections that best answer
 a question, with citations, no AI; "database" also finds PostgreSQL and Spanish questions find English pages; with an agent set up, "Answer with AI" writes the answer from them
 alone), **Libraries** (every repo's dependencies as a library × service matrix, filtered by category,
