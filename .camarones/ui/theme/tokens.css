@@ -1,7 +1,8 @@
-/* The portal's theme: Cofundo's design tokens (the cofundo-design-system skill, web version of 2026-10-02) with the
-   Camarón adaptations of .claude/skills/cofundo-design-system/CAMARON.md. Linked before legacy/app.css, whose
-   variables (--bg, --ink, --line…) are aliases of these, so every view follows one theme.
-   Light is Cofundo's; dark is derived (Cofundo has none) and keeps 4.5:1 for text: src/tokens.test.js checks both.
+/* The theme of the portal and the desktop app (.camarones/ui/theme, published as theme/): Cofundo's design tokens
+   (the cofundo-design-system skill, web version of 2026-10-02) with the Camarón adaptations of
+   .claude/skills/cofundo-design-system/CAMARON.md. Linked before legacy/app.css, whose variables (--bg, --ink,
+   --line…) are aliases of these, so every view follows one theme.
+   Light is Cofundo's; dark is derived (Cofundo has none) and keeps 4.5:1 for text: tokens.test.js checks both.
    The aurora colours are backgrounds only, never text. Fonts are served from fonts/ (OFL), never from a CDN. */
 
 @font-face {
@@ -62,13 +63,14 @@
   --text-meta: 0.8125rem;
   --text-micro: 0.6875rem;
 
-  /* shapes and shadows: hierarchy comes from space, shadows only for what floats */
-  --radius-tarjeta: 1.25rem;
-  --radius-campo: 0.7rem;
-  --radius-pildora: 999px;
-  --consola-radio-tarjeta: 1rem;
-  --consola-radio-control: 0.75rem;
-  --consola-radio-chico: 0.5rem;
+  /* shapes and shadows: hierarchy comes from space, shadows only for what floats. Square corners, not pills
+     (CAMARON.md, Radii): --radius-pildora keeps its name for the rules that use it, with a square value. */
+  --radius-tarjeta: 6px;
+  --radius-campo: 4px;
+  --radius-pildora: 4px;
+  --consola-radio-tarjeta: 6px;
+  --consola-radio-control: 4px;
+  --consola-radio-chico: 3px;
   --sombra-hover: 0 24px 48px -24px rgba(10, 10, 10, 0.18);
   --sombra-modal: 0 40px 80px -24px rgba(10, 10, 10, 0.4);
   --sombra-menu: 0 12px 28px -18px rgba(0, 0, 0, 0.35);
