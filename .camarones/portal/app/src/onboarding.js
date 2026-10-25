@@ -50,13 +50,24 @@ export function repoRows(state) {
   return [...listed, ...(state.found || []).filter((r) => !names.has(r.name)).map((r) => ({ ...pick(r), checked: false }))]
 }
 
-// A code repo added by its URL (as `add_url` does): its name is the URL's last segment, branch main, kind service.
-export function repoFromUrl(raw) {
+// The name a repo gets from its URL: the last segment, without `.git`.
+export const urlName = (url) => (url || '').trim().replace(/[/\\]+$/, '').split(/[/:\\]/).pop().replace(/\.git$/i, '')
+
+// A code repo added by its URL, name and branch (as `add_url` does): the name defaults to the URL's, the branch to
+// main, the kind is service. `added` marks it as the person's, so its branch stays editable.
+export function repoFromUrl(raw, name = '', branch = '') {
   const url = (raw || '').trim()
   if (!url || url.startsWith('-')) return null
-  const name = url.replace(/[/\\]+$/, '').split(/[/:\\]/).pop().replace(/\.git$/i, '')
-  return name ? { name, url, branch: 'main', kind: 'service', checked: true } : null
+  const n = (name || '').trim() || urlName(url)
+  return n ? { name: n, url, branch: (branch || '').trim() || 'main', kind: 'service', checked: true, added: true } : null
 }
+
+// POST app/onboard/repos's list: the ticked rows with the workspace's keys only.
+export const repoBody = (rows) => rows.filter((r) => r.checked).map(pick)
+
+// The tools setup could not install, each with its row's hint (how to get it by hand, as the CLI's "manual" says).
+export const manualHints = (rows, failed) =>
+  (failed || []).map((id) => ({ id, hint: (rows || []).find((r) => r.id === id)?.label || '' }))
 
 // The host of a clone URL (https://host/… or git@host:…), for the token form when a clone failed.
 export function hostOf(url) {

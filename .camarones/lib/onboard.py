@@ -168,9 +168,10 @@ def mode(saved: dict) -> str:
 
 
 def state() -> dict:
-    """Where this project's first run stands, for the app: `mode` (new | join | done, computed as the CLI wizard does),
-    `kind`, `steps` (this mode's, without `name`: the start screen did it), `step` (the saved one; the first listed
-    when it was `name`), `done`, the workspace's `repos` and the repos `found` sitting in the folder."""
+    """Where this project's first run stands, for the app: `name` (the project's, from workspace.yaml), `mode` (new |
+    join | done, computed as the CLI wizard does), `kind`, `steps` (this mode's, without `name`: the start screen did
+    it), `step` (the saved one; the first listed when it was `name`), `done`, the workspace's `repos` and the repos
+    `found` sitting in the folder."""
     from .common import ROOT
     saved = load_json(firstrun_file(ROOT), {})
     m = mode(saved)
@@ -182,8 +183,8 @@ def state() -> dict:
         found = docs.detect_repos()
     except OSError:
         found = []
-    return {"mode": m, "kind": kind, "steps": ids, "step": step if step in ids else ids[0], "done": m == "done",
-            "repos": ws["repos"], "found": found}
+    return {"name": ws["project"].get("name") or "", "mode": m, "kind": kind, "steps": ids,
+            "step": step if step in ids else ids[0], "done": m == "done", "repos": ws["repos"], "found": found}
 
 
 def save_position(root: Path, step: str, mode: str) -> None:

@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { APP, getJSON, postJSON } from './api.js'
 import { lang, t } from './i18n.js'
-import { STEP_KEYS, canContinue, defaultPicks, errorKey, hostOf, nextStep, prevStep, progress, repoFromUrl, repoRows,
-  setupChoice, stepIndex } from './onboarding.js'
+import { STEP_KEYS, canContinue, defaultPicks, errorKey, hostOf, manualHints, nextStep, prevStep, progress, repoBody,
+  repoFromUrl, repoRows, setupChoice, stepIndex, urlName } from './onboarding.js'
 import { Tokens } from './TallerPanels.jsx'
 import { useJob } from './useJob.js'
 
@@ -55,8 +55,9 @@ export default function Onboarding() {
   }
   const next = nextStep({ ...st, step })
   const prev = step === 'intro' ? null : prevStep({ ...st, step })      // Ready closes the first run: no way back into it
-  const saveRepos = async () => setSt(await postJSON('app/onboard/repos',
-    { repos: rows.filter((r) => r.checked).map(({ checked, ...r }) => r) }))
+  const saveRepos = async () => setSt(await postJSON('app/onboard/repos', { repos: repoBody(rows) }))
+  // new picks make a finished setup stale: entering the step again installs them
+  const pickTools = (p) => { setPicked(p); setSetup({ result: null, running: false }) }
   const data = { repos: { kind: st.kind, rows }, tools: { rows: tools?.rows, picked },
     setup: { result: setup.result, requiredOk: tools?.required_ok }, arch: { saved: arch.saved } }[step]
   const check = canContinue(step, data)
@@ -65,7 +66,7 @@ export default function Onboarding() {
 
   const panel = {
     repos: <Repos rows={rows} setRows={setRows} />,
-    tools: <Tools tools={tools} picked={picked || []} setPicked={setPicked} />,
+    tools: <Tools tools={tools} picked={picked || []} setPicked={pickTools} />,
     setup: <Setup tools={tools} picked={picked} repos={st.repos} state={setup} setState={setSetup} reloadTools={loadTools} />,
     stack: <Stack scanned={scanned} setScanned={setScanned} />,
     arch: <Arch state={arch} setState={setArch} onSkip={skip} />,
@@ -74,7 +75,7 @@ export default function Onboarding() {
 
   return (
     <section className="view ob">
-      <div className="ob-head"><span className="ob-brand">camarón · {document.getElementById('project')?.textContent || ''}</span>
+      <div className="ob-head"><span className="ob-brand">camarón · {st.name}</span>
         <span className="muted small">{t('obPreparing')}</span></div>
       <ol className="ob-steps" aria-label={t('obPreparing')}>
         {st.steps.map((s, i) => {
@@ -98,34 +99,47 @@ export default function Onboarding() {
   )
 }
 
-// ---------- 1. Repos: the detected ones ticked, code repos added by URL ----------
+// ---------- 1. Repos: the detected ones ticked, code repos added by URL, name and branch (as add_url does) ----------
 function Repos({ rows, setRows }) {
   const [url, setUrl] = useState('')
+  const [name, setName] = useState(null)              // null: the URL's, until the person types one
+  const [branch, setBranch] = useState('main')
   const [error, setError] = useState('')
   const add = (e) => {
     e.preventDefault()
-    const r = repoFromUrl(url)
+    const r = repoFromUrl(url, name ?? '', branch)
     if (!r) return setError(t('obErrUrl'))
     if (rows.some((x) => x.name === r.name)) return setError(t('obErrDuplicate'))
     setRows([...rows, r])
     setUrl('')
+    setName(null)
+    setBranch('main')
     setError('')
   }
-  const toggle = (name) => setRows(rows.map((r) => (r.name === name ? { ...r, checked: !r.checked } : r)))
+  const edit = (n, patch) => setRows(rows.map((r) => (r.name === n ? { ...r, ...patch } : r)))
   return (
     <>
       <h2>{t('obReposTitle')}</h2>
       <p className="lede">{t('obReposLead')}</p>
       <ul className="ob-rows">
         {rows.map((r) => (
-          <li key={r.name}><label className="ob-row">
-            <input type="checkbox" checked={r.checked} onChange={() => toggle(r.name)} />
-            <span><b>{r.name}</b><code className="muted small">{r.kind} · {r.branch} · {r.url || t('obLocal')}</code></span>
-          </label></li>))}
+          <li key={r.name}><div className="ob-row">
+            <input type="checkbox" id={`ob-repo-${r.name}`} checked={r.checked} onChange={() => edit(r.name, { checked: !r.checked })} />
+            <label htmlFor={`ob-repo-${r.name}`}><b>{r.name}</b>
+              <code className="muted small">{r.kind} · {r.branch || 'main'} · {r.url || t('obLocal')}</code></label>
+            {r.added ? <input className="co-input ob-branch" value={r.branch} aria-label={fill(t('obBranchOf'), { repo: r.name })}
+                              placeholder="main" onChange={(e) => edit(r.name, { branch: e.target.value })} /> : null}
+          </div></li>))}
       </ul>
       <form className="ob-add" onSubmit={add}>
         <input className="co-input" value={url} aria-label={t('obAddLabel')} placeholder="https://gitlab.com/shop/payments.git"
                onChange={(e) => { setUrl(e.target.value); setError('') }} />
+        {url.trim() ? <>
+          <input className="co-input ob-short" value={name ?? urlName(url)} aria-label={t('obAddName')} placeholder={t('obAddName')}
+                 onChange={(e) => setName(e.target.value)} />
+          <input className="co-input ob-short" value={branch} aria-label={t('obAddBranch')} placeholder="main"
+                 onChange={(e) => setBranch(e.target.value)} />
+        </> : null}
         <button type="submit" className="ghost small" disabled={!url.trim()}>{t('obAddRepo')}</button>
       </form>
       {error ? <p className="error" role="alert">{error}</p> : null}
@@ -193,7 +207,8 @@ function Setup({ tools, picked, repos, state, setState, reloadTools }) {
       {r && !j.running ? (
         <>
           {r.cancelled ? <p className="aviso small">{t('obCancelled')}</p> : null}
-          {r.failed?.length ? <p className="aviso small">{fill(t('obFailedTools'), { tools: r.failed.join(', ') })}</p> : null}
+          {r.failed?.length ? <div className="aviso small"><p>{t('obFailedTools')}</p>
+            <ul>{manualHints(tools?.rows, r.failed).map((x) => <li key={x.id}><b>{x.id}</b>{x.hint ? ` · ${x.hint}` : ''}</li>)}</ul></div> : null}
           {missing.length ? <>
             <p className="aviso small">{fill(t('obMissingRepos'), { repos: missing.join(', ') })}</p>
             <div className="tw-list"><Tokens host={hostOf(firstUrl)} /></div>
@@ -273,6 +288,7 @@ function Arch({ state, setState, onSkip }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [done, setDone] = useState('')
+  const [warn, setWarn] = useState('')
   const asked = useRef(null)                           // the save waiting for "replace it?"
   const dialog = useRef(null)
   async function make() {
@@ -293,7 +309,9 @@ function Arch({ state, setState, onSkip }) {
     try {
       const res = await postJSON('app/onboard/arch', { action, overwrite, ...(action === 'save-ai' ? { agent, lang: lang() } : {}) })
       if (res.exists) { asked.current = action; dialog.current.showModal(); return }
-      setDone(action === 'save-ai' ? t('obAiOpened') : t('obSaved'))
+      // the agent could not open (no terminal here, or that CLI is gone): the draft is saved all the same
+      if (res.launched === false) setWarn(res.error === 'terminal' ? fill(t('obNoTerminal'), { prompt: res.prompt || '' }) : t('obAgentMissing'))
+      setDone(action === 'save-ai' && res.launched !== false ? t('obAiOpened') : t('obSaved'))
       setState((s) => ({ ...s, saved: true }))
     } catch (e) { setError(say(e)) } finally { setBusy(false) }
   }
@@ -305,6 +323,9 @@ function Arch({ state, setState, onSkip }) {
       <h2>{t('obArchTitle')}</h2>
       <p className="lede">{t('obArchLead')}</p>
       {draft.running ? <p className="muted small" role="status">{t('obDrafting')}</p> : null}
+      {draft.error ? (
+        <p className="error" role="alert">{say({ message: draft.error })} <button type="button" className="ghost small" onClick={make}>{t('obRetry')}</button></p>
+      ) : null}
       {!r && !draft.running && draft.job ? (
         <p className="error" role="alert">{t('obDraftFailed')} <button type="button" className="ghost small" onClick={make}>{t('obRetry')}</button></p>
       ) : null}
@@ -334,6 +355,7 @@ function Arch({ state, setState, onSkip }) {
       </div>
       {agents && !agents.length ? <p className="muted small">{t('pNoAgent')}</p> : null}
       {done ? <p className="ok small" role="status">{done}</p> : null}
+      {warn ? <p className="aviso small">{warn}</p> : null}
       {error ? <p className="error" role="alert">{error}</p> : null}
       {draft.job?.lines.length ? (
         <details className="tw-out" open={!r && !draft.running}><summary className="muted small">{t('twLog')}</summary>

@@ -58,6 +58,7 @@ def test_state_describes_a_first_run(app_server, kit):
     assert st["step"] == "repos"                                                      # nothing saved: the first listed
     assert {r["name"] for r in st["repos"]} == {"api", "web", "worker"}
     assert {r["name"] for r in st["found"]} == {"api", "web", "worker"}
+    assert st["name"] == kit.onboard.docs.workspace()["project"]["name"] and st["name"]   # the wizard's header
 
 
 def test_state_reads_old_position_files(app_server, kit):
@@ -306,6 +307,20 @@ def test_arch_save_ai_saves_then_opens_the_agent(app_server, kit, no_likec4, mon
     code, res = post(app_server, "arch", {"action": "save-ai", "agent": "claude", "lang": "en"})
     assert code == 200 and (kit.root / "docs" / "architecture" / "model.c4").is_file()
     assert launched == [(kit.onboard.arch_prompt("en"), "claude", "en")]
+
+
+@pytest.mark.parametrize("raised, code", [(RuntimeError("no terminal window"), "terminal"), (ValueError("x is not installed"), "agent")])
+def test_arch_save_ai_keeps_the_save_when_the_agent_cannot_open(app_server, kit, no_likec4, monkeypatch, raised, code):
+    """The model is already written when the agent fails to open: the save stands and the app is told why."""
+    import lib.agents
+
+    def boom(*_a, **_k):
+        raise raised
+    monkeypatch.setattr(lib.agents, "launch_prompt", boom)
+    wait_job(app_server, post(app_server, "arch", {"action": "draft"})[1]["id"])
+    status, res = post(app_server, "arch", {"action": "save-ai", "agent": "claude", "lang": "es"})
+    assert status == 200 and (kit.root / "docs" / "architecture" / "model.c4").is_file()
+    assert res["written"] and res["launched"] is False and res["error"] == code
 
 
 def test_done_finishes_the_first_run_and_commits(app_server, kit):
