@@ -229,4 +229,10 @@ def test_the_libraries_tldr_counts_vulnerabilities_and_no_manifests(kit, repos):
     result["vulns"] = []
     result["libraries"][0]["vulns"] = [{"id": "X", "cve": "CVE-1", "severity": "HIGH", "fixed": None}]
     assert "; 1 library with known vulnerabilities." in repos.render(result)
-    assert "> **TL;DR:** no direct dependencies across no repos." in repos.render({"libraries": []})
+    assert "> **TL;DR:** no direct dependencies across 3 repos." in repos.render({"libraries": []})   # the workspace's
+
+
+def test_the_libraries_tldr_counts_every_workspace_repo(kit, repos):
+    result = repos.scan()
+    result["libraries"] = [r for r in result["libraries"] if r["repo"] == "api"]
+    assert "> **TL;DR:** " in repos.render(result) and " across 3 repos" in repos.render(result)

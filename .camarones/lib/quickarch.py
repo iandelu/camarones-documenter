@@ -375,6 +375,6 @@ def save(model: dict, overwrite: bool = False, page: bool = True) -> list[str]:
     first = dst / "first-look.md"
     if not page or ("docs/architecture/model.c4" not in written and first.exists()):
         return written                      # the kept model has its own (maybe AI-verified) page: don't contradict it
-    first.write_text(first_look_page(model), encoding="utf-8")
+    first.write_text(first_look_page(model), encoding="utf-8", newline="\n")
     written.append("docs/architecture/first-look.md")
     return written

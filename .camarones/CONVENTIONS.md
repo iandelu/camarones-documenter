@@ -178,11 +178,10 @@ Generated blocks hold facts read from the repos without AI: `<!-- generated:<kin
 kinds `states`, `endpoints-map`, `context`, `messaging`, and `repos` (the repo cards of `docs/index.md`).
 `docs/repos/<repo>/index.md` is made of them (`reference.md` in a project from before 4.52); `CLI pages` writes the
 pages and `CLI blocks` refreshes the blocks in every page. A kit page (`x-generated: true`) is rewritten whole only
-while it holds nothing but kit text, keeping `x-confirmed`; once it has other text, only its blocks are updated. A page
-with `x-owner: human`, any `x-confirmed`, or no `x-owner` (and no `x-generated`) is a person's: `CLI pages` never
-rewrites it whole (it only refreshes its blocks) and `CLI pages --adopt` never writes it. An agent's page carries
-`x-owner: ai`. Put the same markers in any page instead of copying those facts by hand; `CLI blocks` and `CLI sync`
-fill and refresh them. Never edit inside a block: fix the source in the repo. A hand edit is kept and flagged.
+while it holds nothing but kit text and is not confirmed; otherwise only its blocks change. A person's page
+(`x-owner: human` or any `x-confirmed`) is never rewritten whole, and `CLI pages --adopt` never writes or deletes it. An
+agent's page carries `x-owner: ai` (a page with no `x-owner` is an agent's too, as the kit reads it). Put the same
+markers in any page instead of copying those facts by hand; `CLI blocks` and `CLI sync` fill and refresh them. Never edit inside a block: fix the source in the repo. A hand edit is kept and flagged.
 
 Managed blocks (`<!-- camarones:start -->` / `<!-- camarones:end -->` in `AGENTS.md`; `<!-- cam-docs:start -->` /
 `<!-- cam-docs:end -->` for the optional pointer in `<repo>/CLAUDE.md`) are rewritten by the kit only; everything outside

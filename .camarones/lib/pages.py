@@ -272,18 +272,12 @@ def _outside_blocks(body: str) -> str:
     return "".join(parts) + body[last:]
 
 
-def _tldr(lines: list[str]) -> set[int]:
-    """The line numbers of the TL;DR: the contiguous `>` lines from a `> **TL;DR:**` line that is the first non-blank
-    line under the H1 (an older kit's wording, over several lines, is still the kit's)."""
+def _tldr(lines: list[str]) -> int | None:
+    """The line number of the TL;DR: a `> **TL;DR:**` line that is the first non-blank line under the H1 (an older
+    kit's wording is still the kit's). Only that line: a `>` line under it is the kit's only when the kit writes it."""
     h1 = next((i for i, line in enumerate(lines) if line.startswith("# ")), None)
     i = len(lines) if h1 is None else next((j for j in range(h1 + 1, len(lines)) if lines[j]), len(lines))
-    if i == len(lines) or not lines[i].startswith("> **TL;DR:**"):
-        return set()
-    out = set()
-    while i < len(lines) and lines[i].startswith(">"):
-        out.add(i)
-        i += 1
-    return out
+    return i if i < len(lines) and lines[i].startswith("> **TL;DR:**") else None
 
 
 def _more_link(line: str) -> bool:
@@ -297,13 +291,14 @@ def _more_link(line: str) -> bool:
 
 def kit_only(text: str, kit_text: str) -> bool:
     """Whether a page holds only what the kit writes, so that a rewrite loses nobody's words: every non-blank line
-    outside its frontmatter and its generated blocks is a line of `kit_text` (what the kit would write today), a heading
-    (`#… `), a line of the TL;DR under the H1, a bare `:::`, or a list item that is only a relative link to a `MORE`
-    page. Any other `>`, `:::` or list line is someone's."""
-    kit = {line.strip() for line in kit_text.splitlines()}
+    outside its frontmatter and its generated blocks is a line of `kit_text` (what the kit would write today) outside
+    `kit_text`'s own frontmatter and blocks (a person's copy of a table row is theirs), a heading (`#… `), the TL;DR
+    line under the H1, a bare `:::`, or a list item that is only a relative link to a `MORE` page. Any other `>`, `:::`
+    or list line is someone's."""
+    kit = {line.strip() for line in _outside_blocks(docs.split_fm(kit_text)[1]).splitlines()}
     lines = [line.strip() for line in _outside_blocks(docs.split_fm(text)[1]).splitlines()]
     tldr = _tldr(lines)
-    return all(not line or line in kit or HEADING_LINE.match(line) or i in tldr or line == ":::" or _more_link(line)
+    return all(not line or line in kit or HEADING_LINE.match(line) or i == tldr or line == ":::" or _more_link(line)
                for i, line in enumerate(lines))
 
 
@@ -421,8 +416,8 @@ def _write_new(log=lambda _: None, exclude: frozenset[Path] = frozenset(),
     docs page is left out (2a's moved-block rule; a page in `exclude` does not count, and is never written; one in
     `frozen` counts but is never written either); a missing
     page is written whole; a page a person owns, or one the kit did not write, is left as it is; a kit page with only
-    kit text is rewritten whole, keeping its confirmed, hand-edited and unknown blocks; any other page gets only its
-    blocks brought up to date. The home is left as it is while some repo is not on this machine. A file is written only
+    kit text and no `x-confirmed` is rewritten whole, keeping its confirmed, hand-edited and unknown blocks; any other
+    page (a confirmed one too) gets only its blocks brought up to date. The home is left as it is while some repo is not on this machine. A file is written only
     when its text changed. Returns the pages written."""
     memo, scan, excluded = {}, genblocks.Scanner(), {Path(p).resolve() for p in exclude}
     scan.memo = memo
@@ -447,11 +442,14 @@ def _write_new(log=lambda _: None, exclude: frozenset[Path] = frozenset(),
             if fm.get("x-generated") is not True and not genblocks.BLOCK_RE.search(body):
                 log(f"· {rel_file(f)} was not written by the kit: left as it is")
                 continue
-            if fm.get("x-generated") is True and fresh is not None and kit_only(old, fresh + "\n" + KIT_DIRECTIVES):
+            if (fm.get("x-generated") is True and not fm.get("x-confirmed") and fresh is not None
+                    and kit_only(old, fresh + "\n" + KIT_DIRECTIVES)):
                 new = _rewrite(rel, repo, old, fresh, scan)
             else:
                 new = _blocks_only(rel, repo, old, fresh, scan)
-                note = f"· {rel_file(f)}: has text a person or an agent wrote, only its blocks were brought up to date"
+                why = ("is confirmed by a person (x-confirmed)" if fm.get("x-confirmed")
+                       else "has text a person or an agent wrote")
+                note = f"· {rel_file(f)}: {why}, only its blocks were brought up to date"
         if new is None or new == old:
             continue
         f.parent.mkdir(parents=True, exist_ok=True)
@@ -495,20 +493,32 @@ def _target(key: Key) -> str:
     return TARGET[key[0]][0].format(repo=key[1])
 
 
-PERSONS = "{page} is a person's page: add {what} by hand, or remove x-owner/x-confirmed and run --adopt again"
+DIFFERS = "differs from what this kit writes (text a person or an agent added, or an older kit's wording)"
 TLDR_END = re.compile(r"^# [^\n]*(?:\n|$)(?:[ \t]*\n)*(?:> \*\*TL;DR:\*\*[^\n]*(?:\n|$)(?:>[^\n]*(?:\n|$))*)?", re.M)
 
 
+def _persons(fm: dict) -> list[tuple[str, str]]:
+    """What makes a page a person's, as (frontmatter key, how to undo it): `x-owner: human`, any `x-confirmed`."""
+    return ([("x-owner: human", "set x-owner: ai")] * (fm.get("x-owner") == "human")
+            + [("x-confirmed", "remove x-confirmed")] * bool(fm.get("x-confirmed")))
+
+
 def _status(f: Path) -> str:
-    """How the existing page `f` takes blocks from `adopt`: `closed` (a person's: `x-owner: human`, `x-confirmed`, or no
-    `x-owner` on a page the kit did not generate, as 3.x hand-written pages often are; never written), `kit`
-    (`_write_new` writes it) or `draft` (`x-owner: ai` with no block: `adopt` adds the blocks, nothing else)."""
+    """How the existing page `f` takes blocks from `adopt`: `closed` (a person's: `x-owner: human` or any `x-confirmed`;
+    never written), `kit` (`x-generated: true` or holding a block: `_write_new` writes it) or `draft` (an agent's page
+    with no block, `x-owner: ai` or no `x-owner` at all, the kit's default as in `doc_status` and the 4.x skeletons:
+    `adopt` adds the blocks, nothing else)."""
     fm, body, _valid = docs.parse_fm(f.read_text(encoding="utf-8"))
-    if fm.get("x-owner") == "human" or fm.get("x-confirmed") or ("x-owner" not in fm and fm.get("x-generated") is not True):
+    if _persons(fm):
         return "closed"
-    if fm.get("x-generated") is True or genblocks.BLOCK_RE.search(body):
-        return "kit"
-    return "draft" if fm.get("x-owner") == "ai" else "closed"
+    return "kit" if fm.get("x-generated") is True or genblocks.BLOCK_RE.search(body) else "draft"
+
+
+def _persons_page(f: Path, what: str) -> str:
+    """Why `adopt` cannot put `what` in the person's page `f`, with the key that makes it theirs and how to go on."""
+    why = _persons(docs.split_fm(f.read_text(encoding="utf-8"))[0])
+    return (f"{rel_file(f)} is a person's page ({', '.join(k for k, _u in why)}): add {what} by hand, or "
+            f"{_join([u for _k, u in why])} and run --adopt again")
 
 
 def _held(f: Path) -> dict[Key, str]:
@@ -532,7 +542,7 @@ def _no_place(key: Key, text: str | None, memo: dict) -> str | None:
         if held is None or key in held and text in (None, held[key]):
             return None
         if key not in held:
-            return PERSONS.format(page=rel_file(f), what="its blocks")
+            return _persons_page(f, "its blocks")
         return f"{rel_file(f)} is a person's page and holds a different copy of {' '.join(filter(None, key))}"
     here = {REPO_PAGE.format(repo=n) for n in docs.repo_names() if repo_dir(n).is_dir()}
     if rel in here or rel == HOME or rel == MESSAGING and diagrams.ids("messaging", SYSTEM, memo):
@@ -548,6 +558,8 @@ def _judge(rel: str, text: str, scan: genblocks.Scanner) -> tuple[str | None, li
     fm, body, _valid = docs.parse_fm(text)
     if fm.get("x-owner") == "human":
         return "owned by a person", [], set()
+    if fm.get("x-confirmed"):
+        return "confirmed by a person", [], set()
     blocks = list(genblocks.states(body, scan))
     if any(m["kind"] not in TARGET for m, _s, _b in blocks):
         return "has a block the new pages have no place for", [], set()
@@ -563,7 +575,7 @@ def _judge(rel: str, text: str, scan: genblocks.Scanner) -> tuple[str | None, li
     if fm.get("x-generated") is not True and not (rel == FIRST_LOOK and fm.get("title") == FIRST_LOOK_TITLE):
         return "was not written by the kit", [], set()
     if not kit_only(text, _old_kit_text(rel, scan) + "\n" + KIT_DIRECTIVES):
-        return "has text a person or an agent wrote", [], set()
+        return DIFFERS, [], set()
     return None, carried, keys
 
 
@@ -657,35 +669,44 @@ def _relink(gone: set[str]) -> tuple[list[str], list[str]]:
     wrote too, since those it filled keep their prose (a page written whole from kit text links only to new pages). Only
     the target changes, in the text of the page, frontmatter and the rest byte for byte, and never inside a generated
     block (an edit there would read as made by hand); only a page that is not a person's (`_status`) is rewritten, and
-    only when the page that took over exists. A page that is not UTF-8 is never written: with such a link it is listed."""
+    only when the page that took over exists. A page that is not UTF-8 is never written: with such a link it is listed,
+    and so is a page that cannot be read or written (a lock, a permission)."""
     relinked, left = [], []
     for f in sorted(DOCS.rglob("*.md")):
         rel = f.relative_to(DOCS).as_posix()
         if rel.split("/")[0] == "i18n" or any(p.startswith(".") for p in rel.split("/")):
             continue
-        raw = f.read_bytes()
         try:
-            text = raw.decode("utf-8")
-        except UnicodeDecodeError:
-            text = raw.decode("utf-8", errors="replace")
-            if any(_removed_target(h, rel, gone) for _a, _b, h in _link_spans(docs.parse_fm(text)[1])):
-                left.append(rel_file(f))
-            continue
-        _fm, body, _valid = docs.parse_fm(text)
-        start = len(text) - len(body)
-        blocks = [(m.start(), m.end()) for m in genblocks.BLOCK_RE.finditer(body)]
-        hits = [(a, b, t) for a, b, href in _link_spans(body) if (t := _removed_target(href, rel, gone))
-                and not any(x <= a < y for x, y in blocks)]
-        if not hits:
-            continue
-        if _status(f) == "closed" or not all((DOCS / _successor(t)).is_file() for _a, _b, t in hits):
-            left.append(rel_file(f))
-            continue
-        for a, b, t in reversed(hits):
-            body = body[:a] + _relative(_successor(t), rel) + body[b:]
-        f.write_bytes((text[:start] + body).encode("utf-8"))
-        relinked.append(rel_file(f))
+            done = _relink_page(f, rel, gone)
+        except OSError:
+            done = False
+        if done is not None:
+            (relinked if done else left).append(rel_file(f))
     return relinked, left
+
+
+def _relink_page(f: Path, rel: str, gone: set[str]) -> bool | None:
+    """`_relink` on one page: True when its links were rewritten, False when it has such a link left as it is, None
+    when it has none."""
+    raw = f.read_bytes()
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        text = raw.decode("utf-8", errors="replace")
+        return False if any(_removed_target(h, rel, gone) for _a, _b, h in _link_spans(docs.parse_fm(text)[1])) else None
+    _fm, body, _valid = docs.parse_fm(text)
+    start = len(text) - len(body)
+    blocks = [(m.start(), m.end()) for m in genblocks.BLOCK_RE.finditer(body)]
+    hits = [(a, b, t) for a, b, href in _link_spans(body) if (t := _removed_target(href, rel, gone))
+            and not any(x <= a < y for x, y in blocks)]
+    if not hits:
+        return None
+    if _status(f) == "closed" or not all((DOCS / _successor(t)).is_file() for _a, _b, t in hits):
+        return False
+    for a, b, t in reversed(hits):
+        body = body[:a] + _relative(_successor(t), rel) + body[b:]
+    f.write_bytes((text[:start] + body).encode("utf-8"))
+    return True
 
 
 def _translations(gone: set[str]) -> list[str]:
@@ -696,7 +717,7 @@ def _translations(gone: set[str]) -> list[str]:
 
 def adopt(log=lambda _: None) -> dict:
     """`camaron pages --adopt`: move an old-layout project to the new pages. An old page (`old_pages`) stays exactly as
-    it is, blocks included, when a person owns it, when the new pages have no place for one of its blocks (a kind with
+    it is, blocks included, when a person owns or confirmed it, when the new pages have no place for one of its blocks (a kind with
     no `TARGET`, a person's page that lacks it or holds another copy of it, a page that will not exist), when it is
     not the kit's, when it has anyone's words besides the kit's (`kit_only` against what the 4.x kit would write today),
     or when another old page carries a different copy of one of its blocks. The new pages are written (`_write_new`, the
@@ -707,14 +728,15 @@ def adopt(log=lambda _: None) -> dict:
     ones) is in a page that stays, and its carried blocks' pages exist; a failure while writing deletes nothing. Nothing is
     done while some repo is not on this machine, or while the home is a person's page without the cards. Only after the
     deletes, the links to the deleted pages are pointed at the pages that took over (`_relink`) and their translations
-    are listed, never edited or deleted. Returns {"moved": ["<kind> <repo>[ <id>] → docs/<page>"], "deleted", "kept":
-    ["docs/<page>: <reason>"], "relinked" (pages whose links were rewritten), "links" (pages with a link to a deleted
-    page that were not rewritten), "translations"} (`docs/…` paths)."""
+    are listed, never edited or deleted; then `docs/llms.txt` is regenerated (a failure is only logged). Returns
+    {"moved": ["<kind> <repo>[ <id>] → docs/<page>"], "deleted", "kept": ["docs/<page>: <reason>"], "relinked" (pages
+    whose links were rewritten), "links" (pages with a link to a deleted page that were not rewritten), "translations"}
+    (`docs/…` paths)."""
     out = {k: [] for k in ("moved", "deleted", "kept", "relinked", "links", "translations")}
     old = {f.relative_to(DOCS).as_posix(): f for f in old_pages()}
     home = DOCS / HOME
     why = ("not every repo is on this machine" if not diagrams._complete() else
-           PERSONS.format(page=rel_file(home), what="the cards")
+           _persons_page(home, "the cards")
            if home.exists() and _status(home) == "closed" and not any(k[0] == "repos" for k in _keys(home)) else None)
     if not old or why:
         out["kept"] = [f"{rel_file(f)}: {why}" for f in old.values()]
@@ -772,4 +794,10 @@ def adopt(log=lambda _: None) -> dict:
             gone.add(rel)
     out["relinked"], out["links"] = _relink(gone) if gone else ([], [])
     out["translations"] = _translations(gone)
-    return _logged(out, log)
+    _logged(out, log)
+    if gone:                                                                 # llms.txt still lists the deleted pages
+        try:
+            docs.llms()
+        except Exception as e:                                               # the move is done: say it, don't undo it
+            log(f"· docs/llms.txt not regenerated ({e}): run camaron llms")
+    return out
