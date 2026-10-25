@@ -44,7 +44,7 @@ def _repo_facts(name: str, model: dict, names: list[str], memo: dict | None) -> 
              "consumes": _topics(topics, "consumes"), "calls": _calls(model, name, names),
              "states": len(diagrams.ids("states", name, memo)), "env": len(genblocks.env_rows(name, d)),
              "commands": len(genblocks.command_rows(name, d))}
-    read = [r["source"] for r in (*endpoints.values(), *topics)] + [f"{name}:{p}" for p in stores["sources"]]
+    read = [r["source"] for r in (*endpoints.values(), *topics)] + stores["sources"]
     return facts, [s.split("#", 1)[0] for s in read]
 
 

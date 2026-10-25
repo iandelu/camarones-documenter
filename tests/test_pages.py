@@ -50,7 +50,10 @@ def test_facts_count_what_the_code_states(pg):
     assert f["publishes"] == [] and f["calls"] == ["worker"]             # the fixture's Api.java mentions worker
     assert list(facts["repos"]) == ["api", "web", "worker"] and facts["project"] == "demo"
     assert facts["repos"]["web"]["calls"] == ["api"] and facts["repos"]["web"]["endpoints"] == 0
-    assert facts["dependencies"] >= 1 and facts["sources"]
+    assert facts["dependencies"] >= 1
+    assert "api:src/main/resources/db/migration/V1__init.sql" in facts["sources"]
+    assert "api:src/main/resources/openapi.yaml" in facts["sources"]
+    assert not [x for x in facts["sources"] if x.startswith("api:api:") or "#" in x]
 
 
 def test_facts_list_topics_and_scan_once(pg, monkeypatch):
