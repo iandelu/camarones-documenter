@@ -4,6 +4,7 @@ wizard and the app share (step lists, position in `firstrun.json`, the name step
 everything from its argument and none from this process's project globals. Never imports `wizard` at module level."""
 from __future__ import annotations
 
+import os
 import threading
 from pathlib import Path
 from typing import Callable
@@ -58,12 +59,31 @@ def _read_ws(docs_root: Path) -> dict:
 
 def is_home_or_root(path: Path) -> bool:
     """`path` is the user's home or a filesystem root (it equals its own anchor): never a workspace, since the docs
-    folder and every repo scan would land there. Compared resolved; case-insensitive on Windows."""
+    folder and every repo scan would land there. Compared as the same file when both exist (a case-insensitive volume
+    spells one folder many ways), else resolved, case-insensitive on Windows."""
     def key(p: Path) -> str:
         s = str(p.resolve())
         return s.casefold() if IS_WIN else s
+
+    def same(a: Path, b: Path) -> bool:
+        try:
+            return os.path.samefile(a, b)
+        except OSError:
+            return key(a) == key(b)
+
     p = Path(path).resolve()
-    return key(p) in (key(Path.home()), key(Path(p.anchor)))
+    return same(p, Path.home()) or same(p, Path(p.anchor))
+
+
+def _enclosing_repo(f: Path) -> Path | None:
+    """The nearest folder above `f` with a `.git` (a directory, or the file of a worktree/submodule). The search never
+    goes up into home or a filesystem root: a dotfiles repo in `~` does not own what is below it."""
+    for a in f.parents:
+        if is_home_or_root(a):
+            return None
+        if (a / ".git").exists():
+            return a
+    return None
 
 
 def _project_root(f: Path) -> Path | None:
@@ -103,12 +123,15 @@ def inspect(folder: Path) -> dict:
     """What `folder` is, first match wins: project · repo · umbrella · code · empty. Returns `case`, `kind`,
     `workspace` (the folder that holds the repos), `docs_root`, `name` (the workspace folder's), `repos` (docs.detect_repos
     rows), `siblings` (repo case: the other repos next to it) and `warning`: `home` when the workspace is the user's home or a
-    filesystem root (wins over the rest), else `no-git` for code without a repository. A picked `cam-docs` folder
-    is read as the workspace it belongs to."""
+    filesystem root and no project is there yet (wins over the rest), else `no-git` for code without a repository. A picked `cam-docs` folder
+    is read as the workspace it belongs to, and a folder inside a git repository as that repository."""
     f, warning, siblings = Path(folder).resolve(), "", []
     if f.name.lower() == CAM_DIR and f.parent != f:
         f = f.parent
     root = _project_root(f)
+    if not root and (enclosing := _enclosing_repo(f)):      # a folder inside a repo is that repo, never a place for git init
+        f = enclosing
+        root = _project_root(f)
     if root:
         case, kind = "project", kind_of(_read_ws(root))
         workspace = root.parent if root.name == CAM_DIR else root     # 3.x layout: the docs root is the workspace
@@ -120,7 +143,7 @@ def inspect(folder: Path) -> dict:
         case, kind, workspace, warning = "code", "legacy", f, "no-git"
     else:
         case, kind, workspace = "empty", "greenfield", f
-    if is_home_or_root(workspace):
+    if case != "project" and is_home_or_root(workspace):     # a project already there keeps opening (AGENTS 2.3)
         warning = "home"
     try:
         repos = docs.detect_repos(workspace) if workspace.is_dir() else []
@@ -258,8 +281,12 @@ def git_init(folder: Path) -> list[Path]:
     f = Path(folder).resolve()
     if not f.is_dir():
         raise ValueError(f"not a folder: {f}")
+    if is_home_or_root(f):
+        raise ValueError(f"{f} is your home folder or a drive root: pick the folder of one project")
     if (f / ".git").exists():
         raise ValueError(f"{f} is already a git repository")
+    if enclosing := _enclosing_repo(f):                      # the subfolders are inside it too
+        raise ValueError(f"{f} is inside the git repository {enclosing}")
     try:
         targets = [f] if _has_manifest(f) else sorted(d for d in f.iterdir()
                                                        if d.is_dir() and not (d / ".git").exists() and _has_manifest(d))
@@ -267,9 +294,16 @@ def git_init(folder: Path) -> list[Path]:
         raise ValueError(f"cannot read {f}: {e}") from None
     if not targets:
         raise ValueError(f"no code to put under git in {f}")
+    done: list[Path] = []
     for t in targets:
-        run(["git", "init", "-q"], cwd=t, quiet=True)
-    return targets
+        try:
+            run(["git", "init", "-q"], cwd=t, quiet=True)
+        except RuntimeError as e:
+            if done:
+                raise RuntimeError(f"{e}\nalready initialised: {', '.join(str(d) for d in done)}") from None
+            raise
+        done.append(t)
+    return done
 
 
 # ---------- tools: one table, install all (recommended) or pick ----------

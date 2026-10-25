@@ -513,7 +513,8 @@ def main() -> int:
                 print(json.dumps({"path": str(dest)}, ensure_ascii=False) if a.json else f"✔ {dest}")
         except (ValueError, RuntimeError, OSError) as e:
             print(f"✖ {e}", file=sys.stderr)
-            code = "taken" if isinstance(e, projects.Taken) else getattr(e, "code", "") if isinstance(e, onboard.Refused) else ""
+            code = ("taken" if isinstance(e, projects.Taken) else getattr(e, "code", "") if isinstance(e, onboard.Refused)
+                    else "git-init" if a.git_init else "")
             if a.json and code:                                     # the app words it: a stable code, not this line
                 print(json.dumps({"error": code, "detail": str(e)}, ensure_ascii=False))
             return 1
