@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Aviso, Brand, Breadcrumbs, Button, Card, EmptyState, Field, Skeleton } from '@camaron/ui'
+import { Aviso, Brand, Breadcrumbs, Button, Card, EmptyState, Field, Skeleton, SkipLink } from '@camaron/ui'
 import { initials, sectionOf, sections } from './nav.js'
 import { jobsStore } from './jobs.js'
 import { server } from './server.js'
@@ -62,6 +62,7 @@ function Project({ app }) {
   )
   return (
     <div className="dk">
+      <SkipLink target="main">{t('skip')}</SkipLink>
       <header className="dk-top">
         <Brand project={index?.project} href="#/summary" />
         <Breadcrumbs items={[{ label: index?.project || '…', href: '#/summary' }, { label: t('nav.' + here) }]} />
@@ -73,7 +74,7 @@ function Project({ app }) {
         <span className="eyebrow">{t('nav.app')}</span>
         {machine.map(link)}
       </nav>
-      <main className="dk-main">
+      <main className="dk-main" id="main" tabIndex={-1}>
         {error && <Aviso tone="error" title={t('hub.failed')} detail={error} />}
         {!index && !error ? <Skeleton lines={4} /> : <Section here={here} srv={srv} jobs={jobs} app={app} />}
       </main>

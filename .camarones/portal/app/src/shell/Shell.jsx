@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
-import { Brand, Breadcrumbs, Button, Chip, Keys } from '@camaron/ui'
+import { Brand, Breadcrumbs, Button, Chip, Keys, SkipLink } from '@camaron/ui'
 import '@camaron/ui/ui.css'
 import Native from '../Native.jsx'
 import Palette from '../views/Palette.jsx'
@@ -78,6 +78,7 @@ export default function Shell() {
   const mode = core.mode()
   return (
     <>
+      <SkipLink target="native">{tr('shell.skip')}</SkipLink>
       <header className="top">
         <button className="ghost icon menu" type="button" aria-label={t('menu')} title={t('menu')}
           onClick={() => document.body.classList.toggle('nav-open')}>☰</button>
@@ -102,7 +103,7 @@ export default function Shell() {
           {index && <ZoneNav index={index} mode={mode} t={t} />}
           {shown && <Side shown={shown} go={go} />}
         </aside>
-        <main id="native" className="main native">
+        <main id="native" className="main native" tabIndex={-1}>
           {failed && <div className="page"><h1>{t('unreachable')}</h1><p>{failed}</p></div>}
           {shown && <Native key={shown.at} view={shown.view} arg={shown.arg || null} />}
         </main>

@@ -1,8 +1,14 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, test } from 'vitest'
-import { Aviso, Brand, Breadcrumbs, Button, Card, Chip, EmptyState, Field, Keys, Skeleton } from './index.js'
+import { Aviso, Brand, Breadcrumbs, Button, Card, Chip, EmptyState, Field, Keys, Skeleton, SkipLink } from './index.js'
 
 const html = (node) => renderToStaticMarkup(node)
+
+// Both apps route by the hash: the skip link moves the focus itself instead of setting #main.
+test('the skip link points at the content and says so', () => {
+  expect(html(<SkipLink target="native">Saltar al contenido</SkipLink>))
+    .toBe('<a class="cu-skip" href="#native">Saltar al contenido</a>')
+})
 
 test('Brand stacks the wordmark over the project name', () => {
   const out = html(<Brand project="petclinic" href="#/" />)

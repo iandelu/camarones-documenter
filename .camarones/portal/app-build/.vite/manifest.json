@@ -1,23 +1,23 @@
 {
-  "_core-DAVN8_Mw.js": {
-    "file": "assets/core-DAVN8_Mw.js",
+  "_core-CEI-r8_F.js": {
+    "file": "assets/core-CEI-r8_F.js",
     "name": "core",
     "imports": [
-      "_i18n-DgWh7GFh.js"
+      "_i18n-35XgGMee.js"
     ]
   },
-  "_i18n-DgWh7GFh.js": {
-    "file": "assets/i18n-DgWh7GFh.js",
+  "_i18n-35XgGMee.js": {
+    "file": "assets/i18n-35XgGMee.js",
     "name": "i18n"
   },
   "index.html": {
-    "file": "assets/index-BpBO2HCK.js",
+    "file": "assets/index-CvYSwnva.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
     "imports": [
-      "_i18n-DgWh7GFh.js",
-      "_core-DAVN8_Mw.js"
+      "_i18n-35XgGMee.js",
+      "_core-CEI-r8_F.js"
     ],
     "dynamicImports": [
       "src/Pipeline.jsx",
@@ -30,76 +30,76 @@
       "src/Kanban.jsx"
     ],
     "css": [
-      "assets/index-l435QASB.css"
+      "assets/index-Bkr3AMMe.css"
     ]
   },
   "src/Ci.jsx": {
-    "file": "assets/Ci-BgfdaSgb.js",
+    "file": "assets/Ci-Cg16jGif.js",
     "name": "Ci",
     "src": "src/Ci.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-DgWh7GFh.js",
-      "_core-DAVN8_Mw.js",
+      "_i18n-35XgGMee.js",
+      "_core-CEI-r8_F.js",
       "index.html"
     ]
   },
   "src/Data.jsx": {
-    "file": "assets/Data-DDzFECOk.js",
+    "file": "assets/Data-BodWmnZH.js",
     "name": "Data",
     "src": "src/Data.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-DgWh7GFh.js",
-      "_core-DAVN8_Mw.js",
+      "_i18n-35XgGMee.js",
+      "_core-CEI-r8_F.js",
       "index.html"
     ]
   },
   "src/Interview.jsx": {
-    "file": "assets/Interview-BTKvN5Ep.js",
+    "file": "assets/Interview-m5QRV9Xc.js",
     "name": "Interview",
     "src": "src/Interview.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-DgWh7GFh.js"
+      "_i18n-35XgGMee.js"
     ]
   },
   "src/Kanban.jsx": {
-    "file": "assets/Kanban-DQqJW_GL.js",
+    "file": "assets/Kanban-D7i-MWuU.js",
     "name": "Kanban",
     "src": "src/Kanban.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-DgWh7GFh.js"
+      "_i18n-35XgGMee.js"
     ]
   },
   "src/Kpis.jsx": {
-    "file": "assets/Kpis-Bshc8_L6.js",
+    "file": "assets/Kpis-oucns8g4.js",
     "name": "Kpis",
     "src": "src/Kpis.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-DgWh7GFh.js",
-      "_core-DAVN8_Mw.js"
+      "_i18n-35XgGMee.js",
+      "_core-CEI-r8_F.js"
     ]
   },
   "src/Libs.jsx": {
-    "file": "assets/Libs-Bv8SF5DA.js",
+    "file": "assets/Libs-Ck7fauX2.js",
     "name": "Libs",
     "src": "src/Libs.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-DgWh7GFh.js",
+      "_i18n-35XgGMee.js",
       "index.html"
     ]
   },
   "src/Pipeline.jsx": {
-    "file": "assets/Pipeline-DZXrOw9T.js",
+    "file": "assets/Pipeline-DbEHR927.js",
     "name": "Pipeline",
     "src": "src/Pipeline.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-DgWh7GFh.js",
+      "_i18n-35XgGMee.js",
       "index.html"
     ],
     "css": [
@@ -107,12 +107,12 @@
     ]
   },
   "src/Sync.jsx": {
-    "file": "assets/Sync-VXCogIGj.js",
+    "file": "assets/Sync-QWThLK99.js",
     "name": "Sync",
     "src": "src/Sync.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-DgWh7GFh.js"
+      "_i18n-35XgGMee.js"
     ]
   }
 }

@@ -91,3 +91,14 @@ export function Breadcrumbs({ items, lang }) {
     </nav>
   )
 }
+
+// Skip to the content (WCAG 2.4.1). Both apps route by the hash, so the link moves the focus to the target itself
+// (which needs tabIndex -1) instead of letting the browser change the address.
+export function SkipLink({ target, children }) {
+  const go = (e) => {
+    e.preventDefault()
+    const el = document.getElementById(target)
+    if (el) { el.focus(); el.scrollIntoView?.({ block: 'start' }) }
+  }
+  return <a className="cu-skip" href={`#${target}`} onClick={go}>{children}</a>
+}
