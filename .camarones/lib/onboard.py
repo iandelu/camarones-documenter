@@ -4,7 +4,9 @@ wizard and the app share (step lists, position in `firstrun.json`, the name step
 everything from its argument and none from this process's project globals. Never imports `wizard` at module level."""
 from __future__ import annotations
 
+import threading
 from pathlib import Path
+from typing import Callable
 
 import yaml
 
@@ -158,23 +160,29 @@ def local_ready() -> bool:
     return all(env.tool_ok(k) for k in env.KIT_TOOLS if k in env.components())
 
 
+def mode(saved: dict) -> str:
+    """The first-run mode for the `saved` position (firstrun.json), the one rule the CLI wizard and the app share."""
+    from .common import WS_FILE
+    shared = plan.PLAN.exists() and WS_FILE.exists()          # team work that came with the repo (or pre-2.4)
+    return first_run_mode(saved, shared, local_ready=bool(shared and not saved) and local_ready())
+
+
 def state() -> dict:
     """Where this project's first run stands, for the app: `mode` (new | join | done, computed as the CLI wizard does),
     `kind`, `steps` (this mode's, without `name`: the start screen did it), `step` (the saved one; the first listed
     when it was `name`), `done`, the workspace's `repos` and the repos `found` sitting in the folder."""
-    from .common import ROOT, WS_FILE
+    from .common import ROOT
     saved = load_json(firstrun_file(ROOT), {})
-    shared = plan.PLAN.exists() and WS_FILE.exists()          # team work that came with the repo (or pre-2.4)
-    mode = first_run_mode(saved, shared, local_ready=bool(shared and not saved) and local_ready())
+    m = mode(saved)
     ws = docs.workspace()
     kind = kind_of(ws)
-    ids = [s for s in steps("new" if mode == "done" else mode, kind) if s != "name"]
+    ids = [s for s in steps("new" if m == "done" else m, kind) if s != "name"]
     step = resume_id(saved)
     try:
         found = docs.detect_repos()
     except OSError:
         found = []
-    return {"mode": mode, "kind": kind, "steps": ids, "step": step if step in ids else ids[0], "done": mode == "done",
+    return {"mode": m, "kind": kind, "steps": ids, "step": step if step in ids else ids[0], "done": m == "done",
             "repos": ws["repos"], "found": found}
 
 
@@ -241,11 +249,14 @@ def install_choice(rows: list[dict], choice: str, picked: list[str] | None = Non
     return [], env.components()
 
 
-def install_tools(system: list[str], components: list[str], log) -> list[str]:
-    """Save the chosen components, install the system tools in order and refresh PATH; returns the ones that failed."""
+def install_tools(system: list[str], components: list[str], log, cancelled: Callable[[], bool] | None = None) -> list[str]:
+    """Save the chosen components, install the system tools in order and refresh PATH; returns the ones that failed.
+    `cancelled` is asked before each install: once it says yes, the rest are left alone."""
     env.set_components(components)
     failed = []
     for k in system:
+        if cancelled and cancelled():
+            break
         if env.install_prereq(k, log=log):
             log(f"✔ {k}")                  # one finished step each, so the app's progress counts the system tools too
         else:
@@ -255,17 +266,21 @@ def install_tools(system: list[str], components: list[str], log) -> list[str]:
 
 
 # ---------- setup ----------
-def run_setup(log) -> bool:
+def run_setup(log, cancelled: Callable[[], bool] | None = None) -> bool:
     """The setup step's work: templates, `env.setup`, the plan for this workspace (also when setup failed, so the
-    portal has one) and the `setup` unit marked done when it worked. True when setup succeeded."""
+    portal has one) and the `setup` unit marked done when it worked. True when setup succeeded. `cancelled` (the app's
+    cancel button) is asked between steps: before setup starts and once it ends; a cancelled setup is not marked done."""
+    if cancelled and cancelled():
+        return False
     env.init_templates(docs.workspace()["project"]["name"], log=lambda _: None)   # `log` counts setup's own steps
     try:
         ok = env.setup(log=log)
     finally:
         plan.sync()                        # a setup that raised still leaves the plan in place
-    if ok:
+    if ok and not (cancelled and cancelled()):
         plan.set_status("setup", "done", "first run")
-    return bool(ok)
+        return True
+    return False
 
 
 def missing_repos() -> list[str]:
@@ -308,21 +323,31 @@ Talk to the user in {talk}. Do not modify application code.
 
 # ---------- what the app's endpoints do (serve.py only parses and answers) ----------
 LAST_DRAFT: dict = {}        # the newest C4 draft (quickarch.draft's model): /firstlook serves its html, `save` copies it
+DRAFT_LOCK = threading.Lock()   # a new draft replaces LAST_DRAFT whole, never edits it: readers see one draft or the other
+
+
+def last_draft() -> dict:
+    with DRAFT_LOCK:
+        return LAST_DRAFT
 
 
 def go_to(step: str) -> dict:
-    """Save `step` as the position (a join stays a join) and return the state. ValueError `step` for an unknown id."""
+    """Save `step` as the position (a join stays a join) and return the state. ValueError: `done` when the first run
+    is over (the app must not reopen it by a stray call), `step` for an id that is not one of this mode's steps."""
     from .common import ROOT
-    if step not in STEPS:
+    st = state()
+    if st["mode"] == "done":
+        raise ValueError("done")
+    if step not in st["steps"]:
         raise ValueError("step")
-    save_position(ROOT, step, "join" if state()["mode"] == "join" else "new")
+    save_position(ROOT, step, "join" if st["mode"] == "join" else "new")
     return state()
 
 
 def set_repos(rows: list) -> dict:
     """The repos step: validate the rows (`name` required and unique, `url` optional, `branch` defaults to main, `kind`
     to service), keep the extra keys an existing repo already has (stack, wiki…) and save. A legacy project needs at
-    least one. Raises ValueError with a code: `repos` · `name` · `duplicate`."""
+    least one. Raises ValueError with a code: `repos` · `name` · `url` · `duplicate`."""
     if not isinstance(rows, list):
         raise ValueError("repos")
     ws = docs.workspace()
@@ -330,12 +355,15 @@ def set_repos(rows: list) -> dict:
     out, seen = [], set()
     for r in rows:
         name = str(r.get("name") or "").strip() if isinstance(r, dict) else ""
-        if not name:
-            raise ValueError("name")
+        if not name or "/" in name or "\\" in name or ".." in name or name[0] in ".-" or name.lower() == CAM_DIR.lower():
+            raise ValueError("name")             # it becomes a folder next to the others: no paths, no options
         if name in seen:
             raise ValueError("duplicate")
         seen.add(name)
-        out.append({**old.get(name, {}), "name": name, "url": str(r.get("url") or "").strip(),
+        url = str(r.get("url") or "").strip()
+        if url.startswith("-"):                  # git would read it as an option
+            raise ValueError("url")
+        out.append({**old.get(name, {}), "name": name, "url": url,
                     "branch": str(r.get("branch") or "").strip() or "main",
                     "kind": str(r.get("kind") or "").strip() or "service"})
     if not out and kind_of(ws) == "legacy":
@@ -345,9 +373,10 @@ def set_repos(rows: list) -> dict:
     return state()
 
 
-def setup_job(system: list[str], components: list[str], log) -> dict:
+def setup_job(system: list[str], components: list[str], log, cancelled: Callable[[], bool] | None = None) -> dict:
     """The setup step as a job body: install, then `run_setup`. Every finished (✔) line is logged as `[n/total] …`,
-    `total` being setup's own steps plus one per system tool. Returns {rc, result: {failed, missing, ok}}."""
+    `total` being setup's own steps plus one per system tool. `cancelled` stops it between steps. Returns {rc, result:
+    {failed, missing, ok, cancelled}}."""
     total, n = env.setup_steps(components) + len(system), 0
 
     def counted(msg) -> None:
@@ -361,11 +390,15 @@ def setup_job(system: list[str], components: list[str], log) -> dict:
 
     failed, ok = [], False
     try:
-        failed = install_tools(system, components, counted)
-        ok = run_setup(counted)
+        failed = install_tools(system, components, counted, cancelled)
+        ok = run_setup(counted, cancelled)
     except Exception as e:  # noqa: BLE001 — the step shows what went wrong and offers to retry
         log(f"⚠ {e}")
-    return {"rc": 0 if ok else 1, "result": {"failed": failed, "missing": missing_repos(), "ok": ok}}
+    stopped = bool(cancelled and cancelled())
+    if stopped:
+        ok = False
+        log("cancelled")
+    return {"rc": 0 if ok else 1, "result": {"failed": failed, "missing": missing_repos(), "ok": ok, "cancelled": stopped}}
 
 
 def stack_rows() -> dict:
@@ -385,8 +418,9 @@ def arch_draft(log) -> dict:
     brokers and relations (R4: not external systems), whether the model validated and whether /firstlook has a page."""
     from . import quickarch
     m = quickarch.draft(log=log)
-    LAST_DRAFT.clear()
-    LAST_DRAFT.update(m)
+    global LAST_DRAFT
+    with DRAFT_LOCK:
+        LAST_DRAFT = dict(m)
     res = {"repos": [{"name": n, **{k: v for k, v in r.items() if k in ("kind", "tech")}} for n, r in m["repos"].items()],
            "datastores": [{"key": k, "label": d["label"], "name": d["name"], "users": sorted(d["users"])}
                           for k, d in m["dbs"].items()],
@@ -399,17 +433,17 @@ def arch_draft(log) -> dict:
 def arch_save(overwrite: bool = False) -> dict:
     """Copy the last draft into docs/architecture. An existing model.c4 is never replaced unless `overwrite`."""
     from . import quickarch
-    if not LAST_DRAFT:
+    draft = last_draft()
+    if not draft:
         raise ValueError("draft")
     if (docs.DOCS / "architecture" / "model.c4").exists() and not overwrite:
         return {"exists": True}
-    return {"written": quickarch.save(LAST_DRAFT, overwrite=overwrite), "exists": False}
+    return {"written": quickarch.save(draft, overwrite=overwrite), "exists": False}
 
 
 def done() -> dict:
     """Close the first run and checkpoint what it wrote."""
     from .common import ROOT
-    saved = load_json(firstrun_file(ROOT), {})
-    mode = "join" if saved.get("mode") == "join" else "new"
-    finish(ROOT, len(steps(mode, kind_of(docs.workspace()))))
+    m = mode(load_json(firstrun_file(ROOT), {}))
+    finish(ROOT, len(steps("new" if m == "done" else m, kind_of(docs.workspace()))))
     return {"committed": bool(env.checkpoint_commit("first setup"))}

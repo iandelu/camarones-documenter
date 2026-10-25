@@ -389,37 +389,60 @@ def app_creds(action: str, b: dict) -> tuple[dict, int]:
 ONBOARD_POST = re.compile(r"^/api/app/onboard/(step|repos|setup|scan|stack|arch|done)$")
 
 
-def app_onboard(name: str, b: dict):
+CANCEL: dict[str, threading.Event] = {}      # job id → its cancel flag, for jobs that run in this process (onboard:setup)
+
+
+def job_running(kind: str) -> bool:
+    with JOB_LOCK:
+        return any(j["kind"] == kind and j["status"] == "running" for j in JOBS.values())
+
+
+def cancel_job(job_id: str) -> dict:
+    """The app's cancel button: an in-process job (setup) is asked to stop between steps; a command job is killed."""
+    ev = CANCEL.get(job_id)
+    if ev is not None and JOBS.get(job_id, {}).get("status") == "running":
+        ev.set()
+        return {"cancelling": job_id}
+    from . import appapi
+    return appapi.cancel(job_id)
+
+
+def app_onboard(name: str, b: dict) -> tuple[dict, int]:
     """POST /api/app/onboard/<name>: the desktop app's first run (lib/onboard.py does the work). A job for what takes
     a while (setup, the repo scan, the C4 draft); errors the app can act on are 400s with a short code."""
     from . import agents, onboard
     if name == "step":
-        return onboard.go_to(str(b.get("id", "")))
+        return onboard.go_to(str(b.get("id", ""))), 200
     if name == "repos":
-        return onboard.set_repos(b.get("repos"))
+        return onboard.set_repos(b.get("repos")), 200
     if name == "setup":
         system = _text_list(b, "system")
         comps = [c for c in _text_list(b, "components") if c in env.ALL_COMPONENTS] if "components" in b else env.components()
-        return start_job("onboard:setup", "setup", lambda log: onboard.setup_job(system, comps, log))
+        ev = threading.Event()
+        job = start_job("onboard:setup", "setup", lambda log: onboard.setup_job(system, comps, log, ev.is_set))
+        CANCEL.setdefault(job["id"], ev)           # a click that attached to the running job keeps that job's flag
+        return job, 200
     if name == "scan":
-        return start_job("onboard:scan", "scan", onboard.scan_job)
+        return start_job("onboard:scan", "scan", onboard.scan_job), 200
     if name == "stack":
         from . import radar
-        radar.set_stack(str(b.get("repo", "")), b.get("text"))
-        return onboard.stack_rows()
+        text = _text(b, "text")
+        radar.set_stack(str(b.get("repo", "")), text)
+        return onboard.stack_rows(), 200
     if name == "arch":
         action = b.get("action")
         if action == "draft":
-            return start_job("onboard:arch", "arch", onboard.arch_draft)
+            return start_job("onboard:arch", "arch", onboard.arch_draft), 200
         if action in ("save", "save-ai"):
+            if job_running("onboard:arch"):         # the draft's folder is being rebuilt: saving now would copy half of it
+                return {"error": "busy"}, 409
             res = onboard.arch_save(bool(b.get("overwrite")))
             if action == "save-ai" and not res.get("exists"):
                 lang = b.get("lang") or "es"
                 res["agent"] = agents.launch_prompt(onboard.arch_prompt(lang), str(b.get("agent", "")), lang)
-            return res
+            return res, 200
         raise ValueError("action")
-    if name == "done":
-        return onboard.done()
+    return onboard.done(), 200
 
 
 def api_interview(who: str = "") -> dict:
@@ -778,7 +801,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.api_app_get(p[len("/api/app/"):], q)
             if p == "/firstlook":                     # the C4 draft's interactive view (read-only, like the docs)
                 from . import onboard
-                f = onboard.LAST_DRAFT.get("html")
+                f = onboard.last_draft().get("html")
                 return self.file(Path(f), local_cdn=True) if f and Path(f).is_file() else self.not_found()
             if STATIC:
                 return self.get_static_site(p)
@@ -945,7 +968,7 @@ class Handler(BaseHTTPRequestHandler):
                 from . import doctor
                 return self.json(start_job("doctor", "doctor", lambda log: bool(doctor.check(log))))
             if m := ONBOARD_POST.match(p):
-                return self.json(app_onboard(m.group(1), b))
+                return self.json(*app_onboard(m.group(1), b))
             if p == "/api/app/kitdev":                  # the bench of a kit checkout: sandbox, pytest, npm, node --test
                 return self.json(*app_kitdev(b))
             if p.startswith("/api/app/creds"):           # tokens only ever travel in this body, never on a command line
@@ -957,8 +980,7 @@ class Handler(BaseHTTPRequestHandler):
                     return self.json(agents.launch_update(agent, lang))
                 return self.json(agents.launch_unit(str(b.get("unit", "")), agent, lang, b.get("mode") or "new"))
             if m := re.fullmatch(r"/api/app/jobs/([\w.-]+)/cancel", p):
-                from . import appapi
-                return self.json(appapi.cancel(m.group(1)))
+                return self.json(cancel_job(m.group(1)))
             if p == "/api/doc":
                 return self.json(write(b["path"], b["raw"], b.get("lang", "")))
             if p == "/api/new":
