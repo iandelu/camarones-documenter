@@ -10,7 +10,7 @@ import threading
 import time
 from pathlib import Path
 
-from ..common import IS_WIN, run
+from ..common import IS_WIN, retry_busy
 
 _held: dict[str, tuple[int, int]] = {}         # lock path → (holding thread, depth), for re-entrancy
 _guard = threading.Lock()
@@ -22,10 +22,31 @@ class LockBusy(RuntimeError):
         super().__init__(f"{path.name} is held by pid {holder.get('pid')} on {holder.get('host') or 'this machine'}")
 
 
+def _win_pid_alive(pid: int) -> bool:
+    """Asked of the OS directly: os.kill(pid, 0) would terminate the process on Windows, and tasklist is slow and,
+    when it fails under load, made a live holder look dead (its lock was then taken from under it)."""
+    import ctypes
+    from ctypes import wintypes
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.OpenProcess.restype = wintypes.HANDLE
+    k32.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+    k32.GetExitCodeProcess.argtypes = (wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD))
+    k32.CloseHandle.argtypes = (wintypes.HANDLE,)
+    h = k32.OpenProcess(0x1000, False, pid)     # PROCESS_QUERY_LIMITED_INFORMATION
+    if not h:
+        return ctypes.get_last_error() == 5     # ERROR_ACCESS_DENIED: it exists, it is someone else's
+    try:
+        code = wintypes.DWORD()
+        return not k32.GetExitCodeProcess(h, ctypes.byref(code)) or code.value == 259    # STILL_ACTIVE
+    finally:
+        k32.CloseHandle(h)
+
+
 def pid_alive(pid: int) -> bool:
-    if IS_WIN:                                  # os.kill(pid, 0) would terminate the process on Windows
-        r = run(["tasklist", "/FI", f"PID eq {pid}", "/NH"], check=False, capture=True)
-        return str(pid) in (r.stdout or "")
+    if pid == os.getpid():
+        return True
+    if IS_WIN:
+        return _win_pid_alive(pid)
     try:
         os.kill(pid, 0)
     except PermissionError:
@@ -38,7 +59,10 @@ def pid_alive(pid: int) -> bool:
 class FileLock:
     def __init__(self, path: Path, wait: float = 30.0, ttl: float | None = None, info: dict | None = None):
         self.path, self.wait, self.ttl, self.info = Path(path), wait, ttl, info or {}
-        self.key = str(self.path.resolve()) if self.path.parent.exists() else str(self.path.absolute())
+        # the folder, never the lock file: resolving the file opens it on Windows, and while another process reads or
+        # deletes it the answer changes, so the holder no longer knew its own lock and waited for itself
+        parent = self.path.parent.resolve() if self.path.parent.exists() else self.path.parent.absolute()
+        self.key = os.path.normcase(str(parent / self.path.name))
 
     def _read(self) -> dict | None:
         try:
@@ -73,14 +97,22 @@ class FileLock:
         while True:
             try:
                 fd = os.open(self.path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            except PermissionError:
+                if not IS_WIN or time.monotonic() >= deadline:
+                    raise
+                time.sleep(0.02)                 # Windows: the last holder's file is still being deleted
+                continue
             except FileExistsError:
                 holder = self._read()
                 if holder is None:
                     continue                     # released between the two calls
-                if holder != checked or time.monotonic() - checked_at > 1:   # liveness can be slow (tasklist)
+                if holder != checked or time.monotonic() - checked_at > 1:
                     checked, checked_at = holder, time.monotonic()
                     if self._stale(holder) and self._read() == holder:
-                        self.path.unlink(missing_ok=True)
+                        try:
+                            self.path.unlink(missing_ok=True)
+                        except PermissionError:  # Windows: someone is reading it; look again
+                            pass
                         continue
                 if time.monotonic() >= deadline:
                     raise LockBusy(self.path, holder) from None
@@ -99,7 +131,7 @@ class FileLock:
                 _held[self.key] = (owner, depth - 1)
                 return
             _held.pop(self.key, None)
-        self.path.unlink(missing_ok=True)
+        retry_busy(lambda: self.path.unlink(missing_ok=True))     # Windows: a waiter is reading it right now
 
     def __enter__(self) -> "FileLock":
         self.acquire()

@@ -132,6 +132,18 @@ def test_http_rejects_other_origins(http):
     assert call(url, INIT, token=token, origin="http://localhost:3000")[0] == 200
 
 
+def test_a_refused_request_is_read_before_the_answer(mcp):
+    """Answering before the body is read resets the connection on Windows: the client never sees the 403."""
+    import io
+    h = mcp.HttpHandler.__new__(mcp.HttpHandler)
+    body = json.dumps(INIT).encode()
+    h.rfile, h.wfile = io.BytesIO(body), io.BytesIO()
+    h.path, h.command, h.request_version, h.requestline = "/mcp", "POST", "HTTP/1.1", "POST /mcp HTTP/1.1"
+    h.headers = {"Origin": "https://evil.example", "Content-Length": str(len(body))}
+    h.do_POST()
+    assert h.rfile.tell() == len(body) and b" 403 " in h.wfile.getvalue().split(b"\r\n")[0] + b" "
+
+
 def test_http_tool_call(http):
     url, token = http
     status, body = call(url, {"jsonrpc": "2.0", "id": 2, "method": "tools/call",
