@@ -2275,9 +2275,7 @@ class W:
 
     def local_ready(self) -> bool:
         """This machine already has what setup gives: every repo with a URL cloned and the chosen kit tools."""
-        if any(r.get("url") and not (repo_dir(r["name"]) / ".git").exists() for r in docs.workspace()["repos"]):
-            return False
-        return all(env.tool_ok(k) for k in env.KIT_TOOLS if k in env.components())
+        return onboard.local_ready()
 
     def do_share(self) -> None:
         url = env.docs_remote()
@@ -2459,10 +2457,7 @@ class W:
 
 def resume_step(state: dict) -> int:
     """Where the first run continues: by step id, or by index for firstrun.json files written before 3.3."""
-    if state.get("name") in STEPS:
-        return STEPS.index(state["name"])
-    i = int(state.get("step", 0))
-    return STEPS.index(LEGACY_STEPS[i]) if 0 <= i < len(LEGACY_STEPS) else min(max(i, 0), len(STEPS) - 1)
+    return STEPS.index(onboard.resume_id(state))
 
 
 def copy_clipboard(text: str) -> bool:
