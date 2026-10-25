@@ -8,14 +8,16 @@ a project still has the old pages (`reference.md`, `diagrams.md`, `first-look.md
 writes. `home_page`, `repo_page` and `messaging_page` write a whole page as text from the facts, with a block for every
 key the code has. `write` puts them in the docs (`_write_new`; the old layout keeps 2a's `diagrams.write_pages`): a page
 with only kit text (`kit_only`) is rewritten whole with its confirmed and hand-edited blocks put back (`place`), a page
-with anyone else's words only gets its blocks brought up to date."""
+with anyone else's words only gets its blocks brought up to date. `adopt` (`camaron pages --adopt`) moves an old project
+to the new pages: the old pages with only kit text give their blocks to the new pages and go, the others stay."""
 from __future__ import annotations
 
 import functools, re
 from pathlib import Path
+from types import SimpleNamespace
 
 from .common import DOCS, rel_file, repo_dir
-from . import diagrams, docs, genblocks, inventory, schemas
+from . import diagrams, docs, genblocks, inventory, quickarch, schemas
 
 SYSTEM = "_system"                                                          # reserved repo name: the whole system
 HOME = "index.md"
@@ -450,6 +452,113 @@ def write(log=lambda _: None) -> list[str]:
     return diagrams.write_pages(log) if layout() == "old" else _write_new(log)
 
 
+# ---------- adopting an old project ----------
+FIRST_LOOK = "architecture/first-look.md"
+FIRST_LOOK_TITLE = "Architecture — first look"                             # its page has no x-generated: the title says
+
+
+def _old_kit_text(rel: str, scan: genblocks.Scanner) -> str:
+    """What the 4.x kit would write today in the old page `rel` (`kit_only` skips the blocks, so a repo not on this
+    machine still gets its page's words)."""
+    parts, memo = rel.split("/"), scan.memo
+    if rel == FIRST_LOOK:
+        return quickarch.first_look_page(diagrams._scan(memo))
+    if parts[0] == "data":
+        repo = parts[1][:-len(".md")]
+        return schemas.page(schemas.scan_repo(repo, repo_dir(repo)))
+    if parts[-1] == "reference.md":
+        anything = SimpleNamespace(get=lambda *key: scan.get(*key) or (genblocks.NOTHING, []))   # a repo not here
+        return genblocks.reference_page(parts[1], anything)
+    repo, sections = (SYSTEM, diagrams.SYSTEM_SECTIONS) if rel == diagrams.SYSTEM_PAGE else (parts[1], diagrams.REPO_SECTIONS)
+    keys = [(h, [(kind, repo, i) for i in diagrams.ids(kind, repo, memo)]) for h, kind in sections]
+    return diagrams._new_page(repo, [(h, k) for h, k in keys if k],
+                              lambda key: diagrams.render(*key, memo=memo) or ("", []))
+
+
+def _target(key: Key) -> str:
+    """The new page (docs-relative) that holds a block of `key`."""
+    return TARGET[key[0]][0].format(repo=key[1])
+
+
+def _takes_blocks(rel: str, memo: dict) -> bool:
+    """Whether `rel` will be a page `place` may put a block in once `_write_new` ran: an existing page the kit may write
+    (not a person's, and the kit's or holding blocks), or one `_write_new` creates (the home, the page of a repo on this
+    machine, the messaging page when the code has topics)."""
+    f = DOCS / rel
+    if f.exists():
+        fm, body, _valid = docs.parse_fm(f.read_text(encoding="utf-8"))
+        return fm.get("x-owner") != "human" and (fm.get("x-generated") is True or bool(genblocks.BLOCK_RE.search(body)))
+    here = {REPO_PAGE.format(repo=n) for n in docs.repo_names() if repo_dir(n).is_dir()}
+    return rel in here or rel == HOME or rel == MESSAGING and bool(diagrams.ids("messaging", SYSTEM, memo))
+
+
+def _judge(rel: str, text: str, scan: genblocks.Scanner) -> tuple[str | None, list[tuple[str, Key]]]:
+    """(why the old page `rel` stays, or None when it can go; the blocks it carries: confirmed, hand-edited or unknown,
+    as (text, key)). The others are drawn fresh in the new pages."""
+    fm, body, _valid = docs.parse_fm(text)
+    if fm.get("x-owner") == "human":
+        return "owned by a person", []
+    blocks = list(genblocks.states(body, scan))
+    carried = [(m[0], diagrams._key(m)) for m, state, _b in blocks
+               if m["kind"] in TARGET and (m["confirmed"] or state in ("edited", "unknown"))]
+    if any(m["kind"] not in TARGET for m, _s, _b in blocks) or any(
+            not _takes_blocks(_target(key), scan.memo) for _t, key in carried):
+        return "has a block the new pages have no place for", []
+    if fm.get("x-generated") is not True and not (rel == FIRST_LOOK and fm.get("title") == FIRST_LOOK_TITLE):
+        return "was not written by the kit", []
+    if not kit_only(text, _old_kit_text(rel, scan) + "\n" + KIT_DIRECTIVES):
+        return "has text a person or an agent wrote", []
+    return None, carried
+
+
 def adopt(log=lambda _: None) -> dict:
-    """`camaron pages --adopt`: move an old-layout project to the new pages (the next task)."""
-    raise NotImplementedError("camaron pages --adopt comes in the next task")
+    """`camaron pages --adopt`: move an old-layout project to the new pages. An old page (`old_pages`) a person owns, or
+    with a block the new pages have no place for, or with anyone's words besides the kit's (`kit_only` against what the
+    4.x kit would write today) stays exactly as it is, blocks included. The new pages are written (`_write_new`, the
+    removable pages not counting as a block's home); the removable pages' confirmed, hand-edited and unknown blocks go
+    verbatim into their new page (`place`), the others are there fresh; then the removable pages are deleted (only once
+    every page is written: a failure deletes nothing). While some repo is not on this machine nothing is done (the home
+    would show a part of the project). Translations are left as they are. Returns {"moved": ["<kind> <repo>[ <id>] →
+    docs/<page>"], "deleted", "kept": ["docs/<page>: <reason>"], "relinked", "links", "translations"} (`docs/…` paths;
+    the last three are empty here)."""
+    out = {k: [] for k in ("moved", "deleted", "kept", "relinked", "links", "translations")}
+    old = {f.relative_to(DOCS).as_posix(): f for f in old_pages()}
+    if not old:
+        return out
+    if not diagrams._complete():
+        out["kept"] = [f"{rel_file(f)}: not every repo is on this machine" for f in old.values()]
+        for line in out["kept"]:
+            log(f"· kept {line}")
+        return out
+    scan = genblocks.Scanner()
+    removable: dict[str, list[tuple[str, Key]]] = {}
+    for rel, f in old.items():
+        why, carried = _judge(rel, f.read_text(encoding="utf-8"), scan)
+        if why:
+            out["kept"].append(f"{rel_file(f)}: {why}")
+        else:
+            removable[rel] = carried
+    _write_new(log, exclude=frozenset(old[rel] for rel in removable))
+    moves: dict[str, list[tuple[str, Key]]] = {}
+    for rel, carried in removable.items():
+        if any(not (DOCS / _target(key)).is_file() for _t, key in carried):    # a page `_write_new` did not create
+            out["kept"].append(f"{rel_file(old[rel])}: has a block the new pages have no place for")
+            continue
+        for text, key in carried:
+            moves.setdefault(_target(key), []).append((text, key))
+            out["moved"].append(f"{' '.join(filter(None, key))} → docs/{_target(key)}")
+        out["deleted"].append(rel_file(old[rel]))
+    for target, blocks in moves.items():
+        f = DOCS / target
+        text = f.read_text(encoding="utf-8")
+        body = docs.parse_fm(text)[1]
+        new_body = functools.reduce(lambda b, item: place(b, *item), blocks, body)
+        if new_body != body:
+            f.write_text(text[:len(text) - len(body)] + new_body, encoding="utf-8", newline="\n")
+    for rel, f in old.items():
+        if rel_file(f) in out["deleted"]:
+            f.unlink()
+    for mark, key in (("✔ moved", "moved"), ("✖ deleted", "deleted"), ("· kept", "kept")):
+        for line in out[key]:
+            log(f"{mark} {line}")
+    return out
