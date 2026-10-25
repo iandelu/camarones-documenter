@@ -47,20 +47,49 @@ def test_board_before_init_says_how(wired):
 def test_empty_board_has_the_one_shrimp_line(wired):
     subprocess.run(["git", "init", "-q", str(wired.root)], check=True)
     cli(wired, "board", "init")
-    assert "🦐" in cli(wired, "board", "list").stdout
+    out = cli(wired, "board", "list").stdout
+    assert "🦐" in out and "The board is empty" in out          # English whatever the docs language is
     assert "🦐" not in cli(wired, "board", "list", "--json").stdout
 
 
 def test_merge_driver_needs_no_workspace(wired, tmp_path):
     from lib.kanban.state import dump_board, load_board
-    card = {"uid": "u1", "status": "Backlog", "ordinal": 1, "assignee": [], "t": {}}
+    card = lambda uid: {"uid": uid, "status": "Backlog", "ordinal": 1, "assignee": [], "t": {}}
     d = tmp_path / "nowhere"
     d.mkdir()
-    for name, cards in (("O", {}), ("A", {"WI-1": card}), ("B", {"WI-1": card})):
+    for name, cards in (("O", {}), ("A", {"WI-1": card("u1")}), ("B", {"WI-2": card("u2")})):
         (d / name).write_text(dump_board(cards), encoding="utf-8", newline="\n")
-    r = cli(wired, "board", "merge-driver", "O", "A", "B", cwd=d, root=False)
+    env = {k: v for k, v in os.environ.items() if k != "CAMARONES_ROOT"}
+
+    def drive():
+        return subprocess.run([sys.executable, str(wired.kit_dir / "camarones.py"), "board", "merge-driver", "O", "A", "B"],
+                              env=env, cwd=d, capture_output=True, text=True, encoding="utf-8")
+    r = drive()
     assert r.returncode == 0, r.stderr
-    assert "WI-1" in load_board((d / "A").read_text(encoding="utf-8"))
+    assert set(load_board((d / "A").read_text(encoding="utf-8"))) == {"WI-1", "WI-2"}
+    (d / "B").write_text("{{ not: [yaml", encoding="utf-8")
+    before = (d / "A").read_bytes()
+    assert drive().returncode == 1
+    assert (d / "A").read_bytes() == before
+
+
+def test_list_takes_one_repo_and_one_label(wired):
+    subprocess.run(["git", "init", "-q", str(wired.root)], check=True)
+    cli(wired, "board", "init")
+    for flags in (("--repo", "a", "--repo", "b"), ("--label", "x", "--label", "y")):
+        r = cli(wired, "board", "list", *flags)
+        assert r.returncode == 2 and r.stderr.startswith("✖") and "one" in r.stderr
+
+
+def test_wrong_positional_counts_are_usage_errors(wired):
+    subprocess.run(["git", "init", "-q", str(wired.root)], check=True)
+    cli(wired, "board", "init")
+    cli(wired, "board", "add", "story", "Pay twice")
+    for args in (("show", "WI-1", "junk"), ("move", "WI-1", "Ready", "x"), ("assign", "WI-1"), ("archive", "WI-1", "x"),
+                 ("list", "junk"), ("repair", "junk"), ("init", "junk"), ("add", "story")):
+        r = cli(wired, "board", *args)
+        assert r.returncode == 2 and r.stderr.startswith("✖ usage"), args
+    assert cli(wired, "board", "list").stdout.count("WI-1") == 1
 
 
 def test_docs_check_ignores_the_board(wired):

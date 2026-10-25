@@ -11,8 +11,7 @@ ACTIONS = ("init", "add", "list", "show", "move", "assign", "link", "archive", "
 _NEED = {"add": 2, "show": 1, "archive": 1, "move": 2, "assign": 2, "link": 2, "merge-driver": 3}
 _USAGE = {"add": "add TYPE TITLE", "show": "show ID", "archive": "archive ID", "move": "move ID STATUS",
           "assign": "assign ID WHO", "link": "link ID REF", "merge-driver": "merge-driver O A B"}
-_EMPTY = {"es": "El tablero está vacío; la gamba espera su primera tarjeta: camaron board add story \"…\"",
-          "en": "The board is empty; this shrimp is waiting for its first card: camaron board add story \"…\""}
+_EMPTY = "The board is empty; this shrimp is waiting for its first card: camaron board add story \"…\""
 
 
 def add_parser(sp) -> None:
@@ -44,8 +43,12 @@ def run(a) -> int:
             print("✖ usage: camaron board merge-driver O A B", file=sys.stderr)
             return 2
         return merge.driver(*(Path(p) for p in a.args))
-    if len(a.args) < _NEED.get(a.action, 0):
-        print(f"✖ usage: camaron board {_USAGE[a.action]}", file=sys.stderr)
+    n, need = len(a.args), _NEED.get(a.action, 0)
+    if n < need or (n > need and a.action != "add"):         # add: the title may be several words
+        print(f"✖ usage: camaron board {_USAGE.get(a.action, a.action)}", file=sys.stderr)
+        return 2
+    if a.action == "list" and (len(a.repo or ()) > 1 or len(a.label or ()) > 1):
+        print("✖ list takes at most one --repo and one --label", file=sys.stderr)
         return 2
     try:
         return _run(a, ops)
@@ -80,7 +83,7 @@ def _run(a, ops) -> int:
             for p in data["problems"]:
                 print(f"! {p['path']}: {p['error']}", file=sys.stderr)
             if not data["cards"] and not (a.status or a.epic or a.repo or a.label or a.docs):
-                print("🦐 " + _EMPTY["es" if ops.docs_lang() == "es" else "en"])
+                print("🦐 " + _EMPTY)
     elif x == "show":
         d = ops.show(args[0])
         if a.json:
