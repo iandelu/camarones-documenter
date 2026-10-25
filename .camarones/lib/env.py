@@ -1529,29 +1529,41 @@ def checkpoint_paths() -> list[str]:
     return [p for p in CHECKPOINT_PATHS if (ROOT / p).exists() and (p != ".gitattributes" or kanban.enabled())]
 
 
-def board_repair(log=lambda _: None) -> list[str]:
-    """The board's repair pass; what it changed. A failure is a warning, never a blocked commit."""
+def _stderr(line: str) -> None:
+    print(line, file=sys.stderr)
+
+
+def board_repair(warn: Log = _stderr) -> list[str]:
+    """The board's repair pass; what it changed. Its warnings go to `warn`; a failure is a warning, never a blocked
+    commit. Only the main cam-docs has a board to repair: a unit's worktree leaves it to main."""
     from . import kanban
-    if not kanban.enabled():
+    if not kanban.enabled() or CTX.root != CTX.state_root:
         return []
     try:
         from .kanban import repair
-        return repair.repair(log=log)["changed"]
+        res = repair.repair(log=lambda _: None)
     except Exception as e:                                   # noqa: BLE001 — the commit must go on
-        print(f"🦐⚠ board repair skipped: {e}", file=sys.stderr)
+        warn(f"🦐⚠ board repair skipped: {e}")
         return []
+    for w in res["warnings"]:
+        warn(f"🦐⚠ board: {w}")
+    return res["changed"]
 
 
-def checkpoint_commit(message: str) -> bool:
-    """Commit docs progress locally. Keeps work safe if a session or the computer closes; pushes only with auto-share."""
+def checkpoint_commit(message: str, warn: Log = _stderr) -> bool:
+    """Commit docs progress locally. Keeps work safe if a session or the computer closes; pushes only with auto-share.
+    The board repair's warnings go to `warn` (stderr unless a caller such as share() shows them in its own log)."""
     if not (ROOT / ".git").exists():
         return False
-    board_repair()
+    board_repair(warn)
     paths = checkpoint_paths()
-    if CTX.root != CTX.state_root:   # a unit's worktree: its pages only; derived files and plan state belong to main
+    if CTX.root != CTX.state_root:   # a unit's worktree: its pages only; derived files, plan state and the board belong to main
+        paths = [p for p in paths if p not in ("backlog", ".gitattributes")]
         paths += [":(exclude)docs/.work", ":(exclude)docs/.status.json", ":(exclude)docs/llms.txt",
                   ":(exclude)docs/llms-full.txt"]
-    run(["git", "add", "--", *paths], cwd=ROOT, check=False, quiet=True)
+    if paths:                                    # (only exclusions would stage everything else)
+        paths += [":(exclude,glob)backlog/**/*.tmp"]                   # a board write that died half way
+        run(["git", "add", "--", *paths], cwd=ROOT, check=False, quiet=True)
     if run(["git", "diff", "--cached", "--quiet"], cwd=ROOT, check=False, quiet=True).returncode == 0:
         return False
     from . import quality
@@ -1662,10 +1674,17 @@ def share(log: Log = print) -> dict:
         detail = " · ".join(lines[max(start, 0):])[:400]              # git's last line alone is often a fragment
         return {"status": "error", "reason": reason, "host": host or "", "detail": detail}
 
+    said: set[str] = set()
+
+    def warn(line: str) -> None:                                      # the board's warnings, once each, in this log
+        if line not in said:
+            said.add(line)
+            log(line)
+
     global _sharing
     _sharing = True
     try:
-        checkpoint_commit("share")
+        checkpoint_commit("share", warn=warn)
     finally:
         _sharing = False
     if git("diff", "--cached", "--quiet").returncode != 0:
@@ -1685,10 +1704,10 @@ def share(log: Log = print) -> dict:
         if git(*_ident(), "rebase", "--quiet", "--autostash", theirs).returncode:
             git("rebase", "--abort")
             return {"status": "conflict", "detail": theirs}
-        if board_repair():                                            # a merge can leave duplicate ids or stale mirrors
+        if board_repair(warn):                                        # a merge can leave duplicate ids or stale mirrors
             _sharing = True
             try:
-                checkpoint_commit("board repaired after sync")
+                checkpoint_commit("board repaired after sync", warn=warn)
             finally:
                 _sharing = False
             if git("diff", "--cached", "--quiet").returncode != 0:
