@@ -50,9 +50,10 @@ def run(a) -> int:
     if a.action == "list" and (len(a.repo or ()) > 1 or len(a.label or ()) > 1):
         print("✖ list takes at most one --repo and one --label", file=sys.stderr)
         return 2
+    from ..harness.locks import LockBusy
     try:
         return _run(a, ops)
-    except ops.BoardError as e:
+    except (ops.BoardError, LockBusy, OSError) as e:        # a busy lock, a file another program holds…
         print(f"✖ {e}", file=sys.stderr)
         return 2
 

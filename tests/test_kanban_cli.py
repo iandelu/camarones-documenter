@@ -98,3 +98,25 @@ def test_docs_check_ignores_the_board(wired):
     cli(wired, "board", "add", "story", "Pay twice", "--repo", "api")
     r = cli(wired, "check")
     assert "backlog" not in r.stdout + r.stderr
+
+
+def test_a_busy_lock_or_a_file_error_is_one_plain_line(wired, monkeypatch, capsys):
+    import argparse
+    from pathlib import Path
+    from lib.harness.locks import LockBusy
+    from lib.kanban import cli as board_cli, ops
+    p = argparse.ArgumentParser()
+    board_cli.add_parser(p.add_subparsers(dest="cmd"))
+    args = p.parse_args(["board", "move", "WI-1", "Ready"])
+
+    def busy(*_a, **_k):
+        raise LockBusy(Path("board.lock"), {"pid": 42})
+    monkeypatch.setattr(ops, "move", busy)
+    assert board_cli.run(args) == 2
+    assert capsys.readouterr().err == "✖ board.lock is held by pid 42 on this machine\n"
+
+    def denied(*_a, **_k):
+        raise PermissionError(13, "Access is denied", "wi-1 - x.md")
+    monkeypatch.setattr(ops, "move", denied)
+    assert board_cli.run(args) == 2
+    assert capsys.readouterr().err == "✖ [Errno 13] Access is denied: 'wi-1 - x.md'\n"
