@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
-import { adoptSay, card, errorKey, JOIN0, joinStep, names } from './hub.js'
-import { S, t } from './i18n.js'
+import { adoptSay, card, errorKey, JOIN0, joinOnce, joinStep, names } from './hub.js'
+import { S, setLang, t } from './i18n.js'
 
 // What `camaron projects --inspect --json` prints (lib/onboard.py inspect).
 const found = (over = {}) => ({ case: 'empty', kind: 'greenfield', workspace: '/w/shop', docs_root: '/w/shop/cam-docs',
@@ -119,4 +119,33 @@ test('an adopt result: a known refusal in words, anything else generic with its 
   expect(adoptSay(f, { error: 'no-git', detail: 'd' }).key).toBe('hub.noGit')
   expect(adoptSay(f, { ok: false, error: 'Python exited 2' })).toMatchObject({ key: 'hub.openFailed', detail: 'Python exited 2' })
   expect(adoptSay(f, { error: 'boom' })).toMatchObject({ key: 'hub.failed', detail: 'boom', error: true })
+})
+
+// A join that throws (the project window failed to load after a good token retry) or returns nothing still drops the
+// token and the folder: nothing typed in the token field outlives a non-auth outcome.
+test('a join that throws or returns nothing clears the token too', async () => {
+  const asked = { ...JOIN0, showToken: true, token: 's3cret', host: 'gitlab.com', dir: '/w/team' }
+  const thrown = joinStep(asked, new Error('loadURL failed'))
+  expect(thrown).toMatchObject({ showToken: false, token: '', dir: null })
+  expect(thrown.say).toMatchObject({ key: 'hub.failed', detail: 'loadURL failed', error: true })
+  expect(joinStep(asked, undefined)).toMatchObject({ showToken: false, token: '', dir: null, say: null })
+  const seen = []
+  const rejects = { join: (...a) => { seen.push(a); return Promise.reject(new Error('gone')) } }
+  const s = await joinOnce(rejects, asked, 'https://gitlab.com/t/cam-docs.git', 's3cret')
+  expect(seen).toEqual([['https://gitlab.com/t/cam-docs.git', 's3cret', '/w/team']])
+  expect(s).toMatchObject({ showToken: false, token: '', dir: null, say: { key: 'hub.failed', detail: 'gone' } })
+  const odd = await joinOnce({ join: () => Promise.reject('nope') }, asked, 'u', 't')          // not an Error
+  expect(odd).toMatchObject({ showToken: false, token: '', say: { key: 'hub.failed', detail: 'nope' } })
+  const auth = await joinOnce({ join: async () => ({ error: 'auth', host: 'gitlab.com', dir: '/w/team' }) }, JOIN0, 'u', undefined)
+  expect(auth).toMatchObject({ showToken: true, dir: '/w/team' })
+})
+
+test('a network failure with no host does not say "the server" as a name', () => {
+  expect(joinStep(JOIN0, { error: 'network', host: '' }).say.key).toBe('hub.networkNoHost')
+  expect(joinStep(JOIN0, { error: 'network', host: 'git.acme' }).say.key).toBe('hub.network')
+  setLang('es')
+  expect(t('hub.networkNoHost')).toMatch(/^No llego al servidor\./)
+  setLang('en')
+  expect(t('hub.networkNoHost')).toMatch(/^I can't reach the server\./)
+  setLang('es')
 })

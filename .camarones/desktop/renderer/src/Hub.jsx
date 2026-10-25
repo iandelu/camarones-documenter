@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Aviso, Brand, Button, Card, Chip, Field, Skeleton } from '@camaron/ui'
 import { Failed } from './parts.jsx'
-import { adoptSay, BADGE, card, errorKey, JOIN0, joinStep, names } from './hub.js'
+import { adoptSay, BADGE, card, errorKey, JOIN0, joinOnce, names } from './hub.js'
 import { t } from './i18n.js'
 
 // The start screen (the hub window, loaded from disk): what do you want to document. Pick a folder (the CLI says what
@@ -100,7 +100,7 @@ export default function Hub({ hub }) {
     if (token === '') return
     work(async () => {
       setSay({ key: 'hub.joiningNow' })
-      const next = joinStep(js, await hub.join(u, token, js.dir || undefined))
+      const next = await joinOnce(hub, js, u, token)                   // never throws: a rejection clears the token too
       setJs(next)
       setSay(next.say)
     })
@@ -152,11 +152,11 @@ export default function Hub({ hub }) {
         <p className="dk-lede">{rich(t('hub.joinHelp'))}</p>
         <Card as="form" className="dk-hub-form" onSubmit={join}>
           <Field id="h-url" className="cu-input dk-mono" label={t('hub.urlLabel')} value={url} onChange={onUrl} required autoFocus
-            autoComplete="off" spellCheck={false} placeholder="https://gitlab.com/shop/cam-docs.git" />
+            disabled={busy} autoComplete="off" spellCheck={false} placeholder="https://gitlab.com/shop/cam-docs.git" />
           {js.showToken && (<div className="dk-token">
             <Field id="h-token" className="cu-input dk-mono" type="password" label={t('hub.tokenLabel', { host: js.host })}
-              value={js.token} onChange={(e) => setJs({ ...js, token: e.target.value })} required autoFocus autoComplete="off"
-              spellCheck={false} />
+              value={js.token} onChange={(e) => setJs({ ...js, token: e.target.value })} required autoFocus disabled={busy}
+              autoComplete="off" spellCheck={false} />
             <p className="muted small">{t('hub.tokenHelp')}</p>
           </div>)}
           <Say say={say} />
