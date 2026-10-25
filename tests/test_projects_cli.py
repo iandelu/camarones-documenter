@@ -181,13 +181,23 @@ def test_the_taller_never_runs_the_hubs_commands(kit):
         appapi.entry("projects")
 
 
-def test_the_catalog_keeps_inspect_and_adopt_out_of_the_apps_forms(kit):
-    """--inspect/--adopt/--name are the start screen's way in (IPC), not a form: the catalog lists `projects` with
-    --add only, so no command form shows them (`arg.adopt` labels `pages --adopt`)."""
+def test_projects_help_lists_the_start_screens_flags(kit):
+    """--inspect/--adopt/--name/--git-init are the start screen's way in (IPC), and `camaron projects --help` says so."""
+    r = cli(kit, "projects", "--help")
+    assert r.returncode == 0, r.stderr
+    for flag in ("--inspect", "--adopt", "--name", "--git-init"):
+        assert flag in r.stdout, flag
+
+
+def test_the_catalog_names_the_start_screens_flags_apart_from_pages_adopt(kit):
+    """Their own dests, so `arg.adopt` keeps labelling `pages --adopt` and each gets its own label in the renderer.
+    No command form shows them: `projects` is the hub's (appapi.HUB), in no section's zone."""
     r = cli(kit, "catalog", "--json", CAMARONES_ROOT=str(kit.root))
     assert r.returncode == 0, r.stderr
     row = next(c for c in json.loads(r.stdout)["commands"] if c["name"] == "projects")
-    assert {a["dest"] for a in row["args"]} == {"json", "add"}
+    assert {a["dest"]: a["flag"] for a in row["args"]} == {
+        "json": "--json", "add": "--add", "inspect_dir": "--inspect", "adopt_dir": "--adopt", "adopt_name": "--name",
+        "git_init_dir": "--git-init"}
 
 
 def test_the_env_token_is_tried_even_when_a_saved_one_was_refused(kit, monkeypatch, capsys):
