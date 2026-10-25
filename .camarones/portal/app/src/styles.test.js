@@ -5,7 +5,7 @@ import { expect, test } from 'vitest'
 // theme and the contrast guard of ui/theme/tokens.test.js.
 const read = (rel) => readFileSync(new URL(rel, import.meta.url), 'utf-8').replace(/\/\*[\s\S]*?\*\//g, '')
 
-test.each(['../public/legacy/app.css', './styles.css'])('%s defines no raw colours', (rel) => {
+test.each(['../public/legacy/app.css', './styles.css', './shell/shell.css', './views/views.css'])('%s defines no raw colours', (rel) => {
   expect(read(rel).match(/#[0-9a-f]{3,8}\b|rgba?\(\s*\d/gi) ?? []).toEqual([])
 })
 

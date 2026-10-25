@@ -76,7 +76,8 @@ test('architecture, code, review, search, new page, zone covers', () => {
   expect(go('#/code/api')).toEqual(legacy('showCodeTab', 'api'))
   expect(go('#/review')).toEqual(legacy('showReview'))
   expect(go('#/status')).toEqual(legacy('showReview'))
-  expect(go('#/search/visit%20form')).toEqual(legacy('showSearch', 'visit form'))
+  expect(go('#/search/visit%20form')).toEqual({ kind: 'native', view: 'search', arg: 'visit form' })
+  expect(go('#/search/x', { mode: 'static' })).toEqual({ kind: 'native', view: 'search', arg: 'x' })   // the export searches too
   expect(go('#/new')).toEqual(legacy('newPage'))
   expect(go('#/new', { mode: 'static' })).toEqual(HOME)
 })

@@ -1,0 +1,8 @@
+/* The views moved from the plain scripts (Home, search, palette…). Their old rules still live in
+   public/legacy/app.css until phase 1 folds it in; what is new is here. */
+.pal-tag { display: inline-flex; align-self: flex-start; align-items: center; min-height: 1.25rem; padding: 0 .4rem;
+           border: 1px solid var(--line); border-radius: var(--consola-radio-chico); font-size: .7rem; color: var(--muted);
+           white-space: nowrap; }
+.hit .pal-tag { margin-left: .4rem; vertical-align: middle; }
+.home-kpis a.home-kpi { color: var(--ink); text-decoration: none; }
+.home-kpis a.home-kpi:hover { border-color: var(--muted); }

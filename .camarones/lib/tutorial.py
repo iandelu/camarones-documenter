@@ -202,7 +202,7 @@ PAGES = {
                  "Plan (el Pipeline en vivo: reintentar y aprobar aquí; lanzar y cancelar, en la app de escritorio; la Entrevista, donde cada persona responde el cuestionario del equipo, y Sincronizar, que comparte con el equipo y trae su trabajo), Calidad (KPIs: cuánto está confirmado, qué se ha quedado viejo, "
                  "el coste de IA y las preguntas que nadie encontró; y CI) y Revisión. La barra "
                  "de arriba dice dónde estás y Ctrl K salta a "
-                 "cualquier página, zona o vista. Un proyecto nuevo ofrece un primer vistazo desde el código, sin IA, desde la app. Preguntar da las "
+                 "cualquier página, zona o vista, o lleva la pregunta a Preguntar. Un proyecto nuevo ofrece un primer vistazo desde el código, sin IA, desde la app. Preguntar da las "
                  "secciones que responden, con su cita (entiende el sentido: «base de datos» encuentra PostgreSQL), y si hay un agente "
                  "configurado también puede redactar la respuesta con ellas. El interruptor «Todo / Negocio» deja solo las páginas de qué "
                  "hace el sistema y por qué."},
@@ -530,7 +530,7 @@ PAGES = {
                  "always has five zones: Docs (pages and wikis), Architecture (C4, code graph, Data as an ER diagram, and Libraries with known "
                  "vulnerabilities in red), Plan (the live Pipeline: retry and approve here; run and cancel in the desktop app; the Interview, where each person answers the team questionnaire, and Sync, which shares with the team and brings in their work), Quality "
                  "(KPIs: confirmed share, pages out of date, AI cost and the questions nobody found; and CI) and Review. The top bar says "
-                 "where you are and Ctrl K jumps to any page, zone or view. A fresh project offers a first look from the code, no AI, from the app. Ask "
+                 "where you are and Ctrl K jumps to any page, zone or view, or takes the question to Ask. A fresh project offers a first look from the code, no AI, from the app. Ask "
                  "gives the sections that answer, with citations (it goes by meaning: “database” finds PostgreSQL), and with an agent set "
                  "up it can also write the answer from them. The “All / Business” switch keeps only the pages about what the system does "
                  "and why."},
