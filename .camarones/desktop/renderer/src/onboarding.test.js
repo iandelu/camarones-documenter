@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import { S } from './i18n.js'
-import { STEP_KEYS, alreadyDone, canContinue, continueVariant, defaultPicks, errorKey, errorText, hostOf, manualHints, nextStep,
+import { STEP_KEYS, alreadyDone, canContinue, continueVariant, defaultPicks, errorKey, errorLine, errorText, hostOf, manualHints, nextStep,
   prevStep, progressOf, repoBody, repoFromUrl, repoRows, reposChanged, setupChoice, stepIndex, urlName } from './onboarding.js'
 
 const LEGACY = ['repos', 'tools', 'setup', 'stack', 'arch', 'intro']
@@ -170,4 +170,12 @@ test('the no-agent warning promises nothing disabled', () => {
 test('a TypeError that is not a failed fetch shows its message', () => {
   expect(errorText(new TypeError("Cannot read properties of undefined (reading 'rows')")))
     .toEqual({ key: 'obErrServer', detail: "Cannot read properties of undefined (reading 'rows')" })
+})
+
+// One sentence for a rejection, in the language of `t`: shared by the wizard and the Docs builds.
+test('errorLine says a rejection in the person\'s language', () => {
+  const es = (k, v) => S.es[k]
+  expect(errorLine({ message: 'Failed to fetch' }, es)).toBe(S.es.obErrNetwork)
+  expect(errorLine(new Error('busy'), es)).toBe(S.es.obErrBusy)
+  expect(errorLine(new Error('app/onboard/step: 500'), es)).toBe(`${S.es.obErrServer} app/onboard/step: 500`)
 })

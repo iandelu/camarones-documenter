@@ -242,3 +242,32 @@ def test_a_read_only_form_of_a_confirmed_command_needs_no_confirmation(kit, entr
     with pytest.raises(PermissionError):
         appapi.argv(entries["trust"], {})
     assert appapi.argv(entries["trust"], {}, confirmed=True) == ["trust", "--yes"]
+
+
+def test_wiki_graph_builds_are_one_job_per_repo(app_server, kit, monkeypatch):
+    """start_job keeps one job per kind: a graph of another repo must not attach to the one running."""
+    gate, started = threading.Event(), []
+
+    def slow(repo, dest=None, log=print):
+        started.append(repo)
+        log(f"graph {repo}")
+        gate.wait(30)
+        return True
+
+    monkeypatch.setattr(kit.serve.env, "wiki_graph", slow)
+    try:
+        build = lambda repo: call(app_server + "/api/build", {"what": "wiki-graph", "repo": repo}, token=TOKEN)
+        (c1, a), (c2, b), (c3, a2) = build("api"), build("web"), build("api")
+        assert c1 == c2 == c3 == 200
+        assert a["id"] != b["id"]                       # two repos, two jobs, both running side by side
+        assert a2["id"] == a["id"]                      # the same repo twice attaches to the running one
+        assert a["label"] == "Wiki graph api" and b["label"] == "Wiki graph web"
+        assert a["kind"] != b["kind"]
+        end = time.monotonic() + 10
+        while len(started) < 2 and time.monotonic() < end:
+            time.sleep(0.05)
+        assert sorted(started) == ["api", "web"]
+    finally:
+        gate.set()
+    for j in (a, b):
+        assert wait_job(app_server, j["id"])["status"] == "done"
