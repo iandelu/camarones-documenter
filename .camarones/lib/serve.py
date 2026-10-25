@@ -391,13 +391,14 @@ def first_look(log) -> bool:
     from . import quickarch, radar
     quickarch.save(quickarch.draft(log=log))
     radar.run(log=log)
-    from . import inventory, schemas
+    from . import diagrams, inventory, schemas
     inventory.run(log=log)
     schemas.write_pages(log=log)
+    diagrams.write_pages(log=log)
     docs.llms()
     if env.which("likec4"):
         env.build_c4(log=log)
-    log("✔ first look written: architecture/first-look.md, overview/tooling.md and the C4 draft")
+    log("✔ first look written: architecture/first-look.md, architecture/system-map.md, overview/tooling.md and the C4 draft")
     return True
 
 

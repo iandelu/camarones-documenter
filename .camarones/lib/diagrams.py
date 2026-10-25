@@ -13,7 +13,7 @@ from __future__ import annotations
 import itertools, re
 from pathlib import Path
 
-from .common import repo_dir
+from .common import DOCS, rel_file, repo_dir
 from . import quickarch
 
 KINDS = ("states", "endpoints-map", "context", "messaging")
@@ -381,3 +381,146 @@ def render(kind: str, repo: str, id: str | None = None) -> tuple[str, list[str]]
     if repo == SYSTEM and kind == "messaging":
         return _messaging(id)
     return None
+
+
+SYSTEM_PAGE = "architecture/system-map.md"
+REPO_PAGE = "repos/{repo}/diagrams.md"
+SYSTEM_SECTIONS = (("Context map", "context"), ("Messaging", "messaging"))
+REPO_SECTIONS = (("Endpoints", "endpoints-map"), ("Lifecycles", "states"))
+Key = tuple  # (kind, repo, id or None)
+
+
+def _key(m) -> Key:
+    return m["kind"], m["repo"], m["id"]
+
+
+def _page_blocks(text: str) -> list:
+    from . import genblocks
+    return [m for m in genblocks.BLOCK_RE.finditer(text) if m["kind"] in KINDS]
+
+
+def _heading(body: str, heading: str):
+    return re.search(rf"^## {re.escape(heading)}[ \t]*$", body, re.M)
+
+
+def _section_end(body: str, heading: str) -> int | None:
+    """Where the `## heading` section ends (the next `## ` line, or the end of `body`); None when there is no such heading."""
+    m = _heading(body, heading)
+    if not m:
+        return None
+    nxt = re.compile(r"^## ", re.M).search(body, m.end())
+    return nxt.start() if nxt else len(body)
+
+
+def _edit_page(body: str, repo: str, managed: dict[str, str], wanted: list[Key], draw) -> tuple[str, list[str]]:
+    """The body of an existing page brought up to date: an unconfirmed block whose key is no longer wanted (its id is
+    gone, or the block lives in another page now) leaves; a confirmed block stays where it is, verbatim; the wanted keys
+    the page lacks are added at the end of their section. Returns (body, sources of the blocks added)."""
+    from . import genblocks
+    parts, last, emptied = [], 0, set()
+    for m in _page_blocks(body):
+        if m["kind"] not in managed.values() or m["repo"] != repo or m["confirmed"] or _key(m) in wanted:
+            continue
+        parts.append(body[last:m.start()])
+        last = m.end()
+        while body.startswith("\n", last):
+            last += 1
+        emptied.add(m["kind"])
+    body = "".join(parts) + body[last:]
+    for heading, kind in managed.items():                                  # a section a drop left with nothing goes too
+        start, end = _heading(body, heading), _section_end(body, heading)
+        if kind in emptied and start and not body[start.end():end].strip():
+            body = body[:start.start()] + body[end:]
+    present = {_key(m) for m in _page_blocks(body)}
+    sources = []
+    for key in wanted:
+        if key in present:
+            continue
+        heading = next(h for h, kind in managed.items() if kind == key[0])
+        text, src = draw(key)
+        sources += src
+        blk = genblocks.block(key[0], key[1], text, id=key[2])
+        end = _section_end(body, heading)
+        if end is None:
+            body = body.rstrip("\n") + f"\n\n## {heading}\n\n{blk}\n"
+        else:
+            tail = body[end:]
+            body = body[:end].rstrip("\n") + "\n\n" + blk + "\n" + ("\n" + tail if tail else "")
+    return body, sources
+
+
+def _new_page(repo: str, sections: list[tuple[str, list[Key]]], draw) -> str:
+    """A whole page for `repo` (SYSTEM for the system map) with a block per key, under its section."""
+    from . import docs, genblocks
+    sources, body = [], ""
+    for heading, keys in sections:
+        blocks = []
+        for key in keys:
+            text, src = draw(key)
+            sources += src
+            blocks.append(genblocks.block(key[0], key[1], text, id=key[2]))
+        body += f"\n## {heading}\n\n" + "\n\n".join(blocks) + "\n"
+    if repo == SYSTEM:
+        title, tags, h1 = "System map", [], "System map"
+        description = ("The system as drawn from the code: how the repos, datastores and brokers connect, and who publishes "
+                       "and consumes each topic (a static scan, no AI).")
+        tldr = ("How the services, datastores and message brokers fit together, and who talks to whom over each topic. "
+                "The diagrams are read from the code with no AI; `camaron diagrams` refreshes them. Flows are never "
+                "guessed: they wait for a proposal that a person confirms.")
+    else:
+        title, tags, h1 = f"{repo} diagrams", [repo], f"{repo} diagrams"
+        description = (f"Diagrams of {repo} drawn from its code: its endpoints with what they depend on, and the states of "
+                       "its status enums (a static scan, no AI).")
+        tldr = (f"What `{repo}` exposes and the states its status enums list. The diagrams are read from the code with no "
+                "AI; `camaron diagrams` refreshes them. Transitions are never guessed: they wait for a proposal that a "
+                "person confirms.")
+    fm = {"type": "overview", "title": title, "description": description, **({"tags": tags} if tags else {}),
+          "x-sources": list(dict.fromkeys(sources)), "x-owner": "ai", "x-generated": True}
+    return docs.join_fm(fm, f"# {h1}\n\n> **TL;DR:** {tldr}\n{body}")
+
+
+def write_pages(log=lambda _: None) -> list[str]:
+    """Create or bring up to date `docs/architecture/system-map.md` (context map, one sequence per topic) and
+    `docs/repos/<repo>/diagrams.md` (endpoints map, one state diagram per status enum). A block whose key (kind, repo,
+    id) already lives in another docs page is not written again (an agent moved it there); a block a person confirmed
+    stays; an unconfirmed one whose id is gone leaves; a page a person owns is never touched; a page that would have no
+    block is not created. Returns the pages written."""
+    from . import docs, genblocks
+    names = [n for n in sorted(docs.repo_names()) if repo_dir(n).is_dir()]
+    homes: dict[Key, set[Path]] = {}                                       # where each diagram block lives now
+    for _row, f in genblocks._pages():
+        for m in _page_blocks(f.read_text(encoding="utf-8")):
+            homes.setdefault(_key(m), set()).add(f.resolve())
+    cache: dict[Key, tuple[str, list[str]]] = {}
+
+    def draw(key: Key):
+        if key not in cache:
+            cache[key] = render(*key)
+        return cache[key]
+    specs = [(SYSTEM_PAGE, SYSTEM, SYSTEM_SECTIONS)] + [(REPO_PAGE.format(repo=n), n, REPO_SECTIONS) for n in names]
+    written = []
+    for rel, repo, sections in specs:
+        f = DOCS / rel
+        elsewhere = {k for k, where in homes.items() if where - {f.resolve()}}
+        per_section = [(h, [(kind, repo, i) for i in ids(kind, repo) if (kind, repo, i) not in elsewhere]) for h, kind in sections]
+        wanted = [k for _h, keys in per_section for k in keys]
+        if f.exists():
+            text = f.read_text(encoding="utf-8")
+            fm, body, _valid = docs.parse_fm(text)
+            if fm.get("x-owner") == "human":
+                continue
+            new_body, sources = _edit_page(body, repo, {h: kind for h, kind in sections}, wanted, draw)
+            if new_body == body:
+                continue
+            new = text[:len(text) - len(body)] + new_body
+            if sources and fm.get("x-generated"):
+                new = docs.join_fm({**fm, "x-sources": list(dict.fromkeys([*(fm.get("x-sources") or []), *sources]))}, new_body)
+        elif wanted:
+            new = _new_page(repo, [(h, keys) for h, keys in per_section if keys], draw)
+        else:
+            continue
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(new, encoding="utf-8", newline="\n")
+        written.append(rel_file(f))
+        log(f"✔ {rel_file(f)}")
+    return written

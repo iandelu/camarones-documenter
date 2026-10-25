@@ -112,6 +112,9 @@
   blocks [--force] [--json]  facts read from the repos, no AI: docs/repos/<repo>/reference.md (commands, env vars,
                             endpoints, topics) and every <!-- generated:… --> block in the docs. A block edited by hand
                             is kept and flagged by check; --force takes the code's version. `sync` refreshes them too
+  diagrams [--force] [--json]  diagrams drawn from the code, no AI: docs/architecture/system-map.md (context map, one
+                            sequence per topic) and docs/repos/<repo>/diagrams.md (endpoints, status enums). A diagram
+                            that moved to another page is not written twice; --force takes the code's version of edited ones
   pr fresh REPO [--base REF | --files F…] [--json] [--post] [--lang en|es]
                             what a pull request does to the docs, no AI: the pages whose cited code it changes (left
                             out of date by it, or already before). --post writes or updates one comment on the PR/MR
@@ -325,6 +328,7 @@ def build_parser() -> argparse.ArgumentParser:
     prp.add_argument("--base", default=""); prp.add_argument("--files", nargs="+"); prp.add_argument("--json", action="store_true")
     prp.add_argument("--post", action="store_true"); prp.add_argument("--lang", default="en", choices=["en", "es"])
     bl = sp.add_parser("blocks"); bl.add_argument("--force", action="store_true"); bl.add_argument("--json", action="store_true")
+    dg = sp.add_parser("diagrams"); dg.add_argument("--force", action="store_true"); dg.add_argument("--json", action="store_true")
     fr = sp.add_parser("fresh"); fr.add_argument("--json", action="store_true"); fr.add_argument("--ack", nargs="+", default=[])
     fr.add_argument("--by", default=""); fr.add_argument("--plan", action="store_true")
     kp = sp.add_parser("kpis"); kp.add_argument("--json", action="store_true"); kp.add_argument("--months", type=int, default=3)
@@ -665,6 +669,8 @@ def main() -> int:
         return cmd_fresh(a)
     elif a.cmd == "blocks":
         return cmd_blocks(a)
+    elif a.cmd == "diagrams":
+        return cmd_diagrams(a)
     elif a.cmd == "pr":
         return cmd_pr(a)
     elif a.cmd == "eval":
@@ -1140,6 +1146,24 @@ def cmd_blocks(a) -> int:
         print(f"  · not touched, owned by a person: {h}")
     if out["edited"]:
         print(f"Fix the source in the repo, or `{cli_cmd()} blocks --force` to take the code's version.")
+    return 0
+
+
+def cmd_diagrams(a) -> int:
+    from lib import diagrams, genblocks
+    out = {"written": diagrams.write_pages(), **genblocks.refresh(force=a.force)}
+    if a.json:
+        print(json.dumps(out, indent=2, ensure_ascii=False))
+        return 0
+    print(f"✔ {len(out['written'])} diagram page(s) written, {len(out['updated'])} page(s) refreshed")
+    for w in out["written"]:
+        print(f"  → {w}")
+    for e in out["edited"]:
+        print(f"  · kept, edited by hand: {e}")
+    for h in out["human"]:
+        print(f"  · not touched, owned by a person: {h}")
+    if out["edited"]:
+        print(f"Fix the source in the repo, or `{cli_cmd()} diagrams --force` to take the code's version.")
     return 0
 
 
