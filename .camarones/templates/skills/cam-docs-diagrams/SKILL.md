@@ -5,9 +5,9 @@ description: Draw and keep {{PROJECT_NAME}}'s Mermaid diagrams — sequence, sta
 
 # Draw and keep the diagrams
 
-1. Start from the code: `{{CLI}} diagrams` writes `{{CAM}}docs/architecture/system-map.md` and
-   `{{CAM}}docs/repos/<repo>/diagrams.md` (context map, one sequence per message topic, endpoints map, one state
-   diagram per status enum). No AI, safe to repeat. `{{CLI}} blocks` refreshes every generated block in every page.
+1. Start from the code: `{{CLI}} diagrams` writes two kinds of page, with no AI, safe to repeat:
+   `{{CAM}}docs/architecture/system-map.md` holds the context map and one sequence per message topic;
+   `{{CAM}}docs/repos/<repo>/diagrams.md` holds the endpoints map and one state diagram per status enum. `{{CLI}} blocks` refreshes every generated block in every page.
 2. Pick the diagram that fits (CONVENTIONS §5): business flow → `sequenceDiagram`; anything with a status →
    `stateDiagram-v2`; datastore → `erDiagram` (a cache: a `flowchart` of keys, TTLs, writers, readers); domain →
    context-map `flowchart`; system overview → the C4 `likec4-view`.
@@ -32,7 +32,8 @@ description: Draw and keep {{PROJECT_NAME}}'s Mermaid diagrams — sequence, sta
 
    `base` is the `sha` in the generated block's marker. One proposal per block (a new one replaces the old). Every
    claim cites `repo:path#Symbol` and the file and symbol must exist; a claim you cannot cite does not go in. Never
-   write a proposal in a page with `x-owner: human`. People accept or discard proposals in the portal.
+   write a proposal in a page with `x-owner: human`. A person reviews the proposal and applies it; say in your
+   summary which proposals are waiting for review.
 5. You may move a generated block, markers included, into the page where it belongs (flow, domain, data page); refresh
    keeps working there and `{{CLI}} diagrams` will not duplicate it.
 6. New diagrams the generators cannot know (a business flow's sequence) go in a `draft` page, with `x-sources`.
