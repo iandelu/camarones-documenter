@@ -1678,6 +1678,8 @@ def share(log: Log = print) -> dict:
                 checkpoint_commit("board repaired after sync")
             finally:
                 _sharing = False
+            if git("diff", "--cached", "--quiet").returncode != 0:
+                return {"status": "blocked", "detail": "the board repair was not committed (possible secrets): run check --secrets"}
         if out(["git", "rev-list", "--count", f"{theirs}..HEAD"], cwd=ROOT) == "0":
             _shared()
             return {"status": "up-to-date", "detail": branch}

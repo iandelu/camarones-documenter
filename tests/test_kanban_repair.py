@@ -222,3 +222,91 @@ def test_share_repairs_after_the_pull_and_commits(kit, tmp_path):
     assert "WI-9" in (kit.root / "backlog" / "board.yaml").read_text(encoding="utf-8")
     assert git(kit.root, "status", "--porcelain", "backlog") == ""
     assert git(kit.root, "rev-parse", "HEAD") == git(kit.root, "rev-parse", "origin/main")
+
+
+def test_uidless_file_never_takes_the_uid_of_its_owner(wired):
+    from lib.kanban import TASKS
+    zeta = mk(wired, "WI-10", "Zeta", **{"x-uid": "zeta0001"}, status="Ready")
+    put_board({"WI-10": card("zeta0001", "Ready")})
+    alpha = mk(wired, "WI-10", "Alpha", status="In Progress", created_date="2026-10-02 09:00")   # sorts first, no uid
+    run_repair()
+    assert read(zeta).uid == "zeta0001"
+    moved = read(TASKS / "wi-11 - Alpha.md")                       # the newer duplicate was renumbered
+    assert not alpha.exists() and moved.uid and moved.uid != "zeta0001" and moved.fm["status"] == "In Progress"
+    assert get_board()["WI-10"]["uid"] == "zeta0001"
+    assert read(zeta).fm["status"] == "Ready"
+    assert (TASKS / "wi-10 - Zeta.md").exists()
+
+
+def test_scalar_reference_fields_survive_a_renumbering(wired):
+    mk(wired, "WI-5", "Older", **{"x-uid": "aaaa1111"})
+    mk(wired, "WI-5", "Newer", **{"x-uid": "bbbb2222", "created_date": "2026-10-01 11:00"})
+    c = mk(wired, "WI-6", "Scalar", **{"x-uid": "cccc3333"}, dependencies="WI-3", subtasks="WI-4")
+    put_board({"WI-5": card("aaaa1111"), "WI-5~bbbb2222": card("bbbb2222", ordinal=2000),
+               "WI-6": card("cccc3333", ordinal=3000)})
+    run_repair()
+    fm = read(c).fm
+    assert fm["dependencies"] == "WI-3" and fm["subtasks"] == "WI-4"
+
+
+def test_scalar_reference_to_a_renumbered_item_is_rewritten(wired):
+    mk(wired, "WI-5", "Older", **{"x-uid": "aaaa1111"})
+    mk(wired, "WI-5", "Newer", **{"x-uid": "bbbb2222", "created_date": "2026-10-01 11:00"})
+    c = mk(wired, "WI-6", "Scalar", **{"x-uid": "cccc3333"}, dependencies="WI-5~bbbb2222")
+    put_board({"WI-5": card("aaaa1111"), "WI-5~bbbb2222": card("bbbb2222", ordinal=2000),
+               "WI-6": card("cccc3333", ordinal=3000)})
+    run_repair()
+    assert read(c).fm["dependencies"] == "WI-7"
+
+
+def test_broken_files_are_warned_and_left_alone(wired):
+    from lib.kanban import TASKS
+    bad = TASKS / "wi-20 - Bad yaml.md"
+    bad.write_bytes(b"---\ntitle: [unclosed\n---\n\nbody\n")
+    noid = TASKS / "wi-21 - No id.md"
+    noid.write_bytes(b"---\ntitle: No id here\nstatus: Ready\n---\n\nbody\n")
+    crlf = TASKS / "wi-22 - Windows.md"
+    crlf.write_bytes(b"---\r\nid: WI-22\r\ntitle: Windows\r\nstatus: Ready\r\n---\r\n\r\n## Description\r\nx\r\n")
+    plain = mk(wired, "WI-23", "No uid")
+    before = (bad.read_bytes(), noid.read_bytes())
+    r = run_repair()
+    assert any("wi-20 - Bad yaml.md" in w for w in r["warnings"])
+    assert any("wi-21 - No id.md" in w for w in r["warnings"])
+    assert (bad.read_bytes(), noid.read_bytes()) == before
+    cards = get_board()
+    assert cards["WI-22"]["status"] == "Ready" and read(crlf).uid == cards["WI-22"]["uid"]
+    assert read(plain).uid == cards["WI-23"]["uid"]
+    assert run_repair()["changed"] == []
+
+
+def test_a_crlf_board_is_not_a_change(wired):
+    from lib.kanban import BOARD
+    mk(wired, "WI-9", "Hand made", status="Ready")
+    run_repair()
+    BOARD.write_bytes(BOARD.read_bytes().replace(b"\n", b"\r\n"))
+    assert run_repair()["changed"] == []
+
+
+def test_share_is_blocked_when_the_repair_commit_is_blocked(kit, tmp_path, monkeypatch):
+    from test_team_repo import bare, publish
+    remote = bare(tmp_path)
+    publish(kit, remote)
+    mate, _ = kit.projects.join(str(remote), tmp_path / "mate")
+    hand = mate / "backlog" / "tasks" / "wi-9 - Hand made.md"
+    hand.parent.mkdir(parents=True, exist_ok=True)
+    hand.write_text("---\nid: WI-9\ntitle: Hand made\nstatus: Ready\n---\n\n## Description\nx\n", encoding="utf-8")
+    git(mate, "add", "-A")
+    git(mate, "commit", "-q", "-m", "hand made item")
+    git(mate, "push", "-q", "origin", "main")
+    real = kit.env.checkpoint_commit
+
+    def blocked(message):
+        if message == "board repaired after sync":
+            subprocess.run(["git", "add", "--", "backlog"], cwd=kit.root, check=True)
+            return False                                   # staged, not committed: like the secrets guard
+        return real(message)
+
+    monkeypatch.setattr(kit.env, "checkpoint_commit", blocked)
+    s = kit.env.share(log=lambda _: None)
+    assert s["status"] == "blocked", s
+    assert git(kit.root, "rev-parse", "origin/main") == git(mate, "rev-parse", "HEAD")

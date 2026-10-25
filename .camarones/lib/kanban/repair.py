@@ -19,6 +19,11 @@ _LINK = re.compile(r"^[A-Z]{2,5}-[0-9a-z]{4}$")
 _REF_FIELDS = ("dependencies", "subtasks")
 
 
+def _as_list(v) -> list:
+    """A reference field as people write it: a list, or a lone value."""
+    return [] if v is None else [v] if isinstance(v, str) else list(v)
+
+
 def _rel(path) -> str:
     return path.relative_to(ROOT).as_posix()
 
@@ -70,10 +75,13 @@ def repair(*, today: date | None = None, log=print) -> dict:
         # 1. adopt item files without a card; give items without x-uid one
         known_uids = {c["uid"] for c in cards.values()}
         seen: set[str] = set()
+        claimed = {i.uid for i in files if i.uid}      # a card's uid goes to a uid-less file only if no file owns it
         for item in files:
             if not item.uid:
                 held = cards.get(item.id)
-                item.fm["x-uid"] = held["uid"] if held and held["uid"] not in seen else new_uid()
+                uid = held["uid"] if held and held["uid"] not in claimed else new_uid()
+                claimed.add(uid)
+                item.fm["x-uid"] = uid
                 touch(item)
             elif item.uid in seen:
                 item.fm["x-uid"] = new_uid()
@@ -142,24 +150,27 @@ def repair(*, today: date | None = None, log=print) -> dict:
                     log(f"  ~ {base} -> {final} (card without a file)")
                     continue
                 renumbered.append((item, final))
-                for child in item.fm.get("subtasks") or []:
+                for child in _as_list(item.fm.get("subtasks")):
                     moved_parent[str(child)] = (base, final)
                 log(f"  ~ {base} -> {final} ({item.title})")
 
         # references follow by uid: the explicit WI-5~uid form, and the children an item lists as its own
         if refmap or moved_parent:
             for item in files + archived:
-                before = {k: (list(v) if isinstance(v, list) else v) for k, v in item.fm.items()}
                 for f in _REF_FIELDS:
-                    if item.fm.get(f):
-                        item.fm[f] = [refmap.get(str(v), v) for v in item.fm[f]]
+                    have = _as_list(item.fm.get(f))
+                    want = [refmap.get(str(v), v) for v in have]
+                    if want != have:                       # a scalar stays a scalar
+                        item.fm[f] = want[0] if isinstance(item.fm[f], str) else want
+                        touch(item)
                 parent = item.fm.get("parent_task_id")
                 if parent:
-                    parent = refmap.get(str(parent), parent)
+                    now_parent = refmap.get(str(parent), parent)
                     old, new = moved_parent.get(item.id, (None, None))
-                    item.fm["parent_task_id"] = new if parent == old else parent
-                if item.fm != before:
-                    touch(item)
+                    now_parent = new if now_parent == old else now_parent
+                    if now_parent != parent:
+                        item.fm["parent_task_id"] = now_parent
+                        touch(item)
         for item, final in renumbered:
             item.fm["id"] = final
             renamed.add(id(item))
@@ -215,7 +226,7 @@ def repair(*, today: date | None = None, log=print) -> dict:
             os.replace(item.path, ARCHIVE / item.path.name)
             changed.append(_rel(ARCHIVE / item.path.name))
             log(f"  > archived {key} ({item.title})")
-        if board_dirty or BOARD.read_text(encoding="utf-8") != dump_board(cards):
+        if board_dirty or BOARD.read_text(encoding="utf-8").replace("\r\n", "\n") != dump_board(cards):
             ops.save_board(cards)
             changed.append(_rel(BOARD))
 
@@ -235,7 +246,7 @@ def repair(*, today: date | None = None, log=print) -> dict:
                 warn(f"{key}: unknown status {card['status']!r}")
         for p in problems:
             warn(f"{_rel(p['path'])}: unreadable item ({p['error']})")
-        links = [(i, str(v)) for i in files for v in i.fm.get("documentation") or []]
+        links = [(i, str(v)) for i in files for v in _as_list(i.fm.get("documentation"))]
         if any(_LINK.match(re.split(r"[#@]", v, maxsplit=1)[0]) for _, v in links):
             known = known_xids()
             for item, v in links:
