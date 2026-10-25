@@ -15,3 +15,15 @@ test('legacy variables alias the theme in one place', () => {
     expect(css).toMatch(new RegExp(`${v}:\\s*var\\(--`))
   expect(css).not.toMatch(/prefers-color-scheme/)          // theming lives in theme/tokens.css only
 })
+
+test('in the desktop app the header is the window\'s title bar', () => {
+  const css = read('../public/legacy/app.css')
+  const rule = (sel) => { const i = css.indexOf(`${sel} {`); return i < 0 ? '' : css.slice(i, css.indexOf('}', i)) }
+  expect(rule(':root.in-app')).toMatch(/--top:[^;]*env\(titlebar-area-height/)          // as tall as the system controls
+  const top = rule('.in-app .top')
+  expect(top).toMatch(/-webkit-app-region:\s*drag/)
+  expect(top).toMatch(/background:\s*var\(--bg\)/)                                  // solid, like the controls drawn over it
+  expect(top).toMatch(/padding-left:[^;]*env\(titlebar-area-x/)                      // macOS traffic lights
+  expect(top).toMatch(/padding-right:[^;]*env\(titlebar-area-width/)                 // Windows / Linux controls
+  expect(css).toMatch(/\.in-app \.top :is\([^)]*button[^)]*\)\s*\{[^}]*-webkit-app-region:\s*no-drag/)
+})
