@@ -1,0 +1,77 @@
+/* The kit's components (components.jsx). Every value comes from theme/tokens.css: square corners, the console
+   density, colours that follow the light and dark themes. Class prefix cu- so nothing clashes with an app's CSS. */
+
+:where(.cu-btn, .cu-input, .cu-crumbs a, .cu-brand):focus-visible {
+  outline: 2px solid var(--color-acento-texto);
+  outline-offset: 2px;
+}
+
+.cu-brand { display: inline-flex; flex-direction: column; justify-content: center; line-height: 1; color: var(--color-ink);
+            text-decoration: none; min-width: 0; }
+.cu-brand-wm { font: 700 1.45rem/1 var(--font-impact); letter-spacing: -.01em; }
+.cu-brand-sub { font-size: var(--text-micro); color: var(--color-ink-dim); letter-spacing: .04em; margin-top: 2px;
+                max-width: 12rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.cu-btn { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: 2.5rem;
+          padding: 0 1rem; border: 1px solid var(--color-rule); border-radius: var(--consola-radio-control);
+          background: var(--color-canvas-elevated); color: var(--color-ink); font: 500 var(--text-body-sm)/1 var(--font-sans);
+          text-decoration: none; cursor: pointer; box-sizing: border-box;
+          transition: background-color var(--duration-quick) var(--ease-out-soft); }
+.cu-btn:hover { background: var(--color-canvas); }
+.cu-btn--primary { background: var(--color-accent); color: var(--color-on-accent); border-color: var(--color-accent); }
+.cu-btn--primary:hover { background: var(--color-accent); opacity: .88; }
+.cu-btn--ghost { background: transparent; border-color: transparent; color: var(--color-ink-soft); }
+.cu-btn--danger { background: transparent; border-color: currentColor; color: var(--color-estado-mal); }
+.cu-btn--sm { min-height: 2rem; padding: 0 .75rem; font-size: var(--text-meta); }
+.cu-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+.cu-chip { display: inline-flex; align-items: center; min-height: 1.5rem; padding: 0 .5rem; border: 1px solid var(--color-rule);
+           border-radius: var(--consola-radio-chico); background: var(--color-canvas-elevated); font-size: var(--text-meta);
+           color: var(--color-ink-soft); }
+.cu-chip--ok { color: var(--color-estado-bien); }
+.cu-chip--warn { color: var(--color-estado-aviso); }
+.cu-chip--info { color: var(--color-acento-texto); }
+.cu-chip--bad { color: var(--color-estado-mal); }
+
+.cu-keys { display: inline-flex; gap: .25rem; }
+.cu-kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 1.25rem; height: 1.25rem; padding: 0 .3rem;
+          border: 1px solid var(--color-rule); border-radius: var(--consola-radio-chico); background: var(--color-canvas);
+          font: 500 var(--text-micro)/1 var(--font-mono); color: var(--color-ink-dim); }
+
+.cu-card { display: flex; flex-direction: column; gap: .75rem; padding: 1rem 1.1rem; border: 1px solid var(--color-rule);
+           border-radius: var(--consola-radio-tarjeta); background: var(--color-canvas-elevated); min-width: 0; }
+
+.cu-aviso { display: flex; flex-direction: column; gap: .25rem; padding: .75rem .9rem; border: 1px solid var(--color-rule);
+            border-radius: var(--consola-radio-control); background: var(--color-canvas-elevated); }
+.cu-aviso-title { font-size: var(--text-body-sm); }
+.cu-aviso-body { font-size: var(--text-meta); color: var(--color-ink-soft); }
+.cu-aviso-detail { font: var(--text-meta)/1.4 var(--font-mono); color: var(--color-ink-dim); overflow-wrap: anywhere; }
+.cu-aviso--info .cu-aviso-title { color: var(--color-acento-texto); }
+.cu-aviso--warn .cu-aviso-title { color: var(--color-estado-aviso); }
+.cu-aviso--error .cu-aviso-title { color: var(--color-estado-mal); }
+
+.cu-empty { display: flex; flex-direction: column; align-items: flex-start; gap: .5rem; padding: 1.25rem;
+            border: 1px dashed var(--color-rule); border-radius: var(--consola-radio-tarjeta); }
+.cu-empty-title { font-size: var(--text-body); }
+.cu-empty-body { font-size: var(--text-meta); color: var(--color-ink-soft); max-width: 60ch; }
+
+.cu-skel { display: flex; flex-direction: column; gap: .6rem; }
+.cu-skel-line { height: .75rem; border-radius: var(--consola-radio-chico); background: var(--color-rule); }
+.cu-skel-line:first-child { height: 1.5rem; width: 55%; }
+.cu-skel-line:last-child:not(:first-child) { width: 85%; }
+
+.cu-field { display: flex; flex-direction: column; gap: .35rem; min-width: 0; }
+.cu-field-label { font-size: var(--text-meta); font-weight: 500; color: var(--color-ink); }
+.cu-flag { font: 400 var(--text-micro) var(--font-mono); color: var(--color-ink-dim); }
+.cu-input { min-height: 2.5rem; padding: 0 .75rem; border: 1px solid var(--color-rule); border-radius: var(--consola-radio-control);
+            background: var(--color-canvas); color: var(--color-ink); font: 400 var(--text-body-sm) var(--font-sans); box-sizing: border-box; }
+
+.cu-crumbs ol { display: flex; flex-wrap: wrap; gap: .5rem; margin: 0; padding: 0; list-style: none; font-size: var(--text-meta); }
+.cu-crumbs li { display: inline-flex; gap: .5rem; color: var(--color-ink-dim); }
+.cu-crumbs a { color: var(--color-ink-dim); text-decoration: none; }
+.cu-crumbs a:hover { color: var(--color-ink); }
+.cu-crumbs [aria-current="page"] { color: var(--color-ink); }
+
+@media (prefers-reduced-motion: reduce) {
+  .cu-btn { transition: none; }
+}
