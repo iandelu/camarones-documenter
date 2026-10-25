@@ -518,7 +518,7 @@ async function routeNow() {
   const [, view = '', rest = ''] = h.match(/^\/([\w-]*)\/?(.*)$/) || [];
   if ($('#palette').open) $('#palette').close();
   if (['pipeline', 'ask', 'kpis', 'ci', 'libs', 'data', 'interview', 'sync', 'kanban'].includes(view) && !STATIC && window.CamaronNative
-      || RUNS && TALLER.includes(view) && window.CamaronNative) {
+      || RUNS && (TALLER.includes(view) || view === 'start') && window.CamaronNative) {
     CURRENT = '';
     drawChrome(view, { nativeView: true });
     drawToc(null);
@@ -585,7 +585,11 @@ const zonesReady = () => (window.CamaronZones ? Promise.resolve() : new Promise(
 }));
 // In the app, whether this kit is a checkout with its tests (the Taller's Kit dev view).
 const appInfo = () => (RUNS ? api('app/info').then((i) => { T.kitdev = i.kitdev; }, () => {}) : Promise.resolve());
-Promise.all([loadTree(), zonesReady()]).then(appInfo).then(() => {
+// In the app, a project whose first run is not finished opens (or resumes) the wizard at #/start.
+const firstRun = () => (RUNS ? api('app/onboard/state').then((s) => {
+  if (!s.done && location.hash !== '#/start') location.replace('#/start');
+}, () => {}) : Promise.resolve());
+Promise.all([loadTree(), zonesReady()]).then(appInfo).then(firstRun).then(() => {
   if (!store.get('cam-lang')) {           // first visit: the browser's language when the docs are translated to it
     const nav = (navigator.language || 'en').slice(0, 2);
     if (T.langs.includes(nav)) lang = nav;

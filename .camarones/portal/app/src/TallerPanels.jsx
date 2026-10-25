@@ -499,10 +499,10 @@ function Settings() {
 }
 
 // GitLab / GitHub tokens, kept in the OS keychain. They go to the app's server in the request body only (never on a
-// command line) and never come back.
-function Tokens() {
+// command line) and never come back. The first-run wizard shows it too, with the host of a repo that failed to clone.
+export function Tokens({ host = '' }) {
   const [d, setD] = useState(null)
-  const [form, setForm] = useState({ host: '', kind: 'gitlab', token: '' })
+  const [form, setForm] = useState({ host, kind: /github/i.test(host) ? 'github' : 'gitlab', token: '' })
   const [state, setState] = useState(null)
   const [busy, setBusy] = useState(false)
   const load = () => getJSON('app/creds').then(setD, (e) => setState({ error: e.message }))

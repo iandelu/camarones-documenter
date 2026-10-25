@@ -1,22 +1,30 @@
 {
-  "_AgentLaunch-C5DCIpEf.js": {
-    "file": "assets/AgentLaunch-C5DCIpEf.js",
+  "_AgentLaunch-XAc7e26g.js": {
+    "file": "assets/AgentLaunch-XAc7e26g.js",
     "name": "AgentLaunch",
     "imports": [
-      "_i18n-CKmhea6o.js"
+      "_i18n-Bzdpc3vC.js"
     ]
   },
-  "_i18n-CKmhea6o.js": {
-    "file": "assets/i18n-CKmhea6o.js",
+  "_TallerPanels-DlWIvKLe.js": {
+    "file": "assets/TallerPanels-DlWIvKLe.js",
+    "name": "TallerPanels",
+    "imports": [
+      "_i18n-Bzdpc3vC.js",
+      "_AgentLaunch-XAc7e26g.js"
+    ]
+  },
+  "_i18n-Bzdpc3vC.js": {
+    "file": "assets/i18n-Bzdpc3vC.js",
     "name": "i18n"
   },
   "index.html": {
-    "file": "assets/index-B7u2GH1u.js",
+    "file": "assets/index-DpxIyFSr.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
     "imports": [
-      "_i18n-CKmhea6o.js"
+      "_i18n-Bzdpc3vC.js"
     ],
     "dynamicImports": [
       "src/Pipeline.jsx",
@@ -27,100 +35,111 @@
       "src/Taller.jsx",
       "src/Interview.jsx",
       "src/Sync.jsx",
-      "src/Kanban.jsx"
+      "src/Kanban.jsx",
+      "src/Onboarding.jsx"
     ],
     "css": [
-      "assets/index-g5tLXCOi.css"
+      "assets/index-BZ7s2b5E.css"
     ]
   },
   "src/Ci.jsx": {
-    "file": "assets/Ci-DwB3jUwY.js",
+    "file": "assets/Ci-qi4Q2zO-.js",
     "name": "Ci",
     "src": "src/Ci.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-CKmhea6o.js",
+      "_i18n-Bzdpc3vC.js",
       "index.html"
     ]
   },
   "src/Data.jsx": {
-    "file": "assets/Data-D7PwHCsW.js",
+    "file": "assets/Data-BhuSlY-h.js",
     "name": "Data",
     "src": "src/Data.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-CKmhea6o.js",
+      "_i18n-Bzdpc3vC.js",
       "index.html"
     ]
   },
   "src/Interview.jsx": {
-    "file": "assets/Interview-g-NCbeCV.js",
+    "file": "assets/Interview-_3falkOC.js",
     "name": "Interview",
     "src": "src/Interview.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-CKmhea6o.js"
+      "_i18n-Bzdpc3vC.js"
     ]
   },
   "src/Kanban.jsx": {
-    "file": "assets/Kanban-uPjGqgI0.js",
+    "file": "assets/Kanban-BBD4ibn9.js",
     "name": "Kanban",
     "src": "src/Kanban.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-CKmhea6o.js"
+      "_i18n-Bzdpc3vC.js"
     ]
   },
   "src/Kpis.jsx": {
-    "file": "assets/Kpis-D1S7SOpt.js",
+    "file": "assets/Kpis-CIfYaOLk.js",
     "name": "Kpis",
     "src": "src/Kpis.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-CKmhea6o.js"
+      "_i18n-Bzdpc3vC.js"
     ]
   },
   "src/Libs.jsx": {
-    "file": "assets/Libs-Bx7Xhbuh.js",
+    "file": "assets/Libs-Bf_TCB0r.js",
     "name": "Libs",
     "src": "src/Libs.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-CKmhea6o.js",
+      "_i18n-Bzdpc3vC.js",
       "index.html"
     ]
   },
+  "src/Onboarding.jsx": {
+    "file": "assets/Onboarding-Bvqg9Mdv.js",
+    "name": "Onboarding",
+    "src": "src/Onboarding.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_i18n-Bzdpc3vC.js",
+      "_TallerPanels-DlWIvKLe.js"
+    ]
+  },
   "src/Pipeline.jsx": {
-    "file": "assets/Pipeline-BzILNGdP.js",
+    "file": "assets/Pipeline-o-NWYYUJ.js",
     "name": "Pipeline",
     "src": "src/Pipeline.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-CKmhea6o.js",
+      "_i18n-Bzdpc3vC.js",
       "index.html",
-      "_AgentLaunch-C5DCIpEf.js"
+      "_AgentLaunch-XAc7e26g.js"
     ],
     "css": [
       "assets/Pipeline-DLioOiRN.css"
     ]
   },
   "src/Sync.jsx": {
-    "file": "assets/Sync-PS0DUifI.js",
+    "file": "assets/Sync-DU475KE7.js",
     "name": "Sync",
     "src": "src/Sync.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-CKmhea6o.js"
+      "_i18n-Bzdpc3vC.js"
     ]
   },
   "src/Taller.jsx": {
-    "file": "assets/Taller-DADNjL3s.js",
+    "file": "assets/Taller-Bdae_BmT.js",
     "name": "Taller",
     "src": "src/Taller.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-CKmhea6o.js",
-      "_AgentLaunch-C5DCIpEf.js"
+      "_i18n-Bzdpc3vC.js",
+      "_TallerPanels-DlWIvKLe.js"
     ]
   }
 }
