@@ -439,7 +439,11 @@ def app_onboard(name: str, b: dict) -> tuple[dict, int]:
             res = onboard.arch_save(bool(b.get("overwrite")))
             if action == "save-ai" and not res.get("exists"):
                 lang = b.get("lang") or "es"
-                res["agent"] = agents.launch_prompt(onboard.arch_prompt(lang), str(b.get("agent", "")), lang)
+                try:
+                    res["agent"] = agents.launch_prompt(onboard.arch_prompt(lang), str(b.get("agent", "")), lang)
+                except (RuntimeError, ValueError) as e:     # the model is written already: the save stands, say why
+                    res.update(launched=False, error="terminal" if isinstance(e, RuntimeError) else "agent",
+                               prompt=agents.ws_rel(agents.PROMPT))
             return res, 200
         raise ValueError("action")
     return onboard.done(), 200

@@ -46,10 +46,12 @@
   projects [--json] [--add FOLDER]   the projects registered on this machine, most recent first; --add registers one
   projects --inspect FOLDER [--json]   what a folder is (project, repo, umbrella, code, empty); reads, never writes
   projects --adopt FOLDER [--name NAME] [--json]   make FOLDER a project (docs in FOLDER/cam-docs) and register it
+                            (--json: a cam-docs that belongs to something else prints {"error": "taken", "detail"})
   app                       the desktop app: run the plan, wikis, scans and checks, and read the portal, in one window
                             (installs its pinned Electron into ~/.camarones/desktop once; needs Node.js)
   new NAME | join URL … --no-open   create or join, print {"path": …} and stop (the desktop app opens it itself);
                             access refused: {"error": auth|denied|not-found|network|unknown, "host", "detail"}, exit 1
+                            (join: a cam-docs there that belongs to something else: {"error": "taken", "detail"})
                             (a token for a private repo comes from CAMARONES_JOIN_TOKEN, never from the command line)
   catalog [--json|--markdown|--check]   every command with where it lives (portal / desktop app / CLI) and its
                             arguments, read from this parser; --check exits 1 when lib/catalog.py is out of sync
@@ -209,6 +211,8 @@ def _team(fn, *args):
         return fn(*args)
     except (ValueError, RuntimeError) as e:
         print(f"✖ {e}", file=sys.stderr)
+        if _no_open and isinstance(e, projects.Taken):              # the app words it: a stable code, not this line
+            print(json.dumps({"error": "taken", "detail": str(e)}, ensure_ascii=False))
         sys.exit(1)
 
 
@@ -418,7 +422,9 @@ def build_parser() -> argparse.ArgumentParser:
     from lib.kanban import cli as board_cli
     board_cli.add_parser(sp)
     pj = sp.add_parser("projects"); pj.add_argument("--json", action="store_true"); pj.add_argument("--add", type=Path)
-    pj.add_argument("--inspect", type=Path); pj.add_argument("--adopt", type=Path); pj.add_argument("--name")
+    # the desktop start screen's way in (it calls them itself): out of the catalog, so no app form shows them
+    pj.add_argument("--inspect", type=Path, help=argparse.SUPPRESS); pj.add_argument("--adopt", type=Path, help=argparse.SUPPRESS)
+    pj.add_argument("--name", help=argparse.SUPPRESS)
     sp.add_parser("app")
     cf = sp.add_parser("config"); cf.add_argument("action", nargs="?", default="get", choices=["get", "set"])
     cf.add_argument("key", nargs="?"); cf.add_argument("value", nargs="?"); cf.add_argument("--json", action="store_true")
@@ -503,6 +509,8 @@ def main() -> int:
                 print(json.dumps({"path": str(dest)}, ensure_ascii=False) if a.json else f"✔ {dest}")
         except (ValueError, RuntimeError, OSError) as e:
             print(f"✖ {e}", file=sys.stderr)
+            if a.json and isinstance(e, projects.Taken):            # the app words it: a stable code, not this line
+                print(json.dumps({"error": "taken", "detail": str(e)}, ensure_ascii=False))
             return 1
     elif a.cmd == "projects" and a.add:
         from lib.common import docs_root

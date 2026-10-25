@@ -22,7 +22,7 @@ from .common import (ROOT, HOME, PREFS, WORK, WS_FILE, CACHE, IS_WIN, IS_MAC, CA
 from . import docs, env, genblocks, plan, creds, questionnaire, quickarch, radar, tutorial, upgrade, usage
 from .adapters import runners
 from .harness.ports import RunRequest
-from .common import VERSIONS, ws_rel
+from .common import VERSIONS
 from rich.tree import Tree
 import webbrowser
 

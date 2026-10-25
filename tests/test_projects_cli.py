@@ -53,6 +53,33 @@ def test_adopt_refuses_a_non_empty_cam_docs(kit, tmp_path):
     assert r.returncode == 1 and "cam-docs" in r.stderr and "Traceback" not in r.stderr
 
 
+def test_adopt_a_taken_cam_docs_says_so_as_a_json_code(kit, tmp_path):
+    """The app words "taken" itself: a stable code on stdout, the CLI's line unchanged on stderr."""
+    ws = tmp_path / "stray"
+    (ws / "cam-docs").mkdir(parents=True)
+    (ws / "cam-docs" / "notes.txt").write_text("mine", encoding="utf-8")
+    r = cli(kit, "projects", "--adopt", str(ws), "--json")
+    row = json.loads(r.stdout)
+    assert r.returncode == 1 and row["error"] == "taken" and "cam-docs" in row["detail"]
+    assert row["detail"] in r.stderr and not row["detail"].startswith("✖")
+
+
+def test_adopt_a_cam_docs_that_is_a_file_is_taken_too(kit, tmp_path):
+    ws = tmp_path / "stray"
+    ws.mkdir()
+    (ws / "cam-docs").write_text("not a folder", encoding="utf-8")
+    r = cli(kit, "projects", "--adopt", str(ws), "--json")
+    assert r.returncode == 1 and json.loads(r.stdout)["error"] == "taken" and "Traceback" not in r.stderr
+
+
+def test_adopt_without_json_keeps_stdout_empty_when_taken(kit, tmp_path):
+    ws = tmp_path / "stray"
+    (ws / "cam-docs").mkdir(parents=True)
+    (ws / "cam-docs" / "notes.txt").write_text("mine", encoding="utf-8")
+    r = cli(kit, "projects", "--adopt", str(ws))
+    assert r.returncode == 1 and r.stdout == "" and "cam-docs" in r.stderr
+
+
 def test_adopt_a_file_is_one_line_on_stderr(kit, tmp_path):
     f = tmp_path / "f.txt"
     f.write_text("x", encoding="utf-8")
@@ -65,10 +92,11 @@ def test_projects_add_unchanged(kit, tmp_path):
     assert r.returncode == 1 and "is not a Camarón project" in r.stderr
 
 
-def _join_in_process(kit, monkeypatch, capsys, *extra):
+def _join_in_process(kit, monkeypatch, capsys, *extra, folder=None):
     """Run camarones.py's own `join` dispatch in this process (so projects.* can be monkeypatched)."""
     monkeypatch.delenv("CAMARONES_ROOT", raising=False)
-    monkeypatch.setattr(sys, "argv", ["camarones.py", "join", "https://git.example.com/team/docs.git", str(kit.ws), *extra])
+    monkeypatch.setattr(sys, "argv", ["camarones.py", "join", "https://git.example.com/team/docs.git",
+                                      str(folder or kit.ws), *extra])
     monkeypatch.setattr(sys.stdin, "isatty", lambda: False, raising=False)
     with pytest.raises(SystemExit) as e:
         runpy.run_path(str(kit.kit_dir / "camarones.py"), run_name="__main__")
@@ -125,6 +153,15 @@ def test_the_taller_never_runs_the_hubs_commands(kit):
         appapi.entry("projects")
 
 
+def test_the_catalog_keeps_inspect_and_adopt_out_of_the_apps_forms(kit):
+    """--inspect/--adopt/--name are the start screen's way in (IPC), not a form: the catalog lists `projects` with
+    --add only, so no command form shows them (`arg.adopt` labels `pages --adopt`)."""
+    r = cli(kit, "catalog", "--json", CAMARONES_ROOT=str(kit.root))
+    assert r.returncode == 0, r.stderr
+    row = next(c for c in json.loads(r.stdout)["commands"] if c["name"] == "projects")
+    assert {a["dest"] for a in row["args"]} == {"json", "add"}
+
+
 def test_the_env_token_is_tried_even_when_a_saved_one_was_refused(kit, monkeypatch, capsys):
     """The app's retry: the saved token is refused, the user pastes a new one, the app reruns join with it in the
     environment. `connect` passes again=True from its first ask (a saved token exists): the env token must still go."""
@@ -147,3 +184,27 @@ def test_a_refused_env_token_is_not_offered_twice_and_the_saved_one_stays(kit, m
     row = json.loads(out.out.strip().splitlines()[-1])
     assert code == 1 and row["error"] == "auth" and row["host"] == "git.example.com"
     assert kit.creds.get("git.example.com") == "old-token" and "bad-token" not in out.out + out.err
+
+
+def _taken_by_another_remote(tmp_path):
+    """A folder whose cam-docs is already a git repo with another origin: join refuses it before any network call."""
+    ws = tmp_path / "here"
+    (ws / "cam-docs").mkdir(parents=True)
+    subprocess.run(["git", "init", "-q", str(ws / "cam-docs")], check=True)
+    subprocess.run(["git", "-C", str(ws / "cam-docs"), "remote", "add", "origin", "https://other.example.com/x/docs.git"],
+                   check=True)
+    return ws
+
+
+def test_join_no_open_into_a_taken_cam_docs_says_taken(kit, monkeypatch, capsys, tmp_path):
+    monkeypatch.setattr(kit.projects, "connect", lambda url, ask=None, log=print: True)
+    code, out = _join_in_process(kit, monkeypatch, capsys, "--no-open", folder=_taken_by_another_remote(tmp_path))
+    row = json.loads(out.out.strip().splitlines()[-1])
+    assert code == 1 and row["error"] == "taken" and "cam-docs" in row["detail"]
+    assert row["detail"] in out.err                               # the stderr line is unchanged
+
+
+def test_join_into_a_taken_cam_docs_without_no_open_prints_no_json(kit, monkeypatch, capsys, tmp_path):
+    monkeypatch.setattr(kit.projects, "connect", lambda url, ask=None, log=print: True)
+    code, out = _join_in_process(kit, monkeypatch, capsys, folder=_taken_by_another_remote(tmp_path))
+    assert code == 1 and out.out.strip() == "" and "cam-docs" in out.err
