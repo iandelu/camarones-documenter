@@ -613,3 +613,85 @@ def test_first_look_draws_the_diagrams(dg, monkeypatch):
     assert serve.first_look(log=logs.append)
     assert (dg.kit.root / "docs" / "architecture" / "system-map.md").exists()
     assert "architecture/system-map.md" in logs[-1]
+
+
+# ---- fix round 1 -----------------------------------------------------------------------------------------------------
+
+def hand_edit(dg, f, id):
+    """Change the `id` block of page `f` by hand (its body no longer matches its sha). Returns the edited block."""
+    text = f.read_text(encoding="utf-8")
+    m = next(m for m in dg.gb.BLOCK_RE.finditer(text) if m["id"] == id)
+    edited = m[0].replace("-->\n", "-->\nI drew this one by hand.\n", 1)
+    f.write_text(text.replace(m[0], edited), encoding="utf-8", newline="\n")
+    return edited
+
+
+def test_a_hand_edited_block_survives_its_gone_id(dg):
+    pages_repo(dg)
+    dg.mod.write_pages()
+    f = dg.kit.root / "docs" / "repos" / "api" / "diagrams.md"
+    edited = hand_edit(dg, f, "OrderStatus")
+    (dg.kit.ws / "api" / "src/main/java/demo/OrderStatus.java").unlink()
+    dg.mod.write_pages()
+    assert f.read_text(encoding="utf-8").count(edited) == 1
+
+
+def test_a_hand_edited_block_survives_a_copy_in_another_page(dg):
+    pages_repo(dg)
+    dg.mod.write_pages()
+    f = dg.kit.root / "docs" / "repos" / "api" / "diagrams.md"
+    edited = hand_edit(dg, f, "OrderStatus")
+    flow = dg.kit.root / "docs" / "flows" / "checkout.md"
+    flow.parent.mkdir(parents=True, exist_ok=True)
+    flow.write_text("---\ntitle: Checkout\n---\n# Checkout\n\n" + dg.gb.block("states", "api", "x", id="OrderStatus") + "\n",
+                    encoding="utf-8")
+    dg.mod.write_pages()
+    assert f.read_text(encoding="utf-8").count(edited) == 1
+
+
+def test_the_diagrams_command_has_no_force_flag(dg):
+    import os, subprocess, sys
+    pages_repo(dg)
+    env = {**os.environ, "CAMARONES_ROOT": str(dg.kit.root)}
+    r = subprocess.run([sys.executable, str(dg.kit.kit_dir / "camarones.py"), "diagrams", "--force"], env=env,
+                       capture_output=True, text=True, encoding="utf-8")
+    assert r.returncode != 0
+
+
+def test_install_survives_a_diagram_failure(dg, monkeypatch):
+    pages_repo(dg)
+
+    def boom(log=None):
+        raise RuntimeError("no map today")
+    monkeypatch.setattr(dg.mod, "write_pages", boom)
+    logs = []
+    dg.kit.wizard.scan_repos(log=logs.append)
+    assert (dg.kit.root / "docs" / "repos" / "api" / "reference.md").exists()
+    assert any("diagrams skipped" in line and "no map today" in line for line in logs)
+
+
+def test_first_look_survives_a_diagram_failure(dg, monkeypatch):
+    pages_repo(dg)
+    serve = importlib.import_module("lib.serve")
+    monkeypatch.setattr(serve.env, "which", lambda _n: None)
+
+    def boom(log=None):
+        raise RuntimeError("no map today")
+    monkeypatch.setattr(dg.mod, "write_pages", boom)
+    llms = []
+    monkeypatch.setattr(serve.docs, "llms", lambda *a, **k: llms.append(1))
+    logs = []
+    assert serve.first_look(log=logs.append) is True
+    assert llms and any("diagrams skipped" in line for line in logs)
+
+
+def test_a_page_the_kit_did_not_write_is_left_alone(dg):
+    pages_repo(dg)
+    f = dg.kit.root / "docs" / "repos" / "api" / "diagrams.md"
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text("---\ntitle: My diagrams\n---\n# My diagrams\n\nDrawn by us, with love.\n", encoding="utf-8", newline="\n")
+    before = f.read_bytes()
+    logs = []
+    assert "docs/repos/api/diagrams.md" not in dg.mod.write_pages(log=logs.append)
+    assert f.read_bytes() == before
+    assert any("repos/api/diagrams.md" in line and "not written by the kit" in line for line in logs)
