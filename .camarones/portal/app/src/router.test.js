@@ -7,7 +7,7 @@ const ctx = (over = {}) => ({
   mode: 'live', current: '',
   space: (p) => space[p],
   hrefFor: (p, a) => `#/wiki/${p.split('/')[1]}/${p.split('/').slice(2).join('/')}${a ? '::' + a : ''}`,
-  firstView: (zone) => ({ arch: '#/c4', plan: '#/pipeline', quality: '#/kpis', taller: '#/generate' }[zone]),
+  firstView: (zone) => ({ arch: '#/c4', plan: '#/pipeline', quality: '#/kpis' }[zone]),
   ...over,
 })
 const go = (hash, over) => resolve(hash, ctx(over))
@@ -39,12 +39,15 @@ test('the React views need the server; in the export they fall back to home', ()
     .toEqual({ kind: 'native', view: 'kanban', arg: 'new?path=domain/visits.md&section=the-flow' })
 })
 
-test('the Taller only in the desktop app', () => {
-  for (const v of ['generate', 'analyze', 'check', 'interviews', 'team', 'machine', 'kitdev']) {
-    expect(go(`#/${v}`, { mode: 'app' })).toEqual({ kind: 'native', view: v, arg: '' })
-    expect(go(`#/${v}`)).toEqual(HOME)
+// The Taller left the portal in 4.53: in the app its old addresses open the app's own section, in a browser home.
+test('the Taller\'s old addresses open the desktop app\'s sections', () => {
+  const app = { generate: 'plan', analyze: 'quality', check: 'quality', interviews: 'interviews', team: 'team',
+    machine: 'machine', kitdev: 'kitdev', taller: 'summary' }
+  for (const [old, section] of Object.entries(app)) {
+    expect(go(`#/${old}`, { mode: 'app' })).toEqual({ kind: 'redirect', to: `./desktop/#/${section}` })
+    expect(go(`#/${old}`)).toEqual(HOME)
+    expect(go(`#/${old}`, { mode: 'static' })).toEqual(HOME)
   }
-  expect(go('#/taller', { mode: 'app' })).toEqual({ kind: 'redirect', to: '#/generate' })
 })
 
 test('docs: home, a page, an anchor, the old #/doc alias', () => {

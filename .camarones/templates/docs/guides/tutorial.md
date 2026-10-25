@@ -195,18 +195,22 @@ CI pushed: `docker run -d -p 8080:80 <registry>/<group>/cam-docs/portal:latest`.
 
 ### 🖥️ The desktop app
 
-The same portal plus one more zone, the **Workshop**: everything that runs on your machine. The browser portal stays the
-team's viewer (read, edit, review, pipeline status, the interview); whatever starts a process or calls a model shows
-"open it in the app" there.
+Where you operate a project; the portal is where you read it. Each project opens in its window: at the left the rail
+with your projects and the sections, below the jobs panel (what runs and the last ones, their output and **Stop**). The
+browser portal stays the team's viewer (read, edit, review, pipeline status, the interview) and does not show what it
+cannot do.
 
-| Workshop zone | What you do there |
+| Section | What you do there |
 |---|---|
-| ✨ Generate | run the plan in parallel, the autopilot, a unit in a terminal with the agent you pick, the docs update, wikis, a PR's docs |
-| 🔬 Analyze | no AI: known vulnerabilities, pages out of date, generated blocks, C4 draft, stack, data, history |
-| ✅ Check | prerequisites and tools with Install / repair, the context every agent session loads, golden questions, with vs without cam-docs |
-| 🎙️ Interviews | team questionnaire or live, export the offline form, import answers, close the round |
-| 🤝 Team | the team's repo and auto-share, approving the agent config that came with it, hooks, plugins, CI, exports |
-| 🧰 This machine | setup with progress, language and models, GitLab / GitHub tokens, repos and their stack, the plan profile, kit updates, repair, migrate and, apart and previewed first, uninstall |
+| 🏠 Summary | the next step with one button (the one the wizard suggests), what this machine is missing, where the plan, the review and the jobs stand |
+| 🗺️ Plan | run the ready units in parallel or the autopilot, and stop them; the units grouped by what they ask of you (approve, retry, continue, start) with the agent you pick; the docs update |
+| 🎙️ Interviews | team questionnaire or live, export the offline form, import answers, close the round, each interview with its agent |
+| 🤝 Team | the team's repo and sharing, approving the agent config that came with it, hooks, plugins |
+| ✅ Quality | prerequisites and tools (kept between visits, "Check again"), the context every agent session loads, golden questions, with vs without cam-docs; without AI, known vulnerabilities, pages out of date, generated blocks |
+| 📖 Docs | opens the portal: read, review drafts, search or ask |
+| 🧰 Machine | setup with progress, language and models, GitLab / GitHub tokens, repos and their stack, the plan profile, kit updates, repair and, apart and previewed first, uninstall |
+
+Every section ends with **All commands**, folded: the rest of its catalog zone, each with its form.
 
 **Install and open it**
 
@@ -217,7 +221,8 @@ team's viewer (read, edit, review, pipeline status, the interview); whatever sta
 
 From a project's folder it opens that project; from anywhere else, the picker: open a project, create one, join the
 team's `cam-docs` with its URL or add a folder that already has one. The wizard has the same entry (🖥️ Desktop app).
-Inside, <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>O</kbd> goes back to the projects and **camarón › Open in
+Inside, your projects sit on the rail: another one opens in the same window, which comes back where you left it.
+<kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>O</kbd> goes back to the projects and **camarón › Open in
 the browser** opens the same portal outside. On Linux with restricted user namespaces (Ubuntu 24.04+) the kit starts
 it with `--no-sandbox`: its windows only load your project's local server.
 
@@ -358,7 +363,7 @@ every agent session loads before reading a page, against `context.budget`), `aut
 (hotspots, who to ask per repo, files that change together, read from git without AI into `docs/overview/history.md`),
 `catalog [--json|--check]` (every command with where it lives: portal, desktop app or CLI only, and its arguments),
 `projects [--json]` (the projects registered on this machine), `config [get|set KEY VALUE]` (lang, model, codex_model: the wizard's settings), `trust --json` and `hooks --json` (what is pending
-approval, whether the method hooks are on), the portal's **Plan › Sync** (the same as `share`, with where you stand), `app` (the desktop app: the portal plus the Workshop,
+approval, whether the method hooks are on), the portal's **Plan › Sync** (the same as `share`, with where you stand), `app` (the desktop app: the project's sections by task, the portal to read,
 where runs, wikis, scans and checks start; the browser portal only shows them).
 
 **Facts from the code, no AI.** `camaron blocks` writes `docs/repos/<repo>/reference.md` for each repo: commands
@@ -438,4 +443,4 @@ work. `autopilot` and `run` read it unit by unit. Each run is logged in `.camaro
 | A wiki run failed | the ⚠ line says why (quota or login → wait or log in again); run `camaron wiki <repo>` again — an interrupted run resumes |
 | `camaron app`: "needs Node.js >= 22" | install Node 22 (`camaron doctor --install node`) and run `camaron app` again |
 | The app opens the project picker, not your project | you ran it outside the project's folder: open it from the list or **Add folder** |
-| A portal button says "open it in the desktop app" | on purpose: the browser portal does not start processes; use `camaron app` |
+| The browser portal lacks a button you expected | on purpose: the browser portal does not start processes; use `camaron app` |

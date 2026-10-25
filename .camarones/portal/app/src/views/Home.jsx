@@ -69,7 +69,6 @@ function FirstLook({ index, mode, t }) {
           <Button href="#/pipeline">{t('nextUnit')} <span aria-hidden="true">→</span></Button>
         </div>
       )}
-      {mode === 'live' && <p className="aviso small">{t('appOnly')}</p>}
       {build.job && <pre className="joblog" aria-live="polite">{build.job.lines.join('\n')}</pre>}
       {build.error && <Aviso tone="error" title={tr('home.firstLookFailed')} detail={build.error} />}
       {tutorial && <p className="small"><a href={core.hrefFor(tutorial)}>{t('readTutorial')} <span aria-hidden="true">→</span></a></p>}

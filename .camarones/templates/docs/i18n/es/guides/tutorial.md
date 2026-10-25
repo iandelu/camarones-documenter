@@ -206,18 +206,22 @@ imagen que publicó el CI: `docker run -d -p 8080:80 <registry>/<grupo>/cam-docs
 
 ### 🖥️ La app de escritorio
 
-El mismo portal y una zona más, el **Taller**: todo lo que corre en tu máquina. El portal del navegador queda como visor
-del equipo (leer, editar, revisar, estado de la pipeline, la entrevista); lo que lanza procesos o llama a un modelo
-muestra allí «ábrelo en la app».
+Donde se opera un proyecto; el portal es donde se lee. Cada proyecto se abre en su ventana: a la izquierda el raíl con
+tus proyectos y las secciones, abajo el panel de trabajos (lo que corre y los últimos, su salida y **Parar**). El portal
+del navegador queda como visor del equipo (leer, editar, revisar, estado de la pipeline, la entrevista) y no enseña lo
+que no puede hacer.
 
-| Zona del Taller | Qué haces ahí |
+| Sección | Qué haces ahí |
 |---|---|
-| ✨ Generar | el plan en paralelo, el piloto automático, una unidad en una terminal con el agente que elijas, la actualización de la doc, wikis, la doc de un PR |
-| 🔬 Analizar | sin IA: vulnerabilidades conocidas, páginas desactualizadas, bloques generados, borrador C4, stack, datos, historia |
-| ✅ Comprobar | requisitos y herramientas con Instalar / repair, el contexto que carga cada sesión de agente, preguntas de control, con y sin cam-docs |
-| 🎙️ Entrevistas | cuestionario del equipo o en vivo, exportar el formulario sin conexión, importar respuestas, cerrar la ronda |
-| 🤝 Equipo | el repo del equipo y compartir cada checkpoint, aprobar la configuración de agentes que vino con él, hooks, plugins, CI, exportaciones |
-| 🧰 Esta máquina | setup con progreso, idioma y modelos, tokens de GitLab / GitHub, repos y su stack, el perfil del plan, actualizar el kit, repair, migrate y, aparte y con vista previa, uninstall |
+| 🏠 Resumen | el siguiente paso con un solo botón (el mismo que propone el asistente), lo que le falta a esta máquina, cómo van el plan, la revisión y los trabajos |
+| 🗺️ Plan | ejecutar las unidades listas en paralelo o el piloto automático, y pararlos; las unidades agrupadas por lo que te piden (aprobar, reintentar, seguir, empezar) con el agente que elijas; la actualización de la doc |
+| 🎙️ Entrevistas | cuestionario del equipo o en vivo, exportar el formulario sin conexión, importar respuestas, cerrar la ronda, cada entrevista con su agente |
+| 🤝 Equipo | el repo del equipo y compartir, aprobar la configuración de agentes que vino con él, hooks, plugins |
+| ✅ Calidad | requisitos y herramientas (guardados entre visitas, «Volver a comprobar»), el contexto que carga cada sesión de agente, preguntas de control, con y sin cam-docs; sin IA, vulnerabilidades conocidas, páginas desactualizadas, bloques generados |
+| 📖 Docs | abre el portal: leer, revisar borradores, buscar o preguntar |
+| 🧰 Máquina | setup con progreso, idioma y modelos, tokens de GitLab / GitHub, repos y su stack, el perfil del plan, actualizar el kit, repair y, aparte y con vista previa, uninstall |
+
+Cada sección acaba con **Todos los comandos**, plegado: el resto de su zona del catálogo, cada uno con su formulario.
 
 **Instalarla y abrirla**
 
@@ -229,7 +233,8 @@ muestra allí «ábrelo en la app».
 
 Desde la carpeta de un proyecto abre ese proyecto; desde cualquier otra, el selector: abrir un proyecto, crear uno,
 unirte al `cam-docs` del equipo con su URL o añadir una carpeta que ya lo tenga. El asistente tiene la misma entrada
-(🖥️ App de escritorio). Dentro, <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>O</kbd> vuelve a los proyectos y
+(🖥️ App de escritorio). Dentro, tus proyectos están en el raíl: otro se abre en la misma ventana, que vuelve a salir donde la dejaste.
+<kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>O</kbd> vuelve a los proyectos y
 **camarón › Abrir en el navegador** abre el mismo portal fuera. En Linux con los *user namespaces* restringidos (Ubuntu
 24.04 o posterior) el kit la arranca con `--no-sandbox`: sus ventanas solo cargan el servidor local de tu proyecto.
 
@@ -376,7 +381,7 @@ que carga cada sesión de un agente antes de leer una página, frente a `context
 `history [--months 12]` (puntos calientes, a quién preguntar en cada repo, ficheros que cambian juntos, leídos de git sin
 IA en `docs/overview/history.md`), `catalog [--json|--check]` (cada comando con dónde vive: portal, app de escritorio o
 solo CLI, y sus argumentos) y `projects [--json]` (los proyectos registrados en esta máquina), `config [get|set CLAVE VALOR]` (lang, model, codex_model: los ajustes del asistente), `trust --json` y `hooks --json` (lo pendiente de
-aprobar, si los hooks del método están activos), **Plan › Sincronizar** en el portal (lo mismo que `share`, con dónde estás) y `app` (la app de escritorio: el portal más el Taller,
+aprobar, si los hooks del método están activos), **Plan › Sincronizar** en el portal (lo mismo que `share`, con dónde estás) y `app` (la app de escritorio: las secciones del proyecto por tareas, el portal para leer,
 donde se lanzan ejecuciones, wikis, análisis y comprobaciones; el portal del navegador solo las enseña).
 
 **Datos del código, sin IA.** `camaron blocks` escribe `docs/repos/<repo>/reference.md` para cada repo: comandos
@@ -461,4 +466,4 @@ hacen trabajo `agentic-heavy`. `autopilot` y `run` lo leen unidad a unidad. Cada
 | Falló la generación de una wiki | la línea ⚠ dice por qué (cuota o sesión → espera o vuelve a iniciar sesión); lanza otra vez `camaron wiki <repo>`: un run interrumpido se reanuda |
 | `camaron app`: "needs Node.js >= 22" | instala Node 22 (`camaron doctor --install node`) y vuelve a lanzar `camaron app` |
 | La app abre el selector de proyectos y no tu proyecto | la lanzaste fuera de la carpeta del proyecto: ábrelo desde la lista o con **Añadir carpeta** |
-| Un botón del portal dice «ábrelo en la app de escritorio» | es a propósito: el portal del navegador no lanza procesos; usa `camaron app` |
+| En el portal del navegador falta un botón que esperabas | es a propósito: el portal del navegador no lanza procesos; usa `camaron app` |

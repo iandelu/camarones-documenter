@@ -66,12 +66,10 @@ async function loadTree() {
 }
 
 export const core = {
-  // the docs index, and in the app whether this kit is a checkout with its tests (the Taller's Kit dev view);
-  // the reader's language: the browser's on a first visit, when the docs are translated to it
+  // the docs index; the reader's language: the browser's on a first visit, when the docs are translated to it
   async boot() {
     applyTheme()
     await loadTree()
-    if (RUNS) await docsGet('app/info').then((i) => { T.kitdev = i.kitdev }, () => {})
     if (!store.get('cam-lang')) {
       const nav = (navigator.language || 'en').slice(0, 2)
       if (T.langs.includes(nav)) lang = nav

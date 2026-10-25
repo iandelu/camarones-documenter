@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.52.0-ff875f?style=flat-square" alt="Versión 4.52.0">
+  <img src="https://img.shields.io/badge/version-4.53.0-ff875f?style=flat-square" alt="Versión 4.53.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -67,10 +67,10 @@ Camarón te habla como tu becario gamba al que has mandado a documentar: con gan
 <p align="center"><em>Revisa borradores, confirma páginas y deja correcciones para la siguiente sesión.</em></p>
 
 <p align="center">
-  <img src=".github/media/app-tour.gif" alt="Recorrido por la app de escritorio de Camarón." width="960">
+  <img src=".github/media/app-summary.png" alt="El Resumen de un proyecto en la app de escritorio: el siguiente paso, el aviso del doctor y cómo va el plan." width="960">
 </p>
 
-<p align="center"><em>Y en la app de escritorio, el Taller: el plan con IA, análisis, comprobaciones y entrevistas con un clic. <a href="#app-de-escritorio">Cómo instalarla y abrirla →</a></em></p>
+<p align="center"><em>Y en la app de escritorio, lo que corre en tu máquina, por tareas: el siguiente paso con un clic, el plan, las entrevistas, el equipo y la calidad. <a href="#app-de-escritorio">Cómo instalarla y abrirla →</a></em></p>
 
 <details>
 <summary><strong>Más capturas del portal</strong></summary>
@@ -329,56 +329,55 @@ mi-proyecto/cam-docs/
 ### 🖥️ La app de escritorio
 
 <p align="center">
-  <img src=".github/media/app-taller.png" alt="Las seis zonas del Taller en la app de escritorio." width="49%">
-  <img src=".github/media/app-generate.png" alt="Generar: actualizar la documentación, el PR de docs y el piloto automático." width="49%">
+  <img src=".github/media/app-plan.png" alt="El Plan: ejecutar las unidades listas y, debajo, las unidades agrupadas por lo que piden." width="49%">
+  <img src=".github/media/app-quality.png" alt="Calidad: requisitos y herramientas, con lo que falta primero y su botón para instalarlo." width="49%">
 </p>
 
-<p align="center"><em>El mismo portal y, además, el Taller: todo lo que corre en tu máquina, en una ventana.</em></p>
+<p align="center"><em>Todo lo que corre en tu máquina, por tareas, en una ventana; para leer, el portal.</em></p>
 
-La app junta las dos caras de Camarón. El **portal** es el visor del equipo: leer, editar, revisar, ver la pipeline y responder la entrevista. El **Taller** es todo lo que pasa en tu máquina: agentes de IA, análisis del código, comprobaciones e instalación. Cada botón del Taller ejecuta el mismo comando que escribirías en la terminal, con su salida en vivo, así que nada de lo que ves es magia aparte.
+La app es donde se opera un proyecto y el **portal** es donde se lee. Cada proyecto se abre en su ventana: a la izquierda el raíl con tus proyectos y las secciones, en medio la tarea y, abajo, el panel de **trabajos** con lo que corre y los últimos, su salida y **Parar**. Cada botón ejecuta el mismo comando que escribirías en la terminal, con su salida en vivo, así que nada de lo que ves es magia aparte. Para leer, la sección **Docs** abre el portal del mismo proyecto.
 
 | | 🌐 Portal en el navegador (`camaron up`) | 🖥️ App de escritorio (`camaron app`) |
 |---|---|---|
 | **Para quién** | Todo el equipo, también desplegado como web | Quien documenta en su máquina |
-| **Leer, buscar, preguntar** | ✅ | ✅ |
-| **Editar, confirmar, revisar, comentar** | ✅ | ✅ |
+| **Leer, buscar, preguntar** | ✅ | ✅ (Docs abre el portal) |
+| **Editar, confirmar, revisar, comentar** | ✅ | ✅ (Docs abre el portal) |
 | **Pipeline: estado en vivo, reintentar, aprobar** | ✅ | ✅ |
 | **Responder la entrevista del equipo** | ✅ | ✅ |
 | **Sincronizar con el equipo (pull y push)** | ✅ | ✅ |
-| **Fijar el repo del equipo, aprobar su configuración de agentes, hooks y plugins** | — | ✅ |
-| **Tokens, idioma y modelos, repos, actualizar el kit, desinstalar** | — | ✅ |
-| **Ejecutar el plan, piloto automático, sesión con un agente** | — aviso «ábrelo en la app» | ✅ |
-| **Wikis, C4, grafo de código, vulnerabilidades, CI** | — aviso «ábrelo en la app» | ✅ |
-| **Requisitos, instalar herramientas, actualizar, desinstalar** | — | ✅ |
+| **Ejecutar el plan, piloto automático, sesión con un agente** | — | ✅ Plan |
+| **Requisitos, contexto, preguntas de control, vulnerabilidades** | — | ✅ Calidad |
+| **Fijar el repo del equipo, aprobar su configuración de agentes, hooks y plugins** | — | ✅ Equipo |
+| **Tokens, idioma y modelos, repos, actualizar el kit, desinstalar** | — | ✅ Máquina |
+| **Generar wikis, el C4 y el grafo de código** | — | ✅ (desde el portal, dentro de la app) |
 
-#### El Taller, zona a zona
+El portal del navegador no enseña lo que no puede hacer: sin la app, esos botones no aparecen.
 
-| Zona | Qué haces ahí |
+#### La app, sección a sección
+
+| Sección | Qué haces ahí |
 |---|---|
-| ✨ **Generar** | Ejecutar el plan en paralelo (sesiones por agente, máximo de unidades, incluir entrevistas), el **piloto automático**, abrir una unidad en una **terminal con el agente** que elijas, la sesión que **actualiza la documentación** con lo que cambió en el código, las **wikis** y la documentación de un **pull request** (primero «Ver qué haría», después el PR de docs) |
-| 🔬 **Analizar** | Sin IA: **vulnerabilidades conocidas** por gravedad con enlace a Librerías, **páginas desactualizadas** («Sigue valiendo» o una unidad que las actualice), **bloques generados**, borrador C4, stack, datos, historia |
-| ✅ **Comprobar** | **Requisitos y herramientas** con su botón «Instalar» o «repair», el **contexto** que carga cada sesión de agente frente al presupuesto, **preguntas de control** (confirmar y lanzar), **con y sin cam-docs**, `check`, KPIs |
-| 🎙️ **Entrevistas** | Cuestionario del equipo o en vivo, **exportar** el formulario sin conexión y abrir su carpeta, **importar** respuestas con un selector de ficheros, cerrar la ronda y abrir cada unidad de entrevista con un agente |
-| 🤝 **Equipo** | El **repo del equipo** (fijarlo, compartir cada checkpoint o no, ir a Sincronizar), la **configuración de agentes** que llegó con él para aprobarla en esta máquina, los **hooks** del método, los **plugins** (qué aportan, si ejecutan código, activar o desactivar), CI y exportaciones |
-| 🛠️ **Desarrollo del kit** | Solo en un checkout del kit: el sandbox, `pytest`, el build del portal y los tests de escritorio (ver [Desarrollo](#desarrollo)) |
-| 🧰 **Esta máquina** | **Preparar la máquina** (`setup`) con barra de progreso, **idioma y modelos** de Claude Code y Codex, **tokens de GitLab y GitHub** (se comprueban con la forja y se guardan en el llavero del sistema, nunca en una línea de comandos), **repos** (clonados o no, su stack editable, clonar o actualizar, detectar) y el **plan** rápido o completo, **actualizar el kit** y reiniciar la app con la versión nueva, `repair`, `migrate` y, aparte, **desinstalar**: primero «Ver qué borraría» y después un diálogo que repite la lista |
+| 🏠 **Resumen** | El **siguiente paso** con un solo botón (el mismo que propone el asistente), el aviso si a la máquina le falta algo y cómo van el plan, la revisión y los trabajos |
+| 🗺️ **Plan** | Ejecutar las unidades listas en paralelo (sesiones por agente, máximo de unidades, incluir entrevistas) o con el **piloto automático**, y pararlo; las unidades agrupadas por lo que te piden (aprobar, reintentar, seguir, empezar), cada una con el agente que elijas; la sesión que **actualiza la documentación** con lo que cambió en el código. El grafo del plan está en el portal |
+| 🎙️ **Entrevistas** | Cuestionario del equipo o en vivo, **exportar** el formulario sin conexión y abrir su carpeta, **importar** respuestas con un selector de ficheros, cerrar la ronda y cada entrevista con su agente |
+| 🤝 **Equipo** | El **repo del equipo** y **compartir** (lo que hay por enviar y por traer, compartir cada checkpoint), lo que llegó con ese repo y falta **aprobar** en esta máquina, los **hooks** del método y los **plugins** (qué aportan, si ejecutan código, activar o desactivar) |
+| ✅ **Calidad** | **Requisitos y herramientas** (se guardan entre visitas, con «Volver a comprobar» y el botón que instala o repone), el **contexto** que carga cada sesión de agente frente al presupuesto, **preguntas de control**, **con y sin cam-docs** y, sin IA, **vulnerabilidades conocidas**, **páginas desactualizadas** («Sigue valiendo» o una unidad que las actualice) y **bloques generados** |
+| 📖 **Docs** | Abre el portal del proyecto: leer, revisar borradores, buscar o preguntar |
+| 🧰 **Máquina** | **Preparar la máquina** (`setup`) con su progreso, **idioma y modelos** de Claude Code y Codex, **tokens de GitLab y GitHub** (se comprueban con la forja y se guardan en el llavero del sistema, nunca en una línea de comandos), **repos** (clonados o no, su stack editable, clonar o actualizar, detectar) y el **plan** rápido o completo, **actualizar el kit** y reiniciar la app con la versión nueva, `repair` y, aparte, **desinstalar**: primero «Ver qué borraría» y después un diálogo que repite la lista |
+| 🛠️ **Kit dev** | Solo en un checkout del kit: el sandbox, `pytest`, los builds del portal y de la app y los tests de escritorio (ver [Desarrollo](#desarrollo)) |
 
-Cada comando de la CLI tiene su formulario, que sale del propio parser (`camaron catalog`). Lo que borra o mueve datos va en su propio bloque, al final, y pide confirmación en un diálogo que dice qué va a pasar.
+Al final de cada sección, **Todos los comandos** (plegado) tiene el resto de comandos de su zona, con un formulario que sale del propio parser (`camaron catalog`) y sin repetir los que ya tienen panel. Lo que borra o mueve datos va al final y pide confirmación en un diálogo que dice qué va a pasar.
 
 <details>
 <summary><strong>📸 Más capturas de la app</strong></summary>
 
-| Proyectos | Taller | Generar |
+| Proyectos | Entrevistas | Equipo |
 |---|---|---|
-| ![Selector de proyectos](.github/media/app-hub.png) | ![Las zonas del Taller](.github/media/app-taller.png) | ![Generar: actualizar docs, PR y piloto automático](.github/media/app-generate.png) |
+| ![Elegir, crear o unirse a un proyecto](.github/media/app-hub.png) | ![Entrevistas: cómo se hacen y cada entrevista con su agente](.github/media/app-interviews.png) | ![Equipo: el repo del equipo, lo que falta aprobar y los plugins](.github/media/app-team.png) |
 
-| Pipeline con sesión de agente | Comprobar | Analizar |
+| Máquina | Un trabajo en vivo | Resumen |
 |---|---|---|
-| ![Pipeline con el panel de una unidad](.github/media/app-pipeline.png) | ![Requisitos, contexto y preguntas de control](.github/media/app-check.png) | ![Vulnerabilidades, páginas desactualizadas y bloques](.github/media/app-analyze.png) |
-
-| Un comando en vivo | Entrevista del equipo | Librerías y vulnerabilidades |
-|---|---|---|
-| ![La salida de un comando del Taller](.github/media/app-job.png) | ![El cuestionario respondido en la app](.github/media/app-interview.png) | ![Librerías con sus vulnerabilidades](.github/media/app-libs.png) |
+| ![Máquina: setup, idioma y modelos, tokens](.github/media/app-machine.png) | ![El panel de trabajos abierto con la salida de un comando](.github/media/app-job.png) | ![El Resumen con el siguiente paso](.github/media/app-summary.png) |
 
 </details>
 
@@ -408,16 +407,7 @@ camaron app                  # en cualquier otra carpeta: abre el selector de pr
 - **Desde el selector de proyectos:** abre un proyecto registrado, **crea uno** (eliges la carpeta donde va), **únete al del equipo** con la URL de su `cam-docs` o **añade una carpeta** que ya tenga `cam-docs`.
 - **Dentro de la app:** tus proyectos están en el raíl de la izquierda; otro se abre en la misma ventana, que vuelve a salir con el tamaño y en el sitio donde la dejaste. <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>O</kbd> vuelve a los proyectos, y **camarón › Abrir en el navegador** abre el mismo portal en tu navegador para compartir la pantalla o un enlace local.
 
-**4. Empieza por el Resumen.** La app abre en el **Resumen** del proyecto: el **siguiente paso** con un solo botón (seguir la unidad que quedó a medias o empezar la siguiente con el agente que elijas, preparar la máquina, revisar en el portal…; el mismo que te propone el asistente) y cómo van el plan, la revisión y los trabajos. Abajo, el panel de **trabajos** enseña lo que corre y los últimos, con su salida y **Parar**, y sigue ahí aunque cambies de sección. A la izquierda, las secciones van por tarea:
-
-- **Plan:** ejecutar las unidades listas en paralelo o con el piloto automático (y pararlo), y debajo las unidades agrupadas por lo que te piden —aprobar, reintentar, seguir, empezar—, con las que esperan a otras y las hechas plegadas. Un solo selector elige el agente de toda la sección. El grafo del plan sigue en el portal.
-- **Entrevistas:** cómo se hacen (cuestionario del equipo o en vivo), el estado del cuestionario con responder, exportar el formulario, importar respuestas y cerrar la ronda, y cada entrevista con su agente.
-- **Equipo:** el repo del equipo y compartir (lo que hay por enviar y por traer, **Compartir ahora**), lo que llegó con ese repo y falta aprobar en esta máquina, los hooks y los plugins.
-- **Calidad:** **Requisitos y herramientas** (el doctor: lo que falta primero, con su botón para instalarlo o reponerlo; se guarda entre visitas y se comprueba de nuevo con **Volver a comprobar**), lo que carga cada sesión de agente, las preguntas de control y la misma pregunta con y sin cam-docs. Debajo, sin IA y desde el código: vulnerabilidades conocidas, páginas desactualizadas y bloques generados. Si al doctor le falta algo, el **Resumen** lo avisa.
-- **Docs** abre la documentación en el portal (leer, revisar, buscar o preguntar).
-- Debajo, a nivel de app, **Máquina** (preparar la máquina con su progreso, idioma y modelos, tokens de GitLab y GitHub, repos y plan, actualizar el kit y, aparte, desinstalar: primero «Ver qué borraría») y, en un checkout del kit, **Kit dev** (sandbox, tests y los builds del portal y de la app).
-
-Al final de cada una, **Todos los comandos** (plegado) tiene el resto de comandos de esa sección con su formulario, sin repetir los que ya tienen panel. Un buen primer paso: **Calidad › Requisitos y herramientas** para ver qué falta, y **Plan** para la primera unidad.
+**4. Empieza por el Resumen.** La app abre en el **Resumen**: el siguiente paso con un solo botón. Un buen primer paso: **Calidad › Requisitos y herramientas** para ver qué le falta a la máquina, y **Plan** para la primera unidad. Lo que hay en cada sección, en [La app, sección a sección](#la-app-sección-a-sección).
 
 <details>
 <summary><strong>🪟 🍎 🐧 Notas por sistema operativo</strong></summary>
@@ -438,7 +428,7 @@ Al final de cada una, **Todos los comandos** (plegado) tiene el resto de comando
 | `the desktop app needs Node.js >= 22` | Instala Node 22 (`camaron doctor --install node`) y vuelve a lanzar `camaron app`. |
 | Se abre el selector en vez de tu proyecto | Estabas fuera de la carpeta del proyecto: ábrelo desde la lista o usa **Añadir carpeta**. |
 | «No he podido arrancar el servidor del proyecto» | El cuadro trae el error del servidor. `camaron doctor` en esa carpeta suele decir qué falta. |
-| Un botón del portal dice «ábrelo en la app» | Es a propósito: el portal del navegador no lanza procesos. Ábrelo desde la app. |
+| En el portal del navegador no está el botón que esperabas | Es a propósito: el portal del navegador no lanza procesos. Hazlo desde la app (Plan, Calidad, Máquina…). |
 | Quieres reinstalar Electron | Borra `~/.camarones/desktop` y lanza `camaron app`: lo descarga otra vez. |
 
 </details>
@@ -446,15 +436,15 @@ Al final de cada una, **Todos los comandos** (plegado) tiene el resto de comando
 #### 🔧 Por dentro
 
 - **Electron fijado** (`VERSIONS["electron"]`, hoy 44.7.0) en `~/.camarones/desktop`, instalado con npm y sin permisos de administrador. Nada de la app vive en tus proyectos. Al actualizar el kit (`camaron self-update`), si la versión fijada cambia, la siguiente `camaron app` descarga la nueva.
-- **Cada ventana es el servidor del portal de su proyecto**, arrancado por la app con un **token de un solo uso**. Sin ese token el servidor no lanza procesos ni llama a modelos, y con él rechaza peticiones de otro `Host` (protección contra *DNS rebinding*). Las ventanas no pueden navegar fuera de su servidor: los enlaces externos se abren en tu navegador.
-- **La CLI es la API de la app.** El Taller ejecuta `camaron <comando>` con los argumentos validados contra el parser, sin shell de por medio. Parar un comando para también lo que arrancó (agentes, npm, git).
+- **Cada ventana es el servidor de su proyecto** (la app en `/desktop/`, el portal en `/`), arrancado por la app con un **token de un solo uso**. Sin ese token el servidor no lanza procesos ni llama a modelos, y con él rechaza peticiones de otro `Host` (protección contra *DNS rebinding*). Las ventanas no pueden navegar fuera de su servidor: los enlaces externos se abren en tu navegador.
+- **La CLI es la API de la app.** Sus secciones ejecutan `camaron <comando>` con los argumentos validados contra el parser, sin shell de por medio. Parar un comando para también lo que arrancó (agentes, npm, git).
 - `camaron uninstall --global` borra también `~/.camarones/desktop`.
 
 ### Explora y edita en el portal
 
 ```sh
 camaron up          # portal local: leer, editar, confirmar, pedir cambios y hacer commit en cam-docs
-camaron app         # app de escritorio: el mismo portal más el Taller, donde se lanza lo que corre en tu máquina
+camaron app         # app de escritorio: las secciones donde se lanza lo que corre en tu máquina; para leer, el portal
 camaron wiki orders-api   # generar o actualizar la wiki OpenWiki de un repo (lo mismo que Docs › Wikis en el portal)
 camaron down
 ```
@@ -467,7 +457,7 @@ El portal usa el lenguaje visual del sistema de diseño de Cofundo con la marca 
 - **Tablero:** columnas por hacer, en curso, bloqueadas, hechas y descartadas.
 - **Panel de cada unidad:** agente, resultado, tiempo, tokens, coste, si trabaja en su propia copia y el log de lo que hace el agente, línea a línea.
 
-Si lanzas `camaron run` con el portal abierto, lo detecta solo y sigue la ejecución en directo. En la app de escritorio, desde la propia vista puedes **lanzar** una ejecución (cuántas unidades a la vez y, en «Opciones», sesiones por agente, un máximo de unidades e incluir las entrevistas), arrancar el **piloto automático** (una unidad tras otra, sin vigilancia; se para desde el mismo botón), abrir una unidad en una **sesión interactiva** con el agente que elijas (en su propia ventana de terminal, en el workspace; si estaba a medias, seguir su última conversación o empezarla de cero) y **cancelar** la ejecución (se paran los agentes y sus unidades vuelven a la cola, sin perder lo que haya en su copia); en el portal del navegador ves el estado y puedes **reintentar** una unidad bloqueada o **aprobar** la que espera a una persona. Solo puede haber una ejecución a la vez, se lance desde el portal o desde la terminal.
+Si lanzas `camaron run` con el portal abierto, lo detecta solo y sigue la ejecución en directo. La sección **Plan** de la app de escritorio es donde se **lanza** una ejecución (cuántas unidades a la vez y, en «Opciones», sesiones por agente, un máximo de unidades e incluir las entrevistas), arrancar el **piloto automático** (una unidad tras otra, sin vigilancia; se para desde el mismo botón), abrir una unidad en una **sesión interactiva** con el agente que elijas (en su propia ventana de terminal, en el workspace; si estaba a medias, seguir su última conversación o empezarla de cero) y **cancelar** la ejecución (se paran los agentes y sus unidades vuelven a la cola, sin perder lo que haya en su copia); en el portal ves el estado y puedes **reintentar** una unidad bloqueada o **aprobar** la que espera a una persona (dentro de la app, la vista lleva a su Plan). Solo puede haber una ejecución a la vez, se lance desde la app o desde la terminal.
 
 Abre **http://localhost:8080**. Es un único portal 🦐, en español o inglés (el mismo selector cambia la interfaz y las traducciones de la documentación). No hay barra de pestañas: el menú lateral tiene siempre las cinco zonas (Docs, Arquitectura, Plan, Calidad y Revisión; la que estás viendo se abre en sus vistas y, en Docs, con el árbol de páginas debajo), la barra de arriba enseña el proyecto bajo la marca y dónde estás (`Arquitectura → Modelo C4`), y <kbd>⌘K</kbd>/<kbd>Ctrl K</kbd> busca páginas, salta a cualquier zona o vista y, con el portal en vivo, lleva la pregunta a Preguntar. Las direcciones de siempre (`#/c4`, `#/docs/…`, `#/review`…) siguen funcionando.
 
@@ -717,7 +707,7 @@ uv run scripts/sandbox.py open       # abre el asistente sobre el sandbox
 uv run scripts/sandbox.py traces     # lista lo que el kit dejó (también aprobaciones en ~/.camarones/trust/); 0 si no queda nada
 ```
 
-**Desde la app de escritorio.** Abierta desde un checkout del kit (`uv run --script .camarones/camarones.py app`), el Taller tiene una zona más, **🛠️ Desarrollo del kit**: el sandbox (traces, reiniciar con confirmación, cualquier comando del kit sobre él y el asistente en su propia terminal), `pytest` con `-k` y rutas bajo `tests/` y su resumen en pastillas, `npm ci`, `npm test` y `npm run build` del portal, la comprobación de que `app-build/` coincide con el del repo y los tests de escritorio (`node --test`). Cada tarea es una lista de argumentos fija, sin shell. No aparece en la instalación global, que también es un clon completo pero la usan los usuarios.
+**Desde la app de escritorio.** Abierta desde un checkout del kit (`uv run --script .camarones/camarones.py app`), la app tiene una sección más, **🛠️ Kit dev**: el sandbox (traces, reiniciar con confirmación, cualquier comando del kit sobre él y el asistente en su propia terminal), `pytest` con `-k` y rutas bajo `tests/` y su resumen, `npm ci`, `npm test` y `npm run build` del portal y de la app, la comprobación de que `app-build/` y `renderer-build/` coinciden con los del repo y los tests del proceso principal (`node --test`). Cada tarea es una lista de argumentos fija, sin shell. No aparece en la instalación global, que también es un clon completo pero la usan los usuarios.
 
 ## Sigue explorando
 

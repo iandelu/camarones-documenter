@@ -49,7 +49,7 @@ Every change must work on all three. CI (`.github/workflows/tests.yml`) runs the
   then `traces` after uninstall flows (exit 0 = nothing left behind). `reset` restores the pinned repos without
   network. Never run the kit against a real project to test it. If the sandbox is missing, `reset` creates it
   (first run clones from GitHub); say so rather than skipping silently. The desktop app opened from this checkout
-  (`uv run --script .camarones/camarones.py app`) has the same bench under Taller › Kit dev (`lib/kitdev.py`).
+  (`uv run --script .camarones/camarones.py app`) has the same bench under Kit dev (`lib/kitdev.py`).
 
 ### 2.3 Backward compatibility (3.x and 4.x)
 
@@ -100,7 +100,7 @@ self-aware about being small.
 | `.camarones/templates/` | files copied into projects (`AGENTS.md`, docs skeleton, i18n) — changes here reach old projects: see 2.3 |
 | `.camarones/portal/` | `app/` the portal, React + Vite, `npm` only in the kit repo: `src/shell/` (header, sidebar, the hash router of `src/router.js`), `src/views/` (one per address, with its pure helpers and tests), `src/content/doc.js` (the Markdown renderer), `src/core.js` (docs index, language, theme; strings in `src/i18n/`); built into `app-build/` (committed, served at `/`; CI fails if it does not match its source). UI work follows the `cofundo-design-system` skill (`.claude/skills/`) and its `CAMARON.md` |
 | `.camarones/ui/` | the kit both apps share: `theme/` (tokens, fonts, published as `theme/`), `src/` (base components, `cmdform.js` the catalog's forms, `result.js` a --json result's shape; imported as `@camaron/ui`), `i18n/`; no build of its own |
-| `.camarones/desktop/` | the desktop app (`camaron app`, `lib/desktop.py` installs its pinned Electron into `~/.camarones/desktop`): `main.cjs` (one window per project on that project's server, started with an app token; the rail switches it in place), `preload.cjs`, `hub/` (the old projects page, unused since the renderer's hub mode; removed with the portal's Taller), `lib/core.cjs` and `lib/renderer.cjs` (pure helpers, `node --test "test/*.test.cjs"` in CI on every OS), `renderer/` the app's own UI (React + Vite on `.camarones/ui`, Vitest) built into `renderer-build/` (committed, served by each project's server at `/desktop/`; CI fails if it does not match its source). No kit logic here: the Taller runs catalog commands through `lib/appapi.py`; machine work in the portal needs that token |
+| `.camarones/desktop/` | the desktop app (`camaron app`, `lib/desktop.py` installs its pinned Electron into `~/.camarones/desktop`): `main.cjs` (one window per project on that project's server, started with an app token; the rail switches it in place), `preload.cjs`, `lib/core.cjs` and `lib/renderer.cjs` (pure helpers, `node --test "test/*.test.cjs"` in CI on every OS), `renderer/` the app's own UI (React + Vite on `.camarones/ui`, Vitest) built into `renderer-build/` (committed, served by each project's server at `/desktop/`; CI fails if it does not match its source). No kit logic here: the app's sections run catalog commands through `lib/appapi.py`; the portal is the reader, and the few machine actions it keeps (C4 build, wiki graph) need that token |
 | `tests/` | pytest suite; `pyproject.toml` holds dev deps only |
 | `scripts/sandbox.py` | real-repo test bench (Spring PetClinic) |
 

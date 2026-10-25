@@ -2,10 +2,14 @@
 // on screen, each page's space, how a page is linked). Old addresses keep working: #/doc, #/status, #/wikis/<repo>,
 // #/docs/<a wiki page>, #/boards (removed in 4.49).
 
-// The React views that need the live server, and the Taller (machine work), which needs the desktop app.
+// The React views that need the live server.
 export const NATIVE = ['pipeline', 'ask', 'kpis', 'ci', 'libs', 'data', 'interview', 'sync', 'kanban']
-export const TALLER = ['generate', 'analyze', 'check', 'interviews', 'team', 'machine', 'kitdev']
-const COVERS = ['arch', 'plan', 'quality', 'taller']
+const COVERS = ['arch', 'plan', 'quality']
+
+// The Taller's addresses (machine work, in the portal until 4.52) → the desktop app's own section for that work,
+// served by this same server at /desktop/.
+const APP_SECTION = { generate: 'plan', analyze: 'quality', check: 'quality', interviews: 'interviews', team: 'team',
+  machine: 'machine', kitdev: 'kitdev', taller: 'summary' }
 
 export function parse(hash) {
   const raw = (hash || '').replace(/^#/, '')
@@ -21,8 +25,8 @@ const HOME = { kind: 'native', view: 'home', arg: '' }
 //        firstView(zone): the address of the zone's first view in this mode, if it has one }
 export function resolve(hash, ctx) {
   const { view, rest } = parse(hash)
-  if (NATIVE.includes(view) && ctx.mode !== 'static' || TALLER.includes(view) && ctx.mode === 'app')
-    return { kind: 'native', view, arg: rest }
+  if (NATIVE.includes(view) && ctx.mode !== 'static') return { kind: 'native', view, arg: rest }
+  if (APP_SECTION[view]) return ctx.mode === 'app' ? { kind: 'redirect', to: `./desktop/#/${APP_SECTION[view]}` } : HOME
   if (view === 'boards') return { kind: 'redirect', to: '#/arch' }
   if (view === 'docs' || view === 'doc') {
     if (!rest) return { kind: 'native', view: 'docs', arg: '' }
@@ -46,7 +50,7 @@ export function resolve(hash, ctx) {
   if (view === 'review' || view === 'status') return { kind: 'native', view: 'review', arg: '' }
   if (view === 'search') return { kind: 'native', view: 'search', arg: rest }
   if (view === 'new' && ctx.mode !== 'static') return { kind: 'native', view: 'new', arg: '' }
-  const first = COVERS.includes(view) && (view !== 'taller' || ctx.mode === 'app') && ctx.firstView(view)
+  const first = COVERS.includes(view) && ctx.firstView(view)
   if (first) return { kind: 'redirect', to: first }
   return HOME
 }
