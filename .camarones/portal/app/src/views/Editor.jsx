@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Aviso, Button } from '@camaron/ui'
 import { postJSON } from '../api.js'
 import { newPagePath } from './docpage.js'
+import { drawMermaid, render } from '../content/doc.js'
 
 const L = () => window.CamaronLegacy
 
@@ -19,9 +20,9 @@ export default function Editor({ d, onDone }) {
 
   useEffect(() => {                                     // the preview follows the text after a short pause
     const h = setTimeout(() => {
-      const el = legacy.renderMd(src, d.path)
+      const el = render(src, d.path)
       preview.current.replaceChildren(el)
-      legacy.drawMermaid(el)
+      drawMermaid(el)
     }, 250)
     return () => clearTimeout(h)
   }, [src])

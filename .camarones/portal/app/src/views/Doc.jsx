@@ -5,6 +5,7 @@ import { docsGet } from '../docsApi.js'
 import { t as tr } from '../i18n.js'
 import { pageBanners, pager } from './docpage.js'
 import Editor from './Editor.jsx'
+import { mountDoc } from '../content/doc.js'
 import { readerTrees } from './DocsTree.jsx'
 
 const L = () => window.CamaronLegacy
@@ -44,7 +45,7 @@ export function DocView({ path, anchor, order, extra = null, banner = null, afte
   useEffect(() => {                                     // the body, once the page is on screen
     if (!d || editing || !body.current) return
     body.current.innerHTML = ''
-    legacy.mountDoc(body.current, d.exists ? d.raw : english?.exists ? english.raw : t('emptyPage'), path, anchor)
+    mountDoc(body.current, d.exists ? d.raw : english?.exists ? english.raw : t('emptyPage'), path, anchor)
     legacy.setCurrent(path)
   }, [d, editing])
 
@@ -55,6 +56,7 @@ export function DocView({ path, anchor, order, extra = null, banner = null, afte
   const row = legacy.byPath(path) || {}
   const title = d.exists ? d.title : english?.title || row.title || d.title
   const around = pager(order, path)
+  const sources = (d.sources?.length ? d.sources : english?.sources) || []      // a missing translation has none of its own
   const changed = async (msg) => { legacy.toast(msg); await legacy.reload(); window.CamaronShell.go() }
   return (
     <div className="docpage">
@@ -101,10 +103,10 @@ export function DocView({ path, anchor, order, extra = null, banner = null, afte
       </article>
       <aside className="doc-aside">
         <div id="toc" className="toc empty"></div>
-        {d.sources?.length > 0 && (
+        {sources.length > 0 && (
           <div className="cu-card doc-sources">
-            <span className="eyebrow">{t('sources')} · {d.sources.length}</span>
-            <ul>{d.sources.map((s) => <li key={s}><code title={s}>{s}</code></li>)}</ul>
+            <span className="eyebrow">{t('sources')} · {sources.length}</span>
+            <ul>{sources.map((s) => <li key={s}><code title={s}>{s}</code></li>)}</ul>
           </div>
         )}
       </aside>

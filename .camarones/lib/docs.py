@@ -492,7 +492,7 @@ def heading_text(md: str) -> str:
 
 
 def slug(heading: str) -> str:
-    """Mirror of the portal's slugify (portal/app/public/legacy/doc.js): lower case, letters/digits/space/_/- kept, spaces → -."""
+    """Mirror of the portal's slugify (portal/app/src/content/doc.js): lower case, letters/digits/space/_/- kept, spaces → -."""
     return re.sub(r"\s+", "-", re.sub(r"[^\w\s-]", "", heading_text(heading).lower().strip()))
 
 

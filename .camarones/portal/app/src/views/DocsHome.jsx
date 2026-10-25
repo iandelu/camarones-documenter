@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Card, Chip } from '@camaron/ui'
 import { docsGet } from '../docsApi.js'
 import { emptyProject } from './home.js'
+import { drawC4, mountDoc } from '../content/doc.js'
 import { audience } from './DocsTree.jsx'
 import { buildTree, flatten, forBusiness, sortedDirs } from './tree.js'
 
@@ -21,13 +22,13 @@ export default function DocsHome() {
   useEffect(() => { if (empty) location.replace('#/') }, [empty])
   useEffect(() => {
     if (empty || !body.current) return
-    const pending = [legacy.drawC4(body.current.parentElement)]
+    const pending = [drawC4(body.current.parentElement)]
     if (legacy.byPath('index.md')) {
       pending.push(docsGet('doc', { path: 'index.md', lang }).then(async (d) => {
         const raw = d.exists ? d.raw : (await docsGet('doc', { path: 'index.md' })).raw
         setHome(d)
         body.current.innerHTML = ''
-        await legacy.mountDoc(body.current, raw, 'index.md')
+        await mountDoc(body.current, raw, 'index.md')
       }))
     }
     Promise.all(pending).catch(() => {})

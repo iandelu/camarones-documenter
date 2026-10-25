@@ -15,7 +15,6 @@ export function parse(hash) {
   return { view, rest }
 }
 
-const legacy = (fn, ...args) => ({ kind: 'legacy', fn, args })
 const HOME = { kind: 'native', view: 'home', arg: '' }
 
 // ctx: { mode: 'static' | 'live' | 'app', current: page path on screen, space(path), hrefFor(path, anchor),
@@ -42,7 +41,7 @@ export function resolve(hash, ctx) {
   if (view === 'wikis') return rest ? { kind: 'redirect', to: `#/wiki/${rest}` } : { kind: 'native', view: 'wikis', arg: '' }
   if (view === 'c4' && /^code(\/|$)/.test(rest))         // the old address of graphify's page
     return { kind: 'redirect', to: `#/code/${rest.split('/').slice(1).filter(Boolean).join('/') || 'all'}/graph` }
-  if (view === 'c4') return legacy('showArch', rest)
+  if (view === 'c4') return { kind: 'native', view: 'c4', arg: rest }
   if (view === 'code') return { kind: 'native', view: 'code', arg: rest }
   if (view === 'review' || view === 'status') return { kind: 'native', view: 'review', arg: '' }
   if (view === 'search') return { kind: 'native', view: 'search', arg: rest }
