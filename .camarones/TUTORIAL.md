@@ -263,7 +263,7 @@ Optional: a pipeline that, after each change in the repos or in cam-docs, update
 
 A Kanban versioned with the docs: epics, stories, bugs and tasks with repos, acceptance criteria and linked pages. Turn it on with `camaron board init` (projects without it stay as they were) and use `camaron board add|list|show|move|assign|link|archive|repair`, all with `--json`.
 
-Each card is a Markdown file compatible with Backlog.md, so that tool reads and edits it too. What you link from the docs is watched: the Board tells you whether the page changed since you linked it or is still unconfirmed. In the portal, the “Board” zone (`#/kanban`) has Kanban, list and by-epic views; writing needs the token, which the desktop app already sends and `camaron up` prints in the URL (`#cam-token=…`). Without it, read-only.
+Each card is a Markdown file compatible with Backlog.md, so that tool reads and edits it too. What you link from the docs is watched: the Board tells you whether the page changed since you linked it or is still unconfirmed. In the portal, the “Board” zone (`#/kanban`) has the Kanban, with filters by repo, epic, label and docs state, and the card detail; writing needs the token, which the desktop app already sends and `camaron up` prints in the URL (`#cam-token=…`). Without it, read-only.
 
 Your intern shrimp has pinned the sticky notes up already: all you do is move them.
 
@@ -559,7 +559,7 @@ Opcional: un pipeline que, tras cada cambio en los repos o en cam-docs, actualiz
 
 Un Kanban versionado con la documentación: epics, historias, bugs y tareas con repos, criterios de aceptación y páginas enlazadas. Se activa con `camaron board init` (los proyectos sin él siguen igual) y se maneja con `camaron board add|list|show|move|assign|link|archive|repair`, todos con `--json`.
 
-Cada tarjeta es un fichero Markdown compatible con Backlog.md, así que esa herramienta también lo lee y lo edita. Lo que enlazas de la documentación se vigila: el Tablero te dice si la página cambió desde que la enlazaste o si sigue sin confirmar. En el portal, la zona «Tablero» (`#/kanban`) tiene Kanban, lista y vista por epic; para escribir pide el token, que ya trae la app de escritorio y que `camaron up` imprime en la dirección (`#cam-token=…`). Sin él, solo lectura.
+Cada tarjeta es un fichero Markdown compatible con Backlog.md, así que esa herramienta también lo lee y lo edita. Lo que enlazas de la documentación se vigila: el Tablero te dice si la página cambió desde que la enlazaste o si sigue sin confirmar. En el portal, la zona «Tablero» (`#/kanban`) tiene el Kanban, con filtros por repo, epic, etiqueta y estado de la documentación, y el detalle de cada tarjeta; para escribir pide el token, que ya trae la app de escritorio y que `camaron up` imprime en la dirección (`#cam-token=…`). Sin él, solo lectura.
 
 Tu gambita de prácticas ya ha colgado los post-its en su sitio: tú solo los mueves.
 

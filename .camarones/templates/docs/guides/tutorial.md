@@ -240,8 +240,8 @@ camaron board repair                                  # also runs before every c
 ```
 
 All of them take `--json`. Links to pages go by `x-id`, so they survive a move or rename, and the board knows whether
-a linked page changed since it was linked. In the portal, the **Board** zone (`#/kanban`) has Kanban, list and by-epic
-views and the card detail; writing needs the machine token (the desktop app sends it; `camaron up` prints it in the
+a linked page changed since it was linked. In the portal, the **Board** zone (`#/kanban`) has the Kanban
+with filters by repo, epic, label and docs state, and the card detail; writing needs the machine token (the desktop app sends it; `camaron up` prints it in the
 URL as `#cam-token=…`), without it the board is read-only. `camaron uninstall` asks whether to keep `backlog/`
 (`--keep-board` / `--drop-board`).
 
