@@ -348,9 +348,13 @@ what the code states, in Mermaid, and never guesses: `docs/architecture/system-m
 datastores, brokers, identity providers) and one sequence per message topic (who publishes, who consumes);
 `docs/repos/<repo>/diagrams.md` has the repo's endpoints map and one state diagram per status enum, with the states
 only (transitions are not guessed). They are ordinary Docs pages made of generated blocks like the ones above. A
-person can confirm one by hand: copy the block's `sha=` value into `confirmed=` and put a name in `by=`, e.g.
-`<!-- generated:states repo=api id=OrderStatus confirmed=3fa1c2… by=ana sha=3fa1c2… -->`. A refresh then never rewrites it, and `check` warns "the code changed since this
-diagram was confirmed". The portal labels each diagram "From the code", "Confirmed by <name>" or "The code changed".
+person can confirm one by hand: copy the block's `sha=` value into `confirmed=` and put a name in `by=` (one word, or
+quoted when it has spaces: `by="Ana López"`), e.g.
+`<!-- generated:states repo=api id=OrderStatus confirmed=3fa1c2d4e5f6 by=ana sha=3fa1c2d4e5f6 -->`. A refresh then
+never rewrites it, and `check` warns "the code changed since this diagram was confirmed" (or that the code no longer
+has the diagram's source). To take the code's version, remove `confirmed=` and `by=` from the marker, run
+`camaron diagrams` (or `blocks`), then confirm it again. The portal labels each diagram "From the code", "Edited by
+hand", "Confirmed by <name>" or "The code changed".
 Agents follow the `cam-docs-diagrams` skill: pick the right diagram, write Mermaid that renders, never edit a generated block.
 
 **Parallel runs.** `camaron run --parallel 3 --per-runner claude=2,codex=1` does several units at once. Discovery, repo

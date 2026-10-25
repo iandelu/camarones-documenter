@@ -367,10 +367,12 @@ contexto (repos, almacenes de datos, brokers, proveedores de identidad) y una se
 consume); `docs/repos/<repo>/diagrams.md` trae el mapa de endpoints del repo y un diagrama de estados por cada enum de
 estado, solo con los estados (las transiciones no se adivinan). Son páginas normales de Docs hechas de bloques
 generados como los de arriba. Una persona puede confirmar uno a mano: copia el `sha=` del bloque en `confirmed=` y pon
-un nombre en `by=`, p. ej. `<!-- generated:states repo=api id=OrderStatus confirmed=3fa1c2… by=ana sha=3fa1c2… -->`.
-Un refresco ya no lo reescribe y `check` avisa
-«el código cambió desde que se confirmó este diagrama». El portal etiqueta cada diagrama como «Del código», «Confirmado
-por <nombre>» o «El código cambió». Los agentes siguen la skill `cam-docs-diagrams`: elegir el diagrama adecuado,
+un nombre en `by=` (una palabra, o entre comillas si lleva espacios: `by="Ana López"`), p. ej.
+`<!-- generated:states repo=api id=OrderStatus confirmed=3fa1c2d4e5f6 by=ana sha=3fa1c2d4e5f6 -->`. Un refresco ya no
+lo reescribe y `check` avisa «el código cambió desde que se confirmó este diagrama» (o que el código ya no tiene la
+fuente del diagrama). Para quedarte con la versión del código, quita `confirmed=` y `by=` del marcador, ejecuta
+`camaron diagrams` (o `blocks`) y vuelve a confirmarlo. El portal etiqueta cada diagrama como «Del código», «Editado a
+mano», «Confirmado por <nombre>» o «El código cambió». Los agentes siguen la skill `cam-docs-diagrams`: elegir el diagrama adecuado,
 escribir Mermaid que se dibuje y no editar nunca un bloque generado.
 
 **En paralelo.** `camaron run --parallel 3 --per-runner claude=2,codex=1` hace varias unidades a la vez. Los
