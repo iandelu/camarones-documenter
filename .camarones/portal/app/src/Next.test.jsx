@@ -24,11 +24,12 @@ beforeEach(() => {
 })
 afterEach(() => { act(() => root.unmount()); host.remove(); vi.unstubAllGlobals() })
 
-const flush = () => act(async () => { for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0)) })
+// The views load lazily (a dynamic import, slow the first time): wait for what the test looks at, not a fixed number of ticks.
+const until = async (check) => { for (let i = 0; i < 160 && !check(); i++) await act(async () => { await new Promise((r) => setTimeout(r, 25)) }) }
 
 test('Next step offers the first available unit, the review count and the way to another unit', async () => {
   await act(async () => root.render(createElement(Native, { view: 'next', arg: null })))
-  await flush()
+  await until(() => host.querySelector('.nx-review'))
   const text = host.textContent
   expect(text).toContain('Next step')
   expect(text).toContain('The plan has 2 units; 1 done.')
@@ -41,7 +42,7 @@ test('Next step offers the first available unit, the review count and the way to
 
 test('#/start keeps rendering the first-run wizard, not Next step', async () => {
   await act(async () => root.render(createElement(Native, { view: 'start', arg: null })))
-  await flush()
+  await until(() => host.querySelector('.ob'))
   expect(host.querySelector('.ob')).not.toBeNull()
   expect(host.querySelector('.nx')).toBeNull()
 })
@@ -49,7 +50,7 @@ test('#/start keeps rendering the first-run wizard, not Next step', async () => 
 test('a finished plan says so instead of offering a unit', async () => {
   ANSWERS.pipeline = { units: [unit('setup', 'done', false)], run: null }
   await act(async () => root.render(createElement(Native, { view: 'next', arg: null })))
-  await flush()
+  await until(() => host.querySelector('.nx-card'))
   expect(host.textContent).toContain(STRINGS.en.nxAllDone)
   expect(host.querySelector('.agent-launch')).toBeNull()
 })
