@@ -441,3 +441,175 @@ def test_system_blocks_refresh_through_genblocks(dg):
     for kind, id in (("context", None), ("messaging", "visit-booked")):
         body, sources = dg.mod.render(kind, SYSTEM, id)
         assert dg.gb.render(kind, SYSTEM, None, id) == (body, sources)
+
+
+# ---- pages, `camaron diagrams`, install hooks ------------------------------------------------------------------------
+
+def pages_repo(dg):
+    """api: endpoints, a datastore, topics and one status enum; web: nothing to draw."""
+    system_repos(dg)
+    dg.put("api", "src/main/java/demo/OrderStatus.java", ORDER)
+
+
+def page_text(dg, rel):
+    return (dg.kit.root / "docs" / rel).read_text(encoding="utf-8")
+
+
+def keys(text):
+    heads = re.findall(r"<!-- generated:([\w-]+) repo=([\w.\-]+)(?: id=([\w.\-]+))?", text)
+    return [(k, r, i or None) for k, r, i in heads]
+
+
+def test_write_pages_creates_the_system_map_and_repo_pages(dg):
+    pages_repo(dg)
+    written = dg.mod.write_pages()
+    assert sorted(written) == ["docs/architecture/system-map.md", "docs/repos/api/diagrams.md"]
+    for rel, h1 in (("architecture/system-map.md", "# System map"), ("repos/api/diagrams.md", "# api diagrams")):
+        fm, body = dg.kit.docs.split_fm(page_text(dg, rel))
+        assert fm["x-generated"] is True and fm["x-owner"] == "ai" and fm["type"] == "overview" and fm["x-sources"]
+        assert h1 in body and "> **TL;DR:**" in body and "no AI" in body and "camaron diagrams" in body
+    system = page_text(dg, "architecture/system-map.md")
+    assert system.index("## Context map") < system.index("## Messaging")
+    assert keys(system) == [("context", SYSTEM, None), ("messaging", SYSTEM, "pet-created"), ("messaging", SYSTEM, "visit-booked")]
+    repo = page_text(dg, "repos/api/diagrams.md")
+    assert repo.index("## Endpoints") < repo.index("## Lifecycles")
+    assert keys(repo) == [("endpoints-map", "api", None), ("states", "api", "OrderStatus")]
+    assert "id=" not in re.search(r"<!-- generated:context[^>]*-->", system)[0]
+
+
+def test_no_page_without_diagrams(dg):
+    pages_repo(dg)
+    dg.mod.write_pages()
+    assert not (dg.kit.root / "docs" / "repos" / "web" / "diagrams.md").exists()
+
+
+def test_nothing_to_draw_writes_nothing(dg):
+    ws = dg.kit.docs.workspace()
+    ws["repos"] = []
+    dg.kit.docs.save_workspace(ws)
+    assert dg.mod.write_pages() == []
+    assert not (dg.kit.root / "docs" / "architecture" / "system-map.md").exists()
+
+
+def test_a_second_run_changes_nothing(dg):
+    pages_repo(dg)
+    dg.mod.write_pages()
+    files = [dg.kit.root / "docs" / "architecture" / "system-map.md", dg.kit.root / "docs" / "repos" / "api" / "diagrams.md"]
+    before = [f.read_bytes() for f in files]
+    assert dg.mod.write_pages() == []
+    assert [f.read_bytes() for f in files] == before
+
+
+def test_a_new_enum_is_added_to_an_existing_page(dg):
+    pages_repo(dg)
+    dg.mod.write_pages()
+    before = page_text(dg, "repos/api/diagrams.md")
+    dg.put("api", "src/main/java/demo/PetState.java", "enum PetState { NEW, ADOPTED }\n")
+    assert dg.mod.write_pages() == ["docs/repos/api/diagrams.md"]
+    after = page_text(dg, "repos/api/diagrams.md")
+    assert keys(after) == [("endpoints-map", "api", None), ("states", "api", "OrderStatus"), ("states", "api", "PetState")]
+    assert after.index("id=PetState") > after.index("## Lifecycles")
+    assert all(m[0] in after for m in dg.gb.BLOCK_RE.finditer(before))     # the rest is byte for byte what it was
+
+
+def test_a_moved_block_is_not_written_twice(dg):
+    pages_repo(dg)
+    dg.mod.write_pages()
+    f = dg.kit.root / "docs" / "repos" / "api" / "diagrams.md"
+    text = f.read_text(encoding="utf-8")
+    moved = next(m for m in dg.gb.BLOCK_RE.finditer(text) if m["id"] == "OrderStatus")
+    f.write_text(text.replace(moved[0], ""), encoding="utf-8")
+    flow = dg.kit.root / "docs" / "flows" / "checkout.md"
+    flow.parent.mkdir(parents=True, exist_ok=True)
+    flow.write_text("---\ntitle: Checkout\n---\n# Checkout\n\n" + moved[0] + "\n", encoding="utf-8")
+    dg.mod.write_pages()
+    assert "id=OrderStatus" not in f.read_text(encoding="utf-8")
+    assert "id=OrderStatus" in flow.read_text(encoding="utf-8")
+    dg.put("api", "src/main/java/demo/OrderStatus.java", "enum OrderStatus { PENDING, PAID, SHIPPED, LOST }\n")
+    dg.gb.refresh()
+    assert "LOST" in flow.read_text(encoding="utf-8")
+    assert "id=OrderStatus" not in f.read_text(encoding="utf-8")
+
+
+def test_a_fresh_page_skips_a_block_that_lives_elsewhere(dg):
+    pages_repo(dg)
+    flow = dg.kit.root / "docs" / "flows" / "checkout.md"
+    flow.parent.mkdir(parents=True, exist_ok=True)
+    flow.write_text("---\ntitle: Checkout\n---\n# Checkout\n\n" + dg.gb.block("states", "api", "x", id="OrderStatus") + "\n",
+                    encoding="utf-8")
+    dg.mod.write_pages()
+    assert keys(page_text(dg, "repos/api/diagrams.md")) == [("endpoints-map", "api", None)]
+
+
+def confirm(dg, f, id):
+    """Replace the `states` block `id` in page `f` by one a person confirmed against the code as it is now."""
+    text = f.read_text(encoding="utf-8")
+    m = next(m for m in dg.gb.BLOCK_RE.finditer(text) if m["id"] == id)
+    kept = dg.gb.block("states", "api", "accepted by a person", id=id, by="ana",
+                       confirmed=dg.gb.sha(dg.gb.render("states", "api", dg.kit.ws / "api", id)[0]))
+    f.write_text(text.replace(m[0], kept), encoding="utf-8", newline="\n")
+    return kept
+
+
+def test_a_gone_enum_leaves_the_page_unless_confirmed(dg):
+    pages_repo(dg)
+    dg.put("api", "src/main/java/demo/PetState.java", "enum PetState { NEW, ADOPTED }\n")
+    dg.mod.write_pages()
+    f = dg.kit.root / "docs" / "repos" / "api" / "diagrams.md"
+    kept = confirm(dg, f, "PetState")
+    (dg.kit.ws / "api" / "src/main/java/demo/OrderStatus.java").unlink()
+    (dg.kit.ws / "api" / "src/main/java/demo/PetState.java").unlink()
+    dg.mod.write_pages()
+    text = f.read_text(encoding="utf-8")
+    assert keys(text) == [("endpoints-map", "api", None), ("states", "api", "PetState")] and kept in text
+    _, issues = dg.gb.check(dg.kit.docs.collect())
+    assert any("diagrams.md" in i for i in issues)
+
+
+def test_a_confirmed_block_that_is_still_valid_is_kept_verbatim(dg):
+    pages_repo(dg)
+    dg.mod.write_pages()
+    f = dg.kit.root / "docs" / "repos" / "api" / "diagrams.md"
+    kept = confirm(dg, f, "OrderStatus")
+    dg.mod.write_pages()
+    assert f.read_text(encoding="utf-8").count(kept) == 1
+
+
+def test_a_page_a_person_owns_is_not_touched(dg):
+    pages_repo(dg)
+    dg.mod.write_pages()
+    f = dg.kit.root / "docs" / "repos" / "api" / "diagrams.md"
+    f.write_text(f.read_text(encoding="utf-8").replace("x-owner: ai", "x-owner: human"), encoding="utf-8", newline="\n")
+    before = f.read_bytes()
+    dg.put("api", "src/main/java/demo/PetState.java", "enum PetState { NEW, ADOPTED }\n")
+    (dg.kit.ws / "api" / "src/main/java/demo/OrderStatus.java").unlink()
+    assert "docs/repos/api/diagrams.md" not in dg.mod.write_pages()
+    assert f.read_bytes() == before
+
+
+def test_the_diagrams_command(dg):
+    import json, os, subprocess, sys
+    pages_repo(dg)
+    env = {**os.environ, "CAMARONES_ROOT": str(dg.kit.root)}
+    run = lambda *a: subprocess.run([sys.executable, str(dg.kit.kit_dir / "camarones.py"), "diagrams", *a], env=env,  # noqa: E731
+                                    capture_output=True, text=True, encoding="utf-8")
+    out = json.loads(run("--json").stdout)
+    assert "docs/architecture/system-map.md" in out["written"] and "docs/repos/api/diagrams.md" in out["written"]
+    assert run().returncode == 0
+
+
+def test_install_scan_draws_the_diagrams(dg):
+    pages_repo(dg)
+    dg.kit.wizard.scan_repos(log=lambda _: None)
+    assert (dg.kit.root / "docs" / "architecture" / "system-map.md").exists()
+    assert (dg.kit.root / "docs" / "repos" / "api" / "diagrams.md").exists()
+
+
+def test_first_look_draws_the_diagrams(dg, monkeypatch):
+    pages_repo(dg)
+    serve = importlib.import_module("lib.serve")
+    monkeypatch.setattr(serve.env, "which", lambda _n: None)
+    logs = []
+    assert serve.first_look(log=logs.append)
+    assert (dg.kit.root / "docs" / "architecture" / "system-map.md").exists()
+    assert "architecture/system-map.md" in logs[-1]
