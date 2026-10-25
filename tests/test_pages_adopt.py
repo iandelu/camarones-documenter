@@ -193,6 +193,7 @@ AGENT_HOME = ("---\ntitle: demo\ntype: overview\nx-owner: ai\n---\n# demo\n\n> *
 def write_doc(fx, rel, text):
     doc(fx, rel).parent.mkdir(parents=True, exist_ok=True)
     doc(fx, rel).write_text(text, encoding="utf-8", newline="\n")
+    return doc(fx, rel)
 
 
 def test_adopt_brings_the_blocks_into_an_agents_home(old_project):
@@ -329,3 +330,73 @@ def test_adopt_keeps_a_page_whose_carried_blocks_target_never_came(old_project, 
     assert not doc(old_project, "architecture/messaging.md").exists()
     assert "docs/architecture/system-map.md: some of its blocks have no other home" in out["kept"]
     assert doc(old_project, "architecture/system-map.md").exists()
+
+
+# ---------- task 6: links to the removed pages ----------
+def test_adopt_relinks_and_check_has_no_broken_link(old_project):
+    brief = write_doc(old_project, "repos/api/brief.md", "---\ntitle: api\nx-owner: ai\n---\n# api\n\n"
+                      "> **TL;DR:** The API.\n\nSee [the reference](reference.md#http-endpoints).\n")
+    confirmed = write_doc(old_project, "overview/system.md", "---\ntitle: System\nx-confirmed:\n  by: ana\n  at: 2026-10-01\n---\n"
+                          "# System\n\n> **TL;DR:** x.\n\nSee [the map](../architecture/system-map.md).\n")
+    out = old_project.mod.adopt()
+    assert "[the reference](index.md)" in doc(old_project, "repos/api/brief.md").read_text(encoding="utf-8")
+    assert "docs/repos/api/brief.md" in out["relinked"] and "docs/overview/system.md" in out["links"]
+    assert "../architecture/system-map.md" in doc(old_project, "overview/system.md").read_text(encoding="utf-8")
+    broken = [i for i in run_check(old_project) if "repos/api/brief.md" in i and "link" in i.lower()]
+    assert broken == []
+
+
+def test_adopt_lists_the_translations_of_removed_pages(old_project):
+    write_doc(old_project, "i18n/es/repos/api/reference.md", "---\nx-translation-of: repos/api/reference.md\n---\n# api\n")
+    out = old_project.mod.adopt()
+    assert "docs/i18n/es/repos/api/reference.md" in out["translations"]
+    assert doc(old_project, "i18n/es/repos/api/reference.md").exists()
+
+
+def test_adopt_relinks_only_the_target_and_only_outside_code(old_project):
+    text = ("---\ntitle: Notes\nx-generated: true\nx-owner: ai\ndescription: 'keep  this'\n---\n# Notes\n\n"
+            "Read [the *data*](../../data/api.md#tables) and [the map][map], not `[x](reference.md)`.\n"
+            "A [site](https://example.com/reference.md) and [other](../web/reference.md \"web\") stay or move.\n\n"
+            "```\n[in a fence](reference.md)\n```\n\n[map]: ../../architecture/system-map.md#top\n"
+            "[first]: <../../architecture/first-look.md>\n")
+    write_doc(old_project, "repos/api/notes.md", text)
+    out = old_project.mod.adopt()
+    assert out["relinked"] == ["docs/repos/api/notes.md"]
+    assert doc(old_project, "repos/api/notes.md").read_text(encoding="utf-8") == (
+        text.replace("(../../data/api.md#tables)", "(index.md)").replace("(../web/reference.md ", "(../web/index.md ")
+        .replace("[map]: ../../architecture/system-map.md#top", "[map]: ../../index.md")
+        .replace("<../../architecture/first-look.md>", "<../../index.md>"))
+
+
+def test_adopt_leaves_links_to_pages_it_kept(old_project):
+    make_human(old_project, "repos/web/reference.md")
+    write_doc(old_project, "guides/api.md", "---\ntitle: G\nx-owner: ai\n---\n# G\n\n[web](../repos/web/reference.md) and "
+              "[api](../repos/api/reference.md)\n")
+    out = old_project.mod.adopt()
+    assert "(../repos/web/reference.md) and [api](../repos/api/index.md)" in doc(old_project, "guides/api.md").read_text(
+        encoding="utf-8")
+    assert out["relinked"] == ["docs/guides/api.md"]
+
+
+def test_adopt_lists_a_page_without_owner_as_a_persons(old_project):
+    write_doc(old_project, "guides/mine.md", "---\ntitle: Mine\n---\n# Mine\n\n[ref](../repos/api/reference.md)\n")
+    out = old_project.mod.adopt()
+    assert out["links"] == ["docs/guides/mine.md"] and out["relinked"] == []
+    assert "reference.md" in doc(old_project, "guides/mine.md").read_text(encoding="utf-8")
+
+
+def test_adopt_twice_relinks_nothing_more(old_project):
+    write_doc(old_project, "repos/api/brief.md", "---\ntitle: api\nx-owner: ai\n---\n# api\n\n[r](reference.md)\n")
+    old_project.mod.adopt()
+    before = pages(old_project)
+    out = old_project.mod.adopt()
+    assert pages(old_project) == before and out["relinked"] == out["links"] == out["translations"] == []
+
+
+def test_pages_adopt_prints_one_line_per_relinked_page(old_project):
+    write_doc(old_project, "repos/api/brief.md", "---\ntitle: api\nx-owner: ai\n---\n# api\n\n[r](reference.md)\n")
+    write_doc(old_project, "guides/mine.md", "---\ntitle: Mine\n---\n# Mine\n\n[ref](../repos/api/reference.md)\n")
+    write_doc(old_project, "i18n/es/repos/api/reference.md", "---\nx-translation-of: repos/api/reference.md\n---\n# api\n")
+    out = cli(old_project, "pages", "--adopt").stdout
+    assert "relinked docs/repos/api/brief.md" in out and "docs/guides/mine.md" in out
+    assert "docs/i18n/es/repos/api/reference.md" in out
