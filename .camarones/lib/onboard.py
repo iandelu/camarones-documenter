@@ -129,7 +129,8 @@ def inspect(folder: Path) -> dict:
     if f.name.lower() == CAM_DIR and f.parent != f:
         f = f.parent
     root = _project_root(f)
-    if not root and (enclosing := _enclosing_repo(f)):      # a folder inside a repo is that repo, never a place for git init
+    # a folder inside a repo is that repo (never a place for git init); a repo of its own, nested or not, stays itself
+    if not root and not (f / ".git").exists() and (enclosing := _enclosing_repo(f)):
         f = enclosing
         root = _project_root(f)
     if root:
