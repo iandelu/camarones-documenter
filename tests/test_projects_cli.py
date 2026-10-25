@@ -53,6 +53,30 @@ def test_adopt_refuses_a_non_empty_cam_docs(kit, tmp_path):
     assert r.returncode == 1 and "cam-docs" in r.stderr and "Traceback" not in r.stderr
 
 
+def test_git_init_json(kit, tmp_path):
+    folder = tmp_path / "code"
+    folder.mkdir()
+    (folder / "pom.xml").write_text("<project/>", encoding="utf-8")
+    r = cli(kit, "projects", "--git-init", str(folder), "--json")
+    assert r.returncode == 0, r.stderr
+    assert json.loads(r.stdout) == {"initialised": [str(folder.resolve())]}
+    assert (folder / ".git").exists()
+    r = cli(kit, "projects", "--git-init", str(folder), "--json")          # already a repo
+    assert r.returncode == 1 and "Traceback" not in r.stderr and r.stdout == ""
+
+
+def test_adopt_home_and_no_git_say_so_as_json(kit, tmp_path):
+    code = tmp_path / "code"
+    code.mkdir()
+    (code / "pom.xml").write_text("<project/>", encoding="utf-8")
+    for folder, want in ((kit.home, "home"), (code, "no-git")):
+        r = cli(kit, "projects", "--adopt", str(folder), "--json")
+        assert r.returncode == 1 and r.stderr.startswith("✖") and "Traceback" not in r.stderr
+        out = json.loads(r.stdout)
+        assert out["error"] == want and out["detail"]
+        assert not (folder / "cam-docs").exists()
+
+
 def test_adopt_a_taken_cam_docs_says_so_as_a_json_code(kit, tmp_path):
     """The app words "taken" itself: a stable code on stdout, the CLI's line unchanged on stderr."""
     ws = tmp_path / "stray"

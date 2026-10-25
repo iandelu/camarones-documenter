@@ -349,3 +349,88 @@ def test_launch_prompt_opens_a_session_with_the_prompt(kit, monkeypatch):
     monkeypatch.setattr(agents, "_open", lambda prompt, agent, lang, resume: seen.update(a=(prompt, agent, lang, resume)) or {"launched": True})
     assert agents.launch_prompt("hi", "claude", "en") == {"launched": True}
     assert seen["a"] == ("hi", "claude", "en", False)
+
+
+# ---------- I2: home or a filesystem root is not a workspace ----------
+def test_picking_home_is_refused(kit):
+    home = kit.home
+    assert kit.onboard.inspect(home)["warning"] == "home"
+    before = tree(home)
+    with pytest.raises(kit.onboard.Refused) as e:
+        kit.onboard.start(home)
+    assert e.value.code == "home" and isinstance(e.value, ValueError)
+    assert tree(home) == before                                    # nothing written under home
+
+
+def test_a_repo_directly_under_home_is_refused(kit):
+    repo = make_repo(kit.home / "myapp", {"pom.xml": "<project/>"})
+    r = kit.onboard.inspect(repo)
+    assert (r["case"], r["warning"]) == ("repo", "home")
+    with pytest.raises(kit.onboard.Refused) as e:
+        kit.onboard.start(repo)
+    assert e.value.code == "home"
+    assert not (kit.home / "cam-docs").exists()
+
+
+def test_home_wins_over_no_git(kit):
+    (kit.home / "pom.xml").write_text("<project/>", encoding="utf-8")        # code, no git, directly in home
+    r = kit.onboard.inspect(kit.home)
+    assert (r["case"], r["warning"]) == ("code", "home")
+
+
+def test_a_filesystem_root_is_refused(kit, tmp_path):
+    assert kit.onboard.is_home_or_root(Path(Path.cwd().anchor)) is True
+    assert kit.onboard.is_home_or_root(kit.home) is True
+    assert kit.onboard.is_home_or_root(tmp_path) is False
+
+
+# ---------- I1: code without git ----------
+def test_code_without_git_cannot_be_started(kit, tmp_path):
+    folder = tmp_path / "code"
+    (folder / "src").mkdir(parents=True)
+    (folder / "src" / "package.json").write_text("{}", encoding="utf-8")
+    before = tree(folder)
+    with pytest.raises(kit.onboard.Refused) as e:
+        kit.onboard.start(folder)
+    assert e.value.code == "no-git"
+    assert tree(folder) == before and not (folder / "cam-docs").exists()
+
+
+def test_git_init_prefers_the_top_folder(kit, tmp_path):
+    folder = tmp_path / "app"
+    (folder / "web").mkdir(parents=True)
+    (folder / "pom.xml").write_text("<project/>", encoding="utf-8")
+    (folder / "web" / "package.json").write_text("{}", encoding="utf-8")
+    assert kit.onboard.git_init(folder) == [folder.resolve()]
+    assert (folder / ".git").exists() and not (folder / "web" / ".git").exists()
+    with pytest.raises(ValueError):                               # already a repo
+        kit.onboard.git_init(folder)
+
+
+def test_git_init_initialises_each_code_subfolder(kit, tmp_path):
+    folder = tmp_path / "app"
+    (folder / "api").mkdir(parents=True)
+    (folder / "web").mkdir()
+    (folder / "docs").mkdir()                                     # no manifest: left alone
+    (folder / "api" / "pom.xml").write_text("<project/>", encoding="utf-8")
+    (folder / "web" / "package.json").write_text("{}", encoding="utf-8")
+    done = kit.onboard.git_init(folder)
+    assert sorted(p.name for p in done) == ["api", "web"]
+    assert not (folder / "docs" / ".git").exists() and not (folder / ".git").exists()
+    r = kit.onboard.inspect(folder)
+    assert r["case"] == "umbrella" and sorted(x["name"] for x in r["repos"]) == ["api", "web"]
+
+
+def test_git_init_with_nothing_to_initialise(kit, tmp_path):
+    (tmp_path / "blank").mkdir()
+    with pytest.raises(ValueError):
+        kit.onboard.git_init(tmp_path / "blank")
+    with pytest.raises(ValueError):
+        kit.onboard.git_init(tmp_path / "missing")
+
+
+def test_a_picked_cam_docs_folder_means_its_parent(kit, tmp_path):
+    ws = tmp_path / "ws"
+    (ws / "cam-docs").mkdir(parents=True)
+    r = kit.onboard.inspect(ws / "cam-docs")
+    assert r == kit.onboard.inspect(ws) and r["workspace"] == str(ws.resolve())
