@@ -1,5 +1,5 @@
 // Strings of the React views, in the reader's portal language (the classic views keep theirs in legacy/core.js).
-const S = {
+export const S = {
   en: {
     appOnly: 'This runs on your machine: open it in the desktop app (camaron app).',
     'tw.generate': 'Generate', 'twd.generate': 'Documentation written by AI agents: the plan, runs, wikis and pull requests.',
