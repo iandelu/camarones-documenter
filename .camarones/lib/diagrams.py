@@ -4,7 +4,10 @@
 `render(kind, repo, id)` draws one: (block body, sources), or None when that id no longer exists. A diagram shows what
 the code states as fact (states, endpoints, who talks to whom); it never invents a transition or a flow: those wait for
 a proposal that a person confirms. `states`: one diagram per status enum, the states only. `endpoints-map`: a repo's
-endpoints grouped by first path segment, with its datastores, topics and the repos it calls (split over 25 nodes)."""
+endpoints grouped by first path segment, with its datastores, topics and the repos it calls (split over 25 nodes).
+System-wide kinds (repo `_system`): `context`, the repos, datastores, brokers and identity providers with the edges of
+the first-look scan (identity providers fold into one External node when crowded); `messaging`, one sequence per
+topic: its producers, the broker and its consumers."""
 from __future__ import annotations
 
 import itertools, re
@@ -256,6 +259,98 @@ def _draw_map(repo: str, m: dict, id: str | None) -> tuple[str, list[str]] | Non
     return head + "\n\n```mermaid\n" + "\n".join(lines) + "\n```", list(dict.fromkeys(s.split("#", 1)[0] for s in sources))
 
 
+EXTERNAL, CACHE = "\0external", "\0cache"                                   # node keys that cannot clash with a repo name
+
+
+def _context_map() -> dict | None:
+    """The system as data: {"nodes": [(key, shape, label)], "edges": [(from, to, label)], "folded": [identity providers
+    folded into one External node], "dropped": nodes left out, "sources": [...]}; None when there are no repos. The
+    architecture is scanned once, here. Over NODE_LIMIT nodes the identity providers fold into one `External` node; if
+    that is still too much, the least connected repos and datastores are left out (and counted)."""
+    model = quickarch.scan()
+    if not model["repos"]:
+        return None
+    nodes = [(n, "repo", n) for n in model["repos"]]
+    nodes += [(k, "db", db["label"] if db["name"].endswith(" db") else f"{db['label']} ({db['name']})") for k, db in model["dbs"].items()]
+    nodes += [(b, "broker", b) for b in sorted(model["brokers"])]
+    nodes += [(CACHE, "db", "Redis cache")] * bool(model["caches"])
+    idps, folded = sorted(model["idps"]), []
+    edges = [(a, b, label) for a, b, _kind, label in model["edges"]] + [(n, CACHE, "caches") for n in sorted(model["caches"])]
+    if len(nodes) + len(idps) > NODE_LIMIT and idps:
+        folded, nodes = idps, nodes + [(EXTERNAL, "external", f"External ({len(idps)})")]
+        edges = [(EXTERNAL if a in idps else a, EXTERNAL if b in idps else b, label) for a, b, label in edges]
+    else:
+        nodes += [(i, "external", i) for i in idps]
+    dropped = 0
+    if len(nodes) > NODE_LIMIT:
+        degree = {k: sum(k in (a, b) for a, b, _ in edges) for k, *_ in nodes}
+        droppable = sorted((k for k, shape, _ in nodes if shape in ("repo", "db")), key=lambda k: -degree[k])
+        gone = set(droppable[NODE_LIMIT - (len(nodes) - len(droppable)):])
+        nodes, dropped = [x for x in nodes if x[0] not in gone], len(gone)
+    keep = {k for k, *_ in nodes}
+    seen, kept = set(), []
+    for e in edges:
+        if e[0] in keep and e[1] in keep and e not in seen:
+            seen.add(e)
+            kept.append(e)
+    return {"nodes": nodes, "edges": kept, "folded": folded, "dropped": dropped, "sources": sorted(model["sources"])}
+
+
+def _draw_context(m: dict) -> tuple[str, list[str]]:
+    used: set[str] = set()
+    ident = {key: _node(label, used) for key, _shape, label in m["nodes"]}
+    lines = ["flowchart LR"]
+    for key, shape, label in m["nodes"]:
+        box = {"db": f"[({_label(label)})]", "broker": f"([{_label(label)}])"}.get(shape, f"[{_label(label)}]")
+        lines.append(f"    {ident[key]}{box}")
+    lines += [f"    {ident[a]} -->|{_label(label)}| {ident[b]}" for a, b, label in m["edges"]]
+    head = f"**System context** · elements: {len(m['nodes'])}"
+    if m["folded"]:
+        head += f" · {len(m['folded'])} identity providers folded into External: {', '.join(m['folded'])}"
+    if m["dropped"]:
+        head += f" · {m['dropped']} less connected elements not drawn"
+    return head + "\n\n```mermaid\n" + "\n".join(lines) + "\n```", m["sources"]
+
+
+def _topics() -> dict[str, dict]:
+    """Per topic: {"pub": [repos], "sub": [repos], "files": [paths]}, in topic order; a repo that both publishes and
+    consumes a topic is in both lists, so the topic is one diagram."""
+    from . import docs, genblocks
+    out: dict[str, dict] = {}
+    for name in docs.repo_names():
+        d = repo_dir(name)
+        if not d.is_dir():
+            continue
+        for r in genblocks.topic_rows(name, d):
+            t = out.setdefault(r["topic"], {"pub": [], "sub": [], "files": []})
+            side = t["pub" if r["direction"] == "publishes" else "sub"]
+            if name not in side:
+                side.append(name)
+            path = r["source"].split("#", 1)[0]
+            if path not in t["files"]:
+                t["files"].append(path)
+    return dict(sorted(out.items()))
+
+
+def _draw_topic(topic: str, t: dict, broker: str) -> tuple[str, list[str]]:
+    used: set[str] = set()
+    ident = {n: _node(n, used) for n in dict.fromkeys([*t["pub"], broker, *t["sub"]])}
+    lines = ["sequenceDiagram"]
+    lines += [f"    participant {i}" + (f" as {_label(n)[1:-1]}" if i != n else "") for n, i in ident.items()]
+    lines += [f"    {ident[p]}->>{ident[broker]}: publish {topic}" for p in t["pub"]]
+    lines += [f"    {ident[broker]}-->>{ident[c]}: deliver {topic}" for c in t["sub"]]
+    head = f"**`{topic}`** · producers: {len(t['pub'])} · consumers: {len(t['sub'])} · via {broker}"
+    return head + "\n\n```mermaid\n" + "\n".join(lines) + "\n```", t["files"]
+
+
+def _messaging(id: str | None) -> tuple[str, list[str]] | None:
+    t = _topics().get(id or "")
+    if t is None:
+        return None
+    brokers = quickarch.scan()["brokers"]
+    return _draw_topic(id, t, next(iter(brokers)) if len(brokers) == 1 else "Broker")
+
+
 def ids(kind: str, repo: str) -> list[str | None]:
     d = _repo(repo)
     if d is not None and kind == "states":
@@ -263,6 +358,10 @@ def ids(kind: str, repo: str) -> list[str | None]:
     if d is not None and kind == "endpoints-map":
         m = _endpoints_map(repo, d)
         return _map_ids(m) if m else []
+    if repo == SYSTEM and kind == "context":
+        return [None] if _context_map() else []
+    if repo == SYSTEM and kind == "messaging":
+        return list(_topics())
     return []
 
 
@@ -273,4 +372,9 @@ def render(kind: str, repo: str, id: str | None = None) -> tuple[str, list[str]]
     if d is not None and kind == "endpoints-map":
         m = _endpoints_map(repo, d)
         return _draw_map(repo, m, id) if m else None
+    if repo == SYSTEM and kind == "context":
+        m = _context_map() if id is None else None
+        return _draw_context(m) if m else None
+    if repo == SYSTEM and kind == "messaging":
+        return _messaging(id)
     return None
