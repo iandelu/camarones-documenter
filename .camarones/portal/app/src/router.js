@@ -36,10 +36,10 @@ export function resolve(hash, ctx) {
     const [repo = '', ...more] = rest.split('/')
     const [rel = '', anchor] = more.join('/').split('::')
     if (rel && `repos/${repo}/${rel}` === ctx.current && anchor !== undefined) return { kind: 'scroll', anchor }
-    if (!repo) return legacy('showWikis')
-    return rel ? legacy('showWiki', repo, rel, anchor) : legacy('showWikiGraph', repo)
+    if (!repo) return { kind: 'native', view: 'wikis', arg: '' }
+    return rel ? { kind: 'native', view: 'wikipage', arg: rest } : { kind: 'native', view: 'wikigraph', arg: repo }
   }
-  if (view === 'wikis') return rest ? { kind: 'redirect', to: `#/wiki/${rest}` } : legacy('showWikis')
+  if (view === 'wikis') return rest ? { kind: 'redirect', to: `#/wiki/${rest}` } : { kind: 'native', view: 'wikis', arg: '' }
   if (view === 'c4') return legacy('showArch', rest)
   if (view === 'code') return legacy('showCodeTab', rest)
   if (view === 'review' || view === 'status') return { kind: 'native', view: 'review', arg: '' }

@@ -16,6 +16,13 @@ const TONE = { info: 'info', warn: 'warn' }
 // docs renderer of the plain scripts (legacy/doc.js: Markdown, Mermaid, C4 embeds, the outline).
 export default function Doc({ arg }) {
   const [path, anchor] = (arg || '').split('::')
+  const trees = readerTrees(path)
+  return <DocView path={path} anchor={anchor} order={L().byPath(path)?.space === 'notes' ? trees.notesOrder : trees.order} />
+}
+
+// The page itself, also for a wiki page: `order` drives the pager; `extra` (actions), `banner` and `after` (below
+// the body) are what the wiki adds — its graph, the note on an old wiki, the pages that link here.
+export function DocView({ path, anchor, order, extra = null, banner = null, after = null }) {
   const legacy = L()
   const t = legacy.t
   const live = legacy.mode() !== 'static'
@@ -47,8 +54,6 @@ export default function Doc({ arg }) {
 
   const row = legacy.byPath(path) || {}
   const title = d.exists ? d.title : english?.title || row.title || d.title
-  const trees = readerTrees(path)
-  const order = row.space === 'notes' ? trees.notesOrder : trees.order
   const around = pager(order, path)
   const changed = async (msg) => { legacy.toast(msg); await legacy.reload(); window.CamaronShell.go() }
   return (
@@ -62,6 +67,7 @@ export default function Doc({ arg }) {
           {d.owner === 'human' && <span className="small muted">{t('humanOwned')}</span>}
           <code className="file" title={d.file}>{d.file}</code>
           <span className="actions">
+            {extra}
             {!live && legacy.tree().editBase && (
               <Button size="sm" variant="ghost" href={legacy.tree().editBase + d.file} target="_blank" rel="noopener">
                 {t('editForge')} <span aria-hidden="true">↗</span></Button>)}
@@ -76,12 +82,14 @@ export default function Doc({ arg }) {
         {pageBanners(d, row, lang).map((b) => (
           <Aviso key={b.key} tone={TONE[b.tone]} title={t(b.key, { lang: legacy.langName(lang) })} detail={b.code || undefined} />
         ))}
+        {banner}
         {panel === 'confirm' && <ConfirmPanel d={d} t={t} onDone={() => changed(t('confirmedToast'))} onCancel={() => setPanel('')} />}
         {panel === 'feedback' && <FeedbackPanel d={d} body={body} t={t} onDone={() => changed(t('commentSaved'))} onCancel={() => setPanel('')} />}
         {d.feedback?.length > 0 && (
           <div className="box"><b>{t('pendingComments')}</b><ul className="list">{d.feedback.map((f) => <li key={f}>{f.slice(6)}</li>)}</ul></div>
         )}
         <div ref={body}></div>
+        {after}
         {around && (
           <nav className="pager" aria-label={t('prev') + ' / ' + t('next')}>
             {around.prev ? <a className="prev" href={legacy.hrefFor(around.prev)}><span className="muted small">← {t('prev')}</span>
