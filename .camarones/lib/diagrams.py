@@ -19,14 +19,15 @@ STATE_SUFFIX = re.compile(r"(Status|State|Phase|Stage)$")
 STATE_COLUMN = re.compile(r"(status|state|phase|stage)$", re.I)
 STATE_SUFFIXES = {".java", ".kt", ".ts", ".py", ".cs", ".go", ".dart", ".sql"}
 BRACE_ENUM = re.compile(r"\benum\s+(?:class\s+)?(\w+)[^{;]*\{")            # Java, Kotlin, TypeScript, C#, Dart
-PY_ENUM = re.compile(r"^class\s+(\w+)\s*\(([^)]*\bEnum\b[^)]*|[^)]*\bFlag\b[^)]*)\)\s*:", re.M)
+PY_ENUM = re.compile(r"^class\s+(\w+)\s*\([^)]*(?:Enum|Flag)\b[^)]*\)\s*:", re.M)    # Enum, IntEnum, StrEnum, IntFlag…
 PY_MEMBER = re.compile(r"^(\s+)([A-Za-z]\w*)\s*(?::[^=\n]+)?=(?!=)")
 GO_TYPE = re.compile(r"^type\s+(\w+)\s+\w", re.M)
 GO_CONSTS = re.compile(r"^const\s*\(\n(.*?)^\)", re.M | re.S)
 GO_CONST = re.compile(r"^\s*([A-Za-z]\w*)(?:\s+([A-Za-z_]\w*))?\s*(=.*)?$")
 SQL_TABLE = re.compile(r"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?[`\"\[]?([\w.]+)[`\"\]]?", re.I)
 SQL_IN = re.compile(r"[`\"\[]?(\w+)[`\"\]]?\s+IN\s*\(([^)]*)\)", re.I)
-COMMENTS = re.compile(r"//[^\n]*|/\*.*?\*/", re.S)
+COMMENTS = re.compile(r"\"(?:\\.|[^\"\\\n])*\"|'(?:\\.|[^'\\\n])*'|`(?:\\.|[^`\\])*`|//[^\n]*|/\*.*?\*/", re.S)   # strings first
+MERMAID_WORDS = {"end", "state", "note", "class", "classdef", "style", "direction", "click", "hide", "scale", "as", "title"}
 TRANSITIONS = "transitions: waiting for a proposal"
 
 
@@ -51,10 +52,10 @@ def _files(repo: Path) -> list[Path]:
 def _constants(text: str, i: int) -> list[str]:
     """Names of the enum constants in `text` from `i` (just after the `{`): items split by top-level commas, up to the
     `;` that ends the list or the closing brace. Constructor arguments, bodies and annotations are skipped."""
-    depth, quote, items, item = 0, None, [], []
+    depth, quote, escaped, items, item = 0, None, False, [], []
     for c in text[i:]:
         if quote:
-            quote = None if c == quote else quote
+            quote, escaped = (None if c == quote and not escaped else quote), c == "\\" and not escaped
         elif c in "\"'`":
             quote = c
         elif c in "({[":
@@ -134,7 +135,7 @@ def status_enums(name: str, repo: Path) -> list[dict]:
                 if STATE_SUFFIX.search(m.group(1)):
                     add(m.group(1), consts.get(m.group(1), []), f, m.start(), text)
         else:
-            code = COMMENTS.sub(lambda m: re.sub(r"[^\n]", " ", m.group()), text)
+            code = COMMENTS.sub(lambda m: m.group() if m.group()[0] in "\"'`" else re.sub(r"[^\n]", " ", m.group()), text)
             for m in BRACE_ENUM.finditer(code):
                 if STATE_SUFFIX.search(m.group(1)):
                     add(m.group(1), _constants(code, m.end()), f, m.start(), text)
@@ -144,6 +145,7 @@ def status_enums(name: str, repo: Path) -> list[dict]:
 def _node(state: str, used: set[str]) -> str:
     node = re.sub(r"\W+", "_", state).strip("_") or "state"
     node = "s" + node if node[0].isdigit() else node
+    node += "_" if node.lower() in MERMAID_WORDS else ""                    # `end`, `state`… would break the diagram
     while node in used:
         node += "_"
     used.add(node)
