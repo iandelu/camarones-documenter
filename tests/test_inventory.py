@@ -210,3 +210,23 @@ def test_the_portal_reads_it_and_refreshes_it(kit, repos):
         time.sleep(0.05)
     assert serve.JOBS[job["id"]]["status"] == "done"
     assert serve.api_inventory()["libraries"] == repos.load()["libraries"]
+
+
+def test_the_libraries_tldr_counts_and_drift(kit, repos):
+    other = dict(PACKAGE, name="admin", dependencies={"lodash": "4.17.21"}, devDependencies={})
+    (kit.ws / "api" / "package.json").write_text(json.dumps(other), encoding="utf-8")
+    result = repos.scan()
+    text = repos.render(result)
+    n, d = len(result["libraries"]), len({r["name"] for r in result["libraries"] if r["drift"]})
+    assert d >= 1 and f"> **TL;DR:** {n} direct dependencies across 3 repos; " in text
+    assert text.split(":::details How this page is made")[0].count("with known vulnerabilities") == 0
+    assert "camaron inventory --cves" in text.split(":::details How this page is made")[1]
+    assert text.rstrip().endswith(":::")
+
+
+def test_the_libraries_tldr_counts_vulnerabilities_and_no_manifests(kit, repos):
+    result = repos.scan()
+    result["vulns"] = []
+    result["libraries"][0]["vulns"] = [{"id": "X", "cve": "CVE-1", "severity": "HIGH", "fixed": None}]
+    assert "; 1 library with known vulnerabilities." in repos.render(result)
+    assert "> **TL;DR:** no direct dependencies across no repos." in repos.render({"libraries": []})

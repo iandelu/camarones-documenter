@@ -194,3 +194,17 @@ def test_cli_radar_json_and_stack(radar):
     assert r.returncode == 0 and "stack" not in radar.docs.workspace()["repos"][1]
     r = cli(radar, "stack", "nope", "Go")
     assert r.returncode != 0
+
+
+def test_the_tooling_tldr_is_about_the_project(radar):
+    add_files(radar, TOOLING)
+    text = radar.radar.render(radar.radar.scan())
+    tldr = next(l for l in text.splitlines() if l.startswith("> **TL;DR:**"))
+    assert tldr.startswith("> **TL;DR:** 3 repos: api (") and tldr.endswith(".") and "Discovery reads this page" not in text
+    assert "; the team already uses " in tldr and "…" in tldr                   # more than five distinct tools: five, then …
+    assert text.rstrip().endswith(":::") and "camaron stack <repo>" in text.split(":::details How this page is made")[1]
+
+
+def test_the_tooling_tldr_says_plainly_when_there_are_no_tools(radar):
+    text = radar.radar.render({"api": {"stack": "Java", "detected_stack": "Java", "kind": "service", "tools": []}})
+    assert "> **TL;DR:** 1 repo: api (Java); the team uses no tool the scan knows." in text
