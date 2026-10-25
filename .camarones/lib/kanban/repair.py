@@ -30,6 +30,31 @@ def _archive_days() -> int:
         return ARCHIVE_AFTER_DAYS
 
 
+def adopt(item, cards: dict[str, dict], *, by: str, now: datetime, warn=lambda _: None) -> tuple[str, bool]:
+    """Step 1 for one item that has a uid but no card: a card in a known status (else the first), at the end of its
+    column unless it has an ordinal, with the file's assignee. Returns (the card's key, whether the item changed)."""
+    edited = False
+    raw = str(item.fm.get("status") or "")
+    status = {s.lower(): s for s in STATUSES}.get(raw.lower())
+    if status is None:
+        status = STATUSES[0]
+        warn(f"{item.id}: unknown status {raw!r}, put in {status}")
+    if item.fm.get("status") != status:
+        item.fm["status"] = status
+        edited = True
+    ordinal = item.fm.get("ordinal")
+    if not isinstance(ordinal, int) or isinstance(ordinal, bool) or ordinal <= 0:
+        ordinal = max([c["ordinal"] for c in cards.values() if c["status"] == status] + [0]) + 1000
+        item.fm["ordinal"] = ordinal
+        edited = True
+    card = {"uid": item.uid, "status": status, "ordinal": ordinal,
+            "assignee": [str(a) for a in _as_list(item.fm.get("assignee"))], "t": {}}
+    stamp(card, "status", by, now)
+    key = item.id if item.id not in cards else f"{item.id}~{item.uid}"
+    cards[key] = card
+    return key, edited
+
+
 def repair(*, today: date | None = None, log=print) -> dict:
     """Run the six steps of spec §4 under the board lock. Returns {"changed": [...], "warnings": [...]}."""
     today = today or date.today()
@@ -48,7 +73,6 @@ def repair(*, today: date | None = None, log=print) -> dict:
         renamed: set[int] = set()                # id(item) of items whose file name follows a new id
         board_dirty = False
         fresh: set[str] = set()                  # uids adopted in this run (their mirrors are taken from the file)
-        canon = {s.lower(): s for s in STATUSES}
         now = datetime.now(timezone.utc)
 
         def touch(item) -> None:
@@ -72,25 +96,9 @@ def repair(*, today: date | None = None, log=print) -> dict:
             seen.add(item.uid)
             if item.uid in known_uids:
                 continue
-            raw = str(item.fm.get("status") or "")
-            status = canon.get(raw.lower())
-            if status is None:
-                status = STATUSES[0]
-                warn(f"{item.id}: unknown status {raw!r}, put in {status}")
-            if item.fm.get("status") != status:
-                item.fm["status"] = status
+            key, edited = adopt(item, cards, by=ops.who(), now=now, warn=warn)
+            if edited:
                 touch(item)
-            ordinal = item.fm.get("ordinal")
-            if not isinstance(ordinal, int) or isinstance(ordinal, bool) or ordinal <= 0:
-                ordinal = max([c["ordinal"] for c in cards.values() if c["status"] == status] + [0]) + 1000
-                item.fm["ordinal"] = ordinal
-                touch(item)
-            who = item.fm.get("assignee") or []
-            card = {"uid": item.uid, "status": status, "ordinal": ordinal,
-                    "assignee": [str(a) for a in ([who] if isinstance(who, str) else who)], "t": {}}
-            stamp(card, "status", ops.who(), now)
-            key = item.id if item.id not in cards else f"{item.id}~{item.uid}"
-            cards[key] = card
             known_uids.add(item.uid)
             fresh.add(item.uid)
             board_dirty = True

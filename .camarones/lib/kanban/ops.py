@@ -189,11 +189,22 @@ def _all_ids(cards: dict, items: dict, problems: list[dict]) -> list[str]:
     return ids
 
 
-def _find(items: dict[str, Item], cards: dict[str, dict], item_id: str) -> tuple[str, Item, dict]:
+def _find(items: dict[str, Item], cards: dict[str, dict], item_id: str, by: str | None = None) -> tuple[str, Item, dict]:
+    """The item and its card, paired by uid (call under the lock). A file without a card (Backlog.md's, a hand-made
+    one) is adopted on the spot as the repair pass would; the caller saves the board."""
     key = item_id.strip().upper()
-    if key not in items or key not in cards:
+    if key not in items:
         raise BoardError(f"unknown item {item_id}")
-    return key, items[key], cards[key]
+    item, card = items[key], cards.get(key)
+    if card is None and not any(c["uid"] == item.uid for c in cards.values()):
+        from .repair import adopt
+        if not item.uid:
+            item.fm["x-uid"] = new_uid()
+        adopt(item, cards, by=by or who(), now=_now())
+        card = cards[key]
+    if card is None or item.uid != card["uid"]:
+        raise BoardError(f"{key}: its file and its card are not the same item (run: camaron board repair)")
+    return key, item, card
 
 
 def _mirror(item: Item, card: dict) -> None:
@@ -286,7 +297,7 @@ def move(item_id: str, status: str, *, before: str | None = None, after: str | N
     by = by or who()
     with FileLock(LOCK):
         cards, items, _ = load_state()
-        key, item, card = _find(items, cards, item_id)
+        key, item, card = _find(items, cards, item_id, by)
         if card["status"] != status:
             card["status"] = status
             stamp(card, "status", by, _now())
@@ -302,7 +313,7 @@ def assign(item_id: str, who_: str, *, by: str | None = None, surface: str = "cl
     by = by or who()
     with FileLock(LOCK):
         cards, items, _ = load_state()
-        key, item, card = _find(items, cards, item_id)
+        key, item, card = _find(items, cards, item_id, by)
         card["assignee"] = [] if who_ == "-" else [who_]
         stamp(card, "assignee", by, _now())
         _mirror(item, card)
@@ -329,18 +340,19 @@ def link(item_id: str, ref: str, *, by: str | None = None, surface: str = "cli")
     from . import xid
     with FileLock(LOCK):
         cards, items, _ = load_state()
-        key, item, card = _find(items, cards, item_id)
+        key, item, card = _find(items, cards, item_id, by)
         stored = xid.resolve_ref(ref)
         item.fm["documentation"] = _merge_links(_as_list(item.fm.get("documentation")), [stored])
         _mirror(item, card)
         save_item(item)
+        save_board(cards)                       # the card _find may have just adopted
     return _row(item, card)
 
 
 def archive(item_id: str, *, by: str | None = None, surface: str = "cli") -> dict:
     with FileLock(LOCK):
         cards, items, _ = load_state()
-        key, item, card = _find(items, cards, item_id)
+        key, item, card = _find(items, cards, item_id, by)
         row = _row(item, card)
         ARCHIVE.mkdir(parents=True, exist_ok=True)
         os.replace(item.path, ARCHIVE / item.path.name)
