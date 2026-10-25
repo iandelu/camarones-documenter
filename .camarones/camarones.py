@@ -355,8 +355,9 @@ def build_parser() -> argparse.ArgumentParser:
     un = sp.add_parser("uninstall"); un.add_argument("--yes", action="store_true"); un.add_argument("--dry-run", action="store_true")
     un.add_argument("--global", dest="user_level", action="store_true"); un.add_argument("--no-backup", action="store_true")
     un.add_argument("--backup-dir", type=Path)
-    un.add_argument("--keep-board", dest="keep_board", action="store_const", const=True, default=None)
-    un.add_argument("--drop-board", dest="keep_board", action="store_const", const=False)
+    ub = un.add_mutually_exclusive_group()
+    ub.add_argument("--keep-board", dest="keep_board", action="store_const", const=True, default=None)
+    ub.add_argument("--drop-board", dest="keep_board", action="store_const", const=False)
     ci = sp.add_parser("ci"); ci.add_argument("forge", nargs="?", choices=["gitlab", "github"])
     pl = sp.add_parser("plan"); pl.add_argument("action", nargs="?", default="show",
                                                 choices=["show", "sync", "next", "start", "note", "done", "block", "drop", "add", "redo", "approve"])
