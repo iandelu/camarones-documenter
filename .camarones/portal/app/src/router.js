@@ -43,7 +43,7 @@ export function resolve(hash, ctx) {
   if (view === 'c4') return legacy('showArch', rest)
   if (view === 'code') return legacy('showCodeTab', rest)
   if (view === 'review' || view === 'status') return legacy('showReview')
-  if (view === 'search') return legacy('showSearch', rest)
+  if (view === 'search') return { kind: 'native', view: 'search', arg: rest }
   if (view === 'new' && ctx.mode !== 'static') return legacy('newPage')
   const first = COVERS.includes(view) && (view !== 'taller' || ctx.mode === 'app') && ctx.firstView(view)
   if (first) return { kind: 'redirect', to: first }

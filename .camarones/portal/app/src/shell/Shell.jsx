@@ -2,10 +2,12 @@ import { Fragment, useEffect, useRef, useState } from 'react'
 import { Brand, Breadcrumbs, Chip, Keys } from '@camaron/ui'
 import '@camaron/ui/ui.css'
 import Native from '../Native.jsx'
+import Palette from '../views/Palette.jsx'
 import { t as tr } from '../i18n.js'
 import { resolve } from '../router.js'
 import { crumbs, locate, zonesFor } from '../zones.js'
 import './shell.css'
+import '../views/views.css'
 
 // The portal's shell: header, the sidebar that stays, and the hash router. A view not migrated to React yet is
 // painted by the plain scripts (window.CamaronLegacy, public/legacy/app.js) into the #main, #toc and #tree slots,
@@ -13,7 +15,7 @@ import './shell.css'
 const L = () => window.CamaronLegacy
 const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
 
-function useRouter() {
+function useRouter(onRoute) {
   const [shown, setShown] = useState(null)        // the action on screen: { kind: 'native' | 'legacy', … }
   const queue = useRef({ seq: 0, chain: Promise.resolve() })
 
@@ -29,7 +31,7 @@ function useRouter() {
         firstView: (id) => zonesFor(legacy.mode(), legacy.tree()).find((z) => z.id === id)?.views[0]?.href })
       if (a.kind === 'redirect') return location.replace(a.to)
       if (a.kind === 'scroll') return legacy.scroll(a.anchor)
-      legacy.closePalette()
+      onRoute()
       document.body.classList.toggle('native-mode', a.kind === 'native')   // before painting: #main must be visible
       document.body.classList.remove('nav-open')
       setShown({ ...a, at: seq })
@@ -45,14 +47,15 @@ function useRouter() {
 export default function Shell() {
   const [ready, setReady] = useState(false)
   const [failed, setFailed] = useState('')
-  const [shown, go] = useRouter()
+  const [palette, setPalette] = useState(false)
+  const [shown, go] = useRouter(() => setPalette(false))
 
   useEffect(() => {
     window.CamaronShell = { go }                    // legacy route(): after a save, a language or theme change
     const onHash = () => go()
     const onKey = (e) => {
       const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '')
-      if ((e.key === 'k' && (e.metaKey || e.ctrlKey)) || (e.key === '/' && !typing)) { e.preventDefault(); L().openPalette() }
+      if ((e.key === 'k' && (e.metaKey || e.ctrlKey)) || (e.key === '/' && !typing)) { e.preventDefault(); setPalette(true) }
     }
     addEventListener('hashchange', onHash)
     addEventListener('keydown', onKey)
@@ -71,7 +74,7 @@ export default function Shell() {
           onClick={() => document.body.classList.toggle('nav-open')}>☰</button>
         <Brand project={index?.project} href="#/" />
         {index && <Crumbs index={index} mode={mode} t={t} />}
-        <button className="searchbtn" type="button" aria-label={t('search')} onClick={() => legacy.openPalette()}>
+        <button className="searchbtn" type="button" aria-label={t('search')} aria-haspopup="dialog" onClick={() => setPalette(true)}>
           <span className="searchbtn-label">{t('search')}</span><span className="searchbtn-glyph" aria-hidden="true">⌕</span>
           <Keys keys={MAC ? ['⌘', 'K'] : ['Ctrl', 'K']} />
         </button>
@@ -100,6 +103,7 @@ export default function Shell() {
         <aside className="toc empty" id="toc"></aside>
       </div>
       <div id="scrim" onClick={() => document.body.classList.remove('nav-open')}></div>
+      {ready && <Palette open={palette} onClose={() => setPalette(false)} />}
     </>
   )
 }

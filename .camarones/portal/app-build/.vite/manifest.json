@@ -1,22 +1,22 @@
 {
-  "_AgentLaunch-OjUcWNeV.js": {
-    "file": "assets/AgentLaunch-OjUcWNeV.js",
+  "_AgentLaunch-DXy1LilB.js": {
+    "file": "assets/AgentLaunch-DXy1LilB.js",
     "name": "AgentLaunch",
     "imports": [
-      "_i18n-g76x_i0J.js"
+      "_i18n-8Oqonk5f.js"
     ]
   },
-  "_i18n-g76x_i0J.js": {
-    "file": "assets/i18n-g76x_i0J.js",
+  "_i18n-8Oqonk5f.js": {
+    "file": "assets/i18n-8Oqonk5f.js",
     "name": "i18n"
   },
   "index.html": {
-    "file": "assets/index-BjF-aiAt.js",
+    "file": "assets/index-BVxvYwnp.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
     "imports": [
-      "_i18n-g76x_i0J.js"
+      "_i18n-8Oqonk5f.js"
     ],
     "dynamicImports": [
       "src/Pipeline.jsx",
@@ -29,88 +29,88 @@
       "src/Sync.jsx"
     ],
     "css": [
-      "assets/index-Dl88luIY.css"
+      "assets/index-DrKrSXMW.css"
     ]
   },
   "src/Ci.jsx": {
-    "file": "assets/Ci-Bi3rjJ9J.js",
+    "file": "assets/Ci-BxiLTn7e.js",
     "name": "Ci",
     "src": "src/Ci.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-g76x_i0J.js",
+      "_i18n-8Oqonk5f.js",
       "index.html"
     ]
   },
   "src/Data.jsx": {
-    "file": "assets/Data-B-BkQFCH.js",
+    "file": "assets/Data-Bs0qXnVv.js",
     "name": "Data",
     "src": "src/Data.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-g76x_i0J.js",
+      "_i18n-8Oqonk5f.js",
       "index.html"
     ]
   },
   "src/Interview.jsx": {
-    "file": "assets/Interview-DPf35K70.js",
+    "file": "assets/Interview-qVMqW0HG.js",
     "name": "Interview",
     "src": "src/Interview.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-g76x_i0J.js"
+      "_i18n-8Oqonk5f.js"
     ]
   },
   "src/Kpis.jsx": {
-    "file": "assets/Kpis-EbWr1Mdp.js",
+    "file": "assets/Kpis-Czb8vT-C.js",
     "name": "Kpis",
     "src": "src/Kpis.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-g76x_i0J.js"
+      "_i18n-8Oqonk5f.js"
     ]
   },
   "src/Libs.jsx": {
-    "file": "assets/Libs-CpOJHA33.js",
+    "file": "assets/Libs-52A3VGzE.js",
     "name": "Libs",
     "src": "src/Libs.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-g76x_i0J.js",
+      "_i18n-8Oqonk5f.js",
       "index.html"
     ]
   },
   "src/Pipeline.jsx": {
-    "file": "assets/Pipeline-CxIzLvuh.js",
+    "file": "assets/Pipeline-BgOWfIhl.js",
     "name": "Pipeline",
     "src": "src/Pipeline.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-g76x_i0J.js",
+      "_i18n-8Oqonk5f.js",
       "index.html",
-      "_AgentLaunch-OjUcWNeV.js"
+      "_AgentLaunch-DXy1LilB.js"
     ],
     "css": [
       "assets/Pipeline-DLioOiRN.css"
     ]
   },
   "src/Sync.jsx": {
-    "file": "assets/Sync-BJbS8K2w.js",
+    "file": "assets/Sync-DrnahkSw.js",
     "name": "Sync",
     "src": "src/Sync.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-g76x_i0J.js"
+      "_i18n-8Oqonk5f.js"
     ]
   },
   "src/Taller.jsx": {
-    "file": "assets/Taller-QggWI1TC.js",
+    "file": "assets/Taller-CwNyBBF3.js",
     "name": "Taller",
     "src": "src/Taller.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-g76x_i0J.js",
-      "_AgentLaunch-OjUcWNeV.js"
+      "_i18n-8Oqonk5f.js",
+      "_AgentLaunch-DXy1LilB.js"
     ]
   }
 }

@@ -294,93 +294,7 @@ function newPage() {
   };
 }
 
-// ---------- search: ⌘K palette (titles instantly, full text as you type) and a full results page ----------
-const SPACE_ICON = { docs: '📄', wiki: '📚', notes: '🗒️' };
-const markTerms = (s, q) => { let h = esc(s); for (const w of q.match(/\w{2,}/g) || []) h = h.replace(new RegExp(`(${w})`, 'gi'), '<mark>$1</mark>'); return h; };
-const spaceRank = (p) => ({ docs: 0, wiki: 1, notes: 2 }[BY_PATH[p]?.space] ?? 3);
-
-async function showSearch(q) {
-  drawChrome('docs');
-  drawDocsSide('');
-  drawToc(null);
-  CURRENT = '';
-  const hits = (await api('search', { q, track: 1 })).slice().sort((a, b) => spaceRank(a.path) - spaceRank(b.path) || b.score - a.score);
-  $('#main').innerHTML = `<div class="page"><h1>${esc(t('results'))} “${esc(q)}”</h1>` + (hits.map((h) =>
-    `<div class="hit"><a href="${esc(hrefFor(h.path))}">${SPACE_ICON[BY_PATH[h.path]?.space] || '📄'} ${esc(h.title)}</a>
-     <span class="muted small">${esc(h.path)}</span>
-     ${h.lines.map((l) => `<div class="snip">${markTerms(l, q)}</div>`).join('')}</div>`).join('') || `<p class="muted">${esc(t('noResults'))}</p>`) + '</div>';
-}
-
-const PAL = { items: [], sel: 0, timer: 0, seq: 0 };
-function openPalette() {
-  const dlg = $('#palette');
-  if (dlg.open) return;
-  $('#pal-q').placeholder = t('searchPh');
-  $('#pal-hint').textContent = t('searchHint');
-  $('#pal-q').value = '';
-  dlg.showModal();
-  $('#pal-q').focus();
-  paletteInput();
-}
-
-function paletteDraw(groups) {
-  PAL.items = groups.flatMap(([, items]) => items);
-  PAL.sel = Math.min(PAL.sel, Math.max(PAL.items.length - 1, 0));
-  let n = 0;
-  $('#pal-list').innerHTML = groups.filter(([, items]) => items.length).map(([label, items]) => `<div class="pal-group">${esc(label)}</div>` +
-    items.map((it) => `<a class="pal-item ${n++ === PAL.sel ? 'on' : ''}" href="${esc(it.href)}">${it.icon} <span><b>${it.title}</b>
-      ${it.sub ? `<span class="muted small">${it.sub}</span>` : ''}</span></a>`).join('')).join('')
-    || (PAL.q ? `<p class="muted pal-empty">${esc(t('noMatch'))}</p>` : '');
-  $('#pal-list .on')?.scrollIntoView({ block: 'nearest' });
-}
-
-function paletteInput() {
-  const q = $('#pal-q').value.trim();
-  PAL.q = q;
-  PAL.sel = 0;
-  const low = q.toLowerCase();
-  const item = (d, sub) => ({ href: hrefFor(d.path), icon: SPACE_ICON[d.space] || '📄', title: q ? markTerms(d.title, q) : esc(d.title),
-    sub: sub ?? esc(d.space === 'notes' ? `${d.path} · ${t('inNotes')}` : d.path) });
-  const titles = (q ? T.docs.filter((d) => (d.title + ' ' + d.path).toLowerCase().includes(low))
-    : DOCS_ORDER.map((p) => BY_PATH[p]).filter(Boolean)).sort((a, b) => (q ? spaceRank(a.path) - spaceRank(b.path) : 0)).slice(0, 8);
-  const places = (window.CamaronZones?.paletteEntries(MODE(), T) || [])     // zones and views: "libr" → Libraries
-    .map((e) => ({ ...e, label: t(e.key), where: e.key.startsWith('view.') ? t('zone.' + e.zone) : '' }))
-    .filter((e) => !q || `${e.label} ${e.where}`.toLowerCase().includes(low)).slice(0, 8)
-    .map((e) => ({ href: e.href, icon: '<span aria-hidden="true">→</span>', title: q ? markTerms(e.label, q) : esc(e.label), sub: esc(e.where) }));
-  const groups = [[t('zonesGroup'), places], [t('titles'), titles.map((d) => item(d))]];
-  paletteDraw(groups);
-  clearTimeout(PAL.timer);
-  if (q.length < 2) return;
-  const seq = ++PAL.seq;
-  PAL.timer = setTimeout(async () => {
-    try {
-      const seen = new Set(titles.map((d) => d.path));
-      const hits = (await api('search', { q })).filter((h) => !seen.has(h.path) && BY_PATH[h.path])
-        .sort((a, b) => spaceRank(a.path) - spaceRank(b.path)).slice(0, 8);
-      if (seq !== PAL.seq) return;
-      const content = hits.map((h) => item(BY_PATH[h.path], h.lines[0] ? markTerms(h.lines[0].slice(0, 140), q) : ''));
-      content.push({ href: `#/search/${encodeURIComponent(q)}`, icon: '🔎', title: esc(t('searchAll', { q })), sub: '' });
-      paletteDraw([...groups, [t('content'), content]]);
-    } catch { /* keep the title matches */ }
-  }, 180);
-}
-
-function paletteKey(e) {
-  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-    e.preventDefault();
-    const n = PAL.items.length;
-    if (!n) return;
-    PAL.sel = (PAL.sel + (e.key === 'ArrowDown' ? 1 : n - 1)) % n;
-    $$('#pal-list .pal-item').forEach((a, i) => a.classList.toggle('on', i === PAL.sel));
-    $('#pal-list .on')?.scrollIntoView({ block: 'nearest' });
-  } else if (e.key === 'Enter') {
-    e.preventDefault();
-    const it = PAL.items[PAL.sel];
-    const q = $('#pal-q').value.trim();
-    if (it) location.hash = it.href; else if (q) location.hash = `#/search/${encodeURIComponent(q)}`;
-    $('#palette').close();
-  }
-}
+// ---------- search and the ⌘K palette are React (src/views/Search.jsx, Palette.jsx) ----------
 
 // ---------- review ----------
 async function showReview() {
@@ -424,7 +338,7 @@ async function showReview() {
 // a language or audience change) go back through the shell, so one view renders at a time.
 function route() { return window.CamaronShell ? window.CamaronShell.go() : Promise.resolve(); }
 
-const VIEWS = { showDocsHome, showDoc, showSearch, showReview, newPage,
+const VIEWS = { showDocsHome, showDoc, showReview, newPage,
   showWikis: () => showWikis(), showWiki: (...a) => showWiki(...a), showWikiGraph: (...a) => showWikiGraph(...a),
   showArch: (...a) => showArch(...a), showCodeTab: (...a) => showCodeTab(...a) };
 
@@ -453,8 +367,7 @@ window.CamaronLegacy = {
   leave() { CURRENT = ''; drawToc(null); document.body.classList.remove('viewer-mode', 'bare'); },
   scroll: (anchor) => scrollToAnchor(anchor),
   current: () => CURRENT,
-  closePalette() { if ($('#palette').open) $('#palette').close(); },
-  openPalette: () => openPalette(),
+  docsOrder: () => DOCS_ORDER,
   mode: MODE,
   isStatic: () => STATIC,
   tree: () => T,
@@ -468,8 +381,5 @@ window.CamaronLegacy = {
   toggleTheme() { store.set('cam-theme', isDark() ? 'light' : 'dark'); applyTheme(); CURRENT = ''; },
 };
 
-$('#pal-q').oninput = paletteInput;
-$('#pal-q').onkeydown = paletteKey;
-$('#palette').addEventListener('click', (e) => { if (e.target === $('#palette')) $('#palette').close(); });
 $('#zoomer').addEventListener('click', (e) => { if (e.target === $('#zoomer') || e.target.closest('#zoomer-close')) $('#zoomer').close(); });
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (!store.get('cam-theme')) { applyTheme(); CURRENT = ''; route(); } });
