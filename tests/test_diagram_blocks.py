@@ -7,6 +7,8 @@ import re
 
 import pytest
 
+from fixtures.builder import seed_old_layout
+
 
 @pytest.fixture
 def dg(kit):
@@ -590,6 +592,7 @@ def test_a_page_a_person_owns_is_not_touched(dg):
 def test_the_diagrams_command(dg):
     import json, os, subprocess, sys
     pages_repo(dg)
+    seed_old_layout(dg.kit.root)                                 # 2a's pages are the old layout's
     env = {**os.environ, "CAMARONES_ROOT": str(dg.kit.root)}
     run = lambda *a: subprocess.run([sys.executable, str(dg.kit.kit_dir / "camarones.py"), "diagrams", *a], env=env,  # noqa: E731
                                     capture_output=True, text=True, encoding="utf-8")
@@ -600,6 +603,7 @@ def test_the_diagrams_command(dg):
 
 def test_install_scan_draws_the_diagrams(dg):
     pages_repo(dg)
+    seed_old_layout(dg.kit.root)                                 # 2a's pages are the old layout's
     dg.kit.wizard.scan_repos(log=lambda _: None)
     assert (dg.kit.root / "docs" / "architecture" / "system-map.md").exists()
     assert (dg.kit.root / "docs" / "repos" / "api" / "diagrams.md").exists()
@@ -607,6 +611,7 @@ def test_install_scan_draws_the_diagrams(dg):
 
 def test_first_look_draws_the_diagrams(dg, monkeypatch):
     pages_repo(dg)
+    seed_old_layout(dg.kit.root)                                 # 2a's pages are the old layout's
     serve = importlib.import_module("lib.serve")
     monkeypatch.setattr(serve.env, "which", lambda _n: None)
     logs = []
@@ -660,6 +665,7 @@ def test_the_diagrams_command_has_no_force_flag(dg):
 
 def test_install_survives_a_diagram_failure(dg, monkeypatch):
     pages_repo(dg)
+    seed_old_layout(dg.kit.root)                                 # 2a's pages are the old layout's
 
     def boom(log=None):
         raise RuntimeError("no map today")
@@ -672,6 +678,7 @@ def test_install_survives_a_diagram_failure(dg, monkeypatch):
 
 def test_first_look_survives_a_diagram_failure(dg, monkeypatch):
     pages_repo(dg)
+    seed_old_layout(dg.kit.root)                                 # 2a's pages are the old layout's
     serve = importlib.import_module("lib.serve")
     monkeypatch.setattr(serve.env, "which", lambda _n: None)
 

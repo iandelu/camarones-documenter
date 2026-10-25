@@ -55,9 +55,9 @@ def test_menu_errors_are_shown_not_raised(kit, fake_wizard, monkeypatch):
 # ---------- quick C4 draft (first look) ----------
 @pytest.fixture
 def first_look(kit, monkeypatch):
-    page = kit.docs.DOCS / "architecture" / "first-look.md"
+    page = kit.docs.DOCS / "architecture" / "model.c4"                         # a saved draft: its C4 files
     page.parent.mkdir(parents=True)
-    page.write_text("# First look\n", encoding="utf-8")
+    page.write_text("model {\n}\n", encoding="utf-8")
     calls = {"draft": 0, "portal": []}
 
     def draft(log=None, **kw):
@@ -83,6 +83,23 @@ def test_saved_first_look_can_be_viewed_then_redone(first_look, fake_wizard):
 
 def test_escape_on_a_saved_first_look_goes_back(kit, first_look, fake_wizard):
     assert fake_wizard([None]).arch_flow() == kit.wizard.BACK
+
+
+def test_a_first_look_page_without_a_model_drafts_again(kit, fake_wizard, monkeypatch):
+    page = kit.docs.DOCS / "architecture" / "first-look.md"
+    page.parent.mkdir(parents=True)
+    page.write_text("# First look\n", encoding="utf-8")
+    drafts = []
+    monkeypatch.setattr(kit.wizard.quickarch, "draft", lambda log=None, **kw: drafts.append(1))   # None → again/skip
+    assert fake_wizard(["skip"]).arch_flow() == "skipped" and drafts == [1]
+
+
+def test_the_c4_prompt_names_first_look_md_only_when_it_exists(kit, fake_wizard):
+    assert "first-look.md" not in fake_wizard([]).arch_prompt()
+    page = kit.docs.DOCS / "architecture" / "first-look.md"
+    page.parent.mkdir(parents=True)
+    page.write_text("# First look\n", encoding="utf-8")
+    assert "architecture/first-look.md` to match" in fake_wizard([]).arch_prompt()
 
 
 # ---------- stack + tooling radar (first-run step and menu) ----------

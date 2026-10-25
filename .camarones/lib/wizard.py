@@ -778,11 +778,19 @@ T = {
 
 
 def scan_repos(log=print) -> None:
-    """The no-AI base: stack and tooling page, the libraries page, and each repo's reference page (commands, env vars,
-    endpoints, topics)."""
+    """The no-AI base: stack and tooling page, the libraries page, then the pages from the code. New layout: the
+    project home and a page per repo (`pages.write`). Old layout (a project from before 4.52), as before: the data
+    pages, the diagram pages and each repo's reference page (commands, env vars, endpoints, topics)."""
     radar.run(log=log)
-    from . import diagrams, inventory, schemas
+    from . import diagrams, inventory, pages, schemas
     inventory.run(log=log)
+    if pages.layout() == "new":
+        try:
+            pages.write(log=log)
+        except Exception as e:  # noqa: BLE001 — the pages are a bonus: the rest of the scan still runs
+            log(f"⚠ pages skipped: {e}")
+        genblocks.refresh()
+        return
     schemas.write_pages(log=log)
     try:
         diagrams.write_pages(log=log)
@@ -1449,7 +1457,7 @@ class W:
 
     def arch_flow(self) -> str:
         """Returns 'saved', 'skipped' or BACK."""
-        page = docs.DOCS / "architecture" / "first-look.md"      # written when a draft is saved
+        page = docs.DOCS / "architecture" / "model.c4"           # written when a draft is saved (both layouts)
         while page.exists():
             self.banner()
             when = time.strftime("%Y-%m-%d %H:%M", time.localtime(page.stat().st_mtime))
@@ -1490,7 +1498,8 @@ class W:
                 overwrite = False
                 if exists:
                     overwrite = bool(self.yes(self.t("a_overwrite"), default=False))
-                quickarch.save(m, overwrite=overwrite)
+                from . import pages
+                quickarch.save(m, overwrite=overwrite, page=pages.layout() == "old")   # new layout: no first-look.md
                 self.say(self.t("a_saved"), "green")
                 if c == "ai":
                     self.launch_agent(self.arch_prompt())
@@ -1508,6 +1517,8 @@ class W:
                   f"are its siblings. Edit only the files under `{arch}/` — never create a `docs/` folder anywhere else.\n"
                   if CAM_LAYOUT else "")
         code = ("`graphify query` in the repos, " if "graphify" in env.components() else "")
+        first_look = (f" Update `{arch}/first-look.md` to match."            # an old-layout project's page
+                      if (docs.DOCS / "architecture" / "first-look.md").exists() else "")
         return f"""Camarones session — improve the first-look architecture draft.
 {layout}
 `{arch}/model.c4` + `views.c4` hold the architecture draft; it started from a static scan (no AI) that guessed repos,
@@ -1520,7 +1531,7 @@ datastores, brokers and HTTP calls from manifests, config and code. Read `{ws_re
 2. Keep `views.c4` in step with the model: `index` must show the actors, the system and every external system;
    `containers` everything inside the system. Remove view references to elements you deleted.
 3. Keep everything `#ai-draft`. Run `{cli} arch-validate` after every edit until it prints ✓ Valid (it validates
-   `{arch}/`, so a model written anywhere else is not checked). Update `{arch}/first-look.md` to match.
+   `{arch}/`, so a model written anywhere else is not checked).{first_look}
 4. Show the user the result as a short tree (containers → relations) and ask whether it is right; apply their corrections.
    Tell them the portal's Architecture (C4) tab rebuilds from `{arch}/` (`{cli} up`).
 Talk to the user in {talk}. Do not modify application code.
