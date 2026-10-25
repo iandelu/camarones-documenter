@@ -6,12 +6,15 @@ page. Two layouts: the project home (`HOME`, `_system`) and one page per repo (`
 (`MESSAGING`). A fact that is zero is said so plainly (`count`), never hidden and never invented. `layout()` says whether
 a project still has the old pages (`reference.md`, `diagrams.md`, `first-look.md`…), which a fresh install no longer
 writes. `home_page`, `repo_page` and `messaging_page` write a whole page as text from the facts, with a block for every
-key the code has."""
+key the code has. `write` puts them in the docs (`_write_new`; the old layout keeps 2a's `diagrams.write_pages`): a page
+with only kit text (`kit_only`) is rewritten whole with its confirmed and hand-edited blocks put back (`place`), a page
+with anyone else's words only gets its blocks brought up to date."""
 from __future__ import annotations
 
+import functools, re
 from pathlib import Path
 
-from .common import DOCS, repo_dir
+from .common import DOCS, rel_file, repo_dir
 from . import diagrams, docs, genblocks, inventory, schemas
 
 SYSTEM = "_system"                                                          # reserved repo name: the whole system
@@ -27,6 +30,9 @@ TARGET: dict[str, tuple[str, str, str | None]] = {                          # ki
     "commands": (REPO_PAGE, "What it needs to run", "Commands")}
 NOUNS = {"service": "service", "webapp": "web app", "mobileApp": "mobile app", "library": "library",
          "infra": "infrastructure repo"}
+MORE = (("Stack and tooling", "overview/tooling.md", False), ("Libraries", "overview/libraries.md", False),
+        ("Messaging", MESSAGING, True))                                     # (name, page, only with topics)
+HOW = ":::details How this page is made"
 DETAILS = ("Read from the code with no AI. `camaron pages` brings it up to date and `camaron blocks` refreshes the diagrams and\n"
            "tables in every page. A person can confirm a diagram so that no refresh rewrites it: see [the tutorial]({tutorial}).")
 
@@ -172,39 +178,45 @@ class _Draw:
         return genblocks.block(kind, repo, got[0], id=id)
 
 
+def _wrap(kind: str, text: str) -> str:
+    """A block in its directive: the cards in `:::cards`, a kind with a `TARGET` summary folded in `:::details`."""
+    summary = TARGET.get(kind, (None, "", None))[2]
+    return f":::cards\n{text}\n:::" if kind == "repos" else f":::details {summary}\n{text}\n:::" if summary else text
+
+
 def _sections(items: list[tuple[str, str]]) -> str:
     """Blocks (kind, text) in page order as sections: consecutive kinds sharing a `TARGET` heading share a `## ` section
-    (none for the cards), a kind with a summary is folded in `:::details`."""
+    (none for the cards), each block in its directive (`_wrap`)."""
     out, heading = [], None
     for kind, text in items:
-        _page, h, summary = TARGET[kind]
+        _page, h, _summary = TARGET[kind]
         if h and h != heading:
             out.append(f"## {h}")
         heading = h
-        out.append(f":::details {summary}\n{text}\n:::" if summary else text)
+        out.append(_wrap(kind, text))
     return "\n\n".join(out)
 
 
 def _page(title: str, description: str, tags: list[str], draw: _Draw, tldr: str, body: str, tutorial: str) -> str:
     fm = {"type": "overview", "title": title, "description": description, **({"tags": tags} if tags else {}),
           "x-sources": list(dict.fromkeys(draw.sources)), "x-owner": "ai", "x-generated": True}
-    details = f":::details How this page is made\n{DETAILS.format(tutorial=tutorial)}\n:::"
+    details = f"{HOW}\n{DETAILS.format(tutorial=tutorial)}\n:::"
     return docs.join_fm(fm, f"# {title}\n\n> **TL;DR:** {tldr}\n\n{body}\n\n{details}\n")
 
 
 def home_page(memo: dict, skip: set[Key] = frozenset()) -> str | None:
-    """`docs/index.md` as a whole page: the TL;DR, a card per repo, the context map and where to read on. None when
-    there is no repo or some repo is not on this machine (the cards would show a part of the project)."""
+    """`docs/index.md` as a whole page: the TL;DR, a card per repo, the context map and where to read on (`MORE`: only
+    the pages that exist now, so a link never breaks; messaging only with topics). None when there is no repo or some
+    repo is not on this machine (the cards would show a part of the project)."""
     if repos_block(memo) is None:
         return None
     draw, f = _Draw(memo, skip), facts(memo)
     cards, context = draw("repos", SYSTEM), draw("context", SYSTEM)
-    items = [("repos", f":::cards\n{cards}\n:::")] if cards else []
+    items = [("repos", cards)] if cards else []
     items += [("context", context)] if context else []
-    more = ["- [Stack and tooling](overview/tooling.md)", "- [Libraries](overview/libraries.md)"]
-    if any(r["publishes"] or r["consumes"] for r in f["repos"].values()):
-        more.append("- [Messaging](architecture/messaging.md)")
-    body = "\n\n".join(filter(None, [_sections(items), "## More\n\n" + "\n".join(more)]))
+    topics = any(r["publishes"] or r["consumes"] for r in f["repos"].values())
+    more = [f"- [{name}]({rel})" for name, rel, needs in MORE if (DOCS / rel).is_file() and (topics or not needs)]
+    body = "\n\n".join(filter(None, [_sections(items), "## More\n\n" + "\n".join(more) if more else ""]))
     description = f"{f['project']} at a glance: its repos, how they connect and where to read on (a static scan, no AI)."
     return _page(f["project"], description, [], draw, home_tldr(f), body, "guides/tutorial.md")
 
@@ -237,3 +249,165 @@ def messaging_page(memo: dict, skip: set[Key] = frozenset()) -> str | None:
                    "(a static scan, no AI).")
     tldr = f"{count(len(items), 'message topic')} between the repos, with who publishes and who consumes each."
     return _page("Messaging", description, [], draw, tldr, _sections(items), "../guides/tutorial.md")
+
+
+# ---------- writing them ----------
+LINK_ITEM = re.compile(r"[-*+] \[[^\]\n]*\]\([^)\s]*\)(?::.*)?")
+FENCE_CLOSE = re.compile(r"^:::[ \t]*$", re.M)
+NEXT_SECTION = re.compile(r"^## ", re.M)
+HOW_LINE = re.compile(rf"^{re.escape(HOW)}[ \t]*$", re.M)
+
+
+def _outside_blocks(body: str) -> str:
+    parts, last = [], 0
+    for m in genblocks.BLOCK_RE.finditer(body):
+        parts.append(body[last:m.start()])
+        last = m.end()
+    return "".join(parts) + body[last:]
+
+
+def kit_only(text: str, kit_text: str) -> bool:
+    """Whether a page holds only what the kit writes: every non-blank line outside its frontmatter and its generated
+    blocks is a heading, a `>` line, a `:::` line, a list item that is only a link (`- [x](y)`, optional `: …`) or a
+    line of `kit_text` (the page the kit would write today). Then a rewrite loses nobody's words."""
+    kit = {line.strip() for line in kit_text.splitlines()}
+    lines = (line.strip() for line in _outside_blocks(docs.split_fm(text)[1]).splitlines())
+    return all(line.startswith(("#", ">", ":::")) or LINK_ITEM.fullmatch(line) or line in kit for line in lines if line)
+
+
+def _end(body: str, pos: int, sections: bool = True) -> int:
+    """Where the section that runs from `pos` ends: the next `## ` line (unless not `sections`) or the `How this page
+    is made` fold, else the end of `body`."""
+    found = [m.start() for m in (NEXT_SECTION.search(body, pos) if sections else None, HOW_LINE.search(body, pos)) if m]
+    return min(found, default=len(body))
+
+
+def _insert(body: str, pos: int, piece: str, sep: str = "\n\n") -> str:
+    """`piece` at `pos`, `sep` after the text before it and a blank line before what follows (none before a fold's
+    closing `:::`)."""
+    head, tail = body[:pos].rstrip("\n"), body[pos:]
+    return head + sep + piece + ("\n" if tail.startswith(":::\n") or tail == ":::" else "\n\n" if tail else "\n") + tail
+
+
+def place(body: str, text: str, key: Key) -> str:
+    """`body` with `text` (a whole block, markers included) in it: in place of the block with the same key; else at the
+    end of its `TARGET` section, inside its `:::details` fold when the target has one (the fold there, or a new one);
+    else in a new section before `:::details How this page is made` (a kind with no heading, the cards: before the
+    first section)."""
+    for m in genblocks.BLOCK_RE.finditer(body):
+        if diagrams._key(m) == tuple(key):
+            return body[:m.start()] + text + body[m.end():]
+    _page, heading, summary = TARGET.get(key[0], (None, "", None))
+    start = diagrams._heading(body, heading) if heading else None
+    if start:
+        end = _end(body, start.end())
+        fold = summary and re.compile(rf"^:::details {re.escape(summary)}[ \t]*$", re.M).search(body, start.end(), end)
+        close = fold and FENCE_CLOSE.search(body, fold.end(), end)
+        if close:
+            return _insert(body, close.start(), text, "\n" if not body[fold.end():close.start()].strip() else "\n\n")
+        return _insert(body, end, _wrap(key[0], text))
+    if heading:
+        return _insert(body, _end(body, 0, sections=False), f"## {heading}\n\n{_wrap(key[0], text)}")
+    return _insert(body, _end(body, 0), _wrap(key[0], text))
+
+
+def _tidy(body: str, gone: set[str]) -> str:
+    """After `_edit_page` dropped the last block of some kinds: their empty folds go, then their sections left empty."""
+    for kind in sorted(gone):
+        _page, heading, summary = TARGET.get(kind, (None, "", None))
+        if summary:
+            body = re.sub(rf"^:::details {re.escape(summary)}[ \t]*\n\s*^:::[ \t]*(?:\n(?:[ \t]*\n)?|$)", "", body, flags=re.M)
+        start = diagrams._heading(body, heading) if heading else None
+        if start and not body[start.end():_end(body, start.end())].strip():
+            body = body[:start.start()] + body[_end(body, start.end()):]
+    return body
+
+
+def _rewrite(old: str, fresh: str, scan: genblocks.Scanner) -> str:
+    """Rule 4: the fresh page, with the old page's confirmed, hand-edited and unknown blocks put back verbatim and its
+    `x-confirmed` kept (as `radar.run` does)."""
+    old_fm, old_body = docs.split_fm(old)
+    fm, body = docs.split_fm(fresh)
+    kept = body
+    for m, state, _body in genblocks.states(old_body, scan):
+        if m["confirmed"] or state in ("edited", "unknown"):
+            kept = place(kept, m[0], diagrams._key(m))
+    if kept == body and not old_fm.get("x-confirmed"):
+        return fresh
+    return docs.join_fm({**fm, **({"x-confirmed": old_fm["x-confirmed"]} if old_fm.get("x-confirmed") else {})}, kept)
+
+
+def _blocks_only(rel: str, repo: str, old: str, fresh: str | None, scan: genblocks.Scanner) -> str:
+    """Rule 5: only the page's blocks brought up to date (`diagrams._edit_page` with the page's `TARGET` pairs, the
+    missing ones put by `place`, the folds and sections a drop emptied removed); its TL;DR and every other line stay."""
+    fm, body, _valid = docs.parse_fm(old)
+    template = REPO_PAGE if rel.startswith("repos/") else rel
+    managed = [(h, kind) for kind, (page, h, _s) in TARGET.items() if page == template]
+    kinds = {kind for _h, kind in managed}
+    wanted = [diagrams._key(m) for m in genblocks.BLOCK_RE.finditer(fresh or "")]
+    before = {m["kind"] for m in genblocks.BLOCK_RE.finditer(body) if m["kind"] in kinds}
+    new_body, sources = diagrams._edit_page(body, repo, managed, wanted, lambda key: scan.get(*key), put=place)
+    new_body = _tidy(new_body, before - {m["kind"] for m in genblocks.BLOCK_RE.finditer(new_body)})
+    if new_body == body:
+        return old
+    if sources and fm.get("x-generated"):
+        return docs.join_fm({**fm, "x-sources": list(dict.fromkeys([*(fm.get("x-sources") or []), *sources]))}, new_body)
+    return old[:len(old) - len(body)] + new_body
+
+
+def _write_new(log=lambda _: None, exclude: frozenset[Path] = frozenset()) -> list[str]:
+    """Create or bring up to date the new layout: the messaging page (with topics), each repo's page on this machine and
+    the project home (last, so its `## More` sees the pages of this pass). Per page: a block whose key lives in another
+    docs page is left out (2a's moved-block rule; a page in `exclude` does not count, and is never written); a missing
+    page is written whole; a page a person owns, or one the kit did not write, is left as it is; a kit page with only
+    kit text is rewritten whole, keeping its confirmed, hand-edited and unknown blocks; any other page gets only its
+    blocks brought up to date. The home is left as it is while some repo is not on this machine. A file is written only
+    when its text changed. Returns the pages written."""
+    memo, scan, excluded = {}, genblocks.Scanner(), {Path(p).resolve() for p in exclude}
+    scan.memo = memo
+    homes: dict[Key, set[Path]] = {}                                       # where each block lives now
+    for _row, f in genblocks._pages():
+        if f.resolve() not in excluded:
+            for m in genblocks.BLOCK_RE.finditer(f.read_text(encoding="utf-8")):
+                homes.setdefault(diagrams._key(m), set()).add(f.resolve())
+    specs = [(MESSAGING, SYSTEM, messaging_page)] * bool(diagrams.ids("messaging", SYSTEM, memo))
+    specs += [(REPO_PAGE.format(repo=n), n, functools.partial(repo_page, n)) for n in docs.repo_names()
+              if repo_dir(n).is_dir()]
+    written = []
+    for rel, repo, make in [*specs, (HOME, SYSTEM, home_page)]:
+        f = DOCS / rel
+        if f.resolve() in excluded:
+            continue
+        if repo == SYSTEM and not diagrams._complete():
+            log(f"· {rel_file(f)}: not every repo is on this machine, so the project home is left as it is")
+            continue
+        fresh = make(memo, {k for k, where in homes.items() if where - {f.resolve()}})
+        old = f.read_text(encoding="utf-8") if f.exists() else None
+        note = f"✔ {rel_file(f)}"
+        if old is None:
+            new = fresh
+        else:
+            fm, body, _valid = docs.parse_fm(old)
+            if fm.get("x-owner") == "human":
+                continue
+            if fm.get("x-generated") is not True and not genblocks.BLOCK_RE.search(body):
+                log(f"· {rel_file(f)} was not written by the kit: left as it is")
+                continue
+            if fm.get("x-generated") is True and fresh is not None and kit_only(old, fresh):
+                new = _rewrite(old, fresh, scan)
+            else:
+                new = _blocks_only(rel, repo, old, fresh, scan)
+                note = f"· {rel_file(f)}: has text a person or an agent wrote, only its blocks were brought up to date"
+        if new is None or new == old:
+            continue
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(new, encoding="utf-8", newline="\n")
+        written.append(rel_file(f))
+        log(note)
+    return written
+
+
+def write(log=lambda _: None) -> list[str]:
+    """`camaron pages`: in the old layout 2a's diagram pages (`diagrams.write_pages`, unchanged); in the new one the
+    home, the repo pages and the messaging page (`_write_new`). Returns the pages written (`docs/…` paths)."""
+    return diagrams.write_pages(log) if layout() == "old" else _write_new(log)

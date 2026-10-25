@@ -133,6 +133,7 @@ def test_the_home_with_cards_wins_over_a_kept_old_page(pg):
 
 
 def test_the_home_says_the_facts_and_zero_counts(pg):
+    write_doc(pg, "overview/tooling.md", "# Tooling\n")
     text = pg.mod.home_page({})
     assert "> **TL;DR:** demo has 3 repos (" in text and "no message topics" in text
     assert "\n:::cards\n<!-- generated:repos repo=_system" in text and "## Context map" in text
@@ -143,8 +144,18 @@ def test_the_home_says_the_facts_and_zero_counts(pg):
 
 def test_the_home_links_the_messaging_page_when_there_are_topics(pg):
     pg.put("api", "src/main/java/demo/Pub.java", PUBLISHER)
+    assert "architecture/messaging.md" not in pg.mod.home_page({})              # not written yet: no link
+    write_doc(pg, "architecture/messaging.md", pg.mod.messaging_page({}))
     text = pg.mod.home_page({})
     assert "- [Messaging](architecture/messaging.md)" in text and "1 message topic," in text
+
+
+def test_the_home_links_only_pages_that_exist(pg):
+    write_doc(pg, "overview/libraries.md", "# Libraries\n")
+    write_doc(pg, "architecture/messaging.md", "# Messaging\n")                 # no topics: still no link
+    text = pg.mod.home_page({})
+    assert "(overview/libraries.md)" in text and "overview/tooling.md" not in text
+    assert "architecture/messaging.md" not in text
 
 
 def test_the_home_is_unknown_when_a_repo_is_missing(pg):
@@ -226,12 +237,151 @@ def test_the_generated_pages_pass_check(pg, monkeypatch):
     monkeypatch.setattr(pg.kit.quality.binaries, "bin_path", lambda name: None)
     pg.put("api", "src/main/resources/openapi.yaml", OPENAPI)
     pg.put("api", "src/main/java/demo/Pub.java", PUBLISHER)
+    for rel in ("overview/tooling.md", "overview/libraries.md", "guides/tutorial.md"):   # the pages the links point to
+        write_doc(pg, rel, "---\ntitle: T\ndescription: d\ntype: guide\n---\n# T\n")
     memo = {}
-    pages = [("index.md", pg.mod.home_page(memo)), ("architecture/messaging.md", pg.mod.messaging_page(memo))]
+    write_doc(pg, "architecture/messaging.md", pg.mod.messaging_page(memo))
+    pages = [("index.md", pg.mod.home_page(memo))]
     pages += [(f"repos/{r}/index.md", pg.mod.repo_page(r, memo)) for r in ("api", "web", "worker")]
     for rel, text in pages:
         write_doc(pg, rel, text)
-    for rel in ("overview/tooling.md", "overview/libraries.md", "guides/tutorial.md"):   # the pages the links point to
-        write_doc(pg, rel, "---\ntitle: T\ndescription: d\ntype: guide\n---\n# T\n")
+    assert "(architecture/messaging.md)" in pages[0][1] and "(overview/tooling.md)" in pages[0][1]
     errors, _warns = pg.kit.docs.check()
     assert [e for e in errors if "index.md" in e or "messaging.md" in e] == []
+
+
+# ---------- writing the pages ----------
+def confirm(pg, page, id):
+    """Confirm the block `id` of `page` as a person would (`confirmed=<its sha> by=ana`); returns the new block text."""
+    text = page.read_text(encoding="utf-8")
+    m = next(b for b in pg.gb.BLOCK_RE.finditer(text) if b["id"] == id)
+    new = pg.gb.block(m["kind"], m["repo"], m["body"], id=id, confirmed=m["sha"], by="ana")
+    page.write_text(text.replace(m[0], new), encoding="utf-8")
+    return new
+
+
+def test_write_creates_the_home_and_a_page_per_repo(pg):
+    written = pg.mod.write()
+    assert set(written) == {"docs/index.md", "docs/repos/api/index.md", "docs/repos/web/index.md", "docs/repos/worker/index.md"}
+    assert pg.mod.write() == []                                                    # idempotent
+
+
+def test_write_in_the_old_layout_is_2a(pg):
+    write_doc(pg, "architecture/first-look.md", "# old\n")
+    pg.mod.write()
+    assert not (pg.kit.root / "docs" / "index.md").exists()
+    assert (pg.kit.root / "docs" / "architecture" / "system-map.md").exists()
+
+
+def test_a_confirmed_block_survives_a_rewrite(pg):
+    pg.put("api", "src/main/java/demo/OrderStatus.java", ORDER)
+    pg.mod.write()
+    page = pg.kit.root / "docs" / "repos" / "api" / "index.md"
+    confirmed = confirm(pg, page, "OrderStatus")                                   # helper: sets confirmed= and by=
+    pg.put("api", "src/main/java/demo/OrderStatus.java", ORDER.replace("SHIPPED", "SHIPPED, LOST"))
+    pg.mod.write()
+    assert page.read_text(encoding="utf-8").count(confirmed) == 1
+
+
+def test_prose_in_a_kit_page_is_kept(pg):
+    pg.mod.write()
+    page = pg.kit.root / "docs" / "repos" / "api" / "index.md"
+    page.write_text(page.read_text(encoding="utf-8").replace("## What it needs to run",
+                    "The team runs it behind nginx.\n\n## What it needs to run"), encoding="utf-8")
+    pg.put("api", "src/main/java/demo/OrderStatus.java", ORDER)
+    pg.mod.write()
+    text = page.read_text(encoding="utf-8")
+    assert "behind nginx" in text and "generated:states repo=api id=OrderStatus" in text
+
+
+def test_a_block_moved_elsewhere_is_not_written_twice(pg):
+    pg.put("api", "src/main/java/demo/OrderStatus.java", ORDER)
+    write_doc(pg, "flows/checkout.md", "---\ntitle: Checkout\n---\n# Checkout\n\n"
+              + pg.gb.block("states", "api", "x", id="OrderStatus") + "\n")
+    pg.mod.write()
+    assert "OrderStatus" not in (pg.kit.root / "docs" / "repos" / "api" / "index.md").read_text(encoding="utf-8")
+
+
+def test_a_partial_clone_leaves_the_home_alone(pg):
+    pg.mod.write()
+    home = (pg.kit.root / "docs" / "index.md").read_text(encoding="utf-8")
+    pg.rmtree(pg.kit.ws / "worker")
+    pg.put("api", "src/main/resources/openapi.yaml", OPENAPI)
+    pg.mod.write()
+    assert (pg.kit.root / "docs" / "index.md").read_text(encoding="utf-8") == home
+    assert "generated:endpoints-map" in (pg.kit.root / "docs" / "repos" / "api" / "index.md").read_text(encoding="utf-8")
+
+
+def test_a_human_page_is_never_written(pg):
+    write_doc(pg, "index.md", "---\ntitle: Home\nx-owner: human\n---\n# Home\n")
+    pg.mod.write()
+    assert (pg.kit.root / "docs" / "index.md").read_text(encoding="utf-8").endswith("# Home\n")
+
+
+def test_a_page_the_kit_did_not_write_is_left_alone(pg):
+    write_doc(pg, "repos/api/index.md", "---\ntitle: api\n---\n# api\n\nOur notes.\n")
+    logs = []
+    assert "docs/repos/api/index.md" not in pg.mod.write(logs.append)
+    assert any("was not written by the kit" in line for line in logs)
+
+
+def test_prose_keeps_the_tldr_and_folds_a_new_table(pg):
+    pg.mod.write()
+    page = pg.kit.root / "docs" / "repos" / "api" / "index.md"
+    text = page.read_text(encoding="utf-8")
+    tldr = next(line for line in text.splitlines() if line.startswith("> **TL;DR:**"))
+    page.write_text(text.replace(tldr, "> **TL;DR:** the api, as we see it.\n\nA note of ours."), encoding="utf-8")
+    pg.put("api", "src/main/resources/openapi.yaml", OPENAPI)
+    logs = []
+    pg.mod.write(logs.append)
+    text = page.read_text(encoding="utf-8")
+    assert "as we see it" in text and "A note of ours." in text
+    assert ":::details Endpoints\n<!-- generated:endpoints repo=api" in text
+    assert text.index("generated:endpoints-map") < text.index(":::details Endpoints") < text.index(":::details How this")
+    assert any("has text a person or an agent wrote" in line for line in logs)
+    assert "api:src/main/resources/openapi.yaml" in pg.kit.docs.split_fm(text)[0]["x-sources"]
+
+
+def test_x_confirmed_is_kept_on_a_rewrite(pg):
+    pg.mod.write()
+    page = pg.kit.root / "docs" / "repos" / "api" / "index.md"
+    page.write_text(page.read_text(encoding="utf-8").replace("x-generated: true", "x-generated: true\nx-confirmed:\n  body_sha: abc\n  by: ana"), encoding="utf-8")
+    pg.put("api", "src/main/java/demo/OrderStatus.java", ORDER)
+    pg.mod.write()
+    text = page.read_text(encoding="utf-8")
+    assert pg.kit.docs.split_fm(text)[0]["x-confirmed"] == {"body_sha": "abc", "by": "ana"} and "id=OrderStatus" in text
+
+
+def test_kit_only_allows_kit_lines_only(pg):
+    fresh = "---\ntitle: a\n---\n# a\n\n> **TL;DR:** x\n\nRead from the code.\n"
+    blk = pg.gb.block("env", "api", "| a |\n|---|")
+    assert pg.mod.kit_only(f"---\ntitle: b\n---\n# b\n\n> other\n\n:::details X\n{blk}\n:::\n\n- [x](y): z\n"
+                           "Read from the code.\n", fresh)
+    assert not pg.mod.kit_only("# a\n\nThe team runs it behind nginx.\n", fresh)
+    assert not pg.mod.kit_only("# a\n\n- [x](y) and more\n", fresh)
+
+
+def test_place_puts_a_block_in_its_section(pg):
+    how = ":::details How this page is made\nx\n:::\n"
+    env = pg.gb.block("env", "api", "| a |")
+    body = pg.mod.place(f"# api\n\n## What it needs to run\n\n:::details Commands\nc\n:::\n\n{how}", env, ("env", "api", None))
+    assert body.index("## What it needs") < body.index(":::details Environment variables\n" + env + "\n:::") < body.index(how)
+    env2 = pg.gb.block("env", "api", "| b |")
+    assert pg.mod.place(body, env2, ("env", "api", None)) == body.replace(env, env2)
+    states = pg.gb.block("states", "api", "s", id="S")
+    body = pg.mod.place(body, states, ("states", "api", "S"))
+    assert body.index(f"## Lifecycles\n\n{states}") < body.index(how) and body.endswith(how)
+
+
+def test_a_table_gone_from_a_page_with_prose_takes_its_fold(pg):
+    env = pg.put("api", "src/main/resources/application.properties", "db.url=${DB_URL:jdbc:h2:mem}\n")
+    pg.mod.write()
+    page = pg.kit.root / "docs" / "repos" / "api" / "index.md"
+    page.write_text(page.read_text(encoding="utf-8").replace("## What it needs to run",
+                    "## What it needs to run\n\nAsk ops for the database."), encoding="utf-8")
+    assert ":::details Environment variables" in page.read_text(encoding="utf-8")
+    env.unlink()
+    pg.mod.write()
+    text = page.read_text(encoding="utf-8")
+    assert ":::details Environment variables" not in text and "\n\n\n" not in text
+    assert "Ask ops for the database.\n\n:::details Commands\n" in text
