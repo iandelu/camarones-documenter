@@ -3,6 +3,7 @@ import { Brand, Breadcrumbs, Button, EmptyState, Keys, Skeleton, SkipLink } from
 import { START, firstRunRoute, initials, sectionOf, sections } from './nav.js'
 import { jobsStore } from './jobs.js'
 import { chord, entries, keyFor, typing } from './palette.js'
+import { portalUrl } from './docs.js'
 import { server } from './server.js'
 import { useHash, useStore } from './hooks.js'
 import { Failed } from './parts.jsx'
@@ -10,6 +11,7 @@ import Hub from './Hub.jsx'
 import JobsPanel from './JobsPanel.jsx'
 import Palette from './Palette.jsx'
 import { catalog } from './sections/Commands.jsx'
+import Docs from './sections/Docs.jsx'
 import Interviews from './sections/Interviews.jsx'
 import KitDev from './sections/KitDev.jsx'
 import Machine from './sections/Machine.jsx'
@@ -106,6 +108,8 @@ function Project({ app }) {
         <Brand project={index?.project} href="#/summary" />
         <Breadcrumbs items={[{ label: index?.project || '…', href: '#/summary' }, { label: t('nav.' + here) }]} />
         <span className="dk-grow"></span>
+        {/* the portal is the reader, with no token: it opens in the system browser, never in this window */}
+        <Button size="sm" variant="ghost" onClick={() => app.openExternal?.(portalUrl(location.origin, '#/'))}>{t('portal.open')}</Button>
         <button type="button" className="dk-find" aria-haspopup="dialog" onClick={() => setPalette(true)}>
           {t('pal.open')}<Keys keys={MAC ? ['⌘', 'K'] : ['Ctrl', 'K']} /></button>
         {/* no menu bar on screen (the header is the title bar): this opens the app menu under itself */}
@@ -125,7 +129,7 @@ function Project({ app }) {
       </>}
       <main className="dk-main" id="main" tabIndex={-1}>
         {error && <Failed title={t('project.failed')} detail={error} onRetry={() => { setError(''); open() }} />}
-        {!index && !error ? <Skeleton lines={4} /> : <Section here={here} srv={srv} jobs={jobs} app={app} />}
+        {!index && !error ? <Skeleton lines={4} /> : <Section here={here} srv={srv} jobs={jobs} app={app} index={index} />}
       </main>
       <JobsPanel srv={srv} jobs={jobs} />
       <footer className="dk-status">
@@ -173,18 +177,4 @@ const SECTIONS = { summary: Summary, plan: Plan, interviews: Interviews, team: T
 function Section({ here, ...props }) {
   const View = SECTIONS[here]
   return <View key={here} {...props} />
-}
-
-// Reading is the portal's (on this same server, one folder up): the app does not keep a second reader.
-function Docs() {
-  return (
-    <div className="dk-page">
-      <h1 className="t-impact">{t('nav.docs')}</h1>
-      <div className="row">
-        <Button variant="primary" href="../#/">{t('docs.read')}</Button>
-        <Button href="../#/review">{t('docs.review')}</Button>
-        <Button variant="ghost" href="../#/search">{t('docs.search')}</Button>
-      </div>
-    </div>
-  )
 }

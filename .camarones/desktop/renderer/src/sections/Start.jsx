@@ -193,7 +193,8 @@ export function Tools({ tools, picked, setPicked, error, onRetry }) {
     <>
       <h2>{t('obToolsTitle')}</h2>
       <p className="dk-lede">{t('obToolsLead')}</p>
-      {!tools ? (error ? <ToolsFailed error={error} onRetry={onRetry} /> : <Skeleton lines={6} />) : (
+      {error ? <ToolsFailed error={error} onRetry={onRetry} /> : null}          {/* with a list below, that one is stale */}
+      {!tools ? (error ? null : <Skeleton lines={6} />) : (
         <ul className="dk-units">
           {tools.rows.map((r) => {
             const locked = r.kind === 't_required'
@@ -238,7 +239,7 @@ export function Setup({ srv, jobs, tools, picked, repos, state, setState, error,
       <p className="dk-lede" role="status">
         {[bar.total ? t('obSetupStep', bar) : '', j.running ? bar.current || t('obStarting') : r?.ok ? t('obSetupOk') : '']
           .filter(Boolean).join(' · ')}</p>
-      {!tools && error ? <ToolsFailed error={error} onRetry={reloadTools} /> : null}
+      {error ? <ToolsFailed error={error} onRetry={reloadTools} /> : null}
       <progress className="dk-progress" value={pct} max={100} aria-label={t('obSetupTitle')} />
       {lines.length ? <pre className="dk-log ob-log" aria-label={t('cmds.output')}>
         {lines.map((l) => l.replace(/^\[\d+\/\d+\]\s*/, '')).join('\n')}</pre> : null}
