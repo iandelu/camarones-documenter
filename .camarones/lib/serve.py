@@ -386,6 +386,15 @@ def api_interview(who: str = "") -> dict:
             "status": questionnaire.status(), "user": reviewer(), "mine": mine}
 
 
+def app_summary() -> dict:
+    """The desktop app's Summary: the next step (the wizard's rule, plan.next_step), the plan's progress and the pages
+    waiting for a person. Reads only: plan.sync() writes, and a page that just looks must not."""
+    review = len(docs.review_queue()) if DOCS.exists() else 0
+    data = plan.load()
+    done, total = plan.progress(data)
+    return {"step": plan.next_step(data, review=review), "plan": {"done": done, "total": total}, "review": review}
+
+
 def status(check: bool = True) -> dict:
     """`check=False` skips the full quality check (seconds on a big project): the page shows the rest at once."""
     return {"queue": [{k: r[k] for k in ("path", "title", "trust", "type")} for r in docs.review_queue()],
@@ -652,6 +661,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(appapi.info())
         if name == "catalog":
             return self.json(appapi.catalog())
+        if name == "summary":
+            return self.json(app_summary())
         if name == "kitdev":
             from . import kitdev
             return self.json(kitdev.info())
@@ -755,7 +766,9 @@ class Handler(BaseHTTPRequestHandler):
         if name == "viewers":
             return self.json(env.viewers())
         if name == "jobs":
-            return self.json([{k: v for k, v in j.items() if k != "log"} for j in JOBS.values()])
+            from . import appapi
+            return self.json([{**{k: v for k, v in j.items() if k != "log"}, "stoppable": appapi.stoppable(j["id"])}
+                              for j in list(JOBS.values())])
         if name == "pipeline":
             return self.json(api_pipeline())
         if name == "ask":

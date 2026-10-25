@@ -36,6 +36,7 @@ LEGACY_STEPS = ("name", "repos", "tools", "setup", "arch", "intro")     # firstr
 JOIN_STEPS = ("tools", "setup", "intro")   # joining a team's cam-docs: the rest is shared and already decided
 ORANGE = "#ff7a2f"
 MENU_LABELS = {"arch": "a_menu", "stack": "sk_menu", "creds": "k_menu"}   # menu actions whose label is not m_<action>
+MENU_DEFAULT = {"resume": "resume", "next": "next", "review": "review", "done": "portal"}   # plan.next_step → the cursor
 BACK = "__back__"   # questionary replaces a None value with the title, so use a sentinel
 EXTRA_REVIEWS = {   # opt-in unit types: uid -> deps required to be `done` before offering it
     "security-review": ["arch-system", "domain", "data", "deployment"],
@@ -1013,12 +1014,7 @@ class W:
             choices += [Choice(self.t(k) + " " * (width - cell_len(self.t(k))) + " ›  " + " · ".join(short[a] for a in acts), k)
                         for k, acts in sections.items()]
             choices += [Separator(" "), Choice(self.t("m_tutorial"), "tutorial"), Choice(self.t("m_exit"), "exit")]
-            if doing:
-                default = "resume"
-            elif any(u["status"] != "doing" for u in plan.available(data)):
-                default = "next"
-            else:
-                default = "review" if n_rev else "portal"
+            default = MENU_DEFAULT[plan.next_step(data, review=n_rev)["kind"]]       # the app's Summary says the same
             choice = self.sel(self.t("menu"), back=False, choices=choices, default=default)
             if choice in sections:
                 self.banner()
