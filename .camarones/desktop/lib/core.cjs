@@ -2,7 +2,8 @@
 // Pure helpers of the desktop app's main process: no Electron, no I/O, so `node --test` checks them on every OS.
 const path = require('node:path')
 
-const NOT_FOR_CHILDREN = ['CAMARONES_APP_TOKEN', 'CAMARONES_ROOT', 'ELECTRON_RUN_AS_NODE']
+// A join token from the shell that started the app is not inherited: only the join the person gave one gets it.
+const NOT_FOR_CHILDREN = ['CAMARONES_APP_TOKEN', 'CAMARONES_ROOT', 'ELECTRON_RUN_AS_NODE', 'CAMARONES_JOIN_TOKEN']
 
 const backendArgv = (kit) => [path.join(kit, 'camarones.py'), 'up', '--foreground', '--port', '0']
 const cliArgv = (kit, args) => [path.join(kit, 'camarones.py'), ...args]
@@ -30,6 +31,39 @@ function sameOrigin(url, origin) {
 function externalOk(url) {
   try { return ['http:', 'https:'].includes(new URL(url).protocol) } catch { return false }
 }
+
+// The start screen's CLI calls. A name that looks like an option is dropped (the CLI then uses the folder's name).
+const inspectArgs = (dir) => ['projects', '--inspect', dir, '--json']
+const adoptArgs = (dir, name) => ['projects', '--adopt', dir, '--json',
+  ...(typeof name === 'string' && name.trim() && !name.trim().startsWith('-') ? ['--name', name.trim()] : [])]
+const joinArgs = (url, dir) => ['join', url, dir, '--no-open']
+
+// A folder the page hands back: an absolute path (what the folder dialog gives), never an option or a relative one.
+const folderArg = (dir) => typeof dir === 'string' && dir.length > 0 && path.isAbsolute(dir)
+
+// The token for a private cam-docs repo goes in the child's environment, never on its command line.
+function joinEnv(env, token) {
+  const out = cliEnv(env)
+  if (typeof token === 'string' && token.trim()) out.CAMARONES_JOIN_TOKEN = token.trim()
+  return out
+}
+
+// `join --no-open` explains a refused access as one JSON line on stdout: {error, host, detail}.
+const JOIN_REASONS = ['auth', 'denied', 'not-found', 'network', 'unknown']
+function joinFailure(out) {
+  const r = lastJson(out)
+  if (!r || typeof r.error !== 'string') return null
+  return { error: JOIN_REASONS.includes(r.error) ? r.error : 'unknown', host: String(r.host || ''), detail: String(r.detail || '') }
+}
+
+// The CLI's own error: its last stderr line, without the ✖.
+function errLine(err) {
+  const lines = String(err || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+  return lines.length ? lines[lines.length - 1].replace(/^✖\s*/, '') : ''
+}
+
+// Why `projects --adopt` refused: a cam-docs already there that is not a project ("taken"), or a folder it can't use.
+const adoptError = (err) => (/ya existe|already exists|file exists/i.test(String(err)) ? 'taken' : 'folder')
 
 // Windows has no process groups to signal: taskkill /T takes the server and the jobs it started. Elsewhere the
 // backend leads its own group (spawned detached) and main.cjs signals the group.
@@ -76,4 +110,5 @@ function titleBar(platform, dark) {
 }
 
 module.exports = { backendArgv, cliArgv, cliEnv, backendEnv, parseReady, sameOrigin, externalOk, killCommand,
-  windowArgs, readArgs, inside, lastJson, BAR, barColors, titleBar }
+  windowArgs, readArgs, inside, lastJson, BAR, barColors, titleBar, inspectArgs, adoptArgs, joinArgs, folderArg, joinEnv,
+  joinFailure, errLine, adoptError }

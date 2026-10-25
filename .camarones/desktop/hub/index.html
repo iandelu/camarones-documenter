@@ -11,30 +11,76 @@
 <body>
   <header class="titlebar"><span class="wordmark">camarón</span></header>
   <main class="hub">
-    <header class="aurora-bg hero">
+    <!-- The start screen: what to document. -->
+    <section id="start" class="view">
       <h1 id="title"></h1>
       <p class="lede" id="lede"></p>
-    </header>
-    <section class="block">
-      <div class="block-h"><h2 id="h-projects"></h2>
-        <div class="actions">
-          <button type="button" class="btn" id="new"></button>
+      <ul class="options">
+        <li class="option primary">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+          <div class="option-text"><h2 id="pick-title"></h2><p id="pick-help"></p></div>
+          <button type="button" class="btn" id="pick"></button>
+        </li>
+        <li class="option">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <div class="option-text"><h2 id="join-title"></h2><p id="join-help"></p></div>
           <button type="button" class="btn ghost" id="join"></button>
-          <button type="button" class="btn ghost" id="add"></button>
+        </li>
+      </ul>
+      <p id="status" class="status" role="status"></p>
+      <p id="detail" class="detail"></p>
+      <section id="recent" class="recent">
+        <h2 id="h-recent"></h2>
+        <ul id="list" class="list" aria-busy="true"><li class="skeleton"></li><li class="skeleton"></li></ul>
+      </section>
+    </section>
+
+    <!-- Join the team's docs: the cam-docs URL, then the folder; a token only when the host asks for one. -->
+    <section id="joining" class="view" hidden>
+      <button type="button" class="link" id="join-back"></button>
+      <h1 id="join-h"></h1>
+      <p class="lede" id="join-lede"></p>
+      <form id="join-form" class="form">
+        <label for="url" id="url-label"></label>
+        <input id="url" class="input mono" autocomplete="off" spellcheck="false" placeholder="https://gitlab.com/shop/cam-docs.git">
+        <div id="token-box" class="token" hidden>
+          <label for="token" id="token-label"></label>
+          <input id="token" class="input mono" type="password" autocomplete="off" spellcheck="false">
+          <p class="hint" id="token-help"></p>
         </div>
-      </div>
-      <form id="form" class="form" hidden>
-        <label for="field" id="field-label"></label>
-        <input id="field" class="input" autocomplete="off">
-        <label for="from" id="from-label"></label>
-        <input id="from" class="input" autocomplete="off" placeholder="https://…">
-        <div class="actions">
-          <button type="submit" class="btn" id="go"></button>
-          <button type="button" class="btn ghost" id="cancel"></button>
+        <p id="join-status" class="status" role="status"></p>
+        <p id="join-detail" class="detail"></p>
+        <div class="actions end">
+          <button type="button" class="btn ghost" id="join-cancel"></button>
+          <button type="submit" class="btn" id="join-go"></button>
         </div>
       </form>
-      <p id="status" class="status" role="status"></p>
-      <ul id="list" class="list" aria-busy="true"><li class="skeleton"></li><li class="skeleton"></li></ul>
+    </section>
+
+    <!-- What I found in the picked folder, before anything is written. -->
+    <section id="found" class="view" hidden>
+      <button type="button" class="link" id="found-back"></button>
+      <h1 id="found-h"></h1>
+      <article class="card">
+        <span id="f-badge" class="badge"></span>
+        <h2 id="f-title"></h2>
+        <p id="f-text"></p>
+        <p id="f-siblings" class="meta" hidden></p>
+        <p id="f-warn" class="warn" hidden></p>
+        <p class="dest"><span>cam-docs →</span> <code id="f-dest"></code></p>
+      </article>
+      <form id="adopt-form" class="form">
+        <div id="name-box">
+          <label for="name" id="name-label"></label>
+          <input id="name" class="input" autocomplete="off" spellcheck="false">
+        </div>
+        <p id="found-status" class="status" role="status"></p>
+        <p id="found-detail" class="detail"></p>
+        <div class="actions end">
+          <button type="button" class="btn ghost" id="change"></button>
+          <button type="submit" class="btn" id="continue"></button>
+        </div>
+      </form>
     </section>
   </main>
   <script src="hub.js"></script>
