@@ -49,6 +49,27 @@ def test_conventions_and_playbook_carry_the_same_diagram_rules():
     assert "CLI diagrams" in unit and "proposal" in unit and "never" in unit
 
 
+def test_the_diagram_texts_do_not_promise_what_delivery_2b_adds():
+    import re
+    playbook = (KIT_DIR / "PLAYBOOK.md").read_text(encoding="utf-8")
+    conventions = (KIT_DIR / "CONVENTIONS.md").read_text(encoding="utf-8")
+    texts = {"skill": (SKILLS / "cam-docs-diagrams" / "SKILL.md").read_text(encoding="utf-8"),
+             "conventions": conventions[conventions.index("## 5. Markdown diagrams"):conventions.index("## 6. Page templates")],
+             "playbook": playbook[playbook.index("## diagrams"):playbook.index("## doc-fixes")]}
+    for name, text in texts.items():
+        assert not re.search(r"diagrams\s+(propose|accept|discard)", text), name
+        assert not re.search(r"accept\w*[^.\n]{0,40}portal|portal[^.\n]{0,40}accept", text, re.I), name
+
+
+def test_the_texts_say_where_each_generated_diagram_lives_and_the_real_check_wording():
+    skill = (SKILLS / "cam-docs-diagrams" / "SKILL.md").read_text(encoding="utf-8")
+    assert "system-map.md` holds the context map" in skill and "diagrams.md` holds the endpoints map" in skill
+    conventions = (KIT_DIR / "CONVENTIONS.md").read_text(encoding="utf-8")
+    assert "messaging" in conventions[conventions.index("## 5. Markdown diagrams"):conventions.index("## 6. Page templates")]
+    lookup = (SKILLS / "cam-docs-lookup" / "SKILL.md").read_text(encoding="utf-8")
+    assert "the code changed since this diagram was confirmed" in lookup and "out of date with the code" in lookup
+
+
 def test_the_diagrams_skill_reaches_every_project_on_every_run():
     from lib import env
     files = env.kit_skill_files("Demo")
