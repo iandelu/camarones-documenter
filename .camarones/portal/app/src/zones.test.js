@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { crumbs, homeKpis, paletteEntries, zonesFor } from './zones.js'
+import { crumbs, homeKpis, paletteEntries, portalOnly, zonesFor } from './zones.js'
 
 const idx = {
   project: 'demo', repos: ['api', 'web'],
@@ -98,15 +98,45 @@ test('home KPIs come from the index only, none for an empty project', () => {
   expect(homeKpis({ ...idx, summary: { ...idx.summary, confirmed: 0 } })[0]).toEqual({ id: 'confirmed', value: '0/3', tone: null })
 })
 
-test('desktop app: every live view plus the Taller, which the browser portal never shows', () => {
-  expect(zonesFor('app', idx).map((x) => x.id)).toEqual(['docs', 'board', 'arch', 'plan', 'quality', 'review', 'taller'])
+test('app mode shows only the documenting zones', () => {
+  expect(zonesFor('app', idx).map((x) => x.id)).toEqual(['next', 'plan', 'board', 'review', 'taller'])
+  expect(zonesFor('app', idx).find((x) => x.id === 'next')).toEqual({ id: 'next', href: '#/next', views: [{ id: 'next', href: '#/next' }] })
   expect(zonesFor('app', idx).find((x) => x.id === 'taller').views.map((v) => v.id))
     .toEqual(['generate', 'analyze', 'check', 'interviews', 'team', 'machine'])
   expect(zonesFor('app', { ...idx, kitdev: true }).find((x) => x.id === 'taller').views.map((v) => v.id)).toContain('kitdev')
   expect(zonesFor('live', idx).map((x) => x.id)).not.toContain('taller')
-  expect(zonesFor('app', idx).find((x) => x.id === 'docs').views.map((v) => v.id)).toEqual(['pages', 'wikis'])
-  expect(paletteEntries('app', idx).map((e) => e.href)).toContain('#/generate')
+  const hrefs = paletteEntries('app', idx).map((e) => e.href)
+  expect(hrefs).toContain('#/generate')
+  expect(hrefs).toContain('#/next')
+  for (const h of ['#/docs', '#/wikis', '#/arch', '#/c4', '#/data', '#/libs', '#/quality', '#/kpis', '#/ci']) expect(hrefs).not.toContain(h)
   expect(paletteEntries('live', idx).map((e) => e.href)).not.toContain('#/generate')
+})
+
+test('live and static modes are unchanged: next is app-only', () => {
+  const shape = (mode, i) => zonesFor(mode, i).map((z) => [z.id, z.href, z.views.map((v) => `${v.id}${v.href}`)])
+  const full = { ...idx, codeMaps: ['api'] }
+  expect(shape('static', full)).toEqual([
+    ['docs', '#/docs', ['pages#/docs', 'wikis#/wikis']], ['arch', '#/arch', ['c4#/c4', 'code#/code']],
+    ['review', '#/review', ['review#/review']]])
+  expect(shape('live', full)).toEqual([
+    ['docs', '#/docs', ['pages#/docs', 'wikis#/wikis']], ['board', '#/kanban', ['kanban#/kanban']],
+    ['arch', '#/arch', ['c4#/c4', 'code#/code', 'data#/data', 'libs#/libs']],
+    ['plan', '#/plan', ['pipeline#/pipeline', 'interview#/interview', 'sync#/sync']],
+    ['quality', '#/quality', ['kpis#/kpis', 'ci#/ci']], ['review', '#/review', ['review#/review']]])
+})
+
+test('portalOnly flags reading routes', () => {
+  for (const h of ['#/docs/overview.md', '#/docs', '#/doc/index.md', '#/wiki/api/http-api.md', '#/wikis', '#/c4', '#/c4/flow_checkout',
+    '#/code', '#/data', '#/libs', '#/kpis', '#/ci', '#/arch', '#/quality']) expect(portalOnly(h), h).toBe(true)
+  for (const h of ['#/plan', '#/review', '#/kanban', '#/generate', '#/next', '#/start', '#/pipeline', '#/taller', '', '#/', '#/nope', undefined])
+    expect(portalOnly(h), String(h)).toBe(false)
+})
+
+test('next and start share the Next view; their crumbs exist in the app only', () => {
+  expect(crumbs('#/next', 'app', idx)).toEqual([{ key: 'zone.next', href: '#/next' }])
+  expect(crumbs('#/start', 'app', idx)).toEqual([{ key: 'zone.next', href: '#/next' }])
+  expect(crumbs('#/next', 'live', idx)).toEqual([])
+  expect(crumbs('#/docs', 'app', idx)).toEqual([])                      // portal-only: not in the app window
 })
 
 test('the Board: live and app only, its own zone right after Docs', () => {

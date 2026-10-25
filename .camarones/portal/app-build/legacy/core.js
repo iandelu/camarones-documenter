@@ -104,6 +104,8 @@ const I18N = {
     audienceAll: 'All', audienceBusiness: 'Business', audienceHint: 'Business hides the technical details of this page',
     filter: 'Filter…', sortBy: 'Sort by this column',
     // Home, zones and views (src/zones.js)
+    'zone.next': 'Next step', 'zoned.next': 'What to do now to keep the documentation moving',
+    'view.next': 'Next step', 'viewd.next': 'What to do now to keep the documentation moving',
     'zone.board': 'Board', 'zoned.board': 'The work in progress: stories, bugs and the docs each one touches',
     'view.kanban': 'Kanban', 'viewd.kanban': 'Cards by status, their goal and the docs they link',
     'kanban.new': 'New item',
@@ -223,6 +225,8 @@ const I18N = {
     audienceAll: 'Todo', audienceBusiness: 'Negocio', audienceHint: 'Negocio oculta los detalles técnicos de esta página',
     filter: 'Filtrar…', sortBy: 'Ordenar por esta columna',
     // Inicio, zonas y vistas (src/zones.js)
+    'zone.next': 'Siguiente paso', 'zoned.next': 'Qué hacer ahora para que la documentación avance',
+    'view.next': 'Siguiente paso', 'viewd.next': 'Qué hacer ahora para que la documentación avance',
     'zone.board': 'Tablero', 'zoned.board': 'El trabajo en curso: historias, bugs y la doc que toca cada uno',
     'view.kanban': 'Kanban', 'viewd.kanban': 'Tarjetas por estado, su objetivo y la doc que enlazan',
     'kanban.new': 'Nuevo elemento',
