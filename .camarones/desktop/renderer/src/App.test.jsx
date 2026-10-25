@@ -26,6 +26,17 @@ test('the hub has the same title bar', () => {
   expect(renderToStaticMarkup(<App />)).toMatch(/^<header class="dk-titlebar"><a class="cu-brand"/)
 })
 
+// The start screen (sketch A): what to document, two ways in, no more create / add.
+test("the hub asks what to document and offers a folder or the team's docs", () => {
+  globalThis.window = { camaronHub: { list: () => new Promise(() => {}) } }
+  const out = renderToStaticMarkup(<App />)
+  expect(out).toContain('<h1 class="t-impact">¿Qué quieres documentar?</h1>')
+  expect(out).toMatch(/<button type="button" class="cu-btn cu-btn--primary">Elegir…<\/button>/)
+  expect(out).toMatch(/<button type="button" class="cu-btn cu-btn--secondary">Unirme…<\/button>/)
+  expect(out).not.toContain('Crear proyecto')
+  expect(out).not.toContain('Añadir carpeta')
+})
+
 // The palette has a button for who does not know ⌘K, and each section shows its g shortcut (drawn, not read twice).
 test('the header opens the palette and the sidebar shows the shortcuts', () => {
   globalThis.window = { camaronApp: { token: 't' } }

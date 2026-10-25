@@ -24,7 +24,7 @@ test('the hints and the palette do not move for who asked for less motion', () =
 
 // WCAG 2.5.8: the sidebar links, the projects of the rail, the folds and the labelled checkboxes are 24 px or more.
 test.each([['.dk-nav', 'min-height'], ['.dk-proj', 'height'], ['.dk-fold > summary', 'min-height'], ['.dk-check', 'min-height'],
-  ['.dk-unit-main > a', 'min-height']])(
+  ['.dk-unit-main > a', 'min-height'], ['.dk-back', 'min-height']])(
   '%s is a 24 px target', (sel, prop) => {
     expect(px(rule(sel), prop)).toBeGreaterThanOrEqual(24)
   })
