@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { getJSON, postJSON } from './api.js'
 import { t } from './i18n.js'
+import { Skeleton } from '@camaron/ui'
+import Failed from './Failed.jsx'
 
 // Sync with the team (env.sync_status / env.share): where this cam-docs stands against the team's repo and sharing
 // as the team action it is — checkpoint, bring in the team's work, push. A clash is undone and reported, never forced.
@@ -26,8 +28,8 @@ export default function Sync() {
       setS(r.sync)
     } catch (e) { setResult({ status: 'error', detail: e.message }) } finally { setBusy('') }
   }
-  if (error) return <section className="view"><h1>{t('syTitle')}</h1><p className="error" role="alert">{t('syFailed')} {error}</p></section>
-  if (!s) return <section className="view"><h1>{t('syTitle')}</h1><div className="co-esqueleto skeleton" aria-busy="true" /></section>
+  if (error) return <section className="view"><h1>{t('syTitle')}</h1><Failed title={t('syFailed')} detail={error} onRetry={() => { setError(''); load(false) }} /></section>
+  if (!s) return <section className="view"><h1>{t('syTitle')}</h1><Skeleton lines={3} /></section>
   const r = result
   const message = r && (t(`sy.${r.status}`).startsWith('sy.') ? r.status : t(`sy.${r.status}`)).replace('{detail}', r.detail || '')
   const ok = r && ['pushed', 'up-to-date', 'nothing'].includes(r.status)

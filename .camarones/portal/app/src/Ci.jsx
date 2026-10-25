@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { getJSON, postJSON } from './api.js'
 import { t } from './i18n.js'
+import { Skeleton } from '@camaron/ui'
+import Failed from './Failed.jsx'
 import { core } from './core.js'
 import AppOnly from './AppOnly.jsx'
 import { pipelineState, rows } from './ci.js'
@@ -20,12 +22,13 @@ export default function Ci() {
   const [s, setS] = useState(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  useEffect(() => { getJSON('ci').then(setS, (e) => setError(e.message)) }, [])
+  const load = () => getJSON('ci').then((x) => { setS(x); setError('') }, (e) => setError(e.message))
+  useEffect(() => { load() }, [])
   async function generate(forge) {
     setBusy(true)
     try { setS(await postJSON('ci', { forge })); setError('') } catch (e) { setError(e.message) } finally { setBusy(false) }
   }
-  if (!s) return <section className="view"><h1>{t('ciTitle')}</h1>{error ? <p className="error" role="alert">{error}</p> : <p className="muted">{t('loading')}</p>}</section>
+  if (!s) return <section className="view"><h1>{t('ciTitle')}</h1>{error ? <Failed title={t('ciFailed')} detail={error} onRetry={() => { setError(''); load() }} /> : <Skeleton lines={4} />}</section>
   const p = pipelineState(s.pipeline)
   const other = s.forge === 'github' ? 'gitlab' : 'github'
   const anyMissing = rows(s).some((r) => r.state !== 'current')

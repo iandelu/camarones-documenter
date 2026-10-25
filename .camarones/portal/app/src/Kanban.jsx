@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getJSON, postJSON } from './api.js'
 import { lang, t } from './i18n.js'
+import { Skeleton } from '@camaron/ui'
+import Failed from './Failed.jsx'
 import { applyFilters, columns, dropAnchor, keyMove, parseNewArg, STATUS_LABELS } from './kanban.js'
 
 // The Board (spec §7): the project's Backlog.md board in cam-docs/backlog/, six columns, a card's goal, the docs it
@@ -264,8 +266,8 @@ export default function Kanban({ arg }) {
     move(id, col.status, dropAnchor(col.cards, dropIndex(e, e.currentTarget), id))
   }
 
-  if (error) return <section className="view kanban"><h1>{t('kbTitle')}</h1><p className="error" role="alert">{t('kbFailed')} {error}</p></section>
-  if (!board) return <section className="view kanban"><h1>{t('kbTitle')}</h1><div className="co-esqueleto skeleton" aria-busy="true" aria-label={t('kbLoading')} /></section>
+  if (error) return <section className="view kanban"><h1>{t('kbTitle')}</h1><Failed title={t('kbFailed')} detail={error} onRetry={() => { setError(''); load() }} /></section>
+  if (!board) return <section className="view kanban"><h1>{t('kbTitle')}</h1><Skeleton lines={4} /></section>
 
   const readOnly = !writable ? <p className="aviso kb-ro" role="status">{t('kbReadOnly')}</p> : null
   if (!board.enabled) {

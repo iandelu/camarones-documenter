@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { Aviso, Button, Card } from '@camaron/ui'
+import { Button, Card } from '@camaron/ui'
 import { fields, toArgs } from '@camaron/ui/cmdform.js'
 import { others } from '../catalog.js'
 import { useCmd, useHash } from '../hooks.js'
-import { Fold, JobOutput } from '../parts.jsx'
+import { Failed, Fold, JobOutput } from '../parts.jsx'
 import { lang, t } from '../i18n.js'
 
 // A section's "All commands", folded: the catalog commands of its zones that its panels do not already run, each with
@@ -16,7 +16,8 @@ export default function Commands({ srv, jobs, section }) {
   const [cmds, setCmds] = useState(null)
   const [error, setError] = useState('')
   const want = (useHash().match(/^#\/[\w-]+\/([\w-]+)/) || [])[1]
-  useEffect(() => { catalog(srv).then((c) => setCmds(c.commands), (e) => setError(e.message)) }, [])
+  const load = () => catalog(srv).then((c) => { setCmds(c.commands); setError('') }, (e) => setError(e.message))
+  useEffect(() => { load() }, [])
   const { safe, careful } = others(cmds, section)
   const named = [...safe, ...careful].some((c) => c.name === want)
   useEffect(() => {
@@ -25,7 +26,7 @@ export default function Commands({ srv, jobs, section }) {
     card.scrollIntoView({ block: 'center' })
     card.querySelector('input, select, button')?.focus({ preventScroll: true })
   }, [want, named])
-  if (error) return <Aviso tone="error" title={t('cmds.failed')} detail={error} />
+  if (error) return <Failed title={t('cmds.failed')} detail={error} onRetry={load} />
   if (!safe.length && !careful.length) return null
   return (
     <Fold label={`${t('cmds.all')} (${safe.length + careful.length})`} open={named}>

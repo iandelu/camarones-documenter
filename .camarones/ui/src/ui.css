@@ -57,6 +57,7 @@ main[tabindex="-1"]:focus { outline: none; }
 .cu-aviso-title { font-size: var(--text-body-sm); }
 .cu-aviso-body { font-size: var(--text-meta); color: var(--color-ink-soft); }
 .cu-aviso-detail { font: var(--text-meta)/1.4 var(--font-mono); color: var(--color-ink-dim); overflow-wrap: anywhere; }
+.cu-aviso-action { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .4rem; }
 .cu-aviso--info .cu-aviso-title { color: var(--color-acento-texto); }
 .cu-aviso--warn .cu-aviso-title { color: var(--color-estado-aviso); }
 .cu-aviso--error .cu-aviso-title { color: var(--color-estado-mal); }

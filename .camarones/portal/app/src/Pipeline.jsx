@@ -2,11 +2,14 @@ import { Background, Controls, Handle, Position, ReactFlow } from '@xyflow/react
 import '@xyflow/react/dist/style.css'
 import { AnimatePresence, motion } from 'motion/react'
 import { memo, useEffect, useMemo, useReducer, useRef, useState } from 'react'
+import { Aviso, Button, Skeleton } from '@camaron/ui'
 import { getJSON, postJSON, RUNS } from './api.js'
 import { t } from './i18n.js'
-import { apply, changedRun, COLUMNS, columns, initial, layout } from './board.js'
+import { apply, changedRun, column, COLUMNS, columns, initial, layout } from './board.js'
 
-const LABEL = { todo: 'To do', running: 'Running', blocked: 'Blocked', done: 'Done', dropped: 'Dropped' }
+// A column's name, and a unit's state in words (doing is the running column).
+const LABEL = { todo: () => t('pipe.todo'), running: () => t('pipe.running'), blocked: () => t('pipe.blocked'),
+  done: () => t('pipe.done'), dropped: () => t('pipe.dropped') }
 
 function reducer(state, action) {
   if (action.type === 'load') return initial(action.pipeline, action.detail)
@@ -33,6 +36,7 @@ function usePipeline() {
         source = null
         shown.current = run
         dispatch({ type: 'load', pipeline, detail })
+        setError(null)
         if (run && !run.finished) {
           source = new EventSource(`/api/runs/${encodeURIComponent(run.run)}/events`)
           source.onmessage = (m) => {
@@ -69,7 +73,7 @@ const UnitNode = memo(function UnitNode({ data }) {
     <div className={`node s-${u.status}${u.awaiting ? ' awaiting' : ''}`} title={u.title}>
       <Handle type="target" position={Position.Left} />
       <div className="node-id">{u.id}</div>
-      <div className="node-meta">{u.awaiting ? 'awaiting approval' : (u.live.runner || u.status)}{u.isolation === 'worktree' ? ' · own copy' : ''}</div>
+      <div className="node-meta">{u.awaiting ? t('pipe.awaiting') : (u.live.runner || LABEL[column(u)]())}{u.isolation === 'worktree' ? ` · ${t('pipe.ownCopy')}` : ''}</div>
       <Handle type="source" position={Position.Right} />
     </div>
   )
@@ -95,12 +99,12 @@ function Board({ units, onSelect }) {
     <div className="board">
       {COLUMNS.map((c) => (
         <div key={c} className="col">
-          <div className="col-head">{LABEL[c]} <span>{cols[c].length}</span></div>
+          <div className="col-head">{LABEL[c]()} <span>{cols[c].length}</span></div>
           {cols[c].map((u) => (
             <motion.button layout="position" key={u.id} className={`unit s-${u.status}`} onClick={() => onSelect(u.id)}
                            transition={{ duration: 0.2 }}>
               <span className="card-id">{u.id}</span>
-              <span className="card-meta">{u.awaiting ? 'awaiting approval · ' : ''}{u.live.runner ? `${u.live.runner} · ` : ''}phase {u.phase}</span>
+              <span className="card-meta">{u.awaiting ? `${t('pipe.awaiting')} · ` : ''}{u.live.runner ? `${u.live.runner} · ` : ''}{t('pipe.phase', { n: u.phase })}</span>
             </motion.button>
           ))}
         </div>
@@ -115,25 +119,26 @@ function Drawer({ unit, onClose, onChanged }) {
     try { await postJSON(path, { unit: unit.id }); onChanged() } catch (e) { setMessage(e.message) }
   }
   const l = unit.live
-  const rows = [['status', unit.status], ['agent', l.runner], ['outcome', l.outcome], ['merge', l.merge],
-    ['time', l.seconds != null ? `${l.seconds}s` : null], ['works in', unit.isolation === 'worktree' ? 'its own copy' : 'cam-docs'],
-    ['context tokens', l.tokens_in + l.tokens_cache || null], ['output tokens', l.tokens_out || null],
-    ['cost', l.cost_usd ? `$${l.cost_usd.toFixed(2)}` : null], ['waits for', (unit.deps || []).join(', ') || null]]
+  const rows = [[t('pipe.status'), LABEL[column(unit)]()], [t('pipe.agent'), l.runner], [t('pipe.outcome'), l.outcome],
+    [t('pipe.merge'), l.merge], [t('pipe.time'), l.seconds != null ? `${l.seconds} s` : null],
+    [t('pipe.where'), unit.isolation === 'worktree' ? t('pipe.ownCopyLong') : 'cam-docs'],
+    [t('pipe.tokensIn'), l.tokens_in + l.tokens_cache || null], [t('pipe.tokensOut'), l.tokens_out || null],
+    [t('pipe.cost'), l.cost_usd ? `$${l.cost_usd.toFixed(2)}` : null], [t('pipe.waits'), (unit.deps || []).join(', ') || null]]
   return (
     <motion.aside className="drawer" initial={{ x: 40, opacity: 0 }} animate={{ x: 0, opacity: 1 }}
                   exit={{ x: 40, opacity: 0 }} transition={{ duration: 0.18 }}>
-      <button className="close" onClick={onClose} aria-label="Close">×</button>
+      <button className="close" onClick={onClose} aria-label={t('pipe.close')}>×</button>
       <h2>{unit.id}</h2>
       <p className="muted">{unit.title}</p>
       <dl>{rows.filter(([, v]) => v != null && v !== '').map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{String(v)}</dd></div>)}</dl>
       {unit.notes ? <p className="note">{unit.notes}</p> : null}
       {unit.awaiting
-        ? <button className="small" onClick={() => act('units/approve')}>Approve — let the next units start</button>
-        : unit.status === 'blocked' ? <button className="small" onClick={() => act('units/retry')}>Retry this unit</button> : null}
+        ? <button className="small" onClick={() => act('units/approve')}>{t('pipe.approve')}</button>
+        : unit.status === 'blocked' ? <button className="small" onClick={() => act('units/retry')}>{t('pipe.retry')}</button> : null}
       {message ? <p className="error" role="alert">{message}</p> : null}
       {RUNS && unit.runner === 'agent' && ['todo', 'doing'].includes(unit.status) ? <a className="button small" href="./desktop/#/plan">{t('pInApp')}</a> : null}
-      <h3>Live log</h3>
-      <pre className="log">{l.log.length ? l.log.join('\n') : 'Nothing yet in this run.'}</pre>
+      <h3>{t('pipe.log')}</h3>
+      <pre className="log">{l.log.length ? l.log.join('\n') : t('pipe.noLog')}</pre>
     </motion.aside>
   )
 }
@@ -143,8 +148,13 @@ export default function Pipeline({ arg }) {
   const [mode, setMode] = useState('graph')
   const [selected, setSelected] = useState(arg)
   useEffect(() => setSelected(arg), [arg])
-  if (error) return <p className="muted">The portal server is not answering ({error}). Start it with <code>camaron up</code>.</p>
-  if (!state) return <p className="muted">Loading…</p>
+  if (error) return (
+    <section className="pipeline view">
+      <Aviso tone="error" title={t('pipe.down')} detail={error}
+        action={<Button size="sm" onClick={reload}>{t('retry')}</Button>}>{t('pipe.downHow')}</Aviso>
+    </section>
+  )
+  if (!state) return <section className="pipeline view"><Skeleton lines={5} /></section>
   const run = state.run
   const unit = selected && state.units[selected]
   const counts = columns(state.units)
@@ -152,17 +162,17 @@ export default function Pipeline({ arg }) {
     <section className="pipeline view">
       <div className="pipe-head">
         <div>
-          <h1>Pipeline</h1>
+          <h1>{t('pipe.title')}</h1>
           <p className="lede">
-            {counts.done.length}/{Object.keys(state.units).length} units done
-            {run ? ` · last run ${run.run} ${state.finished ? 'finished' : 'running now'}` : ' · no run yet: camaron run'}
+            {t('pipe.count', { done: counts.done.length, total: Object.keys(state.units).length })}
+            {' · '}{run ? t(state.finished ? 'pipe.runDone' : 'pipe.runNow', { run: run.run }) : t('pipe.noRun')}
           </p>
         </div>
         {RUNS ? <a className="button small" href="./desktop/#/plan">{t('pInApp')}</a> : null}
         <div className="seg" role="tablist">
           {['graph', 'board'].map((m) => (
             <button key={m} role="tab" aria-selected={mode === m} className={mode === m ? 'on' : ''}
-                    onClick={() => setMode(m)}>{m === 'graph' ? 'Graph' : 'Board'}</button>
+                    onClick={() => setMode(m)}>{t(m === 'graph' ? 'pipe.graph' : 'pipe.board')}</button>
           ))}
         </div>
       </div>

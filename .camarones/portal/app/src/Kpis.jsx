@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { getJSON, postJSON } from './api.js'
 import { t } from './i18n.js'
+import { Skeleton } from '@camaron/ui'
+import Failed from './Failed.jsx'
 import { core } from './core.js'
 import { money, segments, tiles } from './kpis.js'
 
@@ -10,15 +12,16 @@ const link = (path) => core.hrefFor(path)
 export default function Kpis() {
   const [d, setD] = useState(null)
   const [error, setError] = useState('')
-  useEffect(() => { getJSON('kpis').then(setD, (e) => setError(e.message)) }, [])
+  const load = () => getJSON('kpis').then((x) => { setD(x); setError('') }, (e) => setError(e.message))
+  useEffect(() => { load() }, [])
   async function miss(q, action) {
     try {
       const r = await postJSON('kpis/miss', { q, action })
       setD((cur) => ({ ...cur, misses: r.misses }))
     } catch (e) { setError(e.message) }
   }
-  if (error) return <section className="view"><h1>{t('kpisTitle')}</h1><p className="error" role="alert">{error}</p></section>
-  if (!d) return <section className="view"><h1>{t('kpisTitle')}</h1><p className="muted">{t('loading')}</p></section>
+  if (error) return <section className="view"><h1>{t('kpisTitle')}</h1><Failed title={t('kpisFailed')} detail={error} onRetry={() => { setError(''); load() }} /></section>
+  if (!d) return <section className="view"><h1>{t('kpisTitle')}</h1><Skeleton lines={4} /></section>
   return (
     <section className="view kpis">
       <h1>{t('kpisTitle')}</h1>

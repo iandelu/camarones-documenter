@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Aviso, Button, Card, Skeleton } from '@camaron/ui'
 import { action, doctorNote } from '../summary.js'
 import { useAgents, useStore } from '../hooks.js'
-import { AgentPicker, Page } from '../parts.jsx'
+import { AgentPicker, Failed, Page } from '../parts.jsx'
 import { lang, t } from '../i18n.js'
 
 // The project's Summary: one next step (lib/plan.next_step, the wizard's own rule) with the one button that takes
@@ -22,7 +22,7 @@ export default function Summary({ srv, jobs }) {
   }, [running.length])
 
   const title = t('nav.summary')
-  if (error) return <Page title={title}><Aviso tone="error" title={t('summary.failed')} detail={error} /></Page>
+  if (error) return <Page title={title}><Failed title={t('summary.failed')} detail={error} onRetry={() => { setError(''); load() }} /></Page>
   if (!data) return <Page title={title}><Skeleton lines={5} /></Page>
   const { step, plan, review } = data
   const next = action(step)

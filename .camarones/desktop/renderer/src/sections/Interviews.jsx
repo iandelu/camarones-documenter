@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Aviso, Button, Card, Skeleton } from '@camaron/ui'
+import { Button, Card, Skeleton } from '@camaron/ui'
 import { useAgents, useCmd } from '../hooks.js'
-import { AgentPicker, JobOutput, Page, UnitRow } from '../parts.jsx'
+import { AgentPicker, Failed, JobOutput, Page, UnitRow } from '../parts.jsx'
 import Commands from './Commands.jsx'
 import { lang, t } from '../i18n.js'
 
@@ -19,7 +19,7 @@ export default function Interviews({ srv, jobs, app }) {
   const a = useAgents(srv)
   const c = useCmd(srv, jobs)
   const load = () => {
-    srv.get('interview').then(setD, (e) => setError(e.message))
+    srv.get('interview').then((x) => { setD(x); setError('') }, (e) => setError(e.message))
     srv.get('pipeline').then((p) => { setAll(p.units); setUnits(p.units.filter((u) => UNITS.includes(u.id))) }, () => {})
   }
   useEffect(() => { load(); srv.get('app/info').then((i) => setRoot(i.root), () => {}) }, [])
@@ -35,7 +35,7 @@ export default function Interviews({ srv, jobs, app }) {
     const files = await app.pickFiles?.('answers')
     if (files?.length) step('interview', { action: 'import', args: files })
   }
-  if (error) return <Page title={t('nav.interviews')}><Aviso tone="error" title={t('iv.failed')} detail={error} /></Page>
+  if (error) return <Page title={t('nav.interviews')}><Failed title={t('iv.failed')} detail={error} onRetry={() => { setError(''); load() }} /></Page>
   if (!d) return <Page title={t('nav.interviews')}><Skeleton lines={5} /></Page>
   const team = d.mode === 'team'
   const s = d.status

@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Aviso, Brand, Breadcrumbs, Button, Card, EmptyState, Field, Keys, Skeleton, SkipLink } from '@camaron/ui'
+import { Brand, Breadcrumbs, Button, Card, EmptyState, Field, Keys, Skeleton, SkipLink } from '@camaron/ui'
 import { initials, sectionOf, sections } from './nav.js'
 import { jobsStore } from './jobs.js'
 import { chord, entries, keyFor, typing } from './palette.js'
 import { server } from './server.js'
 import { useHash, useStore } from './hooks.js'
+import { Failed } from './parts.jsx'
 import JobsPanel from './JobsPanel.jsx'
 import Palette from './Palette.jsx'
 import { catalog } from './sections/Commands.jsx'
@@ -49,8 +50,9 @@ function Project({ app }) {
   const jobs = useMemo(() => jobsStore(srv.get), [])           // one for the window: it outlasts the sections
   const { running } = useStore(jobs)
   const projects = useProjects(app, index?.project, setStatus)
+  const loadIndex = () => srv.get('tree').then((x) => { setIndex(x); setError('') }, (e) => setError(e.message))
   useEffect(() => {
-    srv.get('tree').then(setIndex, (e) => setError(e.message))
+    loadIndex()
     srv.get('app/info').then((i) => setKitdev(!!i.kitdev), () => {})
     jobs.refresh()
     return () => jobs.stop()
@@ -101,7 +103,7 @@ function Project({ app }) {
         {machine.map(link)}
       </nav>
       <main className="dk-main" id="main" tabIndex={-1}>
-        {error && <Aviso tone="error" title={t('hub.failed')} detail={error} />}
+        {error && <Failed title={t('project.failed')} detail={error} onRetry={() => { setError(''); loadIndex() }} />}
         {!index && !error ? <Skeleton lines={4} /> : <Section here={here} srv={srv} jobs={jobs} app={app} />}
       </main>
       <JobsPanel srv={srv} jobs={jobs} />
@@ -174,7 +176,7 @@ function Hub({ hub }) {
   const [name, setName] = useState('')
   const [from, setFrom] = useState('')
   const [status, setStatus] = useState('')
-  const load = () => hub.list().then((r) => (r.error ? setError(r.error) : setRows(r.projects)))
+  const load = () => hub.list().then((r) => (r.error ? setError(r.error) : setRows(r.projects)), (e) => setError(e.message))
   useEffect(() => { load() }, [])
   const act = async (p) => {
     setStatus('')
@@ -187,7 +189,7 @@ function Hub({ hub }) {
     <main className="dk-hub">
       <Brand />
       <h1 className="t-impact">{t('hub.title')}</h1>
-      {error && <Aviso tone="error" title={t('hub.failed')} detail={error} />}
+      {error && <Failed title={t('hub.failed')} detail={error} onRetry={() => { setError(''); load() }} />}
       {!rows && !error && <Skeleton lines={3} />}
       {rows && !rows.length && (
         <EmptyState title={t('hub.empty')} action={<Button variant="primary" onClick={() => setForm('new')}>{t('hub.new')}</Button>}>

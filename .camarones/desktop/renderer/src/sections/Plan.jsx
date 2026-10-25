@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Aviso, Button, Card, EmptyState, Skeleton } from '@camaron/ui'
 import { groups } from '../plan.js'
 import { useAgents, useCmd, useStore } from '../hooks.js'
-import { AgentPicker, Fold, JobOutput, Page, UnitRow } from '../parts.jsx'
+import { AgentPicker, Failed, Fold, JobOutput, Page, UnitRow } from '../parts.jsx'
 import Commands from './Commands.jsx'
 import { lang, t } from '../i18n.js'
 
@@ -23,7 +23,7 @@ export default function Plan({ srv, jobs }) {
     const id = setInterval(load, active ? 3000 : 15000)
     return () => clearInterval(id)
   }, [active, running.length])
-  if (error) return <Page title={t('nav.plan')}><Aviso tone="error" title={t('plan.failed')} detail={error} /></Page>
+  if (error) return <Page title={t('nav.plan')}><Failed title={t('plan.failed')} detail={error} onRetry={() => { setError(''); load() }} /></Page>
   if (!data) return <Page title={t('nav.plan')}><Skeleton lines={6} /></Page>
   if (!data.units.length) return <Page title={t('nav.plan')}><NoPlan srv={srv} jobs={jobs} onDone={load} /></Page>
   const g = groups(data.units)

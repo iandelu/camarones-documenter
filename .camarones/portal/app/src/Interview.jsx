@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getJSON, postJSON } from './api.js'
 import { lang, t } from './i18n.js'
+import { Skeleton } from '@camaron/ui'
+import Failed from './Failed.jsx'
 
 // The team questionnaire answered in the portal (lib/questionnaire.py): the same response file the offline form and
 // `interview import` produce, one per person, so the consolidating units read them as always. A person's previous
@@ -32,8 +34,8 @@ export default function Interview() {
     return out
   }, [data])
 
-  if (error) return <section className="view"><h1>{t('ivTitle')}</h1><p className="error" role="alert">{t('ivFailed')} {error}</p></section>
-  if (!data) return <section className="view"><h1>{t('ivTitle')}</h1><div className="co-esqueleto skeleton" aria-busy="true" /></section>
+  if (error) return <section className="view"><h1>{t('ivTitle')}</h1><Failed title={t('ivFailed')} detail={error} onRetry={() => { setError(''); load(who) }} /></section>
+  if (!data) return <section className="view"><h1>{t('ivTitle')}</h1><Skeleton lines={4} /></section>
   if (!data.available) return (
     <section className="view interview"><h1>{t('ivTitle')}</h1>
       <p className="lede">{t('ivLead')}</p>
