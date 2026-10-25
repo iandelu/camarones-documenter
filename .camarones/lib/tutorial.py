@@ -242,9 +242,11 @@ PAGES = {
                  "node` lo instala con winget en Windows o Homebrew en macOS). Lanza `camaron app`: la primera vez descarga "
                  "Electron, fijado a una versión, en ~/.camarones/desktop, sin permisos de administrador y sin tocar tus "
                  "proyectos. Desde la carpeta de un proyecto abre ese proyecto; desde cualquier otra, el selector, donde abres "
-                 "uno, creas uno nuevo, te unes al cam-docs del equipo con su URL o añades una carpeta. Dentro, Ctrl o Cmd + "
-                 "Shift + O vuelve a los proyectos y «camarón › Abrir en el navegador» abre el mismo portal fuera. Un buen "
-                 "primer paso: Taller › Comprobar para ver qué falta, y Analizar para el primer vistazo sin IA. Si algo "
+                 "uno, creas uno nuevo, te unes al cam-docs del equipo con su URL o añades una carpeta. Dentro, tus proyectos "
+                 "están en el raíl de la izquierda: otro se abre en la misma ventana, que vuelve a salir donde la dejaste. "
+                 "Ctrl o Cmd + Shift + O vuelve a los proyectos y «camarón › Abrir en el navegador» abre el mismo portal "
+                 "fuera. Las secciones que la app aún está rehaciendo abren su zona del Taller, y «Volver a la app» te trae "
+                 "de vuelta. Un buen primer paso: Taller › Comprobar para ver qué falta, y Analizar para el primer vistazo sin IA. Si algo "
                  "falla, el aviso dice qué; borrar ~/.camarones/desktop fuerza a descargar Electron otra vez."},
         {"icon": "✏️", "title": "Dónde y cuándo se puede editar",
          "art": r"""
@@ -597,8 +599,10 @@ PAGES = {
                  "first time it downloads Electron, pinned to one version, into ~/.camarones/desktop, with no admin rights "
                  "and nothing in your projects. From a project's folder it opens that project; from anywhere else, the "
                  "picker, where you open one, create a new one, join the team's cam-docs with its URL or add a folder. "
-                 "Inside, Ctrl or Cmd + Shift + O goes back to the projects and \"camarón › Open in the browser\" opens the "
-                 "same portal outside. A good first step: Workshop › Check to see what is missing, and Analyze for the first "
+                 "Inside, your projects sit on the rail at the left: another one opens in the same window, which comes back "
+                 "where you left it. Ctrl or Cmd + Shift + O goes back to the projects and \"camarón › Open in the browser\" opens the "
+                 "same portal outside. The sections the app is still rebuilding open their Workshop zone, and \"Back to the "
+                 "app\" brings you back. A good first step: Workshop › Check to see what is missing, and Analyze for the first "
                  "look without AI. If something fails, the notice says what; deleting ~/.camarones/desktop makes it download "
                  "Electron again."},
         {"icon": "✏️", "title": "Where and when you can edit",

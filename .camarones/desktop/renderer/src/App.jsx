@@ -41,6 +41,7 @@ function Project({ app }) {
   const [index, setIndex] = useState(null)
   const [kitdev, setKitdev] = useState(false)
   const [error, setError] = useState('')
+  const [status, setStatus] = useState('')
   useEffect(() => {
     const get = api(app)
     get('tree').then(setIndex, (e) => setError(e.message))
@@ -58,10 +59,7 @@ function Project({ app }) {
         <Brand project={index?.project} href="#/summary" />
         <Breadcrumbs items={[{ label: index?.project || '…', href: '#/summary' }, { label: t('nav.' + here) }]} />
       </header>
-      <nav className="dk-rail" aria-label={t('rail')}>
-        {index && <a className="dk-proj on" href="#/summary" aria-current="true" title={index.project}>{initials(index.project)}</a>}
-        <button type="button" className="dk-proj add" aria-label={t('rail.add')} title={t('rail.add')} onClick={() => app.hub?.()}>+</button>
-      </nav>
+      <Rail app={app} name={index?.project} onStatus={setStatus} />
       <nav className="dk-side" aria-label={t('nav.project')}>
         {project.map(link)}
         <span className="dk-gap"></span>
@@ -75,8 +73,36 @@ function Project({ app }) {
       <section className="dk-jobs" aria-label={t('jobs')}>
         <span className="eyebrow">{t('jobs')}</span><span className="muted small">{t('jobs.none')}</span>
       </section>
-      <footer className="dk-status"><span className="dk-grow"></span><span>{index ? `kit ${index.kit}` : ''}</span></footer>
+      <footer className="dk-status"><span role="status">{status}</span><span className="dk-grow"></span>
+        <span>{index ? `kit ${index.kit}` : ''}</span></footer>
     </div>
+  )
+}
+
+// This machine's projects, this window's marked: another one opens in this window's place (the main process starts
+// its server and stops this one). Until the list arrives, this project alone; a project opened by its folder but
+// never listed comes first.
+function Rail({ app, name, onStatus }) {
+  const [rows, setRows] = useState(null)
+  const [busy, setBusy] = useState(false)          // one switch at a time: the other server takes seconds to start
+  useEffect(() => { app.projects?.().then((r) => r?.projects && setRows(r.projects), () => {}) }, [])
+  const go = async (p) => {
+    setBusy(true)
+    onStatus(t('hub.opening', { name: p.name }))
+    const r = await app.switchTo(p.path).catch((e) => ({ error: e.message }))
+    setBusy(false)
+    onStatus(r?.error ? `${t('hub.error')}: ${r.error}` : '')
+  }
+  const self = name ? [{ name, path: '', exists: true, current: true }] : []
+  const list = !rows ? self : rows.some((p) => p.current) ? rows : [...self, ...rows]    // opened but never listed
+  return (
+    <nav className="dk-rail" aria-label={t('rail')}>
+      {list.map((p) => (p.current
+        ? <a key={p.path || p.name} className="dk-proj on" href="#/summary" aria-current="true" title={p.name}>{initials(p.name)}</a>
+        : <button key={p.path} type="button" className="dk-proj" disabled={!p.exists || busy} onClick={() => go(p)}
+            title={p.exists ? p.name : `${p.name}: ${t('rail.missing')}`}>{initials(p.name)}</button>))}
+      <button type="button" className="dk-proj add" aria-label={t('rail.add')} title={t('rail.add')} onClick={() => app.hub?.()}>+</button>
+    </nav>
   )
 }
 

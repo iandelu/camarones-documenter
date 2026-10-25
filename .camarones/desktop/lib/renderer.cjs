@@ -27,4 +27,24 @@ function bounds(saved, workAreas) {
 // A window asks to show another project: only one `camaron projects` listed, and only if it is on disk.
 const switchable = (listed, root) => typeof root === 'string' && (listed || []).some((p) => p.path === root && p.exists)
 
-module.exports = { SECTIONS, projectUrl, hubFile, DEFAULT_BOUNDS, MIN, bounds, switchable }
+// The same folder however it was spelled (a trailing separator; on Windows, case and slashes).
+function samePath(a, b, platform = process.platform) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false
+  const p = platform === 'win32' ? path.win32 : path.posix
+  const norm = (x) => (platform === 'win32' ? p.resolve(x).toLowerCase() : p.resolve(x))
+  return norm(a) === norm(b)
+}
+
+// The rail: the projects the CLI listed, the one this window shows marked as current.
+const rail = (listed, current, platform) => (listed || []).map((p) => ({ ...p, current: samePath(p.path, current, platform) }))
+
+// One start per project at a time: a project's server takes seconds to come up, and until then a second click (the
+// rail, the hub) would start a second server. inFlight: key → the start's promise, dropped when it settles.
+function oneAtATime(inFlight, key, start) {
+  if (inFlight.has(key)) return inFlight.get(key)
+  const p = new Promise((resolve) => resolve(start())).finally(() => inFlight.delete(key))
+  inFlight.set(key, p)
+  return p
+}
+
+module.exports = { SECTIONS, projectUrl, hubFile, DEFAULT_BOUNDS, MIN, bounds, switchable, samePath, rail, oneAtATime }

@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
-import { Brand, Breadcrumbs, Chip, Keys } from '@camaron/ui'
+import { Brand, Breadcrumbs, Button, Chip, Keys } from '@camaron/ui'
 import '@camaron/ui/ui.css'
 import Native from '../Native.jsx'
 import Palette from '../views/Palette.jsx'
@@ -10,6 +10,7 @@ import { CodeSide } from '../views/CodeMap.jsx'
 import { ArchSide } from '../views/C4.jsx'
 import { drawToc, scrollToAnchor, wireDocs } from '../content/doc.js'
 import { t as tr } from '../i18n.js'
+import { APP } from '../api.js'
 import { resolve } from '../router.js'
 import { crumbs, locate, zonesFor } from '../zones.js'
 import { core } from '../core.js'
@@ -87,6 +88,8 @@ export default function Shell() {
           <Keys keys={MAC ? ['⌘', 'K'] : ['Ctrl', 'K']} />
         </button>
         <div className="tools">
+          {/* in the desktop app: its own UI is one folder down on this server (desktop/renderer) */}
+          {APP && <Button variant="ghost" size="sm" href="./desktop/#/summary">{tr('shell.app')}</Button>}
           {index && <Summary s={index.summary || {}} feedback={index.feedback} t={t} />}
           {index && <Language index={index} core={core} onChange={go} />}
           <button className="ghost icon" type="button" aria-label={tr('shell.theme')} title={tr('shell.theme')}

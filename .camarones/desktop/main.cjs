@@ -1,9 +1,10 @@
 'use strict'
-// Camarón's desktop app, main process. It only runs processes and windows: every project window is that project's
-// own portal server (lib/serve.py, started here with a fresh token), so the portal, the Taller and the CLI are the
-// same code. The hub lists, creates and joins projects through the CLI (`projects`, `new`, `join` with --no-open).
+// Camarón's desktop app, main process. It only runs processes and windows: every project window is served by that
+// project's own server (lib/serve.py, started here with a fresh token): the app's UI at /desktop/ (desktop/renderer),
+// the portal at /, so the app, the portal, the Taller and the CLI are the same code. The hub (the same UI, from disk)
+// lists, creates and joins projects through the CLI (`projects`, `new`, `join` with --no-open).
 // Started by `camaron app` (lib/desktop.py), which passes the interpreter and kit to call back.
-const { app, BrowserWindow, Menu, dialog, ipcMain, session, shell } = require('electron')
+const { app, BrowserWindow, Menu, dialog, ipcMain, screen, session, shell } = require('electron')
 const { spawn, spawnSync } = require('node:child_process')
 const crypto = require('node:crypto')
 const fs = require('node:fs')
@@ -11,6 +12,7 @@ const os = require('node:os')
 const path = require('node:path')
 const readline = require('node:readline')
 const core = require('./lib/core.cjs')
+const renderer = require('./lib/renderer.cjs')
 
 const KIT = process.env.CAMARONES_KIT || path.resolve(__dirname, '..')
 const PY = process.env.CAMARONES_PY || (process.platform === 'win32' ? 'python' : 'python3')
@@ -61,10 +63,21 @@ function guard(win, origin) {
 }
 
 function windowOptions(extraArgs) {
-  return { width: 1280, height: 860, minWidth: 720, minHeight: 520, title: 'camarón', show: false,
+  return { ...renderer.DEFAULT_BOUNDS, minWidth: renderer.MIN.width, minHeight: renderer.MIN.height, title: 'camarón', show: false,
     backgroundColor: '#fafaf7',
     webPreferences: { preload: PRELOAD, contextIsolation: true, sandbox: true, nodeIntegration: false,
       webSecurity: true, spellcheck: false, additionalArguments: extraArgs } }
+}
+
+// Where the project window was last time, if that place is still on a screen (Electron's own folder for this app).
+const BOUNDS = () => path.join(app.getPath('userData'), 'window.json')
+function lastBounds() {
+  let saved = null
+  try { saved = JSON.parse(fs.readFileSync(BOUNDS(), 'utf8')) } catch { /* first run */ }
+  return renderer.bounds(saved, screen.getAllDisplays().map((d) => d.workArea))
+}
+function remember(win) {
+  win.on('close', () => { try { fs.writeFileSync(BOUNDS(), JSON.stringify(win.getNormalBounds())) } catch { /* read-only */ } })
 }
 
 function openHub() {
@@ -73,7 +86,7 @@ function openHub() {
   guard(hub, null)
   hub.once('ready-to-show', () => hub.show())
   hub.on('closed', () => { hub = null })
-  hub.loadFile(path.join(__dirname, 'hub', 'index.html'))
+  hub.loadFile(renderer.hubFile(__dirname))
 }
 
 function waitReady(pr) {
@@ -91,7 +104,11 @@ function waitReady(pr) {
   })
 }
 
-async function openProject(root) {
+// replace: the window that asked to show this project instead (the rail); the new one takes its place and size.
+const starting = new Map()           // docs root → its start in progress (a second click waits for it)
+const openProject = (root, opts) => renderer.oneAtATime(starting, root, () => startProject(root, opts))
+
+async function startProject(root, { replace } = {}) {
   const open = projects.get(root)
   if (open && !open.win.isDestroyed()) { open.win.focus(); return { ok: true } }
   const token = crypto.randomBytes(24).toString('hex')
@@ -105,14 +122,18 @@ async function openProject(root) {
     return { ok: false, error: String(e.message || e) }
   }
   const origin = `http://127.0.0.1:${port}`
-  const win = new BrowserWindow(windowOptions(core.windowArgs(token, origin)))
+  const place = replace && !replace.isDestroyed() ? replace.getNormalBounds() : lastBounds()
+  const win = new BrowserWindow({ ...windowOptions(core.windowArgs(token, origin)), ...place })
+  if (replace && !replace.isDestroyed() && replace.isMaximized()) win.maximize()
   guard(win, origin)
+  remember(win)
   projects.set(root, { win, proc: pr, origin })
   win.once('ready-to-show', () => win.show())
   win.on('closed', () => { killTree(pr); projects.delete(root) })
   pr.on('exit', () => { if (!win.isDestroyed()) win.close() })
-  await win.loadURL(`${origin}/#/`)
+  await win.loadURL(renderer.projectUrl(origin))
   if (hub && !hub.isDestroyed()) hub.close()
+  if (replace && !replace.isDestroyed()) replace.close()      // its server stops with it
   return { ok: true }
 }
 
@@ -158,6 +179,24 @@ function handlers() {
     return made ? openProject(made.path) : { error: r.err.trim() || `exit ${r.code}` }
   })
   ipcMain.handle('app:hub', (e) => (fromProject(e) ? openHub() : null))
+  // The rail: this machine's projects, the window's own marked; switching starts that project's server in its place.
+  const listed = async () => {
+    const r = await cli(['projects', '--json'])
+    return r.code === 0 ? JSON.parse(r.out) : null
+  }
+  ipcMain.handle('app:projects', async (e) => {
+    const [root] = projectOf(e) || []
+    if (!root) return null
+    const all = await listed()
+    return all ? { projects: renderer.rail(all, root) } : { error: 'projects' }
+  })
+  ipcMain.handle('app:switch', async (e, target) => {
+    const p = projectOf(e)
+    if (!p) return null
+    if (renderer.samePath(p[0], target)) return { ok: true }
+    if (!renderer.switchable(await listed(), target)) return { error: 'project' }
+    return openProject(target, { replace: p[1].win })
+  })
   ipcMain.handle('app:external', (e, url) => (fromProject(e) && core.externalOk(url) ? shell.openExternal(url) : null))
   // After `self-update`: start again on the kit's new code (the backends go first; app.exit skips before-quit).
   ipcMain.handle('app:relaunch', (e) => {
