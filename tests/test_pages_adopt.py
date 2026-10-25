@@ -1,7 +1,7 @@
 """`camaron pages --adopt`: an old project's generated blocks move into the new pages and its emptied pages go."""
 from __future__ import annotations
 
-import importlib, json, re
+import importlib, json, pathlib, re
 
 import pytest
 
@@ -183,3 +183,104 @@ def test_pages_adopt_on_the_command_line(old_project):
     out = json.loads(cli(old_project, "pages", "--adopt", "--json").stdout)
     assert "docs/repos/api/reference.md" in out["deleted"] and out["relinked"] == out["links"] == out["translations"] == []
     assert old_project.mod.layout() == "new"
+
+
+# ---------- fix round 1: drafts, a person's home, gone blocks, two copies, a failure ----------
+AGENT_HOME = ("---\ntitle: demo\ntype: overview\nx-owner: ai\n---\n# demo\n\n> **TL;DR:** demo sells pets.\n\n"
+              "The team ships every Friday.\n\n## Domain\n\nPets and owners.\n")
+
+
+def write_doc(fx, rel, text):
+    doc(fx, rel).parent.mkdir(parents=True, exist_ok=True)
+    doc(fx, rel).write_text(text, encoding="utf-8", newline="\n")
+
+
+def test_adopt_brings_the_blocks_into_an_agents_home(old_project):
+    write_doc(old_project, "index.md", AGENT_HOME)
+    out = old_project.mod.adopt()
+    text = doc(old_project, "index.md").read_text(encoding="utf-8")
+    assert "> **TL;DR:** demo sells pets.\n\n:::cards\n<!-- generated:repos repo=_system" in text
+    assert "generated:context repo=_system" in text and "The team ships every Friday.\n\n## Domain\n\nPets and owners." in text
+    assert "docs/architecture/system-map.md" in out["deleted"] and old_project.mod.layout() == "new"
+    fm = old_project.kit.docs.split_fm(text)[0]
+    assert fm["x-owner"] == "ai" and fm["x-sources"] and "x-generated" not in fm
+    assert old_project.mod.adopt()["moved"] == [] and doc(old_project, "index.md").read_text(encoding="utf-8") == text
+
+
+def test_adopt_brings_the_blocks_into_an_agents_repo_page(old_project):
+    write_doc(old_project, "repos/api/index.md", "---\ntitle: api\nx-owner: ai\n---\n# api\n\nOur notes on the api.\n")
+    out = old_project.mod.adopt()
+    text = doc(old_project, "repos/api/index.md").read_text(encoding="utf-8")
+    assert "Our notes on the api." in text and "docs/repos/api/reference.md" in out["deleted"]
+    for kind in ("endpoints-map", "endpoints", "states", "env"):
+        assert f"<!-- generated:{kind} repo=api" in text
+
+
+def test_adopt_with_a_persons_home_changes_nothing(old_project):
+    write_doc(old_project, "index.md", AGENT_HOME.replace("x-owner: ai", "x-owner: human"))
+    before = pages(old_project)
+    out = old_project.mod.adopt()
+    assert pages(old_project) == before and out["deleted"] == [] and out["moved"] == []
+    reason = ("docs/index.md is a person's page: add the cards by hand, or remove x-owner/x-confirmed and run --adopt "
+              "again")
+    assert sorted(out["kept"]) == sorted(f"docs/{rel}: {reason}" for rel in (*OLD, "repos/web/reference.md",
+                                                                               "repos/worker/reference.md"))
+
+
+def test_adopt_carries_a_confirmed_block_whose_source_left_the_code(old_project):
+    confirmed = confirm(old_project, "repos/api/diagrams.md", "OrderStatus")
+    (old_project.kit.ws / "api" / "src" / "main" / "java" / "demo" / "OrderStatus.java").unlink()
+    out = old_project.mod.adopt()
+    assert doc(old_project, "repos/api/index.md").read_text(encoding="utf-8").count(confirmed) == 1
+    assert "docs/repos/api/diagrams.md" in out["deleted"] and "states api OrderStatus → docs/repos/api/index.md" in out["moved"]
+
+
+def test_adopt_carries_a_hand_edited_block_whose_source_left_the_code(old_project):
+    text, m = _block(old_project, "repos/api/diagrams.md", lambda b: b["id"] == "OrderStatus")
+    edited = _swap(old_project, "repos/api/diagrams.md", text, m[0], m[0].replace("SHIPPED", "SHIPPED_BY_HAND"))
+    (old_project.kit.ws / "api" / "src" / "main" / "java" / "demo" / "OrderStatus.java").unlink()
+    out = old_project.mod.adopt()
+    assert doc(old_project, "repos/api/index.md").read_text(encoding="utf-8").count(edited) == 1
+    assert "docs/repos/api/diagrams.md" in out["deleted"]
+
+
+def test_adopt_drops_an_unconfirmed_gone_block(old_project):
+    (old_project.kit.ws / "api" / "src" / "main" / "java" / "demo" / "OrderStatus.java").unlink()
+    out = old_project.mod.adopt()
+    assert "docs/repos/api/diagrams.md" in out["deleted"] and out["moved"] == []
+    assert "OrderStatus" not in doc(old_project, "repos/api/index.md").read_text(encoding="utf-8")
+
+
+def test_adopt_keeps_two_pages_with_different_copies_of_a_block(old_project):
+    edited = hand_edit_table(old_project, "repos/api/reference.md", "env")
+    _text, m = _block(old_project, "repos/api/reference.md", lambda b: b["kind"] == "env")
+    other = old_project.gb.block("env", "api", m["body"].replace("ADDED_BY_HAND", "OTHER_HAND"))
+    diagrams_md = doc(old_project, "repos/api/diagrams.md").read_text(encoding="utf-8")
+    write_doc(old_project, "repos/api/diagrams.md", diagrams_md + "\n" + other.replace("sha=", "sha=0") + "\n")
+    out = old_project.mod.adopt()
+    reason = "another old page holds a different copy of the same block"
+    assert {f"docs/repos/api/reference.md: {reason}", f"docs/repos/api/diagrams.md: {reason}"} <= set(out["kept"])
+    assert doc(old_project, "repos/api/reference.md").read_text(encoding="utf-8").count(edited) == 1
+    assert "generated:env repo=api" not in doc(old_project, "repos/api/index.md").read_text(encoding="utf-8")
+
+
+def test_adopt_deletes_nothing_when_writing_a_carried_block_fails(old_project, monkeypatch):
+    confirm(old_project, "repos/api/diagrams.md", "OrderStatus")                     # → docs/repos/api/index.md
+    confirm(old_project, "architecture/system-map.md", None)                         # the context map → docs/index.md
+    real_write_new, real_write_text, calls = old_project.mod._write_new, pathlib.Path.write_text, []
+
+    def failing(self, *a, **k):
+        calls.append(self)
+        if len(calls) == 2:
+            raise OSError("disk full")
+        return real_write_text(self, *a, **k)
+
+    def write_new(*a, **k):
+        written = real_write_new(*a, **k)
+        monkeypatch.setattr(pathlib.Path, "write_text", failing)
+        return written
+    monkeypatch.setattr(old_project.mod, "_write_new", write_new)
+    with pytest.raises(OSError):
+        old_project.mod.adopt()
+    monkeypatch.undo()
+    assert len(calls) == 2 and all(doc(old_project, rel).exists() for rel in OLD)
