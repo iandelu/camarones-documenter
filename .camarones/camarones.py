@@ -1155,12 +1155,13 @@ def cmd_pr(a) -> int:
 
 def cmd_blocks(a) -> int:
     from lib import genblocks, pages
-    created = genblocks.write_reference() if pages.layout() == "old" else []     # the new layout has no reference.md
+    old = pages.layout() == "old"                                               # the new layout has no reference.md
+    created = genblocks.write_reference() if old else []
     out = {"created": created, **genblocks.refresh(force=a.force)}
     if a.json:
         print(json.dumps(out, indent=2, ensure_ascii=False))
         return 0
-    made = f"{len(out['created'])} reference page(s) created, " if pages.layout() == "old" else ""
+    made = f"{len(out['created'])} reference page(s) created, " if old else ""
     print(f"✔ {made}{len(out['updated'])} page(s) refreshed")
     for e in out["edited"]:
         print(f"  · kept, edited by hand: {e}")

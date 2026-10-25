@@ -47,7 +47,7 @@ what to install) → setup (repos, Claude/Codex wiring, git hooks) → stack & t
 already use — Backstage, Sonar, component library, linters, contracts, CI — found without AI; fix a wrong stack there
 or later with `camaron stack`; saved in `docs/overview/tooling.md`, with every direct dependency by category in
 `docs/overview/libraries.md`, also `camaron inventory`; `--cves` adds known vulnerabilities from OSV-Scanner's offline
-database; and each repo's tables and collections in `docs/data/<repo>.md`, also `camaron schemas`) → quick C4 draft → how sessions work. Esc always goes one step back; long
+database; and each repo's tables and collections in the repo's page (`docs/repos/<repo>/index.md`; `docs/data/<repo>.md` before 4.52), also `camaron schemas`) → quick C4 draft → how sessions work. Esc always goes one step back; long
 tasks show what they are doing, a progress bar and crustacean facts. After that the main menu shows the plan progress and the next step.
 
 **🦐 Next step** lists the plan units that are ready (their dependencies are done). Pick one and choose Claude Code, Codex
@@ -353,7 +353,7 @@ next action apart.
 `doctor --json` (each check with the command that fixes it), `doctor --install git|node|docker|java|claude|codex`,
 `doctor --local` (proposes a free local model for this computer, installs nothing), `doctor --context` (the tokens
 every agent session loads before reading a page, against `context.budget`), `autopilot`, `plugins [--json]`,
-`run`, `runs`, `kpis`, `eval`, `ab`, `pipeline show|validate`, `blocks [--force]`, `diagrams [--json]`, `pr fresh <repo>`,
+`run`, `runs`, `kpis`, `eval`, `ab`, `pipeline show|validate`, `blocks [--force]`, `pages [--adopt] [--json]`, `diagrams [--json]`, `pr fresh <repo>`,
 `plugins add|update|outdated|remove`, `pr propose <url>`, `removed add`, `repair`, `export codetour <flow>`, `history [--months 12]`
 (hotspots, who to ask per repo, files that change together, read from git without AI into `docs/overview/history.md`),
 `catalog [--json|--check]` (every command with where it lives: portal, desktop app or CLI only, and its arguments),
@@ -383,15 +383,13 @@ look) draws what the code states, in Mermaid, and never guesses: the context map
 providers) in `docs/index.md`; the repo's endpoints map and one state diagram per status enum, with the states only
 (transitions are not guessed), in `docs/repos/<repo>/index.md`; and one sequence per message topic (who publishes, who
 consumes) in `docs/architecture/messaging.md`. They are ordinary Docs pages made of generated blocks like the ones
-above. A
-person can confirm one by hand: copy the block's `sha=` value into `confirmed=` and put a name in `by=` (one word, or
-quoted when it has spaces: `by="Ana López"`), e.g.
-`<!-- generated:states repo=api id=OrderStatus confirmed=3fa1c2d4e5f6 by=ana sha=3fa1c2d4e5f6 -->`. A refresh then
-never rewrites it, and `check` warns "the code changed since this diagram was confirmed" (or that the code no longer
-has the diagram's source). To take the code's version, remove `confirmed=` and `by=` from the marker, run
-`camaron diagrams` (or `blocks`), then confirm it again. The portal labels each diagram "From the code", "Edited by
-hand", "Confirmed by <name>" or "The code changed".
-Agents follow the `cam-docs-diagrams` skill: pick the right diagram, write Mermaid that renders, never edit a generated block.
+above. A person can confirm one by hand: copy the block's `sha=` value into `confirmed=` and put a name in `by=` (one
+word, or quoted when it has spaces: `by="Ana López"`), e.g. `<!-- generated:states repo=api id=OrderStatus
+confirmed=3fa1c2d4e5f6 by=ana sha=3fa1c2d4e5f6 -->`. A refresh then never rewrites it, and `check` warns "the code
+changed since this diagram was confirmed" (or that the code no longer has the diagram's source). To take the code's
+version, remove `confirmed=` and `by=` from the marker, run `camaron diagrams` (or `blocks`), then confirm it again. The
+portal labels each diagram "From the code", "Edited by hand", "Confirmed by <name>" or "The code changed". Agents follow
+the `cam-docs-diagrams` skill: pick the right diagram, write Mermaid that renders, never edit a generated block.
 
 **Parallel runs.** `camaron run --parallel 3 --per-runner claude=2,codex=1` does several units at once. Discovery, repo
 briefs and flows each work in their own copy of `cam-docs/` (a git worktree in `.cw/<n>/`) and are merged back when
