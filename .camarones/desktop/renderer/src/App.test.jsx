@@ -2,7 +2,21 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, expect, test } from 'vitest'
 import App from './App.jsx'
 
-afterEach(() => { delete globalThis.window })
+afterEach(() => { delete globalThis.window; delete globalThis.location })
+
+// The first-run wizard (#/start) is full width: no rail of projects, no section nav; the header and status bar stay.
+test('the first-run wizard has the window to itself', () => {
+  globalThis.window = { camaronApp: { token: 't' } }
+  globalThis.location = { hash: '#/start' }
+  const out = renderToStaticMarkup(<App />)
+  expect(out).toMatch(/^<div class="dk dk-full">/)
+  expect(out).not.toContain('dk-rail')
+  expect(out).not.toContain('dk-side')
+  expect(out).toContain('<header class="dk-top">')
+  expect(out).toContain('<main class="dk-main" id="main" tabindex="-1">')
+  globalThis.location = { hash: '#/plan' }
+  expect(renderToStaticMarkup(<App />)).toContain('dk-rail')
+})
 
 // WCAG 2.4.1: a project's window starts with a link past the rail and the sidebar, to its main landmark, which can
 // take the focus (the link moves it there itself: the hash is the router's).

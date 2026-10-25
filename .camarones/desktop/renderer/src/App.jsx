@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Brand, Breadcrumbs, Button, EmptyState, Keys, Skeleton, SkipLink } from '@camaron/ui'
-import { initials, sectionOf, sections } from './nav.js'
+import { START, firstRunRoute, initials, sectionOf, sections } from './nav.js'
 import { jobsStore } from './jobs.js'
 import { chord, entries, keyFor, typing } from './palette.js'
 import { server } from './server.js'
@@ -15,6 +15,7 @@ import KitDev from './sections/KitDev.jsx'
 import Machine from './sections/Machine.jsx'
 import Plan from './sections/Plan.jsx'
 import Quality from './sections/Quality.jsx'
+import Start from './sections/Start.jsx'
 import Summary from './sections/Summary.jsx'
 import Team from './sections/Team.jsx'
 import { lang, t } from './i18n.js'
@@ -51,14 +52,21 @@ function Project({ app }) {
   const jobs = useMemo(() => jobsStore(srv.get), [])           // one for the window: it outlasts the sections
   const { running } = useStore(jobs)
   const projects = useProjects(app, index?.project, setStatus)
-  const loadIndex = () => srv.get('tree').then((x) => { setIndex(x); setError('') }, (e) => setError(e.message))
+  const loadIndex = () => srv.get('tree').then((x) => { setIndex(x); setError(''); return true }, (e) => { setError(e.message); return false })
+  // A first run left unfinished opens on the wizard (#/start); without its state (the read failed) the window stays as it is.
+  const firstRun = () => srv.get('app/onboard/state').then((s) => {
+    const to = firstRunRoute(s, location.hash)
+    if (to) location.replace(to)
+  }, () => {})
+  const open = () => loadIndex().then((ok) => ok && firstRun())
   useEffect(() => {
-    loadIndex()
+    open()
     srv.get('app/info').then((i) => setKitdev(!!i.kitdev), () => {})
     jobs.refresh()
     return () => jobs.stop()
   }, [])
   const here = sectionOf(hash, { kitdev })
+  const full = here === START                           // the first-run wizard: no rail, no section nav
   const { project, machine } = sections({ kitdev })
   const all = [...project, ...machine]
   useEffect(() => {                                     // ⌘K / Ctrl K anywhere; g + a letter outside fields and dialogs
@@ -85,7 +93,7 @@ function Project({ app }) {
       {t('nav.' + s)}<span className="dk-hint" aria-hidden="true"><Keys keys={['g', keyFor(s)]} /></span></a>
   )
   return (
-    <div className="dk">
+    <div className={full ? 'dk dk-full' : 'dk'}>
       <SkipLink target="main">{t('skip')}</SkipLink>
       <header className="dk-top">
         <Brand project={index?.project} href="#/summary" />
@@ -99,15 +107,17 @@ function Project({ app }) {
       </header>
       <Palette open={palette} onClose={() => setPalette(false)} onPick={onPick}
         groups={entries({ sections: all, projects: projects.list, commands, t, lang: lang() })} />
-      <Rail app={app} projects={projects} />
-      <nav className="dk-side" aria-label={t('nav.project')}>
-        {project.map(link)}
-        <span className="dk-gap"></span>
-        <span className="eyebrow">{t('nav.app')}</span>
-        {machine.map(link)}
-      </nav>
+      {full ? null : <>
+        <Rail app={app} projects={projects} />
+        <nav className="dk-side" aria-label={t('nav.project')}>
+          {project.map(link)}
+          <span className="dk-gap"></span>
+          <span className="eyebrow">{t('nav.app')}</span>
+          {machine.map(link)}
+        </nav>
+      </>}
       <main className="dk-main" id="main" tabIndex={-1}>
-        {error && <Failed title={t('project.failed')} detail={error} onRetry={() => { setError(''); loadIndex() }} />}
+        {error && <Failed title={t('project.failed')} detail={error} onRetry={() => { setError(''); open() }} />}
         {!index && !error ? <Skeleton lines={4} /> : <Section here={here} srv={srv} jobs={jobs} app={app} />}
       </main>
       <JobsPanel srv={srv} jobs={jobs} />
@@ -152,7 +162,7 @@ function Rail({ app, projects: { list, busy, open } }) {
 }
 
 const SECTIONS = { summary: Summary, plan: Plan, interviews: Interviews, team: Team, quality: Quality, docs: Docs, machine: Machine,
-  kitdev: KitDev }
+  kitdev: KitDev, start: Start }
 function Section({ here, ...props }) {
   const View = SECTIONS[here]
   return <View key={here} {...props} />
