@@ -273,3 +273,52 @@ def test_tutorial_names_the_menu_sections(kit, lang):
     text = "\n".join(p["art"] + p["text"] for p in P)
     for key in ("s_docs", "s_team", "s_settings"):
         assert re.sub(r"^\W+", "", T[key]) in text
+
+
+# ---------- characterization: what the first-run state and the name step write today (locked before moving them) ----------
+@pytest.mark.parametrize("state, shared, local, mode", [
+    ({"done": True}, False, False, "done"),
+    ({"mode": "join"}, True, False, "join"),
+    ({"step": 1, "name": "repos"}, True, True, "new"),          # a first run in progress is resumed, not re-decided
+    ({}, False, True, "new"),                                    # nothing shared yet: brand-new project
+    ({}, True, False, "join"),                                   # team cam-docs cloned, this machine not set up
+    ({}, True, True, "done"),                                    # pre-2.4 install on its own machine
+])
+def test_first_run_mode_table(kit, state, shared, local, mode):
+    assert kit.wizard.first_run_mode(state, shared, local) == mode
+
+
+def test_fr_name_writes(kit, fake_wizard):
+    fake_wizard(["Mi Proyecto"]).fr_name(kit.docs.workspace())
+    p = kit.docs.workspace()["project"]
+    assert (p["name"], p["id"], p["canonical_language"], p["translations"]) == ("Mi Proyecto", "mi-proyecto", "en", ["es"])
+
+
+def test_resume_index_only_firstrun(kit):
+    W = kit.wizard
+    assert W.STEPS[W.resume_step({"step": 2})] == W.LEGACY_STEPS[2] == "tools"      # pre-3.3: an index into LEGACY_STEPS
+    assert W.STEPS[W.resume_step({"step": 4})] == "arch"
+
+
+def test_first_run_of_a_greenfield_project_skips_stack_and_arch(kit, fake_wizard, monkeypatch):
+    ws = kit.docs.workspace()
+    ws["project"]["kind"] = "greenfield"
+    kit.docs.save_workspace(ws)
+    ran = []
+    for step in ("fr_name", "fr_repos", "fr_tools", "fr_setup", "fr_stack", "fr_arch", "fr_intro"):
+        monkeypatch.setattr(kit.wizard.W, step, lambda self, ws, s=step: ran.append(s))
+    assert fake_wizard([]).first_run()
+    assert ran == ["fr_name", "fr_repos", "fr_tools", "fr_setup", "fr_intro"]
+    assert kit.common.load_json(kit.wizard.FIRSTRUN, {}) == {"step": 5, "done": True}
+
+
+@pytest.mark.parametrize("kind, disabled", [("legacy", True), ("greenfield", False)])
+def test_repos_step_needs_a_repo_only_for_legacy(kit, fake_wizard, monkeypatch, kind, disabled):
+    ws = {"project": {"kind": kind}, "repos": []}
+    monkeypatch.setattr(kit.docs, "detect_repos", lambda *a: [])
+    monkeypatch.setattr(kit.docs, "save_workspace", lambda ws: None)
+    seen = []
+    w = fake_wizard([lambda msg: None])
+    monkeypatch.setattr(kit.wizard.W, "sel", lambda self, msg, choices, **kw: seen.append(choices[0].disabled) or None)
+    assert w.fr_repos(ws) == kit.wizard.BACK
+    assert bool(seen[0]) is disabled
