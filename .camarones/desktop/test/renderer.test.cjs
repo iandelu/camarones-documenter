@@ -8,6 +8,8 @@ test('a project window loads the app from its own server, on a section', () => {
   assert.equal(r.projectUrl('http://127.0.0.1:5123'), 'http://127.0.0.1:5123/desktop/#/summary')
   assert.equal(r.projectUrl('http://127.0.0.1:5123', 'plan'), 'http://127.0.0.1:5123/desktop/#/plan')
   assert.equal(r.projectUrl('http://127.0.0.1:5123', 'x y'), 'http://127.0.0.1:5123/desktop/#/summary')   // no odd sections
+  assert.equal(r.projectUrl('http://127.0.0.1:5123', 'start'), 'http://127.0.0.1:5123/desktop/#/start')   // the first-run wizard
+  assert.ok(r.SECTIONS.includes('start'))
 })
 
 test('the hub is the same build, from disk', () => {

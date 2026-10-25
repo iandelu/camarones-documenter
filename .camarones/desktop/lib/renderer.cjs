@@ -3,7 +3,7 @@
 // where a window comes back, which project a window may switch to. No Electron, no I/O: `node --test` on every OS.
 const path = require('node:path')
 
-const SECTIONS = ['summary', 'plan', 'interviews', 'team', 'quality', 'docs', 'machine', 'kitdev']
+const SECTIONS = ['summary', 'plan', 'interviews', 'team', 'quality', 'docs', 'machine', 'kitdev', 'start']
 
 // A project's window: the app served by that project's own server (same origin as its API, the token as the key).
 const projectUrl = (origin, section = 'summary') => `${origin}/desktop/#/${SECTIONS.includes(section) ? section : 'summary'}`

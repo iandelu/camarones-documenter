@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { initials, MACHINE, PROJECT, sectionOf, sections } from './nav.js'
+import { firstRunRoute, initials, MACHINE, PROJECT, sectionOf, sections } from './nav.js'
 
 test('a project has its sections; this machine has its own, Kit dev only in a kit checkout', () => {
   expect(PROJECT).toEqual(['summary', 'plan', 'interviews', 'team', 'quality', 'docs'])
@@ -14,6 +14,25 @@ test('the address picks the section; anything else is the summary', () => {
   expect(sectionOf('#/kitdev', { kitdev: false })).toBe('summary')
   expect(sectionOf('', {})).toBe('summary')
   expect(sectionOf('#/nope', {})).toBe('summary')
+})
+
+// The first-run wizard is a place of its own (#/start), never listed in the nav.
+test('start is a known section, not in the nav', () => {
+  expect(sectionOf('#/start', {})).toBe('start')
+  expect([...PROJECT, ...MACHINE]).not.toContain('start')
+})
+
+// A project whose first run is unfinished opens on the wizard; a finished one stays where it was asked (the summary).
+test('a finished first run opens on summary', () => {
+  expect(firstRunRoute({ done: true }, '#/summary')).toBeNull()
+  expect(firstRunRoute({ done: true }, '')).toBeNull()
+})
+
+test('an unfinished first run goes to the wizard', () => {
+  expect(firstRunRoute({ done: false }, '#/plan')).toBe('#/start')
+  expect(firstRunRoute({ done: false }, '')).toBe('#/start')
+  expect(firstRunRoute({ done: false }, '#/start')).toBeNull()
+  expect(firstRunRoute(null, '#/plan')).toBeNull()            // no state (the read failed): stay
 })
 
 
