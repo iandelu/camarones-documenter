@@ -1,6 +1,17 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { follow } from './cmd.js'
 
+// The address after the #, as state: the app routes by it.
+export function useHash() {
+  const [hash, setHash] = useState(typeof location !== 'undefined' ? location.hash : '')
+  useEffect(() => {
+    const on = () => setHash(location.hash)
+    addEventListener('hashchange', on)
+    return () => removeEventListener('hashchange', on)
+  }, [])
+  return hash
+}
+
 // A store with get() and subscribe(fn) (jobs.js) as React state; the same snapshot when rendered to text (tests).
 export const useStore = (store) => useSyncExternalStore(store.subscribe, store.get, store.get)
 

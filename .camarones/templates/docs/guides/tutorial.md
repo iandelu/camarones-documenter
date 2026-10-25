@@ -198,7 +198,8 @@ CI pushed: `docker run -d -p 8080:80 <registry>/<group>/cam-docs/portal:latest`.
 Where you operate a project; the portal is where you read it. Each project opens in its window: at the left the rail
 with your projects and the sections, below the jobs panel (what runs and the last ones, their output and **Stop**). The
 browser portal stays the team's viewer (read, edit, review, pipeline status, the interview) and does not show what it
-cannot do.
+cannot do. From the keyboard, Ctrl K / ⌘K goes to a section, another project or any command, and `g` then a letter jumps
+between sections (`g s` Summary, `g p` Plan, `g q` Quality…).
 
 | Section | What you do there |
 |---|---|

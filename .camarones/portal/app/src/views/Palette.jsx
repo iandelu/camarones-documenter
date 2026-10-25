@@ -27,6 +27,10 @@ export default function Palette({ open, onClose }) {
     if (!open && d.open) d.close()
   }, [open])
 
+  useEffect(() => {                                        // the active option stays in sight as the arrows move
+    if (open) document.getElementById(`pal-opt-${sel}`)?.scrollIntoView({ block: 'nearest' })
+  }, [open, sel, q])
+
   useEffect(() => {                                        // full text after a pause, from 2 letters; newest wins
     setContent(null)
     const s = q.trim()
@@ -62,7 +66,7 @@ export default function Palette({ open, onClose }) {
   return (
     <dialog ref={dialog} className="palette" onClose={onClose} onClick={(e) => { if (e.target === dialog.current) onClose() }}>
       <div className="pal">
-        <input value={q} autoFocus type="search" autoComplete="off" spellCheck="false" placeholder={t('searchPh')}
+        <input value={q} autoFocus type="text" autoComplete="off" spellCheck="false" placeholder={t('searchPh')}
           role="combobox" aria-expanded="true" aria-controls="pal-list" aria-label={t('search')}
           aria-activedescendant={items.length ? `pal-opt-${active}` : undefined}
           onChange={(e) => { setQ(e.target.value); setSel(0) }} onKeyDown={onKey} />
