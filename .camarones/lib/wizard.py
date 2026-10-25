@@ -952,7 +952,7 @@ class W:
             tbl.add_row("📚", f"[yellow]{self.t('d_old_wikis', n=len(old), repos=', '.join(old))}[/]")
         nxt = [u for u in plan.available(data) if u["status"] != "doing"]
         if nxt:
-            tbl.add_row("→", f"[{ORANGE}]{nxt[0]['id']}[/] — {nxt[0]['title']}")
+            tbl.add_row("→", f"[{ORANGE}]{nxt[0]['id']}[/] — {plan.title(nxt[0], self.lang)}")
         console.print(Panel(tbl, border_style=ORANGE))
 
     # ---------- main loop ----------
@@ -1588,7 +1588,8 @@ Talk to the user in {talk}. Do not modify application code.
     def unit_label(self, u: dict, data: dict) -> str:
         """A ready unit in the menus: ▶ in progress, and whether it is an early draft (its interview is still to come)."""
         mark = "▶ " if u["status"] == "doing" else ""
-        return f"{mark}{u['id']} — {u['title']}" + (f"  · {self.t('draft_lbl')}" if plan.early_draft(u, data) else "")
+        draft = f"  · {self.t('draft_lbl')}" if plan.early_draft(u, data) else ""
+        return f"{mark}{u['id']} — {plan.title(u, self.lang)}{draft}"
 
     def do_next(self) -> None:
         plan.sync()
@@ -1614,12 +1615,13 @@ Talk to the user in {talk}. Do not modify application code.
             self.say(self.t("rd_none"), "yellow")
             self.pause()
             return
-        u = self.sel(self.t("rd_pick"), [Choice(f"{u['id']} — {u['title']}", u) for u in done])
+        u = self.sel(self.t("rd_pick"), [Choice(f"{u['id']} — {plan.title(u, self.lang)}", u) for u in done])
         if not u:
             return
         also = []
         if deps := plan.dependents(data, u["id"]):
-            also = self.chk(self.t("rd_deps", u=u["id"]), [Choice(f"{d['id']} — {d['title']}", d["id"]) for d in deps])
+            also = self.chk(self.t("rd_deps", u=u["id"]),
+                            [Choice(f"{d['id']} — {plan.title(d, self.lang)}", d["id"]) for d in deps])
             if also is None:
                 return
         plan.redo(u["id"], also)
@@ -1883,7 +1885,7 @@ Talk to the user in {talk}. Do not modify application code.
             ready = added or all(status.get(d) == "done" for d in deps)
             if not ready:
                 continue
-            title = plan.TYPES[uid][2]
+            title = plan.title({"id": uid, "type": uid, "title": plan.TYPES[uid][2]}, self.lang)
             opts.append(Choice(title, uid, checked=added, disabled=self.t("extra_already") if added else None))
         picked = self.chk(self.t("extra_pick"), opts)
         if picked is None:
@@ -1912,7 +1914,7 @@ Talk to the user in {talk}. Do not modify application code.
             mark += f"  [{ORANGE}]↻[/]" if u.get("redo") else ""
             mark += f"  [grey62]✎ {self.t('draft_lbl')}[/]" if plan.early_draft(u, data) else ""
             note = f"\n  [grey50]{u['notes']}[/]" if u.get("notes") and st == "blocked" else ""
-            buckets[bucket].append(f"[{ORANGE}]{u['id']}[/]{mark}\n  [grey62]{u['title']}[/]{note}")
+            buckets[bucket].append(f"[{ORANGE}]{u['id']}[/]{mark}\n  [grey62]{plan.title(u, self.lang)}[/]{note}")
         tbl = Table(box=box.SIMPLE_HEAVY, expand=True, pad_edge=False)
         for key, icon, label in cols:
             tbl.add_column(f"{icon} {self.t(label)} ({len(buckets[key])})", ratio=1)

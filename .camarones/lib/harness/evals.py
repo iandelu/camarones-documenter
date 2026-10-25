@@ -202,5 +202,4 @@ def latest() -> dict | None:
 def draft_unit() -> dict:
     """The agent unit that proposes questions from the confirmed pages (bounded work: a local model can do it)."""
     from .. import plan
-    return plan.ensure("eval-questions", "eval-questions",
-                       title="Golden questions: draft what the docs must answer (a person confirms them)")
+    return plan.ensure("eval-questions", "eval-questions")

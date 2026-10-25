@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { expect, test } from 'vitest'
-import { S, setLang, t } from './i18n.js'
+import { machineLang, S, setLang, t } from './i18n.js'
 
 test('every key a component names exists', () => {
   const src = fileURLToPath(new URL('.', import.meta.url))
@@ -29,6 +29,15 @@ test('the language falls back to Spanish and fills placeholders', () => {
   setLang('fr')
   expect(t('nav.summary')).toBe('Resumen')
   expect(t('nope')).toBe('nope')
+})
+
+// The hub and every project window speak the language picked on this machine (main.cjs reads ~/.camarones.json).
+test('the language comes from the hub or from a project window, else Spanish', async () => {
+  expect(await machineLang({ camaronHub: { lang: async () => 'en' } })).toBe('en')
+  expect(await machineLang({ camaronApp: { token: 't', lang: async () => 'en' } })).toBe('en')
+  expect(await machineLang({ camaronApp: { token: 't' } })).toBe('es')              // a main process without it
+  expect(await machineLang({ camaronApp: { lang: async () => { throw new Error('gone') } } })).toBe('es')
+  expect(await machineLang(undefined)).toBe('es')
 })
 
 // AGENTS §3: no jargon the user has not met (the Taller is gone; runner, worktree and drift stay in the code).

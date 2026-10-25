@@ -100,6 +100,18 @@ def unit(uid: str, type_: str, deps: list[str], repo: str | None = None, slug: s
             "deps": deps, **({"soft": soft} if soft else {}), "repo": repo, "notes": "", "updated": None}
 
 
+def title(u: dict, lang: str = "en") -> str:
+    """A unit's title as people read it in `lang`. plan.yaml keeps the English the kit wrote; while that is still its
+    type's template, Spanish shows the type's title_es instead. A title a person or `plan add` chose stays as written."""
+    stored = u.get("title") or ""
+    t = pipeline.types().get(u.get("type") or "", {})
+    if lang != "es" or not t.get("title_es"):
+        return stored
+    uid = str(u.get("id") or "")
+    fill = {"repo": u.get("repo") or "", "slug": uid.split(":", 1)[1] if ":" in uid else uid}   # as add() fills it
+    return t["title_es"].format(**fill) if stored == t["title"].format(**fill) else stored
+
+
 def project_pipeline() -> tuple[dict, list[str]]:
     """The kit pipeline of the project's profile, with .camarones/pipeline.yaml applied when there is one."""
     default = "quick" if docs.workspace()["project"].get("profile") == "quick" else "full"
@@ -507,11 +519,11 @@ def progress(data: dict | None = None) -> tuple[int, int]:
     return sum(1 for u in live if u["status"] == "done"), len(live)
 
 
-def next_step(data: dict | None = None, review: int = 0) -> dict:
+def next_step(data: dict | None = None, review: int = 0, lang: str = "en") -> dict:
     """What to do next, one rule for the wizard's default and the desktop app's Summary: finish the agent unit left
     half done, else the next ready unit, else the `review` pages waiting for a person, else nothing left."""
     data = data or load()
-    brief = lambda u: {k: u[k] for k in ("id", "title", "runner", "type")}     # noqa: E731
+    brief = lambda u: {"id": u["id"], "title": title(u, lang), "runner": u["runner"], "type": u["type"]}     # noqa: E731
     doing = [u for u in data["units"] if u["status"] == "doing" and u["runner"] == "agent"]
     if doing:
         return {"kind": "resume", "unit": brief(doing[0])}

@@ -20,7 +20,7 @@ export default function Interviews({ srv, jobs, app }) {
   const c = useCmd(srv, jobs)
   const load = () => {
     srv.get('interview').then((x) => { setD(x); setError('') }, (e) => setError(e.message))
-    srv.get('pipeline').then((p) => { setAll(p.units); setUnits(p.units.filter((u) => UNITS.includes(u.id))) }, () => {})
+    srv.get('pipeline', { lang: lang() }).then((p) => { setAll(p.units); setUnits(p.units.filter((u) => UNITS.includes(u.id))) }, () => {})
   }
   useEffect(() => { load(); srv.get('app/info').then((i) => setRoot(i.root), () => {}) }, [])
   const step = async (cmd, args) => { const end = await c.run(cmd, args); load(); return end }

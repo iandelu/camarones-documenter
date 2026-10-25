@@ -179,6 +179,7 @@ function handlers() {
     return made ? openProject(made.path) : { error: r.err.trim() || `exit ${r.code}` }
   })
   ipcMain.handle('app:hub', (e) => (fromProject(e) ? openHub() : null))
+  ipcMain.handle('app:lang', (e) => (fromProject(e) ? lang() : null))     // a project window speaks the hub's language
   // The rail: this machine's projects, the window's own marked; switching starts that project's server in its place.
   const listed = async () => {
     const r = await cli(['projects', '--json'])

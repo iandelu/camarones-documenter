@@ -478,7 +478,7 @@ El portal 🦐 junta en una sola web la documentación (con buscador, edición y
    +----------------------------------------------------------------------------+
    | camarón  bench > Resumen                    [ Buscar o ir a…  Ctrl K ]     |
    | [BE] Resumen      SIGUIENTE PASO                                           |
-   | [CL] Plan         Discovery of api                                         |
+   | [CL] Plan         Descubrimiento de api                                    |
    | [+ ] Entrevistas  [Claude Code v]  ( Empezar con Claude Code )             |
    |      Equipo                                                                |
    |      Calidad      A esta máquina le falta algo: gitleaks   ( Verlo )       |

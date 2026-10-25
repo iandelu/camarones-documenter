@@ -307,10 +307,17 @@ def approve_unit(uid: str) -> tuple[dict, int]:
     return plan.approve(uid, by=reviewer()), 200
 
 
-def api_pipeline() -> dict:
+def ui_lang(lang: str = "") -> str:
+    """The language of the UI that asks (es / en), else the one picked on this machine (~/.camarones.json)."""
+    from . import machine
+    return lang if lang in machine.LANGS else machine.settings()["lang"]
+
+
+def api_pipeline(lang: str = "") -> dict:
     """The plan as a graph for the Pipeline tab: every unit with its status and dependencies, how it runs (isolation,
-    tier, runner), and the latest run."""
+    tier, runner), and the latest run. Titles read in `lang` (plan.title); plan.yaml is only read."""
     from .harness import pipeline, runs
+    lang = ui_lang(lang)
     try:
         nodes = {u["id"]: u for u in plan.pipeline_units()}
     except plan.PipelineError:
@@ -321,7 +328,8 @@ def api_pipeline() -> dict:
     ready = {u["id"] for u in plan.available(data)}          # the app's Plan groups by it
     for u in data["units"]:
         t, n = types.get(u["type"], {}), nodes.get(u["id"], {})
-        units.append({**{k: u.get(k) for k in ("id", "title", "type", "phase", "status", "deps", "repo", "notes", "runner")},
+        units.append({**{k: u.get(k) for k in ("id", "type", "phase", "status", "deps", "repo", "notes", "runner")},
+                      "title": plan.title(u, lang),
                       "isolation": n.get("isolation") or t.get("isolation", "none"),
                       "tier": n.get("tier") or t.get("tier", "agentic-heavy"), "agent": n.get("runner"),
                       "approval": bool(n.get("approval")), "awaiting": plan.awaiting(u), "ready": u["id"] in ready})
@@ -388,7 +396,7 @@ def api_interview(who: str = "") -> dict:
             "status": questionnaire.status(), "user": reviewer(), "mine": mine}
 
 
-def app_summary() -> dict:
+def app_summary(lang: str = "") -> dict:
     """The desktop app's Summary: the next step (the wizard's rule, plan.next_step), the plan's progress, the pages
     waiting for a person and what the last doctor check found (None: never checked). Reads only: plan.sync() writes,
     and a page that just looks must not."""
@@ -397,7 +405,7 @@ def app_summary() -> dict:
     data = plan.load()
     done, total = plan.progress(data)
     last = doctor.checked()
-    return {"step": plan.next_step(data, review=review), "plan": {"done": done, "total": total}, "review": review,
+    return {"step": plan.next_step(data, review=review, lang=ui_lang(lang)), "plan": {"done": done, "total": total}, "review": review,
             "doctor": doctor.problems(last["result"]) if last else None}
 
 
@@ -668,7 +676,7 @@ class Handler(BaseHTTPRequestHandler):
         if name == "catalog":
             return self.json(appapi.catalog())
         if name == "summary":
-            return self.json(app_summary())
+            return self.json(app_summary(q.get("lang", "")))
         if name == "doctor":
             from . import doctor
             return self.json({"checked": doctor.checked()})
@@ -779,7 +787,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.json([{**{k: v for k, v in j.items() if k != "log"}, "stoppable": appapi.stoppable(j["id"])}
                               for j in list(JOBS.values())])
         if name == "pipeline":
-            return self.json(api_pipeline())
+            return self.json(api_pipeline(q.get("lang", "")))
         if name == "ask":
             return self.json(api_ask(q.get("q", "")))
         if name == "interview":

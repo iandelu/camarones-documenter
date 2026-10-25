@@ -73,7 +73,7 @@ def test_the_app_reads_the_summary_with_its_token(wired, app):
     wired.plan.sync()
     code, body = get(app + "/api/app/summary")
     assert code == 200
-    assert body["step"] == wired.plan.next_step()
+    assert body["step"] == wired.plan.next_step(lang="es")              # nothing picked on this machine: Spanish
     done, total = wired.plan.progress()
     assert body["plan"] == {"done": done, "total": total} and isinstance(body["review"], int)
     assert get(app + "/api/app/summary", token=None)[0] == 403
