@@ -7,7 +7,14 @@ import json
 import sys
 from pathlib import Path
 
-ACTIONS = ("init", "add", "list", "show", "move", "assign", "link", "archive", "repair", "merge-driver")
+class _Actions(tuple):
+    """The actions a person picks from (help, the desktop app's form via catalog.args_of); `merge-driver`, what git
+    runs, is accepted without being listed."""
+    def __contains__(self, x) -> bool:
+        return x == "merge-driver" or tuple.__contains__(self, x)
+
+
+ACTIONS = _Actions(("init", "add", "list", "show", "move", "assign", "link", "archive", "repair"))
 _NEED = {"add": 2, "show": 1, "archive": 1, "move": 2, "assign": 2, "link": 2, "merge-driver": 3}
 _USAGE = {"add": "add TYPE TITLE", "show": "show ID", "archive": "archive ID", "move": "move ID STATUS",
           "assign": "assign ID WHO", "link": "link ID REF", "merge-driver": "merge-driver O A B"}
