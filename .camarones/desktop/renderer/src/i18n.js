@@ -221,6 +221,7 @@ export const S = {
     obErrUrl: 'Esa URL no es válida.', obErrDuplicate: 'Hay dos repos con el mismo nombre.', obErrBusy: 'El borrador aún se está haciendo: espera a que termine y vuelve a guardar.',
     obErrDone: 'La primera vez ya está terminada.', obErrStep: 'Ese paso no forma parte de la primera vez de este proyecto.',
     obErrDraft: 'Aún no hay borrador que guardar: hazlo primero.', obErrServer: 'El servidor lo ha rechazado:',
+    obErrNetwork: 'No llego al servidor del proyecto.', obToolsFailed: 'No he podido leer las herramientas de esta máquina',
   },
   en: {
     'nav.summary': 'Summary', 'nav.plan': 'Plan', 'nav.interviews': 'Interviews', 'nav.team': 'Team',
@@ -440,6 +441,7 @@ export const S = {
     obErrUrl: 'That URL is not valid.', obErrDuplicate: 'Two repos have the same name.', obErrBusy: 'The draft is still being made: wait for it and save again.',
     obErrDone: 'The first run is already finished.', obErrStep: 'That step is not part of this project\'s first run.',
     obErrDraft: 'There is no draft to save yet: make it first.', obErrServer: 'The server refused it:',
+    obErrNetwork: "I can't reach the project's server.", obToolsFailed: 'I could not read the tools on this machine',
   },
 }
 

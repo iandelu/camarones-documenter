@@ -9,3 +9,12 @@ test.each(['App.jsx', 'Hub.jsx', 'sections/Summary.jsx', 'sections/Plan.jsx', 's
   expect(src).toMatch(/<Failed [^>]*onRetry=/)
   expect(src).not.toMatch(/srv\.get\('(tree|app\/summary|pipeline|interview|app\/machine|app\/kitdev|inventory)'\)\.then\([^)]*\), \(\) => \{\}\)/)
 })
+
+// The first-run wizard's second read (the tools list, for the tools and install steps) fails with a way out too: its
+// error is kept for the panel, which offers to read it again.
+test('the wizard tools read fails with a way out', () => {
+  const src = readFileSync(new URL('./sections/Start.jsx', import.meta.url), 'utf-8')
+  expect(src).toMatch(/srv\.get\('app\/onboard\/tools'\)[\s\S]{0,200}\(e\) => setToolsError\(/)
+  expect(src).toMatch(/<Tools [^>]*error=\{toolsError\} onRetry=\{loadTools\}/)
+  expect(src).toMatch(/<Setup [^>]*error=\{toolsError\}[^>]*reloadTools=\{loadTools\}/)
+})

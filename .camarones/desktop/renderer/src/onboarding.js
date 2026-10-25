@@ -109,3 +109,26 @@ export function progressOf(lines) {
 const ERRORS = { repos: 'obErrRepos', name: 'obErrName', url: 'obErrUrl', duplicate: 'obErrDuplicate', busy: 'obErrBusy',
   done: 'obErrDone', step: 'obErrStep', draft: 'obErrDraft' }
 export const errorKey = (code) => ERRORS[code] || ''
+
+// fetch rejects (no HTTP answer at all) with a TypeError whose message depends on the engine; useJob keeps the message only.
+const UNREACHABLE = /^(Failed to fetch|NetworkError when attempting to fetch resource|Load failed)/
+// A rejection said to the person: {key, detail}. A known code by its own sentence, a server that cannot be reached by
+// its own, anything else as the server said it (obErrServer + the message).
+export function errorText(e) {
+  const msg = String(e?.message ?? e ?? '')
+  if (errorKey(msg)) return { key: errorKey(msg), detail: '' }
+  if (e?.name === 'TypeError' || UNREACHABLE.test(msg)) return { key: 'obErrNetwork', detail: '' }
+  return { key: 'obErrServer', detail: msg }
+}
+
+// POST app/onboard/done refused with `done`: the first run was closed meanwhile (the CLI), which is what was asked.
+export const alreadyDone = (e) => e?.message === 'done'
+
+// Whether the repos step's body differs from what the workspace lists (a new clone and scan are then due). Both sides
+// with the server's defaults (onboard.set_repos: branch main, kind service), so an old entry without them is the same.
+const norm = (rows) => JSON.stringify((rows || []).map((r) => ({ name: r.name, url: r.url || '', branch: r.branch || 'main',
+  kind: r.kind || 'service' })))
+export const reposChanged = (saved, body) => norm(saved) !== norm(body)
+
+// One primary button per screen: on the arch step the draft's Save is the primary until it is saved or skipped.
+export const continueVariant = (stepId, data = {}) => (stepId === 'arch' && !data.saved ? 'secondary' : 'primary')

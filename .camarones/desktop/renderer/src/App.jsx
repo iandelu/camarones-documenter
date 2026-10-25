@@ -52,13 +52,20 @@ function Project({ app }) {
   const jobs = useMemo(() => jobsStore(srv.get), [])           // one for the window: it outlasts the sections
   const { running } = useStore(jobs)
   const projects = useProjects(app, index?.project, setStatus)
-  const loadIndex = () => srv.get('tree').then((x) => { setIndex(x); setError(''); return true }, (e) => { setError(e.message); return false })
-  // A first run left unfinished opens on the wizard (#/start); without its state (the read failed) the window stays as it is.
-  const firstRun = () => srv.get('app/onboard/state').then((s) => {
-    const to = firstRunRoute(s, location.hash)
-    if (to) location.replace(to)
-  }, () => {})
-  const open = () => loadIndex().then((ok) => ok && firstRun())
+  // The index and where the first run stands, read side by side; the section mounts only after both, so a first run
+  // left unfinished opens straight on the wizard (#/start) and the summary never fires its reads first. Without the
+  // state (that read failed) the window stays as it is.
+  const open = () => Promise.all([srv.get('tree').then((x) => ({ x }), (e) => ({ e })), srv.get('app/onboard/state').catch(() => null)])
+    .then(([idx, s]) => {
+      if (idx.e) { setError(idx.e.message); return }
+      const to = firstRunRoute(s, location.hash)
+      if (to) {
+        location.replace(to)
+        dispatchEvent(new Event('hashchange'))     // useHash now, in this render, not when the browser's event comes
+      }
+      setIndex(idx.x)
+      setError('')
+    })
   useEffect(() => {
     open()
     srv.get('app/info').then((i) => setKitdev(!!i.kitdev), () => {})
