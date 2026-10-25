@@ -784,7 +784,10 @@ def scan_repos(log=print) -> None:
     from . import diagrams, inventory, schemas
     inventory.run(log=log)
     schemas.write_pages(log=log)
-    diagrams.write_pages(log=log)
+    try:
+        diagrams.write_pages(log=log)
+    except Exception as e:  # noqa: BLE001 — the diagrams are a bonus: the rest of the scan still runs
+        log(f"⚠ diagrams skipped: {e}")
     genblocks.write_reference(log=log)
     genblocks.refresh()
 

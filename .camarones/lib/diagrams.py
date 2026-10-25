@@ -419,7 +419,8 @@ def _edit_page(body: str, repo: str, managed: dict[str, str], wanted: list[Key],
     from . import genblocks
     parts, last, emptied = [], 0, set()
     for m in _page_blocks(body):
-        if m["kind"] not in managed.values() or m["repo"] != repo or m["confirmed"] or _key(m) in wanted:
+        edited = m["sha"] and m["sha"] != genblocks.sha(m["body"])         # a person's hand edit is kept like a confirmation
+        if m["kind"] not in managed.values() or m["repo"] != repo or m["confirmed"] or edited or _key(m) in wanted:
             continue
         parts.append(body[last:m.start()])
         last = m.end()
@@ -508,6 +509,9 @@ def write_pages(log=lambda _: None) -> list[str]:
             text = f.read_text(encoding="utf-8")
             fm, body, _valid = docs.parse_fm(text)
             if fm.get("x-owner") == "human":
+                continue
+            if fm.get("x-generated") is not True and not _page_blocks(body):
+                log(f"· {rel_file(f)} was not written by the kit: left as it is")
                 continue
             new_body, sources = _edit_page(body, repo, {h: kind for h, kind in sections}, wanted, draw)
             if new_body == body:

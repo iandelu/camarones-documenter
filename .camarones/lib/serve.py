@@ -394,7 +394,10 @@ def first_look(log) -> bool:
     from . import diagrams, inventory, schemas
     inventory.run(log=log)
     schemas.write_pages(log=log)
-    diagrams.write_pages(log=log)
+    try:
+        diagrams.write_pages(log=log)
+    except Exception as e:  # noqa: BLE001 — the diagrams are a bonus: llms.txt and the C4 build still run
+        log(f"⚠ diagrams skipped: {e}")
     docs.llms()
     if env.which("likec4"):
         env.build_c4(log=log)
