@@ -64,6 +64,11 @@ def list_registered() -> list[dict]:
     return rows
 
 
+class Taken(ValueError):
+    """The folder's cam-docs belongs to something else (not empty and not a project, a file, a repo with another
+    remote). A ValueError, so every existing caller keeps working; the CLI prints it as the code `taken` for the app."""
+
+
 def create(name: str, at: Path | None = None, url: str = "") -> Path:
     """Make <at>/<name>/cam-docs/ (a new workspace folder for the repos, with its docs folder) and register it.
     The wizard's first-run flow (env.init_templates) does the actual bootstrap once it's opened.
@@ -225,7 +230,7 @@ def join(url: str, workspace: Path | None = None, name: str | None = None) -> tu
     if (dest / ".git").exists():
         have = origin_of(dest)
         if have and remote_key(have) != key:
-            raise ValueError(f"{dest} ya es un repo con otro remoto ({have}) — elige otra carpeta.")
+            raise Taken(f"{dest} ya es un repo con otro remoto ({have}) — elige otra carpeta.")
         if have:
             return _reuse(dest, url, name)
     probe = _git("ls-remote", "--heads", url, url=url)
@@ -238,8 +243,8 @@ def join(url: str, workspace: Path | None = None, name: str | None = None) -> tu
         _git("remote", "remove", "origin", cwd=dest)
         _git("remote", "add", "origin", url, cwd=dest, check=True)
         return dest, _is_project(dest)
-    if (dest / ".git").exists() or (dest.exists() and any(dest.iterdir())):
-        raise ValueError(f"{dest} ya existe y no está vacía — elige otra carpeta.")
+    if (dest / ".git").exists() or (dest.exists() and (not dest.is_dir() or any(dest.iterdir()))):
+        raise Taken(f"{dest} ya existe y no está vacía — elige otra carpeta.")
     workspace.mkdir(parents=True, exist_ok=True)
     r = _git("clone", "--quiet", url, str(dest), url=url)
     if r.returncode != 0:
@@ -267,8 +272,8 @@ def adopt(workspace: Path, name: str | None = None) -> Path:
     if (dest / ".camarones" / "workspace.yaml").exists():
         register(dest, name=name)
         return dest
-    if dest.exists() and any(dest.iterdir()) and not (dest / ".git").exists():
-        raise ValueError(f"{dest} ya existe y no está vacía — elige otra carpeta.")
+    if dest.exists() and (not dest.is_dir() or (any(dest.iterdir()) and not (dest / ".git").exists())):
+        raise Taken(f"{dest} ya existe y no está vacía — elige otra carpeta.")      # a file named cam-docs too
     dest.mkdir(parents=True, exist_ok=True)
     register(dest, name=name or workspace.name)
     return dest
