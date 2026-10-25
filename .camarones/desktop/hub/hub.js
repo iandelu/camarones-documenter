@@ -25,7 +25,7 @@ const S = {
     unknown: 'No puedo leer ese repo.', failed: 'No he podido unirme a ese repo.', server: 'El servidor',
     // what I found
     foundTitle: 'Lo que he encontrado', badgeCode: 'Código existente', badgeNew: 'Proyecto nuevo', badgeDone: 'Ya documentado',
-    umbrella: (n) => (n === 1 ? '1 repo con código' : `${n} repos con código`),
+    umbrella: (n) => (!n ? 'Carpeta con repos' : n === 1 ? '1 repo con código' : `${n} repos con código`),
     umbrellaText: 'Los analizo y documento lo que hay.',
     repoTitle: 'Es el repo «{name}»', repoText: 'Creo cam-docs junto a él, en la carpeta padre.',
     siblings: (n) => (n === 1 ? 'Hay 1 repo más junto a él ({names}): puedes sumarlo en el siguiente paso.'
@@ -38,6 +38,9 @@ const S = {
     name: 'Nombre del proyecto', change: 'Cambiar carpeta', continue: 'Continuar →', preparing: 'Preparando el proyecto…',
     folderBad: 'No puedo usar esa carpeta. Elige otra.',
     taken: 'Esa carpeta ya tiene un cam-docs que no es un proyecto de Camarón. Elige otra carpeta o vacía ese cam-docs.',
+    takenParent: 'La carpeta padre del repo ya tiene un cam-docs que no es un proyecto de Camarón. Elige otra carpeta o vacía ese cam-docs.',
+    joinTaken: 'Esa carpeta ya tiene un cam-docs que no es el del equipo. Elige otra carpeta.',
+    badUrl: 'Esa URL no vale: no puede empezar por «-».', badName: 'El nombre no puede empezar por «-».',
   },
   en: {
     title: 'What do you want to document?', lede: 'Pick where we start. We\'ll work out the rest together, one step at a time.',
@@ -59,7 +62,7 @@ const S = {
     network: 'I can\'t reach {host}. Check the connection, VPN or proxy.',
     unknown: 'I can\'t read that repo.', failed: 'I couldn\'t join that repo.', server: 'The server',
     foundTitle: 'What I found', badgeCode: 'Existing code', badgeNew: 'New project', badgeDone: 'Already documented',
-    umbrella: (n) => (n === 1 ? '1 repo with code' : `${n} repos with code`),
+    umbrella: (n) => (!n ? 'A folder of repos' : n === 1 ? '1 repo with code' : `${n} repos with code`),
     umbrellaText: 'I\'ll analyse them and document what\'s there.',
     repoTitle: 'It\'s the "{name}" repo', repoText: 'I\'ll create cam-docs next to it, in the parent folder.',
     siblings: (n) => (n === 1 ? '1 more repo next to it ({names}): you can add it in the next step.'
@@ -72,6 +75,9 @@ const S = {
     name: 'Project name', change: 'Change folder', continue: 'Continue →', preparing: 'Preparing the project…',
     folderBad: 'I can\'t use that folder. Pick another one.',
     taken: 'That folder already has a cam-docs that isn\'t a Camarón project. Pick another folder, or empty that cam-docs.',
+    takenParent: 'The repo\'s parent folder already has a cam-docs that isn\'t a Camarón project. Pick another folder, or empty that cam-docs.',
+    joinTaken: 'That folder already has a cam-docs that isn\'t the team\'s. Pick another folder.',
+    badUrl: 'That URL won\'t work: it can\'t start with "-".', badName: 'The name can\'t start with "-".',
   },
 }
 let t = S.es
@@ -210,20 +216,29 @@ async function adopt(e) {
   say('found', t.preparing)
   try {
     const name = found.info.case === 'project' ? undefined : $('name').value.trim() || undefined
+    if (name && name.startsWith('-')) { say('found', t.badName, '', true); return $('name').focus() }
     const r = await hub.adopt(found.dir, name)
-    if (r && r.error) say('found', r.error === 'taken' ? t.taken : t.folderBad, r.detail, true)
+    // a single repo's cam-docs goes in its parent folder: say which folder holds the cam-docs that is in the way
+    const taken = found.info.case === 'repo' ? t.takenParent : t.taken
+    if (r && r.error) say('found', r.error === 'taken' ? taken : t.folderBad, r.detail, true)
     else if (r && !r.ok) say('found', t.openFailed, r.error, true)
     else say('found', '')
   } finally { busy(false) }
 }
 
 // ---------- join the team's cam-docs ----------
-function showJoin() {
+// Back to a plain join: no token on screen, and the next try asks for the folder again. Only an `auth` retry keeps
+// the folder (joinDir) and the token field.
+function resetToken() {
   joinDir = null
-  $('url').value = ''
   $('token').value = ''
   $('token-box').hidden = true
   $('join-go').textContent = t.joinGo
+}
+
+function showJoin() {
+  resetToken()
+  $('url').value = ''
   say('join', '')
   show('joining')
   $('url').focus()
@@ -243,6 +258,7 @@ async function join(e) {
   e.preventDefault()
   const url = $('url').value.trim()
   if (!url) return $('url').focus()
+  if (url.startsWith('-')) { say('join', t.badUrl, '', true); return $('url').focus() }
   const token = $('token-box').hidden ? undefined : $('token').value.trim()
   if (token === '') return $('token').focus()
   busy(true)
@@ -250,11 +266,12 @@ async function join(e) {
   try {
     const r = await hub.join(url, token, joinDir || undefined)
     if (!r || r.cancelled) return say('join', '')
-    if (r.dir) joinDir = r.dir
-    if (r.error === 'url') { say('join', ''); return $('url').focus() }
     // the CLI only tries a token for a host it can name (https URLs); without one, a token field would do nothing
-    if (r.error === 'auth' && r.host) return askToken(r.host, !!token)
+    if (r.error === 'auth' && r.host) { joinDir = r.dir || joinDir; return askToken(r.host, !!token) }
+    resetToken()                                     // any other outcome: the token is gone, the folder is asked again
+    if (r.error === 'url') { say('join', t.badUrl, '', true); return $('url').focus() }
     if (r.error === 'auth') return say('join', t.authSsh, r.detail, true)
+    if (r.error === 'taken') return say('join', t.joinTaken, r.detail, true)
     if (r.error) {
       const host = r.host || t.server
       return say('join', fill(t[r.error] || t.failed, { host }), r.detail, true)
@@ -292,14 +309,15 @@ async function main() {
   $('adopt-form').addEventListener('submit', adopt)
   $('join').addEventListener('click', showJoin)
   $('join-form').addEventListener('submit', join)
-  // another URL may be another host: the token asked for the old one no longer applies
+  // another URL may be another host: the token (and folder) asked for the old one no longer apply
   $('url').addEventListener('input', () => {
     if ($('token-box').hidden) return
-    $('token-box').hidden = true
-    $('join-go').textContent = t.joinGo
+    resetToken()
     say('join', '')
   })
-  for (const id of ['join-back', 'join-cancel', 'found-back']) $(id).addEventListener('click', () => { say('start', ''); show('start') })
+  for (const id of ['join-back', 'join-cancel', 'found-back']) {
+    $(id).addEventListener('click', () => { resetToken(); say('start', ''); show('start') })
+  }
   await load()
 }
 

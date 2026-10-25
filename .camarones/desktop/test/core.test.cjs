@@ -145,14 +145,16 @@ test('why a join failed: the CLI\'s JSON line, or nothing', () => {
   assert.deepEqual(core.joinFailure('{"error": "weird"}'), { error: 'unknown', host: '', detail: '' })
   assert.equal(core.joinFailure('{"path": "/a/cam-docs", "joined": true}'), null)
   assert.equal(core.joinFailure(''), null)
+  // the folder's cam-docs belongs to something else: a stable code, not the CLI's Spanish line
+  assert.deepEqual(core.joinFailure('{"error": "taken", "detail": "/x/cam-docs ya existe y no está vacía"}'),
+    { error: 'taken', host: '', detail: '/x/cam-docs ya existe y no está vacía' })
 })
 
-test('the CLI\'s error line, and whether an adopt hit a cam-docs that is taken', () => {
+test('the CLI\'s error line, and whether an adopt hit a cam-docs that is taken (its JSON code, never the text)', () => {
   assert.equal(core.errLine('Warning: something\n✖ not a folder: /x\n'), 'not a folder: /x')
   assert.equal(core.errLine(''), '')
-  assert.equal(core.adoptError('✖ /x/cam-docs ya existe y no está vacía — elige otra carpeta.'), 'taken')
-  assert.equal(core.adoptError("✖ [Errno 17] File exists: '/x/cam-docs'"), 'taken')
-  assert.equal(core.adoptError("✖ [WinError 183] Cannot create a file when that file already exists: 'C:\\x\\cam-docs'"), 'taken')
-  assert.equal(core.adoptError('✖ not a folder: /x'), 'folder')
-  assert.equal(core.adoptError("✖ [Errno 13] Permission denied: '/x/cam-docs'"), 'folder')
+  assert.equal(core.adoptError('{"error": "taken", "detail": "/x/cam-docs ya existe y no está vacía"}\n'), 'taken')
+  assert.equal(core.adoptError(''), 'folder')                                 // not a folder, unreadable: no JSON
+  assert.equal(core.adoptError('/x/cam-docs ya existe y no está vacía'), 'folder')
+  assert.equal(core.adoptError('{"error": "other"}'), 'folder')
 })

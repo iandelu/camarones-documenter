@@ -48,8 +48,9 @@ function joinEnv(env, token) {
   return out
 }
 
-// `join --no-open` explains a refused access as one JSON line on stdout: {error, host, detail}.
-const JOIN_REASONS = ['auth', 'denied', 'not-found', 'network', 'unknown']
+// `join --no-open` explains a refused access as one JSON line on stdout: {error, host, detail}; a cam-docs in that
+// folder that belongs to something else is {error: "taken", detail}.
+const JOIN_REASONS = ['auth', 'denied', 'not-found', 'network', 'unknown', 'taken']
 function joinFailure(out) {
   const r = lastJson(out)
   if (!r || typeof r.error !== 'string') return null
@@ -62,8 +63,9 @@ function errLine(err) {
   return lines.length ? lines[lines.length - 1].replace(/^✖\s*/, '') : ''
 }
 
-// Why `projects --adopt` refused: a cam-docs already there that is not a project ("taken"), or a folder it can't use.
-const adoptError = (err) => (/ya existe|already exists|file exists/i.test(String(err)) ? 'taken' : 'folder')
+// Why `projects --adopt --json` refused: its stdout code says a cam-docs there belongs to something else ("taken");
+// anything else (not a folder, unreadable) is a folder it can't use. The CLI's text is never parsed.
+const adoptError = (out) => ((lastJson(out) || {}).error === 'taken' ? 'taken' : 'folder')
 
 // Windows has no process groups to signal: taskkill /T takes the server and the jobs it started. Elsewhere the
 // backend leads its own group (spawned detached) and main.cjs signals the group.

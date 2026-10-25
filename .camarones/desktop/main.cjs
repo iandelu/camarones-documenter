@@ -153,10 +153,11 @@ function handlers() {
     const r = await cli(core.adoptArgs(dir, name))
     const made = r.code === 0 && core.lastJson(r.out)
     if (made && made.path) return openProject(made.path)
-    return { error: core.adoptError(r.err), detail: core.errLine(r.err) || `exit ${r.code}` }
+    return { error: core.adoptError(r.out), detail: core.errLine(r.err) || `exit ${r.code}` }
   })
   // Join: the URL, then where it goes (asked once: a retry with a token passes the same `dir` back). A refused access
-  // returns the CLI's reason ({error: auth|denied|not-found|network|unknown, host, detail}); anything else is "failed".
+  // returns the CLI's reason ({error: auth|denied|not-found|network|unknown, host, detail}), a cam-docs there that
+  // belongs to something else {error: taken}; anything else is "failed".
   onHub('hub:join', async ({ url, token, dir } = {}) => {
     if (typeof url !== 'string' || !url.trim() || url.trim().startsWith('-')) return { error: 'url' }
     if (dir != null && !core.folderArg(dir)) return { error: 'folder' }
