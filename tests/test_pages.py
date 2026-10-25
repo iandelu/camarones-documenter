@@ -385,28 +385,54 @@ def test_prose_keeps_the_tldr_and_folds_a_new_table(pg):
     assert "as we see it" in text and "A note of ours." in text
     assert ":::details Endpoints\n<!-- generated:endpoints repo=api" in text
     assert text.index("generated:endpoints-map") < text.index(":::details Endpoints") < text.index(":::details How this")
-    assert any("has text a person or an agent wrote" in line for line in logs)
+    assert any("has text a person or an agent wrote, only its blocks" in line for line in logs)
     assert "api:src/main/resources/openapi.yaml" in pg.kit.docs.split_fm(text)[0]["x-sources"]
 
 
-def test_x_confirmed_is_kept_on_a_rewrite(pg):
+def test_a_confirmed_kit_page_only_gets_its_blocks(pg):
     pg.mod.write()
     page = pg.kit.root / "docs" / "repos" / "api" / "index.md"
-    page.write_text(page.read_text(encoding="utf-8").replace("x-generated: true", "x-generated: true\nx-confirmed:\n  body_sha: abc\n  by: ana"), encoding="utf-8", newline="\n")
+    text = page.read_text(encoding="utf-8")
+    page.write_text(text.replace("x-generated: true", "x-generated: true\nx-confirmed:\n  body_sha: abc\n  by: ana"),
+                    encoding="utf-8", newline="\n")
+    tldr = next(line for line in text.splitlines() if line.startswith("> **TL;DR:**"))
+    pg.put("api", "src/main/resources/openapi.yaml", OPENAPI)                    # the TL;DR's facts change
     pg.put("api", "src/main/java/demo/OrderStatus.java", ORDER)
-    pg.mod.write()
+    logs = []
+    pg.mod.write(logs.append)
     text = page.read_text(encoding="utf-8")
     assert pg.kit.docs.split_fm(text)[0]["x-confirmed"] == {"body_sha": "abc", "by": "ana"} and "id=OrderStatus" in text
+    assert tldr in text and "generated:endpoints-map repo=api" in text            # the TL;DR a person confirmed stays
+    assert any("confirmed by a person" in line and "only its blocks" in line for line in logs)
 
 
 def test_kit_only_allows_kit_lines_only(pg):
-    fresh = "---\ntitle: a\n---\n# a\n\n> **TL;DR:** x\n\n:::details Commands\nRead from the code.\n:::\n"
+    """The TL;DR line is the kit's by its place; a line under it is the kit's only when the kit writes it (an older
+    kit's two-line TL;DR whose second line the kit still writes, as `reference.md` and `first-look.md` do)."""
+    fresh = ("---\ntitle: a\n---\n# a\n\n> **TL;DR:** x\n> over two lines.\n\n:::details Commands\nRead from the code.\n"
+             ":::\n")
     blk = pg.gb.block("env", "api", "| a |\n|---|")
-    assert pg.mod.kit_only(f"---\ntitle: b\n---\n# b\n\n> **TL;DR:** an older kit's words\n> over two lines.\n\n"
-                           f"## Run\n\n:::details Commands\n{blk}\n:::\n\n- [Libraries](../../overview/libraries.md)\n"
-                           "Read from the code.\n", fresh)
+    old = (f"---\ntitle: b\n---\n# b\n\n> **TL;DR:** an older kit's words\n> over two lines.\n\n"
+           f"## Run\n\n:::details Commands\n{blk}\n:::\n\n- [Libraries](../../overview/libraries.md)\nRead from the code.\n")
+    assert pg.mod.kit_only(old, fresh)
+    assert not pg.mod.kit_only(old, fresh.replace("> over two lines.\n", ""))  # an older kit's line the kit lost: kept
     assert not pg.mod.kit_only("# a\n\nThe team runs it behind nginx.\n", fresh)
     assert not pg.mod.kit_only("# a\n\n- [x](y) and more\n", fresh)
+
+
+def test_kit_only_keeps_a_note_right_under_the_tldr(pg):
+    fresh = "# a\n\n> **TL;DR:** x\n\n## Run\n"
+    assert not pg.mod.kit_only("# a\n\n> **TL;DR:** x\n> Never restart it during business hours.\n\n## Run\n", fresh)
+    assert pg.mod.kit_only("# a\n\n> **TL;DR:** older words\n\n## Run\n", fresh)
+
+
+def test_kit_only_reads_the_kit_lines_outside_its_blocks_and_frontmatter(pg):
+    row = "| `DB_URL` | yes | ask ops |"
+    blk = pg.gb.block("env", "api", f"| Variable | Required | Default |\n|---|---|---|\n{row}")
+    fresh = f"---\ntitle: a\n---\n# a\n\n> **TL;DR:** x\n\n## Run\n\n{blk}\n"
+    assert pg.mod.kit_only(f"# a\n\n> **TL;DR:** x\n\n## Run\n\n{blk}\n", fresh)
+    assert not pg.mod.kit_only(f"# a\n\n> **TL;DR:** x\n\n## Run\n\n{blk}\n\n{row}\n", fresh)   # a person's copy
+    assert not pg.mod.kit_only("# a\n\n> **TL;DR:** x\n\ntitle: a\n", fresh)
 
 
 @pytest.mark.parametrize("line", ["> Never restart it during business hours.", "- [Runbook](https://wiki/x): restart steps",

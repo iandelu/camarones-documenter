@@ -393,9 +393,9 @@ actualizan. Si alguien edita uno a mano, se conserva y `check` lo avisa; `blocks
 **Proyectos anteriores a la 4.52.** Conservan sus páginas (`reference.md`, `diagrams.md`, `system-map.md`,
 `first-look.md`, `data/<repo>.md`) hasta que ejecutes `camaron pages --adopt`. Mueve los bloques, con sus
 confirmaciones, a las páginas nuevas (rellenándolas si el inicio o la página del repo la escribió un agente), borra solo
-las páginas del kit que deja vacías, no escribe nunca una página de una persona (`x-owner: human`, `x-confirmed` o sin
-`x-owner`), apunta los enlaces de las páginas de agente a las páginas nuevas y lista lo que no pudo tocar (páginas,
-enlaces, traducciones).
+las páginas del kit que deja vacías, no escribe ni borra nunca una página de una persona (`x-owner: human` o
+`x-confirmed`; una página sin `x-owner` es de un agente), apunta los enlaces de las páginas de agente a las páginas
+nuevas y lista lo que no pudo tocar (páginas, enlaces, traducciones).
 
 **Diagramas del código, sin IA.** `camaron pages` (alias `camaron diagrams`; también lo ejecutan el primer escaneo y el
 primer vistazo) dibuja en Mermaid lo que el código afirma, sin adivinar: el mapa de contexto (repos, almacenes de datos,

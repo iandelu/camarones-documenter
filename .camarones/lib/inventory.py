@@ -306,7 +306,7 @@ def render(result: dict) -> str:
           "tags": ["stack", "dependencies"], "x-sources": sorted({r["source"] for r in rows}), "x-owner": "ai"}
     from . import pages
     vulns = result.get("vulns") is not None
-    repos = {r["repo"] for r in rows}
+    repos = {*docs.repo_names(), *(r["repo"] for r in rows)}                  # the workspace's, manifests or not
     drift = {r["name"] for r in rows if r["drift"]}
     vulnerable = {r["name"] for r in rows if r.get("vulns")}
     tldr = (f"{pages.count(len(rows), 'direct dependency', 'direct dependencies')} across {pages.count(len(repos), 'repo')}" +

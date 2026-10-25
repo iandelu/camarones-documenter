@@ -374,9 +374,9 @@ takes the code's version.
 
 **Projects from before 4.52** keep their pages (`reference.md`, `diagrams.md`, `system-map.md`, `first-look.md`,
 `data/<repo>.md`) until you run `camaron pages --adopt`. It moves the blocks, with their confirmations, into the new
-pages (filling an agent-written home or repo page with them), deletes only the kit pages it emptied, never writes a page
-a person owns (`x-owner: human`, `x-confirmed`, or no `x-owner`), points the links in agent pages at the new pages and
-lists what it could not touch (pages, links, translations).
+pages (filling an agent-written home or repo page with them), deletes only the kit pages it emptied, never writes or
+deletes a page a person owns (`x-owner: human` or `x-confirmed`; a page with no `x-owner` is an agent's), points the
+links in agent pages at the new pages and lists what it could not touch (pages, links, translations).
 
 **Diagrams from the code, no AI.** `camaron pages` (alias `camaron diagrams`; also run by the first scan and the first
 look) draws what the code states, in Mermaid, and never guesses: the context map (repos, datastores, brokers, identity

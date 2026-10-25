@@ -81,6 +81,7 @@ def pages(fx):
     return {k: v for k, v in snapshot(fx.kit.root / "docs").items() if not re.match(r"(.*/)?\.", k)}
 
 
+DIFFERS = "differs from what this kit writes (text a person or an agent added, or an older kit's wording)"
 OLD = ("repos/api/reference.md", "repos/api/diagrams.md", "data/api.md", "architecture/system-map.md",
        "architecture/first-look.md")
 
@@ -117,8 +118,7 @@ def test_adopt_leaves_a_page_with_prose_and_a_human_page(old_project):
     assert (docs_dir / "repos" / "web" / "reference.md").exists()
     assert any(k.startswith("docs/data/api.md") for k in out["kept"])
     assert "generated:schema repo=api" not in (docs_dir / "repos" / "api" / "index.md").read_text(encoding="utf-8")
-    assert sorted(out["kept"]) == ["docs/data/api.md: has text a person or an agent wrote",
-                                   "docs/repos/web/reference.md: owned by a person"]
+    assert sorted(out["kept"]) == [f"docs/data/api.md: {DIFFERS}", "docs/repos/web/reference.md: owned by a person"]
 
 
 def test_adopt_twice_changes_nothing(old_project):
@@ -222,8 +222,7 @@ def test_adopt_with_a_persons_home_changes_nothing(old_project):
     before = pages(old_project)
     out = old_project.mod.adopt()
     assert pages(old_project) == before and out["deleted"] == [] and out["moved"] == []
-    reason = ("docs/index.md is a person's page: add the cards by hand, or remove x-owner/x-confirmed and run --adopt "
-              "again")
+    reason = "docs/index.md is a person's page (x-owner: human): add the cards by hand, or set x-owner: ai and run --adopt again"
     assert sorted(out["kept"]) == sorted(f"docs/{rel}: {reason}" for rel in (*OLD, "repos/web/reference.md",
                                                                                "repos/worker/reference.md"))
 
@@ -314,13 +313,60 @@ def test_adopt_lets_go_of_a_block_a_persons_page_holds_identically(old_project):
     assert any(k.startswith("docs/repos/api/reference.md: docs/repos/api/index.md is a person's page") for k in out["kept"])
 
 
-def test_a_home_with_no_owner_is_a_persons(old_project):
-    write_doc(old_project, "index.md", AGENT_HOME.replace("x-owner: ai\n", ""))
-    before = pages(old_project)
+def test_a_confirmed_home_says_how_to_proceed(old_project):
+    write_doc(old_project, "index.md", AGENT_HOME.replace("x-owner: ai", "x-owner: ai\nx-confirmed:\n  by: ana"))
     out = old_project.mod.adopt()
-    assert pages(old_project) == before and out["deleted"] == []
-    assert len(out["kept"]) == len(old_project.mod.old_pages()) and all("docs/index.md is a person's page" in k
-                                                                          for k in out["kept"])
+    assert out["deleted"] == [] and out["kept"][0].endswith(
+        "docs/index.md is a person's page (x-confirmed): add the cards by hand, or remove x-confirmed and run --adopt again")
+
+
+def test_a_home_with_no_owner_is_an_agents(old_project):
+    """The 4.x skeletons never set x-owner, and the kit reads a missing owner as `ai` (`doc_status`)."""
+    write_doc(old_project, "index.md", AGENT_HOME.replace("x-owner: ai\n", ""))
+    out = old_project.mod.adopt()
+    text = doc(old_project, "index.md").read_text(encoding="utf-8")
+    assert "> **TL;DR:** demo sells pets.\n\n:::cards\n<!-- generated:repos repo=_system" in text
+    assert "The team ships every Friday." in text and "docs/architecture/system-map.md" in out["deleted"]
+    assert "x-owner" not in old_project.kit.docs.split_fm(text)[0]
+
+
+def test_adopt_keeps_an_old_page_a_person_confirmed(old_project):
+    f = doc(old_project, "repos/api/reference.md")
+    fm, body = old_project.kit.docs.split_fm(f.read_text(encoding="utf-8"))
+    f.write_text(old_project.kit.docs.join_fm({**fm, "x-confirmed": {"by": "ana", "at": "2026-10-01", "body_sha": "x"}}, body),
+                 encoding="utf-8", newline="\n")
+    before = f.read_bytes()
+    out = old_project.mod.adopt()
+    assert f.read_bytes() == before and "docs/repos/api/reference.md: confirmed by a person" in out["kept"]
+    assert "generated:env repo=api" not in doc(old_project, "repos/api/index.md").read_text(encoding="utf-8")
+
+
+def test_adopt_keeps_a_page_with_a_persons_copy_of_a_block_row(old_project):
+    rel = "repos/api/reference.md"
+    _text, m = _block(old_project, rel, lambda b: b["kind"] == "env")
+    add_paragraph(old_project, rel, next(line for line in m["body"].splitlines() if line.startswith("| `")))
+    out = old_project.mod.adopt()
+    assert doc(old_project, rel).exists() and f"docs/{rel}: {DIFFERS}" in out["kept"]
+
+
+@pytest.mark.parametrize("rel", OLD)
+def test_adopt_takes_an_older_kits_tldr_line(old_project, rel):
+    """Every old page type: a TL;DR line in other words is still the kit's, the lines under it are the kit's today."""
+    text = doc(old_project, rel).read_text(encoding="utf-8")
+    line = next(x for x in text.splitlines() if x.startswith("> **TL;DR:**"))
+    doc(old_project, rel).write_text(text.replace(line, "> **TL;DR:** an older kit's words."), encoding="utf-8",
+                                     newline="\n")
+    assert f"docs/{rel}" in old_project.mod.adopt()["deleted"]
+
+
+def test_adopt_keeps_a_page_with_a_line_under_its_tldr(old_project):
+    rel = "repos/api/reference.md"
+    text = doc(old_project, rel).read_text(encoding="utf-8")
+    line = next(x for x in text.splitlines() if x.startswith("> **TL;DR:**"))
+    doc(old_project, rel).write_text(text.replace(line, line + "\n> Never restart it during business hours."),
+                                     encoding="utf-8", newline="\n")
+    out = old_project.mod.adopt()
+    assert doc(old_project, rel).exists() and f"docs/{rel}: {DIFFERS}" in out["kept"]
 
 
 def test_adopt_keeps_a_page_whose_carried_blocks_target_never_came(old_project, monkeypatch):
@@ -378,11 +424,75 @@ def test_adopt_leaves_links_to_pages_it_kept(old_project):
     assert out["relinked"] == ["docs/guides/api.md"]
 
 
-def test_adopt_lists_a_page_without_owner_as_a_persons(old_project):
+def test_adopt_relinks_a_page_without_owner(old_project):
     write_doc(old_project, "guides/mine.md", "---\ntitle: Mine\n---\n# Mine\n\n[ref](../repos/api/reference.md)\n")
     out = old_project.mod.adopt()
+    assert out["relinked"] == ["docs/guides/mine.md"] and out["links"] == []
+    assert "[ref](../repos/api/index.md)" in doc(old_project, "guides/mine.md").read_text(encoding="utf-8")
+
+
+def test_adopt_lists_a_persons_page_with_a_link(old_project):
+    write_doc(old_project, "guides/mine.md", "---\ntitle: Mine\nx-owner: human\n---\n# Mine\n\n"
+              "[ref](../repos/api/reference.md)\n")
+    out = old_project.mod.adopt()
     assert out["links"] == ["docs/guides/mine.md"] and out["relinked"] == []
-    assert "reference.md" in doc(old_project, "guides/mine.md").read_text(encoding="utf-8")
+
+
+# A brief and a home as an agent wrote them from the 4.x skeletons (`repo-brief.md`, `overview.md`): no x-owner.
+BRIEF_4X = ("---\ntype: overview\ntitle: api brief\ndescription: What api does, its stack, how to build, test and run it, "
+            "and the interfaces and data it owns.\ntags: [api]\nx-sources:\n  - api:README.md\n---\n# api\n\n"
+            "> **TL;DR:** The pets API, in Spring Boot; run it with Maven.\n\n## Build, test and run\n\n"
+            "Run `./mvnw spring-boot:run`.\n\n## Interfaces\n\nThe full lists of endpoints, topics and env vars are in "
+            "[api reference](reference.md), generated from the code.\n\n## Data owned\n\nThe pets tables.\n")
+HOME_4X = ("---\ntype: overview\ntitle: demo\ndescription: What the system is for, who uses it, and which repos make it "
+           "up, for someone who has never seen it.\ntags: [overview]\nx-sources:\n  - api:README.md\n---\n# demo\n\n"
+           "> **TL;DR:** demo sells pets, through api and web.\n\n## What it does\n\nSells pets. The map is in "
+           "[the system map](architecture/system-map.md).\n\n## Repos\n\n| Repo | Role | Stack |\n|---|---|---|\n"
+           "| `api` | the API | Spring Boot |\n")
+
+
+def test_adopt_on_the_4x_brief_and_home_leaves_no_broken_link(old_project):
+    for rel in ("overview/tooling.md", "overview/libraries.md", "guides/tutorial.md"):  # what the new pages link to
+        write_doc(old_project, rel, "---\ntitle: T\ndescription: d\ntype: guide\n---\n# T\n")
+    write_doc(old_project, "repos/api/brief.md", BRIEF_4X)
+    write_doc(old_project, "index.md", HOME_4X)
+    out = old_project.mod.adopt()
+    brief, home = (doc(old_project, rel).read_text(encoding="utf-8") for rel in ("repos/api/brief.md", "index.md"))
+    assert "[api reference](index.md)" in brief and "[the system map](index.md)" in home
+    assert "> **TL;DR:** demo sells pets, through api and web.\n\n:::cards\n<!-- generated:repos repo=_system" in home
+    assert {"docs/repos/api/reference.md", "docs/architecture/system-map.md"} <= set(out["deleted"])
+    assert {"docs/repos/api/brief.md", "docs/index.md"} <= set(out["relinked"]) and out["links"] == []
+    assert [i for i in run_check(old_project) if "link" in i.lower()] == []
+
+
+def test_relink_lists_a_page_it_cannot_write(old_project, monkeypatch):
+    page = write_doc(old_project, "guides/locked.md", "---\ntitle: x\nx-owner: ai\n---\n# x\n\n"
+                     "[r](../repos/api/reference.md)\n")
+    write_doc(old_project, "repos/api/index.md", "---\ntitle: api\nx-owner: ai\n---\n# api\n")    # the page that took over
+    real = pathlib.Path.write_bytes
+    monkeypatch.setattr(pathlib.Path, "write_bytes", lambda self, data: (_ for _ in ()).throw(PermissionError("locked"))
+                        if self.name == "locked.md" else real(self, data))
+    relinked, left = old_project.mod._relink({"repos/api/reference.md"})
+    assert left == ["docs/guides/locked.md"] and relinked == [] and "reference.md" in page.read_text(encoding="utf-8")
+
+
+def test_adopt_regenerates_llms_txt(old_project):
+    old_project.kit.docs.llms()
+    assert "reference.md" in doc(old_project, "llms.txt").read_text(encoding="utf-8")
+    old_project.mod.adopt()
+    text = doc(old_project, "llms.txt").read_text(encoding="utf-8")
+    assert "reference.md" not in text and "repos/api/index.md" in text
+
+
+def test_adopt_logs_an_llms_txt_failure(old_project, monkeypatch):
+    monkeypatch.setattr(old_project.kit.docs, "llms", lambda: (_ for _ in ()).throw(RuntimeError("no llms today")))
+    logs = []
+    out = old_project.mod.adopt(log=logs.append)
+    assert "docs/repos/api/reference.md" in out["deleted"] and any("no llms today" in line for line in logs)
+
+
+def test_the_first_look_page_is_written_with_lf(old_project):
+    assert b"\r\n" not in doc(old_project, "architecture/first-look.md").read_bytes()
 
 
 def test_adopt_twice_relinks_nothing_more(old_project):

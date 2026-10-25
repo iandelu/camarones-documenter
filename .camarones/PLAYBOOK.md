@@ -99,8 +99,8 @@ Write `docs/index.md` and `docs/overview/system.md`: purpose, repositories, how 
 one representative flow (a Mermaid sequence diagram), evidence and unanswered questions.
 If `docs/index.md` is the generated home (`x-generated: true`; its repos block, inside `:::cards`, and its context map
 are blocks), keep those blocks and the `:::cards` around the repos, write the overview around them and remove
-`x-generated: true` from its frontmatter, keeping `x-owner: ai` (without `x-owner: ai` the kit treats the page as a
-person's: `CLI pages --adopt` never writes it and `CLI pages` only refreshes its blocks). The page is then yours;
+`x-generated: true` from its frontmatter, keeping `x-owner: ai` (`x-owner: human` or `x-confirmed` would make it a
+person's: `CLI pages` never rewrites it whole and `CLI pages --adopt` never writes it). The page is then yours;
 `CLI blocks` still refreshes the blocks.
 Translate these two pages into `docs/i18n/es/` and run `CLI translated` for them.
 No OpenWiki, graphify, C4 or git hooks are required. Do not install them or edit service repositories.
