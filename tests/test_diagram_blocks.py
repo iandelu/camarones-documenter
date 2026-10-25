@@ -3,6 +3,7 @@ SQL. A diagram shows the states only, never a transition: those wait for a propo
 from __future__ import annotations
 
 import importlib
+import re
 
 import pytest
 
@@ -156,3 +157,124 @@ def test_a_state_named_like_a_mermaid_keyword_gets_an_aliased_id(dg):
     lines = [ln.strip() for ln in body.splitlines()]
     assert 'state "end" as end_' in lines and 'state "state" as state_' in lines and 'state "note" as note_' in lines
     assert "start" in lines and not {"end", "state", "note"} & set(lines)
+
+
+# ---------- endpoints-map ----------
+OPENAPI = """openapi: 3.0.1
+info: {title: api, version: '1'}
+paths:
+  /pets:
+    get: {summary: List pets, operationId: listPets}
+    post: {operationId: addPet}
+  /pets/{id}:
+    delete: {summary: Delete a pet}
+"""
+LISTENER = """package demo;
+
+public class Events {
+    @KafkaListener(topics = "pet-created")
+    public void on(String m) {}
+
+    void send() { kafkaTemplate.send("visit-booked", m); }
+}
+"""
+APP_YML = "spring:\n  datasource:\n    url: jdbc:postgresql://${DB_HOST:localhost}/pets\n"
+
+
+def api_repo(dg, openapi=OPENAPI):
+    dg.put("api", "pom.xml", "<project><artifactId>api</artifactId><parent>spring-boot</parent></project>\n")
+    dg.put("api", "src/main/resources/application.yml", APP_YML)
+    dg.put("api", "src/main/resources/openapi.yml", openapi)
+    dg.put("api", "src/main/java/demo/Events.java", LISTENER)
+
+
+def mermaid(body):
+    return body.split("```mermaid\n")[1].split("```")[0]
+
+
+def node_ids(body):
+    """Distinct node ids defined in a flowchart body: the first token of every `id[...]`, `id[(...)]`, `id([...])` line."""
+    return {m.group(1) for ln in mermaid(body).splitlines() if (m := re.match(r"\s+(\w+)(?:\[|\(\[)", ln))}
+
+
+def openapi_of(paths):
+    return "openapi: 3.0.1\ninfo: {title: api, version: '1'}\npaths:\n" + "".join(
+        f"  {p}:\n    get: {{operationId: op{i}}}\n" for i, p in enumerate(paths))
+
+
+def test_endpoints_map_groups_by_resource_and_shows_dependencies(dg):
+    api_repo(dg)
+    assert dg.mod.ids("endpoints-map", "api") == [None]
+    body, sources = dg.mod.render("endpoints-map", "api", None)
+    code = mermaid(body)
+    assert code.startswith("flowchart LR") and code.count("subgraph ") == 1
+    assert 'subgraph pets["/pets"]' in code
+    assert '["GET /pets"]' in code and '["DELETE /pets/{id}"]' in code
+    assert '[("PostgreSQL' in code                                          # the datastore, as a cylinder
+    assert 'visit_booked(["visit-booked"])' in code and 'api -->|"publishes"| visit_booked' in code
+    assert 'pet_created(["pet-created"])' in code and 'pet_created -->|"consumes"| api' in code
+    assert "api:src/main/resources/openapi.yml" in sources and "api:src/main/java/demo/Events.java" in sources
+    assert all("#" not in s for s in sources)
+
+
+def test_endpoints_map_shows_the_repos_it_calls(dg):
+    api_repo(dg)
+    dg.put("web", "package.json", '{"name": "web"}\n')
+    dg.put("api", "src/main/resources/application.yml", APP_YML + "web:\n  url: http://web:4200/\n")
+    body, _ = dg.mod.render("endpoints-map", "api", None)
+    code = mermaid(body)
+    assert 'web["web"]' in code and 'api -->|"calls (HTTP)"| web' in code
+
+
+def test_path_params_and_special_labels_are_quoted(dg):
+    api_repo(dg, openapi_of(['/pets/{id}', '/we"ird[x]<b>']))
+    body, _ = dg.mod.render("endpoints-map", "api", None)
+    labels = [ln.strip() for ln in mermaid(body).splitlines() if "GET /" in ln]
+    assert len(labels) == 2 and all(re.fullmatch(r'\w+\["GET [^"]*"\]', ln) for ln in labels)
+    assert any("we#quot;ird[x]#lt;b#gt;" in ln for ln in labels) and not any('we"ird' in ln for ln in labels)
+
+
+def test_a_big_map_is_split_by_resource(dg):
+    api_repo(dg, openapi_of([f"/{g}/{i}" for g in ("pets", "owners", "vets") for i in range(10)]))
+    assert dg.mod.ids("endpoints-map", "api") == ["pets", "owners", "vets"]
+    for group in ("pets", "owners", "vets"):
+        body, sources = dg.mod.render("endpoints-map", "api", group)
+        assert len(node_ids(body)) <= 25 and f"/{group}/3" in body
+        assert sum(g in body for g in ("/pets/", "/owners/", "/vets/")) == 1
+    assert dg.mod.render("endpoints-map", "api", None) is None and dg.mod.render("endpoints-map", "api", "cats") is None
+
+
+def test_a_group_over_the_limit_is_chunked(dg):
+    api_repo(dg, openapi_of([f"/pets/{i}" for i in range(40)]))
+    got = dg.mod.ids("endpoints-map", "api")
+    assert got[:2] == ["pets", "pets-2"] and len(got) == len(set(got)) >= 2
+    seen = set()
+    for i in got:
+        body, _ = dg.mod.render("endpoints-map", "api", i)
+        assert len(node_ids(body)) <= 25
+        seen |= set(re.findall(r"GET (/pets/\d+)", body))
+    assert len(seen) == 40
+
+
+def test_a_repo_without_endpoints_has_no_map(dg):
+    api_repo(dg)
+    dg.put("web", "package.json", '{"name": "web"}\n')
+    assert dg.mod.ids("endpoints-map", "web") == [] and dg.mod.render("endpoints-map", "web", None) is None
+    assert dg.mod.ids("endpoints-map", "ghost-repo") == []
+
+
+def test_render_scans_the_architecture_once(dg, monkeypatch):
+    api_repo(dg)
+    calls = []
+    real = dg.mod.quickarch.scan
+    monkeypatch.setattr(dg.mod.quickarch, "scan", lambda: calls.append(1) or real())
+    dg.mod.render("endpoints-map", "api", None)
+    assert len(calls) == 1
+
+
+def test_an_endpoints_map_block_refreshes_through_genblocks(dg):
+    api_repo(dg)
+    body, sources = dg.mod.render("endpoints-map", "api", None)
+    assert dg.gb.render("endpoints-map", "api", dg.kit.ws / "api") == (body, sources)
+    text = dg.gb.block("endpoints-map", "api", body)
+    assert [s for _, s, _ in dg.gb.states(text, dg.gb.Scanner())] == ["current"]

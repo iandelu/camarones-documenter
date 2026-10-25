@@ -3,7 +3,8 @@
 `ids(kind, repo)` says which blocks a repo has (`None` = one block without `id=`; `[]` = nothing to draw) and
 `render(kind, repo, id)` draws one: (block body, sources), or None when that id no longer exists. A diagram shows what
 the code states as fact (states, endpoints, who talks to whom); it never invents a transition or a flow: those wait for
-a proposal that a person confirms. `states`: one diagram per status enum, the states only."""
+a proposal that a person confirms. `states`: one diagram per status enum, the states only. `endpoints-map`: a repo's
+endpoints grouped by first path segment, with its datastores, topics and the repos it calls (split over 25 nodes)."""
 from __future__ import annotations
 
 import itertools, re
@@ -27,7 +28,8 @@ GO_CONST = re.compile(r"^\s*([A-Za-z]\w*)(?:\s+([A-Za-z_]\w*))?\s*(=.*)?$")
 SQL_TABLE = re.compile(r"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?[`\"\[]?([\w.]+)[`\"\]]?", re.I)
 SQL_IN = re.compile(r"[`\"\[]?(\w+)[`\"\]]?\s+IN\s*\(([^)]*)\)", re.I)
 COMMENTS = re.compile(r"\"(?:\\.|[^\"\\\n])*\"|'(?:\\.|[^'\\\n])*'|`(?:\\.|[^`\\])*`|//[^\n]*|/\*.*?\*/", re.S)   # strings first
-MERMAID_WORDS = {"end", "state", "note", "class", "classdef", "style", "direction", "click", "hide", "scale", "as", "title"}
+MERMAID_WORDS = {"end", "state", "note", "class", "classdef", "style", "direction", "click", "hide", "scale", "as", "title",
+                 "subgraph", "graph", "flowchart"}
 TRANSITIONS = "transitions: waiting for a proposal"
 
 
@@ -167,10 +169,100 @@ def _states(repo: str, d: Path, id: str | None) -> tuple[str, list[str]] | None:
     return body, [where]
 
 
+def _label(text: str) -> str:
+    """A Mermaid label, quoted: the characters that end or break a quoted label become entity codes."""
+    t = text.replace("\n", " ").replace('"', "#quot;").replace("<", "#lt;").replace(">", "#gt;").replace("`", "#96;")
+    return f'"{t}"'
+
+
+def _group(path: str) -> str:
+    """The id of a path's resource group: its first segment, safe inside `id=` (`/pets/{id}` → `pets`, `/` → `root`)."""
+    first = next((p for p in path.split("/") if p), "")
+    return re.sub(r"[^\w.\-]+", "-", first).strip("-") or "root"
+
+
+def _endpoints_map(repo: str, d: Path) -> dict | None:
+    """The map of a repo as data: {"groups": {id: {"name", "rows"}}, "deps": [(shape, label, edge, way, source)],
+    "split": bool, "more": dependencies left out}; None when the repo has no endpoints. The architecture is scanned
+    once, here. Over NODE_LIMIT nodes it is split by first path segment (a big group in chunks: `pets`, `pets-2`…)."""
+    from . import genblocks
+    seen, rows = set(), []
+    for r in genblocks.endpoint_rows(repo, d):
+        if (r["method"], r["path"]) not in seen:
+            seen.add((r["method"], r["path"]))
+            rows.append(r)
+    if not rows:
+        return None
+    topics, model = genblocks.topic_rows(repo, d), quickarch.scan()
+    deps, known = [], set()
+    for a, b, kind, label in model["edges"]:
+        if a != repo or b in known:
+            continue
+        if b in model["dbs"]:
+            db = model["dbs"][b]
+            deps.append(("db", db["label"] if db["name"].endswith(" db") else f"{db['label']} ({db['name']})", "reads/writes", "out", None))
+        elif kind == "sync" and label.startswith("calls") and b in model["repos"] and b != repo:
+            deps.append(("repo", b, label, "out", None))
+        else:
+            continue
+        known.add(b)
+    deps += [("topic", t["topic"], t["direction"], "out" if t["direction"] == "publishes" else "in", t["source"]) for t in topics]
+    groups: dict[str, list[dict]] = {}
+    for r in rows:
+        groups.setdefault(_group(r["path"]), []).append(r)
+    split, more = 1 + len(rows) + len(deps) > NODE_LIMIT, 0
+    if not split:
+        return {"groups": {g: {"name": g, "rows": rs} for g, rs in groups.items()}, "deps": deps, "split": False, "more": 0}
+    more, deps = max(0, len(deps) - NODE_LIMIT // 2), deps[:NODE_LIMIT // 2]  # keep room for the endpoints
+    room, parts, taken = NODE_LIMIT - 1 - len(deps), {}, set(groups)
+    for g, rs in groups.items():
+        for n, i in enumerate(range(0, len(rs), room)):
+            pid, k = g, n + 1
+            while n and (pid := f"{g}-{k}") in taken:
+                k += 1
+            taken.add(pid)
+            parts[pid] = {"name": g, "rows": rs[i:i + room]}
+    return {"groups": parts, "deps": deps, "split": True, "more": more}
+
+
+def _map_ids(m: dict) -> list[str | None]:
+    return list(m["groups"]) if m["split"] else [None]
+
+
+def _draw_map(repo: str, m: dict, id: str | None) -> tuple[str, list[str]] | None:
+    if id not in _map_ids(m):
+        return None
+    groups = list(m["groups"].values()) if id is None else [m["groups"][id]]
+    used: set[str] = set()
+    me = _node(repo, used)
+    lines = ["flowchart LR", f"    {me}[{_label(repo)}]"]
+    count = 0
+    for g in groups:
+        gid = _node(g["name"], used)
+        lines.append(f'    subgraph {gid}[{_label("/" + g["name"] if g["name"] != "root" else "/")}]')
+        for r in g["rows"]:
+            text = f'{r["method"]} {r["path"]}'
+            lines.append(f"        {_node(text, used)}[{_label(text)}]")
+        lines += ["    end", f"    {me} --- {gid}"]
+        count += len(g["rows"])
+    for shape, label, edge, way, _src in m["deps"]:
+        n = _node(label, used)
+        box = {"db": f"[({_label(label)})]", "topic": f"([{_label(label)}])"}.get(shape, f"[{_label(label)}]")
+        lines += [f"    {n}{box}", f"    {me} -->|{_label(edge)}| {n}" if way == "out" else f"    {n} -->|{_label(edge)}| {me}"]
+    sources = [r["source"] for g in groups for r in g["rows"]] + [s for *_, s in m["deps"] if s]
+    head = f"**`{repo}`** · " + (f"`/{groups[0]['name']}` · " if id is not None else "") + f"{count} endpoints"
+    if m["more"]:
+        head += f" · {m['more']} more dependencies not drawn"
+    return head + "\n\n```mermaid\n" + "\n".join(lines) + "\n```", list(dict.fromkeys(s.split("#", 1)[0] for s in sources))
+
+
 def ids(kind: str, repo: str) -> list[str | None]:
     d = _repo(repo)
     if d is not None and kind == "states":
         return [e["id"] for e in status_enums(repo, d)]
+    if d is not None and kind == "endpoints-map":
+        m = _endpoints_map(repo, d)
+        return _map_ids(m) if m else []
     return []
 
 
@@ -178,4 +270,7 @@ def render(kind: str, repo: str, id: str | None = None) -> tuple[str, list[str]]
     d = _repo(repo)
     if d is not None and kind == "states":
         return _states(repo, d, id)
+    if d is not None and kind == "endpoints-map":
+        m = _endpoints_map(repo, d)
+        return _draw_map(repo, m, id) if m else None
     return None
