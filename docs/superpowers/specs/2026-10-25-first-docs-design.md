@@ -37,7 +37,8 @@ or is itself kit-generated (same rule as 2a's `write_pages`).
 
 ## 3. The repo page — `docs/repos/<repo>/index.md`
 
-Generated, one per repo with anything to show (same writing rules as the home). It is the folder's cover, so the
+Generated, one per repo on this machine; a repo where the scan finds nothing still gets one, whose TL;DR says so
+(same writing rules as the home). It is the folder's cover, so the
 portal tree shows it as "the repo".
 
 - H1: the repo name. `> **TL;DR:**` from facts, e.g. "`spring-petclinic-rest` is a Java · Spring Boot service: 35
@@ -65,11 +66,17 @@ portal tree shows it as "the repo".
 - **Old layout**: the project has any of `repos/*/reference.md`, a kit-generated `data/<repo>.md`,
   `architecture/first-look.md`, `architecture/system-map.md`, `repos/*/diagrams.md`. It keeps them; every writer and
   refresh behaves exactly as today; `camaron pages` refreshes blocks but writes no new-layout page.
-- **New layout**: none of those exists (a fresh project). `camaron pages` writes §2–§4.
+- **New layout**: a docs page holds the `repos` block (the home was written), or none of those exists (a fresh
+  project). `camaron pages` writes §2–§4.
+- An existing kit page (`x-generated: true`) is rewritten whole, with its confirmed, hand-edited and unreadable blocks
+  put back verbatim, only while everything outside its blocks is kit text (headings, `>` lines, `:::` lines, link-only
+  list items, lines the kit would write today). A page with any other text gets its blocks brought up to date and
+  nothing else.
 - **`camaron pages --adopt`** (explicit, idempotent): moves every generated block, with its markers and confirmations,
   from the kit's old pages (frontmatter `x-generated: true`, not `x-owner: human`) into the new pages; deletes an old
-  page only when it is then empty of blocks and has no prose beyond its generated H1/TL;DR/headings; leaves any other
-  page in place and lists it. Afterwards the project is new-layout. A test starts from a 4.x layout fixture.
+  page only when it is then empty of blocks and has nothing but kit text (the rule above); leaves any other page in
+  place, blocks included, and lists it. Links to a deleted page are pointed at its new page in pages that are not
+  `x-owner: human` or `x-confirmed`; those, and the translations of deleted pages, are listed. Afterwards the project is new-layout. A test starts from a 4.x layout fixture.
 
 ## 6. Commands, install, portal, agents
 
