@@ -529,3 +529,11 @@ def test_a_failed_second_git_init_names_the_first(kit, tmp_path, monkeypatch):
         kit.onboard.git_init(folder)
     assert str((folder / "api").resolve()) in str(e.value) and str((folder / "web").resolve()) not in str(e.value)
     assert (folder / "api" / ".git").exists() and not (folder / "web" / ".git").exists()
+
+
+def test_a_repo_nested_in_another_repo_is_itself(kit, tmp_path):
+    outer = monorepo(tmp_path / "ws")
+    inner = make_repo(outer / "vendor" / "lib", {"go.mod": "module x\n"})      # a submodule-like repo with its own .git
+    r = kit.onboard.inspect(inner)
+    assert r["case"] == "repo" and r["workspace"] == str(inner.parent.resolve())
+    assert [x["name"] for x in r["repos"]] == ["lib"]
