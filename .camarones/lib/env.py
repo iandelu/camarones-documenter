@@ -1408,9 +1408,21 @@ def serve_editor(port: int = 8080, log: Log = print, static: bool = False) -> st
         with socket.socket() as sck:
             if sck.connect_ex(("127.0.0.1", port)) == 0:
                 break
-    url = f"http://localhost:{port}/#cam-token={token}"
+    url = portal_url(port, token)
     log(f"✔ portal at {url}" + (" (read-only export, no Docker)" if static else " (live: edit · confirm · rebuild · wikis)"))
     return url
+
+
+def portal_url(port: int, token: str | None = None, route: str = "") -> str:
+    """The portal address with ONE fragment: `#<route>&cam-token=<token>` (route like `#/c4`, optional), or
+    `#cam-token=<token>` without a route. The frontend takes `cam-token` out of the fragment and keeps the route."""
+    parts = [p for p in (route.lstrip("#"), f"cam-token={token}" if token else "") if p]
+    return f"http://localhost:{port}/" + (("#" + "&".join(parts)) if parts else "")
+
+
+def portal_token(url: str) -> str | None:
+    m = re.search(r"[#&]cam-token=([\w-]+)", url)
+    return m.group(1) if m else None
 
 
 def stop_local() -> bool:

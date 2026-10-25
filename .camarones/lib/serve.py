@@ -436,13 +436,53 @@ def cdn_local(html: str) -> str:
     return docs.CDN_RE.sub(lambda m: f"/vendor/{m.group(1)}@{m.group(2)}/{m.group(3)}", html)
 
 
+def token_matches(got: str, want: str) -> bool:
+    """Constant-time compare on bytes: a non-ASCII header makes compare_digest raise on str."""
+    return hmac.compare_digest(got.encode("utf-8"), want.encode("utf-8"))
+
+
+def _text(b: dict, key: str, required: bool = False) -> str | None:
+    v = b.get(key)
+    if v is None and not required:
+        return None
+    if not isinstance(v, str):
+        raise ValueError(f"{key} must be text")
+    return v
+
+
+def _text_list(b: dict, key: str) -> list[str]:
+    v = b.get(key)
+    if v is None:
+        return []
+    if not isinstance(v, list) or not all(isinstance(x, str) for x in v):
+        raise ValueError(f"{key} must be a list of text")
+    return v
+
+
+def _doc_refs(b: dict) -> list[str]:
+    v = b.get("docs")
+    if v is None:
+        return []
+    if not isinstance(v, list):
+        raise ValueError("docs must be a list")
+    refs = []
+    for d in v:
+        if isinstance(d, str):
+            refs.append(d)
+        elif isinstance(d, dict) and isinstance(d.get("path"), str) and isinstance(d.get("section", ""), (str, type(None))):
+            refs.append(f"{d['path']}#{d['section']}" if d.get("section") else d["path"])
+        else:
+            raise ValueError("each doc is a text ref or {path, section} with text values")
+    return refs
+
+
 def kanban_state(writable: bool) -> dict:
     """The whole board for the Board view; read-only, so a GET never creates the layout."""
     from . import kanban
     from .kanban import ops
     data = ops.list_items() if kanban.enabled() else {"cards": [], "problems": []}
     cards = data["cards"]
-    uniq = lambda xs: sorted({x for x in xs if x})                      # noqa: E731
+    uniq = lambda xs: sorted({str(x) for x in xs if x})                 # noqa: E731  (str: a hand-edited item cannot break the view)
     return {"enabled": kanban.enabled(), "writable": writable, "statuses": list(kanban.STATUSES),
             "types": list(kanban.TYPES), "priorities": list(kanban.PRIORITIES), **data,
             "epics": [c for c in cards if c["type"] == "epic"],
@@ -500,11 +540,11 @@ class Handler(BaseHTTPRequestHandler):
         self.do_GET()
 
     def is_app(self) -> bool:
-        return bool(APP_TOKEN) and hmac.compare_digest(self.headers.get("X-Camaron-Token", ""), APP_TOKEN)
+        return bool(APP_TOKEN) and token_matches(self.headers.get("X-Camaron-Token", ""), APP_TOKEN)
 
     def can_write(self) -> bool:
         """The app, or a browser that got the portal token from `camaron up`. The portal token never unlocks APP_ONLY."""
-        return self.is_app() or (bool(PORTAL_TOKEN) and hmac.compare_digest(self.headers.get("X-Camaron-Token", ""), PORTAL_TOKEN))
+        return self.is_app() or (bool(PORTAL_TOKEN) and token_matches(self.headers.get("X-Camaron-Token", ""), PORTAL_TOKEN))
 
     def foreign_host(self) -> bool:
         if not (APP_TOKEN or PORTAL_TOKEN):
@@ -518,25 +558,24 @@ class Handler(BaseHTTPRequestHandler):
             return self.json({"error": "not found"}, 404)
         if not self.can_write():
             return self.json({"error": "writing the board needs the machine token: open the portal with `camaron up`", "token": True}, 403)
-        surface, by = ("app" if self.is_app() else "portal"), (b.get("by") or "").strip() or None
-        try:
+        surface = "app" if self.is_app() else "portal"
+        try:                                   # every field is checked before anything is written: bad input is a 400
+            by = (_text(b, "by") or "").strip() or None
             if action == "init":
                 return self.json({"created": ops.init(log=lambda *_: None)})
             if action == "add":
-                refs = [d if isinstance(d, str) else f"{d['path']}#{d['section']}" if d.get("section") else d["path"]
-                        for d in b.get("docs") or []]
-                return self.json(ops.add(str(b.get("type", "")), str(b.get("title", "")), epic=b.get("epic") or None,
-                                         repos=b.get("repos") or [], labels=b.get("labels") or [],
-                                         priority=b.get("priority") or None, docs=refs, by=by, surface=surface))
+                return self.json(ops.add(_text(b, "type", True), _text(b, "title", True), epic=_text(b, "epic") or None,
+                                         repos=_text_list(b, "repos"), labels=_text_list(b, "labels"),
+                                         priority=_text(b, "priority") or None, docs=_doc_refs(b), by=by, surface=surface))
             if action == "move":
-                return self.json(ops.move(str(b.get("id", "")), str(b.get("status", "")), before=b.get("before"),
-                                          after=b.get("after"), by=by, surface=surface))
+                return self.json(ops.move(_text(b, "id", True), _text(b, "status", True), before=_text(b, "before"),
+                                          after=_text(b, "after"), by=by, surface=surface))
             if action == "assign":
-                return self.json(ops.assign(str(b.get("id", "")), str(b.get("who", "")), by=by, surface=surface))
+                return self.json(ops.assign(_text(b, "id", True), _text(b, "who", True), by=by, surface=surface))
             if action == "link":
-                return self.json(ops.link(str(b.get("id", "")), str(b.get("ref", "")), by=by, surface=surface))
-            return self.json(ops.archive(str(b.get("id", "")), by=by, surface=surface))
-        except ops.BoardError as e:
+                return self.json(ops.link(_text(b, "id", True), _text(b, "ref", True), by=by, surface=surface))
+            return self.json(ops.archive(_text(b, "id", True), by=by, surface=surface))
+        except ValueError as e:               # BoardError is a ValueError
             self.json({"error": str(e)}, 400)
 
     def stream_job(self, job: dict, offset: int) -> None:

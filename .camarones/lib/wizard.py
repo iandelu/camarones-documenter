@@ -2285,9 +2285,11 @@ Talk to the user in {talk}. Do not modify application code.
         port = int(self.prefs.get("port", 8080))
         with socket.socket() as sck:
             up = sck.connect_ex(("127.0.0.1", port)) == 0
-        url = f"http://localhost:{port}" if up else self.safe(self.busy, env.serve_editor, port, total=1)
+        url = env.portal_url(port, None, hash_) if up else self.safe(self.busy, env.serve_editor, port, total=1)
+        if url and not up:                       # keep the fresh token, add the route to the same fragment
+            url = env.portal_url(port, env.portal_token(url), hash_)
         if url:
-            env.open_url(url + "/" + hash_)
+            env.open_url(url)
 
     def retry_missing(self, missing: list[str]) -> None:
         """A repo with a url but no .git after sync almost always means missing/expired credentials —
