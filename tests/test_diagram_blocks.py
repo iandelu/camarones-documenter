@@ -385,6 +385,36 @@ def test_a_hyphenated_repo_gets_an_aliased_participant(dg):
     assert "participant pet_api as pet-api" in code and "pet_api->>Broker: publish pet-created" in code
 
 
+def test_sequence_keywords_as_repo_names_get_safe_participants(dg):
+    ws = dg.kit.docs.workspace()
+    for name in ("loop", "alt"):
+        ws["repos"].append({"name": name, "kind": "service", "branch": "main"})
+    dg.kit.docs.save_workspace(ws)
+    dg.put("loop", "src/Bus.java", 'class Bus { void f() { kafkaTemplate.send("pet-created", m); } }\n')
+    dg.put("alt", "src/Sub.java", 'class Sub { @KafkaListener(topics = "pet-created") void on(String m) {} }\n')
+    code = mermaid(dg.mod.render("messaging", SYSTEM, "pet-created")[0])
+    assert "participant loop_ as loop" in code and "participant alt_ as alt" in code
+    assert "loop_->>Broker: publish pet-created" in code and "Broker-->>alt_: deliver pet-created" in code
+    assert not re.search(r"^\s*(loop|alt)->>", code, re.M)
+
+
+def test_a_context_that_just_fits_keeps_every_repo_and_adds_no_external(dg):
+    add_repos(dg, 21)                                                      # 3 + 21 repos, plus one identity provider = 25
+    dg.put("svc0", "src/auth.js", "// okta\n")
+    body, _ = dg.mod.render("context", SYSTEM, None)
+    assert len(node_ids(body)) == 25 and 'Okta["Okta"]' in mermaid(body)
+    assert all(f'svc{i}["svc{i}"]' in mermaid(body) for i in range(21))
+    assert "External" not in body and "not drawn" not in body
+
+
+def test_a_single_identity_provider_is_never_folded(dg):
+    add_repos(dg, 22)                                                      # 25 repos + 1 provider: a fold would not save a node
+    dg.put("svc0", "src/auth.js", "// okta\n")
+    body, _ = dg.mod.render("context", SYSTEM, None)
+    assert len(node_ids(body)) <= 25 and 'Okta["Okta"]' in mermaid(body) and "External" not in body
+    assert "1 less connected elements not drawn" in body
+
+
 def test_no_topics_no_messaging(dg):
     dg.put("web", "package.json", '{"name": "web"}\n')
     assert dg.mod.ids("messaging", SYSTEM) == []
