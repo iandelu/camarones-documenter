@@ -233,6 +233,30 @@ unirte al `cam-docs` del equipo con su URL o añadir una carpeta que ya lo tenga
 **camarón › Abrir en el navegador** abre el mismo portal fuera. En Linux con los *user namespaces* restringidos (Ubuntu
 24.04 o posterior) el kit la arranca con `--no-sandbox`: sus ventanas solo cargan el servidor local de tu proyecto.
 
+### 📋 El tablero
+
+Un Kanban guardado en `cam-docs/backlog/` y versionado con la documentación. Cada tarjeta es un fichero Markdown
+compatible con Backlog.md (lo lee y lo edita sin romper nada); el estado propio del kit (columna y orden de cada
+tarjeta) está en `backlog/board.yaml`, una línea por tarjeta para que git fusione por tarjeta. Se activa con
+`camaron board init`; un proyecto sin `backlog/` se comporta como antes.
+
+```sh
+camaron board add story "Reintentos idempotentes" --epic WI-3 --repo payments --doc FLOW-k3f9#retries
+camaron board list --status Ready --repo payments     # también --epic, --label, --docs suspect|unconfirmed
+camaron board show WI-42                              # la tarjeta y la confianza de sus páginas
+camaron board move WI-42 "In Progress"                # Backlog, Ready, In Progress, In Review, Done, Blocked
+camaron board assign WI-42 ana
+camaron board link WI-42 flows/payments.md#retries
+camaron board archive WI-42
+camaron board repair                                  # también corre antes de cada checkpoint y share
+```
+
+Todos aceptan `--json`. Los enlaces a páginas van por `x-id`, así que sobreviven a moverlas o renombrarlas, y el
+tablero sabe si una página enlazada cambió desde que se enlazó. En el portal, la zona **Tablero** (`#/kanban`) tiene
+las vistas Kanban, lista y por epic y el detalle de cada tarjeta; escribir pide el token de la máquina (la app de
+escritorio lo manda; `camaron up` lo imprime en la dirección como `#cam-token=…`), sin él el tablero es de solo
+lectura. `camaron uninstall` pregunta si conservas `backlog/` (`--keep-board` / `--drop-board`).
+
 ## 6. Editar: dónde y cuándo
 
 | Dónde | Qué puedes hacer | Dónde queda el cambio |
