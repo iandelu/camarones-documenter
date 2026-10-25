@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Aviso, Button, Card, Skeleton } from '@camaron/ui'
 import { portalUrl } from '../docs.js'
 import { useAgents, useJob } from '../hooks.js'
-import { STEP_KEYS, canContinue, defaultPicks, errorKey, hostOf, manualHints, nextStep, prevStep, progressOf, repoBody,
-  repoFromUrl, repoRows, setupChoice, stepIndex, urlName } from '../onboarding.js'
+import { STEP_KEYS, alreadyDone, canContinue, continueVariant, defaultPicks, errorText, hostOf, manualHints, nextStep, prevStep,
+  progressOf, repoBody, repoFromUrl, repoRows, reposChanged, setupChoice, stepIndex, urlName } from '../onboarding.js'
 import { AgentPicker, Failed } from '../parts.jsx'
 import { Tokens } from './Machine.jsx'
 import { lang, t } from '../i18n.js'
@@ -12,8 +12,12 @@ import { lang, t } from '../i18n.js'
 // on the server (firstrun.json, shared with the CLI wizard) so closing the window never loses it. The work is
 // lib/onboard.py's, through /api/app/onboard; the step model is onboarding.js. App.jsx draws it full width.
 
-// A server rejection said in the person's language: a known code by its own sentence, anything else as it came.
-const say = (e) => (errorKey(e.message) ? t(errorKey(e.message)) : `${t('obErrServer')} ${e.message}`)
+// A rejection said in the person's language: a known code or an unreachable server by its own sentence, anything else
+// as the server said it.
+const say = (e) => {
+  const x = errorText(e)
+  return x.detail ? `${t(x.key)} ${x.detail}` : t(x.key)
+}
 const toTop = () => document.getElementById('main')?.scrollTo?.(0, 0)
 
 const icon = { className: 'ob-icon', viewBox: '0 0 24 24', 'aria-hidden': true, fill: 'none', stroke: 'currentColor',
@@ -45,6 +49,7 @@ export default function Start({ srv, jobs, app }) {
   const [moving, setMoving] = useState(false)
   const [rows, setRows] = useState([])                 // repos step
   const [tools, setTools] = useState(null)             // GET tools: {rows, required_ok}
+  const [toolsError, setToolsError] = useState('')     // that read failed: the tools and install steps offer it again
   const [picked, setPicked] = useState(null)           // tools step → setup
   const [setup, setSetup] = useState({ result: null, running: false })
   const [scanned, setScanned] = useState(false)
@@ -53,10 +58,11 @@ export default function Start({ srv, jobs, app }) {
   const load = () => srv.get('app/onboard/state').then((s) => { setSt(s); setRows(repoRows(s)) }, (e) => setLoadError(e.message))
   useEffect(() => { load() }, [])
   const loadTools = () => srv.get('app/onboard/tools').then((x) => {
+    setToolsError('')
     setTools(x)
     setPicked((p) => p ?? defaultPicks(x.rows))
     return x
-  }, (e) => setError(say(e)))
+  }, (e) => setToolsError(say(e)))
   useEffect(() => { if (st && !tools && ['tools', 'setup'].includes(st.step)) loadTools() }, [st?.step])
 
   if (loadError) return (
@@ -76,7 +82,13 @@ export default function Start({ srv, jobs, app }) {
   }
   const next = nextStep({ ...st, step })
   const prev = step === 'intro' ? null : prevStep({ ...st, step })      // Ready closes the first run: no way back into it
-  const saveRepos = async () => setSt(await srv.post('app/onboard/repos', { repos: repoBody(rows) }))
+  // a changed list makes a finished setup (its clones) and the stack scan stale: the next visit runs them again
+  const saveRepos = async () => {
+    const body = repoBody(rows)
+    const changed = reposChanged(st.repos, body)
+    setSt(await srv.post('app/onboard/repos', { repos: body }))
+    if (changed) { setSetup({ result: null, running: false }); setScanned(false) }
+  }
   // new picks make a finished setup stale: entering the step again installs them
   const pickTools = (p) => { setPicked(p); setSetup({ result: null, running: false }) }
   const data = { repos: { kind: st.kind, rows }, tools: { rows: tools?.rows, picked },
@@ -87,8 +99,9 @@ export default function Start({ srv, jobs, app }) {
 
   const panel = {
     repos: <Repos rows={rows} setRows={setRows} />,
-    tools: <Tools tools={tools} picked={picked || []} setPicked={pickTools} />,
-    setup: <Setup {...p} tools={tools} picked={picked} repos={st.repos} state={setup} setState={setSetup} reloadTools={loadTools} />,
+    tools: <Tools tools={tools} picked={picked || []} setPicked={pickTools} error={toolsError} onRetry={loadTools} />,
+    setup: <Setup {...p} tools={tools} picked={picked} repos={st.repos} state={setup} setState={setSetup} error={toolsError}
+      reloadTools={loadTools} />,
     stack: <Stack {...p} scanned={scanned} setScanned={setScanned} />,
     arch: <Arch {...p} state={arch} setState={setArch} onSkip={() => go(next)} />,
     intro: <Intro {...p} closed={st.done} />,
@@ -104,7 +117,7 @@ export default function Start({ srv, jobs, app }) {
           {prev ? <Button variant="ghost" disabled={moving || setup.running} onClick={() => go(prev)}>{t('obBack')}</Button> : <span />}
           <div className="ob-next">
             {!check.ok && !waiting ? <span className="muted small" role="status">{t(check.reason)}</span> : null}
-            <Button variant="primary" disabled={!check.ok || waiting}
+            <Button variant={continueVariant(step, data)} disabled={!check.ok || waiting}
               onClick={() => go(next, step === 'repos' ? saveRepos : null)}>{t('obContinue')}</Button>
           </div>
         </div>
@@ -168,13 +181,19 @@ function Repos({ rows, setRows }) {
 // ---------- 2. Tools: what this machine has; required ones ticked and locked ----------
 const KIND = { t_required: 'obKindRequired', t_optional: 'obKindOptional', t_kit: 'obKindKit' }
 
-function Tools({ tools, picked, setPicked }) {
+// A failed tools read: what, the server's message, and the read again (join starts here, with no Back).
+const ToolsFailed = ({ error, onRetry }) => (
+  <Aviso tone="error" title={t('obToolsFailed')} detail={error}
+    action={<Button size="sm" onClick={() => onRetry?.()}>{t('obRetry')}</Button>} />
+)
+
+export function Tools({ tools, picked, setPicked, error, onRetry }) {
   const toggle = (id) => setPicked(picked.includes(id) ? picked.filter((x) => x !== id) : [...picked, id])
   return (
     <>
       <h2>{t('obToolsTitle')}</h2>
       <p className="dk-lede">{t('obToolsLead')}</p>
-      {!tools ? <Skeleton lines={6} /> : (
+      {!tools ? (error ? <ToolsFailed error={error} onRetry={onRetry} /> : <Skeleton lines={6} />) : (
         <ul className="dk-units">
           {tools.rows.map((r) => {
             const locked = r.kind === 't_required'
@@ -198,7 +217,7 @@ function Tools({ tools, picked, setPicked }) {
 }
 
 // ---------- 3. Install: one job (install the picked tools, then setup), its bar, its log, Cancel ----------
-function Setup({ srv, jobs, tools, picked, repos, state, setState, reloadTools }) {
+export function Setup({ srv, jobs, tools, picked, repos, state, setState, error, reloadTools }) {
   const j = useJob(srv, jobs, (body) => srv.post('app/onboard/setup', body))
   async function run() {
     setState({ result: null, running: true })
@@ -219,6 +238,7 @@ function Setup({ srv, jobs, tools, picked, repos, state, setState, reloadTools }
       <p className="dk-lede" role="status">
         {[bar.total ? t('obSetupStep', bar) : '', j.running ? bar.current || t('obStarting') : r?.ok ? t('obSetupOk') : '']
           .filter(Boolean).join(' · ')}</p>
+      {!tools && error ? <ToolsFailed error={error} onRetry={reloadTools} /> : null}
       <progress className="dk-progress" value={pct} max={100} aria-label={t('obSetupTitle')} />
       {lines.length ? <pre className="dk-log ob-log" aria-label={t('cmds.output')}>
         {lines.map((l) => l.replace(/^\[\d+\/\d+\]\s*/, '')).join('\n')}</pre> : null}
@@ -396,7 +416,8 @@ function Intro({ srv, app, closed: already }) {
   const close = () => {
     closed.current = true
     setError('')
-    srv.post('app/onboard/done', {}).catch((e) => { closed.current = false; setError(say(e)) })
+    // refused with `done`: the CLI closed it meanwhile, which is what was asked
+    srv.post('app/onboard/done', {}).catch((e) => { if (alreadyDone(e)) return; closed.current = false; setError(say(e)) })
   }
   useEffect(() => { if (!closed.current) close() }, [])
   return (

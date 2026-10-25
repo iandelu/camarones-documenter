@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest'
 import { S } from './i18n.js'
-import { STEP_KEYS, canContinue, defaultPicks, errorKey, hostOf, manualHints, nextStep, prevStep, progressOf, repoBody, repoFromUrl,
-  repoRows, setupChoice, stepIndex, urlName } from './onboarding.js'
+import { STEP_KEYS, alreadyDone, canContinue, continueVariant, defaultPicks, errorKey, errorText, hostOf, manualHints, nextStep,
+  prevStep, progressOf, repoBody, repoFromUrl, repoRows, reposChanged, setupChoice, stepIndex, urlName } from './onboarding.js'
 
 const LEGACY = ['repos', 'tools', 'setup', 'stack', 'arch', 'intro']
 const at = (step, steps = LEGACY) => ({ mode: 'new', kind: 'legacy', steps, step, done: false })
@@ -119,6 +119,43 @@ test('server codes become i18n keys in both languages', () => {
   for (const k of [...Object.values(STEP_KEYS), 'obNeedRepo', 'obNeedRequired', 'obSetupFailed', 'obArchChoose',
     ...['repos', 'name', 'url', 'duplicate', 'busy', 'done', 'step', 'draft'].map(errorKey)])
     expect(S.es[k] && S.en[k]).toBeTruthy()
+})
+
+// A rejection said to the person: a known code by its sentence, a server that cannot be reached by its own sentence
+// (fetch rejects before any HTTP answer), anything else as the server said it.
+test('errors: known codes, an unreachable server, the rest as they came', () => {
+  expect(errorText(new Error('busy'))).toEqual({ key: 'obErrBusy', detail: '' })
+  expect(errorText(new TypeError('Failed to fetch'))).toEqual({ key: 'obErrNetwork', detail: '' })
+  expect(errorText({ message: 'Failed to fetch' })).toEqual({ key: 'obErrNetwork', detail: '' })   // useJob keeps the message only
+  expect(errorText(new Error('NetworkError when attempting to fetch resource.')).key).toBe('obErrNetwork')
+  expect(errorText(new Error('app/onboard/step: 500'))).toEqual({ key: 'obErrServer', detail: 'app/onboard/step: 500' })
+  expect(S.es.obErrNetwork).toBe('No llego al servidor del proyecto.')
+  expect(S.en.obErrNetwork).toBe("I can't reach the project's server.")
+})
+
+// The CLI may close the first run while the window shows Ready: the server's `done` refusal means it is closed.
+test('closing a first run that is closed already counts as closed', () => {
+  expect(alreadyDone(new Error('done'))).toBe(true)
+  expect(alreadyDone(new Error('step'))).toBe(false)
+  expect(alreadyDone(new TypeError('Failed to fetch'))).toBe(false)
+})
+
+// A changed repo list makes a finished setup (clones) and scan stale; the same list does not.
+test('the repos step knows when the list changed', () => {
+  const saved = [{ name: 'api', url: '', branch: 'main', kind: 'service', stack: 'java' }]
+  expect(reposChanged(saved, [{ name: 'api', url: '', branch: 'main', kind: 'service' }])).toBe(false)
+  expect(reposChanged(saved, [{ name: 'api', url: '', branch: 'dev', kind: 'service' }])).toBe(true)
+  expect(reposChanged(saved, [...repoBody([{ name: 'api', url: '', branch: 'main', kind: 'service', checked: true }]),
+    { name: 'pay', url: 'https://h/pay.git', branch: 'main', kind: 'service' }])).toBe(true)
+  expect(reposChanged([], [])).toBe(false)
+})
+
+// One primary button per screen: on the arch step the draft's Save is the primary until it is saved or skipped.
+test('Continue is the primary action, except on an unsaved arch step', () => {
+  expect(continueVariant('arch', { saved: false })).toBe('secondary')
+  expect(continueVariant('arch', { saved: true })).toBe('primary')
+  expect(continueVariant('repos', {})).toBe('primary')
+  expect(continueVariant('setup', {})).toBe('primary')
 })
 
 // Spec addendum §4: the arch step has no agent picker when the agent is gone, so the warning never asks to pick one.

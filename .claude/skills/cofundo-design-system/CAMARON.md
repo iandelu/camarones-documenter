@@ -24,3 +24,5 @@ for the portal.
 - **Icons**: there is no icon system. Text glyphs (`→`) and the existing trust labels only. One approved exception: the
   desktop start screen (`desktop/renderer/src/Hub.jsx`) draws its two option icons (folder, people) as inline SVG; the
   portal keeps text glyphs.
+  A second approved exception: the first-run wizard (`desktop/renderer/src/sections/Start.jsx`) draws its external-link,
+  edit and check icons as inline SVG, aria-hidden, in currentColor; the rest of the app keeps text glyphs.
