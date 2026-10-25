@@ -695,3 +695,25 @@ def test_a_page_the_kit_did_not_write_is_left_alone(dg):
     assert "docs/repos/api/diagrams.md" not in dg.mod.write_pages(log=logs.append)
     assert f.read_bytes() == before
     assert any("repos/api/diagrams.md" in line and "not written by the kit" in line for line in logs)
+
+
+def test_api_doc_lists_the_generated_blocks(dg):
+    import json, threading, urllib.request
+    from http.server import ThreadingHTTPServer
+    dg.put("api", "src/main/java/demo/OrderStatus.java", ORDER)
+    page = dg.kit.root / "docs" / "states.md"
+    page.parent.mkdir(parents=True, exist_ok=True)
+    fresh = dg.gb.Scanner().get("states", "api", "OrderStatus")[0]
+    page.write_text("---\ntitle: States\n---\n# States\n\n" + dg.gb.block("states", "api", fresh, id="OrderStatus") + "\n\nend\n",
+                    encoding="utf-8", newline="\n")
+    (dg.kit.root / "docs" / "plain.md").write_text("# Plain\n\nno blocks\n", encoding="utf-8", newline="\n")
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), dg.kit.serve.Handler)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        def doc(p):
+            with urllib.request.urlopen(f"http://127.0.0.1:{srv.server_address[1]}/api/doc?path={p}", timeout=30) as r:
+                return json.loads(r.read())
+        assert doc("states.md")["blocks"] == [{"kind": "states", "repo": "api", "id": "OrderStatus", "state": "current"}]
+        assert doc("plain.md")["blocks"] == []
+    finally:
+        srv.shutdown()

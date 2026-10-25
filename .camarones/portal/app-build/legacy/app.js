@@ -260,7 +260,7 @@ async function showPage(path, anchor, ctx) {
     ${i >= 0 ? `<nav class="pager">${pager(ctx.order[i - 1], 'prev', '← ' + t('prev'))}${pager(ctx.order[i + 1], 'next', t('next') + ' →')}</nav>` : ''}
   </article>`;
   CURRENT = path;
-  await mountDoc($('#body'), d.exists ? d.raw : english?.exists ? english.raw : t('emptyPage'), path, anchor);
+  await mountDoc($('#body'), d.exists ? d.raw : english?.exists ? english.raw : t('emptyPage'), path, anchor, d.exists ? d.blocks : []);
   if (STATIC) return;
   $('#a-edit').onclick = () => editDoc(d);
   $('#a-confirm')?.addEventListener('click', () => confirmPanel(d));
