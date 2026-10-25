@@ -14,6 +14,20 @@ const sectionOf = (link) => String(link || '').match(/#([^@]+)/)?.[1] || ''
 const when = (iso) => { try { return new Date(iso).toLocaleString(document.documentElement.lang || 'en', { dateStyle: 'medium', timeStyle: 'short' }) } catch { return iso } }
 const KEYS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', 'Enter', 'Escape']
 
+// A side panel takes the focus when it opens (its `data-first` field, else itself), Escape closes it, and the focus
+// goes back to whatever opened it (a card, the Add button) if that is still on the page.
+function useDrawer(onClose) {
+  const ref = useRef(null)
+  useEffect(() => {
+    const opener = document.activeElement
+    const el = ref.current
+    ;(el?.querySelector('[data-first]:not(:disabled)') || el)?.focus()
+    return () => { if (opener && opener !== document.body && opener.isConnected) opener.focus() }
+  }, [])
+  const onKeyDown = (e) => { if (e.key === 'Escape') { e.stopPropagation(); onClose() } }
+  return { ref, onKeyDown, tabIndex: -1 }
+}
+
 // The columns as drawn: while a card is grabbed with the keyboard it shows where it would land.
 function placed(cols, kb) {
   if (!kb?.grabbed) return cols
@@ -35,13 +49,14 @@ function Card({ card, grabbed, writable, onKey, onOpen, onDragStart, onDragEnd, 
       <span className="kb-card-title">{card.title}</span>
       <span className="card-meta">
         {[card.assignee?.[0] && `@${card.assignee[0]}`, card.epic, ...(card.repos || [])].filter(Boolean).join(' · ')}
-        {card.docs?.length ? <span className={suspect ? 'kb-docs warn' : 'kb-docs'}>{card.assignee?.[0] || card.epic || card.repos?.length ? ' · ' : ''}{card.docs.length} doc{card.docs.length > 1 ? 's' : ''}{suspect ? ` (${t('kbf.suspect')})` : ''}</span> : null}
+        {card.docs?.length ? <span className={suspect ? 'kb-docs warn' : 'kb-docs'}>{card.assignee?.[0] || card.epic || card.repos?.length ? ' · ' : ''}{fmt(card.docs.length === 1 ? 'kbDocsOne' : 'kbDocsMany', { n: card.docs.length })}{suspect ? ` (${t('kbf.suspect')})` : ''}</span> : null}
       </span>
     </div>
   )
 }
 
 function Detail({ id, onClose }) {
+  const drawer = useDrawer(onClose)
   const [item, setItem] = useState(null)
   const [error, setError] = useState('')
   const [tab, setTab] = useState('goal')
@@ -52,7 +67,7 @@ function Detail({ id, onClose }) {
   const TABS = ['goal', 'knowledge', 'history', 'plan', 'runs', 'evidence']
   const tabKey = { goal: 'kbGoal', knowledge: 'kbKnowledge', history: 'kbHistory', plan: 'kbPlan', runs: 'kbRuns', evidence: 'kbEvidence' }
   return (
-    <aside className="drawer kb-drawer" aria-label={id}>
+    <aside className="drawer kb-drawer" aria-label={id} {...drawer}>
       <button className="close" onClick={onClose} aria-label={t('kbClose')}>×</button>
       <h2>{id}</h2>
       {error ? <p className="error" role="alert">{error}</p> : !item ? <p className="muted">{t('kbLoadingCard')}</p> : (
@@ -112,6 +127,7 @@ function Detail({ id, onClose }) {
 }
 
 function AddForm({ board, prefill, writable, onClose, onCreated }) {
+  const drawer = useDrawer(onClose)
   const [f, setF] = useState({ type: 'story', title: '', epic: '', repos: '', labels: '', priority: '',
     path: prefill?.path || '', section: prefill?.section || '' })
   const [error, setError] = useState('')
@@ -130,14 +146,14 @@ function AddForm({ board, prefill, writable, onClose, onCreated }) {
   }
   const off = !writable || busy
   return (
-    <aside className="drawer kb-drawer" aria-labelledby="kb-add-h">
+    <aside className="drawer kb-drawer" aria-labelledby="kb-add-h" {...drawer}>
       <button className="close" onClick={onClose} aria-label={t('kbClose')}>×</button>
       <h2 id="kb-add-h">{t('kbAddTitle')}</h2>
       <form className="kb-form" onSubmit={submit}>
         <fieldset disabled={off}>
           <label>{t('kbType')}<select className="co-input" value={f.type} onChange={set('type')}>
             {board.types.map((ty) => <option key={ty} value={ty}>{typeLabel(ty)}</option>)}</select></label>
-          <label>{t('kbTitleField')}<input className="co-input" value={f.title} onChange={set('title')} required autoFocus /></label>
+          <label>{t('kbTitleField')}<input className="co-input" value={f.title} onChange={set('title')} required data-first /></label>
           <label>{t('kbEpic')}<select className="co-input" value={f.epic} onChange={set('epic')}>
             <option value="">{t('kbNone')}</option>
             {board.epics.map((ep) => <option key={ep.id} value={ep.id}>{ep.id} · {ep.title}</option>)}</select></label>

@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest'
 import { applyFilters, columns, dropAnchor, keyMove, parseNewArg, STATUS_LABELS } from './kanban.js'
+import { STRINGS } from './i18n.js'
 
 const STATUSES = ['Backlog', 'Ready', 'In Progress', 'In Review', 'Done', 'Blocked']
 const link = (trust, fresh = null) => ({ link: 'X', trust, fresh, changed: false, missing: false })
@@ -40,6 +41,28 @@ test('filters: repo, epic, label and docs state, alone and together', () => {
   expect(ids({ repo: 'api', label: 'pay', docs: 'suspect' })).toEqual(['WI-3'])
   expect(ids({ repo: 'api', epic: 'WI-1', docs: 'unconfirmed' })).toEqual([])
   expect(ids({ repo: '', epic: '', label: '', docs: '' })).toHaveLength(5)
+})
+
+test('a missing or unreadable link counts as unconfirmed (R15, as the CLI)', () => {
+  const missing = { link: 'FLOW-zzzz', trust: null, fresh: null, changed: false, missing: true }
+  const only = [card('WI-7', 'Ready', 0, { links: [missing] }), card('WI-8', 'Ready', 0, { links: [link('confirmed')] })]
+  expect(applyFilters(only, { docs: 'unconfirmed' }).map((c) => c.id)).toEqual(['WI-7'])
+})
+
+test('every Board string exists in es and en, the docs count too', () => {
+  const kb = (l) => Object.keys(STRINGS[l]).filter((k) => /^kb/.test(k)).sort()
+  expect(kb('es')).toEqual(kb('en'))
+  for (const l of ['es', 'en']) for (const k of ['kbDocsOne', 'kbDocsMany']) expect(STRINGS[l][k]).toContain('{n}')
+})
+
+test('keyMove skips empty columns when picking, and stays put when there is none', () => {
+  const cols = columns(cards, STATUSES)              // In Review (3) and Blocked (5) are empty
+  const inProgress = { focus: 'WI-5', grabbed: false, col: 2, row: 0 }
+  expect(keyMove(inProgress, 'ArrowRight', cols)).toMatchObject({ focus: 'WI-4', col: 4, row: 0 })
+  const done = { focus: 'WI-4', grabbed: false, col: 4, row: 0 }
+  expect(keyMove(done, 'ArrowLeft', cols)).toMatchObject({ focus: 'WI-5', col: 2 })
+  expect(keyMove(done, 'ArrowRight', cols)).toMatchObject({ focus: 'WI-4', col: 4 })   // only empty columns to the right
+  expect(keyMove({ focus: 'WI-1', grabbed: false, col: 0, row: 0 }, 'ArrowLeft', cols)).toMatchObject({ focus: 'WI-1', col: 0 })
 })
 
 test('dropAnchor: first place, last place, onto itself', () => {

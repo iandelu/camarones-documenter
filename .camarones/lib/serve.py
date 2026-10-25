@@ -492,7 +492,7 @@ def kanban_state(writable: bool) -> dict:
             c["links"] = [xid.link_state(d, pages, ids) for d in c["docs"]]
     for c in cards:
         c.setdefault("links", [])
-    uniq =lambda xs: sorted({str(x) for x in xs if x})                 # noqa: E731  (str: a hand-edited item cannot break the view)
+    uniq = lambda xs: sorted({str(x) for x in xs if x})                 # noqa: E731  (str: a hand-edited item cannot break the view)
     return {"enabled": kanban.enabled(), "writable": writable, "statuses": list(kanban.STATUSES),
             "types": list(kanban.TYPES), "priorities": list(kanban.PRIORITIES), **data,
             "epics": [c for c in cards if c["type"] == "epic"],

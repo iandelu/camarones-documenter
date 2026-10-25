@@ -366,7 +366,7 @@ _DOC_STATES = ("unconfirmed", "suspect", "stale", "changed", "missing")
 
 def _in_state(st: dict, want: str) -> bool:
     if want == "unconfirmed":
-        return st["trust"] is not None and st["trust"] != "confirmed"
+        return st["trust"] != "confirmed"           # a missing or unreadable link is not confirmed either (R15)
     return bool(st["changed"] if want == "changed" else st["missing"] if want == "missing" else st["fresh"] == want)
 
 

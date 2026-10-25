@@ -176,6 +176,7 @@ const S = {
     kbMoved: '{id} moved to {status}.', kbCancelled: 'Move of {id} cancelled.', kbMoveFailed: 'The move was not saved:',
     'kbt.epic': 'Epic', 'kbt.story': 'Story', 'kbt.bug': 'Bug', 'kbt.spike': 'Spike', 'kbt.task': 'Task',
     'kbtr.confirmed': 'confirmed', 'kbtr.draft': 'draft', 'kbtr.needs-reconfirm': 'to reconfirm', 'kbf.suspect': 'suspect', 'kbf.stale': 'stale',
+    kbDocsOne: '{n} doc', kbDocsMany: '{n} docs',
   },
   es: {
     kbTitle: 'Tablero', kbLead: '{n} tarjetas · {open} sin terminar', kbLoading: 'Cargando el tablero…',
@@ -197,6 +198,7 @@ const S = {
     kbMoved: '{id} movida a {status}.', kbCancelled: 'Movimiento de {id} cancelado.', kbMoveFailed: 'No se ha guardado el movimiento:',
     'kbt.epic': 'Épica', 'kbt.story': 'Historia', 'kbt.bug': 'Bug', 'kbt.spike': 'Spike', 'kbt.task': 'Tarea',
     'kbtr.confirmed': 'confirmada', 'kbtr.draft': 'borrador', 'kbtr.needs-reconfirm': 'por reconfirmar', 'kbf.suspect': 'sospechosa', 'kbf.stale': 'desfasada',
+    kbDocsOne: '{n} doc', kbDocsMany: '{n} docs',
     appOnly: 'Esto se ejecuta en tu máquina: ábrelo en la app de escritorio (camaron app).',
     'tw.generate': 'Generar', 'twd.generate': 'Documentación escrita por agentes de IA: el plan, las ejecuciones, las wikis y los pull requests.',
     'tw.analyze': 'Analizar', 'twd.analyze': 'Datos leídos del código sin IA: borrador C4, stack, dependencias, datos e historia.',
@@ -359,6 +361,8 @@ const S = {
 
 // The reader's choice, else the language the docs router picked on a first visit (legacy/app.js sets <html lang>
 // from the browser without storing it).
+export { S as STRINGS }                       // for tests: every string in both languages
+
 export function lang() {
   let l = ''
   try { l = localStorage.getItem('cam-lang') || '' } catch { /* private mode */ }
