@@ -1,10 +1,21 @@
 /* The kit's components (components.jsx). Every value comes from theme/tokens.css: square corners, the console
    density, colours that follow the light and dark themes. Class prefix cu- so nothing clashes with an app's CSS. */
 
-:where(.cu-btn, .cu-input, .cu-crumbs a, .cu-brand):focus-visible {
+/* One focus ring for everything interactive in both apps (WCAG 2.4.7). --color-acento-texto reaches 4.5:1 on both
+   canvases (theme/tokens.test.js); :where keeps it overridable by a view that draws its own. */
+:where(a[href], button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"]), .cu-btn, .cu-input,
+       .cu-crumbs a, .cu-brand):focus-visible {
   outline: 2px solid var(--color-acento-texto);
   outline-offset: 2px;
 }
+
+/* Skip to the content (WCAG 2.4.1): first in the page, off screen until the keyboard reaches it. */
+.cu-skip { position: absolute; left: .75rem; top: .5rem; z-index: 1000; transform: translateY(-200%); padding: .5rem .9rem;
+           border-radius: var(--consola-radio-control); background: var(--color-accent); color: var(--color-on-accent);
+           font: 500 var(--text-body-sm)/1.2 var(--font-sans); text-decoration: none; }
+.cu-skip:focus { transform: none; }
+/* where it lands: a landmark, not a control, so no ring around the whole page */
+main[tabindex="-1"]:focus { outline: none; }
 
 .cu-brand { display: inline-flex; flex-direction: column; justify-content: center; line-height: 1; color: var(--color-ink);
             text-decoration: none; min-width: 0; }

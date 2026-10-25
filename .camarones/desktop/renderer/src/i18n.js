@@ -3,7 +3,7 @@ export const S = {
   es: {
     'nav.summary': 'Resumen', 'nav.plan': 'Plan', 'nav.interviews': 'Entrevistas', 'nav.team': 'Equipo',
     'nav.quality': 'Calidad', 'nav.docs': 'Docs', 'nav.machine': 'Máquina', 'nav.kitdev': 'Kit dev',
-    'nav.project': 'Secciones del proyecto', 'nav.app': 'Esta app', rail: 'Proyectos', 'rail.add': 'Añadir un proyecto',
+    'nav.project': 'Secciones del proyecto', 'nav.app': 'Esta app', rail: 'Proyectos', skip: 'Saltar al contenido', 'rail.add': 'Añadir un proyecto',
     'rail.missing': 'no está en el disco',
     jobs: 'Trabajos', 'jobs.none': 'Nada en curso', fold: 'Plegar', unfold: 'Desplegar',
     'hub.title': 'Elige un proyecto',
@@ -121,7 +121,7 @@ export const S = {
   en: {
     'nav.summary': 'Summary', 'nav.plan': 'Plan', 'nav.interviews': 'Interviews', 'nav.team': 'Team',
     'nav.quality': 'Quality', 'nav.docs': 'Docs', 'nav.machine': 'Machine', 'nav.kitdev': 'Kit dev',
-    'nav.project': 'Project sections', 'nav.app': 'This app', rail: 'Projects', 'rail.add': 'Add a project',
+    'nav.project': 'Project sections', 'nav.app': 'This app', rail: 'Projects', skip: 'Skip to content', 'rail.add': 'Add a project',
     'rail.missing': 'not on disk',
     jobs: 'Jobs', 'jobs.none': 'Nothing running', fold: 'Fold', unfold: 'Unfold',
     'hub.title': 'Pick a project',

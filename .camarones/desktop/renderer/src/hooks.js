@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { follow } from './cmd.js'
 
-// A store with get() and subscribe(fn) (jobs.js) as React state.
-export const useStore = (store) => useSyncExternalStore(store.subscribe, store.get)
+// A store with get() and subscribe(fn) (jobs.js) as React state; the same snapshot when rendered to text (tests).
+export const useStore = (store) => useSyncExternalStore(store.subscribe, store.get, store.get)
 
 // The agent CLIs installed on this machine (GET app/agents) and the one picked: the last one used, by default.
 export function useAgents(srv) {

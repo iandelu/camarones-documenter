@@ -1,7 +1,7 @@
 // Strings of the React views written since 4.42; the docs views' strings are in i18n/portal.js (read through core.t).
 export const S = {
   en: {
-    'shell.nav': 'Sections', 'shell.theme': 'Light or dark', 'shell.lang': 'Language', 'shell.app': 'Back to the app', pInApp: 'Run it in the app',
+    'shell.nav': 'Sections', 'shell.theme': 'Light or dark', 'shell.lang': 'Language', 'shell.skip': 'Skip to content', 'shell.app': 'Back to the app', pInApp: 'Run it in the app',
     'home.firstLook': 'First look from the code (no AI)', 'home.firstLookFailed': 'The first look did not start',
     'review.title': 'Review.', 'review.waiting': '{n} pages wait.', 'review.none': 'Nothing waits.',
     'review.f.all': 'All', 'review.f.draft': 'Drafts', 'review.f.needs-reconfirm': 'To reconfirm',
@@ -104,7 +104,7 @@ export const S = {
     kbDocsOne: '{n} doc', kbDocsMany: '{n} docs',
   },
   es: {
-    'shell.nav': 'Secciones', 'shell.theme': 'Claro u oscuro', 'shell.lang': 'Idioma', 'shell.app': 'Volver a la app', pInApp: 'Ejecutar en la app',
+    'shell.nav': 'Secciones', 'shell.theme': 'Claro u oscuro', 'shell.lang': 'Idioma', 'shell.skip': 'Saltar al contenido', 'shell.app': 'Volver a la app', pInApp: 'Ejecutar en la app',
     'home.firstLook': 'Primer vistazo desde el código (sin IA)', 'home.firstLookFailed': 'El primer vistazo no arrancó',
     'review.title': 'Revisión.', 'review.waiting': '{n} páginas esperan.', 'review.none': 'Nada espera.',
     'review.f.all': 'Todas', 'review.f.draft': 'Borradores', 'review.f.needs-reconfirm': 'Por reconfirmar',
