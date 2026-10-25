@@ -138,6 +138,11 @@ def test_repo_names_are_folder_names(app_server, name):
     assert post(app_server, "repos", {"repos": [{"name": name}]}) == (400, {"error": "name"})
 
 
+@pytest.mark.parametrize("name", ["C:x", "con", "NUL.txt", "com1", "Lpt9.log", "AUX"])
+def test_repo_names_reject_drive_and_device_names(app_server, name):
+    assert post(app_server, "repos", {"repos": [{"name": name}]}) == (400, {"error": "name"})
+
+
 def test_a_repo_url_cannot_be_an_option(app_server):
     assert post(app_server, "repos", {"repos": [{"name": "api", "url": "--upload-pack=x"}]}) == (400, {"error": "url"})
 

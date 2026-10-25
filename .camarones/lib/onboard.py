@@ -10,8 +10,8 @@ from typing import Callable
 
 import yaml
 
-from .common import (CAM_DIR, CAM_LAYOUT, cli_cmd, ensure_path, find_project_marker, load_json, repo_dir, save_json,
-                     ws_rel)
+from .common import (CAM_DIR, CAM_LAYOUT, IS_WIN, cli_cmd, ensure_path, find_project_marker, load_json, repo_dir, run,
+                     save_json, ws_rel)
 from .harness.ctx import Ctx
 from . import docs, env, plan, projects
 
@@ -24,6 +24,19 @@ WS_HEADER = "# Camarón workspace: which repos form this project. Edit freely, t
 # a file that says "there is code here"; *.csproj is matched by suffix (its name is the project's)
 MANIFESTS = ("pom.xml", "build.gradle", "build.gradle.kts", "package.json", "pyproject.toml", "go.mod", "Cargo.toml",
              "pubspec.yaml", "composer.json", "Gemfile")
+
+
+# Windows reserves these names (with or without an extension): a folder called `con` cannot be created or opened
+DEVICE_NAMES = frozenset({"con", "prn", "aux", "nul", *(f"com{i}" for i in range(1, 10)), *(f"lpt{i}" for i in range(1, 10))})
+
+
+class Refused(ValueError):
+    """`start` will not make this folder a project; `code` is the stable word the app words itself: `home` (the user's
+    home or a filesystem root) or `no-git` (code that is not in a git repository yet)."""
+
+    def __init__(self, code: str, detail: str = ""):
+        super().__init__(detail or code)
+        self.code = code
 
 
 def kind_of(ws: dict) -> str:
@@ -41,6 +54,16 @@ def _read_ws(docs_root: Path) -> dict:
     if not isinstance(ws.get("project"), dict):
         ws["project"] = {}
     return ws
+
+
+def is_home_or_root(path: Path) -> bool:
+    """`path` is the user's home or a filesystem root (it equals its own anchor): never a workspace, since the docs
+    folder and every repo scan would land there. Compared resolved; case-insensitive on Windows."""
+    def key(p: Path) -> str:
+        s = str(p.resolve())
+        return s.casefold() if IS_WIN else s
+    p = Path(path).resolve()
+    return key(p) in (key(Path.home()), key(Path(p.anchor)))
 
 
 def _project_root(f: Path) -> Path | None:
@@ -79,8 +102,12 @@ def _has_repos(f: Path) -> bool:
 def inspect(folder: Path) -> dict:
     """What `folder` is, first match wins: project · repo · umbrella · code · empty. Returns `case`, `kind`,
     `workspace` (the folder that holds the repos), `docs_root`, `name` (the workspace folder's), `repos` (docs.detect_repos
-    rows), `siblings` (repo case: the other repos next to it) and `warning` (`no-git` for code without a repository)."""
+    rows), `siblings` (repo case: the other repos next to it) and `warning`: `home` when the workspace is the user's home or a
+    filesystem root (wins over the rest), else `no-git` for code without a repository. A picked `cam-docs` folder
+    is read as the workspace it belongs to."""
     f, warning, siblings = Path(folder).resolve(), "", []
+    if f.name.lower() == CAM_DIR and f.parent != f:
+        f = f.parent
     root = _project_root(f)
     if root:
         case, kind = "project", kind_of(_read_ws(root))
@@ -93,6 +120,8 @@ def inspect(folder: Path) -> dict:
         case, kind, workspace, warning = "code", "legacy", f, "no-git"
     else:
         case, kind, workspace = "empty", "greenfield", f
+    if is_home_or_root(workspace):
+        warning = "home"
     try:
         repos = docs.detect_repos(workspace) if workspace.is_dir() else []
     except OSError:                         # unreadable folder: no repos to show, not a crash
@@ -199,11 +228,16 @@ def finish(root: Path, steps_count: int) -> None:
 
 def start(folder: Path, name: str | None = None) -> Path:
     """Make the picked folder a project, ready for the wizard's `repos` step; returns its docs root. Idempotent: on a
-    folder that already is a project it only registers it and writes nothing else."""
+    folder that already is a project it only registers it and writes nothing else. `Refused` (a ValueError with a
+    `code`) when the workspace is home or a root, or the folder is code without git; both before anything is written."""
     f = Path(folder)
     if not f.is_dir():
         raise ValueError(f"not a folder: {f}")
     info = inspect(f)
+    if info["warning"] == "home":
+        raise Refused("home", f"{info['workspace']} is your home folder or a drive root: pick the folder of one project")
+    if info["case"] == "code":
+        raise Refused("no-git", f"{f} has code but no git repository: run git init in it first")
     root = Path(info["docs_root"])
     if info["case"] == "project":
         projects.register(root, name=(name or "").strip() or _read_ws(root)["project"].get("name") or info["name"])
@@ -215,6 +249,27 @@ def start(folder: Path, name: str | None = None) -> Path:
     write_workspace(Ctx.for_root(root).ws_file, ws)             # this process's module globals point at another project
     save_position(root, "repos", "new")
     return root
+
+
+def git_init(folder: Path) -> list[Path]:
+    """`git init` for a code folder that has no repository: in `folder` itself when it holds a manifest at its top,
+    else in each first-level subfolder that does. Returns the folders initialised. ValueError when `folder` already is
+    a repository or there is nothing to initialise."""
+    f = Path(folder).resolve()
+    if not f.is_dir():
+        raise ValueError(f"not a folder: {f}")
+    if (f / ".git").exists():
+        raise ValueError(f"{f} is already a git repository")
+    try:
+        targets = [f] if _has_manifest(f) else sorted(d for d in f.iterdir()
+                                                       if d.is_dir() and not (d / ".git").exists() and _has_manifest(d))
+    except OSError as e:
+        raise ValueError(f"cannot read {f}: {e}") from None
+    if not targets:
+        raise ValueError(f"no code to put under git in {f}")
+    for t in targets:
+        run(["git", "init", "-q"], cwd=t, quiet=True)
+    return targets
 
 
 # ---------- tools: one table, install all (recommended) or pick ----------
@@ -356,8 +411,9 @@ def set_repos(rows: list) -> dict:
     out, seen = [], set()
     for r in rows:
         name = str(r.get("name") or "").strip() if isinstance(r, dict) else ""
-        if not name or "/" in name or "\\" in name or ".." in name or name[0] in ".-" or name.lower() == CAM_DIR.lower():
-            raise ValueError("name")             # it becomes a folder next to the others: no paths, no options
+        if (not name or "/" in name or "\\" in name or ":" in name or ".." in name or name[0] in ".-"
+                or name.lower() == CAM_DIR.lower() or name.split(".")[0].lower() in DEVICE_NAMES):
+            raise ValueError("name")             # it becomes a folder next to the others: no paths, drives, options or devices
         if name in seen:
             raise ValueError("duplicate")
         seen.add(name)

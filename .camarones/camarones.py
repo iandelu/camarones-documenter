@@ -424,7 +424,7 @@ def build_parser() -> argparse.ArgumentParser:
     pj = sp.add_parser("projects"); pj.add_argument("--json", action="store_true"); pj.add_argument("--add", type=Path)
     # the desktop start screen's way in (it calls them itself): out of the catalog, so no app form shows them
     pj.add_argument("--inspect", type=Path, help=argparse.SUPPRESS); pj.add_argument("--adopt", type=Path, help=argparse.SUPPRESS)
-    pj.add_argument("--name", help=argparse.SUPPRESS)
+    pj.add_argument("--name", help=argparse.SUPPRESS); pj.add_argument("--git-init", type=Path, help=argparse.SUPPRESS)
     sp.add_parser("app")
     cf = sp.add_parser("config"); cf.add_argument("action", nargs="?", default="get", choices=["get", "set"])
     cf.add_argument("key", nargs="?"); cf.add_argument("value", nargs="?"); cf.add_argument("--json", action="store_true")
@@ -492,7 +492,7 @@ def main() -> int:
     elif a.cmd == "app":
         from lib import desktop
         desktop.launch()
-    elif a.cmd == "projects" and (a.inspect or a.adopt):
+    elif a.cmd == "projects" and (a.inspect or a.adopt or a.git_init):
         # the desktop start screen's way in: what a picked folder is, then make it a project (no project globals needed)
         from lib import onboard
         try:
@@ -504,13 +504,18 @@ def main() -> int:
                     print(json.dumps(info, ensure_ascii=False))
                 for k, v in info.items() if not a.json else ():
                     print(f"{k:<10} {v}")
+            elif a.git_init:
+                done = onboard.git_init(a.git_init)
+                print(json.dumps({"initialised": [str(p) for p in done]}, ensure_ascii=False) if a.json
+                      else "\n".join(f"✔ git init {p}" for p in done))
             else:
                 dest = onboard.start(a.adopt, a.name)
                 print(json.dumps({"path": str(dest)}, ensure_ascii=False) if a.json else f"✔ {dest}")
         except (ValueError, RuntimeError, OSError) as e:
             print(f"✖ {e}", file=sys.stderr)
-            if a.json and isinstance(e, projects.Taken):            # the app words it: a stable code, not this line
-                print(json.dumps({"error": "taken", "detail": str(e)}, ensure_ascii=False))
+            code = "taken" if isinstance(e, projects.Taken) else getattr(e, "code", "") if isinstance(e, onboard.Refused) else ""
+            if a.json and code:                                     # the app words it: a stable code, not this line
+                print(json.dumps({"error": code, "detail": str(e)}, ensure_ascii=False))
             return 1
     elif a.cmd == "projects" and a.add:
         from lib.common import docs_root
