@@ -275,6 +275,22 @@ def test_fr_name_writes(kit, fake_wizard):
     fake_wizard(["Mi Proyecto"]).fr_name(kit.docs.workspace())
     p = kit.docs.workspace()["project"]
     assert (p["name"], p["id"], p["canonical_language"], p["translations"]) == ("Mi Proyecto", "mi-proyecto", "en", ["es"])
+    assert p["kind"] == "legacy"                      # the kit's own workspace has repos in it
+
+
+def test_cli_name_step_on_an_empty_folder_makes_a_greenfield_project(kit, fake_wizard, monkeypatch, tmp_path):
+    blank = tmp_path / "blank"
+    blank.mkdir()
+    monkeypatch.setattr(kit.wizard, "WORKSPACE", blank)       # the folder the wizard was opened in: empty, no workspace.yaml
+    ran = []
+    for step in ("fr_repos", "fr_tools", "fr_setup", "fr_stack", "fr_arch", "fr_intro"):
+        monkeypatch.setattr(kit.wizard.W, step, lambda self, ws, s=step: ran.append(s))
+    real_name = kit.wizard.W.fr_name
+    monkeypatch.setattr(kit.wizard.W, "fr_name", lambda self, ws: ran.append("fr_name") or real_name(self, ws))
+    assert fake_wizard(["Idea"]).first_run()
+    assert kit.docs.workspace()["project"]["kind"] == "greenfield"
+    assert ran == ["fr_name", "fr_repos", "fr_tools", "fr_setup", "fr_intro"]       # the list shrinks once the name step set the kind
+    assert kit.common.load_json(kit.wizard.FIRSTRUN, {}) == {"step": 5, "done": True}
 
 
 def test_resume_index_only_firstrun(kit):
@@ -301,7 +317,7 @@ def test_repos_step_needs_a_repo_only_for_legacy(kit, fake_wizard, monkeypatch, 
     monkeypatch.setattr(kit.docs, "detect_repos", lambda *a: [])
     monkeypatch.setattr(kit.docs, "save_workspace", lambda ws: None)
     seen = []
-    w = fake_wizard([lambda msg: None])
+    w = fake_wizard([])
     monkeypatch.setattr(kit.wizard.W, "sel", lambda self, msg, choices, **kw: seen.append(choices[0].disabled) or None)
     assert w.fr_repos(ws) == kit.wizard.BACK
     assert bool(seen[0]) is disabled
