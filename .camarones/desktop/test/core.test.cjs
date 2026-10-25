@@ -99,3 +99,60 @@ test('the bar\'s colours are the theme\'s canvas and ink, light and dark', () =>
   assert.equal(core.BAR.dark.ink, value(dark, 'ink'))
   assert.equal(core.BAR.height, 56)                                           // the portal's --top, 3.5rem
 })
+
+test('inspectArgs asks the CLI what a folder is', () => {
+  const dir = path.join(KIT, '..', 'shop')
+  assert.deepEqual(core.inspectArgs(dir), ['projects', '--inspect', dir, '--json'])
+})
+
+test('adoptArgs drops a name that looks like an option', () => {
+  const dir = path.join(KIT, '..', 'shop')
+  assert.deepEqual(core.adoptArgs(dir, 'Shop online'), ['projects', '--adopt', dir, '--json', '--name', 'Shop online'])
+  assert.deepEqual(core.adoptArgs(dir, '--json'), ['projects', '--adopt', dir, '--json'])
+  assert.deepEqual(core.adoptArgs(dir, '-x'), ['projects', '--adopt', dir, '--json'])
+})
+
+test('adoptArgs with no name', () => {
+  const dir = path.join(KIT, '..', 'shop')
+  for (const name of [undefined, null, '', 42]) assert.deepEqual(core.adoptArgs(dir, name), ['projects', '--adopt', dir, '--json'])
+})
+
+test('a folder from the page is an absolute path, nothing else', () => {
+  assert.equal(core.folderArg(path.join(KIT, '..', 'shop')), true)
+  assert.equal(core.folderArg('shop'), false)
+  assert.equal(core.folderArg('--json'), false)
+  assert.equal(core.folderArg(''), false)
+  assert.equal(core.folderArg(42), false)
+})
+
+test('a join token reaches the CLI only in its environment, never inherited', () => {
+  const dir = path.join(KIT, '..', 'shop')
+  assert.deepEqual(core.joinArgs('https://gitlab.com/shop/cam-docs.git', dir),
+    ['join', 'https://gitlab.com/shop/cam-docs.git', dir, '--no-open'])
+  const base = { PATH: 'p', CAMARONES_JOIN_TOKEN: 'from-the-shell', CAMARONES_APP_TOKEN: 'x' }
+  assert.equal(core.cliEnv(base).CAMARONES_JOIN_TOKEN, undefined)            // only the join that was given one
+  assert.equal(core.joinEnv(base, '').CAMARONES_JOIN_TOKEN, undefined)
+  assert.equal(core.joinEnv(base, undefined).CAMARONES_JOIN_TOKEN, undefined)
+  const env = core.joinEnv(base, '  glpat-123 ')
+  assert.equal(env.CAMARONES_JOIN_TOKEN, 'glpat-123')
+  assert.equal(env.CAMARONES_APP_TOKEN, undefined)
+  assert.equal(env.PATH, 'p')
+})
+
+test('why a join failed: the CLI\'s JSON line, or nothing', () => {
+  const out = '{"error": "auth", "host": "gitlab.com", "detail": "HTTP Basic: Access denied"}\n'
+  assert.deepEqual(core.joinFailure(out), { error: 'auth', host: 'gitlab.com', detail: 'HTTP Basic: Access denied' })
+  assert.deepEqual(core.joinFailure('{"error": "weird"}'), { error: 'unknown', host: '', detail: '' })
+  assert.equal(core.joinFailure('{"path": "/a/cam-docs", "joined": true}'), null)
+  assert.equal(core.joinFailure(''), null)
+})
+
+test('the CLI\'s error line, and whether an adopt hit a cam-docs that is taken', () => {
+  assert.equal(core.errLine('Warning: something\n✖ not a folder: /x\n'), 'not a folder: /x')
+  assert.equal(core.errLine(''), '')
+  assert.equal(core.adoptError('✖ /x/cam-docs ya existe y no está vacía — elige otra carpeta.'), 'taken')
+  assert.equal(core.adoptError("✖ [Errno 17] File exists: '/x/cam-docs'"), 'taken')
+  assert.equal(core.adoptError("✖ [WinError 183] Cannot create a file when that file already exists: 'C:\\x\\cam-docs'"), 'taken')
+  assert.equal(core.adoptError('✖ not a folder: /x'), 'folder')
+  assert.equal(core.adoptError("✖ [Errno 13] Permission denied: '/x/cam-docs'"), 'folder')
+})
