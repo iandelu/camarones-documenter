@@ -1,6 +1,7 @@
 // How the portal is navigated: zones (Docs, Board, Architecture, Plan, Quality, Review) that group the views, what is
 // available in the static export, on the live server or in the desktop app (mode `app`: everything live has, plus
-// the Taller, where machine work runs), the breadcrumbs of any address and the ⌘K entries.
+// the Taller, where machine work runs; there only the zones that document stay: the reading zones are `portal`
+// and open in the browser), the breadcrumbs of any address and the ⌘K entries.
 // Pure functions over the index the portal loads (`tree`); legacy/app.js reaches them as window.CamaronZones.
 // Labels are i18n keys of legacy/core.js: zone.<id>, zoned.<id>, view.<id>, viewd.<id>, sec.<section>.
 
@@ -8,18 +9,19 @@ const hasWiki = (index) => (index.docs || []).some((d) => d.space === 'wiki')
 const hasCode = (index) => (index.codeMaps || []).length > 0 || (index.codeGraphs || []).length > 0
 
 export const ZONES = [
-  { id: 'docs', href: '#/docs', views: [
+  { id: 'next', href: '#/next', views: [{ id: 'next', href: '#/next', app: true }] },
+  { id: 'docs', href: '#/docs', portal: true, views: [
     { id: 'pages', href: '#/docs' },
     { id: 'wikis', href: '#/wikis', needs: (index, mode) => mode !== 'static' || hasWiki(index) }] },
   { id: 'board', href: '#/kanban', views: [{ id: 'kanban', href: '#/kanban', live: true }] },
-  { id: 'arch', href: '#/arch', views: [
+  { id: 'arch', href: '#/arch', portal: true, views: [
     { id: 'c4', href: '#/c4' },
     { id: 'code', href: '#/code', needs: hasCode },
     { id: 'data', href: '#/data', live: true },
     { id: 'libs', href: '#/libs', live: true }] },
   { id: 'plan', href: '#/plan', views: [{ id: 'pipeline', href: '#/pipeline', live: true },
     { id: 'interview', href: '#/interview', live: true }, { id: 'sync', href: '#/sync', live: true }] },
-  { id: 'quality', href: '#/quality', views: [{ id: 'kpis', href: '#/kpis', live: true }, { id: 'ci', href: '#/ci', live: true }] },
+  { id: 'quality', href: '#/quality', portal: true, views: [{ id: 'kpis', href: '#/kpis', live: true }, { id: 'ci', href: '#/ci', live: true }] },
   { id: 'review', href: '#/review', views: [{ id: 'review', href: '#/review' }] },
   { id: 'taller', href: '#/taller', views: [
     { id: 'generate', href: '#/generate', app: true }, { id: 'analyze', href: '#/analyze', app: true },
@@ -28,11 +30,15 @@ export const ZONES = [
     { id: 'kitdev', href: '#/kitdev', app: true, needs: (index) => !!index.kitdev }] },
 ]
 
+// The desktop app lists its zones in the order of the work (next step, plan, board, review), not the portal's.
+const APP_ORDER = ['next', 'plan', 'board', 'review', 'taller']
+
 // The Taller's views are the catalog's zones (lib/catalog.py), one per kind of machine work.
 export const TALLER = ['generate', 'analyze', 'check', 'interviews', 'team', 'machine', 'kitdev']
 
 // The first segment of an address → its zone and view. Old addresses (doc, status, wiki) keep working.
 const ROUTES = {
+  next: ['next', 'next'], start: ['next', 'next'],
   kanban: ['board', 'kanban'],
   docs: ['docs', 'pages'], doc: ['docs', 'pages'], wikis: ['docs', 'wikis'], wiki: ['docs', 'wikis'],
   c4: ['arch', 'c4'], code: ['arch', 'code'], data: ['arch', 'data'], libs: ['arch', 'libs'],
@@ -45,9 +51,18 @@ const available = (view, mode, index) => (!view.live || mode !== 'static') && (!
   && (!view.needs || view.needs(index, mode))
 
 export function zonesFor(mode, index) {
-  return ZONES.map((z) => ({ id: z.id, href: z.href,
+  const zones = mode === 'app' ? APP_ORDER.map((id) => ZONES.find((z) => z.id === id)) : ZONES
+  return zones.filter((z) => !(z.portal && mode === 'app')).map((z) => ({ id: z.id, href: z.href,
     views: z.views.filter((v) => available(v, mode, index)).map((v) => ({ id: v.id, href: v.href })) }))
     .filter((z) => z.views.length)
+}
+
+// Does this address open a zone the desktop app leaves to the browser portal? (`#/docs/x.md`, `#/c4`, `#/arch`…)
+export function portalOnly(hash) {
+  const seg = (hash || '').replace(/^#/, '').match(/^\/([\w-]+)/)?.[1]
+  if (!seg) return false
+  const [zoneId] = ROUTES[seg] || [ZONES.find((z) => z.href === `#/${seg}`)?.id]
+  return !!ZONES.find((z) => z.id === zoneId)?.portal
 }
 
 const decode = (s) => { try { return decodeURIComponent(s) } catch { return s } }
