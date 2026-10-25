@@ -111,6 +111,31 @@ def test_add_from_doc_section_gives_page_an_xid(wired, server):
     assert re.fullmatch(r"FLOW-\w{4}#retries@\w+", row["docs"][0])
 
 
+def test_board_cards_carry_their_link_states(wired, server):
+    """The Board's docs filter (suspect / unconfirmed) runs in the page: each card brings its links' trust."""
+    from test_kanban_xid import PAYMENTS, page
+    page(wired, "flows/payments.md", PAYMENTS)
+    from lib.kanban import ops
+    ops.init(log=lambda *_: None)
+    ops.add("task", "docs", docs=["flows/payments.md#retries"])
+    ops.add("task", "no docs")
+    cards = {c["id"]: c for c in call(server + "/api/kanban", method="GET")[1]["cards"]}
+    [state] = cards["WI-1"]["links"]
+    assert state["path"] == "flows/payments.md" and state["missing"] is False and "trust" in state and "fresh" in state
+    assert cards["WI-2"]["links"] == []
+
+
+def test_a_broken_item_file_is_reported_by_path(wired, server):
+    from lib.kanban import ops
+    ops.init(log=lambda *_: None)
+    ops.add("task", "fine")
+    (wired.root / "backlog" / "tasks" / "wi-9 - broken.md").write_text("---\ntitle: [unclosed\n---\n", encoding="utf-8")
+    code, b = call(server + "/api/kanban", method="GET")
+    assert code == 200 and [c["id"] for c in b["cards"]] == ["WI-1"]
+    [p] = b["problems"]
+    assert p["path"].endswith("wi-9 - broken.md") and p["error"]
+
+
 def test_serve_editor_url_carries_token(wired, monkeypatch):
     seen = {}
 
