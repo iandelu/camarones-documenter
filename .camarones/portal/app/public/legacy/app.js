@@ -91,68 +91,11 @@ function drawDocsSide(active) {
   $('#tree .on')?.scrollIntoView({ block: 'nearest' });
 }
 
-// ---------- Home (#/): ask first, then the project's state, then the zones ----------
-const homeTile = (href, title, desc) => `<a class="home-tile" href="${esc(href)}"><b>${esc(title)}</b><p>${esc(desc)}</p></a>`;
-
+// ---------- Home and the zones are React (src/views/Home.jsx, the shell's sidebar) ----------
 // The project has nothing of its own yet (the kit's guides and interview notes do not count).
 function emptyProject() {
   const kit = new Set(T.kitGuides || []);
   return !T.docs.some((d) => d.space === 'docs' && !kit.has(d.path) && d.type !== 'interview') && !T.views.length;
-}
-
-// One way forward instead of empty tiles: a first look from the code (no AI), or the tutorial.
-function drawEmptyProject() {
-  drawToc(null);
-  $('#main').innerHTML = `<div class="page hero empty aurora-bg"><div class="hero-logo">🦐</div><h1>${esc(T.project)}</h1>
-    <p class="lead">${esc(t('homeEmpty'))}</p><p class="muted">${esc(t('noDocsHelp'))}</p>
-    ${STATIC ? '' : `<div class="row center">${RUNS ? `<button id="first-look" type="button">${esc(t('firstLook'))}</button>` : ''}
-      <a class="button ghost" href="#/pipeline">${esc(t('nextUnit'))} →</a></div><pre id="first-log" class="joblog" hidden></pre>
-      ${RUNS ? '' : `<p class="aviso small">${esc(t('appOnly'))}</p>`}`}
-    ${T.kitGuides?.length ? `<p class="small"><a href="${esc(hrefFor(T.kitGuides.find((g) => g.endsWith('tutorial.md')) || T.kitGuides[0]))}">📘 ${esc(t('readTutorial'))}</a></p>` : ''}</div>`;
-  $('#first-look')?.addEventListener('click', (e) => startBuild('first-look', '', e.target, $('#first-log'), () => location.reload()));
-}
-
-async function showStart() {
-  drawChrome('home', { bare: true });
-  CURRENT = '';
-  drawToc(null);
-  if (emptyProject()) return drawEmptyProject();
-  const Z = window.CamaronZones;
-  if (!Z) return showDocsHome();           // the bundle did not load: the docs home still works without it
-  const kpis = Z.homeKpis(T);
-  const askLabel = t(STATIC ? 'search' : 'homeAsk');
-  $('#main').innerHTML = `<div class="page wide start">
-    <header class="start-hero aurora-bg">
-      <p class="eyebrow">${esc(t('home.eyebrow', { project: T.project, n: T.repos.length }))}</p>
-      <h1 class="t-impact">${esc(t('home.title'))}<br><span class="t-eco">${esc(t('home.eco'))}</span></h1>
-      <form class="start-ask" id="start-ask"><input name="q" placeholder="${esc(t('home.askPh'))}" aria-label="${esc(askLabel)}"
-        autocomplete="off"><button type="submit">${esc(askLabel)} <span aria-hidden="true">→</span></button></form>
-    </header>
-    ${kpis.length ? `<section class="start-sec"><div class="start-h"><h2 class="t-impact">${esc(t('home.state'))}</h2>
-      <span class="eyebrow">${esc(t('home.stateSub'))}</span></div>
-      <div class="home-kpis">${kpis.map((k) => `<div class="home-kpi ${k.tone || ''}"><span class="eyebrow">${esc(t('kpi.' + k.id))}</span>
-        <b>${esc(k.value)}</b><small>${esc(t('kpid.' + k.id))}</small></div>`).join('')}</div></section>` : ''}
-    <section class="start-sec"><div class="start-h"><h2 class="t-impact">${esc(t('home.zones'))}</h2></div>
-      <div class="home-tiles">${Z.zonesFor(MODE(), T).map((z) => homeTile(z.href, t('zone.' + z.id), t('zoned.' + z.id))).join('')}</div></section>
-  </div>`;
-  $('#start-ask').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const q = e.target.q.value.trim();
-    if (q) location.hash = `${STATIC ? '#/search/' : '#/ask/'}${encodeURIComponent(q)}`;
-  });
-}
-
-// A zone's cover (#/arch, #/plan, #/quality): its title and one tile per view this mode has.
-function showZone(id) {
-  if (!window.CamaronZones) return location.replace('#/docs');
-  const zone = window.CamaronZones.zonesFor(MODE(), T).find((z) => z.id === id);
-  if (!zone) return location.replace('#/');
-  drawChrome(id, { bare: true });
-  CURRENT = '';
-  drawToc(null);
-  $('#main').innerHTML = `<div class="page wide start"><header class="start-head">
-    <h1 class="t-impact">${esc(t('zone.' + id))}<br><span class="t-eco">${esc(t('zoned.' + id))}</span></h1></header>
-    <div class="home-tiles">${zone.views.map((v) => homeTile(v.href, t('view.' + v.id), t('viewd.' + v.id))).join('')}</div></div>`;
 }
 
 // ---------- the Docs zone's cover (#/docs): sections, C4, wikis and the project's index page ----------
@@ -162,7 +105,7 @@ async function showDocsHome() {
   CURRENT = '';
   const docs = T.docs.filter((d) => d.space === 'docs' && (!isBusiness() || forBusiness(d)));
   const wikiPages = isBusiness() ? 0 : T.docs.filter((d) => d.space === 'wiki').length;
-  if (emptyProject()) return drawEmptyProject();
+  if (emptyProject()) return location.replace('#/');      // Home offers the first look
   const home = BY_PATH['index.md'];
   const tree = buildTree(docs);
   const confirmed = docs.length ? Math.round(100 * docs.filter((d) => d.trust === 'confirmed').length / docs.length) : 0;
@@ -481,7 +424,7 @@ async function showReview() {
 // a language or audience change) go back through the shell, so one view renders at a time.
 function route() { return window.CamaronShell ? window.CamaronShell.go() : Promise.resolve(); }
 
-const VIEWS = { showStart, showZone, showDocsHome, showDoc, showSearch, showReview, newPage,
+const VIEWS = { showDocsHome, showDoc, showSearch, showReview, newPage,
   showWikis: () => showWikis(), showWiki: (...a) => showWiki(...a), showWikiGraph: (...a) => showWikiGraph(...a),
   showArch: (...a) => showArch(...a), showCodeTab: (...a) => showCodeTab(...a) };
 

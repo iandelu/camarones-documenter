@@ -1,5 +1,4 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
-import { MotionConfig } from 'motion/react'
 import { Brand, Breadcrumbs, Chip, Keys } from '@camaron/ui'
 import '@camaron/ui/ui.css'
 import Native from '../Native.jsx'
@@ -26,7 +25,8 @@ function useRouter() {
       if (seq !== q.seq) return
       const legacy = L()
       const a = resolve(location.hash, { mode: legacy.mode(), current: legacy.current(),
-        space: (p) => legacy.byPath(p)?.space, hrefFor: legacy.hrefFor })
+        space: (p) => legacy.byPath(p)?.space, hrefFor: legacy.hrefFor,
+        firstView: (id) => zonesFor(legacy.mode(), legacy.tree()).find((z) => z.id === id)?.views[0]?.href })
       if (a.kind === 'redirect') return location.replace(a.to)
       if (a.kind === 'scroll') return legacy.scroll(a.anchor)
       legacy.closePalette()
@@ -94,7 +94,7 @@ export default function Shell() {
         </main>
         {shown?.kind === 'native' && (
           <section id="native" className="main native">
-            <MotionConfig reducedMotion="user"><Native view={shown.view} arg={shown.arg || null} /></MotionConfig>
+            <Native key={shown.at} view={shown.view} arg={shown.arg || null} />
           </section>
         )}
         <aside className="toc empty" id="toc"></aside>
@@ -123,7 +123,7 @@ function ZoneNav({ index, mode, t }) {
         const views = z.views.length > 1 || z.views[0]?.href !== z.href ? z.views : []
         return (
           <Fragment key={z.id}>
-            <a href={z.href} className={on ? 'on' : ''} aria-current={on && !here.view ? 'page' : undefined}>{t('zone.' + z.id)}</a>
+            <a href={z.views[0]?.href || z.href} className={on ? 'on' : ''}>{t('zone.' + z.id)}</a>
             {on && views.map((v) => (
               <a key={v.id} href={v.href} className={'sub' + (v.id === here.view ? ' on' : '')}
                 aria-current={v.id === here.view ? 'page' : undefined}>{t('view.' + v.id)}</a>

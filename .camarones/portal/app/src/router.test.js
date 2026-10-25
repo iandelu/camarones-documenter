@@ -7,10 +7,12 @@ const ctx = (over = {}) => ({
   mode: 'live', current: '',
   space: (p) => space[p],
   hrefFor: (p, a) => `#/wiki/${p.split('/')[1]}/${p.split('/').slice(2).join('/')}${a ? '::' + a : ''}`,
+  firstView: (zone) => ({ arch: '#/c4', plan: '#/pipeline', quality: '#/kpis', taller: '#/generate' }[zone]),
   ...over,
 })
 const go = (hash, over) => resolve(hash, ctx(over))
 const legacy = (fn, ...args) => ({ kind: 'legacy', fn, args })
+const HOME = { kind: 'native', view: 'home', arg: '' }
 
 test('parse splits the view from the rest and decodes it', () => {
   expect(parse('#/docs/guides/a b.md::x')).toEqual({ view: 'docs', rest: 'guides/a b.md::x' })
@@ -21,15 +23,15 @@ test('parse splits the view from the rest and decodes it', () => {
 })
 
 test('home: the root, an unknown address', () => {
-  expect(go('')).toEqual(legacy('showStart'))
-  expect(go('#/')).toEqual(legacy('showStart'))
-  expect(go('#/nope')).toEqual(legacy('showStart'))
+  expect(go('')).toEqual(HOME)
+  expect(go('#/')).toEqual(HOME)
+  expect(go('#/nope')).toEqual(HOME)
 })
 
 test('the React views need the server; in the export they fall back to home', () => {
   for (const v of ['pipeline', 'ask', 'kpis', 'ci', 'libs', 'data', 'interview', 'sync']) {
     expect(go(`#/${v}/x`)).toEqual({ kind: 'native', view: v, arg: 'x' })
-    expect(go(`#/${v}`, { mode: 'static' })).toEqual(legacy('showStart'))
+    expect(go(`#/${v}`, { mode: 'static' })).toEqual(HOME)
   }
   expect(go('#/ask/how%20does%20it%20work')).toEqual({ kind: 'native', view: 'ask', arg: 'how does it work' })
 })
@@ -37,9 +39,9 @@ test('the React views need the server; in the export they fall back to home', ()
 test('the Taller only in the desktop app', () => {
   for (const v of ['generate', 'analyze', 'check', 'interviews', 'team', 'machine', 'kitdev']) {
     expect(go(`#/${v}`, { mode: 'app' })).toEqual({ kind: 'native', view: v, arg: '' })
-    expect(go(`#/${v}`)).toEqual(legacy('showStart'))
+    expect(go(`#/${v}`)).toEqual(HOME)
   }
-  expect(go('#/taller', { mode: 'app' })).toEqual(legacy('showZone', 'taller'))
+  expect(go('#/taller', { mode: 'app' })).toEqual({ kind: 'redirect', to: '#/generate' })
 })
 
 test('docs: home, a page, an anchor, the old #/doc alias', () => {
@@ -76,8 +78,15 @@ test('architecture, code, review, search, new page, zone covers', () => {
   expect(go('#/status')).toEqual(legacy('showReview'))
   expect(go('#/search/visit%20form')).toEqual(legacy('showSearch', 'visit form'))
   expect(go('#/new')).toEqual(legacy('newPage'))
-  expect(go('#/new', { mode: 'static' })).toEqual(legacy('showStart'))
-  for (const z of ['arch', 'plan', 'quality']) expect(go(`#/${z}`)).toEqual(legacy('showZone', z))
+  expect(go('#/new', { mode: 'static' })).toEqual(HOME)
+})
+
+// The sidebar lists every zone's views, so a zone's address opens its first view (no cover page since phase 1).
+test('a zone address opens its first view; a zone this mode lacks goes home', () => {
+  expect(go('#/arch')).toEqual({ kind: 'redirect', to: '#/c4' })
+  expect(go('#/plan')).toEqual({ kind: 'redirect', to: '#/pipeline' })
+  expect(go('#/quality')).toEqual({ kind: 'redirect', to: '#/kpis' })
+  expect(go('#/quality', { mode: 'static', firstView: () => undefined })).toEqual(HOME)
 })
 
 test('boards were removed in 4.49: their addresses land on Architecture', () => {

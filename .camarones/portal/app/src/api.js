@@ -3,8 +3,9 @@
 // window.camaronApp) every request also carries the app's token: only then does the server start processes.
 import { parseSSE } from './sse.js'
 
-export const STATIC = document.querySelector('meta[name="cam-mode"]')?.content === 'static'
-export const APP = window.camaronApp?.token ? window.camaronApp : null
+// (Read once at import; without a page — the tests — it is the live server, outside the app.)
+export const STATIC = typeof document !== 'undefined' && document.querySelector('meta[name="cam-mode"]')?.content === 'static'
+export const APP = typeof window !== 'undefined' && window.camaronApp?.token ? window.camaronApp : null
 export const RUNS = !STATIC && !!APP
 
 const token = () => (APP ? { 'X-Camaron-Token': APP.token } : {})
