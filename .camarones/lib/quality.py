@@ -369,7 +369,7 @@ def structure_issues(path: str, text: str, known: list[dict]) -> list[str]:
     first = next((l for l in after_h1.splitlines() if l.strip()), "")
     if not TLDR.match(first.strip()):
         out.append("no `> **TL;DR:** …` right under the H1 (agents decide from it whether to read on)")
-    sk = skeleton_for(path, kind, known)
+    sk = None if fm.get("x-generated") else skeleton_for(path, kind, known)       # the kit's own pages have a fixed shape
     if sk:
         have = {h for lv, h in heads if lv == 2}
         missing = [h for h in sk["required"] if h not in have]

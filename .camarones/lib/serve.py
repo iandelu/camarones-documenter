@@ -119,21 +119,25 @@ def api_c4_view(view: str) -> dict:
 
 
 def api_schemas() -> dict:
-    """Each repo's tables and collections (lib/schemas.py) with the same markdown its data page holds."""
-    from . import schemas
+    """Each repo's tables and collections (lib/schemas.py) with the same markdown its data page holds. `page`: its
+    data page, else its repo page (the new layout), else None."""
+    from . import pages, schemas
     out = []
     for name, r in schemas.scan().items():
-        page = schemas.PAGE.format(repo=name)
+        page = next((p for p in (schemas.PAGE.format(repo=name), pages.REPO_PAGE.format(repo=name))
+                     if (DOCS / p).is_file()), None)
         out.append({"repo": name, "tools": r["tools"], "stores": [{"kind": s["kind"], "engines": s["engines"],
                                                                    "entities": s["entities"]} for s in r["stores"]],
                     "entities": sum(len(s["entities"]) for s in r["stores"]), "markdown": schemas.block_body(r),
-                    "page": page if (DOCS / page).is_file() else None})
+                    "page": page})
     return {"repos": out}
 
 
 def schemas_write() -> dict:
-    from . import genblocks, schemas
-    written = schemas.write_pages(log=lambda _: None)
+    """The portal's Data view button: the data pages (old layout) or the pages from the code (new layout)."""
+    from . import genblocks, pages, schemas
+    write = schemas.write_pages if pages.layout() == "old" else pages.write
+    written = write(log=lambda _: None)
     genblocks.refresh()
     docs.llms()
     return {"written": written}
@@ -450,22 +454,30 @@ def start_job(kind: str, label: str, fn) -> dict:
 
 
 def first_look(log) -> bool:
-    """A fresh project's first pages without AI, from the static scan: the C4 draft and its page, the stack and tools,
-    llms.txt; then the C4 explorer when LikeC4 is installed. What the empty Docs and Architecture tabs offer."""
-    from . import quickarch, radar
-    quickarch.save(quickarch.draft(log=log))
+    """A fresh project's first pages without AI, from the static scan: the C4 draft, the stack and tools, the project
+    home and a page per repo (an old-layout project: the first-look, data and diagram pages instead), llms.txt; then
+    the C4 explorer when LikeC4 is installed. What the empty Docs and Architecture tabs offer."""
+    from . import diagrams, inventory, pages, quickarch, radar, schemas
+    new = pages.layout() == "new"
+    quickarch.save(quickarch.draft(log=log), page=not new)          # the new layout has no first-look.md
     radar.run(log=log)
-    from . import diagrams, inventory, schemas
     inventory.run(log=log)
-    schemas.write_pages(log=log)
-    try:
-        diagrams.write_pages(log=log)
-    except Exception as e:  # noqa: BLE001 — the diagrams are a bonus: llms.txt and the C4 build still run
-        log(f"⚠ diagrams skipped: {e}")
+    if new:
+        try:
+            pages.write(log=log)
+        except Exception as e:  # noqa: BLE001 — the pages are a bonus: llms.txt and the C4 build still run
+            log(f"⚠ pages skipped: {e}")
+    else:
+        schemas.write_pages(log=log)
+        try:
+            diagrams.write_pages(log=log)
+        except Exception as e:  # noqa: BLE001 — the diagrams are a bonus: llms.txt and the C4 build still run
+            log(f"⚠ diagrams skipped: {e}")
     docs.llms()
     if env.which("likec4"):
         env.build_c4(log=log)
-    log("✔ first look written: architecture/first-look.md, architecture/system-map.md, overview/tooling.md and the C4 draft")
+    wrote = "index.md, a page per repo" if new else "architecture/first-look.md, architecture/system-map.md"
+    log(f"✔ first look written: {wrote}, overview/tooling.md and the C4 draft")
     return True
 
 

@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { askHref, emptyProject, kpiHref } from './home.js'
+import { askHref, emptyProject, kpiHref, withoutH1 } from './home.js'
 
 const page = (path, extra = {}) => ({ path, space: 'docs', ...extra })
 
@@ -21,4 +21,13 @@ test('the home question asks on the server and searches in the export', () => {
 test('each state figure leads where it can be acted on', () => {
   expect(kpiHref('confirmed')).toBe('#/docs')
   for (const k of ['reconfirm', 'drafts', 'feedback']) expect(kpiHref(k)).toBe('#/review')
+})
+
+// The project home (docs/index.md) sits in the Home as "The system": without its H1 (the section has its heading),
+// with its frontmatter and its TL;DR as they are.
+test('the project home loses its H1 and keeps the rest', () => {
+  const raw = '---\nx-owner: agent\n---\n# Bench clinic\n\n> **TL;DR** A clinic for pets.\n\n## Repos\n'
+  expect(withoutH1(raw)).toBe('---\nx-owner: agent\n---\n\n> **TL;DR** A clinic for pets.\n\n## Repos\n')
+  expect(withoutH1('# Only\nbody')).toBe('body')
+  expect(withoutH1('no heading\n## Sub')).toBe('no heading\n## Sub')
 })

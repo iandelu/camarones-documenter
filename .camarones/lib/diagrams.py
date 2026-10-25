@@ -452,9 +452,9 @@ def _key(m) -> Key:
     return m["kind"], m["repo"], m["id"]
 
 
-def _page_blocks(text: str) -> list:
+def _page_blocks(text: str, kinds=KINDS) -> list:
     from . import genblocks
-    return [m for m in genblocks.BLOCK_RE.finditer(text) if m["kind"] in KINDS]
+    return [m for m in genblocks.BLOCK_RE.finditer(text) if m["kind"] in kinds]
 
 
 def _heading(body: str, heading: str):
@@ -470,15 +470,17 @@ def _section_end(body: str, heading: str) -> int | None:
     return nxt.start() if nxt else len(body)
 
 
-def _edit_page(body: str, repo: str, managed: dict[str, str], wanted: list[Key], draw) -> tuple[str, list[str]]:
-    """The body of an existing page brought up to date: an unconfirmed block whose key is no longer wanted (its id is
-    gone, or the block lives in another page now) leaves; a confirmed block stays where it is, verbatim; the wanted keys
-    the page lacks are added at the end of their section. Returns (body, sources of the blocks added)."""
+def _edit_page(body: str, repo: str, managed: list[tuple[str, str]], wanted: list[Key], draw,
+               put=None) -> tuple[str, list[str]]:
+    """The body of an existing page brought up to date: an unconfirmed block of a `managed` (heading, kind) whose key is
+    no longer wanted (its id is gone, or the block lives in another page now) leaves; a confirmed block stays where it
+    is, verbatim; the wanted keys the page lacks are added at the end of their section, or by `put(body, block, key)`
+    when given. Returns (body, sources of the blocks added)."""
     from . import genblocks
-    parts, last, emptied = [], 0, set()
-    for m in _page_blocks(body):
+    parts, last, emptied, kinds = [], 0, set(), tuple(kind for _h, kind in managed)
+    for m in _page_blocks(body, kinds):
         edited = m["sha"] and m["sha"] != genblocks.sha(m["body"])         # a person's hand edit is kept like a confirmation
-        if m["kind"] not in managed.values() or m["repo"] != repo or m["confirmed"] or edited or _key(m) in wanted:
+        if m["repo"] != repo or m["confirmed"] or edited or _key(m) in wanted:
             continue
         parts.append(body[last:m.start()])
         last = m.end()
@@ -486,19 +488,22 @@ def _edit_page(body: str, repo: str, managed: dict[str, str], wanted: list[Key],
             last += 1
         emptied.add(m["kind"])
     body = "".join(parts) + body[last:]
-    for heading, kind in managed.items():                                  # a section a drop left with nothing goes too
+    for heading, kind in managed:                                          # a section a drop left with nothing goes too
         start, end = _heading(body, heading), _section_end(body, heading)
         if kind in emptied and start and not body[start.end():end].strip():
             body = body[:start.start()] + body[end:]
-    present = {_key(m) for m in _page_blocks(body)}
+    present = {_key(m) for m in _page_blocks(body, kinds)}
     sources = []
     for key in wanted:
         if key in present:
             continue
-        heading = next(h for h, kind in managed.items() if kind == key[0])
         text, src = draw(key)
         sources += src
         blk = genblocks.block(key[0], key[1], text, id=key[2])
+        if put is not None:
+            body = put(body, blk, key)
+            continue
+        heading = next(h for h, kind in managed if kind == key[0])
         end = _section_end(body, heading)
         if end is None:
             body = body.rstrip("\n") + f"\n\n## {heading}\n\n{blk}\n"
@@ -577,7 +582,7 @@ def write_pages(log=lambda _: None) -> list[str]:
             if fm.get("x-generated") is not True and not _page_blocks(body):
                 log(f"· {rel_file(f)} was not written by the kit: left as it is")
                 continue
-            new_body, sources = _edit_page(body, repo, {h: kind for h, kind in sections}, wanted, draw)
+            new_body, sources = _edit_page(body, repo, list(sections), wanted, draw)
             if new_body == body:
                 continue
             new = text[:len(text) - len(body)] + new_body

@@ -21,7 +21,7 @@ Search as above (`ask` gives the best sections for a question, with citations), 
 
 | To… | Read |
 |---|---|
-| work in a repo | `{{CAM}}docs/repos/<repo>/brief.md`, and `reference.md` next to it (commands, env vars, endpoints, topics) |
+| work in a repo | `{{CAM}}docs/repos/<repo>/brief.md`, and `{{CAM}}docs/repos/<repo>/index.md` (commands, env vars, endpoints, topics; `reference.md` and `diagrams.md` before 4.52) |
 | follow a business flow | `{{CAM}}docs/flows/` (`index.md` lists them) |
 | use the right term | `{{CAM}}docs/domain/glossary.md` |
 | know why something is the way it is | `{{CAM}}docs/decisions/` |

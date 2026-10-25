@@ -26,7 +26,7 @@ x-sources:
 
 ## Interfaces
 
-The full lists of endpoints, topics and env vars are in [<repo> reference](reference.md), generated from the code.
+The full lists of endpoints, topics and env vars are on the [<repo> page](index.md), generated from the code (`reference.md` in a project from before 4.52).
 
 | Kind | Name | Evidence |
 |---|---|---|

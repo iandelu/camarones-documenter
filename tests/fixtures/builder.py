@@ -81,3 +81,12 @@ def rmtree(path: Path) -> None:
         os.chmod(p, stat.S_IWRITE)
         fn(p)
     shutil.rmtree(path, onerror=onerror)
+
+
+def seed_old_layout(root: Path) -> None:
+    """A minimal `docs/architecture/first-look.md` in project `root` (a cam-docs folder): what a project from before
+    4.52 has, so a test of an old-layout writer keeps exercising it (`pages.layout()` says `old`)."""
+    page = root / "docs" / "architecture" / "first-look.md"
+    page.parent.mkdir(parents=True, exist_ok=True)
+    page.write_text("---\ntype: architecture\ntitle: Architecture — first look\n---\n# Architecture — first look\n",
+                    encoding="utf-8", newline="\n")

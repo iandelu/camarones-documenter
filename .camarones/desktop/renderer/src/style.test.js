@@ -28,3 +28,14 @@ test.each([['.dk-nav', 'min-height'], ['.dk-proj', 'height'], ['.dk-fold > summa
   '%s is a 24 px target', (sel, prop) => {
     expect(px(rule(sel), prop)).toBeGreaterThanOrEqual(24)
   })
+
+// main (d2c94ca): the system draws the window controls over the header, so the header drags the window and leaves
+// them their room (macOS traffic lights left, Windows / Linux right); the hub's bar does the same.
+test.each(['.dk-top', '.dk-titlebar'])('%s is the window\'s title bar', (sel) => {
+  const body = rule(sel)
+  expect(body).toMatch(/-webkit-app-region:\s*drag/)
+  expect(body).toMatch(/padding:[^;]*env\(titlebar-area-width[^;]*env\(titlebar-area-x/)
+  const noDrag = css.match(new RegExp(sel.replace('.', '\\.') + ' :is\\(([^)]*)\\)\\s*\\{([^}]*)\\}'))
+  expect(noDrag?.[1]).toContain('button')
+  expect(noDrag?.[2]).toMatch(/-webkit-app-region:\s*no-drag/)
+})

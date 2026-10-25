@@ -92,6 +92,9 @@ function Project({ app }) {
         <span className="dk-grow"></span>
         <button type="button" className="dk-find" aria-haspopup="dialog" onClick={() => setPalette(true)}>
           {t('pal.open')}<Keys keys={MAC ? ['⌘', 'K'] : ['Ctrl', 'K']} /></button>
+        {/* no menu bar on screen (the header is the title bar): this opens the app menu under itself */}
+        {app.menu && <button type="button" className="dk-icon" aria-label={t('appMenu')} title={t('appMenu')}
+          onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); app.menu(r.left, r.bottom) }}>⋯</button>}
       </header>
       <Palette open={palette} onClose={() => setPalette(false)} onPick={onPick}
         groups={entries({ sections: all, projects: projects.list, commands, t, lang: lang() })} />
@@ -185,9 +188,9 @@ function Hub({ hub }) {
     else if (!r?.cancelled) load()
   }
   const open = (p) => { setStatus(t('hub.opening', { name: p.name })); act(hub.open(p.path)) }
-  return (
+  return (<>
+    <header className="dk-titlebar"><Brand /></header>
     <main className="dk-hub">
-      <Brand />
       <h1 className="t-impact">{t('hub.title')}</h1>
       {error && <Failed title={t('hub.failed')} detail={error} onRetry={() => { setError(''); load() }} />}
       {!rows && !error && <Skeleton lines={3} />}
@@ -225,5 +228,5 @@ function Hub({ hub }) {
       )}
       {status && <p className="muted small" role="status">{status}</p>}
     </main>
-  )
+  </>)
 }

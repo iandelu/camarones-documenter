@@ -51,3 +51,24 @@ test('the pipeline graph does not stop the keyboard on its edges', () => {
   expect(src).toMatch(/closest\?\.\('\.react-flow__node'\)[\s\S]{0,80}e\.key === 'Enter' \|\| e\.key === ' '/)
   expect(read('./styles.css')).toMatch(/#native \.react-flow__node:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--color-acento-texto\)/)
 })
+
+test('in the desktop app the header is the window\'s title bar', () => {
+  const css = read('./portal.css')
+  const rule = (sel) => { const i = css.indexOf(`${sel} {`); return i < 0 ? '' : css.slice(i, css.indexOf('}', i)) }
+  expect(rule(':root.in-app')).toMatch(/--top:[^;]*env\(titlebar-area-height/)          // as tall as the system controls
+  const top = rule('.in-app .top')
+  expect(top).toMatch(/-webkit-app-region:\s*drag/)
+  expect(top).toMatch(/background:\s*var\(--bg\)/)                                  // solid, like the controls drawn over it
+  expect(top).toMatch(/padding-left:[^;]*env\(titlebar-area-x/)                      // macOS traffic lights
+  expect(top).toMatch(/padding-right:[^;]*env\(titlebar-area-width/)                 // Windows / Linux controls
+  expect(css).toMatch(/\.in-app \.top :is\([^)]*button[^)]*\)\s*\{[^}]*-webkit-app-region:\s*no-drag/)
+})
+
+// The React shell does what the plain scripts did: marks the app's window, opens the app menu from ⋯ (no menu bar on
+// screen) and tells the window the reader's theme, so the controls drawn over the header match it.
+test('the shell drives the title bar in the desktop app', () => {
+  const shell = readFileSync(new URL('./shell/Shell.jsx', import.meta.url), 'utf-8')
+  expect(shell).toContain("classList.toggle('in-app', !!APP)")
+  expect(shell).toMatch(/APP\?\.menu && <button[^>]*aria-label=\{t\('appMenu'\)\}/)
+  expect(readFileSync(new URL('./core.js', import.meta.url), 'utf-8')).toMatch(/APP\?\.theme\?\.\(isDark\(\) \? 'dark' : 'light'\)/)
+})

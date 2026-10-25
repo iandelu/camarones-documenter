@@ -47,7 +47,7 @@ what to install) → setup (repos, Claude/Codex wiring, git hooks) → stack & t
 already use — Backstage, Sonar, component library, linters, contracts, CI — found without AI; fix a wrong stack there
 or later with `camaron stack`; saved in `docs/overview/tooling.md`, with every direct dependency by category in
 `docs/overview/libraries.md`, also `camaron inventory`; `--cves` adds known vulnerabilities from OSV-Scanner's offline
-database; and each repo's tables and collections in `docs/data/<repo>.md`, also `camaron schemas`) → quick C4 draft → how sessions work. Esc always goes one step back; long
+database; and each repo's tables and collections in the repo's page (`docs/repos/<repo>/index.md`; `docs/data/<repo>.md` before 4.52), also `camaron schemas`) → quick C4 draft → how sessions work. Esc always goes one step back; long
 tasks show what they are doing, a progress bar and crustacean facts. After that the main menu shows the plan progress and the next step.
 
 **🦐 Next step** lists the plan units that are ready (their dependencies are done). Pick one and choose Claude Code, Codex
@@ -222,9 +222,10 @@ Every section ends with **All commands**, folded: the rest of its catalog zone, 
 
 From a project's folder it opens that project; from anywhere else, the picker: open a project, create one, join the
 team's `cam-docs` with its URL or add a folder that already has one. The wizard has the same entry (🖥️ Desktop app).
-Inside, your projects sit on the rail: another one opens in the same window, which comes back where you left it.
-<kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>O</kbd> goes back to the projects and **camarón › Open in
-the browser** opens the same portal outside. On Linux with restricted user namespaces (Ubuntu 24.04+) the kit starts
+Inside, the header is the window's title bar (drag it to move the window) and your projects sit on the rail: another
+one opens in the same window, which comes back where you left it. <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Shift</kbd> +
+<kbd>O</kbd> goes back to the projects and the bar's **⋯** button opens the app menu, with **Open in the browser** for
+the same portal outside. On Linux with restricted user namespaces (Ubuntu 24.04+) the kit starts
 it with `--no-sandbox`: its windows only load your project's local server.
 
 ### 📋 The board
@@ -359,7 +360,7 @@ next action apart.
 `doctor --json` (each check with the command that fixes it), `doctor --install git|node|docker|java|claude|codex`,
 `doctor --local` (proposes a free local model for this computer, installs nothing), `doctor --context` (the tokens
 every agent session loads before reading a page, against `context.budget`), `autopilot`, `plugins [--json]`,
-`run`, `runs`, `kpis`, `eval`, `ab`, `pipeline show|validate`, `blocks [--force]`, `diagrams [--json]`, `pr fresh <repo>`,
+`run`, `runs`, `kpis`, `eval`, `ab`, `pipeline show|validate`, `blocks [--force]`, `pages [--adopt] [--json]`, `diagrams [--json]`, `pr fresh <repo>`,
 `plugins add|update|outdated|remove`, `pr propose <url>`, `removed add`, `repair`, `export codetour <flow>`, `history [--months 12]`
 (hotspots, who to ask per repo, files that change together, read from git without AI into `docs/overview/history.md`),
 `catalog [--json|--check]` (every command with where it lives: portal, desktop app or CLI only, and its arguments),
@@ -367,26 +368,35 @@ every agent session loads before reading a page, against `context.budget`), `aut
 approval, whether the method hooks are on), the portal's **Plan › Sync** (the same as `share`, with where you stand), `app` (the desktop app: the project's sections by task, the portal to read,
 where runs, wikis, scans and checks start; the browser portal only shows them).
 
-**Facts from the code, no AI.** `camaron blocks` writes `docs/repos/<repo>/reference.md` for each repo: commands
-(Maven, Gradle, `package.json`, Makefile, Docker Compose), env vars (Spring `${VAR:default}` placeholders,
-`.env.example`, Angular `environment.ts`; secret-looking defaults hidden), HTTP endpoints (OpenAPI, else Spring
-annotations) and message topics, each row with its file and line. They are `<!-- generated:<kind> repo=<repo> -->`
-blocks you can put in any page; `blocks` and `sync` refresh them. A block edited by hand is kept and `check` flags it;
-`blocks --force` takes the code's version.
+**Pages from the code, no AI.** The install (and `camaron pages [--json]`, which brings them up to date;
+`camaron diagrams` is its alias) writes `docs/index.md`: what the project is, a card per repo and the context map. For
+each repo it writes `docs/repos/<repo>/index.md`: what it exposes (the endpoints map, with the endpoints table folded),
+what data it stores (ER diagram), its lifecycles (one state diagram per status enum), its messages and what it needs to
+run (env vars and commands, folded). Env vars come from Spring `${VAR:default}` placeholders, `.env.example` and Angular
+`environment.ts` (secret-looking defaults hidden), commands from Maven, Gradle, `package.json`, Makefile and Docker
+Compose, endpoints from OpenAPI (else Spring annotations); each row carries its file and line. With message topics there
+is also `docs/architecture/messaging.md`. They are `<!-- generated:<kind> repo=<repo> -->` blocks you can put in any
+page; `pages`, `blocks` and `sync` refresh them. A block edited by hand is kept and `check` flags it; `blocks --force`
+takes the code's version.
 
-**Diagrams from the code, no AI.** `camaron diagrams [--json]` (also run by the first scan and the first look) draws
-what the code states, in Mermaid, and never guesses: `docs/architecture/system-map.md` has the context map (repos,
-datastores, brokers, identity providers) and one sequence per message topic (who publishes, who consumes);
-`docs/repos/<repo>/diagrams.md` has the repo's endpoints map and one state diagram per status enum, with the states
-only (transitions are not guessed). They are ordinary Docs pages made of generated blocks like the ones above. A
-person can confirm one by hand: copy the block's `sha=` value into `confirmed=` and put a name in `by=` (one word, or
-quoted when it has spaces: `by="Ana López"`), e.g.
-`<!-- generated:states repo=api id=OrderStatus confirmed=3fa1c2d4e5f6 by=ana sha=3fa1c2d4e5f6 -->`. A refresh then
-never rewrites it, and `check` warns "the code changed since this diagram was confirmed" (or that the code no longer
-has the diagram's source). To take the code's version, remove `confirmed=` and `by=` from the marker, run
-`camaron diagrams` (or `blocks`), then confirm it again. The portal labels each diagram "From the code", "Edited by
-hand", "Confirmed by <name>" or "The code changed".
-Agents follow the `cam-docs-diagrams` skill: pick the right diagram, write Mermaid that renders, never edit a generated block.
+**Projects from before 4.52** keep their pages (`reference.md`, `diagrams.md`, `system-map.md`, `first-look.md`,
+`data/<repo>.md`) until you run `camaron pages --adopt`. It moves the blocks, with their confirmations, into the new
+pages (filling an agent-written home or repo page with them), deletes only the kit pages it emptied, never writes or
+deletes a page a person owns (`x-owner: human` or `x-confirmed`; a page with no `x-owner` is an agent's), points the
+links in agent pages at the new pages and lists what it could not touch (pages, links, translations).
+
+**Diagrams from the code, no AI.** `camaron pages` (alias `camaron diagrams`; also run by the first scan and the first
+look) draws what the code states, in Mermaid, and never guesses: the context map (repos, datastores, brokers, identity
+providers) in `docs/index.md`; the repo's endpoints map and one state diagram per status enum, with the states only
+(transitions are not guessed), in `docs/repos/<repo>/index.md`; and one sequence per message topic (who publishes, who
+consumes) in `docs/architecture/messaging.md`. They are ordinary Docs pages made of generated blocks like the ones
+above. A person can confirm one by hand: copy the block's `sha=` value into `confirmed=` and put a name in `by=` (one
+word, or quoted when it has spaces: `by="Ana López"`), e.g. `<!-- generated:states repo=api id=OrderStatus
+confirmed=3fa1c2d4e5f6 by=ana sha=3fa1c2d4e5f6 -->`. A refresh then never rewrites it, and `check` warns "the code
+changed since this diagram was confirmed" (or that the code no longer has the diagram's source). To take the code's
+version, remove `confirmed=` and `by=` from the marker, run `camaron diagrams` (or `blocks`), then confirm it again. The
+portal labels each diagram "From the code", "Edited by hand", "Confirmed by <name>" or "The code changed". Agents follow
+the `cam-docs-diagrams` skill: pick the right diagram, write Mermaid that renders, never edit a generated block.
 
 **Parallel runs.** `camaron run --parallel 3 --per-runner claude=2,codex=1` does several units at once. Discovery, repo
 briefs and flows each work in their own copy of `cam-docs/` (a git worktree in `.cw/<n>/`) and are merged back when
