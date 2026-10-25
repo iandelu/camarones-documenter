@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { crumbs, homeKpis, paletteEntries, portalOnly, zonesFor } from './zones.js'
+import { crumbs, homeKpis, paletteEntries, portalOnly, portalUrl, zonesFor } from './zones.js'
 
 const idx = {
   project: 'demo', repos: ['api', 'web'],
@@ -130,6 +130,22 @@ test('portalOnly flags reading routes', () => {
     '#/code', '#/data', '#/libs', '#/kpis', '#/ci', '#/arch', '#/quality']) expect(portalOnly(h), h).toBe(true)
   for (const h of ['#/plan', '#/review', '#/kanban', '#/generate', '#/next', '#/start', '#/pipeline', '#/taller', '', '#/', '#/nope', undefined])
     expect(portalOnly(h), String(h)).toBe(false)
+})
+
+test('search results stay in the app; the pages they point at are portal-only', () => {
+  expect(portalOnly('#/search/auth')).toBe(false)
+  expect(portalOnly('#/search/auth%20flow')).toBe(false)
+  for (const h of ['#/docs/flows/alta-mascota.md', '#/wiki/api/http-api.md', '#/c4/flow_checkout']) expect(portalOnly(h), h).toBe(true)
+})
+
+test('the portal address in the browser: its home, or the portal-only page being left', () => {
+  const o = 'http://127.0.0.1:5000'
+  expect(portalUrl(o, '#/next')).toBe(`${o}/#/`)
+  expect(portalUrl(o, '#/start')).toBe(`${o}/#/`)
+  expect(portalUrl(o, '')).toBe(`${o}/#/`)
+  expect(portalUrl(o, '#/docs/flows/alta-mascota.md::pasos')).toBe(`${o}/#/docs/flows/alta-mascota.md::pasos`)
+  expect(portalUrl(o, '#/c4')).toBe(`${o}/#/c4`)
+  expect(portalUrl(o, '#/search/x')).toBe(`${o}/#/`)
 })
 
 test('next and start share the Next view; their crumbs exist in the app only', () => {

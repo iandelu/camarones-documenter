@@ -212,6 +212,12 @@ const S = {
     obErrUrl: 'That URL is not valid.', obErrDuplicate: 'Two repos have the same name.', obErrBusy: 'The draft is still being made: wait for it and save again.',
     obErrDone: 'The first run is already finished.', obErrStep: 'That step is not part of this project\'s first run.',
     obErrDraft: 'There is no draft to save yet: make it first.', obErrServer: 'The server refused it:',
+    nxTitle: 'Next step', nxPlan: 'The plan has {total} units; {done} done.', nxFailed: 'I could not read the plan:',
+    nxAnother: 'Another unit', nxDoing: 'in progress', nxBlocked: 'blocked',
+    nxWizardUnit: 'This unit runs from the Plan, not in an agent session.', nxRetryInPlan: 'This unit is blocked: retry it from the Plan.',
+    nxAllDone: 'Nothing left to start', nxAllDoneText: 'Every unit of the plan is done or waiting on a person. Review the drafts, or refresh the docs from the Taller.',
+    nxReviewOne: '{n} draft waits for review', nxReviewMany: '{n} drafts wait for review', nxReviewGo: 'Open Review',
+    nxFoot: 'Docs, Architecture and Quality are read in the portal: “View portal” opens it in your browser.',
   },
   es: {
     kbTitle: 'Tablero', kbLead: '{n} tarjetas · {open} sin terminar', kbLoading: 'Cargando el tablero…',
@@ -426,6 +432,12 @@ const S = {
     obErrUrl: 'Esa URL no es válida.', obErrDuplicate: 'Hay dos repos con el mismo nombre.', obErrBusy: 'El borrador aún se está haciendo: espera a que termine y vuelve a guardar.',
     obErrDone: 'La primera vez ya está terminada.', obErrStep: 'Ese paso no forma parte de la primera vez de este proyecto.',
     obErrDraft: 'Aún no hay borrador que guardar: hazlo primero.', obErrServer: 'El servidor lo ha rechazado:',
+    nxTitle: 'Siguiente paso', nxPlan: 'El plan tiene {total} unidades; {done} hechas.', nxFailed: 'No he podido leer el plan:',
+    nxAnother: 'Otra unidad', nxDoing: 'en curso', nxBlocked: 'bloqueada',
+    nxWizardUnit: 'Esta unidad se ejecuta desde el Plan, no en una sesión con un agente.', nxRetryInPlan: 'Esta unidad está bloqueada: reinténtala desde el Plan.',
+    nxAllDone: 'No queda nada por empezar', nxAllDoneText: 'Todas las unidades del plan están hechas o esperan a una persona. Revisa los borradores o refresca la documentación desde el Taller.',
+    nxReviewOne: '{n} borrador espera revisión', nxReviewMany: '{n} borradores esperan revisión', nxReviewGo: 'Abrir Revisión',
+    nxFoot: 'Docs, Arquitectura y Calidad se leen en el portal: «Ver portal» lo abre en tu navegador.',
   },
 }
 

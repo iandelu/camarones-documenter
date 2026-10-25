@@ -3,6 +3,7 @@ import { APP, getJSON, postJSON } from './api.js'
 import { lang, t } from './i18n.js'
 import { STEP_KEYS, canContinue, defaultPicks, errorKey, hostOf, manualHints, nextStep, prevStep, progress, repoBody,
   repoFromUrl, repoRows, setupChoice, stepIndex, urlName } from './onboarding.js'
+import { portalUrl } from './zones.js'
 import { Tokens } from './TallerPanels.jsx'
 import { useJob } from './useJob.js'
 
@@ -389,7 +390,7 @@ function Intro({ closed: already }) {
       <p className="lede">{t('obDoneLead')}</p>
       <div className="row ob-actions">
         <button type="button" onClick={() => { location.hash = '#/next' }}>{t('obGoNext')}</button>
-        <button type="button" className="ghost" onClick={() => APP?.openExternal(location.origin + location.pathname)}>{t('obViewPortal')}</button>
+        <button type="button" className="ghost" onClick={() => APP?.openExternal(portalUrl(location.origin, location.hash))}>{t('obViewPortal')}</button>
       </div>
       {error ? <p className="error" role="alert">{error}</p> : null}
     </div>

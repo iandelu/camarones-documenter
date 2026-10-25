@@ -27,3 +27,9 @@ test('in the desktop app the header is the window\'s title bar', () => {
   expect(top).toMatch(/padding-right:[^;]*env\(titlebar-area-width/)                 // Windows / Linux controls
   expect(css).toMatch(/\.in-app \.top :is\([^)]*button[^)]*\)\s*\{[^}]*-webkit-app-region:\s*no-drag/)
 })
+
+test('the app header has View portal and Projects, both hidden until the app shows them', () => {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf-8')
+  expect(html).toMatch(/<button id="view-portal"[^>]*\shidden/)
+  expect(html).toMatch(/<button id="projects"[^>]*\shidden/)
+})

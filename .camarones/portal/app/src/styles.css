@@ -285,3 +285,17 @@
 #native .ob-foot button { white-space: nowrap; flex-shrink: 0; }
 #native .ob-next { display: flex; align-items: center; gap: .5rem .75rem; flex: 1; flex-wrap: wrap; justify-content: flex-end; text-align: right; min-width: 0; }
 #native .ob-next > span { flex: 1 1 14rem; }
+
+/* Next step (#/next, the desktop app's landing view): the unit to work on, the review count, a footnote */
+#native .nx { max-width: 44rem; }
+#native .nx h2 { font: 600 1.7rem/1.1 var(--font-impact); margin: 1.5rem 0 .4rem; }
+#native .nx-card { display: block; border: 1px solid var(--line); border-radius: var(--consola-radio-tarjeta); background: var(--raise);
+  padding: 1rem 1.2rem; margin-top: 1rem; color: var(--ink); }
+#native .nx-card.primary { border-color: var(--accent); }
+#native .nx-card h3 { margin: 0 0 .3rem; font-size: 1.1rem; }
+#native .nx-card p { margin: .3rem 0 0; }
+#native .nx-card .agent-launch { margin-top: .8rem; }
+#native .nx-more { margin-top: 1rem; }
+#native a.nx-review { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; flex-wrap: wrap; }
+#native a.nx-review:hover { border-color: var(--muted); text-decoration: none; }
+#native .nx-foot { margin-top: 1.5rem; }

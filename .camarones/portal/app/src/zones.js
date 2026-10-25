@@ -67,6 +67,10 @@ export function portalOnly(hash) {
   return !!ZONES.find((z) => z.id === zoneId)?.portal
 }
 
+// The portal's address in the system browser (the same server without the app's token, so read-only): its home, or the
+// portal-only page the window is leaving (`hash`). `origin` is location.origin.
+export const portalUrl = (origin, hash) => `${origin}/${portalOnly(hash) ? hash : '#/'}`
+
 const decode = (s) => { try { return decodeURIComponent(s) } catch { return s } }
 const titleOf = (index, path) => (index.docs || []).find((d) => d.path === path)?.title
 
