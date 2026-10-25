@@ -21,7 +21,7 @@ def test_the_build_is_committed_and_complete():
     theme = '<link rel="stylesheet" href="theme/tokens.css">'
     assert theme in html and html.index(theme) < html.index('href="legacy/app.css"')     # the theme applies first
     assert '="/' not in html.replace('href="#/', '')                     # relative: the export works under a sub-path
-    for script in ("core", "doc", "c4", "app"):
+    for script in ("core", "app"):
         assert f'<script defer src="legacy/{script}.js">' in html
     manifest = json.loads((BUILD / ".vite" / "manifest.json").read_text(encoding="utf-8"))
     assert all((BUILD / entry["file"]).is_file() for entry in manifest.values())
@@ -62,7 +62,7 @@ def test_the_portal_is_served_at_the_root(server):
     asset = re.search(rb'src="\./(assets/[^"]+\.js)"', body).group(1).decode()
     status, ctype, _ = get(f"{server}/{asset}")
     assert status == 200 and "javascript" in ctype
-    assert get(f"{server}/legacy/doc.js")[0] == 200
+    assert get(f"{server}/legacy/core.js")[0] == 200
     assert get(f"{server}/anything-without-a-suffix")[2] == body
 
 

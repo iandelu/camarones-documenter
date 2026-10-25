@@ -1,7 +1,6 @@
 'use strict';
-// The bridge between the shell (src/shell/Shell.jsx) and what the plain scripts still draw: C4 (c4.js), the code
-// map (code.js) and the docs renderer (doc.js). The shell owns the page and the router; it calls these through
-// window.CamaronLegacy (bottom of this file) until each one moves to React.
+// The bridge between the React portal (src/) and what the plain scripts still hold: the docs index, the reader's
+// language and the strings (core.js). The views reach them through window.CamaronLegacy.
 
 let CURRENT = '';            // page on screen: a hash change that only moves the anchor just scrolls
 
@@ -9,20 +8,8 @@ let CURRENT = '';            // page on screen: a hash change that only moves th
 // the Taller, where machine work runs).
 const MODE = () => (STATIC ? 'static' : RUNS ? 'app' : 'live');
 
-// The layout a view wants; the header and breadcrumbs are the shell's.
-function drawChrome(active, { viewer = false, bare = false } = {}) {
-  document.documentElement.lang = lang || 'en';
-  document.body.classList.toggle('viewer-mode', viewer);
-  document.body.classList.toggle('bare', bare);
-  if (viewer) drawToc(null);
-}
-
-// ---------- the bridge: the shell (src/shell/Shell.jsx) routes, these views paint ----------
-// The address table lives in src/router.js. Calls from these scripts that re-show the current address (after a save,
-// a language or audience change) go back through the shell, so one view renders at a time.
+// Calls that re-show the current address (a theme change below) go through the shell, one view at a time.
 function route() { return window.CamaronShell ? window.CamaronShell.go() : Promise.resolve(); }
-
-const VIEWS = { showArch: (...a) => showArch(...a) };
 
 // In the app, whether this kit is a checkout with its tests (the Taller's Kit dev view).
 const appInfo = () => (RUNS ? api('app/info').then((i) => { T.kitdev = i.kitdev; }, () => {}) : Promise.resolve());
@@ -39,25 +26,11 @@ window.CamaronLegacy = {
     }
     document.documentElement.lang = lang || 'en';
   },
-  async run(fn, args) {
-    CURRENT = '';
-    try { await VIEWS[fn](...args); } catch (e) {
-      drawToc(null);
-      $('#main').innerHTML = `<div class="page"><h1>${esc(t('error'))}</h1><p>${esc(e.message)}</p></div>`;
-    }
-  },
-  leave() { CURRENT = ''; document.body.classList.remove('viewer-mode', 'bare'); drawToc(null); },
-  scroll: (anchor) => scrollToAnchor(anchor),
   current: () => CURRENT,
+  setCurrent: (p) => { CURRENT = p; },
   toast: (m) => toast(m),
   ago: (sec) => ago(sec),
   reload: () => loadTree(),
-  setCurrent: (p) => { CURRENT = p; },
-  // the docs renderer (doc.js), for the React doc pages until it moves to src/
-  mountDoc: (el, raw, path, anchor) => mountDoc(el, raw, path, anchor),
-  drawC4: (root) => drawC4(root),
-  renderMd: (src, path) => render(src, path),
-  drawMermaid: (el) => drawMermaid(el),
   mode: MODE,
   isStatic: () => STATIC,
   tree: () => T,
@@ -68,9 +41,8 @@ window.CamaronLegacy = {
   sectionLabel: (n) => sectionLabel(n),
   lang: () => lang,
   langName: (l) => LANG_NAMES[l] || l,
-  setLang(l) { lang = l; store.set('cam-lang', l); CURRENT = ''; },
+  setLang(l) { lang = l; store.set('cam-lang', l); document.documentElement.lang = l || 'en'; CURRENT = ''; },
   toggleTheme() { store.set('cam-theme', isDark() ? 'light' : 'dark'); applyTheme(); CURRENT = ''; },
 };
 
-$('#zoomer').addEventListener('click', (e) => { if (e.target === $('#zoomer') || e.target.closest('#zoomer-close')) $('#zoomer').close(); });
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (!store.get('cam-theme')) { applyTheme(); CURRENT = ''; route(); } });

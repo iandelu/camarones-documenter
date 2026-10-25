@@ -11,7 +11,6 @@ const ctx = (over = {}) => ({
   ...over,
 })
 const go = (hash, over) => resolve(hash, ctx(over))
-const legacy = (fn, ...args) => ({ kind: 'legacy', fn, args })
 const HOME = { kind: 'native', view: 'home', arg: '' }
 const DOC = (arg) => ({ kind: 'native', view: 'doc', arg })
 
@@ -73,8 +72,9 @@ test('wikis: the list, a repo graph, a page, an anchor on the page shown', () =>
 })
 
 test('architecture, code, review, search, new page, zone covers', () => {
-  expect(go('#/c4')).toEqual(legacy('showArch', ''))
-  expect(go('#/c4/index')).toEqual(legacy('showArch', 'index'))
+  expect(go('#/c4')).toEqual({ kind: 'native', view: 'c4', arg: '' })
+  expect(go('#/c4/index')).toEqual({ kind: 'native', view: 'c4', arg: 'index' })
+  expect(go('#/c4', { mode: 'static' })).toEqual({ kind: 'native', view: 'c4', arg: '' })
   expect(go('#/code/api')).toEqual({ kind: 'native', view: 'code', arg: 'api' })
   expect(go('#/code', { mode: 'static' })).toEqual({ kind: 'native', view: 'code', arg: '' })
   expect(go('#/c4/code/api')).toEqual({ kind: 'redirect', to: '#/code/api/graph' })        // the old address of graphify's page

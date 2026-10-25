@@ -7,23 +7,23 @@ import Palette from '../views/Palette.jsx'
 import DocsTree, { audience } from '../views/DocsTree.jsx'
 import { WikiSide } from '../views/Wikis.jsx'
 import { CodeSide } from '../views/CodeMap.jsx'
+import { ArchSide } from '../views/C4.jsx'
+import { drawToc, scrollToAnchor, wireDocs } from '../content/doc.js'
 import { t as tr } from '../i18n.js'
 import { resolve } from '../router.js'
 import { crumbs, locate, zonesFor } from '../zones.js'
 import './shell.css'
 import '../views/views.css'
 
-// The portal's shell: header, the sidebar that stays, and the hash router. A view not migrated to React yet is
-// painted by the plain scripts (window.CamaronLegacy, public/legacy/app.js) into the #main, #toc and #tree slots,
-// which React renders empty and never touches again.
+// The portal's shell: header, the sidebar that stays, and the hash router (src/router.js) that picks the view.
 const L = () => window.CamaronLegacy
 const TREE_VIEWS = ['docs', 'doc', 'new']          // the views with the docs tree (DocsTree) under the zones
 const WIKI_VIEWS = ['wikis', 'wikigraph', 'wikipage']
-const VIEWER_VIEWS = ['wikigraph', 'code']           // full width, no padding: a visualizer or a graph
+const VIEWER_VIEWS = ['wikigraph', 'code', 'c4']    // full width, no padding: a visualizer, a graph, a diagram
 const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
 
 function useRouter(onRoute) {
-  const [shown, setShown] = useState(null)        // the action on screen: { kind: 'native' | 'legacy', … }
+  const [shown, setShown] = useState(null)        // the view on screen: { view, arg, at }
   const queue = useRef({ seq: 0, chain: Promise.resolve() })
 
   // One view renders at a time and a newer address skips the queued ones, so a slow page never paints over the next.
@@ -32,22 +32,18 @@ function useRouter(onRoute) {
     const seq = ++q.seq
     const run = q.chain.then(async () => {
       if (seq !== q.seq) return
-      const legacy = L()
-      const a = resolve(location.hash, { mode: legacy.mode(), current: legacy.current(),
-        space: (p) => legacy.byPath(p)?.space, hrefFor: legacy.hrefFor,
-        firstView: (id) => zonesFor(legacy.mode(), legacy.tree()).find((z) => z.id === id)?.views[0]?.href })
+      const core = L()
+      const a = resolve(location.hash, { mode: core.mode(), current: core.current(),
+        space: (p) => core.byPath(p)?.space, hrefFor: core.hrefFor,
+        firstView: (id) => zonesFor(core.mode(), core.tree()).find((z) => z.id === id)?.views[0]?.href })
       if (a.kind === 'redirect') return location.replace(a.to)
-      if (a.kind === 'scroll') return legacy.scroll(a.anchor)
+      if (a.kind === 'scroll') return scrollToAnchor(a.anchor)
       onRoute()
-      document.body.classList.toggle('native-mode', a.kind === 'native')   // before painting: #main must be visible
+      core.setCurrent('')                           // the doc views set it once their page is on screen
+      drawToc(null)
       document.body.classList.remove('nav-open')
-      flushSync(() => setShown({ ...a, at: seq }))    // the slots of this kind exist before the plain scripts paint
-      if (a.kind === 'native') {
-        legacy.leave()
-        document.body.classList.toggle('viewer-mode', VIEWER_VIEWS.includes(a.view))
-        return
-      }
-      await legacy.run(a.fn, a.args)
+      document.body.classList.toggle('viewer-mode', VIEWER_VIEWS.includes(a.view))
+      flushSync(() => setShown({ ...a, at: seq }))
     })
     q.chain = run.catch(() => {})                  // one address that fails must not stop the next ones
     return run
@@ -62,7 +58,7 @@ export default function Shell() {
   const [shown, go] = useRouter(() => setPalette(false))
 
   useEffect(() => {
-    window.CamaronShell = { go }                    // legacy route(): after a save, a language or theme change
+    window.CamaronShell = { go }                    // views re-show the address after a save, a language or theme change
     const onHash = () => go()
     const onKey = (e) => {
       const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '')
@@ -70,15 +66,17 @@ export default function Shell() {
     }
     addEventListener('hashchange', onHash)
     addEventListener('keydown', onKey)
+    document.body.classList.add('native-mode')
     document.body.dataset.audience = audience()      // `:::tech` blocks follow the reader's audience (DocsTree)
+    wireDocs()
     L().boot().then(() => { setReady(true); go() }, (e) => setFailed(e.message || String(e)))
     return () => { removeEventListener('hashchange', onHash); removeEventListener('keydown', onKey) }
   }, [])
 
-  const legacy = L()
-  const t = legacy.t
-  const index = ready ? legacy.tree() : null
-  const mode = legacy.mode()
+  const core = L()
+  const t = core.t
+  const index = ready ? core.tree() : null
+  const mode = core.mode()
   return (
     <>
       <header className="top">
@@ -92,26 +90,21 @@ export default function Shell() {
         </button>
         <div className="tools">
           {index && <Summary s={index.summary || {}} feedback={index.feedback} t={t} />}
-          {index && <Language index={index} legacy={legacy} onChange={go} />}
+          {index && <Language index={index} core={core} onChange={go} />}
           <button className="ghost icon" type="button" aria-label={tr('shell.theme')} title={tr('shell.theme')}
-            onClick={() => { legacy.toggleTheme(); go() }}>◐</button>
+            onClick={() => { core.toggleTheme(); go() }}>◐</button>
         </div>
       </header>
-      {legacy.isStatic() && <div className="ro aviso" dangerouslySetInnerHTML={{ __html: t('readOnly') }} />}
+      {core.isStatic() && <div className="ro aviso" dangerouslySetInnerHTML={{ __html: t('readOnly') }} />}
       <div className="layout" id="layout">
         <aside className="side" id="side">
           {index && <ZoneNav index={index} mode={mode} t={t} />}
-          <Side shown={shown} go={go} t={t} />
+          {shown && <Side shown={shown} go={go} />}
         </aside>
-        <main id="main" className="main">
+        <main id="native" className="main native">
           {failed && <div className="page"><h1>{t('unreachable')}</h1><p>{failed}</p></div>}
+          {shown && <Native key={shown.at} view={shown.view} arg={shown.arg || null} />}
         </main>
-        {shown?.kind === 'native' && (
-          <section id="native" className="main native">
-            <Native key={shown.at} view={shown.view} arg={shown.arg || null} />
-          </section>
-        )}
-        {shown?.kind !== 'native' && <aside className="toc empty" id="toc"></aside>}
       </div>
       <div id="scrim" onClick={() => document.body.classList.remove('nav-open')}></div>
       {ready && <Palette open={palette} onClose={() => setPalette(false)} />}
@@ -119,18 +112,19 @@ export default function Shell() {
   )
 }
 
-// Under the zones, what the view lists: the docs tree, a wiki's pages, or the slots the plain scripts fill.
-function Side({ shown, go, t }) {
-  if (shown?.kind === 'native' && TREE_VIEWS.includes(shown.view))
+// Under the zones, what the view lists: the docs tree, a wiki's pages, the C4 views, the repos with a code map.
+function Side({ shown, go }) {
+  if (TREE_VIEWS.includes(shown.view))
     return <DocsTree key={shown.at} active={shown.view === 'doc' ? (shown.arg || '').split('::')[0] : ''} onChange={go} />
-  if (shown?.kind === 'native' && WIKI_VIEWS.includes(shown.view)) {
+  if (WIKI_VIEWS.includes(shown.view)) {
     const [where] = (shown.arg || '').split('::')
     const [repo, ...rel] = where.split('/')
     return <WikiSide key={shown.at} repo={shown.view === 'wikis' ? '' : repo}
       page={shown.view === 'wikigraph' ? 'graph' : rel.length ? `repos/${repo}/${rel.join('/')}` : ''} />
   }
-  if (shown?.kind === 'native' && shown.view === 'code') return <CodeSide key={shown.at} arg={shown.arg} />
-  return <><div id="side-head"></div><nav id="tree" aria-label={t('docs')}></nav></>
+  if (shown.view === 'code') return <CodeSide key={shown.at} arg={shown.arg} />
+  if (shown.view === 'c4') return <ArchSide key={shown.at} arg={shown.arg} />
+  return null
 }
 
 // The address as a path: zone › section › page. The brand is the way home.
@@ -176,13 +170,13 @@ function Summary({ s, feedback, t }) {
   )
 }
 
-function Language({ index, legacy, onChange }) {
+function Language({ index, core, onChange }) {
   const langs = ['', ...(index.langs || [])]
   if (langs.length < 2) return null
   return (
-    <select aria-label={tr('shell.lang')} value={langs.includes(legacy.lang()) ? legacy.lang() : ''}
-      onChange={(e) => { legacy.setLang(e.target.value); onChange() }}>
-      {langs.map((l) => <option key={l} value={l}>{legacy.langName(l || 'en')}</option>)}
+    <select aria-label={tr('shell.lang')} value={langs.includes(core.lang()) ? core.lang() : ''}
+      onChange={(e) => { core.setLang(e.target.value); onChange() }}>
+      {langs.map((l) => <option key={l} value={l}>{core.langName(l || 'en')}</option>)}
     </select>
   )
 }
