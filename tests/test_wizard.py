@@ -273,3 +273,90 @@ def test_tutorial_names_the_menu_sections(kit, lang):
     text = "\n".join(p["art"] + p["text"] for p in P)
     for key in ("s_docs", "s_team", "s_settings"):
         assert re.sub(r"^\W+", "", T[key]) in text
+
+
+# ---------- characterization: what the first-run state and the name step write today (locked before moving them) ----------
+@pytest.mark.parametrize("state, shared, local, mode", [
+    ({"done": True}, False, False, "done"),
+    ({"mode": "join"}, True, False, "join"),
+    ({"step": 1, "name": "repos"}, True, True, "new"),          # a first run in progress is resumed, not re-decided
+    ({}, False, True, "new"),                                    # nothing shared yet: brand-new project
+    ({}, True, False, "join"),                                   # team cam-docs cloned, this machine not set up
+    ({}, True, True, "done"),                                    # pre-2.4 install on its own machine
+])
+def test_first_run_mode_table(kit, state, shared, local, mode):
+    assert kit.wizard.first_run_mode(state, shared, local) == mode
+
+
+def test_fr_name_writes(kit, fake_wizard):
+    fake_wizard(["Mi Proyecto"]).fr_name(kit.docs.workspace())
+    p = kit.docs.workspace()["project"]
+    assert (p["name"], p["id"], p["canonical_language"], p["translations"]) == ("Mi Proyecto", "mi-proyecto", "en", ["es"])
+    assert p["kind"] == "legacy"                      # the kit's own workspace has repos in it
+
+
+def test_cli_name_step_on_an_empty_folder_makes_a_greenfield_project(kit, fake_wizard, monkeypatch, tmp_path):
+    blank = tmp_path / "blank"
+    blank.mkdir()
+    monkeypatch.setattr(kit.wizard, "WORKSPACE", blank)       # the folder the wizard was opened in: empty, no workspace.yaml
+    ran = []
+    for step in ("fr_repos", "fr_tools", "fr_setup", "fr_stack", "fr_arch", "fr_intro"):
+        monkeypatch.setattr(kit.wizard.W, step, lambda self, ws, s=step: ran.append(s))
+    real_name = kit.wizard.W.fr_name
+    monkeypatch.setattr(kit.wizard.W, "fr_name", lambda self, ws: ran.append("fr_name") or real_name(self, ws))
+    assert fake_wizard(["Idea"]).first_run()
+    assert kit.docs.workspace()["project"]["kind"] == "greenfield"
+    assert ran == ["fr_name", "fr_repos", "fr_tools", "fr_setup", "fr_intro"]       # the list shrinks once the name step set the kind
+    assert kit.common.load_json(kit.wizard.FIRSTRUN, {}) == {"step": 5, "done": True}
+
+
+def test_resume_index_only_firstrun(kit):
+    W = kit.wizard
+    assert W.STEPS[W.resume_step({"step": 2})] == W.LEGACY_STEPS[2] == "tools"      # pre-3.3: an index into LEGACY_STEPS
+    assert W.STEPS[W.resume_step({"step": 4})] == "arch"
+
+
+def test_first_run_of_a_greenfield_project_skips_stack_and_arch(kit, fake_wizard, monkeypatch):
+    ws = kit.docs.workspace()
+    ws["project"]["kind"] = "greenfield"
+    kit.docs.save_workspace(ws)
+    ran = []
+    for step in ("fr_name", "fr_repos", "fr_tools", "fr_setup", "fr_stack", "fr_arch", "fr_intro"):
+        monkeypatch.setattr(kit.wizard.W, step, lambda self, ws, s=step: ran.append(s))
+    assert fake_wizard([]).first_run()
+    assert ran == ["fr_name", "fr_repos", "fr_tools", "fr_setup", "fr_intro"]
+    assert kit.common.load_json(kit.wizard.FIRSTRUN, {}) == {"step": 5, "done": True}
+
+
+@pytest.mark.parametrize("kind, disabled", [("legacy", True), ("greenfield", False)])
+def test_repos_step_needs_a_repo_only_for_legacy(kit, fake_wizard, monkeypatch, kind, disabled):
+    ws = {"project": {"kind": kind}, "repos": []}
+    monkeypatch.setattr(kit.docs, "detect_repos", lambda *a: [])
+    monkeypatch.setattr(kit.docs, "save_workspace", lambda ws: None)
+    seen = []
+    w = fake_wizard([])
+    monkeypatch.setattr(kit.wizard.W, "sel", lambda self, msg, choices, **kw: seen.append(choices[0].disabled) or None)
+    assert w.fr_repos(ws) == kit.wizard.BACK
+    assert bool(seen[0]) is disabled
+
+
+def test_tool_rows_shape(kit, monkeypatch):
+    """Characterization: the rows the tools screen shows (`W.tool_rows` and `onboard.tool_rows` are the same list)."""
+    pre = {"git": {"ok": True, "need": True, "hint": "git", "found": "2.4"},
+           "claude": {"ok": False, "need": False, "hint": "Claude Code CLI"},
+           "codex": {"ok": True, "need": False, "hint": "Codex CLI", "note": "n"}}
+    monkeypatch.setattr(kit.env, "prerequisites", lambda: pre)
+    monkeypatch.setattr(kit.env, "tool_ok", lambda k: k == "likec4")
+    monkeypatch.setattr(kit.env, "components", lambda: ["openwiki"])
+    monkeypatch.setattr(kit.env, "KIT_TOOLS", {"likec4": "C4"})
+    monkeypatch.setattr(kit.env, "EXTRAS", {"openwiki": "Wiki", "agents": "Agents"})
+    row = lambda i, label, ok, kind, rec, sys_, found="", note="": {"id": i, "label": label, "ok": ok, "kind": kind,
+                                                                    "rec": rec, "sys": sys_, "found": found, "note": note}
+    want = [row("git", "git", True, "t_required", True, True, "2.4"),
+            row("claude", "Claude Code CLI", False, "t_optional", False, True),     # a working codex: claude is not recommended
+            row("codex", "Codex CLI", True, "t_optional", False, True, note="n"),
+            row("likec4", "C4", True, "t_kit", True, False, kit.env.VERSIONS.get("likec4", "")),
+            row("openwiki", "Wiki", True, "t_kit", True, False), row("agents", "Agents", False, "t_kit", True, False)]
+    assert kit.wizard.W().tool_rows() == want
+    if hasattr(kit.onboard, "tool_rows"):
+        assert kit.onboard.tool_rows() == want
