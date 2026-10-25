@@ -4,23 +4,22 @@ import { postJSON } from '../api.js'
 import { docsGet } from '../docsApi.js'
 import { t as tr } from '../i18n.js'
 import { changedRepos, FILTERS, filterQueue, queueCounts } from './review.js'
+import { core } from '../core.js'
 
-const L = () => window.CamaronLegacy
 const STATE = { draft: 'warn', 'needs-reconfirm': 'info', confirmed: 'ok' }
 
 // #/review: the pages that wait for a person, confirmed one by one or several at once, each with where it comes from.
 // Below, what else waits: review requests, change requests, code that moved, the checks.
 export default function Review() {
-  const legacy = L()
-  const t = legacy.t
-  const live = legacy.mode() !== 'static'
+  const t = core.t
+  const live = core.mode() !== 'static'
   const [s, setS] = useState(null)
   const [requests, setRequests] = useState([])
   const [error, setError] = useState('')
   const [filter, setFilter] = useState('all')
   const [picked, setPicked] = useState(() => new Set())
   const [focus, setFocus] = useState(0)
-  const [by, setBy] = useState(legacy.tree().reviewer || '')
+  const [by, setBy] = useState(core.tree().reviewer || '')
   const [busy, setBusy] = useState(false)
   const load = () => {
     docsGet('status').then(setS, (e) => setError(e.message))
@@ -37,7 +36,7 @@ export default function Review() {
       if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '') || e.metaKey || e.ctrlKey) return
       if (e.key === 'j' || e.key === 'k') setFocus((f) => Math.max(0, Math.min(rows.length - 1, f + (e.key === 'j' ? 1 : -1))))
       else if (e.key === 'x' && live && rows[at]) toggle(rows[at].path)
-      else if (e.key === 'Enter' && rows[at] && document.activeElement === document.body) location.hash = legacy.hrefFor(rows[at].path)
+      else if (e.key === 'Enter' && rows[at] && document.activeElement === document.body) location.hash = core.hrefFor(rows[at].path)
     }
     addEventListener('keydown', onKey)
     return () => removeEventListener('keydown', onKey)
@@ -47,10 +46,10 @@ export default function Review() {
     setBusy(true)
     setError('')
     try {
-      for (const path of picked) await postJSON('confirm', { path, lang: legacy.lang(), by })
-      legacy.toast(t('confirmedToast'))
+      for (const path of picked) await postJSON('confirm', { path, lang: core.lang(), by })
+      core.toast(t('confirmedToast'))
       setPicked(new Set())
-      await legacy.reload()
+      await core.reload()
       load()
     } catch (e) { setError(e.message) } finally { setBusy(false) }
   }
@@ -91,7 +90,7 @@ export default function Review() {
                   onMouseEnter={() => setFocus(i)}>
                   {live && <input type="checkbox" checked={picked.has(r.path)} onChange={() => toggle(r.path)}
                     aria-label={r.title} />}
-                  <span className="rv-title"><a href={legacy.hrefFor(r.path)}>{r.title}</a>
+                  <span className="rv-title"><a href={core.hrefFor(r.path)}>{r.title}</a>
                     <span className="muted small">{r.path}</span></span>
                   <Chip state={STATE[r.trust]}>{t('trust.' + r.trust)}</Chip>
                 </li>
@@ -122,7 +121,7 @@ function Preview({ path, t }) {
           <span className="eyebrow">{tr('review.from')}</span>
           {doc.sources?.length ? <ul className="list">{doc.sources.map((x) => <li key={x}><code>{x}</code></li>)}</ul>
             : <p className="muted small">{t('none')}</p>}
-          <Button size="sm" href={L().hrefFor(path)}>{tr('review.open')} <span aria-hidden="true">→</span></Button>
+          <Button size="sm" href={core.hrefFor(path)}>{tr('review.open')} <span aria-hidden="true">→</span></Button>
         </>
       )}
     </aside>
@@ -136,7 +135,7 @@ function Requests({ requests, by, t, onDone }) {
   const decide = async (r, decision) => {
     const comments = (text[r.id] || '').trim()
     if (decision === 'changes' && !comments) return
-    try { await postJSON('review/decide', { id: r.id, decision, comments, by }); L().toast(t('decided')); onDone() }
+    try { await postJSON('review/decide', { id: r.id, decision, comments, by }); core.toast(t('decided')); onDone() }
     catch (e) { setError(e.message) }
   }
   return (
@@ -146,7 +145,7 @@ function Requests({ requests, by, t, onDone }) {
       <ul className="list">
         {requests.map((r) => (
           <li key={r.id} className="rv">
-            <a href={L().hrefFor(r.path)}>{L().byPath(r.path)?.title || r.path}</a>
+            <a href={core.hrefFor(r.path)}>{core.byPath(r.path)?.title || r.path}</a>
             <span className="muted small"> {r.by}{r.note ? ' · ' + r.note : ''}</span>
             <div className="row">
               <Button size="sm" variant="primary" onClick={() => decide(r, 'approve')}>{t('approve')}</Button>

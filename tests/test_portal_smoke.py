@@ -91,7 +91,7 @@ def test_every_tab_gets_its_data(portal, path, ok):
 def test_the_page_and_its_scripts_are_served(portal):
     with urllib.request.urlopen(f"{portal}/", timeout=30) as r:
         html = r.read().decode("utf-8")
-    for src in re.findall(r'(?:src|href)="((?:\./)?(?:assets|legacy)/[^"]+)"', html):
+    for src in re.findall(r'(?:src|href)="((?:\./)?(?:assets|theme)/[^"]+)"', html):
         with urllib.request.urlopen(f"{portal}/{src.removeprefix('./')}", timeout=30) as r:
             assert r.status == 200 and r.read(), src
 

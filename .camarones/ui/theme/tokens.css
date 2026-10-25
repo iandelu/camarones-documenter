@@ -1,6 +1,6 @@
 /* The theme of the portal and the desktop app (.camarones/ui/theme, published as theme/): Cofundo's design tokens
    (the cofundo-design-system skill, web version of 2026-10-02) with the Camarón adaptations of
-   .claude/skills/cofundo-design-system/CAMARON.md. Linked before legacy/app.css, whose variables (--bg, --ink,
+   .claude/skills/cofundo-design-system/CAMARON.md. Linked before src/portal.css, whose variables (--bg, --ink,
    --line…) are aliases of these, so every view follows one theme.
    Light is Cofundo's; dark is derived (Cofundo has none) and keeps 4.5:1 for text: tokens.test.js checks both.
    The aurora colours are backgrounds only, never text. Fonts are served from fonts/ (OFL), never from a CDN. */

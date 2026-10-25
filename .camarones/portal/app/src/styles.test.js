@@ -5,12 +5,12 @@ import { expect, test } from 'vitest'
 // theme and the contrast guard of ui/theme/tokens.test.js.
 const read = (rel) => readFileSync(new URL(rel, import.meta.url), 'utf-8').replace(/\/\*[\s\S]*?\*\//g, '')
 
-test.each(['../public/legacy/app.css', './styles.css', './shell/shell.css', './views/views.css'])('%s defines no raw colours', (rel) => {
+test.each(['./portal.css', './styles.css', './shell/shell.css', './views/views.css'])('%s defines no raw colours', (rel) => {
   expect(read(rel).match(/#[0-9a-f]{3,8}\b|rgba?\(\s*\d/gi) ?? []).toEqual([])
 })
 
 test('legacy variables alias the theme in one place', () => {
-  const css = read('../public/legacy/app.css')
+  const css = read('./portal.css')
   for (const v of ['--bg', '--raise', '--ink', '--muted', '--line', '--accent', '--on-accent', '--ok', '--warn', '--danger'])
     expect(css).toMatch(new RegExp(`${v}:\\s*var\\(--`))
   expect(css).not.toMatch(/prefers-color-scheme/)          // theming lives in theme/tokens.css only

@@ -2,14 +2,18 @@ import { useEffect, useRef, useState } from 'react'
 import { getJSON, postJSON } from './api.js'
 import { t } from './i18n.js'
 import AppOnly from './AppOnly.jsx'
+import { core } from './core.js'
+import { drawMermaid, render } from './content/doc.js'
 
-// A section rendered by the docs renderer (legacy/doc.js `render`), so it looks exactly like the page it comes from.
+// A section rendered by the docs renderer (content/doc.js `render`), so it looks exactly like the page it comes from.
 function Section({ text, path }) {
   const ref = useRef(null)
   useEffect(() => {
     const el = ref.current
-    if (!el || !window.render) return
-    el.replaceChildren(window.render(text, path))
+    if (!el) return
+    const doc = render(text, path)
+    el.replaceChildren(doc)
+    drawMermaid(doc)
   }, [text, path])
   return <div ref={ref} />
 }
@@ -65,13 +69,13 @@ export default function Ask({ arg }) {
   }
   const link = (cite) => {
     const [path, anchor] = cite.split('#')
-    return window.hrefFor ? window.hrefFor(path, anchor) : `#/docs/${path}`
+    return core.hrefFor(path, anchor)
   }
   return (
     <section className="ask view">
       <h1>{t('askTitle')}</h1>
       <p className="lede">{t('askLead')}</p>
-      {window.camaronTree && !(window.camaronTree().docs || []).some((d) => !(window.camaronTree().kitGuides || []).includes(d.path)
+      {!(core.tree().docs || []).some((d) => !(core.tree().kitGuides || []).includes(d.path)
         && d.type !== 'interview')
         ? <p className="banner"><a href="#/">{t('askEmpty')}</a></p> : null}
       <form onSubmit={ask}>

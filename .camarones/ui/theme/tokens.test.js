@@ -61,7 +61,7 @@ test.each([['light', 1], ['dark', 0.5]])('small text on the aurora stays readabl
     const bg = mix(t[stop], pct * strength, t['--color-canvas'])
     expect(contrast(t['--color-ink-soft'], bg), `ink-soft on ${stop}`).toBeGreaterThanOrEqual(4.5)
   }
-  const app = readFileSync(new URL('../../portal/app/public/legacy/app.css', import.meta.url), 'utf-8')
+  const app = readFileSync(new URL('../../portal/app/src/portal.css', import.meta.url), 'utf-8')
   expect(app).toMatch(/\.aurora-bg \.eyebrow, \.aurora-bg \.muted \{ color: var\(--color-ink-soft\); \}/)
 })
 

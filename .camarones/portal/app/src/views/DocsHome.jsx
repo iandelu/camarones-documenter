@@ -5,16 +5,15 @@ import { emptyProject } from './home.js'
 import { drawC4, mountDoc } from '../content/doc.js'
 import { audience } from './DocsTree.jsx'
 import { buildTree, flatten, forBusiness, sortedDirs } from './tree.js'
+import { core } from '../core.js'
 
-const L = () => window.CamaronLegacy
 
 // #/docs: the project's docs at a glance — figures, one card per section (C4 and wikis too), the system context
 // diagram and the project's own index page.
 export default function DocsHome() {
-  const legacy = L()
-  const t = legacy.t
-  const index = legacy.tree()
-  const lang = legacy.lang()
+  const t = core.t
+  const index = core.tree()
+  const lang = core.lang()
   const business = audience() === 'business'
   const empty = emptyProject(index)
   const body = useRef(null)
@@ -23,7 +22,7 @@ export default function DocsHome() {
   useEffect(() => {
     if (empty || !body.current) return
     const pending = [drawC4(body.current.parentElement)]
-    if (legacy.byPath('index.md')) {
+    if (core.byPath('index.md')) {
       pending.push(docsGet('doc', { path: 'index.md', lang }).then(async (d) => {
         const raw = d.exists ? d.raw : (await docsGet('doc', { path: 'index.md' })).raw
         setHome(d)
@@ -45,11 +44,11 @@ export default function DocsHome() {
   const stats = [t('statPages', { n: docs.length }), t('statConfirmed', { n: confirmed }),
     flows ? t('statFlows', { n: flows }) : '', views.length ? t('statViews', { n: views.length }) : ''].filter(Boolean)
   const described = (k) => (t(k) === k ? '' : t(k))
-  const cards = sortedDirs(tree, sections).map((n) => ({ key: n.path, href: legacy.hrefFor(n.index?.path || flatten(n, sections, lang)[0]),
-    label: legacy.sectionLabel(n.name), desc: described('secd.' + n.name), count: flatten(n, sections, lang).length }))
+  const cards = sortedDirs(tree, sections).map((n) => ({ key: n.path, href: core.hrefFor(n.index?.path || flatten(n, sections, lang)[0]),
+    label: core.sectionLabel(n.name), desc: described('secd.' + n.name), count: flatten(n, sections, lang).length }))
   if (views.length) cards.splice(1, 0, { key: 'c4', href: '#/c4', label: 'C4', desc: described('secd.c4'), count: views.length })
   if (wikiPages) cards.push({ key: 'wikis', href: '#/wikis', label: t('wikis'), desc: described('secd.wikis'), count: wikiPages })
-  const row = legacy.byPath('index.md')
+  const row = core.byPath('index.md')
   return (
     <div className="docpage">
       <div className="page wide home">
@@ -68,7 +67,7 @@ export default function DocsHome() {
           ))}
         </div>
         {views.some((v) => v.id === 'index') && <><h2 className="home-h">{t('systemContext')}</h2><div className="c4embed" data-view="index"></div></>}
-        <div ref={body} aria-busy={legacy.byPath('index.md') && !home ? 'true' : undefined}></div>
+        <div ref={body} aria-busy={core.byPath('index.md') && !home ? 'true' : undefined}></div>
       </div>
       <aside className="doc-aside"><div id="toc" className="toc empty"></div></aside>
     </div>

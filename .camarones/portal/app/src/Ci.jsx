@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { getJSON, postJSON } from './api.js'
 import { t } from './i18n.js'
+import { core } from './core.js'
 import AppOnly from './AppOnly.jsx'
 import { pipelineState, rows } from './ci.js'
 
-const link = (path) => (window.hrefFor ? window.hrefFor(path) : `#/docs/${path}`)
+const link = (path) => core.hrefFor(path)
 
 function Copy({ text }) {
   const [done, setDone] = useState(false)

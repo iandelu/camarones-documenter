@@ -2,7 +2,7 @@ import { APP, STATIC } from './api.js'
 
 // Reading the docs API the same way in both portals: the live server (lib/serve.py, GET api/<name>?<params>) and the
 // static export, where each answer is a json file (api/<name>.json, api/doc/<lang|_>/<path>.json) and search runs
-// here over api/search.json. This is legacy/core.js api() for reads; writes go through postJSON (api.js).
+// here over api/search.json. Reads only; writes go through postJSON (api.js).
 const where = () => ({ static: STATIC, token: APP?.token })
 
 export async function docsGet(name, params = {}, mode = where()) {

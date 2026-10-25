@@ -1,6 +1,6 @@
-/* The portal's views on the theme of ../theme/tokens.css (Cofundo's language, Camarón's brand; light and dark live
-   there). These names predate it and stay: each is an alias of a theme token, so the views never hold a colour.
-   Colour only for state, motion only when something changes. */
+/* The portal's base styles on the theme of .camarones/ui/theme/tokens.css (Cofundo's language, Camarón's brand; light
+   and dark live there). These names predate it and stay: each is an alias of a theme token, so the views never hold a
+   colour. Colour only for state, motion only when something changes. (Was public/legacy/app.css until 4.51.) */
 :root {
   --bg: var(--color-canvas); --raise: var(--color-canvas-elevated);
   --panel: color-mix(in oklch, var(--color-ink) 5%, var(--color-canvas));

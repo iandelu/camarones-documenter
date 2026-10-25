@@ -1,5 +1,5 @@
 /* The React views (Pipeline, Ask…) inside the portal shell. Colours and shapes come from the theme
-   (.camarones/ui/theme/tokens.css) through the aliases of public/legacy/app.css; everything here is scoped to
+   (.camarones/ui/theme/tokens.css) through the aliases of src/portal.css; everything here is scoped to
    #native. */
 #native { --fg: var(--ink); --good: var(--ok); --bad: var(--danger); min-width: 0; padding: 2.25rem 3rem 6rem; }
 #native h1 { font: 600 2.6rem/1 var(--font-impact); letter-spacing: -.01em; margin: 0 0 .6rem; }

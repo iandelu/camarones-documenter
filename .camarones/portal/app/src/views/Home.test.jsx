@@ -1,12 +1,13 @@
 import { renderToStaticMarkup } from 'react-dom/server'
-import { afterEach, expect, test } from 'vitest'
+import { expect, test, vi } from 'vitest'
 import Home from './Home.jsx'
 
-// Home reads the docs index through the plain scripts' bridge; a fake one stands in for it here.
+// Home reads the docs index from the portal's state (core.js); a fake one stands in for it here.
+const state = vi.hoisted(() => ({ core: {} }))
+vi.mock('../core.js', () => ({ core: new Proxy({}, { get: (_, k) => state.core[k] }) }))
 const fake = (index, mode = 'live') => {
-  globalThis.window = { CamaronLegacy: { tree: () => index, mode: () => mode, t: (k) => k, hrefFor: (p) => `#/docs/${p}` } }
+  state.core = { tree: () => index, mode: () => mode, t: (k) => k, hrefFor: (p) => `#/docs/${p}` }
 }
-afterEach(() => { delete globalThis.window })
 
 const documented = { project: 'petclinic', repos: ['api', 'web'], views: [], kitGuides: [], docs: [{ path: 'domain/visits.md' }],
   summary: { total: 4, confirmed: 1, draft: 2, 'needs-reconfirm': 1 }, feedback: 0 }

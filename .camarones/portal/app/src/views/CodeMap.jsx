@@ -3,9 +3,9 @@ import { Aviso, Button, Chip, EmptyState, Skeleton } from '@camaron/ui'
 import { docsGet } from '../docsApi.js'
 import { useBuild } from '../useBuild.js'
 import { codeCrumbs, codeRoute, codeView, graphModel, inSub, mixHex, nextSeg, searchFiles, singleFolder, subHref } from './code.js'
+import { core } from '../core.js'
 
-const L = () => window.CamaronLegacy
-const runs = () => L().mode() === 'app'
+const runs = () => core.mode() === 'app'
 const VIS = 'vendor/vis-network@9.1.6/standalone/umd/vis-network.min.js'
 let visReady = null
 const loadVis = () => (visReady ||= new Promise((ok) => {
@@ -39,9 +39,8 @@ const codeMap = async (repo) => {
 
 // The sidebar on the code views: each repo with a map, and graphify's full graph.
 export function CodeSide({ arg }) {
-  const legacy = L()
-  const t = legacy.t
-  const index = legacy.tree()
+  const t = core.t
+  const index = core.tree()
   const { repo } = codeRoute(arg, index)
   return (
     <nav className="code-side" aria-label={t('codeTab')}>
@@ -60,9 +59,8 @@ export function CodeSide({ arg }) {
 
 // #/code/…: the module map, one module's files (folder by folder), or one file with what it uses and what uses it.
 export default function CodeMap({ arg }) {
-  const legacy = L()
-  const t = legacy.t
-  const index = legacy.tree()
+  const t = core.t
+  const index = core.tree()
   const r = codeRoute(arg, index)
   const [m, setM] = useState(null)
   const [error, setError] = useState('')
@@ -202,7 +200,7 @@ function NoMap({ t }) {
       <EmptyState title={t('noCodeMap')} action={can
         ? <Button variant="primary" disabled={build.running} onClick={() => build.start('graph').then((s) => { if (s?.status === 'done') location.reload() })}>{t('build')}</Button>
         : <Button href="#/c4">{t('c4')}</Button>}>
-        {L().mode() === 'live' ? t('appOnly') : runs() && v && !v.graphify ? t('noGraphify') : null}
+        {core.mode() === 'live' ? t('appOnly') : runs() && v && !v.graphify ? t('noGraphify') : null}
       </EmptyState>
       {build.job && <pre className="joblog">{build.job.lines.join('\n')}</pre>}
     </div>
@@ -211,8 +209,7 @@ function NoMap({ t }) {
 
 // graphify's own page for a repo (or all of them), with when it was built and, in the app, a rebuild.
 function GraphifyPage({ repo }) {
-  const legacy = L()
-  const t = legacy.t
+  const t = core.t
   const [v, setV] = useState(null)
   const build = useBuild()
   useEffect(() => { docsGet('viewers').then(setV, () => setV({ graphs: {} })) }, [])
@@ -229,7 +226,7 @@ function GraphifyPage({ repo }) {
           <select aria-label={t('code')} value={name} onChange={(e) => { location.hash = `#/code/${e.target.value}/graph` }}>
             {names.map((n) => <option key={n} value={n}>{n === 'all' ? t('allRepos') : n}</option>)}</select>
         )}
-        {g ? <span className="muted small">{t('builtAt', { when: legacy.ago(g.at) })}{g.stale && <> · <span className="warn">{t('stale')}</span></>}</span>
+        {g ? <span className="muted small">{t('builtAt', { when: core.ago(g.at) })}{g.stale && <> · <span className="warn">{t('stale')}</span></>}</span>
           : <span className="muted small">{t('noGraph')}</span>}
         {g && <a href={src} target="_blank" rel="noopener">{t('openTab')} <span aria-hidden="true">↗</span></a>}
         {runs() && v.graphify && <Button size="sm" disabled={build.running}

@@ -3,9 +3,9 @@ import { Aviso, Button, Chip, EmptyState, Skeleton } from '@camaron/ui'
 import { postJSON } from '../api.js'
 import { docsGet } from '../docsApi.js'
 import { c4Box, drawC4, flowViewId, loadViewers, runBuild } from '../content/doc.js'
+import { core } from '../core.js'
 
-const L = () => window.CamaronLegacy
-const runs = () => L().mode() === 'app'
+const runs = () => core.mode() === 'app'
 export const VIEW_GROUPS = ['system', 'element', 'dynamic', 'deployment']
 export const viewGroup = (v) => (v.id === 'index' ? 'system' : v.kind)
 const defaultView = (views) => (views.find((v) => v.id === 'index') || views[0])?.id || ''
@@ -13,9 +13,8 @@ const viewId = (arg, views) => (arg || '').split('/').filter(Boolean)[0] || defa
 
 // The sidebar on Architecture: the model's views by kind, the full explorer and the code map.
 export function ArchSide({ arg }) {
-  const legacy = L()
-  const t = legacy.t
-  const index = legacy.tree()
+  const t = core.t
+  const index = core.tree()
   const views = index.views || []
   const active = viewId(arg, views) || 'explorer'
   const link = (href, label, on, title) => <a key={href} href={href} className={on ? 'on' : ''} title={title}
@@ -41,7 +40,7 @@ function useViewers() {
 }
 
 const C4State = ({ v, t }) => (v.exists
-  ? <span className="muted small">{t('builtAt', { when: L().ago(v.at) })}{v.stale && <> · <span className="warn">{t('stale')}</span></>}</span>
+  ? <span className="muted small">{t('builtAt', { when: core.ago(v.at) })}{v.stale && <> · <span className="warn">{t('stale')}</span></>}</span>
   : <span className="muted small">{t(v.model ? 'notBuilt' : 'noC4')}</span>)
 
 // A bar over a visualizer: its state and, in the app, the button that (re)builds it, with the build's log.
@@ -58,9 +57,8 @@ function BuildBar({ children, what, label, t }) {
 
 // #/c4/<view>: one view of the C4 model, drawn by LikeC4's web component, with its elements to review below.
 export default function C4({ arg }) {
-  const legacy = L()
-  const t = legacy.t
-  const views = legacy.tree().views || []
+  const t = core.t
+  const views = core.tree().views || []
   const id = viewId(arg, views)
   if (!id || id === 'explorer') return <Explorer t={t} />
   const view = views.find((v) => v.id === id)
@@ -69,10 +67,9 @@ export default function C4({ arg }) {
 }
 
 function C4View({ view, t }) {
-  const legacy = L()
   const v = useViewers()
   const stage = useRef(null)
-  const flowDoc = (legacy.tree().docs || []).find((d) => flowViewId(d.path) === view.id)
+  const flowDoc = (core.tree().docs || []).find((d) => flowViewId(d.path) === view.id)
   useEffect(() => {
     if (!v || !stage.current) return
     stage.current.replaceChildren(c4Box(view.id))
@@ -88,7 +85,7 @@ function C4View({ view, t }) {
             <span className="muted small">architecture/{view.file}</span></div>
         </div>
         <div className="row">
-          {flowDoc && <Button size="sm" variant="ghost" href={legacy.hrefFor(flowDoc.path)}>{t('readFlow')}</Button>}
+          {flowDoc && <Button size="sm" variant="ghost" href={core.hrefFor(flowDoc.path)}>{t('readFlow')}</Button>}
           {v.exists && <Button size="sm" variant="ghost" href={`architecture/view/${encodeURIComponent(view.id)}/`} target="_blank" rel="noopener">
             {t('openExplorer')} <span aria-hidden="true">↗</span></Button>}
         </div>
@@ -108,13 +105,13 @@ function Elements({ id, model, t }) {
   const load = () => docsGet('c4/view', { id }).then(setV, () => setV({ elements: [] }))
   useEffect(() => { load() }, [id])
   if (!v?.elements?.length) return null
-  const edit = v.editable && L().mode() !== 'static'
+  const edit = v.editable && core.mode() !== 'static'
   const drafts = v.elements.filter((e) => e.draft).length
   const change = async (path, body) => {
     setError('')
     try {
       await postJSON(`c4/${path}`, body)
-      L().toast(t('c4Saved'))
+      core.toast(t('c4Saved'))
       await load()
       if (runs() && model) runBuild('c4', '', null, log.current, () => location.reload())
     } catch (e) { setError(e.message) }
