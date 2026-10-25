@@ -96,6 +96,10 @@
   review request PAGE [--note T] | wait ID [--timeout S] | list
                             an agent asks a person to review a page and waits for the answer (approve / changes, as
                             JSON); people answer in the portal's Review tab
+  board ACTION [ARGS] [--json]   the board (cam-docs/backlog, Backlog.md-compatible): init | add TYPE TITLE | list |
+                            show ID | move ID STATUS | assign ID WHO | link ID REF | archive ID | repair
+                            (list: --status --epic --repo --label --docs suspect|unconfirmed; add: --epic --repo
+                            --label --priority --doc; move: --before/--after ID); merge-driver is git's, not yours
   hooks [on|off] [--json]   method hooks for Claude Code in cam-docs: the plan state at session start, a check of each
                             docs page right after it is edited, a reminder to update the docs before stopping
   ab --qa "QUESTION" | --golden [--runner T] [--judge T] [--json]
@@ -224,7 +228,8 @@ elif os.environ.get("CAMARONES_GLOBAL") and not os.environ.get("CAMARONES_ROOT")
     _marker = projects.find_marker(Path.cwd())
     if _marker:
         projects.touch(_marker)
-    elif _cmd0 not in ("help", "version", "self-update", "mcp", "catalog", "projects", "app"):
+    elif _cmd0 not in ("help", "version", "self-update", "mcp", "catalog", "projects", "app") \
+            and not (_cmd0 == "board" and "merge-driver" in sys.argv[2:3]):
         _dest = projects.pick(allow_new=True, here=Path.cwd())
         if _dest is None:
             sys.exit(1)
@@ -382,6 +387,8 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--poll-seconds", type=int, default=900); ap.add_argument("--include-interviews", action="store_true")
     cat = sp.add_parser("catalog"); cat.add_argument("--json", action="store_true")
     cat.add_argument("--markdown", action="store_true"); cat.add_argument("--check", action="store_true")
+    from lib.kanban import cli as board_cli
+    board_cli.add_parser(sp)
     pj = sp.add_parser("projects"); pj.add_argument("--json", action="store_true"); pj.add_argument("--add", type=Path)
     sp.add_parser("app")
     cf = sp.add_parser("config"); cf.add_argument("action", nargs="?", default="get", choices=["get", "set"])
@@ -413,6 +420,9 @@ def main() -> int:
         return 0
     p = build_parser()
     a = p.parse_args()
+    if a.cmd == "board" and a.action == "merge-driver":     # git runs this from anywhere: no workspace, no usage log
+        from lib.kanban import cli as board_cli
+        return board_cli.run(a)
     if a.cmd not in ("help", "mcp", "wizard"):
         from lib import usage
         usage.record(f"cli:{a.cmd}")
@@ -421,6 +431,9 @@ def main() -> int:
         print(__doc__)
     elif a.cmd == "catalog":
         return cmd_catalog(a, p)
+    elif a.cmd == "board":
+        from lib.kanban import cli as board_cli
+        return board_cli.run(a)
     elif a.cmd == "config":
         from lib import machine
         try:
