@@ -252,7 +252,10 @@ def messaging_page(memo: dict, skip: set[Key] = frozenset()) -> str | None:
 
 
 # ---------- writing them ----------
-LINK_ITEM = re.compile(r"[-*+] \[[^\]\n]*\]\([^)\s]*\)(?::.*)?")
+HEADING_LINE = re.compile(r"#{1,6} ")
+LINK_ITEM = re.compile(r"[-*+] \[[^\]\n]*\]\(([^)\s]*)\)")                 # a list item that is only a link
+MORE_PAGES = {rel for _name, rel, _needs in MORE}
+KIT_DIRECTIVES = "\n".join([":::cards", HOW, *(f":::details {s}" for *_x, s in TARGET.values() if s)])
 FENCE_CLOSE = re.compile(r"^:::[ \t]*$", re.M)
 NEXT_SECTION = re.compile(r"^## ", re.M)
 HOW_LINE = re.compile(rf"^{re.escape(HOW)}[ \t]*$", re.M)
@@ -266,13 +269,39 @@ def _outside_blocks(body: str) -> str:
     return "".join(parts) + body[last:]
 
 
+def _tldr(lines: list[str]) -> set[int]:
+    """The line numbers of the TL;DR: the contiguous `>` lines from a `> **TL;DR:**` line that is the first non-blank
+    line under the H1 (an older kit's wording, over several lines, is still the kit's)."""
+    h1 = next((i for i, line in enumerate(lines) if line.startswith("# ")), None)
+    i = len(lines) if h1 is None else next((j for j in range(h1 + 1, len(lines)) if lines[j]), len(lines))
+    if i == len(lines) or not lines[i].startswith("> **TL;DR:**"):
+        return set()
+    out = set()
+    while i < len(lines) and lines[i].startswith(">"):
+        out.add(i)
+        i += 1
+    return out
+
+
+def _more_link(line: str) -> bool:
+    """A list item that is only a relative link to one of the home's `MORE` pages."""
+    m = LINK_ITEM.fullmatch(line)
+    target = m[1] if m else ""
+    while target.startswith(("./", "../")):
+        target = target.split("/", 1)[1]
+    return target in MORE_PAGES
+
+
 def kit_only(text: str, kit_text: str) -> bool:
-    """Whether a page holds only what the kit writes: every non-blank line outside its frontmatter and its generated
-    blocks is a heading, a `>` line, a `:::` line, a list item that is only a link (`- [x](y)`, optional `: …`) or a
-    line of `kit_text` (the page the kit would write today). Then a rewrite loses nobody's words."""
+    """Whether a page holds only what the kit writes, so that a rewrite loses nobody's words: every non-blank line
+    outside its frontmatter and its generated blocks is a line of `kit_text` (what the kit would write today), a heading
+    (`#… `), a line of the TL;DR under the H1, a bare `:::`, or a list item that is only a relative link to a `MORE`
+    page. Any other `>`, `:::` or list line is someone's."""
     kit = {line.strip() for line in kit_text.splitlines()}
-    lines = (line.strip() for line in _outside_blocks(docs.split_fm(text)[1]).splitlines())
-    return all(line.startswith(("#", ">", ":::")) or LINK_ITEM.fullmatch(line) or line in kit for line in lines if line)
+    lines = [line.strip() for line in _outside_blocks(docs.split_fm(text)[1]).splitlines()]
+    tldr = _tldr(lines)
+    return all(not line or line in kit or HEADING_LINE.match(line) or i in tldr or line == ":::" or _more_link(line)
+               for i, line in enumerate(lines))
 
 
 def _end(body: str, pos: int, sections: bool = True) -> int:
@@ -323,26 +352,34 @@ def _tidy(body: str, gone: set[str]) -> str:
     return body
 
 
-def _rewrite(old: str, fresh: str, scan: genblocks.Scanner) -> str:
-    """Rule 4: the fresh page, with the old page's confirmed, hand-edited and unknown blocks put back verbatim and its
-    `x-confirmed` kept (as `radar.run` does)."""
+def _template(rel: str) -> str:
+    return REPO_PAGE if rel.startswith("repos/") else rel
+
+
+KEPT_FM = ("title", "description", "tags", "x-confirmed")                  # a person may have set them
+
+
+def _rewrite(rel: str, repo: str, old: str, fresh: str, scan: genblocks.Scanner) -> str:
+    """Rule 4: the fresh page, with the old page's confirmed, hand-edited and unknown blocks put back verbatim, and
+    so are the blocks the page does not own (another repo's, or a kind another page holds: moved here, so the page they
+    left skips them). The frontmatter is the fresh one with the old `KEPT_FM` keys and any key the fresh one lacks;
+    `x-sources` is always the fresh one."""
     old_fm, old_body = docs.split_fm(old)
     fm, body = docs.split_fm(fresh)
-    kept = body
     for m, state, _body in genblocks.states(old_body, scan):
-        if m["confirmed"] or state in ("edited", "unknown"):
-            kept = place(kept, m[0], diagrams._key(m))
-    if kept == body and not old_fm.get("x-confirmed"):
-        return fresh
-    return docs.join_fm({**fm, **({"x-confirmed": old_fm["x-confirmed"]} if old_fm.get("x-confirmed") else {})}, kept)
+        owned = m["repo"] == repo and TARGET.get(m["kind"], (None,))[0] == _template(rel)
+        if m["confirmed"] or state in ("edited", "unknown") or not owned:
+            body = place(body, m[0], diagrams._key(m))
+    fm.update({k: old_fm[k] for k in KEPT_FM if k in old_fm})
+    fm.update({k: v for k, v in old_fm.items() if k not in fm})
+    return docs.join_fm(fm, body)
 
 
 def _blocks_only(rel: str, repo: str, old: str, fresh: str | None, scan: genblocks.Scanner) -> str:
     """Rule 5: only the page's blocks brought up to date (`diagrams._edit_page` with the page's `TARGET` pairs, the
     missing ones put by `place`, the folds and sections a drop emptied removed); its TL;DR and every other line stay."""
     fm, body, _valid = docs.parse_fm(old)
-    template = REPO_PAGE if rel.startswith("repos/") else rel
-    managed = [(h, kind) for kind, (page, h, _s) in TARGET.items() if page == template]
+    managed = [(h, kind) for kind, (page, h, _s) in TARGET.items() if page == _template(rel)]
     kinds = {kind for _h, kind in managed}
     wanted = [diagrams._key(m) for m in genblocks.BLOCK_RE.finditer(fresh or "")]
     before = {m["kind"] for m in genblocks.BLOCK_RE.finditer(body) if m["kind"] in kinds}
@@ -379,7 +416,7 @@ def _write_new(log=lambda _: None, exclude: frozenset[Path] = frozenset()) -> li
         if f.resolve() in excluded:
             continue
         if repo == SYSTEM and not diagrams._complete():
-            log(f"· {rel_file(f)}: not every repo is on this machine, so the project home is left as it is")
+            log(f"· {rel_file(f)}: not every repo is on this machine, so this page is left as it is")
             continue
         fresh = make(memo, {k for k, where in homes.items() if where - {f.resolve()}})
         old = f.read_text(encoding="utf-8") if f.exists() else None
@@ -393,8 +430,8 @@ def _write_new(log=lambda _: None, exclude: frozenset[Path] = frozenset()) -> li
             if fm.get("x-generated") is not True and not genblocks.BLOCK_RE.search(body):
                 log(f"· {rel_file(f)} was not written by the kit: left as it is")
                 continue
-            if fm.get("x-generated") is True and fresh is not None and kit_only(old, fresh):
-                new = _rewrite(old, fresh, scan)
+            if fm.get("x-generated") is True and fresh is not None and kit_only(old, fresh + "\n" + KIT_DIRECTIVES):
+                new = _rewrite(rel, repo, old, fresh, scan)
             else:
                 new = _blocks_only(rel, repo, old, fresh, scan)
                 note = f"· {rel_file(f)}: has text a person or an agent wrote, only its blocks were brought up to date"

@@ -24,7 +24,7 @@ def pg(kit):
     def put(repo, rel, text):
         f = kit.ws / repo / rel
         f.parent.mkdir(parents=True, exist_ok=True)
-        f.write_text(text, encoding="utf-8")
+        f.write_text(text, encoding="utf-8", newline="\n")
         return f
     return type("PG", (), {"kit": kit, "put": staticmethod(put), "rmtree": staticmethod(rmtree),
                            "mod": importlib.import_module("lib.pages"), "gb": importlib.import_module("lib.genblocks")})
@@ -79,7 +79,7 @@ def test_the_repos_block_has_one_card_per_repo(pg):
 def test_a_repos_block_refreshes_through_genblocks(pg):
     page = pg.kit.root / "docs" / "index.md"
     page.parent.mkdir(parents=True, exist_ok=True)
-    page.write_text("# demo\n\n" + pg.gb.block("repos", "_system", "old") + "\n", encoding="utf-8")
+    page.write_text("# demo\n\n" + pg.gb.block("repos", "_system", "old") + "\n", encoding="utf-8", newline="\n")
     pg.gb.refresh()
     assert "repos/web/index.md" in page.read_text(encoding="utf-8")
     assert "repos" in pg.gb.PAGE_KINDS and "repos" not in pg.gb.KINDS
@@ -103,7 +103,7 @@ PUBLISHER = 'class Pub { void f() { kafkaTemplate.send("orders", m); } }\n'
 def write_doc(pg, rel, text):
     f = pg.kit.root / "docs" / rel
     f.parent.mkdir(parents=True, exist_ok=True)
-    f.write_text(text, encoding="utf-8")
+    f.write_text(text, encoding="utf-8", newline="\n")
     return f
 
 
@@ -256,7 +256,7 @@ def confirm(pg, page, id):
     text = page.read_text(encoding="utf-8")
     m = next(b for b in pg.gb.BLOCK_RE.finditer(text) if b["id"] == id)
     new = pg.gb.block(m["kind"], m["repo"], m["body"], id=id, confirmed=m["sha"], by="ana")
-    page.write_text(text.replace(m[0], new), encoding="utf-8")
+    page.write_text(text.replace(m[0], new), encoding="utf-8", newline="\n")
     return new
 
 
@@ -283,11 +283,56 @@ def test_a_confirmed_block_survives_a_rewrite(pg):
     assert page.read_text(encoding="utf-8").count(confirmed) == 1
 
 
+def test_a_confirmed_page_is_settled_after_one_write(pg):
+    pg.put("api", "src/main/java/demo/OrderStatus.java", ORDER)
+    pg.mod.write()
+    confirm(pg, pg.kit.root / "docs" / "repos" / "api" / "index.md", "OrderStatus")
+    assert pg.mod.write() == []
+
+
+def test_a_hand_edited_block_survives_a_rewrite(pg):
+    pg.put("api", "src/main/java/demo/OrderStatus.java", ORDER)
+    pg.mod.write()
+    page = pg.kit.root / "docs" / "repos" / "api" / "index.md"
+    page.write_text(page.read_text(encoding="utf-8").replace("    SHIPPED\n", "    SHIPPED\n    LOST_BY_HAND\n"),
+                    encoding="utf-8", newline="\n")
+    pg.put("api", "src/main/java/demo/OrderStatus.java", ORDER.replace("SHIPPED", "SHIPPED, RETURNED"))
+    pg.mod.write()
+    text = page.read_text(encoding="utf-8")
+    assert text.count("LOST_BY_HAND") == 1 and "RETURNED" not in text
+
+
+def test_a_block_moved_to_another_repo_page_stays_there(pg):
+    pg.put("api", "src/main/java/demo/OrderStatus.java", ORDER)
+    pg.mod.write()
+    api, web = (pg.kit.root / "docs" / "repos" / r / "index.md" for r in ("api", "web"))
+    text = api.read_text(encoding="utf-8")
+    m = next(b for b in pg.gb.BLOCK_RE.finditer(text) if b["id"] == "OrderStatus")
+    api.write_text(text.replace(m[0], ""), encoding="utf-8", newline="\n")
+    web.write_text(web.read_text(encoding="utf-8").replace(":::details How", m[0] + "\n\n:::details How"),
+                   encoding="utf-8", newline="\n")
+    pg.mod.write()
+    assert web.read_text(encoding="utf-8").count(m[0]) == 1 and "OrderStatus" not in api.read_text(encoding="utf-8")
+    assert pg.mod.write() == []
+
+
+def test_a_persons_title_survives_a_rewrite(pg):
+    pg.mod.write()
+    page = pg.kit.root / "docs" / "repos" / "api" / "index.md"
+    page.write_text(page.read_text(encoding="utf-8").replace("title: api", "title: The API\nx-team: pets"),
+                    encoding="utf-8", newline="\n")
+    pg.put("api", "src/main/java/demo/OrderStatus.java", ORDER)
+    pg.mod.write()
+    fm = pg.kit.docs.split_fm(page.read_text(encoding="utf-8"))[0]
+    assert (fm["title"], fm["x-team"]) == ("The API", "pets")
+    assert "api:src/main/java/demo/OrderStatus.java" in fm["x-sources"]
+
+
 def test_prose_in_a_kit_page_is_kept(pg):
     pg.mod.write()
     page = pg.kit.root / "docs" / "repos" / "api" / "index.md"
     page.write_text(page.read_text(encoding="utf-8").replace("## What it needs to run",
-                    "The team runs it behind nginx.\n\n## What it needs to run"), encoding="utf-8")
+                    "The team runs it behind nginx.\n\n## What it needs to run"), encoding="utf-8", newline="\n")
     pg.put("api", "src/main/java/demo/OrderStatus.java", ORDER)
     pg.mod.write()
     text = page.read_text(encoding="utf-8")
@@ -330,7 +375,7 @@ def test_prose_keeps_the_tldr_and_folds_a_new_table(pg):
     page = pg.kit.root / "docs" / "repos" / "api" / "index.md"
     text = page.read_text(encoding="utf-8")
     tldr = next(line for line in text.splitlines() if line.startswith("> **TL;DR:**"))
-    page.write_text(text.replace(tldr, "> **TL;DR:** the api, as we see it.\n\nA note of ours."), encoding="utf-8")
+    page.write_text(text.replace(tldr, "> **TL;DR:** the api, as we see it.\n\nA note of ours."), encoding="utf-8", newline="\n")
     pg.put("api", "src/main/resources/openapi.yaml", OPENAPI)
     logs = []
     pg.mod.write(logs.append)
@@ -345,7 +390,7 @@ def test_prose_keeps_the_tldr_and_folds_a_new_table(pg):
 def test_x_confirmed_is_kept_on_a_rewrite(pg):
     pg.mod.write()
     page = pg.kit.root / "docs" / "repos" / "api" / "index.md"
-    page.write_text(page.read_text(encoding="utf-8").replace("x-generated: true", "x-generated: true\nx-confirmed:\n  body_sha: abc\n  by: ana"), encoding="utf-8")
+    page.write_text(page.read_text(encoding="utf-8").replace("x-generated: true", "x-generated: true\nx-confirmed:\n  body_sha: abc\n  by: ana"), encoding="utf-8", newline="\n")
     pg.put("api", "src/main/java/demo/OrderStatus.java", ORDER)
     pg.mod.write()
     text = page.read_text(encoding="utf-8")
@@ -353,12 +398,21 @@ def test_x_confirmed_is_kept_on_a_rewrite(pg):
 
 
 def test_kit_only_allows_kit_lines_only(pg):
-    fresh = "---\ntitle: a\n---\n# a\n\n> **TL;DR:** x\n\nRead from the code.\n"
+    fresh = "---\ntitle: a\n---\n# a\n\n> **TL;DR:** x\n\n:::details Commands\nRead from the code.\n:::\n"
     blk = pg.gb.block("env", "api", "| a |\n|---|")
-    assert pg.mod.kit_only(f"---\ntitle: b\n---\n# b\n\n> other\n\n:::details X\n{blk}\n:::\n\n- [x](y): z\n"
+    assert pg.mod.kit_only(f"---\ntitle: b\n---\n# b\n\n> **TL;DR:** an older kit's words\n> over two lines.\n\n"
+                           f"## Run\n\n:::details Commands\n{blk}\n:::\n\n- [Libraries](../../overview/libraries.md)\n"
                            "Read from the code.\n", fresh)
     assert not pg.mod.kit_only("# a\n\nThe team runs it behind nginx.\n", fresh)
     assert not pg.mod.kit_only("# a\n\n- [x](y) and more\n", fresh)
+
+
+@pytest.mark.parametrize("line", ["> Never restart it during business hours.", "- [Runbook](https://wiki/x): restart steps",
+                                  "- [Libraries](overview/libraries.md): ours", "#1 rule: never restart on Fridays",
+                                  ":::tip Restart only at night"])
+def test_kit_only_keeps_a_persons_lines(pg, line):
+    fresh = "# a\n\n> **TL;DR:** x\n\n## Run\n"
+    assert not pg.mod.kit_only(f"# a\n\n> **TL;DR:** x\n\n## Run\n\n{line}\n", fresh)
 
 
 def test_place_puts_a_block_in_its_section(pg):
@@ -378,7 +432,7 @@ def test_a_table_gone_from_a_page_with_prose_takes_its_fold(pg):
     pg.mod.write()
     page = pg.kit.root / "docs" / "repos" / "api" / "index.md"
     page.write_text(page.read_text(encoding="utf-8").replace("## What it needs to run",
-                    "## What it needs to run\n\nAsk ops for the database."), encoding="utf-8")
+                    "## What it needs to run\n\nAsk ops for the database."), encoding="utf-8", newline="\n")
     assert ":::details Environment variables" in page.read_text(encoding="utf-8")
     env.unlink()
     pg.mod.write()
