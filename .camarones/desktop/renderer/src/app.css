@@ -34,6 +34,14 @@ a { color: var(--color-acento-texto); }
 .dk-nav:hover { background: var(--color-canvas-elevated); color: var(--color-ink); }
 .dk-nav.on { background: var(--color-canvas-elevated); color: var(--color-ink); font-weight: 500; box-shadow: inset 0 0 0 1px var(--color-rule); }
 .dk-gap { flex: 1; min-height: 1.5rem; }
+/* each section's g shortcut, beside it when the sidebar is pointed at or holds the focus */
+.dk-nav { gap: .5rem; }
+.dk-hint { margin-left: auto; opacity: 0; transition: opacity var(--duration-quick) var(--ease-out-soft); }
+.dk-side:hover .dk-hint, .dk-side:focus-within .dk-hint { opacity: 1; }
+.dk-find { display: inline-flex; align-items: center; gap: .75rem; min-height: 2rem; padding: 0 .35rem 0 .75rem; flex: none;
+           border: 1px solid var(--color-rule); border-radius: var(--consola-radio-control); background: var(--color-canvas);
+           color: var(--color-ink-dim); font: 400 var(--text-meta) var(--font-sans); cursor: pointer; }
+.dk-find:hover { color: var(--color-ink); border-color: var(--color-ink-dim); }
 .dk-main { grid-area: main; overflow-y: auto; padding: 1.75rem 2rem; min-width: 0; }
 .dk-page { display: flex; flex-direction: column; gap: 1.25rem; max-width: 60rem; }
 .dk-page h1 { font-size: var(--text-h1); margin: 0; }
@@ -79,6 +87,21 @@ a.dk-stat-n:hover { color: var(--color-acento-texto); }
              background: var(--color-canvas-elevated); color: var(--color-ink); padding: 1.25rem; }
 .dk-dialog::backdrop { background: color-mix(in oklch, var(--color-canvas) 60%, transparent); }
 .dk-dialog h2 { margin: 0 0 .5rem; font-size: var(--text-h3); }
+/* the ⌘K palette: the field keeps the focus, the active option is marked by its background and an accent edge */
+.dk-pal { width: min(36rem, calc(100vw - 2rem)); margin: 12svh auto auto; padding: 0; border: 1px solid var(--color-rule);
+          border-radius: var(--consola-radio-tarjeta); background: var(--color-canvas-elevated); color: var(--color-ink); }
+.dk-pal::backdrop { background: color-mix(in oklch, var(--color-canvas) 60%, transparent); }
+.dk-pal input { width: 100%; border: 0; border-bottom: 1px solid var(--color-rule); padding: .9rem 1rem; background: transparent;
+                color: inherit; font: 400 var(--text-body) var(--font-sans); }
+.dk-pal input:focus-visible { outline: none; box-shadow: inset 0 -2px 0 var(--color-acento-texto); }
+.dk-pal-list { max-height: 50svh; overflow-y: auto; padding: .4rem; }
+.dk-pal-group { padding: .6rem .6rem .25rem; }
+.dk-pal-item { display: flex; align-items: center; gap: .75rem; min-height: 2.25rem; padding: .3rem .6rem;
+               border-radius: var(--consola-radio-chico); cursor: pointer; }
+.dk-pal-item.on { background: var(--color-canvas); box-shadow: inset 2px 0 0 var(--color-acento-texto); }
+.dk-pal-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dk-pal-empty { margin: 0; padding: .8rem .6rem; }
+.dk-pal-foot { margin: 0; padding: .5rem 1rem; border-top: 1px solid var(--color-rule); }
 .dk-scroll { overflow-x: auto; }
 .dk-table { width: 100%; border-collapse: collapse; font-size: var(--text-meta); }
 .dk-table :is(th, td) { padding: .45rem .6rem; border-bottom: 1px solid var(--color-rule); text-align: left; vertical-align: top; }
@@ -122,4 +145,8 @@ a.dk-stat-n:hover { color: var(--color-acento-texto); }
 @media (max-width: 900px) {
   .dk { grid-template-columns: 3.5rem 10rem minmax(0, 1fr); }
   .dk-main { padding: 1.25rem 1rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dk-hint { transition: none; }
 }

@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { others, ZONES } from './catalog.js'
+import { inPanel, others, sectionFor, ZONES } from './catalog.js'
 
 const c = (name, zone, more = {}) => ({ name, zone, verdict: 'app', destructive: false, ...more })
 
@@ -24,4 +24,16 @@ test('all the commands of a section, but the ones its panels already run; what d
   expect(others(cmds, 'team')).toEqual({ safe: [cmds[5]], careful: [cmds[7]] })
   expect(others(cmds, 'summary')).toEqual({ safe: [], careful: [] })
   expect(others(null, 'plan')).toEqual({ safe: [], careful: [] })
+})
+
+// The ⌘K palette takes you to a command: the section whose panel runs it, else the one whose "All commands" lists it.
+test('where the app runs each command', () => {
+  expect(sectionFor(c('doctor', 'check'))).toBe('quality')
+  expect(inPanel(c('doctor', 'check'))).toBe(true)
+  expect(sectionFor(c('radar', 'analyze'))).toBe('quality')
+  expect(inPanel(c('radar', 'analyze'))).toBe(false)
+  expect(sectionFor(c('uninstall', 'machine', { destructive: true }))).toBe('machine')
+  expect(sectionFor(c('confirm', 'generate', { verdict: 'portal' }))).toBeNull()
+  expect(sectionFor(c('up', 'docs'))).toBeNull()
+  expect(sectionFor(c('ci', 'team'), ['summary', 'plan'])).toBeNull()      // a section this window lacks
 })

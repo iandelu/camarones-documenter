@@ -337,6 +337,8 @@ mi-proyecto/cam-docs/
 
 La app es donde se opera un proyecto y el **portal** es donde se lee. Cada proyecto se abre en su ventana: a la izquierda el raíl con tus proyectos y las secciones, en medio la tarea y, abajo, el panel de **trabajos** con lo que corre y los últimos, su salida y **Parar**. Cada botón ejecuta el mismo comando que escribirías en la terminal, con su salida en vivo, así que nada de lo que ves es magia aparte. Para leer, la sección **Docs** abre el portal del mismo proyecto.
 
+Todo se hace también con el teclado: <kbd>⌘K</kbd>/<kbd>Ctrl K</kbd> (o **Buscar o ir a…**, arriba) va a una sección, a otro proyecto o a cualquier comando, que se abre en su sección con el formulario listo; y <kbd>g</kbd> seguido de una letra salta de sección (`g s` Resumen, `g p` Plan, `g i` Entrevistas, `g t` Equipo, `g q` Calidad, `g d` Docs, `g m` Máquina). Las letras aparecen en el menú lateral al pasar por él.
+
 | | 🌐 Portal en el navegador (`camaron up`) | 🖥️ App de escritorio (`camaron app`) |
 |---|---|---|
 | **Para quién** | Todo el equipo, también desplegado como web | Quien documenta en su máquina |

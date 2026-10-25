@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Aviso, Brand, Breadcrumbs, Button, Card, EmptyState, Field, Skeleton, SkipLink } from '@camaron/ui'
+import { Aviso, Brand, Breadcrumbs, Button, Card, EmptyState, Field, Keys, Skeleton, SkipLink } from '@camaron/ui'
 import { initials, sectionOf, sections } from './nav.js'
 import { jobsStore } from './jobs.js'
+import { chord, entries, keyFor, typing } from './palette.js'
 import { server } from './server.js'
-import { useStore } from './hooks.js'
+import { useHash, useStore } from './hooks.js'
 import JobsPanel from './JobsPanel.jsx'
+import Palette from './Palette.jsx'
+import { catalog } from './sections/Commands.jsx'
 import Interviews from './sections/Interviews.jsx'
 import KitDev from './sections/KitDev.jsx'
 import Machine from './sections/Machine.jsx'
@@ -12,7 +15,9 @@ import Plan from './sections/Plan.jsx'
 import Quality from './sections/Quality.jsx'
 import Summary from './sections/Summary.jsx'
 import Team from './sections/Team.jsx'
-import { t } from './i18n.js'
+import { lang, t } from './i18n.js'
+
+const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
 
 // The desktop app's UI. Three ways to be loaded: the hub (window.camaronHub, from disk: pick or make a project), a
 // project's window (window.camaronApp, served by that project's server at /desktop/), or a browser that wandered to
@@ -29,15 +34,8 @@ export default function App() {
   )
 }
 
-function useHash() {
-  const [hash, setHash] = useState(typeof location !== 'undefined' ? location.hash : '')
-  useEffect(() => {
-    const on = () => setHash(location.hash)
-    addEventListener('hashchange', on)
-    return () => removeEventListener('hashchange', on)
-  }, [])
-  return hash
-}
+// The main landmark takes the focus after a jump (a shortcut, the palette), so Tab goes on from the new section.
+const focusMain = () => document.getElementById('main')?.focus({ preventScroll: true })
 
 function Project({ app }) {
   const hash = useHash()
@@ -45,9 +43,12 @@ function Project({ app }) {
   const [kitdev, setKitdev] = useState(false)
   const [error, setError] = useState('')
   const [status, setStatus] = useState('')
+  const [palette, setPalette] = useState(false)
+  const [commands, setCommands] = useState([])
   const srv = useMemo(() => server(app.token), [])
   const jobs = useMemo(() => jobsStore(srv.get), [])           // one for the window: it outlasts the sections
   const { running } = useStore(jobs)
+  const projects = useProjects(app, index?.project, setStatus)
   useEffect(() => {
     srv.get('tree').then(setIndex, (e) => setError(e.message))
     srv.get('app/info').then((i) => setKitdev(!!i.kitdev), () => {})
@@ -56,9 +57,29 @@ function Project({ app }) {
   }, [])
   const here = sectionOf(hash, { kitdev })
   const { project, machine } = sections({ kitdev })
+  const all = [...project, ...machine]
+  useEffect(() => {                                     // ⌘K / Ctrl K anywhere; g + a letter outside fields and dialogs
+    let pending = 0
+    const on = (e) => {
+      if (e.key.toLowerCase() === 'k' && (e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey) { e.preventDefault(); setPalette(true); return }
+      if (e.metaKey || e.ctrlKey || e.altKey || typing(e.target)) { pending = 0; return }
+      const r = chord(pending, e.key, e.timeStamp, all)
+      pending = r.pending
+      if (r.go) { e.preventDefault(); location.hash = `#/${r.go}`; focusMain() }
+    }
+    addEventListener('keydown', on)
+    return () => removeEventListener('keydown', on)
+  }, [kitdev])
+  useEffect(() => { if (palette) catalog(srv).then((c) => setCommands(c.commands), () => {}) }, [palette])
+  const onPick = (it) => {
+    if (it.project) projects.open(it.project)
+    else if (it.action === 'add') app.hub?.()
+    else if (it.href.startsWith('../')) location.href = it.href
+    else { location.hash = it.href; focusMain() }
+  }
   const link = (s) => (
     <a key={s} href={`#/${s}`} className={'dk-nav' + (s === here ? ' on' : '')} aria-current={s === here ? 'page' : undefined}>
-      {t('nav.' + s)}</a>
+      {t('nav.' + s)}<span className="dk-hint" aria-hidden="true"><Keys keys={['g', keyFor(s)]} /></span></a>
   )
   return (
     <div className="dk">
@@ -66,8 +87,13 @@ function Project({ app }) {
       <header className="dk-top">
         <Brand project={index?.project} href="#/summary" />
         <Breadcrumbs items={[{ label: index?.project || '…', href: '#/summary' }, { label: t('nav.' + here) }]} />
+        <span className="dk-grow"></span>
+        <button type="button" className="dk-find" aria-haspopup="dialog" onClick={() => setPalette(true)}>
+          {t('pal.open')}<Keys keys={MAC ? ['⌘', 'K'] : ['Ctrl', 'K']} /></button>
       </header>
-      <Rail app={app} name={index?.project} onStatus={setStatus} />
+      <Palette open={palette} onClose={() => setPalette(false)} onPick={onPick}
+        groups={entries({ sections: all, projects: projects.list, commands, t, lang: lang() })} />
+      <Rail app={app} projects={projects} />
       <nav className="dk-side" aria-label={t('nav.project')}>
         {project.map(link)}
         <span className="dk-gap"></span>
@@ -89,12 +115,13 @@ function Project({ app }) {
 
 // This machine's projects, this window's marked: another one opens in this window's place (the main process starts
 // its server and stops this one). Until the list arrives, this project alone; a project opened by its folder but
-// never listed comes first.
-function Rail({ app, name, onStatus }) {
+// never listed comes first. The rail and the palette share it.
+function useProjects(app, name, onStatus) {
   const [rows, setRows] = useState(null)
   const [busy, setBusy] = useState(false)          // one switch at a time: the other server takes seconds to start
   useEffect(() => { app.projects?.().then((r) => r?.projects && setRows(r.projects), () => {}) }, [])
-  const go = async (p) => {
+  const open = async (p) => {
+    if (busy) return
     setBusy(true)
     onStatus(t('hub.opening', { name: p.name }))
     const r = await app.switchTo(p.path).catch((e) => ({ error: e.message }))
@@ -103,11 +130,15 @@ function Rail({ app, name, onStatus }) {
   }
   const self = name ? [{ name, path: '', exists: true, current: true }] : []
   const list = !rows ? self : rows.some((p) => p.current) ? rows : [...self, ...rows]    // opened but never listed
+  return { list, busy, open }
+}
+
+function Rail({ app, projects: { list, busy, open } }) {
   return (
     <nav className="dk-rail" aria-label={t('rail')}>
       {list.map((p) => (p.current
         ? <a key={p.path || p.name} className="dk-proj on" href="#/summary" aria-current="true" title={p.name}>{initials(p.name)}</a>
-        : <button key={p.path} type="button" className="dk-proj" disabled={!p.exists || busy} onClick={() => go(p)}
+        : <button key={p.path} type="button" className="dk-proj" disabled={!p.exists || busy} onClick={() => open(p)}
             title={p.exists ? p.name : `${p.name}: ${t('rail.missing')}`}>{initials(p.name)}</button>))}
       <button type="button" className="dk-proj add" aria-label={t('rail.add')} title={t('rail.add')} onClick={() => app.hub?.()}>+</button>
     </nav>

@@ -12,3 +12,12 @@ export function others(commands, section) {
     && !(PANELS[section] || []).includes(c.name))
   return { safe: mine.filter((c) => !c.destructive), careful: mine.filter((c) => c.destructive) }
 }
+
+// Where the app runs a command (the ⌘K palette goes there): the section whose panel runs it, else the one whose "All
+// commands" lists it; none for the portal's own commands or a section this window lacks.
+export const inPanel = (c) => Object.values(PANELS).some((names) => names.includes(c.name))
+export function sectionFor(c, available) {
+  if (c.verdict === 'portal') return null
+  const s = Object.keys(PANELS).find((k) => PANELS[k].includes(c.name)) || Object.keys(ZONES).find((k) => ZONES[k].includes(c.zone))
+  return s && (!available || available.includes(s)) ? s : null
+}

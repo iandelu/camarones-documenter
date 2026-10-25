@@ -2,24 +2,33 @@ import { useEffect, useRef, useState } from 'react'
 import { Aviso, Button, Card } from '@camaron/ui'
 import { fields, toArgs } from '@camaron/ui/cmdform.js'
 import { others } from '../catalog.js'
-import { useCmd } from '../hooks.js'
+import { useCmd, useHash } from '../hooks.js'
 import { Fold, JobOutput } from '../parts.jsx'
 import { lang, t } from '../i18n.js'
 
 // A section's "All commands", folded: the catalog commands of its zones that its panels do not already run, each with
-// a form read from the CLI's parser. The server checks the arguments again and runs the real CLI.
+// a form read from the CLI's parser. The server checks the arguments again and runs the real CLI. An address that
+// names one of them (#/quality/radar, from the ⌘K palette) opens the fold on it.
 let CATALOG = null
-const catalog = (srv) => (CATALOG ||= srv.get('app/catalog').catch((e) => { CATALOG = null; throw e }))
+export const catalog = (srv) => (CATALOG ||= srv.get('app/catalog').catch((e) => { CATALOG = null; throw e }))
 
 export default function Commands({ srv, jobs, section }) {
   const [cmds, setCmds] = useState(null)
   const [error, setError] = useState('')
+  const want = (useHash().match(/^#\/[\w-]+\/([\w-]+)/) || [])[1]
   useEffect(() => { catalog(srv).then((c) => setCmds(c.commands), (e) => setError(e.message)) }, [])
-  if (error) return <Aviso tone="error" title={t('cmds.failed')} detail={error} />
   const { safe, careful } = others(cmds, section)
+  const named = [...safe, ...careful].some((c) => c.name === want)
+  useEffect(() => {
+    const card = named && document.getElementById(`cmd-${want}`)
+    if (!card) return
+    card.scrollIntoView({ block: 'center' })
+    card.querySelector('input, select, button')?.focus({ preventScroll: true })
+  }, [want, named])
+  if (error) return <Aviso tone="error" title={t('cmds.failed')} detail={error} />
   if (!safe.length && !careful.length) return null
   return (
-    <Fold label={`${t('cmds.all')} (${safe.length + careful.length})`}>
+    <Fold label={`${t('cmds.all')} (${safe.length + careful.length})`} open={named}>
       <div className="dk-cmds">{safe.map((c) => <Command key={c.name} entry={c} srv={srv} jobs={jobs} />)}</div>
       {careful.length ? (<>
         <h2 className="eyebrow dk-group">{t('cmds.careful')}</h2>
@@ -40,7 +49,7 @@ function Command({ entry, srv, jobs }) {
   const asks = !!(entry.confirm || entry.destructive) && !(entry.reads && values[entry.reads])     // a dry run only reads
   const start = (confirmed) => c.run(entry.name, toArgs(entry, values), confirmed)
   return (
-    <Card className={'dk-cmd' + (entry.destructive ? ' careful' : '')}>
+    <Card id={`cmd-${entry.name}`} className={'dk-cmd' + (entry.destructive ? ' careful' : '')}>
       <div className="row">
         <b>{entry[lang()] || entry.en}</b>
         <code className="muted small">camaron {entry.name}</code>

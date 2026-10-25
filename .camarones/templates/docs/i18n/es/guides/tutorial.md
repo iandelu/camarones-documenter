@@ -209,7 +209,8 @@ imagen que publicó el CI: `docker run -d -p 8080:80 <registry>/<grupo>/cam-docs
 Donde se opera un proyecto; el portal es donde se lee. Cada proyecto se abre en su ventana: a la izquierda el raíl con
 tus proyectos y las secciones, abajo el panel de trabajos (lo que corre y los últimos, su salida y **Parar**). El portal
 del navegador queda como visor del equipo (leer, editar, revisar, estado de la pipeline, la entrevista) y no enseña lo
-que no puede hacer.
+que no puede hacer. Con el teclado, Ctrl K / ⌘K va a una sección, a otro proyecto o a cualquier comando, y `g` y una letra salta de
+sección (`g s` Resumen, `g p` Plan, `g q` Calidad…).
 
 | Sección | Qué haces ahí |
 |---|---|

@@ -209,7 +209,7 @@ PAGES = {
         {"icon": "🖥", "title": "La app de escritorio, por tareas",
          "art": r"""
    +----------------------------------------------------------------------------+
-   | camarón  bench > Resumen                                                   |
+   | camarón  bench > Resumen                    [ Buscar o ir a…  Ctrl K ]     |
    | [BE] Resumen      SIGUIENTE PASO                                           |
    | [CL] Plan         Discovery of api                                         |
    | [+ ] Entrevistas  [Claude Code v]  ( Empezar con Claude Code )             |
@@ -227,7 +227,8 @@ PAGES = {
                  "desactualizadas) y Docs, que abre el portal; debajo, Máquina (setup, idioma y modelos, tokens, repos, "
                  "el kit y desinstalar con vista previa). Cada comando de la CLI está ahí, con su formulario en «Todos "
                  "los comandos», su salida en el panel de trabajos y su resultado; lo que borra o mueve datos va aparte "
-                 "y pregunta antes. Al abrirla eliges proyecto, creas uno o te unes al del equipo. El portal del "
+                 "y pregunta antes. Ctrl K / ⌘K va a una sección, a otro proyecto o a un comando, y g y una letra (g p, "
+                 "g q…) salta de sección. Al abrirla eliges proyecto, creas uno o te unes al del equipo. El portal del "
                  "navegador queda como visor del equipo: leer, editar, revisar y ver el estado, sin los botones de lo "
                  "que no puede hacer. La primera vez instala Electron en ~/.camarones/desktop (necesita Node.js); sin "
                  "él, la CLI y este asistente funcionan igual."},
@@ -571,7 +572,7 @@ PAGES = {
         {"icon": "🖥", "title": "The desktop app, by task",
          "art": r"""
    +----------------------------------------------------------------------------+
-   | camarón  bench > Summary                                                   |
+   | camarón  bench > Summary                    [ Search or go to…  Ctrl K ]   |
    | [BE] Summary      NEXT STEP                                                |
    | [CL] Plan         Discovery of api                                         |
    | [+ ] Interviews   [Claude Code v]  ( Start with Claude Code )              |
@@ -588,7 +589,8 @@ PAGES = {
                  "vulnerabilities and pages out of date) and Docs, which opens the portal; below, Machine (setup, "
                  "language and models, tokens, repos, the kit and uninstall previewed first). Every CLI command is "
                  "there, with its form under \"All commands\", its output in the jobs panel and its result; what deletes "
-                 "or moves data sits apart and asks first. When it opens you pick a project, create one or join the "
+                 "or moves data sits apart and asks first. Ctrl K / ⌘K goes to a section, another project or a command, "
+                 "and g then a letter (g p, g q…) jumps between sections. When it opens you pick a project, create one or join the "
                  "team's. The browser portal stays the team's viewer: reading, editing, review and status, without the "
                  "buttons for what it cannot do. The first time it installs Electron into ~/.camarones/desktop (needs "
                  "Node.js); without it the CLI and this wizard work the same."},

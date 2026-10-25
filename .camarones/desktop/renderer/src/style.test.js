@@ -10,8 +10,16 @@ test('no raw colours', () => {
   expect(css.match(/#[0-9a-f]{3,8}\b|rgba?\(\s*\d/gi) ?? []).toEqual([])
 })
 
+// WCAG 2.4.7: a rule that drops the outline gives the focus another visible mark (a border or a shadow) itself.
 test('nothing hides the focus', () => {
-  expect(css).not.toMatch(/outline:\s*(none|0)\b/)
+  for (const [, sel, body] of css.matchAll(/([^{}]+)\{([^}]*outline:\s*(?:none|0)\b[^}]*)\}/g)) {
+    expect(sel, sel.trim()).toMatch(/:focus/)
+    expect(body, sel.trim()).toMatch(/box-shadow|border/)
+  }
+})
+
+test('the hints and the palette do not move for who asked for less motion', () => {
+  expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)\s*\{[^}]*\.dk-hint\s*\{\s*transition:\s*none/)
 })
 
 // WCAG 2.5.8: the sidebar links, the projects of the rail, the folds and the labelled checkboxes are 24 px or more.
