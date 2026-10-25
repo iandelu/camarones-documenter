@@ -250,8 +250,12 @@ PAGES = {
                  "sigue ahí aunque cambies de sección. Plan (ejecutar o el piloto automático, y las unidades agrupadas "
                  "por lo que te piden: aprobar, reintentar, seguir, empezar), Entrevistas (cuestionario o en vivo, "
                  "exportar, importar, cerrar la ronda) y Equipo (repo del equipo y compartir, lo que falta aprobar, "
-                 "plugins) van por tarea, con «Todos los comandos» plegado al final. Las secciones que la app aún está "
-                 "rehaciendo abren su zona del Taller, y «Volver a la app» te trae de vuelta. Un buen primer paso: Taller › Comprobar para ver qué falta, y Analizar para el primer vistazo sin IA. Si algo "
+                 "plugins) y Calidad (el doctor, guardado entre visitas y con «Volver a comprobar»; el contexto de cada "
+                 "sesión, preguntas de control, con y sin cam-docs, y sin IA vulnerabilidades, páginas desactualizadas y "
+                 "bloques) van por tarea, con «Todos los comandos» plegado al final; si al doctor le falta algo, el "
+                 "Resumen lo avisa. Docs abre el portal. Debajo, Máquina (setup, idioma y modelos, tokens, repos, el kit "
+                 "y desinstalar) y, en un checkout del kit, Kit dev. Un buen primer paso: Calidad › Requisitos y "
+                 "herramientas para ver qué falta. Si algo "
                  "falla, el aviso dice qué; borrar ~/.camarones/desktop fuerza a descargar Electron otra vez."},
         {"icon": "✏️", "title": "Dónde y cuándo se puede editar",
          "art": r"""
@@ -611,9 +615,12 @@ PAGES = {
                  "and \"Stop\", still there when you change section. Plan (run or the autopilot, and the units grouped "
                  "by what they ask of you: approve, retry, continue, start), Interviews (questionnaire or live, export, "
                  "import, close the round) and Team (the team's repo and sharing, what is left to approve, plugins) go "
-                 "by task, with \"All commands\" folded at the end. The sections the app is still rebuilding open their Workshop zone, and \"Back to the "
-                 "app\" brings you back. A good first step: Workshop › Check to see what is missing, and Analyze for the first "
-                 "look without AI. If something fails, the notice says what; deleting ~/.camarones/desktop makes it download "
+                 "by task, and so does Quality (the doctor, kept between visits, with \"Check again\"; each session's "
+                 "context, golden questions, with and without cam-docs, and without AI vulnerabilities, pages out of "
+                 "date and blocks), with \"All commands\" folded at the end; when the doctor finds something missing, "
+                 "the Summary says so. Docs opens the portal. Below, Machine (setup, language and models, tokens, repos, "
+                 "the kit and uninstall) and, in a checkout of the kit, Kit dev. A good first step: Quality › Prerequisites "
+                 "and tools to see what is missing. If something fails, the notice says what; deleting ~/.camarones/desktop makes it download "
                  "Electron again."},
         {"icon": "✏️", "title": "Where and when you can edit",
          "art": r"""

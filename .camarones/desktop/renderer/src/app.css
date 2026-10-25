@@ -79,6 +79,13 @@ a.dk-stat-n:hover { color: var(--color-acento-texto); }
              background: var(--color-canvas-elevated); color: var(--color-ink); padding: 1.25rem; }
 .dk-dialog::backdrop { background: color-mix(in oklch, var(--color-canvas) 60%, transparent); }
 .dk-dialog h2 { margin: 0 0 .5rem; font-size: var(--text-h3); }
+.dk-scroll { overflow-x: auto; }
+.dk-table { width: 100%; border-collapse: collapse; font-size: var(--text-meta); }
+.dk-table :is(th, td) { padding: .45rem .6rem; border-bottom: 1px solid var(--color-rule); text-align: left; vertical-align: top; }
+.dk-table th { font-weight: 500; color: var(--color-ink); white-space: nowrap; }
+.dk-table td { color: var(--color-ink-soft); overflow-wrap: anywhere; }
+.dk-stack { width: 14rem; max-width: 100%; }
+.dk-build { min-width: 9rem; }
 .dk-stats-sm { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; }
 .dk-stats-sm > div { display: flex; flex-direction: column; gap: .2rem; }
 .dk-stat-sm { font-size: var(--text-h2); line-height: 1.1; }

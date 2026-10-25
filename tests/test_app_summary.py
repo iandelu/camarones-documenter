@@ -139,3 +139,20 @@ def test_a_panel_reading_in_the_background_keeps_its_job_out_of_the_panel(wired,
 
 def kit_job(wired, job_id):
     return wired.serve.JOBS[job_id]
+
+
+DOCTOR = {"prerequisites": [{"name": "node", "ok": False, "need": True}], "tools": [], "drift": [],
+          "fix_drift": {"cmd": "repair", "args": {}}}
+
+
+def test_the_app_reads_the_last_doctor_check_and_asks_for_a_new_one(wired, app, monkeypatch):
+    from lib import doctor
+    monkeypatch.setattr(doctor, "report", lambda: DOCTOR)
+    assert get(app + "/api/app/doctor")[1] == {"checked": None}
+    assert get(app + "/api/app/summary")[1]["doctor"] is None             # never checked: the Summary says nothing
+    job = post(app + "/api/app/doctor", {})
+    wait_end(kit_job(wired, job["id"]))
+    body = get(app + "/api/app/doctor")[1]
+    assert body["checked"]["result"] == DOCTOR
+    assert get(app + "/api/app/summary")[1]["doctor"] == doctor.problems(DOCTOR)
+    assert get(app + "/api/app/doctor", token=None)[0] == 403

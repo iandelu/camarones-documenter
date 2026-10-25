@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import AgentLaunch from './AgentLaunch.jsx'
 import { APP, getJSON, postJSON } from './api.js'
 import { lang, t } from './i18n.js'
-import { severities, shape } from './result.js'
+import { severities, shape } from '@camaron/ui/result.js'
 import { useJob } from './useJob.js'
 
 // The Taller's views over --json (desktop app): what the generic forms would print, laid out with the action that

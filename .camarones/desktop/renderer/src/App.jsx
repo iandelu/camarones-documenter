@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Aviso, Brand, Breadcrumbs, Button, Card, EmptyState, Field, Skeleton } from '@camaron/ui'
-import { initials, sectionOf, sections, TALLER_OF } from './nav.js'
+import { initials, sectionOf, sections } from './nav.js'
 import { jobsStore } from './jobs.js'
 import { server } from './server.js'
 import { useStore } from './hooks.js'
 import JobsPanel from './JobsPanel.jsx'
 import Interviews from './sections/Interviews.jsx'
+import KitDev from './sections/KitDev.jsx'
+import Machine from './sections/Machine.jsx'
 import Plan from './sections/Plan.jsx'
+import Quality from './sections/Quality.jsx'
 import Summary from './sections/Summary.jsx'
 import Team from './sections/Team.jsx'
 import { t } from './i18n.js'
@@ -110,21 +113,23 @@ function Rail({ app, name, onStatus }) {
   )
 }
 
-// The sections rebuilt here; the others still live in the portal's Taller.
-const SECTIONS = { summary: Summary, plan: Plan, interviews: Interviews, team: Team }
+const SECTIONS = { summary: Summary, plan: Plan, interviews: Interviews, team: Team, quality: Quality, docs: Docs, machine: Machine,
+  kitdev: KitDev }
 function Section({ here, ...props }) {
   const View = SECTIONS[here]
-  return View ? <View key={here} {...props} /> : <Soon section={here} />
+  return <View key={here} {...props} />
 }
 
-// A section not rebuilt here yet: one way to it, where it still is.
-function Soon({ section }) {
+// Reading is the portal's (on this same server, one folder up): the app does not keep a second reader.
+function Docs() {
   return (
     <div className="dk-page">
-      <h1 className="t-impact">{t('nav.' + section)}</h1>
-      <EmptyState title={t('soon.title')} action={<Button variant="primary" href={`../${TALLER_OF[section]}`}>{t('soon.open')}</Button>}>
-        {t('soon.body')}
-      </EmptyState>
+      <h1 className="t-impact">{t('nav.docs')}</h1>
+      <div className="row">
+        <Button variant="primary" href="../#/">{t('docs.read')}</Button>
+        <Button href="../#/review">{t('docs.review')}</Button>
+        <Button variant="ghost" href="../#/search">{t('docs.search')}</Button>
+      </div>
     </div>
   )
 }

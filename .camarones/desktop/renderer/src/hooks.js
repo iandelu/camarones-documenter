@@ -18,30 +18,39 @@ export function useAgents(srv) {
   return { agents, agent, setAgent, label }
 }
 
-// A catalog command as a job of the server (POST app/cmd, lib/appapi.py), followed to its end: run() resolves to
-// the finished job (status, rc, result, stopped), so a panel can read a --json result or chain the next step. The
-// window's jobs store looks at once, so the panel below shows it; a quiet hook (a panel's background reads) stays
-// out of that panel.
-export function useCmd(srv, jobs, { quiet = false } = {}) {
+// A job of the server started by `start` (a POST that answers with the job), followed to its end: run() resolves to
+// the finished job (status, rc, result, stopped, lines), so a panel can read a --json result or chain the next step. The
+// window's jobs store looks at once, so the panel below shows it.
+export function useJob(srv, jobs, start) {
   const [job, setJob] = useState(null)              // {status, lines[], rc, result, stopped}
   const [error, setError] = useState('')
   const alive = useRef(true)
   useEffect(() => () => { alive.current = false }, [])
-  async function run(cmd, args = {}, confirmed = false) {
+  async function run(...args) {
     setError('')
     setJob({ status: 'running', lines: [] })
+    const lines = []
     try {
-      const started = await srv.post('app/cmd', { cmd, args, confirmed, quiet })
+      const started = await start(...args)
+      if (alive.current) setJob((j) => ({ ...j, id: started.id }))
       jobs?.refresh()
       const end = await follow(srv, started, { gone: () => !alive.current,
-        onLine: (l) => alive.current && setJob((j) => ({ ...j, lines: [...j.lines, l] })) })
+        onLine: (l) => { lines.push(l); if (alive.current) setJob((j) => ({ ...j, lines: [...j.lines, l] })) } })
       if (end && alive.current) setJob((j) => ({ ...j, status: end.status, rc: end.rc, result: end.result, stopped: end.stopped }))
       jobs?.refresh()
-      return end
+      return end && { ...end, lines }
     } catch (e) {
       if (alive.current) { setError(e.message); setJob(null) }
       return null
     }
   }
-  return { job, error, run, running: job?.status === 'running' }
+  const stop = () => job?.id && srv.post(`app/jobs/${job.id}/cancel`, {}).catch((e) => setError(e.message))
+  return { job, error, run, stop, running: job?.status === 'running' }
 }
+
+// A catalog command (POST app/cmd, lib/appapi.py); a quiet one (a panel's background read) stays out of the jobs panel.
+export const useCmd = (srv, jobs, { quiet = false } = {}) =>
+  useJob(srv, jobs, (cmd, args = {}, confirmed = false) => srv.post('app/cmd', { cmd, args, confirmed, quiet }))
+
+// A Kit dev task (POST app/kitdev, lib/kitdev.py): the bench of a checkout of the kit.
+export const useKit = (srv, jobs) => useJob(srv, jobs, (task, body = {}) => srv.post('app/kitdev', { task, ...body }))

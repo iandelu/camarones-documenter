@@ -1,4 +1,4 @@
-// What a command's --json gives back, shaped for one generic view in the Taller: a list of rows becomes a table, an
+// What a command's --json gives back, shaped for one generic view (the portal's Taller, the app's panels): a list of rows becomes a table, an
 // object label / value pairs (nested values summarised), anything else text. Pure, so vitest checks it.
 const summary = (v) => {
   if (Array.isArray(v)) return `${v.length} items`

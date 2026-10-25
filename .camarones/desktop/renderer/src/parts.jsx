@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Aviso, Button, Chip } from '@camaron/ui'
+import { shape } from '@camaron/ui/result.js'
 import { chip, state } from './jobs.js'
 import { unitAction, waitsFor } from './plan.js'
 import { lang, t } from './i18n.js'
@@ -43,6 +44,23 @@ export function JobOutput({ c }) {
         </details>
       ) : null}
     </div>
+  )
+}
+
+// A command's --json result in one generic view (ui/result.js): rows as a table, an object as pairs, else text.
+const cell = (v) => (v === true ? t('yes') : v === false ? t('no') : v == null || v === '' ? '—' : String(v))
+export function ResultView({ result }) {
+  const s = shape(result)
+  if (s.kind === 'empty') return <p className="muted small">{t('nothing')}</p>
+  if (s.kind === 'text') return <pre className="dk-log">{s.text}</pre>
+  if (s.kind === 'pairs') return (
+    <table className="dk-table"><tbody>{s.rows.map(([k, v]) => <tr key={k}><th>{k}</th><td>{cell(v)}</td></tr>)}</tbody></table>
+  )
+  return (
+    <div className="dk-scroll"><table className="dk-table">
+      <thead><tr>{s.cols.map((c) => <th key={c}>{c}</th>)}</tr></thead>
+      <tbody>{s.rows.map((r, i) => <tr key={i}>{r.map((v, k) => <td key={k}>{cell(v)}</td>)}</tr>)}</tbody>
+    </table></div>
   )
 }
 

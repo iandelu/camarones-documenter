@@ -36,6 +36,10 @@ def test_each_task_and_where_it_runs(kd):
     assert kd.command("portal-ci", {}) == (["/bin/npm", "ci"], app)
     assert kd.command("portal-test", {}) == (["/bin/npm", "test"], app)
     assert kd.command("portal-build", {}) == (["/bin/npm", "run", "build"], app)
+    ui = kd.REPO / ".camarones" / "desktop" / "renderer"                   # the desktop app's own UI, built the same way
+    assert kd.command("renderer-ci", {}) == (["/bin/npm", "ci"], ui)
+    assert kd.command("renderer-test", {}) == (["/bin/npm", "test"], ui)
+    assert kd.command("renderer-build", {}) == (["/bin/npm", "run", "build"], ui)
     # only the main process's tests: the renderer's are Vitest's (desktop/renderer), not node's
     assert kd.command("desktop-test", {}) == (["/bin/node", "--test", "test/*.test.cjs"], kd.REPO / ".camarones" / "desktop")
     assert kd.command("build-diff", {}) == (["/bin/git", "status", "--porcelain", "--", ".camarones/portal/app-build",

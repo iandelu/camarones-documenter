@@ -4,7 +4,16 @@ import { others, ZONES } from './catalog.js'
 const c = (name, zone, more = {}) => ({ name, zone, verdict: 'app', destructive: false, ...more })
 
 test('each section reads the catalog zones of its work', () => {
-  expect(ZONES).toMatchObject({ plan: ['generate'], interviews: ['interviews'], team: ['team'] })
+  expect(ZONES).toMatchObject({ plan: ['generate'], interviews: ['interviews'], team: ['team'], quality: ['check', 'analyze'],
+    machine: ['machine'] })
+})
+
+test('quality and machine leave out what their panels run', () => {
+  const cmds = ['doctor', 'eval', 'ab', 'inventory', 'fresh', 'blocks', 'check', 'radar'].map((n) => c(n, n === 'radar' ? 'analyze' : 'check'))
+  expect(others(cmds, 'quality').safe.map((x) => x.name)).toEqual(['check', 'radar'])
+  const m = ['setup', 'config', 'sync', 'detect', 'stack', 'profile', 'self-update', 'repair', 'version'].map((n) => c(n, 'machine'))
+  expect(others([...m, c('uninstall', 'machine', { destructive: true }), c('unlink', 'machine', { destructive: true })], 'machine'))
+    .toEqual({ safe: [m[8]], careful: [c('unlink', 'machine', { destructive: true })] })
 })
 
 test('all the commands of a section, but the ones its panels already run; what deletes goes last', () => {
