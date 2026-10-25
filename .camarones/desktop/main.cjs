@@ -1,8 +1,9 @@
 'use strict'
 // Camarón's desktop app, main process. It only runs processes and windows: every project window is served by that
 // project's own server (lib/serve.py, started here with a fresh token): the app's UI at /desktop/ (desktop/renderer),
-// the portal at /, so the app, the portal and the CLI are the same code. The hub (the same UI, from disk)
-// lists, creates and joins projects through the CLI (`projects`, `new`, `join` with --no-open).
+// the portal at /, so the app, the portal and the CLI are the same code. The hub (the same UI, from disk) lists
+// projects, asks what a picked folder is, makes it a project and joins a team's docs, all through the CLI
+// (`projects`, `projects --inspect/--adopt/--git-init`, `join --no-open`). The portal is read in the system browser.
 // Started by `camaron app` (lib/desktop.py), which passes the interpreter and kit to call back.
 const { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, screen, session, shell } = require('electron')
 const { spawn, spawnSync } = require('node:child_process')
@@ -26,18 +27,17 @@ function lang() {
 
 const L = {
   es: { projects: 'Proyectos…', browser: 'Abrir en el navegador', startFailed: 'No he podido arrancar el servidor del proyecto',
-        notProject: 'Esa carpeta no es un proyecto de Camarón', pickParent: 'Carpeta donde crear el proyecto',
-        pickJoin: 'Carpeta donde traer el cam-docs del equipo', pickProject: 'Carpeta del proyecto (o su cam-docs)' },
+        pickFolder: 'La carpeta de tu código, o una vacía', pickJoin: 'Carpeta donde traer el cam-docs del equipo' },
   en: { projects: 'Projects…', browser: 'Open in the browser', startFailed: 'I could not start the project\'s server',
-        notProject: 'That folder is not a Camarón project', pickParent: 'Folder to create the project in',
-        pickJoin: 'Folder to bring the team\'s cam-docs into', pickProject: 'The project folder (or its cam-docs)' },
+        pickFolder: 'Your code\'s folder, or an empty one', pickJoin: 'Folder to bring the team\'s cam-docs into' },
 }
 const s = (k) => L[lang()][k]
 
-// The CLI as a child process: resolves to its exit code and output; never through a shell.
-function cli(args, { cwd } = {}) {
+// The CLI as a child process: resolves to its exit code and output; never through a shell. `env` is merged over the
+// default child environment (core.cliEnv): the one way a join token reaches the CLI.
+function cli(args, { cwd, env } = {}) {
   return new Promise((resolve) => {
-    const pr = spawn(PY, core.cliArgv(KIT, args), { cwd: cwd || os.homedir(), env: core.cliEnv(process.env), windowsHide: true,
+    const pr = spawn(PY, core.cliArgv(KIT, args), { cwd: cwd || os.homedir(), env: { ...core.cliEnv(process.env), ...env }, windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe'] })
     let out = '', err = ''
     pr.stdout.on('data', (d) => { out += d })
@@ -54,12 +54,14 @@ function killTree(pr) {
   try { process.kill(-pr.pid, 'SIGTERM') } catch { pr.kill('SIGTERM') }
 }
 
-// Every window: no navigation away from its own origin, no pop-ups to other sites, no permissions (camera, …).
+// Every window: no navigation away from its own origin, no pop-ups to other sites, no permissions (camera, …). In a
+// project window the portal (same origin, outside /desktop/) is read in the system browser and the window stays.
 function guard(win, origin) {
   const wc = win.webContents
   const leave = (url) => { if (core.externalOk(url)) shell.openExternal(url) }
-  wc.on('will-navigate', (e, url) => { if (!origin || !core.sameOrigin(url, origin)) { e.preventDefault(); leave(url) } })
-  wc.setWindowOpenHandler(({ url }) => (origin && core.sameOrigin(url, origin) ? { action: 'allow' } : (leave(url), { action: 'deny' })))
+  const stays = (url) => origin && core.sameOrigin(url, origin) && !renderer.outsideApp(url, origin)
+  wc.on('will-navigate', (e, url) => { if (!stays(url)) { e.preventDefault(); leave(url) } })
+  wc.setWindowOpenHandler(({ url }) => (stays(url) ? { action: 'allow' } : (leave(url), { action: 'deny' })))
 }
 
 // The page's header is the title bar (core.titleBar); it starts in the system's theme until the page says its own.
@@ -157,28 +159,47 @@ function handlers() {
     return { projects: JSON.parse(r.out) }
   })
   onHub('hub:open', (root) => (typeof root === 'string' ? openProject(root) : null))
-  onHub('hub:add', async () => {
-    const dir = await pickFolder(s('pickProject'))
-    if (!dir) return { cancelled: true }
-    const r = await cli(['projects', '--add', dir, '--json'])
-    return r.code === 0 ? { project: core.lastJson(r.out) } : { error: r.err.trim() || s('notProject') }
+  // Pick a folder: the dialog, then what it is (inspect, which never writes), then the person's Continue (adopt).
+  // A refusal comes back as a kind the page words itself (folder | taken | home | no-git) with the CLI's line as detail.
+  onHub('hub:pick', async () => {
+    const dir = await pickFolder(s('pickFolder'))
+    return dir ? { dir } : { cancelled: true }
   })
-  onHub('hub:new', async ({ name, from } = {}) => {
-    if (typeof name !== 'string' || !name.trim() || name.startsWith('-')) return { error: 'name' }
-    const dir = await pickFolder(s('pickParent'))
-    if (!dir) return { cancelled: true }
-    const args = ['new', name.trim(), ...(from && !String(from).startsWith('-') ? ['--from', String(from)] : []), '--no-open']
-    const r = await cli(args, { cwd: dir })
-    const made = r.code === 0 && core.lastJson(r.out)
-    return made ? openProject(made.path) : { error: r.err.trim() || `exit ${r.code}` }
+  onHub('hub:inspect', async (dir) => {
+    if (!core.folderArg(dir)) return { error: 'folder', detail: '' }
+    const r = await cli(core.inspectArgs(dir))
+    const found = r.code === 0 && core.lastJson(r.out)
+    return found && found.case ? { found } : { error: 'folder', detail: core.errLine(r.err) || `exit ${r.code}` }
   })
-  onHub('hub:join', async ({ url } = {}) => {
-    if (typeof url !== 'string' || !url.trim() || url.startsWith('-')) return { error: 'url' }
-    const dir = await pickFolder(s('pickJoin'))
-    if (!dir) return { cancelled: true }
-    const r = await cli(['join', url.trim(), dir, '--no-open'])
+  onHub('hub:adopt', async ({ dir, name } = {}) => {
+    if (!core.folderArg(dir)) return { error: 'folder', detail: '' }
+    const r = await cli(core.adoptArgs(dir, name))
     const made = r.code === 0 && core.lastJson(r.out)
-    return made ? openProject(made.path) : { error: r.err.trim() || `exit ${r.code}` }
+    if (made && made.path) return openProject(made.path)
+    return { error: core.adoptError(r.out), detail: core.errLine(r.err) || `exit ${r.code}` }
+  })
+  // Code without a git repository: only the person's click on "Initialise git here" gets here, never on its own.
+  onHub('hub:gitInit', async (dir) => {
+    if (!core.folderArg(dir)) return { error: 'folder', detail: '' }
+    const r = await cli(core.gitInitArgs(dir))
+    const done = r.code === 0 && core.lastJson(r.out)
+    if (done && Array.isArray(done.initialised)) return { initialised: done.initialised }
+    const why = core.lastJson(r.out) || {}
+    return { error: 'git-init', detail: String(why.detail || '') || core.errLine(r.err) || `exit ${r.code}` }
+  })
+  // Join: the URL, then where it goes (asked once: a retry with a token passes the same `dir` back). A refused access
+  // returns the CLI's reason ({error: auth|denied|not-found|network|unknown|taken, host, detail, dir}); anything else
+  // is "failed". The token goes only in the child's environment.
+  onHub('hub:join', async ({ url, token, dir } = {}) => {
+    if (typeof url !== 'string' || !url.trim() || url.trim().startsWith('-')) return { error: 'url' }
+    if (dir != null && !core.folderArg(dir)) return { error: 'folder' }
+    const into = dir || await pickFolder(s('pickJoin'))
+    if (!into) return { cancelled: true }
+    const r = await cli(core.joinArgs(url.trim(), into), { env: core.joinEnv(process.env, token) })
+    const made = r.code === 0 && core.lastJson(r.out)
+    if (made && made.path) return openProject(made.path)
+    const why = core.joinFailure(r.out) || { error: 'failed', host: '', detail: core.errLine(r.err) || `exit ${r.code}` }
+    return { ...why, dir: into }
   })
   ipcMain.handle('app:hub', (e) => (fromProject(e) ? openHub() : null))
   ipcMain.handle('app:lang', (e) => (fromProject(e) ? lang() : null))     // a project window speaks the hub's language
