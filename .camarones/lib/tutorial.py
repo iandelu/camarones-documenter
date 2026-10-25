@@ -362,7 +362,9 @@ PAGES = {
                  "se guarda solo. Esc siempre vuelve atrás.\n\n"
                  "¿Hay un Camarón nuevo? «Ajustes › ⬆️ Actualizar Camarón» (o `camaron self-update`) mira el kit "
                  "oficial, te dice qué ha cambiado y, si le dices que sí, lo actualiza para todos los proyectos de esta "
-                 "máquina y reinicia el asistente. Tus proyectos y tu documentación no se tocan.\n\n"
+                 "máquina y reinicia el asistente. Tus proyectos y tu documentación no se tocan. Con una copia local "
+                 "del kit en el proyecto, `camaron upgrade <carpeta del kit nuevo>` la pone al día y borra los "
+                 "ficheros del kit que la versión nueva ya no trae, salvo los que hayáis editado.\n\n"
                  "¿Quieres empezar de cero? «Ajustes › 🧹 Deshacer todo» (o `camaron uninstall`) guarda una copia .zip "
                  "de cam-docs/, lo borra y quita todo rastro del kit de los repos y de la carpeta del workspace. Los "
                  "repos quedan exactamente como en su último commit."},
@@ -722,7 +724,9 @@ PAGES = {
                  "Esc always goes back.\n\n"
                  "Is there a new Camarón? “Settings › ⬆️ Update Camarón” (or `camaron self-update`) checks the official "
                  "kit, tells you what changed and, if you say yes, updates it for every project on this machine and "
-                 "restarts the wizard. Your projects and documentation are not touched.\n\n"
+                 "restarts the wizard. Your projects and documentation are not touched. With a local kit copy in the "
+                 "project, `camaron upgrade <new-kit-folder>` brings it up to date and deletes the kit files the new "
+                 "version no longer ships, except the ones your team edited.\n\n"
                  "Want to start over? “Settings › 🧹 Undo everything” (or `camaron uninstall`) zips cam-docs/ as a "
                  "backup, deletes it, and removes every trace of the kit from the repos and the workspace folder. The "
                  "repos end up exactly as in their last commit."},

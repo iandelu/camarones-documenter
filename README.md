@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.52.0-ff875f?style=flat-square" alt="Versión 4.52.0">
+  <img src="https://img.shields.io/badge/version-4.53.0-ff875f?style=flat-square" alt="Versión 4.53.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -188,6 +188,8 @@ Lo que trae el repo del equipo no se ejecuta a ciegas. Si `cam-docs` incluye hoo
 Por defecto los checkpoints se guardan solo en local y publicar es un paso explícito: «🤝 Compartir con el equipo» en el menú, **Plan › Sincronizar** en el portal o `camaron share`, que guarda un checkpoint, rebasa sobre el trabajo del equipo y hace push. Con `camaron share --auto on` (o diciendo que sí tras el primer share en el wizard) cada checkpoint hace ese share solo; es por máquina, así que no activa nada a tus compañeros, y si falla lo avisa sin perder el commit local. Si hay un conflicto, lo deshace y no toca nada; si hay algo que parece un secreto, no publica.
 
 **Copia local por proyecto (modo clásico).** Descarga este repositorio desde **Code → Download ZIP** o clónalo. Copia **`.camarones/`**, **`camaron.cmd`** y **`camaron.command`** a la carpeta que agrupa el proyecto. Los launchers antiguos `camarones.*` son aliases compatibles. Activa la visualización de archivos ocultos para ver `.camarones/`. Si ya tienes un proyecto así y quieres pasarlo a instalación global sin perder su configuración, corre `camaron unlink` dentro de él.
+
+Para actualizar una copia local, `camaron upgrade <carpeta-del-kit-nuevo>` (con `--dry-run` primero, si quieres ver la lista). Sustituye los ficheros del kit y borra los que la versión nueva ya no trae, por ejemplo assets viejos del portal, siempre que nadie los haya editado: los editados se quedan y se avisan, y de todo lo que cambia o se borra queda copia en `.camarones/.cache/install-backups/`. La limpieza la hace el kit 4.53 o posterior; si vienes de uno anterior, repite `camaron upgrade` con la misma carpeta y se quitan los que quedaron.
 
 ```text
 mi-proyecto/
