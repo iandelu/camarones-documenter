@@ -47,3 +47,18 @@ test('the wizard waits for its state with a skeleton', () => {
   const out = renderToStaticMarkup(<Start srv={srv} jobs={null} app={{}} />)
   expect(out).toContain('aria-busy="true"')
 })
+
+// A reload that fails AFTER an install leaves the old list on screen: the error and Retry show anyway (a stale list
+// must not pass for the current one).
+test('a failed tools reload with a stale list still says so and offers Retry', () => {
+  const tools = { rows: [{ id: 'git', kind: 't_required', ok: true, label: 'git' }], required_ok: true }
+  for (const out of [renderToStaticMarkup(<Tools tools={tools} picked={[]} setPicked={() => {}} error="boom" onRetry={() => {}} />),
+    renderToStaticMarkup(<Setup srv={srv} jobs={null} tools={tools} picked={[]} repos={[]} state={{ result: { ok: true }, running: false }}
+      setState={() => {}} reloadTools={() => {}} error="boom" />)]) {
+    expect(out).toContain('role="alert"')
+    expect(out).toContain('boom')
+    expect(out).toMatch(/<button type="button" class="cu-btn cu-btn--secondary cu-btn--sm">Reintentar<\/button>/)
+  }
+  // no error: the list alone
+  expect(renderToStaticMarkup(<Tools tools={tools} picked={[]} setPicked={() => {}} />)).not.toContain('role="alert"')
+})

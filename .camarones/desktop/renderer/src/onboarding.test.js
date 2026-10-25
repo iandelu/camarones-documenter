@@ -165,3 +165,9 @@ test('the no-agent warning promises nothing disabled', () => {
   expect(S.es.obAgentMissing).not.toMatch(/elige/i)
   expect(S.en.obAgentMissing).not.toMatch(/pick/i)
 })
+
+// A programming TypeError is not "no network": it shows its own message; only the engines' fetch messages mean that.
+test('a TypeError that is not a failed fetch shows its message', () => {
+  expect(errorText(new TypeError("Cannot read properties of undefined (reading 'rows')")))
+    .toEqual({ key: 'obErrServer', detail: "Cannot read properties of undefined (reading 'rows')" })
+})

@@ -110,14 +110,15 @@ const ERRORS = { repos: 'obErrRepos', name: 'obErrName', url: 'obErrUrl', duplic
   done: 'obErrDone', step: 'obErrStep', draft: 'obErrDraft' }
 export const errorKey = (code) => ERRORS[code] || ''
 
-// fetch rejects (no HTTP answer at all) with a TypeError whose message depends on the engine; useJob keeps the message only.
+// fetch rejects (no HTTP answer at all) with a TypeError whose message depends on the engine; useJob keeps the message
+// only. The message decides, never the type: any other TypeError is a bug and shows what it says.
 const UNREACHABLE = /^(Failed to fetch|NetworkError when attempting to fetch resource|Load failed)/
 // A rejection said to the person: {key, detail}. A known code by its own sentence, a server that cannot be reached by
 // its own, anything else as the server said it (obErrServer + the message).
 export function errorText(e) {
   const msg = String(e?.message ?? e ?? '')
   if (errorKey(msg)) return { key: errorKey(msg), detail: '' }
-  if (e?.name === 'TypeError' || UNREACHABLE.test(msg)) return { key: 'obErrNetwork', detail: '' }
+  if (UNREACHABLE.test(msg)) return { key: 'obErrNetwork', detail: '' }
   return { key: 'obErrServer', detail: msg }
 }
 

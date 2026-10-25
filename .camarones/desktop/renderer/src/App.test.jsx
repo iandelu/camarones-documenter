@@ -59,3 +59,12 @@ test('the header opens the palette and the sidebar shows the shortcuts', () => {
   expect(out).toContain('<span class="dk-hint" aria-hidden="true"><span class="cu-keys"><kbd class="cu-kbd">g</kbd><kbd class="cu-kbd">p</kbd></span></span>')
   expect(out).toContain('<dialog class="dk-pal"></dialog>')
 })
+
+// I3: the portal is the reader and has no token; a project's header has the way to it, in the system browser (a button
+// calling app.openExternal, never a link the window would navigate).
+test('the project header has Ver portal, a button that opens the browser', () => {
+  globalThis.window = { camaronApp: { token: 't', openExternal: () => {} } }
+  const out = renderToStaticMarkup(<App />)
+  expect(out).toMatch(/<button type="button" class="cu-btn cu-btn--ghost cu-btn--sm">Ver portal[^<]*(<svg[^>]*>.*?<\/svg>)?<\/button>/)
+  expect(out.split('<header')[1].split('</header>')[0]).not.toMatch(/<a [^>]*href="\.\.\//)
+})
