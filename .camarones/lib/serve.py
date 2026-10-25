@@ -550,7 +550,8 @@ class Handler(BaseHTTPRequestHandler):
         if not (APP_TOKEN or PORTAL_TOKEN):
             return False
         port = self.server.server_address[1]
-        return self.headers.get("Host", "") not in (f"127.0.0.1:{port}", f"localhost:{port}")
+        ok = {f"127.0.0.1:{port}", f"localhost:{port}"} | ({"127.0.0.1", "localhost"} if port == 80 else set())
+        return self.headers.get("Host", "") not in ok          # on port 80 the browser leaves the port out
 
     def kanban_post(self, action: str, b: dict) -> None:
         from .kanban import ops

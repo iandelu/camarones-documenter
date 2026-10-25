@@ -2285,9 +2285,12 @@ Talk to the user in {talk}. Do not modify application code.
         port = int(self.prefs.get("port", 8080))
         with socket.socket() as sck:
             up = sck.connect_ex(("127.0.0.1", port)) == 0
-        url = env.portal_url(port, None, hash_) if up else self.safe(self.busy, env.serve_editor, port, total=1)
+        mine = getattr(self, "_portal_token", {})      # in memory only: the server this wizard started, by port
+        url = env.portal_url(port, mine.get(port), hash_) if up else self.safe(self.busy, env.serve_editor, port, total=1)
         if url and not up:                       # keep the fresh token, add the route to the same fragment
-            url = env.portal_url(port, env.portal_token(url), hash_)
+            token = env.portal_token(url)
+            self._portal_token = {**mine, port: token}
+            url = env.portal_url(port, token, hash_)
         if url:
             env.open_url(url)
 
