@@ -278,3 +278,136 @@ def test_an_endpoints_map_block_refreshes_through_genblocks(dg):
     assert dg.gb.render("endpoints-map", "api", dg.kit.ws / "api") == (body, sources)
     text = dg.gb.block("endpoints-map", "api", body)
     assert [s for _, s, _ in dg.gb.states(text, dg.gb.Scanner())] == ["current"]
+
+
+# ---------- context and messaging (system-wide) ----------
+SYSTEM = "_system"
+KAFKA_POM = "<project><artifactId>api</artifactId><parent>spring-boot</parent><dependency>spring-kafka</dependency></project>\n"
+
+
+def system_repos(dg):
+    """api (PostgreSQL, Kafka: publishes visit-booked, consumes pet-created) and web calling api over HTTP."""
+    api_repo(dg)
+    dg.put("api", "pom.xml", KAFKA_POM)
+    dg.put("web", "package.json", '{"name": "web"}\n')
+    dg.put("web", "src/client.js", 'export const pets = () => fetch("http://api:8080/pets");\n')
+
+
+def add_repos(dg, n):
+    ws = dg.kit.docs.workspace()
+    for i in range(n):
+        dg.put(f"svc{i}", "package.json", f'{{"name": "svc{i}"}}\n')
+        ws["repos"].append({"name": f"svc{i}", "kind": "service", "branch": "main"})
+    dg.kit.docs.save_workspace(ws)
+
+
+def test_context_map_draws_repos_stores_and_calls(dg):
+    system_repos(dg)
+    assert dg.mod.ids("context", SYSTEM) == [None]
+    body, sources = dg.mod.render("context", SYSTEM, None)
+    code = mermaid(body)
+    assert code.startswith("flowchart")
+    assert 'api["api"]' in code and 'web["web"]' in code
+    assert '[("PostgreSQL' in code and 'Kafka(["Kafka"])' in code
+    assert 'web -->|"calls (HTTP)"| api' in code and '-->|"reads/writes"|' in code
+    assert 'api -->|"publishes visit-booked"| Kafka' in code
+    assert sources and set(sources) <= dg.mod.quickarch.scan()["sources"]
+
+
+def test_a_crowded_context_folds_external_systems(dg):
+    system_repos(dg)
+    add_repos(dg, 17)                                                      # 3 + 17 repos, a database, a broker
+    idps = ("keycloak", "auth0", "cognito", "firebase_auth", "okta")       # the five labels quickarch.IDP_HINTS knows
+    dg.put("svc0", "src/auth.js", "// " + " ".join(idps) + "\n")
+    assert len(dg.mod.quickarch.scan()["idps"]) == 5
+    body, _ = dg.mod.render("context", SYSTEM, None)
+    assert len(node_ids(body)) <= 25
+    assert len(re.findall(r'\["External', mermaid(body))) == 1
+    assert "5 identity providers folded into External" in body and "Okta" in body and 'Auth0["Auth0"]' not in body
+    assert "not drawn" not in body and "svc16" in body                     # folding was enough: no repo left out
+
+
+def test_a_context_still_too_big_leaves_out_the_least_connected(dg):
+    system_repos(dg)
+    add_repos(dg, 30)
+    body, _ = dg.mod.render("context", SYSTEM, None)
+    assert len(node_ids(body)) <= 25 and 'api["api"]' in mermaid(body) and "less connected elements not drawn" in body
+
+
+def test_context_needs_a_repo_and_only_exists_for_the_system(dg):
+    system_repos(dg)
+    assert dg.mod.ids("context", "api") == [] and dg.mod.render("context", "api", None) is None
+    assert dg.mod.render("context", SYSTEM, "x") is None
+    ws = dg.kit.docs.workspace()
+    ws["repos"] = []
+    dg.kit.docs.save_workspace(ws)
+    assert dg.mod.ids("context", SYSTEM) == [] and dg.mod.render("context", SYSTEM, None) is None
+
+
+def test_messaging_has_one_sequence_per_topic(dg):
+    system_repos(dg)
+    assert dg.mod.ids("messaging", SYSTEM) == ["pet-created", "visit-booked"]
+    body, sources = dg.mod.render("messaging", SYSTEM, "visit-booked")
+    assert "sequenceDiagram" in body and "api->>Kafka: publish visit-booked" in body and "deliver visit-booked" not in body
+    assert sources == ["api:src/main/java/demo/Events.java"]
+    body, _ = dg.mod.render("messaging", SYSTEM, "pet-created")
+    assert "Kafka-->>api: deliver pet-created" in body and "publish pet-created" not in body
+    assert dg.mod.render("messaging", SYSTEM, "gone") is None and dg.mod.render("messaging", SYSTEM, None) is None
+    assert dg.mod.ids("messaging", "api") == [] and dg.mod.render("messaging", "api", "pet-created") is None
+
+
+def test_a_topic_published_and_consumed_is_one_diagram_with_one_broker(dg):
+    system_repos(dg)
+    dg.put("web", "src/Bus.java", 'class Bus { @KafkaListener(topics = "visit-booked") void on(String m) {} }\n')
+    dg.put("web", "src/Bus2.java", 'class Bus2 { void f() { kafkaTemplate.send("visit-booked", m); } }\n')
+    assert dg.mod.ids("messaging", SYSTEM).count("visit-booked") == 1
+    code = mermaid(dg.mod.render("messaging", SYSTEM, "visit-booked")[0])
+    assert code.count("participant Kafka") == 1 and code.count("participant web") == 1
+    assert "web->>Kafka: publish visit-booked" in code and "Kafka-->>web: deliver visit-booked" in code
+    assert "api->>Kafka: publish visit-booked" in code
+
+
+def test_two_brokers_share_the_name_broker(dg):
+    system_repos(dg)
+    dg.put("web", "package.json", '{"name": "web", "dependencies": {"amqplib": "1"}}\n')
+    dg.put("web", "src/bus.js", "channel.publish('visit-booked', x)\n")
+    body, _ = dg.mod.render("messaging", SYSTEM, "visit-booked")
+    assert "web->>Broker: publish visit-booked" in body and "api->>Broker: publish visit-booked" in body
+    assert "Kafka" not in mermaid(body)
+
+
+def test_a_hyphenated_repo_gets_an_aliased_participant(dg):
+    ws = dg.kit.docs.workspace()
+    ws["repos"].append({"name": "pet-api", "kind": "service", "branch": "main"})
+    dg.kit.docs.save_workspace(ws)
+    dg.put("pet-api", "src/Bus.java", 'class Bus { void f() { kafkaTemplate.send("pet-created", m); } }\n')
+    code = mermaid(dg.mod.render("messaging", SYSTEM, "pet-created")[0])
+    assert "participant pet_api as pet-api" in code and "pet_api->>Broker: publish pet-created" in code
+
+
+def test_no_topics_no_messaging(dg):
+    dg.put("web", "package.json", '{"name": "web"}\n')
+    assert dg.mod.ids("messaging", SYSTEM) == []
+    assert dg.mod.render("messaging", SYSTEM, "pet-created") is None
+
+
+def test_messaging_and_context_scan_the_architecture_once(dg, monkeypatch):
+    system_repos(dg)
+    calls = []
+    real = dg.mod.quickarch.scan
+    monkeypatch.setattr(dg.mod.quickarch, "scan", lambda: calls.append(1) or real())
+    dg.mod.render("context", SYSTEM, None)
+    assert len(calls) == 1
+    calls.clear()
+    dg.mod.render("messaging", SYSTEM, "visit-booked")
+    assert len(calls) == 1
+    calls.clear()
+    dg.mod.ids("messaging", SYSTEM)
+    assert not calls                                                       # topic names need no architecture scan
+
+
+def test_system_blocks_refresh_through_genblocks(dg):
+    system_repos(dg)
+    for kind, id in (("context", None), ("messaging", "visit-booked")):
+        body, sources = dg.mod.render(kind, SYSTEM, id)
+        assert dg.gb.render(kind, SYSTEM, None, id) == (body, sources)
