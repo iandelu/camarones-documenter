@@ -339,3 +339,28 @@ def test_a_uid_mismatch_never_writes_the_wrong_file(board, kit):
         with pytest.raises(board.BoardError, match="camaron board repair"):
             write()
     assert tree(kit.root) == before
+
+
+def test_add_writes_the_new_item_before_its_epic(board, kit, monkeypatch):
+    board.add("epic", "Payments")
+    before = tree(kit.root)
+    real = board.save_item
+
+    def failing(item):
+        if item.id == "WI-2":
+            raise OSError("disk full")
+        real(item)
+    monkeypatch.setattr(board, "save_item", failing)
+    with pytest.raises(OSError):
+        board.add("story", "Pay", epic="WI-1")
+    assert tree(kit.root) == before                     # the epic does not list a story that was never written
+
+
+def test_a_failed_replace_leaves_no_temp_file(board, kit, monkeypatch):
+    def boom(*_):
+        raise OSError("locked")
+    monkeypatch.setattr(board.os, "replace", boom)
+    with pytest.raises(OSError):
+        board.add("task", "x")
+    monkeypatch.undo()
+    assert list((kit.root / "backlog").rglob("*.tmp")) == []
