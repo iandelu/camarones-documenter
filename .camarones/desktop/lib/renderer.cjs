@@ -8,6 +8,16 @@ const SECTIONS = ['summary', 'plan', 'interviews', 'team', 'quality', 'docs', 'm
 // A project's window: the app served by that project's own server (same origin as its API, the token as the key).
 const projectUrl = (origin, section = 'summary') => `${origin}/desktop/#/${SECTIONS.includes(section) ? section : 'summary'}`
 
+// The app lives under /desktop/ on its project's server; anything else on that origin is the portal (the reader), which
+// opens in the system browser. True for a same-origin address outside the app; false for another origin (the external
+// rule's) and for what is not an address.
+function outsideApp(url, origin) {
+  try {
+    const u = new URL(url)
+    return u.origin === origin && u.pathname !== '/desktop' && !u.pathname.startsWith('/desktop/')
+  } catch { return false }
+}
+
 // No project open: the same build, from the kit's folder.
 const hubFile = (desktopDir) => path.join(desktopDir, 'renderer-build', 'index.html')
 
@@ -47,4 +57,4 @@ function oneAtATime(inFlight, key, start) {
   return p
 }
 
-module.exports = { SECTIONS, projectUrl, hubFile, DEFAULT_BOUNDS, MIN, bounds, switchable, samePath, rail, oneAtATime }
+module.exports = { SECTIONS, projectUrl, outsideApp, hubFile, DEFAULT_BOUNDS, MIN, bounds, switchable, samePath, rail, oneAtATime }

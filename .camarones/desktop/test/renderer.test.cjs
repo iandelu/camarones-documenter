@@ -58,3 +58,15 @@ test('switching projects only accepts a project the CLI listed and that is on di
   assert.equal(r.switchable(listed, '/etc'), false)
   assert.equal(r.switchable(listed, 42), false)
 })
+
+test('outsideApp keeps the app and sends the portal out', () => {
+  const origin = 'http://127.0.0.1:5000'
+  assert.equal(r.outsideApp('http://127.0.0.1:5000/#/review', origin), true)
+  assert.equal(r.outsideApp('http://127.0.0.1:5000/raw/x.png', origin), true)
+  assert.equal(r.outsideApp('http://127.0.0.1:5000/desktop/#/plan', origin), false)
+  assert.equal(r.outsideApp('http://127.0.0.1:5000/desktop', origin), false)
+  assert.equal(r.outsideApp('http://127.0.0.1:5000/desktop/assets/x.js', origin), false)
+  assert.equal(r.outsideApp('http://127.0.0.1:5000/desktopx/y', origin), true)     // a sibling path, not the app
+  assert.equal(r.outsideApp('http://127.0.0.1:6000/#/', origin), false)            // another origin: the external rule's
+  assert.equal(r.outsideApp('not a url', origin), false)
+})
