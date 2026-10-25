@@ -8,6 +8,7 @@ const STATIC = $('meta[name="cam-mode"]').content === 'static';
 // browser portal those buttons give way to a note (appOnly).
 const APP = window.camaronApp?.token ? window.camaronApp : null;
 const RUNS = !STATIC && !!APP;
+document.documentElement.classList.toggle('in-app', !!APP);   // the header is the window's title bar (app.css)
 const TRUST = { confirmed: '✅', draft: '✨', 'needs-reconfirm': '⚠️' };
 const LANG_NAMES = { en: 'English', es: 'Español', fr: 'Français', de: 'Deutsch', pt: 'Português', it: 'Italiano' };
 const SECTION_ICONS = { overview: '🧭', architecture: '🏗️', domain: '📖', flows: '🔀', data: '🗄️', deployment: '🚀',
@@ -24,7 +25,7 @@ const I18N = {
     searchAll: 'All results for “{q}”', titles: 'Pages', content: 'Content', inNotes: 'working note',
     newPage: '+ New page', general: 'General', notes: 'Working notes',
     notesHelp: 'Discovery, interviews and questionnaires: what agents used to write the docs.',
-    onThisPage: 'On this page', prev: 'Previous', next: 'Next', menu: 'Menu', theme: 'Switch light / dark',
+    onThisPage: 'On this page', prev: 'Previous', next: 'Next', menu: 'Menu', appMenu: 'Projects, window and view', theme: 'Switch light / dark',
     copy: 'Copy', copied: 'Copied', zoom: 'Full screen', close: 'Close',
     'callout.note': 'Note', 'callout.tip': 'Tip', 'callout.important': 'Important', 'callout.warning': 'Warning', 'callout.caution': 'Caution',
     'sec.overview': 'Overview', 'sec.architecture': 'Architecture', 'sec.domain': 'Domain', 'sec.flows': 'Flows',
@@ -143,7 +144,7 @@ const I18N = {
     searchAll: 'Todos los resultados de «{q}»', titles: 'Páginas', content: 'Contenido', inNotes: 'nota de trabajo',
     newPage: '+ Nueva página', general: 'General', notes: 'Notas de trabajo',
     notesHelp: 'Discovery, entrevistas y cuestionarios: lo que usaron los agentes para escribir la doc.',
-    onThisPage: 'En esta página', prev: 'Anterior', next: 'Siguiente', menu: 'Menú', theme: 'Cambiar claro / oscuro',
+    onThisPage: 'En esta página', prev: 'Anterior', next: 'Siguiente', menu: 'Menú', appMenu: 'Proyectos, ventana y vista', theme: 'Cambiar claro / oscuro',
     copy: 'Copiar', copied: 'Copiado', zoom: 'Pantalla completa', close: 'Cerrar',
     'callout.note': 'Nota', 'callout.tip': 'Consejo', 'callout.important': 'Importante', 'callout.warning': 'Aviso', 'callout.caution': 'Precaución',
     'sec.overview': 'Visión general', 'sec.architecture': 'Arquitectura', 'sec.domain': 'Dominio', 'sec.flows': 'Flujos',
@@ -362,6 +363,7 @@ function applyTheme() {
   const pick = store.get('cam-theme');
   if (pick) document.documentElement.dataset.theme = pick; else delete document.documentElement.dataset.theme;
   $('#theme').textContent = isDark() ? '☀️' : '🌙';
+  APP?.theme?.(isDark() ? 'dark' : 'light');                // the window controls drawn over the header follow it
   if (window.mermaid) mermaid.initialize({ startOnLoad: false, theme: isDark() ? 'dark' : 'neutral', securityLevel: 'strict',
     fontFamily: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif' });
   $$('likec4-view').forEach((v) => v.setAttribute('color-scheme', isDark() ? 'dark' : 'light'));

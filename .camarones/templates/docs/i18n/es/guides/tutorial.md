@@ -229,8 +229,9 @@ muestra allí «ábrelo en la app».
 
 Desde la carpeta de un proyecto abre ese proyecto; desde cualquier otra, el selector: abrir un proyecto, crear uno,
 unirte al `cam-docs` del equipo con su URL o añadir una carpeta que ya lo tenga. El asistente tiene la misma entrada
-(🖥️ App de escritorio). Dentro, <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>O</kbd> vuelve a los proyectos y
-**camarón › Abrir en el navegador** abre el mismo portal fuera. En Linux con los *user namespaces* restringidos (Ubuntu
+(🖥️ App de escritorio). Dentro, la cabecera del portal es la barra de la ventana (arrástrala para moverla),
+<kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>O</kbd> vuelve a los proyectos y el botón **⋯** de la barra abre el
+menú de la app, con **Abrir en el navegador** para ver el mismo portal fuera. En Linux con los *user namespaces* restringidos (Ubuntu
 24.04 o posterior) el kit la arranca con `--no-sandbox`: sus ventanas solo cargan el servidor local de tu proyecto.
 
 ### 📋 El tablero

@@ -380,6 +380,15 @@ dialog[open]::backdrop { animation: fade .18s var(--ease); }
   iframe.viewer { height: 75vh; }
 }
 
+/* ---------- desktop app: the header is the window's title bar (core.js sets .in-app) ----------
+   The system draws its controls over the header (desktop/lib/core.cjs titleBar): the header is as tall as they are,
+   solid like them, drags the window, and leaves the controls their room — traffic lights left, Windows / Linux right. */
+:root.in-app { --top: calc(env(titlebar-area-height, 3.5rem) + 1px); }   /* its bottom rule runs on under the controls */
+.in-app .top { -webkit-app-region: drag; user-select: none; background: var(--bg); backdrop-filter: none;
+               padding-left: calc(env(titlebar-area-x, 0px) + 1.25rem);
+               padding-right: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + .5rem); }
+.in-app .top :is(button, a, select, input, nav) { -webkit-app-region: no-drag; }
+
 /* ---------- the React views share the shell (src/styles.css styles them inside #native) ---------- */
 body.native-mode .layout { grid-template-columns: minmax(0, 1fr); max-width: none; }
 body.native-mode .side, body.native-mode #main, body.native-mode .toc { display: none; }
