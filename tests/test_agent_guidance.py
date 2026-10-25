@@ -63,7 +63,8 @@ def test_the_diagram_texts_do_not_promise_what_delivery_2b_adds():
 
 def test_the_texts_say_where_each_generated_diagram_lives_and_the_real_check_wording():
     skill = (SKILLS / "cam-docs-diagrams" / "SKILL.md").read_text(encoding="utf-8")
-    assert "system-map.md` holds the context map" in skill and "diagrams.md` holds the endpoints map" in skill
+    assert "docs/index.md` holds the context map" in skill and "index.md` holds the endpoints map" in skill
+    assert "system-map.md` and `repos/<repo>/diagrams.md` instead" in skill
     conventions = (KIT_DIR / "CONVENTIONS.md").read_text(encoding="utf-8")
     assert "messaging" in conventions[conventions.index("## 5. Markdown diagrams"):conventions.index("## 6. Page templates")]
     lookup = (SKILLS / "cam-docs-lookup" / "SKILL.md").read_text(encoding="utf-8")
@@ -117,3 +118,16 @@ def test_removed_keeps_its_spanish_twin_current(kit):
     assert "Quitado a propósito" in es and "| Old admin UI |" in es
     row = next(r for r in kit.docs.collect() if r["path"] == "overview/removed.md")
     assert row["i18n"] == {"es": "current"}
+
+
+def test_agents_are_told_about_the_new_pages():
+    for f in (KIT_DIR / "PLAYBOOK.md", KIT_DIR / "CONVENTIONS.md", SKILLS / "cam-docs-diagrams" / "SKILL.md",
+              KIT_DIR / "templates" / "AGENTS.md", KIT_DIR / "templates" / "skeletons" / "repo-brief.md"):
+        text = f.read_text(encoding="utf-8")
+        assert "repos/<repo>/index.md" in text or "(index.md)" in text, f
+    playbook = (KIT_DIR / "PLAYBOOK.md").read_text(encoding="utf-8")
+    assert "remove `x-generated: true`" in playbook and "CLI pages" in playbook
+    skill = (SKILLS / "cam-docs-diagrams" / "SKILL.md").read_text(encoding="utf-8")
+    conventions = (KIT_DIR / "CONVENTIONS.md").read_text(encoding="utf-8")
+    for kind in ("schema", "states", "endpoints-map", "context", "messaging", "repos"):
+        assert f"`{kind}`" in skill and f"`{kind}`" in conventions, kind

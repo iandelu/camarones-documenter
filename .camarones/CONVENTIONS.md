@@ -13,6 +13,7 @@ Humans: see `docs/guides/tutorial.md`. `CLI` = `camaron` (legacy per-project cop
 | What | Where | Written by |
 |---|---|---|
 | Repo-level wiki (only repos with `wiki: true` in workspace.yaml) | `wikis/<repo>/` (OpenWiki OKF pages + grounded claims; `<repo>/openwiki` is an untracked link to it) | OpenWiki (via Claude/Codex integration or CI) |
+| Project home, repo pages (facts from the code) | `docs/index.md`, `docs/repos/<repo>/index.md` (`reference.md`, `diagrams.md` before 4.52) | kit (`CLI pages`) |
 | Repo brief (stack, commands, interfaces, data, component diagram) | `docs/repos/<repo>/brief.md` | Camarón agent |
 | Agent rules, skills, MCP | `AGENTS.md`, `CLAUDE.md` (`@AGENTS.md` + project notes), `.claude/`, `.codex/`, `.agents/`, `.mcp.json` — linked from the workspace folder once this machine approves what the kit did not write (`CLI trust`; approvals in `~/.camarones/trust/`, never in the repo) | kit (managed blocks) + humans |
 | Project context for OpenWiki | `wikis/<repo>/INSTRUCTIONS.md` (user-authored brief OpenWiki reads, never rewrites) | Camarón, then humans |
@@ -99,8 +100,10 @@ x-owner: ai                  # ai (agent may rewrite) | human (agent never rewri
 - Domain → a context map (`flowchart`). System overview → the C4 context (```` ```likec4-view ```` `index`).
   Deployment → a diagram or the C4 deployment view.
 - Keep diagrams ≤ ~25 nodes; split instead of shrinking.
-- Generated diagrams (`CLI diagrams`: system context map, one sequence per message topic (`messaging`), endpoints map,
-  one state diagram per status enum; business-flow sequences are not generated) sit in
+- Generated diagrams (`CLI pages`, alias `CLI diagrams`: the `context` map in `docs/index.md`, the `endpoints-map` and
+  one `states` diagram per status enum in `docs/repos/<repo>/index.md`, one `messaging` sequence per topic in
+  `docs/architecture/messaging.md`; before 4.52: `architecture/system-map.md` and `repos/<repo>/diagrams.md`;
+  business-flow sequences are not generated) sit in
   `<!-- generated:<kind> … -->` blocks and say only what the code says. They are in one of three states: from the code
   (facts, no meaning), `confirmed=<sha> by=<name>` (a person verified it; never rewritten, and `CLI check` warns when the
   code changed since) or a **proposal** (`<!-- proposal:<kind> … base=<sha> -->` right after the block: unreviewed AI
@@ -171,9 +174,13 @@ purpose (1 line) · stack (language, framework, versions, build tool) · how to 
 `graph/<repo>/`, portal pages) · trust rule (section 3).
 
 Generated blocks hold facts read from the repos without AI: `<!-- generated:<kind> repo=<repo> -->` …
-`<!-- /generated:<kind> -->`, with `<kind>` one of `commands`, `env`, `endpoints`, `topics`. `docs/repos/<repo>/reference.md`
-is made of them (`CLI blocks`). Put the same markers in any page instead of copying those facts by hand; `CLI blocks` and
-`CLI sync` fill and refresh them. Never edit inside a block: fix the source in the repo. A hand edit is kept and flagged.
+`<!-- /generated:<kind> -->`, with `<kind>` one of `commands`, `env`, `endpoints`, `topics`, `schema`, the diagram kinds
+`states`, `endpoints-map`, `context`, `messaging`, and `repos` (the repo cards of `docs/index.md`).
+`docs/repos/<repo>/index.md` is made of them (`reference.md` in a project from before 4.52); `CLI pages` writes the
+pages and `CLI blocks` refreshes the blocks in every page. A kit page is rewritten whole only while it holds nothing but
+kit text; once it has other text, only its blocks are updated. A page with `x-owner: human`, any `x-confirmed`, or no
+`x-owner` (and no `x-generated`) is a person's and is never written; an agent's page carries `x-owner: ai`. Put the same
+markers in any page instead of copying those facts by hand; `CLI blocks` and `CLI sync` fill and refresh them. Never edit inside a block: fix the source in the repo. A hand edit is kept and flagged.
 
 Managed blocks (`<!-- camarones:start -->` / `<!-- camarones:end -->` in `AGENTS.md`; `<!-- cam-docs:start -->` /
 `<!-- cam-docs:end -->` for the optional pointer in `<repo>/CLAUDE.md`) are rewritten by the kit only; everything outside

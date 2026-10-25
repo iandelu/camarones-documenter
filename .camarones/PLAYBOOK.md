@@ -97,6 +97,10 @@ Capture with evidence `<repo>:<path>#Lx-Ly`:
 This is the short route. Use the completed discovery notes and verify their sources in the code.
 Write `docs/index.md` and `docs/overview/system.md`: purpose, repositories, how to run locally,
 one representative flow (a Mermaid sequence diagram), evidence and unanswered questions.
+If `docs/index.md` is the generated home (`x-generated: true`; its repos `:::cards` and context map are blocks), keep
+its blocks and its `:::cards`, write the overview around them and remove `x-generated: true` from its frontmatter,
+keeping `x-owner: ai` (without it the page counts as a person's and the kit never writes it). The page is then yours;
+`CLI blocks` still refreshes the blocks.
 Translate these two pages into `docs/i18n/es/` and run `CLI translated` for them.
 No OpenWiki, graphify, C4 or git hooks are required. Do not install them or edit service repositories.
 Keep all pages as drafts for human review. The next unit builds the portal.
@@ -171,8 +175,9 @@ The foundation for one repo — after this unit the repo is useful on its own:
    the brief), how to build/test/run, interfaces, data owned,
    doc pointers and the Mermaid component diagram (`likec4 gen mermaid docs/architecture -o build/mmd` →
    `build/mmd/repos/<repo_snake>_components.mmd`). Do not edit the repo's own README/AGENTS.md/CLAUDE.md.
-Skeleton: `repo-brief.md`. Commands, env vars, endpoints and topics come from `docs/repos/<repo>/reference.md`
-(`CLI blocks`, no AI): embed its `<!-- generated:… -->` blocks or link to it, never copy those tables by hand.
+Skeleton: `repo-brief.md`. Commands, env vars, endpoints and topics come from `docs/repos/<repo>/index.md` (or
+`reference.md` in a project from before 4.52; `CLI pages`, no AI): embed its `<!-- generated:… -->` blocks or link to
+it, never copy those tables by hand.
 
 ## repo-wiki
 Generate the OpenWiki of one repo. The unit exists only for the repos the user chose (`wiki: true` in
@@ -191,12 +196,14 @@ AGENTS.md / CLAUDE.md / `.github/` files OpenWiki adds to the repo; without a pr
 start from `.mcp.json`), use `CLI wiki <repo>`. Never edit `openwiki/.claims`, `.run.json`, indexes or OpenWiki-managed blocks.
 
 ## arch-system
-If `docs/architecture/first-look.md` exists, the C4 files started as a static-scan draft: verify and refine them rather
-than starting over.
+If `model.c4` begins with `// Camarones first-look draft` (or `docs/architecture/first-look.md` exists), the C4 files
+started as a static-scan draft: verify and refine them rather than starting over.
 `docs/architecture/model.c4` + `views.c4`: actors, external systems, every container (services, apps, DBs, brokers, topics),
 `index` (context) and `containers` views; `#ai-draft` on unvalidated elements, `#confirmed` on validated ones.
 Write `docs/overview/system.md` (purpose, context diagram in words, how to navigate) and `docs/index.md` (entry point).
-Skeleton: `overview.md`.
+Skeleton: `overview.md`. If `docs/index.md` is the generated home, keep its blocks and its `:::cards`, write around
+them and remove `x-generated: true` from its frontmatter, keeping `x-owner: ai`; `CLI blocks` still refreshes the blocks.
+(Before 4.52 the home was `docs/architecture/system-map.md` plus `first-look.md`; they stay until `CLI pages --adopt`.)
 The `likec4` MCP server (in `.mcp.json` / `.codex/config.toml`) answers questions about the model while you write it
 (search elements, relationships, "who calls X?").
 
@@ -210,10 +217,11 @@ Skeletons: `domain.md` (bounded contexts), `glossary.md`.
 ## data
 `docs/data/<store>.md` per datastore: `erDiagram`, ownership table (table → writers → readers), migration source,
 `#shared-db` tag in C4 + warning section when shared. Skeleton: `data-model.md`.
-Start from the facts: `docs/data/<repo>.md` (`CLI schemas`, no AI) already has each repo's tables and collections in a
-`<!-- generated:schema repo=<repo> -->` block (ER diagram, keys, references, sources). Keep that block as it is (it is
-refreshed from the code); write around it what the tables mean, who owns them and what is shared. A store page may
-embed the same block for its repo instead of redrawing the diagram.
+Start from the facts: each repo's tables and collections are already in a `<!-- generated:schema repo=<repo> -->`
+block (ER diagram, keys, references, sources) in the Data section of `docs/repos/<repo>/index.md` (or in
+`docs/data/<repo>.md` in a project from before 4.52; `CLI schemas`, no AI). Keep that block as it is (it is refreshed
+from the code); write around it what the tables mean, who owns them and what is shared. A `docs/data/` page you write
+never carries `x-generated: true`; it may hold the `schema` block, markers included, instead of redrawing the diagram.
 
 ## deployment
 `docs/architecture/deployment.c4` + `deployment view deploy_<env>` per environment; `docs/deployment/environments.md`.
@@ -312,8 +320,9 @@ add the evidence, and ask the user. Tick the line `- [x]` with a short "→ what
 again: tell the user it is ready for another review. Never write `x-confirmed`.
 
 ## diagrams
-Add the diagrams the pages lack (CONVENTIONS §5). Start with `CLI diagrams`: it draws, from the code, the system map,
-each repo's endpoints map and one state diagram per status enum. Never edit a generated block, and never touch a
+Add the diagrams the pages lack (CONVENTIONS §5). Start with `CLI pages` (`CLI diagrams` is its alias): it draws, from the code, the context map in
+`docs/index.md`, each repo's endpoints map and state diagrams (one per status enum) in `docs/repos/<repo>/index.md` and
+one sequence per topic in `docs/architecture/messaging.md` (older projects: `system-map.md`, `diagrams.md`). Never edit a generated block, and never touch a
 `confirmed` one: a diagram that needs transitions or meaning gets a **proposal** right after its block (format in the
 `cam-docs-diagrams` skill: `base` = the block's `sha`, a Why list citing `repo:path#Symbol` for every claim). Then run
 `CLI check`: every warning about a missing `sequenceDiagram`, `stateDiagram-v2` or diagram is a gap to fill. Look for
