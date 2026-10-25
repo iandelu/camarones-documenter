@@ -5,14 +5,17 @@ import hashlib
 import json
 import os
 import shutil
+import stat
 import tempfile
 import uuid
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from .common import VERSIONS
 
 PROFILES = {"quick": ["agents"], "full": ["graphify", "likec4", "openwiki", "quality", "agents"]}
 RECEIPT = Path('.camarones/install.json')
+BACKUPS = Path('.camarones/.cache/install-backups')
+LAUNCHERS = ('camaron.cmd', 'camaron.command', 'camarones.cmd', 'camarones.command')
 DIRECTORIES = ('lib', 'templates', 'portal', 'ci')
 FILES = ('camarones.py', 'camarones.py.lock', 'README.md', 'TUTORIAL.md', 'PLAYBOOK.md', 'CONVENTIONS.md', 'nginx.conf')
 SKIP = {'__pycache__', 'node_modules', '.astro', 'dist', '.cache'}
@@ -20,6 +23,41 @@ SKIP = {'__pycache__', 'node_modules', '.astro', 'dist', '.cache'}
 
 def digest(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def kit_owned(name: str) -> bool:
+    """A path the kit's payload can hold (launchers, its top files, files in its folders): never config, caches or docs."""
+    parts = PurePosixPath(name).parts
+    if name in LAUNCHERS or name in {f'.camarones/{f}' for f in FILES}:
+        return True
+    return len(parts) > 2 and parts[0] == '.camarones' and parts[1] in DIRECTORIES and '..' not in parts
+
+
+def shipped(destination: Path) -> dict[str, set[str]]:
+    """Every file an earlier kit wrote here, with the digests it wrote: the receipt, plus the receipts that upgrades
+    backed up (an upgrade run by a kit older than 4.50 rewrote the receipt without the files it dropped)."""
+    out: dict[str, set[str]] = {}
+    for path in [destination / RECEIPT, *sorted((destination / BACKUPS).glob('*/.camarones/install.json'))]:
+        try:
+            files = json.loads(path.read_text(encoding='utf-8')).get('files', {})
+        except (OSError, ValueError, AttributeError):
+            continue
+        for name, value in files.items() if isinstance(files, dict) else ():
+            out.setdefault(name, set()).add(value)
+    return out
+
+
+def remove(target: Path, top: Path) -> None:
+    """Delete a kit file (read-only ones too, on Windows) and the folders it leaves empty, up to `top`."""
+    try:
+        target.unlink()
+    except PermissionError:
+        os.chmod(target, stat.S_IREAD | stat.S_IWRITE)
+        target.unlink()
+    parent = target.parent
+    while parent != top and top in parent.parents and not any(parent.iterdir()):
+        parent.rmdir()
+        parent = parent.parent
 
 
 def safe_path(path: Path) -> None:
@@ -95,6 +133,15 @@ def install(source: Path, destination: Path, profile: str = 'quick', *, update: 
             if name in old_hashes and digest(current) != old_hashes[name]:
                 raise ValueError(f'Locally modified kit file: {name}. Preserve your edits before upgrading.')
         changes[name] = data
+    # Files an earlier kit shipped and this one does not: gone if untouched since, kept (and reported) if edited.
+    removed, kept = [], []
+    for name, digests in sorted(shipped(destination).items()) if update else ():
+        target = destination / name
+        if name in files or not kit_owned(name):
+            continue
+        safe_path(target)
+        if target.is_file() and destination in target.resolve().parents:
+            (removed if digest(target.read_bytes()) in digests else kept).append(name)
     ws = destination / '.camarones/workspace.yaml'
     safe_path(ws)
     if not ws.exists():
@@ -107,18 +154,24 @@ def install(source: Path, destination: Path, profile: str = 'quick', *, update: 
     receipt_data = (json.dumps(receipt, indent=2) + '\n').encode('utf-8')
     if not receipt_path.exists() or receipt_path.read_bytes() != receipt_data:
         changes[RECEIPT.as_posix()] = receipt_data
-    result = {'destination': str(destination), 'version': version, 'changed': sorted(changes), 'dry_run': dry_run}
-    log(f'{"Preview" if dry_run else "Install"}: {destination} · {version} · {len(changes)} file(s)')
+    result = {'destination': str(destination), 'version': version, 'changed': sorted(changes), 'removed': removed,
+              'kept': kept, 'dry_run': dry_run}
+    log(f'{"Preview" if dry_run else "Install"}: {destination} · {version} · {len(changes)} file(s)'
+        + (f' · {len(removed)} removed' if removed else ''))
     for name in sorted(changes):
         log(f'  {name}')
-    if dry_run or not changes:
+    for name in removed:
+        log(f'  - {name}')
+    for name in kept:
+        log(f'  kept (edited here, no longer in the kit): {name}')
+    if dry_run or not (changes or removed):
         return result
     # Preflight is complete. Stage the complete payload before replacing any file.
     destination.mkdir(parents=True, exist_ok=True)
-    backup = destination / '.camarones/.cache/install-backups' / uuid.uuid4().hex
+    backup = destination / BACKUPS / uuid.uuid4().hex
     safe_path(backup)
     originals = {name: (destination / name).read_bytes() if (destination / name).exists() else None for name in changes}
-    written = []
+    written, deleted = [], []
     with tempfile.TemporaryDirectory(prefix='.camarones-install-', dir=destination) as staging:
         stage = Path(staging)
         for name, data in changes.items():
@@ -136,10 +189,21 @@ def install(source: Path, destination: Path, profile: str = 'quick', *, update: 
                     saved.write_bytes(originals[name])
                 os.replace(stage / name, target)
                 written.append(name)
+            for name in removed:
+                target = destination / name
+                saved = backup / name
+                saved.parent.mkdir(parents=True, exist_ok=True)
+                saved.write_bytes(target.read_bytes())
+                parts = PurePosixPath(name).parts
+                remove(target, destination.joinpath(*parts[:2]) if len(parts) > 2 else target.parent)
+                deleted.append(name)
             if os.name != 'nt':
                 (destination / 'camaron.command').chmod(0o755)
                 (destination / 'camarones.command').chmod(0o755)
         except BaseException:
+            for name in reversed(deleted):
+                (destination / name).parent.mkdir(parents=True, exist_ok=True)
+                (destination / name).write_bytes((backup / name).read_bytes())
             for name in reversed(written):
                 target = destination / name
                 if originals[name] is None:
@@ -147,7 +211,9 @@ def install(source: Path, destination: Path, profile: str = 'quick', *, update: 
                 else:
                     target.write_bytes(originals[name])
             raise
-    log('Kit copied. Source, repositories and existing workspace settings were preserved.')
+    log('Kit copied. Source, repositories and existing workspace settings were preserved.'
+        + (f' {len(removed)} file(s) the kit no longer ships were removed (copies in {BACKUPS.as_posix()}/).'
+           if removed else ''))
     return result
 
 
@@ -158,8 +224,7 @@ def unlink(destination: Path, *, log=print) -> list[str]:
     walk-up finds this project the same way whether or not its own copy of the code is still here."""
     destination = destination.resolve()
     removed = []
-    for rel in ('camaron.cmd', 'camaron.command', 'camarones.cmd', 'camarones.command',
-                *(f'.camarones/{name}' for name in FILES)):
+    for rel in (*LAUNCHERS, *(f'.camarones/{name}' for name in FILES)):
         p = destination / rel
         if p.is_file():
             p.unlink()
