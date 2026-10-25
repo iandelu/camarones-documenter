@@ -40,7 +40,25 @@ function drawChrome(active, { viewer = false, bare = false, nativeView = false }
   document.body.classList.toggle('bare', bare);
   document.body.classList.toggle('native-mode', nativeView);
   document.body.classList.remove('nav-open');
+  drawAppNav();
   if (viewer) drawToc(null);
+}
+
+// The desktop app's left nav (zonesFor('app')): Next step, Plan, Review (with the drafts waiting), Board, Taller. Not in
+// the browser portal, the static export or the first-run wizard. The count is read at most every 15 s, and again after
+// a review decision.
+const NAV_COUNT = { review: null, at: 0 };
+function drawAppNav() {
+  const items = window.CamaronZones?.appNav(MODE(), T, location.hash, { review: NAV_COUNT.review }) || [];
+  document.body.classList.toggle('app-mode', items.length > 0);
+  $('#app-nav').hidden = !items.length;
+  $('#app-nav-list').setAttribute('aria-label', t('appNav'));
+  $('#app-nav-list').innerHTML = items.map((n) => `<a href="${esc(n.href)}" class="${n.current ? 'on' : ''}"${n.current ? ' aria-current="page"' : ''}>
+    <span>${esc(t('zone.' + n.id))}</span>${n.count ? `<span class="count">${n.count}</span>` : ''}</a>`).join('');
+  if (items.length && Date.now() - NAV_COUNT.at > 15000) {
+    NAV_COUNT.at = Date.now();
+    api('status', { check: '0' }).then((s) => { NAV_COUNT.review = s.queue.length; drawAppNav(); }, () => { NAV_COUNT.at = 0; });
+  }
 }
 
 // ---------- the Docs tree: folders in the canonical section order, working notes folded at the bottom ----------
@@ -497,6 +515,7 @@ async function showReview() {
       if (decision === 'changes' && !comments) { $('.rv-text', li).focus(); return; }
       await api('review/decide', {}, { id: li.dataset.id, decision, comments, by: T.reviewer });
       toast(t('decided'));
+      NAV_COUNT.at = 0;
       showReview();
     };
     $('.rv-ok', li).onclick = () => send('approve');
@@ -515,6 +534,7 @@ function route() {
   return run;
 }
 
+let LAST_APP_HASH = '';           // the last address this window showed: where a portal-only link leaves it
 async function routeNow() {
   const raw = location.hash.slice(1);
   let h = raw;
@@ -523,11 +543,13 @@ async function routeNow() {
   if ($('#palette').open) $('#palette').close();
   // The window documents; the browser reads. A portal-only address (a doc link in Review, a search result, a ⌘K entry,
   // an old #/docs/... link) opens the portal in the browser and the window stays where it was.
-  if (RUNS && APP.openExternal && window.CamaronZones?.portalOnly(location.hash)) {
-    APP.openExternal(window.CamaronZones.portalUrl(location.origin, location.hash));
-    if (history.length > 1) history.back(); else location.replace('#/next');
-    return;
+  // Without the zones' bundle the rule still holds, from a plain list of the portal-only first segments.
+  const Z = window.CamaronZones;
+  if (RUNS && (Z ? Z.portalOnly(location.hash) : /^#\/(docs?|wikis?|c4|code|data|libs|kpis|ci|arch|quality)(\/|$)/.test(location.hash))) {
+    APP.openExternal?.(Z?.portalUrl(location.origin, location.hash) || `${location.origin}/${location.hash}`);
+    return location.replace(LAST_APP_HASH || '#/next');     // back to the view the window was on (never a portal-only one)
   }
+  LAST_APP_HASH = location.hash;
   if (['pipeline', 'ask', 'kpis', 'ci', 'libs', 'data', 'interview', 'sync', 'kanban'].includes(view) && !STATIC && window.CamaronNative
       || RUNS && (TALLER.includes(view) || view === 'start' || view === 'next') && window.CamaronNative) {
     CURRENT = '';
@@ -578,7 +600,7 @@ $('#app-menu').hidden = !APP?.menu;
 $('#app-menu').onclick = (e) => { const r = e.currentTarget.getBoundingClientRect(); APP.menu(r.left, r.bottom); };
 // The app's header: the portal read-only in the browser (its token stays out of the address), and the project list.
 $('#view-portal').hidden = !RUNS || !APP.openExternal;
-$('#view-portal').onclick = () => APP.openExternal(window.CamaronZones.portalUrl(location.origin, location.hash));
+$('#view-portal').onclick = () => APP.openExternal(window.CamaronZones?.portalUrl(location.origin, location.hash) || `${location.origin}/#/`);
 $('#projects').hidden = !RUNS || !APP.hub;
 $('#projects').onclick = () => APP.hub();
 $('#scrim').onclick = () => document.body.classList.remove('nav-open');

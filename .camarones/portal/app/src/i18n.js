@@ -218,6 +218,9 @@ const S = {
     nxAllDone: 'Nothing left to start', nxAllDoneText: 'Every unit of the plan is done or waiting on a person. Review the drafts, or refresh the docs from the Taller.',
     nxReviewOne: '{n} draft waits for review', nxReviewMany: '{n} drafts wait for review', nxReviewGo: 'Open Review',
     nxFoot: 'Docs, Architecture and Quality are read in the portal: “View portal” opens it in your browser.',
+    nxWhere: 'Phase {phase} · {type}',
+    nxFirstTitle: 'First look, without AI', nxFirstText: 'Nothing is documented yet. I can draw a first look from the code: stack, tools and a C4 draft. No model call, no tokens.',
+    nxFirstGo: 'Make the first look', nxFirstRunning: 'Working…', nxFirstFailed: 'The first look did not finish:',
   },
   es: {
     kbTitle: 'Tablero', kbLead: '{n} tarjetas · {open} sin terminar', kbLoading: 'Cargando el tablero…',
@@ -438,6 +441,9 @@ const S = {
     nxAllDone: 'No queda nada por empezar', nxAllDoneText: 'Todas las unidades del plan están hechas o esperan a una persona. Revisa los borradores o refresca la documentación desde el Taller.',
     nxReviewOne: '{n} borrador espera revisión', nxReviewMany: '{n} borradores esperan revisión', nxReviewGo: 'Abrir Revisión',
     nxFoot: 'Docs, Arquitectura y Calidad se leen en el portal: «Ver portal» lo abre en tu navegador.',
+    nxWhere: 'Fase {phase} · {type}',
+    nxFirstTitle: 'Primer vistazo, sin IA', nxFirstText: 'Aún no hay nada documentado. Puedo dibujar un primer vistazo desde el código: stack, herramientas y un borrador C4. Sin llamar a ningún modelo, sin gastar tokens.',
+    nxFirstGo: 'Hacer el primer vistazo', nxFirstRunning: 'Trabajando…', nxFirstFailed: 'El primer vistazo no ha terminado:',
   },
 }
 
