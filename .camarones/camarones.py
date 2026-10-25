@@ -422,9 +422,12 @@ def build_parser() -> argparse.ArgumentParser:
     from lib.kanban import cli as board_cli
     board_cli.add_parser(sp)
     pj = sp.add_parser("projects"); pj.add_argument("--json", action="store_true"); pj.add_argument("--add", type=Path)
-    # the desktop start screen's way in (it calls them itself): out of the catalog, so no app form shows them
-    pj.add_argument("--inspect", type=Path, help=argparse.SUPPRESS); pj.add_argument("--adopt", type=Path, help=argparse.SUPPRESS)
-    pj.add_argument("--name", help=argparse.SUPPRESS); pj.add_argument("--git-init", type=Path, help=argparse.SUPPRESS)
+    # the desktop start screen's way in (it calls them itself); own dests, apart from `pages --adopt`
+    pj.add_argument("--inspect", dest="inspect_dir", type=Path, metavar="DIR", help="what a folder is, writes nothing")
+    pj.add_argument("--adopt", dest="adopt_dir", type=Path, metavar="DIR", help="make a folder a project")
+    pj.add_argument("--name", dest="adopt_name", metavar="NAME", help="the project's name, with --adopt")
+    pj.add_argument("--git-init", dest="git_init_dir", type=Path, metavar="DIR",
+                    help="git init the code folders without a repository")
     sp.add_parser("app")
     cf = sp.add_parser("config"); cf.add_argument("action", nargs="?", default="get", choices=["get", "set"])
     cf.add_argument("key", nargs="?"); cf.add_argument("value", nargs="?"); cf.add_argument("--json", action="store_true")
@@ -492,29 +495,29 @@ def main() -> int:
     elif a.cmd == "app":
         from lib import desktop
         desktop.launch()
-    elif a.cmd == "projects" and (a.inspect or a.adopt or a.git_init):
+    elif a.cmd == "projects" and (a.inspect_dir or a.adopt_dir or a.git_init_dir):
         # the desktop start screen's way in: what a picked folder is, then make it a project (no project globals needed)
         from lib import onboard
         try:
-            if a.inspect:
-                if not a.inspect.is_dir():
-                    raise ValueError(f"not a folder: {a.inspect}")
-                info = onboard.inspect(a.inspect)
+            if a.inspect_dir:
+                if not a.inspect_dir.is_dir():
+                    raise ValueError(f"not a folder: {a.inspect_dir}")
+                info = onboard.inspect(a.inspect_dir)
                 if a.json:
                     print(json.dumps(info, ensure_ascii=False))
                 for k, v in info.items() if not a.json else ():
                     print(f"{k:<10} {v}")
-            elif a.git_init:
-                done = onboard.git_init(a.git_init)
+            elif a.git_init_dir:
+                done = onboard.git_init(a.git_init_dir)
                 print(json.dumps({"initialised": [str(p) for p in done]}, ensure_ascii=False) if a.json
                       else "\n".join(f"✔ git init {p}" for p in done))
             else:
-                dest = onboard.start(a.adopt, a.name)
+                dest = onboard.start(a.adopt_dir, a.adopt_name)
                 print(json.dumps({"path": str(dest)}, ensure_ascii=False) if a.json else f"✔ {dest}")
         except (ValueError, RuntimeError, OSError) as e:
             print(f"✖ {e}", file=sys.stderr)
             code = ("taken" if isinstance(e, projects.Taken) else getattr(e, "code", "") if isinstance(e, onboard.Refused)
-                    else "git-init" if a.git_init else "")
+                    else "git-init" if a.git_init_dir else "")
             if a.json and code:                                     # the app words it: a stable code, not this line
                 print(json.dumps({"error": code, "detail": str(e)}, ensure_ascii=False))
             return 1
