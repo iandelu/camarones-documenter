@@ -96,6 +96,17 @@ def test_pipeline_api_has_units_with_status_dependencies_and_how_they_run(kit, s
     assert data["run"]["run"] == "r-20261016-100000-1"
 
 
+def test_pipeline_api_marks_the_units_that_can_start_now(kit, server):
+    # the desktop app's Next step view picks its unit from this flag instead of re-deriving the plan's rules
+    kit.plan.sync()
+    data = get_json(f"{server}/api/pipeline")
+    flags = {x["id"]: x["available"] for x in data["units"]}
+    assert flags["setup"] is True and flags["discovery:api"] is False       # discovery waits for setup
+    kit.plan.set_status("setup", "done")
+    flags = {x["id"]: x["available"] for x in get_json(f"{server}/api/pipeline")["units"]}
+    assert flags["setup"] is False and flags["discovery:api"] is True
+
+
 def test_run_detail_api(server, run_log):
     d = get_json(f"{server}/api/runs/r-20261016-100000-1")
     assert d["units"][0]["unit"] == "discovery:api" and d["units"][0]["seconds"] == 12.0

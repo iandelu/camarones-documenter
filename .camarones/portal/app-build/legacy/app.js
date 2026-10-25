@@ -26,6 +26,10 @@ function drawChrome(active, { viewer = false, bare = false, nativeView = false }
   $('#menu').title = t('menu');
   $('#app-menu').title = t('appMenu');
   $('#app-menu').setAttribute('aria-label', t('appMenu'));
+  $('#view-portal').textContent = t('viewPortal');
+  $('#view-portal').title = t('viewPortalHelp');
+  $('#projects').textContent = t('projects');
+  $('#projects').title = t('projectsHelp');
   $('#ro').hidden = !STATIC;
   $('#ro').innerHTML = t('readOnly');
   const langs = ['', ...T.langs];
@@ -517,8 +521,15 @@ async function routeNow() {
   try { h = decodeURIComponent(raw); } catch { /* a bare % in a file name: route the address as it is */ }
   const [, view = '', rest = ''] = h.match(/^\/([\w-]*)\/?(.*)$/) || [];
   if ($('#palette').open) $('#palette').close();
+  // The window documents; the browser reads. A portal-only address (a doc link in Review, a search result, a ⌘K entry,
+  // an old #/docs/... link) opens the portal in the browser and the window stays where it was.
+  if (RUNS && APP.openExternal && window.CamaronZones?.portalOnly(location.hash)) {
+    APP.openExternal(window.CamaronZones.portalUrl(location.origin, location.hash));
+    if (history.length > 1) history.back(); else location.replace('#/next');
+    return;
+  }
   if (['pipeline', 'ask', 'kpis', 'ci', 'libs', 'data', 'interview', 'sync', 'kanban'].includes(view) && !STATIC && window.CamaronNative
-      || RUNS && (TALLER.includes(view) || view === 'start') && window.CamaronNative) {
+      || RUNS && (TALLER.includes(view) || view === 'start' || view === 'next') && window.CamaronNative) {
     CURRENT = '';
     drawChrome(view, { nativeView: true });
     drawToc(null);
@@ -550,6 +561,7 @@ async function routeNow() {
     if (view === 'search') return await showSearch(rest);
     if (view === 'new' && !STATIC) return newPage();
     if (['arch', 'plan', 'quality', 'taller'].includes(view)) return showZone(view);
+    if (MODE() === 'app') return location.replace('#/next');     // the app's landing view is Next step, not the docs home
     return await showStart();                 // #/, an unknown address, or a live-only view in the static export
   } catch (e) {
     drawToc(null);
@@ -564,6 +576,11 @@ $('#menu').onclick = () => document.body.classList.toggle('nav-open');
 // The app has no menu bar on screen (its header is the title bar): this button opens the app menu under itself.
 $('#app-menu').hidden = !APP?.menu;
 $('#app-menu').onclick = (e) => { const r = e.currentTarget.getBoundingClientRect(); APP.menu(r.left, r.bottom); };
+// The app's header: the portal read-only in the browser (its token stays out of the address), and the project list.
+$('#view-portal').hidden = !RUNS || !APP.openExternal;
+$('#view-portal').onclick = () => APP.openExternal(window.CamaronZones.portalUrl(location.origin, location.hash));
+$('#projects').hidden = !RUNS || !APP.hub;
+$('#projects').onclick = () => APP.hub();
 $('#scrim').onclick = () => document.body.classList.remove('nav-open');
 $('#search-btn').onclick = openPalette;
 $('#pal-q').oninput = paletteInput;

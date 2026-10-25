@@ -316,9 +316,12 @@ def api_pipeline() -> dict:
         nodes = {}
     types = pipeline.types()
     units = []
-    for u in plan.load()["units"]:
+    data = plan.load()
+    ready = {u["id"] for u in plan.available(data)}                  # the app's Next step picks from these
+    for u in data["units"]:
         t, n = types.get(u["type"], {}), nodes.get(u["id"], {})
         units.append({**{k: u.get(k) for k in ("id", "title", "type", "phase", "status", "deps", "repo", "notes", "runner")},
+                      "available": u["id"] in ready,
                       "isolation": n.get("isolation") or t.get("isolation", "none"),
                       "tier": n.get("tier") or t.get("tier", "agentic-heavy"), "agent": n.get("runner"),
                       "approval": bool(n.get("approval")), "awaiting": plan.awaiting(u)})
