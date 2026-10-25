@@ -371,13 +371,25 @@ def _in_state(st: dict, want: str) -> bool:
     return bool(st["changed"] if want == "changed" else st["missing"] if want == "missing" else st["fresh"] == want)
 
 
+def _linked(d: str, ids: dict) -> bool:
+    from . import xid
+    try:
+        return xid.parse_link(d)["xid"] in ids
+    except BoardError:
+        return False
+
+
 def list_items(*, status=None, epic=None, repo=None, label=None, docs=None) -> dict:
     cards, items, problems = load_state()
     rows = []
     state = docs in _DOC_STATES
     if state:
         from . import xid
-        ids, pages = xid.index(), xid.page_rows()
+        from .repair import _as_list
+        ids = xid.index()
+        want = {ids[xid.parse_link(d)["xid"]] for it in items.values()          # only the pages some item links
+                for d in map(str, _as_list(it.fm.get("documentation"))) if _linked(d, ids)}
+        pages = xid.page_rows(want) if want else {}
     for i, item in items.items():
         r = _row(item, cards.get(i))
         if status and r["status"] != status:
@@ -427,7 +439,8 @@ def show(item_id: str) -> dict:
     item = items[key]
     from . import xid
     row = _row(item, cards.get(key))
-    ids, pages = xid.index(), xid.page_rows()
+    ids = xid.index()
+    pages = xid.page_rows({ids[xid.parse_link(d)["xid"]] for d in row["docs"] if _linked(d, ids)}) if row["docs"] else {}
     links = [xid.link_state(d, pages, ids) for d in row["docs"]]
     return {**row, "links": links, "description": description(item.body),
             "criteria": checklist(item.body, "AC"), "dod": checklist(item.body, "DOD"),

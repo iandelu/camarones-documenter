@@ -165,6 +165,7 @@ def test_list_filter_docs_state(board, wired, monkeypatch):
     board.add("story", "Confirmed link", docs=["flows/refunds.md"])
     board.add("story", "No link")
     assert [c["id"] for c in board.list_items(docs="unconfirmed")["cards"]] == ["WI-1"]
+    freshness.stamp_all()                       # a project whose fingerprints exist: reading them writes nothing
     real = freshness.states
     monkeypatch.setattr(freshness, "states",
                         lambda: {**real(), "flows/refunds.md": {"state": "suspect", "changed": [], "missing": []}})
@@ -173,3 +174,86 @@ def test_list_filter_docs_state(board, wired, monkeypatch):
     assert [c["id"] for c in board.list_items(docs=xid_)["cards"]] == ["WI-1"]
     shown = board.show("WI-2")["links"][0]
     assert shown["trust"] == "confirmed" and shown["fresh"] == "suspect" and shown["title"] == "Refunds"
+
+
+# --- fix round 1 ---
+
+def test_wiki_pages_take_the_prefix_of_their_folder(wired):
+    from lib.kanban import xid
+    wiki = wired.root / "wikis" / "api"
+    (wiki / "flows").mkdir(parents=True)
+    (wiki / "flows" / "x.md").write_text("---\ntitle: X\n---\n# X\n", encoding="utf-8")
+    (wiki / "domain").mkdir()
+    (wiki / "domain" / "y.md").write_text("---\ntitle: Y\n---\n# Y\n", encoding="utf-8")
+    (wiki / "intro.md").write_text("---\ntitle: I\n---\n# I\n", encoding="utf-8")
+    assert xid.ensure_xid("repos/api/flows/x.md").startswith("FLOW-")
+    assert xid.ensure_xid("repos/api/domain/y.md").startswith("DOM-")
+    assert xid.ensure_xid("repos/api/intro.md").startswith("DOC-")
+
+
+def test_same_decision_number_in_two_places_gets_two_ids(wired):
+    from lib.kanban import xid
+    page(wired, "decisions/0004-y.md", "---\ntitle: Y\n---\n# Y\n")
+    wiki = wired.root / "wikis" / "api" / "decisions"
+    wiki.mkdir(parents=True)
+    (wiki / "0004-x.md").write_text("---\ntitle: X\n---\n# X\n", encoding="utf-8")
+    a = xid.ensure_xid("decisions/0004-y.md")
+    b = xid.ensure_xid("repos/api/decisions/0004-x.md")
+    assert a == "DEC-0004" and b != a
+    assert re.fullmatch(r"DEC-[0-9a-hjkmnp-tv-z]{4}", b)
+    assert xid.index()[a] == "decisions/0004-y.md" and xid.index()[b] == "repos/api/decisions/0004-x.md"
+    assert xid.ensure_xid("repos/api/decisions/0004-x.md") == b
+
+
+def test_bom_page_keeps_its_bom_and_frontmatter(wired):
+    from lib.kanban import xid
+    original = "﻿---\ntitle: Bom\n---\n# Bom\n\n## A\nx\n"
+    f = page(wired, "flows/bom.md", original)
+    new = xid.ensure_xid("flows/bom.md")
+    assert raw(f) == original.replace("title: Bom\n", f"title: Bom\nx-id: {new}\n")
+    assert xid.index()[new] == "flows/bom.md" and xid.ensure_xid("flows/bom.md") == new
+
+
+def write_item(links):
+    from lib.kanban import TASKS, ops
+    from lib.kanban.items import Item, file_name, serialize_item
+    fm = {"id": "WI-1", "title": "Linky", "status": "Backlog", "assignee": [], "created_date": "2026-10-01 10:00",
+          "type": "task", "ordinal": 1000, "x-uid": "link0001", "documentation": links}
+    item = Item(fm, "## Description\nx\n", TASKS / file_name("WI-1", "Linky"))
+    item.path.write_text(serialize_item(item), encoding="utf-8", newline="\n")
+    ops.save_board({"WI-1": {"uid": "link0001", "status": "Backlog", "ordinal": 1000, "assignee": [], "t": {}}})
+
+
+def test_malformed_link_is_missing_not_a_crash(board, wired):
+    from lib.kanban import repair, xid
+    st = xid.link_state("", {})
+    assert st["missing"] is True and st["link"] == ""
+    write_item(["", "###", "FLOW-zzzz"])
+    shown = board.show("WI-1")
+    assert [l["link"] for l in shown["links"]] == ["", "###", "FLOW-zzzz"]
+    assert all(l["missing"] for l in shown["links"])
+    assert board.list_items(docs="missing")["cards"][0]["id"] == "WI-1"
+    out = repair.repair(log=lambda _: None)
+    assert any("WI-1" in w and "link" in w for w in out["warnings"])
+
+
+def snapshot_files(wired):
+    import subprocess
+    from lib import docs
+    from lib.harness import freshness
+    status = subprocess.run(["git", "status", "--porcelain", "--ignored"], cwd=wired.root, capture_output=True,
+                            text=True, encoding="utf-8").stdout
+    one = lambda p: p.read_bytes() if p.exists() else None   # noqa: E731
+    return status, one(docs.STATUS_FILE), one(freshness.FILE)
+
+
+def test_reads_do_not_write_tracked_files(board, wired):
+    page(wired, "flows/payments.md", PAYMENTS)
+    board.add("story", "Linked", docs=["flows/payments.md#retries"])
+    board.add("story", "Plain")
+    before = snapshot_files(wired)
+    assert board.show("WI-2")["links"] == []
+    shown = board.show("WI-1")
+    assert shown["links"][0]["trust"] == "draft" and shown["links"][0]["title"] == "Payments"
+    assert [c["id"] for c in board.list_items(docs="unconfirmed")["cards"]] == ["WI-1"]
+    assert snapshot_files(wired) == before
