@@ -406,7 +406,7 @@ camaron app                  # en cualquier otra carpeta: abre el selector de pr
 
 - **Desde el asistente:** `camaron` y en el menú principal **🖥️ App de escritorio**.
 - **Desde el selector de proyectos:** abre un proyecto registrado, **crea uno** (eliges la carpeta donde va), **únete al del equipo** con la URL de su `cam-docs` o **añade una carpeta** que ya tenga `cam-docs`. Cada proyecto abre su propia ventana.
-- **Dentro de la app:** <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>O</kbd> vuelve a los proyectos, y **camarón › Abrir en el navegador** abre el mismo portal en tu navegador para compartir la pantalla o un enlace local.
+- **Dentro de la app:** la cabecera del portal es la barra de la ventana (arrástrala para moverla; los botones de minimizar, maximizar y cerrar van en ella, con su mismo color en claro y en oscuro). <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>O</kbd> vuelve a los proyectos, y el botón **⋯** de la barra abre el menú de la app, con **Abrir en el navegador** para ver el mismo portal en tu navegador, compartir la pantalla o un enlace local.
 
 **4. Empieza por el Taller.** En Inicio, la tarjeta **Taller** lleva a las seis zonas. Un buen primer paso: **Comprobar › Requisitos y herramientas** para ver qué falta, y **Analizar** para el primer vistazo sin IA.
 
