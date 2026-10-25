@@ -1,6 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Aviso, Brand, Breadcrumbs, Button, Card, EmptyState, Field, Skeleton } from '@camaron/ui'
 import { initials, sectionOf, sections, TALLER_OF } from './nav.js'
+import { jobsStore } from './jobs.js'
+import { server } from './server.js'
+import { useStore } from './useStore.js'
+import JobsPanel from './JobsPanel.jsx'
+import Summary from './Summary.jsx'
 import { t } from './i18n.js'
 
 // The desktop app's UI. Three ways to be loaded: the hub (window.camaronHub, from disk: pick or make a project), a
@@ -16,14 +21,6 @@ export default function App() {
       </EmptyState>
     </main>
   )
-}
-
-// The project's server, one folder up from /desktop/; the app's token on every request (lib/serve.py checks it).
-export const api = (app) => async (name) => {
-  const r = await fetch(`../api/${name}`, { headers: { 'X-Camaron-Token': app.token } })
-  const data = await r.json()
-  if (!r.ok) throw new Error(data.error || r.statusText)
-  return data
 }
 
 function useHash() {
@@ -42,10 +39,14 @@ function Project({ app }) {
   const [kitdev, setKitdev] = useState(false)
   const [error, setError] = useState('')
   const [status, setStatus] = useState('')
+  const srv = useMemo(() => server(app.token), [])
+  const jobs = useMemo(() => jobsStore(srv.get), [])           // one for the window: it outlasts the sections
+  const { running } = useStore(jobs)
   useEffect(() => {
-    const get = api(app)
-    get('tree').then(setIndex, (e) => setError(e.message))
-    get('app/info').then((i) => setKitdev(!!i.kitdev), () => {})
+    srv.get('tree').then(setIndex, (e) => setError(e.message))
+    srv.get('app/info').then((i) => setKitdev(!!i.kitdev), () => {})
+    jobs.refresh()
+    return () => jobs.stop()
   }, [])
   const here = sectionOf(hash, { kitdev })
   const { project, machine } = sections({ kitdev })
@@ -68,12 +69,12 @@ function Project({ app }) {
       </nav>
       <main className="dk-main">
         {error && <Aviso tone="error" title={t('hub.failed')} detail={error} />}
-        {!index && !error ? <Skeleton lines={4} /> : <Soon section={here} />}
+        {!index && !error ? <Skeleton lines={4} /> : here === 'summary' ? <Summary srv={srv} jobs={jobs} /> : <Soon section={here} />}
       </main>
-      <section className="dk-jobs" aria-label={t('jobs')}>
-        <span className="eyebrow">{t('jobs')}</span><span className="muted small">{t('jobs.none')}</span>
-      </section>
-      <footer className="dk-status"><span role="status">{status}</span><span className="dk-grow"></span>
+      <JobsPanel srv={srv} jobs={jobs} />
+      <footer className="dk-status">
+        <span role="status">{status || (running[0] ? `${t('job.running')}: ${running[0].label || running[0].kind}` : '')}</span>
+        <span className="dk-grow"></span>
         <span>{index ? `kit ${index.kit}` : ''}</span></footer>
     </div>
   )

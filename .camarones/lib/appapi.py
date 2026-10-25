@@ -144,17 +144,24 @@ def stream_job(start_job, kind: str, argv: list[str], cwd, env: dict, parse_json
                 result = json.loads("\n".join(lines))
             except json.JSONDecodeError:
                 pass
-        return {"rc": rc, "result": result, "argv": shown or argv}
+        return {"rc": rc, "result": result, "argv": shown or argv, "stopped": bool(holder.get("stopped"))}
 
     job = start_job(kind, label or " ".join(argv), go)
     PROCS[job["id"]] = holder
     return job
 
 
-def cancel(job_id: str) -> dict:
+def stoppable(job_id: str) -> bool:
+    """A job cancel() can stop: a process started here that is still running (a build or a wiki runs to its end)."""
     pr = PROCS.get(job_id, {}).get("proc")
-    if pr is None or pr.poll() is not None:
+    return pr is not None and pr.poll() is None
+
+
+def cancel(job_id: str) -> dict:
+    if not stoppable(job_id):
         raise KeyError(job_id)
+    PROCS[job_id]["stopped"] = True             # the job ends failed, and says a person stopped it
+    pr = PROCS[job_id]["proc"]
     if IS_WIN:                  # the command and what it started (agents, npm, git): Windows has no process groups
         run(["taskkill", "/PID", str(pr.pid), "/T", "/F"], check=False, quiet=True)
     else:

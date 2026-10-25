@@ -507,6 +507,20 @@ def progress(data: dict | None = None) -> tuple[int, int]:
     return sum(1 for u in live if u["status"] == "done"), len(live)
 
 
+def next_step(data: dict | None = None, review: int = 0) -> dict:
+    """What to do next, one rule for the wizard's default and the desktop app's Summary: finish the agent unit left
+    half done, else the next ready unit, else the `review` pages waiting for a person, else nothing left."""
+    data = data or load()
+    brief = lambda u: {k: u[k] for k in ("id", "title", "runner", "type")}     # noqa: E731
+    doing = [u for u in data["units"] if u["status"] == "doing" and u["runner"] == "agent"]
+    if doing:
+        return {"kind": "resume", "unit": brief(doing[0])}
+    ready = [u for u in available(data) if u["status"] != "doing"]
+    if ready:
+        return {"kind": "next", "unit": brief(ready[0])}
+    return {"kind": "review", "count": review} if review else {"kind": "done"}
+
+
 def render(data: dict | None = None) -> str:
     data = data or load()
     icon = {"todo": "·", "doing": "▶", "done": "✔", "blocked": "✖", "dropped": "—"}
