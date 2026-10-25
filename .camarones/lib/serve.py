@@ -190,18 +190,15 @@ def c4_change(path: str, b: dict, by: str) -> dict:
 
 BLOCKS_TTL = 30.0                                   # seconds: code changes show up in the badges within this long
 _blocks_cache: dict[tuple, tuple[float, list[dict]]] = {}
+_blocks_lock = threading.Lock()                     # the server is threaded: one prune at a time
 
 
 def _compute_blocks(text: str) -> list[dict]:
+    """genblocks' states as they are (a repo not on this machine already leaves the marker to speak), so the badges,
+    `check` and `blocks` always agree."""
     from . import genblocks
-    from .common import repo_dir
-    out = []
-    for m, state, _ in genblocks.states(text, genblocks.Scanner()):
-        # Without the repo on disk (a teammate who cloned only cam-docs) nothing can say the code changed: the marker speaks.
-        if m["repo"] != genblocks.SYSTEM and not repo_dir(m["repo"]).is_dir():
-            state = "confirmed" if m["confirmed"] else state
-        out.append({"kind": m["kind"], "repo": m["repo"], "id": m["id"], "state": state})
-    return out
+    return [{"kind": m["kind"], "repo": m["repo"], "id": m["id"], "state": state}
+            for m, state, _ in genblocks.states(text, genblocks.Scanner())]
 
 
 def _blocks(f: Path, text: str) -> list[dict]:
@@ -217,10 +214,15 @@ def _blocks(f: Path, text: str) -> list[dict]:
         got = _compute_blocks(text)
     except Exception:
         return []
-    now = time.monotonic()
-    for k in [k for k, (at, _) in _blocks_cache.items() if now - at >= BLOCKS_TTL]:
-        del _blocks_cache[k]
-    _blocks_cache[key] = (now, got)
+    try:
+        with _blocks_lock:
+            now = time.monotonic()
+            for k, (at, _) in list(_blocks_cache.items()):
+                if now - at >= BLOCKS_TTL:
+                    _blocks_cache.pop(k, None)
+            _blocks_cache[key] = (now, got)
+    except Exception:
+        pass                                        # a cache that could not be tidied still serves this page
     return got
 
 

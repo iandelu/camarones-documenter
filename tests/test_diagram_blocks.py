@@ -125,7 +125,7 @@ def test_a_states_block_refreshes_and_goes_stale_with_the_code(dg):
     f.write_text(ORDER.replace("SHIPPED", "SHIPPED, LOST"), encoding="utf-8")
     assert [s for _, s, _ in dg.gb.states(text, dg.gb.Scanner())] == ["stale"]
     f.unlink()
-    assert [s for _, s, _ in dg.gb.states(text, dg.gb.Scanner())] == ["unknown"]
+    assert [s for _, s, _ in dg.gb.states(text, dg.gb.Scanner())] == ["gone"]
 
 
 @pytest.mark.parametrize("base", ["IntEnum", "StrEnum", "IntFlag", "enum.Enum"])
@@ -763,3 +763,231 @@ def test_a_confirmed_block_without_its_repo_on_disk_stays_confirmed(dg):
         assert doc()["blocks"] == [{"kind": "states", "repo": "ghost", "id": "OrderStatus", "state": "confirmed"}]
     finally:
         stop()
+
+
+# ---- final review fixes ----------------------------------------------------------------------------------------------
+
+def _rm_repo(dg, name):
+    from fixtures.builder import rmtree
+    rmtree(dg.kit.ws / name)
+
+
+def _confirm_marker(dg, make):
+    """Write the pages, rewrite the OrderStatus marker by hand with `make(sha)` and run `write_pages` again."""
+    pages_repo(dg)
+    dg.mod.write_pages()
+    f = dg.kit.root / "docs" / "repos" / "api" / "diagrams.md"
+    t = f.read_text(encoding="utf-8")
+    m = next(m for m in dg.gb.BLOCK_RE.finditer(t) if m["id"] == "OrderStatus")
+    f.write_text(t.replace(f"id=OrderStatus sha={m['sha']}", make(m["sha"])), encoding="utf-8", newline="\n")
+    dg.mod.write_pages()
+    return f.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("make", [
+    lambda s: f"id=OrderStatus confirmed={s} by=ana sha={s}",
+    lambda s: f"id=OrderStatus sha={s} confirmed={s} by=ana",
+    lambda s: f"id=OrderStatus confirmed={s} by=Ana López sha={s}",
+    lambda s: f'id=OrderStatus confirmed={s} by="Ana López" sha={s}',
+    lambda s: f"id=OrderStatus confirmed=3fa1c2… by=ana sha={s}",
+], ids=["canonical", "after-sha", "spaced-name", "quoted-name", "placeholder"])
+def test_a_hand_confirmation_is_never_duplicated(dg, make):
+    out = _confirm_marker(dg, make)
+    assert out.count("**`OrderStatus`**") == 1
+    m = next(m for m in dg.gb.BLOCK_RE.finditer(out) if m["id"] == "OrderStatus")
+    assert m["confirmed"] and m["by"] in ("ana", "Ana López")
+
+
+def test_a_repo_missing_from_this_machine_leaves_the_system_map_alone(dg):
+    pages_repo(dg)
+    dg.mod.write_pages()
+    sm = dg.kit.root / "docs" / "architecture" / "system-map.md"
+    before = sm.read_bytes()
+    _rm_repo(dg, "web")
+    dg.gb.refresh()
+    assert sm.read_bytes() == before
+    logs = []
+    assert "docs/architecture/system-map.md" not in dg.mod.write_pages(log=logs.append)
+    assert sm.read_bytes() == before
+    assert sum("system-map.md" in line for line in logs) == 1
+    assert dg.mod.render("context", SYSTEM, None) is None and dg.mod.render("messaging", SYSTEM, "visit-booked") is None
+    _, issues = dg.gb.check(dg.kit.docs.collect())
+    assert not [i for i in issues if "system-map.md" in i]
+
+
+def test_no_repo_on_this_machine_leaves_the_system_map_alone(dg):
+    pages_repo(dg)
+    dg.mod.write_pages()
+    sm = dg.kit.root / "docs" / "architecture" / "system-map.md"
+    before = sm.read_bytes()
+    for r in ("api", "web", "worker"):
+        if (dg.kit.ws / r).exists():
+            _rm_repo(dg, r)
+    dg.mod.write_pages()
+    dg.gb.refresh()
+    assert sm.read_bytes() == before
+
+
+def test_a_confirmed_block_of_a_repo_not_on_this_machine_is_not_reported(dg):
+    pages_repo(dg)
+    dg.mod.write_pages()
+    f = dg.kit.root / "docs" / "repos" / "api" / "diagrams.md"
+    kept = confirm(dg, f, "OrderStatus")
+    _rm_repo(dg, "api")
+    text = f.read_text(encoding="utf-8")
+    got = {m["id"]: s for m, s, _ in dg.gb.states(text, dg.gb.Scanner())}
+    assert got == {None: "unknown", "OrderStatus": "confirmed"}
+    for strict in (False, True):
+        issues, warns = dg.gb.check(dg.kit.docs.collect(), strict=strict)
+        assert not [i for i in issues + warns if "diagrams.md" in i]
+    dg.gb.refresh()
+    assert kept in f.read_text(encoding="utf-8")
+
+
+def test_serve_takes_the_states_of_genblocks_as_they_are(dg):
+    import inspect
+    serve = importlib.import_module("lib.serve")
+    assert "repo_dir" not in inspect.getsource(serve._compute_blocks)
+
+
+def _count_scans(dg, monkeypatch):
+    calls = []
+    real = dg.mod.quickarch.scan
+    monkeypatch.setattr(dg.mod.quickarch, "scan", lambda: calls.append(1) or real())
+    return calls
+
+
+SPLIT = [f"/{g}/{i}" for g in ("pets", "owners", "vets") for i in range(10)]
+
+
+def test_one_refresh_scans_the_architecture_once(dg, monkeypatch):
+    pages_repo(dg)
+    dg.put("api", "src/main/resources/openapi.yml", openapi_of(SPLIT))
+    dg.put("api", "src/main/java/demo/PetState.java", "enum PetState { NEW, ADOPTED }\n")
+    dg.mod.write_pages()
+    page = dg.kit.root / "docs" / "repos" / "api" / "diagrams.md"
+    assert len(list(dg.gb.BLOCK_RE.finditer(page.read_text(encoding="utf-8")))) >= 5
+    dg.put("api", "src/main/java/demo/PetState.java", "enum PetState { NEW, ADOPTED, LOST }\n")
+    calls = _count_scans(dg, monkeypatch)
+    dg.gb.refresh()
+    assert len(calls) == 1
+    calls.clear()
+    dg.gb.check(dg.kit.docs.collect())
+    assert len(calls) == 1
+
+
+def test_write_pages_scans_the_architecture_once(dg, monkeypatch):
+    pages_repo(dg)
+    dg.put("api", "src/main/resources/openapi.yml", openapi_of(SPLIT))
+    calls = _count_scans(dg, monkeypatch)
+    dg.mod.write_pages()
+    assert len(calls) == 1
+
+
+def test_status_enums_are_read_once_per_pass(dg, monkeypatch):
+    pages_repo(dg)
+    dg.put("api", "src/main/java/demo/PetState.java", "enum PetState { NEW, ADOPTED }\n")
+    dg.mod.write_pages()
+    calls, real = [], dg.mod.status_enums
+    monkeypatch.setattr(dg.mod, "status_enums", lambda *a: calls.append(a) or real(*a))
+    dg.gb.check(dg.kit.docs.collect())
+    assert len(calls) == 1
+
+
+def test_a_huge_sql_file_is_not_read(dg):
+    big = "CREATE TABLE t (status text CHECK (status IN ('A','B')));\n" + "-- filler\n" * (dg.mod.quickarch.MAX_BYTES // 10)
+    dg.put("api", "db/V1__big.sql", big)
+    dg.put("api", "node_modules/x/V1__dep.sql", "CREATE TABLE d (status text CHECK (status IN ('X','Y')));\n")
+    dg.put("api", "db/V2__ok.sql", "CREATE TABLE o (status text CHECK (status IN ('NEW','PAID')));\n")
+    assert list(enums(dg)) == ["o_status"]
+
+
+def test_a_diagram_whose_source_is_gone_is_reported(dg):
+    pages_repo(dg)
+    dg.mod.write_pages()
+    f = dg.kit.root / "docs" / "repos" / "api" / "diagrams.md"
+    edited = hand_edit(dg, f, "OrderStatus")
+    (dg.kit.ws / "api" / "src/main/java/demo/OrderStatus.java").unlink()
+    dg.mod.write_pages()
+    dg.gb.refresh(force=True)
+    text = f.read_text(encoding="utf-8")
+    assert text.count(edited) == 1
+    assert {m["id"]: s for m, s, _ in dg.gb.states(text, dg.gb.Scanner())}["OrderStatus"] == "gone"
+    _, issues = dg.gb.check(dg.kit.docs.collect())
+    assert [i for i in issues if "the code no longer has this diagram's source" in i and "diagrams.md" in i
+            and "states api OrderStatus" in i]
+
+
+def test_a_moved_block_of_a_gone_topic_is_reported(dg):
+    pages_repo(dg)
+    flow = dg.kit.root / "docs" / "flows" / "booking.md"
+    flow.parent.mkdir(parents=True, exist_ok=True)
+    body = dg.mod.render("messaging", SYSTEM, "visit-booked")[0]
+    flow.write_text("---\ntitle: Booking\n---\n# Booking\n\n" + dg.gb.block("messaging", SYSTEM, body, id="visit-booked") + "\n",
+                    encoding="utf-8", newline="\n")
+    dg.put("api", "src/main/java/demo/Events.java", LISTENER.replace('kafkaTemplate.send("visit-booked", m);', ""))
+    before = flow.read_bytes()
+    dg.mod.write_pages()
+    dg.gb.refresh()
+    assert flow.read_bytes() == before
+    _, issues = dg.gb.check(dg.kit.docs.collect())
+    assert [i for i in issues if "no longer has this diagram's source" in i and "booking.md" in i]
+
+
+def test_an_unsplit_map_after_the_split_is_reported(dg):
+    api_repo(dg)
+    flow = dg.kit.root / "docs" / "flows" / "api.md"
+    flow.parent.mkdir(parents=True, exist_ok=True)
+    flow.write_text("---\ntitle: Api\n---\n# Api\n\n" + dg.gb.block("endpoints-map", "api", dg.mod.render("endpoints-map", "api")[0])
+                    + "\n", encoding="utf-8", newline="\n")
+    dg.put("api", "src/main/resources/openapi.yml", openapi_of(SPLIT))
+    assert [s for _, s, _ in dg.gb.states(flow.read_text(encoding="utf-8"), dg.gb.Scanner())] == ["gone"]
+
+
+def test_api_doc_reports_a_gone_diagram(dg):
+    dg.put("api", "src/main/java/demo/OrderStatus.java", ORDER)
+    doc, stop = api_doc_page(dg, "states.md", states_page(dg))
+    (dg.kit.ws / "api" / "src/main/java/demo/OrderStatus.java").unlink()
+    try:
+        assert doc()["blocks"] == [{"kind": "states", "repo": "api", "id": "OrderStatus", "state": "gone"}]
+    finally:
+        stop()
+
+
+def test_a_render_bug_never_aborts_refresh_or_check(dg, monkeypatch):
+    pages_repo(dg)
+    dg.mod.write_pages()
+
+    def boom(*a, **k):
+        raise RuntimeError("render bug")
+    monkeypatch.setattr(dg.mod, "render", boom)
+    text = (dg.kit.root / "docs" / "repos" / "api" / "diagrams.md").read_text(encoding="utf-8")
+    assert {s for _, s, _ in dg.gb.states(text, dg.gb.Scanner())} == {"unknown"}
+    assert dg.gb.refresh()["updated"] == []
+    _, issues = dg.gb.check(dg.kit.docs.collect())
+    assert not [i for i in issues if "diagrams.md" in i or "system-map.md" in i]
+
+
+def test_the_confirmed_stale_warning_says_how_to_take_the_code(dg):
+    pages_repo(dg)
+    dg.mod.write_pages()
+    f = dg.kit.root / "docs" / "repos" / "api" / "diagrams.md"
+    confirm(dg, f, "OrderStatus")
+    dg.put("api", "src/main/java/demo/OrderStatus.java", ORDER.replace("SHIPPED", "SHIPPED, LOST"))
+    _, issues = dg.gb.check(dg.kit.docs.collect())
+    msg = next(i for i in issues if "was confirmed" in i)
+    assert "remove `confirmed=` and `by=`" in msg and "diagrams" in msg and "confirm it again" in msg
+
+
+def test_a_prune_race_never_fails_the_page(dg, monkeypatch):
+    serve = importlib.import_module("lib.serve")
+    dg.put("api", "src/main/java/demo/OrderStatus.java", ORDER)
+    f = dg.kit.root / "docs" / "states.md"
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text(states_page(dg), encoding="utf-8", newline="\n")
+
+    class Racing(dict):
+        def items(self):
+            raise RuntimeError("dictionary changed size during iteration")
+    monkeypatch.setattr(serve, "_blocks_cache", Racing())
+    assert serve._blocks(f, f.read_text(encoding="utf-8"))[0]["state"] == "current"

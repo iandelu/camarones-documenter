@@ -5,7 +5,11 @@ optional `id=<id>` (which diagram of a kind) after `repo`. The hash is the block
 no longer matches was edited by hand (kept, and `check` says so), one that matches but differs from a fresh scan is out
 of date (refreshed). A person can confirm a block (`confirmed=<hash of the generated body it started from> by=<name>`):
 refresh never touches it, and `check` only says when the code moved past it. Each repo gets `docs/repos/<repo>/reference.md`
-built from these blocks."""
+built from these blocks.
+
+The opening marker starts a line; its attributes are read in any order (`repo=` is required), and `by=` takes a word or
+a quoted name (`by="Ana López"`; an unquoted name runs up to the next `name=`). The kit always writes them in the order
+of `block()`. The portal reads markers the same way (portal/app/src/content/generated.js)."""
 from __future__ import annotations
 
 import hashlib, re
@@ -18,10 +22,77 @@ from . import diagrams, docs, quickarch
 
 KINDS = ("commands", "env", "endpoints", "topics", "schema")
 DIAGRAM_KINDS = diagrams.KINDS                                              # not in KINDS: they never join a reference page
-BLOCK_RE = re.compile(r"<!-- generated:(?P<kind>[\w-]+) repo=(?P<repo>[\w.\-]+)(?: id=(?P<id>[\w.\-]+))?"
-                      r"(?: confirmed=(?P<confirmed>[0-9a-f]+))?(?: by=(?P<by>[^\s>]+))?(?: sha=(?P<sha>[0-9a-f]+))? -->\n"
-                      r"(?P<body>.*?)<!-- /generated:(?P=kind) -->", re.S)
+OPEN = r"^<!-- generated:(?P<kind>[\w-]+)(?P<attrs>(?:[ \t][^\n]*?)?)[ \t]*-->[ \t\r]*"
+_RAW = re.compile(OPEN + r"\n(?P<body>.*?)<!-- /generated:(?P=kind) -->", re.M | re.S)
+_ATTR = re.compile(r'[ \t]+([\w-]+)=(?:"([^"\n]*)"|([^\n]*?))(?=[ \t]+[\w-]+=|[ \t]*$)')
+_NAME = re.compile(r"[\w.\-]+")
+_FENCE = re.compile(r"^\s*(```|~~~)")
 SYSTEM = "_system"                                                          # reserved repo name: the whole system, no folder
+
+
+def parse_attrs(attrs: str) -> dict | None:
+    """The attributes of an opening marker (`repo=api id=x by="Ana López"` → dict), or None when they cannot be read:
+    no valid `repo=`, a bad `id=`, an attribute twice, or text that is not `name=value`. Empty values count as absent."""
+    out, pos = {}, 0
+    while pos < len(attrs):
+        m = _ATTR.match(attrs, pos)
+        if not m or m[1] in out:
+            return None
+        out[m[1]] = m[2] if m[2] is not None else m[3]
+        pos = m.end()
+    out = {k: v for k, v in out.items() if v}
+    if not _NAME.fullmatch(out.get("repo", "")) or ("id" in out and not _NAME.fullmatch(out["id"])):
+        return None
+    return out
+
+
+class Block:
+    """A generated block found in a page: `b["kind"]`, `b["body"]`, `b[0]` (the whole block) and its attributes
+    (`b["repo"]`, `b["id"]`, `b["confirmed"]`, `b["by"]`, `b["sha"]`; None when absent), plus `start()` and `end()`."""
+    __slots__ = ("m", "attrs")
+
+    def __init__(self, m: re.Match, attrs: dict):
+        self.m, self.attrs = m, attrs
+
+    def __getitem__(self, key):
+        return self.m[key] if key in (0, "kind", "body") else self.attrs.get(key)
+
+    def start(self) -> int:
+        return self.m.start()
+
+    def end(self) -> int:
+        return self.m.end()
+
+
+class _Blocks:
+    """`BLOCK_RE.finditer(text)` / `.search(text)`: the readable blocks of a page, as `Block`s."""
+
+    def finditer(self, text: str):
+        for m in _RAW.finditer(text):
+            attrs = parse_attrs(m["attrs"])
+            if attrs is not None:
+                yield Block(m, attrs)
+
+    def search(self, text: str) -> Block | None:
+        return next(self.finditer(text), None)
+
+
+BLOCK_RE = _Blocks()
+
+
+def unreadable(text: str) -> list[int]:
+    """Line numbers of the `<!-- generated:` opening lines that are not the start of a readable block (a bad attribute,
+    no `repo=`, no closing marker). Lines inside a code fence, and markers quoted inline, are not markers."""
+    starts = {b.start() for b in BLOCK_RE.finditer(text)}
+    bad, fence, pos = [], None, 0
+    for n, line in enumerate(text.split("\n"), 1):
+        f = _FENCE.match(line)
+        if f:
+            fence = (None if line.strip().startswith(fence) else fence) if fence else f[1]
+        elif not fence and line.startswith("<!-- generated:") and pos not in starts:
+            bad.append(n)
+        pos += len(line) + 1
+    return bad
 PLACEHOLDER = re.compile(r"\$\{([A-Z][A-Z0-9_]*)(?::([^}]*))?\}")
 SECRETISH = re.compile(r"PASS|SECRET|TOKEN|KEY|CREDENTIAL|PRIVATE", re.I)
 CONFIG_FILES = re.compile(r"^(application|bootstrap)[\w-]*\.(ya?ml|properties)$")
@@ -194,10 +265,12 @@ def _where(source: str) -> str:
     return f"`{source.split(':', 1)[1]}`"
 
 
-def render(kind: str, name: str, repo: Path | None, id: str | None = None) -> tuple[str, list[str]] | None:
-    """(block body, sources it was read from); None when the kind has nothing to say without a repo folder."""
+def render(kind: str, name: str, repo: Path | None, id: str | None = None,
+           memo: dict | None = None) -> tuple[str, list[str]] | None:
+    """(block body, sources it was read from); None when the kind has nothing to say without a repo folder. `memo`: a
+    pass's shared cache for the diagrams (see `Scanner`)."""
     if kind in DIAGRAM_KINDS:
-        return diagrams.render(kind, name, id)
+        return diagrams.render(kind, name, id, memo=memo)
     if repo is None:
         return None
     if kind == "schema":
@@ -230,35 +303,63 @@ def sha(body: str) -> str:
 
 def block(kind: str, repo: str, body: str, id: str | None = None, confirmed: str | None = None,
           by: str | None = None) -> str:
+    if by:
+        by = by.replace('"', "")
+        by = f'"{by}"' if re.search(r"\s", by) else by
     attrs = "".join(f" {k}={v}" for k, v in (("id", id), ("confirmed", confirmed), ("by", by)) if v)
     return f"<!-- generated:{kind} repo={repo}{attrs} sha={sha(body)} -->\n{body.strip()}\n<!-- /generated:{kind} -->"
 
 
 class Scanner:
-    """One scan per (kind, repo, id) for a whole refresh or check."""
+    """One scan per (kind, repo, id) for a whole refresh or check. `memo` is this pass's cache of the expensive reads
+    the diagrams share (the architecture scan, status enums, endpoint maps, topics): it lives as long as the Scanner."""
 
     def __init__(self):
         self.repos = set(docs.repo_names())
-        self.cache: dict[tuple, tuple[str, list[str]]] = {}
+        self.cache: dict[tuple, tuple[str, list[str]] | None] = {}
+        self.failed: set[tuple] = set()                                    # diagrams whose drawing raised: no judgement
+        self.memo: dict = {}
+
+    def present(self, repo: str) -> bool:
+        """Whether this machine can judge `repo`'s blocks: its folder is here (for `_system`, every repo's folder)."""
+        if repo == SYSTEM:
+            return all(repo_dir(n).is_dir() for n in self.repos)
+        return repo in self.repos and repo_dir(repo).is_dir()
 
     def get(self, kind: str, repo: str, id: str | None = None) -> tuple[str, list[str]] | None:
-        if kind not in KINDS + DIAGRAM_KINDS or (repo != SYSTEM and (repo not in self.repos or not repo_dir(repo).is_dir())):
+        if kind not in KINDS + DIAGRAM_KINDS or not self.present(repo):
             return None
-        if (kind, repo, id) not in self.cache:
-            self.cache[(kind, repo, id)] = render(kind, repo, None if repo == SYSTEM else repo_dir(repo), id)
-        return self.cache[(kind, repo, id)]
+        key = (kind, repo, id)
+        if key not in self.cache:
+            try:
+                self.cache[key] = render(kind, repo, None if repo == SYSTEM else repo_dir(repo), id, memo=self.memo)
+            except Exception:
+                if kind not in DIAGRAM_KINDS:
+                    raise
+                self.cache[key] = None                                     # a drawing bug never stops sync or check
+                self.failed.add(key)
+        return self.cache[key]
 
 
 def states(text: str, scan: Scanner):
-    """(match, state, fresh body or None) per block; state: new | current | stale | edited | unknown | confirmed |
-    confirmed-stale (a person confirmed it; the last two are never rewritten)."""
+    """(match, state, fresh body or None) per block; state: new | current | stale | edited | unknown | gone | confirmed |
+    confirmed-stale. `unknown`: nothing can be said (an unknown kind, the repo is not on this machine, a drawing that
+    failed); a block a person confirmed keeps `confirmed` then, from its marker. `gone`: the repo is here but the code no
+    longer has the diagram's source. Confirmed, gone and unknown blocks are never rewritten."""
     for m in BLOCK_RE.finditer(text):
-        got = scan.get(m["kind"], m["repo"], m["id"])
-        body = m["body"].strip()
-        if m["confirmed"]:
-            yield m, "confirmed" if got and sha(got[0]) == m["confirmed"] else "confirmed-stale", got and got[0]
-        elif got is None:
+        kind, repo = m["kind"], m["repo"]
+        if kind not in KINDS + DIAGRAM_KINDS:
             yield m, "unknown", None
+            continue
+        if not scan.present(repo):
+            yield m, "confirmed" if m["confirmed"] else "unknown", None
+            continue
+        got = scan.get(kind, repo, m["id"])
+        body = m["body"].strip()
+        if got is None:
+            yield m, "unknown" if (kind, repo, m["id"]) in scan.failed or kind not in DIAGRAM_KINDS else "gone", None
+        elif m["confirmed"]:
+            yield m, "confirmed" if sha(got[0]) == m["confirmed"] else "confirmed-stale", got[0]
         elif m["sha"] and m["sha"] != sha(body):
             yield m, "edited", got[0]
         elif not m["sha"]:
@@ -361,6 +462,10 @@ def check(rows: list[dict], strict: bool = False) -> tuple[list[str], list[str]]
         text = f.read_text(encoding="utf-8", errors="replace")
         if "<!-- generated:" not in text:
             continue
+        for n in unreadable(text):
+            issues.append(f"{rel_file(f)}, line {n}: this `<!-- generated:` marker cannot be read: write it as "
+                          "`<!-- generated:<kind> repo=<repo> [id=<id>] [confirmed=<sha> by=<name>] sha=<sha> -->` (a name "
+                          "with spaces goes in quotes) and close it with `<!-- /generated:<kind> -->`")
         for m, state, _ in states(text, scan):
             what = f"{rel_file(f)}: generated block `{m['kind']}` ({m['repo']})"
             if state == "edited":
@@ -369,6 +474,10 @@ def check(rows: list[dict], strict: bool = False) -> tuple[list[str], list[str]]
             elif state in ("stale", "new"):
                 issues.append(f"{what} is out of date with the code: run `{cli_cmd()} blocks`")
             elif state == "confirmed-stale":
-                issues.append(f"{what}: the code changed since this diagram was confirmed — ask for a proposal or "
-                              "confirm it again")
+                issues.append(f"{what}: the code changed since this diagram was confirmed — ask for a proposal, or take "
+                              f"the code's version: remove `confirmed=` and `by=` from its marker, run `{cli_cmd()} "
+                              "diagrams`, then confirm it again")
+            elif state == "gone":
+                issues.append(f"{what}: the code no longer has this diagram's source ({rel_file(f)}, {m['kind']} "
+                              f"{m['repo']}" + (f" {m['id']})" if m["id"] else ")"))
     return (issues, []) if strict else ([], issues)

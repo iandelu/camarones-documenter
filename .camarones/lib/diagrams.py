@@ -10,7 +10,7 @@ the first-look scan (identity providers fold into one External node when crowded
 topic: its producers, the broker and its consumers."""
 from __future__ import annotations
 
-import itertools, re
+import itertools, os, re
 from pathlib import Path
 
 from .common import DOCS, rel_file, repo_dir
@@ -44,16 +44,50 @@ def _repo(repo: str) -> Path | None:
     return d if repo != SYSTEM and d.is_dir() else None
 
 
+def _complete() -> bool:
+    """Every workspace repo is on this machine. A system-wide diagram drawn from part of the repos would be wrong, so
+    without that nothing system-wide is drawn (None: can't tell)."""
+    from . import docs
+    return all(repo_dir(n).is_dir() for n in docs.repo_names())
+
+
+def _memo(memo: dict | None, key: tuple, fn):
+    """`fn()` once per pass: `memo` is the pass's cache (a `genblocks.Scanner`'s, or `write_pages`'), None for no cache."""
+    if memo is None:
+        return fn()
+    if key not in memo:
+        memo[key] = fn()
+    return memo[key]
+
+
+def _scan(memo: dict | None) -> dict:
+    return _memo(memo, ("scan",), lambda: quickarch.scan())
+
+
 def _line(text: str, pos: int) -> int:
     return text.count("\n", 0, pos) + 1
+
+
+def _sql_files(repo: Path):
+    """The repo's .sql files, skipping the folders the architecture scan skips (never walked into) and files too big
+    for it."""
+    from . import genblocks
+    skip = quickarch.SKIP_DIRS | genblocks.TEST_DIRS
+    for root, dirs, names in os.walk(repo):
+        dirs[:] = sorted(d for d in dirs if d not in skip)
+        for n in sorted(names):
+            f = Path(root) / n
+            try:
+                if f.suffix == ".sql" and f.is_file() and f.stat().st_size <= quickarch.MAX_BYTES:
+                    yield f
+            except OSError:
+                continue
 
 
 def _files(repo: Path) -> list[Path]:
     """The scan files of the repo plus its .sql files, which the architecture scan does not read."""
     from . import genblocks
-    skip = quickarch.SKIP_DIRS | genblocks.TEST_DIRS
-    sql = itertools.islice((f for f in repo.rglob("*.sql") if f.is_file() and not skip & set(f.relative_to(repo).parts[:-1])),
-                           quickarch.MAX_FILES)
+    sql = itertools.islice(_sql_files(repo), quickarch.MAX_FILES)
     return sorted({*genblocks._scan_files(repo), *sql}, key=lambda f: f.relative_to(repo).as_posix())
 
 
@@ -132,7 +166,8 @@ def status_enums(name: str, repo: Path) -> list[dict]:
                     add(m.group(1), _python_members(text, m.end()), f, m.start(), text)
         elif f.suffix == ".sql":
             for t in SQL_TABLE.finditer(text):
-                stmt = text[t.end():].split(";", 1)[0]
+                end = text.find(";", t.end())
+                stmt = text[t.end():end if end >= 0 else len(text)]
                 for c in SQL_IN.finditer(stmt):
                     if STATE_COLUMN.search(c.group(1)):
                         add(f"{t.group(1).rsplit('.', 1)[-1]}_{c.group(1)}", re.findall(r"'([^']*)'", c.group(2)), f,
@@ -160,8 +195,12 @@ def _node(state: str, used: set[str]) -> str:
     return node
 
 
-def _states(repo: str, d: Path, id: str | None) -> tuple[str, list[str]] | None:
-    enum = next((e for e in status_enums(repo, d) if e["id"] == id), None)
+def _enums(repo: str, d: Path, memo: dict | None) -> list[dict]:
+    return _memo(memo, ("enums", repo), lambda: status_enums(repo, d))
+
+
+def _states(repo: str, d: Path, id: str | None, memo: dict | None = None) -> tuple[str, list[str]] | None:
+    enum = next((e for e in _enums(repo, d, memo) if e["id"] == id), None)
     if enum is None:
         return None
     where, extra = enum["source"].split("#", 1)[0], len(enum["states"]) - NODE_LIMIT
@@ -187,10 +226,14 @@ def _group(path: str) -> str:
     return re.sub(r"[^\w.\-]+", "-", first).strip("-") or "root"
 
 
-def _endpoints_map(repo: str, d: Path) -> dict | None:
+def _endpoints_map(repo: str, d: Path, memo: dict | None = None) -> dict | None:
     """The map of a repo as data: {"groups": {id: {"name", "rows"}}, "deps": [(shape, label, edge, way, source)],
     "split": bool, "more": dependencies left out}; None when the repo has no endpoints. The architecture is scanned
     once, here. Over NODE_LIMIT nodes it is split by first path segment (a big group in chunks: `pets`, `pets-2`…)."""
+    return _memo(memo, ("map", repo), lambda: _build_map(repo, d, memo))
+
+
+def _build_map(repo: str, d: Path, memo: dict | None) -> dict | None:
     from . import genblocks
     seen, rows = set(), []
     for r in genblocks.endpoint_rows(repo, d):
@@ -199,7 +242,7 @@ def _endpoints_map(repo: str, d: Path) -> dict | None:
             rows.append(r)
     if not rows:
         return None
-    topics, model = genblocks.topic_rows(repo, d), quickarch.scan()
+    topics, model = genblocks.topic_rows(repo, d), _scan(memo)
     deps, known = [], set()
     for a, b, kind, label in model["edges"]:
         if a != repo or b in known:
@@ -265,12 +308,16 @@ def _draw_map(repo: str, m: dict, id: str | None) -> tuple[str, list[str]] | Non
 EXTERNAL, CACHE = "\0external", "\0cache"                                   # node keys that cannot clash with a repo name
 
 
-def _context_map() -> dict | None:
+def _context_map(memo: dict | None = None) -> dict | None:
     """The system as data: {"nodes": [(key, shape, label)], "edges": [(from, to, label)], "folded": [identity providers
     folded into one External node], "dropped": nodes left out, "sources": [...]}; None when there are no repos. The
     architecture is scanned once, here. Over NODE_LIMIT nodes the identity providers fold into one `External` node; if
     that is still too much, the least connected repos and datastores are left out (and counted)."""
-    model = quickarch.scan()
+    return _memo(memo, ("context",), lambda: _build_context(memo))
+
+
+def _build_context(memo: dict | None) -> dict | None:
+    model = _scan(memo)
     if not model["repos"]:
         return None
     nodes = [(n, "repo", n) for n in model["repos"]]
@@ -315,9 +362,13 @@ def _draw_context(m: dict) -> tuple[str, list[str]]:
     return head + "\n\n```mermaid\n" + "\n".join(lines) + "\n```", m["sources"]
 
 
-def _topics() -> dict[str, dict]:
+def _topics(memo: dict | None = None) -> dict[str, dict]:
     """Per topic: {"pub": [repos], "sub": [repos], "files": [paths]}, in topic order; a repo that both publishes and
     consumes a topic is in both lists, so the topic is one diagram."""
+    return _memo(memo, ("topics",), _build_topics)
+
+
+def _build_topics() -> dict[str, dict]:
     from . import docs, genblocks
     out: dict[str, dict] = {}
     for name in docs.repo_names():
@@ -346,40 +397,47 @@ def _draw_topic(topic: str, t: dict, broker: str) -> tuple[str, list[str]]:
     return head + "\n\n```mermaid\n" + "\n".join(lines) + "\n```", t["files"]
 
 
-def _messaging(id: str | None) -> tuple[str, list[str]] | None:
-    t = _topics().get(id or "")
+def _messaging(id: str | None, memo: dict | None = None) -> tuple[str, list[str]] | None:
+    t = _topics(memo).get(id or "")
     if t is None:
         return None
-    brokers = quickarch.scan()["brokers"]
+    brokers = _scan(memo)["brokers"]
     return _draw_topic(id, t, next(iter(brokers)) if len(brokers) == 1 else "Broker")
 
 
-def ids(kind: str, repo: str) -> list[str | None]:
+def ids(kind: str, repo: str, memo: dict | None = None) -> list[str | None]:
+    """The blocks `repo` has of `kind`. System-wide kinds need every repo on this machine (else `[]`, like `render`)."""
     d = _repo(repo)
     if d is not None and kind == "states":
-        return [e["id"] for e in status_enums(repo, d)]
+        return [e["id"] for e in _enums(repo, d, memo)]
     if d is not None and kind == "endpoints-map":
-        m = _endpoints_map(repo, d)
+        m = _endpoints_map(repo, d, memo)
         return _map_ids(m) if m else []
+    if repo == SYSTEM and kind in ("context", "messaging") and not _complete():
+        return []
     if repo == SYSTEM and kind == "context":
-        return [None] if _context_map() else []
+        return [None] if _context_map(memo) else []
     if repo == SYSTEM and kind == "messaging":
-        return list(_topics())
+        return list(_topics(memo))
     return []
 
 
-def render(kind: str, repo: str, id: str | None = None) -> tuple[str, list[str]] | None:
+def render(kind: str, repo: str, id: str | None = None, memo: dict | None = None) -> tuple[str, list[str]] | None:
+    """One block's (body, sources); None when that block does not exist, or when a system-wide diagram cannot be drawn
+    because some repo is not on this machine. `memo`: the pass's shared cache (see `genblocks.Scanner`)."""
     d = _repo(repo)
     if d is not None and kind == "states":
-        return _states(repo, d, id)
+        return _states(repo, d, id, memo)
     if d is not None and kind == "endpoints-map":
-        m = _endpoints_map(repo, d)
+        m = _endpoints_map(repo, d, memo)
         return _draw_map(repo, m, id) if m else None
+    if repo == SYSTEM and kind in ("context", "messaging") and not _complete():
+        return None
     if repo == SYSTEM and kind == "context":
-        m = _context_map() if id is None else None
+        m = _context_map(memo) if id is None else None
         return _draw_context(m) if m else None
     if repo == SYSTEM and kind == "messaging":
-        return _messaging(id)
+        return _messaging(id, memo)
     return None
 
 
@@ -485,7 +543,8 @@ def write_pages(log=lambda _: None) -> list[str]:
     `docs/repos/<repo>/diagrams.md` (endpoints map, one state diagram per status enum). A block whose key (kind, repo,
     id) already lives in another docs page is not written again (an agent moved it there); a block a person confirmed
     stays; an unconfirmed one whose id is gone leaves; a page a person owns is never touched; a page that would have no
-    block is not created. Returns the pages written."""
+    block is not created; the system map is left as it is while some repo is not on this machine. Returns the pages
+    written."""
     from . import docs, genblocks
     names = [n for n in sorted(docs.repo_names()) if repo_dir(n).is_dir()]
     homes: dict[Key, set[Path]] = {}                                       # where each diagram block lives now
@@ -493,17 +552,22 @@ def write_pages(log=lambda _: None) -> list[str]:
         for m in _page_blocks(f.read_text(encoding="utf-8")):
             homes.setdefault(_key(m), set()).add(f.resolve())
     cache: dict[Key, tuple[str, list[str]]] = {}
+    memo: dict = {}                                                        # this pass's scans, shared by every page
 
     def draw(key: Key):
         if key not in cache:
-            cache[key] = render(*key)
+            cache[key] = render(*key, memo=memo)
         return cache[key]
     specs = [(SYSTEM_PAGE, SYSTEM, SYSTEM_SECTIONS)] + [(REPO_PAGE.format(repo=n), n, REPO_SECTIONS) for n in names]
     written = []
     for rel, repo, sections in specs:
         f = DOCS / rel
+        if repo == SYSTEM and not _complete():
+            log(f"· {rel_file(f)}: not every repo is on this machine, so the system map is left as it is")
+            continue
         elsewhere = {k for k, where in homes.items() if where - {f.resolve()}}
-        per_section = [(h, [(kind, repo, i) for i in ids(kind, repo) if (kind, repo, i) not in elsewhere]) for h, kind in sections]
+        per_section = [(h, [(kind, repo, i) for i in ids(kind, repo, memo) if (kind, repo, i) not in elsewhere])
+                       for h, kind in sections]
         wanted = [k for _h, keys in per_section for k in keys]
         if f.exists():
             text = f.read_text(encoding="utf-8")
