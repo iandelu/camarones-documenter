@@ -434,3 +434,98 @@ def test_a_picked_cam_docs_folder_means_its_parent(kit, tmp_path):
     (ws / "cam-docs").mkdir(parents=True)
     r = kit.onboard.inspect(ws / "cam-docs")
     assert r == kit.onboard.inspect(ws) and r["workspace"] == str(ws.resolve())
+
+
+# ---------- review round: nested repos, existing projects at home, samefile, partial git init ----------
+def monorepo(base: Path) -> Path:
+    repo = make_repo(base / "mono", {"package.json": "{}"})
+    (repo / "apps" / "web").mkdir(parents=True)
+    (repo / "apps" / "web" / "package.json").write_text("{}", encoding="utf-8")
+    return repo
+
+
+def test_a_folder_inside_a_repo_is_inspected_as_that_repo(kit, tmp_path):
+    repo = monorepo(tmp_path / "ws")
+    r = kit.onboard.inspect(repo / "apps" / "web")
+    assert (r["case"], r["warning"]) == ("repo", "")
+    assert r["workspace"] == str((tmp_path / "ws").resolve()) and [x["name"] for x in r["repos"]] == ["mono"]
+    assert r == kit.onboard.inspect(repo)
+
+
+def test_a_folder_inside_a_worktree_is_inspected_as_that_repo(kit, tmp_path):
+    wt = tmp_path / "ws" / "wt"                                   # a worktree/submodule has a .git FILE
+    (wt / "src").mkdir(parents=True)
+    (wt / ".git").write_text("gitdir: elsewhere\n", encoding="utf-8")
+    assert kit.onboard.inspect(wt / "src")["case"] == "repo"
+
+
+def test_the_enclosing_repo_search_stops_at_home(kit):
+    (kit.home / ".git").mkdir()                                   # dotfiles repo in home
+    code = kit.home / "projects" / "app"
+    code.mkdir(parents=True)
+    (code / "pom.xml").write_text("<project/>", encoding="utf-8")
+    r = kit.onboard.inspect(code)
+    assert (r["case"], r["warning"]) == ("code", "no-git")
+    assert kit.onboard.git_init(code) == [code.resolve()]         # home's .git is not an enclosing repo
+
+
+def test_git_init_refuses_inside_a_repo(kit, tmp_path):
+    repo = monorepo(tmp_path / "ws")
+    with pytest.raises(ValueError, match="mono"):
+        kit.onboard.git_init(repo / "apps" / "web")
+    assert not (repo / "apps" / "web" / ".git").exists()
+
+
+def test_git_init_refuses_home_and_a_root(kit):
+    (kit.home / "pom.xml").write_text("<project/>", encoding="utf-8")
+    (kit.home / "app").mkdir()
+    (kit.home / "app" / "package.json").write_text("{}", encoding="utf-8")
+    for bad in (kit.home, Path(Path.cwd().anchor)):
+        with pytest.raises(ValueError, match="home"):
+            kit.onboard.git_init(bad)
+    assert not (kit.home / ".git").exists() and not (kit.home / "app" / ".git").exists()
+
+
+def test_an_existing_project_in_home_is_not_refused(kit):
+    docs = kit.home / "cam-docs"
+    (docs / ".camarones").mkdir(parents=True)
+    (docs / ".camarones" / "workspace.yaml").write_text("project:\n  name: mine\nrepos: []\n", encoding="utf-8")
+    r = kit.onboard.inspect(kit.home)
+    assert (r["case"], r["warning"]) == ("project", "")
+    before = tree(docs)
+    assert kit.onboard.start(kit.home) == docs.resolve()
+    assert tree(docs) == before
+    assert any(Path(p["path"]).resolve() == docs.resolve() for p in kit.projects.load())
+
+
+def test_a_picked_cam_docs_of_a_real_project_means_its_parent(kit):
+    a, b = kit.onboard.inspect(kit.ws / "cam-docs"), kit.onboard.inspect(kit.ws)
+    assert a == b and a["case"] == "project" and a["docs_root"] == str((kit.ws / "cam-docs").resolve())
+
+
+def test_is_home_or_root_follows_the_same_file(kit, tmp_path, monkeypatch):
+    other = tmp_path / "alias"                                    # another spelling of home (case-insensitive volume)
+    other.mkdir()
+    assert kit.onboard.is_home_or_root(other) is False
+    monkeypatch.setattr(kit.onboard.os.path, "samefile", lambda a, b: True)
+    assert kit.onboard.is_home_or_root(other) is True
+
+
+def test_a_failed_second_git_init_names_the_first(kit, tmp_path, monkeypatch):
+    folder = tmp_path / "app"
+    for n in ("api", "web"):
+        (folder / n).mkdir(parents=True)
+        (folder / n / "package.json").write_text("{}", encoding="utf-8")
+    real, calls = kit.onboard.run, []
+
+    def flaky(cmd, cwd=None, **kw):
+        calls.append(cwd)
+        if len(calls) == 2:
+            raise RuntimeError("command failed (128): git init")
+        return real(cmd, cwd=cwd, **kw)
+
+    monkeypatch.setattr(kit.onboard, "run", flaky)
+    with pytest.raises(RuntimeError) as e:
+        kit.onboard.git_init(folder)
+    assert str((folder / "api").resolve()) in str(e.value) and str((folder / "web").resolve()) not in str(e.value)
+    assert (folder / "api" / ".git").exists() and not (folder / "web" / ".git").exists()

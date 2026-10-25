@@ -62,7 +62,11 @@ def test_git_init_json(kit, tmp_path):
     assert json.loads(r.stdout) == {"initialised": [str(folder.resolve())]}
     assert (folder / ".git").exists()
     r = cli(kit, "projects", "--git-init", str(folder), "--json")          # already a repo
-    assert r.returncode == 1 and "Traceback" not in r.stderr and r.stdout == ""
+    assert r.returncode == 1 and r.stderr.startswith("✖") and "Traceback" not in r.stderr
+    out = json.loads(r.stdout)
+    assert out["error"] == "git-init" and "already" in out["detail"]
+    r = cli(kit, "projects", "--git-init", str(folder))                    # no --json: stdout stays empty
+    assert r.returncode == 1 and r.stdout == ""
 
 
 def test_adopt_home_and_no_git_say_so_as_json(kit, tmp_path):
