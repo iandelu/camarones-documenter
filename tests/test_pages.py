@@ -507,3 +507,12 @@ def test_the_data_view_links_the_repo_page(pg):
     pg.mod.write()
     rows = importlib.import_module("lib.serve").api_schemas()["repos"]
     assert next(r for r in rows if r["repo"] == "api")["page"] == "repos/api/index.md"
+
+
+def test_blocks_says_only_what_it_refreshed_in_the_new_layout(pg):
+    out = cli(pg, "blocks").stdout
+    assert "page(s) refreshed" in out and "reference page" not in out
+    old = pg.kit
+    from fixtures.builder import seed_old_layout
+    seed_old_layout(old.root)
+    assert "reference page(s) created" in cli(pg, "blocks").stdout           # the older layout still says it

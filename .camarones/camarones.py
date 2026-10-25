@@ -55,7 +55,8 @@
   arch-draft [--save]       quick static architecture scan → C4 draft (first look, no AI)
   radar [--json]            stack + tools the repos already use (Backstage, Sonar, linters…) → docs/overview/tooling.md
   schemas [--json]          each repo's tables and collections from migrations, schema files, entity classes, Mongo and
-                          Firestore (no AI) → docs/data/<repo>.md with an ER diagram the kit keeps in sync with the code
+                          Firestore (no AI) → an ER diagram the kit keeps in sync with the code: in the repo page
+                          (docs/data/<repo>.md is for projects from before 4.52; new projects: the repo page)
   inventory [--cves] [--json]   every repo's direct dependencies by category (framework, data, cache, security…)
                           → docs/overview/libraries.md, no AI; --cves adds known vulnerabilities (OSV-Scanner with
                           its offline database, so no package name leaves the machine); exit 1 if one is high/critical
@@ -113,9 +114,10 @@
   fresh [--json] [--ack PAGE… --by NAME] [--plan]
                             pages whose cited code changed (suspect) or is gone (stale); agents are kept off them.
                             --ack: the page still holds for today's code; --plan: add a unit that refreshes them
-  blocks [--force] [--json]  facts read from the repos, no AI: docs/repos/<repo>/reference.md (commands, env vars,
-                            endpoints, topics) and every <!-- generated:… --> block in the docs. A block edited by hand
-                            is kept and flagged by check; --force takes the code's version. `sync` refreshes them too
+  blocks [--force] [--json]  facts read from the repos, no AI: every <!-- generated:… --> block in the docs (new
+                            projects: in the repo page; projects from before 4.52 also docs/repos/<repo>/reference.md,
+                            until `pages --adopt`). A block edited by hand is kept and flagged by check; --force takes
+                            the code's version. `sync` refreshes them too
   pages [--adopt] [--json]  the docs from the code, no AI: docs/index.md (what the project is, a card per repo, the
                             context map) and docs/repos/<repo>/index.md (what each repo exposes, stores and needs to
                             run). Projects from before 4.52 keep their pages; --adopt moves them to this layout
@@ -1158,7 +1160,8 @@ def cmd_blocks(a) -> int:
     if a.json:
         print(json.dumps(out, indent=2, ensure_ascii=False))
         return 0
-    print(f"✔ {len(out['created'])} reference page(s) created, {len(out['updated'])} page(s) refreshed")
+    made = f"{len(out['created'])} reference page(s) created, " if pages.layout() == "old" else ""
+    print(f"✔ {made}{len(out['updated'])} page(s) refreshed")
     for e in out["edited"]:
         print(f"  · kept, edited by hand: {e}")
     for h in out["human"]:
