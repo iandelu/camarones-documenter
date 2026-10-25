@@ -22,6 +22,7 @@ from . import diagrams, docs, quickarch
 
 KINDS = ("commands", "env", "endpoints", "topics", "schema")
 DIAGRAM_KINDS = diagrams.KINDS                                              # not in KINDS: they never join a reference page
+PAGE_KINDS = ("repos",)                                                     # blocks of the project home (`pages`), likewise
 OPEN = r"^<!-- generated:(?P<kind>[\w-]+)(?P<attrs>(?:[ \t][^\n]*?)?)[ \t]*-->[ \t\r]*"
 _RAW = re.compile(OPEN + r"\n(?P<body>.*?)<!-- /generated:(?P=kind) -->", re.M | re.S)
 _ATTR = re.compile(r'[ \t]+([\w-]+)=(?:"([^"\n]*)"|([^\n]*?))(?=[ \t]+[\w-]+=|[ \t]*$)')
@@ -271,6 +272,9 @@ def render(kind: str, name: str, repo: Path | None, id: str | None = None,
     pass's shared cache for the diagrams (see `Scanner`)."""
     if kind in DIAGRAM_KINDS:
         return diagrams.render(kind, name, id, memo=memo)
+    if kind in PAGE_KINDS:
+        from . import pages                                                 # pages imports this module
+        return pages.repos_block(memo) if name == SYSTEM and id is None else None
     if repo is None:
         return None
     if kind == "schema":
@@ -327,14 +331,14 @@ class Scanner:
         return repo in self.repos and repo_dir(repo).is_dir()
 
     def get(self, kind: str, repo: str, id: str | None = None) -> tuple[str, list[str]] | None:
-        if kind not in KINDS + DIAGRAM_KINDS or not self.present(repo):
+        if kind not in KINDS + DIAGRAM_KINDS + PAGE_KINDS or not self.present(repo):
             return None
         key = (kind, repo, id)
         if key not in self.cache:
             try:
                 self.cache[key] = render(kind, repo, None if repo == SYSTEM else repo_dir(repo), id, memo=self.memo)
             except Exception:
-                if kind not in DIAGRAM_KINDS:
+                if kind not in DIAGRAM_KINDS + PAGE_KINDS:
                     raise
                 self.cache[key] = None                                     # a drawing bug never stops sync or check
                 self.failed.add(key)
@@ -348,7 +352,7 @@ def states(text: str, scan: Scanner):
     longer has the diagram's source. Confirmed, gone and unknown blocks are never rewritten."""
     for m in BLOCK_RE.finditer(text):
         kind, repo = m["kind"], m["repo"]
-        if kind not in KINDS + DIAGRAM_KINDS:
+        if kind not in KINDS + DIAGRAM_KINDS + PAGE_KINDS:
             yield m, "unknown", None
             continue
         if not scan.present(repo):
