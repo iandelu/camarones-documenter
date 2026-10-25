@@ -28,3 +28,9 @@ test('the language falls back to Spanish and fills placeholders', () => {
   expect(t('nav.summary')).toBe('Resumen')
   expect(t('nope')).toBe('nope')
 })
+
+// AGENTS §3: no jargon the user has not met (the Taller is gone; runner, worktree and drift stay in the code).
+test('no string says runner, worktree, drift or Taller', () => {
+  for (const l of ['es', 'en']) for (const [k, v] of Object.entries(S[l]))
+    expect(v, `${l}.${k}`).not.toMatch(/runner|worktree|\bdrift|Taller|Workshop/i)
+})

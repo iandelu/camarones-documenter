@@ -92,3 +92,12 @@ def test_triage_report_matches_the_catalog(described):
     from lib import catalog
     assert (REPO / "docs" / "research" / "cli-triage.md").read_text(encoding="utf-8") == \
         catalog.triage_markdown(described["commands"])
+
+
+def test_every_argument_the_app_shows_has_a_label_in_both_languages(described):
+    """The desktop app's command forms label each argument in words (renderer src/i18n.js, `arg.<dest>`), the flag
+    beside it as a hint; without one the form says `--save --save`. --json is the app's own, never shown."""
+    from pathlib import Path
+    src = (Path(__file__).resolve().parents[1] / ".camarones" / "desktop" / "renderer" / "src" / "i18n.js").read_text(encoding="utf-8")
+    dests = {a["dest"] for c in described["commands"] if c["verdict"] != "portal" for a in c["args"]} - {"json"}
+    assert sorted(d for d in dests if src.count(f"'arg.{d}':") != 2) == []

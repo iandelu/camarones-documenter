@@ -25,3 +25,13 @@ test('the run line and the counts keep their placeholders in both languages', ()
     expect(STRINGS[l]['pipe.phase']).toContain('{n}')
   }
 })
+
+// AGENTS §3: no jargon the reader has not met. CI keeps "runner", its own word; the Taller left the portal in 4.53.
+test('no string names the Taller or says worktree or drift; runner only on CI', async () => {
+  const { I18N } = await import('./i18n/portal.js')
+  for (const dict of [STRINGS, I18N]) for (const l of ['en', 'es']) for (const [k, v] of Object.entries(dict[l])) {
+    const s = String(v)
+    expect(s, `${l}.${k}`).not.toMatch(/Taller|Workshop|worktree|\bdrift/i)
+    if (/runner/i.test(s)) expect(k, `${l}.${k}`).toMatch(/^ci/)
+  }
+})
