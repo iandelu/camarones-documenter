@@ -41,10 +41,8 @@ def workspace() -> dict:
 
 
 def save_workspace(ws: dict) -> None:
-    header = "# Camarón workspace: which repos form this project. Edit freely, then run sync.\n"
-    f = ws_file()
-    f.parent.mkdir(parents=True, exist_ok=True)   # global install: .camarones/ may not exist yet (no code lives here)
-    f.write_text(header + yaml.safe_dump(ws, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    from . import onboard                 # lazy: onboard imports docs
+    onboard.write_workspace(ws_file(), ws)
 
 
 def repo_names() -> list[str]:

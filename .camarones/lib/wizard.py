@@ -31,9 +31,8 @@ from .machine import MODELS                   # noqa: E402 — Claude Code's --m
 from .agents import CODEX_MODEL_DEFAULT, claude_history   # noqa: E402,F401 — the launch itself lives in lib/agents.py
 from . import agents as agent_sessions                      # noqa: E402
 FIRSTRUN = CACHE / "firstrun.json"     # first-run wizard position (so closing the window never loses it)
-STEPS = ("name", "repos", "tools", "setup", "stack", "arch", "intro")   # first-run steps, saved by id
-LEGACY_STEPS = ("name", "repos", "tools", "setup", "arch", "intro")     # firstrun.json before 3.3 kept only the index
-JOIN_STEPS = ("tools", "setup", "intro")   # joining a team's cam-docs: the rest is shared and already decided
+from . import onboard                                                                 # noqa: E402
+from .onboard import STEPS, LEGACY_STEPS, JOIN_STEPS, first_run_mode                 # noqa: E402,F401 — the first-run state lives in onboard
 ORANGE = "#ff7a2f"
 MENU_LABELS = {"arch": "a_menu", "stack": "sk_menu", "creds": "k_menu"}   # menu actions whose label is not m_<action>
 MENU_DEFAULT = {"resume": "resume", "next": "next", "review": "review", "done": "portal"}   # plan.next_step → the cursor
@@ -1079,15 +1078,17 @@ class W:
         ws = docs.workspace()
         every = dict(zip(STEPS, [("Workspace", self.fr_name), ("Repos", self.fr_repos), (self.t("t_title"), self.fr_tools),
                                  ("Setup", self.fr_setup), ("Stack", self.fr_stack), ("C4", self.fr_arch), ("🦐", self.fr_intro)]))
-        ids = JOIN_STEPS if mode == "join" else STEPS
-        steps = [every[k] for k in ids]
+        ids = onboard.steps(mode, onboard.kind_of(ws))
         first = STEPS[min(max(start, 0), len(STEPS) - 1)]
         i = ids.index(first) if first in ids else 0
         if i:
             self.resumed = True
-        while i < len(steps):
-            save_json(FIRSTRUN, {"step": STEPS.index(ids[i]), "name": ids[i], "done": False,
-                                 **({"mode": mode} if mode == "join" else {})})
+        while True:
+            ids = onboard.steps(mode, onboard.kind_of(ws))      # the name step may have just set the kind: same index, new list
+            steps = [every[k] for k in ids]
+            if i >= len(steps):
+                break
+            onboard.save_position(ROOT, ids[i], mode)
             crumbs = "  ".join((f"[bold {ORANGE}]● {n}[/]" if k == i else (f"[green]✔ {n}[/]" if k < i else f"[grey50]○ {n}[/]"))
                                for k, (n, _) in enumerate(steps))
             self.step_hdr = f"[bold]{self.t('step', n=i + 1, t=len(steps))}[/]   {crumbs}\n"
@@ -1109,7 +1110,7 @@ class W:
             else:
                 i += 1
         self.step_hdr = None
-        save_json(FIRSTRUN, {"step": len(steps), "done": True})
+        onboard.finish(ROOT, len(steps))
         env.checkpoint_commit("first setup")
         return True
 
@@ -1117,10 +1118,8 @@ class W:
         name = self.txt(self.t("project_name"), default=ws["project"].get("name") or WORKSPACE.name)
         if name is None:
             return BACK
-        ws["project"]["name"] = name.strip() or WORKSPACE.name
-        ws["project"]["id"] = "".join(c if c.isalnum() else "-" for c in ws["project"]["name"].lower()).strip("-")
-        ws["project"].setdefault("canonical_language", "en")
-        ws["project"]["translations"] = ws["project"].get("translations") or ["es"]
+        onboard.name_project(ws, name, WORKSPACE.name)
+        ws["project"].setdefault("kind", onboard.inspect(WORKSPACE)["kind"])    # greenfield may start with no repos
         docs.save_workspace(ws)
 
     def show_repos(self, ws: dict) -> None:
@@ -1136,7 +1135,7 @@ class W:
             docs.save_workspace(ws)
         while True:
             self.show_repos(ws)
-            choices = [Choice(self.t("r_continue"), "go", disabled=None if ws["repos"] else self.t("r_need"))]
+            choices = [Choice(self.t("r_continue"), "go", disabled=None if ws["repos"] or onboard.kind_of(ws) != "legacy" else self.t("r_need"))]
             if found:
                 choices.append(Choice(self.t("r_pick"), "pick"))
             choices.append(Choice(self.t("r_remote"), "remote"))
@@ -2516,19 +2515,6 @@ Talk to the user in {talk}. Do not modify application code.
             self.say("✔ " + ("Idioma: español (también para las sesiones con IA)" if c == "es"
                              else "Language: English (AI sessions too)"), "green")
             time.sleep(1)
-
-
-def first_run_mode(state: dict, shared_ready: bool, local_ready: bool) -> str:
-    """"done" (straight to the menu), "new" (full first run, or resume one) or "join": plan + workspace.yaml came with
-    the team's cam-docs but this machine has no first-run state, so only its tools and repos still need setting up.
-    A project that already has both on this machine is an install from before v2.4: nothing to redo."""
-    if state.get("done"):
-        return "done"
-    if state.get("mode") == "join":
-        return "join"
-    if state or not shared_ready:
-        return "new"
-    return "done" if local_ready else "join"
 
 
 def resume_step(state: dict) -> int:
