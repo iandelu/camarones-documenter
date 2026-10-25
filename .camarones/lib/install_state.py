@@ -125,6 +125,10 @@ def repair(log=print) -> list[dict]:
     if "agents" in comps:
         for r in docs.repo_names():
             env.wire_repo_mcp(r, log)
+    from . import kanban
+    if kanban.enabled():                                  # a joined clone gets the board's merge driver here
+        from .kanban import ops
+        ops.ensure_driver()
     return drift()
 
 

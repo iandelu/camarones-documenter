@@ -5,7 +5,11 @@ import * as directives from './content/directives.js'
 import * as tables from './content/tables.js'
 import * as generated from './content/generated.js'
 import * as zones from './zones.js'
+import { captureToken } from './token.js'
 import './styles.css'
+
+// First: the machine token out of the address, before the router reads it.
+captureToken()
 
 // Helpers the docs renderer (legacy/doc.js) uses: directives and live tables.
 window.CamaronContent = { directives, tables, generated }

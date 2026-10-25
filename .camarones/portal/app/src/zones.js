@@ -1,4 +1,4 @@
-// How the portal is navigated: zones (Docs, Architecture, Plan, Quality, Review) that group the views, what is
+// How the portal is navigated: zones (Docs, Board, Architecture, Plan, Quality, Review) that group the views, what is
 // available in the static export, on the live server or in the desktop app (mode `app`: everything live has, plus
 // the Taller, where machine work runs), the breadcrumbs of any address and the ⌘K entries.
 // Pure functions over the index the portal loads (`tree`); legacy/app.js reaches them as window.CamaronZones.
@@ -11,6 +11,7 @@ export const ZONES = [
   { id: 'docs', href: '#/docs', views: [
     { id: 'pages', href: '#/docs' },
     { id: 'wikis', href: '#/wikis', needs: (index, mode) => mode !== 'static' || hasWiki(index) }] },
+  { id: 'board', href: '#/kanban', views: [{ id: 'kanban', href: '#/kanban', live: true }] },
   { id: 'arch', href: '#/arch', views: [
     { id: 'c4', href: '#/c4' },
     { id: 'code', href: '#/code', needs: hasCode },
@@ -32,6 +33,7 @@ export const TALLER = ['generate', 'analyze', 'check', 'interviews', 'team', 'ma
 
 // The first segment of an address → its zone and view. Old addresses (doc, status, wiki) keep working.
 const ROUTES = {
+  kanban: ['board', 'kanban'],
   docs: ['docs', 'pages'], doc: ['docs', 'pages'], wikis: ['docs', 'wikis'], wiki: ['docs', 'wikis'],
   c4: ['arch', 'c4'], code: ['arch', 'code'], data: ['arch', 'data'], libs: ['arch', 'libs'],
   pipeline: ['plan', 'pipeline'], interview: ['plan', 'interview'], sync: ['plan', 'sync'], kpis: ['quality', 'kpis'], ci: ['quality', 'ci'],
@@ -83,6 +85,7 @@ export function crumbs(hash, mode, index) {
     if (relParts.length) out.push({ text: titleOf(index, `repos/${repo}/${relParts.join('/')}`) || relParts.at(-1), href: null })
     return out
   }
+  if (view === 'kanban' && /^new(\?|$)/.test(rest)) return [...out, { key: 'kanban.new', href: null }]
   if (rest && view !== 'wikis') out.push({ text: rest, href: null })
   return out
 }
