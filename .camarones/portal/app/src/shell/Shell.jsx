@@ -5,6 +5,7 @@ import '@camaron/ui/ui.css'
 import Native from '../Native.jsx'
 import Palette from '../views/Palette.jsx'
 import DocsTree, { audience } from '../views/DocsTree.jsx'
+import { WikiSide } from '../views/Wikis.jsx'
 import { t as tr } from '../i18n.js'
 import { resolve } from '../router.js'
 import { crumbs, locate, zonesFor } from '../zones.js'
@@ -16,6 +17,8 @@ import '../views/views.css'
 // which React renders empty and never touches again.
 const L = () => window.CamaronLegacy
 const TREE_VIEWS = ['docs', 'doc', 'new']          // the views with the docs tree (DocsTree) under the zones
+const WIKI_VIEWS = ['wikis', 'wikigraph', 'wikipage']
+const VIEWER_VIEWS = ['wikigraph']                   // full width, no padding: an embedded visualizer
 const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
 
 function useRouter(onRoute) {
@@ -38,7 +41,11 @@ function useRouter(onRoute) {
       document.body.classList.toggle('native-mode', a.kind === 'native')   // before painting: #main must be visible
       document.body.classList.remove('nav-open')
       flushSync(() => setShown({ ...a, at: seq }))    // the slots of this kind exist before the plain scripts paint
-      if (a.kind === 'native') return legacy.leave()
+      if (a.kind === 'native') {
+        legacy.leave()
+        document.body.classList.toggle('viewer-mode', VIEWER_VIEWS.includes(a.view))
+        return
+      }
       await legacy.run(a.fn, a.args)
     })
     q.chain = run.catch(() => {})                  // one address that fails must not stop the next ones
@@ -93,9 +100,7 @@ export default function Shell() {
       <div className="layout" id="layout">
         <aside className="side" id="side">
           {index && <ZoneNav index={index} mode={mode} t={t} />}
-          {shown?.kind === 'native' && TREE_VIEWS.includes(shown.view)
-            ? <DocsTree key={shown.at} active={shown.view === 'doc' ? (shown.arg || '').split('::')[0] : ''} onChange={go} />
-            : <><div id="side-head"></div><nav id="tree" aria-label={t('docs')}></nav></>}
+          <Side shown={shown} go={go} t={t} />
         </aside>
         <main id="main" className="main">
           {failed && <div className="page"><h1>{t('unreachable')}</h1><p>{failed}</p></div>}
@@ -111,6 +116,19 @@ export default function Shell() {
       {ready && <Palette open={palette} onClose={() => setPalette(false)} />}
     </>
   )
+}
+
+// Under the zones, what the view lists: the docs tree, a wiki's pages, or the slots the plain scripts fill.
+function Side({ shown, go, t }) {
+  if (shown?.kind === 'native' && TREE_VIEWS.includes(shown.view))
+    return <DocsTree key={shown.at} active={shown.view === 'doc' ? (shown.arg || '').split('::')[0] : ''} onChange={go} />
+  if (shown?.kind === 'native' && WIKI_VIEWS.includes(shown.view)) {
+    const [where] = (shown.arg || '').split('::')
+    const [repo, ...rel] = where.split('/')
+    return <WikiSide key={shown.at} repo={shown.view === 'wikis' ? '' : repo}
+      page={shown.view === 'wikigraph' ? 'graph' : rel.length ? `repos/${repo}/${rel.join('/')}` : ''} />
+  }
+  return <><div id="side-head"></div><nav id="tree" aria-label={t('docs')}></nav></>
 }
 
 // The address as a path: zone › section › page. The brand is the way home.

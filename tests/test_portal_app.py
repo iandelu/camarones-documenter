@@ -21,7 +21,7 @@ def test_the_build_is_committed_and_complete():
     theme = '<link rel="stylesheet" href="theme/tokens.css">'
     assert theme in html and html.index(theme) < html.index('href="legacy/app.css"')     # the theme applies first
     assert '="/' not in html.replace('href="#/', '')                     # relative: the export works under a sub-path
-    for script in ("core", "doc", "c4", "code", "wiki", "app"):
+    for script in ("core", "doc", "c4", "code", "app"):
         assert f'<script defer src="legacy/{script}.js">' in html
     manifest = json.loads((BUILD / ".vite" / "manifest.json").read_text(encoding="utf-8"))
     assert all((BUILD / entry["file"]).is_file() for entry in manifest.values())

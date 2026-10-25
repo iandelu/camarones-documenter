@@ -62,12 +62,13 @@ test('docs: a wiki page under #/docs moves to its wiki address', () => {
 })
 
 test('wikis: the list, a repo graph, a page, an anchor on the page shown', () => {
-  expect(go('#/wiki')).toEqual(legacy('showWikis'))
-  expect(go('#/wikis')).toEqual(legacy('showWikis'))
+  expect(go('#/wiki')).toEqual({ kind: 'native', view: 'wikis', arg: '' })
+  expect(go('#/wikis')).toEqual({ kind: 'native', view: 'wikis', arg: '' })
   expect(go('#/wikis/api')).toEqual({ kind: 'redirect', to: '#/wiki/api' })
-  expect(go('#/wiki/api')).toEqual(legacy('showWikiGraph', 'api'))
-  expect(go('#/wiki/api/wiki/intro.md')).toEqual(legacy('showWiki', 'api', 'wiki/intro.md', undefined))
-  expect(go('#/wiki/api/wiki/intro.md::b')).toEqual(legacy('showWiki', 'api', 'wiki/intro.md', 'b'))
+  expect(go('#/wiki/api')).toEqual({ kind: 'native', view: 'wikigraph', arg: 'api' })
+  expect(go('#/wiki/api/wiki/intro.md')).toEqual({ kind: 'native', view: 'wikipage', arg: 'api/wiki/intro.md' })
+  expect(go('#/wiki/api/wiki/intro.md::b')).toEqual({ kind: 'native', view: 'wikipage', arg: 'api/wiki/intro.md::b' })
+  expect(go('#/wikis', { mode: 'static' })).toEqual({ kind: 'native', view: 'wikis', arg: '' })
   expect(go('#/wiki/api/wiki/intro.md::b', { current: 'repos/api/wiki/intro.md' })).toEqual({ kind: 'scroll', anchor: 'b' })
 })
 
