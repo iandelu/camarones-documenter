@@ -13,7 +13,7 @@ export default function Summary({ srv, jobs }) {
   const [launch, setLaunch] = useState({ busy: false, note: '', error: '' })
   const a = useAgents(srv)
   const { running } = useStore(jobs)
-  const load = () => srv.get('app/summary').then((d) => { setData(d); setError('') }, (e) => setError(e.message))
+  const load = () => srv.get('app/summary', { lang: lang() }).then((d) => { setData(d); setError('') }, (e) => setError(e.message))
   useEffect(() => { load() }, [])
   const was = useRef(running.length)
   useEffect(() => {

@@ -27,5 +27,6 @@ if (process.argv.includes('--camaron-hub')) {
     reveal: (file) => ipcRenderer.invoke('app:reveal', file),
     pickFiles: (kind) => ipcRenderer.invoke('app:pick', kind),
     relaunch: () => ipcRenderer.invoke('app:relaunch'),
+    lang: () => ipcRenderer.invoke('app:lang'),
   })
 }

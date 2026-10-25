@@ -294,4 +294,9 @@ export const S = {
 let current = 'es'
 export const setLang = (l) => { current = S[l] ? l : 'es'; if (typeof document !== 'undefined') document.documentElement.lang = current }
 export const lang = () => current
+// The language picked on this machine, from the bridge this window has (the hub's or a project window's), else Spanish.
+export const machineLang = (w) => {
+  const bridge = w?.camaronHub || w?.camaronApp
+  return bridge?.lang ? bridge.lang().catch(() => 'es') : Promise.resolve('es')
+}
 export const t = (k, vars = {}) => (S[current][k] ?? S.es[k] ?? k).replace(/\{(\w+)\}/g, (m, v) => (v in vars ? String(vars[v]) : m))

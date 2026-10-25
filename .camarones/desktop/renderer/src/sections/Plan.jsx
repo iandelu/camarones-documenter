@@ -16,7 +16,7 @@ export default function Plan({ srv, jobs }) {
   const a = useAgents(srv)
   const { running } = useStore(jobs)
   const pilot = running.find((j) => j.kind.startsWith('cmd:autopilot'))
-  const load = () => srv.get('pipeline').then((d) => { setData(d); setError('') }, (e) => setError(e.message))
+  const load = () => srv.get('pipeline', { lang: lang() }).then((d) => { setData(d); setError('') }, (e) => setError(e.message))
   const active = !!pilot || (data?.run && !data.run.finished)
   useEffect(() => {                                   // often while something runs, rarely otherwise
     load()

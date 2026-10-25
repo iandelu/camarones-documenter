@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { apply, changedRun, columns, initial, layout } from './board.js'
+import { apply, changedRun, columns, initial, layout, pipelinePath } from './board.js'
 
 const pipeline = {
   run: { run: 'r-1', finished: false },
@@ -61,5 +61,9 @@ describe('board', () => {
     s = apply(s, { type: 'run.finished', interrupted: true })
     expect(s.units['discovery:web'].status).toBe('todo')
     expect(s.units['discovery:web'].live.outcome).toBe('interrupted')
+  })
+  it('asks for the units in the language the page speaks (their titles come in it)', () => {
+    expect(pipelinePath('es')).toBe('pipeline?lang=es')
+    expect(pipelinePath('en')).toBe('pipeline?lang=en')
   })
 })

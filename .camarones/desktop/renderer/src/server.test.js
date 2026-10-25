@@ -14,6 +14,12 @@ test('a read goes one folder up, with the app token', async () => {
   expect(f.calls[0].init.headers['X-Camaron-Token']).toBe('tok')
 })
 
+test('a read can say how to answer it: the units in the language of the app', async () => {
+  const f = fake(200, { units: [] })
+  await server('tok', f.fetcher).get('pipeline', { lang: 'es' })
+  expect(f.calls[0].url).toBe('../api/pipeline?lang=es')
+})
+
 test('a write also says it comes from the app page, as JSON', async () => {
   const f = fake(200, { launched: true })
   await server('tok', f.fetcher).post('app/agent', { unit: 'u1' })

@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.54.0-ff875f?style=flat-square" alt="Versión 4.54.0">
+  <img src="https://img.shields.io/badge/version-4.55.0-ff875f?style=flat-square" alt="Versión 4.55.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -241,6 +241,8 @@ Configura el proyecto, selecciona repositorios y componentes, prepara el entorno
 ## Una sesión, una unidad de trabajo
 
 La documentación profunda de un sistema no suele caber en una sola conversación. Camarones mantiene un plan con dependencias y unidades como `discovery:orders-api`, `arch-system` o `flow:checkout`.
+
+El asistente, la app de escritorio y el Pipeline del portal enseñan el título de cada unidad en tu idioma («Descubrimiento de orders-api» o «Discovery of orders-api»): la app y el asistente usan el idioma de esta máquina y el portal, el que elijas al leer. `plan.yaml` guarda siempre el título en inglés, así que ningún plan existente cambia; un título que hayas escrito tú (o con `plan add`) se enseña tal cual.
 
 Cada sesión lee el contexto necesario, trabaja en una unidad y guarda notas. Si se interrumpe, el siguiente agente puede continuar desde el último checkpoint. Al cerrar o bloquear una unidad, el CLI intenta crear un commit local del progreso cuando la carpeta contenedora ya tiene Git configurado.
 

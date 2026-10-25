@@ -4,8 +4,8 @@ import { AnimatePresence, motion } from 'motion/react'
 import { memo, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { Aviso, Button, Skeleton } from '@camaron/ui'
 import { getJSON, postJSON, RUNS } from './api.js'
-import { t } from './i18n.js'
-import { apply, changedRun, column, COLUMNS, columns, initial, layout } from './board.js'
+import { lang, t } from './i18n.js'
+import { apply, changedRun, column, COLUMNS, columns, initial, layout, pipelinePath } from './board.js'
 
 // A column's name, and a unit's state in words (doing is the running column).
 const LABEL = { todo: () => t('pipe.todo'), running: () => t('pipe.running'), blocked: () => t('pipe.blocked'),
@@ -28,7 +28,7 @@ function usePipeline() {
     let stop = false
     async function load(pipeline) {
       try {
-        pipeline = pipeline || (await getJSON('pipeline'))
+        pipeline = pipeline || (await getJSON(pipelinePath(lang())))
         const run = pipeline.run
         const detail = run && run.finished ? await getJSON(`runs/${run.run}`) : null
         if (stop) return
@@ -58,7 +58,7 @@ function usePipeline() {
     const timer = setInterval(async () => {
       if (source || stop) return
       try {
-        const pipeline = await getJSON('pipeline')
+        const pipeline = await getJSON(pipelinePath(lang()))
         if (changedRun(shown.current, pipeline.run)) load(pipeline)
       } catch { /* the next tick retries */ }
     }, 5000)
