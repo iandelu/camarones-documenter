@@ -187,7 +187,7 @@ The 🦐 portal brings the docs (with search, editing and review), the C4 explor
    +----------------------------------------------------------------------------+
 ```
 
-`camaron app` (or wizard → 🖥️ Desktop app) opens a window with the same portal plus one more zone, the Workshop: everything that runs on your machine. Generate (the plan with AI, the autopilot, a unit in a terminal with the agent you pick, wikis, pull requests), Analyze (no AI: C4 draft, stack, dependencies and vulnerabilities, data, history), Check (prerequisites, check, golden questions, KPIs), Interviews, Team (shared repo, agents, plugins, CI) and This machine (setup with progress, language and models, tokens, repos, kit updates and uninstall previewed first). Every CLI command has its form there, its live output and its result; what deletes or moves data sits apart and asks first. When it opens you pick a project, create one or join the team's. The browser portal stays the team's viewer: reading, editing, review and status; whatever starts a process or calls a model says "open it in the app". The first time it installs Electron into ~/.camarones/desktop (needs Node.js); without it the CLI and this wizard work the same.
+`camaron app` (or wizard → 🖥️ Desktop app) opens a window with the same portal plus one more zone, the Workshop: everything that runs on your machine. Generate (the plan with AI, the autopilot, a unit in a terminal with the agent you pick, wikis, pull requests), Analyze (no AI: C4 draft, stack, dependencies and vulnerabilities, data, history), Check (prerequisites, check, golden questions, KPIs), Interviews, Team (shared repo, agents, plugins, CI) and This machine (setup with progress, language and models, tokens, repos, kit updates and uninstall previewed first). Every CLI command has its form there, its live output and its result; what deletes or moves data sits apart and asks first. Opened outside a project it asks "What do you want to document?": you pick a folder or join your team's documentation. A project's window is for documenting: Next step, Plan, Review, Board and Workshop; reading docs, architecture and quality happens in the browser portal (the "View portal" button), which stays the team's viewer; whatever starts a process or calls a model says "open it in the app". The first time it installs Electron into ~/.camarones/desktop (needs Node.js); without it the CLI and this wizard work the same.
 
 ### 13. 📦 Installing and opening the desktop app
 
@@ -200,14 +200,30 @@ The 🦐 portal brings the docs (with search, editing and review), the C4 explor
    |                                (the first time it downloads Electron, ~100 MB) |
    |                                                                            |
    |    inside a project       ->  opens that project                           |
-   |    in any other folder    ->  picker: open · create · join · add           |
+   |    in any other folder    ->  start: pick a folder · join · recent        |
    |    in the wizard          ->  menu › Desktop app                           |
    +----------------------------------------------------------------------------+
 ```
 
-The app is not installed separately: it comes with the kit. It only needs Node.js 22 or newer (`camaron doctor --install node` installs it with winget on Windows or Homebrew on macOS). Run `camaron app`: the first time it downloads Electron, pinned to one version, into ~/.camarones/desktop, with no admin rights and nothing in your projects. From a project's folder it opens that project; from anywhere else, the picker, where you open one, create a new one, join the team's cam-docs with its URL or add a folder. Inside, the portal's header is the window's title bar (drag it to move the window), Ctrl or Cmd + Shift + O goes back to the projects and the bar's ⋯ button opens the app menu, with "Open in the browser" for the same portal outside. A good first step: Workshop › Check to see what is missing, and Analyze for the first look without AI. If something fails, the notice says what; deleting ~/.camarones/desktop makes it download Electron again.
+The app is not installed separately: it comes with the kit. It only needs Node.js 22 or newer (`camaron doctor --install node` installs it with winget on Windows or Homebrew on macOS). Run `camaron app`: the first time it downloads Electron, pinned to one version, into ~/.camarones/desktop, with no admin rights and nothing in your projects. From a project's folder it opens that project; from anywhere else, the start screen, where you open a recent project, pick a folder or join the team's cam-docs with its URL. Inside, the portal's header is the window's title bar (drag it to move the window), the Projects button or Ctrl/Cmd + Shift + O goes back to the start screen, View portal opens the portal in your browser and the bar's ⋯ button opens the app menu, with "Open in the browser". If something fails, the notice says what; deleting ~/.camarones/desktop makes it download Electron again.
 
-### 14. ✏️ Where and when you can edit
+### 14. 🚀 First run in the app
+
+```text
+   +----------------------------------------------------------------------------+
+   |  What do you want to document?                                             |
+   |  [ Pick a folder ]  repo · several repos · code · empty · has cam-docs     |
+   |  [ Join my team's documentation ]  cam-docs URL                            |
+   |  Recent: shop  ~/shop/cam-docs  [Open]                                     |
+   |                                                                            |
+   |  1 Repos > 2 Tools > 3 Install > 4 Stack > 5 Architecture > 6 Done         |
+   |                                                [ Go to the next step ]     |
+   +----------------------------------------------------------------------------+
+```
+
+The start screen asks one thing: "What do you want to document?". "Pick a folder" takes any folder and tells you what it found before touching anything: several repos (it documents them), a single repo (it creates cam-docs next to it, in the parent folder), a code folder without git, an empty folder (a new project: you document the design before coding) or a project that already has cam-docs (it opens as is). You confirm the name and press Continue. "Join my team's documentation" asks for the cam-docs repo's URL (the documentation's, not the code's); if git has no access it asks for a token, kept in the system keychain and never in the project. A project not set up yet opens the first-run wizard in its window: Repos (add a code repo with its URL, name and branch), Tools, Install (with progress and Cancel), Stack (editable), Architecture (a no-AI draft you save, and improve with AI if you like) and Done. If you close the app halfway, reopening resumes where you left off, and the terminal wizard sees the same step. In an empty folder the wizard allows zero repos and skips Stack and Architecture. On the CLI: `camaron projects --inspect FOLDER` says what a folder is and `camaron projects --adopt FOLDER` turns it into a project (both accept `--json`).
+
+### 15. ✏️ Where and when you can edit
 
 ```text
    WHERE                        WHAT YOU CAN DO                      WHERE IT GOES
@@ -224,7 +240,7 @@ The app is not installed separately: it comes with the kit. It only needs Node.j
 
 In the local portal, “Edit” opens the markdown with a live preview; saving writes to cam-docs/docs and, with “commit to cam-docs” ticked, makes a local commit (sharing it with git push is up to you). “+ New page” creates a page of your own and “Confirm” signs with your git user name. With Spanish selected you edit the translation. The deployed portal doesn't edit: it's a snapshot of the last export; its “Edit” button takes you to the file in GitLab/GitHub (when cam-docs has a remote), the change goes in as a merge request and CI publishes it again. Editing a ✅ page turns it ⚠️ until someone checks it. Don't hand-edit generated files (llms.txt, llms-full.txt, .status.json, viewers); wikis are better regenerated from the Wikis view, since an update can rewrite what you change.
 
-### 15. 🔑 GitLab / GitHub tokens
+### 16. 🔑 GitLab / GitHub tokens
 
 ```text
    OS keychain          --->  Camarones  --->  git clone / pull   (OK)
@@ -236,7 +252,7 @@ In the local portal, “Edit” opens the markdown with a live preview; saving w
 
 If your repos are private, Camarones needs a token to clone and update them. It is stored in your OS keychain and used only by Camarones' own git commands: never written to the project or git config, never shared with Claude, Codex or other third parties. When you join a team's cam-docs repo, Camarones first tries your own git (keychain, credential manager, SSH keys) and asks for a token only if that is refused. Manage them in “Settings › Tokens”. The agent config that comes with the team's cam-docs gets the same care: hooks, MCP servers, settings and skills the kit did not write are listed when you open the wizard, and Claude Code / Codex only load them once you approve them on this machine (or with `camaron trust`). Approvals live in ~/.camarones/trust/, never in the repo, so nobody can approve them for you with a push. What the kit installed on this machine (its skills, graphify's and OpenWiki's) is recognised without asking, and `camaron repair` puts it back if someone edits or deletes it.
 
-### 16. ⚙️ CI: docs that update themselves
+### 17. ⚙️ CI: docs that update themselves
 
 ```text
    git push --> pipeline (GitLab CI / GitHub Actions)
@@ -251,7 +267,7 @@ If your repos are private, Camarones needs a token to clone and update them. It 
 
 Optional: a pipeline that, after each change in the repos or in cam-docs, updates the affected docs and publishes the read-only portal. So a merge request opened from the deployed portal's “Edit” shows up once merged. Set it up in “Team › CI”. You can also do it by hand with “🔄 Update docs after changes” and “🌐 Portal › 📦 Export the portal”. And on every pull request in a repo, a job without AI comments which pages the change leaves out of date (`camaron pr fresh`).
 
-### 17. 📋 The Board: the work next to the docs
+### 18. 📋 The Board: the work next to the docs
 
 ```text
    cam-docs/backlog/
@@ -267,7 +283,7 @@ Each card is a Markdown file compatible with Backlog.md, so that tool reads and 
 
 Your intern shrimp has pinned the sticky notes up already: all you do is move them.
 
-### 18. 🧰 Supporting pieces
+### 19. 🧰 Supporting pieces
 
 ```text
    uv        -> runs Camarones (Python) without installing anything else
@@ -280,7 +296,7 @@ Your intern shrimp has pinned the sticky notes up already: all you do is move th
 
 The wizard checks all of this and installs it for you (winget on Windows, Homebrew on Mac) when you choose “Install everything recommended”. Only git and Node.js are required. The quality gate (mermaid-cli and gitleaks) comes with the full install; mermaid-cli downloads a headless Chromium the first time. Without AI, each repo also gets `docs/repos/<repo>/reference.md`: commands, env vars, endpoints and topics read from its files, kept current by `camaron blocks` and `sync`. Also without AI, `camaron diagrams` draws the system map (`docs/architecture/system-map.md`: who talks to whom, and who publishes or consumes each topic) and, per repo, `docs/repos/<repo>/diagrams.md` (endpoints and the states of each status enum; transitions are never guessed). They are ordinary Docs pages (under architecture and each repo) made of generated blocks: a person can confirm one by copying the block's `sha=` value into `confirmed=` and putting their name in `by=` (one word, or quoted when it has spaces: `by="Ana López"`), e.g. `<!-- generated:states repo=api id=OrderStatus confirmed=3fa1c2d4e5f6 by=ana sha=3fa1c2d4e5f6 -->`; the kit then stops rewriting it, and `check` warns when the code has changed since or no longer has the diagram's source. To take the code's version, remove `confirmed=` and `by=` from the marker, run `camaron diagrams` and confirm it again. The portal tells you for each diagram whether it comes from the code, was edited by hand, a person confirmed it, or the code changed. Team extensions go in `.camarones/plugins/` as plugins (`camaron plugins add` brings one in and pins it in plugins.lock); the ones that run code or steer agents are not loaded until you approve them on your machine, and any change asks again. Also without AI: `camaron history` reads the git history (hotspots, who to ask), `camaron doctor --context` counts what every agent session loads and `camaron repair` puts the kit's files back if someone touches them.
 
-### 19. 🗺 Your day to day
+### 20. 🗺 Your day to day
 
 ```text
    1. camarones              -> opens the project's wizard (cam-docs)
@@ -483,7 +499,7 @@ El portal 🦐 junta en una sola web la documentación (con buscador, edición y
    +----------------------------------------------------------------------------+
 ```
 
-`camaron app` (o asistente → 🖥️ App de escritorio) abre una ventana con el mismo portal y una zona más, el Taller: todo lo que corre en tu máquina. Generar (el plan con IA, el piloto automático, una unidad en una terminal con el agente que elijas, wikis, pull requests), Analizar (sin IA: borrador C4, stack, dependencias y vulnerabilidades, datos, historia), Comprobar (requisitos, check, preguntas de control, KPIs), Entrevistas, Equipo (repo compartido, agentes, plugins, CI) y Esta máquina (setup con progreso, idioma y modelos, tokens, repos, actualizar el kit y desinstalar con vista previa). Cada comando de la CLI tiene ahí su formulario, su salida en vivo y su resultado; lo que borra o mueve datos va aparte y pregunta antes. Al abrirla eliges proyecto, creas uno o te unes al del equipo. El portal del navegador queda como visor del equipo: leer, editar, revisar y ver el estado; lo que lanza procesos o llama a un modelo dice «ábrelo en la app». La primera vez instala Electron en ~/.camarones/desktop (necesita Node.js); sin él, la CLI y este asistente funcionan igual.
+`camaron app` (o asistente → 🖥️ App de escritorio) abre una ventana con el mismo portal y una zona más, el Taller: todo lo que corre en tu máquina. Generar (el plan con IA, el piloto automático, una unidad en una terminal con el agente que elijas, wikis, pull requests), Analizar (sin IA: borrador C4, stack, dependencias y vulnerabilidades, datos, historia), Comprobar (requisitos, check, preguntas de control, KPIs), Entrevistas, Equipo (repo compartido, agentes, plugins, CI) y Esta máquina (setup con progreso, idioma y modelos, tokens, repos, actualizar el kit y desinstalar con vista previa). Cada comando de la CLI tiene ahí su formulario, su salida en vivo y su resultado; lo que borra o mueve datos va aparte y pregunta antes. Al abrirla fuera de un proyecto ves la pregunta «¿Qué quieres documentar?»: eliges una carpeta o te unes a la documentación del equipo. La ventana de un proyecto es para documentar: Siguiente paso, Plan, Revisión, Board y Taller; leer docs, arquitectura y calidad se hace en el portal del navegador (botón «Ver portal»), que sigue siendo el visor del equipo; lo que lanza procesos o llama a un modelo dice «ábrelo en la app». La primera vez instala Electron en ~/.camarones/desktop (necesita Node.js); sin él, la CLI y este asistente funcionan igual.
 
 ### 13. 📦 Instalar y abrir la app de escritorio
 
@@ -496,14 +512,30 @@ El portal 🦐 junta en una sola web la documentación (con buscador, edición y
    |                                (la 1.ª vez descarga Electron, ~100 MB)     |
    |                                                                            |
    |    dentro de un proyecto  ->  abre ese proyecto                            |
-   |    en otra carpeta        ->  selector: abrir · crear · unirse · añadir    |
+   |    en otra carpeta        ->  inicio: elegir carpeta · unirse · recientes  |
    |    en el asistente        ->  menú › App de escritorio                     |
    +----------------------------------------------------------------------------+
 ```
 
-La app no se instala aparte: viene con el kit. Solo necesita Node.js 22 o superior (`camaron doctor --install node` lo instala con winget en Windows o Homebrew en macOS). Lanza `camaron app`: la primera vez descarga Electron, fijado a una versión, en ~/.camarones/desktop, sin permisos de administrador y sin tocar tus proyectos. Desde la carpeta de un proyecto abre ese proyecto; desde cualquier otra, el selector, donde abres uno, creas uno nuevo, te unes al cam-docs del equipo con su URL o añades una carpeta. Dentro, la cabecera del portal es la barra de la ventana (arrástrala para moverla), Ctrl o Cmd + Shift + O vuelve a los proyectos y el botón ⋯ de la barra abre el menú de la app, con «Abrir en el navegador» para ver el mismo portal fuera. Un buen primer paso: Taller › Comprobar para ver qué falta, y Analizar para el primer vistazo sin IA. Si algo falla, el aviso dice qué; borrar ~/.camarones/desktop fuerza a descargar Electron otra vez.
+La app no se instala aparte: viene con el kit. Solo necesita Node.js 22 o superior (`camaron doctor --install node` lo instala con winget en Windows o Homebrew en macOS). Lanza `camaron app`: la primera vez descarga Electron, fijado a una versión, en ~/.camarones/desktop, sin permisos de administrador y sin tocar tus proyectos. Desde la carpeta de un proyecto abre ese proyecto; desde cualquier otra, la pantalla de inicio, donde abres un reciente, eliges una carpeta o te unes al cam-docs del equipo con su URL. Dentro, la cabecera del portal es la barra de la ventana (arrástrala para moverla), el botón «Proyectos» o Ctrl/Cmd + Shift + O vuelven a la pantalla de inicio, «Ver portal» abre el portal en tu navegador y el botón ⋯ de la barra abre el menú de la app, con «Abrir en el navegador». Si algo falla, el aviso dice qué; borrar ~/.camarones/desktop fuerza a descargar Electron otra vez.
 
-### 14. ✏️ Dónde y cuándo se puede editar
+### 14. 🚀 El primer arranque en la app
+
+```text
+   +----------------------------------------------------------------------------+
+   |  ¿Qué quieres documentar?                                                  |
+   |  [ Elegir carpeta ]  repo · varios repos · código · vacía · con cam-docs   |
+   |  [ Unirme a la documentación de mi equipo ]  URL del cam-docs              |
+   |  Recientes: shop  ~/shop/cam-docs  [Abrir]                                 |
+   |                                                                            |
+   |  1 Repos > 2 Herram. > 3 Instalar > 4 Stack > 5 Arquitectura > 6 Listo     |
+   |                                                [ Ir al siguiente paso ]    |
+   +----------------------------------------------------------------------------+
+```
+
+La pantalla de inicio pregunta una cosa: «¿Qué quieres documentar?». «Elegir carpeta» acepta cualquier carpeta y te dice qué encontró antes de tocar nada: varios repos (los documenta), un repo suelto (crea cam-docs junto a él, en la carpeta padre), una carpeta de código sin git, una carpeta vacía (proyecto nuevo: se documenta el diseño antes de programar) o un proyecto que ya tiene cam-docs (se abre tal cual). Confirmas el nombre y «Continuar». «Unirme a la documentación de mi equipo» pide la URL del repo cam-docs (el de la documentación, no el del código); si git no tiene acceso, pide un token, que se guarda en el llavero del sistema y nunca en el proyecto. Un proyecto sin preparar abre el asistente de primer arranque en su ventana: Repos (añade un repo de código con su URL, nombre y rama), Herramientas, Instalar (con progreso y «Cancelar»), Stack (editable), Arquitectura (un borrador sin IA que guardas, y si quieres lo mejoras con IA) y Listo. Si cierras la app a medias, al reabrir sigue donde lo dejaste, y la terminal ve el mismo paso. En una carpeta vacía el asistente permite cero repos y se salta Stack y Arquitectura. En la CLI: `camaron projects --inspect CARPETA` dice qué es una carpeta y `camaron projects --adopt CARPETA` la convierte en proyecto (los dos aceptan `--json`).
+
+### 15. ✏️ Dónde y cuándo se puede editar
 
 ```text
    DONDE                        QUE PUEDES HACER                     DONDE QUEDA
@@ -520,7 +552,7 @@ La app no se instala aparte: viene con el kit. Solo necesita Node.js 22 o superi
 
 En el portal local, «Editar» abre el markdown con vista previa; al guardar se escribe en cam-docs/docs y, si marcas «commit en cam-docs», se hace un commit local (compartirlo con git push es cosa tuya). «+ Nueva página» crea una página tuya y «Confirmar» firma con tu usuario de git. Con el idioma en español editas la traducción. El portal desplegado no edita: es una foto de la última exportación; su botón «Editar» te lleva al fichero en GitLab/GitHub (si cam-docs tiene remote) y el cambio entra por merge request, y el CI vuelve a publicar. Editar una página ✅ la pasa a ⚠️ hasta que alguien la mire. No edites a mano lo generado (llms.txt, llms-full.txt, .status.json, visores): las wikis mejor regenerarlas desde la vista Wikis, porque una actualización puede reescribir lo que cambies.
 
-### 15. 🔑 Tokens de GitLab / GitHub
+### 16. 🔑 Tokens de GitLab / GitHub
 
 ```text
    llavero del sistema  --->  Camarones  --->  git clone / pull   (OK)
@@ -532,7 +564,7 @@ En el portal local, «Editar» abre el markdown con vista previa; al guardar se 
 
 Si tus repos son privados, Camarones necesita un token para clonarlos y actualizarlos. Se guarda en el llavero de tu sistema operativo y solo lo usa Camarones en sus propios comandos git: no se escribe en el proyecto, ni en git config, ni se comparte con Claude, Codex u otros terceros. Al unirte al repo de cam-docs de un equipo, Camarones prueba primero con tu propio git (llavero, gestor de credenciales, claves SSH) y solo te pide un token si eso no entra. Los gestionas en «Ajustes › Tokens». La configuración de agentes que llega con el cam-docs del equipo recibe el mismo cuidado: los hooks, servidores MCP, ajustes y skills que no ha escrito el kit se listan al abrir el asistente, y Claude Code / Codex solo los cargan cuando los apruebas en esta máquina (o con `camaron trust`). Las aprobaciones viven en ~/.camarones/trust/, nunca en el repo, así que nadie puede aprobarlas por ti con un push. Lo que el kit instaló en esta máquina (sus skills y los de graphify y OpenWiki) lo reconoce sin preguntar, y `camaron repair` lo devuelve a su sitio si alguien lo edita o lo borra.
 
-### 16. ⚙️ CI: documentación que se actualiza sola
+### 17. ⚙️ CI: documentación que se actualiza sola
 
 ```text
    git push --> pipeline (GitLab CI / GitHub Actions)
@@ -547,7 +579,7 @@ Si tus repos son privados, Camarones necesita un token para clonarlos y actualiz
 
 Opcional: un pipeline que, tras cada cambio en los repos o en cam-docs, actualiza la documentación afectada y publica el portal de solo lectura. Así, un merge request hecho desde «Editar» del portal desplegado aparece publicado al fusionarse. Se configura en «Equipo › CI». También se puede hacer a mano con «🔄 Actualizar doc tras cambios» y «🌐 Portal › 📦 Exportar el portal». Y en cada pull request de un repo, un job sin IA comenta qué páginas deja desactualizadas el cambio (`camaron pr fresh`).
 
-### 17. 📋 El Tablero: el trabajo junto a la documentación
+### 18. 📋 El Tablero: el trabajo junto a la documentación
 
 ```text
    cam-docs/backlog/
@@ -563,7 +595,7 @@ Cada tarjeta es un fichero Markdown compatible con Backlog.md, así que esa herr
 
 Tu gambita de prácticas ya ha colgado los post-its en su sitio: tú solo los mueves.
 
-### 18. 🧰 Piezas de apoyo
+### 19. 🧰 Piezas de apoyo
 
 ```text
    uv        -> ejecuta Camarones (Python) sin instalar nada mas
@@ -576,7 +608,7 @@ Tu gambita de prácticas ya ha colgado los post-its en su sitio: tú solo los mu
 
 El asistente comprueba todo esto y lo instala por ti (winget en Windows, Homebrew en Mac) si eliges «Instalar todo lo recomendado». Solo git y Node.js son obligatorios. El control de calidad (mermaid-cli y gitleaks) viene con la instalación completa; mermaid-cli descarga un Chromium sin ventana la primera vez. Sin IA, cada repo recibe también `docs/repos/<repo>/reference.md`: comandos, variables de entorno, endpoints y topics leídos de sus ficheros, que `camaron blocks` y `sync` mantienen al día. También sin IA, `camaron diagrams` dibuja el mapa del sistema (`docs/architecture/system-map.md`: quién habla con quién y quién publica o consume cada topic) y, por repo, `docs/repos/<repo>/diagrams.md` (endpoints y estados de cada enum de estado; las transiciones no se adivinan). Son páginas normales de Docs (en architecture y en cada repo) hechas de bloques generados: una persona puede confirmar uno copiando el `sha=` del bloque en `confirmed=` y poniendo su nombre en `by=` (una palabra, o entre comillas si lleva espacios: `by="Ana López"`), p. ej. `<!-- generated:states repo=api id=OrderStatus confirmed=3fa1c2d4e5f6 by=ana sha=3fa1c2d4e5f6 -->`; entonces el kit ya no lo reescribe, y `check` avisa si el código cambió desde entonces o si ya no tiene la fuente del diagrama. Para quedarte con la versión del código, quita `confirmed=` y `by=` del marcador, ejecuta `camaron diagrams` y vuelve a confirmarlo. El portal dice de cada diagrama si viene del código, si se editó a mano, si lo confirmó alguien o si el código cambió. Las extensiones del equipo van como plugins en `.camarones/plugins/` (`camaron plugins add` las trae y las fija en plugins.lock); las que ejecutan código o guían a los agentes no se cargan hasta que las apruebas en tu máquina, y cualquier cambio vuelve a preguntar. También sin IA: `camaron history` lee el historial de git (ficheros más tocados, a quién preguntar), `camaron doctor --context` cuenta lo que carga cada sesión de un agente y `camaron repair` devuelve a su sitio los ficheros del kit si alguien los toca.
 
-### 19. 🗺 Tu día a día
+### 20. 🗺 Tu día a día
 
 ```text
    1. camarones              -> abre el asistente del proyecto (cam-docs)

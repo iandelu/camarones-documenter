@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.51.0-ff875f?style=flat-square" alt="Versión 4.51.0">
+  <img src="https://img.shields.io/badge/version-4.52.0-ff875f?style=flat-square" alt="Versión 4.52.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -149,6 +149,8 @@ camaron share --auto on    # o publica solo tras cada checkpoint (en este equipo
 camaron trust              # revisa y aprueba los hooks, MCP y skills del equipo antes de que los carguen tus agentes
 camaron repair             # devuelve a su sitio los ficheros y enlaces del kit si alguien los editó o borró
 camaron switch             # cambia entre tus proyectos
+camaron projects --inspect ~/Documents/mi-proyecto [--json]   # qué es esa carpeta (proyecto, repo, varios repos, código, vacía); solo lee
+camaron projects --adopt ~/Documents/mi-proyecto [--name X] [--json]   # la convierte en proyecto (docs en su cam-docs/) y la registra: lo que usa la app de escritorio
 camaron self-update        # trae el kit oficial al día — actualiza todos los proyectos a la vez (en el asistente: ⚙️ Ajustes › ⬆️ Actualizar Camarón)
 camaron migrate            # pasa un proyecto de la estructura anterior (≤2.5) a cam-docs/
 camaron uninstall           # lo deshace todo: borra cam-docs/ (con copia .zip) y los rastros en los repos
@@ -206,7 +208,7 @@ También puedes empezar con la carpeta vacía y añadir repositorios desde el as
 camaron app
 ```
 
-Dentro de un proyecto abre ese proyecto; en cualquier otra carpeta, el selector para abrir, crear o unirte a uno. La primera vez descarga Electron (unos 100 MB). Todo el detalle, las capturas y qué hacer si algo falla, en [La app de escritorio](#app-de-escritorio).
+Dentro de un proyecto abre ese proyecto; en cualquier otra carpeta, la pantalla de inicio: **¿Qué quieres documentar?** Eliges una carpeta o te unes a la documentación de tu equipo, y un asistente te acompaña la primera vez. La primera vez también descarga Electron (unos 100 MB). Todo el detalle, las capturas y qué hacer si algo falla, en [La app de escritorio](#app-de-escritorio).
 
 ### 3. …o el asistente en la terminal
 
@@ -335,12 +337,23 @@ mi-proyecto/cam-docs/
 
 <p align="center"><em>El mismo portal y, además, el Taller: todo lo que corre en tu máquina, en una ventana.</em></p>
 
+#### Primer arranque: pantalla de inicio y asistente
+
+Al abrir la app fuera de un proyecto ves una sola pregunta, **¿Qué quieres documentar?**, con dos caminos y la lista de **Recientes**:
+
+- **Elegir carpeta.** Vale cualquier carpeta; Camarón mira qué es y te lo cuenta antes de tocar nada: una carpeta con varios repos, un repo suelto (crea `cam-docs` junto a él, en la carpeta padre, y te deja sumar los repos hermanos), una carpeta de código que no es un repo git, una carpeta **vacía** (un proyecto nuevo: se documenta el diseño antes de programar) o un proyecto que **ya tiene `cam-docs`** (se abre tal cual). Confirmas el nombre y pulsas **Continuar**.
+- **Unirme a la documentación de mi equipo.** Pegas la URL del repo `cam-docs` (el de la documentación, no el del código) y eliges dónde clonarlo. Si git no tiene acceso, la app te pide un token de acceso, lo guarda en el llavero del sistema (nunca en el proyecto) y lo reintenta; si el motivo es otro (sin permisos, no existe, sin red) te lo dice con esas palabras.
+
+Un proyecto sin preparar abre el **asistente de primer arranque** dentro de su ventana: **Repos** (los que encontró en la carpeta; puedes añadir un repo de código con su URL, nombre y rama) → **Herramientas** (qué falta en esta máquina) → **Instalar** (con progreso y botón para cancelar) → **Stack** (lo leído de los manifiestos, editable) → **Arquitectura** (un borrador C4 hecho sin IA, que guardas, y si quieres mejoras con IA) → **Listo**. Se puede cerrar y retomar donde lo dejaste, y es el mismo estado que usa el asistente de la terminal: empiezas en uno y sigues en el otro. En una carpeta vacía (`camaron new` en una carpeta sin código) el asistente permite cero repos y se salta Stack y Arquitectura.
+
+Terminado el asistente, la ventana del proyecto es para **documentar**: a la izquierda, **Siguiente paso** (la unidad del plan que toca y los borradores por revisar), **Plan**, **Revisión**, **Board** y **Taller**. Leer la documentación, la arquitectura y la calidad se hace en el portal: **Ver portal** (arriba a la derecha) lo abre en tu navegador, y los enlaces a esas páginas desde la app también. **Proyectos** vuelve a la pantalla de inicio. «Crear proyecto» y «Añadir carpeta» ya no están en la app: **Elegir carpeta** lo cubre todo. La CLI conserva `camaron new` y `camaron projects --add`.
+
 La app junta las dos caras de Camarón. El **portal** es el visor del equipo: leer, editar, revisar, ver la pipeline y responder la entrevista. El **Taller** es todo lo que pasa en tu máquina: agentes de IA, análisis del código, comprobaciones e instalación. Cada botón del Taller ejecuta el mismo comando que escribirías en la terminal, con su salida en vivo, así que nada de lo que ves es magia aparte.
 
 | | 🌐 Portal en el navegador (`camaron up`) | 🖥️ App de escritorio (`camaron app`) |
 |---|---|---|
 | **Para quién** | Todo el equipo, también desplegado como web | Quien documenta en su máquina |
-| **Leer, buscar, preguntar** | ✅ | ✅ |
+| **Leer, buscar, preguntar** | ✅ | En tu navegador: **Ver portal** lo abre |
 | **Editar, confirmar, revisar, comentar** | ✅ | ✅ |
 | **Pipeline: estado en vivo, reintentar, aprobar** | ✅ | ✅ |
 | **Responder la entrevista del equipo** | ✅ | ✅ |
@@ -370,7 +383,7 @@ Cada comando de la CLI tiene su formulario, que sale del propio parser (`camaron
 
 | Proyectos | Taller | Generar |
 |---|---|---|
-| ![Selector de proyectos](.github/media/app-hub.png) | ![Las zonas del Taller](.github/media/app-taller.png) | ![Generar: actualizar docs, PR y piloto automático](.github/media/app-generate.png) |
+| ![Pantalla de inicio (captura anterior a la 4.52)](.github/media/app-hub.png) | ![Las zonas del Taller](.github/media/app-taller.png) | ![Generar: actualizar docs, PR y piloto automático](.github/media/app-generate.png) |
 
 | Pipeline con sesión de agente | Comprobar | Analizar |
 |---|---|---|
@@ -427,7 +440,7 @@ camaron app                  # en cualquier otra carpeta: abre el selector de pr
 | Lo que ves | Qué hacer |
 |---|---|
 | `the desktop app needs Node.js >= 22` | Instala Node 22 (`camaron doctor --install node`) y vuelve a lanzar `camaron app`. |
-| Se abre el selector en vez de tu proyecto | Estabas fuera de la carpeta del proyecto: ábrelo desde la lista o usa **Añadir carpeta**. |
+| Se abre la pantalla de inicio en vez de tu proyecto | Estabas fuera de la carpeta del proyecto: ábrelo desde **Recientes** o elige su carpeta con **Elegir carpeta**. |
 | «No he podido arrancar el servidor del proyecto» | El cuadro trae el error del servidor. `camaron doctor` en esa carpeta suele decir qué falta. |
 | Un botón del portal dice «ábrelo en la app» | Es a propósito: el portal del navegador no lanza procesos. Ábrelo desde la app. |
 | Quieres reinstalar Electron | Borra `~/.camarones/desktop` y lanza `camaron app`: lo descarga otra vez. |
