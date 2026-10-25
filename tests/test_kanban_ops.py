@@ -187,6 +187,8 @@ def test_archive_moves_file_and_drops_card(board, kit):
 
 
 def test_list_filters(board, kit):
+    (kit.root / "docs" / "flows").mkdir(parents=True)
+    (kit.root / "docs" / "flows" / "pay.md").write_text("---\nx-id: FLOW-k3f9\n---\n# Pay\n\n## Retries\nx\n", encoding="utf-8")
     board.add("epic", "Payments")
     board.add("story", "Pay twice", epic="WI-1", repos=["api"], labels=["pay"], docs=["FLOW-k3f9#retries"])
     board.add("bug", "Crash", repos=["web"])
@@ -203,7 +205,7 @@ def test_list_filters(board, kit):
     row = board.list_items(label="pay")["cards"][0]
     assert set(row) >= {"id", "uid", "title", "type", "status", "ordinal", "assignee", "labels", "priority", "epic",
                         "repos", "docs"}
-    assert row["docs"] == ["FLOW-k3f9#retries"] and row["epic"] == "WI-1" and row["repos"] == ["api"]
+    assert len(row["docs"]) == 1 and row["docs"][0].startswith("FLOW-k3f9#retries@") and row["epic"] == "WI-1" and row["repos"] == ["api"]
     # sorted by column, then ordinal: Backlog cards first, Ready after
     assert [c["status"] for c in out["cards"]] == ["Backlog", "Backlog", "Ready"]
 

@@ -249,13 +249,15 @@ def add(type_: str, title: str, *, epic: str | None = None, repos: Sequence[str]
             parent = items.get(ekey)
             if parent is None or parent.type != "epic":
                 raise BoardError(f"{epic} is not an epic on this board")
+        from . import xid
+        links = _merge_links([], [xid.resolve_ref(r) for r in docs])
         item_id = next_id(_all_ids(cards, items, problems), PREFIX)
         uid = new_uid()
         lang = docs_lang()
         dod = _managed_config()["definition_of_done"]
         fm = {"id": item_id, "title": title.strip(), "status": "Backlog", "assignee": [],
               "created_date": datetime.now().strftime("%Y-%m-%d %H:%M"),
-              "labels": list(labels), "documentation": list(docs) or None,
+              "labels": list(labels), "documentation": links or None,
               "parent_task_id": parent.id if parent else None, "priority": priority, "type": type_,
               "ordinal": 0, "x-uid": uid, "x-repos": list(repos) or None}
         item = Item(fm, new_body(type_, lang, dod), TASKS / file_name(item_id, title))
@@ -309,6 +311,33 @@ def assign(item_id: str, who_: str, *, by: str | None = None, surface: str = "cl
     return _row(item, card)
 
 
+def _merge_links(have: list, new: list) -> list[str]:
+    """Stored links with `new` added; a link to the same page and section replaces the older one (fresh hash)."""
+    from . import xid
+
+    def key(l):
+        p = xid.parse_link(l)
+        return p["xid"], p["section"]
+    out = [str(l) for l in have]
+    for link in new:
+        out = [l for l in out if key(l) != key(link)] + [link]
+    return out
+
+
+def link(item_id: str, ref: str, *, by: str | None = None, surface: str = "cli") -> dict:
+    """Link an item to a doc page or section (`FLOW-k3f9#retries` or `flows/payments.md#retries`)."""
+    from . import xid
+    from .repair import _as_list
+    with FileLock(LOCK):
+        cards, items, _ = load_state()
+        key, item, card = _find(items, cards, item_id)
+        stored = xid.resolve_ref(ref)
+        item.fm["documentation"] = _merge_links(_as_list(item.fm.get("documentation")), [stored])
+        _mirror(item, card)
+        save_item(item)
+    return _row(item, card)
+
+
 def archive(item_id: str, *, by: str | None = None, surface: str = "cli") -> dict:
     with FileLock(LOCK):
         cards, items, _ = load_state()
@@ -333,9 +362,22 @@ def _row(item: Item, card: dict | None) -> dict:
             "docs": list(fm.get("documentation") or [])}
 
 
+_DOC_STATES = ("unconfirmed", "suspect", "stale", "changed", "missing")
+
+
+def _in_state(st: dict, want: str) -> bool:
+    if want == "unconfirmed":
+        return st["trust"] is not None and st["trust"] != "confirmed"
+    return bool(st["changed"] if want == "changed" else st["missing"] if want == "missing" else st["fresh"] == want)
+
+
 def list_items(*, status=None, epic=None, repo=None, label=None, docs=None) -> dict:
     cards, items, problems = load_state()
     rows = []
+    state = docs in _DOC_STATES
+    if state:
+        from . import xid
+        ids, pages = xid.index(), xid.page_rows()
     for i, item in items.items():
         r = _row(item, cards.get(i))
         if status and r["status"] != status:
@@ -346,7 +388,10 @@ def list_items(*, status=None, epic=None, repo=None, label=None, docs=None) -> d
             continue
         if label and label not in r["labels"]:
             continue
-        if docs and not any(re.split(r"[#@]", d, maxsplit=1)[0] == docs for d in r["docs"]):
+        if docs and state:
+            if not any(_in_state(xid.link_state(d, pages, ids), docs) for d in r["docs"]):
+                continue
+        elif docs and not any(re.split(r"[#@]", d, maxsplit=1)[0] == docs for d in r["docs"]):
             continue
         rows.append(r)
     from .state import id_key
@@ -380,6 +425,10 @@ def show(item_id: str) -> dict:
     if key not in items:
         raise BoardError(f"unknown item {item_id}")
     item = items[key]
-    return {**_row(item, cards.get(key)), "description": description(item.body),
+    from . import xid
+    row = _row(item, cards.get(key))
+    ids, pages = xid.index(), xid.page_rows()
+    links = [xid.link_state(d, pages, ids) for d in row["docs"]]
+    return {**row, "links": links, "description": description(item.body),
             "criteria": checklist(item.body, "AC"), "dod": checklist(item.body, "DOD"),
             "history": _history(cards.get(key), item.path), "file": _rel(item.path)}

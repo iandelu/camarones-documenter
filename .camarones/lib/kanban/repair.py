@@ -10,7 +10,7 @@ from datetime import date, datetime, timezone
 from .. import docs
 from ..common import ROOT
 from . import ARCHIVE, BACKLOG, BOARD, CONFIG, STATUSES, TASKS
-from . import ops
+from . import ops, xid
 from .items import file_name, load_dir
 from .state import dump_board, new_uid, next_id, stamp, stamp_time
 
@@ -26,19 +26,6 @@ def _as_list(v) -> list:
 
 def _rel(path) -> str:
     return path.relative_to(ROOT).as_posix()
-
-
-def known_xids() -> set[str]:
-    """x-ids of the doc pages (and DEC-nnnn of decision files). Task 6's xid.index() replaces this."""
-    found: set[str] = set()
-    for logical, f in docs.iter_docs():
-        fm = docs.parse_fm(f.read_text(encoding="utf-8"))[0]
-        if fm.get("x-id"):
-            found.add(str(fm["x-id"]))
-        m = re.match(r"(?:.*/)?decisions/(\d{4})-", logical)
-        if m:
-            found.add(f"DEC-{m.group(1)}")
-    return found
 
 
 def _archive_days() -> int:
@@ -248,9 +235,9 @@ def repair(*, today: date | None = None, log=print) -> dict:
             warn(f"{_rel(p['path'])}: unreadable item ({p['error']})")
         links = [(i, str(v)) for i in files for v in _as_list(i.fm.get("documentation"))]
         if any(_LINK.match(re.split(r"[#@]", v, maxsplit=1)[0]) for _, v in links):
-            known = known_xids()
+            ids = xid.index()
             for item, v in links:
                 base = re.split(r"[#@]", v, maxsplit=1)[0]
-                if _LINK.match(base) and base not in known:
+                if _LINK.match(base) and xid.link_state(v, {}, ids)["missing"]:
                     warn(f"{item.id}: links {base}, which no page has as x-id")
     return {"changed": changed, "warnings": warnings}
