@@ -34,9 +34,9 @@ test('the focus ring covers links, buttons, fields, folds and anything focusable
 })
 
 // WCAG 2.5.8: 24 × 24 px at least; the small button is the smallest control.
-test('the small button is a 24 px target or more', () => {
-  const sm = read('ui.css').match(/\.cu-btn--sm\s*\{([^}]*)\}/)[1]
-  expect(parseFloat(sm.match(/min-height:\s*([\d.]+)rem/)[1]) * 16).toBeGreaterThanOrEqual(24)
+test.each(['.cu-btn--sm', '.cu-crumbs a'])('%s is a 24 px target or more', (sel) => {
+  const body = read('ui.css').match(new RegExp(`${sel.replace('.', '\\.')}\\s*\\{([^}]*)\\}`))[1]
+  expect(parseFloat(body.match(/min-height:\s*([\d.]+)rem/)[1]) * 16).toBeGreaterThanOrEqual(24)
 })
 
 // WCAG 2.4.1: a link to skip to the content, first in the page, hidden until it takes the focus.

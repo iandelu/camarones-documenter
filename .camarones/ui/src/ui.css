@@ -80,7 +80,7 @@ main[tabindex="-1"]:focus { outline: none; }
 
 .cu-crumbs ol { display: flex; flex-wrap: wrap; gap: .5rem; margin: 0; padding: 0; list-style: none; font-size: var(--text-meta); }
 .cu-crumbs li { display: inline-flex; gap: .5rem; color: var(--color-ink-dim); }
-.cu-crumbs a { color: var(--color-ink-dim); text-decoration: none; }
+.cu-crumbs a { display: inline-flex; align-items: center; min-height: 1.5rem; color: var(--color-ink-dim); text-decoration: none; }
 .cu-crumbs a:hover { color: var(--color-ink); }
 .cu-crumbs [aria-current="page"] { color: var(--color-ink); }
 

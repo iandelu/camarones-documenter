@@ -70,3 +70,14 @@ def test_what_needs_doing_is_counted_for_the_summary(kit):
     # node is needed and missing; codex is optional; likec4 is a pinned tool out of date; one kit file drifted
     assert doctor.problems(FAKE) == {"missing": ["node"], "tools": ["likec4"], "drift": 1}
     assert doctor.problems({"prerequisites": [], "tools": [], "drift": []}) == {"missing": [], "tools": [], "drift": 0}
+
+
+def test_the_check_says_what_it_found_in_plain_words(kit, monkeypatch):
+    """The desktop app shows this log under its jobs panel: no "drift" there, the kit's word for files it left that
+    are not as it left them."""
+    from lib import doctor
+    monkeypatch.setattr(doctor, "report", lambda: FAKE)
+    lines = []
+    doctor.check(log=lines.append)
+    assert lines[-1] == "missing: node · tools: likec4 · kit files not as it left them: 1"
+    assert not any("drift" in line for line in lines)

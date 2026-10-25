@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.53.0-ff875f?style=flat-square" alt="Versión 4.53.0">
+  <img src="https://img.shields.io/badge/version-4.54.0-ff875f?style=flat-square" alt="Versión 4.54.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -67,10 +67,10 @@ Camarón te habla como tu becario gamba al que has mandado a documentar: con gan
 <p align="center"><em>Revisa borradores, confirma páginas y deja correcciones para la siguiente sesión.</em></p>
 
 <p align="center">
-  <img src=".github/media/app-summary.png" alt="El Resumen de un proyecto en la app de escritorio: el siguiente paso, el aviso del doctor y cómo va el plan." width="960">
+  <img src=".github/media/app-tour.gif" alt="Recorrido real por la app de escritorio solo con el teclado: el Resumen, Ctrl K para ir al Plan, g q para Calidad, una comprobación en el panel de trabajos, Entrevistas y Equipo." width="960">
 </p>
 
-<p align="center"><em>Y en la app de escritorio, lo que corre en tu máquina, por tareas: el siguiente paso con un clic, el plan, las entrevistas, el equipo y la calidad. <a href="#app-de-escritorio">Cómo instalarla y abrirla →</a></em></p>
+<p align="center"><em>Y en la app de escritorio, lo que corre en tu máquina, por tareas: el siguiente paso con un clic, el plan, las entrevistas, el equipo y la calidad, también solo con el teclado. <a href="#app-de-escritorio">Cómo instalarla y abrirla →</a></em></p>
 
 <details>
 <summary><strong>Más capturas del portal</strong></summary>
@@ -380,6 +380,10 @@ Al final de cada sección, **Todos los comandos** (plegado) tiene el resto de co
 | Máquina | Un trabajo en vivo | Resumen |
 |---|---|---|
 | ![Máquina: setup, idioma y modelos, tokens](.github/media/app-machine.png) | ![El panel de trabajos abierto con la salida de un comando](.github/media/app-job.png) | ![El Resumen con el siguiente paso](.github/media/app-summary.png) |
+
+| La paleta (<kbd>Ctrl K</kbd> / <kbd>⌘K</kbd>) |
+|---|
+| ![La paleta: las secciones con su atajo, los otros proyectos, las acciones y, al escribir, cada comando](.github/media/app-palette.png) |
 
 </details>
 

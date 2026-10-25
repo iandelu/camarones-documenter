@@ -11,7 +11,9 @@ test('every key a component names exists', () => {
   expect([...used].filter((k) => !(k in S.es))).toEqual([])
   const families = { grp: ['awaiting', 'blocked', 'doing', 'ready', 'waiting', 'done'], job: ['running', 'done', 'failed', 'stopped'],
     nav: ['summary', 'plan', 'interviews', 'team', 'quality', 'docs', 'machine', 'kitdev'], fr: ['suspect', 'stale'],
-    bl: ['created', 'updated', 'edited', 'human'], sev: ['critical', 'high', 'medium', 'moderate', 'low', 'unknown'] }
+    bl: ['created', 'updated', 'edited', 'human'], sev: ['critical', 'high', 'medium', 'moderate', 'low', 'unknown'],
+    tk: ['mcp', 'hook', 'setting', 'codex', 'skill', 'file', 'plugin'], ts: ['new', 'changed'],      // lib/trust.py
+    pk: ['checks', 'exporters', 'hooks', 'mcp', 'pipelines', 'prompts', 'runners', 'skills', 'types'] }   // harness/plugins.py KINDS
   for (const [f, ks] of Object.entries(families)) for (const k of ks) expect(S.es[`${f}.${k}`], `${f}.${k}`).toBeTruthy()
 })
 

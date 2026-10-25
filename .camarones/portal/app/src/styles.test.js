@@ -17,11 +17,12 @@ test.each(['./portal.css', './styles.css', './shell/shell.css', './views/views.c
   }
 })
 
-// WCAG 2.5.8: the portal's own small and icon buttons are 24 px targets or more.
+// WCAG 2.5.8: the portal's own small and icon buttons, the tree's section titles and the audience switch are 24 px
+// targets or more (links inside a sentence are exempt).
 test('small and icon buttons are 24 px targets', () => {
   const css = read('./portal.css')
-  for (const sel of ['button.small', 'button.icon']) {
-    const body = css.match(new RegExp(`${sel.replace('.', '\\.')}[^{]*\\{([^}]*)\\}`))[1]
+  for (const sel of ['button.small', 'button.icon', '.side .group-title', '.audience button']) {
+    const body = css.match(new RegExp(`(?:^|\\n)${sel.replace(/\./g, '\\.')}[^{]*\\{([^}]*)\\}`))[1]
     expect(parseFloat((body.match(/min-height:\s*([\d.]+)rem/) || [0, 0])[1]) * 16, sel).toBeGreaterThanOrEqual(24)
   }
 })
@@ -36,4 +37,17 @@ test('legacy variables alias the theme in one place', () => {
   for (const v of ['--bg', '--raise', '--ink', '--muted', '--line', '--accent', '--on-accent', '--ok', '--warn', '--danger'])
     expect(css).toMatch(new RegExp(`${v}:\\s*var\\(--`))
   expect(css).not.toMatch(/prefers-color-scheme/)          // theming lives in theme/tokens.css only
+})
+
+test('page links in the KPIs lists and tables are 24 px targets', () => {
+  expect(read('./styles.css')).toMatch(/#native \.kpi-table td a, #native a\.more,\s*#native ul\.plain li > a\s*\{[^}]*min-height:\s*1\.5rem/)
+})
+
+// WCAG 2.4.7 / 4.1.2: React Flow makes every edge focusable, with no ring and nothing to do; the nodes keep the focus
+// (and Enter or Space on one opens its drawer like a click).
+test('the pipeline graph does not stop the keyboard on its edges', () => {
+  const src = readFileSync(new URL('./Pipeline.jsx', import.meta.url), 'utf-8')
+  expect(src).toContain('edgesFocusable={false}')
+  expect(src).toMatch(/closest\?\.\('\.react-flow__node'\)[\s\S]{0,80}e\.key === 'Enter' \|\| e\.key === ' '/)
+  expect(read('./styles.css')).toMatch(/#native \.react-flow__node:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--color-acento-texto\)/)
 })

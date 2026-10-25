@@ -75,7 +75,7 @@ kbd { font: .72rem var(--mono); border: 1px solid var(--line); border-bottom-wid
 .side a.on::before { content: ""; position: absolute; left: -.55rem; top: .3rem; bottom: .3rem; width: 2px; border-radius: 2px;
                      background: var(--ink); animation: grow .25s var(--ease); }
 .side .group { margin-bottom: 1.1rem; }
-.side .group-title { display: flex; font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--muted);
+.side .group-title { display: flex; align-items: center; min-height: 1.5rem; font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--muted);
                      padding: .2rem .55rem; margin-bottom: .15rem; }
 .side a.group-title:hover { color: var(--ink); }
 .side details > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: .3rem; padding: .28rem .55rem;
@@ -414,7 +414,7 @@ body.native-mode #main, body.native-mode #tree, body.native-mode #side-head { di
 .dv-business { border-left: 2px solid var(--line); padding-left: 1rem; }
 body[data-audience="business"] .dv-tech { display: none; }
 .audience { display: inline-flex; float: right; border: 1px solid var(--line); border-radius: 8px; padding: 2px; margin: 0 0 .5rem 1rem; }
-.audience button { background: transparent; color: var(--muted); border: 0; padding: .2rem .7rem; font-size: .8rem; }
+.audience button { min-height: 1.5rem; background: transparent; color: var(--muted); border: 0; padding: .2rem .7rem; font-size: .8rem; }
 .audience button.on { background: var(--panel); color: var(--ink); }
 .doc th.sortable { cursor: pointer; user-select: none; }
 .doc th.sortable::after { content: '↕'; margin-left: .35rem; color: var(--line); }
