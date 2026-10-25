@@ -2,7 +2,7 @@
 lib/onboard.py. Offline: setup's installs are faked, the C4 draft is a static scan."""
 from __future__ import annotations
 
-import json, os, re, subprocess, sys, urllib.error, urllib.request
+import inspect, json, os, re, subprocess, sys, threading, urllib.error, urllib.request
 
 import pytest
 
@@ -70,6 +70,19 @@ def test_state_reads_old_position_files(app_server, kit):
     assert st["mode"] == "done" and st["done"] is True
 
 
+def test_a_saved_join_resumes_in_the_join_steps(app_server, kit):
+    from lib.common import save_json
+    save_json(kit.onboard.firstrun_file(kit.root), {"mode": "join", "name": "setup", "step": 3, "done": False})
+    st = call(f"{app_server}/api/app/onboard/state", token=TOKEN)[1]
+    assert st["mode"] == "join" and st["steps"] == ["tools", "setup", "intro"] and st["step"] == "setup"
+
+
+def test_one_function_decides_the_mode_for_the_cli_and_the_app(kit):
+    assert kit.onboard.mode({"done": True}) == "done" and kit.onboard.mode({"step": 1}) == "new"
+    assert kit.onboard.mode({"mode": "join"}) == "join"
+    assert "onboard.mode(" in inspect.getsource(kit.wizard.W._run)          # the CLI does not keep its own copy
+
+
 def test_greenfield_state_has_the_short_steps(app_server, kit):
     ws = kit.docs.workspace()
     ws["project"]["kind"] = "greenfield"
@@ -86,6 +99,21 @@ def test_state_and_step_round_trip(app_server, kit):
     assert call(f"{app_server}/api/app/onboard/state", token=TOKEN)[1]["step"] == "tools"
     assert post(app_server, "step", {"id": "nope"})[0] == 400
     assert post(app_server, "step", {})[0] == 400
+    assert post(app_server, "step", {"id": "name"}) == (400, {"error": "step"})          # the start screen's, not listed
+
+
+def test_step_only_accepts_the_modes_own_steps(app_server, kit):
+    from lib.common import save_json
+    save_json(kit.onboard.firstrun_file(kit.root), {"mode": "join", "name": "tools", "step": 2, "done": False})
+    assert post(app_server, "step", {"id": "repos"}) == (400, {"error": "step"})
+    code, st = post(app_server, "step", {"id": "setup"})
+    assert code == 200 and st["step"] == "setup" and st["mode"] == "join"           # a join stays a join
+
+
+def test_step_is_refused_once_the_first_run_is_done(app_server, kit):
+    post(app_server, "done", {})
+    assert post(app_server, "step", {"id": "tools"}) == (400, {"error": "done"})
+    assert call(f"{app_server}/api/app/onboard/state", token=TOKEN)[1]["done"] is True
 
 
 def test_repos_validation(app_server, kit):
@@ -102,6 +130,15 @@ def test_repos_validation(app_server, kit):
     kit.docs.save_workspace(ws)
     code, st = post(app_server, "repos", {"repos": []})
     assert code == 200 and st["repos"] == []
+
+
+@pytest.mark.parametrize("name", ["a/b", "a\\b", "..", "a..b", ".hidden", "-x", "cam-docs", "CAM-DOCS"])
+def test_repo_names_are_folder_names(app_server, name):
+    assert post(app_server, "repos", {"repos": [{"name": name}]}) == (400, {"error": "name"})
+
+
+def test_a_repo_url_cannot_be_an_option(app_server):
+    assert post(app_server, "repos", {"repos": [{"name": "api", "url": "--upload-pack=x"}]}) == (400, {"error": "url"})
 
 
 def test_repos_keep_what_the_wizard_already_knows(app_server, kit):
@@ -147,12 +184,52 @@ def test_a_failed_setup_ends_failed_with_its_result(app_server, kit, monkeypatch
     assert j["result"]["ok"] is False and j["result"]["failed"] == ["docker"]
 
 
+def test_cancelling_setup_stops_between_steps(app_server, kit, monkeypatch):
+    installed, ran_setup = [], []
+    first, release = threading.Event(), threading.Event()
+
+    def install(k, log=print):
+        installed.append(k)
+        first.set()
+        release.wait(20)                                  # the first tool is "installing" while the user cancels
+        return True
+    monkeypatch.setattr(kit.env, "install_prereq", install)
+    monkeypatch.setattr(kit.env, "setup", lambda ci=False, log=print, comps=None: ran_setup.append(1) or True)
+    monkeypatch.setattr(kit.env, "set_components", lambda c: None)
+    code, job = post(app_server, "setup", {"system": ["git", "docker", "java"], "components": []})
+    assert code == 200 and first.wait(20)
+    assert call(f"{app_server}/api/app/jobs/{job['id']}/cancel", {}, token=TOKEN) == (200, {"cancelling": job["id"]})
+    release.set()
+    j = wait_job(app_server, job["id"])
+    assert j["status"] == "failed" and "cancelled" in j["log"]
+    assert installed == ["git"] and ran_setup == []                  # nothing after the step it was in
+    assert j["result"]["cancelled"] is True and j["result"]["ok"] is False
+    assert call(f"{app_server}/api/app/jobs/{job['id']}/cancel", {}, token=TOKEN)[0] >= 400    # finished: as before
+
+
+def test_cancelling_after_env_setup_does_not_mark_it_done(kit, monkeypatch):
+    flag = {"stop": False}
+    monkeypatch.setattr(kit.env, "setup", lambda ci=False, log=print, comps=None: flag.update(stop=True) or True)
+    assert kit.onboard.run_setup(lambda _: None, cancelled=lambda: flag["stop"]) is False
+    assert kit.plan.get(kit.plan.load(), "setup")["status"] != "done"
+
+
+def test_a_setup_that_was_not_cancelled_says_so(app_server, kit, monkeypatch):
+    monkeypatch.setattr(kit.env, "setup", lambda ci=False, log=print, comps=None: True)
+    monkeypatch.setattr(kit.env, "set_components", lambda c: None)
+    j = wait_job(app_server, post(app_server, "setup", {"system": [], "components": []})[1]["id"])
+    assert j["status"] == "done" and j["result"]["cancelled"] is False
+
+
 def test_stack_lists_and_edits(app_server, kit):
     code, rows = call(f"{app_server}/api/app/onboard/stack", token=TOKEN)
     assert code == 200 and set(rows["api"]) == {"stack", "detected_stack"}
     code, rows = post(app_server, "stack", {"repo": "api", "text": "Kotlin + Ktor"})
     assert code == 200 and rows["api"]["stack"] == "Kotlin + Ktor"
     assert post(app_server, "stack", {"repo": "ghost", "text": "x"})[0] == 400
+    assert post(app_server, "stack", {"repo": "api", "text": 5})[0] == 400
+    assert post(app_server, "stack", {"repo": "api", "text": ["x"]})[0] == 400
+    assert post(app_server, "stack", {"repo": "api", "text": None})[0] == 200                  # back to the detected one
 
 
 def test_scan_runs_as_a_job(app_server, kit, monkeypatch):
@@ -199,6 +276,23 @@ def test_arch_save_asks_before_overwriting(app_server, kit, no_likec4):
     assert code == 200 and saved["exists"] is False and model.read_text(encoding="utf-8") != "// mine\n"
 
 
+def test_arch_save_waits_for_a_running_draft(app_server, kit, no_likec4, monkeypatch):
+    real, started, release = kit.quickarch.draft, threading.Event(), threading.Event()
+
+    def slow(log=print):
+        started.set()
+        release.wait(20)
+        return real(log=log)
+    monkeypatch.setattr(kit.quickarch, "draft", slow)
+    code, job = post(app_server, "arch", {"action": "draft"})
+    assert code == 200 and started.wait(20)
+    assert post(app_server, "arch", {"action": "save"}) == (409, {"error": "busy"})
+    assert post(app_server, "arch", {"action": "save-ai", "agent": "claude"}) == (409, {"error": "busy"})
+    release.set()
+    assert wait_job(app_server, job["id"])["status"] == "done"
+    assert post(app_server, "arch", {"action": "save"})[0] == 200
+
+
 def test_arch_save_needs_a_draft_and_a_known_action(app_server, kit):
     assert post(app_server, "arch", {"action": "save"})[0] == 400
     assert post(app_server, "arch", {"action": "nope"})[0] == 400
@@ -215,11 +309,24 @@ def test_arch_save_ai_saves_then_opens_the_agent(app_server, kit, no_likec4, mon
 
 
 def test_done_finishes_the_first_run_and_commits(app_server, kit):
+    from fixtures.builder import git
+    git(kit.root, "init", "-q", "-b", "main")             # the fixture's cam-docs is a plain folder
+    (kit.root / "docs").mkdir(exist_ok=True)
+    (kit.root / "docs" / "first.md").write_text("---\ntitle: First\n---\n# First\n", encoding="utf-8")
     code, res = post(app_server, "done", {})
-    assert code == 200 and "committed" in res
+    assert code == 200 and res == {"committed": True}
     saved = json.loads(kit.onboard.firstrun_file(kit.root).read_text(encoding="utf-8"))
     assert saved["done"] is True
     assert call(f"{app_server}/api/app/onboard/state", token=TOKEN)[1]["mode"] == "done"
+    assert kit.common.out(["git", "log", "-1", "--format=%s"], cwd=kit.root) == "docs(camarones): first setup"
+
+
+def test_done_counts_the_steps_of_the_computed_mode(app_server, kit, monkeypatch):
+    kit.plan.sync()                                        # the team's plan + workspace came with the repo, this machine is not set up
+    monkeypatch.setattr(kit.onboard, "local_ready", lambda: False)
+    assert call(f"{app_server}/api/app/onboard/state", token=TOKEN)[1]["mode"] == "join"
+    post(app_server, "done", {})
+    assert json.loads(kit.onboard.firstrun_file(kit.root).read_text(encoding="utf-8"))["step"] == len(kit.onboard.JOIN_STEPS)
 
 
 def test_server_starts_on_a_fresh_docs_root(kit, tmp_path):
