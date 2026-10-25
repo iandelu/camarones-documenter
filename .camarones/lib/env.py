@@ -1390,10 +1390,11 @@ def serve_editor(port: int = 8080, log: Log = print, static: bool = False) -> st
         if sck.connect_ex(("127.0.0.1", port)) == 0:
             raise RuntimeError(f"port {port} is busy — choose another port")
     CACHE.mkdir(parents=True, exist_ok=True)
-    token = secrets.token_urlsafe(24)                          # the machine token: lets this browser write the board
+    token = "" if static else secrets.token_urlsafe(24)       # the machine token: lets this browser write the board
+    penv = {k: v for k, v in os.environ.items() if k != "CAMARONES_PORTAL_TOKEN"}
     kw: dict = {"stdout": subprocess.DEVNULL, "stdin": subprocess.DEVNULL,
                 "stderr": (CACHE / "serve.log").open("w", encoding="utf-8"),
-                "env": {**os.environ, "CAMARONES_ROOT": str(ROOT), "CAMARONES_PORTAL_TOKEN": token}}
+                "env": {**penv, "CAMARONES_ROOT": str(ROOT), **({"CAMARONES_PORTAL_TOKEN": token} if token else {})}}
     if IS_WIN:
         kw["creationflags"] = 0x00000008 | 0x00000200          # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
     else:
@@ -1408,7 +1409,7 @@ def serve_editor(port: int = 8080, log: Log = print, static: bool = False) -> st
         with socket.socket() as sck:
             if sck.connect_ex(("127.0.0.1", port)) == 0:
                 break
-    url = portal_url(port, token)
+    url = portal_url(port, token or None)       # the static export takes no writes (POST is 405): no token
     log(f"✔ portal at {url}" + (" (read-only export, no Docker)" if static else " (live: edit · confirm · rebuild · wikis)"))
     return url
 

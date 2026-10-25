@@ -257,3 +257,93 @@ def test_open_portal_keeps_route_and_token(wired, monkeypatch):
     w.busy = None
     w.open_portal("#/c4")
     assert opened == ["http://localhost:8099/#/c4&cam-token=" + "T" * 24]
+
+
+# --- final review ---
+
+def test_the_wizard_reopens_its_portal_with_its_token(wired, monkeypatch):
+    """R14: the same wizard opening the portal a second time (the server already up) keeps it writable."""
+    opened, up = [], set()
+    monkeypatch.setattr(wired.env, "open_url", opened.append)
+
+    def serve(port, log=print, static=False):
+        up.add(port)
+        return wired.env.portal_url(port, "T" * 24)
+    monkeypatch.setattr(wired.env, "serve_editor", serve)
+    import socket
+
+    class Sock:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def connect_ex(self, a):
+            return 0 if a[1] in up else 1
+    monkeypatch.setattr(socket, "socket", lambda *a, **k: Sock())
+    w = wired.wizard.W.__new__(wired.wizard.W)
+    w.prefs = {"port": 8099}
+    w.safe = lambda busy, fn, *a, **kw: fn(*a)
+    w.busy = None
+    w.open_portal()
+    w.open_portal("#/board")
+    assert opened[1] == "http://localhost:8099/#/board&cam-token=" + "T" * 24
+    up.add(8100)                                       # a server this wizard did not start: no token to give
+    w.prefs = {"port": 8100}
+    w.open_portal("#/board")
+    assert opened[2] == "http://localhost:8100/#/board"
+
+
+def test_port_80_accepts_a_host_without_port(wired):
+    """On port 80 the browser sends `Host: localhost`, with no port."""
+    from types import SimpleNamespace
+    H = wired.serve.Handler
+
+    def foreign(host, port):
+        return H.foreign_host(SimpleNamespace(server=SimpleNamespace(server_address=("127.0.0.1", port)),
+                                              headers={"Host": host}))
+    old = wired.serve.PORTAL_TOKEN
+    wired.serve.PORTAL_TOKEN = PORTAL
+    try:
+        assert not foreign("localhost", 80) and not foreign("127.0.0.1", 80) and not foreign("localhost:80", 80)
+        assert foreign("localhost", 8080) and foreign("evil.example", 80) and not foreign("localhost:8080", 8080)
+    finally:
+        wired.serve.PORTAL_TOKEN = old
+
+
+def test_a_static_portal_gets_no_token(wired, monkeypatch):
+    """`up --static` serves the read-only export: no machine token is minted, printed or passed on."""
+    seen = {}
+
+    class Pr:
+        pid = 4242
+
+        def poll(self):
+            return None
+
+    def popen(cmd, **kw):
+        seen["env"] = kw["env"]
+        return Pr()
+
+    class Sock:
+        n = 0
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def connect_ex(self, addr):
+            Sock.n += 1
+            return 1 if Sock.n == 1 else 0
+
+    import socket
+    monkeypatch.setattr(wired.env.subprocess, "Popen", popen)
+    monkeypatch.setattr(socket, "socket", lambda *a, **k: Sock())
+    monkeypatch.setattr("time.sleep", lambda *_: None)
+    said = []
+    url = wired.env.serve_editor(port=8099, log=said.append, static=True)
+    assert url == "http://localhost:8099/" and "cam-token" not in " ".join(said)
+    assert "CAMARONES_PORTAL_TOKEN" not in seen["env"]
