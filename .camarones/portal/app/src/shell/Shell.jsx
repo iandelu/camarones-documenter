@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { Brand, Breadcrumbs, Chip, Keys } from '@camaron/ui'
 import '@camaron/ui/ui.css'
 import Native from '../Native.jsx'
@@ -13,6 +14,7 @@ import '../views/views.css'
 // painted by the plain scripts (window.CamaronLegacy, public/legacy/app.js) into the #main, #toc and #tree slots,
 // which React renders empty and never touches again.
 const L = () => window.CamaronLegacy
+const TREE_VIEWS = ['doc', 'new']                  // React views that keep the docs tree in the sidebar
 const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
 
 function useRouter(onRoute) {
@@ -33,8 +35,9 @@ function useRouter(onRoute) {
       if (a.kind === 'scroll') return legacy.scroll(a.anchor)
       onRoute()
       document.body.classList.toggle('native-mode', a.kind === 'native')   // before painting: #main must be visible
+      document.body.classList.toggle('with-tree', a.kind === 'native' && TREE_VIEWS.includes(a.view))
       document.body.classList.remove('nav-open')
-      setShown({ ...a, at: seq })
+      flushSync(() => setShown({ ...a, at: seq }))    // the slots of this kind exist before the plain scripts paint
       if (a.kind === 'native') return legacy.leave()
       await legacy.run(a.fn, a.args)
     })
@@ -100,7 +103,7 @@ export default function Shell() {
             <Native key={shown.at} view={shown.view} arg={shown.arg || null} />
           </section>
         )}
-        <aside className="toc empty" id="toc"></aside>
+        {shown?.kind !== 'native' && <aside className="toc empty" id="toc"></aside>}
       </div>
       <div id="scrim" onClick={() => document.body.classList.remove('nav-open')}></div>
       {ready && <Palette open={palette} onClose={() => setPalette(false)} />}

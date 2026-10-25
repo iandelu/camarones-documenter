@@ -30,7 +30,7 @@ export function resolve(hash, ctx) {
     const [path, anchor] = rest.split('::')
     if (ctx.space(path) === 'wiki') return { kind: 'redirect', to: ctx.hrefFor(path, anchor) }
     if (path === ctx.current && anchor !== undefined) return { kind: 'scroll', anchor }
-    return legacy('showDoc', path, anchor)
+    return { kind: 'native', view: 'doc', arg: rest }
   }
   if (view === 'wiki') {
     const [repo = '', ...more] = rest.split('/')
@@ -44,7 +44,7 @@ export function resolve(hash, ctx) {
   if (view === 'code') return legacy('showCodeTab', rest)
   if (view === 'review' || view === 'status') return { kind: 'native', view: 'review', arg: '' }
   if (view === 'search') return { kind: 'native', view: 'search', arg: rest }
-  if (view === 'new' && ctx.mode !== 'static') return legacy('newPage')
+  if (view === 'new' && ctx.mode !== 'static') return { kind: 'native', view: 'new', arg: '' }
   const first = COVERS.includes(view) && (view !== 'taller' || ctx.mode === 'app') && ctx.firstView(view)
   if (first) return { kind: 'redirect', to: first }
   return HOME

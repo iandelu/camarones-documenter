@@ -13,6 +13,7 @@ const ctx = (over = {}) => ({
 const go = (hash, over) => resolve(hash, ctx(over))
 const legacy = (fn, ...args) => ({ kind: 'legacy', fn, args })
 const HOME = { kind: 'native', view: 'home', arg: '' }
+const DOC = (arg) => ({ kind: 'native', view: 'doc', arg })
 
 test('parse splits the view from the rest and decodes it', () => {
   expect(parse('#/docs/guides/a b.md::x')).toEqual({ view: 'docs', rest: 'guides/a b.md::x' })
@@ -46,14 +47,14 @@ test('the Taller only in the desktop app', () => {
 
 test('docs: home, a page, an anchor, the old #/doc alias', () => {
   expect(go('#/docs')).toEqual(legacy('showDocsHome'))
-  expect(go('#/docs/guides/a.md')).toEqual(legacy('showDoc', 'guides/a.md', undefined))
-  expect(go('#/docs/guides/a.md::setup')).toEqual(legacy('showDoc', 'guides/a.md', 'setup'))
-  expect(go('#/doc/guides/a.md')).toEqual(legacy('showDoc', 'guides/a.md', undefined))
+  expect(go('#/docs/guides/a.md')).toEqual(DOC('guides/a.md'))
+  expect(go('#/docs/guides/a.md::setup')).toEqual(DOC('guides/a.md::setup'))
+  expect(go('#/doc/guides/a.md')).toEqual(DOC('guides/a.md'))
 })
 
 test('docs: an anchor on the page already shown only scrolls', () => {
   expect(go('#/docs/guides/a.md::setup', { current: 'guides/a.md' })).toEqual({ kind: 'scroll', anchor: 'setup' })
-  expect(go('#/docs/guides/a.md', { current: 'guides/a.md' })).toEqual(legacy('showDoc', 'guides/a.md', undefined))
+  expect(go('#/docs/guides/a.md', { current: 'guides/a.md' })).toEqual(DOC('guides/a.md'))
 })
 
 test('docs: a wiki page under #/docs moves to its wiki address', () => {
@@ -79,7 +80,7 @@ test('architecture, code, review, search, new page, zone covers', () => {
   expect(go('#/review', { mode: 'static' })).toEqual({ kind: 'native', view: 'review', arg: '' })   // read-only there
   expect(go('#/search/visit%20form')).toEqual({ kind: 'native', view: 'search', arg: 'visit form' })
   expect(go('#/search/x', { mode: 'static' })).toEqual({ kind: 'native', view: 'search', arg: 'x' })   // the export searches too
-  expect(go('#/new')).toEqual(legacy('newPage'))
+  expect(go('#/new')).toEqual({ kind: 'native', view: 'new', arg: '' })
   expect(go('#/new', { mode: 'static' })).toEqual(HOME)
 })
 

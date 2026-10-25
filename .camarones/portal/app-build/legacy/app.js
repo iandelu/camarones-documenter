@@ -139,14 +139,7 @@ async function showDocsHome() {
   await Promise.all(tasks);
 }
 
-// ---------- pages (their breadcrumbs are in the top bar: drawChrome) ----------
-async function showDoc(path, anchor) {
-  drawChrome('docs');
-  drawDocsSide(path);
-  const notes = BY_PATH[path]?.space === 'notes';
-  await showPage(path, anchor, { order: notes ? NOTES_ORDER : DOCS_ORDER });
-}
-
+// ---------- a page with its chrome: React (src/views/Doc.jsx) for docs; this one stays for the wiki pages (wiki.js) ----------
 async function showPage(path, anchor, ctx) {
   const d = await api('doc', { path, lang, track: 1 });
   const english = lang && !d.exists ? await api('doc', { path }) : null;
@@ -268,25 +261,6 @@ async function afterChange(path, msg) {
   await route();
 }
 
-function newPage() {
-  drawChrome('docs');
-  drawDocsSide('');
-  drawToc(null);
-  $('#main').innerHTML = `<div class="page"><h1>${esc(t('newPage').replace('+ ', ''))}</h1><div class="box">
-    <input id="n-title" placeholder="${esc(t('newTitle'))}">
-    <div class="row"><input id="n-path" placeholder="${esc(t('newPath'))}"></div>
-    <div class="row"><button id="n-go" type="button">${esc(t('create'))}</button></div></div></div>`;
-  $('#n-title').oninput = () => { $('#n-path').value = 'guides/' + $('#n-title').value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.md'; };
-  $('#n-go').onclick = async () => {
-    try {
-      const d = await api('new', {}, { path: $('#n-path').value, title: $('#n-title').value });
-      await loadTree();
-      history.replaceState(null, '', hrefFor(d.path));
-      editDoc(d);
-    } catch (e) { toast(e.message); }
-  };
-}
-
 // ---------- search and the ⌘K palette are React (src/views/Search.jsx, Palette.jsx) ----------
 
 // ---------- review is React (src/views/Review.jsx) ----------
@@ -296,7 +270,7 @@ function newPage() {
 // a language or audience change) go back through the shell, so one view renders at a time.
 function route() { return window.CamaronShell ? window.CamaronShell.go() : Promise.resolve(); }
 
-const VIEWS = { showDocsHome, showDoc, newPage,
+const VIEWS = { showDocsHome,
   showWikis: () => showWikis(), showWiki: (...a) => showWiki(...a), showWikiGraph: (...a) => showWikiGraph(...a),
   showArch: (...a) => showArch(...a), showCodeTab: (...a) => showCodeTab(...a) };
 
@@ -328,12 +302,20 @@ window.CamaronLegacy = {
   toast: (m) => toast(m),
   reload: () => loadTree(),
   docsOrder: () => DOCS_ORDER,
+  notesOrder: () => NOTES_ORDER,
+  setCurrent: (p) => { CURRENT = p; },
+  // the docs renderer (doc.js) and tree, for the React doc page until they move to src/
+  drawDocsSide: (p) => drawDocsSide(p),
+  mountDoc: (el, raw, path, anchor) => mountDoc(el, raw, path, anchor),
+  renderMd: (src, path) => render(src, path),
+  drawMermaid: (el) => drawMermaid(el),
   mode: MODE,
   isStatic: () => STATIC,
   tree: () => T,
   byPath: (p) => BY_PATH[p],
   hrefFor: (p, a) => hrefFor(p, a),
-  t: (k, vars) => t(k, vars),
+  // React draws no emoji (CAMARON.md): the labels these scripts still carry lose their leading one
+  t: (k, vars) => t(k, vars).replace(/^[\p{Extended_Pictographic}️‍]+\s*/u, ''),
   sectionLabel: (n) => sectionLabel(n),
   lang: () => lang,
   langName: (l) => LANG_NAMES[l] || l,

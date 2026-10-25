@@ -378,7 +378,8 @@ dialog[open]::backdrop { animation: fade .18s var(--ease); }
 
 /* ---------- the React views share the shell (src/styles.css styles them inside #native) ---------- */
 body.native-mode .layout { grid-template-columns: var(--side) minmax(0, 1fr); max-width: none; }
-body.native-mode #main, body.native-mode .toc, body.native-mode #tree, body.native-mode #side-head { display: none; }
+body.native-mode #main, body.native-mode #tree, body.native-mode #side-head { display: none; }
+body.native-mode.with-tree #tree, body.native-mode.with-tree #side-head { display: block; }     /* the React doc page */
 @media (max-width: 900px) { body.native-mode .layout { grid-template-columns: minmax(0, 1fr); } }
 .native[hidden] { display: none !important; }
 
