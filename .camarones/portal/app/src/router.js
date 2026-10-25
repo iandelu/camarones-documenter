@@ -16,8 +16,10 @@ export function parse(hash) {
 }
 
 const legacy = (fn, ...args) => ({ kind: 'legacy', fn, args })
+const HOME = { kind: 'native', view: 'home', arg: '' }
 
-// ctx: { mode: 'static' | 'live' | 'app', current: page path on screen, space(path), hrefFor(path, anchor) }
+// ctx: { mode: 'static' | 'live' | 'app', current: page path on screen, space(path), hrefFor(path, anchor),
+//        firstView(zone): the address of the zone's first view in this mode, if it has one }
 export function resolve(hash, ctx) {
   const { view, rest } = parse(hash)
   if (NATIVE.includes(view) && ctx.mode !== 'static' || TALLER.includes(view) && ctx.mode === 'app')
@@ -43,6 +45,7 @@ export function resolve(hash, ctx) {
   if (view === 'review' || view === 'status') return legacy('showReview')
   if (view === 'search') return legacy('showSearch', rest)
   if (view === 'new' && ctx.mode !== 'static') return legacy('newPage')
-  if (COVERS.includes(view) && (view !== 'taller' || ctx.mode === 'app')) return legacy('showZone', view)
-  return legacy('showStart')
+  const first = COVERS.includes(view) && (view !== 'taller' || ctx.mode === 'app') && ctx.firstView(view)
+  if (first) return { kind: 'redirect', to: first }
+  return HOME
 }

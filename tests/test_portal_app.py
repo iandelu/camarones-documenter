@@ -88,10 +88,10 @@ def test_the_old_next_address_redirects(server):
 
 
 def test_the_react_views_are_reached_through_zones(kit):
-    """No tab bar since 4.42: the shell's sidebar, Home, zone covers, breadcrumbs and ⌘K reach every view
-    (src/zones.js); the shell's router (src/router.js) shows them."""
+    """No tab bar since 4.42: the shell's sidebar, breadcrumbs and ⌘K reach every view (src/zones.js); the shell's
+    router (src/router.js) shows them, and a zone's address opens its first view."""
     app_dir = kit.kit_dir / "portal" / "app"
-    app = (app_dir / "public" / "legacy" / "app.js").read_text(encoding="utf-8")
+    home = (app_dir / "src" / "views" / "home.js").read_text(encoding="utf-8")
     core = (app_dir / "public" / "legacy" / "core.js").read_text(encoding="utf-8")
     zones = (app_dir / "src" / "zones.js").read_text(encoding="utf-8")
     router = (app_dir / "src" / "router.js").read_text(encoding="utf-8")
@@ -99,7 +99,7 @@ def test_the_react_views_are_reached_through_zones(kit):
         assert f"'{href}'" in zones
     assert "'#/boards'" not in zones                                              # boards were removed in 4.49
     assert "if (view === 'boards') return { kind: 'redirect', to: '#/arch' }" in router
-    assert "#/ask/" in app
+    assert "'#/ask/'" in home                                                    # Home's question goes to Ask
     assert "return { kind: 'native', view, arg: rest }" in router
     assert 'id="tabs"' not in (app_dir / "index.html").read_text(encoding="utf-8")
     for key in ("'zone.arch'", "'home.title'"):
