@@ -253,7 +253,7 @@ camaron board repair                                  # también corre antes de 
 
 Todos aceptan `--json`. Los enlaces a páginas van por `x-id`, así que sobreviven a moverlas o renombrarlas, y el
 tablero sabe si una página enlazada cambió desde que se enlazó. En el portal, la zona **Tablero** (`#/kanban`) tiene
-las vistas Kanban, lista y por epic y el detalle de cada tarjeta; escribir pide el token de la máquina (la app de
+el Kanban con filtros por repo, epic, etiqueta y estado de la documentación, y el detalle de cada tarjeta; escribir pide el token de la máquina (la app de
 escritorio lo manda; `camaron up` lo imprime en la dirección como `#cam-token=…`), sin él el tablero es de solo
 lectura. `camaron uninstall` pregunta si conservas `backlog/` (`--keep-board` / `--drop-board`).
 
