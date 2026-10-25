@@ -503,7 +503,7 @@ Todos los comandos aceptan `--json`. Una tarjeta enlaza páginas por su `x-id` (
 
 En el portal, la zona **Tablero** (`#/kanban`) enseña la vista Kanban (arrastrar y soltar, o con teclado: flechas para elegir, espacio para agarrar, flechas para mover, Enter para soltar), con filtros por repo, epic, etiqueta y estado de la documentación, y el detalle de cada tarjeta (criterios, páginas enlazadas con su confianza e historial). **Escribir** en el tablero pide el token de la máquina: la app de escritorio ya lo manda, y `camaron up` imprime una dirección del tipo `http://localhost:8080/#cam-token=…` que la página guarda para esa pestaña. Sin él el tablero se ve en solo lectura y dice por qué.
 
-`camaron uninstall` pregunta si conservas o borras `backlog/` (`--keep-board` / `--drop-board` para no preguntar) y siempre retira el *merge driver* y la línea de `.gitattributes` que puso. Los proyectos que ya existían no cambian: el tablero llega con `camaron board init`, y su copia de la guía `tutorial.md` es la que tenían (las plantillas se copian una sola vez).
+Al desinstalar, `camaron uninstall` (CLI) pregunta si conservas o borras `backlog/`; `--keep-board` / `--drop-board` lo deciden sin preguntar, y el asistente y la app de escritorio lo conservan siempre. La desinstalación siempre retira el *merge driver* y la línea de `.gitattributes` que puso. Los proyectos que ya existían no cambian: el tablero llega con `camaron board init`, y su copia de la guía `tutorial.md` es la que tenían (las plantillas se copian una sola vez).
 
 ### Revisión en vivo
 
