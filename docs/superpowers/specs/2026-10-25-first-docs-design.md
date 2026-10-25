@@ -68,15 +68,18 @@ portal tree shows it as "the repo".
   refresh behaves exactly as today; `camaron pages` refreshes blocks but writes no new-layout page.
 - **New layout**: a docs page holds the `repos` block (the home was written), or none of those exists (a fresh
   project). `camaron pages` writes §2–§4.
-- An existing kit page (`x-generated: true`) is rewritten whole, with its confirmed, hand-edited and unreadable blocks
-  put back verbatim, only while everything outside its blocks is kit text (headings, `>` lines, `:::` lines, link-only
-  list items, lines the kit would write today). A page with any other text gets its blocks brought up to date and
-  nothing else.
+- An existing kit page (`x-generated: true`, no `x-confirmed`) is rewritten whole, with its confirmed, hand-edited and
+  unreadable blocks put back verbatim, only while everything outside its blocks is kit text (headings, the
+  `> **TL;DR:**` line, bare `:::`, link items to the More pages, and lines the kit would write today outside its blocks).
+  A page with any other text, or confirmed, gets its blocks brought up to date and nothing else.
+- A person's page is one with `x-owner: human` or `x-confirmed`; a page with no `x-owner` is an agent's (the kit's
+  default).
 - **`camaron pages --adopt`** (explicit, idempotent): moves every generated block, with its markers and confirmations,
-  from the kit's old pages (frontmatter `x-generated: true`, not `x-owner: human`) into the new pages; deletes an old
-  page only when it is then empty of blocks and has nothing but kit text (the rule above); leaves any other page in
-  place, blocks included, and lists it. Links to a deleted page are pointed at its new page in pages that are not
-  `x-owner: human` or `x-confirmed`; those, and the translations of deleted pages, are listed. Afterwards the project is new-layout. A test starts from a 4.x layout fixture.
+  from the kit's old pages into the new pages (filling an agent's home or repo page with the blocks, never a
+  person's); deletes an old page only when it is not a person's, holds nothing but kit text (the rule above) and every
+  block in it lives in a page that stays; leaves any other page in place, blocks included, and lists it. Links to a
+  deleted page are pointed at its new page in pages that are not a person's; those, and the translations of deleted
+  pages, are listed. Afterwards the project is new-layout. A test starts from a 4.x layout fixture.
 
 ## 6. Commands, install, portal, agents
 
