@@ -110,9 +110,7 @@ const S = {
     askFailed: 'The search did not run:', nothing: 'Nothing in the docs answers this.', withheld: 'agents do not get this page yet',
     aiAnswer: 'Answer with AI', aiBusy: 'Reading these sections…', aiBy: 'AI answer from the sections below, by',
     aiNone: 'The AI found no answer in these sections.', aiCheck: 'Check it against the sections it cites.',
-    boardsTitle: 'Boards', boardsLead: 'Whiteboards versioned in cam-docs (docs/boards/). Start one blank or from a C4 view.',
-    newBoard: 'New board', name: 'name', blank: 'Blank', fromView: 'From C4 view', open: 'Open', save: 'Save', saved: 'Saved',
-    allBoards: '← All boards', noBoards: 'No boards yet.', loading: 'Loading…', readOnly: 'Read-only in the exported portal.',
+    loading: 'Loading…',
     kpisTitle: 'KPIs', kpisLead: 'Is the documentation working? What a person has confirmed, what went out of date, what '
       + 'people and agents could not find and what the AI runs cost: the numbers of `camaron kpis` and `camaron stats`.',
     'tile.confirmed': 'Pages confirmed', 'sub.confirmed': '{n} pages', 'tip.confirmed': 'Pages a person confirmed as correct',
@@ -271,10 +269,7 @@ const S = {
     withheld: 'los agentes aún no reciben esta página',
     aiAnswer: 'Responder con IA', aiBusy: 'Leyendo estas secciones…', aiBy: 'Respuesta de la IA con las secciones de abajo, por',
     aiNone: 'La IA no encontró la respuesta en estas secciones.', aiCheck: 'Compruébala con las secciones que cita.',
-    boardsTitle: 'Pizarras', boardsLead: 'Pizarras versionadas en cam-docs (docs/boards/). Empieza una en blanco o desde una vista C4.',
-    newBoard: 'Nueva pizarra', name: 'nombre', blank: 'En blanco', fromView: 'Desde vista C4', open: 'Abrir', save: 'Guardar',
-    saved: 'Guardada', allBoards: '← Todas las pizarras', noBoards: 'Aún no hay pizarras.', loading: 'Cargando…',
-    readOnly: 'Solo lectura en el portal exportado.',
+    loading: 'Cargando…',
     kpisTitle: 'KPIs', kpisLead: '¿Funciona la documentación? Lo que ha confirmado una persona, lo que se ha quedado viejo, lo '
       + 'que personas y agentes no encontraron y lo que cuestan las ejecuciones de IA: las cifras de `camaron kpis` y `camaron stats`.',
     'tile.confirmed': 'Páginas confirmadas', 'sub.confirmed': '{n} páginas', 'tip.confirmed': 'Páginas que una persona confirmó como correctas',

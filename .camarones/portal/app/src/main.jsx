@@ -16,7 +16,6 @@ const root = createRoot(host)
 window.CamaronNative = {
   show(view, arg) {
     host.hidden = false
-    host.classList.toggle('wide', view === 'boards' && !!arg)
     root.render(<StrictMode><Native view={view} arg={arg || null} /></StrictMode>)
   },
   hide() {

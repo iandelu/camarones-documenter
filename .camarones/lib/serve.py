@@ -635,15 +635,6 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(kpis.dashboard())
         if name == "c4/view":
             return self.json(api_c4_view(q.get("id", "")))
-        if name == "boards":
-            from . import boards
-            return self.json(boards.boards())
-        if name == "board":
-            from . import boards
-            return self.json(boards.read(q.get("name", "")))
-        if name == "sketch":
-            from . import boards
-            return self.json(boards.sketch(q.get("view", "")))
         if name == "reviews":
             from . import review
             return self.json(review.open_requests())
@@ -749,9 +740,6 @@ class Handler(BaseHTTPRequestHandler):
                 from . import questionnaire
                 questionnaire.answer(b)
                 return self.json(questionnaire.status())
-            if p == "/api/board":
-                from . import boards
-                return self.json(boards.save(b.get("name", ""), b.get("scene")))
             if p == "/api/review/decide":
                 from . import review
                 return self.json(review.decide(b["id"], b["decision"], by, b.get("comments", "")))
