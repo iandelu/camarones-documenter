@@ -270,3 +270,91 @@ def test_wizard_uninstall_leaves_and_closes(un, wiz):
     w._run()                                                   # returns without asking anything else
     assert not un.root.exists()
     assert list(un.uninstall.BACKUP_DIR.glob("demo-*.zip"))
+
+
+# ---------- the board (cam-docs/backlog/) ----------
+ITEM = "wi-1 - Fix the thing.md"
+
+
+def drop_dir(p):
+    from lib.common import rmtree
+    rmtree(p)
+
+
+def add_board(kit):
+    tasks = kit.root / "backlog" / "tasks"
+    tasks.mkdir(parents=True, exist_ok=True)      # setup already seeds an empty board
+    (tasks / ITEM).write_text("---\nid: wi-1\ntitle: Fix the thing\n---\n", encoding="utf-8")
+
+
+def test_uninstall_keeps_board_by_default_with_yes(un, before):
+    add_board(un)
+    assert un.uninstall.main(yes=True, backup=False) == 0
+    assert (un.ws / "backlog" / "tasks" / ITEM).read_text(encoding="utf-8").startswith("---\nid: wi-1")
+    assert not un.root.exists()
+
+
+def test_uninstall_keeps_board_under_a_dated_name_when_backlog_exists(un, before):
+    add_board(un)
+    (un.ws / "backlog").mkdir()
+    (un.ws / "backlog" / "mine.txt").write_text("not the kit's", encoding="utf-8")
+    assert un.uninstall.main(yes=True, backup=False) == 0
+    copies = [p for p in un.ws.glob("backlog-*") if (p / "tasks" / ITEM).is_file()]
+    assert len(copies) == 1 and (un.ws / "backlog" / "mine.txt").is_file()
+
+
+def test_uninstall_drop_board(un, before):
+    add_board(un)
+    assert un.uninstall.main(yes=True, keep_board=False, backup=False) == 0
+    assert not un.root.exists() and not list(un.ws.glob("backlog*"))
+
+
+def test_uninstall_asks_when_interactive(un, before, monkeypatch, capsys):
+    add_board(un)
+    prompts = []
+    answers = iter(["demo", "n"])
+    monkeypatch.setattr("builtins.input", lambda p="": prompts.append(p) or next(answers))
+    assert un.uninstall.main(backup=False) == 0
+    assert not un.root.exists() and not list(un.ws.glob("backlog*"))
+    assert "Keep the board (backlog/) next to the repos? [Y/n]" in prompts[1]
+    assert "🦐" not in prompts[1]
+
+
+def test_uninstall_interactive_default_answer_keeps(un, before, monkeypatch):
+    add_board(un)
+    answers = iter(["demo", ""])
+    monkeypatch.setattr("builtins.input", lambda p="": next(answers))
+    assert un.uninstall.main(backup=False) == 0
+    assert (un.ws / "backlog" / "tasks" / ITEM).is_file()
+
+
+def test_no_board_no_question(un, before, monkeypatch):
+    drop_dir(un.root / "backlog")
+    answers = iter(["demo"])
+    monkeypatch.setattr("builtins.input", lambda p="": next(answers))   # a second question would raise StopIteration
+    assert un.uninstall.main(backup=False) == 0
+    assert not list(un.ws.glob("backlog*"))
+
+
+def test_cancelled_name_keeps_everything_and_copies_nothing(un, before, monkeypatch):
+    add_board(un)
+    monkeypatch.setattr("builtins.input", lambda p="": "wrong")
+    assert un.uninstall.main(backup=False) == 1
+    assert (un.root / "backlog").is_dir() and not (un.ws / "backlog").exists()
+
+
+def test_preview_lists_the_board_step(un, before):
+    def board_lines():
+        return [s.label for s in un.uninstall.steps() if "backlog/" in s.label]
+    drop_dir(un.root / "backlog")
+    assert board_lines() == []
+    add_board(un)
+    assert len(board_lines()) == 1 and "next to the repos" in board_lines()[0]
+    assert "dropped" in "\n".join(s.label for s in un.uninstall.steps(keep_board=False) if "backlog/" in s.label)
+
+
+def test_cli_board_flags(un, before):
+    add_board(un)
+    r = cli(un, "--yes", "--no-backup", "--drop-board")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert not list(un.ws.glob("backlog*"))

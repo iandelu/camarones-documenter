@@ -3,13 +3,14 @@
 Project (always): stop the portal, finish an interrupted OpenWiki run, back up cam-docs/ to a .zip, remove the kit's
 traces from every repo (openwiki link, its .git/info/exclude line, the CLAUDE.md pointer block, pre-3.0 leftovers, the
 camarones MCP setup registered for the repo's folder in Claude Code's local config),
-remove the workspace-root links into cam-docs/, delete cam-docs/ and its registry entry. The repos' own files and
+remove the workspace-root links into cam-docs/, delete cam-docs/ and its registry entry. A board (cam-docs/backlog/) is
+copied next to the repos first unless the person drops it (the backup zip has it either way). The repos' own files and
 history are never touched: a tracked file goes back to its HEAD bytes, an untracked one the kit alone wrote is deleted.
 User level (opt-in, shared by every project): ~/.camarones.json, ~/.camarones/ (registry, saved credentials, pinned
 binaries — not a global kit copy in ~/.camarones/kit) and the kit's line in ~/.openwiki/.env."""
 from __future__ import annotations
 
-import datetime as dt, os, re, tempfile, zipfile
+import datetime as dt, os, re, shutil, tempfile, zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -29,7 +30,7 @@ Log = env.Log
 
 @dataclass
 class Step:
-    kind: str       # stop | wiki | backup | repo | link | delete | registry | user
+    kind: str       # stop | wiki | backup | repo | link | board | delete | registry | user
     label: str
 
 
@@ -164,7 +165,18 @@ def guard() -> str | None:
     return None
 
 
-def steps(include_global: bool = False, backup: bool = True) -> list[Step]:
+def has_board() -> bool:
+    """A board worth keeping: setup seeds an empty backlog/, which is nothing to ask about."""
+    return (ROOT / "backlog").is_dir() and any((ROOT / "backlog").rglob("*.md"))
+
+
+def board_dest() -> Path:
+    """Where a kept board lands: <workspace>/backlog, or a dated sibling when that name is taken."""
+    dest = WORKSPACE / "backlog"
+    return dest if not dest.exists() else WORKSPACE / f"backlog-{dt.datetime.now():%Y%m%d-%H%M%S}"
+
+
+def steps(include_global: bool = False, backup: bool = True, keep_board: bool | None = True) -> list[Step]:
     """What run() will do, in order — the preview (nothing is changed)."""
     out = [Step("stop", "stop the portal (local server and Docker container) if it is running")]
     out += [Step("wiki", f"finish the interrupted OpenWiki run of {r} (the repo gets its own files back)")
@@ -178,6 +190,11 @@ def steps(include_global: bool = False, backup: bool = True) -> list[Step]:
     out += [Step("link", f"{WORKSPACE.name}/{n} → {CAM_DIR}/{n} (link)") for n in root_links()]
     if (WORKSPACE / ".cw").exists():
         out.append(Step("delete", f"{WORKSPACE.name}/.cw/ — the units' worktrees (work not integrated yet is lost)"))
+    if has_board():
+        out.append(Step("board", f"backlog/ (the board): " + (
+            f"dropped with {CAM_DIR}/ (the backup zip keeps it)" if keep_board is False else
+            f"copied to {WORKSPACE.name}/{board_dest().name}/ next to the repos before {CAM_DIR}/ goes"
+            + (" (unless you say no)" if keep_board is None else ""))))
     out.append(Step("delete", f"{CAM_DIR}/ ({ROOT}) — docs, wikis, code graphs, agent config and its git history"))
     mine = {ROOT.resolve(), WORKSPACE.resolve()}
     if any(Path(r["path"]).resolve() in mine for r in projects.load()):
@@ -220,7 +237,8 @@ def stop_services() -> None:
         run_cmd(["docker", "image", "rm", "-f", f"camarones-docs-{env.project_id()}:local"], check=False, quiet=True)
 
 
-def run(include_global: bool = False, backup: bool = True, backup_dir: Path | None = None, log: Log = print) -> Path | None:
+def run(include_global: bool = False, backup: bool = True, backup_dir: Path | None = None, log: Log = print,
+        keep_board: bool = True) -> Path | None:
     """Undo the project (see the module docstring). Returns the backup .zip, if one was made."""
     why = guard()
     if why:
@@ -246,6 +264,10 @@ def run(include_global: bool = False, backup: bool = True, backup_dir: Path | No
     if (WORKSPACE / ".cw").exists():
         rmtree(WORKSPACE / ".cw")
         log(f"✔ {WORKSPACE.name}/.cw/: unit worktrees removed")
+    if keep_board and has_board():
+        dest = board_dest()
+        shutil.copytree(ROOT / "backlog", dest, symlinks=True)
+        log(f"✔ board kept: {dest}")
     rmtree(ROOT)
     log(f"✔ {CAM_DIR}/ deleted")
     if include_global:
@@ -254,7 +276,7 @@ def run(include_global: bool = False, backup: bool = True, backup_dir: Path | No
 
 
 def main(include_global: bool = False, dry_run: bool = False, yes: bool = False, backup: bool = True,
-         backup_dir: Path | None = None) -> int:
+         backup_dir: Path | None = None, keep_board: bool | None = None) -> int:
     why = guard()
     if why:
         print(why)
@@ -264,7 +286,7 @@ def main(include_global: bool = False, dry_run: bool = False, yes: bool = False,
         BACKUP_DIR = backup_dir
     name = docs.workspace()["project"]["name"]
     print(f"🧹 Uninstall {name} — remove its documentation and every trace of the kit\n")
-    for s in steps(include_global, backup):
+    for s in steps(include_global, backup, True if yes and keep_board is None else keep_board):
         print(f"  • {s.label}")
     print("\nNot touched:")
     for t in untouched():
@@ -280,6 +302,11 @@ def main(include_global: bool = False, dry_run: bool = False, yes: bool = False,
         if typed.strip().casefold() != name.strip().casefold():
             print("Cancelled — nothing was removed.")
             return 1
-    zipped = run(include_global, backup, backup_dir, log=print)
+        if has_board() and keep_board is None:
+            try:
+                keep_board = input("Keep the board (backlog/) next to the repos? [Y/n] ").strip().casefold() not in ("n", "no")
+            except EOFError:
+                keep_board = True
+    zipped = run(include_global, backup, backup_dir, log=print, keep_board=keep_board is not False)
     print(f"\n🦐 Done: {WORKSPACE} is back to just its repos." + (f"\n   Backup of {CAM_DIR}/: {zipped}" if zipped else ""))
     return 0
