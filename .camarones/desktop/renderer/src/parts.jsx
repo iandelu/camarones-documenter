@@ -1,0 +1,85 @@
+import { useState } from 'react'
+import { Aviso, Button, Chip } from '@camaron/ui'
+import { chip, state } from './jobs.js'
+import { unitAction, waitsFor } from './plan.js'
+import { lang, t } from './i18n.js'
+
+// The pieces the sections share: the page, the agent picker, a fold, a job's outcome and a plan unit's row.
+
+export const Page = ({ title, children }) => (
+  <div className="dk-page"><h1 className="t-impact">{title}</h1>{children}</div>
+)
+
+export function AgentPicker({ a }) {
+  if (!a.agents || a.agents.length < 2) return null
+  return (
+    <select className="cu-input dk-select" aria-label={t('next.agent')} value={a.agent} onChange={(e) => a.setAgent(e.target.value)}>
+      {a.agents.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}
+    </select>
+  )
+}
+
+export function Fold({ label, children, open = false }) {
+  return (
+    <details className="dk-fold" open={open}>
+      <summary>{label}</summary>
+      <div className="dk-fold-body">{children}</div>
+    </details>
+  )
+}
+
+// A command's outcome under its panel: the state, the error, and the output folded (open by itself when it failed).
+export function JobOutput({ c }) {
+  if (!c.job && !c.error) return null
+  const failed = c.job && c.job.status === 'failed' && !c.job.stopped
+  return (
+    <div className="dk-out">
+      {c.job ? <Chip state={chip(c.job)}>{t('job.' + state(c.job))}</Chip> : null}
+      {c.error ? <Aviso tone="error" title={t('unit.failed')} detail={c.error} /> : null}
+      {c.job?.lines.length ? (
+        <details open={failed}>
+          <summary className="muted small">{t('cmds.output')}</summary>
+          <pre className="dk-log">{c.job.lines.join('\n')}</pre>
+        </details>
+      ) : null}
+    </div>
+  )
+}
+
+// A plan unit and the one action that moves it (plan.js): approve, retry, continue or start with the agent picked,
+// or go where a unit the wizard runs is done. A half-done one can also start over.
+export function UnitRow({ u, all, srv, a, onChanged }) {
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState({ ok: '', error: '' })
+  const act = unitAction(u)
+  const waits = u.status === 'todo' && !u.ready ? waitsFor(u, all) : []
+  async function go(fn, ok = '') {
+    setBusy(true)
+    setNote({ ok: '', error: '' })
+    try { await fn(); setNote({ ok, error: '' }); onChanged?.() } catch (e) { setNote({ ok: '', error: e.message }) } finally { setBusy(false) }
+  }
+  const agent = (mode) => go(() => srv.post('app/agent', { unit: u.id, agent: a.agent, lang: lang(), mode }),
+    t('next.opened', { agent: a.label(a.agent) }))
+  const noAgent = act?.kind === 'agent' && a.agents && !a.agents.length
+  return (
+    <li className="dk-unit">
+      <div className="dk-unit-main">
+        <b>{u.title}</b>
+        <span className="muted small"><code>{u.id}</code>{waits.length ? <> · {t('unit.waits', { list: waits.join(', ') })}</> : null}</span>
+      </div>
+      <div className="row dk-unit-acts">
+        {act?.kind === 'approve' ? <Button size="sm" variant="primary" disabled={busy} onClick={() => go(() => srv.post('units/approve', { unit: u.id }))}>{t(act.label)}</Button> : null}
+        {act?.kind === 'retry' ? <Button size="sm" disabled={busy} onClick={() => go(() => srv.post('units/retry', { unit: u.id }))}>{t(act.label)}</Button> : null}
+        {act?.kind === 'link' ? <Button size="sm" href={act.href}>{t(act.label)}</Button> : null}
+        {act?.kind === 'agent' && !noAgent ? (<>
+          <Button size="sm" variant={act.mode === 'continue' ? 'primary' : 'secondary'} disabled={busy || !a.agent}
+            onClick={() => agent(act.mode)}>{t(act.label, { agent: a.label(a.agent) })}</Button>
+          {act.mode === 'continue' ? <Button size="sm" variant="ghost" disabled={busy || !a.agent} onClick={() => agent('restart')}>{t('unit.restart')}</Button> : null}
+        </>) : null}
+        {noAgent ? <Button size="sm" href="#/machine">{t('next.machine')}</Button> : null}
+      </div>
+      {note.ok ? <p className="muted small dk-unit-note" role="status">{note.ok}</p> : null}
+      {note.error ? <div className="dk-unit-note"><Aviso tone="error" title={t('unit.failed')} detail={note.error} /></div> : null}
+    </li>
+  )
+}

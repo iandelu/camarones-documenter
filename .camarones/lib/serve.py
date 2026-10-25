@@ -317,12 +317,14 @@ def api_pipeline() -> dict:
         nodes = {}
     types = pipeline.types()
     units = []
-    for u in plan.load()["units"]:
+    data = plan.load()
+    ready = {u["id"] for u in plan.available(data)}          # the app's Plan groups by it
+    for u in data["units"]:
         t, n = types.get(u["type"], {}), nodes.get(u["id"], {})
         units.append({**{k: u.get(k) for k in ("id", "title", "type", "phase", "status", "deps", "repo", "notes", "runner")},
                       "isolation": n.get("isolation") or t.get("isolation", "none"),
                       "tier": n.get("tier") or t.get("tier", "agentic-heavy"), "agent": n.get("runner"),
-                      "approval": bool(n.get("approval")), "awaiting": plan.awaiting(u)})
+                      "approval": bool(n.get("approval")), "awaiting": plan.awaiting(u), "ready": u["id"] in ready})
     latest = runs.ids()
     return {"units": units, "run": runs.summary(latest[0]) if latest else None}
 

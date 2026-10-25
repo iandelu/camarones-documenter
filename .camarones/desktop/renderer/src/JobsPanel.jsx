@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button, Chip } from '@camaron/ui'
 import { ago, chip, state } from './jobs.js'
-import { useStore } from './useStore.js'
+import { useStore } from './hooks.js'
 import { t } from './i18n.js'
 
 const now = () => Date.now() / 1000

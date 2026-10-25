@@ -1,4 +1,4 @@
-// The Taller's forms, generated from the catalog (lib/catalog.py reads them from the CLI's own parser): one field per
+// The catalog's forms (the portal's Taller, the desktop app's "All commands"), generated from the catalog (lib/catalog.py reads them from the CLI's own parser): one field per
 // argument, and the values turned back into the args object the server checks again (lib/appapi.py). `--yes` and
 // `--json` are never fields: the app asks before a command with `--yes`, and `--json` is for the views that read it.
 const HIDDEN = new Set(['--yes', '--json'])

@@ -117,3 +117,25 @@ def test_the_jobs_say_which_can_be_stopped(kit, app, monkeypatch):
         assert row["stoppable"] is True                                     # a process the app started: Stop
     finally:
         gate.set()
+
+
+def post(url, body, token=TOKEN):
+    req = urllib.request.Request(url, data=json.dumps(body).encode(), method="POST",
+                                 headers={"Content-Type": "application/json", "X-Camarones": "1", "X-Camaron-Token": token})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        return json.loads(r.read())
+
+
+def test_a_panel_reading_in_the_background_keeps_its_job_out_of_the_panel(wired, app):
+    """A section reads `trust --json` and the like each time it opens: those jobs say quiet, and the jobs panel skips
+    them. The first caller decides: a read attaching to a job someone started stays visible."""
+    quiet = post(app + "/api/app/cmd", {"cmd": "version", "args": {}, "quiet": True})
+    rows = {j["id"]: j for j in get(app + "/api/jobs")[1]}
+    assert rows[quiet["id"]]["quiet"] is True
+    wait_end(kit_job(wired, quiet["id"]))
+    loud = post(app + "/api/app/cmd", {"cmd": "version", "args": {}})
+    assert {j["id"]: j for j in get(app + "/api/jobs")[1]}[loud["id"]]["quiet"] is False
+
+
+def kit_job(wired, job_id):
+    return wired.serve.JOBS[job_id]

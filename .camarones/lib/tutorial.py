@@ -247,8 +247,11 @@ PAGES = {
                  "Ctrl o Cmd + Shift + O vuelve a los proyectos y «camarón › Abrir en el navegador» abre el mismo portal "
                  "fuera. Abre en el Resumen: el siguiente paso con un solo botón (el mismo que propone este asistente) y "
                  "cómo van el plan, la revisión y los trabajos; abajo, el panel de trabajos con su salida y «Parar», que "
-                 "sigue ahí aunque cambies de sección. Las secciones que la app aún está rehaciendo abren su zona del "
-                 "Taller, y «Volver a la app» te trae de vuelta. Un buen primer paso: Taller › Comprobar para ver qué falta, y Analizar para el primer vistazo sin IA. Si algo "
+                 "sigue ahí aunque cambies de sección. Plan (ejecutar o el piloto automático, y las unidades agrupadas "
+                 "por lo que te piden: aprobar, reintentar, seguir, empezar), Entrevistas (cuestionario o en vivo, "
+                 "exportar, importar, cerrar la ronda) y Equipo (repo del equipo y compartir, lo que falta aprobar, "
+                 "plugins) van por tarea, con «Todos los comandos» plegado al final. Las secciones que la app aún está "
+                 "rehaciendo abren su zona del Taller, y «Volver a la app» te trae de vuelta. Un buen primer paso: Taller › Comprobar para ver qué falta, y Analizar para el primer vistazo sin IA. Si algo "
                  "falla, el aviso dice qué; borrar ~/.camarones/desktop fuerza a descargar Electron otra vez."},
         {"icon": "✏️", "title": "Dónde y cuándo se puede editar",
          "art": r"""
@@ -605,7 +608,10 @@ PAGES = {
                  "where you left it. Ctrl or Cmd + Shift + O goes back to the projects and \"camarón › Open in the browser\" opens the "
                  "same portal outside. It opens on the Summary: the next step with one button (the one this wizard "
                  "suggests) and where the plan, the review and the jobs stand; below, the jobs panel with their output "
-                 "and \"Stop\", still there when you change section. The sections the app is still rebuilding open their Workshop zone, and \"Back to the "
+                 "and \"Stop\", still there when you change section. Plan (run or the autopilot, and the units grouped "
+                 "by what they ask of you: approve, retry, continue, start), Interviews (questionnaire or live, export, "
+                 "import, close the round) and Team (the team's repo and sharing, what is left to approve, plugins) go "
+                 "by task, with \"All commands\" folded at the end. The sections the app is still rebuilding open their Workshop zone, and \"Back to the "
                  "app\" brings you back. A good first step: Workshop › Check to see what is missing, and Analyze for the first "
                  "look without AI. If something fails, the notice says what; deleting ~/.camarones/desktop makes it download "
                  "Electron again."},

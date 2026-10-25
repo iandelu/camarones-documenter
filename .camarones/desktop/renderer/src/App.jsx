@@ -3,9 +3,12 @@ import { Aviso, Brand, Breadcrumbs, Button, Card, EmptyState, Field, Skeleton } 
 import { initials, sectionOf, sections, TALLER_OF } from './nav.js'
 import { jobsStore } from './jobs.js'
 import { server } from './server.js'
-import { useStore } from './useStore.js'
+import { useStore } from './hooks.js'
 import JobsPanel from './JobsPanel.jsx'
-import Summary from './Summary.jsx'
+import Interviews from './sections/Interviews.jsx'
+import Plan from './sections/Plan.jsx'
+import Summary from './sections/Summary.jsx'
+import Team from './sections/Team.jsx'
 import { t } from './i18n.js'
 
 // The desktop app's UI. Three ways to be loaded: the hub (window.camaronHub, from disk: pick or make a project), a
@@ -69,7 +72,7 @@ function Project({ app }) {
       </nav>
       <main className="dk-main">
         {error && <Aviso tone="error" title={t('hub.failed')} detail={error} />}
-        {!index && !error ? <Skeleton lines={4} /> : here === 'summary' ? <Summary srv={srv} jobs={jobs} /> : <Soon section={here} />}
+        {!index && !error ? <Skeleton lines={4} /> : <Section here={here} srv={srv} jobs={jobs} app={app} />}
       </main>
       <JobsPanel srv={srv} jobs={jobs} />
       <footer className="dk-status">
@@ -105,6 +108,13 @@ function Rail({ app, name, onStatus }) {
       <button type="button" className="dk-proj add" aria-label={t('rail.add')} title={t('rail.add')} onClick={() => app.hub?.()}>+</button>
     </nav>
   )
+}
+
+// The sections rebuilt here; the others still live in the portal's Taller.
+const SECTIONS = { summary: Summary, plan: Plan, interviews: Interviews, team: Team }
+function Section({ here, ...props }) {
+  const View = SECTIONS[here]
+  return View ? <View key={here} {...props} /> : <Soon section={here} />
 }
 
 // A section not rebuilt here yet: one way to it, where it still is.

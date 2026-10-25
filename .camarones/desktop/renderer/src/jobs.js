@@ -2,9 +2,10 @@
 // on the server, so they outlast a change of section; the panel lists them and the status bar says what runs.
 export const RECENT = 6
 
-// What runs, and the most recent first (the server keeps every job of its session).
+// What runs, and the most recent first (the server keeps every job of its session). A panel's background read
+// (`trust --json` and the like, quiet: true) is not shown.
 export function arrange(list) {
-  const rows = [...(list || [])].sort((a, b) => (b.started || 0) - (a.started || 0))
+  const rows = (list || []).filter((j) => !j.quiet).sort((a, b) => (b.started || 0) - (a.started || 0))
   return { running: rows.filter((j) => j.status === 'running'), recent: rows.slice(0, RECENT) }
 }
 
