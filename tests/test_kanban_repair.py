@@ -300,13 +300,58 @@ def test_share_is_blocked_when_the_repair_commit_is_blocked(kit, tmp_path, monke
     git(mate, "push", "-q", "origin", "main")
     real = kit.env.checkpoint_commit
 
-    def blocked(message):
+    def blocked(message, **kw):
         if message == "board repaired after sync":
             subprocess.run(["git", "add", "--", "backlog"], cwd=kit.root, check=True)
             return False                                   # staged, not committed: like the secrets guard
-        return real(message)
+        return real(message, **kw)
 
     monkeypatch.setattr(kit.env, "checkpoint_commit", blocked)
     s = kit.env.share(log=lambda _: None)
     assert s["status"] == "blocked", s
     assert git(kit.root, "rev-parse", "origin/main") == git(mate, "rev-parse", "HEAD")
+
+
+# --- final review ---
+
+def test_checkpoint_never_commits_a_stray_temp_file(wired):
+    from lib.kanban import BACKLOG
+    (BACKLOG / "board.yaml.tmp").write_text("half written", encoding="utf-8")
+    (BACKLOG / "tasks" / "wi-1 - x.md.tmp").write_text("half written", encoding="utf-8")
+    (wired.root / "docs" / "new.md").write_text("# New\n", encoding="utf-8")
+    assert wired.env.checkpoint_commit("x") is True
+    assert not [f for f in git(wired.root, "ls-files").splitlines() if f.endswith(".tmp")]
+    assert list(BACKLOG.rglob("*.tmp")) == []                       # the repair pass cleaned them (under the lock)
+
+
+def test_checkpoint_skips_temp_files_even_when_the_repair_fails(wired, monkeypatch, capsys):
+    from lib.kanban import BACKLOG, repair
+
+    def boom(**_):
+        raise RuntimeError("boom")
+    monkeypatch.setattr(repair, "repair", boom)
+    (BACKLOG / "board.yaml.tmp").write_text("half written", encoding="utf-8")
+    (wired.root / "docs" / "new.md").write_text("# New\n", encoding="utf-8")
+    assert wired.env.checkpoint_commit("x") is True
+    assert not [f for f in git(wired.root, "ls-files").splitlines() if f.endswith(".tmp")]
+
+
+def test_checkpoint_prints_the_repair_warnings(wired, capsys):
+    from lib.kanban import BACKLOG
+    (BACKLOG / "docs").mkdir(exist_ok=True)
+    (BACKLOG / "docs" / "notes.md").write_text("x\n", encoding="utf-8")
+    assert wired.env.checkpoint_commit("x") is True
+    assert "backlog/docs/ has content" in capsys.readouterr().err
+
+
+def test_share_passes_the_repair_warnings_to_its_log(kit, tmp_path):
+    from test_team_repo import bare, publish
+    from lib.kanban import BACKLOG
+    remote = bare(tmp_path)
+    publish(kit, remote)
+    (BACKLOG / "docs").mkdir(parents=True, exist_ok=True)
+    (BACKLOG / "docs" / "notes.md").write_text("x\n", encoding="utf-8")
+    lines = []
+    s = kit.env.share(log=lines.append)
+    assert s["status"] == "pushed", s
+    assert sum("backlog/docs/ has content" in l for l in lines) == 1
