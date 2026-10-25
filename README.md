@@ -150,7 +150,7 @@ camaron trust              # revisa y aprueba los hooks, MCP y skills del equipo
 camaron repair             # devuelve a su sitio los ficheros y enlaces del kit si alguien los editó o borró
 camaron switch             # cambia entre tus proyectos
 camaron projects --inspect ~/Documents/mi-proyecto [--json]   # qué es esa carpeta (proyecto, repo, varios repos, código, vacía); solo lee
-camaron projects --adopt ~/Documents/mi-proyecto [--name X] [--json]   # la convierte en proyecto (docs en su cam-docs/) y la registra: lo que usa la app de escritorio
+camaron projects --adopt ~/Documents/mi-proyecto [--name X] [--json]   # la convierte en proyecto y la registra (docs en el cam-docs/ del workspace; si es un repo suelto, el de su carpeta padre): lo que usa la app de escritorio
 camaron self-update        # trae el kit oficial al día — actualiza todos los proyectos a la vez (en el asistente: ⚙️ Ajustes › ⬆️ Actualizar Camarón)
 camaron migrate            # pasa un proyecto de la estructura anterior (≤2.5) a cam-docs/
 camaron uninstall           # lo deshace todo: borra cam-docs/ (con copia .zip) y los rastros en los repos
@@ -346,7 +346,7 @@ Al abrir la app fuera de un proyecto ves una sola pregunta, **¿Qué quieres doc
 
 Un proyecto sin preparar abre el **asistente de primer arranque** dentro de su ventana: **Repos** (los que encontró en la carpeta; puedes añadir un repo de código con su URL, nombre y rama) → **Herramientas** (qué falta en esta máquina) → **Instalar** (con progreso y botón para cancelar) → **Stack** (lo leído de los manifiestos, editable) → **Arquitectura** (un borrador C4 hecho sin IA, que guardas, y si quieres mejoras con IA) → **Listo**. Se puede cerrar y retomar donde lo dejaste, y es el mismo estado que usa el asistente de la terminal: empiezas en uno y sigues en el otro. En una carpeta vacía (`camaron new` en una carpeta sin código) el asistente permite cero repos y se salta Stack y Arquitectura.
 
-Terminado el asistente, la ventana del proyecto es para **documentar**: a la izquierda, **Siguiente paso** (la unidad del plan que toca y los borradores por revisar), **Plan**, **Revisión**, **Board** y **Taller**. Leer la documentación, la arquitectura y la calidad se hace en el portal: **Ver portal** (arriba a la derecha) lo abre en tu navegador, y los enlaces a esas páginas desde la app también. **Proyectos** vuelve a la pantalla de inicio. «Crear proyecto» y «Añadir carpeta» ya no están en la app: **Elegir carpeta** lo cubre todo. La CLI conserva `camaron new` y `camaron projects --add`.
+Terminado el asistente, la ventana del proyecto es para **documentar**: a la izquierda, **Siguiente paso** (la unidad del plan que toca y los borradores por revisar), **Plan**, **Revisión**, **Tablero** y **Taller**. Leer la documentación, la arquitectura y la calidad se hace en el portal: **Ver portal** (arriba a la derecha) lo abre en tu navegador, y los enlaces a esas páginas desde la app también. **Proyectos** vuelve a la pantalla de inicio. «Crear proyecto» y «Añadir carpeta» ya no están en la app: **Elegir carpeta** lo cubre todo. La CLI conserva `camaron new` y `camaron projects --add`.
 
 La app junta las dos caras de Camarón. El **portal** es el visor del equipo: leer, editar, revisar, ver la pipeline y responder la entrevista. El **Taller** es todo lo que pasa en tu máquina: agentes de IA, análisis del código, comprobaciones e instalación. Cada botón del Taller ejecuta el mismo comando que escribirías en la terminal, con su salida en vivo, así que nada de lo que ves es magia aparte.
 
@@ -354,7 +354,7 @@ La app junta las dos caras de Camarón. El **portal** es el visor del equipo: le
 |---|---|---|
 | **Para quién** | Todo el equipo, también desplegado como web | Quien documenta en su máquina |
 | **Leer, buscar, preguntar** | ✅ | En tu navegador: **Ver portal** lo abre |
-| **Editar, confirmar, revisar, comentar** | ✅ | ✅ |
+| **Editar, confirmar, revisar, comentar** | ✅ | Editar páginas: en tu navegador (**Ver portal**). Revisar y confirmar borradores: en **Revisión**, en la app |
 | **Pipeline: estado en vivo, reintentar, aprobar** | ✅ | ✅ |
 | **Responder la entrevista del equipo** | ✅ | ✅ |
 | **Sincronizar con el equipo (pull y push)** | ✅ | ✅ |
@@ -414,14 +414,14 @@ camaron doctor --install node   # si no lo tienes: winget en Windows, Homebrew e
 cd ~/Documents/mi-proyecto   # dentro de un proyecto: abre ese proyecto directamente
 camaron app
 
-camaron app                  # en cualquier otra carpeta: abre el selector de proyectos
+camaron app                  # en cualquier otra carpeta: abre la pantalla de inicio («¿Qué quieres documentar?»)
 ```
 
 - **Desde el asistente:** `camaron` y en el menú principal **🖥️ App de escritorio**.
-- **Desde el selector de proyectos:** abre un proyecto registrado, **crea uno** (eliges la carpeta donde va), **únete al del equipo** con la URL de su `cam-docs` o **añade una carpeta** que ya tenga `cam-docs`. Cada proyecto abre su propia ventana.
-- **Dentro de la app:** la cabecera del portal es la barra de la ventana (arrástrala para moverla; los botones de minimizar, maximizar y cerrar van en ella, con su mismo color en claro y en oscuro). <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>O</kbd> vuelve a los proyectos, y el botón **⋯** de la barra abre el menú de la app, con **Abrir en el navegador** para ver el mismo portal en tu navegador, compartir la pantalla o un enlace local.
+- **Desde la pantalla de inicio:** **Elegir carpeta** (cualquier carpeta: con código, vacía o que ya tenga `cam-docs`), **Unirme a la documentación de mi equipo** con la URL de su `cam-docs`, o abre uno de **Recientes**. Cada proyecto abre su propia ventana.
+- **Dentro de la app:** la cabecera del portal es la barra de la ventana (arrástrala para moverla; los botones de minimizar, maximizar y cerrar van en ella, con su mismo color en claro y en oscuro). <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>O</kbd> (o el botón **Proyectos**) vuelve a la pantalla de inicio, **Ver portal** abre el portal en tu navegador, y el botón **⋯** de la barra abre el menú de la app, con **Abrir en el navegador** para ver el mismo portal en tu navegador, compartir la pantalla o un enlace local.
 
-**4. Empieza por el Taller.** En Inicio, la tarjeta **Taller** lleva a las seis zonas. Un buen primer paso: **Comprobar › Requisitos y herramientas** para ver qué falta, y **Analizar** para el primer vistazo sin IA.
+**4. Empieza por el Taller.** La ventana de un proyecto aterriza en **Siguiente paso**; a la izquierda tienes **Siguiente paso · Plan · Revisión · Tablero · Taller**, y el **Taller** lleva a las seis zonas. Para leer la documentación usa **Ver portal**. Un buen primer paso: **Comprobar › Requisitos y herramientas** para ver qué falta, y **Analizar** para el primer vistazo sin IA.
 
 <details>
 <summary><strong>🪟 🍎 🐧 Notas por sistema operativo</strong></summary>

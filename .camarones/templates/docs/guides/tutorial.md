@@ -214,7 +214,7 @@ shows "open it in the app" in the browser portal.
 
 A project that is not set up yet opens the first-run wizard in its window: **Repos** (add a code repo with its URL,
 name and branch) → **Tools** → **Install** (progress and **Cancel**) → **Stack** → **Architecture** (a draft made
-without AI: save it, and improve it with AI if you like) → **Done**. Close the app halfway and it resumes where you left
+without AI: save it, and improve it with AI if you like) → **Ready**. Close the app halfway and it resumes where you left
 off; the terminal wizard shares the same state. In an empty folder the wizard allows zero repos and skips Stack and
 Architecture. On the CLI: `camaron projects --inspect FOLDER [--json]` says what a folder is (it only reads) and
 `camaron projects --adopt FOLDER [--name NAME] [--json]` turns it into a project and registers it; `camaron new` and

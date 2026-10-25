@@ -221,7 +221,7 @@ PAGES = {
                  "de control, KPIs), Entrevistas, Equipo (repo compartido, agentes, plugins, CI) y Esta máquina (setup con progreso, "
                  "idioma y modelos, tokens, repos, actualizar el kit y desinstalar con vista previa). Cada comando de la CLI tiene ahí su formulario, su salida en vivo y su "
                  "resultado; lo que borra o mueve datos va aparte y pregunta antes. Al abrirla fuera de un proyecto ves la pregunta «¿Qué quieres documentar?»: eliges una carpeta "
-                 "o te unes a la documentación del equipo. La ventana de un proyecto es para documentar: Siguiente paso, Plan, Revisión, Board y Taller; leer docs, arquitectura y "
+                 "o te unes a la documentación del equipo. La ventana de un proyecto es para documentar: Siguiente paso, Plan, Revisión, Tablero y Taller; leer docs, arquitectura y "
                  "calidad se hace en el portal del navegador (botón «Ver portal»), que sigue siendo el visor del equipo; lo que lanza procesos o llama a un modelo "
                  "dice «ábrelo en la app». La primera vez instala Electron en "
                  "~/.camarones/desktop (necesita Node.js); sin él, la CLI y este asistente funcionan igual."},
@@ -244,7 +244,8 @@ PAGES = {
                  "proyectos. Desde la carpeta de un proyecto abre ese proyecto; desde cualquier otra, la pantalla de inicio, donde abres "
                  "un reciente, eliges una carpeta o te unes al cam-docs del equipo con su URL. Dentro, la cabecera del "
                  "portal es la barra de la ventana (arrástrala para moverla), el botón «Proyectos» o Ctrl/Cmd + Shift + O vuelven a la pantalla de inicio, «Ver portal» abre "
-                 "el portal en tu navegador y el botón ⋯ de la barra abre el menú de la app, con «Abrir en el navegador». Si algo "
+                 "el portal en tu navegador y el botón ⋯ de la barra abre el menú de la app, con «Abrir en el navegador». Un buen "
+                 "primer paso: Taller › Comprobar para ver qué falta, y Analizar para el primer vistazo sin IA. Si algo "
                  "falla, el aviso dice qué; borrar ~/.camarones/desktop fuerza a descargar Electron otra vez."},
         {"icon": "🚀", "title": "El primer arranque en la app",
          "art": r"""
@@ -612,7 +613,7 @@ PAGES = {
    |                                (the first time it downloads Electron, ~100 MB) |
    |                                                                            |
    |    inside a project       ->  opens that project                           |
-   |    in any other folder    ->  start: pick a folder · join · recent        |
+   |    in any other folder    ->  start: pick a folder · join · recent         |
    |    in the wizard          ->  menu › Desktop app                           |
    +----------------------------------------------------------------------------+""",
          "text": "The app is not installed separately: it comes with the kit. It only needs Node.js 22 or newer (`camaron "
@@ -622,6 +623,7 @@ PAGES = {
                  "start screen, where you open a recent project, pick a folder or join the team's cam-docs with its URL. "
                  "Inside, the portal's header is the window's title bar (drag it to move the window), the Projects button or Ctrl/Cmd + Shift + O "
                  "goes back to the start screen, View portal opens the portal in your browser and the bar's ⋯ button opens the app menu, with \"Open in the browser\". "
+                 "A good first step: Workshop › Check to see what is missing, and Analyze for the first look without AI. "
                  "If something fails, the notice says what; deleting ~/.camarones/desktop makes it download "
                  "Electron again."},
         {"icon": "🚀", "title": "First run in the app",
@@ -632,7 +634,7 @@ PAGES = {
    |  [ Join my team's documentation ]  cam-docs URL                            |
    |  Recent: shop  ~/shop/cam-docs  [Open]                                     |
    |                                                                            |
-   |  1 Repos > 2 Tools > 3 Install > 4 Stack > 5 Architecture > 6 Done         |
+   |  1 Repos > 2 Tools > 3 Install > 4 Stack > 5 Architecture > 6 Ready        |
    |                                                [ Go to the next step ]     |
    +----------------------------------------------------------------------------+""",
          "text": "The start screen asks one thing: \"What do you want to document?\". \"Pick a folder\" takes any folder and tells you what it "
@@ -642,7 +644,7 @@ PAGES = {
                  "repo's URL (the documentation's, not the code's); if git has no access it asks for a token, kept in the system keychain "
                  "and never in the project. A project not set up yet opens the first-run wizard in its window: Repos (add a code repo "
                  "with its URL, name and branch), Tools, Install (with progress and Cancel), Stack (editable), Architecture (a no-AI draft you save, "
-                 "and improve with AI if you like) and Done. If you close the app halfway, reopening resumes where you left off, and the terminal "
+                 "and improve with AI if you like) and Ready. If you close the app halfway, reopening resumes where you left off, and the terminal "
                  "wizard sees the same step. In an empty folder the wizard allows zero repos and skips Stack and Architecture. "
                  "On the CLI: `camaron projects --inspect FOLDER` says what a folder is and `camaron projects --adopt FOLDER` turns it into a project "
                  "(both accept `--json`)."},
