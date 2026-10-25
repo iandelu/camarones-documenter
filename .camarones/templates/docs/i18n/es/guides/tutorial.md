@@ -177,8 +177,7 @@ tecnología, descripción y relaciones, y confirma lo que redactó la IA, de uno
 **Grafo de código** (todos los repos o uno), **Wikis** (OpenWiki por repo, sus páginas y su grafo), **Revisión**
 (páginas pendientes, revisiones que espera un agente, peticiones de cambio, código cambiado desde la doc, `check`),
 **Preguntar** (las secciones que mejor responden a una pregunta, con citas, sin IA; «base de datos» también encuentra PostgreSQL y las preguntas en español encuentran páginas en inglés; con un agente configurado, «Answer
-with AI» redacta la respuesta solo con ellas), **Pizarras** (pizarras de
-Excalidraw en `docs/boards/`, en blanco o desde una vista C4, con el nombre `<vista>-draft` si no escribes otro, ordenada en filas: personas, apps, servicios, almacenes, sistemas externos), **Librerías** (las dependencias de cada repo como matriz librería × servicio, con filtros por
+with AI» redacta la respuesta solo con ellas), **Librerías** (las dependencias de cada repo como matriz librería × servicio, con filtros por
 categoría, lenguaje, repo o ámbito y las vulnerabilidades conocidas en rojo), **Datos** (las tablas y colecciones de cada
 repo leídas del código, como diagrama ER), **Pipeline** y **KPIs** (páginas y elementos C4 confirmados, páginas desactualizadas, coste de IA por
 mes y las preguntas que nadie encontró, que con un clic pasan a pregunta abierta). El selector de idioma cambia la interfaz y

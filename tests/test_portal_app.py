@@ -1,5 +1,5 @@
 """The portal (R20, R29): one app built in the kit's CI into portal/app-build (committed, so users never run npm) and
-served at /: the React views (Pipeline, Boards, Ask) plus the docs views (public/legacy/, plain scripts). /next, the
+served at /: the React views (Pipeline, Ask…) plus the docs views (public/legacy/, plain scripts). /next, the
 preview address of earlier versions, redirects to it."""
 from __future__ import annotations
 
@@ -93,8 +93,10 @@ def test_the_react_views_are_reached_through_zones(kit):
     app = (app_dir / "public" / "legacy" / "app.js").read_text(encoding="utf-8")
     core = (app_dir / "public" / "legacy" / "core.js").read_text(encoding="utf-8")
     zones = (app_dir / "src" / "zones.js").read_text(encoding="utf-8")
-    for href in ("#/boards", "#/pipeline", "#/kpis", "#/ci", "#/libs", "#/data"):      # Ask is reached from the Home hero
+    for href in ("#/pipeline", "#/kpis", "#/ci", "#/libs", "#/data"):      # Ask is reached from the Home hero
         assert f"'{href}'" in zones
+    assert "'#/boards'" not in zones                                              # boards were removed in 4.49
+    assert "if (view === 'boards') return location.replace('#/arch');" in app
     assert "#/ask/" in app
     assert "window.CamaronNative.show(view, rest)" in app
     assert 'id="tabs"' not in (app_dir / "index.html").read_text(encoding="utf-8")

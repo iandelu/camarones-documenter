@@ -1,7 +1,6 @@
-/* The React views (Pipeline, Boards, Ask…) inside the portal shell. Colours and shapes come from the theme
+/* The React views (Pipeline, Ask…) inside the portal shell. Colours and shapes come from the theme
    (public/theme/tokens.css) through the aliases of public/legacy/app.css; everything here is scoped to #native. */
 #native { --fg: var(--ink); --good: var(--ok); --bad: var(--danger); min-width: 0; padding: 2.25rem 3rem 6rem; }
-#native.wide { padding: 0; }
 #native h1 { font: 600 2.6rem/1 var(--font-impact); letter-spacing: -.01em; margin: 0 0 .6rem; }
 #native .lede, #native .muted { color: var(--muted); }
 #native .view { animation: enter .28s var(--ease) both; }
@@ -68,13 +67,6 @@
                      margin-bottom: 1rem; animation: enter .3s var(--ease) both; }
 #native .ai-answer p { margin: 0 0 .5rem; }
 #native .ai-answer a { font: 600 .82rem var(--mono); margin-right: .8rem; }
-
-/* Boards */
-#native .boards-bar { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1rem; padding: .55rem 1.25rem;
-                      border-bottom: 1px solid var(--line); background: var(--panel); font-size: .88rem; }
-#native .boards-bar select, #native .boards-bar input { font-size: .88rem; }
-#native .boards-stage { height: calc(100vh - var(--top) - 2.9rem); }
-#native .boards-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr)); gap: .9rem; margin-top: 1.5rem; }
 
 /* KPIs: tiles, then tables; colour only for state, always next to its label */
 #native .kpis h2 { font-size: 1.15rem; margin: 2.25rem 0 .6rem; }
