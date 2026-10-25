@@ -25,7 +25,8 @@ COMMANDS: dict[str, dict] = {
     "new": _e("app", "projects", "Crear un proyecto nuevo", "Create a new project"),
     "join": _e("app", "projects", "Unirse al cam-docs del equipo", "Join the team's cam-docs"),
     "switch": _e("app", "projects", "Abrir otro proyecto registrado", "Open another registered project"),
-    "projects": _e("app", "projects", "Proyectos registrados en esta máquina", "Projects registered on this machine"),
+    "projects": _e("app", "projects", "Proyectos registrados; --inspect mira una carpeta, --adopt la vuelve proyecto",
+                   "Registered projects; --inspect reads a folder, --adopt makes it a project"),
     "init": _e("app", "projects", "Preparar este proyecto (plantillas y plan)", "Prepare this project (templates and plan)"),
     # generate: AI and the plan
     "run": _e("app", "generate", "Documentar las unidades listas en paralelo", "Document the ready units in parallel",
