@@ -53,8 +53,12 @@ export function keyMove(state, key, cols) {
       const r = list.length ? clamp(row, 0, list.length - 1) : 0
       return { ...s, col, row: r, focus: list[r]?.id ?? s.focus }
     }
-    if (key === 'ArrowRight') return pick(clamp(s.col + 1, 0, n - 1), s.row)
-    if (key === 'ArrowLeft') return pick(clamp(s.col - 1, 0, n - 1), s.row)
+    if (key === 'ArrowRight' || key === 'ArrowLeft') {       // the next column with a card: the focus follows the column
+      const step = key === 'ArrowRight' ? 1 : -1
+      let col = s.col + step
+      while (col >= 0 && col < n && !cols[col].cards.length) col += step
+      return col >= 0 && col < n ? pick(col, s.row) : s
+    }
     if (key === 'ArrowDown') return pick(s.col, s.row + 1)
     if (key === 'ArrowUp') return pick(s.col, s.row - 1)
     if (key === ' ' && s.focus) return { ...s, grabbed: true, from: { col: s.col, row: s.row } }

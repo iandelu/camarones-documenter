@@ -237,6 +237,12 @@ def test_malformed_link_is_missing_not_a_crash(board, wired):
     assert any("WI-1" in w and "link" in w for w in out["warnings"])
 
 
+def test_a_missing_link_counts_as_unconfirmed(board, wired):
+    """R15: `unconfirmed` is any link whose trust is not `confirmed` — a missing or unreadable one too, as the portal."""
+    write_item(["FLOW-zzzz"])
+    assert [c["id"] for c in board.list_items(docs="unconfirmed")["cards"]] == ["WI-1"]
+
+
 def test_scalar_reference_fields_are_one_entry(board, wired):
     page(wired, "flows/payments.md", "---\ntitle: P\nx-id: FLOW-k3f9\n---\n# P\n")
     write_item("FLOW-k3f9")
