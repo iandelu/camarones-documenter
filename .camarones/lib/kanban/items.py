@@ -69,7 +69,7 @@ def _as_list(v) -> list:
 
 
 def parse_item(text: str, path: Path | None = None) -> Item:
-    text = text.replace("\r\n", "\n")
+    text = text.removeprefix("﻿").replace("\r\n", "\n")       # a BOM some Windows editors add
     m = re.match(r"\A---\n(.*?\n)?---[ \t]*(?:\n|\Z)", text, re.S)
     if not m:
         raise ItemError("no frontmatter")

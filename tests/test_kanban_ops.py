@@ -195,7 +195,7 @@ def test_list_filters(board, kit):
     board.move("WI-3", "Ready")
     (kit.root / "backlog" / "tasks" / "broken.md").write_text("no frontmatter", encoding="utf-8")
     out = board.list_items()
-    assert [c["id"] for c in out["cards"]] == ["WI-1", "WI-2", "WI-3"] or len(out["cards"]) == 3
+    assert [c["id"] for c in out["cards"]] == ["WI-1", "WI-2", "WI-3"]
     assert [p["path"] for p in out["problems"]] and "broken.md" in str(out["problems"][0]["path"])
     assert [c["id"] for c in board.list_items(status="Ready")["cards"]] == ["WI-3"]
     assert [c["id"] for c in board.list_items(epic="WI-1")["cards"]] == ["WI-2"]
@@ -275,6 +275,35 @@ def test_usage_counts_surface(board, kit):
     assert events["board:add:portal"] == 1 and events["board:move:cli"] == 1
 
 
-def test_who_falls_back_to_login(kit):
+def test_who_is_the_git_email(kit):
     from lib.kanban import ops
-    assert ops.who() == "test@example.com" or ops.who()
+    assert ops.who() == "test@example.com"
+
+
+def test_who_falls_back_to_login(kit, monkeypatch):
+    from lib.kanban import ops
+    monkeypatch.setattr(ops, "out", lambda *a, **k: "")
+    monkeypatch.setattr(ops.getpass, "getuser", lambda: "shrimp")
+    assert ops.who() == "shrimp"
+
+
+# --- final review ---
+
+def test_scalar_lists_in_a_hand_written_item(board, kit):
+    (kit.root / "backlog" / "tasks" / "wi-7 - Hand.md").write_text(
+        "---\nid: WI-7\ntitle: Hand\nstatus: Ready\nassignee: ana\nlabels: payments\nx-repos: api\n---\n\nBody\n",
+        encoding="utf-8")
+    row = next(c for c in board.list_items()["cards"] if c["id"] == "WI-7")
+    assert row["labels"] == ["payments"] and row["repos"] == ["api"] and row["assignee"] == ["ana"]
+    assert [c["id"] for c in board.list_items(label="payments")["cards"]] == ["WI-7"]
+
+
+def test_bom_item_is_read(board, kit):
+    f = kit.root / "backlog" / "tasks" / "wi-8 - Bom.md"
+    f.write_bytes("\ufeff---\nid: WI-8\ntitle: Bom\nstatus: Backlog\n---\n\nBody\n".encode("utf-8"))
+    out = board.list_items()
+    assert out["problems"] == [] and [c["id"] for c in out["cards"]] == ["WI-8"]
+    from lib.kanban.items import parse_item, serialize_item
+    item = parse_item(f.read_text(encoding="utf-8"), f)
+    assert item.title == "Bom" and item.body == "Body\n"
+    assert serialize_item(item) == "---\nid: WI-8\ntitle: Bom\nstatus: Backlog\n---\n\nBody\n"
