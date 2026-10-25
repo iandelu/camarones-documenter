@@ -63,6 +63,11 @@ def _plain(v):
     return v
 
 
+def _as_list(v) -> list:
+    """A reference field as people write it: a list, or a lone value."""
+    return [] if v is None else [v] if isinstance(v, str) else list(v)
+
+
 def parse_item(text: str, path: Path | None = None) -> Item:
     text = text.replace("\r\n", "\n")
     m = re.match(r"\A---\n(.*?\n)?---[ \t]*(?:\n|\Z)", text, re.S)
