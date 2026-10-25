@@ -40,6 +40,12 @@ def test_every_parser_command_is_in_the_catalog_and_nothing_else(described):
     assert {"run", "uninstall", "share", "interview", "catalog"} <= set(names)
 
 
+def test_the_board_form_does_not_offer_the_merge_driver(described):
+    """git runs `board merge-driver`; the desktop app's form for `board` must not offer it (the CLI keeps it)."""
+    board = {a["dest"]: a for a in next(c for c in described["commands"] if c["name"] == "board")["args"]}
+    assert "merge-driver" not in board["action"]["choices"] and "move" in board["action"]["choices"]
+
+
 def test_check_fails_on_drift(kit):
     from lib import catalog
     unlisted, unknown = catalog.drift(["run", "brand-new"])
