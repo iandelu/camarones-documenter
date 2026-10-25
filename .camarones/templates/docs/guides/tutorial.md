@@ -221,6 +221,30 @@ Inside, <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>O</kbd> goes ba
 the browser** opens the same portal outside. On Linux with restricted user namespaces (Ubuntu 24.04+) the kit starts
 it with `--no-sandbox`: its windows only load your project's local server.
 
+### 📋 The board
+
+A Kanban stored in `cam-docs/backlog/` and versioned with the docs. Each card is a Markdown file compatible with
+Backlog.md (it reads and edits them without breaking anything); the kit's own state (column and order of each card)
+is in `backlog/board.yaml`, one line per card so git merges per card. Turn it on with `camaron board init`;
+projects without `backlog/` behave as before.
+
+```sh
+camaron board add story "Idempotent retries" --epic WI-3 --repo payments --doc FLOW-k3f9#retries
+camaron board list --status Ready --repo payments     # also --epic, --label, --docs suspect|unconfirmed
+camaron board show WI-42                              # the card and the trust state of its pages
+camaron board move WI-42 "In Progress"                # Backlog, Ready, In Progress, In Review, Done, Blocked
+camaron board assign WI-42 ana
+camaron board link WI-42 flows/payments.md#retries
+camaron board archive WI-42
+camaron board repair                                  # also runs before every checkpoint and share
+```
+
+All of them take `--json`. Links to pages go by `x-id`, so they survive a move or rename, and the board knows whether
+a linked page changed since it was linked. In the portal, the **Board** zone (`#/kanban`) has Kanban, list and by-epic
+views and the card detail; writing needs the machine token (the desktop app sends it; `camaron up` prints it in the
+URL as `#cam-token=…`), without it the board is read-only. `camaron uninstall` asks whether to keep `backlog/`
+(`--keep-board` / `--drop-board`).
+
 ## 6. Editing: where and when
 
 | Where | What you can do | Where the change goes |
