@@ -273,3 +273,79 @@ def test_state_written_by_the_app_resumes_the_cli(kit):
 
 def test_firstrun_file_is_the_wizards(kit):
     assert kit.onboard.firstrun_file(kit.root) == kit.wizard.FIRSTRUN
+
+
+# ---------- tools, setup and the C4 prompt: the step bodies the CLI wizard and the app share ----------
+def rows_of(**ok):
+    """Tool rows as `tool_rows` returns them: a required git, optional agents, a kit tool."""
+    mk = lambda i, sys_, kind, rec: {"id": i, "label": i, "ok": ok.get(i, False), "kind": kind, "rec": rec, "sys": sys_,
+                                      "found": "", "note": ""}
+    return [mk("git", True, "t_required", True), mk("claude", True, "t_optional", False),
+            mk("codex", True, "t_optional", False), mk("docker", True, "t_optional", True), mk("likec4", False, "t_kit", True)]
+
+
+def test_install_choice_all_skips_a_second_agent(kit):
+    system, comps = kit.onboard.install_choice(rows_of(git=True, claude=True), "all")
+    assert "codex" not in system and system == ["docker"]
+    assert comps == kit.env.ALL_COMPONENTS
+
+
+def test_install_choice_all_installs_the_missing_recommended(kit):
+    system, _ = kit.onboard.install_choice(rows_of(), "all")
+    assert system == ["git", "docker"]          # no agent yet: claude is recommended only when there is none, by the row's rec
+
+
+def test_install_choice_pick_and_none(kit, monkeypatch):
+    monkeypatch.setattr(kit.env, "components", lambda: ["likec4"])
+    monkeypatch.setattr(kit.env, "prerequisites", lambda: {"git": {}, "docker": {}, "codex": {}})
+    system, comps = kit.onboard.install_choice(rows_of(), "pick", ["docker", "likec4", "openwiki", "bogus"])
+    assert system == ["docker"] and comps == ["likec4", "openwiki"]
+    assert kit.onboard.install_choice(rows_of(), "none") == ([], ["likec4"])
+
+
+def test_install_tools_reports_failures(kit, monkeypatch):
+    done = []
+    monkeypatch.setattr(kit.env, "set_components", lambda c: done.append(("set", c)))
+    monkeypatch.setattr(kit.env, "install_prereq", lambda k, log=print: k != "docker")
+    logged = []
+    assert kit.onboard.install_tools(["git", "docker"], ["likec4"], logged.append) == ["docker"]
+    assert done == [("set", ["likec4"])]
+
+
+def test_greenfield_without_repos_sets_up_and_plans(kit, monkeypatch):
+    ws = kit.docs.workspace()
+    ws["repos"], ws["project"]["kind"] = [], "greenfield"
+    kit.docs.save_workspace(ws)
+    monkeypatch.setattr(kit.env, "setup", lambda ci=False, log=print, comps=None: True)
+    assert kit.onboard.run_setup(lambda _: None) is True
+    data = kit.plan.load()
+    assert kit.plan.get(data, "setup")["status"] == "done"
+    kit.plan.available(data)                      # no repos: nothing for a for_each to expand, and it must not raise
+    assert kit.onboard.missing_repos() == []
+
+
+def test_a_failed_setup_is_not_marked_done(kit, monkeypatch):
+    monkeypatch.setattr(kit.env, "setup", lambda ci=False, log=print, comps=None: False)
+    assert kit.onboard.run_setup(lambda _: None) is False
+    assert kit.plan.get(kit.plan.load(), "setup")["status"] != "done"
+
+
+def test_missing_repos_are_those_with_a_url_and_no_clone(kit):
+    ws = kit.docs.workspace()
+    ws["repos"].append({"name": "ghost", "url": "https://example.test/ghost.git", "branch": "main", "kind": "service"})
+    kit.docs.save_workspace(ws)
+    assert kit.onboard.missing_repos() == ["ghost"]
+
+
+def test_arch_prompt_names_the_architecture_folder(kit):
+    assert "docs/architecture" in kit.onboard.arch_prompt("es")
+    assert "Spanish" in kit.onboard.arch_prompt("es") and "English" in kit.onboard.arch_prompt("en")
+
+
+def test_launch_prompt_opens_a_session_with_the_prompt(kit, monkeypatch):
+    from importlib import import_module
+    agents = import_module("lib.agents")
+    seen = {}
+    monkeypatch.setattr(agents, "_open", lambda prompt, agent, lang, resume: seen.update(a=(prompt, agent, lang, resume)) or {"launched": True})
+    assert agents.launch_prompt("hi", "claude", "en") == {"launched": True}
+    assert seen["a"] == ("hi", "claude", "en", False)

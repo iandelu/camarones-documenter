@@ -82,3 +82,8 @@ def launch_unit(uid: str, agent: str, lang: str = "es", mode: str = "new") -> di
 
 def launch_update(agent: str, lang: str = "es") -> dict:
     return {**_open(plan.prompt("update", lang=lang), agent, lang, resume=False), "unit": "update"}
+
+
+def launch_prompt(prompt: str, agent: str, lang: str = "es") -> dict:
+    """A fresh agent session on a prompt that is not a plan unit (the C4 refinement of the first run)."""
+    return _open(prompt, agent, lang, resume=False)
