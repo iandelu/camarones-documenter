@@ -41,10 +41,8 @@ def workspace() -> dict:
 
 
 def save_workspace(ws: dict) -> None:
-    header = "# Camarón workspace: which repos form this project. Edit freely, then run sync.\n"
-    f = ws_file()
-    f.parent.mkdir(parents=True, exist_ok=True)   # global install: .camarones/ may not exist yet (no code lives here)
-    f.write_text(header + yaml.safe_dump(ws, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    from . import onboard                 # lazy: onboard imports docs
+    onboard.write_workspace(ws_file(), ws)
 
 
 def repo_names() -> list[str]:
@@ -90,10 +88,11 @@ def git(repo: Path, *args: str, check=True, env: dict | None = None) -> str:
     return r.stdout.strip()
 
 
-def detect_repos() -> list[dict]:
-    """Repos already sitting in the workspace folder (the 'drop the kit next to your repos' case)."""
+def detect_repos(workspace: Path | None = None) -> list[dict]:
+    """Repos already sitting in the workspace folder (the 'drop the kit next to your repos' case). `workspace`: any
+    folder, e.g. one picked before a project exists; default is this project's."""
     found = []
-    for d in sorted(p for p in WORKSPACE.iterdir() if p.is_dir() and (p / ".git").exists()):
+    for d in sorted(p for p in (workspace or WORKSPACE).iterdir() if p.is_dir() and (p / ".git").exists()):
         if d.name.startswith(".") or d.name in ("docs", CAM_DIR) or d.name.lower().startswith("camarones-"):
             continue
         url = git(d, "remote", "get-url", "origin", check=False)

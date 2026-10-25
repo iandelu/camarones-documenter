@@ -22,7 +22,7 @@ from .common import (ROOT, HOME, PREFS, WORK, WS_FILE, CACHE, IS_WIN, IS_MAC, CA
 from . import docs, env, genblocks, plan, creds, questionnaire, quickarch, radar, tutorial, upgrade, usage
 from .adapters import runners
 from .harness.ports import RunRequest
-from .common import VERSIONS, ws_rel
+from .common import VERSIONS
 from rich.tree import Tree
 import webbrowser
 
@@ -31,9 +31,8 @@ from .machine import MODELS                   # noqa: E402 — Claude Code's --m
 from .agents import CODEX_MODEL_DEFAULT, claude_history   # noqa: E402,F401 — the launch itself lives in lib/agents.py
 from . import agents as agent_sessions                      # noqa: E402
 FIRSTRUN = CACHE / "firstrun.json"     # first-run wizard position (so closing the window never loses it)
-STEPS = ("name", "repos", "tools", "setup", "stack", "arch", "intro")   # first-run steps, saved by id
-LEGACY_STEPS = ("name", "repos", "tools", "setup", "arch", "intro")     # firstrun.json before 3.3 kept only the index
-JOIN_STEPS = ("tools", "setup", "intro")   # joining a team's cam-docs: the rest is shared and already decided
+from . import onboard                                                                 # noqa: E402
+from .onboard import STEPS, LEGACY_STEPS, JOIN_STEPS, first_run_mode                 # noqa: E402,F401 — the first-run state lives in onboard
 ORANGE = "#ff7a2f"
 MENU_LABELS = {"arch": "a_menu", "stack": "sk_menu", "creds": "k_menu"}   # menu actions whose label is not m_<action>
 MENU_DEFAULT = {"resume": "resume", "next": "next", "review": "review", "done": "portal"}   # plan.next_step → the cursor
@@ -996,8 +995,7 @@ class W:
             self.banner()
         self.trust_check()
         state = load_json(FIRSTRUN, {})
-        shared = plan.PLAN.exists() and WS_FILE.exists()          # team work that came with the repo (or pre-2.4)
-        mode = first_run_mode(state, shared, local_ready=bool(shared and not state) and self.local_ready())
+        mode = onboard.mode(state)
         if mode != "done":
             if not self.first_run(resume_step(state), mode=mode):
                 return
@@ -1079,15 +1077,17 @@ class W:
         ws = docs.workspace()
         every = dict(zip(STEPS, [("Workspace", self.fr_name), ("Repos", self.fr_repos), (self.t("t_title"), self.fr_tools),
                                  ("Setup", self.fr_setup), ("Stack", self.fr_stack), ("C4", self.fr_arch), ("🦐", self.fr_intro)]))
-        ids = JOIN_STEPS if mode == "join" else STEPS
-        steps = [every[k] for k in ids]
+        ids = onboard.steps(mode, onboard.kind_of(ws))
         first = STEPS[min(max(start, 0), len(STEPS) - 1)]
         i = ids.index(first) if first in ids else 0
         if i:
             self.resumed = True
-        while i < len(steps):
-            save_json(FIRSTRUN, {"step": STEPS.index(ids[i]), "name": ids[i], "done": False,
-                                 **({"mode": mode} if mode == "join" else {})})
+        while True:
+            ids = onboard.steps(mode, onboard.kind_of(ws))      # the name step may have just set the kind: same index, new list
+            steps = [every[k] for k in ids]
+            if i >= len(steps):
+                break
+            onboard.save_position(ROOT, ids[i], mode)
             crumbs = "  ".join((f"[bold {ORANGE}]● {n}[/]" if k == i else (f"[green]✔ {n}[/]" if k < i else f"[grey50]○ {n}[/]"))
                                for k, (n, _) in enumerate(steps))
             self.step_hdr = f"[bold]{self.t('step', n=i + 1, t=len(steps))}[/]   {crumbs}\n"
@@ -1109,7 +1109,7 @@ class W:
             else:
                 i += 1
         self.step_hdr = None
-        save_json(FIRSTRUN, {"step": len(steps), "done": True})
+        onboard.finish(ROOT, len(steps))
         env.checkpoint_commit("first setup")
         return True
 
@@ -1117,10 +1117,8 @@ class W:
         name = self.txt(self.t("project_name"), default=ws["project"].get("name") or WORKSPACE.name)
         if name is None:
             return BACK
-        ws["project"]["name"] = name.strip() or WORKSPACE.name
-        ws["project"]["id"] = "".join(c if c.isalnum() else "-" for c in ws["project"]["name"].lower()).strip("-")
-        ws["project"].setdefault("canonical_language", "en")
-        ws["project"]["translations"] = ws["project"].get("translations") or ["es"]
+        onboard.name_project(ws, name, WORKSPACE.name)
+        ws["project"].setdefault("kind", onboard.inspect(WORKSPACE)["kind"])    # greenfield may start with no repos
         docs.save_workspace(ws)
 
     def show_repos(self, ws: dict) -> None:
@@ -1136,7 +1134,7 @@ class W:
             docs.save_workspace(ws)
         while True:
             self.show_repos(ws)
-            choices = [Choice(self.t("r_continue"), "go", disabled=None if ws["repos"] else self.t("r_need"))]
+            choices = [Choice(self.t("r_continue"), "go", disabled=None if ws["repos"] or onboard.kind_of(ws) != "legacy" else self.t("r_need"))]
             if found:
                 choices.append(Choice(self.t("r_pick"), "pick"))
             choices.append(Choice(self.t("r_remote"), "remote"))
@@ -1185,20 +1183,7 @@ class W:
 
     # ---------- tools: everything in one table, install all (recommended) or pick ----------
     def tool_rows(self) -> list[dict]:
-        pre = env.prerequisites()
-        have_agent = any(pre[a]["ok"] for a in ("claude", "codex"))
-        rows = []
-        for k, v in pre.items():
-            kind = "t_required" if v["need"] else "t_optional"
-            rec = v["need"] or k in ("docker", "java") or (k == "claude" and not have_agent)
-            rows.append({"id": k, "label": v["hint"], "ok": v["ok"], "kind": kind, "rec": rec, "sys": True,
-                         "found": v.get("found", ""), "note": v.get("note", "")})
-        chosen = env.components()
-        for k, label in {**env.KIT_TOOLS, **env.EXTRAS}.items():
-            installed = env.tool_ok(k) if k in env.KIT_TOOLS else (k in chosen)
-            rows.append({"id": k, "label": label, "ok": installed, "kind": "t_kit", "rec": True, "sys": False,
-                         "found": env.VERSIONS.get(k, "") if installed and k in env.KIT_TOOLS else "", "note": ""})
-        return rows
+        return onboard.tool_rows()
 
     def show_tools(self, rows: list[dict]) -> None:
         tbl = Table(border_style="grey42", title=self.t("t_title"), title_justify="left")
@@ -1227,12 +1212,9 @@ class W:
                          default="all")
             if c is None:
                 return BACK
-            have_agent = any(r["ok"] for r in rows if r["id"] in ("claude", "codex"))
-            if c == "all":
-                sys_pick = [r["id"] for r in rows if r["sys"] and not r["ok"] and r["rec"]
-                            and not (r["id"] in ("claude", "codex") and have_agent)]
-                kit_pick = list(env.ALL_COMPONENTS)
-            elif c == "pick":
+            picked = None
+            if c == "pick":
+                have_agent = any(r["ok"] for r in rows if r["id"] in ("claude", "codex"))
                 opts = []
                 for r in rows:
                     if r["sys"] and r["ok"]:
@@ -1245,18 +1227,11 @@ class W:
                 if picked is None:
                     self.banner()
                     continue
-                sys_pick = [p for p in picked if p in env.prerequisites()]
-                kit_pick = [p for p in picked if p in env.ALL_COMPONENTS]
-            else:
-                sys_pick, kit_pick = [], env.components()
-            env.set_components(kit_pick)
+            sys_pick, kit_pick = onboard.install_choice(rows, c, picked)
             if sys_pick:
                 self.say(f"[bold]{self.t('t_installing')}: {', '.join(sys_pick)}[/]")
-                for k in sys_pick:
-                    if not env.install_prereq(k, log=lambda m: self.say("  " + m, "grey62")):
-                        self.say(self.t("manual", hint=env.prerequisites().get(k, {}).get("hint", k)), "yellow")
-                from .common import ensure_path
-                ensure_path()
+            for k in onboard.install_tools(sys_pick, kit_pick, lambda m: self.say("  " + m, "grey62")):
+                self.say(self.t("manual", hint=env.prerequisites().get(k, {}).get("hint", k)), "yellow")
             if all(v["ok"] for v in env.prerequisites().values() if v["need"]):
                 return None
             self.say(self.t("reopen"), "yellow")
@@ -1267,14 +1242,11 @@ class W:
         self.repo_pointer()
         self.ask_usage()
         self.say(f"[bold]{self.t('setup_run')}[/]")
-        env.init_templates(ws["project"]["name"], log=lambda _: None)
-        ok = self.safe(self.busy, env.setup, total=env.setup_steps())
-        plan.sync()
+        ok = self.safe(self.busy, onboard.run_setup, total=env.setup_steps())
         if ok:
-            plan.set_status("setup", "done", "wizard first run")
             self.say(self.t("setup_ok"), f"bold {ORANGE}")
         while True:
-            missing = [r["name"] for r in docs.workspace()["repos"] if r.get("url") and not (repo_dir(r["name"]) / ".git").exists()]
+            missing = onboard.missing_repos()
             if missing:
                 self.say(self.t("s_missing", repos=", ".join(missing)), "yellow")
             choices = [Choice(self.t("prereq_continue"), "go", disabled=None if ok else "setup ✖")]
@@ -1504,34 +1476,7 @@ class W:
                 return "saved"
 
     def arch_prompt(self) -> str:
-        cli = cli_cmd()
-        talk = "Spanish" if self.lang == "es" else "English"
-        arch = ws_rel("docs/architecture")
-        # the agent runs in WORKSPACE: in the cam-docs layout a bare `docs/…` path would make it write a second,
-        # unused model next to the repos while the portal keeps showing the unrefined draft
-        layout = (f"\nLayout: you run in the workspace folder. Docs live in `{CAM_DIR}/` (its own git repo); the service repos "
-                  f"are its siblings. Edit only the files under `{arch}/` — never create a `docs/` folder anywhere else.\n"
-                  if CAM_LAYOUT else "")
-        code = ("`graphify query` in the repos, " if "graphify" in env.components() else "")
-        first_look = (f" Update `{arch}/first-look.md` to match."            # an old-layout project's page
-                      if (docs.DOCS / "architecture" / "first-look.md").exists() else "")
-        return f"""Camarones session — improve the first-look architecture draft.
-{layout}
-`{arch}/model.c4` + `views.c4` hold the architecture draft; it started from a static scan (no AI) that guessed repos,
-datastores, brokers and HTTP calls from manifests, config and code. Read `{ws_rel('.camarones/CONVENTIONS.md')}` §4
-(C4 rules) and the kinds/tags in `{arch}/spec.c4` first (do not edit spec.c4).
-1. Verify every element and relation against the code ({code}OpenAPI/AsyncAPI files, config, client code).
-   Fix technologies, names, directions and labels (endpoint / exchange / topic); remove false positives; add what is missing
-   (external systems, identity provider, shared databases, frontends/apps). A relation is a runtime call or message —
-   hosting/CI/deployment targets belong to the deployment unit, not here.
-2. Keep `views.c4` in step with the model: `index` must show the actors, the system and every external system;
-   `containers` everything inside the system. Remove view references to elements you deleted.
-3. Keep everything `#ai-draft`. Run `{cli} arch-validate` after every edit until it prints ✓ Valid (it validates
-   `{arch}/`, so a model written anywhere else is not checked).{first_look}
-4. Show the user the result as a short tree (containers → relations) and ask whether it is right; apply their corrections.
-   Tell them the portal's Architecture (C4) tab rebuilds from `{arch}/` (`{cli} up`).
-Talk to the user in {talk}. Do not modify application code.
-"""
+        return onboard.arch_prompt(self.lang)
 
     # ---------- stack + tooling radar (static, no AI) ----------
     def show_stack(self, result: dict) -> None:
@@ -2334,12 +2279,6 @@ Talk to the user in {talk}. Do not modify application code.
                     self.safe(self.busy, env.wire_one, n)
             plan.sync()
 
-    def local_ready(self) -> bool:
-        """This machine already has what setup gives: every repo with a URL cloned and the chosen kit tools."""
-        if any(r.get("url") and not (repo_dir(r["name"]) / ".git").exists() for r in docs.workspace()["repos"]):
-            return False
-        return all(env.tool_ok(k) for k in env.KIT_TOOLS if k in env.components())
-
     def do_share(self) -> None:
         url = env.docs_remote()
         if not url:
@@ -2518,25 +2457,9 @@ Talk to the user in {talk}. Do not modify application code.
             time.sleep(1)
 
 
-def first_run_mode(state: dict, shared_ready: bool, local_ready: bool) -> str:
-    """"done" (straight to the menu), "new" (full first run, or resume one) or "join": plan + workspace.yaml came with
-    the team's cam-docs but this machine has no first-run state, so only its tools and repos still need setting up.
-    A project that already has both on this machine is an install from before v2.4: nothing to redo."""
-    if state.get("done"):
-        return "done"
-    if state.get("mode") == "join":
-        return "join"
-    if state or not shared_ready:
-        return "new"
-    return "done" if local_ready else "join"
-
-
 def resume_step(state: dict) -> int:
     """Where the first run continues: by step id, or by index for firstrun.json files written before 3.3."""
-    if state.get("name") in STEPS:
-        return STEPS.index(state["name"])
-    i = int(state.get("step", 0))
-    return STEPS.index(LEGACY_STEPS[i]) if 0 <= i < len(LEGACY_STEPS) else min(max(i, 0), len(STEPS) - 1)
+    return STEPS.index(onboard.resume_id(state))
 
 
 def copy_clipboard(text: str) -> bool:

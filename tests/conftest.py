@@ -18,7 +18,7 @@ for p in (str(KIT_DIR), str(TESTS)):
 
 from fixtures.builder import GITCONFIG, make_workspace  # noqa: E402
 
-MODULES = ("common", "docs", "env", "plan", "serve", "projects", "migrate", "quality", "codemap", "install", "quickarch", "creds", "questionnaire", "usage", "wizard")
+MODULES = ("common", "docs", "env", "plan", "serve", "projects", "migrate", "quality", "codemap", "install", "quickarch", "creds", "questionnaire", "usage", "onboard", "wizard")
 
 
 @pytest.hookimpl(tryfirst=True)                 # before xdist's own hook reads the groups
