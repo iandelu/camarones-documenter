@@ -2,7 +2,7 @@
 import of `lib` pointed at its own temporary workspace and home folder — nothing leaks into the real ~/.camarones."""
 from __future__ import annotations
 
-import importlib, os, sys
+import importlib, os, shutil, stat, sys
 from collections import deque
 from pathlib import Path
 from types import SimpleNamespace
@@ -16,9 +16,47 @@ for p in (str(KIT_DIR), str(TESTS)):
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from fixtures.builder import make_workspace  # noqa: E402
+from fixtures.builder import GITCONFIG, make_workspace  # noqa: E402
 
 MODULES = ("common", "docs", "env", "plan", "serve", "projects", "migrate", "quality", "codemap", "install", "quickarch", "creds", "questionnaire", "usage", "wizard")
+
+
+@pytest.hookimpl(tryfirst=True)                 # before xdist's own hook reads the groups
+def pytest_collection_modifyitems(items) -> None:
+    """`@pytest.mark.serial` tests share one xdist group: under `-n auto --dist loadgroup` one worker runs them all,
+    one after the other, while the other workers carry on with the rest."""
+    for item in items:
+        if item.get_closest_marker("serial"):
+            item.add_marker(pytest.mark.xdist_group("serial"))
+
+
+PASSED = pytest.StashKey[bool]()
+
+
+@pytest.hookimpl(wrapper=True, tryfirst=True)
+def pytest_runtest_makereport(item, call):
+    rep = yield
+    if rep.when == "call":
+        item.stash[PASSED] = rep.passed
+    return rep
+
+
+@pytest.fixture(autouse=True)
+def _drop_tmp_path_when_passed(request):
+    """A run leaves ~70k files behind (git repos, read-only objects) and pytest's own cleanup of them cost the next run
+    a minute on Windows. A passing test's tmp_path goes as the test ends, spread over the workers; a failing one stays."""
+    yield
+    path = request.node.funcargs.get("tmp_path")
+    if path is None or not request.node.stash.get(PASSED, False):
+        return
+
+    def onerror(fn, p, _exc):
+        try:
+            os.chmod(p, stat.S_IWRITE)
+            fn(p)
+        except OSError:                         # a file a child process still holds: pytest's cleanup gets it later
+            pass
+    shutil.rmtree(path, **({"onexc": onerror} if sys.version_info >= (3, 12) else {"onerror": onerror}))
 
 
 def purge_kit_modules() -> None:
@@ -33,8 +71,7 @@ def isolated_env(tmp_path, monkeypatch):
     home = tmp_path / "home"
     home.mkdir()
     gitconfig = tmp_path / "gitconfig"
-    gitconfig.write_text("[user]\n\tname = Test\n\temail = test@example.com\n[init]\n\tdefaultBranch = main\n"
-                         "[core]\n\tautocrlf = false\n", encoding="utf-8")
+    gitconfig.write_text(GITCONFIG, encoding="utf-8")
     for k, v in {"HOME": home, "USERPROFILE": home, "GIT_CONFIG_GLOBAL": gitconfig, "GIT_CONFIG_NOSYSTEM": "1",
                  "PYTHON_KEYRING_BACKEND": "keyring.backends.null.Keyring", "LANG": "es_ES.UTF-8"}.items():
         monkeypatch.setenv(k, str(v))

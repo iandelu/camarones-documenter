@@ -427,6 +427,10 @@ class HttpHandler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def do_POST(self):
+        try:                    # read the body first: answering before it is read resets the connection on Windows
+            raw = self.rfile.read(int(self.headers.get("Content-Length") or 0))
+        except ValueError:
+            raw = b""
         if self.path.split("?")[0] != "/mcp":
             return self._send(404, {"error": "not found"})
         origin = self.headers.get("Origin")
@@ -436,7 +440,7 @@ class HttpHandler(BaseHTTPRequestHandler):
         if not hmac.compare_digest(auth.encode(), f"Bearer {token()}".encode()):
             return self._send(401, {"error": "missing or wrong token"})
         try:
-            msg = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"null")
+            msg = json.loads(raw or b"null")
         except json.JSONDecodeError:
             return self._send(400, {"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "parse error"}})
         reply = handle(msg) if isinstance(msg, dict) else None

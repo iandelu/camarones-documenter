@@ -1,7 +1,7 @@
 """Shared paths, versions and cross-platform process helpers (macOS, Windows, Linux)."""
 from __future__ import annotations
 
-import json, os, platform, shutil, stat, subprocess, sys
+import json, os, platform, shutil, stat, subprocess, sys, threading, time
 from pathlib import Path
 
 from .harness.ctx import KIT, CAM_DIR, Ctx, docs_root, find_project_marker, find_root  # noqa: F401  (re-exported)
@@ -12,7 +12,7 @@ HOME = Path.home()
 PREFS = HOME / ".camarones.json"              # per-machine choices: language, models, runners, routing
 
 VERSIONS = {
-    "kit": "4.56.0",
+    "kit": "4.57.0",
     "backlog_md": "1.55.3",   # Backlog.md, the compatibility check of the board (tests/e2e/test_backlogmd.py)
     "openwiki": "0.5.2",
     "likec4": "1.59.4",
@@ -157,16 +157,37 @@ def uv() -> str:
     return exe
 
 
+def retry_busy(fn, tries: int = 50):
+    """Windows refuses to open or replace a file another process holds open for a moment: try again briefly."""
+    for attempt in range(tries):
+        try:
+            return fn()
+        except PermissionError:
+            if attempt == tries - 1:
+                raise
+            time.sleep(0.02)
+
+
 def load_json(p: Path, default):
     try:
-        return json.loads(p.read_text(encoding="utf-8"))
+        return json.loads(retry_busy(lambda: p.read_text(encoding="utf-8")))
     except (FileNotFoundError, json.JSONDecodeError):
         return default
 
 
 def save_json(p: Path, data) -> None:
+    """Write through a temp file and replace in one step: a reader polling `p` sees the old or the new file, whole."""
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    dst = p.resolve()                           # a symlinked file is written through, not replaced by a copy
+    tmp = dst.with_name(f".{dst.name}.{os.getpid()}.{threading.get_ident()}.tmp")
+    try:
+        tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        if dst.exists():
+            shutil.copymode(dst, tmp)           # keeps a 0600 file 0600, as writing in place did
+        retry_busy(lambda: os.replace(tmp, dst))
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
 
 
 def py() -> str:
