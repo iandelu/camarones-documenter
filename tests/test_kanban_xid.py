@@ -176,6 +176,23 @@ def test_list_filter_docs_state(board, wired, monkeypatch):
     assert shown["trust"] == "confirmed" and shown["fresh"] == "suspect" and shown["title"] == "Refunds"
 
 
+def test_a_stale_link_is_suspect_as_in_the_portal(board, wired, monkeypatch):
+    """`--docs suspect` means suspect or stale, the same as the Board view's filter (kanban.js)."""
+    from lib.harness import freshness
+    page(wired, "flows/payments.md", PAYMENTS)
+    page(wired, "flows/refunds.md", "---\ntitle: Refunds\n---\n# Refunds\n")
+    board.add("story", "Stale link", docs=["flows/refunds.md"])
+    board.add("story", "Fresh link", docs=["flows/payments.md"])
+    freshness.stamp_all()
+    real = freshness.states
+    monkeypatch.setattr(freshness, "states",
+                        lambda: {**real(), "flows/refunds.md": {"state": "stale", "changed": [], "missing": []}})
+    assert [c["id"] for c in board.list_items(docs="suspect")["cards"]] == ["WI-1"]
+    rows = {c["id"]: c for c in board.list_items(with_links=True)["cards"]}       # what the portal sends the page
+    assert [l["fresh"] for l in rows["WI-1"]["links"]] == ["stale"] and rows["WI-2"]["links"][0]["missing"] is False
+    assert "links" not in board.list_items()["cards"][0]
+
+
 # --- fix round 1 ---
 
 def test_wiki_pages_take_the_prefix_of_their_folder(wired):

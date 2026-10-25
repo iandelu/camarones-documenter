@@ -480,18 +480,8 @@ def kanban_state(writable: bool) -> dict:
     """The whole board for the Board view; read-only, so a GET never creates the layout."""
     from . import kanban
     from .kanban import ops
-    data = ops.list_items() if kanban.enabled() else {"cards": [], "problems": []}
-    cards = data["cards"]
-    data["problems"] = [{**p, "path": ops._rel(Path(p["path"]))} for p in data["problems"]]   # a Path is not JSON
-    if any(c["docs"] for c in cards):         # each card's link states, built once: the docs filter runs in the page
-        from .kanban import xid
-        ids = xid.index()
-        want = {ids[xid.parse_link(d)["xid"]] for c in cards for d in c["docs"] if ops._linked(d, ids)}
-        pages = xid.page_rows(want) if want else {}
-        for c in cards:
-            c["links"] = [xid.link_state(d, pages, ids) for d in c["docs"]]
-    for c in cards:
-        c.setdefault("links", [])
+    data = ops.list_items(with_links=True) if kanban.enabled() else {"cards": [], "problems": []}
+    cards = data["cards"]                     # each card brings its link states: the docs filter runs in the page
     uniq = lambda xs: sorted({str(x) for x in xs if x})                 # noqa: E731  (str: a hand-edited item cannot break the view)
     return {"enabled": kanban.enabled(), "writable": writable, "statuses": list(kanban.STATUSES),
             "types": list(kanban.TYPES), "priorities": list(kanban.PRIORITIES), **data,

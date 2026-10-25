@@ -368,6 +368,8 @@ _DOC_STATES = ("unconfirmed", "suspect", "stale", "changed", "missing")
 def _in_state(st: dict, want: str) -> bool:
     if want == "unconfirmed":
         return st["trust"] != "confirmed"           # a missing or unreadable link is not confirmed either (R15)
+    if want == "suspect":
+        return st["fresh"] in ("suspect", "stale")   # as the Board view's filter (kanban.js)
     return bool(st["changed"] if want == "changed" else st["missing"] if want == "missing" else st["fresh"] == want)
 
 
@@ -379,16 +381,26 @@ def _linked(d: str, ids: dict) -> bool:
         return False
 
 
-def list_items(*, status=None, epic=None, repo=None, label=None, docs=None) -> dict:
+def link_states(links: list[str]) -> list[list[dict]]:
+    """The state of each link in each list, with the index and the linked pages read once."""
+    if not any(links):
+        return [[] for _ in links]
+    from . import xid
+    ids = xid.index()
+    want = {ids[xid.parse_link(d)["xid"]] for ds in links for d in ds if _linked(d, ids)}   # only pages some item links
+    pages = xid.page_rows(want) if want else {}
+    return [[xid.link_state(d, pages, ids) for d in ds] for ds in links]
+
+
+def list_items(*, status=None, epic=None, repo=None, label=None, docs=None, with_links=False) -> dict:
+    """Cards in board order. `with_links` adds each card's link states (the portal's Board filters on them)."""
     cards, items, problems = load_state()
     rows = []
-    state = docs in _DOC_STATES
+    state = docs in _DOC_STATES or with_links
     if state:
-        from . import xid
-        ids = xid.index()
-        want = {ids[xid.parse_link(d)["xid"]] for it in items.values()          # only the pages some item links
-                for d in map(str, _as_list(it.fm.get("documentation"))) if _linked(d, ids)}
-        pages = xid.page_rows(want) if want else {}
+        everything = list(items.values())
+        states = dict(zip((i.id for i in everything),
+                          link_states([[str(d) for d in _as_list(i.fm.get("documentation"))] for i in everything])))
     for i, item in items.items():
         r = _row(item, cards.get(i))
         if status and r["status"] != status:
@@ -399,16 +411,18 @@ def list_items(*, status=None, epic=None, repo=None, label=None, docs=None) -> d
             continue
         if label and label not in r["labels"]:
             continue
-        if docs and state:
-            if not any(_in_state(xid.link_state(d, pages, ids), docs) for d in r["docs"]):
+        if docs in _DOC_STATES:
+            if not any(_in_state(st, docs) for st in states[i]):
                 continue
         elif docs and not any(re.split(r"[#@]", d, maxsplit=1)[0] == docs for d in r["docs"]):
             continue
+        if with_links:
+            r["links"] = states[i]
         rows.append(r)
     from .state import id_key
     order = {s: n for n, s in enumerate(STATUSES)}
     rows.sort(key=lambda r: (order.get(r["status"], len(order)), r["ordinal"], id_key(r["id"])))
-    return {"cards": rows, "problems": problems}
+    return {"cards": rows, "problems": [{**p, "path": _rel(p["path"])} for p in problems]}   # text: JSON-ready
 
 
 def _history(card: dict | None, path: Path) -> list[dict]:
@@ -436,11 +450,8 @@ def show(item_id: str) -> dict:
     if key not in items:
         raise BoardError(f"unknown item {item_id}")
     item = items[key]
-    from . import xid
     row = _row(item, cards.get(key))
-    ids = xid.index()
-    pages = xid.page_rows({ids[xid.parse_link(d)["xid"]] for d in row["docs"] if _linked(d, ids)}) if row["docs"] else {}
-    links = [xid.link_state(d, pages, ids) for d in row["docs"]]
+    [links] = link_states([row["docs"]])
     return {**row, "links": links, "description": description(item.body),
             "criteria": checklist(item.body, "AC"), "dod": checklist(item.body, "DOD"),
             "history": _history(cards.get(key), item.path), "file": _rel(item.path)}
