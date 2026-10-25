@@ -7,7 +7,12 @@ export const STATIC = document.querySelector('meta[name="cam-mode"]')?.content =
 export const APP = window.camaronApp?.token ? window.camaronApp : null
 export const RUNS = !STATIC && !!APP
 
-const token = () => (APP ? { 'X-Camaron-Token': APP.token } : {})
+// Outside the app, the token `camaron up` put in the address (token.js keeps it for this tab): board writes need it.
+const portalToken = () => { try { return sessionStorage.getItem('cam-token') || '' } catch { return '' } }
+const token = () => {
+  const tok = APP ? APP.token : portalToken()
+  return tok ? { 'X-Camaron-Token': tok } : {}
+}
 
 export async function getJSON(path) {
   const res = await fetch(`api/${path}`, { headers: { Accept: 'application/json', ...token() } })
