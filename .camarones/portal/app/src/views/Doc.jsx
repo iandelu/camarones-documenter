@@ -5,6 +5,7 @@ import { docsGet } from '../docsApi.js'
 import { t as tr } from '../i18n.js'
 import { pageBanners, pager } from './docpage.js'
 import Editor from './Editor.jsx'
+import { readerTrees } from './DocsTree.jsx'
 
 const L = () => window.CamaronLegacy
 const STATE = { draft: 'warn', 'needs-reconfirm': 'info', confirmed: 'ok' }
@@ -27,7 +28,6 @@ export default function Doc({ arg }) {
   const body = useRef(null)
 
   useEffect(() => {
-    legacy.drawDocsSide(path)
     docsGet('doc', { path, lang, track: 1 }).then(async (page) => {
       setEnglish(lang && !page.exists ? await docsGet('doc', { path }) : null)
       setD(page)
@@ -47,7 +47,8 @@ export default function Doc({ arg }) {
 
   const row = legacy.byPath(path) || {}
   const title = d.exists ? d.title : english?.title || row.title || d.title
-  const order = row.space === 'notes' ? legacy.notesOrder() : legacy.docsOrder()
+  const trees = readerTrees(path)
+  const order = row.space === 'notes' ? trees.notesOrder : trees.order
   const around = pager(order, path)
   const changed = async (msg) => { legacy.toast(msg); await legacy.reload(); window.CamaronShell.go() }
   return (

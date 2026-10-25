@@ -26,7 +26,7 @@ export function resolve(hash, ctx) {
     return { kind: 'native', view, arg: rest }
   if (view === 'boards') return { kind: 'redirect', to: '#/arch' }
   if (view === 'docs' || view === 'doc') {
-    if (!rest) return legacy('showDocsHome')
+    if (!rest) return { kind: 'native', view: 'docs', arg: '' }
     const [path, anchor] = rest.split('::')
     if (ctx.space(path) === 'wiki') return { kind: 'redirect', to: ctx.hrefFor(path, anchor) }
     if (path === ctx.current && anchor !== undefined) return { kind: 'scroll', anchor }

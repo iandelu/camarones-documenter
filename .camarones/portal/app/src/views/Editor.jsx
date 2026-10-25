@@ -69,7 +69,6 @@ export function NewPage() {
   const [path, setPath] = useState('')
   const [created, setCreated] = useState(null)
   const [error, setError] = useState('')
-  useEffect(() => { legacy.drawDocsSide('') }, [])
   if (created) return <Editor d={created} onDone={() => { location.hash = legacy.hrefFor(created.path) }} />
   const create = async () => {
     try {
