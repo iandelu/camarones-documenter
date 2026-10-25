@@ -27,6 +27,30 @@ test('a window that was on a screen now gone, or too small, opens at the default
   assert.deepEqual(r.bounds({ x: 'a' }, screen), r.DEFAULT_BOUNDS)
 })
 
+test('the open project is found in the list whatever the spelling of its path', () => {
+  assert.equal(r.samePath('/w/a/cam-docs', '/w/a/cam-docs/', 'linux'), true)
+  assert.equal(r.samePath('/w/a/cam-docs', '/w/A/cam-docs', 'linux'), false)
+  assert.equal(r.samePath('C:\\W\\a\\cam-docs', 'c:/w/a/cam-docs', 'win32'), true)       // Windows ignores case
+  assert.equal(r.samePath('/w/a/cam-docs', 42, 'linux'), false)
+  const listed = [{ path: '/w/a/cam-docs', exists: true }, { path: '/w/b/cam-docs', exists: true }]
+  assert.deepEqual(r.rail(listed, '/w/b/cam-docs/', 'linux').map((p) => p.current), [false, true])
+})
+
+test('a second click while a project starts waits for that start instead of starting another server', async () => {
+  const inFlight = new Map()
+  let starts = 0, done
+  const start = () => { starts++; return new Promise((r) => { done = r }) }
+  const a = r.oneAtATime(inFlight, '/w/a', start)
+  const b = r.oneAtATime(inFlight, '/w/a', start)
+  assert.equal(a, b)
+  assert.equal(starts, 1)
+  done({ ok: true })
+  assert.deepEqual(await b, { ok: true })
+  assert.equal(inFlight.size, 0)                                        // over: the next click starts again
+  r.oneAtATime(inFlight, '/w/a', start)
+  assert.equal(starts, 2)
+})
+
 test('switching projects only accepts a project the CLI listed and that is on disk', () => {
   const listed = [{ path: '/w/a/cam-docs', exists: true }, { path: '/w/b/cam-docs', exists: false }]
   assert.equal(r.switchable(listed, '/w/a/cam-docs'), true)

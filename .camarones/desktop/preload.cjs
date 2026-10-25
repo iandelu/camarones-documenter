@@ -21,6 +21,8 @@ if (process.argv.includes('--camaron-hub')) {
   contextBridge.exposeInMainWorld('camaronApp', {
     token,
     hub: () => ipcRenderer.invoke('app:hub'),
+    projects: () => ipcRenderer.invoke('app:projects'),
+    switchTo: (root) => ipcRenderer.invoke('app:switch', root),
     openExternal: (url) => ipcRenderer.invoke('app:external', url),
     reveal: (file) => ipcRenderer.invoke('app:reveal', file),
     pickFiles: (kind) => ipcRenderer.invoke('app:pick', kind),
