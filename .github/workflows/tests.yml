@@ -43,6 +43,30 @@ jobs:
             exit 1
           fi
 
+  # The desktop app's own UI (desktop/renderer), built and committed like the portal.
+  renderer:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .camarones/desktop/renderer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: the committed build matches its source
+        working-directory: .
+        run: |
+          changes="$(git status --porcelain -- .camarones/desktop/renderer-build)"
+          if [ -n "$changes" ]; then
+            echo "Rebuild the app's UI and commit it: cd .camarones/desktop/renderer && npm ci && npm run build"
+            echo "$changes"
+            exit 1
+          fi
+
   # The desktop app's main process (`camaron app`): its pure helpers on every OS, no Electron download needed.
   desktop:
     strategy:
@@ -58,4 +82,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node --test
+      - run: node --test "test/*.test.cjs"

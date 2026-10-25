@@ -21,6 +21,7 @@ from . import codemap, docs, env, plan, usage
 
 APP = KIT / "portal" / "app-build"           # the portal: React views + the docs views (portal/app), built in the kit's CI
 UI = APP                                     # the old name, kept for callers
+DESKTOP = KIT / "desktop" / "renderer-build"  # the desktop app's own UI (desktop/renderer): its project windows load it here
 SITE = CACHE / "site"
 UI_LIBS = (("marked", "15.0.12", "lib/marked.umd.js"), ("dompurify", "3.2.6", "dist/purify.min.js"),
            ("mermaid", "11.4.1", "dist/mermaid.min.js"), ("@highlightjs/cdn-assets", "11.11.1", "highlight.min.js"),
@@ -711,6 +712,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self.static(env.VIEWERS / "wiki-graph" / m.group(1), m.group(2), local_cdn=True) or self.not_found()
             if p == "/next" or p.startswith("/next/"):            # the preview address of 3.26–4.16: one portal now
                 return self.send(301, b"", "text/plain", {"Location": "/"})
+            if p == "/desktop":                                   # its assets are relative to /desktop/
+                return self.send(301, b"", "text/plain", {"Location": "/desktop/"})
+            if p.startswith("/desktop/"):
+                return self.static(DESKTOP, p[len("/desktop/"):], spa=True) or self.not_found()
             if p in ("/", "/index.html"):
                 return self.file(APP / "index.html")
             if self.static(APP, p):

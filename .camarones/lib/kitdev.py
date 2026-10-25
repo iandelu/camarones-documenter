@@ -1,5 +1,5 @@
 """Kit dev: the bench of a checkout of this kit, from the desktop app — the sandbox (scripts/sandbox.py), pytest, the
-portal's npm test / build, the desktop helpers' tests and the check that app-build matches its source. Only in a kit
+portal's npm test / build, the desktop helpers' tests and the check that app-build and renderer-build match their source. Only in a kit
 checkout (tests/ and scripts/sandbox.py next to .camarones/), only these commands, built as argument lists."""
 from __future__ import annotations
 
@@ -61,9 +61,11 @@ def command(task: str, b: dict) -> tuple[list[str], Path]:
     if task in ("portal-ci", "portal-test", "portal-build"):
         return [_tool("npm"), *{"portal-ci": ["ci"], "portal-test": ["test"], "portal-build": ["run", "build"]}[task]], app
     if task == "desktop-test":
-        return [_tool("node"), "--test"], REPO / ".camarones" / "desktop"
+        # the main process's tests only: the renderer's (desktop/renderer) are Vitest's
+        return [_tool("node"), "--test", "test/*.test.cjs"], REPO / ".camarones" / "desktop"
     if task == "build-diff":
-        return [_tool("git"), "status", "--porcelain", "--", ".camarones/portal/app-build"], REPO
+        return [_tool("git"), "status", "--porcelain", "--", ".camarones/portal/app-build",
+                ".camarones/desktop/renderer-build"], REPO
     raise ValueError(f"unknown task {task}")
 
 

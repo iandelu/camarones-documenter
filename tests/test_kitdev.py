@@ -36,8 +36,10 @@ def test_each_task_and_where_it_runs(kd):
     assert kd.command("portal-ci", {}) == (["/bin/npm", "ci"], app)
     assert kd.command("portal-test", {}) == (["/bin/npm", "test"], app)
     assert kd.command("portal-build", {}) == (["/bin/npm", "run", "build"], app)
-    assert kd.command("desktop-test", {}) == (["/bin/node", "--test"], kd.REPO / ".camarones" / "desktop")
-    assert kd.command("build-diff", {}) == (["/bin/git", "status", "--porcelain", "--", ".camarones/portal/app-build"], kd.REPO)
+    # only the main process's tests: the renderer's are Vitest's (desktop/renderer), not node's
+    assert kd.command("desktop-test", {}) == (["/bin/node", "--test", "test/*.test.cjs"], kd.REPO / ".camarones" / "desktop")
+    assert kd.command("build-diff", {}) == (["/bin/git", "status", "--porcelain", "--", ".camarones/portal/app-build",
+                                              ".camarones/desktop/renderer-build"], kd.REPO)
 
 
 @pytest.mark.parametrize("task,b", [
