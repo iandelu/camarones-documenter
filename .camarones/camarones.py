@@ -45,8 +45,11 @@
                             Code: sonnet|opus|haiku), codex_model
   projects [--json] [--add FOLDER]   the projects registered on this machine, most recent first; --add registers one
   projects --inspect FOLDER [--json]   what a folder is (project, repo, umbrella, code, empty); reads, never writes
-  projects --adopt FOLDER [--name NAME] [--json]   make FOLDER a project (docs in FOLDER/cam-docs) and register it
-                            (--json: a cam-docs that belongs to something else prints {"error": "taken", "detail"})
+  projects --adopt FOLDER [--name NAME] [--json]   make FOLDER a project (docs in a cam-docs/ next to its repos) and register it
+                            (--json: a cam-docs that belongs to something else prints {"error": "taken", "detail"};
+                            home or a drive root: "home"; code without git: "no-git")
+  projects --git-init FOLDER [--json]   git init the code in FOLDER (or in each subfolder with code); prints
+                            {"initialised": [paths]}, a failure {"error": "git-init", "detail"}
   app                       the desktop app: run the plan, wikis, scans and checks, and read the portal, in one window
                             (installs its pinned Electron into ~/.camarones/desktop once; needs Node.js)
   new NAME | join URL … --no-open   create or join, print {"path": …} and stop (the desktop app opens it itself);
