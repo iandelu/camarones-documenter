@@ -22,7 +22,7 @@ function drawChrome(active, { viewer = false, bare = false } = {}) {
 // a language or audience change) go back through the shell, so one view renders at a time.
 function route() { return window.CamaronShell ? window.CamaronShell.go() : Promise.resolve(); }
 
-const VIEWS = { showArch: (...a) => showArch(...a), showCodeTab: (...a) => showCodeTab(...a) };
+const VIEWS = { showArch: (...a) => showArch(...a) };
 
 // In the app, whether this kit is a checkout with its tests (the Taller's Kit dev view).
 const appInfo = () => (RUNS ? api('app/info').then((i) => { T.kitdev = i.kitdev; }, () => {}) : Promise.resolve());
@@ -46,7 +46,7 @@ window.CamaronLegacy = {
       $('#main').innerHTML = `<div class="page"><h1>${esc(t('error'))}</h1><p>${esc(e.message)}</p></div>`;
     }
   },
-  leave() { CURRENT = ''; drawToc(null); document.body.classList.remove('viewer-mode', 'bare'); },
+  leave() { CURRENT = ''; document.body.classList.remove('viewer-mode', 'bare'); drawToc(null); },
   scroll: (anchor) => scrollToAnchor(anchor),
   current: () => CURRENT,
   toast: (m) => toast(m),

@@ -255,6 +255,7 @@ let tocObserver = null;
 function drawToc(root) {
   tocObserver?.disconnect();
   const toc = $('#toc');
+  if (!toc) return;                        // a React view without an outline slot
   const hs = root ? $$('h2, h3', root) : [];
   toc.classList.toggle('empty', hs.length < 2);
   if (hs.length < 2) { toc.innerHTML = ''; return; }

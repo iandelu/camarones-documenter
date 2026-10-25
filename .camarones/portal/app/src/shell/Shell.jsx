@@ -6,6 +6,7 @@ import Native from '../Native.jsx'
 import Palette from '../views/Palette.jsx'
 import DocsTree, { audience } from '../views/DocsTree.jsx'
 import { WikiSide } from '../views/Wikis.jsx'
+import { CodeSide } from '../views/CodeMap.jsx'
 import { t as tr } from '../i18n.js'
 import { resolve } from '../router.js'
 import { crumbs, locate, zonesFor } from '../zones.js'
@@ -18,7 +19,7 @@ import '../views/views.css'
 const L = () => window.CamaronLegacy
 const TREE_VIEWS = ['docs', 'doc', 'new']          // the views with the docs tree (DocsTree) under the zones
 const WIKI_VIEWS = ['wikis', 'wikigraph', 'wikipage']
-const VIEWER_VIEWS = ['wikigraph']                   // full width, no padding: an embedded visualizer
+const VIEWER_VIEWS = ['wikigraph', 'code']           // full width, no padding: a visualizer or a graph
 const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
 
 function useRouter(onRoute) {
@@ -128,6 +129,7 @@ function Side({ shown, go, t }) {
     return <WikiSide key={shown.at} repo={shown.view === 'wikis' ? '' : repo}
       page={shown.view === 'wikigraph' ? 'graph' : rel.length ? `repos/${repo}/${rel.join('/')}` : ''} />
   }
+  if (shown?.kind === 'native' && shown.view === 'code') return <CodeSide key={shown.at} arg={shown.arg} />
   return <><div id="side-head"></div><nav id="tree" aria-label={t('docs')}></nav></>
 }
 
