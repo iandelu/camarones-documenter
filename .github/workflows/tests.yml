@@ -17,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
-      - run: uv run pytest
+      - run: uv run pytest -n auto
 
   # The portal (React views + the docs views) is built here and committed, so users never need Node for it.
   portal:
