@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Brand, Breadcrumbs, Button, Card, EmptyState, Field, Keys, Skeleton, SkipLink } from '@camaron/ui'
+import { Brand, Breadcrumbs, Button, EmptyState, Keys, Skeleton, SkipLink } from '@camaron/ui'
 import { initials, sectionOf, sections } from './nav.js'
 import { jobsStore } from './jobs.js'
 import { chord, entries, keyFor, typing } from './palette.js'
 import { server } from './server.js'
 import { useHash, useStore } from './hooks.js'
 import { Failed } from './parts.jsx'
+import Hub from './Hub.jsx'
 import JobsPanel from './JobsPanel.jsx'
 import Palette from './Palette.jsx'
 import { catalog } from './sections/Commands.jsx'
@@ -20,7 +21,7 @@ import { lang, t } from './i18n.js'
 
 const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
 
-// The desktop app's UI. Three ways to be loaded: the hub (window.camaronHub, from disk: pick or make a project), a
+// The desktop app's UI. Three ways to be loaded: the hub (window.camaronHub, from disk: the start screen, Hub.jsx), a
 // project's window (window.camaronApp, served by that project's server at /desktop/), or a browser that wandered to
 // /desktop/ (neither: say where the app is).
 export default function App() {
@@ -169,64 +170,4 @@ function Docs() {
       </div>
     </div>
   )
-}
-
-// The hub: this machine's projects, and making, joining or adding one (the main process runs the CLI).
-function Hub({ hub }) {
-  const [rows, setRows] = useState(null)
-  const [error, setError] = useState('')
-  const [form, setForm] = useState('')            // '' | 'new' | 'join'
-  const [name, setName] = useState('')
-  const [from, setFrom] = useState('')
-  const [status, setStatus] = useState('')
-  const load = () => hub.list().then((r) => (r.error ? setError(r.error) : setRows(r.projects)), (e) => setError(e.message))
-  useEffect(() => { load() }, [])
-  const act = async (p) => {
-    setStatus('')
-    const r = await p
-    if (r?.error) setStatus(`${t('hub.error')}: ${r.error}`)
-    else if (!r?.cancelled) load()
-  }
-  const open = (p) => { setStatus(t('hub.opening', { name: p.name })); act(hub.open(p.path)) }
-  return (<>
-    <header className="dk-titlebar"><Brand /></header>
-    <main className="dk-hub">
-      <h1 className="t-impact">{t('hub.title')}</h1>
-      {error && <Failed title={t('hub.failed')} detail={error} onRetry={() => { setError(''); load() }} />}
-      {!rows && !error && <Skeleton lines={3} />}
-      {rows && !rows.length && (
-        <EmptyState title={t('hub.empty')} action={<Button variant="primary" onClick={() => setForm('new')}>{t('hub.new')}</Button>}>
-          {t('hub.emptyBody')}</EmptyState>
-      )}
-      {rows?.length > 0 && (
-        <ul className="dk-hub-list">
-          {rows.map((p) => (
-            <li key={p.path}><Card className="dk-hub-row">
-              <span className="dk-proj">{initials(p.name)}</span>
-              <span className="dk-hub-name"><b>{p.name}</b><span className="muted small">{p.path}</span></span>
-              {p.exists ? <Button size="sm" onClick={() => open(p)}>{t('hub.open')}</Button>
-                : <span className="muted small">{t('rail.missing')}</span>}
-            </Card></li>
-          ))}
-        </ul>
-      )}
-      <div className="row">
-        <Button variant={rows?.length ? 'secondary' : 'ghost'} onClick={() => setForm('new')}>{t('hub.new')}</Button>
-        <Button onClick={() => setForm('join')}>{t('hub.join')}</Button>
-        <Button variant="ghost" onClick={() => act(hub.add())}>{t('hub.add')}</Button>
-      </div>
-      {form && (
-        <Card as="form" className="dk-hub-form" onSubmit={(e) => {
-          e.preventDefault()
-          act(form === 'new' ? hub.create(name, from) : hub.join(name))
-        }}>
-          <Field id="h-name" label={t(form === 'new' ? 'hub.name' : 'hub.url')} value={name} onChange={(e) => setName(e.target.value)} required />
-          {form === 'new' && <Field id="h-from" label={t('hub.from')} value={from} onChange={(e) => setFrom(e.target.value)} />}
-          <div className="row"><Button variant="primary" type="submit">{t(form === 'new' ? 'hub.create' : 'hub.joinGo')}</Button>
-            <Button variant="ghost" onClick={() => setForm('')}>{t('cancel')}</Button></div>
-        </Card>
-      )}
-      {status && <p className="muted small" role="status">{status}</p>}
-    </main>
-  </>)
 }
