@@ -207,7 +207,7 @@ imagen que publicó el CI: `docker run -d -p 8080:80 <registry>/<grupo>/cam-docs
 ### 🖥️ La app de escritorio
 
 El mismo portal y una zona más, el **Taller**: todo lo que corre en tu máquina. La ventana de un proyecto en la app es para
-documentar: **Siguiente paso · Plan · Revisión · Board · Taller** a la izquierda. Leer la documentación, la arquitectura y la
+documentar: **Siguiente paso · Plan · Revisión · Tablero · Taller** a la izquierda. Leer la documentación, la arquitectura y la
 calidad se hace en el portal del navegador, que queda como visor del equipo (leer, editar, revisar, estado de la pipeline,
 la entrevista); **Ver portal** lo abre, y también cualquier enlace a esas páginas. Lo que lanza procesos o llama a un modelo
 muestra allí «ábrelo en la app».
