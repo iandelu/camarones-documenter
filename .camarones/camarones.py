@@ -23,7 +23,7 @@
   wiki REPO --open | --close    around a manual OpenWiki MCP session (real openwiki/ folder, then back to cam-docs)
   down                      stop the portal
   migrate [--yes] [--dry-run]   move an older layout into <workspace>/cam-docs and clean kit files out of the repos
-  uninstall [--dry-run] [--yes] [--global] [--no-backup] [--backup-dir DIR]
+  uninstall [--dry-run] [--yes] [--global] [--no-backup] [--backup-dir DIR] [--keep-board|--drop-board]
                             undo the project: back up and delete cam-docs, remove every kit trace from the repos
                             and the workspace folder (--global: also ~/.camarones*, saved tokens)
   mcp [--http [--port N]]   MCP server: agents search/read the docs and the code graph, propose draft edits and
@@ -355,6 +355,8 @@ def build_parser() -> argparse.ArgumentParser:
     un = sp.add_parser("uninstall"); un.add_argument("--yes", action="store_true"); un.add_argument("--dry-run", action="store_true")
     un.add_argument("--global", dest="user_level", action="store_true"); un.add_argument("--no-backup", action="store_true")
     un.add_argument("--backup-dir", type=Path)
+    un.add_argument("--keep-board", dest="keep_board", action="store_const", const=True, default=None)
+    un.add_argument("--drop-board", dest="keep_board", action="store_const", const=False)
     ci = sp.add_parser("ci"); ci.add_argument("forge", nargs="?", choices=["gitlab", "github"])
     pl = sp.add_parser("plan"); pl.add_argument("action", nargs="?", default="show",
                                                 choices=["show", "sync", "next", "start", "note", "done", "block", "drop", "add", "redo", "approve"])
@@ -600,7 +602,7 @@ def main() -> int:
     elif a.cmd == "uninstall":
         from lib import uninstall
         return uninstall.main(include_global=a.user_level, dry_run=a.dry_run, yes=a.yes, backup=not a.no_backup,
-                              backup_dir=a.backup_dir)
+                              backup_dir=a.backup_dir, keep_board=a.keep_board)
     elif a.cmd == "history":
         from lib import history
         from lib.common import rel_file
