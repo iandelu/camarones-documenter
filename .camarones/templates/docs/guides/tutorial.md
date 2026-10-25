@@ -328,7 +328,7 @@ next action apart.
 `doctor --json` (each check with the command that fixes it), `doctor --install git|node|docker|java|claude|codex`,
 `doctor --local` (proposes a free local model for this computer, installs nothing), `doctor --context` (the tokens
 every agent session loads before reading a page, against `context.budget`), `autopilot`, `plugins [--json]`,
-`run`, `runs`, `kpis`, `eval`, `ab`, `pipeline show|validate`, `blocks [--force]`, `pr fresh <repo>`,
+`run`, `runs`, `kpis`, `eval`, `ab`, `pipeline show|validate`, `blocks [--force]`, `diagrams [--json]`, `pr fresh <repo>`,
 `plugins add|update|outdated|remove`, `pr propose <url>`, `removed add`, `repair`, `export codetour <flow>`, `history [--months 12]`
 (hotspots, who to ask per repo, files that change together, read from git without AI into `docs/overview/history.md`),
 `catalog [--json|--check]` (every command with where it lives: portal, desktop app or CLI only, and its arguments),
@@ -342,6 +342,15 @@ where runs, wikis, scans and checks start; the browser portal only shows them).
 annotations) and message topics, each row with its file and line. They are `<!-- generated:<kind> repo=<repo> -->`
 blocks you can put in any page; `blocks` and `sync` refresh them. A block edited by hand is kept and `check` flags it;
 `blocks --force` takes the code's version.
+
+**Diagrams from the code, no AI.** `camaron diagrams [--json]` (also run by the first scan and the first look) draws
+what the code states, in Mermaid, and never guesses: `docs/architecture/system-map.md` has the context map (repos,
+datastores, brokers, identity providers) and one sequence per message topic (who publishes, who consumes);
+`docs/repos/<repo>/diagrams.md` has the repo's endpoints map and one state diagram per status enum, with the states
+only (transitions are not guessed). They are generated blocks like the ones above. A person can confirm one by adding
+`confirmed=… by=<name>` to its marker: a refresh then never rewrites it, and `check` warns "the code changed since this
+diagram was confirmed". The portal labels each diagram "From the code", "Confirmed by <name>" or "The code changed".
+Agents follow the `cam-docs-diagrams` skill: pick the right diagram, write Mermaid that renders, never edit a generated block.
 
 **Parallel runs.** `camaron run --parallel 3 --per-runner claude=2,codex=1` does several units at once. Discovery, repo
 briefs and flows each work in their own copy of `cam-docs/` (a git worktree in `.cw/<n>/`) and are merged back when
