@@ -365,8 +365,10 @@ alguien edita uno a mano, se conserva y `check` lo avisa; `blocks --force` toma 
 vistazo) dibuja en Mermaid lo que el código afirma, sin adivinar: `docs/architecture/system-map.md` trae el mapa de
 contexto (repos, almacenes de datos, brokers, proveedores de identidad) y una secuencia por topic (quién publica, quién
 consume); `docs/repos/<repo>/diagrams.md` trae el mapa de endpoints del repo y un diagrama de estados por cada enum de
-estado, solo con los estados (las transiciones no se adivinan). Son bloques generados como los de arriba. Una persona
-puede confirmar uno añadiendo `confirmed=… by=<nombre>` a su marcador: un refresco ya no lo reescribe y `check` avisa
+estado, solo con los estados (las transiciones no se adivinan). Son páginas normales de Docs hechas de bloques
+generados como los de arriba. Una persona puede confirmar uno a mano: copia el `sha=` del bloque en `confirmed=` y pon
+un nombre en `by=`, p. ej. `<!-- generated:states repo=api id=OrderStatus confirmed=3fa1c2… by=ana sha=3fa1c2… -->`.
+Un refresco ya no lo reescribe y `check` avisa
 «el código cambió desde que se confirmó este diagrama». El portal etiqueta cada diagrama como «Del código», «Confirmado
 por <nombre>» o «El código cambió». Los agentes siguen la skill `cam-docs-diagrams`: elegir el diagrama adecuado,
 escribir Mermaid que se dibuje y no editar nunca un bloque generado.

@@ -347,8 +347,9 @@ blocks you can put in any page; `blocks` and `sync` refresh them. A block edited
 what the code states, in Mermaid, and never guesses: `docs/architecture/system-map.md` has the context map (repos,
 datastores, brokers, identity providers) and one sequence per message topic (who publishes, who consumes);
 `docs/repos/<repo>/diagrams.md` has the repo's endpoints map and one state diagram per status enum, with the states
-only (transitions are not guessed). They are generated blocks like the ones above. A person can confirm one by adding
-`confirmed=… by=<name>` to its marker: a refresh then never rewrites it, and `check` warns "the code changed since this
+only (transitions are not guessed). They are ordinary Docs pages made of generated blocks like the ones above. A
+person can confirm one by hand: copy the block's `sha=` value into `confirmed=` and put a name in `by=`, e.g.
+`<!-- generated:states repo=api id=OrderStatus confirmed=3fa1c2… by=ana sha=3fa1c2… -->`. A refresh then never rewrites it, and `check` warns "the code changed since this
 diagram was confirmed". The portal labels each diagram "From the code", "Confirmed by <name>" or "The code changed".
 Agents follow the `cam-docs-diagrams` skill: pick the right diagram, write Mermaid that renders, never edit a generated block.
 
