@@ -99,7 +99,7 @@ test('home KPIs come from the index only, none for an empty project', () => {
 })
 
 test('app mode shows only the documenting zones', () => {
-  expect(zonesFor('app', idx).map((x) => x.id)).toEqual(['next', 'plan', 'board', 'review', 'taller'])
+  expect(zonesFor('app', idx).map((x) => x.id)).toEqual(['next', 'plan', 'review', 'board', 'taller'])
   expect(zonesFor('app', idx).find((x) => x.id === 'next')).toEqual({ id: 'next', href: '#/next', views: [{ id: 'next', href: '#/next' }] })
   expect(zonesFor('app', idx).find((x) => x.id === 'taller').views.map((v) => v.id))
     .toEqual(['generate', 'analyze', 'check', 'interviews', 'team', 'machine'])
