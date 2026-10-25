@@ -195,9 +195,32 @@ CI pushed: `docker run -d -p 8080:80 <registry>/<group>/cam-docs/portal:latest`.
 
 ### 🖥️ The desktop app
 
-The same portal plus one more zone, the **Workshop**: everything that runs on your machine. The browser portal stays the
-team's viewer (read, edit, review, pipeline status, the interview); whatever starts a process or calls a model shows
-"open it in the app" there.
+The same portal plus one more zone, the **Workshop**: everything that runs on your machine. The app's project window is
+for documenting: **Next step · Plan · Review · Board · Workshop** on the left. Reading the docs, the architecture and the
+quality pages happens in the browser portal, which stays the team's viewer (read, edit, review, pipeline status, the
+interview); **View portal** opens it, and so does any link to those pages. Whatever starts a process or calls a model
+shows "open it in the app" in the browser portal.
+
+**First run.** Opened outside a project, the app asks **What do you want to document?**
+
+- **Pick a folder**: any folder. The app says what it found before touching anything: several repos, a single repo (it
+  creates `cam-docs` next to it, in the parent folder), a code folder without git, an *empty* folder (a new project:
+  you document the design before coding) or a project that already has `cam-docs` (it opens as is). You confirm the
+  name and press **Continue**.
+- **Join my team's documentation**: paste the URL of the team's `cam-docs` repo (the documentation's, not the code's) and
+  pick where to clone it. If git has no access it asks for an access token, kept in the system keychain and never in the
+  project; any other reason (no permission, not found, no network) is named.
+- **Recent**: the projects already registered on this machine.
+
+A project that is not set up yet opens the first-run wizard in its window: **Repos** (add a code repo with its URL,
+name and branch) → **Tools** → **Install** (progress and **Cancel**) → **Stack** → **Architecture** (a draft made
+without AI: save it, and improve it with AI if you like) → **Done**. Close the app halfway and it resumes where you left
+off; the terminal wizard shares the same state. In an empty folder the wizard allows zero repos and skips Stack and
+Architecture. On the CLI: `camaron projects --inspect FOLDER [--json]` says what a folder is (it only reads) and
+`camaron projects --adopt FOLDER [--name NAME] [--json]` turns it into a project and registers it; `camaron new` and
+`camaron projects --add` are still there (the app no longer has "Create project" or "Add folder": **Pick a folder**
+covers both). `camaron join URL --no-open` reads a private repo's token from `CAMARONES_JOIN_TOKEN` and, on failure,
+prints a JSON reason (`auth`, `denied`, `not-found`, `network`, `unknown`, `taken`).
 
 | Workshop zone | What you do there |
 |---|---|
@@ -215,11 +238,11 @@ team's viewer (read, edit, review, pipeline status, the interview); whatever sta
 3. `camaron app`. The first time it downloads Electron (pinned, about 100 MB) into `~/.camarones/desktop`, with no admin
    rights and nothing in your projects; then it opens at once.
 
-From a project's folder it opens that project; from anywhere else, the picker: open a project, create one, join the
-team's `cam-docs` with its URL or add a folder that already has one. The wizard has the same entry (🖥️ Desktop app).
-Inside, the portal's header is the window's title bar (drag it to move the window), <kbd>Ctrl</kbd>/<kbd>⌘</kbd> +
-<kbd>Shift</kbd> + <kbd>O</kbd> goes back to the projects and the bar's **⋯** button opens the app menu, with **Open in
-the browser** for the same portal outside. On Linux with restricted user namespaces (Ubuntu 24.04+) the kit starts
+From a project's folder it opens that project; from anywhere else, the start screen: **What do you want to document?**
+Pick a folder, join your team's documentation or open a recent project. The wizard has the same entry (🖥️ Desktop app).
+Inside, the portal's header is the window's title bar (drag it to move the window); the **Projects** button or
+<kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>O</kbd> goes back to the start screen, **View portal** opens the
+portal in your browser and the bar's **⋯** button opens the app menu, with **Open in the browser**. On Linux with restricted user namespaces (Ubuntu 24.04+) the kit starts
 it with `--no-sandbox`: its windows only load your project's local server.
 
 ### 📋 The board
@@ -358,7 +381,7 @@ every agent session loads before reading a page, against `context.budget`), `aut
 `plugins add|update|outdated|remove`, `pr propose <url>`, `removed add`, `repair`, `export codetour <flow>`, `history [--months 12]`
 (hotspots, who to ask per repo, files that change together, read from git without AI into `docs/overview/history.md`),
 `catalog [--json|--check]` (every command with where it lives: portal, desktop app or CLI only, and its arguments),
-`projects [--json]` (the projects registered on this machine), `config [get|set KEY VALUE]` (lang, model, codex_model: the wizard's settings), `trust --json` and `hooks --json` (what is pending
+`projects [--json] [--add FOLDER]` (the projects registered on this machine), `projects --inspect FOLDER [--json]` (what a folder is: project, repo, umbrella, code, empty; it only reads), `projects --adopt FOLDER [--name NAME] [--json]` (make a folder a project and register it), `config [get|set KEY VALUE]` (lang, model, codex_model: the wizard's settings), `trust --json` and `hooks --json` (what is pending
 approval, whether the method hooks are on), the portal's **Plan › Sync** (the same as `share`, with where you stand), `app` (the desktop app: the portal plus the Workshop,
 where runs, wikis, scans and checks start; the browser portal only shows them).
 
@@ -438,5 +461,5 @@ work. `autopilot` and `run` read it unit by unit. Each run is logged in `.camaro
 | The deployed portal has no **Edit** button | `cam-docs` has no git remote: add one and export again |
 | A wiki run failed | the ⚠ line says why (quota or login → wait or log in again); run `camaron wiki <repo>` again — an interrupted run resumes |
 | `camaron app`: "needs Node.js >= 22" | install Node 22 (`camaron doctor --install node`) and run `camaron app` again |
-| The app opens the project picker, not your project | you ran it outside the project's folder: open it from the list or **Add folder** |
+| The app opens the start screen, not your project | you ran it outside the project's folder: open it from **Recent** or pick its folder with **Pick a folder** |
 | A portal button says "open it in the desktop app" | on purpose: the browser portal does not start processes; use `camaron app` |

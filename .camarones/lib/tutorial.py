@@ -220,9 +220,10 @@ PAGES = {
                  "borrador C4, stack, dependencias y vulnerabilidades, datos, historia), Comprobar (requisitos, check, preguntas "
                  "de control, KPIs), Entrevistas, Equipo (repo compartido, agentes, plugins, CI) y Esta máquina (setup con progreso, "
                  "idioma y modelos, tokens, repos, actualizar el kit y desinstalar con vista previa). Cada comando de la CLI tiene ahí su formulario, su salida en vivo y su "
-                 "resultado; lo que borra o mueve datos va aparte y pregunta antes. Al abrirla eliges proyecto, creas uno o te "
-                 "unes al del equipo. El portal del navegador queda como visor del equipo: leer, editar, revisar y ver el "
-                 "estado; lo que lanza procesos o llama a un modelo dice «ábrelo en la app». La primera vez instala Electron en "
+                 "resultado; lo que borra o mueve datos va aparte y pregunta antes. Al abrirla fuera de un proyecto ves la pregunta «¿Qué quieres documentar?»: eliges una carpeta "
+                 "o te unes a la documentación del equipo. La ventana de un proyecto es para documentar: Siguiente paso, Plan, Revisión, Board y Taller; leer docs, arquitectura y "
+                 "calidad se hace en el portal del navegador (botón «Ver portal»), que sigue siendo el visor del equipo; lo que lanza procesos o llama a un modelo "
+                 "dice «ábrelo en la app». La primera vez instala Electron en "
                  "~/.camarones/desktop (necesita Node.js); sin él, la CLI y este asistente funcionan igual."},
         {"icon": "📦", "title": "Instalar y abrir la app de escritorio",
          "art": r"""
@@ -234,18 +235,39 @@ PAGES = {
    |                                (la 1.ª vez descarga Electron, ~100 MB)     |
    |                                                                            |
    |    dentro de un proyecto  ->  abre ese proyecto                            |
-   |    en otra carpeta        ->  selector: abrir · crear · unirse · añadir    |
+   |    en otra carpeta        ->  inicio: elegir carpeta · unirse · recientes  |
    |    en el asistente        ->  menú › App de escritorio                     |
    +----------------------------------------------------------------------------+""",
          "text": "La app no se instala aparte: viene con el kit. Solo necesita Node.js 22 o superior (`camaron doctor --install "
                  "node` lo instala con winget en Windows o Homebrew en macOS). Lanza `camaron app`: la primera vez descarga "
                  "Electron, fijado a una versión, en ~/.camarones/desktop, sin permisos de administrador y sin tocar tus "
-                 "proyectos. Desde la carpeta de un proyecto abre ese proyecto; desde cualquier otra, el selector, donde abres "
-                 "uno, creas uno nuevo, te unes al cam-docs del equipo con su URL o añades una carpeta. Dentro, la cabecera del "
-                 "portal es la barra de la ventana (arrástrala para moverla), Ctrl o Cmd + Shift + O vuelve a los proyectos y "
-                 "el botón ⋯ de la barra abre el menú de la app, con «Abrir en el navegador» para ver el mismo portal fuera. Un buen "
-                 "primer paso: Taller › Comprobar para ver qué falta, y Analizar para el primer vistazo sin IA. Si algo "
+                 "proyectos. Desde la carpeta de un proyecto abre ese proyecto; desde cualquier otra, la pantalla de inicio, donde abres "
+                 "un reciente, eliges una carpeta o te unes al cam-docs del equipo con su URL. Dentro, la cabecera del "
+                 "portal es la barra de la ventana (arrástrala para moverla), el botón «Proyectos» o Ctrl/Cmd + Shift + O vuelven a la pantalla de inicio, «Ver portal» abre "
+                 "el portal en tu navegador y el botón ⋯ de la barra abre el menú de la app, con «Abrir en el navegador». Si algo "
                  "falla, el aviso dice qué; borrar ~/.camarones/desktop fuerza a descargar Electron otra vez."},
+        {"icon": "🚀", "title": "El primer arranque en la app",
+         "art": r"""
+   +----------------------------------------------------------------------------+
+   |  ¿Qué quieres documentar?                                                  |
+   |  [ Elegir carpeta ]  repo · varios repos · código · vacía · con cam-docs   |
+   |  [ Unirme a la documentación de mi equipo ]  URL del cam-docs              |
+   |  Recientes: shop  ~/shop/cam-docs  [Abrir]                                 |
+   |                                                                            |
+   |  1 Repos > 2 Herram. > 3 Instalar > 4 Stack > 5 Arquitectura > 6 Listo     |
+   |                                                [ Ir al siguiente paso ]    |
+   +----------------------------------------------------------------------------+""",
+         "text": "La pantalla de inicio pregunta una cosa: «¿Qué quieres documentar?». «Elegir carpeta» acepta cualquier carpeta y te dice qué "
+                 "encontró antes de tocar nada: varios repos (los documenta), un repo suelto (crea cam-docs junto a él, en la carpeta padre), "
+                 "una carpeta de código sin git, una carpeta vacía (proyecto nuevo: se documenta el diseño antes de programar) o un proyecto que "
+                 "ya tiene cam-docs (se abre tal cual). Confirmas el nombre y «Continuar». «Unirme a la documentación de mi equipo» pide la URL "
+                 "del repo cam-docs (el de la documentación, no el del código); si git no tiene acceso, pide un token, que se guarda en el llavero del sistema "
+                 "y nunca en el proyecto. Un proyecto sin preparar abre el asistente de primer arranque en su ventana: Repos (añade un repo "
+                 "de código con su URL, nombre y rama), Herramientas, Instalar (con progreso y «Cancelar»), Stack (editable), Arquitectura (un borrador "
+                 "sin IA que guardas, y si quieres lo mejoras con IA) y Listo. Si cierras la app a medias, al reabrir sigue donde lo dejaste, y la "
+                 "terminal ve el mismo paso. En una carpeta vacía el asistente permite cero repos y se salta Stack y Arquitectura. "
+                 "En la CLI: `camaron projects --inspect CARPETA` dice qué es una carpeta y `camaron projects --adopt CARPETA` la convierte en proyecto "
+                 "(los dos aceptan `--json`)."},
         {"icon": "✏️", "title": "Dónde y cuándo se puede editar",
          "art": r"""
    DONDE                        QUE PUEDES HACER                     DONDE QUEDA
@@ -575,8 +597,9 @@ PAGES = {
                  "(no AI: C4 draft, stack, dependencies and vulnerabilities, data, history), Check (prerequisites, check, golden "
                  "questions, KPIs), Interviews, Team (shared repo, agents, plugins, CI) and This machine (setup with progress, "
                  "language and models, tokens, repos, kit updates and uninstall previewed first). Every CLI command has its form there, its live output and its result; what deletes or moves data "
-                 "sits apart and asks first. When it opens you pick a project, create one or join the team's. The browser portal "
-                 "stays the team's viewer: reading, editing, review and status; whatever starts a process or calls a model says "
+                 "sits apart and asks first. Opened outside a project it asks \"What do you want to document?\": you pick a folder "
+                 "or join your team's documentation. A project's window is for documenting: Next step, Plan, Review, Board and Workshop; reading docs, architecture and "
+                 "quality happens in the browser portal (the \"View portal\" button), which stays the team's viewer; whatever starts a process or calls a model says "
                  "\"open it in the app\". The first time it installs Electron into ~/.camarones/desktop (needs Node.js); without it "
                  "the CLI and this wizard work the same."},
         {"icon": "📦", "title": "Installing and opening the desktop app",
@@ -589,19 +612,40 @@ PAGES = {
    |                                (the first time it downloads Electron, ~100 MB) |
    |                                                                            |
    |    inside a project       ->  opens that project                           |
-   |    in any other folder    ->  picker: open · create · join · add           |
+   |    in any other folder    ->  start: pick a folder · join · recent        |
    |    in the wizard          ->  menu › Desktop app                           |
    +----------------------------------------------------------------------------+""",
          "text": "The app is not installed separately: it comes with the kit. It only needs Node.js 22 or newer (`camaron "
                  "doctor --install node` installs it with winget on Windows or Homebrew on macOS). Run `camaron app`: the "
                  "first time it downloads Electron, pinned to one version, into ~/.camarones/desktop, with no admin rights "
                  "and nothing in your projects. From a project's folder it opens that project; from anywhere else, the "
-                 "picker, where you open one, create a new one, join the team's cam-docs with its URL or add a folder. "
-                 "Inside, the portal's header is the window's title bar (drag it to move the window), Ctrl or Cmd + Shift + O "
-                 "goes back to the projects and the bar's ⋯ button opens the app menu, with \"Open in the browser\" for the "
-                 "same portal outside. A good first step: Workshop › Check to see what is missing, and Analyze for the first "
-                 "look without AI. If something fails, the notice says what; deleting ~/.camarones/desktop makes it download "
+                 "start screen, where you open a recent project, pick a folder or join the team's cam-docs with its URL. "
+                 "Inside, the portal's header is the window's title bar (drag it to move the window), the Projects button or Ctrl/Cmd + Shift + O "
+                 "goes back to the start screen, View portal opens the portal in your browser and the bar's ⋯ button opens the app menu, with \"Open in the browser\". "
+                 "If something fails, the notice says what; deleting ~/.camarones/desktop makes it download "
                  "Electron again."},
+        {"icon": "🚀", "title": "First run in the app",
+         "art": r"""
+   +----------------------------------------------------------------------------+
+   |  What do you want to document?                                             |
+   |  [ Pick a folder ]  repo · several repos · code · empty · has cam-docs     |
+   |  [ Join my team's documentation ]  cam-docs URL                            |
+   |  Recent: shop  ~/shop/cam-docs  [Open]                                     |
+   |                                                                            |
+   |  1 Repos > 2 Tools > 3 Install > 4 Stack > 5 Architecture > 6 Done         |
+   |                                                [ Go to the next step ]     |
+   +----------------------------------------------------------------------------+""",
+         "text": "The start screen asks one thing: \"What do you want to document?\". \"Pick a folder\" takes any folder and tells you what it "
+                 "found before touching anything: several repos (it documents them), a single repo (it creates cam-docs next to it, in the parent folder), "
+                 "a code folder without git, an empty folder (a new project: you document the design before coding) or a project that "
+                 "already has cam-docs (it opens as is). You confirm the name and press Continue. \"Join my team's documentation\" asks for the cam-docs "
+                 "repo's URL (the documentation's, not the code's); if git has no access it asks for a token, kept in the system keychain "
+                 "and never in the project. A project not set up yet opens the first-run wizard in its window: Repos (add a code repo "
+                 "with its URL, name and branch), Tools, Install (with progress and Cancel), Stack (editable), Architecture (a no-AI draft you save, "
+                 "and improve with AI if you like) and Done. If you close the app halfway, reopening resumes where you left off, and the terminal "
+                 "wizard sees the same step. In an empty folder the wizard allows zero repos and skips Stack and Architecture. "
+                 "On the CLI: `camaron projects --inspect FOLDER` says what a folder is and `camaron projects --adopt FOLDER` turns it into a project "
+                 "(both accept `--json`)."},
         {"icon": "✏️", "title": "Where and when you can edit",
          "art": r"""
    WHERE                        WHAT YOU CAN DO                      WHERE IT GOES

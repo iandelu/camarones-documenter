@@ -206,9 +206,32 @@ imagen que publicó el CI: `docker run -d -p 8080:80 <registry>/<grupo>/cam-docs
 
 ### 🖥️ La app de escritorio
 
-El mismo portal y una zona más, el **Taller**: todo lo que corre en tu máquina. El portal del navegador queda como visor
-del equipo (leer, editar, revisar, estado de la pipeline, la entrevista); lo que lanza procesos o llama a un modelo
+El mismo portal y una zona más, el **Taller**: todo lo que corre en tu máquina. La ventana de un proyecto en la app es para
+documentar: **Siguiente paso · Plan · Revisión · Board · Taller** a la izquierda. Leer la documentación, la arquitectura y la
+calidad se hace en el portal del navegador, que queda como visor del equipo (leer, editar, revisar, estado de la pipeline,
+la entrevista); **Ver portal** lo abre, y también cualquier enlace a esas páginas. Lo que lanza procesos o llama a un modelo
 muestra allí «ábrelo en la app».
+
+**Primer arranque.** Abierta fuera de un proyecto, la app pregunta **¿Qué quieres documentar?**
+
+- **Elegir carpeta**: cualquier carpeta. La app te dice qué encontró antes de tocar nada: varios repos, un repo suelto
+  (crea `cam-docs` junto a él, en la carpeta padre), una carpeta de código sin git, una carpeta *vacía* (proyecto nuevo:
+  se documenta el diseño antes de programar) o un proyecto que ya tiene `cam-docs` (se abre tal cual). Confirmas el nombre
+  y pulsas **Continuar**.
+- **Unirme a la documentación de mi equipo**: pega la URL del repo `cam-docs` del equipo (el de la documentación, no el del
+  código) y elige dónde clonarlo. Si git no tiene acceso, pide un token de acceso, que se guarda en el llavero del sistema y
+  nunca en el proyecto; cualquier otro motivo (sin permisos, no existe, sin red) se nombra.
+- **Recientes**: los proyectos ya registrados en esta máquina.
+
+Un proyecto sin preparar abre el asistente de primer arranque en su ventana: **Repos** (añade un repo de código con su URL,
+nombre y rama) → **Herramientas** → **Instalar** (progreso y **Cancelar**) → **Stack** → **Arquitectura** (un borrador hecho
+sin IA: guárdalo y, si quieres, mejóralo con IA) → **Listo**. Si cierras la app a medias, al reabrir sigue donde lo dejaste;
+el asistente de la terminal comparte el mismo estado. En una carpeta vacía el asistente permite cero repos y se salta Stack
+y Arquitectura. En la CLI: `camaron projects --inspect CARPETA [--json]` dice qué es una carpeta (solo lee) y
+`camaron projects --adopt CARPETA [--name NOMBRE] [--json]` la convierte en proyecto y la registra; `camaron new` y
+`camaron projects --add` siguen ahí (la app ya no tiene «Crear proyecto» ni «Añadir carpeta»: **Elegir carpeta** cubre
+las dos cosas). `camaron join URL --no-open` lee el token de un repo privado de `CAMARONES_JOIN_TOKEN` y, si falla, imprime un
+motivo en JSON (`auth`, `denied`, `not-found`, `network`, `unknown`, `taken`).
 
 | Zona del Taller | Qué haces ahí |
 |---|---|
@@ -227,11 +250,11 @@ muestra allí «ábrelo en la app».
 3. `camaron app`. La primera vez descarga Electron (fijado, unos 100 MB) en `~/.camarones/desktop`, sin permisos de
    administrador y sin tocar tus proyectos; después se abre al momento.
 
-Desde la carpeta de un proyecto abre ese proyecto; desde cualquier otra, el selector: abrir un proyecto, crear uno,
-unirte al `cam-docs` del equipo con su URL o añadir una carpeta que ya lo tenga. El asistente tiene la misma entrada
-(🖥️ App de escritorio). Dentro, la cabecera del portal es la barra de la ventana (arrástrala para moverla),
-<kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>O</kbd> vuelve a los proyectos y el botón **⋯** de la barra abre el
-menú de la app, con **Abrir en el navegador** para ver el mismo portal fuera. En Linux con los *user namespaces* restringidos (Ubuntu
+Desde la carpeta de un proyecto abre ese proyecto; desde cualquier otra, la pantalla de inicio: **¿Qué quieres documentar?**
+Eliges una carpeta, te unes a la documentación de tu equipo o abres un reciente. El asistente tiene la misma entrada
+(🖥️ App de escritorio). Dentro, la cabecera del portal es la barra de la ventana (arrástrala para moverla); el botón
+**Proyectos** o <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>O</kbd> vuelve a la pantalla de inicio, **Ver portal**
+abre el portal en tu navegador y el botón **⋯** de la barra abre el menú de la app, con **Abrir en el navegador**. En Linux con los *user namespaces* restringidos (Ubuntu
 24.04 o posterior) el kit la arranca con `--no-sandbox`: sus ventanas solo cargan el servidor local de tu proyecto.
 
 ### 📋 El tablero
@@ -376,7 +399,7 @@ que carga cada sesión de un agente antes de leer una página, frente a `context
 `plugins add|update|outdated|remove`, `pr propose <url>`, `removed add`, `repair`, `export codetour <flujo>`,
 `history [--months 12]` (puntos calientes, a quién preguntar en cada repo, ficheros que cambian juntos, leídos de git sin
 IA en `docs/overview/history.md`), `catalog [--json|--check]` (cada comando con dónde vive: portal, app de escritorio o
-solo CLI, y sus argumentos) y `projects [--json]` (los proyectos registrados en esta máquina), `config [get|set CLAVE VALOR]` (lang, model, codex_model: los ajustes del asistente), `trust --json` y `hooks --json` (lo pendiente de
+solo CLI, y sus argumentos) y `projects [--json] [--add CARPETA]` (los proyectos registrados en esta máquina), `projects --inspect CARPETA [--json]` (qué es una carpeta: proyecto, repo, varios repos, código, vacía; solo lee), `projects --adopt CARPETA [--name NOMBRE] [--json]` (convierte una carpeta en proyecto y la registra), `config [get|set CLAVE VALOR]` (lang, model, codex_model: los ajustes del asistente), `trust --json` y `hooks --json` (lo pendiente de
 aprobar, si los hooks del método están activos), **Plan › Sincronizar** en el portal (lo mismo que `share`, con dónde estás) y `app` (la app de escritorio: el portal más el Taller,
 donde se lanzan ejecuciones, wikis, análisis y comprobaciones; el portal del navegador solo las enseña).
 
@@ -461,5 +484,5 @@ hacen trabajo `agentic-heavy`. `autopilot` y `run` lo leen unidad a unidad. Cada
 | El portal desplegado no tiene botón **Editar** | `cam-docs` no tiene remote de git: añádelo y vuelve a exportar |
 | Falló la generación de una wiki | la línea ⚠ dice por qué (cuota o sesión → espera o vuelve a iniciar sesión); lanza otra vez `camaron wiki <repo>`: un run interrumpido se reanuda |
 | `camaron app`: "needs Node.js >= 22" | instala Node 22 (`camaron doctor --install node`) y vuelve a lanzar `camaron app` |
-| La app abre el selector de proyectos y no tu proyecto | la lanzaste fuera de la carpeta del proyecto: ábrelo desde la lista o con **Añadir carpeta** |
+| La app abre la pantalla de inicio y no tu proyecto | la lanzaste fuera de la carpeta del proyecto: ábrelo desde **Recientes** o elige su carpeta con **Elegir carpeta** |
 | Un botón del portal dice «ábrelo en la app de escritorio» | es a propósito: el portal del navegador no lanza procesos; usa `camaron app` |
