@@ -378,6 +378,36 @@ def test_home_wins_over_no_git(kit):
     assert (r["case"], r["warning"]) == ("code", "home")
 
 
+# I1 meets I2: git init makes a code folder with a manifest at its top a repo, so its workspace is the parent. inspect
+# reports that destination up front, and the home warning applies to it.
+def test_code_at_the_top_directly_under_home_is_refused_before_git_init(kit):
+    proj = kit.home / "proj"
+    proj.mkdir()
+    (proj / "package.json").write_text("{}", encoding="utf-8")
+    r = kit.onboard.inspect(proj)
+    assert (r["case"], r["warning"]) == ("code", "home")
+    assert Path(r["workspace"]) == kit.home.resolve() and Path(r["docs_root"]) == kit.home.resolve() / "cam-docs"
+
+
+def test_code_at_the_top_reports_the_parent_as_its_workspace(kit):
+    proj = kit.home / "work" / "proj"
+    proj.mkdir(parents=True)
+    (proj / "package.json").write_text("{}", encoding="utf-8")
+    r = kit.onboard.inspect(proj)
+    work = (kit.home / "work").resolve()
+    assert (r["case"], r["warning"], r["name"]) == ("code", "no-git", "work")
+    assert Path(r["workspace"]) == work and Path(r["docs_root"]) == work / "cam-docs"
+
+
+def test_code_in_subfolders_keeps_the_folder_as_its_workspace(kit):
+    mono = kit.home / "work" / "mono"
+    (mono / "api").mkdir(parents=True)
+    (mono / "api" / "pom.xml").write_text("<project/>", encoding="utf-8")
+    r = kit.onboard.inspect(mono)
+    assert (r["case"], r["warning"]) == ("code", "no-git")
+    assert Path(r["workspace"]) == mono.resolve() and Path(r["docs_root"]) == mono.resolve() / "cam-docs"
+
+
 def test_a_filesystem_root_is_refused(kit, tmp_path):
     assert kit.onboard.is_home_or_root(Path(Path.cwd().anchor)) is True
     assert kit.onboard.is_home_or_root(kit.home) is True

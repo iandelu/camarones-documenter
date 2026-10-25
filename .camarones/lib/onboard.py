@@ -124,7 +124,8 @@ def inspect(folder: Path) -> dict:
     `workspace` (the folder that holds the repos), `docs_root`, `name` (the workspace folder's), `repos` (docs.detect_repos
     rows), `siblings` (repo case: the other repos next to it) and `warning`: `home` when the workspace is the user's home or a
     filesystem root and no project is there yet (wins over the rest), else `no-git` for code without a repository. A picked `cam-docs` folder
-    is read as the workspace it belongs to, and a folder inside a git repository as that repository."""
+    is read as the workspace it belongs to, and a folder inside a git repository as that repository. Code with a manifest
+    at its top reports the workspace it will have once `git_init` makes it a repo: its parent."""
     f, warning, siblings = Path(folder).resolve(), "", []
     if f.name.lower() == CAM_DIR and f.parent != f:
         f = f.parent
@@ -141,7 +142,9 @@ def inspect(folder: Path) -> dict:
     elif _has_repos(f):
         case, kind, workspace = "umbrella", "legacy", f
     elif _has_code(f):
-        case, kind, workspace, warning = "code", "legacy", f, "no-git"
+        # git init would make a folder with a manifest at its top the repo itself: report where cam-docs will go then
+        top = _has_manifest(f) and not is_home_or_root(f) and f.parent != f
+        case, kind, workspace, warning = "code", "legacy", f.parent if top else f, "no-git"
     else:
         case, kind, workspace = "empty", "greenfield", f
     if case != "project" and is_home_or_root(workspace):     # a project already there keeps opening (AGENTS 2.3)
@@ -150,7 +153,7 @@ def inspect(folder: Path) -> dict:
         repos = docs.detect_repos(workspace) if workspace.is_dir() else []
     except OSError:                         # unreadable folder: no repos to show, not a crash
         repos = []
-    if case == "repo":
+    if case == "repo" or (case == "code" and workspace != f):        # code at the top: the repo it will be
         siblings = [r for r in repos if r["name"] != f.name]
         repos = [r for r in repos if r["name"] == f.name]
     return {"case": case, "kind": kind, "workspace": str(workspace), "docs_root": str(root or workspace / CAM_DIR),
