@@ -15,3 +15,16 @@ export function wikiRepos(tree) {
   }
   return out
 }
+
+// The Docs section's build cards: the C4 explorer, then a graph per repo with a wiki. `body` is what POST build takes
+// (token-gated; the portal has no token), `hash` where the portal shows the result.
+export const docsCards = (tree) => [{ id: 'c4', repo: '', body: { what: 'c4' }, hash: '#/c4' },
+  ...wikiRepos(tree).map((repo) => ({ id: `wiki:${repo}`, repo, body: { what: 'wiki-graph', repo }, hash: `#/wiki/${repo}` }))]
+
+export const startBuild = (srv, card) => srv.post('build', card.body)
+
+// The portal in the system browser (the window never navigates to it); a window without the bridge does nothing.
+export const openPortal = (app, origin, hash = '#/') => app.openExternal?.(portalUrl(origin, hash))
+
+// A useJob state that ended badly: the POST was rejected, or the job failed (a stopped one is the person's doing).
+export const buildFailed = (b) => !!b.error || (b.job?.status === 'failed' && !b.job.stopped)

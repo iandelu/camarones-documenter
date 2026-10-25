@@ -553,7 +553,8 @@ def build(b: dict) -> dict:
     if what == "graph":
         return start_job("graph", "Code graphs", lambda log: env.build_graphs(log=log))
     if what == "wiki-graph" and repo in docs.repo_names():
-        return start_job("wiki-graph", f"Wiki graph {repo}", lambda log: env.wiki_graph(repo, log=log))
+        # a kind per repo: start_job attaches a second start of the same kind to the running job, whatever the repo
+        return start_job(f"wiki-graph:{repo}", f"Wiki graph {repo}", lambda log: env.wiki_graph(repo, log=log))
     raise ValueError(f"unknown build {what!r}")
 
 

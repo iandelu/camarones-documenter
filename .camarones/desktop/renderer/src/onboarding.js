@@ -122,6 +122,12 @@ export function errorText(e) {
   return { key: 'obErrServer', detail: msg }
 }
 
+// The same, as one sentence in the language of `t` (i18n's): the wizard and the Docs builds say rejections alike.
+export function errorLine(e, t) {
+  const x = errorText(e)
+  return x.detail ? `${t(x.key)} ${x.detail}` : t(x.key)
+}
+
 // POST app/onboard/done refused with `done`: the first run was closed meanwhile (the CLI), which is what was asked.
 export const alreadyDone = (e) => e?.message === 'done'
 

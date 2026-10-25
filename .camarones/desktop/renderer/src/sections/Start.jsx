@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Aviso, Button, Card, Skeleton } from '@camaron/ui'
 import { portalUrl } from '../docs.js'
 import { useAgents, useJob } from '../hooks.js'
-import { STEP_KEYS, alreadyDone, canContinue, continueVariant, defaultPicks, errorText, hostOf, manualHints, nextStep, prevStep,
+import { STEP_KEYS, alreadyDone, canContinue, continueVariant, defaultPicks, errorLine, hostOf, manualHints, nextStep, prevStep,
   progressOf, repoBody, repoFromUrl, repoRows, reposChanged, setupChoice, stepIndex, urlName } from '../onboarding.js'
 import { AgentPicker, Failed } from '../parts.jsx'
 import { Tokens } from './Machine.jsx'
@@ -14,10 +14,7 @@ import { lang, t } from '../i18n.js'
 
 // A rejection said in the person's language: a known code or an unreachable server by its own sentence, anything else
 // as the server said it.
-const say = (e) => {
-  const x = errorText(e)
-  return x.detail ? `${t(x.key)} ${x.detail}` : t(x.key)
-}
+const say = (e) => errorLine(e, t)
 const toTop = () => document.getElementById('main')?.scrollTo?.(0, 0)
 
 const icon = { className: 'ob-icon', viewBox: '0 0 24 24', 'aria-hidden': true, fill: 'none', stroke: 'currentColor',
