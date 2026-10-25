@@ -66,3 +66,20 @@ def test_check_aggregates_all_gates(kit, no_tools):
     assert "docs/bare.md: missing frontmatter" in errors
     assert any("broken link" in e for e in errors)
     assert any("gitleaks" in w for w in warns)
+
+
+def test_a_generated_page_skips_the_skeleton(kit):
+    """The kit's own pages (home, repo pages, messaging) have a fixed shape: no skeleton warning on a fresh install."""
+    fm = ("---\ntype: overview\ntitle: Demo\ndescription: What the system is for, who uses it, and which repos make it up, "
+          "for someone who has never seen it.\n{extra}---\n")
+    body = "# Demo\n\n> **TL;DR:** 3 repos.\n\n## Anything\nText.\n"
+
+    def skeleton_warnings(extra):
+        f = kit.root / "docs" / "index.md"
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(fm.format(extra=extra) + body, encoding="utf-8")
+        _, warns = kit.quality.check_structure(kit.docs.collect())
+        return [w for w in warns if w.startswith("docs/index.md:") and "skeleton" in w]
+
+    assert skeleton_warnings("x-generated: true\n") == []
+    assert any("overview skeleton" in w for w in skeleton_warnings(""))

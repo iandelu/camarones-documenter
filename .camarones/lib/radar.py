@@ -232,10 +232,14 @@ def render(result: dict) -> str:
           "tags": ["stack", "tooling"],
           "x-sources": list(dict.fromkeys(e for r in result.values() for t in r["tools"] for e in t["evidence"])),
           "x-owner": "ai"}
-    lines = ["# Stack and tooling", "",
-             "> **TL;DR:** Static scan of the repositories (no AI): each repo's stack and the tools the team already uses. "
-             "Discovery reads this page first and verifies it. Fix a wrong stack with "
-             "`camaron stack <repo> \"<stack>\"`, then `camaron radar` to refresh the page.", ""]
+    from . import pages
+    labels = list(dict.fromkeys(t["label"] for r in result.values() for t in r["tools"]))
+    shown = ", ".join(labels[:5]) + ("…" if len(labels) > 5 else "")
+    repos = ", ".join(f"{name} ({r['stack']})" for name, r in result.items())
+    tldr = (pages.count(len(result), "repo") + (f": {repos}" if result else "") +
+            (f"; the team already uses {pages.count(len(labels), 'tool')}: {shown}" if labels
+             else "; the team uses no tool the scan knows") + ".")
+    lines = ["# Stack and tooling", "", f"> **TL;DR:** {tldr}", ""]
     for name, r in result.items():
         lines += [f"## {name}", "", f"**Stack:** {r['stack']}" +
                   (f" (detected: {r['detected_stack']})" if r["stack"] != r["detected_stack"] else ""), ""]
@@ -248,6 +252,8 @@ def render(result: dict) -> str:
             ev = ", ".join(f"`{e.split(':', 1)[1]}`" for e in t["evidence"])
             lines.append(f"| {CATEGORIES[t['category']]} | {cell(describe(t))} | {ev} |")
         lines.append("")
+    lines += [pages.HOW, "Read from each repo's files with no AI. Fix a wrong stack with `camaron stack <repo> \"<stack>\"`, "
+              "then `camaron radar` to refresh this page.", ":::", ""]
     return docs.join_fm(fm, "\n".join(lines))
 
 
