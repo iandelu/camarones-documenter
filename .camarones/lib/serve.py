@@ -386,6 +386,42 @@ def app_creds(action: str, b: dict) -> tuple[dict, int]:
     return {"host": host, "user": info if ok else "", "where": where}, 200
 
 
+ONBOARD_POST = re.compile(r"^/api/app/onboard/(step|repos|setup|scan|stack|arch|done)$")
+
+
+def app_onboard(name: str, b: dict):
+    """POST /api/app/onboard/<name>: the desktop app's first run (lib/onboard.py does the work). A job for what takes
+    a while (setup, the repo scan, the C4 draft); errors the app can act on are 400s with a short code."""
+    from . import agents, onboard
+    if name == "step":
+        return onboard.go_to(str(b.get("id", "")))
+    if name == "repos":
+        return onboard.set_repos(b.get("repos"))
+    if name == "setup":
+        system = _text_list(b, "system")
+        comps = [c for c in _text_list(b, "components") if c in env.ALL_COMPONENTS] if "components" in b else env.components()
+        return start_job("onboard:setup", "setup", lambda log: onboard.setup_job(system, comps, log))
+    if name == "scan":
+        return start_job("onboard:scan", "scan", onboard.scan_job)
+    if name == "stack":
+        from . import radar
+        radar.set_stack(str(b.get("repo", "")), b.get("text"))
+        return onboard.stack_rows()
+    if name == "arch":
+        action = b.get("action")
+        if action == "draft":
+            return start_job("onboard:arch", "arch", onboard.arch_draft)
+        if action in ("save", "save-ai"):
+            res = onboard.arch_save(bool(b.get("overwrite")))
+            if action == "save-ai" and not res.get("exists"):
+                lang = b.get("lang") or "es"
+                res["agent"] = agents.launch_prompt(onboard.arch_prompt(lang), str(b.get("agent", "")), lang)
+            return res
+        raise ValueError("action")
+    if name == "done":
+        return onboard.done()
+
+
 def api_interview(who: str = "") -> dict:
     """The team questionnaire for the portal's Interview view: the questions, the labels of the offline form (both
     languages), who answered and, with `who`, that person's own answers to edit them."""
@@ -707,6 +743,15 @@ class Handler(BaseHTTPRequestHandler):
             from . import agents
             from .common import PREFS, load_json
             return self.json({"agents": agents.installed(), "last": load_json(PREFS, {}).get("last_agent")})
+        if name.startswith("onboard/"):
+            from . import onboard
+            if name == "onboard/state":
+                return self.json(onboard.state())
+            if name == "onboard/tools":
+                rows = onboard.tool_rows()
+                return self.json({"rows": rows, "required_ok": all(r["ok"] for r in rows if r["kind"] == "t_required")})
+            if name == "onboard/stack":
+                return self.json(onboard.stack_rows())
         if (m := re.fullmatch(r"jobs/([\w.-]+)/events", name)) and m.group(1) in JOBS:
             return self.stream_job(JOBS[m.group(1)], int(self.headers.get("Last-Event-ID") or q.get("from") or 0))
         self.json({"error": "not found"}, 404)
@@ -731,6 +776,10 @@ class Handler(BaseHTTPRequestHandler):
                 if not self.is_app():
                     return self.json({"error": APP_ONLY_MSG, "app": True}, 403)
                 return self.api_app_get(p[len("/api/app/"):], q)
+            if p == "/firstlook":                     # the C4 draft's interactive view (read-only, like the docs)
+                from . import onboard
+                f = onboard.LAST_DRAFT.get("html")
+                return self.file(Path(f), local_cdn=True) if f and Path(f).is_file() else self.not_found()
             if STATIC:
                 return self.get_static_site(p)
             if p.startswith("/api/"):
@@ -895,6 +944,8 @@ class Handler(BaseHTTPRequestHandler):
             if p == "/api/app/doctor":                  # check again: a job that keeps its result (lib/doctor.check)
                 from . import doctor
                 return self.json(start_job("doctor", "doctor", lambda log: bool(doctor.check(log))))
+            if m := ONBOARD_POST.match(p):
+                return self.json(app_onboard(m.group(1), b))
             if p == "/api/app/kitdev":                  # the bench of a kit checkout: sandbox, pytest, npm, node --test
                 return self.json(*app_kitdev(b))
             if p.startswith("/api/app/creds"):           # tokens only ever travel in this body, never on a command line

@@ -8,7 +8,8 @@ from pathlib import Path
 
 import yaml
 
-from .common import CAM_DIR, CAM_LAYOUT, cli_cmd, ensure_path, find_project_marker, repo_dir, save_json, ws_rel
+from .common import (CAM_DIR, CAM_LAYOUT, cli_cmd, ensure_path, find_project_marker, load_json, repo_dir, save_json,
+                     ws_rel)
 from .harness.ctx import Ctx
 from . import docs, env, plan, projects
 
@@ -142,6 +143,41 @@ def first_run_mode(state: dict, shared_ready: bool, local_ready: bool) -> str:
     return "done" if local_ready else "join"
 
 
+def resume_id(state: dict) -> str:
+    """The step the first run continues at: by id, or by index for firstrun.json files written before 3.3."""
+    if state.get("name") in STEPS:
+        return state["name"]
+    i = int(state.get("step", 0))
+    return LEGACY_STEPS[i] if 0 <= i < len(LEGACY_STEPS) else STEPS[min(max(i, 0), len(STEPS) - 1)]
+
+
+def local_ready() -> bool:
+    """This machine already has what setup gives: every repo with a URL cloned and the chosen kit tools."""
+    if missing_repos():
+        return False
+    return all(env.tool_ok(k) for k in env.KIT_TOOLS if k in env.components())
+
+
+def state() -> dict:
+    """Where this project's first run stands, for the app: `mode` (new | join | done, computed as the CLI wizard does),
+    `kind`, `steps` (this mode's, without `name`: the start screen did it), `step` (the saved one; the first listed
+    when it was `name`), `done`, the workspace's `repos` and the repos `found` sitting in the folder."""
+    from .common import ROOT, WS_FILE
+    saved = load_json(firstrun_file(ROOT), {})
+    shared = plan.PLAN.exists() and WS_FILE.exists()          # team work that came with the repo (or pre-2.4)
+    mode = first_run_mode(saved, shared, local_ready=bool(shared and not saved) and local_ready())
+    ws = docs.workspace()
+    kind = kind_of(ws)
+    ids = [s for s in steps("new" if mode == "done" else mode, kind) if s != "name"]
+    step = resume_id(saved)
+    try:
+        found = docs.detect_repos()
+    except OSError:
+        found = []
+    return {"mode": mode, "kind": kind, "steps": ids, "step": step if step in ids else ids[0], "done": mode == "done",
+            "repos": ws["repos"], "found": found}
+
+
 def save_position(root: Path, step: str, mode: str) -> None:
     """Where the first run stands, so closing the window or switching between the CLI and the app never loses it."""
     save_json(firstrun_file(root), {"step": STEPS.index(step), "name": step, "done": False,
@@ -208,7 +244,12 @@ def install_choice(rows: list[dict], choice: str, picked: list[str] | None = Non
 def install_tools(system: list[str], components: list[str], log) -> list[str]:
     """Save the chosen components, install the system tools in order and refresh PATH; returns the ones that failed."""
     env.set_components(components)
-    failed = [k for k in system if not env.install_prereq(k, log=log)]
+    failed = []
+    for k in system:
+        if env.install_prereq(k, log=log):
+            log(f"✔ {k}")                  # one finished step each, so the app's progress counts the system tools too
+        else:
+            failed.append(k)
     ensure_path()
     return failed
 
@@ -263,3 +304,112 @@ datastores, brokers and HTTP calls from manifests, config and code. Read `{ws_re
    Tell them the portal's Architecture (C4) tab rebuilds from `{arch}/` (`{cli} up`).
 Talk to the user in {talk}. Do not modify application code.
 """
+
+
+# ---------- what the app's endpoints do (serve.py only parses and answers) ----------
+LAST_DRAFT: dict = {}        # the newest C4 draft (quickarch.draft's model): /firstlook serves its html, `save` copies it
+
+
+def go_to(step: str) -> dict:
+    """Save `step` as the position (a join stays a join) and return the state. ValueError `step` for an unknown id."""
+    from .common import ROOT
+    if step not in STEPS:
+        raise ValueError("step")
+    save_position(ROOT, step, "join" if state()["mode"] == "join" else "new")
+    return state()
+
+
+def set_repos(rows: list) -> dict:
+    """The repos step: validate the rows (`name` required and unique, `url` optional, `branch` defaults to main, `kind`
+    to service), keep the extra keys an existing repo already has (stack, wiki…) and save. A legacy project needs at
+    least one. Raises ValueError with a code: `repos` · `name` · `duplicate`."""
+    if not isinstance(rows, list):
+        raise ValueError("repos")
+    ws = docs.workspace()
+    old = {r["name"]: r for r in ws["repos"]}
+    out, seen = [], set()
+    for r in rows:
+        name = str(r.get("name") or "").strip() if isinstance(r, dict) else ""
+        if not name:
+            raise ValueError("name")
+        if name in seen:
+            raise ValueError("duplicate")
+        seen.add(name)
+        out.append({**old.get(name, {}), "name": name, "url": str(r.get("url") or "").strip(),
+                    "branch": str(r.get("branch") or "").strip() or "main",
+                    "kind": str(r.get("kind") or "").strip() or "service"})
+    if not out and kind_of(ws) == "legacy":
+        raise ValueError("repos")
+    ws["repos"] = out
+    docs.save_workspace(ws)
+    return state()
+
+
+def setup_job(system: list[str], components: list[str], log) -> dict:
+    """The setup step as a job body: install, then `run_setup`. Every finished (✔) line is logged as `[n/total] …`,
+    `total` being setup's own steps plus one per system tool. Returns {rc, result: {failed, missing, ok}}."""
+    total, n = env.setup_steps(components) + len(system), 0
+
+    def counted(msg) -> None:
+        nonlocal n
+        m = str(msg).strip()
+        if m.startswith("✔"):
+            n += 1
+            m = f"[{min(n, total)}/{total}] {m}"
+        if m:
+            log(m)
+
+    failed, ok = [], False
+    try:
+        failed = install_tools(system, components, counted)
+        ok = run_setup(counted)
+    except Exception as e:  # noqa: BLE001 — the step shows what went wrong and offers to retry
+        log(f"⚠ {e}")
+    return {"rc": 0 if ok else 1, "result": {"failed": failed, "missing": missing_repos(), "ok": ok}}
+
+
+def stack_rows() -> dict:
+    """radar.scan() reduced to what the stack step edits: {repo: {stack, detected_stack}}."""
+    from . import radar
+    return {n: {"stack": r["stack"], "detected_stack": r["detected_stack"]} for n, r in radar.scan().items()}
+
+
+def scan_job(log) -> dict:
+    from .wizard import scan_repos     # lazy: the wizard imports this module
+    scan_repos(log=log)
+    return {"rc": 0}
+
+
+def arch_draft(log) -> dict:
+    """The arch step's static draft (no AI), kept in LAST_DRAFT; the result is what the step shows: repos, datastores,
+    brokers and relations (R4: not external systems), whether the model validated and whether /firstlook has a page."""
+    from . import quickarch
+    m = quickarch.draft(log=log)
+    LAST_DRAFT.clear()
+    LAST_DRAFT.update(m)
+    res = {"repos": [{"name": n, **{k: v for k, v in r.items() if k in ("kind", "tech")}} for n, r in m["repos"].items()],
+           "datastores": [{"key": k, "label": d["label"], "name": d["name"], "users": sorted(d["users"])}
+                          for k, d in m["dbs"].items()],
+           "brokers": sorted(m["brokers"]),
+           "relations": [{"from": a, "to": b, "kind": kind, "label": label} for a, b, kind, label in m["edges"]],
+           "valid": m.get("valid"), "html": bool(m.get("html"))}
+    return {"rc": 0, "result": res}
+
+
+def arch_save(overwrite: bool = False) -> dict:
+    """Copy the last draft into docs/architecture. An existing model.c4 is never replaced unless `overwrite`."""
+    from . import quickarch
+    if not LAST_DRAFT:
+        raise ValueError("draft")
+    if (docs.DOCS / "architecture" / "model.c4").exists() and not overwrite:
+        return {"exists": True}
+    return {"written": quickarch.save(LAST_DRAFT, overwrite=overwrite), "exists": False}
+
+
+def done() -> dict:
+    """Close the first run and checkpoint what it wrote."""
+    from .common import ROOT
+    saved = load_json(firstrun_file(ROOT), {})
+    mode = "join" if saved.get("mode") == "join" else "new"
+    finish(ROOT, len(steps(mode, kind_of(docs.workspace()))))
+    return {"committed": bool(env.checkpoint_commit("first setup"))}
