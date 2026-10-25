@@ -22,6 +22,41 @@ def test_the_lookup_skill_follows_the_same_order():
     assert "removed.md" in skill and "ask" in skill
 
 
+SKILLS = KIT_DIR / "templates" / "skills"
+
+
+def test_the_diagrams_skill_teaches_mermaid_and_the_generated_block_rules():
+    text = (SKILLS / "cam-docs-diagrams" / "SKILL.md").read_text(encoding="utf-8")
+    front = text.split("---")[1]
+    assert "name: cam-docs-diagrams" in front and "Mermaid" in front.split("description:")[1]
+    for part in ("never edit a generated block", "<!-- proposal:", "stateDiagram-v2", "25", "{{CLI}} check",
+                 "{{CLI}} diagrams", "repo:path#Symbol", "confirmed", "base="):
+        assert part in text, part
+
+
+def test_the_update_and_lookup_skills_know_about_diagrams():
+    assert "diagrams" in (SKILLS / "cam-docs-update" / "SKILL.md").read_text(encoding="utf-8")
+    lookup = (SKILLS / "cam-docs-lookup" / "SKILL.md").read_text(encoding="utf-8")
+    assert "confirmed" in lookup and "diagram" in lookup and "proposal" in lookup
+
+
+def test_conventions_and_playbook_carry_the_same_diagram_rules():
+    conventions = (KIT_DIR / "CONVENTIONS.md").read_text(encoding="utf-8")
+    section = conventions[conventions.index("## 5. Markdown diagrams"):conventions.index("## 6. Page templates")]
+    assert "generated:" in section and "proposal" in section and "confirmed" in section
+    playbook = (KIT_DIR / "PLAYBOOK.md").read_text(encoding="utf-8")
+    unit = playbook[playbook.index("## diagrams"):playbook.index("## doc-fixes")]
+    assert "CLI diagrams" in unit and "proposal" in unit and "never" in unit
+
+
+def test_the_diagrams_skill_reaches_every_project_on_every_run():
+    from lib import env
+    files = env.kit_skill_files("Demo")
+    for host in (".claude", ".agents"):
+        text = files[f"{host}/skills/cam-docs-diagrams/SKILL.md"]
+        assert "{{" not in text
+
+
 def test_the_handoff_separates_verified_from_intended(kit):
     kit.plan.sync()
     text = kit.plan.prompt("discovery:api", "en")
