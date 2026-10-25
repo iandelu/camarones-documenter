@@ -1,9 +1,11 @@
 """Pages from the code (no AI): the facts about each repo and the `repos` block of cards the project home carries."""
 from __future__ import annotations
 
-import importlib
+import importlib, json, os, shutil, subprocess, sys
 
 import pytest
+
+from fixtures.builder import seed_old_layout
 
 OPENAPI = """openapi: 3.0.1
 info: {title: api, version: '1'}
@@ -439,3 +441,69 @@ def test_a_table_gone_from_a_page_with_prose_takes_its_fold(pg):
     text = page.read_text(encoding="utf-8")
     assert ":::details Environment variables" not in text and "\n\n\n" not in text
     assert "Ask ops for the database.\n\n:::details Commands\n" in text
+
+
+# ---------- the commands, the install and the first look use the layout ----------
+def cli(pg, *args):
+    """`camarones.py ARGS` on the fixture project, with a PATH that hides LikeC4 (no real C4 build in tests)."""
+    likec4 = shutil.which("likec4")
+    hidden = os.path.normcase(os.path.dirname(likec4)) if likec4 else None
+    path = os.pathsep.join(d for d in os.environ.get("PATH", "").split(os.pathsep)
+                           if not hidden or os.path.normcase(d.strip().strip('"')) != hidden)
+    env = {**os.environ, "CAMARONES_ROOT": str(pg.kit.root), "PATH": path}
+    return subprocess.run([sys.executable, str(pg.kit.kit_dir / "camarones.py"), *args], env=env, capture_output=True,
+                          text=True, encoding="utf-8")
+
+
+def test_install_writes_the_new_pages(pg):
+    pg.kit.wizard.scan_repos(log=lambda _: None)
+    docs_dir = pg.kit.root / "docs"
+    assert (docs_dir / "index.md").exists() and (docs_dir / "repos" / "api" / "index.md").exists()
+    assert not (docs_dir / "repos" / "api" / "reference.md").exists()
+    assert not (docs_dir / "architecture" / "system-map.md").exists()
+
+
+def test_install_in_the_old_layout_is_unchanged(pg):
+    seed_old_layout(pg.kit.root)
+    pg.kit.wizard.scan_repos(log=lambda _: None)
+    assert (pg.kit.root / "docs" / "repos" / "api" / "reference.md").exists()
+
+
+def test_install_survives_a_pages_failure(pg, monkeypatch):
+    monkeypatch.setattr(pg.mod, "write", lambda log=None: (_ for _ in ()).throw(RuntimeError("no pages today")))
+    logs = []
+    pg.kit.wizard.scan_repos(log=logs.append)
+    assert (pg.kit.root / "docs" / "overview" / "tooling.md").exists()
+    assert any("pages skipped" in l and "no pages today" in l for l in logs)
+
+
+def test_first_look_writes_the_home_not_first_look_md(pg, monkeypatch):
+    serve = importlib.import_module("lib.serve")
+    monkeypatch.setattr(serve.env, "which", lambda _n: None)
+    monkeypatch.setattr(importlib.import_module("lib.quickarch"), "which", lambda _n: None)   # no LikeC4 in tests
+    logs = []
+    assert serve.first_look(log=logs.append)
+    docs_dir = pg.kit.root / "docs"
+    assert (docs_dir / "index.md").exists() and (docs_dir / "architecture" / "model.c4").exists()
+    assert not (docs_dir / "architecture" / "first-look.md").exists() and "index.md" in logs[-1]
+
+
+def test_old_commands_do_not_write_old_pages_in_the_new_layout(pg):
+    pg.put("api", "src/main/resources/db/migration/V1__init.sql", SQL)
+    for args in (("blocks",), ("schemas",), ("arch-draft", "--save")):
+        assert cli(pg, *args).returncode == 0
+    importlib.import_module("lib.serve").schemas_write()
+    assert pg.mod.old_pages() == [] and pg.mod.layout() == "new"
+
+
+def test_pages_and_its_alias(pg):
+    out = json.loads(cli(pg, "pages", "--json").stdout)
+    assert out["layout"] == "new" and "docs/index.md" in out["written"]
+    assert cli(pg, "diagrams", "--json").returncode == 0 and cli(pg, "diagrams", "--adopt").returncode != 0
+
+
+def test_the_data_view_links_the_repo_page(pg):
+    pg.put("api", "src/main/resources/db/migration/V1__init.sql", SQL)
+    pg.mod.write()
+    rows = importlib.import_module("lib.serve").api_schemas()["repos"]
+    assert next(r for r in rows if r["repo"] == "api")["page"] == "repos/api/index.md"

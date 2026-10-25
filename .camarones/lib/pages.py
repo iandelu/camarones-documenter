@@ -448,3 +448,8 @@ def write(log=lambda _: None) -> list[str]:
     """`camaron pages`: in the old layout 2a's diagram pages (`diagrams.write_pages`, unchanged); in the new one the
     home, the repo pages and the messaging page (`_write_new`). Returns the pages written (`docs/…` paths)."""
     return diagrams.write_pages(log) if layout() == "old" else _write_new(log)
+
+
+def adopt(log=lambda _: None) -> dict:
+    """`camaron pages --adopt`: move an old-layout project to the new pages (the next task)."""
+    raise NotImplementedError("camaron pages --adopt comes in the next task")

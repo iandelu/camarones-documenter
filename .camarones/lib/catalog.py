@@ -46,7 +46,9 @@ COMMANDS: dict[str, dict] = {
     "schemas": _e("app", "analyze", "Tablas y colecciones de cada repo", "Each repo's tables and collections"),
     "blocks": _e("app", "analyze", "Datos leídos del código para los bloques generados",
                  "Facts read from the code for the generated blocks"),
-    "diagrams": _e("app", "analyze", "Diagramas desde el código, sin IA", "Diagrams from the code, no AI"),
+    "pages": _e("app", "analyze", "Páginas desde el código, sin IA: el inicio y una por repo",
+                "Pages from the code, no AI: the home and one per repo"),
+    "diagrams": CLI,                                                       # alias of `pages`: the Taller shows `pages`
     "history": _e("app", "analyze", "Historia del proyecto desde git", "The project's history from git"),
     "graph": _e("app", "analyze", "Reconstruir el grafo de código", "Rebuild the code graph"),
     "llms": _e("app", "analyze", "Regenerar llms.txt", "Regenerate llms.txt"),
