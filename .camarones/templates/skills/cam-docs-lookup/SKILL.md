@@ -12,6 +12,8 @@ description: Look up {{PROJECT_NAME}}'s documentation and code graph before impl
    Before re-adding something, check `{{CAM}}docs/overview/removed.md`: what was removed on purpose, and why.
 2. Weigh trust: `confirmed` = verified by a human, the source of truth; `draft` = AI-written, verify against the code;
    `needs-reconfirm` = was confirmed, then edited.
+   Diagrams: a `confirmed` diagram (`confirmed=` in its marker) is reliable; a `proposal` block is unreviewed AI work;
+   a generated one is a fact from the code with no meaning added. A diagram `check` calls stale is a lead, not an answer.
 3. For code structure use the graph instead of broad greps: MCP `repo_graph` or
    `graphify query "<question>" --graph {{CAM}}graph/<repo>/graph.json`.
 4. Report what the docs say, with page paths, and flag any contradiction with the code you find.
