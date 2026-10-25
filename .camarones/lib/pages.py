@@ -413,21 +413,23 @@ def _specs(memo: dict) -> list[tuple[str, str, object]]:
     return [*specs, (HOME, SYSTEM, home_page)]
 
 
-def _write_new(log=lambda _: None, exclude: frozenset[Path] = frozenset()) -> list[str]:
+def _write_new(log=lambda _: None, exclude: frozenset[Path] = frozenset(),
+               frozen: frozenset[Path] = frozenset()) -> list[str]:
     """Create or bring up to date the new layout: the messaging page (with topics), each repo's page on this machine and
     the project home (last, so its `## More` sees the pages of this pass). Per page: a block whose key lives in another
-    docs page is left out (2a's moved-block rule; a page in `exclude` does not count, and is never written); a missing
+    docs page is left out (2a's moved-block rule; a page in `exclude` does not count, and is never written; one in
+    `frozen` counts but is never written either); a missing
     page is written whole; a page a person owns, or one the kit did not write, is left as it is; a kit page with only
     kit text is rewritten whole, keeping its confirmed, hand-edited and unknown blocks; any other page gets only its
     blocks brought up to date. The home is left as it is while some repo is not on this machine. A file is written only
     when its text changed. Returns the pages written."""
     memo, scan, excluded = {}, genblocks.Scanner(), {Path(p).resolve() for p in exclude}
     scan.memo = memo
-    homes = _homes(excluded)
+    homes, frozen = _homes(excluded), {Path(p).resolve() for p in frozen}
     written = []
     for rel, repo, make in _specs(memo):
         f = DOCS / rel
-        if f.resolve() in excluded:
+        if f.resolve() in excluded or f.resolve() in frozen:
             continue
         if repo == SYSTEM and not diagrams._complete():
             log(f"· {rel_file(f)}: not every repo is on this machine, so this page is left as it is")
@@ -497,28 +499,40 @@ TLDR_END = re.compile(r"^# [^\n]*(?:\n|$)(?:[ \t]*\n)*(?:> \*\*TL;DR:\*\*[^\n]*(
 
 
 def _status(f: Path) -> str:
-    """How the existing page `f` takes blocks: `kit` (`_write_new` writes it), `draft` (an agent's page with no block:
-    `adopt` adds the blocks and touches nothing else) or `closed` (a person's, or confirmed with no block)."""
+    """How the existing page `f` takes blocks from `adopt`: `closed` (a person's: `x-owner: human`, `x-confirmed`, or no
+    `x-owner` on a page the kit did not generate, as 3.x hand-written pages often are; never written), `kit`
+    (`_write_new` writes it) or `draft` (`x-owner: ai` with no block: `adopt` adds the blocks, nothing else)."""
     fm, body, _valid = docs.parse_fm(f.read_text(encoding="utf-8"))
-    if fm.get("x-owner") == "human":
+    if fm.get("x-owner") == "human" or fm.get("x-confirmed") or ("x-owner" not in fm and fm.get("x-generated") is not True):
         return "closed"
     if fm.get("x-generated") is True or genblocks.BLOCK_RE.search(body):
         return "kit"
-    return "closed" if fm.get("x-confirmed") else "draft"
+    return "draft" if fm.get("x-owner") == "ai" else "closed"
+
+
+def _held(f: Path) -> dict[Key, str]:
+    """The blocks of page `f`, key → whole block text."""
+    return {diagrams._key(m): m[0] for m in genblocks.BLOCK_RE.finditer(f.read_text(encoding="utf-8"))}
 
 
 def _keys(f: Path) -> set[Key]:
-    return {diagrams._key(m) for m in genblocks.BLOCK_RE.finditer(f.read_text(encoding="utf-8"))}
+    return set(_held(f))
 
 
-def _no_place(key: Key, memo: dict) -> str | None:
-    """Why the new pages cannot take a block of `key` (None when they can): its page is a person's and lacks it, or it
-    is a page `_write_new` will not create (a repo not on this machine, messaging with no topic in the code)."""
+def _no_place(key: Key, text: str | None, memo: dict) -> str | None:
+    """Why the new pages cannot take a block of `key` (None when they can; `text` is the block when it is carried
+    verbatim): its page is a person's and lacks it, or holds another copy of a carried block (the very same text is
+    fine: nothing to move), or it is a page `_write_new` will not create (a repo not on this machine, messaging with no
+    topic in the code)."""
     rel = _target(key)
     f = DOCS / rel
     if f.exists():
-        closed = _status(f) == "closed" and key not in _keys(f)
-        return PERSONS.format(page=rel_file(f), what="its blocks") if closed else None
+        held = _held(f) if _status(f) == "closed" else None
+        if held is None or key in held and text in (None, held[key]):
+            return None
+        if key not in held:
+            return PERSONS.format(page=rel_file(f), what="its blocks")
+        return f"{rel_file(f)} is a person's page and holds a different copy of {' '.join(filter(None, key))}"
     here = {REPO_PAGE.format(repo=n) for n in docs.repo_names() if repo_dir(n).is_dir()}
     if rel in here or rel == HOME or rel == MESSAGING and diagrams.ids("messaging", SYSTEM, memo):
         return None
@@ -540,7 +554,9 @@ def _judge(rel: str, text: str, scan: genblocks.Scanner) -> tuple[str | None, li
                if m["confirmed"] or (m["sha"] and m["sha"] != genblocks.sha(m["body"])) or state == "unknown"]
     keys = {k for _t, k in carried} | {diagrams._key(m) for m, state, fresh in blocks           # what the code still has
                                        if state != "gone" and (fresh or "").strip() != genblocks.NOTHING}
-    why = next(filter(None, (_no_place(k, scan.memo) for k in sorted(keys, key=str))), None)
+    texts = {k: t for t, k in carried}
+    order = sorted(keys, key=lambda k: (k not in texts, str(k)))            # a carried block's conflict says most
+    why = next(filter(None, (_no_place(k, texts.get(k), scan.memo) for k in order)), None)
     if why:
         return why, [], set()
     if fm.get("x-generated") is not True and not (rel == FIRST_LOOK and fm.get("title") == FIRST_LOOK_TITLE):
@@ -592,13 +608,14 @@ def _logged(out: dict, log) -> dict:
 def adopt(log=lambda _: None) -> dict:
     """`camaron pages --adopt`: move an old-layout project to the new pages. An old page (`old_pages`) stays exactly as
     it is, blocks included, when a person owns it, when the new pages have no place for one of its blocks (a kind with
-    no `TARGET`, a person's page that lacks it, a page that will not exist), when it is not the kit's, when it has
-    anyone's words besides the kit's (`kit_only` against what the 4.x kit would write today), or when another old page
-    carries a different copy of one of its blocks. The new pages are written (`_write_new`, the removable pages not
-    counting as a block's home); an agent's draft home or repo page gets only the blocks (`_draft_blocks`, the cards
-    under its TL;DR, its x-sources extended); the removable pages' confirmed, hand-edited and unknown blocks go verbatim
-    into their new page (`place`), the others are there fresh. Then a removable page is deleted only when every block
-    it held (but the dropped `gone` ones) is in a page that stays; a failure while writing deletes nothing. Nothing is
+    no `TARGET`, a person's page that lacks it or holds another copy of it, a page that will not exist), when it is
+    not the kit's, when it has anyone's words besides the kit's (`kit_only` against what the 4.x kit would write today),
+    or when another old page carries a different copy of one of its blocks. The new pages are written (`_write_new`, the
+    removable pages not counting as a block's home; a person's page, `_status` `closed`, is never written); an agent's
+    draft home or repo page gets only the blocks (`_draft_blocks`, the cards under its TL;DR, its x-sources extended);
+    the removable pages' confirmed, hand-edited and unknown blocks go verbatim into their new page (`place`), the
+    others are there fresh. Then a removable page is deleted only when every block it held (but the dropped `gone`
+    ones) is in a page that stays, and its carried blocks' pages exist; a failure while writing deletes nothing. Nothing is
     done while some repo is not on this machine, or while the home is a person's page without the cards. Translations
     are left as they are. Returns {"moved": ["<kind> <repo>[ <id>] → docs/<page>"], "deleted", "kept": ["docs/<page>:
     <reason>"], "relinked", "links", "translations"} (`docs/…` paths; the last three are empty here)."""
@@ -626,11 +643,19 @@ def adopt(log=lambda _: None) -> dict:
     for rel in [r for r, (carried, _k) in removable.items() if any(len(copies[k]) > 1 for _t, k in carried)]:
         out["kept"].append(f"{rel_file(old[rel])}: another old page holds a different copy of the same block")
         del removable[rel]
-    _write_new(log, exclude=frozenset(old[rel] for rel in removable))
+    closed = frozenset(DOCS / rel for rel, _r, _m in _specs(scan.memo)
+                       if (DOCS / rel).exists() and _status(DOCS / rel) == "closed")
+    _write_new(log, exclude=frozenset(old[rel] for rel in removable), frozen=closed)
     drafts = _draft_blocks({old[rel].resolve() for rel in removable}, scan)
     puts = {rel: list(blocks) for rel, (blocks, _sources) in drafts.items()}
+    for rel in [r for r, (carried, _k) in removable.items()
+                if any(not (DOCS / _target(k)).is_file() for _t, k in carried)]:   # a page `_write_new` did not create
+        out["kept"].append(f"{rel_file(old[rel])}: some of its blocks have no other home")
+        del removable[rel]
     for carried, _k in removable.values():
         for text, key in carried:
+            if _status(DOCS / _target(key)) == "closed":                    # it holds this very block (`_no_place`)
+                continue
             puts.setdefault(_target(key), []).append((text, key))
             out["moved"].append(f"{' '.join(filter(None, key))} → docs/{_target(key)}")
     for rel, blocks in puts.items():                                         # every page first, then any deletion

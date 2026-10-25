@@ -284,3 +284,48 @@ def test_adopt_deletes_nothing_when_writing_a_carried_block_fails(old_project, m
         old_project.mod.adopt()
     monkeypatch.undo()
     assert len(calls) == 2 and all(doc(old_project, rel).exists() for rel in OLD)
+
+
+# ---------- fix round 2: a person's page is never written; no x-owner is a person's; a target that never came ----------
+def test_adopt_never_writes_a_persons_page_holding_another_copy(old_project):
+    _text, m = _block(old_project, "repos/api/diagrams.md", lambda b: b["id"] == "OrderStatus")
+    write_doc(old_project, "repos/api/index.md", "---\ntitle: api\nx-owner: human\n---\n# api\n\n## Lifecycles\n\n"
+              + m[0].replace("SHIPPED", "SHIPPED_OURS") + "\n")
+    human = doc(old_project, "repos/api/index.md").read_bytes()
+    confirm(old_project, "repos/api/diagrams.md", "OrderStatus")
+    diagrams_md = doc(old_project, "repos/api/diagrams.md").read_bytes()
+    out = old_project.mod.adopt()
+    assert doc(old_project, "repos/api/index.md").read_bytes() == human
+    assert doc(old_project, "repos/api/diagrams.md").read_bytes() == diagrams_md
+    assert ("docs/repos/api/diagrams.md: docs/repos/api/index.md is a person's page and holds a different copy of "
+            "states api OrderStatus") in out["kept"]
+
+
+def test_adopt_lets_go_of_a_block_a_persons_page_holds_identically(old_project):
+    confirmed = confirm(old_project, "repos/api/diagrams.md", "OrderStatus")
+    _text, endpoints = _block(old_project, "repos/api/diagrams.md", lambda b: b["kind"] == "endpoints-map")
+    write_doc(old_project, "repos/api/index.md", "---\ntitle: api\nx-owner: human\n---\n# api\n\n" + endpoints[0]
+              + "\n\n" + confirmed + "\n")
+    human = doc(old_project, "repos/api/index.md").read_bytes()
+    out = old_project.mod.adopt()
+    assert doc(old_project, "repos/api/index.md").read_bytes() == human
+    assert "docs/repos/api/diagrams.md" in out["deleted"] and out["moved"] == []
+    assert any(k.startswith("docs/repos/api/reference.md: docs/repos/api/index.md is a person's page") for k in out["kept"])
+
+
+def test_a_home_with_no_owner_is_a_persons(old_project):
+    write_doc(old_project, "index.md", AGENT_HOME.replace("x-owner: ai\n", ""))
+    before = pages(old_project)
+    out = old_project.mod.adopt()
+    assert pages(old_project) == before and out["deleted"] == []
+    assert len(out["kept"]) == len(old_project.mod.old_pages()) and all("docs/index.md is a person's page" in k
+                                                                          for k in out["kept"])
+
+
+def test_adopt_keeps_a_page_whose_carried_blocks_target_never_came(old_project, monkeypatch):
+    confirm(old_project, "architecture/system-map.md", "orders")                    # a messaging block → messaging.md
+    monkeypatch.setattr(old_project.mod, "messaging_page", lambda memo, skip=frozenset(): None)
+    out = old_project.mod.adopt()
+    assert not doc(old_project, "architecture/messaging.md").exists()
+    assert "docs/architecture/system-map.md: some of its blocks have no other home" in out["kept"]
+    assert doc(old_project, "architecture/system-map.md").exists()
