@@ -189,12 +189,17 @@ def _team(fn, *args):
     --no-open, gets why access failed as one JSON line on stdout."""
     url = args[-1] if fn is projects.create else args[0]
     token = os.environ.get("CAMARONES_JOIN_TOKEN") or None
-    ask = projects.ask_token if sys.stdin.isatty() else (lambda host, again: None if again else token) if token else None
+    offer = [token]                                                 # one-shot: a refused token is not offered twice
+
+    def env_token(host, again):                                     # `again` is also true when a SAVED token was refused
+        t, offer[0] = offer[0], None
+        return t
+    ask = projects.ask_token if sys.stdin.isatty() else env_token if token else None
     if url.strip() and not projects.connect(url, ask=ask, log=lambda m: print(m, file=sys.stderr)):
         if _no_open:
             from lib import creds
             reason, detail = projects.reach(url)
-            print(json.dumps({"error": reason or "unknown", "host": creds.host_of(projects.clean_remote(url)) or url,
+            print(json.dumps({"error": reason or "unknown", "host": creds.host_of(projects.clean_remote(url)) or "",
                               "detail": detail.replace(token, "***") if token else detail}, ensure_ascii=False))
         sys.exit(1)
     try:

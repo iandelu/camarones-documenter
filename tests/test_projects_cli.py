@@ -84,6 +84,17 @@ def test_join_no_open_says_why_as_json(kit, monkeypatch, capsys):
     assert row["error"] == "auth" and row["host"] == "git.example.com" and row["detail"] == "401"
 
 
+def test_join_failure_json_never_carries_the_urls_userinfo(kit, monkeypatch, capsys):
+    monkeypatch.setattr(kit.projects, "reach", lambda url: ("auth", "401"))
+    monkeypatch.setattr(kit.projects, "connect", lambda url, ask=None, log=print: False)
+    monkeypatch.setattr(sys, "argv", ["camarones.py", "join", "https://me:s3cr3t@git.example.com/t/d.git", str(kit.ws),
+                                      "--no-open"])
+    with pytest.raises(SystemExit):
+        runpy.run_path(str(kit.kit_dir / "camarones.py"), run_name="__main__")
+    out = capsys.readouterr().out
+    assert json.loads(out.strip().splitlines()[-1])["host"] == "git.example.com" and "s3cr3t" not in out
+
+
 def test_join_token_comes_from_the_environment(kit, monkeypatch, capsys):
     seen = {}
 
@@ -94,7 +105,7 @@ def test_join_token_comes_from_the_environment(kit, monkeypatch, capsys):
     monkeypatch.setattr(kit.projects, "connect", connect)
     monkeypatch.setenv("CAMARONES_JOIN_TOKEN", "t0k")
     code, out = _join_in_process(kit, monkeypatch, capsys, "--no-open")
-    assert seen == {"first": "t0k", "again": None} and code == 1
+    assert seen == {"first": "t0k", "again": None} and code == 1      # one-shot: later calls give nothing
     assert "t0k" not in out.out + out.err                         # the token is never printed
 
 
@@ -112,3 +123,27 @@ def test_the_taller_never_runs_the_hubs_commands(kit):
     assert appapi.HUB == {"new", "join", "switch", "projects"}
     with pytest.raises(ValueError):
         appapi.entry("projects")
+
+
+def test_the_env_token_is_tried_even_when_a_saved_one_was_refused(kit, monkeypatch, capsys):
+    """The app's retry: the saved token is refused, the user pastes a new one, the app reruns join with it in the
+    environment. `connect` passes again=True from its first ask (a saved token exists): the env token must still go."""
+    from test_team_repo import fake_host
+    fake_host(kit, monkeypatch, good="new-token")
+    kit.creds.save("git.example.com", "gitlab", "old-token", "me")
+    monkeypatch.setattr(kit.projects, "join", lambda url, ws, *a: (ws / "cam-docs", True))
+    monkeypatch.setenv("CAMARONES_JOIN_TOKEN", "new-token")
+    code, out = _join_in_process(kit, monkeypatch, capsys, "--no-open")
+    assert code == 0 and json.loads(out.out.strip().splitlines()[-1])["joined"] is True
+    assert kit.creds.get("git.example.com") == "new-token" and "new-token" not in out.out + out.err
+
+
+def test_a_refused_env_token_is_not_offered_twice_and_the_saved_one_stays(kit, monkeypatch, capsys):
+    from test_team_repo import fake_host
+    fake_host(kit, monkeypatch, good="never")
+    kit.creds.save("git.example.com", "gitlab", "old-token", "me")
+    monkeypatch.setenv("CAMARONES_JOIN_TOKEN", "bad-token")
+    code, out = _join_in_process(kit, monkeypatch, capsys, "--no-open")
+    row = json.loads(out.out.strip().splitlines()[-1])
+    assert code == 1 and row["error"] == "auth" and row["host"] == "git.example.com"
+    assert kit.creds.get("git.example.com") == "old-token" and "bad-token" not in out.out + out.err
