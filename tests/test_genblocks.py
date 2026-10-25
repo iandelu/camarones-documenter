@@ -242,3 +242,54 @@ def test_the_code_moving_past_a_confirmed_block_is_reported(kit, gb):
     issues = gb.check(kit.docs.collect())[1]
     assert len(issues) == 1 and "the code changed since this diagram was confirmed" in issues[0]
     assert gb.refresh(force=True)["updated"] == [] and f.read_bytes() == before
+
+
+# ---- the opening marker, written by hand --------------------------------------------------------------------------
+
+def _one(gb, marker, body="body"):
+    return list(gb.BLOCK_RE.finditer(f"# P\n\n{marker}\n{body}\n<!-- /generated:endpoints -->\n"))
+
+
+def test_marker_attributes_are_read_in_any_order(kit, gb):
+    (m,) = _one(gb, "<!-- generated:endpoints sha=abc123 by=ana confirmed=def456 id=pets repo=api -->")
+    assert (m["kind"], m["repo"], m["id"], m["confirmed"], m["by"], m["sha"]) == ("endpoints", "api", "pets", "def456", "ana", "abc123")
+    assert m["body"] == "body\n" and m[0].startswith("<!-- generated:endpoints sha=")
+
+
+@pytest.mark.parametrize("by", ['"Ana López"', "Ana López"])
+def test_a_name_with_spaces_is_read_whole(kit, gb, by):
+    (m,) = _one(gb, f"<!-- generated:endpoints repo=api confirmed=3fa1c2d4e5f6 by={by} sha=abc123 -->")
+    assert m["by"] == "Ana López" and m["sha"] == "abc123" and m["confirmed"] == "3fa1c2d4e5f6"
+
+
+def test_a_marker_without_repo_is_not_a_block(kit, gb):
+    assert _one(gb, "<!-- generated:endpoints sha=abc123 -->") == []
+    assert _one(gb, "<!-- generated:endpoints repo=a/b sha=abc123 -->") == []
+    assert _one(gb, "<!-- generated:endpoints repo=api repo=web -->") == []
+    assert _one(gb, " <!-- generated:endpoints repo=api -->") == []            # a marker starts its line, like the portal's
+    (m,) = _one(gb, "<!-- generated:endpoints repo=api id=X confirmed=3fa1c2… by=ana sha=abc -->")
+    assert m["confirmed"] == "3fa1c2…"                                          # a pasted placeholder still reads
+
+
+def test_block_still_writes_the_canonical_order(kit, gb):
+    text = gb.block("endpoints", "api", "b", id="pets", confirmed="abc", by="Ana López")
+    assert text.startswith('<!-- generated:endpoints repo=api id=pets confirmed=abc by="Ana López" sha=')
+    assert gb.BLOCK_RE.search(text)["by"] == "Ana López"
+
+
+def test_check_flags_a_marker_it_cannot_read(kit, gb):
+    f = kit.root / "docs" / "notes.md"
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text("---\ntitle: notes\n---\n# Notes\n\n<!-- generated:endpoints sha=abc -->\nx\n<!-- /generated:endpoints -->\n\n"
+                 "Quoted: `<!-- generated:endpoints sha=abc -->`\n\n```md\n<!-- generated:env -->\n```\n\n"
+                 "`<!-- generated:env -->` too.\n", encoding="utf-8", newline="\n")
+    _, warns = gb.check(kit.docs.collect())
+    bad = [w for w in warns if "notes.md" in w]
+    assert len(bad) == 1 and "line 6" in bad[0] and "cannot be read" in bad[0]
+
+
+def test_a_page_that_quotes_the_syntax_in_a_fence_is_not_flagged(kit, gb):
+    f = kit.root / "docs" / "guide.md"
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text("---\ntitle: guide\n---\n# Guide\n\n~~~\n<!-- generated:<kind> repo=<repo> -->\n~~~\n", encoding="utf-8")
+    assert not [w for w in gb.check(kit.docs.collect())[1] if "guide.md" in w]
