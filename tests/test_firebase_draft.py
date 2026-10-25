@@ -88,8 +88,8 @@ def test_the_c4_draft_is_valid_and_readable(firebase, kit, monkeypatch):
 
 @pytest.mark.skipif(not __import__("shutil").which("likec4"), reason="likec4 not installed")
 def test_likec4_accepts_the_firebase_draft(firebase, tmp_path):
-    import subprocess
+    from lib import common                                  # run() resolves likec4.cmd on Windows; subprocess cannot
     for name, text in firebase.render_c4(firebase.scan(), "enjoy").items():
         (tmp_path / name).write_text(text, encoding="utf-8")
-    r = subprocess.run(["likec4", "validate", "."], cwd=tmp_path, capture_output=True, text=True)
+    r = common.run(["likec4", "validate", "."], cwd=tmp_path, check=False, capture=True)
     assert r.returncode == 0, r.stdout + r.stderr
