@@ -262,9 +262,12 @@ def _group(touch: str, groups: dict[str, str]) -> str:
 
 
 def _small() -> dict[str, int]:
-    given = (docs.workspace().get("stories") or {}).get("small") or {}
-    return {k: given[k] if isinstance(given.get(k), int) and not isinstance(given.get(k), bool) else v
-            for k, v in SMALL.items()}
+    """`workspace.yaml → stories.small` over the defaults; only positive whole numbers override."""
+    section = docs.workspace().get("stories")
+    given = section.get("small") if isinstance(section, dict) else None
+    given = given if isinstance(given, dict) else {}
+    ok = lambda v: isinstance(v, int) and not isinstance(v, bool) and v > 0     # noqa: E731
+    return {k: given[k] if ok(given.get(k)) else v for k, v in SMALL.items()}
 
 
 def _done(node: deps.Node) -> bool:
@@ -367,10 +370,12 @@ class _Proposal(TypedDict):
     group: str
     touches: list[str]
     criteria: list[str]
-    deps: list[str]         # keys of other proposals in the list, ids of board items
-    conflicts: list[dict]   # deps.conflicts against the board's open leaf items
-    wave: int               # 0-based among the proposals; -1 while their dependencies have a cycle
+    deps: list[str]         # derived: keys of other proposals in the list, ids of board items
+    conflicts: list[dict]   # derived: deps.conflicts against the board's open leaf items
+    wave: int               # derived: 0-based among the proposals; -1 while there is a cycle or a duplicate key
     edited: bool
+    added: list[str]        # the person's: dependencies (keys or board ids) on top of the derived ones
+    dropped: list[str]      # the person's: dependencies taken out of the derived ones
 
 
 class Proposal(_Proposal, total=False):
@@ -416,16 +421,26 @@ def _fill(templates: dict[str, str], lang: str, name: str, **fields: str) -> str
     return ""
 
 
-def _page_title(conn, page: str) -> str:
-    row = conn.execute("select title from pages where touch = ?", (page,)).fetchone()
-    return row[0] if row and row[0] else PurePosixPath(page.partition(":")[2]).stem
+def _proposal(key: str, kind: str, title: str, group: str, touches: list[str], criteria: list[str]) -> Proposal:
+    return {"key": key, "kind": kind, "title": _cut(title, TASK_TITLE_MAX), "group": group, "touches": touches,
+            "criteria": criteria, "deps": [], "conflicts": [], "wave": 0, "edited": False, "added": [],
+            "dropped": []}
+
+
+def _code(touches: list[str]) -> list[str]:
+    return [t for t in touches if not t.startswith(DOCS)]
+
+
+def _pages(conn, touches: list[str]) -> list[str]:
+    """The pages a story's docs tasks are for: those in its footprint and those citing its code files."""
+    return sorted({t for t in touches if t.startswith(DOCS)} | set(index.pages_citing(conn, _code(touches))))
 
 
 def _proposals(story: Story, conn, lang: str) -> list[Proposal]:
     """Steps 1–4 of spec §4.4: the tasks, without dependencies, conflicts or waves yet."""
     templates = split_templates(lang)
     touches = _touches(story["touches"])
-    code = [t for t in touches if not t.startswith(DOCS)]
+    code = _code(touches)
     grp = index.groups(conn, code)
     name = {t: f"{_repo(t)}:{_group(t, grp)}" for t in code}          # a group belongs to one repo
     members: dict[str, list[str]] = defaultdict(list)
@@ -447,16 +462,13 @@ def _proposals(story: Story, conn, lang: str) -> list[Proposal]:
         labels = [g.partition(":")[2] for g in comp]
         group = " + ".join(labels)
         title = _fill(templates, lang, "change_title", group=group, groups=", ".join(labels), want=want)
-        out.append({"key": f"change:{_repo(comp[0])}:{'+'.join(labels)}", "kind": "change",
-                    "title": _cut(title, TASK_TITLE_MAX), "group": group,
-                    "touches": sorted(t for g in comp for t in members[g]),
-                    "criteria": [_fill(templates, lang, "change_criterion", refs=refs)] if refs else [],
-                    "deps": [], "conflicts": [], "wave": 0, "edited": False})
-    for page in sorted({t for t in touches if t.startswith(DOCS)} | set(index.pages_citing(conn, code))):
-        title = _fill(templates, lang, "docs_title", page=_page_title(conn, page))
-        out.append({"key": f"docs:{page}", "kind": "docs", "title": _cut(title, TASK_TITLE_MAX),
-                    "group": index.DOCS_GROUP, "touches": [page], "criteria": [], "deps": [], "conflicts": [],
-                    "wave": 0, "edited": False})
+        out.append(_proposal(f"change:{_repo(comp[0])}:{'+'.join(labels)}", "change", title, group,
+                             sorted(t for g in comp for t in members[g]),
+                             [_fill(templates, lang, "change_criterion", refs=refs)] if refs else []))
+    for page in _pages(conn, touches):
+        title = index.page_title(conn, page) or PurePosixPath(page.partition(":")[2]).stem
+        out.append(_proposal(f"docs:{page}", "docs", _fill(templates, lang, "docs_title", page=title),
+                             index.DOCS_GROUP, [page], []))
     return out
 
 
@@ -465,30 +477,51 @@ def _code_groups(groups: dict[str, str]) -> dict[str, str]:
     return {t: f"{_repo(t)}:{g}" for t, g in groups.items() if not t.startswith(DOCS)}
 
 
-def _settle(story: Story, tasks: list[Proposal], conn) -> tuple[list[Proposal], list[list[str]], list[str]]:
-    """Spec §4.5 on the tasks: dependencies from the code map (provider first, docs after the code they cite) plus the
-    In Progress items they share files with, conflicts with the board's open leaf items, and waves. Returns (tasks
-    sorted by wave then group, the waves as keys, the first dependency cycle among the tasks or [])."""
+def _settle(story: Story, tasks: list[Proposal], conn) -> dict:
+    """Spec §4.5 on the tasks. Each task's `deps` = (code order: provider first, docs after the code they cite ∪ the
+    In Progress items it shares files with ∪ `added`) − `dropped`. Conflicts are with the board's open leaf items (not
+    the story's own children). Waves are left empty while the tasks' dependencies have a cycle or two tasks share a
+    key. Returns `{tasks (by wave, then group), waves (keys), cycle, duplicates, unknown_deps}`."""
     sid = (story.get("id") or "").strip().upper()
-    keys = {t["key"] for t in tasks}
+    count: dict[str, int] = defaultdict(int)
+    files: dict[str, set[str]] = defaultdict(set)
+    for t in tasks:
+        count[t["key"]] += 1
+        files[t["key"]] |= set(t["touches"])
+    duplicates = sorted(k for k, n in count.items() if n > 1)
     board = index.nodes(conn)
+    known = {n["id"] for n in board}
     grouping = deps.containers(board)
     leaves = [n for n in board
-              if not _done(n) and n["id"] not in grouping and n["id"] != sid and n["id"] not in keys]
+              if not _done(n) and n["id"] not in grouping and n["id"] != sid and n["id"] not in count
+              and not (sid and (n.get("parent") or "").strip().upper() == sid)]
     status = {n["id"]: n["status"] for n in leaves}
-    mine = sorted({f for t in tasks for f in t["touches"]})
-    order = deps.order({t["key"]: t["touches"] for t in tasks}, index.edges(conn, mine), index.cites(conn, mine))
+    mine = sorted(set().union(*files.values()))
+    order = deps.order({k: sorted(v) for k, v in files.items()}, index.edges(conn, mine), index.cites(conn, mine))
     near = _code_groups(index.groups(conn, mine + [f for n in leaves for f in n["touches"]]))
+    unknown: dict[str, list[str]] = {}
     for t in tasks:
         t["conflicts"] = deps.conflicts(_node(t["key"], t["touches"]), leaves, groups=near)
         waiting = {c["id"] for c in t["conflicts"] if c["kind"] == "conflict" and status[c["id"]] == "In Progress"}
-        t["deps"] = sorted(set(order[t["key"]]) | waiting, key=id_key)
+        added = set()
+        for ref in t["added"]:
+            if ref in count or ref in known:
+                added.add(ref)
+            elif ref.upper() in known:
+                added.add(ref.upper())
+            elif ref not in unknown.setdefault(t["key"], []):
+                unknown[t["key"]].append(ref)
+        dropped = set(t["dropped"]) | {d.upper() for d in t["dropped"]} | {t["key"]}
+        t["deps"] = sorted((set(order[t["key"]]) | waiting | added) - dropped, key=id_key)
+    unknown = {k: v for k, v in sorted(unknown.items()) if v}
 
-    cycles = deps.sccs({t["key"]: [d for d in t["deps"] if d in keys] for t in tasks})
-    if cycles:
+    cycles = deps.sccs({k: sorted({d for t in tasks if t["key"] == k for d in t["deps"] if d in count})
+                        for k in count})
+    out = {"cycle": cycles[0] if cycles else [], "duplicates": duplicates, "unknown_deps": unknown}
+    if cycles or duplicates:
         for t in tasks:
             t["wave"] = -1
-        return sorted(tasks, key=lambda t: (t["group"], t["key"])), [], cycles[0]
+        return {"tasks": sorted(tasks, key=lambda t: (t["group"], t["key"])), "waves": [], **out}
     nodes = [_node(t["key"], t["touches"], priority=story.get("priority"), needs=t["deps"]) for t in tasks]
     try:
         placed = deps.waves(nodes + leaves)
@@ -502,13 +535,22 @@ def _settle(story: Story, tasks: list[Proposal], conn) -> tuple[list[Proposal], 
             for k in here:
                 by_key[k]["wave"] = len(waves)
             waves.append(here)
-    return sorted(tasks, key=lambda t: (t["wave"], t["group"], t["key"])), waves, []
+    return {"tasks": sorted(tasks, key=lambda t: (t["wave"], t["group"], t["key"])), "waves": waves, **out}
 
 
 def split(story: Story, conn, *, lang: str) -> list[Proposal]:
     """Subtasks for a story (spec §4.4): one change task per code-map group of its files (groups that use each other
     merged into one), one docs task per page in its footprint or citing its files; ordered by wave, then group."""
-    return _settle(story, _proposals(story, conn, lang), conn)[0]
+    return _settle(story, _proposals(story, conn, lang), conn)["tasks"]
+
+
+def _refs(v: object) -> list[str]:
+    """A list of dependency refs as the person left it: text only, trimmed, first spelling kept, in order."""
+    out: list[str] = []
+    for ref in v if isinstance(v, (list, tuple)) else ():
+        if isinstance(ref, str) and ref.strip() and ref.strip() not in out:
+            out.append(ref.strip())
+    return out
 
 
 def _as_proposal(t: dict) -> Proposal:
@@ -516,35 +558,41 @@ def _as_proposal(t: dict) -> Proposal:
     return {"key": str(t["key"]), "kind": t.get("kind") or "change", "title": str(t.get("title") or ""),
             "group": str(t.get("group") or ""), "touches": _touches(t.get("touches") or []),
             "criteria": [str(c) for c in t.get("criteria") or []], "deps": [], "conflicts": [], "wave": 0,
-            "edited": bool(t.get("edited"))}
+            "edited": bool(t.get("edited")), "added": _refs(t.get("added")), "dropped": _refs(t.get("dropped"))}
 
 
 def analyze(story: Story, tasks: list[Proposal] | None, *, lang: str) -> dict:
-    """Everything the story wizard shows, recomputed from scratch: lint hints, the INVEST verdict, the tasks (`split`,
-    or the person's `tasks` with dependencies, conflicts and waves recomputed from their files, edited ones flagged
-    with the files outside the story), the waves as task keys, conflicts with other open stories, the first dependency
-    cycle among the tasks (`[]` when none; waves are then `[]`) and the repos of the story's files that have no code
-    graph. Reads the index only."""
+    """Everything the story wizard shows, recomputed from scratch on the current story: lint hints, the INVEST
+    verdict, the tasks, the waves as task keys, conflicts with other open stories, the first dependency cycle among
+    the tasks, duplicate task keys (`cycle` and `duplicates` are `[]` when none; waves are `[]` while either is not),
+    the `added` dependencies that name nothing (`unknown_deps`, `{key: [ref…]}`) and the repos of the story's files
+    that have no code graph.
+
+    The tasks are always a fresh `split`, except that the person's `tasks` marked `edited` are kept as given (with
+    `outside`: their files that are not in the story's footprint or a page citing it) and replace the fresh proposal
+    with the same key; unedited given tasks are regenerated. Reads the index only."""
     lang = _lang(lang)
     touches = _touches(story["touches"])
     conn = index.connect()
     try:
-        types = dict(conn.execute("select id, type from items"))
-        others = [n for n in index.nodes(conn) if types.get(n["id"]) == "story"]
+        board = index.nodes(conn)
+        kinds = index.types(conn, [n["id"] for n in board])
+        others = [n for n in board if kinds.get(n["id"]) == "story"]
         grp = index.groups(conn, touches + [f for n in others for f in n["touches"]])
         verdict = invest(story, others, groups=grp, lang=lang)
         sid = (story.get("id") or "").strip().upper()
         conflicts = deps.conflicts(_node(sid, touches), others, groups=_code_groups(grp))
-        proposals = _proposals(story, conn, lang) if tasks is None else [_as_proposal(t) for t in tasks]
-        proposals, waves, cycle = _settle(story, proposals, conn)
+        kept = [p for p in (_as_proposal(t) for t in tasks or ()) if p["edited"]]
+        mine = {p["key"] for p in kept}
+        proposals = kept + [p for p in _proposals(story, conn, lang) if p["key"] not in mine]
+        footprint = set(touches) | set(_pages(conn, touches))
+        settled = _settle(story, proposals, conn)
     finally:
         conn.close()
-    footprint = set(touches)
-    for t in proposals:
-        outside = [f for f in t["touches"] if f not in footprint]
-        if t["edited"] and outside:
-            t["outside"] = outside
-    graphless = sorted({_repo(t) for t in touches if not t.startswith(DOCS)
-                        and not codemap.graph_file(_repo(t)).is_file()})
+    for t in settled["tasks"]:
+        if t["edited"]:
+            t["outside"] = [f for f in t["touches"] if f not in footprint]
+    graphless = sorted({_repo(t) for t in _code(touches) if not codemap.graph_file(_repo(t)).is_file()})
     return {"hints": lint(story["as_"], story["want"], story["so"], lang, touches=touches), "invest": verdict,
-            "tasks": proposals, "waves": waves, "conflicts": conflicts, "cycle": cycle, "graphless": graphless}
+            "tasks": settled["tasks"], "waves": settled["waves"], "conflicts": conflicts, "cycle": settled["cycle"],
+            "duplicates": settled["duplicates"], "unknown_deps": settled["unknown_deps"], "graphless": graphless}
