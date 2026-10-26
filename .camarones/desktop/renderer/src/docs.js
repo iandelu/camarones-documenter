@@ -43,6 +43,14 @@ export const wikiBlocks = (tree, wikis) => {
 export const startBuild = (srv, card) => srv.post('build', card.body)
 export const startWiki = (srv, block) => srv.post('wiki', block.body)
 
+// One wiki runs at a time (lib/serve.py wiki(): another repo's start is refused with 409 busy). From the jobs store's
+// running list: the repo whose wiki runs, when it is not `repo` ('' otherwise), so Generate closes on the others.
+export const wikiBusyWith = (running, repo) =>
+  (running || []).find((j) => j.kind === 'wiki' && j.status === 'running' && j.repo && j.repo !== repo)?.repo || ''
+
+// POST wiki refused with busy (another repo's wiki started meanwhile) has its own sentence; anything else as errorLine.
+export const wikiError = (e, t) => (String(e?.message ?? e ?? '') === 'busy' ? t('docs.wikiBusyAny') : errorLine(e, t))
+
 // The portal in the system browser (the window never navigates to it); a window without the bridge does nothing.
 export const openPortal = (app, origin, hash = '#/') => app.openExternal?.(portalUrl(origin, hash))
 

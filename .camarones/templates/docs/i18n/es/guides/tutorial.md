@@ -324,7 +324,7 @@ escribe la unidad repo-brief) para usar tu glosario; `camaron wiki <repo> --forc
 clonado y un motor. En **Docs** de la app, todos los repos tienen **Generar la wiki**: si el repo aún no está elegido, lo
 elige, y si no tiene brief, antes escribe uno inicial con el análisis estático (sin IA), que la unidad repo-brief
 sustituye después. El botón queda cerrado, con el motivo, si el repo no está clonado (clónalo desde **Máquina**) o no
-hay ningún motor de wiki instalado. Se lanzan de una en una, y un lote se para en cuanto el motor se queda sin cuota o sin sesión, en vez de fallar todos los repos
+hay ningún motor de wiki instalado. Se lanzan de una en una (mientras se genera la de un repo, el botón de los demás espera), y un lote se para en cuanto el motor se queda sin cuota o sin sesión, en vez de fallar todos los repos
 que quedan.
 
 ## 8. CI

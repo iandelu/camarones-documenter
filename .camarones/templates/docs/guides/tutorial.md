@@ -311,7 +311,7 @@ glossary; `camaron wiki <repo> --force` skips that check, and the command neithe
 it needs the repo cloned and an engine. In the app's **Docs**, every repo has **Generate the wiki**: for a repo not
 chosen yet it chooses it, and without a brief it first writes a starter one from the static scan (no AI), which the
 repo-brief unit replaces later. The button stays closed, with the reason, when the repo is not cloned (clone it from
-**Machine**) or no wiki engine is installed. Runs go one at a time, and a batch stops as soon as the
+**Machine**) or no wiki engine is installed. Runs go one at a time (while one repo's runs, Generate waits on the others), and a batch stops as soon as the
 engine is out of quota or logged out instead of failing every remaining repo.
 
 ## 8. CI

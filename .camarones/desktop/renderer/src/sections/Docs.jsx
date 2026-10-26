@@ -1,17 +1,22 @@
 import { useEffect, useRef, useState } from 'react'
 import { Aviso, Button, Card } from '@camaron/ui'
-import { answerView, askBody, askError, buildFailed, c4Card, openPortal, startBuild, startWiki, wikiBlocks } from '../docs.js'
-import { useJob } from '../hooks.js'
+import { answerView, askBody, askError, buildFailed, c4Card, openPortal, startBuild, startWiki, wikiBlocks, wikiBusyWith,
+  wikiError } from '../docs.js'
+import { useJob, useStore } from '../hooks.js'
 import { errorLine } from '../onboarding.js'
 import { JobOutput, Page } from '../parts.jsx'
 import { t } from '../i18n.js'
 
 // Reading is the portal's, on this same server one folder up: these buttons open it in the system browser (never an
 // href the window would follow). The portal has no token, so what it shows but cannot run is run here: the C4
-// explorer, each repo's wiki (generate it, build its graph) and Ask's AI answer.
+// explorer, each repo's wiki (generate it, build its graph) and Ask's AI answer. One wiki runs at a time: while one
+// runs (the jobs store), Generate is closed on the other repos.
+const NONE = { running: [] }
+const NO_JOBS = { get: () => NONE, subscribe: () => () => {} }
 export default function Docs({ srv, jobs, app, index }) {
   const open = (hash) => openPortal(app, location.origin, hash)
   const { rows, loading, reload } = useWikis(srv)
+  const { running } = useStore(jobs || NO_JOBS)
   return (
     <Page title={t('nav.docs')}>
       <div className="row">
@@ -21,7 +26,8 @@ export default function Docs({ srv, jobs, app, index }) {
       </div>
       <Build srv={srv} jobs={jobs} card={c4Card} title={t('docs.c4')} hint={t('docs.c4Hint')} onView={() => open(c4Card.hash)} />
       {wikiBlocks(index, rows).map((b) => (
-        <WikiBlock key={b.repo} srv={srv} jobs={jobs} block={b} loading={loading} onView={() => open(b.hash)} onDone={reload} />))}
+        <WikiBlock key={b.repo} srv={srv} jobs={jobs} block={b} loading={loading} busyWith={wikiBusyWith(running, b.repo)}
+          onView={() => open(b.hash)} onDone={reload} />))}
       <Ask srv={srv} open={open} />
     </Page>
   )
@@ -50,7 +56,7 @@ function Build({ srv, jobs, card, ...rest }) {
 }
 
 // A job's state with a rejection said in the person's language (the POST failed before there was a job).
-const shownJob = (build) => (build.error ? { ...build, error: errorLine({ message: build.error }, t) } : build)
+const shownJob = (build, say = errorLine) => (build.error ? { ...build, error: say({ message: build.error }, t) } : build)
 
 // The card itself: Build runs the job (Retry once it failed, with the reason in the person's language), View opens the
 // result in the portal. The buttons repeat on every card, so each says whose it is.
@@ -69,9 +75,10 @@ export function BuildCard({ title, hint, build, onBuild, onView }) {
 
 // One block per repo: Generate runs POST wiki (it chooses the repo and writes the starter brief, which the hint says),
 // and once there are pages — already, or after this run — the graph can be built and the wiki viewed in the portal.
-// Generate is closed, with the reason, for a repo that is not cloned or without a wiki engine (the portal's canGenerate).
+// Generate is closed, with the reason, for a repo that is not cloned or without a wiki engine (the portal's canGenerate),
+// and while another repo's wiki runs (busyWith: that repo).
 const WHY = { notCloned: 'docs.notCloned', noEngine: 'docs.noEngine', unread: 'docs.wikiUnread' }
-export function WikiBlock({ srv, jobs, block, loading = false, onView, onDone }) {
+export function WikiBlock({ srv, jobs, block, loading = false, busyWith = '', onView, onDone }) {
   const gen = useJob(srv, jobs, async () => startWiki(srv, block))
   const graph = useJob(srv, jobs, () => startBuild(srv, block.graph))
   const title = t('docs.wikiBlock', { repo: block.repo })
@@ -80,14 +87,15 @@ export function WikiBlock({ srv, jobs, block, loading = false, onView, onDone })
   const run = async () => { if ((await gen.run())?.status === 'done') onDone?.() }
   const again = buildFailed(graph) ? t('retry') : t('docs.build')
   const pages = block.hasWiki || gen.job?.status === 'done'
-  const why = block.blocked && !(block.blocked === 'unread' && loading) ? t(WHY[block.blocked]) : ''
+  const why = (block.blocked && !(block.blocked === 'unread' && loading) ? t(WHY[block.blocked]) : '')
+    || (busyWith ? t('docs.wikiBusy', { repo: busyWith }) : '')
   return (
     <Card className="dk-run">
       <div className="row"><span className="eyebrow">{title}</span><span className="dk-grow"></span>
-        <Button size="sm" variant="primary" disabled={gen.running || !!block.blocked} aria-label={`${go}: ${title}`} onClick={() => run()}>{go}</Button>
+        <Button size="sm" variant="primary" disabled={gen.running || !!block.blocked || !!busyWith} aria-label={`${go}: ${title}`} onClick={() => run()}>{go}</Button>
         {pages ? <Button size="sm" variant="ghost" aria-label={`${t('docs.view')}: ${title}`} onClick={onView}>{t('docs.view')}</Button> : null}</div>
       <p className="muted small">{why || t('docs.generateHint')}</p>
-      <JobOutput c={shownJob(gen)} />
+      <JobOutput c={shownJob(gen, wikiError)} />
       {pages ? (
         <>
           <div className="row"><span className="muted small">{graphTitle}</span><span className="dk-grow"></span>
