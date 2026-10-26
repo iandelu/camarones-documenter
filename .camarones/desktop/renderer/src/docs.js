@@ -40,6 +40,12 @@ export const wikiBlocks = (tree, wikis) => {
   return (tree?.repos || []).map((repo) => block(repo, withWiki.includes(repo), 'unread'))
 }
 
+// GET wikis read again ({rows} or {error}): a failure keeps the last good rows (none after a failed first read) and
+// sets `failed`, for which the section offers a Retry.
+export const wikisRead = (prev, got) => (got.error
+  ? { rows: prev.rows, loading: false, failed: true }
+  : { rows: got.rows, loading: false, failed: false })
+
 export const startBuild = (srv, card) => srv.post('build', card.body)
 export const startWiki = (srv, block) => srv.post('wiki', block.body)
 

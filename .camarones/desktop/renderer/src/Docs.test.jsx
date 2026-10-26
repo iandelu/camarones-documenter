@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, expect, test } from 'vitest'
-import Docs, { AnswerView, BuildCard, WikiBlock } from './sections/Docs.jsx'
+import Docs, { AnswerView, BuildCard, WikiBlock, WikisUnread } from './sections/Docs.jsx'
 import { wikiBlocks } from './docs.js'
 import { setLang } from './i18n.js'
 
@@ -149,4 +149,17 @@ test('Docs reads the running wiki from the jobs store and closes Generate on the
     subscribe: () => () => {}, refresh: () => {} }
   const out = renderToStaticMarkup(<Docs srv={srv} jobs={jobs} app={{ openExternal: () => {} }} index={index} />)
   expect(out.match(/Se está generando la wiki de api/g)).toHaveLength(2)            // web and ui, not api itself
+})
+
+// When GET wikis fails the section says so once, with a Retry; on a failed re-read the cards keep what they showed.
+test('a failed read of the wikis offers Retry, in Spanish and English', () => {
+  const first = renderToStaticMarkup(<WikisUnread kept={false} onRetry={() => {}} />)
+  expect(first).toContain('No he podido leer el estado de las wikis de este proyecto.')
+  expect(first).toMatch(/>Reintentar<\/button>/)
+  const again = renderToStaticMarkup(<WikisUnread kept onRetry={() => {}} />)
+  expect(again).toContain('No he podido volver a leer el estado de las wikis: lo que ves puede estar desactualizado.')
+  expect(again).toMatch(/>Reintentar<\/button>/)
+  setLang('en')
+  expect(renderToStaticMarkup(<WikisUnread kept onRetry={() => {}} />)).toContain('state again: what you see may be out of date.')
+  expect(renderToStaticMarkup(<WikisUnread kept={false} onRetry={() => {}} />)).toMatch(/>Try again<\/button>/)
 })
