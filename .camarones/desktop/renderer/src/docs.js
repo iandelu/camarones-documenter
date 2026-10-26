@@ -18,7 +18,7 @@ export function wikiRepos(tree) {
   return out
 }
 
-// The C4 explorer's card: `body` is what POST build takes (token-gated; the portal has no token), `hash` where the
+// The C4 explorer's card: `body` is what POST build takes (app-token-gated; the portal has no app token), `hash` where the
 // portal shows the result.
 export const c4Card = { id: 'c4', repo: '', body: { what: 'c4' }, hash: '#/c4' }
 
