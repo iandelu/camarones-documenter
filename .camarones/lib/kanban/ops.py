@@ -14,12 +14,15 @@ from typing import Sequence
 import yaml
 
 from .. import docs
-from ..common import KIT, ROOT, out, run, which
+from ..common import IS_MAC, IS_WIN, KIT, ROOT, out, run, which
 from ..harness.locks import FileLock
 from . import ARCHIVE, BACKLOG, BOARD, CONFIG, DRAFTS, LOCK, PREFIX, PRIORITIES, STATUSES, TASKS, TYPES
-from .items import Item, _as_list, checklist, default_dod, description, file_name, load_dir, new_body, parse_item, serialize_item
+from .deps import norm_touch
+from .items import (Item, _as_list, checklist, default_dod, description, file_name, load_dir, new_body, parse_item,
+                    serialize_item, set_description)
+from .items import add_criteria as append_criteria
 from .merge import driver_command
-from .state import dump_board, load_board, new_uid, next_id, place, stamp, stamp_time
+from .state import dump_board, id_key, load_board, new_uid, next_id, place, stamp, stamp_time
 
 DRIVER = "camaron-board"
 ATTR_LINE = "backlog/board.yaml merge=camaron-board"
@@ -247,44 +250,102 @@ def _place(cards: dict, items: dict, key: str, status: str, by: str, before=None
 
 # --- writes ---
 
-def add(type_: str, title: str, *, epic: str | None = None, repos: Sequence[str] = (), labels: Sequence[str] = (),
-        priority: str | None = None, docs: Sequence[str] = (), by: str | None = None, surface: str = "cli") -> dict:
+_PARENTS = {"epic": ("story", "bug", "spike", "task"), "story": ("task",)}     # parent type -> child types
+
+
+def _parent_of(type_: str, parent: str | None, epic: str | None, items: dict[str, Item]) -> Item | None:
+    """The item a new `type_` goes under (`epic` is the old name of `parent`), or None; BoardError if it cannot."""
+    ref = (parent or epic or "").strip()
+    if parent and epic and parent.strip().upper() != epic.strip().upper():
+        raise BoardError(f"parent {parent} and epic {epic} are different items; give one of them")
+    if not ref:
+        return None
+    found = items.get(ref.upper())
+    if found is None:
+        raise BoardError(f"{ref} is not an item on this board")
+    if type_ not in _PARENTS.get(found.type, ()):
+        raise BoardError(f"a {type_} cannot go under {found.id}, which is a {found.type}"
+                         + (f" (a {found.type} takes: {', '.join(_PARENTS[found.type])})" if found.type in _PARENTS
+                            else " (only an epic or a story can have children)"))
+    return found
+
+
+def _touches(refs: Sequence[str]) -> list[str]:
+    """Footprint entries as stored: `repo:posix/path`, sorted and unique. Two spellings that differ only in case are one
+    entry where the filesystem ignores case (Windows, macOS); the first in sorted order stays."""
+    fold = IS_WIN or IS_MAC
+    clean = set()
+    for ref in refs:
+        try:
+            touch = norm_touch(str(ref), fold=False)
+        except ValueError as e:
+            raise BoardError(f'"{ref}" is not a valid touch (use repo:path, inside its repo): {e}') from e
+        if not touch.partition(":")[2]:
+            raise BoardError(f'"{ref}" is not a valid touch (use repo:path, inside its repo): the path is empty')
+        clean.add(touch)
+    seen, out_ = set(), []
+    for touch in sorted(clean):
+        key = norm_touch(touch, fold=fold)
+        if key not in seen:
+            seen.add(key)
+            out_.append(touch)
+    return out_
+
+
+def _known_ids(items: dict[str, Item]) -> set[str]:
+    archived, _ = load_dir(ARCHIVE)
+    return set(items) | {i.id.upper() for i in archived}
+
+
+def _existing(refs: Sequence[str], items: dict[str, Item], what: str) -> list[str]:
+    """Ids of items that exist (on the board or archived), upper-cased, unique, in natural order."""
+    ids = {str(r).strip().upper() for r in refs if str(r).strip()}
+    known = _known_ids(items)
+    missing = sorted(ids - known, key=id_key)
+    if missing:
+        raise BoardError(f"{what}: unknown item{'s' if len(missing) > 1 else ''} {', '.join(missing)}")
+    return sorted(ids, key=id_key)
+
+
+def add(type_: str, title: str, *, epic: str | None = None, parent: str | None = None, repos: Sequence[str] = (),
+        labels: Sequence[str] = (), priority: str | None = None, docs: Sequence[str] = (),
+        description: str | None = None, criteria: Sequence[str] = (), touches: Sequence[str] = (),
+        dependencies: Sequence[str] = (), by: str | None = None, surface: str = "cli") -> dict:
     if type_ not in TYPES:
         raise BoardError(f"unknown type {type_} (one of: {', '.join(TYPES)})")
     if priority is not None and priority not in PRIORITIES:
         raise BoardError(f"unknown priority {priority} (one of: {', '.join(PRIORITIES)})")
     if not title.strip():
         raise BoardError("a title is needed")
+    foot = _touches(touches)
     by = by or who()
     with FileLock(LOCK):
         cards, items, problems = load_state()
-        parent = None
-        if epic:
-            ekey = epic.strip().upper()
-            parent = items.get(ekey)
-            if parent is None or parent.type != "epic":
-                raise BoardError(f"{epic} is not an epic on this board")
+        parent_item = _parent_of(type_, parent, epic, items)
+        needs = _existing(dependencies, items, "dependencies")
         from . import xid
         links = _merge_links([], [xid.resolve_ref(r) for r in docs])
         item_id = next_id(_all_ids(cards, items, problems), PREFIX)
         uid = new_uid()
         lang = docs_lang()
         dod = _managed_config()["definition_of_done"]
+        in_repos = list(repos) or sorted({t.partition(":")[0] for t in foot} - {"cam-docs"})
         fm = {"id": item_id, "title": title.strip(), "status": "Backlog", "assignee": [],
               "created_date": datetime.now().strftime("%Y-%m-%d %H:%M"),
-              "labels": list(labels), "documentation": links or None,
-              "parent_task_id": parent.id if parent else None, "priority": priority, "type": type_,
-              "ordinal": 0, "x-uid": uid, "x-repos": list(repos) or None}
-        item = Item(fm, new_body(type_, lang, dod), TASKS / file_name(item_id, title))
+              "labels": list(labels), "dependencies": needs or None, "documentation": links or None,
+              "parent_task_id": parent_item.id if parent_item else None, "priority": priority, "type": type_,
+              "ordinal": 0, "x-uid": uid, "x-repos": in_repos or None, "x-touches": foot or None}
+        item = Item(fm, new_body(type_, lang, dod, description=description, criteria=criteria),
+                    TASKS / file_name(item_id, title))
         card = {"uid": uid, "status": "Backlog", "ordinal": 0, "assignee": [], "t": {}}
         cards[item_id] = card
         stamp(card, "status", by, _now())
         _place(cards, items, item_id, "Backlog", by)
         item.fm["ordinal"] = card["ordinal"]
         save_item(item)                         # the new item first: a failed write leaves its epic as it was
-        if parent is not None:
-            parent.fm["subtasks"] = [*_as_list(parent.fm.get("subtasks")), item_id]
-            save_item(parent)
+        if parent_item is not None:
+            parent_item.fm["subtasks"] = [*_as_list(parent_item.fm.get("subtasks")), item_id]
+            save_item(parent_item)
         save_board(cards)
     _count("add", surface)
     return _row(item, card)
@@ -353,6 +414,43 @@ def link(item_id: str, ref: str, *, by: str | None = None, surface: str = "cli")
     return _row(item, card)
 
 
+def update_item(item_id: str, *, title: str | None = None, description: str | None = None,
+                add_criteria: Sequence[str] = (), touches: Sequence[str] | None = None, docs: Sequence[str] = (),
+                subtasks: Sequence[str] | None = None, by: str | None = None, surface: str = "cli") -> dict:
+    """Change what is given and nothing else. Criteria are appended after the existing ones (never renumbered); the
+    description, the touches (`[]` clears them) and the subtasks are replaced; docs are linked as `link` does."""
+    from . import xid
+    if title is not None and not title.strip():
+        raise BoardError("a title is needed")
+    foot = None if touches is None else _touches(touches)
+    stored = [xid.resolve_ref(r) for r in docs]
+    by = by or who()
+    with FileLock(LOCK):
+        cards, items, _ = load_state()
+        key, item, card = _find(items, cards, item_id, by)
+        subs = None if subtasks is None else _existing(subtasks, items, "subtasks")
+        old_path = item.path
+        if title is not None:
+            item.fm["title"] = title.strip()
+            item.path = TASKS / file_name(item.id, item.title)
+        if description is not None:
+            item.body = set_description(item.body, description)
+        item.body = append_criteria(item.body, add_criteria)
+        if foot is not None:
+            item.fm["x-touches"] = foot or None
+        if stored:
+            item.fm["documentation"] = _merge_links(_as_list(item.fm.get("documentation")), stored)
+        if subs is not None:
+            item.fm["subtasks"] = subs or None
+        _mirror(item, card)
+        save_item(item)
+        if item.path != old_path:
+            old_path.unlink(missing_ok=True)
+        save_board(cards)                       # the card _find may have just adopted
+    _count("update", surface)
+    return _row(item, card)
+
+
 def archive(item_id: str, *, by: str | None = None, surface: str = "cli") -> dict:
     with FileLock(LOCK):
         cards, items, _ = load_state()
@@ -374,8 +472,9 @@ def _row(item: Item, card: dict | None) -> dict:
                     "assignee": texts(fm.get("assignee")), "t": {}}
     return {"id": item.id, "uid": card["uid"], "title": item.title, "type": item.type, "status": card["status"],
             "ordinal": card["ordinal"], "assignee": list(card["assignee"]), "labels": texts(fm.get("labels")),
-            "priority": fm.get("priority"), "epic": fm.get("parent_task_id"), "repos": texts(fm.get("x-repos")),
-            "docs": [str(d) for d in _as_list(fm.get("documentation"))]}
+            "priority": fm.get("priority"), "epic": fm.get("parent_task_id"), "parent": fm.get("parent_task_id"),
+            "repos": texts(fm.get("x-repos")), "docs": [str(d) for d in _as_list(fm.get("documentation"))],
+            "touches": texts(fm.get("x-touches")), "dependencies": texts(fm.get("dependencies"))}
 
 
 _DOC_STATES = ("unconfirmed", "suspect", "stale", "changed", "missing")
@@ -408,7 +507,7 @@ def link_states(links: list[str]) -> list[list[dict]]:
     return [[xid.link_state(d, pages, ids) for d in ds] for ds in links]
 
 
-def list_items(*, status=None, epic=None, repo=None, label=None, docs=None, with_links=False) -> dict:
+def list_items(*, status=None, epic=None, parent=None, repo=None, label=None, docs=None, with_links=False) -> dict:
     """Cards in board order. `with_links` adds each card's link states (the portal's Board filters on them)."""
     cards, items, problems = load_state()
     rows = []
@@ -422,6 +521,8 @@ def list_items(*, status=None, epic=None, repo=None, label=None, docs=None, with
         if status and r["status"] != status:
             continue
         if epic and (r["epic"] or "").upper() != epic.upper():
+            continue
+        if parent and (r["parent"] or "").upper() != parent.upper():
             continue
         if repo and repo not in r["repos"]:
             continue
