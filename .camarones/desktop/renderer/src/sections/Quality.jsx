@@ -1,31 +1,59 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
-import { Aviso, Button, Card, Chip, Skeleton } from '@camaron/ui'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { Aviso, Button, Chip, HealthBoard, Skeleton } from '@camaron/ui'
 import { applyFilter, facets, matrix } from '@camaron/ui/libs.js'
 import { severities } from '@camaron/ui/result.js'
 import { ago } from '../jobs.js'
-import { doctorRows, seconds } from '../quality.js'
-import { useAgents, useCmd, useJob } from '../hooks.js'
+import { BOARD_ACTIONS, doctorRows, seconds } from '../quality.js'
+import { useAgents, useCmd, useJob, useStore } from '../hooks.js'
 import { AgentPicker, Failed, Fold, JobOutput, Page, ResultView, UnitRow } from '../parts.jsx'
 import Commands from './Commands.jsx'
 import { lang, t } from '../i18n.js'
 
-// Quality by task: is this machine ready (the doctor, kept between visits), how much an agent session loads, the
-// golden questions and the same question with and without the docs; then what the code says without AI — known
-// libraries and their known vulnerabilities, pages out of date, the generated blocks. KPIs are the portal's.
+// Quality is the project's health board (ui/src/health.jsx) on the snapshot of `camaron health`: machine, docs and code
+// in one view. The board draws the figures and the rows; each row this app owns opens on the control that used to be a
+// card of its own (BOARD_ACTIONS), and the rest of the commands stay folded below. KPIs are the portal's.
+const CARDS = { doctor: Doctor, drift: Drift, fresh: Fresh, evals: Evals, context: Context, blocks: Blocks, ab: Ab, libs: Libs }
+const LINKS = { review: '../#/review' }
+const repoHref = (r) => '../#/health/' + encodeURIComponent(r)
+
 export default function Quality({ srv, jobs }) {
   const [user, setUser] = useState('')
   useEffect(() => { srv.get('app/info').then((i) => setUser(i.user), () => {}) }, [])
+  const [snap, setSnap] = useState(undefined)             // undefined: not read yet; null: never built
+  const [error, setError] = useState('')
+  const build = useCmd(srv, jobs, { quiet: true })
+  const busy = useRef(false)                              // one refresh at a time; one asked meanwhile runs after it
+  const again = useRef(false)
+  const load = () => srv.get('health').then((d) => { setSnap(d.snapshot); setError(''); return d.snapshot }, (e) => { setError(e.message) })
+  const refresh = async () => {
+    if (busy.current) { again.current = true; return }
+    busy.current = true
+    try { await build.run('health', { refresh: true }); await load() } finally { busy.current = false }
+    if (again.current) { again.current = false; refresh() }
+  }
+  useEffect(() => { load().then((s) => { if (s === null) refresh() }) }, [])
+  // The snapshot goes stale when a job ends (a repair, a scan, a confirmation…): build it again. Quiet jobs are not in
+  // `running`, so the refresh itself does not come back here.
+  const { running } = useStore(jobs)
+  const was = useRef(running.length)
+  useEffect(() => {
+    if (running.length < was.current) refresh()
+    was.current = running.length
+  }, [running.length])
+
   const p = { srv, jobs, user }
+  const actions = Object.fromEntries(BOARD_ACTIONS.map((id) => {
+    const Body = CARDS[id]
+    return [id, () => <Body {...p} />]
+  }))
+  const loading = !error && (snap === undefined || (snap === null && build.running))      // the first read, or the first build
   return (
     <Page title={t('nav.quality')}>
-      <Doctor {...p} />
-      <Context {...p} />
-      <Evals {...p} />
-      <Ab {...p} />
-      <h2 className="eyebrow dk-group">{t('q.analyze')}</h2>
-      <Libs {...p} />
-      <Fresh {...p} />
-      <Blocks {...p} />
+      {error ? <Failed title={t('q.healthFailed')} detail={error} onRetry={() => { setError(''); load().then((s) => { if (s === null) refresh() }) }} /> : null}
+      {snap === undefined || loading ? (loading ? <Skeleton lines={6} /> : null) : (
+        <HealthBoard snapshot={snap} actions={actions} links={LINKS} repoHref={repoHref} onRefresh={refresh} refreshing={build.running} />
+      )}
+      {snap === null && !build.running ? <JobOutput c={build} /> : null}
       <div className="row"><Button size="sm" variant="ghost" href="../#/kpis">{t('q.kpis')}</Button></div>
       <Commands srv={srv} jobs={jobs} section="quality" />
     </Page>
@@ -33,6 +61,17 @@ export default function Quality({ srv, jobs }) {
 }
 
 const now = () => Date.now() / 1000
+
+// What the kit wrote on this machine that is no longer as it left it: put it back (repair). The Doctor row shows which.
+function Drift({ srv, jobs }) {
+  const c = useCmd(srv, jobs)
+  return (
+    <div className="dk-body">
+      <div className="row"><Button size="sm" disabled={c.running} onClick={() => c.run('repair', {})}>{t('q.repairNow')}</Button></div>
+      <JobOutput c={c} />
+    </div>
+  )
+}
 
 // The doctor, kept (lib/doctor.check): shown at once, checked again on request — and once by itself, the first time
 // there is nothing kept. What is missing comes first, each with the command that fixes it.
@@ -49,8 +88,8 @@ function Doctor({ srv, jobs }) {
   const run = async (f) => { await fix.run(f.cmd, f.args); again() }
   const at = seconds(rec?.at)
   return (
-    <Card className="dk-run">
-      <div className="row"><span className="eyebrow">{t('q.doctor')}</span><span className="dk-grow"></span>
+    <div className="dk-body dk-run">
+      <div className="row"><span className="dk-grow"></span>
         {at ? <span className="muted small">{t('q.checked', { when: ago(at, now(), t) })}</span> : null}
         <Button size="sm" variant="ghost" disabled={busy} onClick={again}>{t('q.again')}</Button></div>
       {!r ? (check.running || rec === undefined ? <Skeleton lines={3} /> : null) : missing.length ? (
@@ -77,7 +116,7 @@ function Doctor({ srv, jobs }) {
         </Fold>
       ) : null}
       {fix.job || fix.error ? <JobOutput c={fix} /> : check.error || check.job?.status === 'failed' ? <JobOutput c={check} /> : null}
-    </Card>
+    </div>
   )
 }
 
@@ -87,8 +126,7 @@ function Context({ srv, jobs }) {
   useEffect(() => { c.run('doctor', { context: true, json: true }) }, [])
   const r = c.job?.result
   return (
-    <Card className="dk-run">
-      <span className="eyebrow">{t('q.context')}</span>
+    <div className="dk-body dk-run">
       {r ? (<>
         <div className="row"><b>{t('q.tokens', { n: r.total, budget: r.budget })}</b>
           <Chip state={r.over ? 'bad' : 'ok'}>{r.over ? t('q.over') : t('q.under')}</Chip>
@@ -99,7 +137,7 @@ function Context({ srv, jobs }) {
               <td className="muted small">{x.kit ? t('q.kit') : t('q.project')}</td></tr>))}</tbody></table>
         </Fold>
       </>) : <JobOutput c={c} />}
-    </Card>
+    </div>
   )
 }
 
@@ -131,8 +169,8 @@ function Evals({ srv, jobs, user }) {
   }
   const noAgent = a.agents && !a.agents.length
   return (
-    <Card className="dk-run">
-      <div className="row"><span className="eyebrow">{t('q.evals')}</span><span className="cu-chip cu-chip--info">{t('cmds.ai')}</span></div>
+    <div className="dk-body dk-run">
+      <div className="row"><span className="cu-chip cu-chip--info">{t('cmds.ai')}</span></div>
       <p className="muted small">{t('q.evalsWhat')}</p>
       {list.job?.result ? (qs.length ? (
         <ul className="dk-units">{qs.map((q) => (
@@ -154,7 +192,7 @@ function Evals({ srv, jobs, user }) {
       {note.error ? <Aviso tone="error" title={t('next.failed')} detail={note.error} /> : null}
       <JobOutput c={act} />
       {act.job?.result ? <ResultView result={act.job.result} /> : null}
-    </Card>
+    </div>
   )
 }
 
@@ -164,8 +202,8 @@ function Ab({ srv, jobs }) {
   const [q, setQ] = useState('')
   const clean = q.trim()
   return (
-    <Card className="dk-run">
-      <div className="row"><span className="eyebrow">{t('q.ab')}</span><span className="cu-chip cu-chip--info">{t('cmds.ai')}</span></div>
+    <div className="dk-body dk-run">
+      <div className="row"><span className="cu-chip cu-chip--info">{t('cmds.ai')}</span></div>
       <div className="row">
         <input className="cu-input dk-grow" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('q.abAsk')} aria-label={t('q.abAsk')} />
         {c.running ? <Button size="sm" variant="danger" onClick={c.stop}>{t('job.stop')}</Button>
@@ -173,7 +211,7 @@ function Ab({ srv, jobs }) {
       </div>
       <JobOutput c={c} />
       {c.job?.result ? <ResultView result={c.job.result} /> : null}
-    </Card>
+    </div>
   )
 }
 
@@ -199,8 +237,8 @@ function Libs({ srv, jobs }) {
   const set = (k) => (v) => setF((cur) => ({ ...cur, [k]: v }))
   const count = new Set(rows.map((r) => r.ecosystem + r.name)).size
   return (
-    <Card className="dk-run">
-      <div className="row"><span className="eyebrow">{t('q.libs')}</span><span className="dk-grow"></span>
+    <div className="dk-body dk-run">
+      <div className="row"><span className="dk-grow"></span>
         <Button size="sm" variant="ghost" href="../#/libs">{t('q.inPortal')}</Button></div>
       {error ? <Failed title={t('q.cvFailed')} detail={error} onRetry={load} /> : null}
       {inv ? (
@@ -248,7 +286,7 @@ function Libs({ srv, jobs }) {
           </table></div>
         ) : <p className="muted small">{t('nothing')}</p>}
       </>) : inv ? <p className="muted small">{t('q.libsNone')}</p> : null}
-    </Card>
+    </div>
   )
 }
 
@@ -270,8 +308,7 @@ function Fresh({ srv, jobs, user }) {
   const rows = (list.job?.result || []).filter((p) => p.state === 'suspect' || p.state === 'stale')
   const run = async (args) => { await act.run('fresh', args); load() }
   return (
-    <Card className="dk-run">
-      <span className="eyebrow">{t('q.fresh')}</span>
+    <div className="dk-body dk-run">
       {list.job?.result ? (rows.length ? (<>
         <ul className="dk-units">{rows.map((p) => (
           <li key={p.path} className="dk-unit">
@@ -283,7 +320,7 @@ function Fresh({ srv, jobs, user }) {
         <div className="row"><Button size="sm" disabled={act.running} onClick={() => run({ plan: true })}>{t('q.freshPlan')}</Button></div>
       </>) : <p className="small">{t('q.allFresh')}</p>) : <JobOutput c={list} />}
       <JobOutput c={act} />
-    </Card>
+    </div>
   )
 }
 
@@ -292,14 +329,13 @@ function Blocks({ srv, jobs }) {
   const c = useCmd(srv, jobs)
   const r = c.job?.result
   return (
-    <Card className="dk-run">
-      <span className="eyebrow">{t('q.blocks')}</span>
+    <div className="dk-body dk-run">
       <div className="row">
         <Button size="sm" disabled={c.running} onClick={() => c.run('blocks', { json: true })}>{t('q.blocksGo')}</Button>
         {r ? ['created', 'updated', 'edited', 'human'].map((k) => <Chip key={k} state={k === 'edited' && r[k].length ? 'warn' : undefined}>{t(`bl.${k}`)}: {r[k].length}</Chip>) : null}
       </div>
       {r?.edited.length ? <p className="muted small">{t('q.blocksEdited')}</p> : null}
       <JobOutput c={c} />
-    </Card>
+    </div>
   )
 }
