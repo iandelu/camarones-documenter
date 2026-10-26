@@ -103,3 +103,74 @@ def test_no_graph_no_map(kit):
     assert kit.codemap.available() == []
     write_graph(kit)
     assert kit.codemap.available() == ["api"]
+
+
+def test_file_edges_are_complete(kit):
+    write_graph(kit)
+    edges = kit.codemap.file_edges("api")
+    web = "api-web/src/main/java/demo/shop/web/OrderResource.java"
+    assert (web, JAVA + "orders/OrderService.java") in edges
+    assert edges == {
+        (web, JAVA + "orders/OrderService.java"),
+        (JAVA + "orders/OrderService.java", JAVA + "orders/OrderRepository.java"),
+        (JAVA + "orders/OrderService.java", JAVA + "payments/PaymentClient.java"),
+        (JAVA + "payments/PaymentClient.java", JAVA + "payments/dto/PaymentDto.java"),
+    }
+    assert not any("OrderServiceTest" in a or "OrderServiceTest" in b for a, b in edges)
+    assert not any(a == "" or b == "" for a, b in edges)
+    assert kit.codemap.file_edges("nope") == set()
+
+
+def test_file_edges_are_not_cut_to_the_neighbours_limit(kit):
+    callers = 20
+    assert callers > kit.codemap.NEIGHBOURS
+    nodes = [node("hub", "Hub", JAVA + "core/Hub.java", True)] + \
+            [node(f"c{i}", f"C{i}", JAVA + f"callers/C{i}.java", True) for i in range(callers)]
+    links = [{"source": f"c{i}", "target": "hub", "relation": "calls"} for i in range(callers)]
+    write_graph(kit, graph={"nodes": nodes, "links": links})
+    edges = kit.codemap.file_edges("api")
+    assert edges == {(JAVA + f"callers/C{i}.java", JAVA + "core/Hub.java") for i in range(callers)}
+
+
+def test_file_edges_of_an_unreadable_graph_are_empty(kit):
+    d = kit.root / "graph" / "api"
+    d.mkdir(parents=True)
+    (d / "graph.json").write_text("{not json", encoding="utf-8")
+    assert kit.codemap.file_edges("api") == set()
+
+
+def test_group_of_matches_the_map(kit):
+    write_graph(kit)
+    m = kit.codemap.load("api")
+    groups = kit.codemap.group_of("api")
+    assert {f["path"] for f in m["files"]} == set(groups)
+    for f in m["files"]:
+        assert groups[f["path"]] == m["groups"][f["group"]]["label"]
+    assert groups[JAVA + "orders/OrderService.java"] == "core/orders"
+    assert kit.codemap.group_of("nope") == {}
+
+
+def test_build_unchanged(kit):
+    write_graph(kit)
+    p = "api-core/src/main/java/demo/shop/"
+    assert kit.codemap.build("api") == {
+        "core": [2, 1, 0, 3],
+        "files": [
+            {"deg": [1, 0], "group": 0, "in": [[1, 1]], "label": "OrderRepository", "out": [],
+             "path": p + "orders/OrderRepository.java", "sub": ""},
+            {"deg": [1, 3], "group": 0, "in": [[4, 1]], "label": "OrderService", "out": [[2, 2], [0, 1]],
+             "path": p + "orders/OrderService.java", "sub": ""},
+            {"deg": [2, 1], "group": 1, "in": [[1, 2]], "label": "PaymentClient", "out": [[3, 1]],
+             "path": p + "payments/PaymentClient.java", "sub": ""},
+            {"deg": [1, 0], "group": 2, "in": [[2, 1]], "label": "PaymentDto", "out": [],
+             "path": p + "payments/dto/PaymentDto.java", "sub": ""},
+            {"deg": [0, 1], "group": 3, "in": [], "label": "OrderResource", "out": [[1, 1]],
+             "path": "api-web/src/main/java/demo/shop/web/OrderResource.java", "sub": ""},
+        ],
+        "format": 3,
+        "groups": [{"files": 2, "id": 0, "label": "core/orders"}, {"files": 1, "id": 1, "label": "core/payments"},
+                   {"files": 1, "id": 2, "label": "core/payments/dto"}, {"files": 1, "id": 3, "label": "web/web"}],
+        "links": [{"s": 0, "t": 1, "w": 2}, {"s": 1, "t": 2, "w": 1}, {"s": 3, "t": 0, "w": 1}],
+        "repo": "api",
+        "stats": {"commit": "abc1234", "files": 5, "groups": 4},
+    }

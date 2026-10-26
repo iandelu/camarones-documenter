@@ -45,16 +45,54 @@ def available() -> list[str]:
     return [n for n in docs.repo_names() if graph_file(n).is_file()]
 
 
-def build(repo: str) -> dict:
-    g = json.loads(graph_file(repo).read_text(encoding="utf-8"))
+def _code_files(g: dict) -> dict[str, list[dict]]:
+    """graphify's nodes grouped by their source file, tests and non-code files left out."""
     by_file: dict[str, list[dict]] = defaultdict(list)
     for n in g.get("nodes", []):
         sf = n.get("source_file") or ""
         p = PurePosixPath(sf)
         if sf and p.suffix in CODE_EXT and not is_test(p):
             by_file[sf].append(n)
-    paths = sorted(by_file)
+    return by_file
+
+
+def _file_edges(g: dict, by_file: dict[str, list[dict]] | None = None) -> Counter:
+    """Every dependency between two code files, weighted by the number of links: `(src_path, dst_path) -> count`."""
+    by_file = _code_files(g) if by_file is None else by_file
     owner = {n["id"]: f for f, ns in by_file.items() for n in ns}
+    edges: Counter = Counter()
+    for link in g.get("links", []):
+        a, b = owner.get(link.get("source")), owner.get(link.get("target"))
+        if a and b and a != b and link.get("relation") in DEP_RELATIONS:
+            edges[(a, b)] += 1
+    return edges
+
+
+def file_edges(repo: str) -> set[tuple[str, str]]:
+    """All `(src_path, dst_path)` file dependencies of a repo (paths as graphify's `source_file`, POSIX, relative to the
+    repo root), not cut to NEIGHBOURS. Empty when the repo has no readable graph."""
+    try:
+        g = json.loads(graph_file(repo).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return set()
+    if not isinstance(g, dict):
+        return set()
+    return set(_file_edges(g))
+
+
+def group_of(repo: str) -> dict[str, str]:
+    """file path -> label of its group in the repo's map; empty without a graph."""
+    m = load(repo)
+    if not m:
+        return {}
+    labels = {gr["id"]: gr["label"] for gr in m["groups"]}
+    return {f["path"]: labels[f["group"]] for f in m["files"]}
+
+
+def build(repo: str) -> dict:
+    g = json.loads(graph_file(repo).read_text(encoding="utf-8"))
+    by_file = _code_files(g)
+    paths = sorted(by_file)
 
     def label(f: str) -> str:
         stem = PurePosixPath(f).stem
@@ -99,11 +137,7 @@ def build(repo: str) -> dict:
     gid = {lab: i for i, lab in enumerate(group_labels)}
     fid = {f: i for i, f in enumerate(paths)}
 
-    edges: Counter = Counter()
-    for link in g.get("links", []):
-        a, b = owner.get(link.get("source")), owner.get(link.get("target"))
-        if a and b and a != b and link.get("relation") in DEP_RELATIONS:
-            edges[(fid[a], fid[b])] += 1
+    edges: Counter = Counter({(fid[a], fid[b]): w for (a, b), w in _file_edges(g, by_file).items()})
     out_e, in_e = defaultdict(list), defaultdict(list)
     for (a, b), w in edges.items():
         out_e[a].append([b, w])
