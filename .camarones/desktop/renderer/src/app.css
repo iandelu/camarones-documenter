@@ -307,6 +307,24 @@ a.dk-stat-n:hover { color: var(--color-acento-texto); }
 .dk-mode:hover:not(:disabled) { border-color: var(--color-ink-dim); }
 .dk-mode:focus-visible { outline: 2px solid var(--color-acento-texto); outline-offset: 2px; }
 
+/* the Board: six columns of cards; a card moves by drag or by the keyboard */
+.dk-bd { display: grid; grid-template-columns: repeat(6, minmax(10rem, 1fr)); gap: .75rem; overflow-x: auto; padding-bottom: .25rem; }
+.dk-bd-col { display: flex; flex-direction: column; gap: .5rem; min-width: 0; min-height: 8rem; padding: .6rem; border: 1px solid var(--color-rule);
+             border-radius: var(--consola-radio-tarjeta); background: color-mix(in srgb, var(--color-canvas-elevated) 60%, transparent); }
+.dk-bd-col.over { border-style: dashed; border-color: var(--color-ink-dim); }
+.dk-bd-head { display: flex; justify-content: space-between; margin: 0 0 .15rem; font: 600 var(--text-meta) var(--font-sans); }
+.dk-bd-none { margin: .25rem 0; }
+.dk-bd-card { display: flex; flex-direction: column; gap: .3rem; padding: .55rem .7rem; border: 1px solid var(--color-rule);
+              border-radius: var(--consola-radio-chico); background: var(--color-canvas-elevated); color: var(--color-ink); }
+.dk-bd-card[draggable=true] { cursor: grab; }
+.dk-bd-card:hover { border-color: var(--color-ink-dim); }
+.dk-bd-card.on, .dk-bd-card.grabbed { border-color: var(--color-ink); }
+.dk-bd-card.grabbed { box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-ink) 25%, transparent); }
+.dk-bd-card:focus-visible { outline: 2px solid var(--color-acento-texto); outline-offset: 2px; }
+.dk-bd-top { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; }
+.dk-bd-id { font-size: var(--text-meta); }
+.dk-bd-title { line-height: 1.3; overflow-wrap: anywhere; }
+
 @media (prefers-reduced-motion: reduce) {
   .dk-hint { transition: none; }
   .dk-card { transition: none; }
