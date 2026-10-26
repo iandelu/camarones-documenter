@@ -9,7 +9,7 @@ from pathlib import Path
 KIT_DIR = Path(__file__).resolve().parents[2] / ".camarones"
 
 
-def run(root: str, home: str, rounds: int, bump: str, want: str) -> None:
+def run(root: str, home: str, rounds: int, bump: str, want: str, start=None) -> None:
     """Call connect()+nodes() `rounds` times on the project at `root`, bumping `bump`'s mtime each round so that both
     processes keep finding the index stale. Every answer must list `want` among the touches of some node."""
     os.environ["CAMARONES_ROOT"] = root
@@ -19,6 +19,8 @@ def run(root: str, home: str, rounds: int, bump: str, want: str) -> None:
     sys.path.insert(0, str(KIT_DIR))
     from lib.kanban import index
 
+    if start is not None:
+        start.wait(120)                       # both processes leave the gate together
     for _ in range(rounds):
         now = time.time_ns()
         os.utime(bump, ns=(now, now))

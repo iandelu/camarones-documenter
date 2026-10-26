@@ -15,6 +15,7 @@ from test_codemap import JAVA, write_graph
 ORDER = "api:api-core/src/main/java/demo/shop/orders/OrderService.java"
 PAY = "api:api-core/src/main/java/demo/shop/payments/PaymentClient.java"
 PAGE = "cam-docs:docs/orders.md"
+DTO = "api:api-core/src/main/java/demo/shop/payments/dto/PaymentDto.java"
 
 
 @pytest.fixture
@@ -80,8 +81,8 @@ def test_prefix_matches_come_before_substring_matches(world):
     kit, ops, index, one, two = world
     conn = index.connect()
     try:
-        assert index.search(conn, "pay")[0]["touch"] == PAY            # the file name starts with it
-        assert index.search(conn, "PAYMENTC")[0]["touch"] == PAY       # case-insensitive
+        assert {h["touch"] for h in index.search(conn, "pay")[:2]} == {PAY, DTO}   # file names start with it
+        assert index.search(conn, "PAYMENTC")[0]["touch"] == PAY                    # case-insensitive
         hits = [h["touch"] for h in index.search(conn, "ment")]        # substring only
         assert PAY in hits
     finally:
@@ -243,12 +244,19 @@ def test_two_processes_rebuild_at_once(world):
     card = ops.load_state()[1][two].path
     index.DB.unlink(missing_ok=True)
     ctx = multiprocessing.get_context("spawn")
-    procs = [ctx.Process(target=index_worker.run, args=(str(kit.root), str(kit.home), 20, str(card), "api:new/File.java"))
+    start = ctx.Barrier(2)                                             # both begin rebuilding at the same moment
+    procs = [ctx.Process(target=index_worker.run,
+                         args=(str(kit.root), str(kit.home), 20, str(card), "api:new/File.java", start))
              for _ in range(2)]
     for p in procs:
         p.start()
     for p in procs:
         p.join(240)
+    stuck = [p for p in procs if p.is_alive()]
+    for p in stuck:
+        p.terminate()
+        p.join(10)
+    assert not stuck, "a worker did not finish"
     assert [p.exitcode for p in procs] == [0, 0]
     conn = index.connect()
     try:
@@ -270,3 +278,104 @@ def test_uninstall_leaves_no_trace(world):
     index.connect().close()
     assert index.DB.exists()
     assert not list(index.DB.parent.glob("board.db-*"))                # no journal side files left behind
+
+
+@pytest.fixture
+def bare(kit):
+    """A board with no cards and no pages, only the code map: what a story being drafted looks like."""
+    subprocess.run(["git", "init", "-q", str(kit.root)], check=True)
+    from lib.kanban import ops, index
+    ops.init(log=lambda _: None)
+    write_graph(kit)
+    return kit, ops, index
+
+
+RES = "api:api-web/src/main/java/demo/shop/web/OrderResource.java"
+
+
+
+def test_every_graph_file_is_searchable_and_has_a_group(bare):
+    kit, ops, index = bare
+    conn = index.connect()
+    try:
+        assert index.search(conn, "OrderRes")[0] == {"touch": RES, "group": "web/web", "kind": "file"}
+        assert {"touch": "api:web/web", "group": "web/web", "kind": "group"} in index.search(conn, "web/w")
+        assert index.search(conn, "paymentd")[0]["touch"] == DTO
+        # files nobody touches or cites still get their group; one the graph does not know gets its folder's name
+        new, other_repo = "api:api-core/src/main/java/demo/shop/orders/Fresh.java", "web:src/App.jsx"
+        assert index.groups(conn, [RES, DTO, new, other_repo]) == {
+            RES: "web/web", DTO: "core/payments/dto", new: "orders", other_repo: "src"}
+    finally:
+        conn.close()
+
+
+def test_every_edge_of_the_graph_is_indexed_not_only_touched_ones(bare):
+    kit, ops, index = bare
+    conn = index.connect()
+    try:
+        order = "api:api-core/src/main/java/demo/shop/orders/OrderService.java"
+        assert index.edges(conn, [RES, order]) == {(RES, order)}          # no card touches either file
+        assert index.edges(conn, [RES]) == set()                          # both ends must be in the given touches
+        assert conn.execute("select count(*) from edges").fetchone()[0] == 4
+    finally:
+        conn.close()
+
+
+def test_two_archived_files_with_one_id_do_not_break_the_index(world, caplog):
+    kit, ops, index, one, two = world
+    a = kit.root / "backlog" / "archive" / "tasks"
+    a.mkdir(parents=True, exist_ok=True)
+    text = ops.load_state()[1][one].path.read_text(encoding="utf-8")
+    (a / "wi-9 - first.md").write_text(text.replace(f"id: {one}", "id: WI-9"), encoding="utf-8")
+    (a / "wi-9 - second.md").write_text(text.replace(f"id: {one}", "id: WI-9").replace("Place order", "Other"),
+                                        encoding="utf-8")
+    with caplog.at_level("WARNING", logger="camaron.board.index"):
+        conn = index.connect()
+    try:
+        assert [n["id"] for n in index.nodes(conn)] == [one, two, "WI-9"]
+        assert conn.execute("select title from items where id='WI-9'").fetchone()[0] == "Place order"   # first file wins
+    finally:
+        conn.close()
+    assert any("WI-9" in r.getMessage() for r in caplog.records)
+
+
+@pytest.mark.parametrize("sources", ["3", "[3, null, {a: b}]", "api:api-core/x/Y.java#z", "[api:a.py, 4]"])
+def test_hand_written_x_sources_never_break_the_index(world, sources):
+    kit, ops, index, one, two = world
+    (kit.root / "docs" / "odd.md").write_text(
+        "---\ntitle: Odd\nx-sources: " + sources + "\n---\n# Odd\n", encoding="utf-8")
+    conn = index.connect()
+    try:
+        assert [n["id"] for n in index.nodes(conn)] == [one, two]
+        assert index.cites(conn, ["cam-docs:docs/odd.md"]).get("cam-docs:docs/odd.md", set()) <= {
+            "api:api-core/x/Y.java", "api:a.py"}
+    finally:
+        conn.close()
+
+
+def test_odd_card_fields_never_break_the_index(world):
+    kit, ops, index, one, two = world
+    edit(ops, one, priority=[1, 2], parent_task_id=["WI-1"], **{"x-touches": ["api:ok.py", 5, None]})
+    conn = index.connect()
+    try:
+        assert [n["id"] for n in index.nodes(conn)] == [one, two]
+    finally:
+        conn.close()
+
+
+def test_the_in_memory_fallback_closes_its_connection_when_the_build_fails(world, monkeypatch):
+    kit, ops, index, one, two = world
+    opened = []
+
+    class Rec(sqlite3.Connection):
+        closed = False
+
+        def close(self):
+            self.closed = True
+            super().close()
+    real = sqlite3.connect
+    monkeypatch.setattr(index.sqlite3, "connect", lambda *a, **k: opened.append(real(*a, factory=Rec, **k)) or opened[-1])
+    monkeypatch.setattr(index, "_build", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("bug")))
+    with pytest.raises(RuntimeError):
+        index._in_memory("x")
+    assert opened and all(c.closed for c in opened)

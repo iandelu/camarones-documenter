@@ -10,9 +10,11 @@ Windows); a rebuild is written to a temp file named with the pid and moved into 
 never leaves a half-built db and two processes rebuilding at once cannot corrupt it; any `sqlite3.Error` deletes the
 file and rebuilds once; if that fails too the index is built in `:memory:` for this call and a warning is logged.
 
-Beyond the six tables of the spec, the schema has three additive columns/tables the queries need: `items.repos` (the
-declared `x-repos`, which `deps.Node` carries), `cites.grp` (the group of a cited file, for `groups` and `search`) and
-`pages` (every doc page and its title, so a page that cites nothing can still be found).
+Beyond the six tables of the spec, the schema has additive columns/tables the queries need: `items.repos` (the declared
+`x-repos`, which `deps.Node` carries), `cites.grp` (the group of a cited file), `files` (every file of every repo's
+code map with its group, so a story being drafted can search and group files no card touches yet) and `pages` (every
+doc page and its title). `edges` holds every file-level edge of every graph, so code order works for subtasks that are
+not saved yet.
 
 Queries return plain Python data (lists, sets, dicts of str), never sqlite rows. The caller closes the connection."""
 from __future__ import annotations
@@ -58,6 +60,9 @@ create table cites(page text, repo text, path text, grp text);
 create index cites_file on cites(repo, path);
 create index cites_page on cites(page);
 create table pages(touch text primary key, title text);
+create table files(repo text, path text, grp text);
+create index files_file on files(repo, path);
+create index files_grp on files(repo, grp);
 """
 
 
@@ -113,13 +118,18 @@ def _source(ref: object) -> tuple[str, str] | None:
     return _split(f"{repo}:{path}")
 
 
+def _folder(repo: str, path: str) -> str:
+    """The group of a file the code map does not know: the name of its folder (the repo's for a top-level file)."""
+    return PurePosixPath(path).parent.name or repo
+
+
 class _Groups:
     """The group of a file: the code map's, else the folder it is in; doc pages are all in `docs`."""
 
     def __init__(self) -> None:
         self._maps: dict[str, dict[str, str]] = {}
 
-    def _map(self, repo: str) -> dict[str, str]:
+    def map(self, repo: str) -> dict[str, str]:
         if repo not in self._maps:
             try:
                 self._maps[repo] = codemap.group_of(repo) if codemap.graph_file(repo).is_file() else {}
@@ -131,7 +141,7 @@ class _Groups:
     def of(self, repo: str, path: str) -> str:
         if repo == DOCS_REPO:
             return DOCS_GROUP
-        return self._map(repo).get(path) or PurePosixPath(path).parent.name or repo
+        return self.map(repo).get(path) or _folder(repo, path)
 
 
 def _item_rows() -> list[tuple[dict, bool]]:
@@ -142,9 +152,25 @@ def _item_rows() -> list[tuple[dict, bool]]:
         found, _ = load_dir(TASKS)
         cards, items = {}, {i.id: i for i in found}
     rows = [(ops._row(item, cards.get(item_id)), False) for item_id, item in items.items()]
-    archived, _ = load_dir(ARCHIVE)
-    rows += [(ops._row(i, None), True) for i in archived if i.id not in items]
+    archived, _ = load_dir(ARCHIVE)                 # sorted by file name
+    seen = set(items)
+    for i in archived:
+        if i.id in seen:
+            log.warning("board index: %s is in more than one file; keeping the first, ignoring %s", i.id, i.path)
+            continue
+        seen.add(i.id)
+        rows.append((ops._row(i, None), True))
     return rows
+
+
+def _text(v: object) -> str | None:
+    """A scalar as text for a column; hand-written lists and numbers must not make a bind fail."""
+    return None if v is None else v if isinstance(v, str) else str(v)
+
+
+def _strings(v: object) -> list[str]:
+    """A field people write as a list or as a lone value; anything that is not text is dropped."""
+    return [v] if isinstance(v, str) else [x for x in v if isinstance(x, str)] if isinstance(v, (list, tuple)) else []
 
 
 def _page_touch(logical: str, f) -> str:
@@ -160,20 +186,17 @@ def _build(conn: sqlite3.Connection, snap: str) -> None:
     conn.execute("pragma synchronous=off")           # a temp file: until os.replace it is not the database
     conn.executescript(SCHEMA)
     groups = _Groups()
-    known: dict[str, set[str]] = defaultdict(set)    # repo -> code files that touches or citations name
 
     items, touches, deps = [], [], []
     for row, archived in _item_rows():
-        items.append((row["id"], row["uid"], row["type"], row["status"], row["priority"], row["parent"], row["title"],
-                      int(archived), json.dumps(row["repos"])))
+        items.append((row["id"], _text(row["uid"]), _text(row["type"]), _text(row["status"]), _text(row["priority"]),
+                      _text(row["parent"]), _text(row["title"]), int(archived), json.dumps(row["repos"])))
         seen = set()
         for ref in row["touches"]:
             rp = _split(ref)
             if rp and rp not in seen:
                 seen.add(rp)
                 touches.append((row["id"], rp[0], rp[1], groups.of(*rp)))
-                if rp[0] != DOCS_REPO:
-                    known[rp[0]].add(rp[1])
         deps += [(row["id"], d) for d in sorted(set(row["dependencies"]))]
 
     cites, pages = [], []
@@ -184,21 +207,21 @@ def _build(conn: sqlite3.Connection, snap: str) -> None:
             continue
         page = _page_touch(logical, f)
         pages.append((page, str(fm.get("title") or docs.first_heading(body) or logical)))
-        sources = fm.get("x-sources") or []
-        for rp in sorted({s for s in map(_source, [sources] if isinstance(sources, str) else sources) if s}):
+        for rp in sorted({s for s in map(_source, _strings(fm.get("x-sources"))) if s}):
             cites.append((page, rp[0], rp[1], groups.of(*rp)))
-            if rp[0] != DOCS_REPO:
-                known[rp[0]].add(rp[1])
 
-    edges = []
-    for repo, files in sorted(known.items()):
-        edges += [(repo, s, d) for s, d in sorted(codemap.file_edges(repo)) if s in files and d in files]
+    files, edges = [], []                            # the whole code map of every repo that has a graph
+    for repo in docs.repo_names():
+        if codemap.graph_file(repo).is_file():
+            files += [(repo, path, grp) for path, grp in sorted(groups.map(repo).items())]
+            edges += [(repo, s, d) for s, d in sorted(codemap.file_edges(repo))]
 
     conn.executemany("insert into items values (?,?,?,?,?,?,?,?,?)", items)
     conn.executemany("insert into touches values (?,?,?,?)", touches)
     conn.executemany("insert into deps values (?,?)", deps)
     conn.executemany("insert into edges values (?,?,?)", edges)
     conn.executemany("insert into cites values (?,?,?,?)", cites)
+    conn.executemany("insert into files values (?,?,?)", files)
     conn.executemany("insert or replace into pages values (?,?)", pages)
     conn.executemany("insert into meta values (?,?)", [("format", str(FORMAT)), ("snapshot", snap)])
     conn.commit()
@@ -252,7 +275,11 @@ def _sweep_temps() -> None:
 
 def _in_memory(snap: str) -> sqlite3.Connection:
     conn = sqlite3.connect(":memory:")
-    _build(conn, snap)
+    try:
+        _build(conn, snap)
+    except BaseException:
+        conn.close()
+        raise
     return conn
 
 
@@ -365,18 +392,20 @@ def cites(conn: sqlite3.Connection, touches: Iterable[str]) -> dict[str, set[str
 
 
 def groups(conn: sqlite3.Connection, touches: Iterable[str]) -> dict[str, str]:
-    """`{touch: group label}` for the entries the index knows (a card's footprint or a page's citation)."""
+    """`{touch: group label}` for every valid entry of `touches`: the code map's group, else the one a card or page
+    recorded, else (a file the graph does not know yet, or a repo without a graph) the name of its folder."""
     out: dict[str, str] = {}
     for repo, paths in _by_repo(touches).items():
         if repo == DOCS_REPO:
             out.update({f"{repo}:{p}": DOCS_GROUP for p in paths})
             continue
-        for table in ("touches", "cites"):
+        for table in ("files", "touches", "cites"):
             for chunk in _chunks(sorted(paths)):
                 for path, grp in conn.execute(
                         f"select distinct path, grp from {table} where repo = ? and path in ({_marks(len(chunk))})",
                         [repo, *chunk]):
                     out.setdefault(f"{repo}:{path}", grp)
+        out.update({f"{repo}:{p}": _folder(repo, p) for p in paths if f"{repo}:{p}" not in out})
     return out
 
 
@@ -385,7 +414,7 @@ _KIND_ORDER = {"file": 0, "group": 1, "page": 2}
 
 def search(conn: sqlite3.Connection, q: str, limit: int = 20) -> list[dict]:
     """Files, groups and doc pages whose name starts with `q` (first) or contains it, case-insensitive. A group's touch
-    is `repo:<group label>`. Files are those some card or page already names."""
+    is `repo:<group label>`. Files are the code map's, plus any a card or page names."""
     q = q.strip().lower()
     if not q:
         return []
@@ -401,11 +430,12 @@ def search(conn: sqlite3.Connection, q: str, limit: int = 20) -> list[dict]:
             hit["title"] = title
         found.append((rank, _KIND_ORDER[kind], touch.lower(), hit))
 
-    files = conn.execute("select repo, path, grp from touches where repo != ? "
-                         "union select repo, path, grp from cites where repo != ?", (DOCS_REPO, DOCS_REPO)).fetchall()
-    for repo, path, grp in files:
+    conn.create_function("plower", 1, lambda v: v.lower(), deterministic=True)
+    every = " union ".join(f"select repo, path, grp from {t} where repo != ?1" for t in ("files", "touches", "cites"))
+    for repo, path, grp in conn.execute(
+            f"select * from ({every}) where instr(plower(repo || ':' || path), ?2) > 0", (DOCS_REPO, q)):
         consider("file", f"{repo}:{path}", grp, [PurePosixPath(path).name, path])
-    for repo, grp in sorted({(r, g) for r, _, g in files}):
+    for repo, grp in conn.execute(f"select distinct repo, grp from ({every})", (DOCS_REPO,)):
         consider("group", f"{repo}:{grp}", grp, [grp])
     for touch, title in conn.execute("select touch, title from pages"):
         consider("page", touch, DOCS_GROUP, [title, PurePosixPath(touch).name], title)
