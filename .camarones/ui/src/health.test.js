@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, test } from 'vitest'
 import { S, t as text } from '../i18n/index.js'
 import { HealthBoard } from './index.js'
-import { fmtAgo, nextReason, repoRow, rowsFor, safeUrl, tileTarget, verdictText } from './health.js'
+import { fmtAgo, fmtDebt, gateWord, nextReason, reasonText, repoRow, rowsFor, safeUrl, sonarConnectHash, sourceWord, tileTarget, verdictText } from './health.js'
 
 const en = (k) => text(k, 'en')
 const es = (k) => text(k, 'es')
@@ -265,7 +265,7 @@ const here = (f) => readFileSync(new URL(f, import.meta.url), 'utf-8')
 const IDS = { machine: ['doctor', 'drift'], docs: ['fresh', 'evals', 'context', 'review', 'blocks', 'ab'], code: ['repos', 'libs'] }
 const REASONS = ['machine.missing', 'machine.drift', 'machine.unchecked', 'docs.stale', 'docs.suspect', 'docs.context', 'docs.noEvals',
   'docs.review', 'docs.unread', 'code.vulnHigh', 'code.vulnMedium', 'code.noScan', 'code.oldScan', 'code.lowCoverage', 'code.highDebt',
-  'code.unread']
+  'code.gateFailed', 'code.unread']
 const FIGURES = ['machine.tools', 'machine.missing', 'docs.stale', 'docs.review', 'code.libraries', 'code.vulnHigh']
 
 test('every hb.* key the board names exists in es and en, dynamic families included', () => {
@@ -275,14 +275,17 @@ test('every hb.* key the board names exists in es and en, dynamic families inclu
     'hb.area': Object.keys(IDS), 'hb.state': ['ok.machine', 'ok.docs', 'ok.code', 'warn', 'bad', 'none'], 'hb.sev': ['critical', 'high', 'medium', 'moderate', 'low', 'unknown'],
     'hb.impact': ['high', 'medium', 'low', 'unknown'], 'hb.trust': ['draft', 'confirmed', 'suspect', 'stale'],
     'hb.col': ['repo', 'sonar', 'coverage', 'vulns', 'debt'], 'hb.ago': ['now', 'min', 'hour', 'day'],
+    'hb.gate': ['OK', 'WARN', 'ERROR'], 'hb.source': ['sonar', 'report'],
   }
   for (const [f, ks] of Object.entries(families)) for (const k of ks) used.add(`${f}.${k}`)
   for (const l of ['es', 'en']) expect([...used].filter((k) => !S[l][k]), l).toEqual([])
   expect(Object.keys(S.es).sort()).toEqual(Object.keys(S.en).sort())
 })
 
-test('there is no gate reason yet: step (c) adds it', () => {
-  expect(Object.keys(S.en).filter((k) => k.includes('gateFailed'))).toEqual([])
+test('the failed quality gate has its reason in both languages', () => {
+  expect(en('hb.reason.code.gateFailed')).toContain('{n}')
+  expect(es('hb.reason.code.gateFailed')).toContain('{n}')
+  expect(reasonText({ key: 'code.gateFailed', n: 2 }, en)).toContain('2')
 })
 
 test('the area words follow the spec in Spanish and English', () => {
@@ -296,4 +299,95 @@ test('safeUrl keeps http(s) links only', () => {
   expect(safeUrl('https://sonar.example.com/dashboard?id=k')).toBe('https://sonar.example.com/dashboard?id=k')
   expect(safeUrl('http://localhost:9000/x')).toBe('http://localhost:9000/x')
   for (const bad of ['javascript:alert(1)', 'data:text/html,x', '//evil.example', '', null, undefined, 7]) expect(safeUrl(bad)).toBeNull()
+})
+
+// ---- step (c): the figures of the SonarQube server ----
+
+const server = (over = {}) => ({ at: '2026-10-26T08:00:00Z', host: 'https://sonar.acme.test', gate: 'OK', coverage: 81.5, bugs: 2, vulnerabilities: 0,
+  security_hotspots: 1, code_smells: 40, debt_minutes: 1500, ratings: { maintainability: 'A', reliability: 'B', security: 'A' }, ...over })
+const sonar = (over = {}) => ({ used: true, project: 'acme_api', organization: '', host: 'https://sonar.acme.test', link: 'https://sonar.acme.test/dashboard?id=acme_api', ...over })
+const NOW = Date.parse('2026-10-26T11:00:00Z')
+
+test('the gate word, in the reader\'s language; a gate nobody gave is a dash', () => {
+  expect([gateWord('OK', en), gateWord('WARN', en), gateWord('ERROR', en)]).toEqual(['Passed', 'Warning', 'Failed'])
+  expect([gateWord('OK', es), gateWord('WARN', es), gateWord('ERROR', es)]).toEqual(['Aprobado', 'Aviso', 'Suspendido'])
+  for (const g of [null, undefined, 'NONE', 7]) expect(gateWord(g, en)).toBe('—')
+})
+
+test('the coverage source is a word: Sonar, report/informe; a source we do not know stays as it is', () => {
+  expect([sourceWord('sonar', en), sourceWord('report', en), sourceWord('report', es)]).toEqual(['Sonar', 'report', 'informe'])
+  expect(sourceWord('jacoco', en)).toBe('jacoco')
+  expect(sourceWord(undefined, en)).toBe('')
+})
+
+test('debt time in working days of 8 h: "2 d 3 h", minutes under an hour, 0 min, and a dash for nothing', () => {
+  expect(fmtDebt(1500)).toBe('3 d 1 h')
+  expect(fmtDebt(2 * 480 + 3 * 60)).toBe('2 d 3 h')
+  expect(fmtDebt(480)).toBe('1 d')
+  expect(fmtDebt(60)).toBe('1 h')
+  expect(fmtDebt(479)).toBe('7 h')
+  expect(fmtDebt(59)).toBe('59 min')
+  expect(fmtDebt(45)).toBe('45 min')
+  expect(fmtDebt(0)).toBe('0 min')
+  for (const bad of [null, undefined, NaN, Infinity, -5, '90', true]) expect(fmtDebt(bad)).toBe('—')
+})
+
+test('a repo row shows the gate word and Sonar\'s coverage with Sonar as its source', () => {
+  const r = repoRow('api', repo({ sonar: { ...sonar(), server: server() }, coverage: { percent: 81.5, at: '2026-10-26T08:00:00Z', source: 'sonar', path: null } }), 'ok', en, true, NOW)
+  expect(r.sonar).toBe('Passed')
+  expect(r.gateState).toBe('ok')
+  expect(r.sonarLink).toBe('https://sonar.acme.test/dashboard?id=acme_api')
+  expect(r.coverage).toBe('81.5%')
+  expect(r.coverageNote).toBe('Sonar · 2026-10-26')
+  expect(r.error).toBeUndefined()
+  const gone = repoRow('api', repo({ sonar: { ...sonar(), server: server({ gate: 'ERROR' }) } }), 'bad', es, true, NOW)
+  expect([gone.sonar, gone.gateState]).toEqual(['Suspendido', 'bad'])
+  expect(repoRow('api', repo({ sonar: { ...sonar(), server: server({ gate: 'WARN' }) } }), 'warn', en, true, NOW).gateState).toBe('warn')
+  expect(repoRow('api', repo({ sonar: { ...sonar(), server: server({ gate: null }) } }), 'ok', en, true, NOW).sonar).toBe('—')
+})
+
+test('the coverage source of a report reads as a word, not as the raw key', () => {
+  const r = repoRow('api', repo({ coverage: { percent: 71, at: '2026-10-20', source: 'report', path: 'x' } }), 'ok', es, true, NOW)
+  expect(r.coverageNote).toBe('informe · 2026-10-20')
+})
+
+test('a Sonar repo without server figures says yes (or no); the gate never shows 0 or a made-up word', () => {
+  expect(repoRow('api', repo({ sonar: sonar() }), 'ok', en, true, NOW).sonar).toBe('yes')
+  expect(repoRow('api', repo(), 'ok', en, true, NOW).sonar).toBe('no')
+})
+
+test('a repo with connect: true exposes the host to connect, and #/machine asks for the token of that host', () => {
+  const r = repoRow('api', repo({ sonar: sonar({ connect: true }) }), 'ok', en, true, NOW)
+  expect(r.connect).toBe('https://sonar.acme.test')
+  expect(repoRow('api', repo({ sonar: sonar() }), 'ok', en, true, NOW).connect).toBeUndefined()
+  expect(sonarConnectHash('https://sonar.acme.test/a b')).toBe('#/machine?host=https%3A%2F%2Fsonar.acme.test%2Fa%20b&kind=sonarqube')
+})
+
+test('a Sonar error with kept values shows the gate, how old they are and the reason', () => {
+  const r = repoRow('api', repo({ sonar: { ...sonar(), server: server({ gate: 'ERROR' }), error: 'sin conexión' } }), 'bad', en, true, NOW)
+  expect(r.sonar).toBe('Failed')
+  expect(r.sonarNote).toBe('from 3 h ago')
+  expect(r.error).toBe('sin conexión')
+  expect(repoRow('api', repo({ sonar: { ...sonar(), server: server(), error: 'sin conexión' } }), 'ok', es, true, NOW).sonarNote).toBe('de hace 3 h')
+})
+
+test('a Sonar error without values is the reason alone: unread in the cell, the message under the repo', () => {
+  const r = repoRow('api', repo({ sonar: { ...sonar(), error: 'proyecto no encontrado' } }), 'warn', en, true, NOW)
+  expect(r.sonar).toBe(en('hb.unread'))
+  expect(r.sonarNote).toBeUndefined()
+  expect(r.error).toBe('proyecto no encontrado')
+  expect(r.sonarLink).toBe('https://sonar.acme.test/dashboard?id=acme_api')
+  expect(repoRow('api', repo({ sonar: { error: 'torn' } }), 'warn', en, true, NOW)).toMatchObject({ sonar: en('hb.unread'), error: 'torn' })
+})
+
+test('the board draws the gate word, its age and the connect link only where the app gives connectHref', () => {
+  const s = snapshot({ repos: { api: repo({ sonar: { ...sonar(), server: server({ gate: 'ERROR' }), error: 'sin conexión' } }), web: repo({ sonar: sonar({ connect: true }) }) },
+    repo_state: { api: 'bad', web: 'ok' } })
+  const code = (props) => renderToStaticMarkup(h(HealthBoard, { snapshot: s, initialTab: 'code', ...props }))
+  const app = code({ connectHref: sonarConnectHash })
+  expect(app).toContain('Failed')
+  expect(app).toContain('sin conexión')
+  expect(app).toContain(`href="#/machine?host=${encodeURIComponent('https://sonar.acme.test')}&amp;kind=sonarqube"`)
+  expect(app).toContain(en('hb.connect'))
+  expect(code({})).not.toContain(en('hb.connect'))
 })

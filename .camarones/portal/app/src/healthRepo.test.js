@@ -94,3 +94,59 @@ test('evidence repo:path opens the file in the code view; anything else is plain
   expect(evidenceHref('api:')).toBeNull()
   expect(evidenceHref(7)).toBeNull()
 })
+
+// ---- step (c): what the SonarQube server says ----
+
+const server = (over = {}) => ({ at: '2026-10-26T08:00:00Z', host: 'https://sonar.acme.test', gate: 'ERROR', coverage: 81.5, bugs: 2, vulnerabilities: 0,
+  security_hotspots: 1, code_smells: 40, debt_minutes: 2 * 480 + 3 * 60, ratings: { maintainability: 'A', reliability: 'B', security: null }, ...over })
+const withSonar = (sonar) => ({ ...snapshot, repos: { ...snapshot.repos, api: { ...snapshot.repos.api, sonar: { ...snapshot.repos.api.sonar, ...sonar } } } })
+
+test('the nine Sonar figures come in order, debt as days and hours, a missing one absent (never 0)', () => {
+  const p = repoPage(withSonar({ server: server() }), 'api')
+  expect(p.gate).toBe('ERROR')
+  expect(p.sonarFigures.map((f) => f.key)).toEqual(['coverage', 'bugs', 'vulnerabilities', 'security_hotspots', 'code_smells', 'debt_minutes',
+    'maintainability', 'reliability', 'security'])
+  expect(p.sonarFigures.map((f) => f.value)).toEqual(['81.5%', '2', '0', '1', '40', '2 d 3 h', 'A', 'B', null])
+  expect(p.sonarAt).toBe('2026-10-26T08:00:00Z')
+  expect(p.sonarError).toBeUndefined()
+})
+
+test('figures the server did not give are absent, and a zero is a zero', () => {
+  const p = repoPage(withSonar({ server: server({ coverage: null, bugs: 0, debt_minutes: 0, ratings: undefined }) }), 'api')
+  expect(Object.fromEntries(p.sonarFigures.map((f) => [f.key, f.value])))
+    .toMatchObject({ coverage: null, bugs: '0', debt_minutes: '0 min', maintainability: null })
+})
+
+test('a page without server values has no figures and no gate', () => {
+  for (const name of ['api', 'web']) {
+    const p = repoPage(snapshot, name)
+    expect([p.gate, p.sonarFigures, p.sonarAt]).toEqual([null, [], null])
+  }
+})
+
+test('a Sonar error with kept values keeps the figures, their date and the reason', () => {
+  const p = repoPage(withSonar({ server: server(), error: 'sin conexión' }), 'api')
+  expect(p.sonarError).toBe('sin conexión')
+  expect(p.errors.sonar).toBeUndefined()                                   // the block is there, only its last read failed
+  expect(p.sonar).toMatchObject({ used: true, project: 'org_api' })
+  expect(p.gate).toBe('ERROR')
+  expect(p.sonarFigures).toHaveLength(9)
+  expect(p.sonarAt).toBe('2026-10-26T08:00:00Z')
+})
+
+test('a Sonar error without values is the reason alone', () => {
+  const p = repoPage(withSonar({ error: 'token no válido' }), 'api')
+  expect(p.sonarError).toBe('token no válido')
+  expect(p.sonar).toMatchObject({ used: true })
+  expect([p.gate, p.sonarFigures, p.sonarAt]).toEqual([null, [], null])
+})
+
+test('a repo that needs a token exposes the host to connect', () => {
+  expect(repoPage(withSonar({ connect: true }), 'api').connect).toBe('sonarcloud.io')
+  expect(repoPage(snapshot, 'api').connect).toBeUndefined()
+})
+
+test('the coverage of Sonar says Sonar as its source', () => {
+  const p = repoPage({ ...withSonar({ server: server() }), repos: { api: { ...withSonar({ server: server() }).repos.api, coverage: { percent: 81.5, at: '2026-10-26T08:00:00Z', source: 'sonar', path: null } } } }, 'api')
+  expect(p.coverage.source).toBe('sonar')
+})

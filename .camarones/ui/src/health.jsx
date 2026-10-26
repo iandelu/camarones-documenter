@@ -60,7 +60,7 @@ function Tile({ area, snapshot, actions, links, onOpen }) {
   )
 }
 
-function RepoTable({ snapshot, repoHref }) {
+function RepoTable({ snapshot, repoHref, connectHref }) {
   const repos = snapshot.repos
   if (!repos || typeof repos !== 'object' || typeof repos.error === 'string') return null
   const scanned = snapshot.inventory?.scanned === true
@@ -82,8 +82,13 @@ function RepoTable({ snapshot, repoHref }) {
                 <span className="cu-hb-sub">{stateWord('code', r.state, t)}{r.note && ` · ${r.note}`}</span>
                 {r.error && <span className="cu-hb-sub cu-hb-sub--error">{r.error}</span>}
               </th>
-              <td>{r.sonarLink && safeUrl(r.sonarLink)
-                ? <a href={safeUrl(r.sonarLink)} target="_blank" rel="noopener noreferrer">{r.sonar}</a> : r.sonar}</td>
+              <td>
+                {r.gateState && <><Dot state={r.gateState} /> </>}
+                {r.sonarLink && safeUrl(r.sonarLink)
+                  ? <a href={safeUrl(r.sonarLink)} target="_blank" rel="noopener noreferrer">{r.sonar}</a> : r.sonar}
+                {r.sonarNote && <span className="cu-hb-sub">{r.sonarNote}</span>}
+                {r.connect && connectHref && <a className="cu-hb-sub" href={connectHref(r.connect)}>{t('hb.connect')}</a>}
+              </td>
               <td>{r.coverage}{r.coverageNote && <span className="cu-hb-sub">{r.coverageNote}</span>}</td>
               <td>{r.vulns}</td>
               <td>{r.debt}</td>
@@ -96,7 +101,7 @@ function RepoTable({ snapshot, repoHref }) {
   )
 }
 
-function Row({ area, row, snapshot, actions, links, repoHref, open, onToggle }) {
+function Row({ area, row, snapshot, actions, links, repoHref, connectHref, open, onToggle }) {
   const action = actions?.[row.id]
   const control = action
     ? <Button variant="ghost" size="sm" aria-expanded={open} aria-controls={`cu-hb-open-${row.id}`} onClick={() => onToggle(row.id)}>{t('hb.open')}</Button>
@@ -112,12 +117,12 @@ function Row({ area, row, snapshot, actions, links, repoHref, open, onToggle }) 
       <span className="cu-hb-row-slot">{control}</span>
       {row.error && <div className="cu-hb-row-error"><Aviso tone="warn" title={t('hb.rowUnread')} detail={row.error} /></div>}
       {action && open && <div className="cu-hb-row-body" id={`cu-hb-open-${row.id}`}>{action()}</div>}
-      {row.id === 'repos' && <div className="cu-hb-row-body"><RepoTable snapshot={snapshot} repoHref={repoHref} /></div>}
+      {row.id === 'repos' && <div className="cu-hb-row-body"><RepoTable snapshot={snapshot} repoHref={repoHref} connectHref={connectHref} /></div>}
     </li>
   )
 }
 
-export function HealthBoard({ snapshot, actions, links, repoHref, onRefresh, refreshing, initialTab, initialOpen = [] }) {
+export function HealthBoard({ snapshot, actions, links, repoHref, connectHref, onRefresh, refreshing, initialTab, initialOpen = [] }) {
   const [open, setOpen] = useState(() => new Set(initialOpen))          // row ids whose action is showing
   const toggle = (id) => setOpen((s) => { const n = new Set(s); if (!n.delete(id)) n.add(id); return n })
   const [tab, setTab] = useState(() => initialTab ?? savedTab()
@@ -166,7 +171,7 @@ export function HealthBoard({ snapshot, actions, links, repoHref, onRefresh, ref
         ))}
       </div>
       <ul className="cu-hb-rows" role="tabpanel" id="cu-hb-panel" aria-labelledby={`cu-hb-tab-${tab}`}>
-        {rows.map((r) => <Row key={r.id} area={tab} row={r} snapshot={snapshot} actions={actions} links={links} repoHref={repoHref}
+        {rows.map((r) => <Row key={r.id} area={tab} row={r} snapshot={snapshot} actions={actions} links={links} repoHref={repoHref} connectHref={connectHref}
                                    open={open.has(r.id)} onToggle={toggle} />)}
       </ul>
     </div>
