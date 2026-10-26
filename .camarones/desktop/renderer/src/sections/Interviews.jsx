@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Button, Card, Skeleton } from '@camaron/ui'
 import { useAgents, useCmd } from '../hooks.js'
-import { AgentPicker, Failed, JobOutput, Page, UnitRow } from '../parts.jsx'
+import { AgentPicker, Failed, JobOutput, ModeChoice, Page, UnitRow } from '../parts.jsx'
 import Commands from './Commands.jsx'
 import { lang, t } from '../i18n.js'
 
-// The interviews by task: how they run (the team questionnaire or live with an agent); with the questionnaire, its
+// The interviews by task: how they run (the team questionnaire or live with an agent, asked first while nobody chose
+// it: the agent refuses an interview until then); with the questionnaire, its
 // state and what moves it — answer in the portal, export the form to share, import what comes back, close the round;
 // then each interview unit with the agent. Every action is a catalog command run by the server.
 const UNITS = ['questionnaire', 'answers', 'interview-context', 'interview-language', 'interview-history']
@@ -41,6 +42,16 @@ export default function Interviews({ srv, jobs, app }) {
   const s = d.status
   const answers = units.find((u) => u.id === 'answers')
   const agentUnits = units.filter((u) => u.runner === 'agent')
+  if (!d.chosen) return (
+    <Page title={t('nav.interviews')}>
+      <Card className="dk-run">
+        <span className="eyebrow">{t('iv.mode')}</span>
+        <b>{t('iv.chooseTitle')}</b>
+        <p className="muted small">{t('iv.chooseLead')}</p>
+        <ModeChoice srv={srv} jobs={jobs} onChosen={load} />
+      </Card>
+    </Page>
+  )
   return (
     <Page title={t('nav.interviews')}>
       <Card className="dk-run">
@@ -72,7 +83,7 @@ export default function Interviews({ srv, jobs, app }) {
       {agentUnits.length ? (
         <section className="dk-group-block">
           <div className="row dk-units-head"><h2 className="eyebrow dk-group">{t('iv.units')}</h2><span className="dk-grow"></span><AgentPicker a={a} /></div>
-          <ul className="dk-units">{agentUnits.map((u) => <UnitRow key={u.id} u={u} all={all} srv={srv} a={a} onChanged={load} />)}</ul>
+          <ul className="dk-units">{agentUnits.map((u) => <UnitRow key={u.id} u={u} all={all} srv={srv} a={a} plan={{ interviews: d.mode }} onChanged={load} />)}</ul>
         </section>
       ) : null}
       <Commands srv={srv} jobs={jobs} section="interviews" />

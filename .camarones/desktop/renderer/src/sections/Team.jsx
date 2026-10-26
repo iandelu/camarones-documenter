@@ -118,6 +118,10 @@ function Trust({ srv, jobs }) {
   )
 }
 
+// The plugins: the kit's own (installed with Camarón, nothing downloaded) and the team's (folders in the team repo's
+// .camarones/plugins/, they arrive when you pull it). On or off is this machine's choice only; a team plugin that
+// runs code or steers an agent is approved first (the card above), one that sends the docs out is off until enabled.
+const PLUGIN_STATE = { active: ['ok', 'tm.active'], 'off on this machine': [undefined, 'tm.off'], invalid: ['bad', 'tm.invalid'] }
 function Plugins({ srv, jobs }) {
   const list = useCmd(srv, jobs, { quiet: true })
   const act = useCmd(srv, jobs)
@@ -128,17 +132,25 @@ function Plugins({ srv, jobs }) {
   return (
     <Card className="dk-run">
       <span className="eyebrow">{t('tm.plugins')}</span>
+      <p className="muted small">{t('tm.pluginsLead')}</p>
       {Array.isArray(rows) ? (
-        <ul className="dk-units">{rows.map((p) => (
-          <li key={p.name} className="dk-unit">
-            <div className="dk-unit-main"><b>{p.name} <span className="muted small">{p.version}</span></b>
-              <span className="muted small">{(p.provides || []).map((k) => word('pk', k)).join(', ')}</span></div>
-            <div className="row dk-unit-acts">
-              {p.runs_code ? <span className="cu-chip cu-chip--warn">{t('tm.runsCode')}</span> : null}
-              <span className={'cu-chip ' + (p.status === 'active' ? 'cu-chip--ok' : '')}>{p.status === 'active' ? t('tm.active') : t('tm.inactive')}</span>
-              <Button size="sm" variant="ghost" disabled={act.running} onClick={() => toggle(p)}>{p.status === 'active' ? t('tm.disable') : t('tm.enable')}</Button>
-            </div>
-          </li>))}</ul>
+        <ul className="dk-units">{rows.map((p) => {
+          // a kit plugin that sends the docs out (Confluence, Notion) is simply off until enabled here
+          const [state, label] = PLUGIN_STATE[p.status] || (p.source === 'kit' ? [undefined, 'tm.off'] : ['warn', 'tm.needsOk'])
+          return (
+            <li key={p.name} className="dk-unit">
+              <div className="dk-unit-main"><b>{p.name} <span className="muted small">{p.version}</span></b>
+                <span className="muted small">{t(p.source === 'kit' ? 'tm.fromKit' : 'tm.fromTeam')} · {(p.provides || []).map((k) => word('pk', k)).join(', ')}</span>
+                {p.errors?.length ? <span className="small">{p.errors.join(' · ')}</span> : null}</div>
+              <div className="row dk-unit-acts">
+                {p.runs_code ? <span className="cu-chip cu-chip--warn">{t('tm.runsCode')}</span> : null}
+                {p.sends_data ? <span className="cu-chip cu-chip--warn">{t('tm.sendsData')}</span> : null}
+                <span className={'cu-chip' + (state ? ` cu-chip--${state}` : '')}>{t(label)}</span>
+                {p.status !== 'invalid' ? <Button size="sm" variant="ghost" disabled={act.running} onClick={() => toggle(p)}>{p.status === 'active' ? t('tm.disable') : t('tm.enable')}</Button> : null}
+              </div>
+            </li>
+          )
+        })}</ul>
       ) : <JobOutput c={list} />}
       <JobOutput c={act} />
     </Card>

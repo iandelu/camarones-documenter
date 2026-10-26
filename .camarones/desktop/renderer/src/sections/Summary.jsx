@@ -25,7 +25,7 @@ export default function Summary({ srv, jobs }) {
   if (error) return <Page title={title}><Failed title={t('summary.failed')} detail={error} onRetry={() => { setError(''); load() }} /></Page>
   if (!data) return <Page title={title}><Skeleton lines={5} /></Page>
   const { step, plan, review } = data
-  const next = action(step)
+  const next = action(step, data)
   const doc = doctorNote(data.doctor)
   const start = async () => {
     setLaunch({ busy: true, note: '', error: '' })

@@ -2,13 +2,14 @@ import { useState } from 'react'
 import { Aviso, Button, Chip } from '@camaron/ui'
 import { shape } from '@camaron/ui/result.js'
 import { chip, state } from './jobs.js'
+import { useCmd } from './hooks.js'
 import { unitAction, waitsFor } from './plan.js'
 import { lang, t } from './i18n.js'
 
 // The pieces the sections share: the page, the agent picker, a fold, a job's outcome and a plan unit's row.
 
-export const Page = ({ title, children }) => (
-  <div className="dk-page"><h1 className="t-impact">{title}</h1>{children}</div>
+export const Page = ({ title, children, wide = false }) => (
+  <div className={'dk-page' + (wide ? ' wide' : '')}><h1 className="t-impact">{title}</h1>{children}</div>
 )
 
 // A read that failed: what, the server's own message, and a way out.
@@ -70,13 +71,36 @@ export function ResultView({ result }) {
   )
 }
 
-// A plan unit and the one action that moves it (plan.js): approve, retry, continue or start with the agent picked,
-// or go where a unit the wizard runs is done. A half-done one can also start over.
-export function UnitRow({ u, all, srv, a, onChanged }) {
+// How the interviews run, chosen once per project (`interview mode`): the agent refuses an interview unit until then.
+// Each option says what it means; `compact` is the plan row's version, two buttons.
+export function ModeChoice({ srv, jobs, onChosen, compact = false }) {
+  const c = useCmd(srv, jobs)
+  const pick = async (mode) => { const end = await c.run('interview', { action: 'mode', args: [mode] }); if (end?.status === 'done') onChosen?.(mode) }
+  if (compact) return (<>
+    <Button size="sm" variant="primary" disabled={c.running} onClick={() => pick('team')}>{t('iv.team')}</Button>
+    <Button size="sm" disabled={c.running} onClick={() => pick('live')}>{t('iv.live')}</Button>
+    {c.error || c.job?.status === 'failed' ? <JobOutput c={c} /> : null}
+  </>)
+  return (
+    <div className="dk-modes">
+      {['team', 'live'].map((m) => (
+        <button key={m} type="button" className="dk-mode" disabled={c.running} onClick={() => pick(m)}>
+          <b>{t(m === 'team' ? 'iv.team' : 'iv.live')}</b>
+          <span className="muted small">{t(m === 'team' ? 'iv.teamWhat' : 'iv.liveWhat')}</span>
+        </button>
+      ))}
+      {c.error || c.job?.status === 'failed' ? <JobOutput c={c} /> : null}
+    </div>
+  )
+}
+
+// The one action that moves a plan unit (plan.js): approve, retry, continue or start with the agent picked, choose
+// how interviews run first, or go where a unit the wizard runs is done. A half-done one can also start over.
+// plan: {interviews} from the pipeline; onChanged: look again.
+export function UnitActions({ u, srv, a, plan, onChanged }) {
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState({ ok: '', error: '' })
-  const act = unitAction(u)
-  const waits = u.status === 'todo' && !u.ready ? waitsFor(u, all) : []
+  const act = unitAction(u, plan)
   async function go(fn, ok = '') {
     setBusy(true)
     setNote({ ok: '', error: '' })
@@ -85,25 +109,34 @@ export function UnitRow({ u, all, srv, a, onChanged }) {
   const agent = (mode) => go(() => srv.post('app/agent', { unit: u.id, agent: a.agent, lang: lang(), mode }),
     t('next.opened', { agent: a.label(a.agent) }))
   const noAgent = act?.kind === 'agent' && a.agents && !a.agents.length
+  return (<>
+    <div className="row dk-unit-acts">
+      {act?.kind === 'approve' ? <Button size="sm" variant="primary" disabled={busy} onClick={() => go(() => srv.post('units/approve', { unit: u.id }))}>{t(act.label)}</Button> : null}
+      {act?.kind === 'retry' ? <Button size="sm" disabled={busy} onClick={() => go(() => srv.post('units/retry', { unit: u.id }))}>{t(act.label)}</Button> : null}
+      {act?.kind === 'link' ? <Button size="sm" href={act.href}>{t(act.label)}</Button> : null}
+      {act?.kind === 'mode' ? <><span className="muted small">{t('iv.choose')}:</span><ModeChoice srv={srv} compact onChosen={onChanged} /></> : null}
+      {act?.kind === 'agent' && !noAgent ? (<>
+        <Button size="sm" variant={act.mode === 'continue' ? 'primary' : 'secondary'} disabled={busy || !a.agent}
+          onClick={() => agent(act.mode)}>{t(act.label, { agent: a.label(a.agent) })}</Button>
+        {act.mode === 'continue' ? <Button size="sm" variant="ghost" disabled={busy || !a.agent} onClick={() => agent('restart')}>{t('unit.restart')}</Button> : null}
+      </>) : null}
+      {noAgent ? <Button size="sm" href="#/machine">{t('next.machine')}</Button> : null}
+    </div>
+    {note.ok ? <p className="muted small dk-unit-note" role="status">{note.ok}</p> : null}
+    {note.error ? <div className="dk-unit-note"><Aviso tone="error" title={t('unit.failed')} detail={note.error} /></div> : null}
+  </>)
+}
+
+// A plan unit as a list row: its title, what it waits for, and its action.
+export function UnitRow({ u, all, srv, a, plan, onChanged }) {
+  const waits = u.status === 'todo' && !u.ready ? waitsFor(u, all) : []
   return (
     <li className="dk-unit">
       <div className="dk-unit-main">
         <b>{u.title}</b>
         <span className="muted small"><code>{u.id}</code>{waits.length ? <> · {t('unit.waits', { list: waits.join(', ') })}</> : null}</span>
       </div>
-      <div className="row dk-unit-acts">
-        {act?.kind === 'approve' ? <Button size="sm" variant="primary" disabled={busy} onClick={() => go(() => srv.post('units/approve', { unit: u.id }))}>{t(act.label)}</Button> : null}
-        {act?.kind === 'retry' ? <Button size="sm" disabled={busy} onClick={() => go(() => srv.post('units/retry', { unit: u.id }))}>{t(act.label)}</Button> : null}
-        {act?.kind === 'link' ? <Button size="sm" href={act.href}>{t(act.label)}</Button> : null}
-        {act?.kind === 'agent' && !noAgent ? (<>
-          <Button size="sm" variant={act.mode === 'continue' ? 'primary' : 'secondary'} disabled={busy || !a.agent}
-            onClick={() => agent(act.mode)}>{t(act.label, { agent: a.label(a.agent) })}</Button>
-          {act.mode === 'continue' ? <Button size="sm" variant="ghost" disabled={busy || !a.agent} onClick={() => agent('restart')}>{t('unit.restart')}</Button> : null}
-        </>) : null}
-        {noAgent ? <Button size="sm" href="#/machine">{t('next.machine')}</Button> : null}
-      </div>
-      {note.ok ? <p className="muted small dk-unit-note" role="status">{note.ok}</p> : null}
-      {note.error ? <div className="dk-unit-note"><Aviso tone="error" title={t('unit.failed')} detail={note.error} /></div> : null}
+      <UnitActions u={u} srv={srv} a={a} plan={plan} onChanged={onChanged} />
     </li>
   )
 }
