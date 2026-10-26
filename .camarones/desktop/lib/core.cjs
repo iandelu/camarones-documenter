@@ -33,8 +33,11 @@ function sameOrigin(url, origin) {
   try { return new URL(url).origin === origin } catch { return false }
 }
 
+// The web, and a doc page's source in the reader's editor (portal/app/src/views/sources.js): only the "open this file"
+// form of each editor, never another handler of its scheme.
+const EDITOR = /^(?:(?:vscode|cursor|windsurf|vscodium):\/\/file\/|(?:idea|webstorm|pycharm):\/\/open\?file=)/
 function externalOk(url) {
-  try { return ['http:', 'https:'].includes(new URL(url).protocol) } catch { return false }
+  try { return ['http:', 'https:'].includes(new URL(url).protocol) || EDITOR.test(url) } catch { return false }
 }
 
 // The start screen's CLI calls. A name that looks like an option is dropped (the CLI then uses the folder's name).

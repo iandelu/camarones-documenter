@@ -58,6 +58,15 @@ test('a window stays on its own server; other addresses open in the browser, onl
   assert.equal(core.externalOk('smb://server/share'), false)
 })
 
+test('a doc page\'s source opens in the reader\'s editor, and only as a file to open', () => {
+  assert.equal(core.externalOk('vscode://file/C:/w/api/Api.java:12:1'), true)
+  assert.equal(core.externalOk('cursor://file/home/ana/a.ts:3:1'), true)
+  assert.equal(core.externalOk('idea://open?file=%2Fhome%2Fa.java&line=3'), true)
+  assert.equal(core.externalOk('vscode://ms-vscode.remote/run?cmd=x'), false)       // an extension's handler, not a file
+  assert.equal(core.externalOk('idea://settings'), false)
+  assert.equal(core.externalOk('notepad://file/x'), false)
+})
+
 test('stopping a backend stops what it started too', () => {
   assert.deepEqual(core.killCommand('win32', 4242), ['taskkill', ['/PID', '4242', '/T', '/F']])
   assert.equal(core.killCommand('linux', 4242), null)

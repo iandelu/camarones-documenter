@@ -17,7 +17,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from .common import CTX, KIT, ROOT, DOCS, CACHE, VERSIONS, out, rel_file
-from . import codemap, docs, env, plan, usage
+from . import codemap, docs, env, plan, sourcelinks, usage
 
 APP = KIT / "portal" / "app-build"           # the portal: React views + the docs views (portal/app), built in the kit's CI
 UI = APP                                     # the old name, kept for callers
@@ -73,7 +73,16 @@ def read(path: str, lang: str = "") -> dict:
             "title": fm.get("title") or docs.first_heading(body) or Path(path).stem, "trust": row.get("trust"),
             "owner": row.get("owner"), "sources": fm.get("x-sources") or [], "confirmed": fm.get("x-confirmed"),
             "fresh": row.get("fresh"), "freshness": row.get("freshness"),
+            "sourceInfo": _source_info(path, fm.get("x-sources") or [], row.get("freshness")),
             "feedback": [l for l in docs.pending_feedback() if f"`{row.get('file')}`" in l]}
+
+
+def _source_info(path: str, refs: list, state: dict | None) -> list[dict]:
+    """The Sources card is a bonus: a repo that cannot be read never stops a page from opening."""
+    try:
+        return sourcelinks.describe(path, refs, state)
+    except Exception:  # noqa: BLE001
+        return []
 
 
 def api_ask(question: str) -> dict:
@@ -238,6 +247,7 @@ def api_doc(q: dict) -> dict:
     """A page the reader opened (`track`), not the extra reads the UI does for fallbacks and the home page."""
     d = read(q["path"], q.get("lang", ""))
     d["blocks"] = _blocks(doc_file(q["path"], q.get("lang", "")), d["raw"])
+    sourcelinks.with_files(d["sourceInfo"])        # this machine's portal: the reader's editor opens the file
     if q.get("track"):
         usage.record("portal:doc", channel="human", page=q["path"])
     return d

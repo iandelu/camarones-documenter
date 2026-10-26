@@ -258,6 +258,12 @@ def _settle(pages: dict, own: dict) -> dict[str, dict]:
     return result
 
 
+def stamped(logical: str) -> dict | None:
+    """When the page's sources were last fingerprinted, and by whom when a person acknowledged it: {at, by?}."""
+    e = _load()["pages"].get(logical.removeprefix("docs/")) or {}
+    return {k: e[k] for k in ("at", "by") if e.get(k)} or None
+
+
 def status(logical: str) -> dict:
     return states().get(logical.removeprefix("docs/"), {"state": "unverified", "changed": [], "missing": []})
 

@@ -122,7 +122,8 @@ Every page starts as **✨ draft** (banner in the portal). Confirm pages in the 
 **Freshness.** When a page is written, the code it cites (`x-sources`) is fingerprinted. If that code changes the page
 is **suspect**; if it is gone, **stale** (moved code does not count). Agents are not given suspect or stale pages, nor
 unreviewed pages without sources: the MCP, `llms.txt` and `llms-full.txt` withhold them and point to the code. People still see them,
-with a banner. `camaron fresh` lists them, `fresh --plan` adds a unit to refresh them, `fresh --ack <page> --by <name>`
+with a banner and a freshness icon on each source; hovering a changed source shows the commits, PR/MR and tickets that
+touched it, and a click opens its lines in your editor (or in the repository from the deployed portal). `camaron fresh` lists them, `fresh --plan` adds a unit to refresh them, `fresh --ack <page> --by <name>`
 says one still holds. `freshness: {ai_policy: warn}` in `workspace.yaml` serves them with a warning instead.
 Cite a symbol rather than lines when you can (`orders:src/…/OrderService.java#OrderService.place`): it is found again
 wherever it moves, so only a change to its own body counts. A page built on other pages or C4 elements cites them

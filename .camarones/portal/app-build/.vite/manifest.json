@@ -6,8 +6,8 @@
       "_i18n-BEOoOi5_.js"
     ]
   },
-  "_core-DnCi6ege.js": {
-    "file": "assets/core-DnCi6ege.js",
+  "_core-DJWx1aLp.js": {
+    "file": "assets/core-DJWx1aLp.js",
     "name": "core",
     "imports": [
       "_i18n-BEOoOi5_.js"
@@ -18,13 +18,13 @@
     "name": "i18n"
   },
   "index.html": {
-    "file": "assets/index-Brr8QAfg.js",
+    "file": "assets/index-bQqZIVZf.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
     "imports": [
       "_i18n-BEOoOi5_.js",
-      "_core-DnCi6ege.js"
+      "_core-DJWx1aLp.js"
     ],
     "dynamicImports": [
       "src/Pipeline.jsx",
@@ -38,29 +38,29 @@
       "src/Health.jsx"
     ],
     "css": [
-      "assets/index-ZdtEtgpp.css"
+      "assets/index-BVNbohk9.css"
     ]
   },
   "src/Ci.jsx": {
-    "file": "assets/Ci-BvBVt8Z9.js",
+    "file": "assets/Ci-acU6SQCm.js",
     "name": "Ci",
     "src": "src/Ci.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_i18n-BEOoOi5_.js",
-      "_core-DnCi6ege.js",
+      "_core-DJWx1aLp.js",
       "index.html",
       "_Failed-lMqKYRgO.js"
     ]
   },
   "src/Data.jsx": {
-    "file": "assets/Data-wqhy5MKD.js",
+    "file": "assets/Data-CUvn-9LV.js",
     "name": "Data",
     "src": "src/Data.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_i18n-BEOoOi5_.js",
-      "_core-DnCi6ege.js",
+      "_core-DJWx1aLp.js",
       "index.html",
       "_Failed-lMqKYRgO.js"
     ]
@@ -96,18 +96,18 @@
     ]
   },
   "src/Kpis.jsx": {
-    "file": "assets/Kpis-CqBKphwo.js",
+    "file": "assets/Kpis-CJ9xJv23.js",
     "name": "Kpis",
     "src": "src/Kpis.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_i18n-BEOoOi5_.js",
-      "_core-DnCi6ege.js",
+      "_core-DJWx1aLp.js",
       "_Failed-lMqKYRgO.js"
     ]
   },
   "src/Libs.jsx": {
-    "file": "assets/Libs-5atQ20RI.js",
+    "file": "assets/Libs-C1xA8esO.js",
     "name": "Libs",
     "src": "src/Libs.jsx",
     "isDynamicEntry": true,
@@ -118,7 +118,7 @@
     ]
   },
   "src/Pipeline.jsx": {
-    "file": "assets/Pipeline-BYX7UzNx.js",
+    "file": "assets/Pipeline-BU8aSQtk.js",
     "name": "Pipeline",
     "src": "src/Pipeline.jsx",
     "isDynamicEntry": true,
