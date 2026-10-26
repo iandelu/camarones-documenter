@@ -110,3 +110,11 @@ def test_each_unit_says_whether_it_is_ready(kit, server):
     ready = {u["id"] for u in kit.plan.available()}
     assert ready and {u["id"] for u in units if u["ready"]} == ready
     assert next(u for u in units if u["id"] == "setup")["ready"] is False
+
+
+def test_the_pipeline_says_how_interviews_run_once_chosen(kit, server):
+    """The app's Plan asks for the interview mode on an interview unit instead of failing when it starts."""
+    kit.plan.sync()
+    assert get_json(server + "/api/pipeline")["interviews"] is None
+    kit.docs.set_interview_mode("team")
+    assert get_json(server + "/api/pipeline")["interviews"] == "team"

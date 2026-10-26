@@ -1,16 +1,17 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Aviso, Button, Card, Chip, Skeleton } from '@camaron/ui'
+import { applyFilter, facets, matrix } from '@camaron/ui/libs.js'
 import { severities } from '@camaron/ui/result.js'
 import { ago } from '../jobs.js'
 import { doctorRows, seconds } from '../quality.js'
-import { useCmd, useJob } from '../hooks.js'
-import { Failed, Fold, JobOutput, Page, ResultView } from '../parts.jsx'
+import { useAgents, useCmd, useJob } from '../hooks.js'
+import { AgentPicker, Failed, Fold, JobOutput, Page, ResultView, UnitRow } from '../parts.jsx'
 import Commands from './Commands.jsx'
-import { t } from '../i18n.js'
+import { lang, t } from '../i18n.js'
 
 // Quality by task: is this machine ready (the doctor, kept between visits), how much an agent session loads, the
 // golden questions and the same question with and without the docs; then what the code says without AI — known
-// vulnerabilities, pages out of date, the generated blocks. KPIs are the portal's.
+// libraries and their known vulnerabilities, pages out of date, the generated blocks. KPIs are the portal's.
 export default function Quality({ srv, jobs }) {
   const [user, setUser] = useState('')
   useEffect(() => { srv.get('app/info').then((i) => setUser(i.user), () => {}) }, [])
@@ -22,7 +23,7 @@ export default function Quality({ srv, jobs }) {
       <Evals {...p} />
       <Ab {...p} />
       <h2 className="eyebrow dk-group">{t('q.analyze')}</h2>
-      <Cves {...p} />
+      <Libs {...p} />
       <Fresh {...p} />
       <Blocks {...p} />
       <div className="row"><Button size="sm" variant="ghost" href="../#/kpis">{t('q.kpis')}</Button></div>
@@ -102,18 +103,37 @@ function Context({ srv, jobs }) {
   )
 }
 
-// Golden questions (eval): confirm the right ones, ask the confirmed, or have a unit propose more.
+// Golden questions (eval): confirm the right ones, ask the confirmed, or propose more: `eval draft` adds the unit
+// eval-questions to the plan and the agent picked opens on it at once; while that unit is open, its row says how it goes.
+const DRAFT = 'eval-questions'
 function Evals({ srv, jobs, user }) {
   const list = useCmd(srv, jobs, { quiet: true })
   const act = useCmd(srv, jobs)
-  const load = () => list.run('eval', { action: 'list', json: true })
+  const a = useAgents(srv)
+  const [plan, setPlan] = useState(null)
+  const [note, setNote] = useState({ ok: '', error: '' })
+  const loadPlan = () => srv.get('pipeline', { lang: lang() }).then(setPlan, () => {})
+  const load = () => { list.run('eval', { action: 'list', json: true }); loadPlan() }
   useEffect(() => { load() }, [])
   const qs = list.job?.result || []
   const run = async (args) => { await act.run('eval', args); load() }
   const confirmed = qs.filter((q) => q['x-confirmed']).length
+  const unit = plan?.units.find((u) => u.id === DRAFT && ['todo', 'doing', 'blocked'].includes(u.status))
+  async function propose() {
+    setNote({ ok: '', error: '' })
+    const end = await act.run('eval', { action: 'draft' })
+    if (end?.status !== 'done') return
+    try {
+      await srv.post('app/agent', { unit: DRAFT, agent: a.agent, lang: lang(), mode: 'new' })
+      setNote({ ok: t('q.proposing', { agent: a.label(a.agent) }), error: '' })
+    } catch (e) { setNote({ ok: '', error: e.message }) }
+    loadPlan()
+  }
+  const noAgent = a.agents && !a.agents.length
   return (
     <Card className="dk-run">
       <div className="row"><span className="eyebrow">{t('q.evals')}</span><span className="cu-chip cu-chip--info">{t('cmds.ai')}</span></div>
+      <p className="muted small">{t('q.evalsWhat')}</p>
       {list.job?.result ? (qs.length ? (
         <ul className="dk-units">{qs.map((q) => (
           <li key={q.id} className="dk-unit"><div className="dk-unit-main"><b>{q.q}</b><span className="muted small"><code>{q.id}</code></span></div>
@@ -121,10 +141,17 @@ function Evals({ srv, jobs, user }) {
               : <Button size="sm" disabled={act.running || !user} onClick={() => run({ action: 'confirm', ids: [q.id], by: user })}>{t('q.confirm')}</Button>}</div>
           </li>))}</ul>
       ) : <p className="muted small">{t('q.noEvals')}</p>) : <JobOutput c={list} />}
+      {unit ? <ul className="dk-units"><UnitRow u={unit} all={plan.units} srv={srv} a={a} plan={plan} onChanged={load} /></ul> : null}
       <div className="row">
         {confirmed ? <Button size="sm" variant="primary" disabled={act.running} onClick={() => run({ action: 'run', json: true })}>{t('q.ask', { n: confirmed })}</Button> : null}
-        <Button size="sm" variant="ghost" disabled={act.running} onClick={() => run({ action: 'draft' })}>{t('q.propose')}</Button>
+        {!unit && noAgent ? <Button size="sm" href="#/machine">{t('next.machine')}</Button> : null}
+        {!unit && !noAgent ? (<>
+          <Button size="sm" variant={confirmed ? 'ghost' : 'primary'} disabled={act.running || !a.agent} onClick={propose}>{t('q.propose', { agent: a.label(a.agent) })}</Button>
+          <AgentPicker a={a} />
+        </>) : null}
       </div>
+      {note.ok ? <p className="muted small" role="status">{note.ok}</p> : null}
+      {note.error ? <Aviso tone="error" title={t('next.failed')} detail={note.error} /> : null}
       <JobOutput c={act} />
       {act.job?.result ? <ResultView result={act.job.result} /> : null}
     </Card>
@@ -150,29 +177,87 @@ function Ab({ srv, jobs }) {
   )
 }
 
-// Known vulnerabilities (inventory --cves), the worst first; the libraries themselves are the portal's.
-function Cves({ srv, jobs }) {
+// The libraries every repo declares, read from the code without AI (inventory), as a library x service table like
+// the portal's: reread them any time, and look their known vulnerabilities up (OSV, inventory --cves); the worst
+// first, and a vulnerable row opens on its advisories.
+const SEV = { critical: 'bad', high: 'bad', medium: 'warn', moderate: 'warn' }
+const sevWord = (s) => { const k = `sev.${s}`; const w = t(k); return w === k ? s : w }
+function Libs({ srv, jobs }) {
   const c = useCmd(srv, jobs)
   const [inv, setInv] = useState(null)
   const [error, setError] = useState('')
+  const [f, setF] = useState({})
+  const [open, setOpen] = useState(null)
   const load = () => srv.get('inventory').then((x) => { setInv(x); setError('') }, (e) => setError(e.message))
   useEffect(() => { load() }, [])
-  const sev = severities(inv?.libraries)
-  const sevWord = (s) => { const k = `sev.${s}`; const w = t(k); return w === k ? s : w }
+  const rows = inv?.libraries || []
+  const shown = useMemo(() => applyFilter(rows, f), [rows, f])
+  const m = useMemo(() => matrix(shown), [shown])
+  const fc = useMemo(() => facets(rows), [rows])
+  const sev = severities(rows)
+  const run = async (args) => { await c.run('inventory', args); load() }
+  const set = (k) => (v) => setF((cur) => ({ ...cur, [k]: v }))
+  const count = new Set(rows.map((r) => r.ecosystem + r.name)).size
   return (
     <Card className="dk-run">
-      <span className="eyebrow">{t('q.cves')}</span>
+      <div className="row"><span className="eyebrow">{t('q.libs')}</span><span className="dk-grow"></span>
+        <Button size="sm" variant="ghost" href="../#/libs">{t('q.inPortal')}</Button></div>
       {error ? <Failed title={t('q.cvFailed')} detail={error} onRetry={load} /> : null}
-      {inv ? (inv.vulns ? (
-        <div className="row">{sev.length ? sev.map(([s, n]) => <Chip key={s} state={['critical', 'high'].includes(s) ? 'bad' : 'warn'}>{n} {sevWord(s)}</Chip>)
-          : <Chip state="ok">{t('q.cvClean')}</Chip>}<span className="muted small">{t('q.cvAt', { day: inv.vulns.at?.slice(0, 10) })}</span></div>
-      ) : <p className="muted small">{t('q.cvNever')}</p>) : null}
+      {inv ? (
+        <div className="row">
+          <b>{t('q.libsCount', { n: count })}</b>
+          {inv.vulns ? (sev.length ? sev.map(([s, n]) => <Chip key={s} state={SEV[s]}>{n} {sevWord(s)}</Chip>) : <Chip state="ok">{t('q.cvClean')}</Chip>)
+            : <span className="muted small">{t('q.cvNever')}</span>}
+          {inv.vulns ? <span className="muted small">{t('q.cvAt', { day: inv.vulns.at?.slice(0, 10) })}</span> : null}
+        </div>
+      ) : !error ? <Skeleton lines={2} /> : null}
       <div className="row">
-        <Button size="sm" disabled={c.running} onClick={async () => { await c.run('inventory', { cves: true, json: true }); load() }}>{t('q.cvScan')}</Button>
-        <Button size="sm" variant="ghost" href="../#/libs">{t('q.cvLibs')}</Button>
+        <Button size="sm" variant="primary" disabled={c.running} onClick={() => run({})}>{t('q.libsRead')}</Button>
+        <Button size="sm" disabled={c.running} onClick={() => run({ cves: true, json: true })}>{t('q.cvScan')}</Button>
+        <span className="muted small">{t('q.libsNoAi')}</span>
       </div>
       <JobOutput c={c} />
+      {rows.length ? (<>
+        <div className="row">
+          <input type="search" className="cu-input dk-grow" placeholder={t('q.libsSearch')} aria-label={t('q.libsSearch')} value={f.q || ''} onChange={(e) => set('q')(e.target.value)} />
+          <FacetSelect label={t('q.libsCategory')} value={f.category} onChange={set('category')} options={fc.category} />
+          <FacetSelect label={t('q.libsRepo')} value={f.repo} onChange={set('repo')} options={fc.repo} />
+          <label className="dk-check"><input type="checkbox" checked={!!f.vulnerable} onChange={(e) => set('vulnerable')(e.target.checked)} />{t('q.libsOnlyVuln')}</label>
+        </div>
+        {m.items.length ? (
+          <div className="dk-scroll"><table className="dk-table dk-libs">
+            <thead><tr><th>{t('q.libsLibrary')}</th><th>{t('q.libsCategory')}</th>{m.repos.map((r) => <th key={r}>{r}</th>)}</tr></thead>
+            <tbody>{m.items.map((x) => (
+              <Fragment key={x.key}>
+                <tr className={x.worst ? `vuln sev-${SEV[x.worst] || 'low'}` : ''}>
+                  <td>{x.vulns.length ? <button type="button" className="dk-linkish" aria-expanded={open === x.key} onClick={() => setOpen(open === x.key ? null : x.key)}>
+                      <code>{x.name}</code></button> : <code>{x.name}</code>} <span className="muted small">{x.ecosystem}</span>
+                    {x.worst ? <> <Chip state={SEV[x.worst]}>{sevWord(x.worst)}</Chip></> : null}
+                    {x.drift ? <> <Chip state="warn">{t('q.libsVersions')}</Chip></> : null}</td>
+                  <td className="muted small">{x.category}</td>
+                  {m.repos.map((r) => { const v = x.cells[r]; return <td key={r} className={v?.vulns.length ? 'cell-vuln' : ''}>{v ? v.version || '—' : ''}</td> })}
+                </tr>
+                {open === x.key ? (
+                  <tr><td colSpan={2 + m.repos.length}><ul className="dk-advisories">{[...new Map(x.vulns.map((v) => [v.id, v])).values()].map((v) => (
+                    <li key={v.id}><a href={`https://osv.dev/vulnerability/${encodeURIComponent(v.id)}`} target="_blank" rel="noreferrer">{v.cve || v.id}</a>{' '}
+                      <Chip state={SEV[v.severity]}>{sevWord(v.severity)}{v.score ? ` ${v.score}` : ''}</Chip>{' '}
+                      <span className="small">{v.summary}</span> {v.fixed ? <b className="small">{t('q.libsFixed', { v: v.fixed })}</b> : null}</li>))}</ul></td></tr>
+                ) : null}
+              </Fragment>
+            ))}</tbody>
+          </table></div>
+        ) : <p className="muted small">{t('nothing')}</p>}
+      </>) : inv ? <p className="muted small">{t('q.libsNone')}</p> : null}
     </Card>
+  )
+}
+
+function FacetSelect({ label, value, onChange, options }) {
+  return (
+    <select className="cu-input dk-select" value={value || ''} aria-label={label} onChange={(e) => onChange(e.target.value)}>
+      <option value="">{label}: {t('q.libsAll')}</option>
+      {options.map(([k, n]) => <option key={k} value={k}>{k} ({n})</option>)}
+    </select>
   )
 }
 

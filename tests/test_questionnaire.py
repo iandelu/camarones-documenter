@@ -401,3 +401,15 @@ def test_team_interview_prompt_consolidates_instead_of_asking(kit, q):
     text = kit.plan.prompt("interview-context", lang="es")
     assert "responses/" in text and "consolidate" in text.lower()
     assert "interview status" in text
+
+
+def test_whether_the_mode_was_chosen(kit):
+    """A project without the key runs live, but nobody chose it: the app asks before an interview starts."""
+    assert kit.docs.interview_mode_chosen() is False
+    kit.docs.set_interview_mode("live")
+    assert kit.docs.interview_mode_chosen() is True
+    set_mode(kit, "carrier-pigeon")
+    assert kit.docs.interview_mode_chosen() is False
+    assert kit.serve.api_interview()["chosen"] is False
+    kit.docs.set_interview_mode("team")
+    assert kit.serve.api_interview()["chosen"] is True

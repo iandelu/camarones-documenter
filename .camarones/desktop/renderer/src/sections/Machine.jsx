@@ -52,6 +52,8 @@ function Settings({ srv, jobs, m, reload }) {
   const c = useCmd(srv, jobs)
   const s = m.settings
   const [codex, setCodex] = useState(s.codex_model || '')
+  const listed = (m.codex_models || []).some((x) => x.slug === s.codex_model)
+  const [other, setOther] = useState(!listed && !!m.codex_models?.length)
   const set = async (key, value) => { await c.run('config', { action: 'set', key, value }); reload() }
   return (
     <Card className="dk-run">
@@ -64,8 +66,14 @@ function Settings({ srv, jobs, m, reload }) {
           <select id="mc-model" className="cu-input" value={s.model} disabled={c.running} onChange={(e) => set('model', e.target.value)}>
             {m.models.map((x) => <option key={x} value={x}>{x}</option>)}</select></div>
         <div className="cu-field"><label className="cu-field-label" htmlFor="mc-codex">{t('mc.codex')}</label>
-          <input id="mc-codex" className="cu-input" value={codex} disabled={c.running} onChange={(e) => setCodex(e.target.value)}
-                 onBlur={() => codex.trim() && codex.trim() !== s.codex_model && set('codex_model', codex.trim())} /></div>
+          {/* the models Codex itself lists (lib/machine.codex_models), and "Other…" for a slug it does not list yet */}
+          <select id="mc-codex" className="cu-input" value={other ? '' : s.codex_model} disabled={c.running}
+                  onChange={(e) => { if (!e.target.value) { setOther(true); return } setOther(false); set('codex_model', e.target.value) }}>
+            {(m.codex_models || []).map((x) => <option key={x.slug} value={x.slug} title={x.slug}>{x.label}</option>)}
+            <option value="">{t('mc.codexOther')}</option></select>
+          {other ? <input className="cu-input" value={codex} disabled={c.running} aria-label={t('mc.codexSlug')} placeholder="gpt-…"
+                 onChange={(e) => setCodex(e.target.value)}
+                 onBlur={() => codex.trim() && codex.trim() !== s.codex_model && set('codex_model', codex.trim())} /> : null}</div>
       </div>
       <p className="muted small">{t('mc.agents', { list: m.agents.length ? m.agents.map((a) => a.label).join(', ') : t('mc.noAgents') })}</p>
       <JobOutput c={c} />
@@ -158,7 +166,8 @@ function Repos({ srv, jobs, m, reload }) {
   )
 }
 
-// The kit: update the global one (then restart the app on it), or put back what the kit owns.
+// The kit: update the global one (then restart the app on it), or repair it — `repair` writes back the files the kit
+// put on this machine (its skills, agent config, links) when something deleted or changed them; never the team's pages.
 function Kit({ srv, jobs, m, app }) {
   const c = useCmd(srv, jobs)
   const [updated, setUpdated] = useState(false)
@@ -171,6 +180,7 @@ function Kit({ srv, jobs, m, app }) {
         <Button size="sm" variant="ghost" disabled={c.running} onClick={() => c.run('repair', {})}>{t('mc.repair')}</Button>
         {updated && app.relaunch ? <Button size="sm" variant="primary" onClick={() => app.relaunch()}>{t('mc.relaunch')}</Button> : null}
       </div>
+      <p className="muted small">{t('mc.repairWhat')}</p>
       <JobOutput c={c} />
     </Card>
   )
