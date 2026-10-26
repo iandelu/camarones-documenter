@@ -131,6 +131,42 @@ def test_add_from_doc_section_gives_page_an_xid(wired, server):
     assert re.fullmatch(r"FLOW-\w{4}#retries@\w+", row["docs"][0])
 
 
+def test_add_task_under_a_story_with_the_app_token(wired, server, monkeypatch):
+    monkeypatch.setattr(wired.serve, "APP_TOKEN", APP)
+    call(server + "/api/kanban/init", token=PORTAL)
+    assert call(server + "/api/kanban/add", {"type": "story", "title": "Pay twice"}, token=APP)[1]["id"] == "WI-1"
+    code, row = call(server + "/api/kanban/add", {"type": "task", "title": "S1", "parent": "WI-1"}, token=APP)
+    assert code == 200 and row["id"] == "WI-2" and row["parent"] == "WI-1"
+    text = next((wired.root / "backlog" / "tasks").glob("wi-2 - *.md")).read_text(encoding="utf-8")
+    assert re.search(r"^parent_task_id: WI-1$", text, re.M)
+    cards = {c["id"]: c for c in call(server + "/api/kanban", method="GET")[1]["cards"]}
+    assert cards["WI-2"]["epic"] == "WI-1"
+
+
+def test_add_with_a_refused_parent_pair_is_400_and_writes_nothing(wired, server, monkeypatch):
+    monkeypatch.setattr(wired.serve, "APP_TOKEN", APP)
+    call(server + "/api/kanban/init", token=PORTAL)
+    call(server + "/api/kanban/add", {"type": "story", "title": "Pay twice"}, token=APP)
+    tasks = wired.root / "backlog" / "tasks"
+    before = {p.name: p.read_bytes() for p in tasks.iterdir()}
+    code, b = call(server + "/api/kanban/add", {"type": "story", "title": "x", "parent": "WI-1"}, token=APP)
+    assert code == 400 and "error" in b
+    assert {p.name: p.read_bytes() for p in tasks.iterdir()} == before
+
+
+def test_add_with_parent_and_a_different_epic_is_400(wired, server, monkeypatch):
+    monkeypatch.setattr(wired.serve, "APP_TOKEN", APP)
+    call(server + "/api/kanban/init", token=PORTAL)
+    call(server + "/api/kanban/add", {"type": "epic", "title": "Payments"}, token=APP)
+    call(server + "/api/kanban/add", {"type": "epic", "title": "Other"}, token=APP)
+    tasks = wired.root / "backlog" / "tasks"
+    before = {p.name: p.read_bytes() for p in tasks.iterdir()}
+    code, b = call(server + "/api/kanban/add", {"type": "story", "title": "x", "parent": "WI-1", "epic": "WI-2"},
+                   token=APP)
+    assert code == 400 and "error" in b
+    assert {p.name: p.read_bytes() for p in tasks.iterdir()} == before
+
+
 def test_board_cards_carry_their_link_states(wired, server):
     """The Board's docs filter (suspect / unconfirmed) runs in the page: each card brings its links' trust."""
     from test_kanban_xid import PAYMENTS, page

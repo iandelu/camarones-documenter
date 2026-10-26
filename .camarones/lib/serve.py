@@ -769,6 +769,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json({"created": ops.init(log=lambda *_: None)})
             if action == "add":
                 return self.json(ops.add(_text(b, "type", True), _text(b, "title", True), epic=_text(b, "epic") or None,
+                                         parent=_text(b, "parent") or None,
                                          repos=_text_list(b, "repos"), labels=_text_list(b, "labels"),
                                          priority=_text(b, "priority") or None, docs=_doc_refs(b), by=by, surface=surface))
             if action == "move":
