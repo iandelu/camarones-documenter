@@ -34,6 +34,7 @@ def sonar_get(host: str, token: str, path: str, params: dict) -> dict:
         with _OPENER.open(req, timeout=TIMEOUT) as r:
             raw = r.read()
     except urllib.error.HTTPError as e:
+        e.close()                                            # free the connection before raising
         raise SonarError(_reason(e.code)) from None
     except (OSError, http.client.HTTPException):             # timeout, DNS, refused, reset: URLError is an OSError
         raise SonarError("sin conexión") from None

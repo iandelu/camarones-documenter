@@ -38,6 +38,11 @@ def hosts() -> dict:
     return load_json(META, {})
 
 
+def forge_hosts() -> list[str]:
+    """Saved hosts that are git forges with a token: a SonarQube one never is (its token goes to Sonar's API only)."""
+    return [h for h, m in hosts().items() if m.get("kind") != "sonarqube" and get(h)]
+
+
 def get(host: str) -> str | None:
     kr = _keyring()
     if kr:
@@ -142,6 +147,8 @@ def _headers(kind: str, token: str) -> dict:
 
 
 def _get(url: str, kind: str, token: str):
+    if kind == "sonarqube":                                # plain urlopen follows redirects: Sonar goes through lib/sonar.py
+        raise ValueError("sonarqube is read through lib/sonar.py")
     req = urllib.request.Request(url, headers=_headers(kind, token))
     with urllib.request.urlopen(req, timeout=20) as r:
         return json.loads(r.read().decode("utf-8"))
@@ -164,6 +171,8 @@ def verify(host: str, kind: str, token: str) -> tuple[bool, str]:
 
 def list_projects(host: str, kind: str, token: str, scope: str = "") -> list[dict]:
     """Projects visible with the token. scope = GitLab group path / GitHub org (empty = everything you are member of)."""
+    if kind == "sonarqube":
+        raise ValueError("sonarqube has no projects to clone")
     base, out = api_base(host, kind), []
     for page in range(1, 11):
         if kind == "github":
@@ -193,6 +202,8 @@ def git_env(url: str) -> dict:
     if not token:
         return {"GIT_TERMINAL_PROMPT": "0"}
     kind = hosts().get(host, {}).get("kind") or guess_kind(host)
+    if kind == "sonarqube":                                # same host as a forge, still not a git token
+        return {"GIT_TERMINAL_PROMPT": "0"}
     user = "x-access-token" if kind == "github" else "oauth2"
     basic = base64.b64encode(f"{user}:{token}".encode()).decode()
     return {
