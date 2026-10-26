@@ -1,11 +1,13 @@
 import { expect, test } from 'vitest'
 import { chord, entries, GO, keyFor, pick, typing } from './palette.js'
 
-const ALL = ['summary', 'plan', 'interviews', 'team', 'quality', 'libs', 'docs', 'machine', 'kitdev']
+const ALL = ['summary', 'board', 'plan', 'interviews', 'team', 'quality', 'libs', 'docs', 'machine', 'kitdev']
 const t = (k) => `<${k}>`
 
 test('one letter per section, each section once', () => {
-  expect(GO).toEqual({ s: 'summary', p: 'plan', i: 'interviews', t: 'team', q: 'quality', l: 'libs', d: 'docs', m: 'machine', k: 'kitdev' })
+  expect(GO).toEqual({ s: 'summary', b: 'board', p: 'plan', i: 'interviews', t: 'team', q: 'quality', l: 'libs', d: 'docs', m: 'machine', k: 'kitdev' })
+  expect(GO.b).toBe('board')
+  expect(keyFor('board')).toBe('b')
   expect(keyFor('quality')).toBe('q')
   expect(keyFor('nope')).toBeUndefined()
 })
