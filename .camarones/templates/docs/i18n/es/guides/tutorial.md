@@ -131,7 +131,9 @@ página; la zona **Revisión** lista lo pendiente) o en el asistente con **✅ R
 **Frescura.** Cuando se escribe una página, se guarda una huella del código que cita (`x-sources`). Si ese código cambia,
 la página queda **sospechosa**; si desaparece, **obsoleta** (el código que solo se movió no cuenta). Los agentes no
 reciben páginas sospechosas ni obsoletas, ni páginas sin fuentes que nadie ha revisado: el MCP, `llms.txt` y `llms-full.txt` las retienen
-y les indican el código. Las personas las siguen viendo, con un aviso. `camaron fresh` las lista, `fresh --plan` añade
+y les indican el código. Las personas las siguen viendo, con un aviso y un icono de frescura en cada fuente; al pasar
+el ratón por una fuente que cambió se ven los commits, la PR/MR y los tickets que la tocaron, y un clic abre sus líneas
+en tu editor (o en el repositorio desde el portal desplegado). `camaron fresh` las lista, `fresh --plan` añade
 una unidad para actualizarlas y `fresh --ack <página> --by <nombre>` dice que una sigue siendo válida. Con
 `freshness: {ai_policy: warn}` en `workspace.yaml` se entregan con una advertencia en lugar de retenerlas.
 Mejor citar un símbolo que unas líneas (`orders:src/…/OrderService.java#OrderService.place`): se vuelve a encontrar

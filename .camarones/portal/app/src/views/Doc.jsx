@@ -5,6 +5,8 @@ import { docsGet } from '../docsApi.js'
 import { t as tr } from '../i18n.js'
 import { pageBanners, pager } from './docpage.js'
 import Editor from './Editor.jsx'
+import Sources, { FreshIcon } from './Sources.jsx'
+import { pageFresh } from './sources.js'
 import { mountDoc, render } from '../content/doc.js'
 import { readerTrees } from './DocsTree.jsx'
 import { core } from '../core.js'
@@ -64,6 +66,10 @@ export function DocView({ path, anchor, order, extra = null, banner = null, afte
         {row.description && <p className="lead">{row.description}</p>}
         <div className="meta">
           <Chip state={STATE[d.trust]}>{t('trust.' + d.trust)}</Chip>
+          {d.fresh && (
+            <span className="fresh-pill" data-state={pageFresh(d.fresh)} title={t('freshHint.' + pageFresh(d.fresh))}>
+              <FreshIcon state={pageFresh(d.fresh)} />{t('fresh.' + pageFresh(d.fresh))}</span>
+          )}
           {d.confirmed?.by && <span className="small muted">{t('confirmedBy')} {d.confirmed.by} · {String(d.confirmed.at).slice(0, 10)}</span>}
           {d.owner === 'human' && <span className="small muted">{t('humanOwned')}</span>}
           <code className="file" title={d.file}>{d.file}</code>
@@ -102,12 +108,7 @@ export function DocView({ path, anchor, order, extra = null, banner = null, afte
       </article>
       <aside className="doc-aside">
         <div id="toc" className="toc empty"></div>
-        {sources.length > 0 && (
-          <div className="cu-card doc-sources">
-            <span className="eyebrow">{t('sources')} · {sources.length}</span>
-            <ul>{sources.map((s) => <li key={s}><code title={s}>{s}</code></li>)}</ul>
-          </div>
-        )}
+        {sources.length > 0 && <Sources entries={d.sourceInfo?.length ? d.sourceInfo : english?.sourceInfo} refs={sources} />}
       </aside>
     </div>
   )

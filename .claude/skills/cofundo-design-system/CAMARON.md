@@ -26,3 +26,6 @@ for the portal.
   portal keeps text glyphs.
   A second approved exception: the first-run wizard (`desktop/renderer/src/sections/Start.jsx`) draws its external-link,
   edit and check icons as inline SVG, aria-hidden, in currentColor; the rest of the app keeps text glyphs.
+  A third approved exception: the portal's freshness icons (`FreshIcon` in `portal/app/src/views/Sources.jsx`: fresh,
+  changed, missing, unchecked) on a doc page's header pill and its Sources card, inline SVG, aria-hidden, in
+  currentColor, always next to their word or with it as the link's label.
