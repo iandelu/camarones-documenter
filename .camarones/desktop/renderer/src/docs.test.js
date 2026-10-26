@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import { answerView, askBody, askError, buildFailed, c4Card, citeHash, openPortal, portalUrl, startBuild, startWiki, wikiBlocks,
-  wikiRepos } from './docs.js'
+  wikiBusyWith, wikiError, wikiRepos } from './docs.js'
 import { setLang, t } from './i18n.js'
 
 // The portal is the reader, on the project's own server one folder up from /desktop/; the window opens it in the
@@ -161,5 +161,25 @@ test("the server's \"no AI\" and \"too slow\" refusals are said in the app's lan
   setLang('en')
   expect(askError(noAi, t)).toBe('There is no AI to answer here: no agent is available, or ask.ai is off in workspace.yaml.')
   expect(askError(slow, t)).toBe(t('docs.askSlow'))
+  setLang('es')
+})
+
+// One wiki runs at a time on the server (lib/serve.py wiki(): another repo's start is 409 busy). The jobs store's running
+// list says which repo's runs: Generate closes on the others; the repo that runs keeps its own button.
+test('a wiki running for one repo closes Generate on the others', () => {
+  const running = [{ id: '1', kind: 'wiki', repo: 'api', status: 'running' }, { id: '2', kind: 'c4', status: 'running' }]
+  expect(wikiBusyWith(running, 'web')).toBe('api')
+  expect(wikiBusyWith(running, 'api')).toBe('')
+  expect(wikiBusyWith([{ id: '2', kind: 'c4', status: 'running' }], 'web')).toBe('')
+  expect(wikiBusyWith([], 'web')).toBe('')
+  expect(wikiBusyWith(undefined, 'web')).toBe('')
+})
+
+test('busy from POST wiki has its own sentence, in Spanish and English; anything else as before', () => {
+  setLang('es')
+  expect(wikiError(new Error('busy'), t)).toBe('Ya se está generando la wiki de otro repo: espera a que termine y vuelve a probar.')
+  expect(wikiError(new Error('Failed to fetch'), t)).toBe(t('obErrNetwork'))
+  setLang('en')
+  expect(wikiError(new Error('busy'), t)).toBe("Another repo's wiki is being generated: wait for it to finish and try again.")
   setLang('es')
 })

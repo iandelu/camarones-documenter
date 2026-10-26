@@ -132,3 +132,21 @@ test('before the wikis are read Generate is closed without a complaint; once rea
   expect(generate(failed)).toContain('disabled')
   expect(failed).toContain('No he podido leer el estado de las wikis')
 })
+
+// While another repo's wiki runs, Generate is closed on this one and says why; a reason of its own goes first.
+test("Generate is closed while another repo's wiki runs, and says whose", () => {
+  const busy = block(0, { busyWith: 'web' })
+  expect(generate(busy)).toContain('disabled')
+  expect(busy).toContain('Se está generando la wiki de web: espera a que termine para generar otra.')
+  expect(block(1, { busyWith: 'api' })).toContain('Este repo aún no está clonado')
+  setLang('en')
+  expect(block(0, { busyWith: 'web' })).toContain("The wiki of web is being generated: wait for it to finish to generate another.")
+})
+
+test('Docs reads the running wiki from the jobs store and closes Generate on the other repos', () => {
+  globalThis.location = { origin: 'http://127.0.0.1:5000', hash: '#/docs' }
+  const jobs = { get: () => ({ running: [{ id: '1', kind: 'wiki', repo: 'api', status: 'running' }], recent: [], error: '' }),
+    subscribe: () => () => {}, refresh: () => {} }
+  const out = renderToStaticMarkup(<Docs srv={srv} jobs={jobs} app={{ openExternal: () => {} }} index={index} />)
+  expect(out.match(/Se está generando la wiki de api/g)).toHaveLength(2)            // web and ui, not api itself
+})
