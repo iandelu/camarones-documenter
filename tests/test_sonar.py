@@ -149,14 +149,14 @@ def test_a_path_prefix_in_the_host_is_kept(lib, fake):
     assert sonar.sonar_get(fake.host + "/sonar/", TOKEN, "/api/x", {}) == {"ok": 1}
 
 
-def test_http_is_refused_before_any_request_unless_local(lib, fake):
+def test_http_is_refused_before_any_request_unless_local(lib, fake, monkeypatch):
     creds, sonar = lib
+    monkeypatch.setattr(sonar._OPENER, "open", lambda *a, **k: pytest.fail("a request went out"))
     assert creds.verify("http://sonar.example.com", "sonarqube", TOKEN) == (False, "solo https")
     with pytest.raises(sonar.SonarError, match="^solo https$"):
         sonar.sonar_get("http://sonar.example.com", TOKEN, "/api/x", {})
     with pytest.raises(ValueError):
         creds.api_base("http://sonar.example.com", "sonarqube")
-    assert fake.lines == []
 
 
 @pytest.mark.parametrize("host,base", [
@@ -172,7 +172,8 @@ def test_api_base_accepts_these_host_forms(lib, host, base):
     assert creds.api_base(host, "sonarqube") == base
 
 
-@pytest.mark.parametrize("host", ["ftp://sonar.example.com", "https://user:pw@sonar.example.com", ""])
+@pytest.mark.parametrize("host", ["ftp://sonar.example.com", "https://user:pw@sonar.example.com", "",
+                                  "http://localhost.evil.com", "http://127.0.0.1@evil.com"])
 def test_api_base_refuses_a_host_it_cannot_use(lib, host):
     creds, _ = lib
     with pytest.raises(ValueError):
@@ -184,3 +185,31 @@ def test_gitlab_and_github_hosts_still_work(lib):
     assert creds.api_base("gitlab.example.com", "gitlab") == "https://gitlab.example.com/api/v4"
     assert creds.host_of("git@gitlab.example.com:g/r.git") == "gitlab.example.com"
     assert creds.host_of("https://gitlab.example.com/g/r.git") == "gitlab.example.com"
+
+
+def test_a_sonar_host_never_counts_as_a_git_forge(lib, kit, monkeypatch):
+    creds, _ = lib
+    creds.save("https://sonar.example.com/sonar", "sonarqube", TOKEN, "")
+    creds.save("sonar.example.com", "sonarqube", TOKEN, "")
+    creds.save("gitlab.example.com", "gitlab", "gl-token", "me")
+    assert creds.forge_hosts() == ["gitlab.example.com"]
+    shown = []
+    W = kit.wizard.W
+    monkeypatch.setattr(W, "sel", lambda self, msg, choices, back=True, default=None: shown.append([c.value for c in choices]))
+    W().add_remote({"repos": []})
+    assert shown == [["gitlab.example.com", "__new__"]]
+
+
+def test_forge_calls_refuse_the_sonar_kind_without_a_request(lib, monkeypatch):
+    creds, sonar = lib
+    monkeypatch.setattr(creds.urllib.request, "urlopen", lambda *a, **k: pytest.fail("a request went out"))
+    with pytest.raises(ValueError):
+        creds.list_projects("sonar.example.com", "sonarqube", TOKEN)
+    with pytest.raises(ValueError):
+        creds._get("https://sonar.example.com/api/x", "sonarqube", TOKEN)
+
+
+def test_git_never_gets_a_sonar_token_even_on_the_same_host(lib):
+    creds, _ = lib
+    creds.save("sonar.example.com", "sonarqube", TOKEN, "")
+    assert creds.git_env("https://sonar.example.com/g/r.git") == {"GIT_TERMINAL_PROMPT": "0"}
