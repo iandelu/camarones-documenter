@@ -8,9 +8,9 @@ import { JobOutput, Page } from '../parts.jsx'
 import { t } from '../i18n.js'
 
 // Reading is the portal's, on this same server one folder up: these buttons open it in the system browser (never an
-// href the window would follow). The portal has no token, so what it shows but cannot run is run here: the C4
-// explorer, each repo's wiki (generate it, build its graph) and Ask's AI answer. One wiki runs at a time: while one
-// runs (the jobs store), Generate is closed on the other repos.
+// href the window would follow). The portal has no app token (only the board's), so what it shows but cannot run is
+// run here: the C4 explorer, each repo's wiki (generate it, build its graph) and Ask's AI answer. One wiki runs at a
+// time: while one runs (the jobs store), Generate is closed on the other repos.
 const NONE = { running: [] }
 const NO_JOBS = { get: () => NONE, subscribe: () => () => {} }
 export default function Docs({ srv, jobs, app, index }) {
