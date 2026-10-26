@@ -1,0 +1,1 @@
+import{f as e,l as t,n,y as r}from"./i18n-DPnv_4in.js";var i=r();function a({title:r,detail:a,onRetry:o}){return(0,i.jsx)(t,{tone:`error`,title:r,detail:a,action:o?(0,i.jsx)(e,{size:`sm`,onClick:o,children:n(`retry`)}):null})}export{a as t};
