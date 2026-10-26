@@ -295,8 +295,9 @@ PAGES = {
    ---------------------------  -----------------------------------  ------------------------
    portal local                 editar, pagina nueva, confirmar,     cam-docs + commit local
    (camaron up)                 pedir cambios                        (el push lo haces tu)
-   app de escritorio (Docs)     construir el C4 y el grafo de        se lee en el portal
-                                cada wiki
+   app de escritorio (Docs)     construir el C4, generar la wiki     se lee en el portal
+                                de cada repo y su grafo, y
+                                preguntar con IA
    portal desplegado            leer y buscar; "Editar" abre el      merge request en el
    (exportacion)                fichero en GitLab / GitHub           repo cam-docs
    tu editor / IDE              cualquier .md de cam-docs/docs       cam-docs (git normal)
@@ -701,8 +702,9 @@ PAGES = {
    ---------------------------  -----------------------------------  ------------------------
    local portal                 edit, new page, confirm,             cam-docs + local commit
    (camaron up)                 request changes                      (you push it)
-   desktop app (Docs)           build the C4 explorer and each       read in the portal
-                                wiki's graph
+   desktop app (Docs)           build the C4 explorer, generate      read in the portal
+                                each repo's wiki and its graph,
+                                ask with AI
    deployed portal              read and search; "Edit" opens the    merge request in the
    (export)                     file in GitLab / GitHub              cam-docs repo
    your editor / IDE            any .md in cam-docs/docs             cam-docs (plain git)
