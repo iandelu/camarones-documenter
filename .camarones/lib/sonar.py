@@ -74,14 +74,11 @@ def _host(repo_sonar: dict, ws: dict) -> str:
 
 
 def _shown(host: str) -> str:
-    """The host as the snapshot carries it, so the screens can offer to connect to it: as given, minus any userinfo
-    (`https://user:secret@host` never travels)."""
+    """The host as the snapshot carries it, so the screens can offer to connect to it. A host with userinfo
+    (`https://user:secret@host`) is refused by `sonar_base` anyway, and a password may hold any character, so it is
+    never parsed: it is not carried at all (the screens then offer to connect with no host)."""
     h = creds.sonar_host(host)
-    scheme, sep, rest = h.partition("://")
-    if not sep:
-        scheme, rest = "", h
-    authority, slash, tail = rest.partition("/")
-    return f"{scheme}{sep}{authority.rsplit('@', 1)[-1]}{slash}{tail}"
+    return "" if "@" in h else h
 
 
 def _token(host: str) -> str | None:
