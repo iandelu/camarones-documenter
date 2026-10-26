@@ -6,7 +6,7 @@ import { setLang } from './i18n.js'
 
 const srv = { get: () => new Promise(() => {}), post: () => new Promise(() => {}) }
 // Every repo of the project is in `repos`; only api and ui have wiki pages yet.
-const index = { repos: ['api', 'web', 'ui'], docs: [{ path: 'repos/api/wiki/index.md', space: 'wiki' }, { path: 'repos/ui/wiki/a.md', space: 'wiki' },
+const index = { repos: ['api', 'web', 'ui'], docs: [{ path: 'repos/api/index.md', space: 'wiki' }, { path: 'repos/ui/a.md', space: 'wiki' },
   { path: 'index.md', space: 'docs' }] }
 const render = (idx = index) => renderToStaticMarkup(<Docs srv={srv} jobs={null} app={{ openExternal: () => {} }} index={idx} />)
 

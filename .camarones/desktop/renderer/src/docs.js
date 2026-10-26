@@ -7,7 +7,7 @@ import { errorLine } from './onboarding.js'
 export const portalUrl = (origin, hash = '#/') => `${String(origin).replace(/\/+$/, '')}/${hash || '#/'}`
 
 // The repos that have an OpenWiki, as the portal reads them from the tree (GET tree): their pages are in the wiki
-// space, under repos/<repo>/wiki/…. Only those have a graph to build (env.wiki_graph needs pages). Once each, in order.
+// space, at repos/<repo>/<page> (docs.iter_docs). Only those have a graph to build (env.wiki_graph needs pages). Once each, in order.
 export function wikiRepos(tree) {
   const out = []
   for (const d of tree?.docs || []) {
@@ -63,14 +63,13 @@ export const askBody = (q) => {
   return text ? { q: text } : null
 }
 
-// A source ("<path>" or "<path>#<section>") as the portal's address of that page: a repo's wiki page (repos/<repo>/wiki/…)
-// under #/wiki/<repo>/<page>, any other under #/docs/<path>, a section after "::" (portal core.hrefFor).
+// A source ("<path>" or "<path>#<section>") as the portal's address of that page: #/docs/<path>, a section after "::"
+// (portal core.hrefFor). A wiki page's path (repos/<repo>/<page>) looks like a repo's own page; the portal's router
+// sends #/docs/<a wiki page> on to #/wiki/<repo>/<page>, so it is not told apart here.
 export function citeHash(cite) {
   const [path, ...rest] = String(cite).split('#')            // only the first # splits: a section may contain one
   const anchor = rest.join('#')
-  const tail = anchor ? `::${anchor}` : ''
-  const wiki = path.match(/^repos\/([^/]+)\/wiki\/(.+)$/)
-  return wiki ? `#/wiki/${wiki[1]}/${wiki[2]}${tail}` : `#/docs/${path}${tail}`
+  return `#/docs/${path}${anchor ? `::${anchor}` : ''}`
 }
 
 // What the answer card shows: the text with who wrote it and its sources, or "none" when the docs had nothing to
