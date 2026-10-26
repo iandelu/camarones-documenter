@@ -12,15 +12,15 @@ test('the portal lives at the root of the project server', () => {
   expect(portalUrl('http://127.0.0.1:5123/', '#/')).toBe('http://127.0.0.1:5123/#/')    // a trailing slash is not doubled
 })
 
-// The portal reads a page's space ('wiki' for a repo's OpenWiki, under repos/<repo>/wiki/…): the repos with at least one
+// The portal reads a page's space ('wiki' for a repo's OpenWiki, at repos/<repo>/<page>): the repos with at least one
 // wiki page are the ones whose graph can be built (env.wiki_graph is False without pages).
 test('the repos with a wiki are the ones with wiki pages, once each, in order', () => {
   const tree = { docs: [
     { path: 'index.md', space: 'docs' },
-    { path: 'repos/api/wiki/index.md', space: 'wiki' },
-    { path: 'repos/api/wiki/auth.md', space: 'wiki' },
+    { path: 'repos/api/index.md', space: 'wiki' },
+    { path: 'repos/api/auth.md', space: 'wiki' },
     { path: 'repos/web/index.md', space: 'docs' },           // a repo's own page in the docs space: not a wiki
-    { path: 'repos/ui/wiki/a.md', space: 'wiki' },
+    { path: 'repos/ui/a.md', space: 'wiki' },
     { path: 'interview/x.md', space: 'notes' }] }
   expect(wikiRepos(tree)).toEqual(['api', 'ui'])
   expect(wikiRepos({ docs: [] })).toEqual([])
@@ -30,7 +30,7 @@ test('the repos with a wiki are the ones with wiki pages, once each, in order', 
 
 // What the Docs section does, without a DOM: the blocks it shows, what each button posts and where Ver / Leer… send the window.
 // `repos` is every repo of the project (the tree's `repos`, docs.repo_names()); `docs` says which already have a wiki.
-const index = { repos: ['api', 'web', 'ui'], docs: [{ path: 'repos/api/wiki/a.md', space: 'wiki' }, { path: 'repos/ui/wiki/a.md', space: 'wiki' },
+const index = { repos: ['api', 'web', 'ui'], docs: [{ path: 'repos/api/a.md', space: 'wiki' }, { path: 'repos/ui/a.md', space: 'wiki' },
   { path: 'repos/web/index.md', space: 'docs' }] }
 
 test('the C4 card builds the explorer and the portal shows it at #/c4', () => {
@@ -123,24 +123,26 @@ test('the question is trimmed, and an empty one is not sent', () => {
   expect(askBody(undefined)).toBeNull()
 })
 
-// A cite is "<path>" or "<path>#<section>"; the portal reads a wiki page under #/wiki/<repo>/<page>, any other under
-// #/docs/<path>, and a section after "::" (portal core.hrefFor).
+// A cite is "<path>" or "<path>#<section>": its page under #/docs/<path>, a section after "::" (portal core.hrefFor).
+// A wiki page's path is repos/<repo>/<page> (docs.iter_docs), like a repo's own pages: the portal's router sends
+// #/docs/<a wiki page> on to #/wiki/<repo>/<page>, so the app need not tell them apart.
 test('a source becomes the portal address of its page', () => {
   expect(citeHash('architecture/overview.md#Context')).toBe('#/docs/architecture/overview.md::Context')
   expect(citeHash('repos/web/index.md')).toBe('#/docs/repos/web/index.md')
-  expect(citeHash('repos/api/wiki/auth.md#Login')).toBe('#/wiki/api/auth.md::Login')
-  expect(citeHash('repos/api/wiki/deep/x.md')).toBe('#/wiki/api/deep/x.md')
+  expect(citeHash('repos/api/auth.md#Login')).toBe('#/docs/repos/api/auth.md::Login')
+  expect(citeHash('repos/api/deep/x.md')).toBe('#/docs/repos/api/deep/x.md')
+  expect(citeHash('repos/api/wiki/x.md')).toBe('#/docs/repos/api/wiki/x.md')     // a folder named wiki is no special case
   expect(citeHash('guides/lang.md#C# and F#')).toBe('#/docs/guides/lang.md::C# and F#')   // only the first # splits
 })
 
 // answers.answer: {answer, cited, runner, model, seconds…}; answer is null when the docs had nothing or the model said
 // nothing (cited is then empty). The sources are only those the retrieval knew.
 test('an answer with sources, one without, and the "nothing to answer" state', () => {
-  const full = answerView({ answer: 'It uses JWT.', cited: ['architecture/overview.md#Context', 'repos/api/wiki/auth.md'],
+  const full = answerView({ answer: 'It uses JWT.', cited: ['architecture/overview.md#Context', 'repos/api/auth.md'],
     runner: 'claude', model: 'haiku', seconds: 4.2 })
   expect(full).toEqual({ kind: 'answer', text: 'It uses JWT.', by: 'claude (haiku)',
     sources: [{ cite: 'architecture/overview.md#Context', hash: '#/docs/architecture/overview.md::Context' },
-      { cite: 'repos/api/wiki/auth.md', hash: '#/wiki/api/auth.md' }] })
+      { cite: 'repos/api/auth.md', hash: '#/docs/repos/api/auth.md' }] })
   const bare = answerView({ answer: 'No idea.', cited: [], runner: 'codex', model: null })
   expect(bare).toEqual({ kind: 'answer', text: 'No idea.', by: 'codex', sources: [] })
   expect(answerView({ answer: 'x' }).sources).toEqual([])          // no cited key at all
