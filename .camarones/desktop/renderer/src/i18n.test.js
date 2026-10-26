@@ -10,7 +10,7 @@ test('every key a component names exists', () => {
   const used = new Set(files.flatMap((f) => [...readFileSync(join(src, f), 'utf-8').matchAll(/\bt\('([\w.-]+)'\s*[,)]/g)].map((m) => m[1])))
   expect([...used].filter((k) => !(k in S.es))).toEqual([])
   const families = { grp: ['awaiting', 'blocked', 'doing', 'ready', 'waiting', 'done'], job: ['running', 'done', 'failed', 'stopped'],
-    nav: ['summary', 'plan', 'interviews', 'team', 'quality', 'libs', 'docs', 'machine', 'kitdev'], fr: ['suspect', 'stale'],
+    nav: ['summary', 'board', 'plan', 'interviews', 'team', 'quality', 'libs', 'docs', 'machine', 'kitdev'], fr: ['suspect', 'stale'],
     'lb.scope': ['runtime', 'dev', 'test', 'build'],
     bl: ['created', 'updated', 'edited', 'human'], sev: ['critical', 'high', 'medium', 'moderate', 'low', 'unknown'],
     tk: ['mcp', 'hook', 'setting', 'codex', 'skill', 'file', 'plugin'], ts: ['new', 'changed'],      // lib/trust.py
