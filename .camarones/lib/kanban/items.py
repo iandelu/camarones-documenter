@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Sequence
 
 import yaml
 
@@ -144,13 +144,47 @@ def default_dod(lang: str) -> list[str]:
     return [ln.strip() for ln in _read_template("dod.txt", lang).splitlines() if ln.strip()]
 
 
-def new_body(type_: str, lang: str, dod: list[str]) -> str:
-    """Section headers and markers are Backlog.md's (English) in every language; only the prompts inside are translated."""
-    desc = _read_template(f"{type_}.md", lang).strip()
+def _criteria_lines(texts: Sequence[str], first: int) -> str:
+    lines = [t for t in (" ".join(str(t).split()) for t in texts) if t]       # one line each, blanks dropped
+    return "".join(f"- [ ] #{n} {t}\n" for n, t in enumerate(lines, first))
+
+
+def new_body(type_: str, lang: str, dod: list[str], *, description: str | None = None,
+             criteria: Sequence[str] = ()) -> str:
+    """Section headers and markers are Backlog.md's (English) in every language; only the prompts inside are translated.
+    `description` replaces the template's prompt; `criteria` are numbered from 1 in the acceptance-criteria block."""
+    desc = (description or "").strip() or _read_template(f"{type_}.md", lang).strip()
     checks = "".join(f"- [ ] #{i} {t}\n" for i, t in enumerate(dod, 1))
     return ("## Description\n<!-- SECTION:DESCRIPTION:BEGIN -->\n" + desc + "\n<!-- SECTION:DESCRIPTION:END -->\n\n"
-            "## Acceptance Criteria\n<!-- AC:BEGIN -->\n<!-- AC:END -->\n\n"
+            "## Acceptance Criteria\n<!-- AC:BEGIN -->\n" + _criteria_lines(criteria, 1) + "<!-- AC:END -->\n\n"
             "## Definition of Done\n<!-- DOD:BEGIN -->\n" + checks + "<!-- DOD:END -->\n")
+
+
+def set_description(body: str, text: str) -> str:
+    """The body with its description block replaced (a body without one gets the section first, the rest kept)."""
+    text = text.strip()
+    pat = re.compile(r"(<!-- SECTION:DESCRIPTION:BEGIN -->\n?).*?(<!-- SECTION:DESCRIPTION:END -->)", re.S)
+    if pat.search(body):
+        return pat.sub(lambda m: m.group(1) + (text + "\n" if text else "") + m.group(2), body, count=1)
+    return ("## Description\n<!-- SECTION:DESCRIPTION:BEGIN -->\n" + text + "\n<!-- SECTION:DESCRIPTION:END -->\n\n"
+            + body)
+
+
+def add_criteria(body: str, texts: Sequence[str]) -> str:
+    """The body with `texts` appended to the acceptance criteria, numbered after the highest existing number (the
+    others keep theirs). A body without the block gets one before the Definition of Done, else at the end."""
+    lines = _criteria_lines(texts, max([c["n"] for c in checklist(body, "AC")] + [0]) + 1)
+    if not lines:
+        return body
+    end = "<!-- AC:END -->"
+    if end in body:
+        i = body.index(end)
+        return body[:i] + lines + body[i:]
+    block = "## Acceptance Criteria\n<!-- AC:BEGIN -->\n" + lines + end + "\n\n"
+    j = body.find("## Definition of Done")
+    if j >= 0:
+        return body[:j] + block + body[j:]
+    return body.rstrip("\n") + ("\n\n" if body.strip() else "") + block.rstrip("\n") + "\n"
 
 
 def load_dir(d: Path) -> tuple[list[Item], list[dict]]:

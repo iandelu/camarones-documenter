@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import threading
 
@@ -364,3 +365,222 @@ def test_a_failed_replace_leaves_no_temp_file(board, kit, monkeypatch):
         board.add("task", "x")
     monkeypatch.undo()
     assert list((kit.root / "backlog").rglob("*.tmp")) == []
+
+
+# --- story parents, footprints, dependencies ---
+
+def _fm(kit, item_id):
+    from lib.kanban.items import parse_item
+    f = next((kit.root / "backlog" / "tasks").glob(f"{item_id.lower()} - *.md"))
+    return parse_item(f.read_text(encoding="utf-8"), f)
+
+
+def test_add_task_under_story(board, kit):
+    board.add("story", "Pay twice")
+    row = board.add("task", "x", parent="WI-1", touches=["api:b.py", "api:a.py"])
+    assert row["parent"] == "WI-1" and row["epic"] == "WI-1" and row["touches"] == ["api:a.py", "api:b.py"]
+    fm = _fm(kit, "WI-2").fm
+    assert fm["parent_task_id"] == "WI-1" and fm["x-touches"] == ["api:a.py", "api:b.py"]
+    assert fm["x-repos"] == ["api"]                                   # defaults to the repos of the touches
+    assert _fm(kit, "WI-1").fm["subtasks"] == ["WI-2"]
+    text = next((kit.root / "backlog" / "tasks").glob("wi-2 - *.md")).read_text(encoding="utf-8")
+    assert "x-touches:\n  - api:a.py\n  - api:b.py\n" in text
+    assert "dependencies" not in text and "x-touches" not in _fm(kit, "WI-1").fm
+
+
+def test_add_keeps_explicit_repos_over_touches(board, kit):
+    board.add("task", "x", repos=["web"], touches=["api:a.py"])
+    assert _fm(kit, "WI-1").fm["x-repos"] == ["web"]
+
+
+def test_add_epic_alias_and_parent_must_agree(board):
+    board.add("epic", "Payments")
+    board.add("epic", "Other")
+    assert board.add("story", "a", epic="WI-1")["parent"] == "WI-1"
+    assert board.add("story", "b", epic="WI-1", parent="wi-1")["parent"] == "WI-1"
+    with pytest.raises(board.BoardError):
+        board.add("story", "c", epic="WI-1", parent="WI-2")
+
+
+def test_add_refuses_bad_parents(board, kit):
+    board.add("epic", "Payments")
+    board.add("story", "Pay twice")
+    board.add("bug", "Crash")
+    before = tree(kit.root)
+    for type_, parent in (("story", "WI-2"), ("task", "WI-3"), ("task", "WI-99"), ("epic", "WI-1"), ("epic", "WI-2")):
+        with pytest.raises(board.BoardError):
+            board.add(type_, "x", parent=parent)
+    assert tree(kit.root) == before
+    for type_ in ("story", "bug", "spike", "task"):                    # an epic takes anything but an epic
+        assert board.add(type_, "ok", parent="WI-1")["parent"] == "WI-1"
+    assert board.add("task", "under a story", parent="WI-2")["parent"] == "WI-2"
+
+
+def test_add_refuses_a_bad_touch(board, kit):
+    before = tree(kit.root)
+    for bad in ("no-colon.py", "api:../x.py", "api:", ":a.py"):
+        with pytest.raises(board.BoardError, match=re.escape(bad)):
+            board.add("task", "x", touches=[bad])
+    assert tree(kit.root) == before
+
+
+def test_add_description_and_criteria_fill_the_template(board, kit):
+    board.add("task", "x", description="Retry the charge once.", criteria=["A retry happens", "  No double  charge "])
+    body = _fm(kit, "WI-1").body
+    desc = body.split("<!-- SECTION:DESCRIPTION:BEGIN -->\n")[1].split("\n<!-- SECTION:DESCRIPTION:END -->")[0]
+    assert desc == "Retry the charge once."
+    ac = body.split("<!-- AC:BEGIN -->\n")[1].split("<!-- AC:END -->")[0]
+    assert ac == "- [ ] #1 A retry happens\n- [ ] #2 No double charge\n"
+    assert "- [ ] #1 acceptance criteria met\n" in body.split("<!-- DOD:BEGIN -->\n")[1]    # DoD unchanged
+    board.add("task", "y")
+    plain = _fm(kit, "WI-2").body
+    assert "What needs doing" in plain and "<!-- AC:BEGIN -->\n<!-- AC:END -->" in plain
+
+
+def test_add_dependencies_must_exist(board, kit):
+    board.add("task", "one")
+    board.add("task", "two")
+    before = tree(kit.root)
+    with pytest.raises(board.BoardError, match="WI-9"):
+        board.add("task", "x", dependencies=["WI-1", "WI-9"])
+    assert tree(kit.root) == before
+    row = board.add("task", "three", dependencies=["wi-2", "WI-1", "WI-2"])
+    assert row["dependencies"] == ["WI-1", "WI-2"]
+    assert _fm(kit, "WI-3").fm["dependencies"] == ["WI-1", "WI-2"]
+
+
+def test_add_dependency_on_archived_item_is_allowed(board, kit):
+    board.add("task", "old")
+    board.archive("WI-1")
+    row = board.add("task", "new", dependencies=["WI-1"])
+    assert row["id"] == "WI-2" and _fm(kit, "WI-2").fm["dependencies"] == ["WI-1"]
+
+
+@pytest.mark.parametrize("folds", [True, False])
+def test_touches_normalised_and_case_folded(board, kit, monkeypatch, folds):
+    monkeypatch.setattr(board, "IS_WIN", folds)
+    monkeypatch.setattr(board, "IS_MAC", False)
+    row = board.add("task", "x", touches=["api:src\\A.java", "api:./src/a.java ", " api:src/A.java"])
+    assert row["touches"] == (["api:src/A.java"] if folds else ["api:src/A.java", "api:src/a.java"])
+    assert _fm(kit, "WI-1").fm["x-touches"] == row["touches"]
+    monkeypatch.setattr(board, "IS_WIN", False)
+    monkeypatch.setattr(board, "IS_MAC", True)
+    assert len(board.add("task", "y", touches=["api:B.java", "api:b.java"])["touches"]) == 1
+
+
+def _write_4x(kit):
+    """A board as a 4.x kit left it: epics and stories, none of the new fields."""
+    from lib.kanban import TASKS
+    from lib.kanban.items import Item, file_name, serialize_item
+    from lib.kanban.state import dump_board
+    rows = [("WI-1", "Payments", "epic", None, ["WI-2", "WI-3"]), ("WI-2", "Pay", "story", "WI-1", None),
+            ("WI-3", "Refund", "story", "WI-1", None), ("WI-4", "Loose", "bug", None, None)]
+    cards = {}
+    for n, (i, title, type_, parent, subs) in enumerate(rows, 1):
+        fm = {"id": i, "title": title, "status": "Backlog", "assignee": [], "created_date": "2026-10-01 10:00",
+              "labels": ["pay"], "parent_task_id": parent, "subtasks": subs, "type": type_, "ordinal": n * 1000,
+              "x-uid": f"uid{n:05d}", "x-repos": ["api"]}
+        item = Item({k: v for k, v in fm.items() if v is not None}, "## Description\nx\n", TASKS / file_name(i, title))
+        item.path.write_text(serialize_item(item), encoding="utf-8", newline="\n")
+        cards[i] = {"uid": fm["x-uid"], "status": "Backlog", "ordinal": n * 1000, "assignee": [], "t": {}}
+    (kit.root / "backlog" / "board.yaml").write_text(dump_board(cards), encoding="utf-8", newline="\n")
+
+
+def test_old_board_lists_the_same(board, kit):
+    _write_4x(kit)
+    cards = board.list_items()["cards"]
+    assert [c["id"] for c in cards] == ["WI-1", "WI-2", "WI-3", "WI-4"]
+    for c in cards:
+        assert c["parent"] == c["epic"] and c["touches"] == [] and c["dependencies"] == []
+    old = {k for k in cards[0] if k not in ("parent", "touches", "dependencies")}
+    assert old == {"id", "uid", "title", "type", "status", "ordinal", "assignee", "labels", "priority", "epic", "repos",
+                   "docs"}
+    assert [c["epic"] for c in cards] == [None, "WI-1", "WI-1", None]
+    assert [c["id"] for c in board.list_items(epic="WI-1")["cards"]] == ["WI-2", "WI-3"]
+    assert [c["id"] for c in board.list_items(parent="WI-1")["cards"]] == ["WI-2", "WI-3"]
+    assert board.list_items(parent="WI-4")["cards"] == []
+
+
+def test_list_filters_on_a_story_parent(board):
+    board.add("story", "Pay")
+    board.add("task", "a", parent="WI-1")
+    board.add("task", "b", parent="WI-1")
+    board.add("task", "c")
+    assert [c["id"] for c in board.list_items(parent="wi-1")["cards"]] == ["WI-2", "WI-3"]
+
+
+def test_hand_written_scalars_are_lists_in_rows(board, kit):
+    board.add("task", "x")
+    f = next((kit.root / "backlog" / "tasks").glob("wi-1 - *.md"))
+    f.write_text(f.read_text(encoding="utf-8").replace("type: task\n", "type: task\nx-touches: api:a.py\ndependencies: WI-7\n"),
+                 encoding="utf-8")
+    row = board.list_items()["cards"][0]
+    assert row["touches"] == ["api:a.py"] and row["dependencies"] == ["WI-7"]
+
+
+def test_update_item_appends_criteria_and_keeps_numbering(board, kit):
+    board.add("story", "Pay", description="Old.", criteria=["one", "two"])
+    f = next((kit.root / "backlog" / "tasks").glob("wi-1 - *.md"))
+    f.write_text(f.read_text(encoding="utf-8").replace("- [ ] #2 two", "- [x] #2 two"), encoding="utf-8")
+    board.add("task", "t")
+    row = board.update_item("wi-1", add_criteria=["three", "four"], description="New text.", touches=["api:b.py", "api:a.py"],
+                            subtasks=["WI-2"], by="me@x")
+    assert row["touches"] == ["api:a.py", "api:b.py"] and row["id"] == "WI-1"
+    item = _fm(kit, "WI-1")
+    assert [(c["n"], c["done"], c["text"]) for c in board.show("WI-1")["criteria"]] == [
+        (1, False, "one"), (2, True, "two"), (3, False, "three"), (4, False, "four")]
+    assert board.show("WI-1")["description"] == "New text."
+    assert item.fm["x-touches"] == ["api:a.py", "api:b.py"] and item.fm["subtasks"] == ["WI-2"]
+    assert "<!-- DOD:BEGIN -->" in item.body and item.fm["title"] == "Pay"
+    assert board.update_item("WI-1", touches=[])["touches"] == []
+    assert "x-touches" not in _fm(kit, "WI-1").fm
+
+
+def test_update_item_changes_only_what_it_is_given(board, kit):
+    board.add("task", "x", touches=["api:a.py"], description="Keep me.")
+    before = _fm(kit, "WI-1")
+    board.update_item("WI-1")
+    after = _fm(kit, "WI-1")
+    assert after.body == before.body
+    assert {k: v for k, v in after.fm.items() if k != "updated_date"} == {k: v for k, v in before.fm.items() if k != "updated_date"}
+
+
+def test_update_item_without_criteria_block_or_description_block(board, kit):
+    board.add("task", "x")
+    f = next((kit.root / "backlog" / "tasks").glob("wi-1 - *.md"))
+    text = f.read_text(encoding="utf-8")
+    head = text.split("## Description")[0]
+    f.write_text(head + "just notes\n", encoding="utf-8")                 # a Backlog.md file with no managed blocks
+    board.update_item("WI-1", description="D", add_criteria=["c1"])
+    s = board.show("WI-1")
+    assert s["description"] == "D" and s["criteria"] == [{"n": 1, "done": False, "text": "c1"}]
+    assert "just notes" in _fm(kit, "WI-1").body
+
+
+def test_update_item_title_docs_and_errors(board, kit):
+    (kit.root / "docs" / "flows").mkdir(parents=True)
+    (kit.root / "docs" / "flows" / "pay.md").write_text("---\nx-id: FLOW-k3f9\n---\n# Pay\n\n## Retries\nx\n", encoding="utf-8")
+    board.add("task", "Old name")
+    row = board.update_item("WI-1", title="New name", docs=["FLOW-k3f9#retries"])
+    assert row["title"] == "New name" and row["docs"][0].startswith("FLOW-k3f9#retries@")
+    files = [p.name for p in (kit.root / "backlog" / "tasks").glob("*.md")]
+    assert files == ["wi-1 - New name.md"]
+    before = tree(kit.root)
+    with pytest.raises(board.BoardError):
+        board.update_item("WI-77", title="x")
+    with pytest.raises(board.BoardError):
+        board.update_item("WI-1", title="  ")
+    with pytest.raises(board.BoardError):
+        board.update_item("WI-1", touches=["nope"])
+    with pytest.raises(board.BoardError, match="WI-9"):
+        board.update_item("WI-1", subtasks=["WI-9"])
+    assert tree(kit.root) == before
+
+
+def test_update_item_counts_the_surface(board, kit):
+    kit.usage.set_enabled(True)
+    board.add("task", "x")
+    board.update_item("WI-1", title="y", surface="mcp")
+    data = json.loads((kit.usage.DIR / f"{kit.usage.me()}.json").read_text(encoding="utf-8"))
+    events = next(iter(data["months"].values()))["events"]
+    assert events["board:update:mcp"] == 1
