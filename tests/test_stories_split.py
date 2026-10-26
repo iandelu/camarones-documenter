@@ -119,6 +119,16 @@ def test_invest_small_counts_and_split_by_group(world):
     assert s["data"]["files"] == 3
 
 
+@pytest.mark.parametrize("stories_key", ["yes", {"small": [1]}, {"small": {"groups": 0, "files": "2", "repos": True}}])
+def test_invest_small_ignores_bad_thresholds(world, stories_key):
+    kit = world[0]
+    ws = kit.docs.workspace()
+    ws["stories"] = stories_key
+    kit.docs.save_workspace(ws)
+    s = letters(world, story(touches=[ORDER, REPO, PAY, PAGE]))["S"]
+    assert s["ok"] is True and "máximo" not in s["reason"]
+
+
 def test_verdict_boundaries(world):
     inv = world[3].invest
     assert inv(story(), [], groups=GROUPS, lang="es")["verdict"] == "good"
@@ -211,38 +221,105 @@ def test_analyze_returns_everything_the_wizard_shows(world):
     kit, ops, index, stories = world
     other = ops.add("story", "Refunds", touches=[PAY])["id"]
     out = stories.analyze(story(), None, lang="es")
-    assert set(out) == {"hints", "invest", "tasks", "waves", "conflicts", "cycle", "graphless"}
+    assert set(out) == {"hints", "invest", "tasks", "waves", "conflicts", "cycle", "duplicates", "unknown_deps",
+                        "graphless"}
     assert out["hints"] == [] and out["cycle"] == [] and out["graphless"] == []
+    assert out["duplicates"] == [] and out["unknown_deps"] == {}
     assert out["conflicts"] == [{"id": other, "kind": "conflict", "files": [PAY]}]
     assert out["invest"]["letters"]["I"]["ok"] is False and out["invest"]["verdict"] == "improve"
     assert out["waves"] == [[K_PAY], [K_ORDERS], [K_DOCS]]
     assert [t["key"] for t in out["tasks"]] == [K_PAY, K_ORDERS, K_DOCS]
+    assert all(t["added"] == [] and t["dropped"] == [] for t in out["tasks"])
 
 
-def test_analyze_with_edited_tasks_recomputes_and_flags_outside(world):
+def edited(out, key, **changes):
+    tasks = out["tasks"]
+    next(t for t in tasks if t["key"] == key).update(edited=True, **changes)
+    return tasks
+
+
+def test_analyze_keeps_edited_tasks_and_flags_outside(world):
     kit, ops, index, stories = world
-    tasks = [t for t in stories.analyze(story(), None, lang="es")["tasks"] if t["kind"] == "change"]
-    for t in tasks:
-        t["deps"] = []                                                 # stale: recomputed from the files
-    pay = next(t for t in tasks if t["key"] == K_PAY)
-    pay.update(touches=[PAY, REPO], edited=True, title="Pagos")
+    tasks = edited(stories.analyze(story(), None, lang="es"), K_PAY, touches=[PAY, REPO], title="Pagos")
     out = stories.analyze(story(), tasks, lang="es")
     by = {t["key"]: t for t in out["tasks"]}
-    assert set(by) == {K_ORDERS, K_PAY}                                # no split: the person's list
-    assert by[K_PAY]["outside"] == [REPO] and by[K_PAY]["title"] == "Pagos"
+    assert set(by) == {K_ORDERS, K_PAY, K_DOCS}
+    assert by[K_PAY]["outside"] == [REPO] and by[K_PAY]["title"] == "Pagos" and by[K_PAY]["touches"] == [REPO, PAY]
     assert "outside" not in by[K_ORDERS]
     assert by[K_ORDERS]["deps"] == [K_PAY]                             # OrderService uses both of its files
-    assert out["waves"] == [[K_PAY], [K_ORDERS]] and out["cycle"] == []
+    assert out["waves"] == [[K_PAY], [K_ORDERS], [K_DOCS]] and out["cycle"] == []
 
 
-def test_analyze_reports_a_hand_made_cycle(world):
+def test_analyze_resplits_unedited_tasks_and_keeps_edited_ones(world):
     kit, ops, index, stories = world
-    tasks = [t for t in stories.analyze(story(), None, lang="es")["tasks"] if t["kind"] == "change"]
-    pay = next(t for t in tasks if t["key"] == K_PAY)
-    pay.update(touches=[PAY, WEB], edited=True)                        # web uses orders, orders uses payments
+    tasks = edited(stories.analyze(story(), None, lang="es"), K_ORDERS, title="Pedidos")
+    next(t for t in tasks if t["key"] == K_PAY)["title"] = "stale"     # not edited: regenerated
+    out = stories.analyze(story(touches=[ORDER, PAY, WEB]), tasks, lang="es")
+    by = {t["key"]: t for t in out["tasks"]}
+    assert set(by) == {K_ORDERS, K_PAY, K_WEB, K_DOCS}                 # the new group gets a task
+    assert by[K_ORDERS]["title"] == "Pedidos" and by[K_ORDERS]["edited"] is True and by[K_ORDERS]["outside"] == []
+    assert by[K_PAY]["title"] == "payments: cobrar los pedidos con tarjeta" and by[K_PAY]["edited"] is False
+    assert [t["key"] for t in out["tasks"]].count(K_ORDERS) == 1
+
+
+def test_a_dropped_dependency_takes_effect_and_changes_waves(world):
+    kit, ops, index, stories = world
+    tasks = edited(stories.analyze(story(), None, lang="es"), K_ORDERS, dropped=[K_PAY])
+    out = stories.analyze(story(), tasks, lang="es")
+    by = {t["key"]: t for t in out["tasks"]}
+    assert by[K_ORDERS]["deps"] == [] and by[K_ORDERS]["dropped"] == [K_PAY]
+    assert out["waves"] == [[K_ORDERS, K_PAY], [K_DOCS]]               # no shared file: side by side
+
+
+def test_an_added_dependency_takes_effect_and_unknown_ones_are_reported(world):
+    kit, ops, index, stories = world
+    other = ops.add("task", "Elsewhere", touches=["worker:src/jobs/Job.java"])["id"]
+    s = story(touches=[PAY, WEB])                                      # web uses orders, not payments
+    first = stories.analyze(s, None, lang="es")
+    assert first["waves"][0] == [K_PAY, K_WEB]
+    tasks = edited(first, K_WEB, added=[K_PAY, other, "WI-99"])
+    out = stories.analyze(s, tasks, lang="es")
+    by = {t["key"]: t for t in out["tasks"]}
+    assert by[K_WEB]["deps"] == [other, K_PAY] and by[K_WEB]["added"] == [K_PAY, other, "WI-99"]
+    assert out["unknown_deps"] == {K_WEB: ["WI-99"]}
+    assert out["waves"] == [[K_PAY], [K_WEB], [K_DOCS]]
+
+
+def test_analyze_reports_a_hand_made_cycle_and_dropping_a_dependency_clears_it(world):
+    kit, ops, index, stories = world
+    tasks = edited(stories.analyze(story(), None, lang="es"), K_PAY, touches=[PAY, WEB])   # web uses orders
     out = stories.analyze(story(), tasks, lang="es")
     assert out["cycle"] == [K_ORDERS, K_PAY] and out["waves"] == []
-    assert {t["key"] for t in out["tasks"]} == {K_ORDERS, K_PAY}
+    assert {t["key"] for t in out["tasks"]} == {K_ORDERS, K_PAY, K_DOCS}
+    next(t for t in out["tasks"] if t["key"] == K_PAY)["dropped"] = [K_ORDERS]
+    out = stories.analyze(story(), out["tasks"], lang="es")
+    assert out["cycle"] == [] and out["waves"] == [[K_PAY], [K_ORDERS], [K_DOCS]]
+
+
+def test_an_edited_docs_task_found_through_citations_is_not_outside(world):
+    kit, ops, index, stories = world
+    tasks = edited(stories.analyze(story(), None, lang="es"), K_DOCS, title="Revisar el checkout")
+    out = stories.analyze(story(), tasks, lang="es")
+    docs_task = next(t for t in out["tasks"] if t["key"] == K_DOCS)
+    assert docs_task["title"] == "Revisar el checkout" and docs_task["outside"] == []
+
+
+def test_duplicate_keys_are_reported_not_raised(world):
+    kit, ops, index, stories = world
+    tasks = edited(stories.analyze(story(), None, lang="es"), K_PAY)
+    tasks.append({**next(t for t in tasks if t["key"] == K_PAY), "title": "Otra"})
+    out = stories.analyze(story(), tasks, lang="es")
+    assert out["duplicates"] == [K_PAY] and out["waves"] == []
+    assert [t["key"] for t in out["tasks"]].count(K_PAY) == 2
+
+
+def test_resplitting_a_story_leaves_its_own_children_out(world):
+    kit, ops, index, stories = world
+    sid = ops.add("story", "Cobrar", touches=[ORDER, PAY])["id"]
+    child = ops.add("task", "Pagos", parent=sid, touches=[PAY])["id"]
+    ops.move(child, "In Progress")
+    tasks = {t["key"]: t for t in split(world, story(id=sid))}
+    assert tasks[K_PAY]["conflicts"] == [] and tasks[K_PAY]["deps"] == []
 
 
 def test_analyze_without_graph_lists_graphless_repo(world):

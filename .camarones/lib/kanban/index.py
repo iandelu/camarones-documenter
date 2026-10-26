@@ -356,6 +356,20 @@ def nodes(conn: sqlite3.Connection) -> list[Node]:
     return sorted(out, key=lambda n: id_key(n["id"]))
 
 
+def types(conn: sqlite3.Connection, ids: Iterable[str]) -> dict[str, str]:
+    """`{id: type}` for the items among `ids` the index knows (open or archived); unknown ids are left out."""
+    out: dict[str, str] = {}
+    for chunk in _chunks(sorted(set(ids))):
+        out.update(conn.execute(f"select id, type from items where id in ({_marks(len(chunk))})", chunk).fetchall())
+    return out
+
+
+def page_title(conn: sqlite3.Connection, touch: str) -> str | None:
+    """The title of a doc page (`cam-docs:<path>`), None when the index has no such page."""
+    row = conn.execute("select title from pages where touch = ?", (touch,)).fetchone()
+    return row[0] if row and row[0] else None
+
+
 def edges(conn: sqlite3.Connection, touches: Iterable[str]) -> set[tuple[str, str]]:
     """Code-map dependencies `(src, dst)`, repo-qualified, between files that are both in `touches`."""
     out: set[tuple[str, str]] = set()

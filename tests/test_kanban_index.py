@@ -77,6 +77,19 @@ def test_builds_and_answers(world):
         conn.close()
 
 
+def test_types_and_page_titles(world):
+    kit, ops, index, one, two = world
+    story = ops.add("story", "Checkout")["id"]
+    conn = index.connect()
+    try:
+        assert index.types(conn, [one, story, "WI-99"]) == {one: "task", story: "story"}
+        assert index.types(conn, []) == {}
+        assert index.page_title(conn, PAGE) == "Orders"
+        assert index.page_title(conn, "cam-docs:docs/none.md") is None
+    finally:
+        conn.close()
+
+
 def test_prefix_matches_come_before_substring_matches(world):
     kit, ops, index, one, two = world
     conn = index.connect()
