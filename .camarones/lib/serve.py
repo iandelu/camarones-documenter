@@ -326,9 +326,9 @@ def api_pipeline(lang: str = "") -> dict:
     from . import sessions
     from .harness import pipeline, runs
     lang = ui_lang(lang)
+    busy = sessions.headless()
     try:
         nodes = {u["id"]: u for u in plan.pipeline_units()}
-    busy = sessions.headless()
     except plan.PipelineError:
         nodes = {}
     types = pipeline.types()
