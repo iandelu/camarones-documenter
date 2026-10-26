@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Aviso, Button, Card } from '@camaron/ui'
 import { answerView, askBody, askError, buildFailed, c4Card, openPortal, startBuild, startWiki, wikiBlocks, wikiBusyWith,
-  wikiError } from '../docs.js'
+  wikiError, wikisRead } from '../docs.js'
 import { useJob, useStore } from '../hooks.js'
 import { errorLine } from '../onboarding.js'
 import { JobOutput, Page } from '../parts.jsx'
@@ -15,7 +15,7 @@ const NONE = { running: [] }
 const NO_JOBS = { get: () => NONE, subscribe: () => () => {} }
 export default function Docs({ srv, jobs, app, index }) {
   const open = (hash) => openPortal(app, location.origin, hash)
-  const { rows, loading, reload } = useWikis(srv)
+  const { rows, loading, failed, reload } = useWikis(srv)
   const { running } = useStore(jobs || NO_JOBS)
   return (
     <Page title={t('nav.docs')}>
@@ -25,8 +25,9 @@ export default function Docs({ srv, jobs, app, index }) {
         <Button variant="ghost" onClick={() => open('#/search')}>{t('docs.search')}</Button>
       </div>
       <Build srv={srv} jobs={jobs} card={c4Card} title={t('docs.c4')} hint={t('docs.c4Hint')} onView={() => open(c4Card.hash)} />
-      {wikiBlocks(index, rows).map((b) => (
-        <WikiBlock key={b.repo} srv={srv} jobs={jobs} block={b} loading={loading} busyWith={wikiBusyWith(running, b.repo)}
+      {failed ? <WikisUnread kept={!!rows} onRetry={reload} /> : null}
+      {wikiBlocks(index, rows).map((b) => (               // a failed read is said once, above: the blocks do not repeat it
+        <WikiBlock key={b.repo} srv={srv} jobs={jobs} block={b} loading={loading || failed} busyWith={wikiBusyWith(running, b.repo)}
           onView={() => open(b.hash)} onDone={reload} />))}
       <Ask srv={srv} open={open} />
     </Page>
@@ -34,19 +35,25 @@ export default function Docs({ srv, jobs, app, index }) {
 }
 
 // Each repo's wiki state (GET wikis, read-only: cloned, chosen, brief, pages, whether it can be generated), read once and
-// again after a run; null while loading or when it could not be read (the blocks then keep Generate closed).
+// again after a run or a Retry; rows null while loading or when the first read failed (the blocks then keep Generate
+// closed). A failed re-read keeps the last good rows (wikisRead); `failed` brings the Retry.
 function useWikis(srv) {
-  const [rows, setRows] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [state, setState] = useState({ rows: null, loading: true, failed: false })
   const alive = useRef(true)
-  const reload = () => srv.get('wikis').then((r) => { if (alive.current) { setRows(r); setLoading(false) } },
-    () => { if (alive.current) { setRows(null); setLoading(false) } })
+  const reload = () => srv.get('wikis').then((rows) => { if (alive.current) setState((s) => wikisRead(s, { rows })) },
+    () => { if (alive.current) setState((s) => wikisRead(s, { error: true })) })
   useEffect(() => {
     alive.current = true
     reload()
     return () => { alive.current = false }
   }, [])
-  return { rows, loading, reload }
+  return { ...state, reload }
+}
+
+// GET wikis failed: said once, with a Retry. `kept`: the cards still show the last good read.
+export function WikisUnread({ kept, onRetry }) {
+  return <Aviso tone="warn" title={t(kept ? 'docs.wikiStale' : 'docs.wikiUnread')}
+    action={<Button size="sm" onClick={onRetry}>{t('retry')}</Button>} />
 }
 
 // A build job of the project server (POST build, token-gated) followed to its end.

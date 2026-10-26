@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import { answerView, askBody, askError, buildFailed, c4Card, citeHash, openPortal, portalUrl, startBuild, startWiki, wikiBlocks,
-  wikiBusyWith, wikiError, wikiRepos } from './docs.js'
+  wikiBusyWith, wikiError, wikiRepos, wikisRead } from './docs.js'
 import { setLang, t } from './i18n.js'
 
 // The portal is the reader, on the project's own server one folder up from /desktop/; the window opens it in the
@@ -184,4 +184,16 @@ test('busy from POST wiki has its own sentence, in Spanish and English; anything
   setLang('en')
   expect(wikiError(new Error('busy'), t)).toBe("Another repo's wiki is being generated: wait for it to finish and try again.")
   setLang('es')
+})
+
+// GET wikis, read on mount and again after a run: a failed first read leaves no rows (the blocks say they are unread);
+// a failed re-read keeps the last good rows. Either way `failed` is set, and the section offers a Retry.
+test('a failed read of the wikis keeps the last good rows and says it failed', () => {
+  const start = { rows: null, loading: true, failed: false }
+  const rows = [{ repo: 'api', pages: 1 }]
+  const read = wikisRead(start, { rows })
+  expect(read).toEqual({ rows, loading: false, failed: false })
+  expect(wikisRead(start, { error: true })).toEqual({ rows: null, loading: false, failed: true })
+  expect(wikisRead(read, { error: true })).toEqual({ rows, loading: false, failed: true })
+  expect(wikisRead({ rows, loading: false, failed: true }, { rows: [] })).toEqual({ rows: [], loading: false, failed: false })
 })
