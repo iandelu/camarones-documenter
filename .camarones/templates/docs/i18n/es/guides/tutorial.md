@@ -219,7 +219,7 @@ sección (`g s` Resumen, `g p` Plan, `g q` Calidad…).
 | 🎙️ Entrevistas | cuestionario del equipo o en vivo, exportar el formulario sin conexión, importar respuestas, cerrar la ronda, cada entrevista con su agente |
 | 🤝 Equipo | el repo del equipo y compartir, aprobar la configuración de agentes que vino con él, hooks, plugins |
 | ✅ Calidad | requisitos y herramientas (guardados entre visitas, «Volver a comprobar»), el contexto que carga cada sesión de agente, preguntas de control, con y sin cam-docs; sin IA, vulnerabilidades conocidas, páginas desactualizadas, bloques generados |
-| 📖 Docs | **Leer la documentación**, **Revisar borradores** y **Buscar o preguntar** abren el portal en tu navegador. Debajo, **Construir el explorador C4** y, por cada repo con wiki, **Grafo del wiki**: un trabajo con su salida y, al acabar, **Ver** abre el resultado en el portal (**Reintentar** si falló) |
+| 📖 Docs | **Leer la documentación**, **Revisar borradores** y **Buscar o preguntar** abren el portal en tu navegador. Debajo, **Construir el explorador C4**; por cada repo, **Generar la wiki** (elige el repo y escribe un brief inicial sin IA si aún no tiene) y, cuando ya tiene páginas, **Grafo del wiki**: cada uno un trabajo con su salida y, al acabar, **Ver** abre el resultado en el portal (**Reintentar** si falló); y **Preguntar con IA**, que responde con lo que dice la documentación y enlaza sus fuentes en el portal |
 | 🧰 Máquina | setup con progreso, idioma y modelos, tokens de GitLab / GitHub, repos y su stack, el perfil del plan, actualizar el kit, repair y, aparte y con vista previa, uninstall |
 
 Cada sección acaba con **Todos los comandos**, plegado: el resto de su zona del catálogo, cada uno con su formulario.

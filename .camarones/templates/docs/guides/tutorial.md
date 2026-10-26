@@ -208,7 +208,7 @@ between sections (`g s` Summary, `g p` Plan, `g q` Quality…).
 | 🎙️ Interviews | team questionnaire or live, export the offline form, import answers, close the round, each interview with its agent |
 | 🤝 Team | the team's repo and sharing, approving the agent config that came with it, hooks, plugins |
 | ✅ Quality | prerequisites and tools (kept between visits, "Check again"), the context every agent session loads, golden questions, with vs without cam-docs; without AI, known vulnerabilities, pages out of date, generated blocks |
-| 📖 Docs | **Read the docs**, **Review drafts** and **Search or ask** open the portal in your browser. Below, **Build the C4 explorer** and, per repo with a wiki, **Wiki graph**: a job with its output, then **View** opens the result in the portal (**Retry** if it failed) |
+| 📖 Docs | **Read the docs**, **Review drafts** and **Search or ask** open the portal in your browser. Below, **Build the C4 explorer**; per repo, **Generate the wiki** (chooses the repo and writes a starter brief without AI if it has none) and, once it has pages, **Wiki graph**: each a job with its output, then **View** opens the result in the portal (**Retry** if it failed); and **Ask with AI**, which answers from the docs and links its sources in the portal |
 | 🧰 Machine | setup with progress, language and models, GitLab / GitHub tokens, repos and their stack, the plan profile, kit updates, repair and, apart and previewed first, uninstall |
 
 Every section ends with **All commands**, folded: the rest of its catalog zone, each with its form.
