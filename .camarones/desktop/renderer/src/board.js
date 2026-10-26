@@ -19,6 +19,12 @@ export const childrenOf = (cards, id) => {
     .sort((a, b) => (a.ordinal ?? 0) - (b.ordinal ?? 0) || idNum(a.id) - idNum(b.id))
 }
 
+// Who a new item may go under (the server's table: an epic takes story/bug/spike/task, a story takes task). Archived and
+// Done ones stay: a finished story can still get a late task. By id, in number order.
+const PARENT_TYPES = { task: ['epic', 'story'], story: ['epic'], bug: ['epic'], spike: ['epic'] }
+export const allowedParents = (type, cards) => cards.filter((c) => (PARENT_TYPES[type] || []).includes(c.type))
+  .sort((a, b) => idNum(a.id) - idNum(b.id) || String(a.id).localeCompare(String(b.id)))
+
 // What a failed move means: a 409 that names the cards blocking it asks the person (and may be forced); the rest is
 // shown as the server said it (server.js keeps `status` and the response `data` on the error).
 export function moveOutcome(err) {
