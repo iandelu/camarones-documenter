@@ -359,13 +359,24 @@ def app_kitdev(b: dict) -> tuple[dict, int]:
 
 
 def app_creds(action: str, b: dict) -> tuple[dict, int]:
-    """The desktop app's tokens for GitLab / GitHub (lib/creds.py, the OS keychain): saved only after the forge accepts
-    them (or with `anyway`), tested, or deleted. A token is never sent back."""
+    """The desktop app's tokens for GitLab / GitHub / SonarQube (lib/creds.py, the OS keychain): saved only after the
+    server accepts them (or with `anyway`), tested, or deleted. A token is never sent back. A SonarQube host is kept as
+    given (path prefix included, trailing slash dropped) and only over https, except for a local one."""
     from . import creds
     raw = str(b.get("host") or "").strip()
-    host = creds.host_of(raw if "://" in raw else f"https://{raw}") or raw
-    if not host or host.startswith("-") or "/" in host:
-        return {"error": "host: like gitlab.example.com"}, 400
+    sonar = creds.sonar_host(raw)
+    if b.get("kind") == "sonarqube" or creds.hosts().get(sonar, {}).get("kind") == "sonarqube":
+        try:
+            creds.sonar_base(sonar)
+        except ValueError as e:
+            return {"error": f"host: {e}"}, 400
+        host, b = sonar, {**b, "kind": "sonarqube"}
+        if host.startswith("-") or any(c.isspace() for c in host):
+            return {"error": "host: like sonar.example.com"}, 400
+    else:
+        host = creds.host_of(raw if "://" in raw else f"https://{raw}") or raw
+        if not host or host.startswith("-") or "/" in host:
+            return {"error": "host: like gitlab.example.com"}, 400
     if action == "/delete":
         creds.delete(host)
         return {"deleted": host}, 200
@@ -378,8 +389,8 @@ def app_creds(action: str, b: dict) -> tuple[dict, int]:
     if action:
         return {"error": "not found"}, 404
     kind, token = b.get("kind") or creds.guess_kind(host), str(b.get("token") or "").strip()
-    if kind not in ("gitlab", "github") or not token:
-        return {"error": "kind (gitlab or github) and token are required"}, 400
+    if kind not in ("gitlab", "github", "sonarqube") or not token:
+        return {"error": "kind (gitlab, github or sonarqube) and token are required"}, 400
     ok, info = creds.verify(host, kind, token)
     if not ok and not b.get("anyway"):
         return {"error": f"{host} did not accept the token: {info}"}, 400

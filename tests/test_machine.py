@@ -77,6 +77,34 @@ def test_tokens_go_through_the_server_and_never_come_back(kit, app, monkeypatch)
     assert call(app + "/api/app/creds", token=None)[0] == 403
 
 
+def test_a_sonarqube_token_is_saved_under_its_host_as_given(kit, app, monkeypatch):
+    from lib import creds
+    monkeypatch.setattr(creds, "_keyring", lambda: None)
+    asked = []
+    monkeypatch.setattr(creds, "verify", lambda host, kind, token: (asked.append((host, kind)) or token == "good", ""))
+    code, r = call(app + "/api/app/creds", {"host": "https://sonar.example.com/sonar/", "kind": "sonarqube", "token": "bad"})
+    assert code == 400 and creds.get("https://sonar.example.com/sonar") is None
+    code, r = call(app + "/api/app/creds", {"host": "https://sonar.example.com/sonar/", "kind": "sonarqube", "token": "good"})
+    assert code == 200 and r["host"] == "https://sonar.example.com/sonar"
+    assert creds.get("https://sonar.example.com/sonar") == "good"
+    assert asked[-1] == ("https://sonar.example.com/sonar", "sonarqube")
+    code, listed = call(app + "/api/app/creds")
+    assert listed["hosts"] == [{"host": "https://sonar.example.com/sonar", "kind": "sonarqube", "user": "", "saved": True}]
+    assert "good" not in json.dumps(listed) and "good" not in creds.META.read_text(encoding="utf-8")
+    code, r = call(app + "/api/app/creds/test", {"host": "https://sonar.example.com/sonar"})
+    assert code == 200 and r == {"ok": True, "info": ""} and asked[-1][1] == "sonarqube"
+    code, _ = call(app + "/api/app/creds/delete", {"host": "https://sonar.example.com/sonar/"})
+    assert code == 200 and creds.get("https://sonar.example.com/sonar") is None and not creds.hosts()
+
+
+def test_a_sonarqube_http_host_is_refused_by_the_server(kit, app, monkeypatch):
+    from lib import creds
+    monkeypatch.setattr(creds, "_keyring", lambda: None)
+    code, r = call(app + "/api/app/creds", {"host": "http://sonar.example.com", "kind": "sonarqube", "token": "t", "anyway": True})
+    assert code == 400 and "solo https" in r["error"]
+    assert not creds.hosts()
+
+
 def test_a_bad_token_can_be_kept_on_purpose(kit, app, monkeypatch):
     from lib import creds
     monkeypatch.setattr(creds, "_keyring", lambda: None)
