@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { t } from '../i18n/index.js'
 import { Aviso, Button } from './components.jsx'
-import { AREAS, fmtAgo, nextReason, repoRow, rowsFor, stateWord, tileTarget, verdictText } from './health.js'
+import { AREAS, fmtAgo, nextReason, repoRow, rowsFor, safeUrl, stateWord, tileTarget, verdictText } from './health.js'
 
 // The project's health screen, shared by the portal (read-only: `links`) and the desktop app (`actions`, `onRefresh`).
 // The numbers and states come from the snapshot of lib/health.py; the rules that turn them into rows are in health.js.
@@ -29,7 +29,6 @@ const Dot = ({ state, word }) => (
     {word && <span className="sr-only">{word}</span>}
   </>
 )
-const safeUrl = (u) => (/^https?:\/\//i.test(u) ? u : null)
 
 // The app's actions are stateful (they run commands when they mount), so one is drawn only inside its own row, and only
 // while that row is open: the tile's button opens the row instead of drawing a second copy.

@@ -10,6 +10,16 @@ export function codeRoute(rest, index) {
     graph: mode === 'graph' || (!!repo && !maps.includes(repo)) }
 }
 
+// #/code/<repo>/f/<path> (a link from a page that cites a file, e.g. a debt item's evidence): the map's id of that file.
+// The map's paths may start below the source root, so a path that ends with the file's own path matches too.
+export function fileIdByPath(m, path) {
+  if (!path) return NaN
+  const exact = m.files.findIndex((f) => f.path === path)
+  if (exact >= 0) return exact
+  const tails = m.files.map((f, i) => [i, f.path]).filter(([, p]) => p && path.endsWith('/' + p))
+  return tails.length === 1 ? tails[0][0] : NaN
+}
+
 export const codeView = (m, mode, id) => (mode === 'f' && m.files[id] ? 'file' : mode === 'g' && m.groups[id] ? 'group' : 'map')
 
 const within = (f, sub) => !sub || f.sub === sub || f.sub.startsWith(sub + '/')

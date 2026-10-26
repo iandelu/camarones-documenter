@@ -4,7 +4,7 @@ import { t } from './i18n.js'
 import { Skeleton } from '@camaron/ui'
 import Failed from './Failed.jsx'
 import AppOnly from './AppOnly.jsx'
-import { applyFilter, facets, matrix } from './libs.js'
+import { applyFilter, facets, matrix, repoFilter } from './libs.js'
 
 const SEV = { critical: 'bad', high: 'bad', medium: 'warn', low: 'muted', unknown: 'muted' }
 
@@ -18,7 +18,7 @@ function Select({ label, value, onChange, options }) {
 }
 
 // Every repo's direct dependencies (lib/inventory.py) as a library × service matrix, with known vulnerabilities in red.
-export default function Libs() {
+export default function Libs({ arg = '' }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState('')
@@ -26,6 +26,8 @@ export default function Libs() {
   const [open, setOpen] = useState(null)
   const load = () => getJSON('inventory').then((x) => { setData(x); setError('') }, (e) => setError(e.message))
   useEffect(() => { load() }, [])
+  // #/libs/<repo> opens filtered to that repo, once the inventory says which repos there are
+  useEffect(() => { if (arg && data) setF((cur) => ({ ...cur, repo: repoFilter(arg, data.libraries) })) }, [arg, !!data])
   async function refresh(cves) {
     setBusy(cves ? t('libsScanning') : t('libsRefreshing'))
     try {

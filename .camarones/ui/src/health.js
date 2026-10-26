@@ -9,6 +9,9 @@ const STATES = ['ok', 'warn', 'bad']
 
 export const AREAS = ['machine', 'docs', 'code']
 
+// A link the snapshot gives us (Sonar's dashboard) is opened only when it is http(s); anything else (javascript:, data:) is text.
+export const safeUrl = (u) => (typeof u === 'string' && /^https?:\/\//i.test(u) ? u : null)
+
 const failed = (block) => !!block && typeof block === 'object' && typeof block.error === 'string'
 const good = (block) => !!block && typeof block === 'object' && !Array.isArray(block) && !failed(block)
 const count = (n) => (typeof n === 'number' && Number.isFinite(n) ? String(n) : null)

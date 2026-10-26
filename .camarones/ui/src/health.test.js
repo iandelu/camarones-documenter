@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, test } from 'vitest'
 import { S, t as text } from '../i18n/index.js'
 import { HealthBoard } from './index.js'
-import { fmtAgo, nextReason, repoRow, rowsFor, tileTarget, verdictText } from './health.js'
+import { fmtAgo, nextReason, repoRow, rowsFor, safeUrl, tileTarget, verdictText } from './health.js'
 
 const en = (k) => text(k, 'en')
 const es = (k) => text(k, 'es')
@@ -290,4 +290,10 @@ test('the area words follow the spec in Spanish and English', () => {
     .toEqual(['Lista', 'Al día', 'Sano', 'Revisar', 'Riesgo'])
   expect([en('hb.state.ok.machine'), en('hb.state.ok.docs'), en('hb.state.ok.code'), en('hb.state.warn'), en('hb.state.bad')])
     .toEqual(['Ready', 'Up to date', 'Healthy', 'Review', 'At risk'])
+})
+
+test('safeUrl keeps http(s) links only', () => {
+  expect(safeUrl('https://sonar.example.com/dashboard?id=k')).toBe('https://sonar.example.com/dashboard?id=k')
+  expect(safeUrl('http://localhost:9000/x')).toBe('http://localhost:9000/x')
+  for (const bad of ['javascript:alert(1)', 'data:text/html,x', '//evil.example', '', null, undefined, 7]) expect(safeUrl(bad)).toBeNull()
 })

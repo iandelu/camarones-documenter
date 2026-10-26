@@ -2,4 +2,5 @@
 // theme/tokens.css, linked by each app).
 export { Aviso, Brand, Breadcrumbs, Button, Card, Chip, EmptyState, Field, Keys, Skeleton, SkipLink } from './components.jsx'
 export { HealthBoard } from './health.jsx'
+export { safeUrl, stateWord } from './health.js'
 export { lang as uiLang, t as uiText } from '../i18n/index.js'
