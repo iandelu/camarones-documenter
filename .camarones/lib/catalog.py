@@ -45,6 +45,8 @@ COMMANDS: dict[str, dict] = {
     "radar": _e("app", "analyze", "Stack y herramientas que ya usan los repos", "Stack and tools the repos already use"),
     "inventory": _e("both", "analyze", "Dependencias de cada repo y sus vulnerabilidades",
                     "Each repo's dependencies and their vulnerabilities"),
+    "bump": _e("app", "analyze", "Actualizar una librería de un repo en una rama nueva, sin commit",
+               "Update one library of a repo on a new branch, not committed"),
     "schemas": _e("app", "analyze", "Tablas y colecciones de cada repo", "Each repo's tables and collections"),
     "blocks": _e("app", "analyze", "Datos leídos del código para los bloques generados",
                  "Facts read from the code for the generated blocks"),

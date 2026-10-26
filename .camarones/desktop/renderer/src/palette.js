@@ -2,7 +2,7 @@ import { inPanel, sectionFor } from './catalog.js'
 
 // The ⌘K palette and the `g` shortcuts, pure: which letter goes where, what the palette lists, how a query picks.
 
-export const GO = { s: 'summary', p: 'plan', i: 'interviews', t: 'team', q: 'quality', d: 'docs', m: 'machine', k: 'kitdev' }
+export const GO = { s: 'summary', p: 'plan', i: 'interviews', t: 'team', q: 'quality', l: 'libs', d: 'docs', m: 'machine', k: 'kitdev' }
 export const keyFor = (section) => Object.keys(GO).find((k) => GO[k] === section)
 const CHORD_MS = 1500
 

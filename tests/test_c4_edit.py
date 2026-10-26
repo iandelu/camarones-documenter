@@ -234,3 +234,64 @@ def test_the_portal_reads_edits_and_confirms_a_view(kit, portal):
                                                  "label": "stores payments"})
     assert code == 200
     assert call(f"{portal}/api/c4/relation", {"action": "remove", "from": "user", "to": "shop.db", "label": "x"})[0] == 404
+
+
+# ---------- removing an element ----------
+PICKED = """views {
+  view index {
+    include *
+  }
+  view shop_containers of shop {
+    include *
+  }
+  view picked {
+    include user, shop.billing,
+      shop.orders
+    exclude shop.billing -> *
+  }
+  dynamic view checkout {
+    user -> shop.orders 'buys'
+    shop.orders -> shop.billing 'charges'
+  }
+}
+"""
+
+
+def test_removing_an_element_takes_its_children_relations_and_view_mentions(arch):
+    from lib import c4edit
+    (arch / "views.c4").write_text(PICKED, encoding="utf-8", newline="\n")
+    r = c4edit.remove_element("shop.billing")
+    assert r["removed"] == ["shop.billing"]
+    idx = c4edit.index()
+    assert "shop.billing" not in idx["elements"] and "shop.orders" in idx["elements"]
+    assert all("shop.billing" not in (x["from"], x["to"]) for x in idx["relations"])
+    model = (arch / "model.c4").read_text(encoding="utf-8")
+    assert "billing" not in model and "    orders = service 'Orders' {" in model
+    views = (arch / "views.c4").read_text(encoding="utf-8")
+    assert "    include user,\n      shop.orders\n" in views and "exclude" not in views
+    assert "    user -> shop.orders 'buys'\n  }" in views and "charges" not in views
+
+    r = c4edit.remove_element("shop.orders")                       # a fragment's children go with it
+    assert r["removed"] == ["shop.orders", "shop.orders.api"]
+    idx = c4edit.index()
+    assert not [f for f in idx["elements"] if f.startswith("shop.orders")] and not idx["relations"]
+    assert "REST API" not in (arch / "repos" / "orders.c4").read_text(encoding="utf-8")
+    views = (arch / "views.c4").read_text(encoding="utf-8")
+    assert "    include user\n" in views and "buys" not in views
+    with pytest.raises(KeyError):
+        c4edit.remove_element("shop.orders")
+
+
+def test_an_element_a_view_is_scoped_to_is_not_removed(arch):
+    from lib import c4edit
+    before = {f: f.read_text(encoding="utf-8") for f in arch.rglob("*.c4")}
+    with pytest.raises(ValueError, match="shop_containers"):
+        c4edit.remove_element("shop")
+    assert {f: f.read_text(encoding="utf-8") for f in arch.rglob("*.c4")} == before
+
+
+def test_the_portal_removes_an_element(kit, portal):
+    code, r = call(f"{portal}/api/c4/remove", {"fqn": "shop.db"})
+    assert code == 200 and r["removed"] == ["shop.db"]
+    assert call(f"{portal}/api/c4/remove", {"fqn": "shop.db"})[0] == 404
+    assert call(f"{portal}/api/c4/remove", {"fqn": "shop"})[0] == 400

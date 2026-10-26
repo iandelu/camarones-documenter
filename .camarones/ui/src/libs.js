@@ -35,3 +35,37 @@ export function facets(rows) {
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
   return { category: count('category'), language: count('language'), repo: count('repo'), scope: count('scope') }
 }
+
+// Versions as numbers where they are numbers: 8.3.10 after 8.3.9, v1.2 = 1.2.0, a pre-release (2.0.0-rc.1) before
+// its release. Good enough to pick a fix among an advisory's own versions, not a full semver.
+export function compareVersions(a, b) {
+  const split = (v) => {
+    const [main, pre = ''] = String(v || '').replace(/^v/, '').split(/-(.*)/s)
+    return { parts: main.split(/[.+]/).map((x) => (/^\d+$/.test(x) ? Number(x) : x)), pre }
+  }
+  const x = split(a), y = split(b)
+  for (let i = 0; i < Math.max(x.parts.length, y.parts.length); i++) {
+    const p = x.parts[i] ?? 0, q = y.parts[i] ?? 0
+    if (p === q) continue
+    if (typeof p === 'number' && typeof q === 'number') return p - q
+    return String(p).localeCompare(String(q))
+  }
+  if (x.pre === y.pre) return 0
+  return !x.pre ? 1 : !y.pre ? -1 : x.pre.localeCompare(y.pre)
+}
+
+// The version that fixes every advisory with a fix: the highest of their `fixed`. null when none has a fix.
+export function fixTarget(vulns) {
+  const fixed = (vulns || []).map((v) => v.fixed).filter(Boolean)
+  return fixed.length ? fixed.reduce((a, b) => (compareVersions(b, a) > 0 ? b : a)) : null
+}
+
+// One entry per advisory (the same one shows up in each repo that has the library), the worst first.
+export function advisories(vulns) {
+  const one = [...new Map((vulns || []).map((v) => [v.id, v])).values()]
+  return one.sort((a, b) => (RANK[b.severity] || 0) - (RANK[a.severity] || 0) || String(a.id).localeCompare(String(b.id)))
+}
+
+// The inventory rows behind one line of the matrix (its key: `<ecosystem>|<name>`), by repo.
+export const rowsOf = (rows, key) => rows.filter((r) => `${r.ecosystem}|${r.name}` === key)
+  .sort((a, b) => a.repo.localeCompare(b.repo))

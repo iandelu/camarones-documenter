@@ -48,7 +48,7 @@ La primera vez te lleva por 6 pasos:
 2. **Herramientas:** tabla con lo que tienes y lo que falta; eliges **instalar todo (recomendado)** o **qué instalar** (git, Node, Docker, Java, Claude/Codex, graphify, LikeC4, OpenWiki, hooks…).
 3. **Setup:** herramientas, repos, conexión de Claude/Codex y hooks de git.
 4. **Stack y herramientas:** el stack de cada repo y las herramientas que ya usáis (Backstage, Sonar, librería de componentes, linters, contratos, CI), detectados sin IA; si un stack está mal lo corriges ahí o luego con `camaron stack`. Queda en `docs/overview/tooling.md`, y cada dependencia directa por categoría (framework, datos, caché, seguridad,
-   mensajería, tests…) en `docs/overview/libraries.md` (también `camaron inventory`; `--cves` añade las vulnerabilidades conocidas
+   mensajería, tests…) en `docs/overview/libraries.md` (también `camaron inventory`, y `camaron bump <repo> <librería> <versión>` actualiza una en una rama nueva de su repo; `--cves` añade las vulnerabilidades conocidas
    con la base de datos offline de OSV-Scanner), y las tablas y colecciones de cada repo, con su diagrama ER, en
    la página del repo (`docs/repos/<repo>/index.md`; `docs/data/<repo>.md` antes de la 4.52), también `camaron schemas`).
 5. **Diagrama C4 rápido:** un primer borrador de la arquitectura, también sin IA.
@@ -180,7 +180,8 @@ Un proyecto recién instalado nunca enseña vistas en blanco: Inicio, Docs y Arq
 desde el código (sin IA)** —el borrador C4 con su página, el stack y las herramientas— y Código ofrece construir el grafo.
 
 Un solo portal, dos modos y la misma interfaz, con el lenguaje visual de Cofundo y la marca Camarón (claro u oscuro, con las fuentes servidas por el propio portal). No hay barra de pestañas: **Inicio** pregunta primero (Preguntar en vivo, el buscador en el exportado), enseña el estado del proyecto (confirmadas, por reconfirmar, borradores, feedback pendiente); el menú lateral mantiene cinco zonas —Docs, Arquitectura, Plan, Calidad y Revisión— en todas las vistas; la barra de arriba dice dónde estás y Ctrl K / ⌘K salta a cualquier página, zona o vista, o (en vivo) lleva la pregunta a Preguntar. Las direcciones de siempre (`#/c4`, `#/docs/…`) siguen funcionando. Las vistas: **Docs** (árbol, búsqueda, confianza), **Arquitectura (C4)** (bajo cada vista, sus elementos: edita título,
-tecnología, descripción y relaciones, y confirma lo que redactó la IA, de uno en uno o la vista entera),
+tecnología, descripción y relaciones, elimina un elemento y confirma lo que redactó la IA, de uno en uno o la vista entera;
+lo confirmado se pliega en su propia sección),
 **Grafo de código** (todos los repos o uno), **Wikis** (OpenWiki por repo, sus páginas y su grafo), **Revisión**
 (páginas pendientes con sus fuentes, que se confirman varias a la vez; revisiones que espera un agente, peticiones de cambio, código cambiado desde la doc, `check`),
 **Preguntar** (las secciones que mejor responden a una pregunta, con citas, sin IA; «base de datos» también encuentra PostgreSQL y las preguntas en español encuentran páginas en inglés; con un agente configurado, «Answer

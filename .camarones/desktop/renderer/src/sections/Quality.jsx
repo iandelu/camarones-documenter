@@ -1,12 +1,12 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Aviso, Button, Chip, HealthBoard, Skeleton, sonarConnectHash } from '@camaron/ui'
-import { applyFilter, facets, matrix } from '@camaron/ui/libs.js'
 import { severities } from '@camaron/ui/result.js'
 import { ago } from '../jobs.js'
 import { BOARD_ACTIONS, doctorRows, seconds } from '../quality.js'
 import { useAgents, useCmd, useJob, useStore } from '../hooks.js'
 import { AgentPicker, Failed, Fold, JobOutput, Page, ResultView, UnitRow } from '../parts.jsx'
 import Commands from './Commands.jsx'
+import { SEV, sevWord } from './Libs.jsx'
 import { lang, t } from '../i18n.js'
 
 // Quality is the project's health board (ui/src/health.jsx) on the snapshot of `camaron health`: machine, docs and code
@@ -215,87 +215,27 @@ function Ab({ srv, jobs }) {
   )
 }
 
-// The libraries every repo declares, read from the code without AI (inventory), as a library x service table like
-// the portal's: reread them any time, and look their known vulnerabilities up (OSV, inventory --cves); the worst
-// first, and a vulnerable row opens on its advisories.
-const SEV = { critical: 'bad', high: 'bad', medium: 'warn', moderate: 'warn' }
-const sevWord = (s) => { const k = `sev.${s}`; const w = t(k); return w === k ? s : w }
-function Libs({ srv, jobs }) {
-  const c = useCmd(srv, jobs)
+// The libraries row of the board: the count and the worst findings, and the way to the Libraries section, where each
+// one opens on why it is there, its advisories and an update.
+function Libs({ srv }) {
   const [inv, setInv] = useState(null)
   const [error, setError] = useState('')
-  const [f, setF] = useState({})
-  const [open, setOpen] = useState(null)
-  const load = () => srv.get('inventory').then((x) => { setInv(x); setError('') }, (e) => setError(e.message))
-  useEffect(() => { load() }, [])
+  useEffect(() => { srv.get('inventory').then(setInv, (e) => setError(e.message)) }, [])
   const rows = inv?.libraries || []
-  const shown = useMemo(() => applyFilter(rows, f), [rows, f])
-  const m = useMemo(() => matrix(shown), [shown])
-  const fc = useMemo(() => facets(rows), [rows])
   const sev = severities(rows)
-  const run = async (args) => { await c.run('inventory', args); load() }
-  const set = (k) => (v) => setF((cur) => ({ ...cur, [k]: v }))
-  const count = new Set(rows.map((r) => r.ecosystem + r.name)).size
   return (
     <div className="dk-body dk-run">
-      <div className="row"><span className="dk-grow"></span>
-        <Button size="sm" variant="ghost" href="../#/libs">{t('q.inPortal')}</Button></div>
-      {error ? <Failed title={t('q.cvFailed')} detail={error} onRetry={load} /> : null}
+      {error ? <Failed title={t('q.cvFailed')} detail={error} /> : null}
       {inv ? (
         <div className="row">
-          <b>{t('q.libsCount', { n: count })}</b>
+          <b>{t('q.libsCount', { n: new Set(rows.map((r) => r.ecosystem + r.name)).size })}</b>
           {inv.vulns ? (sev.length ? sev.map(([s, n]) => <Chip key={s} state={SEV[s]}>{n} {sevWord(s)}</Chip>) : <Chip state="ok">{t('q.cvClean')}</Chip>)
             : <span className="muted small">{t('q.cvNever')}</span>}
-          {inv.vulns ? <span className="muted small">{t('q.cvAt', { day: inv.vulns.at?.slice(0, 10) })}</span> : null}
+          <span className="dk-grow"></span>
+          <Button size="sm" variant="primary" href="#/libs">{t('q.libsOpen')}</Button>
         </div>
-      ) : !error ? <Skeleton lines={2} /> : null}
-      <div className="row">
-        <Button size="sm" variant="primary" disabled={c.running} onClick={() => run({})}>{t('q.libsRead')}</Button>
-        <Button size="sm" disabled={c.running} onClick={() => run({ cves: true, json: true })}>{t('q.cvScan')}</Button>
-        <span className="muted small">{t('q.libsNoAi')}</span>
-      </div>
-      <JobOutput c={c} />
-      {rows.length ? (<>
-        <div className="row">
-          <input type="search" className="cu-input dk-grow" placeholder={t('q.libsSearch')} aria-label={t('q.libsSearch')} value={f.q || ''} onChange={(e) => set('q')(e.target.value)} />
-          <FacetSelect label={t('q.libsCategory')} value={f.category} onChange={set('category')} options={fc.category} />
-          <FacetSelect label={t('q.libsRepo')} value={f.repo} onChange={set('repo')} options={fc.repo} />
-          <label className="dk-check"><input type="checkbox" checked={!!f.vulnerable} onChange={(e) => set('vulnerable')(e.target.checked)} />{t('q.libsOnlyVuln')}</label>
-        </div>
-        {m.items.length ? (
-          <div className="dk-scroll"><table className="dk-table dk-libs">
-            <thead><tr><th>{t('q.libsLibrary')}</th><th>{t('q.libsCategory')}</th>{m.repos.map((r) => <th key={r}>{r}</th>)}</tr></thead>
-            <tbody>{m.items.map((x) => (
-              <Fragment key={x.key}>
-                <tr className={x.worst ? `vuln sev-${SEV[x.worst] || 'low'}` : ''}>
-                  <td>{x.vulns.length ? <button type="button" className="dk-linkish" aria-expanded={open === x.key} onClick={() => setOpen(open === x.key ? null : x.key)}>
-                      <code>{x.name}</code></button> : <code>{x.name}</code>} <span className="muted small">{x.ecosystem}</span>
-                    {x.worst ? <> <Chip state={SEV[x.worst]}>{sevWord(x.worst)}</Chip></> : null}
-                    {x.drift ? <> <Chip state="warn">{t('q.libsVersions')}</Chip></> : null}</td>
-                  <td className="muted small">{x.category}</td>
-                  {m.repos.map((r) => { const v = x.cells[r]; return <td key={r} className={v?.vulns.length ? 'cell-vuln' : ''}>{v ? v.version || '—' : ''}</td> })}
-                </tr>
-                {open === x.key ? (
-                  <tr><td colSpan={2 + m.repos.length}><ul className="dk-advisories">{[...new Map(x.vulns.map((v) => [v.id, v])).values()].map((v) => (
-                    <li key={v.id}><a href={`https://osv.dev/vulnerability/${encodeURIComponent(v.id)}`} target="_blank" rel="noreferrer">{v.cve || v.id}</a>{' '}
-                      <Chip state={SEV[v.severity]}>{sevWord(v.severity)}{v.score ? ` ${v.score}` : ''}</Chip>{' '}
-                      <span className="small">{v.summary}</span> {v.fixed ? <b className="small">{t('q.libsFixed', { v: v.fixed })}</b> : null}</li>))}</ul></td></tr>
-                ) : null}
-              </Fragment>
-            ))}</tbody>
-          </table></div>
-        ) : <p className="muted small">{t('nothing')}</p>}
-      </>) : inv ? <p className="muted small">{t('q.libsNone')}</p> : null}
+      ) : !error ? <Skeleton lines={1} /> : null}
     </div>
-  )
-}
-
-function FacetSelect({ label, value, onChange, options }) {
-  return (
-    <select className="cu-input dk-select" value={value || ''} aria-label={label} onChange={(e) => onChange(e.target.value)}>
-      <option value="">{label}: {t('q.libsAll')}</option>
-      {options.map(([k, n]) => <option key={k} value={k}>{k} ({n})</option>)}
-    </select>
   )
 }
 

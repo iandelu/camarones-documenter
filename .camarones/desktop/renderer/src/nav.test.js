@@ -2,7 +2,7 @@ import { expect, test } from 'vitest'
 import { firstRunPending, firstRunRoute, initials, MACHINE, PROJECT, sectionOf, sections, tokenPrefill } from './nav.js'
 
 test('a project has its sections; this machine has its own, Kit dev only in a kit checkout', () => {
-  expect(PROJECT).toEqual(['summary', 'plan', 'interviews', 'team', 'quality', 'docs'])
+  expect(PROJECT).toEqual(['summary', 'plan', 'interviews', 'team', 'quality', 'libs', 'docs'])
   expect(sections({ kitdev: false }).machine).toEqual(['machine'])
   expect(sections({ kitdev: true }).machine).toEqual(MACHINE)
 })

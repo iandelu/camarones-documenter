@@ -1,6 +1,6 @@
 // The app's places, pure: a project's sections, this machine's, which one an address asks for, a project's initials.
 
-export const PROJECT = ['summary', 'plan', 'interviews', 'team', 'quality', 'docs']
+export const PROJECT = ['summary', 'plan', 'interviews', 'team', 'quality', 'libs', 'docs']
 export const MACHINE = ['machine', 'kitdev']
 
 // Kit dev is the bench of a checkout of the kit (lib/kitdev.py): only there.

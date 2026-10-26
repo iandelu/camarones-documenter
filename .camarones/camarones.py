@@ -69,6 +69,9 @@
   inventory [--cves] [--json]   every repo's direct dependencies by category (framework, data, cache, security…)
                           → docs/overview/libraries.md, no AI; --cves adds known vulnerabilities (OSV-Scanner with
                           its offline database, so no package name leaves the machine); exit 1 if one is high/critical
+  bump <repo> <library> <version> [--ecosystem E] [--json] [--yes]   update one library of a service repo on a new
+                          branch camaron/bump-<name>-<version> with its package manager (or the version rewritten in
+                          the manifest); without --yes it only says what it would do; never commits or pushes
   health [--json] [--refresh]   project health at a glance: the machine, the docs and the code, each ok / warn / bad
                           with its reasons, and per repo Sonar, coverage, vulnerabilities and debt; read from the last
                           snapshot (cam-docs/.cache/health.json), built when there is none; --refresh builds it again
@@ -413,6 +416,8 @@ def build_parser() -> argparse.ArgumentParser:
     rd = sp.add_parser("radar"); rd.add_argument("--json", action="store_true")
     inv = sp.add_parser("inventory"); inv.add_argument("--json", action="store_true")
     inv.add_argument("--cves", action="store_true")
+    bmp = sp.add_parser("bump"); bmp.add_argument("repo"); bmp.add_argument("library"); bmp.add_argument("version")
+    bmp.add_argument("--ecosystem"); bmp.add_argument("--json", action="store_true"); bmp.add_argument("--yes", action="store_true")
     hl = sp.add_parser("health"); hl.add_argument("--json", action="store_true")
     hl.add_argument("--refresh", action="store_true")
     sch = sp.add_parser("schemas"); sch.add_argument("--json", action="store_true")
@@ -869,6 +874,24 @@ def main() -> int:
             print(f"→ {page.relative_to(ROOT).as_posix()}")
         serious = [v for r in data["libraries"] for v in r.get("vulns") or [] if v["severity"] in ("critical", "high")]
         return 1 if a.cves and serious else 0
+    elif a.cmd == "bump":
+        from lib import bump
+        try:
+            if not a.yes:
+                p = bump.public(bump.plan(a.repo, a.library, a.version, a.ecosystem))
+                print(json.dumps(p, indent=2, ensure_ascii=False) if a.json else
+                      f"{p['repo']}: {p['name']} {p['from']} → {p['to']} on a new branch {p['branch']}\n"
+                      f"  {' '.join(p['argv']) if p['argv'] else 'the version is rewritten in ' + p['manifest']}\n"
+                      "  run again with --yes to do it (nothing is committed or pushed)")
+                return 0
+            r = bump.apply(a.repo, a.library, a.version, a.ecosystem,
+                           log=(lambda m: print(m, file=sys.stderr)) if a.json else print)
+        except (KeyError, ValueError, RuntimeError) as e:
+            print(f"✖ {e.args[0] if isinstance(e, KeyError) else e}", file=sys.stderr)
+            return 1
+        if a.json:
+            print(json.dumps(r, indent=2, ensure_ascii=False))
+        return 0
     elif a.cmd == "schemas":
         from lib import genblocks, pages, schemas
         found = schemas.scan()

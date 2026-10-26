@@ -423,3 +423,105 @@ def remove_relation(src: str, dst: str, label: str = "") -> dict:
         texts[r["file"]] = "\n".join(lines[:r["start"]] + lines[r["end"] + 1:])
         return {"from": src, "to": dst, "label": label}
     return _write(change)
+
+
+def _mentions(token: str, scope: str | None, els: dict, gone: set[str]) -> bool:
+    """Whether a view's include/exclude token, or a dynamic step, names an element that is going."""
+    names = (n.rstrip(".") for n in re.findall(r"[A-Za-z_][\w.-]*", token))
+    return any(_resolve(n, scope, els) in gone for n in names if n and n not in ("where", "with"))
+
+
+def _prune_view(lines: list[str], start: int, end: int, scope: str | None, dynamic: bool, els: dict,
+                gone: set[str]) -> set[int]:
+    """Lines of one view to drop or rewrite so it no longer names `gone`: tokens out of include/exclude lists (a list
+    may go on over the next lines), steps out of a dynamic view. Lines with a block of their own are left to LikeC4."""
+    depths = _depths(lines)
+    drop: set[int] = set()
+    listing = False                                               # inside an include/exclude list that goes on
+    for i in range(start + 1, end):
+        code = _strip(lines[i]).rstrip()
+        if depths[i] != depths[start] + 1 or not code.strip():
+            continue
+        if "{" in code or "}" in code:
+            listing = False
+            continue
+        if dynamic and (m := RELATION.match(code)) and m.group(1) and _mentions(f"{m.group(1)} {m.group(3)}", scope, els, gone):
+            drop.add(i)
+            continue
+        m = re.match(r"^(\s*)(include|exclude)\b\s*(.*)$", code)
+        if not m and not listing:
+            continue
+        indent, word, rest = (m.group(1), m.group(2) + " ", m.group(3)) if m else (re.match(r"^\s*", code).group(0), "", code.strip())
+        more = rest.endswith(",") or (m is not None and not rest)
+        tokens = [x.strip() for x in rest.rstrip(",").split(",") if x.strip()]
+        keep = [x for x in tokens if not _mentions(x, scope, els, gone)]
+        listing = more
+        if keep == tokens:
+            continue
+        if not keep and not (m and more):
+            drop.add(i)
+        else:
+            lines[i] = indent + word + ", ".join(keep) + ("," if more and keep else "")
+    # a list whose last item went: no trailing comma, and a keyword left with nothing after it goes too
+    alive = [i for i in range(start + 1, end) if i not in drop and _strip(lines[i]).strip()]
+    for n, i in enumerate(alive):
+        nxt = alive[n + 1] if n + 1 < len(alive) else None
+        follows = nxt is not None and not re.match(r"^\s*(include|exclude|style|autoLayout|title|description|link|"
+                                                   r"navigateTo|global|\}|[\w.-]+\s*(->|-\[))", _strip(lines[nxt]))
+        if lines[i].rstrip().endswith(",") and not follows:
+            lines[i] = lines[i].rstrip()[:-1]
+        if re.fullmatch(r"\s*(include|exclude)\s*", _strip(lines[i])) and not follows:
+            drop.add(i)
+    return drop
+
+
+def _apply_remove(texts: dict[str, str], fqn: str) -> dict:
+    idx = index(texts)
+    els = idx["elements"]
+    if fqn not in els:
+        raise KeyError(fqn)
+    gone = {f for f in els if f == fqn or f.startswith(fqn + ".")}
+    views = []
+    for rel, text in texts.items():
+        lines = text.split("\n")
+        depths = _depths(lines)
+        for i, line in enumerate(lines):
+            m = VIEW.match(_strip(line))
+            if m and m.group(2) and _resolve(m.group(2), None, els) in gone:
+                views.append(m.group(1))
+    if views:
+        raise ValueError(f"{fqn} is what view(s) {', '.join(views)} show: remove or change those views first")
+    removed_rels = [r for r in idx["relations"] if r["from"] in gone or r["to"] in gone]
+    for rel, text in texts.items():
+        lines = text.split("\n")
+        depths = _depths(lines)
+        drop: set[int] = set()
+        for f in gone:
+            if els[f]["file"] == rel:
+                drop.update(range(els[f]["start"], els[f]["end"] + 1))
+        for r in removed_rels:
+            if r["file"] == rel:
+                drop.update(range(r["start"], r["end"] + 1))
+        for i, line in enumerate(lines):
+            code = _strip(line)
+            if (m := EXTEND.match(code)) and _resolve(m.group(1), None, els) in gone:
+                drop.update(range(i, _end(lines, i, depths) + 1))
+            elif m := VIEW.match(code):
+                drop |= _prune_view(lines, i, _end(lines, i, depths), m.group(2), code.lstrip().startswith("dynamic"),
+                                    els, gone)
+        if not drop:
+            continue
+        kept = [l for i, l in enumerate(lines) if i not in drop]
+        out: list[str] = []
+        for line in kept:                                   # a block that went leaves no double blank line behind
+            if not line.strip() and out and not out[-1].strip():
+                continue
+            out.append(line)
+        texts[rel] = "\n".join(out)
+    return {"removed": sorted(gone), "relations": len(removed_rels)}
+
+
+def remove_element(fqn: str) -> dict:
+    """Remove an element with its children (fragments that extend it included), every relation to or from them and the
+    places views name them. An element a view is scoped to (`view x of it`) is refused: that view would be empty."""
+    return _write(lambda texts: _apply_remove(texts, fqn))

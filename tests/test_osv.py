@@ -14,9 +14,13 @@ OSV_OUT = {"results": [
     {"source": {"path": "/x/web/package-lock.json", "type": "lockfile"}, "packages": [{
         "package": {"name": "axios", "version": "1.6.2", "ecosystem": "npm"},
         "vulnerabilities": [{"id": "GHSA-wf5p-g6vw-rhxx", "aliases": ["CVE-2023-45857"], "summary": "CSRF token leak",
+                             "details": "Axios sends the XSRF-TOKEN to any host.", "published": "2023-11-08T21:30:37Z",
+                             "modified": "2024-01-02T10:00:00Z",
+                             "references": [{"type": "ADVISORY", "url": "https://nvd.nist.gov/vuln/detail/CVE-2023-45857"},
+                                            {"type": "WEB", "url": "javascript:alert(1)"}],
                              "affected": [{"package": {"name": "axios", "ecosystem": "npm"},
                                            "ranges": [{"type": "SEMVER", "events": [{"introduced": "0.8.1"}, {"fixed": "1.6.3"}]}]}],
-                             "database_specific": {"severity": "MODERATE"}}],
+                             "database_specific": {"severity": "MODERATE", "cwe_ids": ["CWE-352"]}}],
         "groups": [{"ids": ["GHSA-wf5p-g6vw-rhxx"], "aliases": ["CVE-2023-45857"], "max_severity": "6.5"}]},
         {"package": {"name": "lodash", "version": "4.17.20", "ecosystem": "npm"},
          "vulnerabilities": [{"id": "GHSA-35jh-r3h4-6jhm", "aliases": ["CVE-2021-23337"], "summary": "Command injection",
@@ -53,7 +57,11 @@ def test_findings_join_the_inventory_rows(kit, repos, scanner):  # noqa: F811
     rows = {(r["repo"], r["name"]): r for r in data["libraries"]}
     axios = rows[("web", "axios")]["vulns"][0]
     assert axios == {"id": "GHSA-wf5p-g6vw-rhxx", "cve": "CVE-2023-45857", "summary": "CSRF token leak",
-                     "severity": "medium", "score": 6.5, "fixed": "1.6.3"}
+                     "severity": "medium", "score": 6.5, "fixed": "1.6.3", "aliases": ["CVE-2023-45857"],
+                     "details": "Axios sends the XSRF-TOKEN to any host.", "published": "2023-11-08T21:30:37Z",
+                     "modified": "2024-01-02T10:00:00Z", "ranges": [{"introduced": "0.8.1", "fixed": "1.6.3"}],
+                     "references": [{"type": "ADVISORY", "url": "https://nvd.nist.gov/vuln/detail/CVE-2023-45857"}],
+                     "cwes": ["CWE-352"]}                                # the whole advisory, readable offline
     assert rows[("web", "lodash")]["vulns"][0]["severity"] == "high"
     pg = rows[("api", "org.postgresql:postgresql")]                    # version managed by the parent: matched by name
     assert pg["vulns"][0]["severity"] == "critical" and pg["vulns"][0]["fixed"] == "42.7.2"
