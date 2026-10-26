@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, expect, test } from 'vitest'
-import Docs, { AnswerView, BuildCard } from './sections/Docs.jsx'
+import Docs, { AnswerView, BuildCard, WikiBlock } from './sections/Docs.jsx'
+import { wikiBlocks } from './docs.js'
 import { setLang } from './i18n.js'
 
 const srv = { get: () => new Promise(() => {}), post: () => new Promise(() => {}) }
@@ -94,4 +95,40 @@ test('an answer shows its text and its sources; "none" says so in the app\'s lan
   expect(renderToStaticMarkup(<AnswerView view={{ kind: 'none' }} onOpen={() => {}} />)).toContain('No he encontrado')
   setLang('en')
   expect(renderToStaticMarkup(<AnswerView view={{ kind: 'none' }} onOpen={() => {}} />)).toContain('I found nothing')
+})
+
+// A repo that cannot be generated says why, in the person's language, and its Generate button is closed: the portal
+// offered it only for a cloned repo with a wiki engine (canGenerate).
+const wikis = [{ repo: 'api', pages: 3, cloned: true, chosen: true, brief: 'ai', canGenerate: true },
+  { repo: 'web', pages: 0, cloned: false, chosen: false, brief: null, canGenerate: false },
+  { repo: 'ui', pages: 0, cloned: true, chosen: true, brief: null, canGenerate: false }]
+const block = (i, props = {}) => renderToStaticMarkup(
+  <WikiBlock srv={srv} jobs={null} block={wikiBlocks({ repos: ['api', 'web', 'ui'] }, wikis)[i]} onView={() => {}} onDone={() => {}} {...props} />)
+const generate = (out) => out.match(/<button[^>]*aria-label="Generar la wiki[^"]*"[^>]*>/)[0]
+
+test('Generate is enabled for a cloned repo with an engine, closed with its reason otherwise', () => {
+  const ok = block(0)
+  expect(generate(ok)).not.toContain('disabled')
+  expect(ok).not.toContain('no está clonado')
+  const uncloned = block(1)
+  expect(generate(uncloned)).toContain('disabled')
+  expect(uncloned).toContain('Este repo aún no está clonado')
+  expect(uncloned).toContain('Máquina')
+  const noEngine = block(2)
+  expect(generate(noEngine)).toContain('disabled')
+  expect(noEngine).toContain('No hay ningún motor de wiki instalado')
+  expect(noEngine).not.toContain('aún no está clonado')
+  setLang('en')
+  expect(block(1)).toContain('This repo is not cloned yet')
+  expect(block(2)).toContain('No wiki engine is installed')
+})
+
+test('before the wikis are read Generate is closed without a complaint; once reading failed it says so', () => {
+  const unread = wikiBlocks({ repos: ['api'], docs: [] }, null)[0]
+  const loading = renderToStaticMarkup(<WikiBlock srv={srv} jobs={null} block={unread} loading onView={() => {}} onDone={() => {}} />)
+  expect(generate(loading)).toContain('disabled')
+  expect(loading).not.toContain('No he podido leer')
+  const failed = renderToStaticMarkup(<WikiBlock srv={srv} jobs={null} block={unread} onView={() => {}} onDone={() => {}} />)
+  expect(generate(failed)).toContain('disabled')
+  expect(failed).toContain('No he podido leer el estado de las wikis')
 })

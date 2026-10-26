@@ -37,29 +37,61 @@ test('the C4 card builds the explorer and the portal shows it at #/c4', () => {
   expect(c4Card).toEqual({ id: 'c4', repo: '', body: { what: 'c4' }, hash: '#/c4' })
 })
 
-// POST wiki (lib/serve.py wiki(b)) refuses a repo that is not chosen unless `choose` is true, adds it to the wiki repos
-// when it is, and writes the starter brief when `starter` is true and no brief exists (it never writes over one).
-test("one wiki block per repo of the project, with or without a wiki yet, in the project's order", () => {
-  const blocks = wikiBlocks(index)
+// GET wikis (env.wikis(), what the portal's Wikis view reads): per repo, in the project's order, whether it is cloned,
+// chosen, has a brief ('ai' | 'starter' | null) and pages, and canGenerate (= cloned and a wiki engine installed).
+const wikis = [
+  { repo: 'api', pages: 3, cloned: true, chosen: true, brief: 'ai', canGenerate: true },
+  { repo: 'web', pages: 0, cloned: false, chosen: false, brief: null, canGenerate: false },
+  { repo: 'ui', pages: 2, cloned: true, chosen: true, brief: 'starter', canGenerate: false }]
+
+test("one wiki block per repo of the project, from GET wikis, in the project's order", () => {
+  const blocks = wikiBlocks(index, wikis)
   expect(blocks.map((b) => b.repo)).toEqual(['api', 'web', 'ui'])
   expect(blocks.map((b) => b.hasWiki)).toEqual([true, false, true])
-  expect(blocks[1]).toEqual({ repo: 'web', hasWiki: false, hash: '#/wiki/web',
+  expect(blocks[1]).toEqual({ repo: 'web', hasWiki: false, blocked: 'notCloned', hash: '#/wiki/web',
     body: { repo: 'web', choose: true, starter: true },
     graph: { id: 'wiki:web', repo: 'web', body: { what: 'wiki-graph', repo: 'web' }, hash: '#/wiki/web' } })
-  expect(wikiBlocks({ repos: [], docs: [] })).toEqual([])
-  expect(wikiBlocks(null)).toEqual([])
-  expect(wikiBlocks({ docs: [] })).toEqual([])
+  expect(wikiBlocks(index, [])).toEqual([])
 })
 
-test('Generate posts the shape wiki(b) expects; Build posts the C4 or graph body to build', async () => {
+// The portal offered Generate only where canGenerate: a repo not cloned has nothing to document (and choosing it would
+// change the plan for nothing); without an engine the run fails after choosing and writing the brief.
+test('Generate is open for a cloned repo with an engine, and says why when it is not', () => {
+  expect(wikiBlocks(index, wikis).map((b) => b.blocked)).toEqual([null, 'notCloned', 'noEngine'])
+  const both = wikiBlocks(index, [{ repo: 'x', pages: 0, cloned: false, chosen: false, brief: null, canGenerate: false }])
+  expect(both[0].blocked).toBe('notCloned')                                  // not cloned wins over no engine
+})
+
+// wiki(b): `choose` only matters (and is only required) for a repo that is not chosen and has no pages; `starter` writes a
+// brief when there is none. The portal sent each only when needed, so the body does too.
+test('the body asks to choose the repo only if it is not chosen, and for a starter brief only if there is no brief', () => {
+  const body = (row) => wikiBlocks({ repos: ['r'] }, [{ repo: 'r', pages: 0, cloned: true, chosen: true, brief: null, canGenerate: true, ...row }])[0].body
+  expect(body({})).toEqual({ repo: 'r', starter: true })                      // chosen, no brief yet
+  expect(body({ chosen: false })).toEqual({ repo: 'r', choose: true, starter: true })
+  expect(body({ brief: 'starter' })).toEqual({ repo: 'r' })
+  expect(body({ brief: 'ai', chosen: false })).toEqual({ repo: 'r', choose: true })
+  expect(body({ pages: 4, chosen: false })).toEqual({ repo: 'r', choose: true })   // has pages: no starter brief
+  expect(wikiBlocks(index, wikis).map((b) => b.body)).toEqual([{ repo: 'api' }, { repo: 'web', choose: true, starter: true }, { repo: 'ui' }])
+})
+
+// If GET wikis cannot be read the blocks still list every repo (the tree's `repos`), with Generate closed: nothing is
+// known about whether it is cloned or has an engine.
+test('without the wikis payload the repos of the tree are listed with Generate closed', () => {
+  const blocks = wikiBlocks(index, null)
+  expect(blocks.map((b) => [b.repo, b.hasWiki, b.blocked])).toEqual([['api', true, 'unread'], ['web', false, 'unread'], ['ui', true, 'unread']])
+  expect(wikiBlocks(null, null)).toEqual([])
+  expect(wikiBlocks({ docs: [] }, null)).toEqual([])
+})
+
+test('Generate posts the body; Build posts the C4 or graph body to build', async () => {
   const posts = []
   const srv = { post: async (path, body) => { posts.push([path, body]); return { id: '7' } } }
-  const [api, web] = wikiBlocks(index)
+  const [api, web] = wikiBlocks(index, wikis)
   await startWiki(srv, api)
   await startWiki(srv, web)
   await startBuild(srv, c4Card)
   await startBuild(srv, web.graph)
-  expect(posts).toEqual([['wiki', { repo: 'api', choose: true, starter: true }], ['wiki', { repo: 'web', choose: true, starter: true }],
+  expect(posts).toEqual([['wiki', { repo: 'api' }], ['wiki', { repo: 'web', choose: true, starter: true }],
     ['build', { what: 'c4' }], ['build', { what: 'wiki-graph', repo: 'web' }]])
 })
 
@@ -69,7 +101,7 @@ test('the portal opens in the browser with its address', () => {
   openPortal(app, 'http://127.0.0.1:5000', '#/')
   openPortal(app, 'http://127.0.0.1:5000', '#/review')
   openPortal(app, 'http://127.0.0.1:5000', '#/search')
-  for (const h of [c4Card.hash, ...wikiBlocks(index).map((b) => b.hash)]) openPortal(app, 'http://127.0.0.1:5000', h)
+  for (const h of [c4Card.hash, ...wikiBlocks(index, wikis).map((b) => b.hash)]) openPortal(app, 'http://127.0.0.1:5000', h)
   expect(opened).toEqual(['http://127.0.0.1:5000/#/', 'http://127.0.0.1:5000/#/review', 'http://127.0.0.1:5000/#/search',
     'http://127.0.0.1:5000/#/c4', 'http://127.0.0.1:5000/#/wiki/api', 'http://127.0.0.1:5000/#/wiki/web', 'http://127.0.0.1:5000/#/wiki/ui'])
   expect(() => openPortal({}, 'http://x', '#/')).not.toThrow()           // a window without the bridge: nothing happens
@@ -98,6 +130,7 @@ test('a source becomes the portal address of its page', () => {
   expect(citeHash('repos/web/index.md')).toBe('#/docs/repos/web/index.md')
   expect(citeHash('repos/api/wiki/auth.md#Login')).toBe('#/wiki/api/auth.md::Login')
   expect(citeHash('repos/api/wiki/deep/x.md')).toBe('#/wiki/api/deep/x.md')
+  expect(citeHash('guides/lang.md#C# and F#')).toBe('#/docs/guides/lang.md::C# and F#')   // only the first # splits
 })
 
 // answers.answer: {answer, cited, runner, model, seconds…}; answer is null when the docs had nothing or the model said
