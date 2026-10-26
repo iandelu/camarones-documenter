@@ -213,3 +213,17 @@ def test_git_never_gets_a_sonar_token_even_on_the_same_host(lib):
     creds, _ = lib
     creds.save("sonar.example.com", "sonarqube", TOKEN, "")
     assert creds.git_env("https://sonar.example.com/g/r.git") == {"GIT_TERMINAL_PROMPT": "0"}
+
+
+@pytest.mark.parametrize("host", ["https://sonar.example.com?x", "https://sonar.example.com#x",
+                                  "https://sonar.example.com;x", "https://sonar.example.com/a b", "sonar.example .com",
+                                  "https://evil.io#.sonar.empresa.com", "https://evil.io?.sonar.empresa.com",
+                                  "https://evil.io;.sonar.empresa.com", "sonar.example.com\tx"])
+def test_a_host_with_a_query_fragment_params_or_whitespace_is_refused_before_any_request(lib, host, monkeypatch):
+    creds, sonar = lib
+    monkeypatch.setattr(sonar._OPENER, "open", lambda *a, **k: pytest.fail("a request went out"))
+    with pytest.raises(ValueError, match="^host no válido$"):
+        creds.sonar_base(host)
+    assert creds.verify(host, "sonarqube", TOKEN) == (False, "host no válido")
+    with pytest.raises(sonar.SonarError, match="^host no válido$"):
+        sonar.sonar_get(host, TOKEN, "/api/x", {})

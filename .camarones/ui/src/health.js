@@ -66,6 +66,12 @@ export function sourceWord(source, t) {
   return ['sonar', 'report'].includes(source) ? t(`hb.source.${source}`) : typeof source === 'string' ? source : ''
 }
 
+// The reasons lib/sonar.py gives (plain Spanish, as the snapshot stores them) → their strings. Anything else (`error 502`)
+// is shown as it came.
+const SONAR_REASONS = { 'token no válido': 'token', 'proyecto no encontrado': 'project', 'sin conexión': 'offline',
+  'respuesta no válida': 'response', 'solo https': 'https', 'host no válido': 'host' }
+export const sonarReason = (reason, t) => (Object.hasOwn(SONAR_REASONS, reason) ? t(`hb.sonarErr.${SONAR_REASONS[reason]}`) : reason)
+
 // SonarQube's technical debt, in minutes, as "2 d 3 h" (a working day is 8 h). Under an hour it is minutes; nothing is a dash.
 export function fmtDebt(minutes) {
   if (typeof minutes !== 'number' || !Number.isFinite(minutes) || minutes < 0) return DASH
@@ -182,7 +188,7 @@ export function repoRow(name, repo, state, t, scanned = true, now = Date.now()) 
       row.gateState = gateState(server.gate)
     } else row.sonar = failed(sonar) ? t('hb.unread') : sonar.used ? t('hb.yes') : t('hb.no')
     if (failed(sonar)) {                          // the last read failed: say why, and how old the figures kept are
-      row.error ??= sonar.error
+      row.error ??= sonarReason(sonar.error, t)
       if (server) row.sonarNote = t('hb.sonarFrom').replace('{ago}', fmtAgo(server.at, now, t))
     }
     if (sonar.used && sonar.link) row.sonarLink = sonar.link

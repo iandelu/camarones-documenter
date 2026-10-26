@@ -1,5 +1,5 @@
 import { t } from './i18n.js'
-import { Aviso, fmtAgo, gateState, gateWord, safeUrl, sourceWord, stateWord, uiText } from '@camaron/ui'
+import { Aviso, fmtAgo, gateState, gateWord, safeUrl, sonarReason, sourceWord, stateWord, uiText } from '@camaron/ui'
 import { evidenceHref, repoPage } from './healthRepo.js'
 
 const DASH = '—'
@@ -46,7 +46,7 @@ function Quality({ page, now }) {
   return (
     <Block title={t('hrCode')}>
       <h3>{t('hrSonar')}</h3>
-      {errors.sonar ? <Unread message={errors.sonar} />
+      {errors.sonar ? <Unread message={sonarReason(errors.sonar, uiText)} />
         : sonar?.used ? (
           <>
             <dl className="hr-facts">
@@ -54,7 +54,7 @@ function Quality({ page, now }) {
               {sonar.organization ? <div><dt>{t('hrSonarOrg')}</dt><dd>{sonar.organization}</dd></div> : null}
               {sonar.host ? <div><dt>{t('hrSonarHost')}</dt><dd>{sonar.host}</dd></div> : null}
             </dl>
-            {page.sonarError ? <Aviso tone="warn" title={t('hrSonarError')} detail={page.sonarError} /> : null}
+            {page.sonarError ? <Aviso tone="warn" title={t('hrSonarError')} detail={sonarReason(page.sonarError, uiText)} /> : null}
             {page.connect !== undefined ? <p className="muted">{t('hrSonarNoToken')}</p> : null}
             <SonarFigures page={page} now={now} />
           </>

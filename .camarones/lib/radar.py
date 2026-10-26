@@ -63,6 +63,9 @@ def read_sonar(f: Path) -> dict:
             props.setdefault(k, v)
     key, org = props.get("projectKey", ""), props.get("organization", "")
     named = props.get("host.url", "").rstrip("/")
+    if "@" in named:        # userinfo (`https://user:secret@host`; a password may hold any character, so it is never parsed)
+        info = {"project": key, "organization": org}        # it would reach the snapshot, the screens and tooling.md
+        return {k: v for k, v in info.items() if v}
     host = named or ("https://sonarcloud.io" if org else "")
     link = (f"{host}/dashboard?id={key}" if host and key else
             f"{host}/organizations/{org}/projects" if org and "sonarcloud.io" in host else "")

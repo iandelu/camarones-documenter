@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server'
-import { expect, test } from 'vitest'
+import { expect, test, vi } from 'vitest'
 import HealthRepo from './HealthRepo.jsx'
 import { STRINGS } from './i18n.js'
 
@@ -128,7 +128,8 @@ test('the gate is a word with its dot, in Spanish too', () => {
 test('a Sonar error with kept values shows the values, how old they are and the reason', () => {
   const now = Date.parse('2026-10-29T08:00:00Z')
   const out = renderToStaticMarkup(<HealthRepo snapshot={withSonar({ server: server(), error: 'sin conexión' })} name="api" now={now} />)
-  expect(out).toContain('sin conexión')
+  expect(out).toContain(en.hrSonarError)
+  expect(out).toContain('No connection')                                  // the reason, in the reader's language
   expect(out).toContain('3 d 1 h')
   expect(out).toContain('Figures from 3 d ago')                           // via the kit's time helper
   expect(renderToStaticMarkup(<HealthRepo snapshot={withSonar({ server: server() })} name="api" now={now} />)).not.toContain('Figures from')
@@ -136,7 +137,7 @@ test('a Sonar error with kept values shows the values, how old they are and the 
 
 test('a Sonar error without values is the reason alone, no figures', () => {
   const out = html(withSonar({ error: 'proyecto no encontrado' }), 'api')
-  expect(out).toContain('proyecto no encontrado')
+  expect(out).toContain('Project not found')
   expect(out).not.toContain(en.hrFigBugs)
   expect(out).not.toContain(en.hrGate)
 })
@@ -146,4 +147,16 @@ test('the app offers to connect; the portal only says a token is missing', () =>
   expect(out).toContain(en.hrSonarNoToken)
   expect(out).not.toContain('kind=sonarqube')                               // no link: the portal runs nothing
   expect(html(withSonar({ connect: true, host: '' }), 'api')).toContain(en.hrSonarNoToken)
+})
+
+test('the Sonar reasons are said in Spanish in the Spanish portal, and an unknown one stays as it came', () => {
+  vi.stubGlobal('localStorage', { getItem: (k) => (k === 'cam-lang' ? 'es' : null) })
+  try {
+    const now = Date.parse('2026-10-29T08:00:00Z')
+    const page = (error) => renderToStaticMarkup(<HealthRepo snapshot={withSonar({ server: server(), error })} name="api" now={now} />)
+    expect(page('sin conexión')).toContain('Sin conexión')
+    expect(page('token no válido')).toContain('Token no válido')
+    expect(page('error 502')).toContain('error 502')
+    expect(renderToStaticMarkup(<HealthRepo snapshot={withSonar({ error: 'proyecto no encontrado' })} name="api" />)).toContain('Proyecto no encontrado')
+  } finally { vi.unstubAllGlobals() }
 })

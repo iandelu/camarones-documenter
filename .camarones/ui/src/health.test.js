@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, test } from 'vitest'
 import { S, t as text } from '../i18n/index.js'
 import { HealthBoard } from './index.js'
-import { fmtAgo, fmtDebt, gateWord, nextReason, reasonText, repoRow, rowsFor, safeUrl, sonarConnectHash, sourceWord, tileTarget, verdictText } from './health.js'
+import { fmtAgo, fmtDebt, gateWord, nextReason, reasonText, repoRow, rowsFor, safeUrl, sonarConnectHash, sonarReason, sourceWord, tileTarget, verdictText } from './health.js'
 
 const en = (k) => text(k, 'en')
 const es = (k) => text(k, 'es')
@@ -370,7 +370,7 @@ test('a Sonar error with kept values shows the gate, how old they are and the re
   const r = repoRow('api', repo({ sonar: { ...sonar(), server: server({ gate: 'ERROR' }), error: 'sin conexión' } }), 'bad', en, true, NOW)
   expect(r.sonar).toBe('Failed')
   expect(r.sonarNote).toBe('from 3 h ago')
-  expect(r.error).toBe('sin conexión')
+  expect(r.error).toBe('No connection')
   expect(repoRow('api', repo({ sonar: { ...sonar(), server: server(), error: 'sin conexión' } }), 'ok', es, true, NOW).sonarNote).toBe('de hace 3 h')
 })
 
@@ -378,7 +378,7 @@ test('a Sonar error without values is the reason alone: unread in the cell, the 
   const r = repoRow('api', repo({ sonar: { ...sonar(), error: 'proyecto no encontrado' } }), 'warn', en, true, NOW)
   expect(r.sonar).toBe(en('hb.unread'))
   expect(r.sonarNote).toBeUndefined()
-  expect(r.error).toBe('proyecto no encontrado')
+  expect(r.error).toBe('Project not found')
   expect(r.sonarLink).toBe('https://sonar.acme.test/dashboard?id=acme_api')
   expect(repoRow('api', repo({ sonar: { error: 'torn' } }), 'warn', en, true, NOW)).toMatchObject({ sonar: en('hb.unread'), error: 'torn' })
 })
@@ -389,7 +389,7 @@ test('the board draws the gate word, its age and the connect link only where the
   const code = (props) => renderToStaticMarkup(h(HealthBoard, { snapshot: s, initialTab: 'code', ...props }))
   const app = code({ connectHref: sonarConnectHash })
   expect(app).toContain('Failed')
-  expect(app).toContain('sin conexión')
+  expect(app).toContain('No connection')
   expect(app).toContain(`href="#/machine?host=${encodeURIComponent('https://sonar.acme.test')}&amp;kind=sonarqube"`)
   expect(app).toContain(en('hb.connect'))
   expect(code({})).not.toContain(en('hb.connect'))
@@ -397,4 +397,24 @@ test('the board draws the gate word, its age and the connect link only where the
   const out = renderToStaticMarkup(h(HealthBoard, { snapshot: bare, initialTab: 'code', connectHref: sonarConnectHash }))
   expect(out).toContain('href="#/machine?kind=sonarqube"')
   expect(out).not.toContain('host=')
+})
+
+test('the six reasons a Sonar read gives are said in the reader\'s language; anything else stays as it came', () => {
+  const ids = { 'token no válido': ['Invalid token', 'Token no válido'], 'proyecto no encontrado': ['Project not found', 'Proyecto no encontrado'],
+    'sin conexión': ['No connection', 'Sin conexión'], 'respuesta no válida': ['Invalid response', 'Respuesta no válida'],
+    'solo https': ['HTTPS only', 'Solo https'], 'host no válido': ['Invalid host', 'Host no válido'] }
+  for (const [raw, [inEn, inEs]] of Object.entries(ids)) {
+    expect(sonarReason(raw, en)).toBe(inEn)
+    expect(sonarReason(raw, es)).toBe(inEs)
+  }
+  expect(sonarReason('error 502', en)).toBe('error 502')
+  expect(sonarReason('error 502', es)).toBe('error 502')
+  expect(sonarReason(undefined, en)).toBeUndefined()
+})
+
+test('a repo row carries the Sonar reason in the language of the screen', () => {
+  const row = (t) => repoRow('api', repo({ sonar: { ...sonar(), error: 'sin conexión' } }), 'warn', t, true, NOW)
+  expect(row(en).error).toBe('No connection')
+  expect(row(es).error).toBe('Sin conexión')
+  expect(repoRow('api', repo({ sonar: { ...sonar(), error: 'error 502' } }), 'warn', en, true, NOW).error).toBe('error 502')
 })

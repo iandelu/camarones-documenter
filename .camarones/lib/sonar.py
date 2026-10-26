@@ -83,11 +83,12 @@ def _shown(host: str) -> str:
 
 def _token(host: str) -> str | None:
     """The token under the host as the keychain keys it, which is the exact string that was saved: with or without
-    the scheme."""
+    the scheme. Only a token saved as SonarQube's: a GitLab or GitHub one under the same host never travels here."""
     h = creds.sonar_host(host)
     bare = h.split("://", 1)[-1]
+    saved = creds.hosts()
     for key in dict.fromkeys((h, bare, f"https://{bare}")):
-        if token := creds.get(key):
+        if saved.get(key, {}).get("kind") == "sonarqube" and (token := creds.get(key)):
             return token
     return None
 

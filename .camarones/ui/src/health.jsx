@@ -170,10 +170,12 @@ export function HealthBoard({ snapshot, actions, links, repoHref, connectHref, o
           </button>
         ))}
       </div>
-      <ul className="cu-hb-rows" role="tabpanel" id="cu-hb-panel" aria-labelledby={`cu-hb-tab-${tab}`}>
-        {rows.map((r) => <Row key={r.id} area={tab} row={r} snapshot={snapshot} actions={actions} links={links} repoHref={repoHref} connectHref={connectHref}
-                                   open={open.has(r.id)} onToggle={toggle} />)}
-      </ul>
+      {rows.length === 0   // every row of the area is hidden (the portal has no place for them): say where they are
+        ? <p className="cu-hb-inapp" role="tabpanel" id="cu-hb-panel" aria-labelledby={`cu-hb-tab-${tab}`}>{t('hb.inApp')}</p>
+        : <ul className="cu-hb-rows" role="tabpanel" id="cu-hb-panel" aria-labelledby={`cu-hb-tab-${tab}`}>
+          {rows.map((r) => <Row key={r.id} area={tab} row={r} snapshot={snapshot} actions={actions} links={links} repoHref={repoHref} connectHref={connectHref}
+                                     open={open.has(r.id)} onToggle={toggle} />)}
+        </ul>}
     </div>
   )
 }

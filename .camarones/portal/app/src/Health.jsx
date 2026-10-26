@@ -6,7 +6,7 @@ import Failed from './Failed.jsx'
 import HealthRepo from './HealthRepo.jsx'
 
 // Where each row that has a place in the portal opens. A row with no link is hidden: the portal only reads.
-const LINKS = { fresh: '#/review', review: '#/review', libs: '#/libs', context: '#/kpis', evals: '#/kpis' }
+export const LINKS = { fresh: '#/review', review: '#/review', libs: '#/libs', context: '#/kpis', evals: '#/kpis' }
 const repoHref = (r) => `#/health/${encodeURIComponent(r)}`
 
 // How the project is, from the snapshot `camaron health` (or the app) last wrote; with an address argument
