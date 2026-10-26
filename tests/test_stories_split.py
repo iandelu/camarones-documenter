@@ -262,6 +262,32 @@ def test_analyze_resplits_unedited_tasks_and_keeps_edited_ones(world):
     assert [t["key"] for t in out["tasks"]].count(K_ORDERS) == 1
 
 
+def test_a_removed_proposal_does_not_come_back_after_a_story_edit(world):
+    kit, ops, index, stories = world
+    tasks = [t for t in stories.analyze(story(), None, lang="es")["tasks"] if t["key"] != K_PAY]
+    out = stories.analyze(story(want="cobrar los pedidos con tarjeta o bizum"), tasks, lang="es", removed=[K_PAY])
+    assert {t["key"] for t in out["tasks"]} == {K_ORDERS, K_DOCS}
+
+
+def test_removed_works_without_tasks_and_the_list_wins(world):
+    kit, ops, index, stories = world
+    out = stories.analyze(story(), None, lang="es", removed=[K_DOCS])
+    assert {t["key"] for t in out["tasks"]} == {K_ORDERS, K_PAY}
+    out = stories.analyze(story(), out["tasks"] + [stories.analyze(story(), None, lang="es")["tasks"][-1]],
+                          lang="es", removed=[K_DOCS])
+    assert {t["key"] for t in out["tasks"]} == {K_ORDERS, K_PAY, K_DOCS}      # a removed key in `tasks` stays
+
+
+def test_an_unedited_task_with_a_dropped_dependency_keeps_it(world):
+    kit, ops, index, stories = world
+    tasks = stories.analyze(story(), None, lang="es")["tasks"]
+    next(t for t in tasks if t["key"] == K_ORDERS)["dropped"] = [K_PAY]       # `edited` left false
+    out = stories.analyze(story(), tasks, lang="es")
+    out = stories.analyze(story(), out["tasks"], lang="es")
+    by = {t["key"]: t for t in out["tasks"]}
+    assert by[K_ORDERS]["deps"] == [] and by[K_ORDERS]["dropped"] == [K_PAY]
+
+
 def test_a_dropped_dependency_takes_effect_and_changes_waves(world):
     kit, ops, index, stories = world
     tasks = edited(stories.analyze(story(), None, lang="es"), K_ORDERS, dropped=[K_PAY])

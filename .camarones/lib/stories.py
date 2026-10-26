@@ -561,16 +561,18 @@ def _as_proposal(t: dict) -> Proposal:
             "edited": bool(t.get("edited")), "added": _refs(t.get("added")), "dropped": _refs(t.get("dropped"))}
 
 
-def analyze(story: Story, tasks: list[Proposal] | None, *, lang: str) -> dict:
+def analyze(story: Story, tasks: list[Proposal] | None = None, *, lang: str, removed: Sequence[str] = ()) -> dict:
     """Everything the story wizard shows, recomputed from scratch on the current story: lint hints, the INVEST
     verdict, the tasks, the waves as task keys, conflicts with other open stories, the first dependency cycle among
     the tasks, duplicate task keys (`cycle` and `duplicates` are `[]` when none; waves are `[]` while either is not),
     the `added` dependencies that name nothing (`unknown_deps`, `{key: [ref…]}`) and the repos of the story's files
     that have no code graph.
 
-    The tasks are always a fresh `split`, except that the person's `tasks` marked `edited` are kept as given (with
-    `outside`: their files that are not in the story's footprint or a page citing it) and replace the fresh proposal
-    with the same key; unedited given tasks are regenerated. Reads the index only."""
+    The tasks are always a fresh `split`, except that the person's `tasks` marked `edited` (or with `added` or
+    `dropped` dependencies, which count as an edit and come back `edited`) are kept as given, with `outside`: their
+    files that are not in the story's footprint or a page citing it. They replace the fresh proposal with the same
+    key; unedited given tasks are regenerated. `removed` holds the keys of proposals the person dropped: they are
+    never regenerated, but a task in `tasks` with such a key is kept (the list wins). Reads the index only."""
     lang = _lang(lang)
     touches = _touches(story["touches"])
     conn = index.connect()
@@ -582,9 +584,14 @@ def analyze(story: Story, tasks: list[Proposal] | None, *, lang: str) -> dict:
         verdict = invest(story, others, groups=grp, lang=lang)
         sid = (story.get("id") or "").strip().upper()
         conflicts = deps.conflicts(_node(sid, touches), others, groups=_code_groups(grp))
-        kept = [p for p in (_as_proposal(t) for t in tasks or ()) if p["edited"]]
-        mine = {p["key"] for p in kept}
-        proposals = kept + [p for p in _proposals(story, conn, lang) if p["key"] not in mine]
+        gone = {str(k) for k in removed or ()}
+        kept = []
+        for p in (_as_proposal(t) for t in tasks or ()):
+            p["edited"] = p["edited"] or bool(p["added"] or p["dropped"])
+            if p["edited"] or p["key"] in gone:
+                kept.append(p)
+        skip = gone | {p["key"] for p in kept}
+        proposals = kept + [p for p in _proposals(story, conn, lang) if p["key"] not in skip]
         footprint = set(touches) | set(_pages(conn, touches))
         settled = _settle(story, proposals, conn)
     finally:
