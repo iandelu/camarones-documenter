@@ -18,6 +18,13 @@ REPORT_GLOBS = (("jacoco", "target/site/jacoco/jacoco.xml"), ("jacoco", "build/r
                 ("lcov", "coverage/**/lcov.info"), ("cobertura", "coverage/**/cobertura*.xml"))
 
 
+def _count(text: str) -> int:
+    n = int(text)
+    if n < 0:
+        raise ValueError("negative line count")
+    return n
+
+
 def _percent(covered: int, total: int) -> float:
     if total <= 0:
         raise ValueError("no lines counted")
@@ -25,15 +32,23 @@ def _percent(covered: int, total: int) -> float:
 
 
 def _xml_root(data: bytes) -> ET.Element:
-    if b"<!DOCTYPE" in data or b"<!ENTITY" in data:
+    """Parse UTF-8 text only: the DTD check reads the text, so another encoding (UTF-16, whose bytes hide
+    `<!DOCTYPE` from a byte search) is refused instead of parsed."""
+    if b"\x00" in data:
+        raise ValueError("not UTF-8 text")
+    try:
+        text = data.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        raise ValueError("not UTF-8 text") from None
+    if "<!DOCTYPE" in text or "<!ENTITY" in text:
         raise ValueError("DTD or entity declarations are not accepted")
-    return ET.fromstring(data)
+    return ET.fromstring(text)                  # a str: the document's own encoding declaration is ignored
 
 
 def _jacoco(data: bytes) -> float:
     for c in _xml_root(data).findall("counter"):
         if c.get("type") == "LINE":
-            missed, covered = int(c.get("missed")), int(c.get("covered"))
+            missed, covered = _count(c.get("missed")), _count(c.get("covered"))
             return _percent(covered, missed + covered)
     raise ValueError("no report-level LINE counter")
 
@@ -42,9 +57,11 @@ def _lcov(data: bytes) -> float:
     found = hit = 0
     for line in data.decode("utf-8", errors="ignore").splitlines():
         if line.startswith("LF:"):
-            found += int(line[3:])
+            found += _count(line[3:])
         elif line.startswith("LH:"):
-            hit += int(line[3:])
+            hit += _count(line[3:])
+    if hit > found:
+        raise ValueError("more lines hit than found")
     return _percent(hit, found)
 
 
@@ -64,6 +81,8 @@ def _read_report(kind: str, f: Path) -> dict:
         if st.st_size > MAX_REPORT_BYTES:
             raise ValueError(f"larger than {MAX_REPORT_BYTES} bytes")
         percent = READERS[kind](f.read_bytes())
+        if not 0 <= percent <= 100:             # also false for NaN: health.json must stay valid JSON
+            raise ValueError("coverage outside 0-100")
     except (OSError, ValueError, TypeError, ET.ParseError) as e:
         return {"type": kind, "error": str(e) or type(e).__name__}
     return {"type": kind, "percent": percent, "at": datetime.fromtimestamp(st.st_mtime, timezone.utc).isoformat(timespec="seconds")}
