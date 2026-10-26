@@ -145,4 +145,5 @@ test('the app offers to connect; the portal only says a token is missing', () =>
   const out = html(withSonar({ connect: true }), 'api')
   expect(out).toContain(en.hrSonarNoToken)
   expect(out).not.toContain('kind=sonarqube')                               // no link: the portal runs nothing
+  expect(html(withSonar({ connect: true, host: '' }), 'api')).toContain(en.hrSonarNoToken)
 })

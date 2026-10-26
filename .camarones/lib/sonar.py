@@ -73,6 +73,17 @@ def _host(repo_sonar: dict, ws: dict) -> str:
             or (team if isinstance(team, str) else "")).strip()
 
 
+def _shown(host: str) -> str:
+    """The host as the snapshot carries it, so the screens can offer to connect to it: as given, minus any userinfo
+    (`https://user:secret@host` never travels)."""
+    h = creds.sonar_host(host)
+    scheme, sep, rest = h.partition("://")
+    if not sep:
+        scheme, rest = "", h
+    authority, slash, tail = rest.partition("/")
+    return f"{scheme}{sep}{authority.rsplit('@', 1)[-1]}{slash}{tail}"
+
+
 def _token(host: str) -> str | None:
     """The token under the host as the keychain keys it, which is the exact string that was saved: with or without
     the scheme."""
@@ -148,12 +159,14 @@ class Session:
 
 def read(repo_sonar: dict, previous: dict | None, ws: dict, session: Session | None = None) -> dict:
     """The `sonar` block of a repo with what its SonarQube says. `previous` is the repo's block in the last snapshot.
-    No project key or no host: the block as it is. No token: `connect` (the app offers to save one). A failed read keeps
+    No project key or no host: the block as it is. Otherwise its `host` is the server the kit uses (the repo's own, SonarCloud's or the
+    team's). No token: `connect` (the app offers to save one). A failed read keeps
     the previous `server`, with its own `at`, and says why in `error`; only when it came from the same project and host,
     so a renamed key or a moved server never shows the old figures."""
     key, host = repo_sonar.get("project"), _host(repo_sonar, ws)
     if not (repo_sonar.get("used") and key and host):
         return repo_sonar
+    repo_sonar = {**repo_sonar, "host": _shown(host)}      # the server the kit uses, also when the repo names none itself
     token = _token(host)
     if not token:
         return {**repo_sonar, "connect": True}

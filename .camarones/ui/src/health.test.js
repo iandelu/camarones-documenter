@@ -360,6 +360,9 @@ test('a repo with connect: true exposes the host to connect, and #/machine asks 
   const r = repoRow('api', repo({ sonar: sonar({ connect: true }) }), 'ok', en, true, NOW)
   expect(r.connect).toBe('https://sonar.acme.test')
   expect(repoRow('api', repo({ sonar: sonar() }), 'ok', en, true, NOW).connect).toBeUndefined()
+  const bare = repoRow('api', repo({ sonar: sonar({ connect: true, host: '' }) }), 'ok', en, true, NOW)
+  expect(bare.connect).toBe('')                                          // SonarCloud or the team's host: none in the block
+  expect(sonarConnectHash('')).toBe('#/machine?kind=sonarqube')
   expect(sonarConnectHash('https://sonar.acme.test/a b')).toBe('#/machine?host=https%3A%2F%2Fsonar.acme.test%2Fa%20b&kind=sonarqube')
 })
 
@@ -390,4 +393,8 @@ test('the board draws the gate word, its age and the connect link only where the
   expect(app).toContain(`href="#/machine?host=${encodeURIComponent('https://sonar.acme.test')}&amp;kind=sonarqube"`)
   expect(app).toContain(en('hb.connect'))
   expect(code({})).not.toContain(en('hb.connect'))
+  const bare = snapshot({ repos: { web: repo({ sonar: sonar({ connect: true, host: '' }) }) }, repo_state: { web: 'ok' } })
+  const out = renderToStaticMarkup(h(HealthBoard, { snapshot: bare, initialTab: 'code', connectHref: sonarConnectHash }))
+  expect(out).toContain('href="#/machine?kind=sonarqube"')
+  expect(out).not.toContain('host=')
 })

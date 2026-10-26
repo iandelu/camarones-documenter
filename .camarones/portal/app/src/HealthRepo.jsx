@@ -55,7 +55,7 @@ function Quality({ page, now }) {
               {sonar.host ? <div><dt>{t('hrSonarHost')}</dt><dd>{sonar.host}</dd></div> : null}
             </dl>
             {page.sonarError ? <Aviso tone="warn" title={t('hrSonarError')} detail={page.sonarError} /> : null}
-            {page.connect ? <p className="muted">{t('hrSonarNoToken')}</p> : null}
+            {page.connect !== undefined ? <p className="muted">{t('hrSonarNoToken')}</p> : null}
             <SonarFigures page={page} now={now} />
           </>
         ) : (

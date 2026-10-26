@@ -502,7 +502,7 @@ def test_build_reads_coverage_sonar_and_debt(probed):
     r = snap["repos"]["api"]
     assert r["coverage"]["percent"] == 80.0 and r["reports"][0]["path"] == "target/site/jacoco/jacoco.xml"
     assert r["sonar"]["used"] is True and r["sonar"]["project"] == "acme_api" and r["sonar"]["organization"] == "acme"
-    assert r["sonar"]["host"] == "" and r["sonar"]["link"]
+    assert r["sonar"]["host"] == "https://sonarcloud.io" and r["sonar"]["link"]
     assert [i["item"] for i in r["debt"]] == ["Slow"] and [i["item"] for i in snap["debt_project"]] == ["No CI"]
     assert snap["repo_state"]["api"] == "warn"
 
