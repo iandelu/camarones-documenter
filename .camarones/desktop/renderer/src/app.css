@@ -86,6 +86,7 @@ a.dk-stat-n:hover { color: var(--color-acento-texto); }
 .dk-out { display: flex; flex-direction: column; align-items: flex-start; gap: .4rem; }
 .dk-out details { width: 100%; }
 .dk-out .dk-log { max-height: 14rem; }
+.dk-answer { margin: 0; white-space: pre-wrap; }
 .dk-cmds { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr)); gap: .75rem; }
 .dk-cmd { gap: .6rem; }
 .dk-cmd.careful { border-color: var(--color-estado-mal); }

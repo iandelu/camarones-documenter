@@ -297,7 +297,7 @@ lo deciden sin preguntar); el asistente y la app de escritorio lo conservan siem
 | Dónde | Qué puedes hacer | Dónde queda el cambio |
 |---|---|---|
 | Portal local (`camaron up`) | editar (markdown + vista previa), **+ Nueva página**, **Confirmar**, **Pedir cambios** | `cam-docs/docs` + commit local si marcas «commit en cam-docs»; el push lo haces tú |
-| App de escritorio (**Docs**) | construir el explorador C4 y el grafo de cada wiki | se lee en el portal; nada en `cam-docs/docs` |
+| App de escritorio (**Docs**) | construir el explorador C4, generar la wiki de cada repo y su grafo, preguntar con IA | se lee en el portal; nada en `cam-docs/docs` |
 | Portal desplegado (exportación) | leer y buscar; **Editar** abre el fichero en GitLab / GitHub (si `cam-docs` tiene remote) | un merge request en `cam-docs`; el CI lo vuelve a publicar |
 | Tu editor / IDE | cualquier `.md` de `cam-docs/docs` | git normal en `cam-docs` |
 | La IA (🦐 Siguiente paso) | solo su unidad; nunca reescribe a escondidas lo confirmado | un commit local por unidad |
