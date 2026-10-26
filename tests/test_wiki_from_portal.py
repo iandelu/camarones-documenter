@@ -146,6 +146,53 @@ def test_while_one_repos_wiki_runs_another_repo_is_busy_and_nothing_is_chosen(wi
     held.set()
 
 
+def test_a_second_repo_during_the_first_ones_preparation_is_busy(wired, held, monkeypatch):
+    """The first repo's run is claimed before choosing it and writing its starter brief (seconds on real repos): a
+    second repo clicked meanwhile is busy and nothing of it is chosen or written."""
+    import threading
+    wired.docs.set_wiki_repos([])
+    wired.plan.sync()
+    preparing, release = threading.Event(), threading.Event()
+    real = wired.env.starter_brief
+
+    def slow(repo):
+        if repo == "api":
+            preparing.set()
+            release.wait(10)
+        return real(repo)
+    monkeypatch.setattr(wired.env, "starter_brief", slow)
+    first: dict = {}
+    t = threading.Thread(target=lambda: first.update(wired.serve.wiki({"repo": "api", "choose": True, "starter": True})))
+    t.start()
+    try:
+        assert preparing.wait(10)
+        second = wired.serve.wiki({"repo": "web", "choose": True, "starter": True})
+    finally:
+        release.set()
+        t.join(10)
+    assert second == {"error": "busy", "repo": "api"}
+    assert "web" not in wired.docs.wiki_repos()
+    assert not (wired.root / "wikis" / "web" / "INSTRUCTIONS.md").exists()
+    assert first["repo"] == "api" and first["status"] == "running"
+    held.set()
+
+
+def test_a_preparation_that_fails_leaves_no_running_wiki(wired, held, monkeypatch):
+    wired.docs.set_wiki_repos(["api", "web"])
+
+    def boom(repo):
+        raise OSError("disk full")
+    monkeypatch.setattr(wired.env, "starter_brief", boom)
+    with pytest.raises(OSError, match="disk full"):
+        wired.serve.wiki({"repo": "api", "starter": True})
+    failed = [j for j in wired.serve.JOBS.values() if j["kind"] == "wiki" and j.get("repo") == "api"]
+    assert failed and failed[-1]["status"] == "failed" and any("disk full" in line for line in failed[-1]["log"])
+    monkeypatch.undo()
+    monkeypatch.setattr(wired.env, "openwiki_generate", lambda repo, mode, log, engine="": held.wait(10))
+    assert wired.serve.wiki({"repo": "web"})["status"] == "running"                # not blocked by the failed one
+    held.set()
+
+
 def test_the_busy_answer_is_a_409(wired, held, monkeypatch):
     import json, threading, urllib.error, urllib.request
     from http.server import ThreadingHTTPServer

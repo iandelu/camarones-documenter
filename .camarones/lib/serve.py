@@ -499,10 +499,25 @@ def start_job(kind: str, label: str, fn, **extra) -> dict:
         running = next((j for j in JOBS.values() if j["kind"] == kind and j["status"] == "running"), None)
         if running:
             return running
-        job = {"id": str(next(JOB_IDS)), "kind": kind, "label": label, "status": "running", "log": [],
-               "started": time.time(), "ended": None, **extra}
-        JOBS[job["id"]] = job
+        job = claim_job(kind, label, **extra)
+    return run_job(job, fn)
 
+
+def claim_job(kind: str, label: str, **extra) -> dict:
+    """A running job registered before its work starts; the caller holds JOB_LOCK (so checking and claiming are one
+    step) and then hands it to run_job, or to fail_job if what comes before the work fails."""
+    job = {"id": str(next(JOB_IDS)), "kind": kind, "label": label, "status": "running", "log": [],
+           "started": time.time(), "ended": None, **extra}
+    JOBS[job["id"]] = job
+    return job
+
+
+def fail_job(job: dict, error: Exception) -> None:
+    job["log"].append(f"⚠ {error}")
+    job["status"], job["ended"] = "failed", time.time()
+
+
+def run_job(job: dict, fn) -> dict:
     def work():
         try:
             ok = fn(job["log"].append)
@@ -565,23 +580,31 @@ def wiki(b: dict) -> dict:
     """`choose`: add the repo to the ones with a wiki (its plan unit comes back); `starter`: write a starter brief
     (no AI) when repo-brief has not written one. The card says both before the click. One wiki runs at a time: while
     another repo's runs, the answer is {"error": "busy", "repo"} and nothing is chosen or written (the same repo
-    attaches to its run)."""
+    attaches to its run). The run is claimed before choosing and writing, in the same step as that check, so a second
+    repo clicked while the first one is still being prepared is busy too."""
     repo, mode, engine = b.get("repo", ""), b.get("mode", ""), b.get("engine", "")
     if repo not in docs.repo_names() or mode not in ("", "init", "update"):
         raise ValueError("unknown repo or mode")
+    choose = repo not in docs.wiki_repos() and not env.wiki_pages(repo)
+    if choose and not b.get("choose"):
+        raise ValueError(f"{repo} is not chosen for a wiki")
     with JOB_LOCK:
-        other = next((j for j in JOBS.values() if j["kind"] == "wiki" and j["status"] == "running"
-                      and j.get("repo") != repo), None)
-    if other:
-        return {"error": "busy", "repo": other.get("repo", "")}
-    if repo not in docs.wiki_repos() and not env.wiki_pages(repo):
-        if not b.get("choose"):
-            raise ValueError(f"{repo} is not chosen for a wiki")
-        docs.set_wiki_repos([*docs.wiki_repos(), repo])
-        plan.sync()
-    if b.get("starter"):
-        env.starter_brief(repo)
-    return start_job("wiki", f"OpenWiki {repo}", lambda log: env.openwiki_generate(repo, mode, log, engine), repo=repo)
+        running = next((j for j in JOBS.values() if j["kind"] == "wiki" and j["status"] == "running"), None)
+        if running and running.get("repo") != repo:
+            return {"error": "busy", "repo": running.get("repo", "")}
+        if running:
+            return running
+        job = claim_job("wiki", f"OpenWiki {repo}", repo=repo)
+    try:
+        if choose:
+            docs.set_wiki_repos([*docs.wiki_repos(), repo])
+            plan.sync()
+        if b.get("starter"):
+            env.starter_brief(repo)
+    except Exception as e:
+        fail_job(job, e)
+        raise
+    return run_job(job, lambda log: env.openwiki_generate(repo, mode, log, engine))
 
 
 def cdn_local(html: str) -> str:
