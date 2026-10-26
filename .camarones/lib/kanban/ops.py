@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import getpass
 import json
+import logging
 import os
 import re
 from datetime import datetime, timezone
@@ -17,6 +18,7 @@ from .. import docs
 from ..common import IS_MAC, IS_WIN, KIT, ROOT, out, run, which
 from ..harness.locks import FileLock
 from . import ARCHIVE, BACKLOG, BOARD, CONFIG, DRAFTS, LOCK, PREFIX, PRIORITIES, STATUSES, TASKS, TYPES
+from . import deps as graph
 from .deps import norm_touch
 from .items import (Item, _as_list, checklist, default_dod, description, file_name, load_dir, new_body, parse_item,
                     serialize_item, set_description)
@@ -29,8 +31,31 @@ ATTR_LINE = "backlog/board.yaml merge=camaron-board"
 _FILE_ID = re.compile(r"^([A-Za-z]+-\d+) - ")
 
 
+_log = logging.getLogger("camaron.board")
+
+HUMAN = ("cli", "portal", "app")          # surfaces a person drives: a refused start can be forced
+AGENT = ("mcp", "harness")                # surfaces an agent drives: a refused start is final
+
+
 class BoardError(ValueError):
     pass
+
+
+class GateError(BoardError):
+    """A card cannot start: it waits on unfinished work or shares files with an item In Progress. `.blocked_by` holds
+    the reasons as `deps.blocked_by` returns them."""
+
+    def __init__(self, item_id: str, blocked_by: list[dict]):
+        self.item_id, self.blocked_by = item_id, blocked_by
+        super().__init__(f"{item_id} cannot start: " + "; ".join(_why(b) for b in blocked_by))
+
+
+def _why(b: dict) -> str:
+    if b["kind"] == "dependency":
+        return f"it waits for {b['id']}, which is not done"
+    if b["kind"] == "missing":
+        return f"it depends on {b['id']}, which does not exist"
+    return f"{b['id']} is in progress on {', '.join(b.get('files', ()))}"
 
 
 def who() -> str:
@@ -355,14 +380,62 @@ def docs_lang() -> str:
     return str(docs.workspace()["project"].get("language") or "en")
 
 
+def _node(row: dict, archived: bool = False) -> graph.Node:
+    """An item as the pure functions of `deps` take it, from its `_row`."""
+    touches = set()
+    for ref in row["touches"]:
+        try:
+            touch = norm_touch(ref, fold=False)
+        except ValueError:
+            continue
+        if touch.partition(":")[2]:
+            touches.add(touch)
+    return {"id": row["id"], "status": row["status"], "priority": row["priority"], "touches": sorted(touches),
+            "repos": row["repos"], "deps": sorted({d.strip() for d in row["dependencies"] if d.strip()}, key=id_key),
+            "archived": archived}
+
+
+def _board_nodes(cards: dict[str, dict], items: dict[str, Item]) -> list[graph.Node]:
+    """Every item of the board, open or archived, from the index; if the index cannot be opened, from the files."""
+    try:
+        from . import index
+        conn = index.connect()
+        try:
+            return index.nodes(conn)
+        finally:
+            conn.close()
+    except Exception as e:                                   # noqa: BLE001 — the gate must never be skipped
+        _log.warning("board index unavailable (%s); reading the cards directly", e)
+    nodes = [_node(_row(item, cards.get(i))) for i, item in items.items()]
+    archived, _ = load_dir(ARCHIVE)
+    nodes += [_node(_row(a, None), True) for a in archived if a.id not in items]
+    return sorted(nodes, key=lambda n: id_key(n["id"]))
+
+
+def _gate(key: str, item: Item, card: dict, cards: dict, items: dict, *, agent: bool) -> list[dict]:
+    """Why `key` cannot go In Progress now (empty when it can). The card itself is read from its file, not the index."""
+    me = _node(_row(item, card))
+    board = [n for n in _board_nodes(cards, items) if n["id"] != key] + [me]
+    return graph.blocked_by(me, board, agent=agent)
+
+
 def move(item_id: str, status: str, *, before: str | None = None, after: str | None = None, by: str | None = None,
-         surface: str = "cli") -> dict:
+         surface: str = "cli", force: bool = False) -> dict:
+    """Move a card. Entering In Progress is the start gate: a card that waits on unfinished work or shares files with
+    an item In Progress is refused (GateError) — a person (`HUMAN`) can `force` it, an agent (`AGENT`) never."""
     if status not in STATUSES:
         raise BoardError(f"unknown status {status} (one of: {', '.join(STATUSES)})")
     by = by or who()
+    forced = False
     with FileLock(LOCK):
         cards, items, _ = load_state()
         key, item, card = _find(items, cards, item_id, by)
+        if status == "In Progress" and card["status"] != status:
+            agent = surface in AGENT
+            blocked = _gate(key, item, card, cards, items, agent=agent)
+            if blocked and (agent or not force):
+                raise GateError(key, blocked)
+            forced = bool(blocked)
         if card["status"] != status:
             card["status"] = status
             stamp(card, "status", by, _now())
@@ -371,6 +444,8 @@ def move(item_id: str, status: str, *, before: str | None = None, after: str | N
         save_item(item)
         save_board(cards)
     _count("move", surface)
+    if forced:
+        _count("move-forced", surface)
     return _row(item, card)
 
 
@@ -540,6 +615,61 @@ def list_items(*, status=None, epic=None, parent=None, repo=None, label=None, do
     order = {s: n for n, s in enumerate(STATUSES)}
     rows.sort(key=lambda r: (order.get(r["status"], len(order)), r["ordinal"], id_key(r["id"])))
     return {"cards": rows, "problems": [{**p, "path": _rel(p["path"])} for p in problems]}   # text: JSON-ready
+
+
+def _scope(rows: dict[str, dict], story: str | None, epic: str | None) -> set[str] | None:
+    """Ids under a story (it and its children) or an epic (it, its children and theirs); None when no scope is given."""
+    if story and epic:
+        raise BoardError("give either a story or an epic, not both")
+    root = story or epic
+    if not root:
+        return None
+    key = root.strip().upper()
+    if key not in rows:
+        raise BoardError(f"unknown item {root}")
+    ids = {key}
+    frontier = {key}
+    for _ in range(1 if story else 2):
+        frontier = {i for i, r in rows.items() if (r["parent"] or "").upper() in frontier} - ids
+        ids |= frontier
+    return ids
+
+
+def next_items(n: int = 3, *, story: str | None = None, epic: str | None = None, agent: bool = True) -> dict:
+    """What can start now: `ready` (at most `n`, by wave, then priority, then id; each row has its 0-based `wave`) and
+    `waiting` (every Backlog/Ready item that cannot start, with why). Limited to a story's or an epic's items if given.
+    Conflicts are always judged against the whole board."""
+    cards, items, _ = load_state()
+    rows = {i: _row(item, cards.get(i)) for i, item in items.items()}
+    scope = _scope(rows, story, epic)
+    board = _board_nodes(cards, items)
+    mine = [x for x in board if (scope is None or x["id"] in scope) and x["id"] in rows]
+    free, waiting = [], []
+    for x in mine:
+        if x["status"] not in ("Backlog", "Ready") or x["archived"]:
+            continue
+        why = graph.blocked_by(x, board, agent=agent)
+        if why:
+            waiting.append({"id": x["id"], "blocked_by": why})
+        else:
+            free.append({**x, "deps": []})              # its dependencies are Done: only file clashes separate waves
+    ready = [{**rows[i], "wave": w} for w, wave in enumerate(graph.waves(free)) for i in wave]
+    return {"ready": ready[:max(n, 0)], "waiting": waiting}
+
+
+def waves(*, story: str | None = None, epic: str | None = None) -> dict:
+    """The open work (not Done, not archived) in waves of items that can run in parallel: `{"waves": [[row…]…]}`, or
+    `{"cycle": [ids]}` when items wait on each other."""
+    cards, items, _ = load_state()
+    rows = {i: _row(item, cards.get(i)) for i, item in items.items()}
+    scope = _scope(rows, story, epic)
+    open_ = [x for x in _board_nodes(cards, items)
+             if x["id"] in rows and (scope is None or x["id"] in scope) and x["status"] != "Done"]
+    try:
+        grouped = graph.waves(open_)
+    except graph.CycleError as e:
+        return {"cycle": e.cycle}
+    return {"waves": [[rows[i] for i in wave] for wave in grouped]}
 
 
 def _history(card: dict | None, path: Path) -> list[dict]:

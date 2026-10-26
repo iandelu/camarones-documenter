@@ -120,3 +120,63 @@ def test_a_busy_lock_or_a_file_error_is_one_plain_line(wired, monkeypatch, capsy
     monkeypatch.setattr(ops, "move", denied)
     assert board_cli.run(args) == 2
     assert capsys.readouterr().err == "✖ [Errno 13] Access is denied: 'wi-1 - x.md'\n"
+
+
+def _two_on_one_file(kit):
+    subprocess.run(["git", "init", "-q", str(kit.root)], check=True)
+    assert cli(kit, "board", "init").returncode == 0
+    from lib.kanban import ops
+    ops.add("task", "First", touches=["api:a.py"])
+    ops.add("task", "Second", touches=["api:a.py"])
+    ops.add("task", "Third", touches=["api:b.py"])
+    assert cli(kit, "board", "move", "WI-1", "In Progress").returncode == 0
+
+
+def test_move_refused_exits_2_and_force_moves_it(wired):
+    _two_on_one_file(wired)
+    r = cli(wired, "board", "move", "WI-2", "In Progress")
+    assert r.returncode == 2 and r.stdout == ""
+    assert r.stderr.startswith("✖") and "WI-1" in r.stderr and "api:a.py" in r.stderr and "--force" in r.stderr
+    assert len(r.stderr.strip().splitlines()) == 1 and "🦐" not in r.stderr
+    forced = cli(wired, "board", "move", "WI-2", "In Progress", "--force", "--json")
+    assert forced.returncode == 0, forced.stderr
+    assert json.loads(forced.stdout)["status"] == "In Progress"
+
+
+def test_board_next_json_and_human(wired):
+    _two_on_one_file(wired)
+    got = json.loads(cli(wired, "board", "next", "--json").stdout)
+    assert [r["id"] for r in got["ready"]] == ["WI-3"] and got["ready"][0]["wave"] == 0
+    assert got["waiting"] == [{"id": "WI-2", "blocked_by": [{"id": "WI-1", "kind": "conflict", "files": ["api:a.py"]}]}]
+    assert [r["id"] for r in json.loads(cli(wired, "board", "next", "--n", "0", "--json").stdout)["ready"]] == []
+    human = cli(wired, "board", "next")
+    assert human.returncode == 0
+    lines = human.stdout.splitlines()
+    assert lines[0].startswith("WI-3  Backlog") and any("WI-2" in l and "api:a.py" in l for l in lines[1:])
+    assert any(l.startswith("  · WI-2: ") and ("choca con WI-1 en api:a.py" in l or "collides with WI-1 on api:a.py" in l)
+               for l in lines)
+
+
+def test_board_waves_json_and_cycle(wired):
+    _two_on_one_file(wired)
+    got = json.loads(cli(wired, "board", "waves", "--json").stdout)
+    assert [[r["id"] for r in w] for w in got["waves"]] == [["WI-1", "WI-3"], ["WI-2"]]
+    from lib.kanban import ops
+    for a, b in (("WI-1", "WI-3"), ("WI-3", "WI-1")):
+        item = ops.load_state()[1][a]
+        item.fm["dependencies"] = [b]
+        ops.save_item(item)
+    assert json.loads(cli(wired, "board", "waves", "--json").stdout) == {"cycle": ["WI-1", "WI-3"]}
+    r = cli(wired, "board", "waves")
+    assert r.returncode == 2 and "WI-1" in r.stderr and "WI-3" in r.stderr
+
+
+def test_board_next_story_flag(wired):
+    subprocess.run(["git", "init", "-q", str(wired.root)], check=True)
+    cli(wired, "board", "init")
+    from lib.kanban import ops
+    ops.add("story", "Story")
+    ops.add("task", "Inside", parent="WI-1")
+    ops.add("task", "Outside")
+    got = json.loads(cli(wired, "board", "next", "--story", "WI-1", "--json").stdout)
+    assert "WI-3" not in [r["id"] for r in got["ready"]] and "WI-2" in [r["id"] for r in got["ready"]]
