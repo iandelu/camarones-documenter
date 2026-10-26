@@ -70,6 +70,7 @@ COMMANDS: dict[str, dict] = {
     "ab": _e("app", "check", "La misma pregunta con y sin cam-docs", "The same question with and without cam-docs",
              ai=True),
     "kpis": _e("both", "check", "¿Funciona? Coste, cobertura, confianza y uso", "Is it working? Cost, coverage, trust, use"),
+    "health": _e("app", "check", "Salud del proyecto: máquina, docs y código", "Project health: machine, docs and code"),
     "stats": _e("both", "check", "Uso de la documentación por el equipo", "How the team uses the docs"),
     # interviews
     "interview": _e("both", "interviews", "Cuestionario de entrevista: modo, exportar, importar, estado",

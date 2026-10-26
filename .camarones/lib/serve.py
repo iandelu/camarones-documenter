@@ -895,6 +895,9 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(env.sync_status(fetch=q.get("fetch") == "1"))
         if name == "inventory":
             return self.json(api_inventory())
+        if name == "health":                    # a read: the snapshot `camaron health` or the app built, never a build
+            from . import health
+            return self.json({"snapshot": health.load()})
         if name == "schemas":
             return self.json(api_schemas())
         if name == "ci":

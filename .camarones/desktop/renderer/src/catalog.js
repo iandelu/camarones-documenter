@@ -3,7 +3,7 @@
 export const ZONES = { plan: ['generate'], interviews: ['interviews'], team: ['team'], quality: ['check', 'analyze'],
   machine: ['machine'] }
 const PANELS = { plan: ['run', 'autopilot'], interviews: ['interview'], team: ['remote', 'share', 'trust', 'hooks', 'plugins'],
-  quality: ['doctor', 'eval', 'ab', 'inventory', 'fresh', 'blocks'],
+  quality: ['doctor', 'eval', 'ab', 'inventory', 'health', 'fresh', 'blocks'],
   machine: ['setup', 'config', 'sync', 'detect', 'stack', 'profile', 'self-update', 'repair', 'uninstall'] }
 
 export function others(commands, section) {
