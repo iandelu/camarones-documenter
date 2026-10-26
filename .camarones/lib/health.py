@@ -4,11 +4,12 @@ complete cam-docs is) and the code (coverage, vulnerabilities, quality gate). Ea
 when, and a value that cannot be read stays missing instead of becoming zero.
 
 Coverage comes from the reports a repo already holds: JaCoCo XML, lcov and Cobertura, at their usual paths. Report
-files are untrusted input: a DTD or entity declaration, an oversized file or broken XML is reported as an error and
-never parsed further.
+files are untrusted input: an internal DTD subset or entity declaration, an oversized file or broken XML is reported
+as an error and never parsed further. The external DTD a JaCoCo report names is never fetched or read.
 """
 from __future__ import annotations
 
+import re
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
@@ -16,6 +17,12 @@ from pathlib import Path
 MAX_REPORT_BYTES = 5_000_000
 REPORT_GLOBS = (("jacoco", "target/site/jacoco/jacoco.xml"), ("jacoco", "build/reports/jacoco/**/*.xml"),
                 ("lcov", "coverage/**/lcov.info"), ("cobertura", "coverage/**/cobertura*.xml"))
+
+
+# A DOCTYPE that only names an external DTD (what JaCoCo writes). expat never loads it here: ElementTree sets no
+# external-entity handler. An internal subset (`[`) or an entity declaration is what could expand, so both are refused.
+LITERAL = r"(?:\"[^\"]*\"|'[^']*')"
+DOCTYPE = re.compile(rf"<!DOCTYPE\s+[^\s\[>]+(?:\s+(?:SYSTEM\s+{LITERAL}|PUBLIC\s+{LITERAL}\s+{LITERAL}))?\s*>")
 
 
 def _count(text: str) -> int:
@@ -32,7 +39,7 @@ def _percent(covered: int, total: int) -> float:
 
 
 def _xml_root(data: bytes) -> ET.Element:
-    """Parse UTF-8 text only: the DTD check reads the text, so another encoding (UTF-16, whose bytes hide
+    """Parse UTF-8 text only: the DOCTYPE check reads the text, so another encoding (UTF-16, whose bytes hide
     `<!DOCTYPE` from a byte search) is refused instead of parsed."""
     if b"\x00" in data:
         raise ValueError("not UTF-8 text")
@@ -40,7 +47,7 @@ def _xml_root(data: bytes) -> ET.Element:
         text = data.decode("utf-8-sig")
     except UnicodeDecodeError:
         raise ValueError("not UTF-8 text") from None
-    if "<!DOCTYPE" in text or "<!ENTITY" in text:
+    if "<!ENTITY" in text or any(not DOCTYPE.match(text, m.start()) for m in re.finditer("<!DOCTYPE", text)):
         raise ValueError("DTD or entity declarations are not accepted")
     return ET.fromstring(text)                  # a str: the document's own encoding declaration is ignored
 
