@@ -37,6 +37,7 @@ def test_a_ready_unit_opens_in_its_own_terminal_in_the_workspace(wired, term):
     u = ready_agent_unit(wired)
     r = term["agents"].launch_unit(u["id"], "claude", lang="en")
     cmd, cwd = term["cmds"][0]
+    cmd = cmd[cmd.index("--") + 1:]                             # inside the session wrapper (test_agent_sessions.py)
     assert cmd[:3] == ["/bin/claude", "--model", "sonnet"] and cmd[-1].startswith("Follow the instructions in ")
     assert cwd == wired.common.WORKSPACE
     assert wired.plan.get(wired.plan.load(), u["id"])["status"] == "doing"

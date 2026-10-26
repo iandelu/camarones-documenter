@@ -156,6 +156,19 @@ def test_opencode_unattended_argv(runners, kit):
     assert inv.argv == ["/bin/opencode", "run", "--format", "json", "--auto", "--model", "ollama/qwen3-coder:30b", "p"]
 
 
+def test_claude_interactive_session_ids(runners, kit):
+    """A unit's session gets its own conversation id, so the board can read it and Continue reopens that one, not
+    whichever conversation in the workspace was last (two units may run side by side)."""
+    from lib.harness.ports import RunRequest
+    c = runners.get("claude")
+    assert c.build(RunRequest(prompt="p", cwd=kit.ws, interactive=True, session="s-1")).argv == \
+        ["/bin/claude", "--session-id", "s-1", "p"]
+    assert c.build(RunRequest(prompt="p", cwd=kit.ws, interactive=True, resume=True, session="s-1")).argv == \
+        ["/bin/claude", "--resume", "s-1", "p"]
+    assert c.build(RunRequest(prompt="p", cwd=kit.ws, interactive=True, resume=True)).argv == \
+        ["/bin/claude", "--continue", "p"]
+
+
 def test_opencode_interactive_and_resume_argv(runners, kit):
     from lib.harness.ports import RunRequest
     oc = runners.get("opencode")

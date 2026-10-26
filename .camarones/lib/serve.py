@@ -319,11 +319,14 @@ def ui_lang(lang: str = "") -> str:
 
 def api_pipeline(lang: str = "") -> dict:
     """The plan as a graph for the Pipeline tab: every unit with its status and dependencies, how it runs (isolation,
-    tier, runner), and the latest run. Titles read in `lang` (plan.title); plan.yaml is only read."""
+    tier, runner), its agent session (open or paused, lib/sessions.py) and the latest run. Titles read in `lang`
+    (plan.title); plan.yaml is only read."""
+    from . import sessions
     from .harness import pipeline, runs
     lang = ui_lang(lang)
     try:
         nodes = {u["id"]: u for u in plan.pipeline_units()}
+    busy = sessions.headless()
     except plan.PipelineError:
         nodes = {}
     types = pipeline.types()
@@ -336,7 +339,8 @@ def api_pipeline(lang: str = "") -> dict:
                       "title": plan.title(u, lang),
                       "isolation": n.get("isolation") or t.get("isolation", "none"),
                       "tier": n.get("tier") or t.get("tier", "agentic-heavy"), "agent": n.get("runner"),
-                      "approval": bool(n.get("approval")), "awaiting": plan.awaiting(u), "ready": u["id"] in ready})
+                      "approval": bool(n.get("approval")), "awaiting": plan.awaiting(u), "ready": u["id"] in ready,
+                      **sessions.board(u, busy)})
     latest = runs.ids()
     return {"units": units, "run": runs.summary(latest[0]) if latest else None,
             "interviews": docs.interview_mode() if docs.interview_mode_chosen() else None}

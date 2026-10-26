@@ -251,6 +251,7 @@ a.dk-stat-n:hover { color: var(--color-acento-texto); }
 .dk-board { display: grid; grid-template-columns: repeat(5, minmax(10rem, 1fr)); gap: .75rem; overflow-x: auto; }
 .dk-plan.with-detail .dk-board { grid-template-columns: repeat(5, minmax(8rem, 1fr)); }
 .dk-lanes { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(12rem, 1fr); gap: .75rem; overflow-x: auto; padding-bottom: .25rem; }
+.tone-paused { --tone: color-mix(in srgb, var(--color-aurora-amber) 45%, var(--color-ink-dim)); }
 .dk-col { display: flex; flex-direction: column; gap: .5rem; min-width: 0; padding: .6rem; border-radius: var(--consola-radio-tarjeta);
           background: color-mix(in srgb, var(--color-canvas-elevated) 60%, transparent); border: 1px solid var(--color-rule); }
 .dk-col-head { display: flex; justify-content: space-between; margin: 0 0 .15rem; }
@@ -290,3 +291,7 @@ a.dk-stat-n:hover { color: var(--color-acento-texto); }
   .dk-card { transition: none; }
   .dk-card.tone-running { animation: none; }
 }
+.dk-session { display: flex; flex-direction: column; gap: .25rem; padding: .5rem .6rem; border-radius: var(--consola-radio-chico);
+              background: color-mix(in srgb, var(--tone) 10%, transparent); overflow-wrap: anywhere; }
+.dk-session q { color: var(--color-ink-soft); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.dk-card.tone-paused { border-style: dashed; border-left-style: solid; }

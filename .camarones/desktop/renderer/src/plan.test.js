@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { board, COLUMNS, groups, phases, tone, unitAction, waitsFor } from './plan.js'
+import { board, COLUMNS, groups, phases, sessionLine, tone, unitAction, waitsFor } from './plan.js'
 
 const u = (id, status, more = {}) => ({ id, status, phase: 1, runner: 'agent', type: id, deps: [], ready: false, awaiting: false, ...more })
 
@@ -60,4 +60,29 @@ test('an interview unit asks for the mode until someone chose it', () => {
   expect(unitAction(iv, { interviews: 'live' })).toEqual({ kind: 'agent', mode: 'new', label: 'unit.start' })
   expect(unitAction(u('r', 'todo', { ready: true }), { interviews: null }).kind).toBe('agent')
   expect(unitAction(iv)).toEqual({ kind: 'agent', mode: 'new', label: 'unit.start' })    // unknown: as before
+})
+
+test('a unit in progress with no window open is paused: it needs you to continue it', () => {
+  const p = u('p', 'doing', { paused: true, session: { live: false, agent: 'claude' } })
+  const live = u('l', 'doing', { paused: false, session: { live: true, agent: 'claude' } })
+  expect(tone(p)).toBe('paused')
+  expect(tone(live)).toBe('running')
+  expect(Object.fromEntries(board([p, live]).map((c) => [c.key, c.units.map((x) => x.id)]))).toMatchObject({
+    running: ['l'], attention: ['p'] })
+  expect(unitAction(p)).toEqual({ kind: 'agent', mode: 'continue', label: 'unit.continue' })
+  expect(unitAction(live)).toEqual({ kind: 'live' })                     // open already: a second window would fight it
+})
+
+test('what an open session is doing, from its agent\'s last steps', () => {
+  const now = Date.parse('2026-10-26T10:05:00Z') / 1000
+  const s = (activity, more = {}) => ({ live: true, agent: 'claude', activity, ...more })
+  expect(sessionLine(u('p', 'doing', { paused: true, session: { live: false } }), now)).toEqual({ key: 'sess.paused' })
+  expect(sessionLine(u('l', 'doing', { session: s(null) }), now)).toEqual({ key: 'sess.open' })
+  expect(sessionLine(u('l', 'doing', { session: s({ state: 'waiting', tool: 'Read', text: '¿Sigo?', ts: '2026-10-26T10:04:30Z' }) }), now))
+    .toEqual({ key: 'sess.waiting', text: '¿Sigo?', ts: Date.parse('2026-10-26T10:04:30Z') / 1000 })
+  expect(sessionLine(u('l', 'doing', { session: s({ state: 'working', tool: 'Edit', arg: 'docs/a.md', ts: '2026-10-26T10:04:50Z' }) }), now))
+    .toEqual({ key: 'sess.tool', tool: 'Edit', arg: 'docs/a.md', ts: Date.parse('2026-10-26T10:04:50Z') / 1000 })
+  expect(sessionLine(u('l', 'doing', { session: s({ state: 'working', tool: 'Bash', arg: 'npm i', ts: '2026-10-26T10:01:00Z' }) }), now).key)
+    .toBe('sess.stuck')                                                   // a tool call with no answer for minutes: a permission prompt?
+  expect(sessionLine(u('t', 'todo'), now)).toBeNull()
 })

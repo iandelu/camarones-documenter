@@ -1,17 +1,19 @@
 import { useEffect, useState } from 'react'
 import { Aviso, Button, Card, Chip, EmptyState, Skeleton } from '@camaron/ui'
-import { board, phases, tone, waitsFor } from '../plan.js'
+import { board, phases, sessionLine, tone, waitsFor } from '../plan.js'
 import { useAgents, useCmd, useStore } from '../hooks.js'
 import { AgentPicker, Failed, Fold, JobOutput, Page, UnitActions } from '../parts.jsx'
 import Commands from './Commands.jsx'
+import { ago } from '../jobs.js'
 import { lang, t } from '../i18n.js'
 
 // The Plan by task: run the ready units (in parallel, or the autopilot one after another) or stop what runs; then
 // every unit coloured by its state (running yellow, done green, ready white, blocked red, awaiting you in the accent),
 // as a board by state or lane by phase like the portal. A unit opens beside the board with the one action that moves
-// it. The graph with its arrows stays in the portal.
+// it. A unit in progress with no terminal window open is paused; an open one says what its agent is doing. The graph
+// with its arrows stays in the portal.
 const VIEWS = ['board', 'phases']
-const TONES = ['ready', 'running', 'awaiting', 'blocked', 'waiting', 'done']
+const TONES = ['ready', 'running', 'paused', 'awaiting', 'blocked', 'waiting', 'done']
 
 export default function Plan({ srv, jobs }) {
   const [data, setData] = useState(null)
@@ -23,11 +25,12 @@ export default function Plan({ srv, jobs }) {
   const pilot = running.find((j) => j.kind.startsWith('cmd:autopilot'))
   const load = () => srv.get('pipeline', { lang: lang() }).then((d) => { setData(d); setError('') }, (e) => setError(e.message))
   const active = !!pilot || (data?.run && !data.run.finished)
+  const windows = !!data?.units.some((u) => u.session?.live)
   useEffect(() => {                                   // often while something runs, rarely otherwise
     load()
-    const id = setInterval(load, active ? 3000 : 15000)
+    const id = setInterval(load, active ? 3000 : windows ? 5000 : 15000)
     return () => clearInterval(id)
-  }, [active, running.length])
+  }, [active, windows, running.length])
   const pick = (v) => { setView(v); try { localStorage.setItem('dk.planView', v) } catch { /* private window: not kept */ } }
   if (error) return <Page title={t('nav.plan')}><Failed title={t('plan.failed')} detail={error} onRetry={() => { setError(''); load() }} /></Page>
   if (!data) return <Page title={t('nav.plan')}><Skeleton lines={6} /></Page>
@@ -92,7 +95,7 @@ function UnitCard({ u, on, onOpen }) {
 function Detail({ u, all, srv, a, plan, onClose, onChanged }) {
   const waits = waitsFor(u, all)
   const k = tone(u)
-  const state = { running: 'warn', done: 'ok', blocked: 'bad', awaiting: 'info' }[k]
+  const state = { running: 'warn', done: 'ok', blocked: 'bad', awaiting: 'info', paused: 'info' }[k]
   return (
     <Card as="aside" className={`dk-detail tone-${k}`} aria-label={u.title}>
       <div className="row"><Chip state={state}>{t('tone.' + k)}</Chip><span className="dk-grow"></span>
@@ -106,10 +109,31 @@ function Detail({ u, all, srv, a, plan, onClose, onChanged }) {
         {(u.deps || []).length ? <><dt>{t('plan.deps')}</dt><dd>{u.deps.map((d) => <code key={d} className={waits.includes(d) ? '' : 'muted'}>{d} </code>)}</dd></> : null}
       </dl>
       {u.notes ? <p className="small dk-detail-notes">{u.notes}</p> : null}
+      <Session u={u} a={a} />
       {waits.length && k === 'waiting' ? <p className="muted small">{t('unit.waits', { list: waits.join(', ') })}</p> : null}
       <UnitActions u={u} srv={srv} a={a} plan={plan} onChanged={onChanged} />
       <a className="small" href={`../#/pipeline/${encodeURIComponent(u.id)}`}>{t('plan.inPortal')}</a>
     </Card>
+  )
+}
+
+// The unit's agent session: paused, or open and what its agent did last (lib/sessions.py reads Claude Code's
+// transcript; other agents only say it is open).
+function Session({ u, a }) {
+  const now = Date.now() / 1000
+  const l = sessionLine(u, now)
+  if (!l) return null
+  const when = l.ts ? ago(l.ts, now, t) : ''
+  const what = l.tool ? <code>{l.tool}{l.arg ? ' ' + l.arg : ''}</code> : null
+  return (
+    <div className="dk-session small" role="status">
+      {l.key === 'sess.paused' ? <span>{t('sess.paused')}</span> : null}
+      {l.key === 'sess.open' ? <span>{t('sess.open', { agent: a.label(u.session.agent) })}</span> : null}
+      {l.key === 'sess.waiting' ? <><b>{t('sess.waiting')}</b>{l.text ? <q>{l.text}</q> : null}</> : null}
+      {l.key === 'sess.tool' ? <span>{t('sess.tool', { tool: '' })}{what}</span> : null}
+      {l.key === 'sess.stuck' ? <span>{t('sess.stuck', { tool: l.tool, ago: when })}</span> : null}
+      {when && l.key !== 'sess.stuck' ? <span className="muted">{t('sess.last', { ago: when })}</span> : null}
+    </div>
   )
 }
 

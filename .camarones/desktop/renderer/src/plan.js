@@ -14,10 +14,11 @@ export function groups(units) {
 }
 
 // A unit's colour on the board (app.css .tone-*): running yellow, done green, ready white, blocked red, awaiting
-// your approval in the accent, waiting for others dim.
+// your approval in the accent, waiting for others dim. Paused: in progress, but no terminal window has it open
+// (the server's lib/sessions.py), so it waits for you to continue it.
 export function tone(u) {
   if (u.awaiting) return 'awaiting'
-  if (u.status === 'doing') return 'running'
+  if (u.status === 'doing') return u.paused ? 'paused' : 'running'
   if (u.status === 'todo') return u.ready ? 'ready' : 'waiting'
   return ['done', 'blocked', 'dropped'].includes(u.status) ? u.status : 'waiting'
 }
@@ -25,7 +26,7 @@ export function tone(u) {
 // The board, like the portal's: what you can start, what runs, what needs you (approve or retry), what waits, what
 // is done. Dropped units are left out.
 export const COLUMNS = ['ready', 'running', 'attention', 'waiting', 'done']
-const COLUMN = { ready: 'ready', running: 'running', awaiting: 'attention', blocked: 'attention', waiting: 'waiting', done: 'done' }
+const COLUMN = { ready: 'ready', running: 'running', paused: 'attention', awaiting: 'attention', blocked: 'attention', waiting: 'waiting', done: 'done' }
 const byPlan = (a, b) => a.phase - b.phase || (a.awaiting === b.awaiting ? 0 : a.awaiting ? -1 : 1) || a.id.localeCompare(b.id)
 export function board(units) {
   return COLUMNS.map((key) => ({ key, units: (units || []).filter((u) => COLUMN[tone(u)] === key).sort(byPlan) }))
@@ -57,6 +58,23 @@ export function unitAction(u, plan = {}) {
   if (!open) return null
   if (u.runner !== 'agent') return linkFor(u)
   if (plan.interviews === null && INTERVIEW_TYPES.includes(u.type)) return { kind: 'mode', label: 'iv.choose' }
+  if (u.status === 'doing' && u.session?.live) return { kind: 'live' }
   return u.status === 'doing' ? { kind: 'agent', mode: 'continue', label: 'unit.continue' }      // the agent: the section's picker
     : { kind: 'agent', mode: 'new', label: 'unit.start' }
+}
+
+// What a unit's agent session is doing, for its detail: paused (no window open), or open and what its agent did last
+// (Claude Code's transcript): waiting for you, a tool it is running, or a tool call with no answer for minutes (it
+// may be asking permission in its terminal). ts in seconds.
+export const STUCK = 120
+export function sessionLine(u, now) {
+  if (u.paused) return { key: 'sess.paused' }
+  const s = u.status === 'doing' && u.session?.live ? u.session : null
+  if (!s) return null
+  const a = s.activity
+  if (!a) return { key: 'sess.open' }
+  const ts = a.ts ? Date.parse(a.ts) / 1000 : null
+  if (a.state === 'waiting') return { key: 'sess.waiting', text: a.text, ts }
+  if (!a.tool) return { key: 'sess.open' }
+  return { key: ts && now - ts > STUCK ? 'sess.stuck' : 'sess.tool', tool: a.tool, arg: a.arg, ts }
 }
