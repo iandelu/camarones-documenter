@@ -61,6 +61,25 @@ def test_hostile_or_huge_reports_are_skipped(tmp_path):
     assert reports["coverage/lcov.info"]["percent"] == 25.0
 
 
+REAL_DOCTYPE = '<!DOCTYPE report PUBLIC "-//JACOCO//DTD Report 1.1//EN" "report.dtd">'
+
+
+def test_a_real_jacoco_report_with_its_public_doctype_parses(tmp_path):
+    from lib import health
+    put(tmp_path, "target/site/jacoco/jacoco.xml", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' + REAL_DOCTYPE + JACOCO.split("?>", 1)[1])
+    [r] = health.coverage_reports(tmp_path)
+    assert r["percent"] == 80.0
+
+
+def test_the_external_dtd_a_report_names_is_never_read(tmp_path):
+    from lib import health
+    put(tmp_path, "target/site/jacoco/report.dtd", '<!ENTITY x "20">')
+    body = JACOCO.split("?>", 1)[1].replace('missed="20"', 'missed="&x;"')
+    put(tmp_path, "target/site/jacoco/jacoco.xml", '<?xml version="1.0"?>' + REAL_DOCTYPE + body)
+    [r] = health.coverage_reports(tmp_path)
+    assert "percent" not in r and r["error"]
+
+
 def test_a_utf16_document_cannot_hide_its_doctype(tmp_path):
     from lib import health
     text = '<?xml version="1.0" encoding="UTF-16"?><!DOCTYPE report [<!ENTITY x "y">]>' + JACOCO.split("?>", 1)[1]
