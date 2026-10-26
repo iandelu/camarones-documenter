@@ -121,6 +121,8 @@ def sonar_host(host: str) -> str:
 def sonar_base(host: str) -> str:
     """The URL SonarQube's API hangs from: https unless the host is local. ValueError (with the reason) otherwise."""
     h = sonar_host(host)
+    if re.search(r"[\s?#;]", h):               # a query, fragment, `;params` or a space turns `evil.io#.sonar.empresa.com` into evil.io
+        raise ValueError("host no válido")
     url = h if "://" in h else f"https://{h}"
     p = urllib.parse.urlparse(url)
     if p.scheme == "http" and p.hostname not in LOCAL_HOSTS:

@@ -1,1 +1,0 @@
-import{D as e,_ as t,b as n,n as r}from"./i18n-D51C_Mr3.js";var i=e();function a({title:e,detail:a,onRetry:o}){return(0,i.jsx)(t,{tone:`error`,title:e,detail:a,action:o?(0,i.jsx)(n,{size:`sm`,onClick:o,children:r(`retry`)}):null})}export{a as t};

@@ -489,3 +489,49 @@ def test_load_and_the_api_never_read_sonar(probed, fake, monkeypatch):
         srv.shutdown()
         srv.server_close()
     assert re.search(r"^\d{4}-\d\d-\d\dT[\d:]+Z$", snap["repos"]["api"]["sonar"]["server"]["at"])
+
+
+# ---- credentials in the host a repo names ----
+
+@pytest.mark.parametrize("named", ["https://me:secret@sonar.example.com", "me:secret@sonar.example.com",
+                                   "https://me:sec/ret@sonar.example.com/x", "https://secret@sonar.example.com"])
+@pytest.mark.parametrize("key", ["acme_api", None])
+def test_credentials_in_a_named_host_reach_no_block_snapshot_or_page(probed, lib, named, key):
+    from lib import health, radar
+    creds, sonar = lib
+    props = (f"sonar.projectKey={key}\n" if key else "") + f"sonar.organization=acme\nsonar.host.url={named}\n"
+    repo = probed.common.repo_dir("api")
+    put(repo, "sonar-project.properties", props)
+    info = radar.read_sonar(repo / "sonar-project.properties")
+    assert "host" not in info and "link" not in info and info.get("organization") == "acme"     # kept: project, organization
+    assert info.get("project", "") == (key or "")
+    shown = sonar.read({"used": True, "organization": "acme", "project": key or "", "host": info.get("host", ""),
+                        "link": info.get("link", "")}, None, {})
+    snap = health.build(log=quiet)
+    radar.run(log=quiet)
+    everything = (json.dumps(info) + json.dumps(shown) + json.dumps(snap) + health.SNAPSHOT.read_text(encoding="utf-8")
+                  + radar.PAGE.read_text(encoding="utf-8"))
+    for part in ("secret", "me:", "ret@", "@sonar"):
+        assert part not in everything
+    assert snap["repos"]["api"]["sonar"]["used"] is True
+
+
+# ---- only a SonarQube token goes to Sonar ----
+
+def test_a_token_saved_for_another_kind_of_host_is_never_sent(probed, fake):
+    from lib import creds, health
+    serve(fake)
+    point(probed, "api", fake.host)
+    creds.save(fake.host, "gitlab", "glpat-not-for-sonar")
+    sonar = health.build(log=quiet)["repos"]["api"]["sonar"]
+    assert sonar["connect"] is True and "server" not in sonar and "error" not in sonar
+    assert fake.lines == [] and fake.headers == []                       # nothing was sent, so no Authorization either
+
+
+def test_the_next_form_of_the_host_holds_the_sonarqube_token(lib, monkeypatch):
+    creds, sonar = lib
+    creds.save("https://sonar.example.com", "gitlab", "glpat-not-for-sonar")
+    creds.save("sonar.example.com", "sonarqube", TOKEN)                      # the form after the scheme-ful one
+    calls = Calls(sonar, monkeypatch)
+    out = sonar.read(block(host="https://sonar.example.com"), None, {})
+    assert "server" in out and {c[1] for c in calls.calls} == {TOKEN}
