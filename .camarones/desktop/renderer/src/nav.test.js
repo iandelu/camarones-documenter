@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { firstRunPending, firstRunRoute, initials, MACHINE, PROJECT, sectionOf, sections } from './nav.js'
+import { firstRunPending, firstRunRoute, initials, MACHINE, PROJECT, sectionOf, sections, tokenPrefill } from './nav.js'
 
 test('a project has its sections; this machine has its own, Kit dev only in a kit checkout', () => {
   expect(PROJECT).toEqual(['summary', 'plan', 'interviews', 'team', 'quality', 'docs'])
@@ -49,4 +49,16 @@ test('the first run is pending only while the state says done: false', () => {
   expect(firstRunPending({ done: true })).toBe(false)
   expect(firstRunPending(null)).toBe(false)                    // no state (the read failed): no notice
   expect(firstRunPending({})).toBe(false)
+})
+
+// Quality links to the Tokens card with the host and the kind to fill in: #/machine?host=<h>&kind=sonarqube.
+test('the Machine address can prefill the token form', () => {
+  expect(tokenPrefill('#/machine?host=https%3A%2F%2Fsonar.example.com%2Fsonar&kind=sonarqube'))
+    .toEqual({ host: 'https://sonar.example.com/sonar', kind: 'sonarqube' })
+  expect(tokenPrefill('#/machine?host=gitlab.example.com')).toEqual({ host: 'gitlab.example.com', kind: '' })
+  expect(tokenPrefill('#/machine?kind=nope&host=x')).toEqual({ host: 'x', kind: '' })
+  expect(tokenPrefill('#/machine')).toEqual({ host: '', kind: '' })
+  expect(tokenPrefill('#/plan?host=x&kind=sonarqube')).toEqual({ host: '', kind: '' })
+  expect(tokenPrefill('')).toEqual({ host: '', kind: '' })
+  expect(sectionOf('#/machine?host=x&kind=sonarqube', {})).toBe('machine')
 })

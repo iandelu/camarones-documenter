@@ -15,6 +15,16 @@ export function sectionOf(hash, flags) {
   return all.includes(s) ? s : 'summary'
 }
 
+// What #/machine?host=<h>&kind=<k> asks the Tokens card to fill in (Quality links there for a repo's SonarQube).
+export const TOKEN_KINDS = ['gitlab', 'github', 'sonarqube']
+export function tokenPrefill(hash) {
+  const [route, query = ''] = String(hash || '').split('?')
+  if (route !== '#/machine') return { host: '', kind: '' }
+  const q = new URLSearchParams(query)
+  const kind = q.get('kind') || ''
+  return { host: q.get('host') || '', kind: TOKEN_KINDS.includes(kind) ? kind : '' }
+}
+
 // Where a project window goes once it knows its first run (GET app/onboard/state): an unfinished one to the wizard,
 // unless it is there already; a finished one (or no state: the read failed) stays where it was asked. null: stay.
 export const firstRunPending = (state) => state?.done === false
