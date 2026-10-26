@@ -100,9 +100,15 @@ def test_sonar_configured_in_the_build_file(radar):
                       "web": {"build.gradle": 'sonar {\n  properties {\n    property "sonar.projectKey", "acme_web"\n'
                                               '    property "sonar.organization", "acme"\n  }\n}\n'}})
     res = radar.radar.scan()
-    assert tool(res, "api", "sonar")["info"] == {"organization": "acme",
+    assert tool(res, "api", "sonar")["info"] == {"organization": "acme", "host": "https://sonarcloud.io",
                                                   "link": "https://sonarcloud.io/organizations/acme/projects"}
     assert tool(res, "web", "sonar")["info"]["link"] == "https://sonarcloud.io/dashboard?id=acme_web"
+    assert "host" not in tool(res, "web", "sonar")["info"]          # only a host the repo names itself; SonarCloud is a fallback
+
+
+def test_sonar_info_carries_the_host_the_repo_names(radar):
+    add_files(radar, TOOLING)
+    assert tool(radar.radar.scan(), "api", "sonar")["info"]["host"] == "https://sonar.acme.test"
 
 
 def test_broken_catalog_file_does_not_stop_the_scan(radar):

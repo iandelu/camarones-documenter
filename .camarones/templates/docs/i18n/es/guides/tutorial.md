@@ -151,6 +151,13 @@ Este párrafo solo lo editan personas.
 **🔄 Actualizar doc tras cambios** lanza una sesión incremental: solo regenera lo que ha cambiado en el código, limpia las
 páginas obsoletas y nunca reescribe a escondidas las páginas confirmadas. El CI puede hacer lo mismo de forma automática (sección 8).
 
+**Salud del proyecto.** `camaron health` imprime, sin IA, un veredicto y tres áreas (máquina, documentación, código) con la
+siguiente acción de cada una, y una tabla por repo: si usa SonarQube (con su puerta de calidad cuando hay token guardado), la
+cobertura, las vulnerabilidades y la deuda técnica que registra `docs/quality/`. La cobertura sale de SonarQube cuando hay un
+token de SonarQube guardado en la máquina (Máquina > Tokens) y se puede leer el proyecto; si no, de los informes que deja la
+build en local. `--refresh` la recalcula antes (es el único momento en que pregunta al servidor de SonarQube) y `--json`
+imprime la foto. La Calidad de la app de escritorio y la vista Salud del portal (solo lectura) enseñan la misma foto.
+
 **Control de calidad.** `camaron check` se ejecuta al cerrar cada unidad y en el CI. Además del frontmatter, las fuentes,
 la confianza y las traducciones, revisa:
 

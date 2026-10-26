@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Aviso, Button, Chip, EmptyState, Skeleton } from '@camaron/ui'
 import { docsGet } from '../docsApi.js'
 import { useBuild } from '../useBuild.js'
-import { codeCrumbs, codeRoute, codeView, graphModel, inSub, mixHex, nextSeg, searchFiles, singleFolder, subHref } from './code.js'
+import { codeCrumbs, codeRoute, codeView, fileIdByPath, graphModel, inSub, mixHex, nextSeg, searchFiles, singleFolder, subHref } from './code.js'
 import { core } from '../core.js'
 
 const runs = () => core.mode() === 'app'
@@ -69,10 +69,12 @@ export default function CodeMap({ arg }) {
   if (!r.repo) return <NoMap t={t} />
   if (error) return <div className="page"><Aviso tone="error" title={t('error')} detail={error} /></div>
   if (!m) return <div className="page"><Skeleton lines={5} /></div>
-  const view = codeView(m, r.mode, r.id)
-  const open = view === 'group' && singleFolder(m, r.id, r.sub, r.repo)
+  // a file addressed by its path (f/<path>) instead of its id in the map
+  const id = r.mode === 'f' && (Number.isNaN(r.id) || r.sub) ? fileIdByPath(m, arg.split('/').slice(2).join('/')) : r.id
+  const view = codeView(m, r.mode, id)
+  const open = view === 'group' && singleFolder(m, id, r.sub, r.repo)
   if (open) { location.replace(open); return null }
-  return <MapView repo={r.repo} m={m} view={view} id={r.id} sub={r.sub} t={t} />
+  return <MapView repo={r.repo} m={m} view={view} id={id} sub={r.sub} t={t} />
 }
 
 function MapView({ repo, m, view, id, sub, t }) {

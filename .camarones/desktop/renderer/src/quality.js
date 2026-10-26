@@ -22,3 +22,7 @@ export function setupProgress(lines, steps) {
 }
 
 export const seconds = (iso) => { const ms = Date.parse(iso); return Number.isNaN(ms) ? null : ms / 1000 }
+
+// The board rows (ui/src/health.js) whose control this app owns. `review` is a link into the portal and `repos` is
+// the board's own table, so neither is here.
+export const BOARD_ACTIONS = ['doctor', 'drift', 'fresh', 'evals', 'context', 'blocks', 'ab', 'libs']

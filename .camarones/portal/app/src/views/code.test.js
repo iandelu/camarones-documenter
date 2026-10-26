@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { codeCrumbs, codeRoute, codeView, graphModel, inSub, mixHex, searchFiles, singleFolder } from './code.js'
+import { codeCrumbs, codeRoute, codeView, fileIdByPath, graphModel, inSub, mixHex, searchFiles, singleFolder } from './code.js'
 
 // A small map as lib/codemap.py writes it: groups (modules), files with their sub-folder, degrees and links.
 const m = {
@@ -79,4 +79,11 @@ test('a module: its files as a cloud, links out of it to the other modules dashe
   expect(g.nodes.map((n) => n.id)).toEqual(['f0', 'f1', 'f2', 'g1'])
   expect(g.edges.find((e) => e.to === 'g1')).toMatchObject({ from: 'f0', dashes: true })
   expect(JSON.stringify(g.nodes)).not.toMatch(/\p{Extended_Pictographic}/u)
+})
+
+test('a file address by path (#/code/<repo>/f/<path>) finds the file in the map', () => {
+  expect(fileIdByPath(m, 'owner/model/Owner.java')).toBe(1)
+  expect(fileIdByPath(m, 'src/main/java/vet/Vet.java')).toBe(3)             // the map's paths start below the source root
+  expect(fileIdByPath(m, 'src/Other.java')).toBeNaN()
+  expect(fileIdByPath(m, '')).toBeNaN()
 })
