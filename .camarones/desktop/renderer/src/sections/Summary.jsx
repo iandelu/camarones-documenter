@@ -2,19 +2,25 @@ import { useEffect, useRef, useState } from 'react'
 import { Aviso, Button, Card, Skeleton } from '@camaron/ui'
 import { action, doctorNote } from '../summary.js'
 import { useAgents, useStore } from '../hooks.js'
+import { firstRunPending } from '../nav.js'
 import { AgentPicker, Failed, Page } from '../parts.jsx'
 import { lang, t } from '../i18n.js'
 
 // The project's Summary: one next step (lib/plan.next_step, the wizard's own rule) with the one button that takes
 // it, and where the plan, the review and the jobs stand. It looks again when a job ends: the plan may have moved.
+// While the first run is unfinished (GET app/onboard/state), a notice leads back to the wizard; a failed read shows none.
 export default function Summary({ srv, jobs }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
+  const [firstRun, setFirstRun] = useState(false)
   const [launch, setLaunch] = useState({ busy: false, note: '', error: '' })
   const a = useAgents(srv)
   const { running } = useStore(jobs)
   const load = () => srv.get('app/summary', { lang: lang() }).then((d) => { setData(d); setError('') }, (e) => setError(e.message))
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    srv.get('app/onboard/state').then((s) => setFirstRun(firstRunPending(s)), () => setFirstRun(false))
+  }, [])
   const was = useRef(running.length)
   useEffect(() => {
     if (running.length < was.current) load()
@@ -41,6 +47,7 @@ export default function Summary({ srv, jobs }) {
     ? (step.count === 1 ? t('next.reviewTitle1') : t('next.reviewTitle', { n: step.count })) : t('next.doneTitle')
   return (
     <Page title={title}>
+      {firstRun ? <FirstRunNotice /> : null}
       <Card className="dk-next">
         <span className="eyebrow">{t(step.kind === 'resume' ? 'next.eyebrowResume' : 'next.eyebrow')}</span>
         <h2 className="dk-next-title">{heading}</h2>
@@ -82,4 +89,9 @@ export default function Summary({ srv, jobs }) {
       </div>
     </Page>
   )
+}
+
+// The way back to the first-run wizard, for whoever left it for another section before finishing.
+export function FirstRunNotice() {
+  return <Aviso tone="info" title={t('sum.firstRun')} action={<Button size="sm" href="#/start">{t('sum.firstRunGo')}</Button>} />
 }

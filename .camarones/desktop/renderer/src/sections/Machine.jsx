@@ -82,10 +82,10 @@ function Settings({ srv, jobs, m, reload }) {
 }
 
 // GitLab / GitHub tokens in the OS keychain: they reach the server in a request body only (never a command line)
-// and never come back.
-function Tokens({ srv }) {
+// and never come back. `host` fills the form in (the first-run wizard, for a repo that failed to clone).
+export function Tokens({ srv, host = '' }) {
   const [d, setD] = useState(null)
-  const [form, setForm] = useState({ host: '', kind: 'gitlab', token: '' })
+  const [form, setForm] = useState({ host, kind: /github/i.test(host) ? 'github' : 'gitlab', token: '' })
   const [note, setNote] = useState({ ok: '', error: '' })
   const [busy, setBusy] = useState(false)
   const load = () => srv.get('app/creds').then(setD, (e) => setNote({ ok: '', error: e.message }))

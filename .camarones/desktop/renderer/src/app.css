@@ -86,6 +86,7 @@ a.dk-stat-n:hover { color: var(--color-acento-texto); }
 .dk-out { display: flex; flex-direction: column; align-items: flex-start; gap: .4rem; }
 .dk-out details { width: 100%; }
 .dk-out .dk-log { max-height: 14rem; }
+.dk-answer { margin: 0; white-space: pre-wrap; }
 .dk-cmds { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr)); gap: .75rem; }
 .dk-cmd { gap: .6rem; }
 .dk-cmd.careful { border-color: var(--color-estado-mal); }
@@ -155,11 +156,70 @@ a.dk-stat-n:hover { color: var(--color-acento-texto); }
 .dk-titlebar :is(a, button) { -webkit-app-region: no-drag; }
 .dk-hub, .dk-outside { max-width: 44rem; margin: 0 auto; padding: 3rem 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
 .dk-hub h1 { font-size: var(--text-display-md); margin: .5rem 0 0; }
-.dk-hub-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
-.dk-hub-row { flex-direction: row; align-items: center; gap: .9rem; padding: .7rem .9rem; }
-.dk-hub-name { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.dk-hub-name .small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dk-hub-form { gap: .75rem; }
+.dk-hub h2, .dk-hub p { margin: 0; }
+.dk-lede { color: var(--color-ink-soft); max-width: 40rem; }
+.dk-back { align-self: flex-start; display: inline-flex; align-items: center; min-height: 1.5rem; padding: 0; border: 0;
+           background: none; color: var(--color-ink-soft); font: inherit; font-size: var(--text-meta); cursor: pointer; }
+.dk-back:hover:not(:disabled) { color: var(--color-ink); }
+.dk-back:disabled { opacity: .5; cursor: default; }
+/* the start screen's two ways in: icon, title and help, button; the first is the primary one (accent border) */
+.dk-options { list-style: none; margin: .5rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .75rem; }
+.dk-option { display: flex; align-items: center; gap: 1rem; padding: 1.1rem 1.2rem; border: 1px solid var(--color-rule);
+             border-radius: var(--consola-radio-tarjeta); background: var(--color-canvas-elevated); }
+.dk-option.primary { border-color: var(--color-acento-texto); }
+.dk-option-icon { width: 1.6rem; height: 1.6rem; flex: none; color: var(--color-ink-soft); }
+.dk-option.primary .dk-option-icon { color: var(--color-acento-texto); }
+.dk-option-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .15rem; }
+.dk-option-text h2 { font-size: var(--text-body); font-weight: 600; }
+.dk-option-text p { color: var(--color-ink-soft); }
+.dk-option .cu-btn { flex: none; }
+.dk-recent { display: flex; flex-direction: column; gap: .5rem; margin-top: 1rem; }
+.dk-recent-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--color-rule); }
+.dk-recent-list li { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .6rem .2rem;
+                     border-bottom: 1px solid var(--color-rule); }
+.dk-recent-name { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.dk-recent-name code { font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* what I found: badge, title, sentence, where cam-docs goes */
+.dk-found { gap: .5rem; }
+.dk-found h2 { font-size: var(--text-h3); }
+.dk-found p { color: var(--color-ink-soft); }
+.dk-dest { font-size: var(--text-meta); }
+.dk-dest code { font-family: var(--font-mono); color: var(--color-ink); overflow-wrap: anywhere; }
+.dk-hub-form { display: flex; flex-direction: column; gap: .75rem; }
+.dk-token { display: flex; flex-direction: column; gap: .35rem; }
+.dk-mono { font-family: var(--font-mono); }
+.dk-end { justify-content: flex-end; }
+.dk-lede code, .dk-option-text code { font-family: var(--font-mono); font-size: .9em; }
+
+/* the first-run wizard (#/start, sketch C): the window to itself, no rail or section nav; one step per screen */
+.dk.dk-full { grid-template: "top" 3.5rem "main" 1fr "jobs" auto "status" 1.75rem / minmax(0, 1fr); }
+.ob { max-width: 48rem; margin: 0 auto; width: 100%; }
+.ob h2 { font-size: var(--text-h2); margin: 0; }
+.ob p { margin: 0; }
+.ob-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .25rem; }
+.ob-steps li { padding: .3rem .7rem; border-radius: var(--consola-radio-chico); font-size: var(--text-meta); color: var(--color-ink-dim); }
+.ob-steps li.current { background: color-mix(in oklch, var(--color-acento-texto) 12%, transparent); color: var(--color-ink); font-weight: 500; }
+.ob-steps li.done { color: var(--color-estado-bien); }
+.ob-panel { display: flex; flex-direction: column; gap: 1rem; }
+.ob-foot { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-top: 1rem; border-top: 1px solid var(--color-rule); }
+.ob-next { display: flex; align-items: center; gap: .75rem; }
+.ob-row { flex-direction: row; align-items: flex-start; gap: .6rem; }
+.ob-row input { margin-top: .2rem; }
+.ob-row-text { display: flex; flex-direction: column; min-width: 0; }
+.ob-row-text code { overflow-wrap: anywhere; }
+.ob-add { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.ob-add .cu-input { flex: 1 1 16rem; width: auto; }
+.ob-add .cu-input.ob-short, .ob-short { flex: 0 1 9rem; width: 9rem; }
+.ob-glyph { width: 1.25rem; flex: none; text-align: center; }
+.ob-ok { color: var(--color-estado-bien); }
+.ob-warn { color: var(--color-estado-aviso); }
+.ob-repo { min-width: 8rem; }
+.ob-log { max-height: 14rem; }
+.ob-hints { margin: .25rem 0 0; padding-left: 1.1rem; }
+.ob-icon { width: 1em; height: 1em; flex: none; vertical-align: -.125em; }
+.ob-done { display: flex; flex-direction: column; align-items: center; gap: 1rem; padding: 2rem 0; text-align: center; }
+.ob-done .row { justify-content: center; }
+.ob-check { width: 3rem; height: 3rem; color: var(--color-estado-bien); }
 
 /* the app's window is at least 720px wide: the sections narrow, they never go */
 @media (max-width: 900px) {

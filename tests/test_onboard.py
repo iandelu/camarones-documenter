@@ -349,3 +349,221 @@ def test_launch_prompt_opens_a_session_with_the_prompt(kit, monkeypatch):
     monkeypatch.setattr(agents, "_open", lambda prompt, agent, lang, resume: seen.update(a=(prompt, agent, lang, resume)) or {"launched": True})
     assert agents.launch_prompt("hi", "claude", "en") == {"launched": True}
     assert seen["a"] == ("hi", "claude", "en", False)
+
+
+# ---------- I2: home or a filesystem root is not a workspace ----------
+def test_picking_home_is_refused(kit):
+    home = kit.home
+    assert kit.onboard.inspect(home)["warning"] == "home"
+    before = tree(home)
+    with pytest.raises(kit.onboard.Refused) as e:
+        kit.onboard.start(home)
+    assert e.value.code == "home" and isinstance(e.value, ValueError)
+    assert tree(home) == before                                    # nothing written under home
+
+
+def test_a_repo_directly_under_home_is_refused(kit):
+    repo = make_repo(kit.home / "myapp", {"pom.xml": "<project/>"})
+    r = kit.onboard.inspect(repo)
+    assert (r["case"], r["warning"]) == ("repo", "home")
+    with pytest.raises(kit.onboard.Refused) as e:
+        kit.onboard.start(repo)
+    assert e.value.code == "home"
+    assert not (kit.home / "cam-docs").exists()
+
+
+def test_home_wins_over_no_git(kit):
+    (kit.home / "pom.xml").write_text("<project/>", encoding="utf-8")        # code, no git, directly in home
+    r = kit.onboard.inspect(kit.home)
+    assert (r["case"], r["warning"]) == ("code", "home")
+
+
+# I1 meets I2: git init makes a code folder with a manifest at its top a repo, so its workspace is the parent. inspect
+# reports that destination up front, and the home warning applies to it.
+def test_code_at_the_top_directly_under_home_is_refused_before_git_init(kit):
+    proj = kit.home / "proj"
+    proj.mkdir()
+    (proj / "package.json").write_text("{}", encoding="utf-8")
+    r = kit.onboard.inspect(proj)
+    assert (r["case"], r["warning"]) == ("code", "home")
+    assert Path(r["workspace"]) == kit.home.resolve() and Path(r["docs_root"]) == kit.home.resolve() / "cam-docs"
+
+
+def test_code_at_the_top_reports_the_parent_as_its_workspace(kit):
+    proj = kit.home / "work" / "proj"
+    proj.mkdir(parents=True)
+    (proj / "package.json").write_text("{}", encoding="utf-8")
+    r = kit.onboard.inspect(proj)
+    work = (kit.home / "work").resolve()
+    assert (r["case"], r["warning"], r["name"]) == ("code", "no-git", "work")
+    assert Path(r["workspace"]) == work and Path(r["docs_root"]) == work / "cam-docs"
+
+
+def test_code_in_subfolders_keeps_the_folder_as_its_workspace(kit):
+    mono = kit.home / "work" / "mono"
+    (mono / "api").mkdir(parents=True)
+    (mono / "api" / "pom.xml").write_text("<project/>", encoding="utf-8")
+    r = kit.onboard.inspect(mono)
+    assert (r["case"], r["warning"]) == ("code", "no-git")
+    assert Path(r["workspace"]) == mono.resolve() and Path(r["docs_root"]) == mono.resolve() / "cam-docs"
+
+
+def test_a_filesystem_root_is_refused(kit, tmp_path):
+    assert kit.onboard.is_home_or_root(Path(Path.cwd().anchor)) is True
+    assert kit.onboard.is_home_or_root(kit.home) is True
+    assert kit.onboard.is_home_or_root(tmp_path) is False
+
+
+# ---------- I1: code without git ----------
+def test_code_without_git_cannot_be_started(kit, tmp_path):
+    folder = tmp_path / "code"
+    (folder / "src").mkdir(parents=True)
+    (folder / "src" / "package.json").write_text("{}", encoding="utf-8")
+    before = tree(folder)
+    with pytest.raises(kit.onboard.Refused) as e:
+        kit.onboard.start(folder)
+    assert e.value.code == "no-git"
+    assert tree(folder) == before and not (folder / "cam-docs").exists()
+
+
+def test_git_init_prefers_the_top_folder(kit, tmp_path):
+    folder = tmp_path / "app"
+    (folder / "web").mkdir(parents=True)
+    (folder / "pom.xml").write_text("<project/>", encoding="utf-8")
+    (folder / "web" / "package.json").write_text("{}", encoding="utf-8")
+    assert kit.onboard.git_init(folder) == [folder.resolve()]
+    assert (folder / ".git").exists() and not (folder / "web" / ".git").exists()
+    with pytest.raises(ValueError):                               # already a repo
+        kit.onboard.git_init(folder)
+
+
+def test_git_init_initialises_each_code_subfolder(kit, tmp_path):
+    folder = tmp_path / "app"
+    (folder / "api").mkdir(parents=True)
+    (folder / "web").mkdir()
+    (folder / "docs").mkdir()                                     # no manifest: left alone
+    (folder / "api" / "pom.xml").write_text("<project/>", encoding="utf-8")
+    (folder / "web" / "package.json").write_text("{}", encoding="utf-8")
+    done = kit.onboard.git_init(folder)
+    assert sorted(p.name for p in done) == ["api", "web"]
+    assert not (folder / "docs" / ".git").exists() and not (folder / ".git").exists()
+    r = kit.onboard.inspect(folder)
+    assert r["case"] == "umbrella" and sorted(x["name"] for x in r["repos"]) == ["api", "web"]
+
+
+def test_git_init_with_nothing_to_initialise(kit, tmp_path):
+    (tmp_path / "blank").mkdir()
+    with pytest.raises(ValueError):
+        kit.onboard.git_init(tmp_path / "blank")
+    with pytest.raises(ValueError):
+        kit.onboard.git_init(tmp_path / "missing")
+
+
+def test_a_picked_cam_docs_folder_means_its_parent(kit, tmp_path):
+    ws = tmp_path / "ws"
+    (ws / "cam-docs").mkdir(parents=True)
+    r = kit.onboard.inspect(ws / "cam-docs")
+    assert r == kit.onboard.inspect(ws) and r["workspace"] == str(ws.resolve())
+
+
+# ---------- review round: nested repos, existing projects at home, samefile, partial git init ----------
+def monorepo(base: Path) -> Path:
+    repo = make_repo(base / "mono", {"package.json": "{}"})
+    (repo / "apps" / "web").mkdir(parents=True)
+    (repo / "apps" / "web" / "package.json").write_text("{}", encoding="utf-8")
+    return repo
+
+
+def test_a_folder_inside_a_repo_is_inspected_as_that_repo(kit, tmp_path):
+    repo = monorepo(tmp_path / "ws")
+    r = kit.onboard.inspect(repo / "apps" / "web")
+    assert (r["case"], r["warning"]) == ("repo", "")
+    assert r["workspace"] == str((tmp_path / "ws").resolve()) and [x["name"] for x in r["repos"]] == ["mono"]
+    assert r == kit.onboard.inspect(repo)
+
+
+def test_a_folder_inside_a_worktree_is_inspected_as_that_repo(kit, tmp_path):
+    wt = tmp_path / "ws" / "wt"                                   # a worktree/submodule has a .git FILE
+    (wt / "src").mkdir(parents=True)
+    (wt / ".git").write_text("gitdir: elsewhere\n", encoding="utf-8")
+    assert kit.onboard.inspect(wt / "src")["case"] == "repo"
+
+
+def test_the_enclosing_repo_search_stops_at_home(kit):
+    (kit.home / ".git").mkdir()                                   # dotfiles repo in home
+    code = kit.home / "projects" / "app"
+    code.mkdir(parents=True)
+    (code / "pom.xml").write_text("<project/>", encoding="utf-8")
+    r = kit.onboard.inspect(code)
+    assert (r["case"], r["warning"]) == ("code", "no-git")
+    assert kit.onboard.git_init(code) == [code.resolve()]         # home's .git is not an enclosing repo
+
+
+def test_git_init_refuses_inside_a_repo(kit, tmp_path):
+    repo = monorepo(tmp_path / "ws")
+    with pytest.raises(ValueError, match="mono"):
+        kit.onboard.git_init(repo / "apps" / "web")
+    assert not (repo / "apps" / "web" / ".git").exists()
+
+
+def test_git_init_refuses_home_and_a_root(kit):
+    (kit.home / "pom.xml").write_text("<project/>", encoding="utf-8")
+    (kit.home / "app").mkdir()
+    (kit.home / "app" / "package.json").write_text("{}", encoding="utf-8")
+    for bad in (kit.home, Path(Path.cwd().anchor)):
+        with pytest.raises(ValueError, match="home"):
+            kit.onboard.git_init(bad)
+    assert not (kit.home / ".git").exists() and not (kit.home / "app" / ".git").exists()
+
+
+def test_an_existing_project_in_home_is_not_refused(kit):
+    docs = kit.home / "cam-docs"
+    (docs / ".camarones").mkdir(parents=True)
+    (docs / ".camarones" / "workspace.yaml").write_text("project:\n  name: mine\nrepos: []\n", encoding="utf-8")
+    r = kit.onboard.inspect(kit.home)
+    assert (r["case"], r["warning"]) == ("project", "")
+    before = tree(docs)
+    assert kit.onboard.start(kit.home) == docs.resolve()
+    assert tree(docs) == before
+    assert any(Path(p["path"]).resolve() == docs.resolve() for p in kit.projects.load())
+
+
+def test_a_picked_cam_docs_of_a_real_project_means_its_parent(kit):
+    a, b = kit.onboard.inspect(kit.ws / "cam-docs"), kit.onboard.inspect(kit.ws)
+    assert a == b and a["case"] == "project" and a["docs_root"] == str((kit.ws / "cam-docs").resolve())
+
+
+def test_is_home_or_root_follows_the_same_file(kit, tmp_path, monkeypatch):
+    other = tmp_path / "alias"                                    # another spelling of home (case-insensitive volume)
+    other.mkdir()
+    assert kit.onboard.is_home_or_root(other) is False
+    monkeypatch.setattr(kit.onboard.os.path, "samefile", lambda a, b: True)
+    assert kit.onboard.is_home_or_root(other) is True
+
+
+def test_a_failed_second_git_init_names_the_first(kit, tmp_path, monkeypatch):
+    folder = tmp_path / "app"
+    for n in ("api", "web"):
+        (folder / n).mkdir(parents=True)
+        (folder / n / "package.json").write_text("{}", encoding="utf-8")
+    real, calls = kit.onboard.run, []
+
+    def flaky(cmd, cwd=None, **kw):
+        calls.append(cwd)
+        if len(calls) == 2:
+            raise RuntimeError("command failed (128): git init")
+        return real(cmd, cwd=cwd, **kw)
+
+    monkeypatch.setattr(kit.onboard, "run", flaky)
+    with pytest.raises(RuntimeError) as e:
+        kit.onboard.git_init(folder)
+    assert str((folder / "api").resolve()) in str(e.value) and str((folder / "web").resolve()) not in str(e.value)
+    assert (folder / "api" / ".git").exists() and not (folder / "web" / ".git").exists()
+
+
+def test_a_repo_nested_in_another_repo_is_itself(kit, tmp_path):
+    outer = monorepo(tmp_path / "ws")
+    inner = make_repo(outer / "vendor" / "lib", {"go.mod": "module x\n"})      # a submodule-like repo with its own .git
+    r = kit.onboard.inspect(inner)
+    assert r["case"] == "repo" and r["workspace"] == str(inner.parent.resolve())
+    assert [x["name"] for x in r["repos"]] == ["lib"]

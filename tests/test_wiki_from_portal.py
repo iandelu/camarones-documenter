@@ -119,3 +119,47 @@ def test_when_openwiki_cannot_be_connected_the_run_says_so(wired, engine, instal
     with pytest.raises(RuntimeError, match="camaron setup"):
         wired.env.openwiki_generate("api", log=lambda _: None)
     assert engine["calls"] == 0
+
+
+@pytest.fixture
+def held(wired, monkeypatch):
+    """Wiki generation that runs until the test lets it go."""
+    import threading
+    gate = threading.Event()
+    monkeypatch.setattr(wired.env, "openwiki_generate", lambda repo, mode, log, engine="": gate.wait(10))
+    yield gate
+    gate.set()
+
+
+def test_while_one_repos_wiki_runs_another_repo_is_busy_and_nothing_is_chosen(wired, held):
+    wired.docs.set_wiki_repos([])
+    wired.plan.sync()
+    first = wired.serve.wiki({"repo": "api", "choose": True})
+    assert first["status"] == "running" and first["repo"] == "api"
+    ws_file, plan_file = wired.docs.ws_file(), wired.plan.PLAN
+    ws_before, plan_before = ws_file.read_bytes(), plan_file.read_bytes()
+    assert wired.serve.wiki({"repo": "web", "choose": True, "starter": True}) == {"error": "busy", "repo": "api"}
+    assert ws_file.read_bytes() == ws_before and plan_file.read_bytes() == plan_before
+    assert "web" not in wired.docs.wiki_repos()
+    assert not (wired.root / "wikis" / "web" / "INSTRUCTIONS.md").exists()
+    assert wired.serve.wiki({"repo": "api"})["id"] == first["id"]                 # the same repo attaches
+    held.set()
+
+
+def test_the_busy_answer_is_a_409(wired, held, monkeypatch):
+    import json, threading, urllib.error, urllib.request
+    from http.server import ThreadingHTTPServer
+    monkeypatch.setattr(wired.serve, "APP_TOKEN", "tok")
+    wired.docs.set_wiki_repos(["api", "web"])
+    wired.serve.wiki({"repo": "api"})
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), wired.serve.Handler)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        req = urllib.request.Request(f"http://127.0.0.1:{srv.server_address[1]}/api/wiki", method="POST",
+                                     data=json.dumps({"repo": "web"}).encode(),
+                                     headers={"Content-Type": "application/json", "X-Camarones": "1", "X-Camaron-Token": "tok"})
+        with pytest.raises(urllib.error.HTTPError) as e:
+            urllib.request.urlopen(req, timeout=10)
+        assert e.value.code == 409 and json.loads(e.value.read())["error"] == "busy"
+    finally:
+        srv.shutdown()

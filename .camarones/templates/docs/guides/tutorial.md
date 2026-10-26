@@ -197,8 +197,8 @@ CI pushed: `docker run -d -p 8080:80 <registry>/<group>/cam-docs/portal:latest`.
 
 Where you operate a project; the portal is where you read it. Each project opens in its window: at the left the rail
 with your projects and the sections, below the jobs panel (what runs and the last ones, their output and **Stop**). The
-browser portal stays the team's viewer (read, edit, review, pipeline status, the interview) and does not show what it
-cannot do. From the keyboard, Ctrl K / ⌘K goes to a section, another project or any command, and `g` then a letter jumps
+browser portal stays the team's viewer (read, edit, review, pipeline status, the interview): **View portal**, in the
+header, and **Docs** open it in your browser, and it does not show what it cannot do. From the keyboard, Ctrl K / ⌘K goes to a section, another project or any command, and `g` then a letter jumps
 between sections (`g s` Summary, `g p` Plan, `g q` Quality…).
 
 | Section | What you do there |
@@ -208,7 +208,7 @@ between sections (`g s` Summary, `g p` Plan, `g q` Quality…).
 | 🎙️ Interviews | team questionnaire or live, export the offline form, import answers, close the round, each interview with its agent |
 | 🤝 Team | the team's repo and sharing, approving the agent config that came with it, hooks, plugins |
 | ✅ Quality | prerequisites and tools (kept between visits, "Check again"), the context every agent session loads, golden questions, with vs without cam-docs; without AI, known vulnerabilities, pages out of date, generated blocks |
-| 📖 Docs | opens the portal: read, review drafts, search or ask |
+| 📖 Docs | **Read the docs**, **Review drafts** and **Search or ask** open the portal in your browser. Below, **Build the C4 explorer**; per repo, **Generate the wiki** (chooses the repo and writes a starter brief without AI if it has none) and, once it has pages, **Wiki graph**: each a job with its output, then **View** opens the result in the portal (**Retry** if it failed); and **Ask with AI**, which answers from the docs and links its sources in the portal |
 | 🧰 Machine | setup with progress, language and models, GitLab / GitHub tokens, repos and their stack, the plan profile, kit updates, repair and, apart and previewed first, uninstall |
 
 Every section ends with **All commands**, folded: the rest of its catalog zone, each with its form.
@@ -220,13 +220,39 @@ Every section ends with **All commands**, folded: the rest of its catalog zone, 
 3. `camaron app`. The first time it downloads Electron (pinned, about 100 MB) into `~/.camarones/desktop`, with no admin
    rights and nothing in your projects; then it opens at once.
 
-From a project's folder it opens that project; from anywhere else, the picker: open a project, create one, join the
-team's `cam-docs` with its URL or add a folder that already has one. The wizard has the same entry (🖥️ Desktop app).
-Inside, the header is the window's title bar (drag it to move the window) and your projects sit on the rail: another
-one opens in the same window, which comes back where you left it. <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Shift</kbd> +
-<kbd>O</kbd> goes back to the projects and the bar's **⋯** button opens the app menu, with **Open in the browser** for
-the same portal outside. On Linux with restricted user namespaces (Ubuntu 24.04+) the kit starts
+From a project's folder it opens that project; from anywhere else, the start screen (below). The wizard has the same
+entry (🖥️ Desktop app). Inside, the header is the window's title bar (drag it to move the window) and your projects sit
+on the rail: another one opens in the same window, which comes back where you left it. <kbd>Ctrl</kbd>/<kbd>⌘</kbd> +
+<kbd>Shift</kbd> + <kbd>O</kbd> (or the rail's **+**) goes back to the start screen, **View portal** opens the portal in
+your browser and the bar's **⋯** button opens the app menu, with **Open in the browser**. On Linux with restricted user namespaces (Ubuntu 24.04+) the kit starts
 it with `--no-sandbox`: its windows only load your project's local server.
+
+**The start screen and the first run**
+
+Outside a project the app asks one thing, **What do you want to document?**, and offers **Recent** projects:
+
+- **Pick a folder**: any folder. Before touching anything it says what it found:
+  - several repos: it documents them, with `cam-docs` in that folder;
+  - one repo, or a folder inside one: `cam-docs` goes next to the repo, in its parent folder, and the sibling repos can be added;
+  - an empty folder: a new project, nothing to read yet (you document the design before coding);
+  - a project that already has `cam-docs`: it opens as is;
+  - code that is not in git: it will not continue, and **Initialise git here** runs `git init` (no commits, no push) in each folder with code, then looks again;
+  - your home folder or a disk root: refused, and it says why. Pick the folder of one project.
+
+  You confirm the name and press **Continue**.
+- **Join my team's documentation**: paste the URL of the team's `cam-docs` repo (the documentation's, not the code's)
+  and pick where to clone it. If git has no access the app asks for a token and keeps it in the system keychain, never
+  in the project; any other reason (no permission, not found, no network) is said in those words.
+
+"Create project", "Join" and "Add folder" are gone from the app; the CLI keeps `camaron new` and `camaron projects --add`.
+
+A project that is not set up yet opens the first-run wizard in its window (`#/start`, full screen): **Repos** (add a
+code repo with its URL, name and branch) → **Tools** → **Install** (progress, live output, **Cancel**) → **Stack**
+(editable) → **Architecture** (a no-AI C4 draft you save, view with **View diagram** or improve with AI) → **Ready**,
+which takes you to the **Summary**. It is the same state the terminal wizard uses, so you can close the app halfway
+and pick it up in either; if you go to another section before finishing, the **Summary** offers **Continue setting it
+up**. A team project you joined only goes through Tools, Install and Ready. An empty folder
+allows zero repos and skips Stack and Architecture.
 
 ### 📋 The board
 
@@ -248,8 +274,9 @@ camaron board repair                                  # also runs before every c
 
 All of them take `--json`. Links to pages go by `x-id`, so they survive a move or rename, and the board knows whether
 a linked page changed since it was linked. In the portal, the **Board** zone (`#/kanban`) has the Kanban
-with filters by repo, epic, label and docs state, and the card detail; writing needs the machine token (the desktop app sends it; `camaron up` prints it in the
-URL as `#cam-token=…`), without it the board is read-only. On uninstall, the CLI's
+with filters by repo, epic, label and docs state, and the card detail; writing needs the machine token: the portal the
+desktop app opens in your browser carries one while the app is open, and `camaron up` prints it in the URL as
+`#cam-token=…`; without it the board is read-only. On uninstall, the CLI's
 `camaron uninstall` asks whether to keep `backlog/` (`--keep-board` / `--drop-board` choose without asking); the
 wizard and the desktop app always keep it.
 
@@ -257,7 +284,8 @@ wizard and the desktop app always keep it.
 
 | Where | What you can do | Where the change goes |
 |---|---|---|
-| Local portal (`camaron up`) | edit (markdown + live preview), **+ New page**, **Confirm**, **Request changes**, generate wikis, rebuild C4 / code graph | `cam-docs/docs` + a local commit if "commit to cam-docs" is ticked — you push |
+| Local portal (`camaron up`) | edit (markdown + live preview), **+ New page**, **Confirm**, **Request changes** | `cam-docs/docs` + a local commit if "commit to cam-docs" is ticked — you push |
+| Desktop app (**Docs**) | build the C4 explorer, generate each repo's wiki and its graph, ask with AI | shown in the portal; nothing in `cam-docs/docs` |
 | Deployed portal (export) | read and search; **Edit** opens the file in GitLab / GitHub (when `cam-docs` has a remote) | a merge request in `cam-docs`; CI publishes it again |
 | Your editor / IDE | any `.md` under `cam-docs/docs` | plain git in `cam-docs` |
 | The AI (🦐 Next step) | only its unit; never rewrites confirmed pages silently | a local commit per unit |
@@ -266,23 +294,25 @@ wizard and the desktop app always keep it.
   unit that the AI applies in the next session.
 - With Spanish selected, **Edit** edits the translation (`docs/i18n/es/…`).
 - Editing a ✅ page turns it **⚠️ needs re-confirmation** until someone checks it again.
-- Don't hand-edit generated files (`llms.txt`, `llms-full.txt`, `docs/.status.json`, the viewers). Wikis are better regenerated from the
-  **Wikis** view: an OpenWiki update can rewrite what you change.
+- Don't hand-edit generated files (`llms.txt`, `llms-full.txt`, `docs/.status.json`, the viewers). Wikis are better regenerated with
+  **Generate the wiki** (app, **Docs**): an OpenWiki update can rewrite what you change.
 
 ## 7. OpenWiki: one wiki per repo
 
-Portal → **Wikis** → **Generate / update wiki** (live log), wizard → **📚 Wikis**, or `camaron wiki <repo>`. The wiki
-is stored in `cam-docs/wikis/<repo>/` (the repo sees an unversioned `openwiki/` link) and its pages show under **Docs** as
-`repos/<repo>/…`. It uses the OpenWiki provider if one is configured (`openwiki auth configure <provider>`), otherwise
+App → **Docs** → **Generate the wiki** (live log), wizard → **📚 Wikis**, or `camaron wiki <repo>` in a terminal. The wiki
+is stored in `cam-docs/wikis/<repo>/` (the repo sees an unversioned `openwiki/` link); you read it in the browser portal
+(**Docs** → **Wikis**), where its pages show as `repos/<repo>/…`. It uses the OpenWiki provider if one is configured (`openwiki auth configure <provider>`), otherwise
 Claude Code or Codex. The files OpenWiki adds to the repo itself (`AGENTS.md`, `CLAUDE.md`, `.github/`) are removed when
 the run ends.
 
 Each wiki is a full agent run, so only the repos you choose get one: wizard → **📚 Wikis** → **Choose which repos get a
 wiki** (stored as `wiki: true` in `.camarones/workspace.yaml`). Pick the services with logic, not libraries or CI repos.
 A first wiki waits for the repo's brief (`wikis/<repo>/INSTRUCTIONS.md`, written by the repo-brief unit) so it uses your
-glossary; `camaron wiki <repo> --force` skips that check. In the portal's Wikis view every repo has the button: for a
-repo not chosen yet it chooses it, and without a brief it first writes a starter one from the static scan (no AI), which
-the repo-brief unit replaces later. When no engine can run, the view says what is missing. Runs go one at a time, and a batch stops as soon as the
+glossary; `camaron wiki <repo> --force` skips that check, and the command neither chooses the repo nor writes a brief:
+it needs the repo cloned and an engine. In the app's **Docs**, every repo has **Generate the wiki**: for a repo not
+chosen yet it chooses it, and without a brief it first writes a starter one from the static scan (no AI), which the
+repo-brief unit replaces later. The button stays closed, with the reason, when the repo is not cloned (clone it from
+**Machine**) or no wiki engine is installed. Runs go one at a time (while one repo's runs, Generate waits on the others), and a batch stops as soon as the
 engine is out of quota or logged out instead of failing every remaining repo.
 
 ## 8. CI
@@ -364,7 +394,7 @@ every agent session loads before reading a page, against `context.budget`), `aut
 `plugins add|update|outdated|remove`, `pr propose <url>`, `removed add`, `repair`, `export codetour <flow>`, `history [--months 12]`
 (hotspots, who to ask per repo, files that change together, read from git without AI into `docs/overview/history.md`),
 `catalog [--json|--check]` (every command with where it lives: portal, desktop app or CLI only, and its arguments),
-`projects [--json]` (the projects registered on this machine), `config [get|set KEY VALUE]` (lang, model, codex_model: the wizard's settings), `trust --json` and `hooks --json` (what is pending
+`projects [--json]` (the projects registered on this machine; `--inspect DIR` says what a folder is, `--adopt DIR [--name NAME]` turns it into a project and `--git-init DIR` puts its code under git: all three take `--json` and a refusal is `{"error": taken|home|no-git|git-init, "detail"}`), `join URL --no-open` / `new NAME --no-open` (print `{"path"}`; a refused access is `{"error": auth|denied|not-found|network|unknown, "host", "detail"}`, and a token for a private repo comes in `CAMARONES_JOIN_TOKEN`, never on the command line), `config [get|set KEY VALUE]` (lang, model, codex_model: the wizard's settings), `trust --json` and `hooks --json` (what is pending
 approval, whether the method hooks are on), the portal's **Plan › Sync** (the same as `share`, with where you stand), `app` (the desktop app: the project's sections by task, the portal to read,
 where runs, wikis, scans and checks start; the browser portal only shows them).
 
@@ -453,5 +483,7 @@ work. `autopilot` and `run` read it unit by unit. Each run is logged in `.camaro
 | The deployed portal has no **Edit** button | `cam-docs` has no git remote: add one and export again |
 | A wiki run failed | the ⚠ line says why (quota or login → wait or log in again); run `camaron wiki <repo>` again — an interrupted run resumes |
 | `camaron app`: "needs Node.js >= 22" | install Node 22 (`camaron doctor --install node`) and run `camaron app` again |
-| The app opens the project picker, not your project | you ran it outside the project's folder: open it from the list or **Add folder** |
+| The app opens the start screen, not your project | you ran it outside the project's folder: open it from **Recent** or pick its folder with **Pick a folder** |
+| "This code isn't in a git repository" | the app needs its history: **Initialise git here** creates the repository (no commits, no push) and looks again |
+| "I can't create the project here" | the folder is your home folder or a disk root: pick the folder that holds your repos, or an empty one |
 | The browser portal lacks a button you expected | on purpose: the browser portal does not start processes; use `camaron app` |

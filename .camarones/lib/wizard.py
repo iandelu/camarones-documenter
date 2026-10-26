@@ -2264,7 +2264,7 @@ class W:
             self.add_token(host)
             self.banner()
             self.safe(self.busy, lambda log: docs.sync_repos(log))
-            missing = [n for n in missing if not (repo_dir(n) / ".git").exists()]
+            missing = onboard.missing_repos()
 
     def do_repos(self) -> None:
         ws = docs.workspace()
@@ -2272,8 +2272,7 @@ class W:
         self.fr_repos(ws)
         if {r["name"] for r in docs.workspace()["repos"]} != before:
             self.safe(self.busy, lambda log: docs.sync_repos(log))
-            self.retry_missing([r["name"] for r in docs.workspace()["repos"]
-                                 if r.get("url") and not (repo_dir(r["name"]) / ".git").exists()])
+            self.retry_missing(onboard.missing_repos())
             for n in docs.repo_names():
                 if (repo_dir(n) / ".git").exists() and not env.repo_graph(n).exists():
                     self.safe(self.busy, env.wire_one, n)

@@ -15,8 +15,11 @@ test('the backend is the portal server on a free port', () => {
 })
 
 test('the environment names the project, never leaks a token to the CLI', () => {
-  const base = { PATH: 'p', CAMARONES_APP_TOKEN: 'old', CAMARONES_ROOT: '/elsewhere', ELECTRON_RUN_AS_NODE: '1' }
+  const base = { PATH: 'p', CAMARONES_APP_TOKEN: 'old', CAMARONES_ROOT: '/elsewhere', ELECTRON_RUN_AS_NODE: '1',
+    CAMARONES_PORTAL_TOKEN: 'old-portal', CAMARONES_JOIN_TOKEN: 'join' }
   const cli = core.cliEnv(base)
+  assert.equal(cli.CAMARONES_PORTAL_TOKEN, undefined)
+  assert.equal(cli.CAMARONES_JOIN_TOKEN, undefined)
   assert.equal(cli.PATH, 'p')
   assert.equal(cli.PYTHONUTF8, '1')
   assert.equal(cli.CAMARONES_APP_TOKEN, undefined)
@@ -24,6 +27,14 @@ test('the environment names the project, never leaks a token to the CLI', () => 
   assert.equal(cli.ELECTRON_RUN_AS_NODE, undefined)
   const be = core.backendEnv(base, '/work/shop/cam-docs', 'tok')
   assert.equal(be.CAMARONES_ROOT, '/work/shop/cam-docs')
+  assert.equal(be.CAMARONES_APP_TOKEN, 'tok')
+  assert.equal(be.CAMARONES_PORTAL_TOKEN, undefined)              // no portal token given: the board stays read-only
+  assert.equal(be.CAMARONES_JOIN_TOKEN, undefined)
+})
+
+test("the backend gets this session's portal token, which lets the browser portal write the board", () => {
+  const be = core.backendEnv({ PATH: 'p', CAMARONES_PORTAL_TOKEN: 'old' }, '/work/shop/cam-docs', 'tok', 'ptok')
+  assert.equal(be.CAMARONES_PORTAL_TOKEN, 'ptok')
   assert.equal(be.CAMARONES_APP_TOKEN, 'tok')
 })
 
@@ -98,4 +109,75 @@ test('the bar\'s colours are the theme\'s canvas and ink, light and dark', () =>
   assert.equal(core.BAR.dark.bg, value(dark, 'canvas'))
   assert.equal(core.BAR.dark.ink, value(dark, 'ink'))
   assert.equal(core.BAR.height, 56)                                           // the portal's --top, 3.5rem
+})
+
+test('inspectArgs asks the CLI what a folder is', () => {
+  const dir = path.join(KIT, '..', 'shop')
+  assert.deepEqual(core.inspectArgs(dir), ['projects', '--inspect', dir, '--json'])
+})
+
+test('adoptArgs drops a name that looks like an option', () => {
+  const dir = path.join(KIT, '..', 'shop')
+  assert.deepEqual(core.adoptArgs(dir, 'Shop online'), ['projects', '--adopt', dir, '--json', '--name', 'Shop online'])
+  assert.deepEqual(core.adoptArgs(dir, '--json'), ['projects', '--adopt', dir, '--json'])
+  assert.deepEqual(core.adoptArgs(dir, '-x'), ['projects', '--adopt', dir, '--json'])
+})
+
+test('adoptArgs with no name', () => {
+  const dir = path.join(KIT, '..', 'shop')
+  for (const name of [undefined, null, '', 42]) assert.deepEqual(core.adoptArgs(dir, name), ['projects', '--adopt', dir, '--json'])
+})
+
+test('gitInitArgs asks the CLI to init git where the code is', () => {
+  const dir = path.join(KIT, '..', 'shop')
+  assert.deepEqual(core.gitInitArgs(dir), ['projects', '--git-init', dir, '--json'])
+})
+
+test('a folder from the page is an absolute path, nothing else', () => {
+  assert.equal(core.folderArg(path.join(KIT, '..', 'shop')), true)
+  assert.equal(core.folderArg('shop'), false)
+  assert.equal(core.folderArg('--json'), false)
+  assert.equal(core.folderArg(''), false)
+  assert.equal(core.folderArg(42), false)
+})
+
+test('a join token reaches the CLI only in its environment, never inherited', () => {
+  const dir = path.join(KIT, '..', 'shop')
+  assert.deepEqual(core.joinArgs('https://gitlab.com/shop/cam-docs.git', dir),
+    ['join', 'https://gitlab.com/shop/cam-docs.git', dir, '--no-open'])
+  const base = { PATH: 'p', CAMARONES_JOIN_TOKEN: 'from-the-shell', CAMARONES_APP_TOKEN: 'x' }
+  assert.equal(core.cliEnv(base).CAMARONES_JOIN_TOKEN, undefined)            // only the join that was given one
+  assert.equal(core.joinEnv(base, '').CAMARONES_JOIN_TOKEN, undefined)
+  assert.equal(core.joinEnv(base, undefined).CAMARONES_JOIN_TOKEN, undefined)
+  const env = core.joinEnv(base, '  glpat-123 ')
+  assert.equal(env.CAMARONES_JOIN_TOKEN, 'glpat-123')
+  assert.equal(env.CAMARONES_APP_TOKEN, undefined)
+  assert.equal(env.PATH, 'p')
+})
+
+test('why a join failed: the CLI\'s JSON line, or nothing', () => {
+  const out = '{"error": "auth", "host": "gitlab.com", "detail": "HTTP Basic: Access denied"}\n'
+  assert.deepEqual(core.joinFailure(out), { error: 'auth', host: 'gitlab.com', detail: 'HTTP Basic: Access denied' })
+  assert.deepEqual(core.joinFailure('{"error": "weird"}'), { error: 'unknown', host: '', detail: '' })
+  assert.equal(core.joinFailure('{"path": "/a/cam-docs", "joined": true}'), null)
+  assert.equal(core.joinFailure(''), null)
+  // the folder's cam-docs belongs to something else: a stable code, not the CLI's Spanish line
+  assert.deepEqual(core.joinFailure('{"error": "taken", "detail": "/x/cam-docs ya existe y no está vacía"}'),
+    { error: 'taken', host: '', detail: '/x/cam-docs ya existe y no está vacía' })
+})
+
+test('the CLI\'s error line', () => {
+  assert.equal(core.errLine('Warning: something\n✖ not a folder: /x\n'), 'not a folder: /x')
+  assert.equal(core.errLine(''), '')
+})
+
+test('why an adopt was refused: the JSON code on stdout, never the text', () => {
+  for (const code of ['taken', 'home', 'no-git']) {
+    assert.equal(core.adoptError(`{"error": "${code}", "detail": "/x/cam-docs ya existe y no está vacía"}\n`), code)
+  }
+  assert.equal(core.adoptError('progress\n{"error": "home", "detail": "d"}\n'), 'home')
+  assert.equal(core.adoptError(''), 'folder')                                 // not a folder, unreadable: no JSON
+  assert.equal(core.adoptError('/x/cam-docs ya existe y no está vacía'), 'folder')
+  assert.equal(core.adoptError('{"error": "other"}'), 'folder')
+  assert.equal(core.adoptError('{"error": "git-init"}'), 'folder')
 })
