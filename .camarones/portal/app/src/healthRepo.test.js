@@ -144,6 +144,7 @@ test('a Sonar error without values is the reason alone', () => {
 test('a repo that needs a token exposes the host to connect', () => {
   expect(repoPage(withSonar({ connect: true }), 'api').connect).toBe('sonarcloud.io')
   expect(repoPage(snapshot, 'api').connect).toBeUndefined()
+  expect(repoPage(withSonar({ connect: true, host: '' }), 'api').connect).toBe('')          // SonarCloud or the team's host: still asked
 })
 
 test('the coverage of Sonar says Sonar as its source', () => {

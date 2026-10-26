@@ -192,6 +192,32 @@ def test_host_resolution_order(lib, monkeypatch):
         assert calls.hosts == {want} and len(calls.calls) == 2
 
 
+def test_a_repo_without_a_token_carries_the_host_the_kit_would_use(lib, monkeypatch):
+    creds, sonar = lib
+    calls = Calls(sonar, monkeypatch)
+    ws = {"sonar": {"host": "https://team.example.com/"}}
+    cloud = sonar.read(block(organization="acme"), None, ws)                       # SonarCloud by organization
+    team = sonar.read(block(), None, ws)                                            # the team's host
+    own = sonar.read(block(host="https://repo.example.com"), None, ws)
+    assert (cloud["host"], cloud["connect"]) == ("https://sonarcloud.io", True)
+    assert (team["host"], team["connect"]) == ("https://team.example.com", True)
+    assert (own["host"], own["connect"]) == ("https://repo.example.com", True)
+    assert calls.calls == []
+
+
+def test_the_host_of_the_block_is_filled_on_success_and_on_error_and_never_has_userinfo(lib, monkeypatch):
+    creds, sonar = lib
+    creds.save("https://team.example.com", "sonarqube", TOKEN)
+    calls = Calls(sonar, monkeypatch)
+    ws = {"sonar": {"host": "https://team.example.com"}}
+    assert sonar.read(block(), None, ws)["host"] == "https://team.example.com"
+    monkeypatch.setattr(sonar, "sonar_get", lambda *a, **k: (_ for _ in ()).throw(sonar.SonarError("sin conexión")))
+    assert sonar.read(block(), None, ws)["host"] == "https://team.example.com"
+    shown = sonar.read(block(host="https://me:secret@sonar.example.com/x"), None, {})
+    assert shown["host"] == "https://sonar.example.com/x" and "secret" not in str(shown)
+    assert sonar.read(block(host="me:secret@sonar.example.com"), None, {})["host"] == "sonar.example.com"
+
+
 def test_no_host_leaves_the_block_as_it_is(lib, monkeypatch):
     creds, sonar = lib
     creds.save("https://sonarcloud.io", "sonarqube", TOKEN)

@@ -87,7 +87,7 @@ function RepoTable({ snapshot, repoHref, connectHref }) {
                 {r.sonarLink && safeUrl(r.sonarLink)
                   ? <a href={safeUrl(r.sonarLink)} target="_blank" rel="noopener noreferrer">{r.sonar}</a> : r.sonar}
                 {r.sonarNote && <span className="cu-hb-sub">{r.sonarNote}</span>}
-                {r.connect && connectHref && <a className="cu-hb-sub" href={connectHref(r.connect)}>{t('hb.connect')}</a>}
+                {r.connect !== undefined && connectHref && <a className="cu-hb-sub" href={connectHref(r.connect)}>{t('hb.connect')}</a>}
               </td>
               <td>{r.coverage}{r.coverageNote && <span className="cu-hb-sub">{r.coverageNote}</span>}</td>
               <td>{r.vulns}</td>

@@ -77,7 +77,8 @@ export function fmtDebt(minutes) {
 }
 
 // The app's link to Máquina › Tokens with the SonarQube host filled in.
-export const sonarConnectHash = (host) => `#/machine?host=${encodeURIComponent(host)}&kind=sonarqube`
+// Without a host (the snapshot did not carry one) the Tokens card opens on SonarQube and asks for it.
+export const sonarConnectHash = (host) => `#/machine?${host ? `host=${encodeURIComponent(host)}&` : ''}kind=sonarqube`
 
 function figureOf(snapshot, area, key) {
   return count(snapshot?.areas?.[area]?.figures?.find((f) => f.key === key)?.n)
@@ -185,7 +186,7 @@ export function repoRow(name, repo, state, t, scanned = true, now = Date.now()) 
       if (server) row.sonarNote = t('hb.sonarFrom').replace('{ago}', fmtAgo(server.at, now, t))
     }
     if (sonar.used && sonar.link) row.sonarLink = sonar.link
-    if (sonar.connect === true && typeof sonar.host === 'string' && sonar.host) row.connect = sonar.host
+    if (sonar.connect === true) row.connect = typeof sonar.host === 'string' ? sonar.host : ''          // '' = no host to fill in
   }
   const cov = repo.coverage
   if (!sub(cov, 'coverage') && good(cov) && typeof cov.percent === 'number') {

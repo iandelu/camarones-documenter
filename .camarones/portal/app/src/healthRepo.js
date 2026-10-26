@@ -70,7 +70,7 @@ export function repoPage(snapshot, name) {
     page.sonarFigures = sonarFigures(sonar.server)
     page.sonarAt = object(sonar.server) && typeof sonar.server.at === 'string' ? sonar.server.at : null
     if (typeof sonar.error === 'string') page.sonarError = sonar.error
-    if (sonar.connect === true && typeof sonar.host === 'string' && sonar.host) page.connect = sonar.host
+    if (sonar.connect === true) page.connect = typeof sonar.host === 'string' ? sonar.host : ''
   }
   page.coverage = read('coverage', repo.coverage, (b) => (good(b) ? b : null), null)
   page.reports = read('reports', repo.reports, (b) => list(b).filter(object), [])
