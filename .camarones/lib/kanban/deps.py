@@ -217,7 +217,7 @@ def blocked_by(node: Node, board: list[Node], *, agent: bool) -> list[dict]:
     Progress items sharing files with it (`conflict`)."""
     by_id = {n["id"]: n for n in board}
     reasons: list[dict] = []
-    for d in sorted(set(node["deps"]), key=id_key):
+    for d in sorted(set(node["deps"]) - {node["id"]}, key=id_key):      # an item never waits for itself
         dep = by_id.get(d)
         if dep is None:
             reasons.append({"id": d, "kind": "missing"})

@@ -169,3 +169,10 @@ def test_ready_orders_by_wave_then_priority_then_id(kit):
     ]
     # priority order places WI-2 before WI-1 -> WI-2 wave 0, WI-1 wave 1
     assert ready(board) == ["WI-2", "WI-3", "WI-5", "WI-4", "WI-1"]
+
+
+def test_a_node_listing_itself_is_never_blocked_by_itself(kit):
+    from lib.kanban.deps import blocked_by, ready
+    me = node("WI-1", status="Ready", touches=["api:a.py"], deps=["WI-1"])
+    assert blocked_by(me, [me], agent=True) == []
+    assert ready([me]) == ["WI-1"]
