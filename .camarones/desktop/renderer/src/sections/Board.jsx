@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Aviso, Button, Chip, EmptyState, Skeleton } from '@camaron/ui'
-import { STATUS_LABELS, columns, dropAnchor, keyMove } from '@camaron/ui/kanban.js'
-import { fit, moved, parentLabel, placed, sendMove } from '../board.js'
+import { columns, dropAnchor, keyMove } from '@camaron/ui/kanban.js'
+import { childrenOf, fit, moved, parentLabel, placed, sendMove } from '../board.js'
 import { Failed, Page } from '../parts.jsx'
+import { AddForm, StoryPanel, known, label } from './BoardPanels.jsx'
 import { lang, t } from '../i18n.js'
+
+export { AddForm, StoryPanel }
 
 // The Board: the project's Backlog.md board in six columns, a card per work item. The app's token writes it, so a
 // card moves here by mouse (drag) or keyboard (the portal's way: Space grabs, arrows move, Enter drops, Escape puts
-// it back). A move shows at once and is undone if the server refuses it.
+// it back). A move shows at once and is undone if the server refuses it. A picked card opens its panel beside the
+// columns (a story's lists its tasks and adds one); Add in the header opens the form for any item.
 const KEYS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', 'Enter', 'Escape']
-const known = (key, fallback) => { const v = t(key); return v === key ? fallback : v }
-const label = (l, status) => (STATUS_LABELS[l] || STATUS_LABELS.en)[status] || status
 
 export default function Board({ srv }) {
   const [board, setBoard] = useState(null)
@@ -21,6 +23,12 @@ export default function Board({ srv }) {
   const [dragging, setDragging] = useState(null)
   const [over, setOver] = useState(null)
   const [open, setOpen] = useState(null)
+  const [adding, setAdding] = useState(null)             // the form's prefill ({} for an empty one), or null when closed
+  const [busy, setBusy] = useState(false)
+  const [formError, setFormError] = useState('')
+  const [item, setItem] = useState(null)                 // what GET kanban/item returned for the open card
+  const [itemError, setItemError] = useState('')
+  const [land, setLand] = useState(null)                 // the card just added: it takes the focus once drawn
   const load = useCallback(() => srv.get('kanban').then((b) => { setBoard(b); setError('') }, (e) => setError(e.message)), [srv])
   useEffect(() => { load() }, [load])
   useEffect(() => {                                    // the card keeps the focus when a move redraws it elsewhere
@@ -28,6 +36,17 @@ export default function Board({ srv }) {
     const active = document.activeElement
     if (el && (kb.grabbed || !active || active === document.body || active === el)) el.focus()
   }, [kb, board])
+  useEffect(() => {
+    setItem(null); setItemError('')
+    if (!open) return undefined
+    let live = true
+    srv.get('kanban/item', { id: open }).then((i) => live && setItem(i), (e) => live && setItemError(e.message))
+    return () => { live = false }
+  }, [open, srv])
+  useEffect(() => {
+    const el = land && document.getElementById(`bd-${land}`)
+    if (el) { el.focus(); setLand(null) }
+  }, [land, board])
   const cols = useMemo(() => (board ? columns(fit(board.cards, board.statuses), board.statuses) : []), [board])
 
   async function move(id, status, anchor) {
@@ -42,6 +61,17 @@ export default function Board({ srv }) {
     else { setBoard(before); if (r.kind === 'error') setNotice(r.message) }       // declined: back, with nothing to say
     await load()
   }
+  const show = (id) => { setAdding(null); setFormError(''); setOpen(id) }
+  const openForm = (prefill) => { setOpen(null); setFormError(''); setAdding(prefill) }
+  const closePanel = () => { setOpen(null); setAdding(null); setFormError('') }
+  async function create(body) {
+    setBusy(true); setFormError('')
+    try {
+      const row = await srv.post('kanban/add', body)
+      await load()
+      setAdding(null); setLand(row.id); setSay(t('bd.added', { id: row.id }))
+    } catch (e) { setFormError(e.message) } finally { setBusy(false) }     // the form stays, filled
+  }
   async function init() {
     try { await srv.post('kanban/init', {}); setNotice(''); await load() } catch (e) { setNotice(e.message) }
   }
@@ -53,7 +83,7 @@ export default function Board({ srv }) {
     const start = kb && kb.focus === card.id ? kb : { focus: card.id, grabbed: false, col, row: cols[col].cards.findIndex((x) => x.id === card.id) }
     if (e.key === ' ' && !start.grabbed && !board.writable) return
     const next = keyMove(start, e.key, cols)
-    if (next.open) { setKb({ ...next, open: undefined }); return setOpen(next.open) }
+    if (next.open) { setKb({ ...next, open: undefined }); return show(next.open) }
     if (next.drop) {
       const { id, status, ...anchor } = next.drop
       setKb({ focus: id, grabbed: false, col: next.col, row: next.row })
@@ -67,18 +97,26 @@ export default function Board({ srv }) {
 
   if (error) return <Page title={t('nav.board')}><Failed title={t('bd.failed')} detail={error} onRetry={() => { setError(''); load() }} /></Page>
   if (!board) return <Page title={t('nav.board')}><Skeleton lines={6} /></Page>
+  const picked = open && board.cards.find((c) => c.id === open)
+  const shown = item && item.id?.toUpperCase() === open ? { ...item, status: picked?.status ?? item.status } : null
+  const side = adding ? (
+    <AddForm cards={board.cards} prefill={adding} busy={busy} error={formError} onSubmit={create} onClose={closePanel} />
+  ) : open ? (
+    <StoryPanel id={open} item={shown} error={itemError} children={childrenOf(board.cards, open)} lang={lang()} writable={!!board.writable}
+      onAddTask={(story) => openForm({ type: 'task', parent: story })} onOpen={show} onClose={closePanel} />
+  ) : null
   return (
     <Page title={t('nav.board')} wide>
-      <BoardView board={board} lang={lang()} kb={kb} notice={notice} say={say} open={open} dragging={dragging} over={over}
-        onMove={move} onOpen={setOpen} onKey={onKey} onInit={init} onDrag={setDragging} onOver={setOver} />
+      <BoardView board={board} lang={lang()} kb={kb} notice={notice} say={say} open={open} dragging={dragging} over={over} side={side}
+        onMove={move} onOpen={show} onAdd={() => openForm({})} onKey={onKey} onInit={init} onDrag={setDragging} onOver={setOver} />
     </Page>
   )
 }
 
 // What the board draws, from its data alone (the test renders it): the columns as they are, with a grabbed card
 // where it would land.
-export function BoardView({ board, lang: l, kb, notice = '', say = '', open = null, dragging = null, over = null,
-  onMove, onOpen, onKey, onInit, onDrag, onOver }) {
+export function BoardView({ board, lang: l, kb, notice = '', say = '', open = null, dragging = null, over = null, side = null,
+  onMove, onOpen, onAdd, onKey, onInit, onDrag, onOver }) {
   const writable = !!board.writable
   const readOnly = writable ? null : <Aviso tone="info" title={t('bd.readOnly')} />
   if (!board.enabled) {
@@ -113,10 +151,12 @@ export function BoardView({ board, lang: l, kb, notice = '', say = '', open = nu
   return (
     <>
       {readOnly}
+      <div className="row dk-bd-bar"><Button variant="primary" disabled={!writable} onClick={onAdd}>{t('bd.add')}</Button></div>
       {board.problems?.length ? <Aviso tone="warn" title={t('bd.problems')}>{board.problems.map((p) => `${p.path}: ${p.error}`).join(' · ')}</Aviso> : null}
       {notice ? <Aviso tone="error" title={t('bd.moveFailed')} detail={notice} /> : null}
       {!board.cards.length ? <p className="muted">{t('bd.empty')}</p> : null}
       <p id="bd-help" className="muted small">{t('bd.help')}</p>
+      <div className={'dk-bd-wrap' + (side ? ' with-side' : '')}>
       <div className="dk-bd">
         {drawn.map((col) => (
           <section key={col.status} className={'dk-bd-col' + (over === col.status ? ' over' : '')} role="group" aria-label={label(l, col.status)}
@@ -130,6 +170,8 @@ export function BoardView({ board, lang: l, kb, notice = '', say = '', open = nu
             {!col.cards.length ? <p className="muted small dk-bd-none">{t('col.empty')}</p> : null}
           </section>
         ))}
+      </div>
+      {side}
       </div>
       <p className="sr-only" aria-live="polite" role="status">{say}</p>
     </>

@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { childrenOf, fit, moveOutcome, parentLabel, parentOf, placed, sendMove } from './board.js'
+import { allowedParents, childrenOf, fit, moveOutcome, parentLabel, parentOf, placed, sendMove } from './board.js'
 
 const rows = [
   { id: 'WI-14', type: 'story', ordinal: 1 },
@@ -96,4 +96,18 @@ test('sendMove: the forced re-send failing is an error too', async () => {
   const f = fakePost(gate(), new Error('disk full'))
   expect(await sendMove(f.post, () => true, body)).toEqual({ kind: 'error', message: 'disk full' })
   expect(f.calls).toHaveLength(2)
+})
+
+// The parent a new item may be given (the server's table: epic -> story/bug/spike/task, story -> task). Archived and
+// Done parents stay in the list: a finished story can still get a late task.
+test('allowedParents: a task goes under stories and epics, a story/bug/spike under epics, an epic under nothing', () => {
+  const cards = [
+    { id: 'WI-14', type: 'story' }, { id: 'WI-2', type: 'epic' }, { id: 'WI-9', type: 'task' },
+    { id: 'WI-30', type: 'story', status: 'Done' }, { id: 'WI-3', type: 'epic' }, { id: 'WI-11', type: 'bug' },
+  ]
+  const ids = (type) => allowedParents(type, cards).map((c) => c.id)
+  expect(ids('task')).toEqual(['WI-2', 'WI-3', 'WI-14', 'WI-30'])
+  for (const t of ['story', 'bug', 'spike']) expect(ids(t)).toEqual(['WI-2', 'WI-3'])
+  expect(ids('epic')).toEqual([])
+  expect(ids('nonsense')).toEqual([])
 })
