@@ -81,18 +81,18 @@ const kids = [card({ id: 'WI-15', title: 'Back off between retries', status: 'In
 const html = (el, lang = 'es') => (setLang(lang), renderToStaticMarkup(el))
 
 test('a story panel lists its tasks with their status and offers to add one', () => {
-  const out = html(<StoryPanel item={story} children={kids} lang="es" writable onAddTask={() => {}} onOpen={() => {}} />)
+  const out = html(<StoryPanel item={story} tasks={kids} lang="es" writable onAddTask={() => {}} onOpen={() => {}} />)
   expect(out).toContain('aria-label="WI-14"')
   expect(out).toContain('Back off between retries')
   expect(out).toContain('Log each retry')
   expect(out).toContain('En curso')
   expect(out).toMatch(/<button [^>]*>Añadir tarea<\/button>/)
-  expect(html(<StoryPanel item={story} children={kids} lang="en" writable onAddTask={() => {}} onOpen={() => {}} />, 'en'))
+  expect(html(<StoryPanel item={story} tasks={kids} lang="en" writable onAddTask={() => {}} onOpen={() => {}} />, 'en'))
     .toMatch(/<button [^>]*>Add a task<\/button>/)
 })
 
 test('a panel for anything but a story shows description and criteria, with no tasks block and no add button', () => {
-  const out = html(<StoryPanel item={{ ...story, id: 'WI-15', type: 'task' }} children={[]} lang="en" writable onAddTask={() => {}} onOpen={() => {}} />, 'en')
+  const out = html(<StoryPanel item={{ ...story, id: 'WI-15', type: 'task' }} tasks={[]} lang="en" writable onAddTask={() => {}} onOpen={() => {}} />, 'en')
   expect(out).toContain('Charges retry with a back-off.')
   expect(out).toContain('WI-15/AC-1')
   expect(out).toContain('Gives up after a minute')
@@ -101,7 +101,7 @@ test('a panel for anything but a story shows description and criteria, with no t
 })
 
 test('a read-only window cannot add a task', () => {
-  expect(html(<StoryPanel item={story} children={[]} lang="en" writable={false} onAddTask={() => {}} onOpen={() => {}} />, 'en'))
+  expect(html(<StoryPanel item={story} tasks={[]} lang="en" writable={false} onAddTask={() => {}} onOpen={() => {}} />, 'en'))
     .toMatch(/<button [^>]*disabled=""[^>]*>Add a task/)
 })
 
@@ -147,4 +147,21 @@ test('an empty board points at the Add button', () => {
   expect(view(board([]))).not.toContain('portal')
   expect(view(board([]), 'en')).toContain('Press Add')
   expect(view(board([]), 'en')).not.toContain('camaron board add')
+})
+
+test('the add form leaves validation to the app: no browser bubble, the title is still announced as required', () => {
+  const out = html(<AddForm cards={cards} onSubmit={() => {}} onClose={() => {}} />, 'en')
+  expect(out).toMatch(/<form [^>]*noValidate=""/)
+  expect(out).toMatch(/<input[^>]*id="bd-f-title"[^>]*required=""/)
+})
+
+test('the add form offers the types and priorities the board sent, and the usual ones when it sent none', () => {
+  const sent = html(<AddForm cards={cards} types={['task', 'chore']} priorities={['high', 'low']} onSubmit={() => {}} onClose={() => {}} />, 'en')
+  expect(sent).toMatch(/<option value="chore">chore<\/option>/)
+  expect(sent).not.toMatch(/<option value="epic"/)
+  expect(sent).toMatch(/<option value="high">high<\/option>/)
+  expect(sent).not.toMatch(/<option value="P0"/)
+  const usual = html(<AddForm cards={cards} onSubmit={() => {}} onClose={() => {}} />, 'en')
+  expect(usual).toMatch(/<option value="epic">/)
+  expect(usual).toMatch(/<option value="P3">P3<\/option>/)
 })

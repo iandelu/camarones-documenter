@@ -8,6 +8,7 @@ import { t } from '../i18n.js'
 // sits beside the columns at a time.
 export const known = (key, fallback) => { const v = t(key); return v === key ? fallback : v }
 export const label = (l, status) => (STATUS_LABELS[l] || STATUS_LABELS.en)[status] || status
+// What the form offers when the board did not send its own lists (GET kanban sends `types` and `priorities`).
 const TYPES = ['story', 'task', 'bug', 'spike', 'epic']
 const PRIORITIES = ['P0', 'P1', 'P2', 'P3']
 
@@ -38,8 +39,8 @@ const Checks = ({ id, list }) => (
 )
 
 // The picked card. `item` is what GET kanban/item returned (null while it loads, with `error` when it could not);
-// `children` are the board's rows under it. Only a story lists its tasks and adds one.
-export function StoryPanel({ item = null, id, error = '', children = [], lang, writable = true, onAddTask, onOpen, onClose }) {
+// `tasks` are the board's rows under it. Only a story lists its tasks and adds one.
+export function StoryPanel({ item = null, id, error = '', tasks = [], lang, writable = true, onAddTask, onOpen, onClose }) {
   const drawer = useDrawer(onClose || (() => {}), id ?? item?.id)
   const name = item?.id ?? id
   const parent = item && parentOf(item)
@@ -63,9 +64,9 @@ export function StoryPanel({ item = null, id, error = '', children = [], lang, w
           {item.dod?.length ? <><h3 className="eyebrow">{t('bd.dod')}</h3><Checks list={item.dod} /></> : null}
           {item.type === 'story' ? (
             <div className="dk-bd-kids">
-              <h3 className="eyebrow">{t('bd.tasks')} <span className="muted">{children.length}</span></h3>
-              {children.length ? (
-                <ul>{children.map((c) => (
+              <h3 className="eyebrow">{t('bd.tasks')} <span className="muted">{tasks.length}</span></h3>
+              {tasks.length ? (
+                <ul>{tasks.map((c) => (
                   <li key={c.id}><button type="button" className="dk-bd-kid" onClick={() => onOpen(c.id)}>
                     <b className="dk-bd-id">{c.id}</b> <span>{c.title}</span> <Chip>{label(lang, c.status)}</Chip></button></li>))}</ul>
               ) : <p className="muted small">{t('bd.noTasks')}</p>}
@@ -79,9 +80,11 @@ export function StoryPanel({ item = null, id, error = '', children = [], lang, w
 }
 
 // A new item: a type, a title, optionally a parent the type may go under and a priority. `prefill` fills the first
-// render ({type, parent, title}); a refusal (`error`) stays above the buttons and nothing typed is lost.
-export function AddForm({ cards, prefill = {}, busy = false, error = '', onSubmit, onClose }) {
+// render ({type, parent, title}); a refusal (`error`) stays above the buttons, nothing typed is lost, and the focus goes
+// back to the title (the disabled form dropped it). `types` and `priorities` are the board's own lists.
+export function AddForm({ cards, prefill = {}, busy = false, error = '', types = TYPES, priorities = PRIORITIES, onSubmit, onClose }) {
   const drawer = useDrawer(onClose)
+  useEffect(() => { if (error) drawer.ref.current?.querySelector('[data-first]')?.focus() }, [error])
   const [f, setF] = useState({ type: prefill.type || 'story', title: prefill.title || '', parent: prefill.parent || '', priority: '' })
   const [need, setNeed] = useState(false)
   const parents = allowedParents(f.type, cards)
@@ -100,12 +103,12 @@ export function AddForm({ cards, prefill = {}, busy = false, error = '', onSubmi
     <Card as="aside" className="dk-bd-panel" aria-labelledby="bd-add-h" {...drawer}>
       <div className="row"><h2 id="bd-add-h" className="dk-bd-panel-id">{t('bd.addTitle')}</h2><span className="dk-grow"></span>
         <button type="button" className="dk-icon" aria-label={t('close')} onClick={onClose}>×</button></div>
-      <form className="dk-bd-form" onSubmit={submit}>
+      <form className="dk-bd-form" onSubmit={submit} noValidate>
         <fieldset disabled={busy}>
           <div className="cu-field"><label className="cu-field-label" htmlFor="bd-f-type">{t('bd.fType')}</label>
             <select id="bd-f-type" className="cu-input" value={f.type} onChange={setType}>
-              {TYPES.map((ty) => <option key={ty} value={ty}>{known(`bd.type.${ty}`, ty)}</option>)}</select></div>
-          <Field id="bd-f-title" label={t('bd.fTitle')} value={f.title} onChange={set('title')} required data-first
+              {types.map((ty) => <option key={ty} value={ty}>{known(`bd.type.${ty}`, ty)}</option>)}</select></div>
+          <Field id="bd-f-title" label={t('bd.fTitle')} value={f.title} onChange={set('title')} required aria-required="true" data-first
             aria-invalid={need || undefined} />
           <div className="cu-field"><label className="cu-field-label" htmlFor="bd-f-parent">{t('bd.fParent')}</label>
             <select id="bd-f-parent" className="cu-input" value={f.parent} onChange={set('parent')} disabled={!parents.length}>
@@ -114,7 +117,7 @@ export function AddForm({ cards, prefill = {}, busy = false, error = '', onSubmi
           <div className="cu-field"><label className="cu-field-label" htmlFor="bd-f-prio">{t('bd.fPriority')}</label>
             <select id="bd-f-prio" className="cu-input" value={f.priority} onChange={set('priority')}>
               <option value="">{t('bd.noPriority')}</option>
-              {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}</select></div>
+              {priorities.map((p) => <option key={p} value={p}>{p}</option>)}</select></div>
           {need ? <p className="small" role="alert">{t('bd.needTitle')}</p> : null}
           {error ? <Aviso tone="error" title={t('bd.addFailed')} detail={error} /> : null}
           <div className="row">

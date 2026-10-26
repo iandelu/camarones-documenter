@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Aviso, Button, Chip, EmptyState, Skeleton } from '@camaron/ui'
 import { columns, dropAnchor, keyMove } from '@camaron/ui/kanban.js'
-import { childrenOf, fit, moved, parentLabel, placed, sendMove } from '../board.js'
+import { cardAt, childrenOf, fit, gateKey, moved, parentLabel, placed, sendMove, shouldFocus } from '../board.js'
 import { Failed, Page } from '../parts.jsx'
 import { AddForm, StoryPanel, known, label } from './BoardPanels.jsx'
 import { lang, t } from '../i18n.js'
@@ -33,8 +33,7 @@ export default function Board({ srv }) {
   useEffect(() => { load() }, [load])
   useEffect(() => {                                    // the card keeps the focus when a move redraws it elsewhere
     const el = kb?.focus && document.getElementById(`bd-${kb.focus}`)
-    const active = document.activeElement
-    if (el && (kb.grabbed || !active || active === document.body || active === el)) el.focus()
+    if (shouldFocus(kb, document.activeElement, el)) el.focus()
   }, [kb, board])
   useEffect(() => {
     setItem(null); setItemError('')
@@ -55,7 +54,7 @@ export default function Board({ srv }) {
     const before = board
     setNotice('')
     setBoard({ ...board, cards: moved(fit(board.cards, board.statuses), id, status, anchor) })
-    const r = await sendMove((body) => srv.post('kanban/move', body), (ids) => window.confirm(t('bd.gate', { ids: ids.join(', ') })),
+    const r = await sendMove((body) => srv.post('kanban/move', body), (ids) => window.confirm(t(gateKey(ids), { ids: ids.join(', ') })),
       { id, status, ...anchor })
     if (r.kind === 'sent') setSay(t('bd.moved', { id, status: label(lang(), status) }))
     else { setBoard(before); if (r.kind === 'error') setNotice(r.message) }       // declined: back, with nothing to say
@@ -63,13 +62,17 @@ export default function Board({ srv }) {
   }
   const show = (id) => { setAdding(null); setFormError(''); setOpen(id) }
   const openForm = (prefill) => { setOpen(null); setFormError(''); setAdding(prefill) }
+  const pick = (id) => { const at = cardAt(cols, id); if (at) setKb(at) }       // a click or a drag starts the keys from that card
+  const openCard = (id) => { pick(id); show(id) }
+  const drag = (id) => { if (id) pick(id); setDragging(id) }
   const closePanel = () => { setOpen(null); setAdding(null); setFormError('') }
   async function create(body) {
     setBusy(true); setFormError('')
     try {
       const row = await srv.post('kanban/add', body)
       await load()
-      setAdding(null); setLand(row.id); setSay(t('bd.added', { id: row.id }))
+      const story = adding?.parent && body.parent === adding.parent ? adding.parent : null     // opened from a story: back to it
+      setAdding(null); setOpen(story); setLand(row.id); setSay(t('bd.added', { id: row.id }))
     } catch (e) { setFormError(e.message) } finally { setBusy(false) }     // the form stays, filled
   }
   async function init() {
@@ -79,8 +82,7 @@ export default function Board({ srv }) {
   function onKey(e, card) {
     if (!KEYS.includes(e.key) || e.target !== e.currentTarget) return
     e.preventDefault()
-    const col = cols.findIndex((c) => c.cards.some((x) => x.id === card.id))
-    const start = kb && kb.focus === card.id ? kb : { focus: card.id, grabbed: false, col, row: cols[col].cards.findIndex((x) => x.id === card.id) }
+    const start = kb && kb.focus === card.id ? kb : cardAt(cols, card.id)
     if (e.key === ' ' && !start.grabbed && !board.writable) return
     const next = keyMove(start, e.key, cols)
     if (next.open) { setKb({ ...next, open: undefined }); return show(next.open) }
@@ -100,15 +102,16 @@ export default function Board({ srv }) {
   const picked = open && board.cards.find((c) => c.id === open)
   const shown = item && item.id?.toUpperCase() === open ? { ...item, status: picked?.status ?? item.status } : null
   const side = adding ? (
-    <AddForm cards={board.cards} prefill={adding} busy={busy} error={formError} onSubmit={create} onClose={closePanel} />
+    <AddForm cards={board.cards} types={board.types} priorities={board.priorities} prefill={adding} busy={busy} error={formError}
+      onSubmit={create} onClose={closePanel} />
   ) : open ? (
-    <StoryPanel id={open} item={shown} error={itemError} children={childrenOf(board.cards, open)} lang={lang()} writable={!!board.writable}
-      onAddTask={(story) => openForm({ type: 'task', parent: story })} onOpen={show} onClose={closePanel} />
+    <StoryPanel id={open} item={shown} error={itemError} tasks={childrenOf(board.cards, open)} lang={lang()} writable={!!board.writable}
+      onAddTask={(story) => openForm({ type: 'task', parent: story })} onOpen={openCard} onClose={closePanel} />
   ) : null
   return (
     <Page title={t('nav.board')} wide>
       <BoardView board={board} lang={lang()} kb={kb} notice={notice} say={say} open={open} dragging={dragging} over={over} side={side}
-        onMove={move} onOpen={show} onAdd={() => openForm({})} onKey={onKey} onInit={init} onDrag={setDragging} onOver={setOver} />
+        onMove={move} onOpen={openCard} onAdd={() => openForm({})} onKey={onKey} onInit={init} onDrag={drag} onOver={setOver} />
     </Page>
   )
 }
