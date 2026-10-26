@@ -338,7 +338,8 @@ def api_pipeline(lang: str = "") -> dict:
                       "tier": n.get("tier") or t.get("tier", "agentic-heavy"), "agent": n.get("runner"),
                       "approval": bool(n.get("approval")), "awaiting": plan.awaiting(u), "ready": u["id"] in ready})
     latest = runs.ids()
-    return {"units": units, "run": runs.summary(latest[0]) if latest else None}
+    return {"units": units, "run": runs.summary(latest[0]) if latest else None,
+            "interviews": docs.interview_mode() if docs.interview_mode_chosen() else None}
 
 
 def app_kitdev(b: dict) -> tuple[dict, int]:
@@ -456,9 +457,9 @@ def api_interview(who: str = "") -> dict:
     try:
         data = questionnaire.load()
     except ValueError as e:
-        return {"available": False, "reason": str(e), "mode": docs.interview_mode()}
+        return {"available": False, "reason": str(e), "mode": docs.interview_mode(), "chosen": docs.interview_mode_chosen()}
     mine = next((r for n, r in questionnaire.responses().items() if who and n.strip().lower() == who.strip().lower()), None)
-    return {"available": True, "mode": docs.interview_mode(), "id": data["id"], "title": data.get("title") or "",
+    return {"available": True, "mode": docs.interview_mode(), "chosen": docs.interview_mode_chosen(), "id": data["id"], "title": data.get("title") or "",
             "intro": data.get("intro") or "", "questions": data["questions"], "labels": questionnaire.LABELS,
             "status": questionnaire.status(), "user": reviewer(), "mine": mine}
 
@@ -473,7 +474,8 @@ def app_summary(lang: str = "") -> dict:
     done, total = plan.progress(data)
     last = doctor.checked()
     return {"step": plan.next_step(data, review=review, lang=ui_lang(lang)), "plan": {"done": done, "total": total}, "review": review,
-            "doctor": doctor.problems(last["result"]) if last else None}
+            "doctor": doctor.problems(last["result"]) if last else None,
+            "interviews": docs.interview_mode() if docs.interview_mode_chosen() else None}
 
 
 def status(check: bool = True) -> dict:

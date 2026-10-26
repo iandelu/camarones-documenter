@@ -102,7 +102,8 @@ def test_the_cli_lists_plugins_as_json(kit, plugins, capsys):
     assert "gemini" in names and "adr-style" in names
     row = next(r for r in rows if r["name"] == "adr-style")
     assert row == {"name": "adr-style", "version": "1.0.0", "source": "project", "provides": ["prompts"],
-                   "runs_code": False, "status": plugins.NEEDS_APPROVAL, "errors": []}
+                   "runs_code": False, "sends_data": False, "status": plugins.NEEDS_APPROVAL, "errors": []}
+    assert next(r for r in rows if r["name"] == "confluence")["sends_data"] is True
     json.dumps(rows)
 
 
@@ -117,3 +118,24 @@ def test_plugins_command(kit):
     js = subprocess.run([sys.executable, str(kit.kit_dir / "camarones.py"), "plugins", "--json"], env=env,
                         capture_output=True, text=True, encoding="utf-8")
     assert {r["name"] for r in json.loads(js.stdout)} >= {"gemini", "risky"}
+
+
+def test_a_kit_plugin_can_be_turned_off_on_this_machine(plugins, kit):
+    """Gemini ships with the kit and is on by default; turning it off sticks on this machine and drops its runner."""
+    assert plugins.disable("gemini")
+    g = by_name(plugins.discover())["gemini"]
+    assert not g.active and g.status == plugins.OFF
+    assert "gemini" not in [r["id"] for r in plugins.provided("runners")]
+    row = next(r for r in plugins.rows() if r["name"] == "gemini")
+    assert row["status"] == plugins.OFF and row["source"] == "kit"
+    assert plugins.enable("gemini")
+    assert by_name(plugins.discover())["gemini"].active
+
+
+def test_turning_off_a_plugin_keeps_the_other_approvals(plugins, kit):
+    make(kit, "adr-style", {"name": "adr-style", "version": "1.0.0", "provides": {"prompts": ["p.md"]}})
+    assert plugins.enable("adr-style")
+    assert plugins.disable("gemini")
+    assert by_name(plugins.discover())["adr-style"].active
+    assert plugins.disable("adr-style")
+    assert not by_name(plugins.discover())["adr-style"].active
