@@ -69,6 +69,9 @@
   inventory [--cves] [--json]   every repo's direct dependencies by category (framework, data, cache, security…)
                           → docs/overview/libraries.md, no AI; --cves adds known vulnerabilities (OSV-Scanner with
                           its offline database, so no package name leaves the machine); exit 1 if one is high/critical
+  health [--json] [--refresh]   project health at a glance: the machine, the docs and the code, each ok / warn / bad
+                          with its reasons, and per repo Sonar, coverage, vulnerabilities and debt; read from the last
+                          snapshot (cam-docs/.cache/health.json), built when there is none; --refresh builds it again
   stack REPO [TEXT|--reset] fix a repo's stack in workspace.yaml (--reset: back to the detected one)
   interview mode [team|live]   how interviews run: team questionnaire answered offline, or live with the agent
   interview export [--lang es|en]   questionnaire → offline HTML form + Markdown copy to share with the team
@@ -410,6 +413,8 @@ def build_parser() -> argparse.ArgumentParser:
     rd = sp.add_parser("radar"); rd.add_argument("--json", action="store_true")
     inv = sp.add_parser("inventory"); inv.add_argument("--json", action="store_true")
     inv.add_argument("--cves", action="store_true")
+    hl = sp.add_parser("health"); hl.add_argument("--json", action="store_true")
+    hl.add_argument("--refresh", action="store_true")
     sch = sp.add_parser("schemas"); sch.add_argument("--json", action="store_true")
     iv = sp.add_parser("interview"); iv.add_argument("action", choices=["mode", "export", "import", "status"])
     iv.add_argument("args", nargs="*"); iv.add_argument("--lang", default="es", choices=["es", "en"])
@@ -743,6 +748,8 @@ def main() -> int:
         return cmd_kpis(a)
     elif a.cmd == "fresh":
         return cmd_fresh(a)
+    elif a.cmd == "health":
+        return cmd_health(a)
     elif a.cmd == "blocks":
         return cmd_blocks(a)
     elif a.cmd in ("pages", "diagrams"):
@@ -1280,6 +1287,73 @@ def cmd_fresh(a) -> int:
     if old:
         print(f"Refresh them (`{cli_cmd()} fresh --plan` adds a unit) or, if they still hold, "
               f"`{cli_cmd()} fresh --ack <page> --by <name>`.")
+    return 0
+
+
+# What each reason key of lib/health.py reads like (the apps translate the keys themselves)
+HEALTH_REASONS = {
+    "machine.missing": "{n} missing tools", "machine.unchecked": "not checked on this machine",
+    "machine.drift": "{n} kit files changed", "docs.stale": "{n} stale pages", "docs.suspect": "{n} pages to re-check",
+    "docs.context": "{n} tokens over the context budget", "docs.noEvals": "no confirmed golden questions",
+    "docs.review": "{n} pages waiting for review", "docs.unread": "{n} sources could not be read",
+    "code.vulnHigh": "{n} high or critical vulnerabilities", "code.vulnMedium": "{n} medium vulnerabilities",
+    "code.noScan": "vulnerabilities never scanned", "code.oldScan": "last vulnerability scan {n} days ago",
+    "code.lowCoverage": "{n} repos under the minimum coverage", "code.highDebt": "{n} high-impact debt items",
+    "code.unread": "{n} sources could not be read"}
+HEALTH_FIGURES = {"machine.tools": "tools checked", "machine.missing": "missing", "docs.stale": "stale pages",
+                  "docs.review": "pages waiting for review", "code.libraries": "libraries",
+                  "code.vulnHigh": "high or critical vulnerabilities"}
+HEALTH_MARKS = {"ok": "✔", "warn": "!", "bad": "✖", None: " "}
+
+
+def _health_repo_row(name: str, repo: dict, state, scanned: bool) -> str:
+    def cells(r: dict) -> list[str]:
+        sonar, cov, vulns, debt = r.get("sonar"), r.get("coverage"), r.get("vulns"), r.get("debt")
+        sonar = "—" if not isinstance(sonar, dict) or "error" in sonar else (sonar.get("project") or "yes") if sonar.get("used") else "no"
+        cov = f"{cov['percent']}%" if isinstance(cov, dict) and isinstance(cov.get("percent"), (int, float)) else "—"
+        if not scanned or not isinstance(vulns, dict) or "error" in vulns:
+            vulns = "—"
+        else:
+            vulns = ", ".join(f"{n} {s}" for s, n in vulns.items()) or "0"
+        if isinstance(debt, list):
+            high = sum(1 for d in debt if isinstance(d, dict) and d.get("impact") == "high")
+            debt = f"{len(debt)} ({high} high)" if high else str(len(debt))
+        else:
+            debt = "—"
+        return [sonar, cov, vulns, debt]
+    if "error" in repo:
+        rest = ["unread"] + ["—"] * 3
+    elif repo.get("cloned") is False:
+        rest = ["—"] * 4 + ["not cloned"]
+    else:
+        rest = cells(repo)
+    return f"{HEALTH_MARKS.get(state, ' ')} {name:<20}" + "".join(f"{c:<16}" for c in rest[:4]) + (rest[4] if len(rest) > 4 else "")
+
+
+def cmd_health(a) -> int:
+    from lib import health
+    snap = None if a.refresh else health.load()
+    if snap is None:                                    # the first time, or --refresh; --json keeps stdout clean
+        snap = health.build(log=(lambda m: print(m, file=sys.stderr)) if a.json else print)
+    if a.json:
+        print(json.dumps(snap, indent=2, ensure_ascii=False))
+        return 0
+    print(f"Project health · {snap.get('at') or '—'}")
+    verdict = snap.get("verdict") or []
+    for area in ("machine", "docs", "code"):
+        info = (snap.get("areas") or {}).get(area) or {}
+        reasons = [v for v in verdict if v["key"].split(".")[0] == area]
+        said = [HEALTH_REASONS.get(v["key"], v["key"]).format(n="—" if v.get("n") is None else v["n"]) for v in reasons]
+        if not said:
+            said = [f"{HEALTH_FIGURES.get(f['key'], f['key'])}: {'—' if f.get('n') is None else f['n']}"
+                    for f in info.get("figures") or []]
+        print(f"{HEALTH_MARKS.get(info.get('state'), '?')} {area.capitalize()}: {', '.join(said) or '—'}")
+    repos = snap.get("repos")
+    if isinstance(repos, dict) and "error" not in repos and repos:
+        scanned = bool((snap.get("inventory") or {}).get("scanned"))
+        print(f"\n  {'repo':<20}{'Sonar':<16}{'coverage':<16}{'vulns':<16}{'debt'}")
+        for name, repo in repos.items():
+            print(_health_repo_row(name, repo, (snap.get("repo_state") or {}).get(name), scanned).rstrip())
     return 0
 
 

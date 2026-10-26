@@ -570,3 +570,121 @@ def test_the_doctor_record_matches_the_snapshot(probed):
     rec = doctor.checked()
     assert rec["result"] == NO_PROBES and rec["at"] == snap["machine"]["at"]
     assert snap["machine"] == {"at": rec["at"], "missing": ["uv", "gitleaks"], "drift": 1, "tools": 2}
+
+
+# ---- `camaron health` and GET /api/health ----
+
+# The CLI runs in a child process; this driver gives its doctor the fixed result first, like `probed` does here.
+DRIVER = ("import json, os, runpy, sys\n"
+          "sys.path.insert(0, os.path.dirname(sys.argv[1]))\n"
+          "from lib import doctor\n"
+          "doctor.report = lambda: json.loads(os.environ['NO_PROBES'])\n"
+          "sys.argv = sys.argv[1:]\n"
+          "runpy.run_path(sys.argv[0], run_name='__main__')\n")
+
+
+def health_cli(kit, *args):
+    import subprocess
+    e = {**os.environ, "CAMARONES_ROOT": str(kit.root), "NO_PROBES": json.dumps(NO_PROBES)}
+    return subprocess.run([sys.executable, "-c", DRIVER, str(kit.kit_dir / "camarones.py"), "health", *args], env=e,
+                          capture_output=True, text=True, encoding="utf-8")
+
+
+def test_cli_health_builds_once_and_prints_the_verdict(wired):
+    from lib import health
+    assert not health.SNAPSHOT.exists()
+    r = health_cli(wired)
+    assert r.returncode == 0, r.stderr
+    assert health.SNAPSHOT.exists()
+    for area in ("Machine", "Docs", "Code"):
+        assert area in r.stdout
+    first = health.SNAPSHOT.stat().st_mtime_ns
+    r = health_cli(wired)
+    assert r.returncode == 0, r.stderr
+    assert health.SNAPSHOT.stat().st_mtime_ns == first and "Machine" in r.stdout
+
+
+def test_cli_health_json_is_the_snapshot(wired):
+    r = health_cli(wired, "--json")
+    assert r.returncode == 0, r.stderr
+    assert json.loads(r.stdout)["v"] == 1                   # only the JSON on stdout: the build's log goes to stderr
+    assert "reading the machine" in r.stderr
+
+
+def test_cli_health_refresh_rebuilds(wired):
+    from lib import health
+    assert health_cli(wired).returncode == 0
+    before = health.SNAPSHOT.stat().st_mtime_ns
+    r = health_cli(wired, "--refresh")
+    assert r.returncode == 0, r.stderr
+    assert health.SNAPSHOT.stat().st_mtime_ns != before
+
+
+def put_snapshot(snap):
+    from lib import health
+    health.SNAPSHOT.parent.mkdir(parents=True, exist_ok=True)
+    health.SNAPSHOT.write_text(json.dumps(snap), encoding="utf-8")
+
+
+def test_cli_health_text_says_every_reason_in_words(wired):
+    from lib import health
+    keys = list(health.ROWS) + ["docs.unread", "code.unread"]
+    s = {**clean_snapshot(), "repos": {}, "repo_state": {}, "verdict": [{"key": k, "n": 3} for k in keys],
+         "areas": {w: {"state": st, "figures": [], "next": None} for w, st in (("machine", "bad"), ("docs", "warn"), ("code", "ok"))}}
+    put_snapshot(s)
+    r = health_cli(wired)
+    assert r.returncode == 0, r.stderr
+    lines = r.stdout.splitlines()
+    area = {w: next(ln for ln in lines if f" {w}:" in ln) for w in ("Machine", "Docs", "Code")}
+    assert area["Machine"].startswith("✖") and area["Docs"].startswith("!") and area["Code"].startswith("✔")
+    assert "3 stale pages" in area["Docs"] and "3 high or critical vulnerabilities" in area["Code"]
+    assert "machine." not in r.stdout and "docs." not in r.stdout and "code." not in r.stdout
+
+
+def test_cli_health_text_shows_the_figures_of_a_healthy_area_and_a_missing_one_as_a_dash(wired):
+    figures = {"machine": [{"key": "machine.tools", "n": 6}, {"key": "machine.missing", "n": None}], "docs": [],
+               "code": [{"key": "code.libraries", "n": None}, {"key": "code.vulnHigh", "n": 0}]}
+    put_snapshot({**clean_snapshot(), "verdict": [], "repo_state": {},
+                  "areas": {w: {"state": "ok", "figures": f, "next": None} for w, f in figures.items()}})
+    lines = health_cli(wired).stdout.splitlines()
+    area = {w: next(ln for ln in lines if f" {w}:" in ln) for w in ("Machine", "Code")}
+    assert "tools checked: 6" in area["Machine"] and "missing: —" in area["Machine"]
+    assert "libraries: —" in area["Code"] and "high or critical vulnerabilities: 0" in area["Code"]
+
+
+def test_cli_health_text_has_a_row_per_repo(wired):
+    s = clean_snapshot()
+    s["repos"] = {"api": repo_block(vulns={"high": 2}, coverage={"type": "lcov", "percent": 41.5}, debt=[debt("high")],
+                                    sonar={**repo_block()["sonar"], "used": True, "project": "api-key"}),
+                  "web": repo_block(cloned=False), "worker": {"error": "boom"}}
+    put_snapshot({**s, "verdict": [], "repo_state": {"api": "bad", "web": None, "worker": None},
+                  "areas": {w: {"state": "ok", "figures": [], "next": None} for w in ("machine", "docs", "code")}})
+    lines = health_cli(wired).stdout.splitlines()
+    row = {n: next(ln for ln in lines if ln.split()[1:2] == [n] or ln.split()[:1] == [n]) for n in ("api", "web", "worker")}
+    assert row["api"].startswith("✖") and all(x in row["api"] for x in ("api-key", "41.5%", "2 high", "1 (1 high)"))
+    assert row["web"].count("—") == 4 and "not cloned" in row["web"] and "unread" in row["worker"]
+    header = next(ln for ln in lines if "Sonar" in ln)
+    assert "coverage" in header and "vulns" in header and "debt" in header
+
+
+@pytest.fixture
+def server(kit):
+    import threading
+    from http.server import ThreadingHTTPServer
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), kit.serve.Handler)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    yield f"http://127.0.0.1:{srv.server_address[1]}"
+    srv.shutdown()
+
+
+def test_api_health_reads_and_never_builds(probed, server):
+    import urllib.request
+    from lib import health
+
+    def get():
+        with urllib.request.urlopen(f"{server}/api/health", timeout=10) as r:
+            return json.loads(r.read())
+
+    assert get() == {"snapshot": None} and not health.SNAPSHOT.exists()
+    snap = health.build(log=quiet)
+    assert get() == {"snapshot": snap}
