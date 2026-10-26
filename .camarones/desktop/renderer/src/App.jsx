@@ -10,6 +10,7 @@ import { Failed } from './parts.jsx'
 import Hub from './Hub.jsx'
 import JobsPanel from './JobsPanel.jsx'
 import Palette from './Palette.jsx'
+import Board from './sections/Board.jsx'
 import { catalog } from './sections/Commands.jsx'
 import Docs from './sections/Docs.jsx'
 import Interviews from './sections/Interviews.jsx'
@@ -173,7 +174,7 @@ function Rail({ app, projects: { list, busy, open } }) {
   )
 }
 
-const SECTIONS = { summary: Summary, plan: Plan, interviews: Interviews, team: Team, quality: Quality, libs: Libs, docs: Docs, machine: Machine,
+const SECTIONS = { summary: Summary, board: Board, plan: Plan, interviews: Interviews, team: Team, quality: Quality, libs: Libs, docs: Docs, machine: Machine,
   kitdev: KitDev, start: Start }
 function Section({ here, ...props }) {
   const View = SECTIONS[here]
