@@ -204,3 +204,14 @@
 #native .kb-form-actions button { margin-top: 0; }
 @media (max-width: 720px) { #native .kb-board { grid-template-columns: repeat(6, 78vw); } }
 @media (prefers-reduced-motion: reduce) { #native .kb-col { transition: none; } }
+
+/* Salud: one repo's page */
+#native .hr-block { margin-top: 1.75rem; }
+#native .hr-block h2 { margin: 0 0 .5rem; font-size: 1.15rem; }
+#native .hr-block h3 { margin: 1rem 0 .4rem; font-size: .95rem; color: var(--muted); font-weight: 500; }
+#native .hr-links a { display: inline-flex; align-items: center; min-height: 1.5rem; }
+#native .hr-facts { display: flex; flex-wrap: wrap; gap: .5rem 2rem; margin: 0; }
+#native .hr-facts dt { font-size: .78rem; color: var(--muted); }
+#native .hr-facts dd { margin: 0; }
+#native .hr-state { font-size: 1.05rem; }
+#native .hr-source li code { overflow-wrap: anywhere; }

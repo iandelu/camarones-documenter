@@ -43,6 +43,13 @@ test('Salud: live-only, the per-repo page rides on the argument', () => {
   expect(go('#/health')).toEqual({ kind: 'native', view: 'health', arg: '' })
   expect(go('#/health/api')).toEqual({ kind: 'native', view: 'health', arg: 'api' })
   expect(go('#/health', { mode: 'static' })).toEqual(HOME)
+  expect(go('#/health/my%20repo')).toEqual({ kind: 'native', view: 'health', arg: 'my repo' })
+})
+
+test('Librerias opens filtered to a repo on #/libs/<repo>; #/libs is unchanged', () => {
+  expect(go('#/libs/api')).toEqual({ kind: 'native', view: 'libs', arg: 'api' })
+  expect(go('#/libs')).toEqual({ kind: 'native', view: 'libs', arg: '' })
+  expect(go('#/libs/api', { mode: 'static' })).toEqual(HOME)
 })
 
 // The Taller left the portal in 4.53: in the app its old addresses open the app's own section, in a browser home.
