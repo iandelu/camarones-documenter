@@ -14,7 +14,7 @@ class _Actions(tuple):
         return x == "merge-driver" or tuple.__contains__(self, x)
 
 
-ACTIONS = _Actions(("init", "add", "list", "show", "move", "assign", "link", "archive", "repair"))
+ACTIONS = _Actions(("init", "add", "list", "show", "move", "assign", "link", "archive", "repair", "next", "waves"))
 _NEED = {"add": 2, "show": 1, "archive": 1, "move": 2, "assign": 2, "link": 2, "merge-driver": 3}
 _USAGE = {"add": "add TYPE TITLE", "show": "show ID", "archive": "archive ID", "move": "move ID STATUS",
           "assign": "assign ID WHO", "link": "link ID REF", "merge-driver": "merge-driver O A B"}
@@ -34,12 +34,33 @@ def add_parser(sp) -> None:
     b.add_argument("--docs", choices=["suspect", "unconfirmed"])
     b.add_argument("--before")
     b.add_argument("--after")
+    b.add_argument("--story")
+    b.add_argument("--n", type=int, default=3)
+    b.add_argument("--force", action="store_true")
     b.add_argument("--json", action="store_true")
 
 
 def line(r: dict) -> str:
     repos = f"  [{', '.join(r['repos'])}]" if r["repos"] else ""
     return f"{r['id']}  {r['status']}  {r['priority'] or '-'}  {r['title']}{repos}"
+
+
+def _lang(ops) -> str:
+    try:
+        return "es" if ops.docs_lang() == "es" else "en"
+    except Exception:                                        # noqa: BLE001 — a note must never break the command
+        return "en"
+
+
+def note(b: dict, lang: str) -> str:
+    """Why an item cannot start, in the project's language."""
+    es, i = lang == "es", b["id"]
+    if b["kind"] == "dependency":
+        return f"espera a {i}" if es else f"waits for {i}"
+    if b["kind"] == "missing":
+        return f"depende de {i}, que no existe" if es else f"depends on {i}, which does not exist"
+    files = ", ".join(b.get("files", ()))
+    return f"choca con {i} en {files}" if es else f"collides with {i} on {files}"
 
 
 def run(a) -> int:
@@ -60,6 +81,13 @@ def run(a) -> int:
     from ..harness.locks import LockBusy
     try:
         return _run(a, ops)
+    except ops.GateError as e:                              # a person can force it; the line says how
+        lang = _lang(ops)
+        why = "; ".join(note(b, lang) for b in e.blocked_by)
+        head, tail = (("no puede empezar", "--force lo mueve igual") if lang == "es"
+                      else ("cannot start", "--force moves it anyway"))
+        print(f"✖ {e.item_id} {head}: {why} ({tail})", file=sys.stderr)
+        return 2
     except (ops.BoardError, LockBusy, OSError) as e:        # a busy lock, a file another program holds…
         print(f"✖ {e}", file=sys.stderr)
         return 2
@@ -105,7 +133,34 @@ def _run(a, ops) -> int:
             for l in d["links"]:
                 print(f"  -> {l.get('link') or l}")
     elif x == "move":
-        _show(a, ops.move(args[0], args[1], before=a.before, after=a.after))
+        _show(a, ops.move(args[0], args[1], before=a.before, after=a.after, force=a.force))
+    elif x == "next":
+        data = ops.next_items(a.n, story=a.story, epic=a.epic)
+        if a.json:
+            print(json.dumps(data, ensure_ascii=False, indent=2, default=str))
+        else:
+            lang = _lang(ops)
+            for r in data["ready"]:
+                print(line(r))
+            for w in data["waiting"]:
+                print(f"  · {w['id']}: " + "; ".join(note(b, lang) for b in w["blocked_by"]))
+            if not data["ready"]:
+                print("Nada listo para empezar" if lang == "es" else "Nothing is ready to start")
+    elif x == "waves":
+        data = ops.waves(story=a.story, epic=a.epic)
+        if a.json:
+            print(json.dumps(data, ensure_ascii=False, indent=2, default=str))
+        elif "cycle" in data:
+            lang = _lang(ops)
+            print(("✖ ciclo de dependencias: " if lang == "es" else "✖ dependency cycle: ") + " -> ".join(data["cycle"]),
+                  file=sys.stderr)
+            return 2
+        else:
+            lang = _lang(ops)
+            for n, wave in enumerate(data["waves"], 1):
+                print(f"{'Ola' if lang == 'es' else 'Wave'} {n}")
+                for r in wave:
+                    print("  " + line(r))
     elif x == "assign":
         _show(a, ops.assign(args[0], args[1]))
     elif x == "link":
