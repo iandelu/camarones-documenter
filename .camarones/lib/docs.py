@@ -65,6 +65,12 @@ def interview_mode() -> str:
     return mode if mode in INTERVIEW_MODES else "live"
 
 
+def interview_mode_chosen() -> bool:
+    """Someone picked the mode (wizard, app, `interview mode`): `live` alone is only the fallback, and an interview
+    unit does not start on it."""
+    return workspace()["project"].get("interviews") in INTERVIEW_MODES
+
+
 def set_interview_mode(mode: str) -> None:
     if mode not in INTERVIEW_MODES:
         raise ValueError(f"interview mode must be one of {', '.join(INTERVIEW_MODES)}")

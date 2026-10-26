@@ -77,6 +77,9 @@ def test_the_app_reads_the_summary_with_its_token(wired, app):
     done, total = wired.plan.progress()
     assert body["plan"] == {"done": done, "total": total} and isinstance(body["review"], int)
     assert get(app + "/api/app/summary", token=None)[0] == 403
+    assert body["interviews"] is None                                  # nobody chose how interviews run: the app asks
+    wired.docs.set_interview_mode("live")
+    assert get(app + "/api/app/summary")[1]["interviews"] == "live"
 
 
 def wait_end(job, timeout=30):

@@ -22,6 +22,7 @@ CODE_FILES = {".py", ".sh", ".js", ".mjs", ".cjs", ".ts", ".cmd", ".bat", ".ps1"
 NAME = re.compile(r"[a-z0-9][a-z0-9-]*")
 SEMVER = re.compile(r"\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?")
 NEEDS_APPROVAL = "not loaded: needs approval on this machine"
+OFF = "off on this machine"
 
 
 @dataclass
@@ -93,10 +94,20 @@ class Plugin:
         return bool(self.manifest.get("sends_data"))
 
     @property
+    def asks(self) -> bool:
+        """It loads only once approved here; any other plugin is on until someone turns it off."""
+        return self.needs_trust or self.sends_data
+
+    @property
+    def off(self) -> bool:
+        from .. import trust
+        return not self.asks and trust.plugin_off(self.name)
+
+    @property
     def active(self) -> bool:
-        if self.errors:
+        if self.errors or self.off:
             return False
-        if not self.needs_trust and not self.sends_data:
+        if not self.asks:
             return True
         from .. import trust
         return trust.plugin_approved(self)
@@ -105,6 +116,8 @@ class Plugin:
     def status(self) -> str:
         if self.errors:
             return "invalid"
+        if self.off:
+            return OFF
         return "active" if self.active else NEEDS_APPROVAL
 
 
@@ -180,7 +193,9 @@ def enable(name: str) -> bool:
     p = next((x for x in discover() if x.name == name), None)
     if not p or p.errors:
         return False
-    trust.approve_plugin(p)
+    if p.asks:
+        trust.approve_plugin(p)
+    trust.set_plugin_off(p.name, False)
     return True
 
 
@@ -189,7 +204,10 @@ def disable(name: str) -> bool:
     p = next((x for x in discover() if x.name == name), None)
     if not p:
         return False
-    trust.revoke_plugin(p)
+    if p.asks:
+        trust.revoke_plugin(p)
+    else:
+        trust.set_plugin_off(p.name, True)
     return True
 
 
@@ -200,5 +218,6 @@ def provided(kind: str) -> list[dict]:
 
 def rows() -> list[dict]:
     return [{"name": p.name, "version": str(p.manifest.get("version", "")), "source": p.source,
-             "provides": sorted(p.provides), "runs_code": p.runs_code, "status": p.status, "errors": p.errors}
+             "provides": sorted(p.provides), "runs_code": p.runs_code, "sends_data": p.sends_data, "status": p.status,
+             "errors": p.errors}
             for p in discover()]

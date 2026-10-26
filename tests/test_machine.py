@@ -107,3 +107,30 @@ def test_uninstall_and_migrate_preview_without_asking(kit, entries):
     with pytest.raises(PermissionError):
         appapi.argv(entries["uninstall"], {"user_level": True})
     assert appapi.argv(entries["uninstall"], {"user_level": True}, confirmed=True) == ["uninstall", "--global", "--yes"]
+
+
+def test_codex_models_come_from_codex_s_own_cache(kit, monkeypatch):
+    """Codex keeps the models it offers in ~/.codex/models_cache.json: the app's dropdown lists the visible ones in
+    Codex's order, then the one saved here and the kit's default when Codex does not list them."""
+    from lib import common, machine
+    home = common.HOME / ".codex"
+    home.mkdir(parents=True, exist_ok=True)
+    monkeypatch.delenv("CODEX_HOME", raising=False)
+    (home / "models_cache.json").write_text(json.dumps({"models": [
+        {"slug": "gpt-b", "display_name": "GPT-B", "visibility": "list", "priority": 2},
+        {"slug": "hidden", "display_name": "Hidden", "visibility": "hide", "priority": 1},
+        {"slug": "gpt-a", "display_name": "GPT-A", "visibility": "list", "priority": 1}]}), encoding="utf-8")
+    machine.set_setting("codex_model", "my-own")
+    slugs = [m["slug"] for m in machine.codex_models()]
+    assert slugs == ["gpt-a", "gpt-b", "my-own", kit.wizard.CODEX_MODEL_DEFAULT]
+    assert machine.codex_models()[0]["label"] == "GPT-A"
+    assert "codex_models" in machine.panel()
+
+
+def test_codex_models_without_a_cache_keep_the_saved_one(kit, monkeypatch):
+    from lib import common, machine
+    monkeypatch.setenv("CODEX_HOME", str(common.HOME / "nowhere"))
+    assert [m["slug"] for m in machine.codex_models()] == [kit.wizard.CODEX_MODEL_DEFAULT]
+    (common.HOME / "nowhere").mkdir(parents=True)
+    (common.HOME / "nowhere" / "models_cache.json").write_text("{not json", encoding="utf-8")
+    assert [m["slug"] for m in machine.codex_models()] == [kit.wizard.CODEX_MODEL_DEFAULT]
