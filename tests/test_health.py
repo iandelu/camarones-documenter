@@ -4,6 +4,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+import pytest
+
 JACOCO = ('<?xml version="1.0" encoding="UTF-8"?><report name="app">'
           '<package name="a"><counter type="LINE" missed="5" covered="5"/></package>'
           '<counter type="LINE" missed="20" covered="80"/></report>\n')
@@ -191,3 +193,306 @@ def test_debt_trust_follows_the_page(kit):
     f = quality_page(kit, "tech-debt.md", "# Debt\n\n## Items\n\n| Item | Impact | Evidence |\n|---|---|---|\n| A | high | `api:x` |\n")
     kit.docs.confirm([str(f)], by="ana")
     assert health.debt_items(["api"])["api"][0]["trust"] == "confirmed"
+
+
+# ---- the snapshot: state rules, build, load ----
+
+import copy
+import json
+from datetime import date
+
+TODAY = date(2026, 10, 26)
+API = "src/main/java/demo/Api.java"          # 5 lines in the fixture repo
+
+
+def repo_block(**over):
+    return {"cloned": True, "libraries": 3, "vulns": {}, "vulnerable": [],
+            "sonar": {"used": False, "project": "", "organization": "", "host": "", "link": ""},
+            "coverage": None, "reports": [], "debt": [], **over}
+
+
+def clean_snapshot():
+    return {"v": 1, "at": "2026-10-26T08:00:00Z",
+            "machine": {"at": "2026-10-26T08:00:00Z", "missing": [], "drift": 0, "tools": 6},
+            "docs": {"at": "2026-10-26T08:00:00Z", "stale": [], "suspect": [], "evals": {"total": 3, "confirmed": 2},
+                     "context": {"total": 100, "budget": 500, "over": False}, "review": 0},
+            "inventory": {"at": "2026-10-20T00:00:00Z", "scanned": True},
+            "repos": {"api": repo_block(), "web": repo_block()}, "debt_project": []}
+
+
+def vuln(sev):
+    return {"name": "lib", "version": "1.0", "severity": sev, "id": "GHSA-1", "cve": "CVE-1", "fixed": "1.1"}
+
+
+def mutated(fn):
+    s = clean_snapshot()
+    fn(s)
+    return s
+
+
+def set_(path, value):
+    def apply(s):
+        node = s
+        for k in path[:-1]:
+            node = node[k]
+        node[path[-1]] = value
+    return apply
+
+
+def debt(impact):
+    return {"source": "quality/tech-debt.md", "trust": "draft", "item": "x", "impact": impact, "effort": "",
+            "evidence": [], "owner": "", "recommendation": ""}
+
+
+COV = {"at": "x", "source": "report", "path": "p"}
+CASES = [
+    # (name, change, area, state, first reason)
+    ("tool missing", set_(["machine", "missing"], ["git"]), "machine", "bad", "machine.missing"),
+    ("drift only", set_(["machine", "drift"], 2), "machine", "warn", "machine.drift"),
+    ("never checked", set_(["machine"], {"error": "boom"}), "machine", "warn", "machine.unchecked"),
+    ("stale page", set_(["docs", "stale"], [{"path": "a.md", "repos": ["api"]}]), "docs", "bad", "docs.stale"),
+    ("suspect page", set_(["docs", "suspect"], [{"path": "a.md", "repos": []}]), "docs", "warn", "docs.suspect"),
+    ("over budget", set_(["docs", "context"], {"total": 900, "budget": 500, "over": True}), "docs", "warn", "docs.context"),
+    ("no confirmed question", set_(["docs", "evals"], {"total": 3, "confirmed": 0}), "docs", "warn", "docs.noEvals"),
+    ("waiting for review", set_(["docs", "review"], 4), "docs", "warn", "docs.review"),
+    ("high vulnerability", set_(["repos", "api", "vulnerable"], [vuln("high")]), "code", "bad", "code.vulnHigh"),
+    ("critical vulnerability", set_(["repos", "api", "vulnerable"], [vuln("critical")]), "code", "bad", "code.vulnHigh"),
+    ("medium vulnerability", set_(["repos", "api", "vulnerable"], [vuln("medium")]), "code", "warn", "code.vulnMedium"),
+    ("never scanned", set_(["inventory"], {"at": None, "scanned": False}), "code", "warn", "code.noScan"),
+    ("scan 31 days old", set_(["inventory", "at"], "2026-09-25T10:00:00Z"), "code", "warn", "code.oldScan"),
+    ("coverage 49.9", set_(["repos", "api", "coverage"], {"percent": 49.9, **COV}), "code", "warn", "code.lowCoverage"),
+    ("high debt", set_(["repos", "web", "debt"], [debt("high")]), "code", "warn", "code.highDebt"),
+    ("high project debt", set_(["debt_project"], [debt("high")]), "code", "warn", "code.highDebt"),
+]
+OKS = [
+    ("scan 30 days old", set_(["inventory", "at"], "2026-09-26T10:00:00Z")),
+    ("coverage 50.0", set_(["repos", "api", "coverage"], {"percent": 50.0, **COV})),
+    ("low debt", set_(["repos", "web", "debt"], [debt("low"), debt("unknown")])),
+    ("repo not cloned", set_(["repos", "api"], repo_block(cloned=False, libraries=0))),
+]
+
+
+@pytest.mark.parametrize("name,change,area,state,key", CASES, ids=[c[0] for c in CASES])
+def test_areas_follow_the_rules(name, change, area, state, key):
+    from lib import health
+    got = health.areas(mutated(change), today=TODAY)
+    assert got["areas"][area]["state"] == state
+    assert got["areas"][area]["next"]["key"] == key
+    assert all(v["state"] == "ok" for k, v in got["areas"].items() if k != area)
+    assert got["verdict"][0]["key"] == key
+
+
+@pytest.mark.parametrize("name,change", OKS, ids=[c[0] for c in OKS])
+def test_areas_stay_ok_at_the_limit(name, change):
+    from lib import health
+    got = health.areas(mutated(change), today=TODAY)
+    assert {v["state"] for v in got["areas"].values()} == {"ok"} and got["verdict"] == []
+
+
+def test_all_clean_is_three_ok_and_no_verdict():
+    from lib import health
+    got = health.areas(clean_snapshot(), today=TODAY)
+    assert {k: v["state"] for k, v in got["areas"].items()} == {"machine": "ok", "docs": "ok", "code": "ok"}
+    assert got["verdict"] == [] and got["repo_state"] == {"api": "ok", "web": "ok"}
+    assert all(v["next"] is None for v in got["areas"].values())
+
+
+def test_figures_are_the_areas_two_key_numbers():
+    from lib import health
+    s = clean_snapshot()
+    s["machine"].update(missing=["git", "node"])
+    s["docs"].update(stale=[{"path": "a.md", "repos": []}], review=3)
+    s["repos"]["api"].update(libraries=10, vulns={"critical": 1, "high": 2, "medium": 1},
+                             vulnerable=[vuln("critical"), vuln("high"), vuln("high"), vuln("medium")])
+    s["repos"]["web"]["libraries"] = 5
+    a = health.areas(s, today=TODAY)["areas"]
+    assert a["machine"]["figures"] == [{"key": "machine.tools", "n": 6}, {"key": "machine.missing", "n": 2}]
+    assert a["docs"]["figures"] == [{"key": "docs.stale", "n": 1}, {"key": "docs.review", "n": 3}]
+    assert a["code"]["figures"] == [{"key": "code.libraries", "n": 15}, {"key": "code.vulnHigh", "n": 3}]
+
+
+def test_next_action_is_the_first_reason():
+    from lib import health
+    s = clean_snapshot()
+    s["docs"].update(stale=[{"path": "a.md", "repos": ["api"]}], review=2)
+    assert health.areas(s, today=TODAY)["areas"]["docs"]["next"] == {"key": "docs.stale", "row": "fresh"}
+    s["docs"]["stale"] = []
+    assert health.areas(s, today=TODAY)["areas"]["docs"]["next"] == {"key": "docs.review", "row": "review"}
+
+
+def test_every_reason_points_at_its_row():
+    from lib import health
+    assert health.ROWS == {
+        "machine.missing": "doctor", "machine.unchecked": "doctor", "machine.drift": "drift", "docs.stale": "fresh",
+        "docs.suspect": "fresh", "docs.context": "context", "docs.noEvals": "evals", "docs.review": "review",
+        "code.vulnHigh": "libs", "code.vulnMedium": "libs", "code.noScan": "libs", "code.oldScan": "libs",
+        "code.lowCoverage": "repos", "code.highDebt": "repos"}
+
+
+def test_verdict_lists_the_reasons_of_every_area_that_is_not_ok_in_area_order():
+    from lib import health
+    s = clean_snapshot()
+    s["machine"]["drift"] = 2
+    s["docs"]["stale"] = [{"path": "a.md", "repos": []}] * 3
+    s["repos"]["api"]["vulnerable"] = [vuln("high"), vuln("high")]
+    got = health.areas(s, today=TODAY)
+    assert [(v["key"], v["n"]) for v in got["verdict"]] == [("machine.drift", 2), ("docs.stale", 3), ("code.vulnHigh", 2)]
+
+
+def test_repo_state_is_the_worst_of_its_vulns_coverage_and_debt():
+    from lib import health
+    s = clean_snapshot()
+    s["repos"]["api"]["vulnerable"] = [vuln("medium"), vuln("critical")]
+    s["repos"]["web"]["coverage"] = {"percent": 10.0, **COV}
+    s["repos"]["worker"] = repo_block(debt=[debt("high")])
+    s["repos"]["old"] = repo_block(cloned=False, libraries=0)
+    assert health.areas(s, today=TODAY)["repo_state"] == {"api": "bad", "web": "warn", "worker": "warn", "old": "ok"}
+
+
+def test_a_failed_block_adds_no_rule_of_its_own():
+    from lib import health
+    s = clean_snapshot()
+    s["docs"]["context"] = s["docs"]["evals"] = s["inventory"] = {"error": "boom"}
+    s["repos"]["api"]["libraries"] = s["repos"]["api"]["vulnerable"] = {"error": "boom"}
+    s["repos"]["web"]["debt"] = {"error": "boom"}
+    got = health.areas(s, today=TODAY)
+    assert got["verdict"] == [] and got["repo_state"] == {"api": "ok", "web": "ok"}
+
+
+# ---- build and load ----
+
+NO_PROBES = {"prerequisites": [{"name": "git", "need": True, "ok": True}, {"name": "uv", "need": True, "ok": False},
+                               {"name": "docker", "need": False, "ok": False}],
+             "tools": [{"name": "likec4", "ok": True}, {"name": "gitleaks", "ok": False}], "drift": [{"file": "x"}]}
+
+
+@pytest.fixture
+def probed(wired, monkeypatch):
+    """A wired project whose doctor reads a fixed result instead of probing the machine's tools."""
+    from lib import doctor
+    monkeypatch.setattr(doctor, "report", lambda: copy.deepcopy(NO_PROBES))
+    return wired
+
+
+def quiet(_):
+    pass
+
+
+def test_build_writes_a_snapshot_the_api_can_load(probed):
+    from lib import health
+    snap = health.build(log=quiet)
+    assert snap["v"] == 1 and snap["at"] and health.load() == snap
+    assert json.loads(health.SNAPSHOT.read_text(encoding="utf-8")) == snap
+    assert health.SNAPSHOT.name == "health.json"
+    assert set(snap["repos"]) == set(probed.docs.repo_names())
+    assert snap["machine"]["missing"] == ["uv", "gitleaks"] and snap["machine"]["drift"] == 1
+    assert snap["inventory"] == {"at": None, "scanned": False}
+    assert set(snap) >= {"machine", "docs", "inventory", "repos", "debt_project", "areas", "repo_state", "verdict"}
+    assert snap["areas"]["machine"]["state"] == "bad" and snap["areas"]["code"]["next"]["key"] == "code.noScan"
+    api = snap["repos"]["api"]
+    assert api["cloned"] is True and api["coverage"] is None and api["reports"] == [] and api["debt"] == []
+    assert api["sonar"] == {"used": False, "project": "", "organization": "", "host": "", "link": ""}
+    assert isinstance(snap["docs"]["evals"]["total"], int) and isinstance(snap["docs"]["review"], int)
+
+
+def test_build_reads_the_saved_inventory_per_repo(probed):
+    from lib import health, inventory
+    probed.common.save_json(inventory.DATA, {
+        "libraries": [
+            {"repo": "api", "name": "a", "ecosystem": "maven", "version": "1", "vulns": [
+                {"id": "G1", "cve": "CVE-1", "severity": "high", "fixed": "2"},
+                {"id": "G2", "cve": None, "severity": "medium", "fixed": None}]},
+            {"repo": "api", "name": "b", "ecosystem": "maven", "version": "3", "vulns": []},
+            {"repo": "web", "name": "c", "ecosystem": "npm", "version": "1", "vulns": []}],
+        "vulns": {"at": "2026-10-01T00:00:00Z", "online": True}})
+    snap = health.build(log=quiet)
+    assert snap["inventory"] == {"at": "2026-10-01T00:00:00Z", "scanned": True}
+    api = snap["repos"]["api"]
+    assert api["libraries"] == 2 and api["vulns"] == {"high": 1, "medium": 1}
+    assert api["vulnerable"][0] == {"name": "a", "version": "1", "severity": "high", "id": "G1", "cve": "CVE-1", "fixed": "2"}
+    assert snap["repos"]["web"]["libraries"] == 1 and snap["repos"]["web"]["vulnerable"] == []
+    assert snap["areas"]["code"]["next"]["key"] == "code.vulnHigh"
+
+
+def test_an_inventory_never_scanned_for_vulnerabilities_is_not_scanned(probed):
+    from lib import health, inventory
+    probed.common.save_json(inventory.DATA, {"libraries": [{"repo": "api", "name": "a", "ecosystem": "maven", "version": "1"}],
+                                             "vulns": None})
+    snap = health.build(log=quiet)
+    assert snap["inventory"] == {"at": None, "scanned": False} and snap["repos"]["api"]["libraries"] == 1
+
+
+def test_build_reads_coverage_sonar_and_debt(probed):
+    from lib import health
+    api = probed.common.repo_dir("api")
+    put(api, "target/site/jacoco/jacoco.xml", JACOCO)
+    put(api, "sonar-project.properties", "sonar.projectKey=acme_api\nsonar.organization=acme\n")
+    quality_page(probed, "tech-debt.md", "# Debt\n\n## Items\n\n| Item | Impact | Evidence | Owner |\n|---|---|---|---|\n"
+                 "| Slow | high | `api:x` | Ana |\n| No CI | low | none | Ana |\n")
+    snap = health.build(log=quiet)
+    r = snap["repos"]["api"]
+    assert r["coverage"]["percent"] == 80.0 and r["reports"][0]["path"] == "target/site/jacoco/jacoco.xml"
+    assert r["sonar"]["used"] is True and r["sonar"]["project"] == "acme_api" and r["sonar"]["organization"] == "acme"
+    assert r["sonar"]["host"] == "" and r["sonar"]["link"]
+    assert [i["item"] for i in r["debt"]] == ["Slow"] and [i["item"] for i in snap["debt_project"]] == ["No CI"]
+    assert snap["repo_state"]["api"] == "warn"
+
+
+def test_stale_and_suspect_pages_name_the_repos_of_their_code(probed):
+    from lib import health
+    probed.plan.sync()
+    for rel, srcs in (("flows/a.md", [f"api:{API}#L3-L5"]), ("flows/b.md", ["worker:worker/main.py"])):
+        f = probed.root / "docs" / rel
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text("---\ntitle: t\nx-sources:\n" + "".join(f"  - {s}\n" for s in srcs) + "---\n# T\n", encoding="utf-8")
+    from lib.harness import freshness
+    freshness.stamp_all()
+    (probed.ws / "api" / API).write_text("package demo;\n\npublic class Api implements Runnable {\n    // calls worker over HTTP\n}\n", encoding="utf-8")
+    (probed.ws / "worker" / "worker" / "main.py").unlink()
+    snap = health.build(log=quiet)
+    assert snap["docs"]["suspect"] == [{"path": "flows/a.md", "repos": ["api"]}]
+    assert snap["docs"]["stale"] == [{"path": "flows/b.md", "repos": ["worker"]}]
+    assert snap["areas"]["docs"]["state"] == "bad" and snap["areas"]["docs"]["next"] == {"key": "docs.stale", "row": "fresh"}
+
+
+def test_one_failing_source_does_not_stop_the_rest(probed, monkeypatch):
+    from lib import budget, health
+
+    def boom():
+        raise RuntimeError("no budget today")
+    monkeypatch.setattr(budget, "standing", boom)
+    snap = health.build(log=quiet)
+    assert snap["docs"]["context"] == {"error": "no budget today"}
+    assert isinstance(snap["docs"]["review"], int) and snap["machine"]["missing"]
+    assert set(snap["areas"]) == {"machine", "docs", "code"} and set(snap["repos"]) == set(probed.docs.repo_names())
+    assert health.load() == snap
+
+
+def test_a_repo_not_cloned_is_listed_with_nothing_known(probed):
+    import shutil
+    from lib import health
+    shutil.rmtree(probed.common.repo_dir("web"), onexc=lambda fn, p, e: (os.chmod(p, 0o700), fn(p)))
+    snap = health.build(log=quiet)
+    web = snap["repos"]["web"]
+    assert web["cloned"] is False and web["coverage"] is None and web["libraries"] == 0
+    assert web["reports"] == [] and web["vulnerable"] == [] and web["sonar"]["used"] is False
+    assert snap["repos"]["api"]["cloned"] is True and snap["repo_state"]["web"] == "ok"
+
+
+def test_load_refuses_corrupt_or_newer_snapshots(kit):
+    from lib import health
+    assert health.load() is None                              # never built
+    health.SNAPSHOT.parent.mkdir(parents=True, exist_ok=True)
+    for text in ("{", "[]", '{"v": 2}', '{"v": 1.5}', "{}"):
+        health.SNAPSHOT.write_text(text, encoding="utf-8")
+        assert health.load() is None, text
+    health.SNAPSHOT.write_text('{"v": 1}', encoding="utf-8")
+    assert health.load() == {"v": 1}
+
+
+def test_the_doctor_record_matches_the_snapshot(probed):
+    from lib import doctor, health
+    snap = health.build(log=quiet)
+    rec = doctor.checked()
+    assert rec["result"] == NO_PROBES and rec["at"] == snap["machine"]["at"]
+    assert snap["machine"] == {"at": rec["at"], "missing": ["uv", "gitleaks"], "drift": 1, "tools": 2}
