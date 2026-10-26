@@ -146,3 +146,11 @@ export function repoRow(name, repo, state, t, scanned = true) {
   row.debt = debtText(repo.debt, t)
   return row
 }
+
+// What a tile's next-action button does. The app's action wins: it opens that row (the action renders there, once);
+// the portal has no actions, so it links; with neither the tile has no button.
+export function tileTarget(next, actions, links) {
+  if (!next) return null
+  if (actions?.[next.row]) return { kind: 'open', row: next.row }
+  return links?.[next.row] ? { kind: 'link', href: links[next.row] } : null
+}

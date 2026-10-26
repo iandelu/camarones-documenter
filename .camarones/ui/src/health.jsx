@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { t } from '../i18n/index.js'
 import { Aviso, Button } from './components.jsx'
-import { AREAS, fmtAgo, reasonText, repoRow, rowsFor, stateWord, verdictText } from './health.js'
+import { AREAS, fmtAgo, reasonText, repoRow, rowsFor, stateWord, tileTarget, verdictText } from './health.js'
 
 // The project's health screen, shared by the portal (read-only: `links`) and the desktop app (`actions`, `onRefresh`).
 // The numbers and states come from the snapshot of lib/health.py; the rules that turn them into rows are in health.js.
@@ -24,17 +24,15 @@ const dotClass = (state) => `cu-hb-dot cu-hb-dot--${state ?? 'none'}`
 const Dot = ({ state }) => <span className={dotClass(state)} aria-hidden="true">●</span>
 const safeUrl = (u) => (/^https?:\/\//i.test(u) ? u : null)
 
-// What a row or a tile offers: the app's control, else the portal's link, else nothing.
-function slot(id, actions, links) {
-  const act = actions?.[id]
-  if (act) return act()
-  return links?.[id] ? <Button variant="ghost" size="sm" href={links[id]}>{t('hb.open')} →</Button> : null
-}
-
-function Tile({ area, snapshot, actions, links }) {
+// The app's actions are stateful (they run commands when they mount), so one is drawn only inside its own row, and only
+// while that row is open: the tile's button opens the row instead of drawing a second copy.
+function Tile({ area, snapshot, actions, links, onOpen }) {
   const a = snapshot.areas?.[area] ?? { figures: [], next: null }
   const next = a.next
-  const control = next ? slot(next.row, actions, links) : null
+  const target = tileTarget(next, actions, links)
+  const control = target?.kind === 'open'
+    ? <Button variant="ghost" size="sm" onClick={() => onOpen(area, target.row)}>{t('hb.open')}</Button>
+    : target?.kind === 'link' ? <Button variant="ghost" size="sm" href={target.href}>{t('hb.open')} →</Button> : null
   return (
     <li className={`cu-hb-tile cu-hb-tile--${a.state ?? 'none'}`}>
       <div className="cu-hb-tile-head">
@@ -92,8 +90,11 @@ function RepoTable({ snapshot, repoHref }) {
   )
 }
 
-function Row({ row, snapshot, actions, links, repoHref }) {
-  const control = slot(row.id, actions, links)
+function Row({ row, snapshot, actions, links, repoHref, open, onToggle }) {
+  const action = actions?.[row.id]
+  const control = action
+    ? <Button variant="ghost" size="sm" aria-expanded={open} aria-controls={`cu-hb-open-${row.id}`} onClick={() => onToggle(row.id)}>{t('hb.open')}</Button>
+    : links?.[row.id] ? <Button variant="ghost" size="sm" href={links[row.id]}>{t('hb.open')} →</Button> : null
   return (
     <li className="cu-hb-row" data-row={row.id}>
       <Dot state={row.state} />
@@ -104,16 +105,20 @@ function Row({ row, snapshot, actions, links, repoHref }) {
       <span className="cu-hb-row-fig">{row.figure ?? '—'}</span>
       <span className="cu-hb-row-slot">{control}</span>
       {row.error && <div className="cu-hb-row-error"><Aviso tone="warn" title={t('hb.rowUnread')} detail={row.error} /></div>}
+      {action && open && <div className="cu-hb-row-body" id={`cu-hb-open-${row.id}`}>{action()}</div>}
       {row.id === 'repos' && <div className="cu-hb-row-body"><RepoTable snapshot={snapshot} repoHref={repoHref} /></div>}
     </li>
   )
 }
 
-export function HealthBoard({ snapshot, actions, links, repoHref, onRefresh, refreshing, initialTab }) {
+export function HealthBoard({ snapshot, actions, links, repoHref, onRefresh, refreshing, initialTab, initialOpen = [] }) {
+  const [open, setOpen] = useState(() => new Set(initialOpen))          // row ids whose action is showing
+  const toggle = (id) => setOpen((s) => { const n = new Set(s); if (!n.delete(id)) n.add(id); return n })
   const [tab, setTab] = useState(() => initialTab ?? savedTab()
     ?? AREAS.find((a) => snapshot?.areas?.[a]?.state && snapshot.areas[a].state !== 'ok') ?? 'machine')
   const tabs = useRef({})
   const pick = (a) => { setTab(a); saveTab(a) }
+  const openRow = (area, id) => { pick(area); setOpen((s) => new Set(s).add(id)) }
 
   const refresh = onRefresh && (
     <Button size="sm" onClick={onRefresh} disabled={!!refreshing}>{refreshing ? t('hb.refreshing') : t('hb.refresh')}</Button>
@@ -144,7 +149,7 @@ export function HealthBoard({ snapshot, actions, links, repoHref, onRefresh, ref
         {refresh}
       </header>
       <ul className="cu-hb-tiles">
-        {AREAS.map((a) => <Tile key={a} area={a} snapshot={snapshot} actions={actions} links={links} />)}
+        {AREAS.map((a) => <Tile key={a} area={a} snapshot={snapshot} actions={actions} links={links} onOpen={openRow} />)}
       </ul>
       <div role="tablist" aria-label={t('hb.areas')} className="cu-hb-tabs" onKeyDown={onKey}>
         {AREAS.map((a) => (
@@ -155,7 +160,8 @@ export function HealthBoard({ snapshot, actions, links, repoHref, onRefresh, ref
         ))}
       </div>
       <ul className="cu-hb-rows" role="tabpanel" id="cu-hb-panel" aria-labelledby={`cu-hb-tab-${tab}`}>
-        {rows.map((r) => <Row key={r.id} row={r} snapshot={snapshot} actions={actions} links={links} repoHref={repoHref} />)}
+        {rows.map((r) => <Row key={r.id} row={r} snapshot={snapshot} actions={actions} links={links} repoHref={repoHref}
+                                   open={open.has(r.id)} onToggle={toggle} />)}
       </ul>
     </div>
   )

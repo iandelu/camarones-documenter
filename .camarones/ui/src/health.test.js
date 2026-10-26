@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, test } from 'vitest'
 import { S, t as text } from '../i18n/index.js'
 import { HealthBoard } from './index.js'
-import { fmtAgo, repoRow, rowsFor, verdictText } from './health.js'
+import { fmtAgo, repoRow, rowsFor, tileTarget, verdictText } from './health.js'
 
 const en = (k) => text(k, 'en')
 const es = (k) => text(k, 'es')
@@ -150,9 +150,32 @@ test('the board hides a row with neither an action nor a link, and keeps the rep
   expect(render({ initialTab: 'code', links: { libs: '#/libs' } })).toContain('data-row="libs"')
 })
 
-test('the tile button uses the action in the app, the link in the portal, and nothing otherwise', () => {
-  expect(render({ actions: { doctor: () => h('button', { id: 'fix' }, 'Fix') } })).toContain('id="fix"')
-  expect(render({ links: { doctor: '#/doctor' } })).toContain('href="#/doctor"')
+test('tileTarget: the action wins over the link, a link alone links, neither is nothing', () => {
+  const next = { key: 'machine.missing', row: 'doctor' }
+  expect(tileTarget(next, { doctor: () => null }, { doctor: '#/d' })).toEqual({ kind: 'open', row: 'doctor' })
+  expect(tileTarget(next, {}, { doctor: '#/d' })).toEqual({ kind: 'link', href: '#/d' })
+  expect(tileTarget(next, undefined, { doctor: '#/d' })).toEqual({ kind: 'link', href: '#/d' })
+  expect(tileTarget(next, { drift: () => null }, {})).toBeNull()
+  expect(tileTarget(next, undefined, undefined)).toBeNull()
+  expect(tileTarget(null, { doctor: () => null }, {})).toBeNull()
+})
+
+const fix = () => h('button', { id: 'fix' }, 'Fix')
+
+test('an app action is drawn once, only inside its row and only while the row is open', () => {
+  const closed = render({ actions: { doctor: fix } })
+  expect(closed).not.toContain('id="fix"')                      // the tile does not draw it either
+  expect(closed).toContain('aria-expanded="false"')
+  expect(closed).toContain('cu-hb-next-act')                    // the tile has a button that opens the row
+  const open = render({ actions: { doctor: fix }, initialOpen: ['doctor'] })
+  expect(open.match(/id="fix"/g)).toHaveLength(1)
+  expect(open).toContain('aria-expanded="true"')
+})
+
+test('in the portal the tile and the row link, and nothing runs', () => {
+  const out = render({ links: { doctor: '#/doctor' } })
+  expect(out.match(/href="#\/doctor"/g)).toHaveLength(2)        // tile + row
+  expect(out).not.toContain('aria-expanded')
   expect(render({})).not.toContain('cu-hb-next-act')
 })
 
