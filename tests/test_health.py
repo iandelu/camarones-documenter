@@ -48,15 +48,41 @@ def test_reports_outside_the_known_paths_are_ignored(tmp_path):
 
 def test_hostile_or_huge_reports_are_skipped(tmp_path):
     from lib import health
-    put(tmp_path, "target/site/jacoco/jacoco.xml", '<!DOCTYPE r [<!ENTITY x "y">]>' + JACOCO)
-    put(tmp_path, "build/reports/jacoco/test/huge.xml", "<report>" + " " * health.MAX_REPORT_BYTES + "</report>")
+    body = JACOCO.split("?>", 1)[1]
+    put(tmp_path, "target/site/jacoco/jacoco.xml", '<?xml version="1.0"?><!DOCTYPE report [<!ENTITY x "y">]>' + body)
+    put(tmp_path, "build/reports/jacoco/test/huge.xml", JACOCO + "<!--" + " " * health.MAX_REPORT_BYTES + "-->")
     put(tmp_path, "build/reports/jacoco/test/cut.xml", "<report><counter type=")
     put(tmp_path, "coverage/lcov.info", "LF:4\nLH:1\n")
     reports = {r["path"]: r for r in health.coverage_reports(tmp_path)}
     assert len(reports) == 4
-    for path in ("target/site/jacoco/jacoco.xml", "build/reports/jacoco/test/huge.xml", "build/reports/jacoco/test/cut.xml"):
-        assert reports[path]["error"] and "percent" not in reports[path]
+    assert reports["target/site/jacoco/jacoco.xml"]["error"] == "DTD or entity declarations are not accepted"
+    assert reports["build/reports/jacoco/test/huge.xml"]["error"] == f"larger than {health.MAX_REPORT_BYTES} bytes"
+    assert reports["build/reports/jacoco/test/cut.xml"]["error"] and "percent" not in reports["build/reports/jacoco/test/cut.xml"]
     assert reports["coverage/lcov.info"]["percent"] == 25.0
+
+
+def test_a_utf16_document_cannot_hide_its_doctype(tmp_path):
+    from lib import health
+    text = '<?xml version="1.0" encoding="UTF-16"?><!DOCTYPE report [<!ENTITY x "y">]>' + JACOCO.split("?>", 1)[1]
+    (tmp_path / "target/site/jacoco").mkdir(parents=True)
+    (tmp_path / "target/site/jacoco/jacoco.xml").write_bytes(text.encode("utf-16"))
+    (tmp_path / "build/reports/jacoco").mkdir(parents=True)
+    (tmp_path / "build/reports/jacoco/le.xml").write_bytes(text.encode("utf-16-le"))
+    reports = health.coverage_reports(tmp_path)
+    assert [r.get("error") for r in reports] == ["not UTF-8 text"] * 2
+
+
+def test_impossible_percentages_are_errors(tmp_path):
+    from lib import health
+    put(tmp_path, "coverage/a/cobertura-nan.xml", '<coverage line-rate="nan"></coverage>')
+    put(tmp_path, "coverage/b/cobertura-inf.xml", '<coverage line-rate="inf"></coverage>')
+    put(tmp_path, "coverage/c/cobertura-high.xml", '<coverage line-rate="1.5"></coverage>')
+    put(tmp_path, "coverage/d/lcov.info", "LF:10\nLH:12\n")
+    put(tmp_path, "coverage/e/lcov.info", "LF:10\nLH:-2\n")
+    reports = health.coverage_reports(tmp_path)
+    assert len(reports) == 5
+    assert all("error" in r and "percent" not in r for r in reports)
+    assert health.repo_coverage(reports) is None
 
 
 def test_repo_coverage_takes_the_newest_good_report(tmp_path):
