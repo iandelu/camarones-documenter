@@ -19,8 +19,11 @@ export function doctorNote(p) {
   return names.length || p.drift ? { names, drift: p.drift } : null
 }
 
-export function action(step) {
+// plan: {interviews} from the summary (null while nobody chose how they run: the agent would refuse the unit).
+export const INTERVIEW_TYPES = ['interview-context', 'interview-language', 'interview-history']   // lib/plan.py
+export function action(step, plan = {}) {
   const u = step?.unit
+  if (u && plan.interviews === null && INTERVIEW_TYPES.includes(u.type)) return { kind: 'link', href: '#/interviews', label: 'iv.choose' }
   if (step?.kind === 'resume') return { kind: 'agent', unit: u.id, mode: 'continue', label: 'next.resume' }
   if (step?.kind === 'next' && u.runner === 'agent') return { kind: 'agent', unit: u.id, mode: 'new', label: 'next.start' }
   if (step?.kind === 'next') return linkFor(u)

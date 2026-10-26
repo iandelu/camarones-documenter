@@ -31,3 +31,10 @@ test('then review in the portal, then read', () => {
   expect(action({ kind: 'done' })).toEqual({ kind: 'link', href: '../#/', label: 'next.read' })
   expect(action(null)).toEqual({ kind: 'link', href: '../#/', label: 'next.read' })
 })
+
+test('an interview unit sends you to choose how interviews run until someone chose it', () => {
+  const iv = { kind: 'next', unit: unit('interview-context', 'agent') }
+  expect(action(iv, { interviews: null })).toEqual({ kind: 'link', href: '#/interviews', label: 'iv.choose' })
+  expect(action(iv, { interviews: 'team' }).kind).toBe('agent')
+  expect(action(iv).kind).toBe('agent')
+})

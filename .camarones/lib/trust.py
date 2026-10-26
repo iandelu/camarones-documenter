@@ -175,8 +175,14 @@ def _store(root: Path | None = None) -> dict | None:
     return load_json(store_path(root), None)
 
 
-def _save(approved: dict[str, str], root: Path | None = None) -> None:
-    save_json(store_path(root), {"root": str((root or ROOT).resolve()), "approved": dict(sorted(approved.items()))})
+def _save(approved: dict[str, str], root: Path | None = None, off: list[str] | None = None) -> None:
+    """`off`: the plugins turned off on this machine (None keeps the list as it is)."""
+    if off is None:
+        off = (_store(root) or {}).get("off") or []
+    data = {"root": str((root or ROOT).resolve()), "approved": dict(sorted(approved.items()))}
+    if off:
+        data["off"] = sorted(set(off))
+    save_json(store_path(root), data)
 
 
 def _linked_here() -> bool:
@@ -249,6 +255,19 @@ def revoke_plugin(plugin, root: Path | None = None) -> None:
     approved = (_store(root) or {}).get("approved") or {}
     approved.pop(f"plugin {plugin.name}", None)
     _save(approved, root)
+
+
+def plugin_off(name: str, root: Path | None = None) -> bool:
+    """Turned off on this machine: a kit plugin (Gemini…) is on by default, so off is its own choice, kept apart from
+    the approvals."""
+    return name in ((_store(root) or {}).get("off") or [])
+
+
+def set_plugin_off(name: str, off: bool, root: Path | None = None) -> None:
+    store = _store(root) or {}
+    names = set(store.get("off") or [])
+    names = names | {name} if off else names - {name}
+    _save(store.get("approved") or {}, root, off=sorted(names))
 
 
 def forget(root: Path | None = None) -> None:

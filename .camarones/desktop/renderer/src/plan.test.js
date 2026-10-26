@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { groups, unitAction, waitsFor } from './plan.js'
+import { board, COLUMNS, groups, phases, tone, unitAction, waitsFor } from './plan.js'
 
 const u = (id, status, more = {}) => ({ id, status, phase: 1, runner: 'agent', type: id, deps: [], ready: false, awaiting: false, ...more })
 
@@ -28,4 +28,36 @@ test('each unit has the one action that moves it', () => {
   expect(unitAction(u('w', 'todo'))).toBeNull()
   expect(unitAction(u('d', 'done'))).toBeNull()
   expect(unitAction(u('s', 'doing', { runner: 'wizard', type: 'answers' }))).toEqual({ kind: 'link', href: '#/interviews', label: 'next.answers' })
+})
+
+test('each unit has a tone: running yellow, done green, ready white, blocked red, awaiting you, waiting dim', () => {
+  expect(tone(u('g', 'doing'))).toBe('running')
+  expect(tone(u('d', 'done'))).toBe('done')
+  expect(tone(u('r', 'todo', { ready: true }))).toBe('ready')
+  expect(tone(u('w', 'todo'))).toBe('waiting')
+  expect(tone(u('b', 'blocked'))).toBe('blocked')
+  expect(tone(u('a', 'blocked', { awaiting: true }))).toBe('awaiting')
+  expect(tone(u('x', 'dropped'))).toBe('dropped')
+})
+
+test('the board: one column per tone a person acts on, in plan order; dropped units stay out', () => {
+  const units = [u('d', 'done'), u('r2', 'todo', { ready: true, phase: 2 }), u('r1', 'todo', { ready: true }),
+    u('g', 'doing'), u('a', 'blocked', { awaiting: true }), u('b', 'blocked'), u('w', 'todo'), u('x', 'dropped')]
+  const cols = board(units)
+  expect(cols.map((c) => c.key)).toEqual(COLUMNS)
+  expect(Object.fromEntries(cols.map((c) => [c.key, c.units.map((x) => x.id)]))).toEqual({
+    ready: ['r1', 'r2'], running: ['g'], attention: ['a', 'b'], waiting: ['w'], done: ['d'] })
+})
+
+test('the phases: one lane per phase with how many are done', () => {
+  const units = [u('a', 'done'), u('b', 'todo', { phase: 2 }), u('c', 'done', { phase: 2 }), u('x', 'dropped', { phase: 3 })]
+  expect(phases(units).map((p) => [p.phase, p.units.map((x) => x.id), p.done])).toEqual([[1, ['a'], 1], [2, ['b', 'c'], 1]])
+})
+
+test('an interview unit asks for the mode until someone chose it', () => {
+  const iv = u('interview-context', 'todo', { ready: true, type: 'interview-context' })
+  expect(unitAction(iv, { interviews: null })).toEqual({ kind: 'mode', label: 'iv.choose' })
+  expect(unitAction(iv, { interviews: 'live' })).toEqual({ kind: 'agent', mode: 'new', label: 'unit.start' })
+  expect(unitAction(u('r', 'todo', { ready: true }), { interviews: null }).kind).toBe('agent')
+  expect(unitAction(iv)).toEqual({ kind: 'agent', mode: 'new', label: 'unit.start' })    // unknown: as before
 })

@@ -1,18 +1,23 @@
 import { useEffect, useState } from 'react'
-import { Aviso, Button, Card, EmptyState, Skeleton } from '@camaron/ui'
-import { groups } from '../plan.js'
+import { Aviso, Button, Card, Chip, EmptyState, Skeleton } from '@camaron/ui'
+import { board, phases, tone, waitsFor } from '../plan.js'
 import { useAgents, useCmd, useStore } from '../hooks.js'
-import { AgentPicker, Failed, Fold, JobOutput, Page, UnitRow } from '../parts.jsx'
+import { AgentPicker, Failed, Fold, JobOutput, Page, UnitActions } from '../parts.jsx'
 import Commands from './Commands.jsx'
 import { lang, t } from '../i18n.js'
 
-// The Plan by task: run the ready units (in parallel, or the autopilot one after another) or stop what runs; then the
-// units grouped by what they ask of you, each with the one action that moves it. The graph stays in the portal.
-const ASKS = ['awaiting', 'blocked', 'doing', 'ready']
+// The Plan by task: run the ready units (in parallel, or the autopilot one after another) or stop what runs; then
+// every unit coloured by its state (running yellow, done green, ready white, blocked red, awaiting you in the accent),
+// as a board by state or lane by phase like the portal. A unit opens beside the board with the one action that moves
+// it. The graph with its arrows stays in the portal.
+const VIEWS = ['board', 'phases']
+const TONES = ['ready', 'running', 'awaiting', 'blocked', 'waiting', 'done']
 
 export default function Plan({ srv, jobs }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
+  const [view, setView] = useState(() => { try { return localStorage.getItem('dk.planView') || 'board' } catch { return 'board' } })
+  const [open, setOpen] = useState(null)
   const a = useAgents(srv)
   const { running } = useStore(jobs)
   const pilot = running.find((j) => j.kind.startsWith('cmd:autopilot'))
@@ -23,28 +28,88 @@ export default function Plan({ srv, jobs }) {
     const id = setInterval(load, active ? 3000 : 15000)
     return () => clearInterval(id)
   }, [active, running.length])
+  const pick = (v) => { setView(v); try { localStorage.setItem('dk.planView', v) } catch { /* private window: not kept */ } }
   if (error) return <Page title={t('nav.plan')}><Failed title={t('plan.failed')} detail={error} onRetry={() => { setError(''); load() }} /></Page>
   if (!data) return <Page title={t('nav.plan')}><Skeleton lines={6} /></Page>
   if (!data.units.length) return <Page title={t('nav.plan')}><NoPlan srv={srv} jobs={jobs} onDone={load} /></Page>
-  const g = groups(data.units)
-  const row = (u) => <UnitRow key={u.id} u={u} all={data.units} srv={srv} a={a} onChanged={load} />
+  const live = data.units.filter((u) => u.status !== 'dropped')
+  const done = live.filter((u) => u.status === 'done').length
+  const ready = live.filter((u) => tone(u) === 'ready').length
+  const unit = open && data.units.find((u) => u.id === open)
+  const card = (u) => <UnitCard key={u.id} u={u} on={u.id === open} onOpen={() => setOpen(u.id === open ? null : u.id)} />
   return (
-    <Page title={t('nav.plan')}>
-      <Run srv={srv} jobs={jobs} run={data.run} pilot={pilot} onChanged={load} ready={g.ready.length} />
+    <Page title={t('nav.plan')} wide>
+      <Run srv={srv} jobs={jobs} run={data.run} pilot={pilot} onChanged={load} ready={ready} />
       <Update srv={srv} a={a} />
-      <div className="row dk-units-head"><span className="muted small">{t('plan.progress', {
-        done: g.done.length, total: data.units.filter((u) => u.status !== 'dropped').length })}</span>
-        <span className="dk-grow"></span><AgentPicker a={a} /></div>
-      {ASKS.map((k) => (g[k].length ? (
-        <section key={k} className="dk-group-block">
-          <h2 className="eyebrow dk-group">{t('grp.' + k)} ({g[k].length})</h2>
-          <ul className="dk-units">{g[k].map(row)}</ul>
-        </section>
-      ) : null))}
-      {g.waiting.length ? <Fold label={`${t('grp.waiting')} (${g.waiting.length})`}><ul className="dk-units">{g.waiting.map(row)}</ul></Fold> : null}
-      {g.done.length ? <Fold label={`${t('grp.done')} (${g.done.length})`}><ul className="dk-units">{g.done.map(row)}</ul></Fold> : null}
+      <div className="row dk-units-head">
+        <b>{t('plan.progress', { done, total: live.length })}</b>
+        <progress className="dk-progress dk-grow" value={done} max={live.length || 1} aria-label={t('stat.plan')} />
+        <div className="dk-seg" role="tablist" aria-label={t('plan.view')}>
+          {VIEWS.map((v) => <button key={v} type="button" role="tab" aria-selected={view === v} className={view === v ? 'on' : ''}
+            onClick={() => pick(v)}>{t('plan.' + v)}</button>)}
+        </div>
+        <AgentPicker a={a} />
+      </div>
+      <div className="row dk-legend" aria-hidden="true">
+        {TONES.map((k) => <span key={k} className={`dk-tone tone-${k}`}><i></i>{t('tone.' + k)}</span>)}
+      </div>
+      <div className={'dk-plan' + (unit ? ' with-detail' : '')}>
+        {view === 'board' ? (
+          <div className="dk-board">{board(data.units).map((c) => (
+            <section key={c.key} className="dk-col" aria-label={t('col.' + c.key)}>
+              <h2 className="eyebrow dk-col-head">{t('col.' + c.key)} <span>{c.units.length}</span></h2>
+              {c.units.map(card)}
+              {!c.units.length ? <p className="muted small dk-col-empty">{t('col.empty')}</p> : null}
+            </section>
+          ))}</div>
+        ) : (
+          <div className="dk-lanes">{phases(data.units).map((p) => (
+            <section key={p.phase} className="dk-col" aria-label={t('plan.phase', { n: p.phase })}>
+              <h2 className="eyebrow dk-col-head">{t('plan.phase', { n: p.phase })} <span>{p.done}/{p.units.length}</span></h2>
+              {p.units.map(card)}
+            </section>
+          ))}</div>
+        )}
+        {unit ? <Detail u={unit} all={data.units} srv={srv} a={a} plan={data} onClose={() => setOpen(null)} onChanged={load} /> : null}
+      </div>
       <Commands srv={srv} jobs={jobs} section="plan" />
     </Page>
+  )
+}
+
+// A unit on the board: its colour says its state, a pulse while it runs; it opens the detail.
+function UnitCard({ u, on, onOpen }) {
+  const k = tone(u)
+  return (
+    <button type="button" className={`dk-card tone-${k}` + (on ? ' on' : '')} aria-expanded={on} onClick={onOpen} title={u.title}>
+      <span className="dk-card-title">{u.title}</span>
+      <span className="dk-card-meta"><i></i>{t('tone.' + k)} · <code>{u.id}</code></span>
+    </button>
+  )
+}
+
+// The unit opened: what it is, what it waits for, its notes and the one action that moves it.
+function Detail({ u, all, srv, a, plan, onClose, onChanged }) {
+  const waits = waitsFor(u, all)
+  const k = tone(u)
+  const state = { running: 'warn', done: 'ok', blocked: 'bad', awaiting: 'info' }[k]
+  return (
+    <Card as="aside" className={`dk-detail tone-${k}`} aria-label={u.title}>
+      <div className="row"><Chip state={state}>{t('tone.' + k)}</Chip><span className="dk-grow"></span>
+        <button type="button" className="dk-icon" aria-label={t('close')} onClick={onClose}>×</button></div>
+      <h2 className="dk-detail-title">{u.title}</h2>
+      <dl className="dk-pairs">
+        <dt>{t('plan.id')}</dt><dd><code>{u.id}</code></dd>
+        <dt>{t('plan.phaseOf')}</dt><dd>{u.phase}</dd>
+        <dt>{t('plan.by')}</dt><dd>{u.runner === 'agent' ? t('plan.byAgent') : t('plan.byYou')}</dd>
+        {u.repo ? <><dt>{t('plan.repo')}</dt><dd>{u.repo}</dd></> : null}
+        {(u.deps || []).length ? <><dt>{t('plan.deps')}</dt><dd>{u.deps.map((d) => <code key={d} className={waits.includes(d) ? '' : 'muted'}>{d} </code>)}</dd></> : null}
+      </dl>
+      {u.notes ? <p className="small dk-detail-notes">{u.notes}</p> : null}
+      {waits.length && k === 'waiting' ? <p className="muted small">{t('unit.waits', { list: waits.join(', ') })}</p> : null}
+      <UnitActions u={u} srv={srv} a={a} plan={plan} onChanged={onChanged} />
+      <a className="small" href={`../#/pipeline/${encodeURIComponent(u.id)}`}>{t('plan.inPortal')}</a>
+    </Card>
   )
 }
 
