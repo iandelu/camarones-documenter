@@ -121,6 +121,7 @@ export function UnitActions({ u, srv, a, plan, onChanged }) {
         {act.mode === 'continue' ? <Button size="sm" variant="ghost" disabled={busy || !a.agent} onClick={() => agent('restart')}>{t('unit.restart')}</Button> : null}
       </>) : null}
       {noAgent ? <Button size="sm" href="#/machine">{t('next.machine')}</Button> : null}
+      {act?.kind === 'live' ? <span className="muted small">{t('sess.openShort')}</span> : null}
     </div>
     {note.ok ? <p className="muted small dk-unit-note" role="status">{note.ok}</p> : null}
     {note.error ? <div className="dk-unit-note"><Aviso tone="error" title={t('unit.failed')} detail={note.error} /></div> : null}
