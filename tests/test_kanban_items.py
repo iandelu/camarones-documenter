@@ -128,3 +128,28 @@ def test_paths_are_under_cam_docs_backlog(kit):
 
 def test_init_templates_does_not_copy_board_templates(wired):
     assert not (wired.root / "board").exists()
+
+
+def test_new_body_takes_a_description_and_criteria(kit):
+    from lib.kanban.items import checklist, description, new_body
+    b = new_body("task", "en", ["done"], description="Do it.\nTwice.", criteria=["a", " b  c ", " "])
+    assert description(b) == "Do it.\nTwice."
+    assert [(c["n"], c["text"]) for c in checklist(b, "AC")] == [(1, "a"), (2, "b c")]
+    assert [c["text"] for c in checklist(b, "DOD")] == ["done"]
+    assert new_body("task", "en", ["done"]) == new_body("task", "en", ["done"], description="  ", criteria=())
+
+
+def test_set_description_and_add_criteria_keep_the_rest(kit):
+    from lib.kanban.items import add_criteria, checklist, description, new_body, set_description
+    b = new_body("task", "en", ["done"], criteria=["one"])
+    b = b.replace("- [ ] #1 one", "- [x] #1 one")
+    b2 = add_criteria(set_description(b, "New."), ["two"])
+    assert description(b2) == "New." and checklist(b2, "DOD") == checklist(b, "DOD")
+    assert [(c["n"], c["done"]) for c in checklist(b2, "AC")] == [(1, True), (2, False)]
+    assert add_criteria(b2, [" "]) == b2
+    bare = "just notes\n"
+    assert description(set_description(bare, "D")) == "D" and set_description(bare, "D").endswith("just notes\n")
+    assert [c["text"] for c in checklist(add_criteria(bare, ["x"]), "AC")] == ["x"]
+    plain = "## Definition of Done\n<!-- DOD:BEGIN -->\n- [ ] #1 d\n<!-- DOD:END -->\n"
+    out = add_criteria(plain, ["x"])
+    assert out.index("AC:BEGIN") < out.index("DOD:BEGIN") and checklist(out, "DOD")[0]["text"] == "d"
