@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { t } from '../i18n/index.js'
 import { Aviso, Button } from './components.jsx'
-import { AREAS, fmtAgo, reasonText, repoRow, rowsFor, stateWord, tileTarget, verdictText } from './health.js'
+import { AREAS, fmtAgo, nextReason, repoRow, rowsFor, stateWord, tileTarget, verdictText } from './health.js'
 
 // The project's health screen, shared by the portal (read-only: `links`) and the desktop app (`actions`, `onRefresh`).
 // The numbers and states come from the snapshot of lib/health.py; the rules that turn them into rows are in health.js.
@@ -21,7 +21,14 @@ function saveTab(tab) {
 }
 
 const dotClass = (state) => `cu-hb-dot cu-hb-dot--${state ?? 'none'}`
-const Dot = ({ state }) => <span className={dotClass(state)} aria-hidden="true">●</span>
+// The dot is colour; `word` is what it says, for readers who do not see the colour (screen readers). Where the word is
+// already drawn next to the dot, it is left out.
+const Dot = ({ state, word }) => (
+  <>
+    <span className={dotClass(state)} aria-hidden="true">●</span>
+    {word && <span className="sr-only">{word}</span>}
+  </>
+)
 const safeUrl = (u) => (/^https?:\/\//i.test(u) ? u : null)
 
 // The app's actions are stateful (they run commands when they mount), so one is drawn only inside its own row, and only
@@ -48,7 +55,7 @@ function Tile({ area, snapshot, actions, links, onOpen }) {
           </div>
         ))}
       </dl>
-      {next && <p className="cu-hb-next-why">{reasonText(next, t)}</p>}
+      {next && <p className="cu-hb-next-why">{nextReason(next, snapshot.verdict, t)}</p>}
       {control && <span className="cu-hb-next-act">{control}</span>}
     </li>
   )
@@ -90,14 +97,14 @@ function RepoTable({ snapshot, repoHref }) {
   )
 }
 
-function Row({ row, snapshot, actions, links, repoHref, open, onToggle }) {
+function Row({ area, row, snapshot, actions, links, repoHref, open, onToggle }) {
   const action = actions?.[row.id]
   const control = action
     ? <Button variant="ghost" size="sm" aria-expanded={open} aria-controls={`cu-hb-open-${row.id}`} onClick={() => onToggle(row.id)}>{t('hb.open')}</Button>
     : links?.[row.id] ? <Button variant="ghost" size="sm" href={links[row.id]}>{t('hb.open')} →</Button> : null
   return (
     <li className="cu-hb-row" data-row={row.id}>
-      <Dot state={row.state} />
+      <Dot state={row.state} word={stateWord(area, row.state, t)} />
       <div className="cu-hb-row-main">
         <strong>{t(`hb.row.${row.id}`)}</strong>
         <span className="cu-hb-row-what">{t(`hb.rowWhat.${row.id}`)}</span>
@@ -144,7 +151,7 @@ export function HealthBoard({ snapshot, actions, links, repoHref, onRefresh, ref
   return (
     <div className="cu-hb">
       <header className="cu-hb-top">
-        <p className={`cu-hb-verdict cu-hb-verdict--${overall}`}><Dot state={overall} /> {verdictText(snapshot, t)}</p>
+        <p className={`cu-hb-verdict cu-hb-verdict--${overall}`}><Dot state={overall} word={overall === 'ok' ? '' : t(`hb.state.${overall}`)} /> {verdictText(snapshot, t)}</p>
         <p className="cu-hb-checked">{t('hb.checked')} {fmtAgo(snapshot.at, Date.now(), t)}</p>
         {refresh}
       </header>
@@ -155,12 +162,12 @@ export function HealthBoard({ snapshot, actions, links, repoHref, onRefresh, ref
         {AREAS.map((a) => (
           <button key={a} type="button" role="tab" id={`cu-hb-tab-${a}`} aria-selected={tab === a} aria-controls="cu-hb-panel"
                   tabIndex={tab === a ? 0 : -1} ref={(el) => { tabs.current[a] = el }} className="cu-hb-tab" onClick={() => pick(a)}>
-            <Dot state={snapshot.areas?.[a]?.state} /> {t(`hb.area.${a}`)}
+            <Dot state={snapshot.areas?.[a]?.state} word={stateWord(a, snapshot.areas?.[a]?.state, t)} /> {t(`hb.area.${a}`)}
           </button>
         ))}
       </div>
       <ul className="cu-hb-rows" role="tabpanel" id="cu-hb-panel" aria-labelledby={`cu-hb-tab-${tab}`}>
-        {rows.map((r) => <Row key={r.id} row={r} snapshot={snapshot} actions={actions} links={links} repoHref={repoHref}
+        {rows.map((r) => <Row key={r.id} area={tab} row={r} snapshot={snapshot} actions={actions} links={links} repoHref={repoHref}
                                    open={open.has(r.id)} onToggle={toggle} />)}
       </ul>
     </div>

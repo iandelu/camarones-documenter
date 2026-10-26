@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, test } from 'vitest'
 import { S, t as text } from '../i18n/index.js'
 import { HealthBoard } from './index.js'
-import { fmtAgo, repoRow, rowsFor, tileTarget, verdictText } from './health.js'
+import { fmtAgo, nextReason, repoRow, rowsFor, tileTarget, verdictText } from './health.js'
 
 const en = (k) => text(k, 'en')
 const es = (k) => text(k, 'es')
@@ -88,10 +88,65 @@ test('repoRow draws coverage with its source and date, vulnerabilities by severi
     vulns: 'high 2 · medium 1', debt: '2 · high · draft', state: 'bad' })
 })
 
-test('repoRow keeps unknowns apart from zero: a failed block or a library list never scanned is a dash', () => {
-  expect(repoRow('a', repo({ vulns: { error: 'x' }, sonar: { error: 'x' }, coverage: { error: 'x' }, debt: { error: 'x' } }), 'ok', en))
-    .toMatchObject({ sonar: '—', coverage: '—', vulns: '—', debt: '—' })
+test('repoRow keeps unknowns apart from zero: a library list never scanned is a dash', () => {
   expect(repoRow('a', repo(), 'ok', en, false).vulns).toBe('—')
+})
+
+test('repoRow shows a failed sub-block as unread and carries the first message', () => {
+  const r = repoRow('a', repo({ vulns: { error: 'osv down' }, sonar: { error: 'no radar' }, coverage: { error: 'bad xml' }, debt: { error: 'no page' } }), 'ok', en)
+  expect(r).toMatchObject({ sonar: 'unread', coverage: 'unread', vulns: 'unread', debt: 'unread', error: 'no radar' })
+  expect(repoRow('a', repo({ vulns: { error: 'osv down' } }), 'ok', en, false)).toMatchObject({ vulns: 'unread', error: 'osv down', sonar: 'no' })
+  expect(repoRow('a', repo({ debt: { error: 'no page' } }), 'ok', es)).toMatchObject({ debt: 'sin leer', error: 'no page' })
+  expect(repoRow('a', repo(), 'ok', en).error).toBeUndefined()
+})
+
+test('the board shows a repo sub-block failure in the table', () => {
+  const s = snapshot({ repos: { api: repo({ coverage: { error: 'bad xml' } }) } })
+  const out = renderToStaticMarkup(h(HealthBoard, { snapshot: s, initialTab: 'code' }))
+  expect(out).toContain('bad xml')
+  expect(out).toContain('unread')
+})
+
+test('a tile\'s reason carries its number, taken from the verdict (the area\'s next has none)', () => {
+  const s = bad()
+  expect(s.areas.docs.next).toEqual({ key: 'docs.review', row: 'review' })          // as lib/health.py writes it
+  const out = render({})
+  expect(out).toContain('<p class="cu-hb-next-why">Pages to review: 3</p>')
+  expect(out).toContain('<p class="cu-hb-next-why">Missing tools: 2</p>')
+  expect(out).not.toMatch(/cu-hb-next-why">[^<]*—/)
+  expect(nextReason({ key: 'docs.review', row: 'review' }, [], en)).toBe('Pages to review: —')    // not in the verdict: unknown
+})
+
+test('every state carries its word, not only a colour: rows, tabs and the verdict', () => {
+  const s = snapshot({ machine: { at: 'x', missing: ['uv'], drift: 0, tools: 12 } })
+  s.areas.machine.state = 'bad'
+  s.verdict = [{ key: 'machine.missing', n: 1 }]
+  const out = renderToStaticMarkup(h(HealthBoard, { snapshot: s, links: { doctor: '#/d', drift: '#/f' } }))
+  const row = (id) => out.match(new RegExp(`data-row="${id}">(.*?)<div class="cu-hb-row-main"`))[1]
+  expect(row('doctor')).toContain('<span class="sr-only">At risk</span>')
+  expect(row('drift')).toContain('<span class="sr-only">Ready</span>')
+  expect(out).toMatch(/cu-hb-tab[^>]*>.*?<span class="sr-only">At risk<\/span>.*?Machine/)
+  expect(out).toMatch(/cu-hb-verdict[^>]*>.*?<span class="sr-only">At risk<\/span>/)
+  expect(rowsFor('docs', snapshot()).find((r) => r.id === 'blocks').state).toBeNull()
+})
+
+test('a fact the snapshot does not hold is a dash and a neutral state, never 0 or undefined', () => {
+  const unknown = (id) => ({ id, state: null, figure: null })
+  const m = (over) => rowsFor('machine', snapshot({ machine: { at: 'x', missing: [], drift: 0, tools: 1, ...over } }))
+  expect(m({ missing: undefined })[0]).toEqual(unknown('doctor'))
+  expect(m({ drift: 'n/a' })[1]).toEqual(unknown('drift'))
+  expect(m({ drift: undefined })[1]).toEqual(unknown('drift'))
+  expect(m({ missing: ['uv'], drift: 0 }).map((r) => r.figure)).toEqual(['1', '0'])
+  const d = (over) => Object.fromEntries(rowsFor('docs', snapshot({ docs: { ...snapshot().docs, ...over } })).map((r) => [r.id, r]))
+  expect(d({ evals: {} }).evals).toEqual(unknown('evals'))
+  expect(d({ evals: { total: 3 } }).evals).toEqual(unknown('evals'))
+  expect(d({ evals: { confirmed: 1 } }).evals).toEqual(unknown('evals'))
+  expect(d({ context: { over: true } }).context).toEqual(unknown('context'))
+  expect(d({ context: { total: 5 } }).context).toEqual(unknown('context'))
+  expect(d({ review: undefined }).review).toEqual(unknown('review'))
+  expect(d({ stale: undefined }).fresh).toEqual(unknown('fresh'))
+  const out = renderToStaticMarkup(h(HealthBoard, { snapshot: snapshot({ docs: { ...snapshot().docs, evals: {} } }), initialTab: 'docs', links: { evals: '#/e' } }))
+  expect(out).not.toContain('undefined')
 })
 
 test('rowsFor docs gives the six rows in spec order, with the error message of a failed source', () => {
