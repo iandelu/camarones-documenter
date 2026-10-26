@@ -3,7 +3,8 @@
 // project's own server (lib/serve.py, started here with a fresh token): the app's UI at /desktop/ (desktop/renderer),
 // the portal at /, so the app, the portal and the CLI are the same code. The hub (the same UI, from disk) lists
 // projects, asks what a picked folder is, makes it a project and joins a team's docs, all through the CLI
-// (`projects`, `projects --inspect/--adopt/--git-init`, `join --no-open`). The portal is read in the system browser.
+// (`projects`, `projects --inspect/--adopt/--git-init`, `join --no-open`). The portal is read in the system browser,
+// with this session's portal token (like `camaron up`), so it writes the board while the app is open.
 // Started by `camaron app` (lib/desktop.py), which passes the interpreter and kit to call back.
 const { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, screen, session, shell } = require('electron')
 const { spawn, spawnSync } = require('node:child_process')
@@ -18,7 +19,7 @@ const renderer = require('./lib/renderer.cjs')
 const KIT = process.env.CAMARONES_KIT || path.resolve(__dirname, '..')
 const PY = process.env.CAMARONES_PY || (process.platform === 'win32' ? 'python' : 'python3')
 const PRELOAD = path.join(__dirname, 'preload.cjs')
-const projects = new Map()           // docs root → { win, proc, origin }
+const projects = new Map()           // docs root → { win, proc, origin, portalToken }
 let hub = null
 
 function lang() {
@@ -55,10 +56,11 @@ function killTree(pr) {
 }
 
 // Every window: no navigation away from its own origin, no pop-ups to other sites, no permissions (camera, …). In a
-// project window the portal (same origin, outside /desktop/) is read in the system browser and the window stays.
-function guard(win, origin) {
+// project window the portal (same origin, outside /desktop/) is read in the system browser, with the session's portal
+// token, and the window stays.
+function guard(win, origin, portalToken) {
   const wc = win.webContents
-  const leave = (url) => { if (core.externalOk(url)) shell.openExternal(url) }
+  const leave = (url) => { if (core.externalOk(url)) shell.openExternal(renderer.withPortalToken(url, origin, portalToken)) }
   const stays = (url) => origin && core.sameOrigin(url, origin) && !renderer.outsideApp(url, origin)
   wc.on('will-navigate', (e, url) => { if (!stays(url)) { e.preventDefault(); leave(url) } })
   wc.setWindowOpenHandler(({ url }) => (stays(url) ? { action: 'allow' } : (leave(url), { action: 'deny' })))
@@ -116,8 +118,9 @@ async function startProject(root, { replace } = {}) {
   const open = projects.get(root)
   if (open && !open.win.isDestroyed()) { open.win.focus(); return { ok: true } }
   const token = crypto.randomBytes(24).toString('hex')
+  const portalToken = crypto.randomBytes(24).toString('hex')      // the browser portal's key: board writes, nothing more
   // cwd outside the project: Windows cannot delete a folder a process works in, and `uninstall` runs from here
-  const pr = spawn(PY, core.backendArgv(KIT), { cwd: os.homedir(), env: core.backendEnv(process.env, root, token),
+  const pr = spawn(PY, core.backendArgv(KIT), { cwd: os.homedir(), env: core.backendEnv(process.env, root, token, portalToken),
     windowsHide: true, detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe'] })
   let port
   try { port = await waitReady(pr) } catch (e) {
@@ -129,9 +132,9 @@ async function startProject(root, { replace } = {}) {
   const place = replace && !replace.isDestroyed() ? replace.getNormalBounds() : lastBounds()
   const win = new BrowserWindow({ ...windowOptions(core.windowArgs(token, origin)), ...place })
   if (replace && !replace.isDestroyed() && replace.isMaximized()) win.maximize()
-  guard(win, origin)
+  guard(win, origin, portalToken)
   remember(win)
-  projects.set(root, { win, proc: pr, origin })
+  projects.set(root, { win, proc: pr, origin, portalToken })
   win.once('ready-to-show', () => win.show())
   win.on('closed', () => { killTree(pr); projects.delete(root) })
   pr.on('exit', () => { if (!win.isDestroyed()) win.close() })
@@ -233,7 +236,10 @@ function handlers() {
     const x = Math.round(Number(at?.x)) || 0, y = Math.round(Number(at?.y)) || 0
     Menu.getApplicationMenu()?.popup({ window: p[1].win, x, y })
   })
-  ipcMain.handle('app:external', (e, url) => (fromProject(e) && core.externalOk(url) ? shell.openExternal(url) : null))
+  ipcMain.handle('app:external', (e, url) => {
+    const [, p] = projectOf(e) || []
+    return p && core.externalOk(url) ? shell.openExternal(renderer.withPortalToken(url, p.origin, p.portalToken)) : null
+  })
   // After `self-update`: start again on the kit's new code (the backends go first; app.exit skips before-quit).
   ipcMain.handle('app:relaunch', (e) => {
     if (!fromProject(e)) return null
@@ -270,7 +276,7 @@ function menu() {
     ...(process.platform === 'darwin' ? [{ role: 'appMenu' }] : []),
     { label: 'camarón', submenu: [
       { label: s('projects'), accelerator: 'CmdOrCtrl+Shift+O', click: openHub },
-      { label: s('browser'), click: () => { const p = current(); if (p) shell.openExternal(`${p.origin}/`) } },
+      { label: s('browser'), click: () => { const p = current(); if (p) shell.openExternal(renderer.withPortalToken(`${p.origin}/`, p.origin, p.portalToken)) } },
       { type: 'separator' }, { role: 'quit' }] },
     { role: 'editMenu' }, { role: 'viewMenu' }, { role: 'windowMenu' },
   ]))

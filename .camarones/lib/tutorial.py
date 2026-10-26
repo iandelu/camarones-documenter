@@ -356,7 +356,7 @@ PAGES = {
                  "Cada tarjeta es un fichero Markdown compatible con Backlog.md, así que esa herramienta también lo lee y "
                  "lo edita. Lo que enlazas de la documentación se vigila: el Tablero te dice si la página cambió desde "
                  "que la enlazaste o si sigue sin confirmar. En el portal, la zona «Tablero» (`#/kanban`) tiene el Kanban, "
-                 "con filtros por repo, epic, etiqueta y estado de la documentación, y el detalle de cada tarjeta; para escribir pide el token, que ya trae la app de escritorio y que "
+                 "con filtros por repo, epic, etiqueta y estado de la documentación, y el detalle de cada tarjeta; para escribir pide el token, que lleva el portal que la app de escritorio abre en tu navegador mientras la app está abierta, y que "
                  "`camaron up` imprime en la dirección (`#cam-token=…`). Sin él, solo lectura.\n\n"
                  "Tu gambita de prácticas ya ha colgado los post-its en su sitio: tú solo los mueves."},
         {"icon": "🧰", "title": "Piezas de apoyo",
@@ -761,7 +761,7 @@ PAGES = {
                  "Each card is a Markdown file compatible with Backlog.md, so that tool reads and edits it too. What "
                  "you link from the docs is watched: the Board tells you whether the page changed since you linked it "
                  "or is still unconfirmed. In the portal, the “Board” zone (`#/kanban`) has the Kanban, "
-                 "with filters by repo, epic, label and docs state, and the card detail; writing needs the token, which the desktop app already sends and `camaron up` prints in the "
+                 "with filters by repo, epic, label and docs state, and the card detail; writing needs the token, which the portal the desktop app opens in your browser carries while the app is open, and `camaron up` prints in the "
                  "URL (`#cam-token=…`). Without it, read-only.\n\n"
                  "Your intern shrimp has pinned the sticky notes up already: all you do is move them."},
         {"icon": "🧰", "title": "Supporting pieces",

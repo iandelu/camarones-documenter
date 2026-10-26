@@ -15,8 +15,11 @@ test('the backend is the portal server on a free port', () => {
 })
 
 test('the environment names the project, never leaks a token to the CLI', () => {
-  const base = { PATH: 'p', CAMARONES_APP_TOKEN: 'old', CAMARONES_ROOT: '/elsewhere', ELECTRON_RUN_AS_NODE: '1' }
+  const base = { PATH: 'p', CAMARONES_APP_TOKEN: 'old', CAMARONES_ROOT: '/elsewhere', ELECTRON_RUN_AS_NODE: '1',
+    CAMARONES_PORTAL_TOKEN: 'old-portal', CAMARONES_JOIN_TOKEN: 'join' }
   const cli = core.cliEnv(base)
+  assert.equal(cli.CAMARONES_PORTAL_TOKEN, undefined)
+  assert.equal(cli.CAMARONES_JOIN_TOKEN, undefined)
   assert.equal(cli.PATH, 'p')
   assert.equal(cli.PYTHONUTF8, '1')
   assert.equal(cli.CAMARONES_APP_TOKEN, undefined)
@@ -24,6 +27,14 @@ test('the environment names the project, never leaks a token to the CLI', () => 
   assert.equal(cli.ELECTRON_RUN_AS_NODE, undefined)
   const be = core.backendEnv(base, '/work/shop/cam-docs', 'tok')
   assert.equal(be.CAMARONES_ROOT, '/work/shop/cam-docs')
+  assert.equal(be.CAMARONES_APP_TOKEN, 'tok')
+  assert.equal(be.CAMARONES_PORTAL_TOKEN, undefined)              // no portal token given: the board stays read-only
+  assert.equal(be.CAMARONES_JOIN_TOKEN, undefined)
+})
+
+test("the backend gets this session's portal token, which lets the browser portal write the board", () => {
+  const be = core.backendEnv({ PATH: 'p', CAMARONES_PORTAL_TOKEN: 'old' }, '/work/shop/cam-docs', 'tok', 'ptok')
+  assert.equal(be.CAMARONES_PORTAL_TOKEN, 'ptok')
   assert.equal(be.CAMARONES_APP_TOKEN, 'tok')
 })
 

@@ -2,8 +2,10 @@
 // Pure helpers of the desktop app's main process: no Electron, no I/O, so `node --test` checks them on every OS.
 const path = require('node:path')
 
-// A join token from the shell that started the app is not inherited: only the join the person gave one gets it.
-const NOT_FOR_CHILDREN = ['CAMARONES_APP_TOKEN', 'CAMARONES_ROOT', 'ELECTRON_RUN_AS_NODE', 'CAMARONES_JOIN_TOKEN']
+// A join token from the shell that started the app is not inherited: only the join the person gave one gets it. The
+// same for a portal token: only the project server the app starts gets one, its own.
+const NOT_FOR_CHILDREN = ['CAMARONES_APP_TOKEN', 'CAMARONES_ROOT', 'ELECTRON_RUN_AS_NODE', 'CAMARONES_JOIN_TOKEN',
+  'CAMARONES_PORTAL_TOKEN']
 
 const backendArgv = (kit) => [path.join(kit, 'camarones.py'), 'up', '--foreground', '--port', '0']
 const cliArgv = (kit, args) => [path.join(kit, 'camarones.py'), ...args]
@@ -14,7 +16,10 @@ function cliEnv(env) {
   return out
 }
 
-const backendEnv = (env, root, token) => ({ ...cliEnv(env), CAMARONES_ROOT: root, CAMARONES_APP_TOKEN: token })
+// portalToken: this session's key for the portal the app opens in the browser (as `camaron up` does): with it that
+// portal writes the board; it never unlocks what needs the app token.
+const backendEnv = (env, root, token, portalToken) => ({ ...cliEnv(env), CAMARONES_ROOT: root, CAMARONES_APP_TOKEN: token,
+  ...(portalToken ? { CAMARONES_PORTAL_TOKEN: portalToken } : {}) })
 
 // lib/serve.py prints {"ready": true, "port": N} as its first line when the app started it.
 function parseReady(line) {

@@ -72,3 +72,21 @@ test('outsideApp keeps the app and sends the portal out', () => {
   assert.equal(r.outsideApp('http://127.0.0.1:6000/#/', origin), false)            // another origin: the external rule's
   assert.equal(r.outsideApp('not a url', origin), false)
 })
+
+const O = 'http://127.0.0.1:5123'
+test('a portal address sent to the browser carries the portal token, in the fragment the portal reads', () => {
+  assert.equal(r.withPortalToken(`${O}/#/kanban`, O, 'abc123'), `${O}/#/kanban&cam-token=abc123`)
+  assert.equal(r.withPortalToken(`${O}/`, O, 'abc123'), `${O}/#cam-token=abc123`)
+  assert.equal(r.withPortalToken(`${O}/#/`, O, 'abc123'), `${O}/#/&cam-token=abc123`)
+  assert.equal(r.withPortalToken(`${O}/#/docs/a.md?x=1`, O, 'abc123'), `${O}/#/docs/a.md?x=1&cam-token=abc123`)
+  assert.equal(r.withPortalToken(`${O}/#/kanban&cam-token=old`, O, 'abc123'), `${O}/#/kanban&cam-token=abc123`)  // never two
+})
+
+test("the app's own pages, other sites and a missing token are left as they are", () => {
+  assert.equal(r.withPortalToken(`${O}/desktop/#/team`, O, 'abc123'), `${O}/desktop/#/team`)
+  assert.equal(r.withPortalToken('https://example.com/#/kanban', O, 'abc123'), 'https://example.com/#/kanban')
+  assert.equal(r.withPortalToken('http://127.0.0.1:9999/#/kanban', O, 'abc123'), 'http://127.0.0.1:9999/#/kanban')
+  assert.equal(r.withPortalToken(`${O}/#/kanban`, O, ''), `${O}/#/kanban`)
+  assert.equal(r.withPortalToken(`${O}/#/kanban`, O, undefined), `${O}/#/kanban`)
+  assert.equal(r.withPortalToken('not a url', O, 'abc123'), 'not a url')
+})
