@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { childrenOf, fit, moveOutcome, parentLabel, parentOf, placed } from './board.js'
+import { childrenOf, fit, moveOutcome, parentLabel, parentOf, placed, sendMove } from './board.js'
 
 const rows = [
   { id: 'WI-14', type: 'story', ordinal: 1 },
@@ -56,4 +56,44 @@ test('a card grabbed with the keyboard is drawn where it would land', () => {
 test('a row with no known status is drawn in the first column instead of vanishing', () => {
   const cards = [{ id: 'A', status: 'Done' }, { id: 'B' }, { id: 'C', status: 'Doing' }]
   expect(fit(cards, ['Backlog', 'Done']).map((c) => c.status)).toEqual(['Done', 'Backlog', 'Backlog'])
+})
+
+// The gate and the revert: what the Board does with a move the server holds back or refuses.
+const gate = () => Object.assign(new Error('blocked'), { status: 409, data: { blocked_by: ['WI-3', 'WI-4'] } })
+const fakePost = (...answers) => {
+  const calls = []
+  return { calls, post: async (body) => { calls.push(body); const a = answers[calls.length - 1]; if (a instanceof Error) throw a; return a ?? {} } }
+}
+const body = { id: 'WI-9', status: 'Done', after: 'WI-2' }
+
+test('sendMove: a move that goes through is sent once, without force', async () => {
+  const f = fakePost({ id: 'WI-9' })
+  expect(await sendMove(f.post, () => { throw new Error('asked') }, body)).toEqual({ kind: 'sent' })
+  expect(f.calls).toEqual([body])
+})
+
+test('sendMove: a gate asks with the blocking ids and, on yes, sends again with force', async () => {
+  const f = fakePost(gate(), {})
+  const asked = []
+  expect(await sendMove(f.post, (ids) => { asked.push(ids); return true }, body)).toEqual({ kind: 'sent' })
+  expect(asked).toEqual([['WI-3', 'WI-4']])
+  expect(f.calls).toEqual([body, { ...body, force: true }])
+})
+
+test('sendMove: a gate the person refuses is declined, without a second call and without a message', async () => {
+  const f = fakePost(gate())
+  expect(await sendMove(f.post, () => false, body)).toEqual({ kind: 'declined' })
+  expect(f.calls).toEqual([body])
+})
+
+test('sendMove: any other failure is an error with the server message, and nothing is asked', async () => {
+  const f = fakePost(Object.assign(new Error('no such status'), { status: 400, data: {} }))
+  expect(await sendMove(f.post, () => { throw new Error('asked') }, body)).toEqual({ kind: 'error', message: 'no such status' })
+  expect(f.calls).toEqual([body])
+})
+
+test('sendMove: the forced re-send failing is an error too', async () => {
+  const f = fakePost(gate(), new Error('disk full'))
+  expect(await sendMove(f.post, () => true, body)).toEqual({ kind: 'error', message: 'disk full' })
+  expect(f.calls).toHaveLength(2)
 })
