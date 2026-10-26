@@ -370,7 +370,7 @@ Todo se hace también con el teclado: <kbd>⌘K</kbd>/<kbd>Ctrl K</kbd> (o **Bus
 | **Requisitos, contexto, preguntas de control, vulnerabilidades** | — | ✅ Calidad |
 | **Fijar el repo del equipo, aprobar su configuración de agentes, hooks y plugins** | — | ✅ Equipo |
 | **Tokens, idioma y modelos, repos, actualizar el kit, desinstalar** | — | ✅ Máquina |
-| **Construir el explorador C4 y el grafo de la wiki de cada repo** | — | ✅ Docs |
+| **Construir el explorador C4, generar la wiki de cada repo y su grafo, preguntar con IA** | — | ✅ Docs |
 | **Generar o actualizar wikis y el grafo de código** | — | ✅ Plan y Calidad › Todos los comandos (`wiki`, `graph`) |
 
 El portal del navegador no tiene el token de la app y no enseña lo que no puede hacer: esos botones solo están en la app.
@@ -384,7 +384,7 @@ El portal del navegador no tiene el token de la app y no enseña lo que no puede
 | 🎙️ **Entrevistas** | Cuestionario del equipo o en vivo, **exportar** el formulario sin conexión y abrir su carpeta, **importar** respuestas con un selector de ficheros, cerrar la ronda y cada entrevista con su agente |
 | 🤝 **Equipo** | El **repo del equipo** y **compartir** (lo que hay por enviar y por traer, compartir cada checkpoint), lo que llegó con ese repo y falta **aprobar** en esta máquina, los **hooks** del método y los **plugins** (qué aportan, si ejecutan código, activar o desactivar) |
 | ✅ **Calidad** | **Requisitos y herramientas** (se guardan entre visitas, con «Volver a comprobar» y el botón que instala o repone), el **contexto** que carga cada sesión de agente frente al presupuesto, **preguntas de control**, **con y sin cam-docs** y, sin IA, **vulnerabilidades conocidas**, **páginas desactualizadas** («Sigue valiendo» o una unidad que las actualice) y **bloques generados** |
-| 📖 **Docs** | **Leer la documentación**, **Revisar borradores** y **Buscar o preguntar** abren el portal del proyecto en tu navegador. Debajo, **Construir el explorador C4** y, por cada repo con wiki, **Grafo del wiki**: un trabajo con su salida y, al acabar, **Ver** lo abre en el portal (si falla, **Reintentar**) |
+| 📖 **Docs** | **Leer la documentación**, **Revisar borradores** y **Buscar o preguntar** abren el portal del proyecto en tu navegador. Debajo, **Construir el explorador C4**; un bloque por repo con **Generar la wiki** (elige el repo y escribe un brief inicial sin IA si aún no tiene) y, con wiki, **Grafo del wiki**; y **Preguntar con IA**, que responde con lo que dice la documentación y enlaza sus fuentes en el portal. Cada trabajo enseña su salida, **Ver** lo abre en el portal y, si falla, **Reintentar** |
 | 🧰 **Máquina** | **Preparar la máquina** (`setup`) con su progreso, **idioma y modelos** de Claude Code y Codex, **tokens de GitLab y GitHub** (se comprueban con la forja y se guardan en el llavero del sistema, nunca en una línea de comandos), **repos** (clonados o no, su stack editable, clonar o actualizar, detectar) y el **plan** rápido o completo, **actualizar el kit** y reiniciar la app con la versión nueva, `repair` y, aparte, **desinstalar**: primero «Ver qué borraría» y después un diálogo que repite la lista |
 | 🛠️ **Kit dev** | Solo en un checkout del kit: el sandbox, `pytest`, los builds del portal y de la app y los tests de escritorio (ver [Desarrollo](#desarrollo)) |
 

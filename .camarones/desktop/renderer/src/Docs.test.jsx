@@ -1,31 +1,71 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, expect, test } from 'vitest'
-import Docs, { BuildCard } from './sections/Docs.jsx'
+import Docs, { AnswerView, BuildCard } from './sections/Docs.jsx'
+import { setLang } from './i18n.js'
 
 const srv = { get: () => new Promise(() => {}), post: () => new Promise(() => {}) }
-const index = { docs: [{ path: 'repos/api/wiki/index.md', space: 'wiki' }, { path: 'repos/ui/wiki/a.md', space: 'wiki' },
+// Every repo of the project is in `repos`; only api and ui have wiki pages yet.
+const index = { repos: ['api', 'web', 'ui'], docs: [{ path: 'repos/api/wiki/index.md', space: 'wiki' }, { path: 'repos/ui/wiki/a.md', space: 'wiki' },
   { path: 'index.md', space: 'docs' }] }
+const render = (idx = index) => renderToStaticMarkup(<Docs srv={srv} jobs={null} app={{ openExternal: () => {} }} index={idx} />)
 
-afterEach(() => { delete globalThis.location })
+afterEach(() => { delete globalThis.location; setLang('es') })
 
 // Reading is the portal's, in the system browser: buttons that call app.openExternal, never a link the window follows.
-test('Docs opens the portal through the browser and builds the C4 explorer and each wiki graph', () => {
+test('Docs opens the portal through the browser and offers the C4 build', () => {
   globalThis.location = { origin: 'http://127.0.0.1:5000', hash: '#/docs' }
-  const out = renderToStaticMarkup(<Docs srv={srv} jobs={null} app={{ openExternal: () => {} }} index={index} />)
+  const out = render()
   expect(out).not.toMatch(/<a [^>]*href=/)
   for (const label of ['Leer la documentación', 'Revisar borradores', 'Buscar o preguntar']) expect(out).toContain(label)
   expect(out).toContain('Construir el explorador C4')
-  expect(out).toContain('Grafo del wiki · api')
-  expect(out).toContain('Grafo del wiki · ui')
-  expect(out.match(/>Ver</g)).toHaveLength(3)          // C4 + one per wiki
-  expect(out.match(/>Construir</g)).toHaveLength(3)
+  expect(out).toMatch(/aria-label="Construir: Construir el explorador C4"/)
 })
 
-test('with no wikis there is no graph card', () => {
+// One block per repo, with or without a wiki: Generate on each (it chooses the repo and writes the starter brief), the
+// graph build only where there are pages to graph.
+test('one wiki block per repo of the project, each with its own Generate button', () => {
   globalThis.location = { origin: 'http://127.0.0.1:5000', hash: '#/docs' }
-  const out = renderToStaticMarkup(<Docs srv={srv} jobs={null} app={{ openExternal: () => {} }} index={{ docs: [] }} />)
+  const out = render()
+  for (const repo of ['api', 'web', 'ui']) {
+    expect(out).toContain(`Wiki · ${repo}`)
+    expect(out).toMatch(new RegExp(`aria-label="Generar la wiki: Wiki · ${repo}">Generar la wiki</button>`))
+  }
+  expect(out.match(/>Generar la wiki</g)).toHaveLength(3)
+  expect(out).toContain('Elige este repo para tener wiki y escribe un brief inicial sin IA si aún no tiene')
+  expect(out).toContain('Grafo del wiki · api')               // the graph build is where the wiki has pages…
+  expect(out).toContain('Grafo del wiki · ui')
+  expect(out).not.toContain('Grafo del wiki · web')           // …and not before the first generation
+  expect(out).toMatch(/aria-label="Ver: Wiki · api"/)
+  expect(out).not.toMatch(/aria-label="Ver: Wiki · web"/)
+  expect(out.match(/cu-btn--primary/g)).toHaveLength(1 + 3 + 1)   // Leer + a Generate per repo + Preguntar: one per card
+})
+
+test('with no repos there is no wiki block; the Ask card is still there', () => {
+  globalThis.location = { origin: 'http://127.0.0.1:5000', hash: '#/docs' }
+  const out = render({ repos: [], docs: [] })
+  expect(out).not.toContain('Generar la wiki')
   expect(out).toContain('Construir el explorador C4')
-  expect(out).not.toContain('Grafo del wiki')
+  expect(out).toContain('Preguntar con IA')
+})
+
+test('Ask has a question field and a Preguntar button', () => {
+  globalThis.location = { origin: 'http://127.0.0.1:5000', hash: '#/docs' }
+  const out = render()
+  expect(out).toContain('Preguntar con IA')
+  expect(out).toMatch(/<input[^>]*aria-label="Pregunta"/)
+  expect(out).toMatch(/>Preguntar<\/button>/)
+})
+
+test('the strings exist in English', () => {
+  globalThis.location = { origin: 'http://127.0.0.1:5000', hash: '#/docs' }
+  setLang('en')
+  const out = render()
+  expect(out).toContain('Wiki · api')
+  expect(out).toContain('Generate the wiki')
+  expect(out).toContain('Picks this repo for a wiki and writes a starter brief without AI if it has none')
+  expect(out).toContain('Ask with AI')
+  expect(out).toMatch(/aria-label="Question"/)
+  expect(out).toMatch(/>Ask<\/button>/)
 })
 
 // A failed build says so in the person's language, the button becomes Retry, and the repeated buttons are told apart.
@@ -38,4 +78,20 @@ test('a failed build offers Retry, localized, and every button names its card', 
   expect(out).toMatch(/aria-label="Ver: Grafo del wiki · api">Ver<\/button>/)
   const fresh = renderToStaticMarkup(<BuildCard title="T" hint="h" build={{ job: null, error: '', running: false }} onBuild={() => {}} onView={() => {}} />)
   expect(fresh).toMatch(/aria-label="Construir: T">Construir<\/button>/)
+})
+
+// The answer is plain text with its sources as buttons (the window never follows a link to the portal).
+test('an answer shows its text and its sources; "none" says so in the app\'s language', () => {
+  const view = { kind: 'answer', text: 'It uses JWT.', by: 'claude (haiku)',
+    sources: [{ cite: 'architecture/overview.md#Context', hash: '#/docs/architecture/overview.md::Context' }] }
+  const out = renderToStaticMarkup(<AnswerView view={view} onOpen={() => {}} />)
+  expect(out).toContain('It uses JWT.')
+  expect(out).toContain('claude (haiku)')
+  expect(out).toMatch(/aria-label="Ver: architecture\/overview.md#Context">architecture\/overview.md#Context<\/button>/)
+  expect(out).not.toMatch(/<a [^>]*href=/)
+  const bare = renderToStaticMarkup(<AnswerView view={{ ...view, sources: [] }} onOpen={() => {}} />)
+  expect(bare).not.toContain('Fuentes')
+  expect(renderToStaticMarkup(<AnswerView view={{ kind: 'none' }} onOpen={() => {}} />)).toContain('No he encontrado')
+  setLang('en')
+  expect(renderToStaticMarkup(<AnswerView view={{ kind: 'none' }} onOpen={() => {}} />)).toContain('I found nothing')
 })

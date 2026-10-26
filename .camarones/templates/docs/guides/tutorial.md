@@ -283,7 +283,7 @@ wizard and the desktop app always keep it.
 | Where | What you can do | Where the change goes |
 |---|---|---|
 | Local portal (`camaron up`) | edit (markdown + live preview), **+ New page**, **Confirm**, **Request changes** | `cam-docs/docs` + a local commit if "commit to cam-docs" is ticked — you push |
-| Desktop app (**Docs**) | build the C4 explorer and each wiki's graph | shown in the portal; nothing in `cam-docs/docs` |
+| Desktop app (**Docs**) | build the C4 explorer, generate each repo's wiki and its graph, ask with AI | shown in the portal; nothing in `cam-docs/docs` |
 | Deployed portal (export) | read and search; **Edit** opens the file in GitLab / GitHub (when `cam-docs` has a remote) | a merge request in `cam-docs`; CI publishes it again |
 | Your editor / IDE | any `.md` under `cam-docs/docs` | plain git in `cam-docs` |
 | The AI (🦐 Next step) | only its unit; never rewrites confirmed pages silently | a local commit per unit |
