@@ -6,6 +6,9 @@ when, and a value that cannot be read stays missing instead of becoming zero.
 Coverage comes from the reports a repo already holds: JaCoCo XML, lcov and Cobertura, at their usual paths. Report
 files are untrusted input: an internal DTD subset or entity declaration, an oversized file or broken XML is reported
 as an error and never parsed further. The external DTD a JaCoCo report names is never fetched or read.
+
+Technical debt is read from the two quality pages (`quality/tech-debt.md`, `quality/architecture-review.md`): each table
+row is an item, filed under the repos its evidence cites, or under `_project` when it cites none.
 """
 from __future__ import annotations
 
@@ -118,3 +121,73 @@ def repo_coverage(reports: list[dict]) -> dict | None:
         if "error" not in r:
             return {"percent": r["percent"], "at": r["at"], "source": "report", "path": r["path"]}
     return None
+
+
+DEBT_PAGES = ("quality/tech-debt.md", "quality/architecture-review.md")
+DEBT_COLUMNS = {"item": ("item", "ítem", "elemento", "area", "área"), "impact": ("impact", "impacto"),
+                "effort": ("estimated effort", "effort", "esfuerzo", "esfuerzo estimado"),
+                "evidence": ("evidence", "evidencia"), "owner": ("owner", "responsable", "dueño"),
+                "recommendation": ("recommendation", "recomendación")}
+IMPACTS = {"high": "high", "alto": "high", "alta": "high", "medium": "medium", "medio": "medium", "media": "medium",
+           "low": "low", "bajo": "low", "baja": "low"}
+IMPACT_WORD = re.compile(r"\b(" + "|".join(IMPACTS) + r")\b", re.I)
+SEPARATOR_ROW = re.compile(r"^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$")
+EVIDENCE_TOKEN = re.compile(r"^[\w.-]+:\S")
+
+
+def _row_cells(line: str) -> list[str]:
+    """The cells of a pipe-table row; `\\|` is a literal pipe, not a column break."""
+    cells = re.split(r"(?<!\\)\|", line.strip().removeprefix("|").removesuffix("|"))
+    return [c.replace("\\|", "|").strip() for c in cells]
+
+
+def _first_table(body: str, after: str | None) -> list[list[str]]:
+    """Header row and data rows of the first pipe table, after the `## <after>` heading when the page has one."""
+    lines = body.splitlines()
+    start = next((i + 1 for i, l in enumerate(lines) if after and re.match(rf"##\s+{after}\s*$", l, re.I)), 0)
+    rows: list[list[str]] = []
+    for l in lines[start:]:
+        if l.strip().startswith("|"):
+            rows.append([] if SEPARATOR_ROW.match(l) else _row_cells(l))
+        elif rows:
+            break
+    return [r for r in rows if r]
+
+
+def _evidence(cell: str) -> list[str]:
+    tokens = re.findall(r"`([^`]+)`", cell) or re.split(r"[,;\s]+", cell)
+    return [t.strip() for t in tokens if EVIDENCE_TOKEN.match(t.strip())]
+
+
+def debt_items(repos: list[str]) -> dict[str, list[dict]]:
+    """The items of the quality pages, per repo plus `_project` for those citing no known repo. A page that is missing
+    or has no table adds nothing; an absent column reads as "" (impact as "unknown")."""
+    from . import docs                              # lazily: the coverage readers above need no project
+    out: dict[str, list[dict]] = {**{r: [] for r in repos}, "_project": []}
+    pages = [(p, docs.DOCS / p) for p in DEBT_PAGES]
+    pages = [(p, f) for p, f in pages if f.is_file()]
+    trust = {r["path"]: r["trust"] for r in docs.collect()} if pages else {}
+    for page, f in pages:
+        _, body = docs.split_fm(f.read_text(encoding="utf-8"))
+        table = _first_table(body, "Items" if page.endswith("tech-debt.md") else None)
+        if len(table) < 2:
+            continue
+        head = [re.sub(r"[*_`]", "", h).strip().lower() for h in table[0]]
+        col = {k: next((head.index(a) for a in aliases if a in head), None) for k, aliases in DEBT_COLUMNS.items()}
+        if col["item"] is None:
+            continue
+        for cells in table[1:]:
+            if cells[0].startswith("<"):            # the skeleton's placeholder row
+                continue
+            cell = {k: cells[i] if i is not None and i < len(cells) else "" for k, i in col.items()}
+            if not cell["item"]:
+                continue
+            impact = IMPACT_WORD.search(cell["impact"])
+            item = {"source": page, "trust": trust.get(page, "unknown"), "item": cell["item"],
+                    "impact": IMPACTS[impact.group(1).lower()] if impact else "unknown", "effort": cell["effort"],
+                    "evidence": _evidence(cell["evidence"]), "owner": cell["owner"],
+                    "recommendation": cell["recommendation"]}
+            named = [r for r in repos if any(t.split(":", 1)[0] == r for t in item["evidence"])]
+            for r in named or ["_project"]:
+                out[r].append({**item, "evidence": list(item["evidence"])})
+    return out

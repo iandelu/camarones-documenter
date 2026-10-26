@@ -115,3 +115,79 @@ def test_repo_coverage_takes_the_newest_good_report(tmp_path):
     assert cov["at"] == reports[1]["at"]
     assert health.repo_coverage([]) is None
     assert health.repo_coverage([reports[0]]) is None
+
+
+# ---- technical debt from the quality pages ----
+
+def quality_page(kit, name, body):
+    f = kit.root / "docs" / "quality" / name
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text(f"---\ntitle: {name}\n---\n{body}", encoding="utf-8")
+    return f
+
+
+def test_debt_rows_go_to_the_repos_their_evidence_names(kit):
+    from lib import health
+    quality_page(kit, "tech-debt.md", "# Technical debt\n\n## Items\n\n"
+                 "| Item | Impact | Evidence | Owner |\n|---|---|---|---|\n"
+                 "| Legacy DAO | High: slow queries | `api:src/A.java` | Ana |\n"
+                 "| Shared client | media | `api:x`, `web:y` | Luis |\n")
+    got = health.debt_items(["api", "web", "worker"])
+    assert set(got) == {"api", "web", "worker", "_project"}
+    assert [i["item"] for i in got["api"]] == ["Legacy DAO", "Shared client"]
+    assert [i["item"] for i in got["web"]] == ["Shared client"]
+    assert got["worker"] == [] and got["_project"] == []
+    first, second = got["api"]
+    assert (first["impact"], second["impact"]) == ("high", "medium")
+    assert first == {"source": "quality/tech-debt.md", "trust": "draft", "item": "Legacy DAO", "impact": "high",
+                     "effort": "", "evidence": ["api:src/A.java"], "owner": "Ana", "recommendation": ""}
+    assert second["evidence"] == ["api:x", "web:y"] and second["owner"] == "Luis"
+
+
+def test_architecture_review_columns(kit):
+    from lib import health
+    quality_page(kit, "architecture-review.md", "# Architecture review\n\n"
+                 "| Area | Impact | Estimated effort | Evidence | Recommendation |\n|---|---|---|---|---|\n"
+                 "| Messaging | Low | 2 weeks | `worker:worker/main.py` | Split the queue |\n")
+    [item] = health.debt_items(["api", "web", "worker"])["worker"]
+    assert item["source"] == "quality/architecture-review.md" and item["trust"] == "draft"
+    assert (item["item"], item["impact"], item["effort"]) == ("Messaging", "low", "2 weeks")
+    assert item["evidence"] == ["worker:worker/main.py"] and item["recommendation"] == "Split the queue"
+    assert item["owner"] == ""
+
+
+def test_spanish_headers_extra_columns_and_the_skeleton(kit):
+    from lib import health
+    quality_page(kit, "tech-debt.md", "# Deuda técnica\n\n> **TL;DR:** x\n\n## Items\n\n"
+                 "| Elemento | Impacto | Evidencia | Responsable | Notas |\n|---|---|---|---|---|\n"
+                 "| <what> | <high/medium/low and why> | `<repo>:<path>` | <team or person> | – |\n"
+                 "| Cola lenta | Alto, bloquea | `api:q` | Eva | no tocar \\| ver wiki |\n"
+                 "| Sin dueño | Baja | `web:z` | | |\n")
+    got = health.debt_items(["api", "web"])
+    [a] = got["api"]
+    assert (a["item"], a["impact"], a["owner"], a["evidence"]) == ("Cola lenta", "high", "Eva", ["api:q"])
+    assert "Notas" not in a and "no tocar" not in str(a)
+    [w] = got["web"]
+    assert (w["item"], w["impact"], w["owner"]) == ("Sin dueño", "low", "")
+    assert got["_project"] == []                 # the skeleton row is no item
+
+
+def test_rows_naming_no_known_repo_are_project_level(kit):
+    from lib import health
+    quality_page(kit, "tech-debt.md", "# Debt\n\n## Items\n\n| Item | Impact | Evidence | Owner |\n|---|---|---|---|\n"
+                 "| No CI | high | none | Ana |\n| Old repo | low | `gone:src/a` | Ana |\n| Odd impact | tbd | | |\n")
+    got = health.debt_items(["api", "web"])
+    assert got["api"] == [] and got["web"] == []
+    assert [(i["item"], i["impact"]) for i in got["_project"]] == [("No CI", "high"), ("Old repo", "low"), ("Odd impact", "unknown")]
+
+
+def test_no_quality_pages_means_no_debt(kit):
+    from lib import health
+    assert health.debt_items(["api", "web"]) == {"api": [], "web": [], "_project": []}
+
+
+def test_debt_trust_follows_the_page(kit):
+    from lib import health
+    f = quality_page(kit, "tech-debt.md", "# Debt\n\n## Items\n\n| Item | Impact | Evidence |\n|---|---|---|\n| A | high | `api:x` |\n")
+    kit.docs.confirm([str(f)], by="ana")
+    assert health.debt_items(["api"])["api"][0]["trust"] == "confirmed"
