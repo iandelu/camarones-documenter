@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Aviso, Button, Chip, EmptyState, Skeleton } from '@camaron/ui'
 import { columns, dropAnchor, keyMove } from '@camaron/ui/kanban.js'
-import { cardAt, childrenOf, fit, gateKey, moved, parentLabel, placed, sendMove, shouldFocus } from '../board.js'
+import { cardAt, childrenOf, fit, gateMessage, moved, parentLabel, placed, sendMove, shouldFocus } from '../board.js'
 import { Failed, Page } from '../parts.jsx'
 import { AddForm, StoryPanel, known, label } from './BoardPanels.jsx'
 import { lang, t } from '../i18n.js'
@@ -54,7 +54,7 @@ export default function Board({ srv }) {
     const before = board
     setNotice('')
     setBoard({ ...board, cards: moved(fit(board.cards, board.statuses), id, status, anchor) })
-    const r = await sendMove((body) => srv.post('kanban/move', body), (ids) => window.confirm(t(gateKey(ids), { ids: ids.join(', ') })),
+    const r = await sendMove((body) => srv.post('kanban/move', body), (blockers) => window.confirm(gateMessage(blockers, t)),
       { id, status, ...anchor })
     if (r.kind === 'sent') setSay(t('bd.moved', { id, status: label(lang(), status) }))
     else { setBoard(before); if (r.kind === 'error') setNotice(r.message) }       // declined: back, with nothing to say

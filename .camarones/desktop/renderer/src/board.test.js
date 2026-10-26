@@ -1,5 +1,6 @@
-import { expect, test } from 'vitest'
-import { allowedParents, cardAt, childrenOf, fit, gateKey, moveOutcome, parentLabel, parentOf, placed, sendMove, shouldFocus } from './board.js'
+import { afterEach, expect, test } from 'vitest'
+import { allowedParents, cardAt, childrenOf, fit, gateKey, gateMessage, moveOutcome, parentLabel, parentOf, placed, sendMove, shouldFocus } from './board.js'
+import { setLang, t } from './i18n.js'
 
 const rows = [
   { id: 'WI-14', type: 'story', ordinal: 1 },
@@ -137,4 +138,31 @@ test('cardAt: the keyboard state for a card, from where it is drawn', () => {
 test('gateKey: one blocking card reads in the singular, several in the plural', () => {
   expect(gateKey(['WI-3'])).toBe('bd.gate.one')
   expect(gateKey(['WI-3', 'WI-4'])).toBe('bd.gate.many')
+})
+
+// The start gate's 409 names its blockers as {id, kind, files?} (lib/serve.py, Historias); older servers sent bare ids.
+const blockedBy = [{ id: 'WI-3', kind: 'dependency' }, { id: 'WI-7', kind: 'conflict', files: ['api:src/a.py'] }]
+afterEach(() => setLang('es'))
+
+test('gateMessage: the confirmation names each blocker by id and says why, in es and en', () => {
+  expect(gateMessage(blockedBy, t)).toBe('WI-3 (dependencia), WI-7 (conflicto) bloquean esta tarjeta. ¿Moverla de todos modos?')
+  expect(gateMessage([{ id: 'WI-9', kind: 'missing' }], t)).toBe('WI-9 (no está en el tablero) bloquea esta tarjeta. ¿Moverla de todos modos?')
+  setLang('en')
+  expect(gateMessage(blockedBy, t)).toBe('WI-3 (dependency), WI-7 (conflict) block this card. Move it anyway?')
+  expect(gateMessage([{ id: 'WI-9', kind: 'missing' }], t)).toBe('WI-9 (not on the board) blocks this card. Move it anyway?')
+})
+
+test('gateMessage: bare ids, unknown kinds and junk entries still read as ids, never [object Object]', () => {
+  expect(gateMessage(['WI-3', 'WI-4'], t)).toBe('WI-3, WI-4 bloquean esta tarjeta. ¿Moverla de todos modos?')
+  expect(gateMessage([{ id: 'WI-3', kind: 'later' }, null, {}, 'WI-5'], t)).toBe('WI-3, WI-5 bloquean esta tarjeta. ¿Moverla de todos modos?')
+  expect(gateMessage(blockedBy, t)).not.toContain('[object')
+})
+
+test("sendMove hands the server's blocker objects to confirm as they came", async () => {
+  const calls = []
+  const post = async (b) => { calls.push(b); if (calls.length === 1) throw Object.assign(new Error('blocked'), { status: 409, data: { blocked_by: blockedBy } }) }
+  let seen = null
+  expect(await sendMove(post, (bs) => ((seen = bs), true), { id: 'WI-1', status: 'Ready' })).toEqual({ kind: 'sent' })
+  expect(seen).toEqual(blockedBy)
+  expect(calls[1]).toEqual({ id: 'WI-1', status: 'Ready', force: true })
 })
