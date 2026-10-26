@@ -293,7 +293,8 @@ def _sonar(name: str, path: Path) -> dict:
             "host": "", "link": info.get("link", "")}
 
 
-def _repo(name: str, inv: dict, debt: dict) -> dict:
+def _repo(name: str, libraries: list[dict] | dict, debt: dict) -> dict:
+    """`libraries` is the checked inventory's rows, or its `{"error"}`."""
     from .common import repo_dir
     path = repo_dir(name)
     row: dict = {"cloned": path.is_dir(), "libraries": 0, "vulns": {}, "vulnerable": [],
@@ -301,10 +302,10 @@ def _repo(name: str, inv: dict, debt: dict) -> dict:
                  "coverage": None, "reports": [], "debt": debt if _failed(debt) else debt.get(name, [])}
     if not row["cloned"]:                       # listed, with nothing known
         return row
-    if _failed(inv):
-        row["libraries"] = row["vulns"] = row["vulnerable"] = inv
+    if _failed(libraries):
+        row["libraries"] = row["vulns"] = row["vulnerable"] = libraries
     else:
-        libs = [lib for lib in inv.get("libraries") or [] if lib.get("repo") == name]
+        libs = [lib for lib in libraries if lib.get("repo") == name]
         row["libraries"] = len({(lib.get("ecosystem"), lib.get("name")) for lib in libs})
         row["vulnerable"] = _vulns_of(libs)
         row["vulns"] = dict(Counter(v["severity"] for v in row["vulnerable"]))
@@ -314,9 +315,20 @@ def _repo(name: str, inv: dict, debt: dict) -> dict:
     return row
 
 
-def _inventory() -> dict:
+def _library_ok(lib) -> bool:
+    found = lib.get("vulns") or [] if isinstance(lib, dict) else None
+    return isinstance(found, list) and all(isinstance(v, dict) for v in found)
+
+
+def _inventory() -> tuple[dict, list[dict]]:
+    """The saved inventory as the snapshot's `{at, scanned}` block plus its library rows. The file is not checked
+    when it is loaded, so one of another shape is an error here and not a crash further down."""
     from . import inventory
-    return inventory.load()
+    raw = inventory.load()
+    libs, vulns = (raw.get("libraries") or [], raw.get("vulns")) if isinstance(raw, dict) else (None, None)
+    if not (isinstance(libs, list) and (not vulns or isinstance(vulns, dict)) and all(map(_library_ok, libs))):
+        raise ValueError("the saved inventory is not in the expected shape")
+    return {"at": (vulns or {}).get("at"), "scanned": bool(vulns)}, libs
 
 
 def build(log=print) -> dict:
@@ -326,12 +338,13 @@ def build(log=print) -> dict:
     machine = _guard(_machine, log)
     names = _guard(lambda: [r["name"] for r in docs.workspace()["repos"]])
     log("reading the docs, the inventory and the repos…")
-    inv = _guard(_inventory)
+    read = _guard(_inventory)
+    inv, libraries = (read, read) if _failed(read) else read
     debt = _guard(debt_items, names) if not _failed(names) else names
     now = _now()
     snap = {"v": VERSION, "at": now, "machine": machine, "docs": _docs(now, [] if _failed(names) else names),
-            "inventory": inv if _failed(inv) else {"at": (inv.get("vulns") or {}).get("at"), "scanned": bool(inv.get("vulns"))},
-            "repos": names if _failed(names) else {n: _repo(n, inv, debt) for n in names},
+            "inventory": inv,
+            "repos": names if _failed(names) else {n: _guard(_repo, n, libraries, debt) for n in names},
             "debt_project": debt if _failed(debt) else debt.get("_project", [])}
     snap.update(areas(snap))
     save_json(SNAPSHOT, snap)
@@ -451,13 +464,13 @@ def _code_reasons(snap: dict, today: date) -> tuple[list, list]:
     if debt:
         reasons.append(_reason("warn", "code.highDebt", len(debt)))
     failed = [("inventory", "libs")] if _failed(snap.get("inventory")) else []
-    if (_failed(all_repos) or _failed(snap.get("debt_project"))
+    if (_failed(all_repos) or _failed(snap.get("debt_project")) or (_good(all_repos) and any(map(_failed, all_repos.values())))
             or any(_failed(r.get(k)) for r in repos for k in ("sonar", "coverage", "reports", "debt"))):
         failed.append(("repos", "repos"))
     reasons += _unread(failed, "code.unread")
     libs = [r["libraries"] for r in repos if isinstance(r.get("libraries"), int)]
     known = inv is not None and bool(libs) and (sum(libs) > 0 or inv.get("scanned"))
-    return reasons, [("code.libraries", sum(libs) if known else None), ("code.vulnHigh", high)]
+    return reasons, [("code.libraries", sum(libs) if known else None), ("code.vulnHigh", high if inv is not None and inv.get("scanned") else None)]
 
 
 def _repo_state(repo: dict) -> str | None:
@@ -486,4 +499,4 @@ def areas(snapshot: dict, today: date | None = None) -> dict:
             verdict += [{"key": r[1], "n": r[2]} for r in reasons]
     repos = snapshot.get("repos")
     return {"areas": out, "verdict": verdict,
-            "repo_state": {n: _repo_state(r) for n, r in repos.items() if _good(r)} if _good(repos) else {}}
+            "repo_state": {n: _repo_state(r) if _good(r) else None for n, r in repos.items()} if _good(repos) else {}}

@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import os
+import stat
+import sys
 from pathlib import Path
 
 import pytest
@@ -363,6 +365,7 @@ UNREAD = [
     ("debt of a repo", set_(["repos", "web", "debt"], BOOM), "code", "repos"),
     ("project debt", set_(["debt_project"], BOOM), "code", "repos"),
     ("whole repos block", set_(["repos"], BOOM), "code", "repos"),
+    ("a repo that failed to build", set_(["repos", "api"], BOOM), "code", "repos"),
 ]
 
 
@@ -425,6 +428,7 @@ def test_build_writes_a_snapshot_the_api_can_load(probed):
     assert set(snap["repos"]) == set(probed.docs.repo_names())
     assert snap["machine"]["missing"] == ["uv", "gitleaks"] and snap["machine"]["drift"] == 1
     assert snap["inventory"] == {"at": None, "scanned": False}
+    assert snap["areas"]["code"]["figures"][1] == {"key": "code.vulnHigh", "n": None}          # never scanned: "—", not 0
     assert set(snap) >= {"machine", "docs", "inventory", "repos", "debt_project", "areas", "repo_state", "verdict"}
     assert snap["areas"]["machine"]["state"] == "bad" and snap["areas"]["code"]["next"]["key"] == "code.noScan"
     api = snap["repos"]["api"]
@@ -458,6 +462,33 @@ def test_an_inventory_never_scanned_for_vulnerabilities_is_not_scanned(probed):
                                              "vulns": None})
     snap = health.build(log=quiet)
     assert snap["inventory"] == {"at": None, "scanned": False} and snap["repos"]["api"]["libraries"] == 1
+
+
+@pytest.mark.parametrize("saved", [None, [], {"vulns": True}, {"libraries": "x"}, {"libraries": ["api"]},
+                                   {"libraries": [{"repo": "api", "vulns": "x"}]},
+                                   {"libraries": [{"repo": "api", "vulns": ["x"]}]}],
+                         ids=["null", "list", "vulns true", "libraries string", "library row a string",
+                              "library vulns a string", "vuln a string"])
+def test_an_inventory_of_the_wrong_shape_does_not_stop_the_build(probed, saved):
+    from lib import health, inventory
+    probed.common.save_json(inventory.DATA, saved)
+    snap = health.build(log=quiet)
+    assert snap["inventory"]["error"] and set(snap["repos"]) == set(probed.docs.repo_names())
+    code = snap["areas"]["code"]
+    assert code["state"] == "warn" and code["next"] == {"key": "code.unread", "row": "libs"}
+    assert code["figures"] == [{"key": "code.libraries", "n": None}, {"key": "code.vulnHigh", "n": None}]
+    assert health.load() == snap
+
+
+def test_a_repo_that_fails_to_build_is_unread_not_a_crash(probed, monkeypatch):
+    from lib import health, inventory
+    probed.common.save_json(inventory.DATA, {"libraries": [{"repo": "api", "name": "a", "ecosystem": "m", "version": "1"}],
+                                             "vulns": {"at": "2026-10-20T00:00:00Z"}})
+    real = health._vulns_of
+    monkeypatch.setattr(health, "_vulns_of", lambda libs: (_ for _ in ()).throw(RuntimeError("bad rows")) if libs else real(libs))
+    snap = health.build(log=quiet)
+    assert snap["repos"]["api"] == {"error": "bad rows"} and snap["repos"]["web"]["cloned"] is True
+    assert snap["repo_state"]["api"] is None and snap["areas"]["code"]["next"] == {"key": "code.unread", "row": "repos"}
 
 
 def test_build_reads_coverage_sonar_and_debt(probed):
@@ -510,7 +541,10 @@ def test_one_failing_source_does_not_stop_the_rest(probed, monkeypatch):
 def test_a_repo_not_cloned_is_listed_with_nothing_known(probed):
     import shutil
     from lib import health
-    shutil.rmtree(probed.common.repo_dir("web"), onexc=lambda fn, p, e: (os.chmod(p, 0o700), fn(p)))
+    def writable(fn, p, _exc):                  # git objects are read-only on Windows
+        os.chmod(p, stat.S_IWRITE)
+        fn(p)
+    shutil.rmtree(probed.common.repo_dir("web"), **({"onexc": writable} if sys.version_info >= (3, 12) else {"onerror": writable}))
     snap = health.build(log=quiet)
     web = snap["repos"]["web"]
     assert web["cloned"] is False and web["coverage"] is None and web["libraries"] == 0
