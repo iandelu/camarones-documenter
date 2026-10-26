@@ -1,30 +1,30 @@
 {
-  "_Failed-D_gjmQIZ.js": {
-    "file": "assets/Failed-D_gjmQIZ.js",
+  "_Failed-ZKkyMb30.js": {
+    "file": "assets/Failed-ZKkyMb30.js",
     "name": "Failed",
     "imports": [
-      "_i18n-DS3nqqQB.js"
+      "_i18n-DPnv_4in.js"
     ]
   },
-  "_core-C-CAl9mC.js": {
-    "file": "assets/core-C-CAl9mC.js",
+  "_core-a6yj8jpO.js": {
+    "file": "assets/core-a6yj8jpO.js",
     "name": "core",
     "imports": [
-      "_i18n-DS3nqqQB.js"
+      "_i18n-DPnv_4in.js"
     ]
   },
-  "_i18n-DS3nqqQB.js": {
-    "file": "assets/i18n-DS3nqqQB.js",
+  "_i18n-DPnv_4in.js": {
+    "file": "assets/i18n-DPnv_4in.js",
     "name": "i18n"
   },
   "index.html": {
-    "file": "assets/index-Di1IG9Z9.js",
+    "file": "assets/index-BmjvvOBh.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
     "imports": [
-      "_i18n-DS3nqqQB.js",
-      "_core-C-CAl9mC.js"
+      "_i18n-DPnv_4in.js",
+      "_core-a6yj8jpO.js"
     ],
     "dynamicImports": [
       "src/Pipeline.jsx",
@@ -34,85 +34,96 @@
       "src/Data.jsx",
       "src/Interview.jsx",
       "src/Sync.jsx",
-      "src/Kanban.jsx"
+      "src/Kanban.jsx",
+      "src/Health.jsx"
     ],
     "css": [
-      "assets/index-B0wOo5dL.css"
+      "assets/index-r5YtJnEF.css"
     ]
   },
   "src/Ci.jsx": {
-    "file": "assets/Ci-BugdeHR0.js",
+    "file": "assets/Ci-rJ2IEXth.js",
     "name": "Ci",
     "src": "src/Ci.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-DS3nqqQB.js",
-      "_core-C-CAl9mC.js",
+      "_i18n-DPnv_4in.js",
+      "_core-a6yj8jpO.js",
       "index.html",
-      "_Failed-D_gjmQIZ.js"
+      "_Failed-ZKkyMb30.js"
     ]
   },
   "src/Data.jsx": {
-    "file": "assets/Data-B_LyDwP4.js",
+    "file": "assets/Data-CnMxOIZw.js",
     "name": "Data",
     "src": "src/Data.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-DS3nqqQB.js",
-      "_core-C-CAl9mC.js",
+      "_i18n-DPnv_4in.js",
+      "_core-a6yj8jpO.js",
       "index.html",
-      "_Failed-D_gjmQIZ.js"
+      "_Failed-ZKkyMb30.js"
+    ]
+  },
+  "src/Health.jsx": {
+    "file": "assets/Health-BWApVohQ.js",
+    "name": "Health",
+    "src": "src/Health.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_i18n-DPnv_4in.js",
+      "_Failed-ZKkyMb30.js"
     ]
   },
   "src/Interview.jsx": {
-    "file": "assets/Interview-DCUfZpI-.js",
+    "file": "assets/Interview-HiTMG2FS.js",
     "name": "Interview",
     "src": "src/Interview.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-DS3nqqQB.js",
-      "_Failed-D_gjmQIZ.js"
+      "_i18n-DPnv_4in.js",
+      "_Failed-ZKkyMb30.js"
     ]
   },
   "src/Kanban.jsx": {
-    "file": "assets/Kanban-CutXiaX1.js",
+    "file": "assets/Kanban-VIP38-pl.js",
     "name": "Kanban",
     "src": "src/Kanban.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-DS3nqqQB.js",
-      "_Failed-D_gjmQIZ.js"
+      "_i18n-DPnv_4in.js",
+      "_Failed-ZKkyMb30.js"
     ]
   },
   "src/Kpis.jsx": {
-    "file": "assets/Kpis-oHmhi_ov.js",
+    "file": "assets/Kpis-Dg0IPa1I.js",
     "name": "Kpis",
     "src": "src/Kpis.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-DS3nqqQB.js",
-      "_core-C-CAl9mC.js",
-      "_Failed-D_gjmQIZ.js"
+      "_i18n-DPnv_4in.js",
+      "_core-a6yj8jpO.js",
+      "_Failed-ZKkyMb30.js"
     ]
   },
   "src/Libs.jsx": {
-    "file": "assets/Libs-DmI8295s.js",
+    "file": "assets/Libs-CcB_4QO-.js",
     "name": "Libs",
     "src": "src/Libs.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-DS3nqqQB.js",
+      "_i18n-DPnv_4in.js",
       "index.html",
-      "_Failed-D_gjmQIZ.js"
+      "_Failed-ZKkyMb30.js"
     ]
   },
   "src/Pipeline.jsx": {
-    "file": "assets/Pipeline-CcULQKv3.js",
+    "file": "assets/Pipeline-DGH92daC.js",
     "name": "Pipeline",
     "src": "src/Pipeline.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-DS3nqqQB.js",
+      "_i18n-DPnv_4in.js",
       "index.html"
     ],
     "css": [
@@ -120,13 +131,13 @@
     ]
   },
   "src/Sync.jsx": {
-    "file": "assets/Sync-5g9Fs4MS.js",
+    "file": "assets/Sync-CyX4oL-l.js",
     "name": "Sync",
     "src": "src/Sync.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-DS3nqqQB.js",
-      "_Failed-D_gjmQIZ.js"
+      "_i18n-DPnv_4in.js",
+      "_Failed-ZKkyMb30.js"
     ]
   }
 }

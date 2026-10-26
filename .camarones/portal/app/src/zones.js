@@ -19,7 +19,8 @@ export const ZONES = [
     { id: 'libs', href: '#/libs', live: true }] },
   { id: 'plan', href: '#/plan', views: [{ id: 'pipeline', href: '#/pipeline', live: true },
     { id: 'interview', href: '#/interview', live: true }, { id: 'sync', href: '#/sync', live: true }] },
-  { id: 'quality', href: '#/quality', views: [{ id: 'kpis', href: '#/kpis', live: true }, { id: 'ci', href: '#/ci', live: true }] },
+  { id: 'quality', href: '#/quality', views: [
+    { id: 'health', href: '#/health', live: true }, { id: 'kpis', href: '#/kpis', live: true }, { id: 'ci', href: '#/ci', live: true }] },
   { id: 'review', href: '#/review', views: [{ id: 'review', href: '#/review' }] },
 ]
 
@@ -28,7 +29,7 @@ const ROUTES = {
   kanban: ['board', 'kanban'],
   docs: ['docs', 'pages'], doc: ['docs', 'pages'], wikis: ['docs', 'wikis'], wiki: ['docs', 'wikis'],
   c4: ['arch', 'c4'], code: ['arch', 'code'], data: ['arch', 'data'], libs: ['arch', 'libs'],
-  pipeline: ['plan', 'pipeline'], interview: ['plan', 'interview'], sync: ['plan', 'sync'], kpis: ['quality', 'kpis'], ci: ['quality', 'ci'],
+  pipeline: ['plan', 'pipeline'], interview: ['plan', 'interview'], sync: ['plan', 'sync'], kpis: ['quality', 'kpis'], ci: ['quality', 'ci'], health: ['quality', 'health'],
   review: ['review', 'review'], status: ['review', 'review'],
 }
 

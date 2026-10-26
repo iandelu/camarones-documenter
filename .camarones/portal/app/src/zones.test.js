@@ -26,6 +26,15 @@ test('live: every zone, code only with a graph', () => {
   expect(paletteEntries('live', idx).map((e) => e.href)).not.toContain('#/boards')
 })
 
+test('Calidad: Salud comes first, live only', () => {
+  expect(locate('#/health')).toEqual({ zone: 'quality', view: 'health' })
+  expect(locate('#/health/api')).toEqual({ zone: 'quality', view: 'health' })
+  expect(zonesFor('live', idx).find((x) => x.id === 'quality').views.map((v) => v.id)).toEqual(['health', 'kpis', 'ci'])
+  expect(zonesFor('static', idx).some((x) => x.id === 'quality')).toBe(false)
+  expect(paletteEntries('live', idx)).toContainEqual({ key: 'view.health', href: '#/health', zone: 'quality' })
+  expect(crumbs('#/health', 'live', idx)).toEqual([{ key: 'zone.quality', href: '#/quality' }, { key: 'view.health', href: '#/health' }])
+})
+
 test('wikis show in the static export only when there are wiki pages', () => {
   const noWikis = { ...idx, docs: idx.docs.filter((d) => d.space !== 'wiki') }
   expect(zonesFor('static', idx).find((x) => x.id === 'docs').views.map((v) => v.id)).toEqual(['pages', 'wikis'])
