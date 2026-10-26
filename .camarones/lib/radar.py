@@ -54,17 +54,19 @@ SONAR_PROPS = (r"^\s*sonar\.([\w.]+)\s*[=:]\s*(\S+)",                           
 
 
 def read_sonar(f: Path) -> dict:
-    """Project key, organization and a dashboard link from sonar-project.properties, pom.xml or build.gradle."""
+    """Project key, organization, the host the repo names itself (`sonar.host.url`) and a dashboard link from
+    sonar-project.properties, pom.xml or build.gradle."""
     text = read_small(f)
     props = {}
     for pat in SONAR_PROPS:
         for k, v in re.findall(pat, text, re.M):
             props.setdefault(k, v)
     key, org = props.get("projectKey", ""), props.get("organization", "")
-    host = props.get("host.url", "").rstrip("/") or ("https://sonarcloud.io" if org else "")
+    named = props.get("host.url", "").rstrip("/")
+    host = named or ("https://sonarcloud.io" if org else "")
     link = (f"{host}/dashboard?id={key}" if host and key else
             f"{host}/organizations/{org}/projects" if org and "sonarcloud.io" in host else "")
-    info = {"project": key, "organization": org, "link": link}
+    info = {"project": key, "organization": org, "host": named, "link": link}
     return {k: v for k, v in info.items() if v}
 
 

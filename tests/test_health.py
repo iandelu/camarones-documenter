@@ -327,8 +327,8 @@ def test_every_reason_points_at_its_row():
     assert health.ROWS == {
         "machine.missing": "doctor", "machine.unchecked": "doctor", "machine.drift": "drift", "docs.stale": "fresh",
         "docs.suspect": "fresh", "docs.context": "context", "docs.noEvals": "evals", "docs.review": "review",
-        "code.vulnHigh": "libs", "code.vulnMedium": "libs", "code.noScan": "libs", "code.oldScan": "libs",
-        "code.lowCoverage": "repos", "code.highDebt": "repos"}
+        "code.vulnHigh": "libs", "code.gateFailed": "repos", "code.vulnMedium": "libs", "code.noScan": "libs",
+        "code.oldScan": "libs", "code.lowCoverage": "repos", "code.highDebt": "repos"}
 
 
 def test_verdict_lists_the_reasons_of_every_area_that_is_not_ok_in_area_order():

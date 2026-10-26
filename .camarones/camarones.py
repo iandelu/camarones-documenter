@@ -1298,6 +1298,7 @@ HEALTH_REASONS = {
     "docs.review": "{n} pages waiting for review", "docs.unread": "{n} sources could not be read",
     "code.vulnHigh": "{n} high or critical vulnerabilities", "code.vulnMedium": "{n} medium vulnerabilities",
     "code.noScan": "vulnerabilities never scanned", "code.oldScan": "last vulnerability scan {n} days ago",
+    "code.gateFailed": "{n} repos failing the SonarQube quality gate",
     "code.lowCoverage": "{n} repos under the minimum coverage", "code.highDebt": "{n} high-impact debt items",
     "code.unread": "{n} sources could not be read"}
 HEALTH_FIGURES = {"machine.tools": "tools checked", "machine.missing": "missing", "docs.stale": "stale pages",

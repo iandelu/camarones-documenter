@@ -210,8 +210,8 @@ COVERAGE_MIN = 50
 # Reason key -> the row of the screen that fixes it (the UI turns keys into words and rows into links).
 ROWS = {"machine.missing": "doctor", "machine.unchecked": "doctor", "machine.drift": "drift",
         "docs.stale": "fresh", "docs.suspect": "fresh", "docs.context": "context", "docs.noEvals": "evals",
-        "docs.review": "review", "code.vulnHigh": "libs", "code.vulnMedium": "libs", "code.noScan": "libs",
-        "code.oldScan": "libs", "code.lowCoverage": "repos", "code.highDebt": "repos"}
+        "docs.review": "review", "code.vulnHigh": "libs", "code.gateFailed": "repos", "code.vulnMedium": "libs",
+        "code.noScan": "libs", "code.oldScan": "libs", "code.lowCoverage": "repos", "code.highDebt": "repos"}
 STATE_ORDER = ("ok", "warn", "bad")
 
 
@@ -290,11 +290,20 @@ def _sonar(name: str, path: Path) -> dict:
     tool = next((t for t in radar.scan_repo(name, path) if t["id"] == "sonar"), None)
     info = tool["info"] if tool else {}
     return {"used": tool is not None, "project": info.get("project", ""), "organization": info.get("organization", ""),
-            "host": "", "link": info.get("link", "")}
+            "host": info.get("host", ""), "link": info.get("link", "")}
 
 
-def _repo(name: str, libraries: list[dict] | dict, debt: dict) -> dict:
-    """`libraries` is the checked inventory's rows, or its `{"error"}`."""
+def _server_coverage(sonar) -> dict | None:
+    server = sonar.get("server") if isinstance(sonar, dict) else None
+    p = server.get("coverage") if isinstance(server, dict) else None
+    if isinstance(p, (int, float)) and not isinstance(p, bool):
+        return {"percent": p, "at": server.get("at"), "source": "sonar", "path": None}
+    return None
+
+
+def _repo(name: str, libraries: list[dict] | dict, debt: dict, ws: dict, previous) -> dict:
+    """`libraries` is the checked inventory's rows, or its `{"error"}`; `previous` the repo's block in the last snapshot."""
+    from . import sonar
     from .common import repo_dir
     path = repo_dir(name)
     row: dict = {"cloned": path.is_dir(), "libraries": 0, "vulns": {}, "vulnerable": [],
@@ -310,8 +319,11 @@ def _repo(name: str, libraries: list[dict] | dict, debt: dict) -> dict:
         row["vulnerable"] = _vulns_of(libs)
         row["vulns"] = dict(Counter(v["severity"] for v in row["vulnerable"]))
     row["sonar"] = _guard(_sonar, name, path)
+    if not _failed(row["sonar"]):
+        row["sonar"] = _guard(sonar.read, row["sonar"], previous, ws)
     row["reports"] = _guard(coverage_reports, path)
     row["coverage"] = row["reports"] if _failed(row["reports"]) else repo_coverage(row["reports"])
+    row["coverage"] = _server_coverage(row["sonar"]) or row["coverage"]       # the server's figure wins when it has one
     return row
 
 
@@ -336,7 +348,10 @@ def build(log=print) -> dict:
     from . import docs
     log("reading the machine…")
     machine = _guard(_machine, log)
+    ws = _guard(docs.workspace)
     names = _guard(lambda: [r["name"] for r in docs.workspace()["repos"]])
+    last = load() or {}                         # the last Sonar figures, kept for a repo whose read fails now
+    last = last.get("repos") if isinstance(last.get("repos"), dict) else {}
     log("reading the docs, the inventory and the repos…")
     read = _guard(_inventory)
     inv, libraries = (read, read) if _failed(read) else read
@@ -344,7 +359,7 @@ def build(log=print) -> dict:
     now = _now()
     snap = {"v": VERSION, "at": now, "machine": machine, "docs": _docs(now, [] if _failed(names) else names),
             "inventory": inv,
-            "repos": names if _failed(names) else {n: _guard(_repo, n, libraries, debt) for n in names},
+            "repos": names if _failed(names) else {n: _guard(_repo, n, libraries, debt, {} if _failed(ws) else ws, last.get(n)) for n in names},
             "debt_project": debt if _failed(debt) else debt.get("_project", [])}
     snap.update(areas(snap))
     save_json(SNAPSHOT, snap)
@@ -382,6 +397,12 @@ def _repo_percent(repo: dict) -> float | None:
     cov = repo.get("coverage")
     p = cov.get("percent") if isinstance(cov, dict) else None
     return p if isinstance(p, (int, float)) and not isinstance(p, bool) else None
+
+
+def _gate_failed(repo: dict) -> bool:
+    sonar = repo.get("sonar")
+    server = sonar.get("server") if isinstance(sonar, dict) else None
+    return isinstance(server, dict) and server.get("gate") == "ERROR"
 
 
 def _high_debt(items) -> set[tuple]:
@@ -448,11 +469,14 @@ def _code_reasons(snap: dict, today: date) -> tuple[list, list]:
     high = sum(c.get("critical", 0) + c.get("high", 0) for c in counts)
     medium = sum(c.get("medium", 0) for c in counts)
     low = sum(1 for r in repos if (p := _repo_percent(r)) is not None and p < COVERAGE_MIN)
+    failed_gate = sum(map(_gate_failed, repos))
     debt = _high_debt(snap.get("debt_project")).union(*(_high_debt(r.get("debt")) for r in repos))
     inv = snap.get("inventory") if _good(snap.get("inventory")) else None
     reasons = []
     if high:
         reasons.append(_reason("bad", "code.vulnHigh", high))
+    if failed_gate:
+        reasons.append(_reason("bad", "code.gateFailed", failed_gate))
     if medium:
         reasons.append(_reason("warn", "code.vulnMedium", medium))
     if inv is not None and not inv.get("scanned"):
@@ -478,7 +502,7 @@ def _repo_state(repo: dict) -> str | None:
     if repo.get("cloned") is False:
         return None
     c, p = _counts(repo), _repo_percent(repo)
-    if c.get("critical", 0) + c.get("high", 0):
+    if c.get("critical", 0) + c.get("high", 0) or _gate_failed(repo):
         return "bad"
     low = p is not None and p < COVERAGE_MIN
     return "warn" if c.get("medium", 0) or low or _high_debt(repo.get("debt")) else "ok"
