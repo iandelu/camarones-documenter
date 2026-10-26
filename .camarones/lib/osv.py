@@ -48,8 +48,37 @@ def _fixed(vuln: dict, name: str) -> str | None:
     return None
 
 
+DETAILS_MAX = 6000            # characters of an advisory's text kept in the inventory
+REFERENCES_MAX = 12
+KEEP = ("id", "cve", "summary", "severity", "score", "fixed", "aliases", "details", "published", "modified", "ranges",
+        "references", "cwes")
+
+
+def _ranges(vuln: dict, name: str) -> list[dict]:
+    """The affected versions of `name` as [{introduced, fixed | last_affected}]: why a version is flagged."""
+    out = []
+    for aff in vuln.get("affected") or []:
+        if (aff.get("package") or {}).get("name", name) != name:
+            continue
+        for rng in aff.get("ranges") or []:
+            cur: dict = {}
+            for ev in rng.get("events") or []:
+                if "introduced" in ev:
+                    if cur:
+                        out.append(cur)
+                    cur = {"introduced": ev["introduced"]}
+                elif "fixed" in ev or "last_affected" in ev:
+                    cur.update({k: ev[k] for k in ("fixed", "last_affected") if k in ev})
+                    out.append(cur)
+                    cur = {}
+            if cur:
+                out.append(cur)
+    return out
+
+
 def parse(data: dict) -> dict[tuple[str, str], list[dict]]:
-    """(ecosystem, name) → [{id, cve, summary, severity, score, fixed, version}] from OSV-Scanner's JSON."""
+    """(ecosystem, name) → [{id, cve, summary, severity, score, fixed, version, aliases, details, published, modified,
+    ranges, references, cwes}] from OSV-Scanner's JSON: the whole advisory, so it reads offline in the app."""
     out: dict[tuple[str, str], list[dict]] = {}
     for result in data.get("results") or []:
         for pkg in result.get("packages") or []:
@@ -64,7 +93,13 @@ def parse(data: dict) -> dict[tuple[str, str], list[dict]]:
                     "id": v.get("id"), "cve": next((a for a in v.get("aliases") or [] if a.startswith("CVE-")), None),
                     "summary": v.get("summary") or "", "score": score,
                     "severity": severity(score, (v.get("database_specific") or {}).get("severity")),
-                    "fixed": _fixed(v, p.get("name", "")), "version": p.get("version")})
+                    "fixed": _fixed(v, p.get("name", "")), "version": p.get("version"),
+                    "aliases": list(v.get("aliases") or []), "details": (v.get("details") or "")[:DETAILS_MAX],
+                    "published": v.get("published"), "modified": v.get("modified"),
+                    "ranges": _ranges(v, p.get("name", "")),
+                    "references": [{"type": r.get("type", ""), "url": r["url"]} for r in v.get("references") or []
+                                   if str(r.get("url", "")).startswith(("https://", "http://"))][:REFERENCES_MAX],
+                    "cwes": list((v.get("database_specific") or {}).get("cwe_ids") or [])})
     return out
 
 
@@ -104,7 +139,7 @@ def attach(rows: list[dict], log=print) -> dict | None:
         version = (row.get("version") or "").lstrip("v")
         hits = [v for v in found.get((row["repo"], row["ecosystem"], row["name"]), [])
                 if not version or (v["version"] or "").lstrip("v") in ("", version)]
-        row["vulns"] = [{k: v[k] for k in ("id", "cve", "summary", "severity", "score", "fixed")}
+        row["vulns"] = [{k: v[k] for k in KEEP}
                         for v in {v["id"]: v for v in hits}.values()]
     vulnerable = sum(1 for r in rows if r["vulns"])
     log(f"✔ {vulnerable} libraries with known vulnerabilities" + (f" ({', '.join(failed)}: scan failed)" if failed else ""))

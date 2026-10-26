@@ -46,7 +46,7 @@ The first run walks you through: workspace (project name) → repos → tools (i
 what to install) → setup (repos, Claude/Codex wiring, git hooks) → stack & tools (each repo's stack and the tools you
 already use — Backstage, Sonar, component library, linters, contracts, CI — found without AI; fix a wrong stack there
 or later with `camaron stack`; saved in `docs/overview/tooling.md`, with every direct dependency by category in
-`docs/overview/libraries.md`, also `camaron inventory`; `--cves` adds known vulnerabilities from OSV-Scanner's offline
+`docs/overview/libraries.md`, also `camaron inventory` (`camaron bump <repo> <library> <version>` updates one on a new branch of its repo); `--cves` adds known vulnerabilities from OSV-Scanner's offline
 database; and each repo's tables and collections in the repo's page (`docs/repos/<repo>/index.md`; `docs/data/<repo>.md` before 4.52), also `camaron schemas`) → quick C4 draft → how sessions work. Esc always goes one step back; long
 tasks show what they are doing, a progress bar and crustacean facts. After that the main menu shows the plan progress and the next step.
 
@@ -170,7 +170,8 @@ A fresh project never shows blank views: Home, Docs and Architecture offer a **f
 draft and its page, the stack and tools — and Code offers to build the code graph.
 
 One portal, two modes, the same interface, in Cofundo's visual language with the Camarón brand (light or dark, fonts served by the portal itself). There is no tab bar: **Home** asks first (Ask live, search in the export), shows the project's state (confirmed, to reconfirm, drafts, pending feedback); the sidebar keeps five zones — Docs, Architecture, Plan, Quality and Review — on every view; the top bar shows where you are and Ctrl K / ⌘K jumps to any page, zone or view, or (live) takes the question to Ask. Old addresses (`#/c4`, `#/docs/…`) still work. The views: **Docs** (tree, search, trust badges), **Architecture (C4)** (under each view, its elements: edit title,
-technology, description and relations, and confirm what the AI drafted, one by one or the whole view),
+technology, description and relations, remove an element, and confirm what the AI drafted, one by one or the whole view;
+confirmed ones fold into their own section),
 **Code graph** (all repos or one), **Wikis** (OpenWiki per repo, its pages and graph), **Review** (pending pages with their sources, confirmed several at once; reviews
 an agent is waiting for, change requests, code changed since the docs, `check`), **Ask** (the sections that best answer
 a question, with citations, no AI; "database" also finds PostgreSQL and Spanish questions find English pages; with an agent set up, "Answer with AI" writes the answer from them

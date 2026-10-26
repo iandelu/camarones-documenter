@@ -4,6 +4,7 @@ import { postJSON } from '../api.js'
 import { docsGet } from '../docsApi.js'
 import { c4Box, drawC4, flowViewId, loadViewers, runBuild } from '../content/doc.js'
 import { core } from '../core.js'
+import { splitElements } from './c4.js'
 
 const runs = () => core.mode() === 'app'
 export const VIEW_GROUPS = ['system', 'element', 'dynamic', 'deployment']
@@ -74,6 +75,7 @@ function C4View({ view, t }) {
     if (!v || !stage.current) return
     stage.current.replaceChildren(c4Box(view.id))
     drawC4(stage.current, { caption: false, maxH: () => Math.max(320, innerHeight * 0.7) })
+    restoreScroll(view.id)
   }, [v])
   if (!v) return <div className="page"><Skeleton lines={4} /></div>
   return (
@@ -97,40 +99,84 @@ function C4View({ view, t }) {
   )
 }
 
-// The view's elements: review, edit and confirm what the AI drafted (lib/c4edit.py), its relations in and out.
+// After a change the diagram is rebuilt and the page reloads (LikeC4's web component cannot be redefined in place);
+// coming back, the page scrolls to where you were, so the panel you were reviewing stays under your eyes.
+const SCROLL_KEY = 'c4-scroll'
+function keepScroll(id) { try { sessionStorage.setItem(SCROLL_KEY, JSON.stringify({ id, y: scrollY })) } catch { /* private mode */ } }
+function restoreScroll(id) {
+  let at = null
+  try { at = JSON.parse(sessionStorage.getItem(SCROLL_KEY) || 'null'); sessionStorage.removeItem(SCROLL_KEY) } catch { /* private mode */ }
+  if (at?.id === id) setTimeout(() => scrollTo(0, at.y), 300)
+}
+
+// The view's elements: review, edit, confirm or remove what the AI drafted (lib/c4edit.py), its relations in and out.
+// What is still to review is open; what a person confirmed folds into its own section.
 function Elements({ id, model, t }) {
   const [v, setV] = useState(null)
   const [error, setError] = useState('')
+  const [drawing, setDrawing] = useState(false)
   const log = useRef(null)
+  const timer = useRef(null)
+  const building = useRef(false)
+  const again = useRef(false)
   const load = () => docsGet('c4/view', { id }).then(setV, () => setV({ elements: [] }))
   useEffect(() => { load() }, [id])
+  useEffect(() => () => clearTimeout(timer.current), [])
+  // One rebuild for a burst of changes (confirming several in a row): it starts once they stop, and a change made while
+  // it runs asks for one more after it.
+  const build = async () => {
+    if (building.current) { again.current = true; return }
+    building.current = true
+    const j = await runBuild('c4', '', null, log.current)
+    building.current = false
+    if (again.current) { again.current = false; return build() }
+    if (j?.status === 'done') { keepScroll(id); location.reload() } else setDrawing(false)
+  }
+  const redraw = () => {
+    if (!runs() || !model) return
+    setDrawing(true)
+    clearTimeout(timer.current)
+    timer.current = setTimeout(build, 1200)
+  }
   if (!v?.elements?.length) return null
   const edit = v.editable && core.mode() !== 'static'
   const drafts = v.elements.filter((e) => e.draft).length
+  const { pending, confirmed } = splitElements(v.elements)
   const change = async (path, body) => {
     setError('')
     try {
       await postJSON(`c4/${path}`, body)
-      core.toast(t('c4Saved'))
+      core.toast(t(runs() && model ? 'c4Saved' : 'c4SavedNoBuild'))
       await load()
-      if (runs() && model) runBuild('c4', '', null, log.current, () => location.reload())
-    } catch (e) { setError(e.message) }
+      redraw()
+      return true
+    } catch (e) { setError(e.message); return false }
   }
+  const card = (e) => <Element key={e.fqn} e={e} v={v} edit={edit} t={t} change={change} />
   return (
     <section className="c4el-panel">
       <div className="c4el-head"><h2>{t('c4Elements')}</h2>
         <span className="muted small">{t('c4Count', { n: v.elements.length, d: drafts })}</span>
+        {drawing && <Chip state="info">{t('c4Redrawing')}</Chip>}
         {edit && drafts > 0 && <Button size="sm" variant="primary" onClick={() => change('confirm', { view: id })}>{t('c4ConfirmAll')}</Button>}</div>
       {edit && <p className="muted small">{t('c4Help')}</p>}
       {error && <Aviso tone="error" title={t('error')} detail={error} />}
       <pre ref={log} className="joblog" hidden></pre>
-      <div className="c4el-list">{v.elements.map((e) => <Element key={e.fqn} e={e} v={v} edit={edit} t={t} change={change} />)}</div>
+      {pending.length > 0 ? <div className="c4el-list">{pending.map(card)}</div>
+        : <p className="muted small">{t('c4AllConfirmed')}</p>}
+      {confirmed.length > 0 && (
+        <details className="c4el-done">
+          <summary><b>{t('c4ConfirmedSection', { n: confirmed.length })}</b></summary>
+          <div className="c4el-list">{confirmed.map(card)}</div>
+        </details>
+      )}
     </section>
   )
 }
 
 function Element({ e, v, edit, t, change }) {
   const [open, setOpen] = useState(false)
+  const [removing, setRemoving] = useState(false)
   const [form, setForm] = useState({ title: e.title, kind: e.kind, technology: e.technology || '', description: e.description || '' })
   const [rel, setRel] = useState({ to: '', label: '', kind: '' })
   const title = (fqn) => v.all.find((x) => x.fqn === fqn)?.title || fqn
@@ -149,8 +195,14 @@ function Element({ e, v, edit, t, change }) {
         {edit && <span className="c4el-act">
           <Button size="sm" variant="ghost" aria-expanded={open} onClick={() => setOpen(!open)}>{t('edit')}</Button>
           {!(e.confirmed && !e.draft) && <Button size="sm" onClick={() => change('confirm', { fqns: [e.fqn] })}>{t('c4Confirm')}</Button>}
+          <Button size="sm" variant="ghost" aria-expanded={removing} onClick={() => setRemoving(!removing)}>{t('c4Remove')}</Button>
         </span>}
       </div>
+      {edit && removing && (
+        <Aviso tone="warn" title={t('c4RemoveAsk', { title: e.title })} action={<span className="row">
+          <Button size="sm" variant="danger" onClick={async () => { if (!(await change('remove', { fqn: e.fqn }))) setRemoving(false) }}>{t('c4RemoveYes')}</Button>
+          <Button size="sm" variant="ghost" onClick={() => setRemoving(false)}>{t('cancel')}</Button></span>}>{t('c4RemoveWhat')}</Aviso>
+      )}
       {(e.technology || e.description) && <p className="small">{e.technology && <b>{e.technology}</b>}{e.technology && e.description ? ' · ' : ''}{e.description}</p>}
       {(e.out.length > 0 || e.in.length > 0) && <ul className="c4rels">{e.out.map((r) => relation(r, true))}{e.in.map((r) => relation(r, false))}</ul>}
       {edit && open && (

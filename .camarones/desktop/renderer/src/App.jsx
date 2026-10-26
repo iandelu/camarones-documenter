@@ -14,6 +14,7 @@ import { catalog } from './sections/Commands.jsx'
 import Docs from './sections/Docs.jsx'
 import Interviews from './sections/Interviews.jsx'
 import KitDev from './sections/KitDev.jsx'
+import Libs from './sections/Libs.jsx'
 import Machine from './sections/Machine.jsx'
 import Plan from './sections/Plan.jsx'
 import Quality from './sections/Quality.jsx'
@@ -172,7 +173,7 @@ function Rail({ app, projects: { list, busy, open } }) {
   )
 }
 
-const SECTIONS = { summary: Summary, plan: Plan, interviews: Interviews, team: Team, quality: Quality, docs: Docs, machine: Machine,
+const SECTIONS = { summary: Summary, plan: Plan, interviews: Interviews, team: Team, quality: Quality, libs: Libs, docs: Docs, machine: Machine,
   kitdev: KitDev, start: Start }
 function Section({ here, ...props }) {
   const View = SECTIONS[here]

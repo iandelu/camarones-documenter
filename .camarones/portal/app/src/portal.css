@@ -450,6 +450,10 @@ body[data-audience="business"] .dv-tech { display: none; }
 .c4el-form { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem .75rem; margin-top: .75rem; }
 .c4el-form label { display: flex; flex-direction: column; gap: .2rem; font-size: .8rem; color: var(--muted); min-width: 0; }
 .c4el-form label.wide, .c4el-form .row { grid-column: 1 / -1; }
+.c4el .cu-aviso { margin-top: .6rem; }
+.c4el-done { margin-top: 1.25rem; border-top: 1px solid var(--line); padding-top: .75rem; }
+.c4el-done > summary { cursor: pointer; color: var(--ink-2); }
+.c4el-done[open] > summary { margin-bottom: .25rem; }
 .c4rel-form { margin-top: .6rem; gap: .4rem; flex-wrap: wrap; }
 .c4rel-form select, .c4rel-form input { flex: 1 1 8rem; min-width: 0; }
 @media (max-width: 640px) { .c4el-panel { padding: 0 1rem 2rem; } .c4el-form { grid-template-columns: 1fr; } }

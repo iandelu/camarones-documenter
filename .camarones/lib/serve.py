@@ -189,6 +189,8 @@ def c4_change(path: str, b: dict, by: str) -> dict:
         return {"confirmed": c4edit.confirm_view(b["view"], by) if b.get("view") else c4edit.confirm(b["fqns"], by)}
     if path == "relation" and b.get("action") == "add":
         return c4edit.add_relation(b["from"], b["to"], str(b.get("label") or ""), b.get("kind") or None)
+    if path == "remove":
+        return c4edit.remove_element(b["fqn"])
     if path == "relation" and b.get("action") == "remove":
         return c4edit.remove_relation(b["from"], b["to"], str(b.get("label") or ""))
     raise ValueError(f"unknown C4 change {path!r}")
@@ -1090,7 +1092,7 @@ class Handler(BaseHTTPRequestHandler):
                     return self.json(kpis_miss(b))
                 except KeyError as e:
                     return self.json({"error": f"not in the list: {e}"}, 404)
-            if m := re.fullmatch(r"/api/c4/(element|confirm|relation)", p):
+            if m := re.fullmatch(r"/api/c4/(element|confirm|relation|remove)", p):
                 try:
                     return self.json(c4_change(m.group(1), b, by))
                 except KeyError as e:

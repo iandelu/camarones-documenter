@@ -123,6 +123,23 @@ a.dk-stat-n:hover { color: var(--color-acento-texto); }
 .dk-libs td.cell-vuln { color: var(--color-estado-mal); font-weight: 600; }
 .dk-linkish { min-height: 1.5rem; padding: 0; border: 0; background: none; color: var(--color-acento-texto); font: inherit; cursor: pointer; text-decoration: underline dotted; }
 .dk-linkish:focus-visible { outline: 2px solid var(--color-acento-texto); outline-offset: 2px; }
+.dk-libs tr.on td { background: var(--color-canvas-elevated); }
+.dk-libs tr.dk-lib-row > td { white-space: normal; background: var(--color-canvas-elevated); padding: 1rem; }
+.dk-lib { display: flex; flex-direction: column; gap: 1.25rem; }
+.dk-lib h3 { margin: 0 0 .4rem; font-size: var(--text-body); }
+.dk-lib .dk-table td { white-space: normal; }
+.dk-advs { display: flex; flex-direction: column; gap: .5rem; }
+.dk-adv { border: 1px solid var(--color-rule); border-radius: var(--consola-radio-chico); padding: .5rem .75rem; }
+.dk-adv > summary { cursor: pointer; line-height: 1.6; }
+.dk-adv-body { display: flex; flex-direction: column; gap: .6rem; margin-top: .6rem; }
+.dk-adv-facts { display: grid; grid-template-columns: max-content 1fr; gap: .25rem 1rem; margin: 0; font-size: var(--text-meta); }
+.dk-adv-facts dt { color: var(--color-ink-soft); }
+.dk-adv-facts dd { margin: 0; overflow-wrap: anywhere; }
+.dk-adv-text { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 22rem; overflow-y: auto; font-size: var(--text-meta); }
+.dk-adv-refs { margin: 0; padding-left: 1.1rem; font-size: var(--text-meta); overflow-wrap: anywhere; }
+.dk-bump { display: flex; flex-direction: column; gap: .4rem; min-width: 14rem; }
+.dk-bump .row { flex-wrap: nowrap; }
+.dk-bump-v { width: 7rem; }
 .dk-advisories { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: .35rem; white-space: normal; }
 .dk-stack { width: 14rem; max-width: 100%; }
 .dk-build { min-width: 9rem; }
