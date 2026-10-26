@@ -27,6 +27,25 @@ export function moveOutcome(err) {
   return { kind: 'error', message: err?.message || String(err) }
 }
 
+// Sends a move (`post` takes the body). A gate (409 naming the blocking cards) asks `confirm(blockedBy)` once; yes sends it
+// again with force. -> {kind: 'sent'} | {kind: 'declined'} (the person said no: nothing to show) | {kind: 'error', message}.
+export async function sendMove(post, confirm, body) {
+  try {
+    await post(body)
+    return { kind: 'sent' }
+  } catch (e) {
+    const o = moveOutcome(e)
+    if (o.kind !== 'gate') return o
+    if (!confirm(o.blockedBy)) return { kind: 'declined' }
+  }
+  try {
+    await post({ ...body, force: true })
+    return { kind: 'sent' }
+  } catch (e) {
+    return moveOutcome(e)
+  }
+}
+
 // The columns as drawn: while a card is grabbed with the keyboard it shows where it would land (as the portal's).
 export function placed(cols, kb) {
   if (!kb?.grabbed) return cols

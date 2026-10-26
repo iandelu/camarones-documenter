@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Aviso, Button, Chip, EmptyState, Skeleton } from '@camaron/ui'
 import { STATUS_LABELS, columns, dropAnchor, keyMove } from '@camaron/ui/kanban.js'
-import { fit, moveOutcome, moved, parentLabel, placed } from '../board.js'
+import { fit, moved, parentLabel, placed, sendMove } from '../board.js'
 import { Failed, Page } from '../parts.jsx'
 import { lang, t } from '../i18n.js'
 
@@ -30,27 +30,16 @@ export default function Board({ srv }) {
   }, [kb, board])
   const cols = useMemo(() => (board ? columns(fit(board.cards, board.statuses), board.statuses) : []), [board])
 
-  // A move the server holds back for blocking cards (409) is asked once; yes sends it again with force.
-  async function send(body) {
-    try { return await srv.post('kanban/move', body) } catch (e) {
-      const o = moveOutcome(e)
-      if (o.kind === 'gate' && window.confirm(t('bd.gate', { ids: o.blockedBy.join(', ') }))) return srv.post('kanban/move', { ...body, force: true })
-      throw o.kind === 'gate' ? null : e              // null: the person said no
-    }
-  }
   async function move(id, status, anchor) {
     const card = cols.flatMap((c) => c.cards).find((c) => c.id === id)
     if (!card || (card.status === status && !anchor.before && !anchor.after)) return
     const before = board
     setNotice('')
     setBoard({ ...board, cards: moved(fit(board.cards, board.statuses), id, status, anchor) })
-    try {
-      await send({ id, status, ...anchor })
-      setSay(t('bd.moved', { id, status: label(lang(), status) }))
-    } catch (e) {
-      setBoard(before)
-      if (e) setNotice(moveOutcome(e).message)
-    }
+    const r = await sendMove((body) => srv.post('kanban/move', body), (ids) => window.confirm(t('bd.gate', { ids: ids.join(', ') })),
+      { id, status, ...anchor })
+    if (r.kind === 'sent') setSay(t('bd.moved', { id, status: label(lang(), status) }))
+    else { setBoard(before); if (r.kind === 'error') setNotice(r.message) }       // declined: back, with nothing to say
     await load()
   }
   async function init() {
