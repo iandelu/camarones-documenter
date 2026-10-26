@@ -2,7 +2,10 @@
 // Pure helpers of the desktop app's main process: no Electron, no I/O, so `node --test` checks them on every OS.
 const path = require('node:path')
 
-const NOT_FOR_CHILDREN = ['CAMARONES_APP_TOKEN', 'CAMARONES_ROOT', 'ELECTRON_RUN_AS_NODE']
+// A join token from the shell that started the app is not inherited: only the join the person gave one gets it. The
+// same for a portal token: only the project server the app starts gets one, its own.
+const NOT_FOR_CHILDREN = ['CAMARONES_APP_TOKEN', 'CAMARONES_ROOT', 'ELECTRON_RUN_AS_NODE', 'CAMARONES_JOIN_TOKEN',
+  'CAMARONES_PORTAL_TOKEN']
 
 const backendArgv = (kit) => [path.join(kit, 'camarones.py'), 'up', '--foreground', '--port', '0']
 const cliArgv = (kit, args) => [path.join(kit, 'camarones.py'), ...args]
@@ -13,7 +16,10 @@ function cliEnv(env) {
   return out
 }
 
-const backendEnv = (env, root, token) => ({ ...cliEnv(env), CAMARONES_ROOT: root, CAMARONES_APP_TOKEN: token })
+// portalToken: this session's key for the portal the app opens in the browser (as `camaron up` does): with it that
+// portal writes the board; it never unlocks what needs the app token.
+const backendEnv = (env, root, token, portalToken) => ({ ...cliEnv(env), CAMARONES_ROOT: root, CAMARONES_APP_TOKEN: token,
+  ...(portalToken ? { CAMARONES_PORTAL_TOKEN: portalToken } : {}) })
 
 // lib/serve.py prints {"ready": true, "port": N} as its first line when the app started it.
 function parseReady(line) {
@@ -29,6 +35,47 @@ function sameOrigin(url, origin) {
 
 function externalOk(url) {
   try { return ['http:', 'https:'].includes(new URL(url).protocol) } catch { return false }
+}
+
+// The start screen's CLI calls. A name that looks like an option is dropped (the CLI then uses the folder's name).
+const inspectArgs = (dir) => ['projects', '--inspect', dir, '--json']
+const adoptArgs = (dir, name) => ['projects', '--adopt', dir, '--json',
+  ...(typeof name === 'string' && name.trim() && !name.trim().startsWith('-') ? ['--name', name.trim()] : [])]
+const gitInitArgs = (dir) => ['projects', '--git-init', dir, '--json']
+const joinArgs = (url, dir) => ['join', url, dir, '--no-open']
+
+// A folder the page hands back: an absolute path (what the folder dialog gives), never an option or a relative one.
+const folderArg = (dir) => typeof dir === 'string' && dir.length > 0 && path.isAbsolute(dir)
+
+// The token for a private cam-docs repo goes in the child's environment, never on its command line.
+function joinEnv(env, token) {
+  const out = cliEnv(env)
+  if (typeof token === 'string' && token.trim()) out.CAMARONES_JOIN_TOKEN = token.trim()
+  return out
+}
+
+// `join --no-open` explains a refused access as one JSON line on stdout: {error, host, detail}; a cam-docs in that
+// folder that belongs to something else is {error: "taken", detail}.
+const JOIN_REASONS = ['auth', 'denied', 'not-found', 'network', 'unknown', 'taken']
+function joinFailure(out) {
+  const r = lastJson(out)
+  if (!r || typeof r.error !== 'string') return null
+  return { error: JOIN_REASONS.includes(r.error) ? r.error : 'unknown', host: String(r.host || ''), detail: String(r.detail || '') }
+}
+
+// The CLI's own error: its last stderr line, without the ✖.
+function errLine(err) {
+  const lines = String(err || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+  return lines.length ? lines[lines.length - 1].replace(/^✖\s*/, '') : ''
+}
+
+// Why `projects --adopt --json` refused: its stdout code (taken: a cam-docs there belongs to something else; home: the
+// folder is home or a filesystem root; no-git: code without a repository). Anything else is a folder it can't use.
+// The CLI's text is never parsed.
+const ADOPT_REASONS = ['taken', 'home', 'no-git']
+function adoptError(out) {
+  const code = (lastJson(out) || {}).error
+  return ADOPT_REASONS.includes(code) ? code : 'folder'
 }
 
 // Windows has no process groups to signal: taskkill /T takes the server and the jobs it started. Elsewhere the
@@ -76,4 +123,5 @@ function titleBar(platform, dark) {
 }
 
 module.exports = { backendArgv, cliArgv, cliEnv, backendEnv, parseReady, sameOrigin, externalOk, killCommand,
-  windowArgs, readArgs, inside, lastJson, BAR, barColors, titleBar }
+  windowArgs, readArgs, inside, lastJson, BAR, barColors, titleBar, inspectArgs, adoptArgs, gitInitArgs, joinArgs, folderArg,
+  joinEnv, joinFailure, errLine, adoptError }

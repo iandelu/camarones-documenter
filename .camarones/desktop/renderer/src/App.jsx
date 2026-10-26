@@ -1,26 +1,30 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Brand, Breadcrumbs, Button, Card, EmptyState, Field, Keys, Skeleton, SkipLink } from '@camaron/ui'
-import { initials, sectionOf, sections } from './nav.js'
+import { Brand, Breadcrumbs, Button, EmptyState, Keys, Skeleton, SkipLink } from '@camaron/ui'
+import { START, firstRunRoute, initials, sectionOf, sections } from './nav.js'
 import { jobsStore } from './jobs.js'
 import { chord, entries, keyFor, typing } from './palette.js'
+import { portalUrl } from './docs.js'
 import { server } from './server.js'
 import { useHash, useStore } from './hooks.js'
 import { Failed } from './parts.jsx'
+import Hub from './Hub.jsx'
 import JobsPanel from './JobsPanel.jsx'
 import Palette from './Palette.jsx'
 import { catalog } from './sections/Commands.jsx'
+import Docs from './sections/Docs.jsx'
 import Interviews from './sections/Interviews.jsx'
 import KitDev from './sections/KitDev.jsx'
 import Machine from './sections/Machine.jsx'
 import Plan from './sections/Plan.jsx'
 import Quality from './sections/Quality.jsx'
+import Start from './sections/Start.jsx'
 import Summary from './sections/Summary.jsx'
 import Team from './sections/Team.jsx'
 import { lang, t } from './i18n.js'
 
 const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
 
-// The desktop app's UI. Three ways to be loaded: the hub (window.camaronHub, from disk: pick or make a project), a
+// The desktop app's UI. Three ways to be loaded: the hub (window.camaronHub, from disk: the start screen, Hub.jsx), a
 // project's window (window.camaronApp, served by that project's server at /desktop/), or a browser that wandered to
 // /desktop/ (neither: say where the app is).
 export default function App() {
@@ -50,14 +54,28 @@ function Project({ app }) {
   const jobs = useMemo(() => jobsStore(srv.get), [])           // one for the window: it outlasts the sections
   const { running } = useStore(jobs)
   const projects = useProjects(app, index?.project, setStatus)
-  const loadIndex = () => srv.get('tree').then((x) => { setIndex(x); setError('') }, (e) => setError(e.message))
+  // The index and where the first run stands, read side by side; the section mounts only after both, so a first run
+  // left unfinished opens straight on the wizard (#/start) and the summary never fires its reads first. Without the
+  // state (that read failed) the window stays as it is.
+  const open = () => Promise.all([srv.get('tree').then((x) => ({ x }), (e) => ({ e })), srv.get('app/onboard/state').catch(() => null)])
+    .then(([idx, s]) => {
+      if (idx.e) { setError(idx.e.message); return }
+      const to = firstRunRoute(s, location.hash)
+      if (to) {
+        location.replace(to)
+        dispatchEvent(new Event('hashchange'))     // useHash now, in this render, not when the browser's event comes
+      }
+      setIndex(idx.x)
+      setError('')
+    })
   useEffect(() => {
-    loadIndex()
+    open()
     srv.get('app/info').then((i) => setKitdev(!!i.kitdev), () => {})
     jobs.refresh()
     return () => jobs.stop()
   }, [])
   const here = sectionOf(hash, { kitdev })
+  const full = here === START                           // the first-run wizard: no rail, no section nav
   const { project, machine } = sections({ kitdev })
   const all = [...project, ...machine]
   useEffect(() => {                                     // ⌘K / Ctrl K anywhere; g + a letter outside fields and dialogs
@@ -84,12 +102,14 @@ function Project({ app }) {
       {t('nav.' + s)}<span className="dk-hint" aria-hidden="true"><Keys keys={['g', keyFor(s)]} /></span></a>
   )
   return (
-    <div className="dk">
+    <div className={full ? 'dk dk-full' : 'dk'}>
       <SkipLink target="main">{t('skip')}</SkipLink>
       <header className="dk-top">
         <Brand project={index?.project} href="#/summary" />
         <Breadcrumbs items={[{ label: index?.project || '…', href: '#/summary' }, { label: t('nav.' + here) }]} />
         <span className="dk-grow"></span>
+        {/* the portal is the reader, with no token: it opens in the system browser, never in this window */}
+        <Button size="sm" variant="ghost" onClick={() => app.openExternal?.(portalUrl(location.origin, '#/'))}>{t('portal.open')}</Button>
         <button type="button" className="dk-find" aria-haspopup="dialog" onClick={() => setPalette(true)}>
           {t('pal.open')}<Keys keys={MAC ? ['⌘', 'K'] : ['Ctrl', 'K']} /></button>
         {/* no menu bar on screen (the header is the title bar): this opens the app menu under itself */}
@@ -98,16 +118,18 @@ function Project({ app }) {
       </header>
       <Palette open={palette} onClose={() => setPalette(false)} onPick={onPick}
         groups={entries({ sections: all, projects: projects.list, commands, t, lang: lang() })} />
-      <Rail app={app} projects={projects} />
-      <nav className="dk-side" aria-label={t('nav.project')}>
-        {project.map(link)}
-        <span className="dk-gap"></span>
-        <span className="eyebrow">{t('nav.app')}</span>
-        {machine.map(link)}
-      </nav>
+      {full ? null : <>
+        <Rail app={app} projects={projects} />
+        <nav className="dk-side" aria-label={t('nav.project')}>
+          {project.map(link)}
+          <span className="dk-gap"></span>
+          <span className="eyebrow">{t('nav.app')}</span>
+          {machine.map(link)}
+        </nav>
+      </>}
       <main className="dk-main" id="main" tabIndex={-1}>
-        {error && <Failed title={t('project.failed')} detail={error} onRetry={() => { setError(''); loadIndex() }} />}
-        {!index && !error ? <Skeleton lines={4} /> : <Section here={here} srv={srv} jobs={jobs} app={app} />}
+        {error && <Failed title={t('project.failed')} detail={error} onRetry={() => { setError(''); open() }} />}
+        {!index && !error ? <Skeleton lines={4} /> : <Section here={here} srv={srv} jobs={jobs} app={app} index={index} />}
       </main>
       <JobsPanel srv={srv} jobs={jobs} />
       <footer className="dk-status">
@@ -151,82 +173,8 @@ function Rail({ app, projects: { list, busy, open } }) {
 }
 
 const SECTIONS = { summary: Summary, plan: Plan, interviews: Interviews, team: Team, quality: Quality, docs: Docs, machine: Machine,
-  kitdev: KitDev }
+  kitdev: KitDev, start: Start }
 function Section({ here, ...props }) {
   const View = SECTIONS[here]
   return <View key={here} {...props} />
-}
-
-// Reading is the portal's (on this same server, one folder up): the app does not keep a second reader.
-function Docs() {
-  return (
-    <div className="dk-page">
-      <h1 className="t-impact">{t('nav.docs')}</h1>
-      <div className="row">
-        <Button variant="primary" href="../#/">{t('docs.read')}</Button>
-        <Button href="../#/review">{t('docs.review')}</Button>
-        <Button variant="ghost" href="../#/search">{t('docs.search')}</Button>
-      </div>
-    </div>
-  )
-}
-
-// The hub: this machine's projects, and making, joining or adding one (the main process runs the CLI).
-function Hub({ hub }) {
-  const [rows, setRows] = useState(null)
-  const [error, setError] = useState('')
-  const [form, setForm] = useState('')            // '' | 'new' | 'join'
-  const [name, setName] = useState('')
-  const [from, setFrom] = useState('')
-  const [status, setStatus] = useState('')
-  const load = () => hub.list().then((r) => (r.error ? setError(r.error) : setRows(r.projects)), (e) => setError(e.message))
-  useEffect(() => { load() }, [])
-  const act = async (p) => {
-    setStatus('')
-    const r = await p
-    if (r?.error) setStatus(`${t('hub.error')}: ${r.error}`)
-    else if (!r?.cancelled) load()
-  }
-  const open = (p) => { setStatus(t('hub.opening', { name: p.name })); act(hub.open(p.path)) }
-  return (<>
-    <header className="dk-titlebar"><Brand /></header>
-    <main className="dk-hub">
-      <h1 className="t-impact">{t('hub.title')}</h1>
-      {error && <Failed title={t('hub.failed')} detail={error} onRetry={() => { setError(''); load() }} />}
-      {!rows && !error && <Skeleton lines={3} />}
-      {rows && !rows.length && (
-        <EmptyState title={t('hub.empty')} action={<Button variant="primary" onClick={() => setForm('new')}>{t('hub.new')}</Button>}>
-          {t('hub.emptyBody')}</EmptyState>
-      )}
-      {rows?.length > 0 && (
-        <ul className="dk-hub-list">
-          {rows.map((p) => (
-            <li key={p.path}><Card className="dk-hub-row">
-              <span className="dk-proj">{initials(p.name)}</span>
-              <span className="dk-hub-name"><b>{p.name}</b><span className="muted small">{p.path}</span></span>
-              {p.exists ? <Button size="sm" onClick={() => open(p)}>{t('hub.open')}</Button>
-                : <span className="muted small">{t('rail.missing')}</span>}
-            </Card></li>
-          ))}
-        </ul>
-      )}
-      <div className="row">
-        <Button variant={rows?.length ? 'secondary' : 'ghost'} onClick={() => setForm('new')}>{t('hub.new')}</Button>
-        <Button onClick={() => setForm('join')}>{t('hub.join')}</Button>
-        <Button variant="ghost" onClick={() => act(hub.add())}>{t('hub.add')}</Button>
-      </div>
-      {form && (
-        <Card as="form" className="dk-hub-form" onSubmit={(e) => {
-          e.preventDefault()
-          act(form === 'new' ? hub.create(name, from) : hub.join(name))
-        }}>
-          <Field id="h-name" label={t(form === 'new' ? 'hub.name' : 'hub.url')} value={name} onChange={(e) => setName(e.target.value)} required />
-          {form === 'new' && <Field id="h-from" label={t('hub.from')} value={from} onChange={(e) => setFrom(e.target.value)} />}
-          <div className="row"><Button variant="primary" type="submit">{t(form === 'new' ? 'hub.create' : 'hub.joinGo')}</Button>
-            <Button variant="ghost" onClick={() => setForm('')}>{t('cancel')}</Button></div>
-        </Card>
-      )}
-      {status && <p className="muted small" role="status">{status}</p>}
-    </main>
-  </>)
 }

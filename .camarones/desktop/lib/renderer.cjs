@@ -3,10 +3,30 @@
 // where a window comes back, which project a window may switch to. No Electron, no I/O: `node --test` on every OS.
 const path = require('node:path')
 
-const SECTIONS = ['summary', 'plan', 'interviews', 'team', 'quality', 'docs', 'machine', 'kitdev']
+const SECTIONS = ['summary', 'plan', 'interviews', 'team', 'quality', 'docs', 'machine', 'kitdev', 'start']
 
 // A project's window: the app served by that project's own server (same origin as its API, the token as the key).
 const projectUrl = (origin, section = 'summary') => `${origin}/desktop/#/${SECTIONS.includes(section) ? section : 'summary'}`
+
+// The app lives under /desktop/ on its project's server; anything else on that origin is the portal (the reader), which
+// opens in the system browser. True for a same-origin address outside the app; false for another origin (the external
+// rule's) and for what is not an address.
+function outsideApp(url, origin) {
+  try {
+    const u = new URL(url)
+    return u.origin === origin && u.pathname !== '/desktop' && !u.pathname.startsWith('/desktop/')
+  } catch { return false }
+}
+
+// A portal address on its way to the system browser gets this session's portal token, in the fragment `camaron up`
+// uses and the portal takes out at once (portal/app/src/token.js): `#<route>&cam-token=<t>`, or `#cam-token=<t>` with
+// no route. The app's own pages, other origins and a missing token are left as they are.
+function withPortalToken(url, origin, token) {
+  if (!token || !outsideApp(url, origin)) return url
+  const u = new URL(url)
+  const route = u.hash.slice(1).split('&').filter((p) => p && !p.startsWith('cam-token=')).join('&')
+  return `${u.origin}${u.pathname}${u.search}#${[route, `cam-token=${token}`].filter(Boolean).join('&')}`
+}
 
 // No project open: the same build, from the kit's folder.
 const hubFile = (desktopDir) => path.join(desktopDir, 'renderer-build', 'index.html')
@@ -47,4 +67,4 @@ function oneAtATime(inFlight, key, start) {
   return p
 }
 
-module.exports = { SECTIONS, projectUrl, hubFile, DEFAULT_BOUNDS, MIN, bounds, switchable, samePath, rail, oneAtATime }
+module.exports = { SECTIONS, projectUrl, outsideApp, withPortalToken, hubFile, DEFAULT_BOUNDS, MIN, bounds, switchable, samePath, rail, oneAtATime }

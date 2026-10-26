@@ -53,6 +53,34 @@ def test_adopt_refuses_a_non_empty_cam_docs(kit, tmp_path):
     assert r.returncode == 1 and "cam-docs" in r.stderr and "Traceback" not in r.stderr
 
 
+def test_git_init_json(kit, tmp_path):
+    folder = tmp_path / "code"
+    folder.mkdir()
+    (folder / "pom.xml").write_text("<project/>", encoding="utf-8")
+    r = cli(kit, "projects", "--git-init", str(folder), "--json")
+    assert r.returncode == 0, r.stderr
+    assert json.loads(r.stdout) == {"initialised": [str(folder.resolve())]}
+    assert (folder / ".git").exists()
+    r = cli(kit, "projects", "--git-init", str(folder), "--json")          # already a repo
+    assert r.returncode == 1 and r.stderr.startswith("✖") and "Traceback" not in r.stderr
+    out = json.loads(r.stdout)
+    assert out["error"] == "git-init" and "already" in out["detail"]
+    r = cli(kit, "projects", "--git-init", str(folder))                    # no --json: stdout stays empty
+    assert r.returncode == 1 and r.stdout == ""
+
+
+def test_adopt_home_and_no_git_say_so_as_json(kit, tmp_path):
+    code = tmp_path / "code"
+    code.mkdir()
+    (code / "pom.xml").write_text("<project/>", encoding="utf-8")
+    for folder, want in ((kit.home, "home"), (code, "no-git")):
+        r = cli(kit, "projects", "--adopt", str(folder), "--json")
+        assert r.returncode == 1 and r.stderr.startswith("✖") and "Traceback" not in r.stderr
+        out = json.loads(r.stdout)
+        assert out["error"] == want and out["detail"]
+        assert not (folder / "cam-docs").exists()
+
+
 def test_adopt_a_taken_cam_docs_says_so_as_a_json_code(kit, tmp_path):
     """The app words "taken" itself: a stable code on stdout, the CLI's line unchanged on stderr."""
     ws = tmp_path / "stray"
@@ -153,13 +181,23 @@ def test_the_taller_never_runs_the_hubs_commands(kit):
         appapi.entry("projects")
 
 
-def test_the_catalog_keeps_inspect_and_adopt_out_of_the_apps_forms(kit):
-    """--inspect/--adopt/--name are the start screen's way in (IPC), not a form: the catalog lists `projects` with
-    --add only, so no command form shows them (`arg.adopt` labels `pages --adopt`)."""
+def test_projects_help_lists_the_start_screens_flags(kit):
+    """--inspect/--adopt/--name/--git-init are the start screen's way in (IPC), and `camaron projects --help` says so."""
+    r = cli(kit, "projects", "--help")
+    assert r.returncode == 0, r.stderr
+    for flag in ("--inspect", "--adopt", "--name", "--git-init"):
+        assert flag in r.stdout, flag
+
+
+def test_the_catalog_names_the_start_screens_flags_apart_from_pages_adopt(kit):
+    """Their own dests, so `arg.adopt` keeps labelling `pages --adopt` and each gets its own label in the renderer.
+    No command form shows them: `projects` is the hub's (appapi.HUB), in no section's zone."""
     r = cli(kit, "catalog", "--json", CAMARONES_ROOT=str(kit.root))
     assert r.returncode == 0, r.stderr
     row = next(c for c in json.loads(r.stdout)["commands"] if c["name"] == "projects")
-    assert {a["dest"] for a in row["args"]} == {"json", "add"}
+    assert {a["dest"]: a["flag"] for a in row["args"]} == {
+        "json": "--json", "add": "--add", "inspect_dir": "--inspect", "adopt_dir": "--adopt", "adopt_name": "--name",
+        "git_init_dir": "--git-init"}
 
 
 def test_the_env_token_is_tried_even_when_a_saved_one_was_refused(kit, monkeypatch, capsys):

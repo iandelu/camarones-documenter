@@ -36,7 +36,10 @@ export function useJob(srv, jobs, start) {
   const [job, setJob] = useState(null)              // {status, lines[], rc, result, stopped}
   const [error, setError] = useState('')
   const alive = useRef(true)
-  useEffect(() => () => { alive.current = false }, [])
+  useEffect(() => {                                 // set again on a remount (dev StrictMode unmounts and remounts once)
+    alive.current = true
+    return () => { alive.current = false }
+  }, [])
   async function run(...args) {
     setError('')
     setJob({ status: 'running', lines: [] })

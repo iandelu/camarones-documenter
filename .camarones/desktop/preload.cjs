@@ -12,9 +12,11 @@ if (process.argv.includes('--camaron-hub')) {
   contextBridge.exposeInMainWorld('camaronHub', {
     list: () => ipcRenderer.invoke('hub:list'),
     open: (root) => ipcRenderer.invoke('hub:open', root),
-    add: () => ipcRenderer.invoke('hub:add'),
-    create: (name, from) => ipcRenderer.invoke('hub:new', { name, from }),
-    join: (url) => ipcRenderer.invoke('hub:join', { url }),
+    pick: () => ipcRenderer.invoke('hub:pick'),
+    inspect: (dir) => ipcRenderer.invoke('hub:inspect', dir),
+    adopt: (dir, name) => ipcRenderer.invoke('hub:adopt', { dir, name }),
+    join: (url, token, dir) => ipcRenderer.invoke('hub:join', { url, token, dir }),
+    gitInit: (dir) => ipcRenderer.invoke('hub:gitInit', dir),
     lang: () => ipcRenderer.invoke('hub:lang'),
   })
 } else if (token && origin && location.origin === origin) {

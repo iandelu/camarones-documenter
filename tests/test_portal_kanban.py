@@ -55,6 +55,26 @@ def test_portal_token_does_not_unlock_app_only(server):
     assert code == 403 and body["app"] is True
 
 
+APP_ONLY_POSTS = ["/api/runs", "/api/runs/r-1/cancel", "/api/wiki", "/api/build", "/api/inventory", "/api/schemas",
+                  "/api/ci", "/api/ask/answer", "/api/app/cmd", "/api/app/onboard/start"]
+
+
+def test_the_app_servers_portal_token_writes_the_board_and_nothing_app_only(wired, server, monkeypatch):
+    """The desktop app starts its project server with both tokens (desktop/main.cjs): the portal it opens in the
+    browser carries the portal one, which writes the board as `camaron up`'s does, and never what needs the app."""
+    monkeypatch.setattr(wired.serve, "APP_TOKEN", APP)
+    call(server + "/api/kanban/init", token=PORTAL)
+    code, row = call(server + "/api/kanban/add", {"type": "task", "title": "from the browser"}, token=PORTAL)
+    assert code == 200 and row["id"] == "WI-1"
+    assert call(server + "/api/kanban", method="GET", token=PORTAL)[1]["writable"] is True
+    for path in APP_ONLY_POSTS:
+        code, body = call(server + path, {"repo": "api", "what": "c4"}, token=PORTAL)
+        assert code == 403 and body["app"] is True, path
+    for path in ("/api/app/info", "/api/app/onboard/state", "/api/app/jobs"):
+        assert call(server + path, method="GET", token=PORTAL)[0] == 403, path
+    assert call(server + "/api/app/info", method="GET", token=APP)[0] == 200
+
+
 def test_read_only_without_token(wired, server):
     from lib.kanban import ops
     ops.init(log=lambda *_: None)

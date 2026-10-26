@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.59.0-ff875f?style=flat-square" alt="Versión 4.59.0">
+  <img src="https://img.shields.io/badge/version-4.60.0-ff875f?style=flat-square" alt="Versión 4.60.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -150,6 +150,9 @@ camaron share --auto on    # o publica solo tras cada checkpoint (en este equipo
 camaron trust              # revisa y aprueba los hooks, MCP y skills del equipo antes de que los carguen tus agentes
 camaron repair             # repara: vuelve a escribir los ficheros y enlaces del kit si alguien los editó o borró
 camaron switch             # cambia entre tus proyectos
+camaron projects --inspect ~/Documents/mi-proyecto [--json]   # qué es esa carpeta (proyecto, repo, varios repos, código, vacía); solo lee
+camaron projects --adopt ~/Documents/mi-proyecto [--name X] [--json]   # la vuelve proyecto y la registra (su cam-docs/ queda junto a los repos); lo que usa la app
+camaron projects --git-init ~/Documents/mi-codigo [--json]   # git init en el código que aún no está en git (solo cuando lo pides)
 camaron self-update        # trae el kit oficial al día — actualiza todos los proyectos a la vez (en el asistente: ⚙️ Ajustes › ⬆️ Actualizar Camarón)
 camaron migrate            # pasa un proyecto de la estructura anterior (≤2.5) a cam-docs/
 camaron uninstall           # lo deshace todo: borra cam-docs/ (con copia .zip) y los rastros en los repos
@@ -183,6 +186,8 @@ Camarón está pensado para que lo use un equipo. Al crear un proyecto, el asist
 - **Si el repo está vacío**, crea el proyecto en local con esa URL como `origin`. Tu primer «Compartir con el equipo» lo publica.
 - **Sin URL**, crea un repo Git local, igual que antes. Puedes añadir el remoto más tarde con `camaron remote <url>`.
 
+En la app de escritorio es **Unirme a la documentación de mi equipo** en la pantalla de inicio (ver [Primer arranque](#primer-arranque-pantalla-de-inicio-y-asistente)): pega la URL del repo `cam-docs`, no la del código. Si git no tiene acceso, la app pide un token y lo guarda en el llavero del sistema, nunca en el proyecto.
+
 Lo que trae el repo del equipo no se ejecuta a ciegas. Si `cam-docs` incluye hooks, servidores MCP, ajustes o skills que no ha escrito el kit, el asistente te enseña qué ejecutan al abrirlo y Claude Code / Codex solo los cargan cuando los apruebas en tu máquina (`camaron trust`). Las aprobaciones se guardan en `~/.camarones/trust/`, fuera del repo. Lo que el kit instaló en tu máquina (sus skills y los de graphify y OpenWiki, anotados en `~/.camarones/install/`) lo reconoce sin preguntar, así que un proyecto recién creado no pide aprobar nada. `camaron doctor` enseña si un fichero del kit se editó o falta un enlace, y `camaron repair` lo devuelve a su sitio sin tocar las páginas del equipo.
 
 Por defecto los checkpoints se guardan solo en local y publicar es un paso explícito: «🤝 Compartir con el equipo» en el menú, **Plan › Sincronizar** en el portal o `camaron share`, que guarda un checkpoint, rebasa sobre el trabajo del equipo y hace push. Con `camaron share --auto on` (o diciendo que sí tras el primer share en el wizard) cada checkpoint hace ese share solo; es por máquina, así que no activa nada a tus compañeros, y si falla lo avisa sin perder el commit local. Si hay un conflicto, lo deshace y no toca nada; si hay algo que parece un secreto, no publica.
@@ -203,13 +208,22 @@ mi-proyecto/
 
 También puedes empezar con la carpeta vacía y añadir repositorios desde el asistente. La carpeta contenedora será el centro de documentación; los repositorios de servicio conservan su propio historial Git.
 
+**Un proyecto nuevo, sin código aún.** Un `camaron new` en una carpeta vacía (o **Elegir carpeta** sobre una vacía en la app) es un proyecto *greenfield*: se documenta el diseño antes de programar. El asistente de primer arranque deja pasar con cero repos y se salta Stack y Arquitectura (aún no hay nada que leer); puedes sumar repos cuando existan.
+
+**Para scripts y para la app.** Los tres flags de `camaron projects` no necesitan proyecto y aceptan `--json`:
+
+- `--inspect` solo lee e imprime `case` (`project`, `repo`, `umbrella`, `code` o `empty`), `kind`, `workspace`, `docs_root`, `name`, `repos`, `siblings` y `warning` (`home`, `no-git` o vacío). Una carpeta dentro de un repo cuenta como ese repo, y `cam-docs` como el proyecto al que pertenece.
+- `--adopt` crea el `cam-docs/` y lo registra; sobre un proyecto que ya existe solo lo registra. `--git-init` hace `git init` en la carpeta con código (o en cada subcarpeta con código), sin commits ni push.
+- Cuando algo se rechaza sale con 1 y, con `--json`, una línea `{"error": código, "detail": …}` (`detail` es la línea para personas de la CLI y puede venir en español: tus scripts deben mirar `error`): `taken` (esa carpeta ya tiene un `cam-docs` que no es de Camarón), `home` (el workspace sería tu carpeta personal o la raíz de un disco), `no-git` (código sin repositorio: usa `--git-init`) y `git-init` (el `git init` falló).
+- `camaron join URL --no-open` (y `new NOMBRE --no-open`) imprime `{"path": …}` y termina. Si no hay acceso, `{"error": …, "host", "detail"}` con `auth`, `denied`, `not-found`, `network` o `unknown` (`taken` si ya hay otro `cam-docs` en el destino). El token de un repo privado se pasa en la variable `CAMARONES_JOIN_TOKEN`, nunca en la línea de comandos.
+
 ### 2. Abre la app de escritorio
 
 ```sh
 camaron app
 ```
 
-Dentro de un proyecto abre ese proyecto; en cualquier otra carpeta, el selector para abrir, crear o unirte a uno. La primera vez descarga Electron (unos 100 MB). Todo el detalle, las capturas y qué hacer si algo falla, en [La app de escritorio](#app-de-escritorio).
+Dentro de un proyecto abre ese proyecto; en cualquier otra carpeta, la pantalla de inicio: **¿Qué quieres documentar?** Eliges una carpeta o te unes a la documentación de tu equipo, y un asistente te acompaña la primera vez. La primera vez también descarga Electron (unos 100 MB). Todo el detalle, las capturas y qué hacer si algo falla, en [La app de escritorio](#app-de-escritorio).
 
 ### 3. …o el asistente en la terminal
 
@@ -340,15 +354,15 @@ mi-proyecto/cam-docs/
 
 <p align="center"><em>Todo lo que corre en tu máquina, por tareas, en una ventana; para leer, el portal.</em></p>
 
-La app es donde se opera un proyecto y el **portal** es donde se lee. Cada proyecto se abre en su ventana: a la izquierda el raíl con tus proyectos y las secciones, en medio la tarea y, abajo, el panel de **trabajos** con lo que corre y los últimos, su salida y **Parar**. Cada botón ejecuta el mismo comando que escribirías en la terminal, con su salida en vivo, así que nada de lo que ves es magia aparte. Para leer, la sección **Docs** abre el portal del mismo proyecto.
+La app es donde se opera un proyecto y el **portal** es donde se lee. Cada proyecto se abre en su ventana: a la izquierda el raíl con tus proyectos y las secciones, en medio la tarea y, abajo, el panel de **trabajos** con lo que corre y los últimos, su salida y **Parar**. Cada botón ejecuta el mismo comando que escribirías en la terminal, con su salida en vivo, así que nada de lo que ves es magia aparte. Para leer, **Ver portal** (en la cabecera) y la sección **Docs** abren el portal del mismo proyecto en tu navegador.
 
 Todo se hace también con el teclado: <kbd>⌘K</kbd>/<kbd>Ctrl K</kbd> (o **Buscar o ir a…**, arriba) va a una sección, a otro proyecto o a cualquier comando, que se abre en su sección con el formulario listo; y <kbd>g</kbd> seguido de una letra salta de sección (`g s` Resumen, `g p` Plan, `g i` Entrevistas, `g t` Equipo, `g q` Calidad, `g d` Docs, `g m` Máquina). Las letras aparecen en el menú lateral al pasar por él.
 
 | | 🌐 Portal en el navegador (`camaron up`) | 🖥️ App de escritorio (`camaron app`) |
 |---|---|---|
 | **Para quién** | Todo el equipo, también desplegado como web | Quien documenta en su máquina |
-| **Leer, buscar, preguntar** | ✅ | ✅ (Docs abre el portal) |
-| **Editar, confirmar, revisar, comentar** | ✅ | ✅ (Docs abre el portal) |
+| **Leer, buscar, preguntar** | ✅ | En tu navegador: **Ver portal** y Docs lo abren |
+| **Editar, confirmar, revisar, comentar** | ✅ | En tu navegador: Docs lo abre |
 | **Pipeline: estado en vivo, reintentar, aprobar** | ✅ | ✅ |
 | **Responder la entrevista del equipo** | ✅ | ✅ |
 | **Sincronizar con el equipo (pull y push)** | ✅ | ✅ |
@@ -356,20 +370,21 @@ Todo se hace también con el teclado: <kbd>⌘K</kbd>/<kbd>Ctrl K</kbd> (o **Bus
 | **Requisitos, contexto, preguntas de control, vulnerabilidades** | — | ✅ Calidad |
 | **Fijar el repo del equipo, aprobar su configuración de agentes, hooks y plugins** | — | ✅ Equipo |
 | **Tokens, idioma y modelos, repos, actualizar el kit, desinstalar** | — | ✅ Máquina |
-| **Generar wikis, el C4 y el grafo de código** | — | ✅ (desde el portal, dentro de la app) |
+| **Construir el explorador C4, generar la wiki de cada repo y su grafo, preguntar con IA** | — | ✅ Docs |
+| **Reconstruir el grafo de código** | — | ✅ Calidad › Todos los comandos (`graph`) |
 
-El portal del navegador no enseña lo que no puede hacer: sin la app, esos botones no aparecen.
+El portal del navegador no tiene el token de la app y no enseña lo que no puede hacer: esos botones solo están en la app.
 
 #### La app, sección a sección
 
 | Sección | Qué haces ahí |
 |---|---|
-| 🏠 **Resumen** | El **siguiente paso** con un solo botón (el mismo que propone el asistente), el aviso si a la máquina le falta algo y cómo van el plan, la revisión y los trabajos |
+| 🏠 **Resumen** | El **siguiente paso** con un solo botón (el mismo que propone el asistente), el aviso si a la máquina le falta algo y cómo van el plan, la revisión y los trabajos. Es donde caes al terminar el asistente de primer arranque |
 | 🗺️ **Plan** | Ejecutar las unidades listas en paralelo (sesiones por agente, máximo de unidades, incluir entrevistas) o con el **piloto automático**, y pararlo; todas las unidades en un **tablero por estado** o **por fases**, con un color por estado (amarillo en curso, verde hecha, blanco por hacer, rojo bloqueada, violeta si espera tu aprobación, gris si espera a otras); al pulsar una se abre su detalle con la acción que la mueve (aprobar, reintentar, seguir, empezar con el agente que elijas); la sesión que **actualiza la documentación** con lo que cambió en el código. El grafo del plan está en el portal |
 | 🎙️ **Entrevistas** | Cuestionario del equipo o en vivo (si nadie lo ha elegido, la app lo pregunta antes de empezar ninguna entrevista), **exportar** el formulario sin conexión y abrir su carpeta, **importar** respuestas con un selector de ficheros, cerrar la ronda y cada entrevista con su agente |
 | 🤝 **Equipo** | El **repo del equipo** y **compartir** (lo que hay por enviar y por traer, compartir cada checkpoint), lo que llegó con ese repo y falta **aprobar** en esta máquina, los **hooks** del método y los **plugins** (si vienen con el kit o con el repo del equipo, qué aportan, si ejecutan código o envían la doc fuera, y activarlos o desactivarlos en esta máquina, también los del kit como Gemini) |
 | ✅ **Calidad** | **Requisitos y herramientas** (se guardan entre visitas, con «Volver a comprobar» y el botón que instala o repone), el **contexto** que carga cada sesión de agente frente al presupuesto, **preguntas de control** («Proponer preguntas» abre al agente en la unidad que las redacta), **con y sin cam-docs** y, sin IA, las **librerías** de cada repo como en el portal (tabla librería × servicio con filtros, releerlas del código y buscar sus **vulnerabilidades conocidas**), **páginas desactualizadas** («Sigue valiendo» o una unidad que las actualice) y **bloques generados** |
-| 📖 **Docs** | Abre el portal del proyecto: leer, revisar borradores, buscar o preguntar |
+| 📖 **Docs** | **Leer la documentación**, **Revisar borradores** y **Buscar o preguntar** abren el portal del proyecto en tu navegador. Debajo, **Construir el explorador C4**; un bloque por repo con **Generar la wiki** (elige el repo y escribe un brief inicial sin IA si aún no tiene; una wiki a la vez: mientras se genera la de un repo, el botón de los demás espera) y, con wiki, **Grafo del wiki**; y **Preguntar con IA**, que responde con lo que dice la documentación y enlaza sus fuentes en el portal. Cada trabajo enseña su salida, **Ver** lo abre en el portal y, si falla, **Reintentar** |
 | 🧰 **Máquina** | **Preparar la máquina** (`setup`) con su progreso, **idioma y modelos** de Claude Code y Codex (el de Codex, de la lista que ofrece el propio Codex, u otro a mano), **tokens de GitLab y GitHub** (se comprueban con la forja y se guardan en el llavero del sistema, nunca en una línea de comandos), **repos** (clonados o no, su stack editable, clonar o actualizar, detectar) y el **plan** rápido o completo, **actualizar el kit** y reiniciar la app con la versión nueva, **reparar los archivos del kit** (`repair`) y, aparte, **desinstalar**: primero «Ver qué borraría» y después un diálogo que repite la lista |
 | 🛠️ **Kit dev** | Solo en un checkout del kit: el sandbox, `pytest`, los builds del portal y de la app y los tests de escritorio (ver [Desarrollo](#desarrollo)) |
 
@@ -378,9 +393,9 @@ Al final de cada sección, **Todos los comandos** (plegado) tiene el resto de co
 <details>
 <summary><strong>📸 Más capturas de la app</strong></summary>
 
-| Proyectos | Entrevistas | Equipo |
-|---|---|---|
-| ![Elegir, crear o unirse a un proyecto](.github/media/app-hub.png) | ![Entrevistas: cómo se hacen y cada entrevista con su agente](.github/media/app-interviews.png) | ![Equipo: el repo del equipo, lo que falta aprobar y los plugins](.github/media/app-team.png) |
+| Entrevistas | Equipo |
+|---|---|
+| ![Entrevistas: cómo se hacen y cada entrevista con su agente](.github/media/app-interviews.png) | ![Equipo: el repo del equipo, lo que falta aprobar y los plugins](.github/media/app-team.png) |
 
 | Máquina | Un trabajo en vivo | Resumen |
 |---|---|---|
@@ -391,6 +406,25 @@ Al final de cada sección, **Todos los comandos** (plegado) tiene el resto de co
 | ![La paleta: las secciones con su atajo, los otros proyectos, las acciones y, al escribir, cada comando](.github/media/app-palette.png) |
 
 </details>
+
+#### Primer arranque: pantalla de inicio y asistente
+
+Fuera de un proyecto, la app enseña una sola pregunta, **¿Qué quieres documentar?**, con dos caminos y la lista de **Recientes**:
+
+- **Elegir carpeta.** Vale cualquier carpeta; antes de tocar nada, la app te cuenta qué ha encontrado:
+  - varios repos: los documenta, con `cam-docs` en esa carpeta;
+  - un repo suelto, o una carpeta dentro de uno: crea `cam-docs` junto al repo, en su carpeta padre, y te deja sumar los repos hermanos;
+  - una carpeta **vacía**: un proyecto nuevo, sin código aún;
+  - un proyecto que **ya tiene `cam-docs`**: se abre tal cual;
+  - código que no está en git: **no** deja continuar y ofrece **Inicializar git aquí**, que hace `git init` (sin commits ni push) y vuelve a mirar la carpeta;
+  - tu carpeta personal o la raíz de un disco: la rechaza y lo explica, porque `cam-docs` y el análisis de repos acabarían ahí. Elige la carpeta de un proyecto.
+
+  Confirmas el nombre y pulsas **Continuar**.
+- **Unirme a la documentación de mi equipo.** Pegas la URL del repo `cam-docs` (la de la documentación, no la del código) y eliges dónde clonarlo. Si git no tiene acceso, la app te pide un token, lo guarda en el llavero del sistema y lo reintenta; si el motivo es otro (sin permisos, no existe, sin red) te lo dice con esas palabras.
+
+«Crear proyecto», «Unirse» y «Añadir carpeta» ya no están en la app: **Elegir carpeta** y **Unirme…** lo cubren. La CLI conserva `camaron new` y `camaron projects --add`.
+
+Un proyecto sin preparar abre en su ventana el **asistente de primer arranque**, en `#/start` y a pantalla completa: **Repos** (los que encontró; añade uno de código con su URL, nombre y rama) → **Herramientas** (qué falta en esta máquina) → **Instalar** (con progreso, salida en vivo y **Cancelar**) → **Stack** (lo leído de los manifiestos, editable) → **Arquitectura** (un borrador C4 hecho sin IA que guardas, miras con **Ver diagrama** o mejoras con IA) → **Listo**. Es el mismo estado que usa el asistente de la terminal: puedes cerrar la app a medias y, al reabrir, sigue donde lo dejaste, o continuar en el otro. Si te vas a otra sección antes de terminar, el **Resumen** te ofrece **Seguir con la preparación**. Un proyecto al que te uniste solo pasa por Herramientas, Instalar y Listo, porque lo demás ya lo decidió el equipo. Al terminar, la ventana aterriza en el **Resumen**, con el siguiente paso.
 
 #### 📦 Instala y abre la app
 
@@ -411,14 +445,14 @@ camaron doctor --install node   # si no lo tienes: winget en Windows, Homebrew e
 cd ~/Documents/mi-proyecto   # dentro de un proyecto: abre ese proyecto directamente
 camaron app
 
-camaron app                  # en cualquier otra carpeta: abre el selector de proyectos
+camaron app                  # en cualquier otra carpeta: abre la pantalla de inicio
 ```
 
 - **Desde el asistente:** `camaron` y en el menú principal **🖥️ App de escritorio**.
-- **Desde el selector de proyectos:** abre un proyecto registrado, **crea uno** (eliges la carpeta donde va), **únete al del equipo** con la URL de su `cam-docs` o **añade una carpeta** que ya tenga `cam-docs`.
-- **Dentro de la app:** la cabecera es la barra de la ventana (arrástrala para moverla; los botones de minimizar, maximizar y cerrar van en ella, con su mismo color en claro y en oscuro). Tus proyectos están en el raíl de la izquierda; otro se abre en la misma ventana, que vuelve a salir con el tamaño y en el sitio donde la dejaste. <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>O</kbd> vuelve a los proyectos, y el botón **⋯** de la barra abre el menú de la app, con **Abrir en el navegador** para ver el mismo portal en tu navegador, compartir la pantalla o un enlace local.
+- **Desde la pantalla de inicio:** abre un proyecto de **Recientes**, **elige una carpeta** (cualquiera: la app mira qué es antes de tocarla) o **únete a la documentación de tu equipo** con la URL de su `cam-docs`. El detalle, justo debajo en [Primer arranque](#primer-arranque-pantalla-de-inicio-y-asistente).
+- **Dentro de la app:** la cabecera es la barra de la ventana (arrástrala para moverla; los botones de minimizar, maximizar y cerrar van en ella, con su mismo color en claro y en oscuro). Tus proyectos están en el raíl de la izquierda; otro se abre en la misma ventana, que vuelve a salir con el tamaño y en el sitio donde la dejaste. <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>O</kbd> o el **+** del raíl vuelven a la pantalla de inicio, **Ver portal** abre el portal en tu navegador, y el botón **⋯** de la barra abre el menú de la app, con **Abrir en el navegador** para ver el mismo portal, compartir la pantalla o un enlace local.
 
-**4. Empieza por el Resumen.** La app abre en el **Resumen**: el siguiente paso con un solo botón. Un buen primer paso: **Calidad › Requisitos y herramientas** para ver qué le falta a la máquina, y **Plan** para la primera unidad. Lo que hay en cada sección, en [La app, sección a sección](#la-app-sección-a-sección).
+**4. Empieza por el Resumen.** Si el proyecto aún no está preparado, la app abre primero el asistente de primer arranque; al terminarlo (o en un proyecto ya preparado) abre en el **Resumen**: el siguiente paso con un solo botón. Un buen primer paso: **Calidad › Requisitos y herramientas** para ver qué le falta a la máquina, y **Plan** para la primera unidad. Lo que hay en cada sección, en [La app, sección a sección](#la-app-sección-a-sección).
 
 <details>
 <summary><strong>🪟 🍎 🐧 Notas por sistema operativo</strong></summary>
@@ -437,7 +471,9 @@ camaron app                  # en cualquier otra carpeta: abre el selector de pr
 | Lo que ves | Qué hacer |
 |---|---|
 | `the desktop app needs Node.js >= 22` | Instala Node 22 (`camaron doctor --install node`) y vuelve a lanzar `camaron app`. |
-| Se abre el selector en vez de tu proyecto | Estabas fuera de la carpeta del proyecto: ábrelo desde la lista o usa **Añadir carpeta**. |
+| Se abre la pantalla de inicio en vez de tu proyecto | Estabas fuera de la carpeta del proyecto: ábrelo desde **Recientes** o elige su carpeta con **Elegir carpeta**. |
+| «Este código no está en un repositorio git» | La app necesita el historial. **Inicializar git aquí** crea el repositorio (sin commits ni push) y vuelve a mirar la carpeta. |
+| «Aquí no puedo crear el proyecto» | La carpeta elegida es tu carpeta personal o la raíz de un disco. Elige la carpeta que contiene tus repos, o una vacía. |
 | «No he podido arrancar el servidor del proyecto» | El cuadro trae el error del servidor. `camaron doctor` en esa carpeta suele decir qué falta. |
 | En el portal del navegador no está el botón que esperabas | Es a propósito: el portal del navegador no lanza procesos. Hazlo desde la app (Plan, Calidad, Máquina…). |
 | Quieres reinstalar Electron | Borra `~/.camarones/desktop` y lanza `camaron app`: lo descarga otra vez. |
@@ -447,7 +483,7 @@ camaron app                  # en cualquier otra carpeta: abre el selector de pr
 #### 🔧 Por dentro
 
 - **Electron fijado** (`VERSIONS["electron"]`, hoy 44.7.0) en `~/.camarones/desktop`, instalado con npm y sin permisos de administrador. Nada de la app vive en tus proyectos. Al actualizar el kit (`camaron self-update`), si la versión fijada cambia, la siguiente `camaron app` descarga la nueva.
-- **Cada ventana es el servidor de su proyecto** (la app en `/desktop/`, el portal en `/`), arrancado por la app con un **token de un solo uso**. Sin ese token el servidor no lanza procesos ni llama a modelos, y con él rechaza peticiones de otro `Host` (protección contra *DNS rebinding*). Las ventanas no pueden navegar fuera de su servidor: los enlaces externos se abren en tu navegador.
+- **Cada ventana es el servidor de su proyecto** (la app en `/desktop/`, el portal en `/`), arrancado por la app con un **token de un solo uso**. Sin ese token el servidor no lanza procesos ni llama a modelos, y con él rechaza peticiones de otro `Host` (protección contra *DNS rebinding*). Las ventanas no pueden navegar fuera de su servidor: los enlaces externos y el propio portal (en el mismo servidor, fuera de `/desktop/`) se abren en tu navegador, y la ventana se queda donde estaba. El portal del navegador no lleva el token de la app, sino uno propio de la sesión con el que solo puede escribir en el Tablero: lo que él no puede hacer, como construir el C4, generar una wiki o su grafo, lo hace la app.
 - **La CLI es la API de la app.** Sus secciones ejecutan `camaron <comando>` con los argumentos validados contra el parser, sin shell de por medio. Parar un comando para también lo que arrancó (agentes, npm, git).
 - `camaron uninstall --global` borra también `~/.camarones/desktop`.
 
@@ -456,7 +492,7 @@ camaron app                  # en cualquier otra carpeta: abre el selector de pr
 ```sh
 camaron up          # portal local: leer, editar, confirmar, pedir cambios y hacer commit en cam-docs
 camaron app         # app de escritorio: las secciones donde se lanza lo que corre en tu máquina; para leer, el portal
-camaron wiki orders-api   # generar o actualizar la wiki OpenWiki de un repo (lo mismo que Docs › Wikis en el portal)
+camaron wiki orders-api   # generar o actualizar la wiki OpenWiki de un repo (en la app: Docs › Generar la wiki)
 camaron down
 ```
 
@@ -475,9 +511,9 @@ Abre **http://localhost:8080**. Es un único portal 🦐, en español o inglés 
 - **Inicio**: primero la pregunta (en el portal local la lleva a Preguntar; en el exportado, al buscador), luego el estado del proyecto según el índice de la doc (confirmadas, por reconfirmar, borradores y feedback pendiente) y un mosaico por zona. Arquitectura, Plan y Calidad tienen su portada con un mosaico por vista; Docs tiene la suya en `#/docs`.
 
 - **Docs** (zona Docs): lee `cam-docs/docs` en el momento (sin build, sin Docker). Portada con una tarjeta por sección y el contexto C4, menú lateral por secciones, índice de la página, anterior/siguiente y búsqueda con <kbd>⌘K</kbd>/<kbd>Ctrl K</kbd>. Las páginas de flujo muestran arriba su vista dinámica C4 interactiva. Las notas de discovery y entrevistas quedan plegadas en «Notas de trabajo». Cada página muestra su estado (`draft`, `confirmed`, `needs-reconfirm`) y, junto al índice, de qué ficheros sale (`x-sources`); desde ahí puedes editarla, confirmarla, crear páginas o dejar un comentario para la siguiente sesión de IA.
-- **Modelo C4** (zona Arquitectura): galería de las vistas C4 (sistema, contenedores, flujos, despliegue) interactivas y el explorador LikeC4 completo, con botón para reconstruirlo. Bajo cada vista están sus elementos, con su tipo, tecnología, descripción, relaciones y si son borrador de IA o están confirmados (y por quién y cuándo). Desde ahí se corrige un elemento, se añade o quita una relación y se confirma un elemento o la vista entera: confirmar cambia `#ai-draft` por `#confirmed` y anota `confirmed-by` y `confirmed-at` en su `metadata`. Cada cambio toca solo ese bloque del fichero `.c4`, se comprueba con LikeC4 (si rompe el modelo, no se guarda) y el diagrama se regenera solo.
+- **Modelo C4** (zona Arquitectura): galería de las vistas C4 (sistema, contenedores, flujos, despliegue) interactivas y el explorador LikeC4 completo, que se construye desde Docs en la app. Bajo cada vista están sus elementos, con su tipo, tecnología, descripción, relaciones y si son borrador de IA o están confirmados (y por quién y cuándo). Desde ahí se corrige un elemento, se añade o quita una relación y se confirma un elemento o la vista entera: confirmar cambia `#ai-draft` por `#confirmed` y anota `confirmed-by` y `confirmed-at` en su `metadata`. Cada cambio toca solo ese bloque del fichero `.c4`, se comprueba con LikeC4 (si rompe el modelo, no se guarda) y el diagrama se regenera solo.
 - **Código** (zona Arquitectura): el grafo de graphify convertido en un mapa legible: los módulos de cada repo y sus dependencias, los ficheros más usados, sus paquetes y, por fichero, qué usa y quién lo usa, con buscador. El grafo completo de graphify sigue a un clic.
-- **Wikis** (zona Docs): cada repo se abre en el visor de OpenWiki (grafo de páginas conectadas y lector; se regenera solo si la wiki cambió). «Leer las páginas» la muestra dentro del portal, con menú propio y «Enlazada desde». Cada wiki aspira a ser completa (arquitectura del repo, una página por API y área de lógica, configuración, tests, operación y deuda); si una se escribió con el alcance antiguo, más escueto, el asistente, el portal y `check` avisan, y actualizarla la amplía. También está el botón para generarla o actualizarla con un log en vivo, en todos los repos: si el repo aún no estaba elegido, lo elige, y si todavía no tiene brief (`wikis/<repo>/INSTRUCTIONS.md`), escribe antes uno inicial sin IA con el análisis estático (stack, herramientas, con quién habla y qué páginas debe cubrir), marcado para que la unidad repo-brief lo sustituya. Si no hay motor, el aviso dice exactamente qué falta (OpenWiki fuera de los componentes, sin instalar o sin clave). Sin clave de proveedor de OpenWiki, la genera Claude Code o Codex a través del MCP de OpenWiki; si el proyecto aún no tiene ese MCP conectado al agente, la propia generación lo conecta antes, igual que `camaron setup`.
+- **Wikis** (zona Docs): cada repo se abre en el visor de OpenWiki (grafo de páginas conectadas y lector; se regenera solo si la wiki cambió). «Leer las páginas» la muestra dentro del portal, con menú propio y «Enlazada desde». Cada wiki aspira a ser completa (arquitectura del repo, una página por API y área de lógica, configuración, tests, operación y deuda); si una se escribió con el alcance antiguo, más escueto, el asistente, el portal y `check` avisan, y actualizarla la amplía. Se genera o actualiza desde la app, en **Docs › Generar la wiki** (con el log en vivo, en cada repo): si el repo aún no estaba elegido, lo elige, y si todavía no tiene brief (`wikis/<repo>/INSTRUCTIONS.md`), escribe antes uno inicial sin IA con el análisis estático (stack, herramientas, con quién habla y qué páginas debe cubrir), marcado para que la unidad repo-brief lo sustituya. El botón queda cerrado, con el motivo, si el repo no está clonado o no hay ningún motor de wiki instalado. Desde una terminal, `camaron wiki <repo>` hace solo la generación: no elige el repo ni escribe ese brief, así que pide el repo clonado, un motor y, en la primera wiki, su brief (o `--force`); si no puede, el aviso dice exactamente qué falta (OpenWiki fuera de los componentes, sin instalar o sin clave). Sin clave de proveedor de OpenWiki, la genera Claude Code o Codex a través del MCP de OpenWiki; si el proyecto aún no tiene ese MCP conectado al agente, la propia generación lo conecta antes, igual que `camaron setup`.
 - **Revisión**: lo pendiente de revisar, filtrado en borradores o por reconfirmar, con de dónde sale cada página (`x-sources`); marca varias y confírmalas de una vez (<kbd>j</kbd>/<kbd>k</kbd> para moverte, <kbd>x</kbd> para marcar). Debajo, las revisiones que espera un agente (aprobar o pedir cambios), las peticiones de cambio, los repos cuyo código cambió y las comprobaciones.
 - **Preguntar** (desde Inicio): escribe una pregunta y te devuelve las secciones que mejor la responden, con su cita y su confianza, igual que se las daría a un agente (sin IA). Busca por sentido, no solo por palabras exactas: «base de datos» o «database» encuentran las páginas que nombran PostgreSQL, MySQL o Firestore, las preguntas en español encuentran páginas en inglés (los equivalentes están en `.camarones/lib/search_terms.yaml`) y las guías del propio kit solo aparecen antes que las del proyecto si la pregunta es sobre Camarón. Si hay un agente configurado, el botón «Answer with AI» le pide una respuesta redactada solo con esas secciones (las que los agentes pueden leer), con citas que enlazan a ellas; usa el agente del trabajo acotado (`bounded`), que puede ser un modelo local, sin herramientas y en una carpeta vacía (no carga los hooks ni los MCP del proyecto), con el modelo barato del agente (Haiku en Claude Code) salvo que `ask: {model: …}` diga otro; si no responde en 90 s, lo dice. Bajo la respuesta se ve el modelo, el tiempo y el coste, y `ask: {ai: false}` en `workspace.yaml` lo quita.
 - **Inicio**: debajo de la caja de Preguntar muestra la página de inicio del proyecto (`docs/index.md`): qué es, una tarjeta por repo y el mapa de contexto; los nodos del mapa abren la página del repo.
@@ -514,7 +550,7 @@ camaron board repair                                 # deja los ficheros y board
 
 Todos los comandos aceptan `--json`. Una tarjeta enlaza páginas por su `x-id` (sobrevive a mover o renombrar la página) y guarda el hash de la sección a la que apunta, así que el tablero sabe si lo enlazado **cambió desde que se enlazó**, está sin confirmar o es sospechoso. `init` registra además un *merge driver* de git para `board.yaml` (y la línea de `.gitattributes`), de modo que dos personas que mueven tarjetas distintas no chocan. `repair` también corre solo antes de cada checkpoint y de «Sincronizar»: adopta ficheros nuevos, arregla ids repetidos y archiva lo terminado hace tiempo (`board: {archive_after_days}` en `workspace.yaml`).
 
-En el portal, la zona **Tablero** (`#/kanban`) enseña la vista Kanban (arrastrar y soltar, o con teclado: flechas para elegir, espacio para agarrar, flechas para mover, Enter para soltar), con filtros por repo, epic, etiqueta y estado de la documentación, y el detalle de cada tarjeta (criterios, páginas enlazadas con su confianza e historial). **Escribir** en el tablero pide el token de la máquina: la app de escritorio ya lo manda, y `camaron up` imprime una dirección del tipo `http://localhost:8080/#cam-token=…` que la página guarda para esa pestaña. Sin él el tablero se ve en solo lectura y dice por qué.
+En el portal, la zona **Tablero** (`#/kanban`) enseña la vista Kanban (arrastrar y soltar, o con teclado: flechas para elegir, espacio para agarrar, flechas para mover, Enter para soltar), con filtros por repo, epic, etiqueta y estado de la documentación, y el detalle de cada tarjeta (criterios, páginas enlazadas con su confianza e historial). **Escribir** en el tablero pide el token de la máquina: el portal que la app de escritorio abre en tu navegador lo lleva (un token de esa sesión, que vale mientras la app está abierta), y `camaron up` imprime una dirección del tipo `http://localhost:8080/#cam-token=…`; en los dos casos la página lo guarda para esa pestaña. Sin él el tablero se ve en solo lectura y dice por qué.
 
 Al desinstalar, `camaron uninstall` (CLI) pregunta si conservas o borras `backlog/`; `--keep-board` / `--drop-board` lo deciden sin preguntar, y el asistente y la app de escritorio lo conservan siempre. La desinstalación siempre retira el *merge driver* y la línea de `.gitattributes` que puso. Los proyectos que ya existían no cambian: el tablero llega con `camaron board init`, y su copia de la guía `tutorial.md` es la que tenían (las plantillas se copian una sola vez).
 

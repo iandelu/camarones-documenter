@@ -492,14 +492,15 @@ JOB_IDS = itertools.count(1)
 JOB_LOCK = threading.Lock()
 
 
-def start_job(kind: str, label: str, fn) -> dict:
-    """One job per kind at a time: a second click attaches to the running one."""
+def start_job(kind: str, label: str, fn, **extra) -> dict:
+    """One job per kind at a time: a second click attaches to the running one. `extra`: fields the job carries (a
+    wiki job's repo)."""
     with JOB_LOCK:
         running = next((j for j in JOBS.values() if j["kind"] == kind and j["status"] == "running"), None)
         if running:
             return running
         job = {"id": str(next(JOB_IDS)), "kind": kind, "label": label, "status": "running", "log": [],
-               "started": time.time(), "ended": None}
+               "started": time.time(), "ended": None, **extra}
         JOBS[job["id"]] = job
 
     def work():
@@ -555,16 +556,24 @@ def build(b: dict) -> dict:
     if what == "graph":
         return start_job("graph", "Code graphs", lambda log: env.build_graphs(log=log))
     if what == "wiki-graph" and repo in docs.repo_names():
-        return start_job("wiki-graph", f"Wiki graph {repo}", lambda log: env.wiki_graph(repo, log=log))
+        # a kind per repo: start_job attaches a second start of the same kind to the running job, whatever the repo
+        return start_job(f"wiki-graph:{repo}", f"Wiki graph {repo}", lambda log: env.wiki_graph(repo, log=log))
     raise ValueError(f"unknown build {what!r}")
 
 
 def wiki(b: dict) -> dict:
     """`choose`: add the repo to the ones with a wiki (its plan unit comes back); `starter`: write a starter brief
-    (no AI) when repo-brief has not written one. The card says both before the click."""
+    (no AI) when repo-brief has not written one. The card says both before the click. One wiki runs at a time: while
+    another repo's runs, the answer is {"error": "busy", "repo"} and nothing is chosen or written (the same repo
+    attaches to its run)."""
     repo, mode, engine = b.get("repo", ""), b.get("mode", ""), b.get("engine", "")
     if repo not in docs.repo_names() or mode not in ("", "init", "update"):
         raise ValueError("unknown repo or mode")
+    with JOB_LOCK:
+        other = next((j for j in JOBS.values() if j["kind"] == "wiki" and j["status"] == "running"
+                      and j.get("repo") != repo), None)
+    if other:
+        return {"error": "busy", "repo": other.get("repo", "")}
     if repo not in docs.wiki_repos() and not env.wiki_pages(repo):
         if not b.get("choose"):
             raise ValueError(f"{repo} is not chosen for a wiki")
@@ -572,7 +581,7 @@ def wiki(b: dict) -> dict:
         plan.sync()
     if b.get("starter"):
         env.starter_brief(repo)
-    return start_job("wiki", f"OpenWiki {repo}", lambda log: env.openwiki_generate(repo, mode, log, engine))
+    return start_job("wiki", f"OpenWiki {repo}", lambda log: env.openwiki_generate(repo, mode, log, engine), repo=repo)
 
 
 def cdn_local(html: str) -> str:
@@ -1015,7 +1024,8 @@ class Handler(BaseHTTPRequestHandler):
             if p == "/api/build":
                 return self.json(build(b))
             if p == "/api/wiki":
-                return self.json(wiki(b))
+                r = wiki(b)
+                return self.json(r, 409 if r.get("error") == "busy" else 200)
             if p == "/api/runs":
                 return self.json(*start_run(b))
             if m := re.fullmatch(r"/api/runs/([\w.-]+)/cancel", p):
