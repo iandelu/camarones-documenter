@@ -385,39 +385,52 @@ def _age_days(at, today: date) -> int | None:
     return (today - when.date()).days
 
 
+def _reason(state: str, key: str, n, row: str | None = None) -> tuple:
+    """(state, reason key, n, row to open): the row is the key's own unless a failed source names another."""
+    return (state, key, n, row or ROWS[key])
+
+
+def _unread(failed: list[tuple[str, str]], key: str) -> list:
+    """`docs.unread` / `code.unread`: sources that could not be read make their area `warn`, never `ok`. It opens the
+    row of the first failed source; `failed` is [(source, row)]."""
+    return [_reason("warn", key, len(failed), failed[0][1])] if failed else []
+
+
 def _machine_reasons(snap: dict) -> tuple[list, list]:
     m = snap.get("machine")
     if not _good(m):                            # never checked here, or the check failed
-        return [("warn", "machine.unchecked", None)], [("machine.tools", None), ("machine.missing", None)]
+        return [_reason("warn", "machine.unchecked", None)], [("machine.tools", None), ("machine.missing", None)]
     missing, drift = _list(m.get("missing")), m.get("drift") or 0
-    reasons = ([("bad", "machine.missing", len(missing))] if missing else []) + \
-              ([("warn", "machine.drift", drift)] if drift else [])
+    reasons = ([_reason("bad", "machine.missing", len(missing))] if missing else []) + \
+              ([_reason("warn", "machine.drift", drift)] if drift else [])
     return reasons, [("machine.tools", m.get("tools")), ("machine.missing", len(missing))]
 
 
 def _docs_reasons(snap: dict) -> tuple[list, list]:
     d = snap.get("docs")
     if not _good(d):
-        return [], [("docs.stale", None), ("docs.review", None)]
+        return _unread([("docs", "fresh")], "docs.unread"), [("docs.stale", None), ("docs.review", None)]
     stale, suspect, ctx, evals, review = (d.get(k) for k in ("stale", "suspect", "context", "evals", "review"))
     reasons = []
     if _list(stale):
-        reasons.append(("bad", "docs.stale", len(stale)))
+        reasons.append(_reason("bad", "docs.stale", len(stale)))
     if _list(suspect):
-        reasons.append(("warn", "docs.suspect", len(suspect)))
+        reasons.append(_reason("warn", "docs.suspect", len(suspect)))
     if _good(ctx) and ctx.get("over"):
-        reasons.append(("warn", "docs.context", ctx["total"] - ctx["budget"]))
+        reasons.append(_reason("warn", "docs.context", ctx["total"] - ctx["budget"]))
     if _good(evals) and not evals.get("confirmed"):
-        reasons.append(("warn", "docs.noEvals", evals.get("total")))
+        reasons.append(_reason("warn", "docs.noEvals", evals.get("total")))
     if isinstance(review, int) and review > 0:
-        reasons.append(("warn", "docs.review", review))
+        reasons.append(_reason("warn", "docs.review", review))
+    reasons += _unread([(k, row) for k, row in (("stale", "fresh"), ("evals", "evals"), ("context", "context"),
+                                                ("review", "review")) if _failed(d.get(k))], "docs.unread")
     return reasons, [("docs.stale", len(stale) if isinstance(stale, list) else None),
                      ("docs.review", review if isinstance(review, int) else None)]
 
 
 def _code_reasons(snap: dict, today: date) -> tuple[list, list]:
     all_repos = snap.get("repos")
-    repos = [r for r in all_repos.values() if _good(r)] if _good(all_repos) else []
+    repos = [r for r in all_repos.values() if _good(r) and r.get("cloned") is not False] if _good(all_repos) else []
     counts = [_counts(r) for r in repos]
     high = sum(c.get("critical", 0) + c.get("high", 0) for c in counts)
     medium = sum(c.get("medium", 0) for c in counts)
@@ -426,23 +439,31 @@ def _code_reasons(snap: dict, today: date) -> tuple[list, list]:
     inv = snap.get("inventory") if _good(snap.get("inventory")) else None
     reasons = []
     if high:
-        reasons.append(("bad", "code.vulnHigh", high))
+        reasons.append(_reason("bad", "code.vulnHigh", high))
     if medium:
-        reasons.append(("warn", "code.vulnMedium", medium))
+        reasons.append(_reason("warn", "code.vulnMedium", medium))
     if inv is not None and not inv.get("scanned"):
-        reasons.append(("warn", "code.noScan", None))
+        reasons.append(_reason("warn", "code.noScan", None))
     elif inv is not None and (age := _age_days(inv.get("at"), today)) is not None and age > VULN_SCAN_MAX_DAYS:
-        reasons.append(("warn", "code.oldScan", age))
+        reasons.append(_reason("warn", "code.oldScan", age))
     if low:
-        reasons.append(("warn", "code.lowCoverage", low))
+        reasons.append(_reason("warn", "code.lowCoverage", low))
     if debt:
-        reasons.append(("warn", "code.highDebt", len(debt)))
+        reasons.append(_reason("warn", "code.highDebt", len(debt)))
+    failed = [("inventory", "libs")] if _failed(snap.get("inventory")) else []
+    if (_failed(all_repos) or _failed(snap.get("debt_project"))
+            or any(_failed(r.get(k)) for r in repos for k in ("sonar", "coverage", "reports", "debt"))):
+        failed.append(("repos", "repos"))
+    reasons += _unread(failed, "code.unread")
     libs = [r["libraries"] for r in repos if isinstance(r.get("libraries"), int)]
     known = inv is not None and bool(libs) and (sum(libs) > 0 or inv.get("scanned"))
     return reasons, [("code.libraries", sum(libs) if known else None), ("code.vulnHigh", high)]
 
 
-def _repo_state(repo: dict) -> str:
+def _repo_state(repo: dict) -> str | None:
+    """None for a repo that is not cloned: nothing is known about it."""
+    if repo.get("cloned") is False:
+        return None
     c, p = _counts(repo), _repo_percent(repo)
     if c.get("critical", 0) + c.get("high", 0):
         return "bad"
@@ -452,16 +473,17 @@ def _repo_state(repo: dict) -> str:
 
 def areas(snapshot: dict, today: date | None = None) -> dict:
     """Pure: the three area states with their figures and next action, the state of each repo and the verdict.
-    A block that failed or is missing adds no rule of its own, except the machine: never checked is `warn`."""
+    A source that failed makes its area `warn` (`docs.unread`, `code.unread`; the machine: `machine.unchecked`). A repo
+    that is not cloned has no state and does not count."""
     today = today or datetime.now(timezone.utc).date()
     out, verdict = {}, []
     for area, (reasons, figures) in (("machine", _machine_reasons(snapshot)), ("docs", _docs_reasons(snapshot)),
                                      ("code", _code_reasons(snapshot, today))):
-        state = _worst(s for s, _, _ in reasons)
+        state = _worst(r[0] for r in reasons)
         out[area] = {"state": state, "figures": [{"key": k, "n": n} for k, n in figures],
-                     "next": {"key": reasons[0][1], "row": ROWS[reasons[0][1]]} if reasons else None}
+                     "next": {"key": reasons[0][1], "row": reasons[0][3]} if reasons else None}
         if state != "ok":
-            verdict += [{"key": k, "n": n} for _, k, n in reasons]
+            verdict += [{"key": r[1], "n": r[2]} for r in reasons]
     repos = snapshot.get("repos")
     return {"areas": out, "verdict": verdict,
             "repo_state": {n: _repo_state(r) for n, r in repos.items() if _good(r)} if _good(repos) else {}}
