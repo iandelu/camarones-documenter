@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { doctorRows, pytestSummary, seconds, setupProgress } from './quality.js'
+import { BOARD_ACTIONS, doctorRows, pytestSummary, seconds, setupProgress } from './quality.js'
 
 const fix = (cmd, args = {}) => ({ cmd, args })
 
@@ -31,4 +31,10 @@ test('setup\'s progress: the steps it reports done against the steps it will tak
 test('a check\'s time in seconds, for "checked n min ago"', () => {
   expect(seconds('2026-10-25T10:00:00Z')).toBe(Date.UTC(2026, 9, 25, 10) / 1000)
   expect(seconds('nonsense')).toBeNull()
+})
+
+test('the board rows whose controls the app owns; review is a link and repos a table, neither an action', () => {
+  expect(BOARD_ACTIONS).toEqual(['doctor', 'drift', 'fresh', 'evals', 'context', 'blocks', 'ab', 'libs'])
+  expect(BOARD_ACTIONS).not.toContain('review')
+  expect(BOARD_ACTIONS).not.toContain('repos')
 })

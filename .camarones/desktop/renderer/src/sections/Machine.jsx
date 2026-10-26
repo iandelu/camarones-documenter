@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { Aviso, Button, Card, Chip, Skeleton } from '@camaron/ui'
 import { setupProgress } from '../quality.js'
-import { useCmd } from '../hooks.js'
+import { useCmd, useHash } from '../hooks.js'
 import { Failed, JobOutput, Page } from '../parts.jsx'
 import Commands from './Commands.jsx'
+import { tokenPrefill } from '../nav.js'
 import { t } from '../i18n.js'
 
 // This machine by task: prepare it (setup, with its progress), the language and models of the agent sessions, the
-// forge tokens (kept in the OS keychain), this project's repos and plan, the kit itself; and, apart, uninstall —
+// forge and SonarQube tokens (kept in the OS keychain), this project's repos and plan, the kit itself; and, apart, uninstall —
 // previewed first. Every action is a catalog command run by the server (lib/appapi.py).
 export default function Machine({ srv, jobs, app }) {
   const [m, setM] = useState(null)
@@ -15,6 +16,7 @@ export default function Machine({ srv, jobs, app }) {
   const load = () => srv.get('app/machine').then((x) => { setM(x); setError('') }, (e) => setError(e.message))
   useEffect(() => { load() }, [])
   const p = { srv, jobs, m, reload: load }
+  const fill = tokenPrefill(useHash())          // #/machine?host=<h>&kind=sonarqube: where Quality sends a repo's Sonar
   return (
     <Page title={t('nav.machine')}>
       {error ? <Failed title={t('mc.failed')} detail={error} onRetry={() => { setError(''); load() }} /> : null}
@@ -22,7 +24,7 @@ export default function Machine({ srv, jobs, app }) {
       {m ? (<>
         <Setup {...p} />
         <Settings {...p} />
-        <Tokens srv={srv} />
+        <Tokens key={`${fill.host}|${fill.kind}`} srv={srv} host={fill.host} kind={fill.kind} />
         <Repos {...p} />
         <Kit {...p} app={app} />
         <Commands srv={srv} jobs={jobs} section="machine" />
@@ -81,11 +83,11 @@ function Settings({ srv, jobs, m, reload }) {
   )
 }
 
-// GitLab / GitHub tokens in the OS keychain: they reach the server in a request body only (never a command line)
+// GitLab / GitHub / SonarQube tokens in the OS keychain: they reach the server in a request body only (never a command line)
 // and never come back. `host` fills the form in (the first-run wizard, for a repo that failed to clone).
-export function Tokens({ srv, host = '' }) {
+export function Tokens({ srv, host = '', kind = '' }) {
   const [d, setD] = useState(null)
-  const [form, setForm] = useState({ host, kind: /github/i.test(host) ? 'github' : 'gitlab', token: '' })
+  const [form, setForm] = useState({ host, kind: kind || (/github/i.test(host) ? 'github' : 'gitlab'), token: '' })
   const [note, setNote] = useState({ ok: '', error: '' })
   const [busy, setBusy] = useState(false)
   const load = () => srv.get('app/creds').then(setD, (e) => setNote({ ok: '', error: e.message }))
@@ -107,19 +109,20 @@ export function Tokens({ srv, host = '' }) {
           <li key={h.host} className="dk-unit"><div className="dk-unit-main"><b>{h.host}</b><span className="muted small">{h.kind}{h.user ? ` · ${h.user}` : ''}</span></div>
             <div className="row dk-unit-acts"><Chip state={h.saved ? 'ok' : 'warn'}>{h.saved ? t('mc.tokOk') : t('mc.tokMissing')}</Chip>
               <Button size="sm" variant="ghost" disabled={busy} onClick={() => act('app/creds/test', { host: h.host },
-                (r) => (r.ok ? t('mc.tokWorks', { user: r.info }) : t('mc.tokFails', { err: r.info })))}>{t('mc.tokTest')}</Button>
+                (r) => (r.ok ? (r.info ? t('mc.tokWorks', { user: r.info }) : t('mc.tokWorksBare')) : t('mc.tokFails', { err: r.info })))}>{t('mc.tokTest')}</Button>
               <Button size="sm" variant="ghost" disabled={busy} onClick={() => act('app/creds/delete', { host: h.host }, () => t('mc.tokDeleted'))}>{t('mc.tokDelete')}</Button></div>
           </li>))}</ul>
       ) : d ? <p className="muted small">{t('mc.tokNone')}</p> : null}
       <form className="dk-fields" onSubmit={(e) => { e.preventDefault(); save(false) }}>
         <div className="cu-field"><label className="cu-field-label" htmlFor="tk-host">{t('mc.tokHost')}</label>
-          <input id="tk-host" className="cu-input" value={form.host} onChange={set('host')} placeholder="gitlab.example.com" required /></div>
+          <input id="tk-host" className="cu-input" value={form.host} onChange={set('host')} placeholder={form.kind === 'sonarqube' ? 'sonar.example.com' : 'gitlab.example.com'} required /></div>
         <div className="cu-field"><label className="cu-field-label" htmlFor="tk-kind">{t('mc.tokKind')}</label>
-          <select id="tk-kind" className="cu-input" value={form.kind} onChange={set('kind')}><option value="gitlab">GitLab</option><option value="github">GitHub</option></select></div>
+          <select id="tk-kind" className="cu-input" value={form.kind} onChange={set('kind')}><option value="gitlab">GitLab</option><option value="github">GitHub</option><option value="sonarqube">SonarQube</option></select></div>
         <div className="cu-field"><label className="cu-field-label" htmlFor="tk-token">{t('mc.tokToken')}</label>
           <input id="tk-token" className="cu-input" type="password" autoComplete="off" value={form.token} onChange={set('token')} required /></div>
         <div className="cu-field"><Button type="submit" size="sm" disabled={busy || !form.host.trim() || !form.token.trim()}>{t('mc.tokSave')}</Button></div>
       </form>
+      {form.kind === 'sonarqube' ? <p className="muted small">{t('mc.tokSonarHint')}</p> : null}
       {note.ok ? <p className="small" role="status">{note.ok}</p> : null}
       {note.error ? (
         <Aviso tone="error" title={t('unit.failed')} detail={note.error}>

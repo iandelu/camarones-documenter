@@ -1,4 +1,4 @@
-"""Git hosting credentials (GitLab / GitHub tokens) — kept out of the project and out of AI sessions.
+"""Git hosting credentials (GitLab / GitHub tokens, and SonarQube's) — kept out of the project and out of AI sessions.
 
 * The token is stored in the OS secret store: macOS Keychain, Windows Credential Manager, Linux Secret Service
   (fallback: ~/.camarones/credentials.json with 0600 permissions). Never in the project, never in git config.
@@ -36,6 +36,11 @@ def backend_name() -> str:
 
 def hosts() -> dict:
     return load_json(META, {})
+
+
+def forge_hosts() -> list[str]:
+    """Saved hosts that are git forges with a token: a SonarQube one never is (its token goes to Sonar's API only)."""
+    return [h for h, m in hosts().items() if m.get("kind") != "sonarqube" and get(h)]
 
 
 def get(host: str) -> str | None:
@@ -104,25 +109,61 @@ def guess_kind(host: str) -> str:
     return "github" if "github" in host else "gitlab"
 
 
+LOCAL_HOSTS = ("localhost", "127.0.0.1", "::1")      # the only hosts a SonarQube token may travel to over plain http
+
+
+def sonar_host(host: str) -> str:
+    """A SonarQube host as the user gave it (`sonar.example.com`, `https://sonar.example.com/sonar`), minus a trailing
+    slash. It is also the keychain key, so the path prefix of an instance behind a proxy is kept."""
+    return host.strip().rstrip("/")
+
+
+def sonar_base(host: str) -> str:
+    """The URL SonarQube's API hangs from: https unless the host is local. ValueError (with the reason) otherwise."""
+    h = sonar_host(host)
+    if re.search(r"[\s?#;]", h):               # a query, fragment, `;params` or a space turns `evil.io#.sonar.empresa.com` into evil.io
+        raise ValueError("host no válido")
+    url = h if "://" in h else f"https://{h}"
+    p = urllib.parse.urlparse(url)
+    if p.scheme == "http" and p.hostname not in LOCAL_HOSTS:
+        raise ValueError("solo https")
+    if p.scheme not in ("http", "https") or not p.hostname or p.username or p.password:
+        raise ValueError("host no válido")
+    return url
+
+
 def api_base(host: str, kind: str) -> str:
+    if kind == "sonarqube":
+        return sonar_base(host)
     if kind == "github":
         return "https://api.github.com" if host == "github.com" else f"https://{host}/api/v3"
     return f"https://{host}/api/v4"
 
 
 def _headers(kind: str, token: str) -> dict:
+    if kind == "sonarqube":                                # the token is the user, the password stays empty
+        return {"Authorization": "Basic " + base64.b64encode(f"{token}:".encode()).decode(), "User-Agent": "camarones"}
     if kind == "github":
         return {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json", "User-Agent": "camarones"}
     return {"PRIVATE-TOKEN": token, "User-Agent": "camarones"}
 
 
 def _get(url: str, kind: str, token: str):
+    if kind == "sonarqube":                                # plain urlopen follows redirects: Sonar goes through lib/sonar.py
+        raise ValueError("sonarqube is read through lib/sonar.py")
     req = urllib.request.Request(url, headers=_headers(kind, token))
     with urllib.request.urlopen(req, timeout=20) as r:
         return json.loads(r.read().decode("utf-8"))
 
 
 def verify(host: str, kind: str, token: str) -> tuple[bool, str]:
+    if kind == "sonarqube":                                # (True, "") or (False, the reason, in Spanish as the snapshot shows it)
+        from . import sonar
+        try:
+            ok = sonar.sonar_get(host, token, "/api/authentication/validate", {}).get("valid") is True
+        except sonar.SonarError as e:
+            return False, str(e)
+        return (True, "") if ok else (False, "token no válido")
     try:
         me = _get(f"{api_base(host, kind)}/user", kind, token)
         return True, me.get("username") or me.get("login") or "?"
@@ -132,6 +173,8 @@ def verify(host: str, kind: str, token: str) -> tuple[bool, str]:
 
 def list_projects(host: str, kind: str, token: str, scope: str = "") -> list[dict]:
     """Projects visible with the token. scope = GitLab group path / GitHub org (empty = everything you are member of)."""
+    if kind == "sonarqube":
+        raise ValueError("sonarqube has no projects to clone")
     base, out = api_base(host, kind), []
     for page in range(1, 11):
         if kind == "github":
@@ -161,6 +204,8 @@ def git_env(url: str) -> dict:
     if not token:
         return {"GIT_TERMINAL_PROMPT": "0"}
     kind = hosts().get(host, {}).get("kind") or guess_kind(host)
+    if kind == "sonarqube":                                # same host as a forge, still not a git token
+        return {"GIT_TERMINAL_PROMPT": "0"}
     user = "x-access-token" if kind == "github" else "oauth2"
     basic = base64.b64encode(f"{user}:{token}".encode()).decode()
     return {

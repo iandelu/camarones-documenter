@@ -29,7 +29,7 @@ test('home: the root, an unknown address', () => {
 })
 
 test('the React views need the server; in the export they fall back to home', () => {
-  for (const v of ['pipeline', 'ask', 'kpis', 'ci', 'libs', 'data', 'interview', 'sync']) {
+  for (const v of ['pipeline', 'ask', 'kpis', 'ci', 'libs', 'data', 'interview', 'sync', 'health']) {
     expect(go(`#/${v}/x`)).toEqual({ kind: 'native', view: v, arg: 'x' })
     expect(go(`#/${v}`, { mode: 'static' })).toEqual(HOME)
   }
@@ -37,6 +37,19 @@ test('the React views need the server; in the export they fall back to home', ()
   // the Board's add form, opened from a page with its link filled in
   expect(go('#/kanban/new?path=domain%2Fvisits.md&section=the-flow'))
     .toEqual({ kind: 'native', view: 'kanban', arg: 'new?path=domain/visits.md&section=the-flow' })
+})
+
+test('Salud: live-only, the per-repo page rides on the argument', () => {
+  expect(go('#/health')).toEqual({ kind: 'native', view: 'health', arg: '' })
+  expect(go('#/health/api')).toEqual({ kind: 'native', view: 'health', arg: 'api' })
+  expect(go('#/health', { mode: 'static' })).toEqual(HOME)
+  expect(go('#/health/my%20repo')).toEqual({ kind: 'native', view: 'health', arg: 'my repo' })
+})
+
+test('Librerias opens filtered to a repo on #/libs/<repo>; #/libs is unchanged', () => {
+  expect(go('#/libs/api')).toEqual({ kind: 'native', view: 'libs', arg: 'api' })
+  expect(go('#/libs')).toEqual({ kind: 'native', view: 'libs', arg: '' })
+  expect(go('#/libs/api', { mode: 'static' })).toEqual(HOME)
 })
 
 // The Taller left the portal in 4.53: in the app its old addresses open the app's own section, in a browser home.

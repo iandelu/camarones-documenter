@@ -1369,7 +1369,7 @@ class W:
                     creds.delete(h)
 
     def add_remote(self, ws: dict) -> None:
-        saved = [h for h in creds.hosts() if creds.get(h)]
+        saved = creds.forge_hosts()
         host = self.sel(self.t("r_which_host"), [Choice(h, h) for h in saved] + [Choice(self.t("r_new_host"), "__new__")],
                         default=saved[0] if saved else "__new__")
         if not host:

@@ -141,6 +141,13 @@ Only humans edit this paragraph.
 **🔄 Update docs after changes** runs an incremental session: only what changed in the code is regenerated, stale pages
 are cleaned up, confirmed pages are never silently rewritten. CI can run the same thing automatically (section 8).
 
+**Project health.** `camaron health` prints, without AI, a verdict and three areas (machine, docs, code) with the next
+action for each, and a table per repo: whether it uses SonarQube (its quality gate when a token is saved), coverage, vulnerabilities and the
+tech debt recorded in `docs/quality/`. Coverage comes from SonarQube when a SonarQube token is saved on the machine (Machine >
+Tokens) and the project can be read; otherwise from the reports the build leaves locally. `--refresh` rebuilds it first
+(the only moment it asks the SonarQube server) and `--json` prints the snapshot. The desktop app's Quality and the portal's
+Health view (read-only) show the same snapshot.
+
 **Quality gate.** `camaron check` runs after every unit and in CI. Besides frontmatter, sources, trust and
 translations it reports:
 

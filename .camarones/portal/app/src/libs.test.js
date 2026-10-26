@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyFilter, facets, matrix, worst } from './libs.js'
+import { applyFilter, facets, matrix, repoFilter, worst } from './libs.js'
 
 const v = (severity, id = 'CVE-1') => ({ id, cve: id, severity, fixed: '2.0' })
 const rows = [
@@ -41,5 +41,17 @@ describe('Libraries tab', () => {
     const f = facets(rows)
     expect(f.category).toEqual([['other', 2], ['data', 1], ['testing', 1]])
     expect(f.language).toEqual([['JavaScript', 3], ['Java', 1]])
+  })
+})
+
+describe('opened on a repo (#/libs/<repo>)', () => {
+  it('filters to a repo the inventory has', () => {
+    expect(repoFilter('api', rows)).toBe('api')
+    expect(applyFilter(rows, { repo: repoFilter('web', rows) }).every((r) => r.repo === 'web')).toBe(true)
+  })
+  it('leaves the filter empty for an unknown repo or no repo', () => {
+    expect(repoFilter('nope', rows)).toBe('')
+    expect(repoFilter('', rows)).toBe('')
+    expect(repoFilter(undefined, rows)).toBe('')
   })
 })
