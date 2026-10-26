@@ -18,6 +18,16 @@ function outsideApp(url, origin) {
   } catch { return false }
 }
 
+// A portal address on its way to the system browser gets this session's portal token, in the fragment `camaron up`
+// uses and the portal takes out at once (portal/app/src/token.js): `#<route>&cam-token=<t>`, or `#cam-token=<t>` with
+// no route. The app's own pages, other origins and a missing token are left as they are.
+function withPortalToken(url, origin, token) {
+  if (!token || !outsideApp(url, origin)) return url
+  const u = new URL(url)
+  const route = u.hash.slice(1).split('&').filter((p) => p && !p.startsWith('cam-token=')).join('&')
+  return `${u.origin}${u.pathname}${u.search}#${[route, `cam-token=${token}`].filter(Boolean).join('&')}`
+}
+
 // No project open: the same build, from the kit's folder.
 const hubFile = (desktopDir) => path.join(desktopDir, 'renderer-build', 'index.html')
 
@@ -57,4 +67,4 @@ function oneAtATime(inFlight, key, start) {
   return p
 }
 
-module.exports = { SECTIONS, projectUrl, outsideApp, hubFile, DEFAULT_BOUNDS, MIN, bounds, switchable, samePath, rail, oneAtATime }
+module.exports = { SECTIONS, projectUrl, outsideApp, withPortalToken, hubFile, DEFAULT_BOUNDS, MIN, bounds, switchable, samePath, rail, oneAtATime }

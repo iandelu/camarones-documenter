@@ -287,9 +287,9 @@ camaron board repair                                  # también corre antes de 
 
 Todos aceptan `--json`. Los enlaces a páginas van por `x-id`, así que sobreviven a moverlas o renombrarlas, y el
 tablero sabe si una página enlazada cambió desde que se enlazó. En el portal, la zona **Tablero** (`#/kanban`) tiene
-el Kanban con filtros por repo, epic, etiqueta y estado de la documentación, y el detalle de cada tarjeta; escribir pide el token de la máquina (la app de
-escritorio lo manda; `camaron up` lo imprime en la dirección como `#cam-token=…`), sin él el tablero es de solo
-lectura. Al desinstalar, `camaron uninstall` (CLI) pregunta si conservas `backlog/` (`--keep-board` / `--drop-board`
+el Kanban con filtros por repo, epic, etiqueta y estado de la documentación, y el detalle de cada tarjeta; escribir
+pide el token de la máquina: el portal que la app de escritorio abre en tu navegador lo lleva mientras la app está
+abierta, y `camaron up` lo imprime en la dirección como `#cam-token=…`; sin él el tablero es de solo lectura. Al desinstalar, `camaron uninstall` (CLI) pregunta si conservas `backlog/` (`--keep-board` / `--drop-board`
 lo deciden sin preguntar); el asistente y la app de escritorio lo conservan siempre.
 
 ## 6. Editar: dónde y cuándo
