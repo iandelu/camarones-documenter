@@ -208,11 +208,12 @@ Where you operate a project; the portal is where you read it. Each project opens
 with your projects and the sections, below the jobs panel (what runs and the last ones, their output and **Stop**). The
 browser portal stays the team's viewer (read, edit, review, pipeline status, the interview): **View portal**, in the
 header, and **Docs** open it in your browser, and it does not show what it cannot do. From the keyboard, Ctrl K / ⌘K goes to a section, another project or any command, and `g` then a letter jumps
-between sections (`g s` Summary, `g p` Plan, `g q` Quality…).
+between sections (`g s` Summary, `g b` Board, `g p` Plan, `g q` Quality…).
 
 | Section | What you do there |
 |---|---|
 | 🏠 Summary | the next step with one button (the one the wizard suggests), what this machine is missing, where the plan, the review and the jobs stand |
+| 📋 Board | the columns from Backlog to Done: move a card by dragging it or with the keyboard (Tab to the card, Space grabs, arrows move, Enter drops, Escape puts it back); a card opens its description, criteria and definition of done, and a story lists its tasks and has **Add a task**; **Add** creates an item (type, title, parent, priority); if the board is not on, **Turn the board on** |
 | 🗺️ Plan | run the ready units in parallel or the autopilot, and stop them; the units grouped by what they ask of you (approve, retry, continue, start) with the agent you pick; the docs update |
 | 🎙️ Interviews | team questionnaire or live, export the offline form, import answers, close the round, each interview with its agent |
 | 🤝 Team | the team's repo and sharing, approving the agent config that came with it, hooks, plugins |
