@@ -1,0 +1,320 @@
+[
+ {
+  "lang": "es",
+  "as": "dev",
+  "want": "exportar una página a PDF",
+  "so": "compartir el documento con el equipo",
+  "touches": [
+   "portal:a.py"
+  ],
+  "codes": []
+ },
+ {
+  "lang": "es",
+  "as": "dev",
+  "want": "",
+  "so": "compartirlo",
+  "touches": [
+   "portal:a.py"
+  ],
+  "codes": [
+   "empty"
+  ]
+ },
+ {
+  "lang": "es",
+  "as": "",
+  "want": "",
+  "so": "",
+  "touches": [],
+  "codes": [
+   "empty",
+   "no-footprint"
+  ]
+ },
+ {
+  "lang": "es",
+  "as": "usuario",
+  "want": "exportar a PDF",
+  "so": "compartirla",
+  "touches": [
+   "portal:a.py"
+  ],
+  "codes": [
+   "generic-role"
+  ]
+ },
+ {
+  "lang": "es",
+  "as": "el usuario",
+  "want": "exportar a PDF",
+  "so": "compartirla",
+  "touches": [
+   "portal:a.py"
+  ],
+  "codes": [
+   "generic-role"
+  ]
+ },
+ {
+  "lang": "es",
+  "as": "dev",
+  "want": "exportar y compartir informes",
+  "so": "ahorrar tiempo en reuniones",
+  "touches": [
+   "portal:a.py"
+  ],
+  "codes": [
+   "two-goals"
+  ]
+ },
+ {
+  "lang": "es",
+  "as": "dev",
+  "want": "buscar por nombre y fecha",
+  "so": "encontrar la factura correcta",
+  "touches": [
+   "portal:a.py"
+  ],
+  "codes": []
+ },
+ {
+  "lang": "es",
+  "as": "dev",
+  "want": "exportar informes de ventas",
+  "so": "exportar informes de ventas al jefe",
+  "touches": [
+   "portal:a.py"
+  ],
+  "codes": [
+   "so-repeats-want"
+  ]
+ },
+ {
+  "lang": "es",
+  "as": "dev",
+  "want": "exportar informes de ventas",
+  "so": "ver el estado de ventas",
+  "touches": [
+   "portal:a.py"
+  ],
+  "codes": []
+ },
+ {
+  "lang": "es",
+  "as": "dev",
+  "want": "añadir un botón de exportar",
+  "so": "compartir informes",
+  "touches": [
+   "portal:a.py"
+  ],
+  "codes": [
+   "solution-in-want"
+  ]
+ },
+ {
+  "lang": "es",
+  "as": "dev",
+  "want": "exportar a PDF",
+  "so": "compartir informes",
+  "touches": [],
+  "codes": [
+   "no-footprint"
+  ]
+ },
+ {
+  "lang": "es",
+  "as": "usuario",
+  "want": "añadir un botón y exportar informes",
+  "so": "exportar informes rápido",
+  "touches": [],
+  "codes": [
+   "generic-role",
+   "two-goals",
+   "so-repeats-want",
+   "solution-in-want",
+   "no-footprint"
+  ]
+ },
+ {
+  "lang": "es",
+  "as": "dev",
+  "want": "consultar el historial de cambios de cada documento publicado consultar el historial de cambios de cada documento publicado consultar el historial de cambios de cada documento publicado consultar el historial de cambios de cada documento publicado consul",
+  "so": "tener trazabilidad total",
+  "touches": [
+   "portal:a.py"
+  ],
+  "codes": [
+   "too-long"
+  ]
+ },
+ {
+  "lang": "es",
+  "as": "dev",
+  "want": "consultar el historial de cambios de cada documento publicado consultar el historial de cambios de cada documento publicado consultar el historial de cambios de cada documento publicado consultar el historial de cambios de cada documento publicado consu",
+  "so": "tener trazabilidad total",
+  "touches": [
+   "portal:a.py"
+  ],
+  "codes": []
+ },
+ {
+  "lang": "en",
+  "as": "service owner",
+  "want": "export a page to PDF",
+  "so": "share the document with my team",
+  "touches": [
+   "portal:a.py"
+  ],
+  "codes": []
+ },
+ {
+  "lang": "en",
+  "as": "service owner",
+  "want": "",
+  "so": "share it",
+  "touches": [
+   "portal:a.py"
+  ],
+  "codes": [
+   "empty"
+  ]
+ },
+ {
+  "lang": "en",
+  "as": "",
+  "want": "",
+  "so": "",
+  "touches": [],
+  "codes": [
+   "empty",
+   "no-footprint"
+  ]
+ },
+ {
+  "lang": "en",
+  "as": "user",
+  "want": "export to PDF",
+  "so": "share the report with the team",
+  "touches": [
+   "portal:a.py"
+  ],
+  "codes": [
+   "generic-role"
+  ]
+ },
+ {
+  "lang": "en",
+  "as": "the user",
+  "want": "export to PDF",
+  "so": "share the report with the team",
+  "touches": [
+   "portal:a.py"
+  ],
+  "codes": [
+   "generic-role"
+  ]
+ },
+ {
+  "lang": "en",
+  "as": "service owner",
+  "want": "export to PDF and share it",
+  "so": "send it to people without portal access",
+  "touches": [
+   "portal:a.py"
+  ],
+  "codes": [
+   "two-goals"
+  ]
+ },
+ {
+  "lang": "en",
+  "as": "service owner",
+  "want": "search by name and date",
+  "so": "find the right invoice quickly",
+  "touches": [
+   "portal:a.py"
+  ],
+  "codes": []
+ },
+ {
+  "lang": "en",
+  "as": "service owner",
+  "want": "export sales reports",
+  "so": "export the sales reports",
+  "touches": [
+   "portal:a.py"
+  ],
+  "codes": [
+   "so-repeats-want"
+  ]
+ },
+ {
+  "lang": "en",
+  "as": "service owner",
+  "want": "export sales reports",
+  "so": "see sales trends each week",
+  "touches": [
+   "portal:a.py"
+  ],
+  "codes": []
+ },
+ {
+  "lang": "en",
+  "as": "service owner",
+  "want": "add a button to export",
+  "so": "share reports with the team",
+  "touches": [
+   "portal:a.py"
+  ],
+  "codes": [
+   "solution-in-want"
+  ]
+ },
+ {
+  "lang": "en",
+  "as": "service owner",
+  "want": "export to PDF",
+  "so": "share reports with the team",
+  "touches": [],
+  "codes": [
+   "no-footprint"
+  ]
+ },
+ {
+  "lang": "en",
+  "as": "user",
+  "want": "add a button and export reports",
+  "so": "export reports quickly",
+  "touches": [],
+  "codes": [
+   "generic-role",
+   "two-goals",
+   "so-repeats-want",
+   "solution-in-want",
+   "no-footprint"
+  ]
+ },
+ {
+  "lang": "en",
+  "as": "service owner",
+  "want": "browse the full history of changes for each published document browse the full history of changes for each published document browse the full history of changes for each published document browse the full history of changes for each publishe",
+  "so": "keep a complete audit trail",
+  "touches": [
+   "portal:a.py"
+  ],
+  "codes": [
+   "too-long"
+  ]
+ },
+ {
+  "lang": "en",
+  "as": "service owner",
+  "want": "browse the full history of changes for each published document browse the full history of changes for each published document browse the full history of changes for each published document browse the full history of changes for each publish",
+  "so": "keep a complete audit trail",
+  "touches": [
+   "portal:a.py"
+  ],
+  "codes": []
+ }
+]
