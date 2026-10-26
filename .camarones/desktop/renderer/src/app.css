@@ -61,6 +61,7 @@ a.dk-stat-n:hover { color: var(--color-acento-texto); }
 .dk-progress { width: 100%; height: .4rem; accent-color: var(--color-ink); }
 
 /* the sections: cards of one task each, the plan's units as rows, folds for what waits, the catalog's forms */
+.dk-body { display: flex; flex-direction: column; gap: .6rem; min-width: 0; }   /* a card's body, inside a health row */
 .dk-run { gap: .6rem; }
 .dk-inline { display: inline-flex; align-items: center; gap: .5rem; color: var(--color-ink-soft); }
 .dk-narrow { min-width: 4rem; }
