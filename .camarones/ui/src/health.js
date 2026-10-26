@@ -12,6 +12,8 @@ export const AREAS = ['machine', 'docs', 'code']
 const failed = (block) => !!block && typeof block === 'object' && typeof block.error === 'string'
 const good = (block) => !!block && typeof block === 'object' && !Array.isArray(block) && !failed(block)
 const count = (n) => (typeof n === 'number' && Number.isFinite(n) ? String(n) : null)
+const num = (n) => typeof n === 'number' && Number.isFinite(n)
+const unknown = (id) => ({ id, state: null, figure: null })       // a fact the snapshot does not hold: "—", neutral
 const worst = (states) => states.reduce((a, s) => (STATES.indexOf(s) > STATES.indexOf(a) ? s : a), 'ok')
 
 // One reason of the verdict or of a tile: "Pages to review: 3". A reason with no number says it without one.
@@ -54,10 +56,8 @@ export function rowsFor(area, snapshot) {
   if (area === 'machine') {
     const m = snapshot?.machine
     if (!good(m)) return unread(['doctor', 'drift'], m)
-    const missing = Array.isArray(m.missing) ? m.missing.length : 0
-    const drift = typeof m.drift === 'number' ? m.drift : 0
-    return [{ id: 'doctor', state: missing ? 'bad' : 'ok', figure: String(missing) },
-            { id: 'drift', state: drift ? 'warn' : 'ok', figure: String(drift) }]
+    return [Array.isArray(m.missing) ? { id: 'doctor', state: m.missing.length ? 'bad' : 'ok', figure: String(m.missing.length) } : unknown('doctor'),
+            num(m.drift) ? { id: 'drift', state: m.drift ? 'warn' : 'ok', figure: String(m.drift) } : unknown('drift')]
   }
   if (area === 'docs') {
     const d = snapshot?.docs
@@ -71,16 +71,16 @@ export function rowsFor(area, snapshot) {
     return [
       row('fresh', [stale, suspect], () => Array.isArray(stale) && Array.isArray(suspect)
         ? { id: 'fresh', state: stale.length ? 'bad' : suspect.length ? 'warn' : 'ok', figure: String(stale.length) }
-        : { id: 'fresh', state: 'warn', figure: null }),
-      row('evals', [evals], () => good(evals)
+        : unknown('fresh')),
+      row('evals', [evals], () => good(evals) && num(evals.confirmed) && num(evals.total)
         ? { id: 'evals', state: evals.confirmed ? 'ok' : 'warn', figure: `${evals.confirmed}/${evals.total}` }
-        : { id: 'evals', state: 'warn', figure: null }),
-      row('context', [context], () => good(context)
+        : unknown('evals')),
+      row('context', [context], () => good(context) && num(context.total) && num(context.budget)
         ? { id: 'context', state: context.over ? 'warn' : 'ok', figure: `${context.total}/${context.budget}` }
-        : { id: 'context', state: 'warn', figure: null }),
+        : unknown('context')),
       row('review', [review], () => Number.isInteger(review)
         ? { id: 'review', state: review > 0 ? 'warn' : 'ok', figure: String(review) }
-        : { id: 'review', state: 'warn', figure: null }),
+        : unknown('review')),
       { id: 'blocks', state: null, figure: null },
       { id: 'ab', state: null, figure: null },
     ]
@@ -132,18 +132,25 @@ export function repoRow(name, repo, state, t, scanned = true) {
   if (failed(repo)) return { ...row, error: repo.error }
   if (!good(repo)) return row
   if (repo.cloned === false) return { ...row, note: t('hb.notCloned') }
-  if (good(repo.sonar)) {
+  // a sub-block that failed reads "unread" (not a dash: the fact exists, it just could not be read) and its message rides along
+  const sub = (block, cell) => {
+    if (!failed(block)) return false
+    row[cell] = t('hb.unread')
+    row.error ??= block.error
+    return true
+  }
+  if (!sub(repo.sonar, 'sonar') && good(repo.sonar)) {
     row.sonar = repo.sonar.used ? t('hb.yes') : t('hb.no')
     if (repo.sonar.used && repo.sonar.link) row.sonarLink = repo.sonar.link
   }
   const cov = repo.coverage
-  if (good(cov) && typeof cov.percent === 'number') {
+  if (!sub(cov, 'coverage') && good(cov) && typeof cov.percent === 'number') {
     row.coverage = `${cov.percent}%`
     const note = [cov.source, typeof cov.at === 'string' ? cov.at.slice(0, 10) : ''].filter(Boolean).join(' · ')
     if (note) row.coverageNote = note
   }
-  if (scanned !== false && good(repo.vulns)) row.vulns = sevText(repo.vulns, t) || '0'
-  row.debt = debtText(repo.debt, t)
+  if (!sub(repo.vulns, 'vulns') && scanned !== false && good(repo.vulns)) row.vulns = sevText(repo.vulns, t) || '0'
+  if (!sub(repo.debt, 'debt')) row.debt = debtText(repo.debt, t)
   return row
 }
 
@@ -153,4 +160,9 @@ export function tileTarget(next, actions, links) {
   if (!next) return null
   if (actions?.[next.row]) return { kind: 'open', row: next.row }
   return links?.[next.row] ? { kind: 'link', href: links[next.row] } : null
+}
+
+// A tile's reason with its number. The snapshot's `next` is {key, row}; the number is in the verdict's entry for that key.
+export function nextReason(next, verdict, t) {
+  return reasonText({ key: next.key, n: (Array.isArray(verdict) ? verdict : []).find((v) => v.key === next.key)?.n }, t)
 }
