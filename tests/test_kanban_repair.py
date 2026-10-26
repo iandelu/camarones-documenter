@@ -355,3 +355,68 @@ def test_share_passes_the_repair_warnings_to_its_log(kit, tmp_path):
     s = kit.env.share(log=lines.append)
     assert s["status"] == "pushed", s
     assert sum("backlog/docs/ has content" in l for l in lines) == 1
+
+
+def test_repair_fills_story_subtasks_after_a_crash(wired):
+    story = mk(wired, "WI-1", "Story", type="story", **{"x-uid": "aaaa1111"})
+    epic = mk(wired, "WI-5", "Epic", type="epic", **{"x-uid": "eeee5555"}, subtasks=["WI-6"])
+    mk(wired, "WI-2", "Child written first", **{"x-uid": "bbbb2222"}, parent_task_id="WI-1")
+    mk(wired, "WI-3", "Second child", **{"x-uid": "cccc3333"}, parent_task_id="wi-1")
+    mk(wired, "WI-6", "Old child", **{"x-uid": "dddd4444"}, parent_task_id="WI-5")
+    mk(wired, "WI-7", "Late child", **{"x-uid": "ffff6666"}, parent_task_id="WI-5")
+    put_board({"WI-1": card("aaaa1111"), "WI-2": card("bbbb2222", ordinal=2000), "WI-3": card("cccc3333", ordinal=3000),
+               "WI-5": card("eeee5555", ordinal=4000), "WI-6": card("dddd4444", ordinal=5000),
+               "WI-7": card("ffff6666", ordinal=6000)})
+    r = run_repair()
+    assert read(story).fm["subtasks"] == ["WI-2", "WI-3"]
+    assert read(epic).fm["subtasks"] == ["WI-6", "WI-7"]                    # the order people had is kept
+    assert any(c.endswith("wi-1 - Story.md") for c in r["changed"])
+    again = snapshot(wired.root)
+    assert run_repair()["changed"] == [] and snapshot(wired.root) == again
+
+
+def test_repair_drops_a_subtask_that_lives_under_another_parent(wired):
+    story = mk(wired, "WI-1", "Story", type="story", **{"x-uid": "aaaa1111"}, subtasks=["WI-2", "WI-3", "WI-9"])
+    mk(wired, "WI-2", "Mine", **{"x-uid": "bbbb2222"}, parent_task_id="WI-1")
+    mk(wired, "WI-3", "Moved", **{"x-uid": "cccc3333"}, parent_task_id="WI-4")
+    mk(wired, "WI-4", "Other story", type="story", **{"x-uid": "dddd4444"}, subtasks=["WI-3"])
+    put_board({"WI-1": card("aaaa1111"), "WI-2": card("bbbb2222", ordinal=2000), "WI-3": card("cccc3333", ordinal=3000),
+               "WI-4": card("dddd4444", ordinal=4000)})
+    run_repair()
+    assert read(story).fm["subtasks"] == ["WI-2", "WI-9"]                   # WI-9 is unknown: left alone
+
+
+def test_repair_counts_archived_children_in_subtasks(wired):
+    from lib.kanban import ARCHIVE
+    story = mk(wired, "WI-1", "Story", type="story", **{"x-uid": "aaaa1111"})
+    f = mk(wired, "WI-2", "Done long ago", **{"x-uid": "bbbb2222"}, parent_task_id="WI-1", status="Done")
+    ARCHIVE.mkdir(parents=True, exist_ok=True)
+    f.replace(ARCHIVE / f.name)
+    put_board({"WI-1": card("aaaa1111")})
+    run_repair()
+    assert read(story).fm["subtasks"] == ["WI-2"]
+
+
+def test_repair_warns_missing_touch_and_cycle(wired):
+    mk(wired, "WI-1", "One", **{"x-uid": "aaaa1111"}, dependencies=["WI-2"],
+       **{"x-touches": ["api:README.md", "api:x.py", "cam-docs:docs/overview.md", "cam-docs:docs/gone.md"]})
+    mk(wired, "WI-2", "Two", **{"x-uid": "bbbb2222"}, dependencies=["WI-3"])
+    mk(wired, "WI-3", "Three", **{"x-uid": "cccc3333"}, dependencies=["WI-1"], **{"x-touches": "web:nope.js"})
+    mk(wired, "WI-4", "Done thing", **{"x-uid": "dddd4444"}, status="Done", **{"x-touches": ["api:deleted.py"]})
+    put_board({"WI-1": card("aaaa1111"), "WI-2": card("bbbb2222"), "WI-3": card("cccc3333"),
+               "WI-4": card("dddd4444", status="Done")})
+    w = run_repair()["warnings"]
+    assert "WI-1: x-touches file not found: api:x.py" in w
+    assert "WI-1: x-touches file not found: cam-docs:docs/gone.md" in w
+    assert "WI-3: x-touches file not found: web:nope.js" in w                # a hand-written scalar is one entry
+    assert "dependency cycle: WI-1 -> WI-2 -> WI-3 -> WI-1" in w
+    assert not any("WI-4" in x or "README" in x or "overview" in x for x in w), w
+    assert len(w) == 4
+
+
+def test_repair_warns_about_a_self_dependency_and_a_bad_touch(wired):
+    mk(wired, "WI-1", "Loop", **{"x-uid": "aaaa1111"}, dependencies="WI-1", **{"x-touches": ["nocolon", "api:../x"]})
+    put_board({"WI-1": card("aaaa1111")})
+    w = run_repair()["warnings"]
+    assert "dependency cycle: WI-1 -> WI-1" in w
+    assert sum("unreadable x-touches" in x and "WI-1" in x for x in w) == 2

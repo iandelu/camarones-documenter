@@ -8,11 +8,12 @@ from collections import defaultdict
 from datetime import date, datetime, timezone
 
 from .. import docs
-from ..common import ROOT
+from ..common import ROOT, repo_dir
 from . import ARCHIVE, BACKLOG, BOARD, CONFIG, STATUSES, TASKS
 from . import ops, xid
+from .deps import norm_touch, sccs
 from .items import _as_list, file_name, load_dir
-from .state import dump_board, new_uid, next_id, stamp, stamp_time
+from .state import dump_board, id_key, new_uid, next_id, stamp, stamp_time
 
 ARCHIVE_AFTER_DAYS = 14
 _LINK = re.compile(r"^[A-Z]{2,5}-[0-9a-z]{4}$")
@@ -28,6 +29,32 @@ def _archive_days() -> int:
         return int((docs.workspace().get("board") or {}).get("archive_after_days", ARCHIVE_AFTER_DAYS))
     except (TypeError, ValueError):
         return ARCHIVE_AFTER_DAYS
+
+
+def _cycle_path(scc: list[str], graph: dict[str, list[str]]) -> list[str]:
+    """One way round a strongly connected group: from its first id back to it, always through the lowest next id."""
+    start, members = scc[0], set(scc)
+    seen = {start}
+    work = [(start, iter(sorted(set(graph.get(start, ())) & members, key=id_key)))]
+    path = [start]
+    while work:
+        for nxt in work[-1][1]:
+            if nxt == start:
+                return path + [start]
+            if nxt not in seen:
+                seen.add(nxt)
+                path.append(nxt)
+                work.append((nxt, iter(sorted(set(graph.get(nxt, ())) & members, key=id_key))))
+                break
+        else:
+            work.pop()
+            path.pop()
+    return [*scc, start]
+
+
+def _touch_missing(touch: str) -> bool:
+    repo, _, path = touch.partition(":")
+    return not ((ROOT if repo == "cam-docs" else repo_dir(repo)) / path).exists()
 
 
 def adopt(item, cards: dict[str, dict], *, by: str, now: datetime, warn=lambda _: None) -> tuple[str, bool]:
@@ -169,6 +196,22 @@ def repair(*, today: date | None = None, log=print) -> dict:
             renamed.add(id(item))
             touch(item)
 
+        # a parent's subtasks follow its children's parent_task_id (a crash can leave a child written and its parent not);
+        # the order people had is kept, missing children are added, and an entry whose item now lives under another parent goes
+        children: dict[str, list[str]] = defaultdict(list)
+        parent_of = {i.id.upper(): str(i.fm.get("parent_task_id") or "").strip().upper() for i in files + archived}
+        for item in files + archived:
+            if parent_of[item.id.upper()]:
+                children[parent_of[item.id.upper()]].append(item.id)
+        for item in files:
+            have = [str(v) for v in _as_list(item.fm.get("subtasks"))]
+            keep = [v for v in have if parent_of.get(v.upper(), item.id.upper()) in ("", item.id.upper())]
+            held = {v.upper() for v in keep}
+            want = keep + [c for c in sorted(children.get(item.id.upper(), []), key=id_key) if c.upper() not in held]
+            if want != have:
+                item.fm["subtasks"] = want or None
+                touch(item)
+
         # 3. mirrors that differ from board.yaml are put back
         key_of = {c["uid"]: k for k, c in cards.items()}
         for item in files:
@@ -251,4 +294,20 @@ def repair(*, today: date | None = None, log=print) -> dict:
                 base = re.split(r"[#@]", v, maxsplit=1)[0]
                 if _LINK.match(base) and xid.link_state(v, {}, ids)["missing"]:
                     warn(f"{item.id}: links {base}, which no page has as x-id")
+        for item in files:                       # footprints that point at nothing (a Done item may have deleted its files)
+            if item.fm.get("status") == "Done":
+                continue
+            for v in _as_list(item.fm.get("x-touches")):
+                try:
+                    t = norm_touch(str(v), fold=False)
+                except ValueError:
+                    warn(f"{item.id}: unreadable x-touches entry {str(v)!r}")
+                    continue
+                if _touch_missing(t):
+                    warn(f"{item.id}: x-touches file not found: {t}")
+        graph = {i.id.upper(): [str(d).strip().upper() for d in _as_list(i.fm.get("dependencies"))]
+                 for i in files + archived}
+        loops = [[i, i] for i in sorted(graph, key=id_key) if i in graph[i]]
+        for scc in sorted([*(_cycle_path(c, graph) for c in sccs(graph)), *loops], key=lambda c: id_key(c[0])):
+            warn("dependency cycle: " + " -> ".join(scc))
     return {"changed": changed, "warnings": warnings}
