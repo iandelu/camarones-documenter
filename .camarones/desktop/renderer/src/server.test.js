@@ -33,3 +33,12 @@ test('an error carries the server message', async () => {
   const f = fake(400, { error: 'u1 is blocked' })
   await expect(server('tok', f.fetcher).post('app/agent', {})).rejects.toThrow('u1 is blocked')
 })
+
+// A refused move says why in data (the board's 409 lists the cards that block it): the error keeps the status and the body.
+test('an error also carries the status and the response body', async () => {
+  const f = fake(409, { error: 'blocked', blocked_by: ['WI-3'] })
+  const err = await server('tok', f.fetcher).post('kanban/move', { id: 'WI-4' }).catch((e) => e)
+  expect(err.message).toBe('blocked')
+  expect(err.status).toBe(409)
+  expect(err.data.blocked_by).toEqual(['WI-3'])
+})

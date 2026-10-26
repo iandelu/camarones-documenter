@@ -278,6 +278,16 @@ export const S = {
     'q.libsNoAi': 'Sin IA: se leen los manifiestos de cada repo.', 'q.libsSearch': 'Buscar una librería', 'q.libsCategory': 'Categoría',
     'q.libsRepo': 'Servicio', 'q.libsOnlyVuln': 'Solo vulnerables', 'q.libsLibrary': 'Librería', 'q.libsVersions': 'versiones distintas',
     'q.libsFixed': 'arreglada en {v}', 'q.libsNone': 'Aún no hay librerías leídas: pulsa Releer del código.', 'q.libsAll': 'todas',
+    // the Board (sections/Board.jsx): the work items of the project in columns
+    'nav.board': 'Tablero', 'bd.failed': 'No he podido leer el tablero', 'bd.readOnly': 'Esta ventana no puede escribir en el tablero: es de solo lectura.',
+    'bd.off': 'Este proyecto aún no tiene tablero', 'bd.offBody': 'Con él, las historias y tareas del proyecto viven en columnas, de Backlog a Hecho. Se crea en cam-docs/backlog/ y no toca nada más.',
+    'bd.init': 'Activar el tablero', 'bd.problems': 'Hay tarjetas que no he podido leer',
+    'bd.empty': 'Aún no hay tarjetas. Añade la primera desde el portal o con camaron board add.',
+    'bd.help': 'Teclado: las flechas eligen una tarjeta, Espacio la coge, las flechas la mueven, Intro la suelta y Escape cancela.',
+    'bd.grabbed': '{id} cogida. Las flechas la mueven, Intro la suelta, Escape cancela.', 'bd.over': '{id}: {status}, posición {n}.',
+    'bd.moved': '{id} movida a {status}.', 'bd.cancelled': 'Movimiento de {id} cancelado.', 'bd.moveFailed': 'No se ha guardado el movimiento',
+    'bd.gate': '{ids} bloquea(n) esta tarjeta. ¿Moverla de todos modos?',
+    'bd.type.epic': 'Épica', 'bd.type.story': 'Historia', 'bd.type.bug': 'Bug', 'bd.type.spike': 'Spike', 'bd.type.task': 'Tarea',
   },
   en: {
     'nav.summary': 'Summary', 'nav.plan': 'Plan', 'nav.interviews': 'Interviews', 'nav.team': 'Team',
@@ -555,6 +565,16 @@ export const S = {
     'q.libsNoAi': 'No AI: it reads each repo\'s manifests.', 'q.libsSearch': 'Find a library', 'q.libsCategory': 'Category',
     'q.libsRepo': 'Service', 'q.libsOnlyVuln': 'Vulnerable only', 'q.libsLibrary': 'Library', 'q.libsVersions': 'different versions',
     'q.libsFixed': 'fixed in {v}', 'q.libsNone': 'No libraries read yet: press Reread from the code.', 'q.libsAll': 'all',
+    // the Board (sections/Board.jsx): the work items of the project in columns
+    'nav.board': 'Board', 'bd.failed': 'I could not read the board', 'bd.readOnly': 'This window cannot write to the board: it is read-only.',
+    'bd.off': 'This project has no board yet', 'bd.offBody': "With it, the project's stories and tasks live in columns, from Backlog to Done. It is created in cam-docs/backlog/ and touches nothing else.",
+    'bd.init': 'Turn the board on', 'bd.problems': 'Some cards could not be read',
+    'bd.empty': 'No cards yet. Add the first one from the portal or with camaron board add.',
+    'bd.help': 'Keyboard: arrows pick a card, Space grabs it, arrows move it, Enter drops it, Escape cancels.',
+    'bd.grabbed': '{id} grabbed. Arrows move it, Enter drops it, Escape cancels.', 'bd.over': '{id}: {status}, place {n}.',
+    'bd.moved': '{id} moved to {status}.', 'bd.cancelled': 'Move of {id} cancelled.', 'bd.moveFailed': 'The move was not saved',
+    'bd.gate': '{ids} blocks this card. Move it anyway?',
+    'bd.type.epic': 'Epic', 'bd.type.story': 'Story', 'bd.type.bug': 'Bug', 'bd.type.spike': 'Spike', 'bd.type.task': 'Task',
   },
 }
 
