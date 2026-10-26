@@ -571,9 +571,11 @@ Un agente que necesita la respuesta de una persona sobre una página ejecuta `ca
 
 ```sh
 camaron health             # la salud del proyecto: veredicto, máquina, documentación y código, y la tabla por repo
-camaron health --refresh   # la recalcula antes de enseñarla (sin IA ni red)
+camaron health --refresh   # la recalcula antes de enseñarla (sin IA; solo usa la red para preguntar a SonarQube si hay token guardado)
 camaron health --json      # la misma foto como JSON (cam-docs/.cache/health.json)
 ```
+
+Si un repo usa SonarQube y hay un token guardado en Máquina › Tokens, la comprobación lee de su servidor (dos consultas por repo, 10 s como máximo cada una) la cobertura, los bugs, vulnerabilidades, puntos críticos de seguridad, code smells, la deuda y las notas A–E, y el estado de la **puerta de calidad**; la cobertura de Sonar prevalece sobre la de los informes locales y una puerta fallida pone Código en «Riesgo». Si la lectura falla (token no válido, proyecto no encontrado, sin conexión), el repo conserva los últimos valores con su fecha y el motivo. El servidor sale del `sonar.host.url` del propio repo, de SonarCloud si solo hay `organization` o, para todo el equipo, de la clave opcional `sonar: {host: https://sonar.empresa.com}` en `workspace.yaml`; sin ella nada cambia. El token vive en el llavero del sistema y solo viaja por https.
 
 **👥 Equipo › 📊 Estadísticas de uso del equipo** en el menú (o `camaron stats`, con `--json` o `--months N`) resume, mes a mes, cuántas personas lo usan, las consultas de agentes (MCP) y de personas (portal), las búsquedas sin resultado, los cambios en la documentación y sus autores, las páginas más leídas y las que nadie lee, las funciones más usadas y la salud de los docs. Solo guarda contadores, nunca el texto de las búsquedas, con el usuario cifrado, en `docs/.work/usage/` (un fichero por persona y máquina, así que no hay conflictos). Viajan con `cam-docs` al compartir, así que el informe junta a todo el equipo. El setup pregunta si activarlas. En proyectos que ya existían quedan activadas al actualizar y se avisa una vez. Cada máquina decide con `camaron stats --record on|off`.
 

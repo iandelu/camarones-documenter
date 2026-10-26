@@ -1,9 +1,10 @@
 """SonarQube over HTTP, read only. The token travels in the Authorization header (lib/creds.py builds it) and nowhere
 else: not in the URL, not in an error, not in a log. Failures come out as a SonarError whose text is the plain reason,
-in Spanish, as the health snapshot shows it."""
+in Spanish, as the health snapshot shows it. `read` turns a repo's project key into the figures of that snapshot."""
 from __future__ import annotations
 
 import http.client, json, urllib.error, urllib.parse, urllib.request
+from datetime import datetime, timezone
 
 from . import creds
 
@@ -49,3 +50,77 @@ def sonar_get(host: str, token: str, path: str, params: dict) -> dict:
 
 def _reason(status: int) -> str:
     return {401: "token no válido", 403: "token no válido", 404: "proyecto no encontrado"}.get(status, f"error {status}")
+
+
+# ---- reading a repo into the health snapshot ----
+
+METRICS = ("coverage,bugs,vulnerabilities,security_hotspots,code_smells,sqale_index,sqale_rating,reliability_rating,"
+           "security_rating")
+SONARCLOUD = "https://sonarcloud.io"
+RATINGS = {"1": "A", "2": "B", "3": "C", "4": "D", "5": "E"}
+GATES = ("OK", "WARN", "ERROR")
+
+
+def _host(repo_sonar: dict, ws: dict) -> str:
+    """The server of a repo: its own `sonar.host.url`, SonarCloud when only an organization is set, else the team's
+    `sonar: {host}` of workspace.yaml. "" when none applies."""
+    team = ws.get("sonar") if isinstance(ws, dict) else None
+    team = team.get("host") if isinstance(team, dict) else None
+    return (repo_sonar.get("host") or (SONARCLOUD if repo_sonar.get("organization") else "")
+            or (team if isinstance(team, str) else "")).strip()
+
+
+def _token(host: str) -> str | None:
+    """The token under the host as the keychain keys it, which is the exact string that was saved: with or without
+    the scheme."""
+    h = creds.sonar_host(host)
+    bare = h.split("://", 1)[-1]
+    for key in dict.fromkeys((h, bare, f"https://{bare}")):
+        if token := creds.get(key):
+            return token
+    return None
+
+
+def _number(value) -> int | float | None:
+    """A measure's value as a number; anything else (absent, not a number, NaN) is None, never 0."""
+    try:
+        n = float(value)
+    except (TypeError, ValueError):
+        return None
+    return None if n != n or n in (float("inf"), float("-inf")) else int(n) if n.is_integer() else n
+
+
+def _rating(value) -> str | None:
+    return RATINGS.get(str(value).split(".")[0]) if value is not None else None
+
+
+def _server(measures: dict, gate: dict, at: str) -> dict:
+    by = {m.get("metric"): m.get("value") for m in (measures.get("component") or {}).get("measures") or []
+          if isinstance(m, dict)}
+    status = (gate.get("projectStatus") or {}).get("status")
+    return {"at": at, "gate": status if status in GATES else None, "coverage": _number(by.get("coverage")),
+            "bugs": _number(by.get("bugs")), "vulnerabilities": _number(by.get("vulnerabilities")),
+            "security_hotspots": _number(by.get("security_hotspots")), "code_smells": _number(by.get("code_smells")),
+            "debt_minutes": _number(by.get("sqale_index")),
+            "ratings": {"maintainability": _rating(by.get("sqale_rating")),
+                        "reliability": _rating(by.get("reliability_rating")), "security": _rating(by.get("security_rating"))}}
+
+
+def read(repo_sonar: dict, previous: dict | None, ws: dict) -> dict:
+    """The `sonar` block of a repo with what its SonarQube says. `previous` is the repo's block in the last snapshot.
+    No project key or no host: the block as it is. No token: `connect` (the app offers to save one). A failed read keeps
+    the previous `server`, with its own `at`, and says why in `error`."""
+    key, host = repo_sonar.get("project"), _host(repo_sonar, ws)
+    if not (repo_sonar.get("used") and key and host):
+        return repo_sonar
+    token = _token(host)
+    if not token:
+        return {**repo_sonar, "connect": True}
+    old = previous.get("sonar") if isinstance(previous, dict) else None
+    last = old.get("server") if isinstance(old, dict) else None
+    try:
+        measures = sonar_get(host, token, "/api/measures/component", {"component": key, "metricKeys": METRICS})
+        gate = sonar_get(host, token, "/api/qualitygates/project_status", {"projectKey": key})
+    except (SonarError, ValueError) as e:                     # ValueError: sonar_base refused the host
+        return {**repo_sonar, **({"server": last} if isinstance(last, dict) else {}), "error": str(e)}
+    return {**repo_sonar, "server": _server(measures, gate, datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))}
