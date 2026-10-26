@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from . import creds
 
 TIMEOUT = 10        # seconds, for each read
+MAX_BYTES = 5_000_000   # of an answer: a larger one is not a Sonar answer
 
 
 class SonarError(Exception):
@@ -33,15 +34,17 @@ def sonar_get(host: str, token: str, path: str, params: dict) -> dict:
     req = urllib.request.Request(url, headers=creds._headers("sonarqube", token))
     try:
         with _OPENER.open(req, timeout=TIMEOUT) as r:
-            raw = r.read()
+            raw = r.read(MAX_BYTES + 1)
     except urllib.error.HTTPError as e:
         e.close()                                            # free the connection before raising
         raise SonarError(_reason(e.code)) from None
     except (OSError, http.client.HTTPException):             # timeout, DNS, refused, reset: URLError is an OSError
         raise SonarError("sin conexión") from None
+    if len(raw) > MAX_BYTES:
+        raise SonarError("respuesta no válida")
     try:
         data = json.loads(raw.decode("utf-8"))
-    except ValueError:                                       # includes a 200 SSO login page in HTML
+    except (ValueError, RecursionError):                     # includes a 200 SSO login page in HTML, and JSON nested too deep
         raise SonarError("respuesta no válida") from None
     if not isinstance(data, dict):
         raise SonarError("respuesta no válida")
@@ -83,6 +86,8 @@ def _token(host: str) -> str | None:
 
 def _number(value) -> int | float | None:
     """A measure's value as a number; anything else (absent, not a number, NaN) is None, never 0."""
+    if isinstance(value, bool):
+        return None
     try:
         n = float(value)
     except (TypeError, ValueError):
@@ -94,11 +99,32 @@ def _rating(value) -> str | None:
     return RATINGS.get(str(value).split(".")[0]) if value is not None else None
 
 
-def _server(measures: dict, gate: dict, at: str) -> dict:
-    by = {m.get("metric"): m.get("value") for m in (measures.get("component") or {}).get("measures") or []
-          if isinstance(m, dict)}
-    status = (gate.get("projectStatus") or {}).get("status")
-    return {"at": at, "gate": status if status in GATES else None, "coverage": _number(by.get("coverage")),
+def _list(value) -> list:
+    """`value` when it is a list, [] when absent; any other shape is not a Sonar answer."""
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise SonarError("respuesta no válida")
+    return value
+
+
+def _dict(value) -> dict:
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise SonarError("respuesta no válida")
+    return value
+
+
+def _server(measures: dict, gate: dict, at: str, host: str) -> dict:
+    """The figures of a repo from the two answers. A shape that is not Sonar's is `SonarError("respuesta no válida")`."""
+    by = {}
+    for m in _list(_dict(measures.get("component")).get("measures")):
+        if not isinstance(m, dict) or not isinstance(m.get("metric"), str):
+            raise SonarError("respuesta no válida")
+        by[m["metric"]] = m.get("value")
+    status = _dict(gate.get("projectStatus")).get("status")
+    return {"at": at, "host": host, "gate": status if status in GATES else None, "coverage": _number(by.get("coverage")),
             "bugs": _number(by.get("bugs")), "vulnerabilities": _number(by.get("vulnerabilities")),
             "security_hotspots": _number(by.get("security_hotspots")), "code_smells": _number(by.get("code_smells")),
             "debt_minutes": _number(by.get("sqale_index")),
@@ -106,21 +132,45 @@ def _server(measures: dict, gate: dict, at: str) -> dict:
                         "reliability": _rating(by.get("reliability_rating")), "security": _rating(by.get("security_rating"))}}
 
 
-def read(repo_sonar: dict, previous: dict | None, ws: dict) -> dict:
+class Session:
+    """What one build() learns about the servers: the hosts that did not answer (their other repos are not asked, so a
+    dead server costs one timeout, not one per repo) and the single line it says before the first read."""
+
+    def __init__(self, log=None):
+        self.down: set[str] = set()
+        self.log, self.said = log, False
+
+    def start(self) -> None:
+        if self.log and not self.said:
+            self.said = True
+            self.log("reading SonarQube…")
+
+
+def read(repo_sonar: dict, previous: dict | None, ws: dict, session: Session | None = None) -> dict:
     """The `sonar` block of a repo with what its SonarQube says. `previous` is the repo's block in the last snapshot.
     No project key or no host: the block as it is. No token: `connect` (the app offers to save one). A failed read keeps
-    the previous `server`, with its own `at`, and says why in `error`."""
+    the previous `server`, with its own `at`, and says why in `error`; only when it came from the same project and host,
+    so a renamed key or a moved server never shows the old figures."""
     key, host = repo_sonar.get("project"), _host(repo_sonar, ws)
     if not (repo_sonar.get("used") and key and host):
         return repo_sonar
     token = _token(host)
     if not token:
         return {**repo_sonar, "connect": True}
+    where = creds.sonar_host(host)
     old = previous.get("sonar") if isinstance(previous, dict) else None
     last = old.get("server") if isinstance(old, dict) else None
+    keep = {"server": last} if isinstance(last, dict) and old.get("project") == key and last.get("host") == where else {}
+    session = session or Session()
     try:
+        if where in session.down:
+            raise SonarError("sin conexión")
+        session.start()
         measures = sonar_get(host, token, "/api/measures/component", {"component": key, "metricKeys": METRICS})
         gate = sonar_get(host, token, "/api/qualitygates/project_status", {"projectKey": key})
+        server = _server(measures, gate, datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), where)
     except (SonarError, ValueError) as e:                     # ValueError: sonar_base refused the host
-        return {**repo_sonar, **({"server": last} if isinstance(last, dict) else {}), "error": str(e)}
-    return {**repo_sonar, "server": _server(measures, gate, datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))}
+        if str(e) == "sin conexión":
+            session.down.add(where)
+        return {**repo_sonar, **keep, "error": str(e)}
+    return {**repo_sonar, "server": server}
