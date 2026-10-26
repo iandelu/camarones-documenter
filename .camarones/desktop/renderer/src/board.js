@@ -19,6 +19,13 @@ export const childrenOf = (cards, id) => {
     .sort((a, b) => (a.ordinal ?? 0) - (b.ordinal ?? 0) || idNum(a.id) - idNum(b.id))
 }
 
+// Who a new item may go under (the server's table: an epic takes story/bug/spike/task, a story takes task). Done ones
+// stay: a finished story can still get a late task. Archived ones are not on the board (GET kanban leaves them out, and
+// the server refuses them as a parent). By id, in number order.
+const PARENT_TYPES = { task: ['epic', 'story'], story: ['epic'], bug: ['epic'], spike: ['epic'] }
+export const allowedParents = (type, cards) => cards.filter((c) => (PARENT_TYPES[type] || []).includes(c.type))
+  .sort((a, b) => idNum(a.id) - idNum(b.id) || String(a.id).localeCompare(String(b.id)))
+
 // What a failed move means: a 409 that names the cards blocking it asks the person (and may be forced); the rest is
 // shown as the server said it (server.js keeps `status` and the response `data` on the error).
 export function moveOutcome(err) {
@@ -67,3 +74,21 @@ export function moved(cards, id, status, anchor = {}) {
 // A row whose status is missing or not one of the board's (a hand edit) would sit in no column and vanish: it is
 // drawn in the first one, as it would be read, and the file is left as it is.
 export const fit = (cards, statuses) => cards.map((c) => (statuses.includes(c.status) ? c : { ...c, status: statuses[0] }))
+
+// Whether the card the keyboard state points at should take the focus now. It does when it was grabbed, when nothing has
+// the focus, when it already has it, or when the focus is on another card of the board (an arrow picked it); not when
+// the person is working elsewhere, in the side panel's field for one.
+export function shouldFocus(kb, active, el) {
+  if (!el) return false
+  return !!(kb?.grabbed || !active || active.tagName === 'BODY' || active === el || active.closest?.('.dk-bd'))
+}
+
+// The keyboard state that points at a card, where `cols` (columns()) draw it; null when it is not there. A click or a drag
+// start resets the keyboard to its card, so the next arrow starts from there and not from an older pick.
+export function cardAt(cols, id) {
+  const col = cols.findIndex((c) => c.cards.some((x) => x.id === id))
+  return col < 0 ? null : { focus: id, grabbed: false, col, row: cols[col].cards.findIndex((x) => x.id === id) }
+}
+
+// Which string asks about a move that blocking cards gate: one card is told in the singular, several in the plural.
+export const gateKey = (ids) => (ids.length === 1 ? 'bd.gate.one' : 'bd.gate.many')

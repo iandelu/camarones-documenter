@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { childrenOf, fit, moveOutcome, parentLabel, parentOf, placed, sendMove } from './board.js'
+import { allowedParents, cardAt, childrenOf, fit, gateKey, moveOutcome, parentLabel, parentOf, placed, sendMove, shouldFocus } from './board.js'
 
 const rows = [
   { id: 'WI-14', type: 'story', ordinal: 1 },
@@ -96,4 +96,45 @@ test('sendMove: the forced re-send failing is an error too', async () => {
   const f = fakePost(gate(), new Error('disk full'))
   expect(await sendMove(f.post, () => true, body)).toEqual({ kind: 'error', message: 'disk full' })
   expect(f.calls).toHaveLength(2)
+})
+
+// The parent a new item may be given (the server's table: epic -> story/bug/spike/task, story -> task). Archived and
+// Done parents stay in the list (the board never sends archived ones): a finished story can still get a late task.
+test('allowedParents: a task goes under stories and epics, a story/bug/spike under epics, an epic under nothing', () => {
+  const cards = [
+    { id: 'WI-14', type: 'story' }, { id: 'WI-2', type: 'epic' }, { id: 'WI-9', type: 'task' },
+    { id: 'WI-30', type: 'story', status: 'Done' }, { id: 'WI-3', type: 'epic' }, { id: 'WI-11', type: 'bug' },
+  ]
+  const ids = (type) => allowedParents(type, cards).map((c) => c.id)
+  expect(ids('task')).toEqual(['WI-2', 'WI-3', 'WI-14', 'WI-30'])
+  for (const t of ['story', 'bug', 'spike']) expect(ids(t)).toEqual(['WI-2', 'WI-3'])
+  expect(ids('epic')).toEqual([])
+  expect(ids('nonsense')).toEqual([])
+})
+
+// The keyboard's focus effect: the card kb points at takes the focus unless the person is working elsewhere.
+const el = { id: 'bd-B' }
+const inBoard = { tagName: 'DIV', closest: (sel) => (sel === '.dk-bd' ? {} : null) }
+const outside = { tagName: 'INPUT', closest: () => null }
+
+test('shouldFocus: a card picked by arrow from another card takes the focus; a field outside the board does not', () => {
+  expect(shouldFocus({ focus: 'B' }, inBoard, el)).toBe(true)          // ArrowDown on card A: the focus moves to B
+  expect(shouldFocus({ focus: 'B' }, outside, el)).toBe(false)         // a form field in the side panel or elsewhere
+  expect(shouldFocus({ focus: 'B' }, el, el)).toBe(true)
+  expect(shouldFocus({ focus: 'B' }, null, el)).toBe(true)
+  expect(shouldFocus({ focus: 'B' }, { tagName: 'BODY', closest: () => null }, el)).toBe(true)   // nothing focused
+  expect(shouldFocus({ focus: 'B', grabbed: true }, outside, el)).toBe(true)
+  expect(shouldFocus({ focus: 'B' }, inBoard, null)).toBe(false)       // the card is not drawn
+})
+
+test('cardAt: the keyboard state for a card, from where it is drawn', () => {
+  const cols = [{ status: 'Ready', cards: [{ id: 'A' }, { id: 'B' }] }, { status: 'Done', cards: [{ id: 'C' }] }]
+  expect(cardAt(cols, 'C')).toEqual({ focus: 'C', grabbed: false, col: 1, row: 0 })
+  expect(cardAt(cols, 'B')).toEqual({ focus: 'B', grabbed: false, col: 0, row: 1 })
+  expect(cardAt(cols, 'nope')).toBeNull()
+})
+
+test('gateKey: one blocking card reads in the singular, several in the plural', () => {
+  expect(gateKey(['WI-3'])).toBe('bd.gate.one')
+  expect(gateKey(['WI-3', 'WI-4'])).toBe('bd.gate.many')
 })
