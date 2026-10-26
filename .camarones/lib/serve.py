@@ -679,12 +679,47 @@ def _doc_refs(b: dict) -> list[str]:
     return refs
 
 
+def kanban_marks(cards: list[dict]) -> dict[str, tuple[int | None, list[dict]]]:
+    """Each card's `(wave, blocked_by)` for the Board, from one index connection (people's view: a card without
+    declared files touches nothing). `wave` is its place in `ops.waves()`: None for a Done or archived card, a container
+    or a board with a dependency cycle. `blocked_by` is the start gate's answer, only for Backlog/Ready leaf cards.
+    If the index cannot open, nothing is marked and the board still loads."""
+    from .kanban import deps, index
+    try:
+        conn = index.connect()
+        try:
+            board = index.nodes(conn)
+        finally:
+            conn.close()
+        ids = {c["id"] for c in cards}
+        grouping = deps.containers(board)                       # judged on the whole board, as ops.waves does
+        try:
+            placed = {i: w for w, wave in enumerate(deps.waves([n for n in board if n["id"] in ids
+                                                                 and n["id"] not in grouping and n["status"] != "Done"]))
+                      for i in wave}
+        except deps.CycleError:
+            placed = {}
+        by_id = {n["id"]: n for n in board}
+        marks = {}
+        for c in cards:
+            node = by_id.get(c["id"])
+            gated = (node is not None and node["id"] not in grouping and not node["archived"]
+                     and node["status"] in ("Backlog", "Ready"))
+            marks[c["id"]] = (placed.get(c["id"]), deps.blocked_by(node, board, agent=False) if gated else [])
+        return marks
+    except Exception:                                           # noqa: BLE001 — a broken index never hides the board
+        return {}
+
+
 def kanban_state(writable: bool) -> dict:
     """The whole board for the Board view; read-only, so a GET never creates the layout."""
     from . import kanban
     from .kanban import ops
     data = ops.list_items(with_links=True) if kanban.enabled() else {"cards": [], "problems": []}
     cards = data["cards"]                     # each card brings its link states: the docs filter runs in the page
+    marks = kanban_marks(cards) if cards else {}
+    for c in cards:
+        c["wave"], c["blocked_by"] = marks.get(c["id"], (None, []))
     uniq = lambda xs: sorted({str(x) for x in xs if x})                 # noqa: E731  (str: a hand-edited item cannot break the view)
     return {"enabled": kanban.enabled(), "writable": writable, "statuses": list(kanban.STATUSES),
             "types": list(kanban.TYPES), "priorities": list(kanban.PRIORITIES), **data,
@@ -774,12 +809,14 @@ class Handler(BaseHTTPRequestHandler):
                                          priority=_text(b, "priority") or None, docs=_doc_refs(b), by=by, surface=surface))
             if action == "move":
                 return self.json(ops.move(_text(b, "id", True), _text(b, "status", True), before=_text(b, "before"),
-                                          after=_text(b, "after"), by=by, surface=surface))
+                                          after=_text(b, "after"), by=by, surface=surface, force=b.get("force") is True))
             if action == "assign":
                 return self.json(ops.assign(_text(b, "id", True), _text(b, "who", True), by=by, surface=surface))
             if action == "link":
                 return self.json(ops.link(_text(b, "id", True), _text(b, "ref", True), by=by, surface=surface))
             return self.json(ops.archive(_text(b, "id", True), by=by, surface=surface))
+        except ops.GateError as e:            # the start gate said no: the Board asks, then resends with `force`
+            self.json({"error": str(e), "blocked_by": e.blocked_by}, 409)
         except ValueError as e:               # BoardError is a ValueError
             self.json({"error": str(e)}, 400)
 
@@ -914,6 +951,16 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 return self.json(ops.show(q.get("id", "")))
             except ops.BoardError as e:
+                return self.json({"error": str(e)}, 400)
+        if name in ("kanban/next", "kanban/waves"):
+            from .kanban import ops
+            try:
+                scope = {"story": q.get("story") or None, "epic": q.get("epic") or None}
+                if name == "kanban/waves":
+                    return self.json(ops.waves(**scope))
+                n = int(q.get("n") or 3)
+                return self.json(ops.next_items(n, **scope, agent=False))     # people's view: the portal and the app
+            except ValueError as e:                                         # BoardError is a ValueError
                 return self.json({"error": str(e)}, 400)
         if name == "tree":
             return self.json(tree())
