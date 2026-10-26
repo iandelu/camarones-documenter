@@ -13,8 +13,12 @@ export const AREAS = ['machine', 'docs', 'code']
 export const safeUrl = (u) => (typeof u === 'string' && /^https?:\/\//i.test(u) ? u : null)
 
 const failed = (block) => !!block && typeof block === 'object' && typeof block.error === 'string'
+// A Sonar block is unread only when it is just `{error}`. With `used` it is the repo's block whose last server read
+// failed: its facts, the figures kept from before (`server`) and the reason all travel in it.
+export const sonarGone = (block) => failed(block) && !Object.hasOwn(block, 'used')
 const good = (block) => !!block && typeof block === 'object' && !Array.isArray(block) && !failed(block)
 const count = (n) => (typeof n === 'number' && Number.isFinite(n) ? String(n) : null)
+const object = (x) => !!x && typeof x === 'object' && !Array.isArray(x)
 const num = (n) => typeof n === 'number' && Number.isFinite(n)
 const unknown = (id) => ({ id, state: null, figure: null })       // a fact the snapshot does not hold: "—", neutral
 const worst = (states) => states.reduce((a, s) => (STATES.indexOf(s) > STATES.indexOf(a) ? s : a), 'ok')
@@ -48,6 +52,32 @@ export function fmtAgo(iso, now, t) {
   if (minutes < 1440) return t('hb.ago.hour').replace('{n}', Math.floor(minutes / 60))
   return t('hb.ago.day').replace('{n}', Math.floor(minutes / 1440))
 }
+
+// The quality gate of a repo as a word ("Passed"); a gate the server did not give is a dash.
+export function gateWord(gate, t) {
+  return ['OK', 'WARN', 'ERROR'].includes(gate) ? t(`hb.gate.${gate}`) : DASH
+}
+
+const GATE_STATE = { OK: 'ok', WARN: 'warn', ERROR: 'bad' }
+export const gateState = (gate) => GATE_STATE[gate] ?? null
+
+// Where a coverage figure came from, as a word; a source we do not know stays as the snapshot wrote it.
+export function sourceWord(source, t) {
+  return ['sonar', 'report'].includes(source) ? t(`hb.source.${source}`) : typeof source === 'string' ? source : ''
+}
+
+// SonarQube's technical debt, in minutes, as "2 d 3 h" (a working day is 8 h). Under an hour it is minutes; nothing is a dash.
+export function fmtDebt(minutes) {
+  if (typeof minutes !== 'number' || !Number.isFinite(minutes) || minutes < 0) return DASH
+  const m = Math.round(minutes)
+  if (m < 60) return `${m} min`
+  const hours = Math.floor(m / 60)
+  const days = Math.floor(hours / 8)
+  return [days && `${days} d`, hours % 8 && `${hours % 8} h`].filter(Boolean).join(' ')
+}
+
+// The app's link to Máquina › Tokens with the SonarQube host filled in.
+export const sonarConnectHash = (host) => `#/machine?host=${encodeURIComponent(host)}&kind=sonarqube`
 
 function figureOf(snapshot, area, key) {
   return count(snapshot?.areas?.[area]?.figures?.find((f) => f.key === key)?.n)
@@ -129,8 +159,8 @@ function debtText(items, t) {
 
 // One line of the per-repo table, as strings. `scanned`: the inventory was checked for vulnerabilities at least once,
 // else "no vulnerabilities" would be a claim nobody checked. `note` says why a repo has no figures; `error` is a
-// source's message.
-export function repoRow(name, repo, state, t, scanned = true) {
+// source's message. `now` dates the figures Sonar kept from an earlier read.
+export function repoRow(name, repo, state, t, scanned = true, now = Date.now()) {
   const row = { name, sonar: DASH, coverage: DASH, vulns: DASH, debt: DASH, state: state ?? null }
   if (failed(repo)) return { ...row, error: repo.error }
   if (!good(repo)) return row
@@ -142,14 +172,25 @@ export function repoRow(name, repo, state, t, scanned = true) {
     row.error ??= block.error
     return true
   }
-  if (!sub(repo.sonar, 'sonar') && good(repo.sonar)) {
-    row.sonar = repo.sonar.used ? t('hb.yes') : t('hb.no')
-    if (repo.sonar.used && repo.sonar.link) row.sonarLink = repo.sonar.link
+  const sonar = repo.sonar
+  if (sonarGone(sonar)) sub(sonar, 'sonar')
+  else if (object(sonar)) {
+    const server = object(sonar.server) ? sonar.server : null
+    if (server) {
+      row.sonar = gateWord(server.gate, t)
+      row.gateState = gateState(server.gate)
+    } else row.sonar = failed(sonar) ? t('hb.unread') : sonar.used ? t('hb.yes') : t('hb.no')
+    if (failed(sonar)) {                          // the last read failed: say why, and how old the figures kept are
+      row.error ??= sonar.error
+      if (server) row.sonarNote = t('hb.sonarFrom').replace('{ago}', fmtAgo(server.at, now, t))
+    }
+    if (sonar.used && sonar.link) row.sonarLink = sonar.link
+    if (sonar.connect === true && typeof sonar.host === 'string' && sonar.host) row.connect = sonar.host
   }
   const cov = repo.coverage
   if (!sub(cov, 'coverage') && good(cov) && typeof cov.percent === 'number') {
     row.coverage = `${cov.percent}%`
-    const note = [cov.source, typeof cov.at === 'string' ? cov.at.slice(0, 10) : ''].filter(Boolean).join(' · ')
+    const note = [sourceWord(cov.source, t), typeof cov.at === 'string' ? cov.at.slice(0, 10) : ''].filter(Boolean).join(' · ')
     if (note) row.coverageNote = note
   }
   if (!sub(repo.vulns, 'vulns') && scanned !== false && good(repo.vulns)) row.vulns = sevText(repo.vulns, t) || '0'

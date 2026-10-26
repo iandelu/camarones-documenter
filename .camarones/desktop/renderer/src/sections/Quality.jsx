@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
-import { Aviso, Button, Chip, HealthBoard, Skeleton } from '@camaron/ui'
+import { Aviso, Button, Chip, HealthBoard, Skeleton, sonarConnectHash } from '@camaron/ui'
 import { applyFilter, facets, matrix } from '@camaron/ui/libs.js'
 import { severities } from '@camaron/ui/result.js'
 import { ago } from '../jobs.js'
@@ -51,7 +51,7 @@ export default function Quality({ srv, jobs }) {
     <Page title={t('nav.quality')}>
       {error ? <Failed title={t('q.healthFailed')} detail={error} onRetry={() => { setError(''); load().then((s) => { if (s === null) refresh() }) }} /> : null}
       {snap === undefined || loading ? (loading ? <Skeleton lines={6} /> : null) : (
-        <HealthBoard snapshot={snap} actions={actions} links={LINKS} repoHref={repoHref} onRefresh={refresh} refreshing={build.running} />
+        <HealthBoard snapshot={snap} actions={actions} links={LINKS} repoHref={repoHref} connectHref={sonarConnectHash} onRefresh={refresh} refreshing={build.running} />
       )}
       {snap === null && !build.running ? <JobOutput c={build} /> : null}
       <div className="row"><Button size="sm" variant="ghost" href="../#/kpis">{t('q.kpis')}</Button></div>

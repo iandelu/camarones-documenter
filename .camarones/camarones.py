@@ -1305,12 +1305,23 @@ HEALTH_FIGURES = {"machine.tools": "tools checked", "machine.missing": "missing"
                   "docs.review": "pages waiting for review", "code.libraries": "libraries",
                   "code.vulnHigh": "high or critical vulnerabilities"}
 HEALTH_MARKS = {"ok": "✔", "warn": "!", "bad": "✖", None: " "}
+HEALTH_GATES = {"OK": "passed", "WARN": "warning", "ERROR": "failed"}
+
+
+def _health_sonar_cell(sonar) -> str:
+    """The gate word when SonarQube's figures are there ("(stale)" after a failed read keeps the old ones), else yes/no.
+    A block that is only `{error}` could not be read: a dash."""
+    if not isinstance(sonar, dict) or ("error" in sonar and "used" not in sonar):
+        return "—"
+    server = sonar.get("server")
+    if isinstance(server, dict):
+        return HEALTH_GATES.get(server.get("gate"), "—") + (" (stale)" if "error" in sonar else "")
+    return "—" if "error" in sonar else "yes" if sonar.get("used") else "no"
 
 
 def _health_repo_row(name: str, repo: dict, state, scanned: bool) -> str:
     def cells(r: dict) -> list[str]:
-        sonar, cov, vulns, debt = r.get("sonar"), r.get("coverage"), r.get("vulns"), r.get("debt")
-        sonar = "—" if not isinstance(sonar, dict) or "error" in sonar else (sonar.get("project") or "yes") if sonar.get("used") else "no"
+        sonar, cov, vulns, debt = _health_sonar_cell(r.get("sonar")), r.get("coverage"), r.get("vulns"), r.get("debt")
         cov = f"{cov['percent']}%" if isinstance(cov, dict) and isinstance(cov.get("percent"), (int, float)) else "—"
         if not scanned or not isinstance(vulns, dict) or "error" in vulns:
             vulns = "—"

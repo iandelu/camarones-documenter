@@ -1,5 +1,5 @@
 import { t } from './i18n.js'
-import { Aviso, safeUrl, stateWord, uiText } from '@camaron/ui'
+import { Aviso, fmtAgo, gateState, gateWord, safeUrl, sourceWord, stateWord, uiText } from '@camaron/ui'
 import { evidenceHref, repoPage } from './healthRepo.js'
 
 const DASH = '—'
@@ -22,18 +22,42 @@ function Block({ title, children }) {
   return <section className="hr-block"><h2>{title}</h2>{children}</section>
 }
 
-function Quality({ page }) {
+const FIGURE_LABEL = { coverage: 'hrCoverage', bugs: 'hrFigBugs', vulnerabilities: 'hrFigVulnerabilities', security_hotspots: 'hrFigHotspots',
+  code_smells: 'hrFigSmells', debt_minutes: 'hrFigDebt', maintainability: 'hrFigMaintainability', reliability: 'hrFigReliability', security: 'hrFigSecurity' }
+
+// What the SonarQube server said: the gate as a word beside its dot, then the nine figures. After a failed read these are the
+// last ones it gave, so they say how old they are.
+function SonarFigures({ page, now }) {
+  const { gate, sonarFigures, sonarAt, sonarError } = page
+  if (!sonarFigures.length) return null
+  return (
+    <>
+      <p>{t('hrGate')}: <span className={`cu-hb-dot cu-hb-dot--${gateState(gate) ?? 'none'}`} aria-hidden="true">●</span> <b>{gateWord(gate, uiText)}</b></p>
+      <dl className="hr-facts">
+        {sonarFigures.filter((f) => f.key !== 'coverage').map((f) => <div key={f.key}><dt>{t(FIGURE_LABEL[f.key])}</dt><dd>{text(f.value)}</dd></div>)}
+      </dl>
+      {sonarError ? <p className="muted small">{t('hrSonarOld').replace('{ago}', fmtAgo(sonarAt, now, uiText))}</p> : null}
+    </>
+  )
+}
+
+function Quality({ page, now }) {
   const { sonar, coverage, reports, errors } = page
   return (
     <Block title={t('hrCode')}>
       <h3>{t('hrSonar')}</h3>
       {errors.sonar ? <Unread message={errors.sonar} />
         : sonar?.used ? (
-          <dl className="hr-facts">
-            <div><dt>{t('hrSonarProject')}</dt><dd><code>{text(sonar.project)}</code></dd></div>
-            {sonar.organization ? <div><dt>{t('hrSonarOrg')}</dt><dd>{sonar.organization}</dd></div> : null}
-            {sonar.host ? <div><dt>{t('hrSonarHost')}</dt><dd>{sonar.host}</dd></div> : null}
-          </dl>
+          <>
+            <dl className="hr-facts">
+              <div><dt>{t('hrSonarProject')}</dt><dd><code>{text(sonar.project)}</code></dd></div>
+              {sonar.organization ? <div><dt>{t('hrSonarOrg')}</dt><dd>{sonar.organization}</dd></div> : null}
+              {sonar.host ? <div><dt>{t('hrSonarHost')}</dt><dd>{sonar.host}</dd></div> : null}
+            </dl>
+            {page.sonarError ? <Aviso tone="warn" title={t('hrSonarError')} detail={page.sonarError} /> : null}
+            {page.connect ? <p className="muted">{t('hrSonarNoToken')}</p> : null}
+            <SonarFigures page={page} now={now} />
+          </>
         ) : (
           <div><p><b>{t('hrNoSonar')}</b></p><p className="muted">{t('hrNoSonarHow')}</p></div>
         )}
@@ -41,7 +65,7 @@ function Quality({ page }) {
       {errors.coverage ? <Unread message={errors.coverage} />
         : coverage ? (
           <p><b>{typeof coverage.percent === 'number' ? `${coverage.percent}%` : DASH}</b>{' '}
-            <span className="muted small">{[coverage.source, day(coverage.at), coverage.path].filter(Boolean).join(' · ')}</span></p>
+            <span className="muted small">{[sourceWord(coverage.source, uiText), day(coverage.at), coverage.path].filter(Boolean).join(' · ')}</span></p>
         ) : !reports.length && !errors.reports ? <p className="muted">{t('hrNoCoverage')}</p> : null}
       {errors.reports ? <Unread message={errors.reports} />
         : reports.length ? (
@@ -137,7 +161,7 @@ function Docs({ page }) {
 }
 
 // #/health/<repo>: one repo of the snapshot GET /api/health reads. Read-only, like the whole of Salud.
-export default function HealthRepo({ snapshot, name }) {
+export default function HealthRepo({ snapshot, name, now = Date.now() }) {
   const page = repoPage(snapshot, name)
   const back = <a href="#/health">{t('hrBack')}</a>
   if (!page) return <><h1>{name}</h1><Aviso tone="info" title={t('hrUnknown')}>{back}</Aviso></>
@@ -157,7 +181,7 @@ export default function HealthRepo({ snapshot, name }) {
         : page.cloned === false ? <Aviso tone="info" title={uiText('hb.notCloned')} />
         : (
           <>
-            <Quality page={page} />
+            <Quality page={page} now={now} />
             <Vulnerabilities page={page} />
             <Debt page={page} />
             <Docs page={page} />

@@ -661,10 +661,31 @@ def test_cli_health_text_has_a_row_per_repo(wired):
                   "areas": {w: {"state": "ok", "figures": [], "next": None} for w in ("machine", "docs", "code")}})
     lines = health_cli(wired).stdout.splitlines()
     row = {n: next(ln for ln in lines if ln.split()[1:2] == [n] or ln.split()[:1] == [n]) for n in ("api", "web", "worker")}
-    assert row["api"].startswith("✖") and all(x in row["api"] for x in ("api-key", "41.5%", "2 high", "1 (1 high)"))
+    assert row["api"].startswith("✖") and all(x in row["api"] for x in ("yes", "41.5%", "2 high", "1 (1 high)"))
     assert row["web"].count("—") == 4 and "not cloned" in row["web"] and "unread" in row["worker"]
     header = next(ln for ln in lines if "Sonar" in ln)
     assert "coverage" in header and "vulns" in header and "debt" in header
+
+
+def test_cli_health_text_sonar_column_is_the_gate_word_or_yes_no_and_marks_kept_values(wired):
+    sonar = {**repo_block()["sonar"], "used": True, "project": "k"}
+    server = {"at": "2026-10-20T08:00:00Z", "host": "https://sonar.test", "gate": "ERROR", "coverage": 80.0}
+    s = clean_snapshot()
+    s["repos"] = {"fresh": repo_block(sonar={**sonar, "server": {**server, "gate": "OK"}}),
+                  "warned": repo_block(sonar={**sonar, "server": {**server, "gate": "WARN"}}),
+                  "kept": repo_block(sonar={**sonar, "server": server, "error": "sin conexión"}),
+                  "lost": repo_block(sonar={**sonar, "error": "token no válido"}),
+                  "nogate": repo_block(sonar={**sonar, "server": {**server, "gate": None}}),
+                  "plain": repo_block(sonar=sonar), "none": repo_block()}
+    put_snapshot({**s, "verdict": [], "repo_state": {n: "ok" for n in s["repos"]},
+                  "areas": {w: {"state": "ok", "figures": [], "next": None} for w in ("machine", "docs", "code")}})
+    lines = health_cli(wired).stdout.splitlines()
+    cell = {n: next(ln for ln in lines if ln.split()[1:2] == [n]).split()[2:] for n in s["repos"]}
+    assert cell["fresh"][0] == "passed" and cell["warned"][0] == "warning"
+    assert cell["kept"][:2] == ["failed", "(stale)"]
+    assert cell["lost"][0] == "—" and "(stale)" not in cell["lost"]
+    assert cell["nogate"][0] == "—" and cell["plain"][0] == "yes" and cell["none"][0] == "no"
+    assert "sonar.test" not in "".join(lines)                      # the host the figures came from is never printed
 
 
 @pytest.fixture

@@ -101,3 +101,48 @@ test('a repo that is not cloned or could not be read says so; an unknown one lin
   expect(out).toContain(en.hrUnknown)
   expect(out).toContain('href="#/health"')
 })
+
+// ---- step (c) ----
+
+const server = (over = {}) => ({ at: '2026-10-26T08:00:00Z', host: 'https://secret-host.example', gate: 'ERROR', coverage: 81.5, bugs: 2, vulnerabilities: 0,
+  security_hotspots: 1, code_smells: 40, debt_minutes: 1500, ratings: { maintainability: 'A', reliability: 'B', security: 'C' }, ...over })
+const withSonar = (sonar, coverage) => ({ ...full, repos: { ...full.repos, api: { ...full.repos.api, sonar: { ...full.repos.api.sonar, ...sonar },
+  ...(coverage && { coverage }) } } })
+
+test('the Sonar figures, gate word and Sonar as the coverage source are on the page', () => {
+  const out = html(withSonar({ server: server() }, { percent: 81.5, at: '2026-10-26T08:00:00Z', source: 'sonar', path: null }), 'api')
+  expect(out).toContain(en.hrGate)
+  expect(out).toContain('Failed')
+  for (const label of [en.hrFigBugs, en.hrFigSmells, en.hrFigHotspots, en.hrFigDebt, en.hrFigMaintainability, en.hrFigReliability, en.hrFigSecurity]) expect(out).toContain(label)
+  expect(out).toContain('3 d 1 h')
+  expect(out).toContain('81.5%')
+  expect(out).toContain('Sonar · 2026-10-26')
+  expect(out).not.toContain('secret-host.example')                          // the host the figures came from is never drawn
+})
+
+test('the gate is a word with its dot, in Spanish too', () => {
+  expect(STRINGS.es.hrGate).toBeTruthy()
+  expect(html(withSonar({ server: server({ gate: 'OK' }) }), 'api')).toContain('cu-hb-dot--ok')
+})
+
+test('a Sonar error with kept values shows the values, how old they are and the reason', () => {
+  const now = Date.parse('2026-10-29T08:00:00Z')
+  const out = renderToStaticMarkup(<HealthRepo snapshot={withSonar({ server: server(), error: 'sin conexión' })} name="api" now={now} />)
+  expect(out).toContain('sin conexión')
+  expect(out).toContain('3 d 1 h')
+  expect(out).toContain('Figures from 3 d ago')                           // via the kit's time helper
+  expect(renderToStaticMarkup(<HealthRepo snapshot={withSonar({ server: server() })} name="api" now={now} />)).not.toContain('Figures from')
+})
+
+test('a Sonar error without values is the reason alone, no figures', () => {
+  const out = html(withSonar({ error: 'proyecto no encontrado' }), 'api')
+  expect(out).toContain('proyecto no encontrado')
+  expect(out).not.toContain(en.hrFigBugs)
+  expect(out).not.toContain(en.hrGate)
+})
+
+test('the app offers to connect; the portal only says a token is missing', () => {
+  const out = html(withSonar({ connect: true }), 'api')
+  expect(out).toContain(en.hrSonarNoToken)
+  expect(out).not.toContain('kind=sonarqube')                               // no link: the portal runs nothing
+})
