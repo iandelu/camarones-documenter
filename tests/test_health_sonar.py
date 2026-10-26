@@ -399,6 +399,20 @@ def test_a_bool_is_not_a_number(lib):
     assert out["bugs"] is None
 
 
+def test_a_huge_integer_metric_is_none_and_keeps_the_block(lib, fake):
+    creds, sonar = lib
+    assert sonar._number(10**400) is None
+    out = sonar._server({"component": {"measures": [{"metric": "bugs", "value": 10**400}, {"metric": "coverage", "value": "5"}]}},
+                        {}, "t", "h")
+    assert out["bugs"] is None and out["coverage"] == 5
+    creds.save(fake.host, "sonarqube", TOKEN)
+    fake.routes["/api/measures/component"] = (200, "application/json", '{"component": {"measures": [{"metric": "bugs", "value": 1'
+                                              + "0" * 400 + "}]}}")
+    fake.json("/api/qualitygates/project_status", {"projectStatus": {"status": "OK"}})
+    got = sonar.read(block(host=fake.host), None, {})
+    assert got["server"]["bugs"] is None and got["server"]["gate"] == "OK" and "error" not in got
+
+
 def test_http_to_a_remote_host_is_refused_before_any_request(lib, monkeypatch):
     creds, sonar = lib
     monkeypatch.setattr(sonar._OPENER, "open", lambda *a, **k: pytest.fail("a request went out"))

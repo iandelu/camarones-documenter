@@ -90,7 +90,7 @@ def _number(value) -> int | float | None:
         return None
     try:
         n = float(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):       # OverflowError: an integer too large for a float
         return None
     return None if n != n or n in (float("inf"), float("-inf")) else int(n) if n.is_integer() else n
 
