@@ -285,7 +285,7 @@ PAGES = {
                  "(añade un repo de código con su URL, nombre y rama), Herramientas, Instalar (con progreso y «Cancelar»), Stack "
                  "(editable), Arquitectura (un borrador sin IA que guardas, miras con «Ver diagrama» o mejoras con IA) y Listo, que "
                  "te lleva al Resumen. Si cierras la app a medias, al reabrir sigue donde lo dejaste, y el asistente de la terminal "
-                 "ve el mismo paso. En una carpeta vacía el asistente permite cero repos y se salta Stack y Arquitectura. En la CLI: "
+                 "ve el mismo paso; si te vas a otra sección antes de terminar, el Resumen te ofrece «Seguir con la preparación». En una carpeta vacía el asistente permite cero repos y se salta Stack y Arquitectura. En la CLI: "
                  "`camaron projects --inspect CARPETA` dice qué es una carpeta, `--adopt CARPETA` la convierte en proyecto y "
                  "`--git-init CARPETA` pone en git su código; los tres aceptan `--json`, y un rechazo sale como "
                  "{\"error\": taken | home | no-git | git-init}."},
@@ -691,7 +691,7 @@ PAGES = {
                  "Repos (add a code repo with its URL, name and branch), Tools, Install (with progress and Cancel), Stack "
                  "(editable), Architecture (a no-AI draft you save, view with \"View diagram\" or improve with AI) and Ready, which "
                  "takes you to the Summary. If you close the app halfway, reopening resumes where you left off, and the terminal "
-                 "wizard sees the same step. In an empty folder the wizard allows zero repos and skips Stack and Architecture. On "
+                 "wizard sees the same step; if you go to another section before finishing, the Summary offers “Continue setting it up”. In an empty folder the wizard allows zero repos and skips Stack and Architecture. On "
                  "the CLI: `camaron projects --inspect FOLDER` says what a folder is, `--adopt FOLDER` turns it into a project and "
                  "`--git-init FOLDER` puts its code under git; all three accept `--json`, and a refusal comes out as "
                  "{\"error\": taken | home | no-git | git-init}."},

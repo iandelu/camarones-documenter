@@ -263,7 +263,8 @@ Un proyecto sin preparar abre en su ventana el asistente de primer arranque (`#/
 **Repos** (añade un repo de código con su URL, nombre y rama) → **Herramientas** → **Instalar** (progreso, salida en
 vivo, **Cancelar**) → **Stack** (editable) → **Arquitectura** (un borrador C4 sin IA que guardas, miras con **Ver
 diagrama** o mejoras con IA) → **Listo**, que te lleva al **Resumen**. Es el mismo estado que usa el asistente de la
-terminal, así que puedes cerrar la app a medias y seguir en cualquiera de los dos. Un proyecto del equipo al que te
+terminal, así que puedes cerrar la app a medias y seguir en cualquiera de los dos; si te vas a otra sección antes
+de terminar, el **Resumen** te ofrece **Seguir con la preparación**. Un proyecto del equipo al que te
 uniste solo pasa por Herramientas, Instalar y Listo. Una carpeta vacía permite cero repos y se salta Stack y
 Arquitectura.
 

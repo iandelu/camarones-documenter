@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { firstRunRoute, initials, MACHINE, PROJECT, sectionOf, sections } from './nav.js'
+import { firstRunPending, firstRunRoute, initials, MACHINE, PROJECT, sectionOf, sections } from './nav.js'
 
 test('a project has its sections; this machine has its own, Kit dev only in a kit checkout', () => {
   expect(PROJECT).toEqual(['summary', 'plan', 'interviews', 'team', 'quality', 'docs'])
@@ -41,4 +41,12 @@ test('the rail names a project by its initials', () => {
   expect(initials('spring-petclinic-rest')).toBe('SP')
   expect(initials('api pagos')).toBe('AP')
   expect(initials('')).toBe('?')
+})
+
+// Someone who left the wizard for another section sees, on the Summary, a way back while the first run is unfinished.
+test('the first run is pending only while the state says done: false', () => {
+  expect(firstRunPending({ done: false })).toBe(true)
+  expect(firstRunPending({ done: true })).toBe(false)
+  expect(firstRunPending(null)).toBe(false)                    // no state (the read failed): no notice
+  expect(firstRunPending({})).toBe(false)
 })

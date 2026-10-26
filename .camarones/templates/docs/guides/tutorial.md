@@ -250,7 +250,8 @@ A project that is not set up yet opens the first-run wizard in its window (`#/st
 code repo with its URL, name and branch) → **Tools** → **Install** (progress, live output, **Cancel**) → **Stack**
 (editable) → **Architecture** (a no-AI C4 draft you save, view with **View diagram** or improve with AI) → **Ready**,
 which takes you to the **Summary**. It is the same state the terminal wizard uses, so you can close the app halfway
-and pick it up in either. A team project you joined only goes through Tools, Install and Ready. An empty folder
+and pick it up in either; if you go to another section before finishing, the **Summary** offers **Continue setting it
+up**. A team project you joined only goes through Tools, Install and Ready. An empty folder
 allows zero repos and skips Stack and Architecture.
 
 ### 📋 The board

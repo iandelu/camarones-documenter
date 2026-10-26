@@ -17,7 +17,8 @@ export function sectionOf(hash, flags) {
 
 // Where a project window goes once it knows its first run (GET app/onboard/state): an unfinished one to the wizard,
 // unless it is there already; a finished one (or no state: the read failed) stays where it was asked. null: stay.
-export const firstRunRoute = (state, hash) => (state && state.done === false && sectionOf(hash, {}) !== START ? `#/${START}` : null)
+export const firstRunPending = (state) => state?.done === false
+export const firstRunRoute = (state, hash) => (firstRunPending(state) && sectionOf(hash, {}) !== START ? `#/${START}` : null)
 
 // Two letters for the rail: the first letters of the first two words, or the first two of a single word.
 export function initials(name) {
