@@ -140,7 +140,7 @@ def test_next_is_scoped_to_a_story_or_epic(board):
     board.add("task", "In story", parent="WI-2", touches=["api:a.py"])
     board.add("task", "Elsewhere", touches=["api:z.py"])
     ids = lambda **kw: {r["id"] for r in board.next_items(10, **kw)["ready"]}      # noqa: E731
-    assert ids(story="WI-2") == {"WI-2", "WI-3"}
+    assert ids(story="WI-2") == {"WI-3"}                              # the story groups WI-3: only the task is work
     assert "WI-4" not in ids(story="WI-2") and "WI-4" not in ids(epic="WI-1")
     assert "WI-3" in ids(epic="WI-1") and "WI-3" not in ids(story="WI-4")
     with pytest.raises(board.BoardError):
@@ -165,3 +165,56 @@ def test_waves_reports_cycles(board):
     item.fm["dependencies"] = ["WI-2"]
     board.save_item(item)
     assert board.waves() == {"cycle": ["WI-1", "WI-2"]}
+
+
+@pytest.mark.parametrize("story_touches", [["api:a.py"], []])
+def test_a_story_with_children_never_blocks_its_own_tasks(board, story_touches):
+    board.add("story", "Story", touches=story_touches, repos=["api"])
+    board.add("task", "Child", parent="WI-1", touches=["api:a.py"])
+    board.move("WI-1", "In Progress")
+    assert board.move("WI-2", "In Progress", surface="mcp")["status"] == "In Progress"
+    board.move("WI-2", "Ready")
+    assert board.move("WI-2", "In Progress", surface="harness")["status"] == "In Progress"
+
+
+def test_next_and_waves_list_only_leaves(board):
+    board.add("epic", "Epic")
+    board.add("story", "Story", parent="WI-1")
+    board.add("task", "Child", parent="WI-2", touches=["api:a.py"])
+    board.add("task", "Other", touches=["api:a.py"])
+    board.add("story", "Childless story", touches=["web:s.js"])
+    board.move("WI-2", "In Progress")                         # a container running: nobody is blocked by it
+    got = board.next_items(10)
+    assert [(r["id"], r["wave"]) for r in got["ready"]] == [("WI-3", 0), ("WI-5", 0), ("WI-4", 1)]
+    assert got["waiting"] == []
+    assert [[r["id"] for r in w] for w in board.waves()["waves"]] == [["WI-3", "WI-5"], ["WI-4"]]
+    assert [r["id"] for r in board.next_items(10, story="WI-2")["ready"]] == ["WI-3"]
+    assert [[r["id"] for r in w] for w in board.waves(epic="WI-1")["waves"]] == [["WI-3"]]
+
+
+def test_a_container_still_waits_for_its_own_dependencies(board):
+    board.add("task", "First")
+    board.add("story", "Story", dependencies=["WI-1"])
+    board.add("task", "Child", parent="WI-2")
+    with pytest.raises(board.GateError) as err:
+        board.move("WI-2", "In Progress")
+    assert err.value.blocked_by == [{"id": "WI-1", "kind": "dependency"}]
+
+
+def test_a_childless_story_keeps_blocking_an_overlapping_task(board):
+    board.add("story", "Story", touches=["api:a.py"])
+    board.add("task", "Task", touches=["api:a.py"])
+    board.move("WI-1", "In Progress")
+    with pytest.raises(board.GateError) as err:
+        board.move("WI-2", "In Progress", surface="mcp")
+    assert err.value.blocked_by == [{"id": "WI-1", "kind": "conflict", "files": ["api:a.py"]}]
+
+
+def test_an_archived_child_still_makes_its_parent_a_container(board):
+    board.add("story", "Story", touches=["api:a.py"])
+    board.add("task", "Done child", parent="WI-1")
+    board.add("task", "Other", touches=["api:a.py"])
+    board.archive("WI-2")
+    board.move("WI-1", "In Progress")
+    assert board.move("WI-3", "In Progress", surface="mcp")["status"] == "In Progress"
+    assert [r["id"] for r in board.next_items(10)["ready"]] == []         # the story is a container, WI-3 is running

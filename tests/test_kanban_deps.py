@@ -176,3 +176,29 @@ def test_a_node_listing_itself_is_never_blocked_by_itself(kit):
     me = node("WI-1", status="Ready", touches=["api:a.py"], deps=["WI-1"])
     assert blocked_by(me, [me], agent=True) == []
     assert ready([me]) == ["WI-1"]
+
+
+def test_containers_are_the_items_with_children(kit):
+    from lib.kanban.deps import containers
+    nodes = [node("WI-1"), {**node("WI-2"), "parent": "WI-1"}, {**node("WI-3", archived=True), "parent": "wi-4"},
+             node("WI-4"), node("WI-5")]
+    assert containers(nodes) == {"WI-1", "WI-4"}          # an archived child still counts; ids compare upper-cased
+    assert containers([node("WI-1")]) == set()
+
+
+def test_containers_never_block_never_wait_for_conflicts_and_are_never_candidates(kit):
+    from lib.kanban.deps import blocked_by, ready, waves
+    board = [node("WI-1", status="In Progress", touches=["api:a.py"]),                      # a story, running
+             {**node("WI-2", status="Ready", touches=["api:a.py"]), "parent": "WI-1"},
+             {**node("WI-3", status="Ready", repos=["api"]), "parent": "WI-1"},
+             node("WI-4", status="Ready", repos=["api"], deps=["WI-9"]),
+             node("WI-9", status="Backlog", touches=["web:z.js"])]
+    by = {n["id"]: n for n in board}
+    assert blocked_by(by["WI-2"], board, agent=True) == []
+    assert blocked_by(by["WI-3"], board, agent=True) == []
+    assert blocked_by(by["WI-4"], board, agent=True) == [{"id": "WI-9", "kind": "dependency"}]
+    assert blocked_by(by["WI-1"], board, agent=True) == []              # a container touches nothing itself...
+    board[0]["deps"] = ["WI-9"]
+    assert blocked_by(by["WI-1"], board, agent=True) == [{"id": "WI-9", "kind": "dependency"}]   # ...but waits as any
+    assert ready(board) == ["WI-2", "WI-9", "WI-3"]                     # the container is not a candidate
+    assert waves(board) == [["WI-2", "WI-9"], ["WI-3"], ["WI-4"]]                  # none holds only the container

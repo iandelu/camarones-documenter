@@ -58,7 +58,7 @@ def test_builds_and_answers(world):
     try:
         nodes = {n["id"]: n for n in index.nodes(conn)}
         assert [n["id"] for n in index.nodes(conn)] == [one, two]
-        assert nodes[one] == {"id": one, "status": "Backlog", "priority": None, "touches": [ORDER], "repos": ["api"],
+        assert nodes[one] == {"id": one, "status": "Backlog", "priority": None, "parent": None, "touches": [ORDER], "repos": ["api"],
                               "deps": [], "archived": False}
         assert nodes[two]["deps"] == [one] and nodes[two]["priority"] == "P1"
         assert index.cites(conn, [PAGE]) == {PAGE: {ORDER}}

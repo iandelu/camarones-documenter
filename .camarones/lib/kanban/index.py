@@ -349,10 +349,10 @@ def nodes(conn: sqlite3.Connection) -> list[Node]:
     for item_id, dep in conn.execute("select id, dep from deps"):
         needs[item_id].add(dep)
     out: list[Node] = [
-        {"id": i, "status": status, "priority": priority, "touches": sorted(touches[i]),
+        {"id": i, "status": status, "priority": priority, "parent": parent, "touches": sorted(touches[i]),
          "repos": json.loads(repos or "[]"), "deps": sorted(needs[i], key=id_key), "archived": bool(archived)}
-        for i, status, priority, archived, repos in conn.execute(
-            "select id, status, priority, archived, repos from items")]
+        for i, status, priority, archived, repos, parent in conn.execute(
+            "select id, status, priority, archived, repos, parent from items")]
     return sorted(out, key=lambda n: id_key(n["id"]))
 
 

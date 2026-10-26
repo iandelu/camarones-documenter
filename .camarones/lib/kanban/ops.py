@@ -390,7 +390,8 @@ def _node(row: dict, archived: bool = False) -> graph.Node:
             continue
         if touch.partition(":")[2]:
             touches.add(touch)
-    return {"id": row["id"], "status": row["status"], "priority": row["priority"], "touches": sorted(touches),
+    return {"id": row["id"], "status": row["status"], "priority": row["priority"],
+            "parent": str(row["parent"]).strip() if row["parent"] else None, "touches": sorted(touches),
             "repos": row["repos"], "deps": sorted({d.strip() for d in row["dependencies"] if d.strip()}, key=id_key),
             "archived": archived}
 
@@ -643,7 +644,8 @@ def next_items(n: int = 3, *, story: str | None = None, epic: str | None = None,
     rows = {i: _row(item, cards.get(i)) for i, item in items.items()}
     scope = _scope(rows, story, epic)
     board = _board_nodes(cards, items)
-    mine = [x for x in board if (scope is None or x["id"] in scope) and x["id"] in rows]
+    grouping = graph.containers(board)                  # stories and epics with children: their tasks are the work
+    mine = [x for x in board if (scope is None or x["id"] in scope) and x["id"] in rows and x["id"] not in grouping]
     free, waiting = [], []
     for x in mine:
         if x["status"] not in ("Backlog", "Ready") or x["archived"]:
@@ -663,8 +665,10 @@ def waves(*, story: str | None = None, epic: str | None = None) -> dict:
     cards, items, _ = load_state()
     rows = {i: _row(item, cards.get(i)) for i, item in items.items()}
     scope = _scope(rows, story, epic)
-    open_ = [x for x in _board_nodes(cards, items)
-             if x["id"] in rows and (scope is None or x["id"] in scope) and x["status"] != "Done"]
+    board = _board_nodes(cards, items)
+    grouping = graph.containers(board)                  # judged on the whole board: done children still group
+    open_ = [x for x in board if x["id"] in rows and x["id"] not in grouping
+             and (scope is None or x["id"] in scope) and x["status"] != "Done"]
     try:
         grouped = graph.waves(open_)
     except graph.CycleError as e:
