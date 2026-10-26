@@ -92,3 +92,13 @@ export function cardAt(cols, id) {
 
 // Which string asks about a move that blocking cards gate: one card is told in the singular, several in the plural.
 export const gateKey = (ids) => (ids.length === 1 ? 'bd.gate.one' : 'bd.gate.many')
+
+// The gate's question. The server names each blocker as {id, kind, files?}; an older one sent bare ids. Each reads as
+// its id, with why in brackets when the kind is one the app knows; an entry without an id is left out. `t` is i18n's.
+const KINDS = ['dependency', 'missing', 'conflict']
+export function gateMessage(blockedBy, t) {
+  const named = (blockedBy || []).map((b) => (typeof b === 'string' ? { id: b } : { id: b?.id, kind: b?.kind }))
+    .filter((b) => b.id && typeof b.id === 'string')
+  const ids = named.map((b) => (KINDS.includes(b.kind) ? `${b.id} (${t(`bd.kind.${b.kind}`)})` : b.id)).join(', ')
+  return t(gateKey(named), { ids })
+}
