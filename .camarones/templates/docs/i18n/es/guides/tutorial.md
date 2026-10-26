@@ -306,25 +306,25 @@ lo deciden sin preguntar); el asistente y la app de escritorio lo conservan siem
   `review-fixes` que la IA aplica en la siguiente sesión.
 - Con el idioma en español, **Editar** edita la traducción (`docs/i18n/es/…`).
 - Editar una página ✅ la pasa a **⚠️ pendiente de reconfirmar** hasta que alguien la vuelva a mirar.
-- No edites a mano lo generado (`llms.txt`, `llms-full.txt`, `docs/.status.json`, los visores). Las wikis mejor regenerarlas desde la vista
-  **Wikis**: una actualización de OpenWiki puede reescribir lo que cambies.
+- No edites a mano lo generado (`llms.txt`, `llms-full.txt`, `docs/.status.json`, los visores). Las wikis mejor regenerarlas con
+  **Generar la wiki** (app, **Docs**): una actualización de OpenWiki puede reescribir lo que cambies.
 
 ## 7. OpenWiki: una wiki por repo
 
-Portal → **Wikis** → **Generar / actualizar wiki** (log en directo), asistente → **📚 Wikis**, o `camaron wiki <repo>`. La
-wiki se guarda en `cam-docs/wikis/<repo>/` (el repo ve un enlace `openwiki/` sin versionar) y sus páginas aparecen en
-**Docs** como `repos/<repo>/…`. Usa el proveedor de OpenWiki si hay uno configurado (`openwiki auth configure <proveedor>`);
+App → **Docs** → **Generar la wiki** (log en directo), asistente → **📚 Wikis**, o `camaron wiki <repo>` en una terminal. La
+wiki se guarda en `cam-docs/wikis/<repo>/` (el repo ve un enlace `openwiki/` sin versionar); la lees en el portal del
+navegador (**Docs** → **Wikis**), donde sus páginas aparecen como `repos/<repo>/…`. Usa el proveedor de OpenWiki si hay uno configurado (`openwiki auth configure <proveedor>`);
 si no, Claude Code o Codex. Los archivos que OpenWiki añade al propio repo (`AGENTS.md`, `CLAUDE.md`, `.github/`) se quitan
 al terminar.
 
 Cada wiki es una sesión de agente completa, así que solo la llevan los repos que elijas: asistente → **📚 Wikis** →
 **Elegir qué repos tienen wiki** (se guarda como `wiki: true` en `.camarones/workspace.yaml`). Elige los servicios con
 lógica, no librerías ni repos de CI. La primera wiki de un repo espera a su brief (`wikis/<repo>/INSTRUCTIONS.md`, que
-escribe la unidad repo-brief) para usar tu glosario; `camaron wiki <repo> --force` se salta esa comprobación. En la
-vista Wikis del portal todos los repos tienen el botón: si el repo aún no está elegido, lo elige, y si no tiene brief,
-antes escribe uno inicial con el análisis estático (sin IA), que la unidad repo-brief sustituye después. Si no hay motor
-que pueda lanzarla, la vista dice qué falta. Se lanzan
-de una en una, y un lote se para en cuanto el motor se queda sin cuota o sin sesión, en vez de fallar todos los repos
+escribe la unidad repo-brief) para usar tu glosario; `camaron wiki <repo> --force` se salta esa comprobación, y el comando ni elige el repo ni escribe un brief: pide el repo
+clonado y un motor. En **Docs** de la app, todos los repos tienen **Generar la wiki**: si el repo aún no está elegido, lo
+elige, y si no tiene brief, antes escribe uno inicial con el análisis estático (sin IA), que la unidad repo-brief
+sustituye después. El botón queda cerrado, con el motivo, si el repo no está clonado (clónalo desde **Máquina**) o no
+hay ningún motor de wiki instalado. Se lanzan de una en una, y un lote se para en cuanto el motor se queda sin cuota o sin sesión, en vez de fallar todos los repos
 que quedan.
 
 ## 8. CI

@@ -292,23 +292,25 @@ wizard and the desktop app always keep it.
   unit that the AI applies in the next session.
 - With Spanish selected, **Edit** edits the translation (`docs/i18n/es/…`).
 - Editing a ✅ page turns it **⚠️ needs re-confirmation** until someone checks it again.
-- Don't hand-edit generated files (`llms.txt`, `llms-full.txt`, `docs/.status.json`, the viewers). Wikis are better regenerated from the
-  **Wikis** view: an OpenWiki update can rewrite what you change.
+- Don't hand-edit generated files (`llms.txt`, `llms-full.txt`, `docs/.status.json`, the viewers). Wikis are better regenerated with
+  **Generate the wiki** (app, **Docs**): an OpenWiki update can rewrite what you change.
 
 ## 7. OpenWiki: one wiki per repo
 
-Portal → **Wikis** → **Generate / update wiki** (live log), wizard → **📚 Wikis**, or `camaron wiki <repo>`. The wiki
-is stored in `cam-docs/wikis/<repo>/` (the repo sees an unversioned `openwiki/` link) and its pages show under **Docs** as
-`repos/<repo>/…`. It uses the OpenWiki provider if one is configured (`openwiki auth configure <provider>`), otherwise
+App → **Docs** → **Generate the wiki** (live log), wizard → **📚 Wikis**, or `camaron wiki <repo>` in a terminal. The wiki
+is stored in `cam-docs/wikis/<repo>/` (the repo sees an unversioned `openwiki/` link); you read it in the browser portal
+(**Docs** → **Wikis**), where its pages show as `repos/<repo>/…`. It uses the OpenWiki provider if one is configured (`openwiki auth configure <provider>`), otherwise
 Claude Code or Codex. The files OpenWiki adds to the repo itself (`AGENTS.md`, `CLAUDE.md`, `.github/`) are removed when
 the run ends.
 
 Each wiki is a full agent run, so only the repos you choose get one: wizard → **📚 Wikis** → **Choose which repos get a
 wiki** (stored as `wiki: true` in `.camarones/workspace.yaml`). Pick the services with logic, not libraries or CI repos.
 A first wiki waits for the repo's brief (`wikis/<repo>/INSTRUCTIONS.md`, written by the repo-brief unit) so it uses your
-glossary; `camaron wiki <repo> --force` skips that check. In the portal's Wikis view every repo has the button: for a
-repo not chosen yet it chooses it, and without a brief it first writes a starter one from the static scan (no AI), which
-the repo-brief unit replaces later. When no engine can run, the view says what is missing. Runs go one at a time, and a batch stops as soon as the
+glossary; `camaron wiki <repo> --force` skips that check, and the command neither chooses the repo nor writes a brief:
+it needs the repo cloned and an engine. In the app's **Docs**, every repo has **Generate the wiki**: for a repo not
+chosen yet it chooses it, and without a brief it first writes a starter one from the static scan (no AI), which the
+repo-brief unit replaces later. The button stays closed, with the reason, when the repo is not cloned (clone it from
+**Machine**) or no wiki engine is installed. Runs go one at a time, and a batch stops as soon as the
 engine is out of quota or logged out instead of failing every remaining repo.
 
 ## 8. CI

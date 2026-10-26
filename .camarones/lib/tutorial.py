@@ -91,15 +91,19 @@ PAGES = {
 
    repo-a/openwiki  -->  enlace a cam-docs/wikis/repo-a (sin versionar en el repo)
 
-   generar o actualizar:  portal > Wikis  |  asistente > Wikis  |  camaron wiki repo-a""",
+   generar o actualizar:  app > Docs > Generar la wiki  |  asistente > Wikis  |  camaron wiki repo-a
+   leerla:  portal (navegador) > Docs > Wikis""",
          "text": "OpenWiki escribe una wiki estándar de cada repo donde cada afirmación está anclada a un fichero y línea "
                  "del código: la IA no se inventa cosas y cualquiera puede comprobarlas. La wiki se guarda en "
-                 "cam-docs/wikis/<repo>, así que el repo de servicio queda limpio. La generas o actualizas desde el "
-                 "portal (Docs › Wikis, con el log en directo), desde el asistente (📚 Wikis) o con "
-                 "«camaron wiki <repo>»; sus páginas aparecen en Docs, en repos/<repo>/. Cada wiki es una sesión de "
-                 "agente completa, así que solo la llevan los repos que elijas (asistente > Wikis > elegir), y la primera "
-                 "espera al repo-brief, que le da el rol y el glosario del repo (desde el portal puedes lanzarla igual: "
-                 "elige el repo y escribe un brief inicial sin IA). Se lanzan de una en una. Camarones rellena "
+                 "cam-docs/wikis/<repo>, así que el repo de servicio queda limpio. La generas o actualizas desde la "
+                 "app (Docs › «Generar la wiki», con el log en directo), desde el asistente (📚 Wikis) o con "
+                 "«camaron wiki <repo>» en una terminal; la lees en el portal del navegador (Docs › Wikis), donde sus páginas "
+                 "aparecen en repos/<repo>/. Cada wiki es una sesión de agente completa, así que solo la llevan los repos "
+                 "que elijas (asistente > Wikis > elegir), y la primera espera al repo-brief, que le da el rol y el glosario "
+                 "del repo. «Generar la wiki», en la app, la lanza igual: elige el repo y escribe un brief inicial sin IA si "
+                 "aún no los tiene, y queda cerrado, con el motivo, si el repo no está clonado o no hay motor de wiki "
+                 "instalado. `camaron wiki <repo>` no hace ninguna de las dos cosas: pide el repo clonado, un motor y, en la "
+                 "primera, el brief (o `--force`). Se lanzan de una en una. Camarones rellena "
                  "lo que OpenWiki no cubre: visión del proyecto entero, dominio, flujos de negocio, despliegue y decisiones."},
         {"icon": "🕸", "title": "graphify: el grafo del código",
          "art": r"""
@@ -304,8 +308,8 @@ PAGES = {
                  "español editas la traducción. El portal desplegado no edita: es una foto de la última exportación; su "
                  "botón «Editar» te lleva al fichero en GitLab/GitHub (si cam-docs tiene remote) y el cambio entra por "
                  "merge request, y el CI vuelve a publicar. Editar una página ✅ la pasa a ⚠️ hasta que alguien la mire. "
-                 "No edites a mano lo generado (llms.txt, llms-full.txt, .status.json, visores): las wikis mejor regenerarlas desde la "
-                 "vista Wikis, porque una actualización puede reescribir lo que cambies."},
+                 "No edites a mano lo generado (llms.txt, llms-full.txt, .status.json, visores): las wikis mejor regenerarlas con «Generar la "
+                 "wiki» (Docs, en la app), porque una actualización puede reescribir lo que cambies."},
         {"icon": "🔑", "title": "Tokens de GitLab / GitHub",
          "art": r"""
    llavero del sistema  --->  Camarones  --->  git clone / pull   (OK)
@@ -496,14 +500,19 @@ PAGES = {
 
    repo-a/openwiki  -->  link to cam-docs/wikis/repo-a (not versioned in the repo)
 
-   generate or update:  portal > Wikis  |  wizard > Wikis  |  camaron wiki repo-a""",
+   generate or update:  app > Docs > Generate the wiki  |  wizard > Wikis  |  camaron wiki repo-a
+   read it:  portal (browser) > Docs > Wikis""",
          "text": "OpenWiki writes a standard wiki for each repo where every claim is anchored to a file and line of code, "
                  "so the AI can't make things up and anyone can check. The wiki is stored in cam-docs/wikis/<repo>, so "
-                 "the service repo stays clean. Generate or update it from the portal (Docs › Wikis, with a live log), from "
-                 "the wizard (📚 Wikis) or with “camaron wiki <repo>”; its pages show up under Docs as repos/<repo>/. "
+                 "the service repo stays clean. Generate or update it from the app (Docs › “Generate the wiki”, with a live log), from "
+                 "the wizard (📚 Wikis) or with “camaron wiki <repo>” in a terminal; you read it in the browser portal "
+                 "(Docs › Wikis), where its pages show up as repos/<repo>/. "
                  "Each wiki is a full agent run, so only the repos you choose get one (wizard > Wikis > choose), and the "
-                 "first one waits for the repo-brief, which gives it the repo's role and glossary (from the portal you can "
-                 "start one anyway: it chooses the repo and writes a starter brief without AI). They run one at a time. "
+                 "first one waits for the repo-brief, which gives it the repo's role and glossary. “Generate the wiki” in the "
+                 "app starts one anyway: it chooses the repo and writes a starter brief without AI when they are missing, "
+                 "and it stays closed, with the reason, if the repo is not cloned or no wiki engine is installed. "
+                 "`camaron wiki <repo>` does neither: it needs the repo cloned, an engine and, for the first run, the brief "
+                 "(or `--force`). They run one at a time. "
                  "Camarones fills what OpenWiki doesn't cover: the whole-project view, domain, business flows, deployment "
                  "and decisions."},
         {"icon": "🕸", "title": "graphify: the code graph",
@@ -706,7 +715,7 @@ PAGES = {
                  "export; its “Edit” button takes you to the file in GitLab/GitHub (when cam-docs has a remote), the "
                  "change goes in as a merge request and CI publishes it again. Editing a ✅ page turns it ⚠️ until "
                  "someone checks it. Don't hand-edit generated files (llms.txt, llms-full.txt, .status.json, viewers); wikis are "
-                 "better regenerated from the Wikis view, since an update can rewrite what you change."},
+                 "better regenerated with “Generate the wiki” (Docs, in the app), since an update can rewrite what you change."},
         {"icon": "🔑", "title": "GitLab / GitHub tokens",
          "art": r"""
    OS keychain          --->  Camarones  --->  git clone / pull   (OK)
