@@ -11,6 +11,7 @@ import { t } from '../i18n.js'
 // explorer, each repo's wiki (generate it, build its graph) and Ask's AI answer.
 export default function Docs({ srv, jobs, app, index }) {
   const open = (hash) => openPortal(app, location.origin, hash)
+  const { rows, loading, reload } = useWikis(srv)
   return (
     <Page title={t('nav.docs')}>
       <div className="row">
@@ -19,10 +20,27 @@ export default function Docs({ srv, jobs, app, index }) {
         <Button variant="ghost" onClick={() => open('#/search')}>{t('docs.search')}</Button>
       </div>
       <Build srv={srv} jobs={jobs} card={c4Card} title={t('docs.c4')} hint={t('docs.c4Hint')} onView={() => open(c4Card.hash)} />
-      {wikiBlocks(index).map((b) => <WikiBlock key={b.repo} srv={srv} jobs={jobs} block={b} onView={() => open(b.hash)} />)}
+      {wikiBlocks(index, rows).map((b) => (
+        <WikiBlock key={b.repo} srv={srv} jobs={jobs} block={b} loading={loading} onView={() => open(b.hash)} onDone={reload} />))}
       <Ask srv={srv} open={open} />
     </Page>
   )
+}
+
+// Each repo's wiki state (GET wikis, read-only: cloned, chosen, brief, pages, whether it can be generated), read once and
+// again after a run; null while loading or when it could not be read (the blocks then keep Generate closed).
+function useWikis(srv) {
+  const [rows, setRows] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const alive = useRef(true)
+  const reload = () => srv.get('wikis').then((r) => { if (alive.current) { setRows(r); setLoading(false) } },
+    () => { if (alive.current) { setRows(null); setLoading(false) } })
+  useEffect(() => {
+    alive.current = true
+    reload()
+    return () => { alive.current = false }
+  }, [])
+  return { rows, loading, reload }
 }
 
 // A build job of the project server (POST build, token-gated) followed to its end.
@@ -51,20 +69,24 @@ export function BuildCard({ title, hint, build, onBuild, onView }) {
 
 // One block per repo: Generate runs POST wiki (it chooses the repo and writes the starter brief, which the hint says),
 // and once there are pages — already, or after this run — the graph can be built and the wiki viewed in the portal.
-function WikiBlock({ srv, jobs, block, onView }) {
-  const gen = useJob(srv, jobs, () => startWiki(srv, block))
+// Generate is closed, with the reason, for a repo that is not cloned or without a wiki engine (the portal's canGenerate).
+const WHY = { notCloned: 'docs.notCloned', noEngine: 'docs.noEngine', unread: 'docs.wikiUnread' }
+export function WikiBlock({ srv, jobs, block, loading = false, onView, onDone }) {
+  const gen = useJob(srv, jobs, async () => startWiki(srv, block))
   const graph = useJob(srv, jobs, () => startBuild(srv, block.graph))
   const title = t('docs.wikiBlock', { repo: block.repo })
   const graphTitle = t('docs.wiki', { repo: block.repo })
   const go = buildFailed(gen) ? t('retry') : t('docs.generate')
+  const run = async () => { if ((await gen.run())?.status === 'done') onDone?.() }
   const again = buildFailed(graph) ? t('retry') : t('docs.build')
   const pages = block.hasWiki || gen.job?.status === 'done'
+  const why = block.blocked && !(block.blocked === 'unread' && loading) ? t(WHY[block.blocked]) : ''
   return (
     <Card className="dk-run">
       <div className="row"><span className="eyebrow">{title}</span><span className="dk-grow"></span>
-        <Button size="sm" variant="primary" disabled={gen.running} aria-label={`${go}: ${title}`} onClick={() => gen.run()}>{go}</Button>
+        <Button size="sm" variant="primary" disabled={gen.running || !!block.blocked} aria-label={`${go}: ${title}`} onClick={() => run()}>{go}</Button>
         {pages ? <Button size="sm" variant="ghost" aria-label={`${t('docs.view')}: ${title}`} onClick={onView}>{t('docs.view')}</Button> : null}</div>
-      <p className="muted small">{t('docs.generateHint')}</p>
+      <p className="muted small">{why || t('docs.generateHint')}</p>
       <JobOutput c={shownJob(gen)} />
       {pages ? (
         <>

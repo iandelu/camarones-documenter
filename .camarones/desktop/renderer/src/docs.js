@@ -22,15 +22,22 @@ export function wikiRepos(tree) {
 // portal shows the result.
 export const c4Card = { id: 'c4', repo: '', body: { what: 'c4' }, hash: '#/c4' }
 
-// One block per repo of the project (the tree's `repos`: every one, whether or not it has a wiki yet). `body` is what
-// POST wiki takes (lib/serve.py wiki(b)): `choose` adds the repo to the ones with a wiki when it is not, `starter`
-// writes a starter brief without AI when there is none (it never writes over one), so the same body serves a repo at
-// any stage. `graph` is the wiki-graph build, which needs pages (`hasWiki`).
-export const wikiBlocks = (tree) => {
+// One block per repo of the project, from GET wikis (env.wikis(): every repo, in the project's order, with whether it is
+// cloned and chosen, its brief ('ai' | 'starter' | null), its pages and canGenerate = cloned and a wiki engine
+// installed). `blocked` says why Generate is closed: 'notCloned', 'noEngine', or 'unread' when wikis could not be read
+// (then the tree's `repos` still list every repo, with what the tree knows of their pages).
+// `body` is what POST wiki takes (lib/serve.py wiki(b)): `choose` only for a repo not yet chosen (the server adds it to
+// the ones with a wiki), `starter` only when there is no brief and no pages (a starter brief is written without AI),
+// as the portal sent them. `graph` is the wiki-graph build, which needs pages (`hasWiki`).
+export const wikiBlocks = (tree, wikis) => {
+  const block = (repo, hasWiki, blocked, { chosen = false, brief = null, pages = 0 } = {}) => ({ repo, hasWiki, blocked, hash: `#/wiki/${repo}`,
+    body: { repo, ...(chosen ? {} : { choose: true }), ...(brief || pages ? {} : { starter: true }) },
+    graph: { id: `wiki:${repo}`, repo, body: { what: 'wiki-graph', repo }, hash: `#/wiki/${repo}` } })
+  if (Array.isArray(wikis)) {
+    return wikis.map((w) => block(w.repo, w.pages > 0, w.canGenerate ? null : w.cloned ? 'noEngine' : 'notCloned', w))
+  }
   const withWiki = wikiRepos(tree)
-  return (tree?.repos || []).map((repo) => ({ repo, hasWiki: withWiki.includes(repo), hash: `#/wiki/${repo}`,
-    body: { repo, choose: true, starter: true },
-    graph: { id: `wiki:${repo}`, repo, body: { what: 'wiki-graph', repo }, hash: `#/wiki/${repo}` } }))
+  return (tree?.repos || []).map((repo) => block(repo, withWiki.includes(repo), 'unread'))
 }
 
 export const startBuild = (srv, card) => srv.post('build', card.body)
@@ -51,7 +58,8 @@ export const askBody = (q) => {
 // A source ("<path>" or "<path>#<section>") as the portal's address of that page: a repo's wiki page (repos/<repo>/wiki/…)
 // under #/wiki/<repo>/<page>, any other under #/docs/<path>, a section after "::" (portal core.hrefFor).
 export function citeHash(cite) {
-  const [path, anchor] = String(cite).split('#')
+  const [path, ...rest] = String(cite).split('#')            // only the first # splits: a section may contain one
+  const anchor = rest.join('#')
   const tail = anchor ? `::${anchor}` : ''
   const wiki = path.match(/^repos\/([^/]+)\/wiki\/(.+)$/)
   return wiki ? `#/wiki/${wiki[1]}/${wiki[2]}${tail}` : `#/docs/${path}${tail}`
