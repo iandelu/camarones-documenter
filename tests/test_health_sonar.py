@@ -74,7 +74,7 @@ def test_a_good_read_fills_the_server_figures_and_the_gate(probed, fake):
     creds.save(fake.host, "sonarqube", TOKEN)
     snap = health.build(log=quiet)
     sonar = snap["repos"]["api"]["sonar"]
-    assert sonar["server"].pop("at") and sonar["server"] == SERVER
+    assert sonar["server"].pop("at") and sonar["server"].pop("host") == fake.host and sonar["server"] == SERVER
     assert "connect" not in sonar and "error" not in sonar and sonar["project"] == "acme_api" and sonar["used"] is True
     assert len(fake.lines) == 2
     assert "component=acme_api" in fake.lines[0] and "metricKeys=coverage%2Cbugs%2C" in fake.lines[0]
@@ -289,9 +289,114 @@ def test_an_unreachable_server_is_sin_conexion(lib, fake):
     creds.save(fake.host, "sonarqube", TOKEN)
     fake.srv.shutdown()
     fake.srv.server_close()
-    prev = {"sonar": {"server": {**SERVER, "at": "2026-10-20T08:00:00Z"}}}
+    prev = {"sonar": {"project": "acme_api", "server": {**SERVER, "at": "2026-10-20T08:00:00Z", "host": fake.host}}}
     out = sonar.read(block(host=fake.host), prev, {})
     assert out["error"] == "sin conexión" and out["server"] == prev["sonar"]["server"]
+
+
+def kept(host, **over):
+    return {"sonar": {"project": "acme_api", "server": {**SERVER, "at": "2026-10-20T08:00:00Z", "host": host}, **over}}
+
+
+@pytest.mark.parametrize("answer", [{"component": "x"}, {"component": {"measures": 5}}, {"component": {"measures": [1]}},
+                                    {"component": {"measures": [{"metric": ["bugs"], "value": "1"}]}},
+                                    {"component": []}], ids=["component string", "measures number", "measure a number",
+                                                            "metric a list", "component list"])
+def test_a_measures_answer_of_the_wrong_shape_is_respuesta_no_valida(lib, fake, answer):
+    creds, sonar = lib
+    creds.save(fake.host, "sonarqube", TOKEN)
+    fake.json("/api/measures/component", answer)
+    fake.json("/api/qualitygates/project_status", {"projectStatus": {"status": "OK"}})
+    prev = kept(fake.host)
+    out = sonar.read(block(host=fake.host, link="https://x"), prev, {})
+    assert out == {**block(host=fake.host, link="https://x"), "server": prev["sonar"]["server"], "error": "respuesta no válida"}
+
+
+@pytest.mark.parametrize("gate", [{"projectStatus": [1]}, {"projectStatus": "OK"}])
+def test_a_gate_answer_of_the_wrong_shape_is_respuesta_no_valida(lib, fake, gate):
+    creds, sonar = lib
+    creds.save(fake.host, "sonarqube", TOKEN)
+    fake.json("/api/measures/component", {"component": {"measures": []}})
+    fake.json("/api/qualitygates/project_status", gate)
+    out = sonar.read(block(host=fake.host), kept(fake.host), {})
+    assert out["error"] == "respuesta no válida" and out["server"]["bugs"] == 3 and out["project"] == "acme_api"
+
+
+def test_json_nested_too_deep_is_respuesta_no_valida(probed, fake):
+    from lib import creds, health
+    serve(fake)
+    point(probed, "api", fake.host)
+    creds.save(fake.host, "sonarqube", TOKEN)
+    before = health.build(log=quiet)["repos"]["api"]["sonar"]
+    fake.routes["/api/measures/component"] = (200, "application/json", "[" * 200_000)
+    after = health.build(log=quiet)["repos"]["api"]["sonar"]
+    assert after["error"] == "respuesta no válida" and after["server"] == before["server"]
+    assert after["used"] is True and after["project"] == "acme_api" and after["link"] == before["link"]
+
+
+def test_an_oversized_answer_is_refused(lib, fake, monkeypatch):
+    creds, sonar = lib
+    monkeypatch.setattr(sonar, "MAX_BYTES", 100)
+    creds.save(fake.host, "sonarqube", TOKEN)
+    fake.routes["/api/x"] = (200, "application/json", json.dumps({"pad": "x" * 200}))
+    with pytest.raises(sonar.SonarError, match="^respuesta no válida$"):
+        sonar.sonar_get(fake.host, TOKEN, "/api/x", {})
+    fake.routes["/api/x"] = (200, "application/json", json.dumps({"pad": "x"}))
+    assert sonar.sonar_get(fake.host, TOKEN, "/api/x", {}) == {"pad": "x"}
+
+
+def test_a_host_that_does_not_answer_is_asked_once_per_build(probed, fake, monkeypatch):
+    from lib import creds, health, sonar
+    for r in ("api", "web"):
+        point(probed, r, fake.host)
+    creds.save(fake.host, "sonarqube", TOKEN)
+    serve(fake)
+    first = health.build(log=quiet)["repos"]
+    fake.srv.shutdown()
+    fake.srv.server_close()
+    attempts, real = [], sonar.sonar_get
+    monkeypatch.setattr(sonar, "sonar_get", lambda *a, **k: attempts.append(a[2]) or real(*a, **k))
+    second = health.build(log=quiet)["repos"]
+    assert attempts == ["/api/measures/component"]                           # one connection attempt for both repos
+    for r in ("api", "web"):
+        assert second[r]["sonar"]["error"] == "sin conexión"
+        assert second[r]["sonar"]["server"] == first[r]["sonar"]["server"]
+
+
+def test_the_build_says_once_that_it_reads_sonar_and_never_the_token_or_the_query(probed, fake):
+    from lib import creds, health
+    for r in ("api", "web"):
+        point(probed, r, fake.host)
+    creds.save(fake.host, "sonarqube", TOKEN)
+    serve(fake)
+    said = []
+    health.build(log=said.append)
+    assert said.count("reading SonarQube…") == 1
+    assert not any(TOKEN in m or "component=" in m for m in said)
+
+
+def test_no_sonar_line_when_no_repo_is_read(probed):
+    from lib import health
+    said = []
+    health.build(log=said.append)
+    assert "reading SonarQube…" not in said
+
+
+@pytest.mark.parametrize("what", ["key", "host"])
+def test_figures_of_another_project_or_host_are_not_kept(lib, fake, what):
+    creds, sonar = lib
+    creds.save(fake.host, "sonarqube", TOKEN)                               # the fake answers 404
+    prev = kept(fake.host + "/other" if what == "host" else fake.host)
+    repo = block(host=fake.host, project="renamed" if what == "key" else "acme_api")
+    out = sonar.read(repo, prev, {})
+    assert out["error"] == "proyecto no encontrado" and "server" not in out
+
+
+def test_a_bool_is_not_a_number(lib):
+    _, sonar = lib
+    assert sonar._number(True) is None and sonar._number(False) is None and sonar._number("0") == 0
+    out = sonar._server({"component": {"measures": [{"metric": "bugs", "value": True}]}}, {}, "t", "h")
+    assert out["bugs"] is None
 
 
 def test_http_to_a_remote_host_is_refused_before_any_request(lib, monkeypatch):

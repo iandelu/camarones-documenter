@@ -301,7 +301,7 @@ def _server_coverage(sonar) -> dict | None:
     return None
 
 
-def _repo(name: str, libraries: list[dict] | dict, debt: dict, ws: dict, previous) -> dict:
+def _repo(name: str, libraries: list[dict] | dict, debt: dict, ws: dict, previous, servers) -> dict:
     """`libraries` is the checked inventory's rows, or its `{"error"}`; `previous` the repo's block in the last snapshot."""
     from . import sonar
     from .common import repo_dir
@@ -320,7 +320,7 @@ def _repo(name: str, libraries: list[dict] | dict, debt: dict, ws: dict, previou
         row["vulns"] = dict(Counter(v["severity"] for v in row["vulnerable"]))
     row["sonar"] = _guard(_sonar, name, path)
     if not _failed(row["sonar"]):
-        row["sonar"] = _guard(sonar.read, row["sonar"], previous, ws)
+        row["sonar"] = _guard(sonar.read, row["sonar"], previous, ws, servers)
     row["reports"] = _guard(coverage_reports, path)
     row["coverage"] = row["reports"] if _failed(row["reports"]) else repo_coverage(row["reports"])
     row["coverage"] = _server_coverage(row["sonar"]) or row["coverage"]       # the server's figure wins when it has one
@@ -345,11 +345,12 @@ def _inventory() -> tuple[dict, list[dict]]:
 
 def build(log=print) -> dict:
     """Read every source, compute the areas, save the snapshot and return it."""
-    from . import docs
+    from . import docs, sonar
     log("reading the machine…")
     machine = _guard(_machine, log)
     ws = _guard(docs.workspace)
     names = _guard(lambda: [r["name"] for r in docs.workspace()["repos"]])
+    servers = sonar.Session(log)                # hosts that did not answer, so a dead server costs one timeout
     last = load() or {}                         # the last Sonar figures, kept for a repo whose read fails now
     last = last.get("repos") if isinstance(last.get("repos"), dict) else {}
     log("reading the docs, the inventory and the repos…")
@@ -359,7 +360,7 @@ def build(log=print) -> dict:
     now = _now()
     snap = {"v": VERSION, "at": now, "machine": machine, "docs": _docs(now, [] if _failed(names) else names),
             "inventory": inv,
-            "repos": names if _failed(names) else {n: _guard(_repo, n, libraries, debt, {} if _failed(ws) else ws, last.get(n)) for n in names},
+            "repos": names if _failed(names) else {n: _guard(_repo, n, libraries, debt, {} if _failed(ws) else ws, last.get(n), servers) for n in names},
             "debt_project": debt if _failed(debt) else debt.get("_project", [])}
     snap.update(areas(snap))
     save_json(SNAPSHOT, snap)
