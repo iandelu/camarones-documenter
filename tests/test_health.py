@@ -346,17 +346,55 @@ def test_repo_state_is_the_worst_of_its_vulns_coverage_and_debt():
     s["repos"]["web"]["coverage"] = {"percent": 10.0, **COV}
     s["repos"]["worker"] = repo_block(debt=[debt("high")])
     s["repos"]["old"] = repo_block(cloned=False, libraries=0)
-    assert health.areas(s, today=TODAY)["repo_state"] == {"api": "bad", "web": "warn", "worker": "warn", "old": "ok"}
+    assert health.areas(s, today=TODAY)["repo_state"] == {"api": "bad", "web": "warn", "worker": "warn", "old": None}
 
 
-def test_a_failed_block_adds_no_rule_of_its_own():
+BOOM = {"error": "boom"}
+UNREAD = [
+    # (name, change, area, row the next action opens)
+    ("freshness", lambda s: s["docs"].update(stale=BOOM, suspect=BOOM), "docs", "fresh"),
+    ("evals", set_(["docs", "evals"], BOOM), "docs", "evals"),
+    ("budget", set_(["docs", "context"], BOOM), "docs", "context"),
+    ("review queue", set_(["docs", "review"], BOOM), "docs", "review"),
+    ("whole docs block", set_(["docs"], BOOM), "docs", "fresh"),
+    ("inventory", set_(["inventory"], BOOM), "code", "libs"),
+    ("sonar of a repo", set_(["repos", "api", "sonar"], BOOM), "code", "repos"),
+    ("coverage of a repo", set_(["repos", "api", "reports"], BOOM), "code", "repos"),
+    ("debt of a repo", set_(["repos", "web", "debt"], BOOM), "code", "repos"),
+    ("project debt", set_(["debt_project"], BOOM), "code", "repos"),
+    ("whole repos block", set_(["repos"], BOOM), "code", "repos"),
+]
+
+
+@pytest.mark.parametrize("name,change,area,row", UNREAD, ids=[c[0] for c in UNREAD])
+def test_a_source_that_failed_makes_its_area_warn(name, change, area, row):
+    from lib import health
+    got = health.areas(mutated(change), today=TODAY)
+    assert got["areas"][area]["state"] == "warn"
+    assert got["areas"][area]["next"] == {"key": f"{area}.unread", "row": row}
+    assert all(v["state"] == "ok" for k, v in got["areas"].items() if k != area)
+    assert [v["key"] for v in got["verdict"]] == [f"{area}.unread"]
+
+
+def test_unread_comes_after_the_other_reasons():
+    from lib import health
+    s = mutated(set_(["docs", "evals"], BOOM))
+    s["docs"]["review"] = 2
+    docs = health.areas(s, today=TODAY)["areas"]["docs"]
+    assert docs["next"] == {"key": "docs.review", "row": "review"}
+    s["docs"]["stale"] = [{"path": "a.md", "repos": []}]
+    got = health.areas(s, today=TODAY)
+    assert got["areas"]["docs"]["state"] == "bad"
+    assert [v["key"] for v in got["verdict"]] == ["docs.stale", "docs.review", "docs.unread"]
+
+
+def test_a_repo_not_cloned_does_not_count_in_the_code_area():
     from lib import health
     s = clean_snapshot()
-    s["docs"]["context"] = s["docs"]["evals"] = s["inventory"] = {"error": "boom"}
-    s["repos"]["api"]["libraries"] = s["repos"]["api"]["vulnerable"] = {"error": "boom"}
-    s["repos"]["web"]["debt"] = {"error": "boom"}
+    s["repos"]["gone"] = repo_block(cloned=False, libraries=0, vulnerable=[vuln("critical")], debt=[debt("high")],
+                                    sonar=BOOM, reports=BOOM)
     got = health.areas(s, today=TODAY)
-    assert got["verdict"] == [] and got["repo_state"] == {"api": "ok", "web": "ok"}
+    assert got["areas"]["code"]["state"] == "ok" and got["repo_state"]["gone"] is None
 
 
 # ---- build and load ----
@@ -465,6 +503,7 @@ def test_one_failing_source_does_not_stop_the_rest(probed, monkeypatch):
     assert snap["docs"]["context"] == {"error": "no budget today"}
     assert isinstance(snap["docs"]["review"], int) and snap["machine"]["missing"]
     assert set(snap["areas"]) == {"machine", "docs", "code"} and set(snap["repos"]) == set(probed.docs.repo_names())
+    assert snap["areas"]["docs"]["state"] == "warn" and "docs.unread" in [v["key"] for v in snap["verdict"]]
     assert health.load() == snap
 
 
@@ -476,7 +515,8 @@ def test_a_repo_not_cloned_is_listed_with_nothing_known(probed):
     web = snap["repos"]["web"]
     assert web["cloned"] is False and web["coverage"] is None and web["libraries"] == 0
     assert web["reports"] == [] and web["vulnerable"] == [] and web["sonar"]["used"] is False
-    assert snap["repos"]["api"]["cloned"] is True and snap["repo_state"]["web"] == "ok"
+    assert snap["repos"]["api"]["cloned"] is True and snap["repo_state"]["web"] is None
+    assert snap["repo_state"]["api"] == "ok" and snap["areas"]["code"]["state"] == "warn"      # not scanned, not web
 
 
 def test_load_refuses_corrupt_or_newer_snapshots(kit):
