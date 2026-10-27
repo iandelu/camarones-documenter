@@ -318,6 +318,7 @@ export const S = {
     'gd.index': 'Capítulos', 'gd.copy': 'Copiar', 'gd.copied': 'Copiado', 'gd.go': 'Ir a {s}', 'gd.cmd': 'Abrir camaron {c}',
     'gd.portal': 'Abrir en el portal', 'gd.tour': 'Enséñamelo', 'gd.note': 'Nota', 'gd.tip': 'Consejo', 'gd.important': 'Importante',
     'gd.warning': 'Aviso', 'gd.caution': 'Precaución',
+    'gd.tab.using': 'Usar', 'gd.tab.app': 'La app', 'gd.tab.portal': 'El portal', 'gd.tab.internals': 'Por dentro', 'gd.tab.tutorial': 'Comandos',
     'mc.guide': 'Guía y recorrido', 'mc.guideOpen': 'Abrir la guía',
     'mc.guideBody': 'Tu becario gamba lo ha dejado todo por escrito: cómo se usa, cada sección de esta app, cada vista del portal y cómo funciona por dentro (API, MCP, plan).',
     // the guided tours (tour.js, Tour.jsx): a title and a text per step
@@ -689,6 +690,7 @@ export const S = {
     'gd.index': 'Chapters', 'gd.copy': 'Copy', 'gd.copied': 'Copied', 'gd.go': 'Go to {s}', 'gd.cmd': 'Open camaron {c}',
     'gd.portal': 'Open in the portal', 'gd.tour': 'Show me', 'gd.note': 'Note', 'gd.tip': 'Tip', 'gd.important': 'Important',
     'gd.warning': 'Warning', 'gd.caution': 'Caution',
+    'gd.tab.using': 'Using', 'gd.tab.app': 'The app', 'gd.tab.portal': 'The portal', 'gd.tab.internals': 'Inside', 'gd.tab.tutorial': 'Commands',
     'mc.guide': 'Guide and tour', 'mc.guideOpen': 'Open the guide',
     'mc.guideBody': 'Your intern shrimp wrote it all down: how to use it, every section of this app, every view of the portal and how it works inside (API, MCP, plan).',
     'tour.take': 'Take the tour', 'tour.next': 'Next', 'tour.back': 'Back', 'tour.done': 'Done', 'tour.close': 'Close',

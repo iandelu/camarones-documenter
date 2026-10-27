@@ -406,13 +406,13 @@ a.dk-stat-n:hover { color: var(--color-acento-texto); }
 /* The guided tour (Tour.jsx): four dim bands around the target, a ring on it and the bubble */
 .dk-stack { display: flex; flex-direction: column; gap: 1.25rem; }
 .dk-tour { position: fixed; inset: 0; z-index: 60; pointer-events: none; }
-.dk-tour-dim { position: fixed; background: color-mix(in oklch, var(--color-ink) 45%, transparent); pointer-events: auto; }
+.dk-tour-dim { position: fixed; background: color-mix(in oklch, var(--color-canvas) 72%, transparent); pointer-events: auto; }
 .dk-tour-ring { position: fixed; border: 2px solid var(--color-acento-texto); border-radius: var(--consola-radio-chico);
-  box-shadow: 0 0 0 4px color-mix(in oklch, var(--color-canvas) 70%, transparent); transition: top var(--duration-quick) var(--ease-out-soft), left var(--duration-quick) var(--ease-out-soft),
+  box-shadow: 0 0 0 4px color-mix(in oklch, var(--color-acento-texto) 20%, transparent); transition: top var(--duration-quick) var(--ease-out-soft), left var(--duration-quick) var(--ease-out-soft),
   width var(--duration-quick) var(--ease-out-soft), height var(--duration-quick) var(--ease-out-soft); }
 .dk-tour-bubble { position: fixed; width: min(22rem, calc(100vw - 1rem)); display: flex; flex-direction: column; gap: .4rem; padding: 1rem;
   pointer-events: auto; border: 1px solid var(--color-rule); border-radius: var(--consola-radio-tarjeta); background: var(--color-canvas-elevated);
-  color: var(--color-ink); box-shadow: 0 12px 32px color-mix(in oklch, var(--color-ink) 25%, transparent); }
+  color: var(--color-ink); box-shadow: 0 12px 32px color-mix(in oklch, var(--color-ink) 14%, transparent); }
 .dk-tour-title { font-size: var(--text-body); }
 .dk-tour-body { margin: 0; color: var(--color-ink-soft); font-size: var(--text-meta); line-height: 1.5; }
 .dk-tour-bubble > p { margin: 0; }
