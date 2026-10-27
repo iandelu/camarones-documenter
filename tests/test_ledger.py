@@ -316,3 +316,50 @@ def test_an_empty_bill_reads_well(priced, ledger):
     priced.plan.set_status("domain", "done", record=False)
     out = "\n".join(ledger.lines(ledger.bill()))
     assert "0 people" not in out and "1 unit done with no run or session" in out
+
+
+# ---------- final review ----------
+def test_an_old_entry_with_tokens_and_no_reported_cost_is_unpriced(priced, ledger):
+    set_epoch(priced, None)
+    teammate(priced, "aaaa-111", runs={"r-1": {"started": "2026-10-21T10:00:00Z", "tokens_in": M, "tokens_out": 0,
+                                               "tokens_cache": 0, "cost_usd": 0.0, "seconds": 60}})
+    b = ledger.bill()
+    assert b["units"][0]["cost_usd"] is None and b["unpriced"][0]["unit"] is None and b["complete"] is False
+    assert "unknown model" in "\n".join(ledger.lines(b))
+
+
+def test_a_session_that_cannot_be_read_is_skipped_with_a_note(priced, ledger, monkeypatch):
+    set_epoch(priced, None)
+    for uid, sid in (("domain", "s-1"), ("data", "s-2")):
+        record(priced, uid, sid)
+        transcript(priced, sid, [a(f"m-{sid}", "m-1", T0, output_tokens=1)])
+    from lib.harness import transcripts
+    real = transcripts.read
+
+    def read(p):
+        if "s-1" in str(p):
+            raise ValueError("not a transcript")
+        return real(p)
+    monkeypatch.setattr(transcripts, "read", read)
+    b = ledger.bill()
+    assert set(units_by_id(b)) == {"data"} and any("s-1" in n for n in b["notes"])
+
+
+def test_a_rollup_that_is_not_utf8_is_skipped_with_a_note(priced, ledger):
+    set_epoch(priced, None)
+    d = priced.root / "docs" / ".work" / "kpis"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "bad-2.json").write_bytes(b'{"runs": "\xff\xfe"}')
+    teammate(priced, "aaaa-111", runs={"r-1": run_entry("2026-10-21T10:00:00Z", "data", cost=1.0)})
+    b = ledger.bill()
+    assert b["cost_usd"] == 1.0 and any("bad-2.json" in n for n in b["notes"])
+
+
+def test_a_claude_session_without_an_id_or_launch_time_is_named(priced, ledger):
+    from lib import sessions
+    set_epoch(priced, "2026-10-20T00:00:00Z")
+    record(priced, "domain", None)                 # Continue with its transcript gone: `claude --continue`, no id
+    rec = sessions.load("domain")
+    rec.pop("launched")                            # and a record that says nothing of when it opened
+    sessions._save("domain", rec)
+    assert {"unit": "domain", "why": "session-id-unknown"} in ledger.bill()["unmeasured"]

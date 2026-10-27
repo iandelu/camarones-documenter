@@ -239,3 +239,24 @@ def test_openwikis_own_engine_writes_no_run(wired, engine, monkeypatch):
     assert wired.env.openwiki_generate("api", log=lambda _: None) is True
     from lib.harness import runs
     assert runs.ids() == []
+
+
+def test_a_run_log_that_cannot_be_written_never_breaks_the_wiki(wired, engine_streaming, monkeypatch):
+    from lib.harness.events import EventLog
+
+    def full(self, *a, **kw):
+        raise OSError("no space left on device")
+    monkeypatch.setattr(EventLog, "emit", full)
+    assert wired.env.openwiki_generate("api", log=lambda _: None, force=True) is True
+    assert unit(wired.plan.load(), "repo-wiki:api")["status"] == "done"
+
+
+def test_a_wiki_that_crashes_still_closes_its_run(wired, engine_streaming, monkeypatch):
+    def boom(cmd, cwd, log, env_=None):
+        raise RuntimeError("engine crashed")
+    monkeypatch.setattr(wired.env, "stream", boom)
+    with pytest.raises(RuntimeError):
+        wired.env.openwiki_generate("api", log=lambda _: None, force=True)
+    from lib.harness import runs
+    s = runs.summary(runs.ids()[0])
+    assert s["finished"] is True and s["failed"] == 1

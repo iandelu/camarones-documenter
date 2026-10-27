@@ -8,7 +8,7 @@ import os
 from datetime import date  # noqa: F401  (re-exported for callers and tests)
 from typing import Callable
 
-from ..common import CACHE, WORK, load_json
+from ..common import CACHE, WORK, load_json, retry_busy
 from . import runs
 from .locks import FileLock
 
@@ -77,7 +77,7 @@ def update_rollup(change: Callable[[dict], None]) -> bool:
         tmp = CACHE / f"kpis-{os.getpid()}.tmp"
         tmp.parent.mkdir(parents=True, exist_ok=True)
         tmp.write_text(text, encoding="utf-8", newline="\n")
-        os.replace(tmp, f)
+        retry_busy(lambda: os.replace(tmp, f))
         return True
 
 
