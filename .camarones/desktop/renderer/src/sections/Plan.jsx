@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { Aviso, Button, Card, Chip, EmptyState, PlanCost, Skeleton, uiText } from '@camaron/ui'
 import { board, phases, sessionLine, tone, waitsFor } from '../plan.js'
-import { arrivedLive, defaultView } from '../canvas.js'
+import { arrivedLive, defaultView, runLive } from '../canvas.js'
 import { useAgents, useCmd, useStore } from '../hooks.js'
 import { AgentPicker, Failed, Fold, JobOutput, Page, UnitActions } from '../parts.jsx'
 import Commands from './Commands.jsx'
@@ -15,8 +15,8 @@ const Canvas = lazy(() => import('./Canvas.jsx'))           // React Flow loads 
 // as a board by state or lane by phase like the portal, or as the canvas: the graph, where each unit a run works on is
 // a live terminal (canvas.js). A unit opens beside the view with the one action that moves it. A unit in progress with
 // no terminal window open is paused; an open one says what its agent is doing. With no view picked, the canvas opens
-// as soon as something runs during the visit (already running when the plan arrives, or started from here) and stays
-// until the person picks another. Under the view, what the plan cost.
+// as soon as a run is on during the visit (already on when the plan arrives, or started from here) and stays until the
+// person picks another; a terminal opened by hand on one unit does not count. Under the view, what the plan cost.
 const VIEWS = ['board', 'phases', 'canvas']
 const TONES = ['ready', 'running', 'paused', 'awaiting', 'blocked', 'waiting', 'done']
 
@@ -25,14 +25,14 @@ export default function Plan({ srv, jobs }) {
   const [error, setError] = useState('')
   const [view, setView] = useState(() => { try { return localStorage.getItem('dk.planView') } catch { return null } })
   const [open, setOpen] = useState(null)
-  const [held, setHeld] = useState(null)               // was something live when the plan arrived: decides the default view
+  const [held, setHeld] = useState(null)               // a run was live at some point of this visit: decides the default view
   const a = useAgents(srv)
   const { running } = useStore(jobs)
   const pilot = running.find((j) => j.kind.startsWith('cmd:autopilot'))
   const load = () => srv.get('pipeline', { lang: lang() }).then((d) => { setData(d); setError('') }, (e) => setError(e.message))
-  const active = !!pilot || (data?.run && !data.run.finished)
+  const active = runLive(data?.run, pilot)
   const windows = !!data?.units.some((u) => u.session?.live)
-  const arrived = data ? arrivedLive(held, active || windows) : held
+  const arrived = data ? arrivedLive(held, active) : held
   if (arrived !== held) setHeld(arrived)
   const shown = defaultView(view, arrived)
   useEffect(() => {                                   // often while something runs, rarely otherwise
