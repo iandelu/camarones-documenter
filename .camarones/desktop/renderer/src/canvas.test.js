@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { emptyFeed, feed, MAX_ROWS, row } from './canvas.js'
+import { atBottom, changedRun, defaultView, emptyFeed, feed, FOLD_MS, GAP, layout, MAX_ROWS, neighbour, openUnits, place, row, SIZE } from './canvas.js'
 
 const ev = (type, f = {}) => ({ v: 1, ts: '2026-10-27T10:00:00.000Z', type, unit: 'a', ...f })
 
@@ -87,4 +87,87 @@ test('the feed is pure', () => {
   const g = feed(f, ev('unit.started', { runner: 'claude' }))
   expect(g).not.toBe(f)
   expect(f.units).toEqual({})
+})
+
+const U = (id, phase, extra = {}) => ({ id, title: id, phase, status: 'todo', deps: [], runner: 'agent', ...extra })
+const units = [U('a', 1, { status: 'done' }), U('b', 1, { status: 'done' }), U('c', 2, { status: 'doing', deps: ['a', 'b'] }),
+  U('d', 2, { deps: ['a'] }), U('e', 3, { deps: ['c'] }), U('x', 3, { status: 'dropped' })]
+const overlap = (p, q) => p.position.x < q.position.x + q.width && q.position.x < p.position.x + p.width &&
+  p.position.y < q.position.y + q.height && q.position.y < p.position.y + p.height
+
+test('running, failed and just-finished units open as terminals; others fold', () => {
+  const f = { run: 'r', finished: false, units: {
+    c: { ended: null, outcome: null }, d: { ended: 1000, outcome: 'failed' },
+    a: { ended: 10_000, outcome: 'ok' }, b: { ended: 10_000 - FOLD_MS - 1, outcome: 'ok' } } }
+  expect([...openUnits(units, f, new Set(), 10_000)].sort()).toEqual(['a', 'c', 'd'])
+  expect(openUnits(units, f, new Set(['e']), 10_000).has('e')).toBe(true)
+  expect(openUnits(units, { ...f, finished: true }, new Set(), 10_000 + FOLD_MS + 1).has('c')).toBe(false)
+})
+
+test('the layout goes by phase, sizes open nodes as terminals and never overlaps', () => {
+  const { nodes, edges } = layout(units, new Set(['c']))
+  const at = Object.fromEntries(nodes.map((n) => [n.id, n]))
+  expect(Object.keys(at).sort()).toEqual(['a', 'b', 'c', 'd', 'e'])
+  expect(at.c).toMatchObject({ type: 'term', width: SIZE.term.w, height: SIZE.term.h })
+  expect(at.d).toMatchObject({ type: 'unit', width: SIZE.unit.w, height: SIZE.unit.h })
+  expect(at.a.position.x).toBeLessThan(at.c.position.x)
+  expect(at.e.position.x).toBeGreaterThanOrEqual(at.c.position.x + SIZE.term.w)
+  for (const p of nodes) for (const q of nodes) if (p !== q) expect(overlap(p, q)).toBe(false)
+  expect(edges.map((e) => e.id).sort()).toEqual(['a->c', 'a->d', 'b->c', 'c->e'])
+  expect(edges.find((e) => e.id === 'a->c').animated).toBe(true)
+})
+
+test('a dragged node keeps where the person left it', () => {
+  const { nodes } = layout(units, new Set())
+  const placed = place(nodes, { a: { x: 900, y: 40 }, b: { x: 'no', y: 1 } })
+  expect(placed.find((n) => n.id === 'a').position).toEqual({ x: 900, y: 40 })
+  expect(placed.find((n) => n.id === 'b').position).toEqual(nodes.find((n) => n.id === 'b').position)
+})
+
+test('arrows move to the nearest node in that direction', () => {
+  const { nodes } = layout(units, new Set())
+  expect(neighbour(nodes, 'a', 'right')).toBe('c')
+  expect(neighbour(nodes, 'a', 'down')).toBe('b')
+  expect(neighbour(nodes, 'a', 'left')).toBe(null)
+})
+
+test('the plan opens on the canvas while something runs, unless a view was picked', () => {
+  expect(defaultView(null, true)).toBe('canvas')
+  expect(defaultView(null, false)).toBe('board')
+  expect(defaultView('phases', true)).toBe('phases')
+  expect(defaultView('nonsense', false)).toBe('board')
+})
+
+test('the log follows the end only while the person is at the bottom', () => {
+  expect(atBottom({ scrollTop: 776, scrollHeight: 1000, clientHeight: 200 })).toBe(true)
+  expect(atBottom({ scrollTop: 500, scrollHeight: 1000, clientHeight: 200 })).toBe(false)
+})
+
+test('a new run, or the shown one finishing, is noticed', () => {
+  expect(changedRun(null, { run: 'r-2', finished: false })).toBe(true)
+  expect(changedRun({ run: 'r-1', finished: false }, { run: 'r-2', finished: false })).toBe(true)
+  expect(changedRun({ run: 'r-1', finished: false }, { run: 'r-1', finished: true })).toBe(true)
+  expect(changedRun({ run: 'r-1', finished: false }, { run: 'r-1', finished: false })).toBe(false)
+  expect(changedRun({ run: 'r-1', finished: true }, null)).toBe(false)
+})
+
+test('nothing opens without a feed, and a dropped unit never does', () => {
+  expect(openUnits(units, null, new Set(), 0).size).toBe(0)
+  expect(openUnits(units, emptyFeed('r'), new Set(['x']), 0).size).toBe(0)
+})
+
+test('columns are as wide as their widest node and nodes stack with the gap; edges skip absent units', () => {
+  const { nodes, edges } = layout([...units, U('f', 3, { deps: ['x', 'ghost'] })], new Set(['c']))
+  const at = Object.fromEntries(nodes.map((n) => [n.id, n]))
+  expect(at.e.position.x).toBe(at.c.position.x + SIZE.term.w + GAP.x)
+  expect(at.b.position.y).toBe(at.a.position.y + SIZE.unit.h + GAP.y)
+  expect(edges.some((e) => e.target === 'f')).toBe(false)
+})
+
+test('arrows ignore an unknown node and break a tie toward the one more in line', () => {
+  const box = (id, x, y) => ({ id, position: { x: x - 1, y: y - 1 }, width: 2, height: 2 })
+  const nodes = [box('o', 0, 0), box('q', 3, 4), box('p', 5, 0)]
+  expect(neighbour(nodes, 'o', 'right')).toBe('p')
+  expect(neighbour(nodes, 'o', 'up')).toBe(null)
+  expect(neighbour(nodes, 'nope', 'right')).toBe(null)
 })
