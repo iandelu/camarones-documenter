@@ -332,14 +332,18 @@ def ui_lang(lang: str = "") -> str:
     return lang if lang in machine.LANGS else machine.settings()["lang"]
 
 
-def run_stopped(run_id: str) -> bool:
+def run_stopped(run_id: str, busy: bool | None = None) -> bool:
     """A plan run whose log has no run.finished and never will: stopped from outside (its job stopped, which is SIGTERM
     to its process group or taskkill /F on Windows, or a crash) before it could log its end. One run holds the run lock
     at a time, the latest, so an older one is over, and the latest is once the lock is free or stale; its log is read
-    again after that, so a run that ended on its own in between is not taken for a stopped one."""
+    again after that, so a run that ended on its own in between is not taken for a stopped one. `busy` is the lock's
+    answer when the caller already probed it (a probe holds the lock for an instant, so two can see each other); None
+    probes."""
     from .harness import runs, scheduler
     latest = runs.ids(wiki=False)
-    if run_id not in latest or (run_id == latest[0] and scheduler.busy()):
+    if busy is None:
+        busy = scheduler.busy() is not None
+    if run_id not in latest or (run_id == latest[0] and busy):
         return False
     return not any(e["type"] == "run.finished" for e in runs.events(run_id))
 
@@ -349,9 +353,10 @@ def api_pipeline(lang: str = "") -> dict:
     tier, runner), its agent session (open or paused, lib/sessions.py) and the latest run. Titles read in `lang`
     (plan.title); plan.yaml is only read."""
     from . import sessions
-    from .harness import pipeline, runs
+    from .harness import pipeline, runs, scheduler
     lang = ui_lang(lang)
-    busy = sessions.headless()
+    locked = scheduler.busy() is not None                    # asked once: the second probe could see the first
+    busy = sessions.headless(locked)
     try:
         nodes = {u["id"]: u for u in plan.pipeline_units()}
     except plan.PipelineError:
@@ -370,7 +375,7 @@ def api_pipeline(lang: str = "") -> dict:
                       **sessions.board(u, busy)})
     latest = runs.ids(wiki=False)
     run = runs.summary(latest[0]) if latest else None
-    if run and not run["finished"] and run_stopped(run["run"]):
+    if run and not run["finished"] and run_stopped(run["run"], locked):
         run.update(finished=True, interrupted=True)
     return {"units": units, "run": run, "interviews": docs.interview_mode() if docs.interview_mode_chosen() else None}
 
