@@ -13,7 +13,7 @@ function Hints({ id, hints }) {
   return <ul id={id} className="st-hints">{hints.map((h) => <li key={h.code}>{t(`stories.hint.${h.code}`)}</li>)}</ul>
 }
 
-export default function WriteStep({ draft, change, words, lang, epics, existing, touchError, ai, aiOn, onNext, repos }) {
+export default function WriteStep({ draft, change, words, lang, epics, existing, touchError, ai, aiGate, onNext, repos }) {
   const id = useId()
   const hints = lint(draft.as, draft.want, draft.so, lang, words, draft.touches)
   const on = (field) => hints.filter((h) => h.field === field || (field === 'so' && h.field === 'story'))
@@ -38,7 +38,7 @@ export default function WriteStep({ draft, change, words, lang, epics, existing,
       {field('as', t('stories.as'))}
       {field('want', t('stories.want'))}
       {field('so', t('stories.so'))}
-      <Suggest ai={ai} what="rewrite" on={aiOn}
+      <Suggest ai={ai} what="rewrite" gate={aiGate}
                onAccept={(r) => change({ as: r.as_ || draft.as, want: r.want || draft.want, so: r.so || draft.so })} />
       <div className="st-row2">
         <div className="st-field">

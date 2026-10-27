@@ -1,5 +1,5 @@
-"""Optional AI suggestions for the story wizard: off by default, one headless call to the runner routed for bounded work
-(like Ask's AI answer), wording / criteria / subtask ideas only. An invented file never survives, and nothing here
+"""AI suggestions for the story wizard: on by default like Ask (`stories: {ai: false}` turns them off), one headless call
+to the runner routed for bounded work (like Ask's AI answer), wording / criteria / subtask ideas only. An invented file never survives, and nothing here
 decides footprints, dependencies, waves or the verdict."""
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ print(os.environ["SUGGEST_JSON"])
 
 @pytest.fixture
 def suggester(world, tmp_path, monkeypatch):  # noqa: F811
-    """A fake bounded runner that prints `$SUGGEST_JSON`; returns the file it logs its prompt to. AI stays off."""
+    """A fake bounded runner that prints `$SUGGEST_JSON`; returns the file it logs its prompt to."""
     script = tmp_path / "suggester.py"
     script.write_text(SUGGESTER, encoding="utf-8")
     log = tmp_path / "prompt.txt"
@@ -46,6 +46,12 @@ def turn_on(kit, **extra):
     kit.docs.save_workspace(ws)
 
 
+def turn_off(kit):
+    ws = kit.docs.workspace()
+    ws["stories"] = {"ai": False}
+    kit.docs.save_workspace(ws)
+
+
 def reply(monkeypatch, **obj):
     monkeypatch.setenv("SUGGEST_JSON", json.dumps(obj))
 
@@ -55,37 +61,48 @@ def a_story(**kw):
             "so": "no perder ventas", "criteria": [], "touches": [REAL], "epic": None, "priority": None, **kw}
 
 
-# ── off by default ───────────────────────────────────────────────────────────────────────────────────────────────
+# ── on by default, like Ask ──────────────────────────────────────────────────────────────────────────────────────
 
-def test_it_is_off_by_default_and_never_calls_the_runner(world, suggester):
+def test_it_is_on_by_default_when_a_runner_is_installed(world, suggester):
     from lib import stories_ai
-    assert stories_ai.enabled() is False                                  # a runner is configured, the switch is not
-    with pytest.raises(RuntimeError, match=r"AI suggestions are off: set stories: \{ai: true\} in workspace.yaml"):
+    assert stories_ai.enabled() is True and stories_ai.runner() == "fake"
+    assert not suggester.exists()                                         # looking it up runs nothing
+
+
+def test_a_false_switch_turns_it_off_and_never_calls_the_runner(world, suggester):
+    from lib import stories_ai
+    turn_off(world)
+    assert stories_ai.enabled() is False                                  # a runner is configured, the switch is off
+    with pytest.raises(RuntimeError, match=r"AI suggestions are off: stories: \{ai: false\} in workspace.yaml"):
         stories_ai.suggest(a_story(), what="tasks", lang="en")
-    assert not suggester.exists()                                         # the fake runner never ran
+    assert not suggester.exists()
 
 
-@pytest.mark.parametrize("value", [False, "true", 1, None, "yes"])
-def test_only_a_true_switch_turns_it_on(world, suggester, value):
+@pytest.mark.parametrize("value", [True, "false", 0, None, "no"])
+def test_only_a_false_switch_turns_it_off(world, suggester, value):
     from lib import stories_ai
     ws = world.docs.workspace(); ws["stories"] = {"ai": value}; world.docs.save_workspace(ws)
-    assert stories_ai.enabled() is False
+    assert stories_ai.enabled() is True
 
 
-def test_on_without_a_runner_is_not_available(world, tmp_path):
+def test_without_a_runner_it_is_not_available(world, tmp_path):
     from lib import stories_ai
     from lib.common import PREFS, save_json
     save_json(PREFS, {"routing": {"bounded": ["nonexistent-runner"]}})
-    turn_on(world)
     assert stories_ai.enabled() is False
     with pytest.raises(RuntimeError, match="no runner for bounded work"):
         stories_ai.suggest(a_story(), what="tasks", lang="en")
 
 
-def test_enabled_does_not_run_anything(world, suggester):
+def test_status_says_why_it_is_not_available(world, suggester):
     from lib import stories_ai
+    from lib.common import PREFS, save_json
+    assert stories_ai.status() == {"available": True, "runner": "fake", "model": None, "reason": None}
+    turn_off(world)
+    assert stories_ai.status() == {"available": False, "runner": None, "model": None, "reason": "off"}
     turn_on(world)
-    assert stories_ai.enabled() is True and stories_ai.runner() == "fake"
+    save_json(PREFS, {"routing": {"bounded": ["nonexistent-runner"]}})
+    assert stories_ai.status() == {"available": False, "runner": None, "model": None, "reason": "no-runner"}
     assert not suggester.exists()
 
 
@@ -222,9 +239,9 @@ def test_usage_is_recorded_for_people(world, suggester, monkeypatch):
 # ── over HTTP ────────────────────────────────────────────────────────────────────────────────────────────────────
 
 def test_the_list_says_whether_ai_is_available(world, suggester, server):  # noqa: F811
-    assert get(server, "/api/stories")[1]["ai"] == {"available": False, "runner": None, "model": None}
-    turn_on(world)
-    assert get(server, "/api/stories")[1]["ai"] == {"available": True, "runner": "fake", "model": None}
+    assert get(server, "/api/stories")[1]["ai"] == {"available": True, "runner": "fake", "model": None, "reason": None}
+    turn_off(world)
+    assert get(server, "/api/stories")[1]["ai"] == {"available": False, "runner": None, "model": None, "reason": "off"}
     assert not suggester.exists()
 
 
@@ -246,6 +263,7 @@ def test_suggest_needs_the_token_and_does_not_call_the_runner(world, suggester, 
 
 
 def test_suggest_while_off_is_a_503(world, suggester, server):  # noqa: F811
+    turn_off(world)
     code, b = post(server, "/api/stories/suggest", {**story(), "what": "tasks"}, token=PORTAL)
     assert code == 503 and "AI suggestions are off" in b["error"]
     assert not suggester.exists()

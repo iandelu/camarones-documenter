@@ -17,8 +17,8 @@ place** to write a story, check it against INVEST, and turn it into subtasks who
 **waves** that never collide.
 
 **Everything is deterministic by default.** Rules, templates, the code graph and a SQLite index do the work; the same
-board always gives the same verdict, subtasks, dependencies and waves. AI is optional, off by default, and only
-suggests wording (§7).
+board always gives the same verdict, subtasks, dependencies and waves. AI is optional (on by default since 4.68, like
+Ask; `stories: {ai: false}` turns it off), runs only when asked, and only suggests wording (§7).
 
 **Done when:** a person opens *Historias*, writes a story, picks the code it touches, sees an INVEST verdict with
 reasons, gets subtasks with their files, dependencies and conflicts already worked out, approves them, and with one
@@ -40,7 +40,7 @@ a story someone else changed meanwhile.
 | Scope | New stories **and** existing stories of the board |
 | Dependencies | Computed, not guessed: from the code graph, the docs and footprint overlaps with every open task |
 | "Agents that block tasks" | **Parallel without collisions**: agents only get tasks whose dependencies are done and whose footprint overlaps nothing in progress |
-| AI | Optional, **off by default**; never decides footprints, dependencies, waves or the verdict |
+| AI | Optional, on by default since 4.68 (it spends only when pressed); never decides footprints, dependencies, waves or the verdict |
 | Where the data lives | Truth in the cards (git): `dependencies` + `x-touches`; a derived **SQLite index** (stdlib) for queries |
 
 ## 2. User flow
@@ -269,17 +269,19 @@ It answers the questions the screen and `next` ask on every interaction without 
   repos) for agents: they are only handed out when nothing else of that repo is in progress. Conservative on purpose:
   an unknown footprint must not cause a reconciliation.
 
-## 7. Optional AI (off by default)
+## 7. Optional AI (on by default since 4.68)
 
-`stories: {ai: true}` in `workspace.yaml` (and a bounded runner configured) shows a *Sugerir con IA* button in steps 1
-and 3. Same route as Ask (`lib/answers.py`): bounded runner, cheap model, one headless call, no tools, empty folder,
+A *✨ Sugerir con IA* button sits in each place AI helps: the rewrite (step 1), criteria (step 2) and subtasks (step 3).
+It runs when a bounded runner is configured and the page holds the token; `stories: {ai: false}` in `workspace.yaml`
+turns it off (until 4.67 it was off unless `stories: {ai: true}`). When it cannot run the button stays, disabled, with
+the reason (`GET /api/stories` → `ai.reason`: `off` | `no-runner`; no token → the page says so). Same route as Ask (`lib/answers.py`): bounded runner, cheap model, one headless call, no tools, empty folder,
 JSON, 90 s.
 
 - It may suggest: a rewrite of the clauses, criteria, extra subtask ideas. Each suggestion is shown apart, marked
   *IA*, and does nothing until accepted.
 - It may **not** decide: footprints, dependencies, conflicts, waves, the verdict. A subtask idea comes without a
   footprint; files the AI names are kept only if they exist in the index, and the person confirms them.
-- `usage.record("stories:suggest", channel="human", hit=…)`. Off → no button, no call, nothing else changes.
+- `usage.record("stories:suggest", channel="human", hit=…)`. Off → no call; the button says it is off.
 
 ## 8. API, CLI, UI
 
@@ -351,7 +353,7 @@ TDD, offline, `make_workspace` + `isolated_env`:
 - `save`: new story + tasks; existing story keeps its title, old criteria and notes; 409 on concurrent change; nothing
   written when one entry is invalid.
 - API: 403 without token on suggest/save; `analyze` pure (no file changes); move gate 409 with `blocked_by`.
-- AI: off by default → no runner call even when one is configured; on → fake runner suggestion, invented files
+- AI: `ai: false` → no runner call even when one is configured; on → fake runner suggestion, invented files
   dropped; timeout → 503.
 - A 4.x fixture board (no `x-touches`, epics only) opens and lists the same as before; `board move` of a card with no
   conflicts behaves exactly as before.

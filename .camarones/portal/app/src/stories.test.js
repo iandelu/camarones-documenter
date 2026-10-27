@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { afterEach, expect, test, vi } from 'vitest'
 import CASES from '../../../../tests/fixtures/story_lint_cases.json'
 import { I18N } from './i18n/portal.js'
-import { draftKey, initialDraft, lint, loadDraft, nextStep, outdated, primaryLabel, saveDraft } from './stories.js'
+import { aiGate, draftKey, initialDraft, lint, loadDraft, nextStep, outdated, primaryLabel, saveDraft } from './stories.js'
 
 // The word lists the server sends in GET /api/stories → lint_words: the kit's YAML files, written in JSON syntax.
 const words = (lang) => JSON.parse(readFileSync(new URL(`../../../templates/board/${lang}/story-lint.yaml`, import.meta.url), 'utf-8'))
@@ -124,7 +124,7 @@ const KEYS = ['zone.stories', 'zoned.stories', 'view.stories', 'viewd.stories', 
   'stories.verdict.good', 'stories.verdict.improve', 'stories.verdict.poor',
   ...[...'INVEST'].map((l) => `stories.invest.${l}`),
   'stories.save.new', 'stories.save.existing', 'stories.saved', 'stories.readonly', 'stories.graphless', 'stories.conflict',
-  'stories.ai.suggest']
+  'stories.ai.suggest', 'stories.ai.why.off', 'stories.ai.why.runner', 'stories.ai.why.token']
 
 test('every Historias string exists in es and en, with the same placeholders', () => {
   const ph = (s) => (s.match(/\{\w+\}/g) || []).sort()
@@ -147,4 +147,16 @@ test('the Spanish hints say what the Python lint says', () => {
     expect(m, code).not.toBeNull()
     expect(I18N.es[`stories.hint.${code}`], code).toBe(JSON.parse(`"${m[1]}"`))
   }
+})
+
+test('aiGate: the AI button is always there; it runs with a runner, the switch on and the token, else it says why', () => {
+  const ai = { available: true, runner: 'claude', model: 'haiku', reason: null }
+  const off = { available: false, runner: null, model: null, reason: 'off' }
+  const none = { available: false, runner: null, model: null, reason: 'no-runner' }
+  expect(aiGate({ writable: true, ai })).toEqual({ on: true, why: null, runner: 'claude' })
+  expect(aiGate({ writable: true, ai: off })).toEqual({ on: false, why: 'stories.ai.why.off', runner: null })
+  expect(aiGate({ writable: false, ai: off }).why).toBe('stories.ai.why.off')          // a token would not help: the switch first
+  expect(aiGate({ writable: true, ai: none })).toEqual({ on: false, why: 'stories.ai.why.runner', runner: null })
+  expect(aiGate({ writable: false, ai })).toEqual({ on: false, why: 'stories.ai.why.token', runner: 'claude' })
+  expect(aiGate({ writable: true })).toEqual({ on: false, why: 'stories.ai.why.runner', runner: null })
 })

@@ -249,10 +249,12 @@ def post(server, path, body, token=None):
 
 
 def test_the_list_needs_no_token_and_carries_the_lint_words(world, server):
+    from lib.common import PREFS, save_json
+    save_json(PREFS, {"routing": {"bounded": ["nonexistent-runner"]}})    # AI is on by default: no runner, no AI
     code, b = get(server, "/api/stories")
     assert code == 200
     assert b["enabled"] is True and b["writable"] is False and b["stories"] == []
-    assert b["ai"] == {"available": False, "runner": None, "model": None}
+    assert b["ai"] == {"available": False, "runner": None, "model": None, "reason": "no-runner"}
     from lib import stories
     assert b["lint_words"] == {"es": stories.lint_words("es"), "en": stories.lint_words("en")}
     assert get(server, "/api/stories", token=PORTAL)[1]["writable"] is True

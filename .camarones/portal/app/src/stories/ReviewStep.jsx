@@ -44,7 +44,7 @@ function Criteria({ draft, change }) {
   )
 }
 
-export default function ReviewStep({ draft, change, analysis, pending, ai, aiOn, onNext }) {
+export default function ReviewStep({ draft, change, analysis, pending, ai, aiGate, onNext }) {
   const id = useId()
   const inv = analysis?.invest
   return (
@@ -67,7 +67,7 @@ export default function ReviewStep({ draft, change, analysis, pending, ai, aiOn,
         </>
       ) : <p className="muted" role="status">{t('stories.block.pending')}</p>}
       <Criteria draft={draft} change={change} />
-      <Suggest ai={ai} what="criteria" on={aiOn} onAccept={(c) => change((d) => ({ ...d, criteria: [...d.criteria.filter((x) => x.trim()), c] }))} />
+      <Suggest ai={ai} what="criteria" gate={aiGate} onAccept={(c) => change((d) => ({ ...d, criteria: [...d.criteria.filter((x) => x.trim()), c] }))} />
       <h3>{t('stories.footprint')}</h3>
       <p className="st-footprint">{footprintLine(draft.touches, draft.groups)}</p>
       {(analysis?.graphless || []).length ? (

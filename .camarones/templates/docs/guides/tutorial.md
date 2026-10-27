@@ -298,8 +298,10 @@ wizard and the desktop app always keep it.
 ### 📝 Stories
 
 The portal's **Stories** zone (`#/stories`) is one place to write a story, check it and turn it into subtasks that
-do not collide. It is all rules, templates and the code map, with no AI unless you turn on `stories.ai`: the same board always gives
-the same verdict, subtasks and waves.
+do not collide. The verdict, subtasks and waves come from rules, templates and the code map, with no AI: the same board
+always gives the same verdict, subtasks and waves. AI only proposes, and only when you ask: **✨ Suggest with AI** sits in
+the three places it helps (rewriting the story, the criteria and the subtasks) and only spends when you press it. When it
+cannot run (no agent installed, a portal not opened with `camaron up`, or turned off) it shows disabled and says why.
 
 1. **Write** *As / I want / so that* (or *Como / quiero / para*). Hints appear as you type (a generic role, two goals
    in one, a *so that* that repeats the *I want*, too long, a solution inside the *I want*) and never block.
@@ -343,7 +345,7 @@ Optional settings in `workspace.yaml`:
 
 ```yaml
 stories:
-  ai: true          # off by default: turns on "Suggest with AI"; it only suggests, never decides
+  ai: false         # on by default: "✨ Suggest with AI" only spends when pressed; false turns it off
   model: haiku      # optional: the model to ask for (default: a cheap one of the runner)
   small:            # thresholds of INVEST's "S"
     groups: 3
