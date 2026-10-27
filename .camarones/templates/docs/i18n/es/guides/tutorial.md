@@ -307,20 +307,23 @@ lo deciden sin preguntar); el asistente y la app de escritorio lo conservan siem
 ### 📝 Historias
 
 La zona **Historias** (`#/stories`) del portal es un solo sitio para escribir una historia, revisarla y convertirla en
-subtareas que no chocan. Todo es reglas, plantillas y el mapa del código, sin IA: el mismo tablero da siempre el mismo
-veredicto, las mismas subtareas y las mismas oleadas.
+subtareas que no chocan. Todo es reglas, plantillas y el mapa del código, sin IA salvo que actives `stories.ai`: el mismo
+tablero da siempre el mismo veredicto, las mismas subtareas y las mismas oleadas.
 
 1. **Escribe** *Como / quiero / para* (o *As / I want / so that*). Mientras escribes salen avisos (rol genérico, dos
    objetivos en uno, un *para* que repite el *quiero*, demasiado largo, una solución dentro del *quiero*) que nunca
    bloquean.
 2. **Revisa** el veredicto INVEST (bien, mejorable o mal) con un chip y un motivo por letra. En **Toca** eliges los
-   ficheros, grupos y páginas de la documentación que cambia la historia: su *huella*.
+   ficheros, grupos y páginas de la documentación que cambia la historia: su *huella*. Para un fichero que creará una
+   tarea, o de un repo sin mapa del código, escribe `repo:ruta` y elige **Añadir «…» (nuevo)**; al guardar se comprueba
+   que su carpeta exista.
 3. **Subtareas** por plantilla: una tarea por grupo de código y otra por página de documentación afectada, cada una con
    sus ficheros, sus dependencias (quien da servicio va antes que quien lo usa) y con qué choca. Se reparten en
    **oleadas**: las tareas de una oleada pueden hacerse a la vez sin tocar los mismos ficheros. Edítalas, quítalas,
    añade o fusiona y las oleadas se recalculan al momento.
 4. **Aprueba y guarda.** Hasta entonces no se escribe nada en `backlog/`; la historia y sus subtareas pasan a ser
-   tarjetas normales en Backlog.
+   tarjetas normales en Backlog. En una historia que ya existía solo se escribe lo que cambiaste: el título o la huella
+   que otra persona cambió mientras tanto se conservan, y si los dos cambiasteis lo mismo te pide recargarla.
 
 En git solo se guardan `dependencies` y `x-touches` (`<repo>:<ruta>`, o `cam-docs:<página>`) en las tarjetas, y
 Backlog.md sigue abriéndolas. Los conflictos, las oleadas y los veredictos se calculan y no se guardan.
@@ -335,11 +338,15 @@ camaron board waves [--story WI-14|--epic WI-1]        # el trabajo abierto en o
 ```
 
 Todos aceptan `--json`. `board next` solo da tareas en Backlog o Ready cuyas dependencias están hechas y cuya huella no
-choca con nada en curso; una tarjeta sin `x-touches` cuenta como si tocara todo lo de sus repos.
+choca con nada en curso **ni entre sí**: una sola oleada, como mucho `--n`; las que chocarían con ella esperan a una
+oleada posterior (`{"kind": "wave", "wave": k}` en `--json`). Una tarjeta sin `x-touches` cuenta como si tocara todo
+lo de sus repos. Con un ciclo de dependencias, `board waves --json` sale con 0 y `{"cycle": [...]}` (sin `--json`, lo
+dice y sale con 2). `split --accept` no vuelve a dividir una historia que ya tiene subtareas. `--touch` y `--accept`
+solo valen con `story`, `--story` y `--n` con `next` y `waves`, y `--force` con `move`.
 
 **La puerta de salida.** Mover una tarjeta a *In Progress* comprueba sus dependencias y su huella contra lo que ya está
 en curso. A una persona (CLI, portal, app) se le dice el motivo y puede seguir con `--force` (el portal y la app
-preguntan **Mover igualmente**); el movimiento forzado queda anotado. A un agente se le rechaza siempre: las
+preguntan **Mover igualmente**); el movimiento forzado se cuenta en las estadísticas de uso. A un agente se le rechaza siempre: las
 herramientas MCP `board_next` y `board_waves` solo leen, y el harness mueve con su propia superficie. Una tarjeta con
 hijas es un contenedor y nunca bloquea a sus propias tareas. Sin colisión, `board move` funciona como siempre.
 
