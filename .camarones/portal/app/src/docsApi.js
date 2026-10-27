@@ -1,14 +1,14 @@
-import { APP, STATIC } from './api.js'
+import { STATIC } from './api.js'
 
 // Reading the docs API the same way in both portals: the live server (lib/serve.py, GET api/<name>?<params>) and the
 // static export, where each answer is a json file (api/<name>.json, api/doc/<lang|_>/<path>.json) and search runs
 // here over api/search.json. Reads only; writes go through postJSON (api.js).
-const where = () => ({ static: STATIC, token: APP?.token })
+const where = () => ({ static: STATIC })
 
 export async function docsGet(name, params = {}, mode = where()) {
   if (mode.static) return staticGet(name, params)
   const qs = new URLSearchParams(params).toString()
-  const r = await fetch(`api/${name}${qs ? '?' + qs : ''}`, { headers: mode.token ? { 'X-Camaron-Token': mode.token } : {} })
+  const r = await fetch(`api/${name}${qs ? '?' + qs : ''}`)
   const data = await r.json()
   if (!r.ok) throw new Error(data.error || r.statusText)
   return data

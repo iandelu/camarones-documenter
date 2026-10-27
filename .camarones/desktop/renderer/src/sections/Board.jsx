@@ -168,13 +168,13 @@ export function BoardView({ board, lang: l, kb, notice = '', say = '', open = nu
   return (
     <>
       {readOnly}
-      <div className="row dk-bd-bar"><Button variant="primary" disabled={!writable} onClick={onAdd}>{t('bd.add')}</Button></div>
+      <div className="row dk-bd-bar" data-tour="board-add"><Button variant="primary" disabled={!writable} onClick={onAdd}>{t('bd.add')}</Button></div>
       {board.problems?.length ? <Aviso tone="warn" title={t('bd.problems')}>{board.problems.map((p) => `${p.path}: ${p.error}`).join(' · ')}</Aviso> : null}
       {notice ? <Aviso tone="error" title={t('bd.moveFailed')} detail={notice} /> : null}
       {!board.cards.length ? <p className="muted">{t('bd.empty')}</p> : null}
-      <p id="bd-help" className="muted small">{t('bd.help')}</p>
+      <p id="bd-help" className="muted small" data-tour="board-help">{t('bd.help')}</p>
       <div className={'dk-bd-wrap' + (side ? ' with-side' : '')}>
-      <div className="dk-bd">
+      <div className="dk-bd" data-tour="board-columns">
         {drawn.map((col) => (
           <section key={col.status} className={'dk-bd-col' + (over === col.status ? ' over' : '')} role="group" aria-label={label(l, col.status)}
             onDragOver={(e) => { if (writable && dragging) { e.preventDefault(); onOver(col.status) } }}
