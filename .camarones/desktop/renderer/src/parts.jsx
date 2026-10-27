@@ -3,7 +3,7 @@ import { Aviso, Button, Chip, Thinking } from '@camaron/ui'
 import { shape } from '@camaron/ui/result.js'
 import { chip, state } from './jobs.js'
 import { useCmd } from './hooks.js'
-import { unitAction, waitsFor } from './plan.js'
+import { openedWith, unitAction, waitsFor } from './plan.js'
 import { lang, t } from './i18n.js'
 
 // The pieces the sections share: the page, the agent picker, a fold, a job's outcome and a plan unit's row.
@@ -109,13 +109,17 @@ export function UnitActions({ u, srv, a, plan, onChanged }) {
   const [note, setNote] = useState({ ok: '', error: '' })
   const act = unitAction(u, plan)
   const redo = useCmd(srv)
-  async function go(fn, ok = '') {
+  async function go(fn, ok = '') {          // ok: the note, or what it says of fn's result
     setBusy(true)
     setNote({ ok: '', error: '' })
-    try { await fn(); setNote({ ok, error: '' }); onChanged?.() } catch (e) { setNote({ ok: '', error: e.message }) } finally { setBusy(false) }
+    try {
+      const res = await fn()
+      setNote({ ok: typeof ok === 'function' ? ok(res) : ok, error: '' })
+      onChanged?.()
+    } catch (e) { setNote({ ok: '', error: e.message }) } finally { setBusy(false) }
   }
   const agent = (mode) => go(() => srv.post('app/agent', { unit: u.id, agent: a.agent, lang: lang(), mode }),
-    t('next.opened', { agent: a.label(a.agent) }))
+    (res) => t('next.opened', { agent: openedWith(a.label(a.agent), res) }))
   const noAgent = act?.kind === 'agent' && a.agents && !a.agents.length
   const reopen = () => go(async () => {
     const end = await redo.run('plan', { action: 'redo', unit: u.id })
