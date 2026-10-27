@@ -68,9 +68,9 @@ Unchanged events, two additions:
   (`claude:sonnet` → `sonnet`); without one it is omitted and pricing falls back to the runner's default (§5).
   `cache_read` and `cache_write` are already separate in the events; the run summary keeps adding them into
   `tokens_cache` as today.
-- `kpis.run_metrics()` gains `units`: `{<unit id>: {"in", "out", "cache_read", "cache_write", "cost_usd", "seconds",
-  "model"}}`, built from `runs.detail()` (a unit retried after a usage limit adds its attempts up). `cost_usd` is the
-  reported one or absent.
+- `kpis.run_metrics()` gains `by_unit`: `{<unit id>: {"in", "out", "cache_read", "cache_write", "cost_usd", "seconds",
+  "runner", "model"}}`, built from `runs.detail()` (a unit retried after a usage limit adds its attempts up).
+  `cost_usd` is the reported one or null. (`units` is taken: it is the run's unit count, an integer old kits add up.)
 
 ### 4.2 Interactive unit sessions
 
@@ -97,7 +97,8 @@ Unchanged events, two additions:
 `env.openwiki_generate()` with an engine other than native `openwiki` builds the request with `stream=True`, parses the
 output through the runner's `parse_event` (as autopilot does) and writes a run log of its own:
 `r-<YYYYMMDD-HHMMSS>-<pid>-wiki-<repo>` (the scheduler's id form, so it sorts with the others) with `run.started`, `unit.started` (unit `repo-wiki:<repo>`), every `usage`,
-`unit.finished` (outcome and seconds) and `run.finished`. It is then an ordinary run for `runs`, `kpis` and the bill.
+`unit.finished` (outcome and seconds) and `run.finished`. It is then an ordinary run for `runs`, `kpis` and the bill;
+the Plan's "latest run" and the board's headless units skip wiki runs (`runs.ids(wiki=False)`).
 The log lines the user sees stay the same. Native OpenWiki (its own provider key) reports no tokens: the unit is listed
 as unmeasured when its wiki stamp says `engine: openwiki`.
 
@@ -121,6 +122,7 @@ runners: {claude: claude-sonnet-5-5, codex: gpt-5.6-terra}   # when the run did 
   per key. A malformed override is reported by `plan cost` (naming the key) and the kit table is used.
 - A model name matches exactly, then through `aliases`, then by its dated form (`claude-sonnet-5-5-20260901` →
   `claude-sonnet-5-5`).
+- A local model (routing's `LOCAL_PROVIDERS`, reached through OpenCode) costs 0 — it is priced, not unpriced.
 - **Which cost counts:** the agent's reported `cost_usd` when there is one (Claude's is exact and covers models it
   used internally); otherwise tokens × the table; with no price for the model, the cost is `null` and the item is
   listed under "unpriced". Never 0.
@@ -136,7 +138,7 @@ runners: {claude: claude-sonnet-5-5, codex: gpt-5.6-terra}   # when the run did 
 
 The machine's roll-up `docs/.work/kpis/<person-machine>.json` keeps `"v": 1` and gains keys only:
 
-- `runs.<id>.units` (§4.1); older entries without it still count in the totals, under "unit unknown";
+- `runs.<id>.by_unit` (§4.1); older entries without it still count in the totals, under "unit unknown";
 - `sessions.<session id>`: `{"unit", "agent", "started", "ended", "active_seconds", "bytes", "models": {<model>:
   {tokens}}}`, capped at `KEEP = 500` like runs.
 
@@ -197,7 +199,8 @@ in the plan.
   a "by phase" table that unfolds; unpriced/unmeasured as one muted line. Refreshes with the section.
 - **Portal:** a "Plan from zero" card in the KPIs tab (`Kpis.jsx`), read-only, same figures.
 - **Catalog:** the `plan` entry's description mentions the cost; `catalog --check` stays green.
-- Strings in `es` and `en`. No joke on these screens: it is a report.
+- App and portal strings in `es` and `en`; the CLI text is English, like `kpis` and `runs`. No joke on these screens:
+  it is a report.
 
 ## 10. Errors
 
@@ -210,7 +213,7 @@ in the plan.
 
 ## 11. Compatibility (3.x and 4.x)
 
-Only new optional keys: `epoch` (plan.yaml), `units` and `sessions` (KPIs roll-up), `model` (usage events),
+Only new optional keys: `epoch` (plan.yaml), `by_unit` and `sessions` (KPIs roll-up), `model` (usage events),
 `previous` (session record). Old plans, roll-ups and run logs are read as they are; old kits ignore the new keys
 (`kpis.report()` adds named fields only; `plan.save()` dumps every key it loaded). Each has a test that starts from
 the old form. `VERSIONS["kit"]` → 4.68.0.
@@ -228,7 +231,8 @@ Windows' long paths. No new processes; the wiki change reuses the runner's argv 
   line skipped; idle cap; `bytes` returned.
 - `pricing`: reported cost wins; table cost per token kind; alias and dated names; workspace override merged; unknown
   model → None; malformed override → error text and kit table.
-- `kpis`: `record_run` stores `units`; an old entry without `units` still adds up.
+- `kpis`: `record_run` stores `by_unit` and leaves the integer `units` as it was; an old entry without `by_unit`
+  still adds up; wiki runs are not the plan's latest run.
 - `ledger.harvest`: writes a session entry; second call with an unchanged transcript neither reads it nor writes
   (file mtime unchanged); a grown one is re-read whole; stats off → no write; `previous` sessions harvested; under
   the lock.
