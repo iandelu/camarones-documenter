@@ -7,11 +7,13 @@ for its whole read-check-write, and a save whose `base_sha` is not the file's cu
 `AdrConflict` that carries that sha. An edit replaces one section and keeps every other byte of the file.
 The person's decision closes the review: `accept` and `reject` set the status, hand the file to a human (`x-owner`) and
 confirm it, `accept` also marking the ADR it supersedes; `covering` lists the accepted ADRs a page falls under.
+`pack` gathers the evidence of a decision (`adr_pack`) into the cache and moves a framed ADR on to `evidence`.
 Never rewrites an ADR the kit did not write before that decision: a file with no state (a legacy ADR) is listed and read
 as it is, and `start_review` only creates its state. Never calls a model."""
 from __future__ import annotations
 
 import datetime as dt
+import json
 import os
 import re
 import shutil
@@ -229,6 +231,11 @@ def parts_of(state: dict, sections: dict) -> list[str]:
             "consequences", "confirmation", "affected"]
 
 
+def _affected(state: dict | None) -> list[str]:
+    from . import adr_pack
+    return adr_pack.affected((state or {}).get("touches") or [])
+
+
 def get(id: str) -> dict:
     id = _id(id)
     path, state = _files().get(id), load_state(id)
@@ -240,7 +247,7 @@ def get(id: str) -> dict:
     parts = (state or {}).get("parts") or {}
     return {**_row(id, path, state, text), "state": state, "sections": sections,
             "parts": [{"id": p, "status": parts.get(p) or "pending"} for p in parts_of(state, sections)] if state else [],
-            "points": list((state or {}).get("points") or []), "affected": [],
+            "points": list((state or {}).get("points") or []), "affected": _affected(state),
             "sha": docs.body_sha(body) if path else "", "raw": text, "notice": None}
 
 
@@ -351,6 +358,36 @@ def start_review(id: str) -> dict:
                         "phase": "review", "parts": {}, "points": [], "attendees": [], "supersedes": None,
                         "implementation": "n/a"})
     return get(id)
+
+
+# ---------- the evidence pack ----------
+def pack(id: str) -> dict:
+    """Gather what the project knows about the files this decision touches, keep it in the cache and move a framed ADR
+    on to `evidence`. Allowed at any phase, to refresh the pack; it never moves a phase back."""
+    from . import adr_pack
+    state = _need_state(id)
+    built = adr_pack.build(state)
+    markdown = adr_pack.render(built)
+    folder = CACHE / "adr" / id
+    with FileLock(LOCK):
+        current = _need_state(id)
+        _write(folder / "pack.json", json.dumps(built, ensure_ascii=False, indent=2) + "\n")
+        _write(folder / "pack.md", markdown)
+        if current.get("phase") == "problem":
+            save_state({**current, "phase": "evidence"})
+    return {"summary": adr_pack.summary(built), "markdown": markdown}
+
+
+def read_pack(id: str) -> dict | None:
+    """The pack `pack` kept in the cache, None when there is none (or it cannot be read: it is rebuilt on demand)."""
+    from . import adr_pack
+    folder = CACHE / "adr" / _id(id)
+    try:
+        built = json.loads(_read(folder / "pack.json"))
+        markdown = _read(folder / "pack.md")
+    except (OSError, ValueError):
+        return None
+    return {"summary": adr_pack.summary(built), "markdown": markdown} if isinstance(built, dict) else None
 
 
 # ---------- review actions ----------
