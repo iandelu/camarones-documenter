@@ -5,8 +5,10 @@ meanwhile), the working state of each ADR, the list the app shows, and the revie
 editing a part, adding, choosing, deferring or removing a decision point, and the attendees. Every action holds one lock
 for its whole read-check-write, and a save whose `base_sha` is not the file's current body (a pull, an editor) is an
 `AdrConflict` that carries that sha. An edit replaces one section and keeps every other byte of the file.
-Never rewrites an ADR the kit did not write: a file with no state (a legacy ADR) is listed and read as it is, and
-`start_review` only creates its state. Never calls a model."""
+The person's decision closes the review: `accept` and `reject` set the status, hand the file to a human (`x-owner`) and
+confirm it, `accept` also marking the ADR it supersedes; `covering` lists the accepted ADRs a page falls under.
+Never rewrites an ADR the kit did not write before that decision: a file with no state (a legacy ADR) is listed and read
+as it is, and `start_review` only creates its state. Never calls a model."""
 from __future__ import annotations
 
 import datetime as dt
@@ -91,6 +93,13 @@ def load_state(id: str) -> dict | None:
         raise AdrError(f"{path.name} is not a readable working state: fix it or remove it")
     state["id"] = id                                        # the file name is the identity, whatever the field says
     return state
+
+
+def _load_or_none(id: str) -> dict | None:
+    try:
+        return load_state(id)
+    except AdrError:                                        # one damaged state never hides the others
+        return None
 
 
 def save_state(st: dict) -> None:
@@ -207,10 +216,7 @@ def _row(id: str, path: Path | None, state: dict | None, text: str) -> dict:
 def list_adrs() -> list[dict]:
     files, rows = _files(), []
     for id in sorted({*files, *_state_ids()}, reverse=True):
-        try:
-            state = load_state(id)
-        except AdrError:                                    # one damaged state never hides the others
-            state = None
+        state = _load_or_none(id)
         path = files.get(id)
         if path or state:
             rows.append(_row(id, path, state, _read(path) if path else ""))
@@ -470,10 +476,147 @@ def point(id: str, op: str, data: dict, base_sha: str) -> dict:
     return get(id)
 
 
-def set_attendees(id: str, names: list[str]) -> dict:
+def _names(names) -> list[str]:
     if not isinstance(names, (list, tuple)) or not all(isinstance(n, str) for n in names):
         raise AdrError("attendees must be a list of text")
+    return list(dict.fromkeys(n.strip() for n in names if n.strip()))
+
+
+def set_attendees(id: str, names: list[str]) -> dict:
+    names = _names(names)
     with FileLock(LOCK):
         state = _need_state(id)
-        save_state({**state, "attendees": list(dict.fromkeys(n.strip() for n in names if n.strip()))})
+        save_state({**state, "attendees": names})
     return get(id)
+
+
+# ---------- the decision: accept, reject, supersede ----------
+def today() -> str:
+    return dt.date.today().isoformat()
+
+
+def _who(by) -> str:
+    name = " ".join(by.split()) if isinstance(by, str) else ""
+    if not name:
+        raise AdrError("a decision needs the name of who takes it")
+    return name
+
+
+def _with_status(raw: str, line: str) -> str:
+    """`line` replaces the first line of the Status section; a note a person wrote below it stays."""
+    kept = (adr_doc.section(docs.split_fm(raw)[1], "status") or "").splitlines()
+    first = next((i for i, l in enumerate(kept) if l.strip()), None)
+    return adr_doc.replace_section(raw, "status", "\n".join([line, *([] if first is None else kept[first + 1:])]))
+
+
+def _outcome(state: dict, raw: str) -> str | None:
+    """The Decision section an accepted ADR gets, None to keep the one written. What a person wrote there stays, in front
+    of one paragraph per point; the placeholder and the points subsection go. Refuses what nobody has decided."""
+    points = state.get("points") or []
+    for p in points:
+        label = str(p.get("id")).upper()
+        if p.get("deferred"):
+            raise AdrError(f"point {label} is deferred: decide it or remove it")
+        if not _decided(p):
+            raise AdrError(f"point {label} has no choice yet")
+    prose = _prose(raw)
+    written = "" if prose == adr_doc.PLACEHOLDER else prose
+    if not points:
+        if not written:
+            raise AdrError("write the Decision section or add a decision point")
+        return None
+    paragraphs = adr_doc.render_decision(points)
+    return written if paragraphs in written else "\n\n".join(t for t in (written, paragraphs) if t)
+
+
+def _supersession(state: dict, id: str, name: str) -> tuple[Path, str] | None:
+    """The ADR this one replaces and its new text, worked out before anything is written."""
+    old = str(state.get("supersedes") or "").strip()
+    if not old:
+        return None
+    old = f"{int(old):04d}" if re.fullmatch(r"[0-9]{1,4}", old) else old
+    if old == id:
+        raise AdrError(f"{id} cannot supersede itself")
+    path = _files().get(old)
+    if path is None:
+        raise AdrError(f"{id} supersedes {old}, but there is no ADR {old}")
+    raw = _read(path)
+    if "�" in raw:
+        raise AdrError(f"{path.name} is not UTF-8: convert it before superseding it")
+    return path, _with_status(raw, f"Superseded by [{id}]({name})")
+
+
+def _owned(raw: str, name: str, id: str, state: dict) -> str:
+    """The file with `x-owner: human` and every other key as it was. A file with no frontmatter gets the few keys a page
+    needs to be confirmed; one whose frontmatter cannot be read is never rewritten."""
+    fm, body, valid = docs.parse_fm(raw)
+    if not valid:
+        raise AdrError(f"the frontmatter of {name} cannot be read: fix it before deciding")
+    fm = {**fm, "x-owner": "human"} if fm else {"type": "decision", "title": f"{id} — {state.get('title') or id}",
+                                                 "x-owner": "human"}
+    return docs.join_fm(fm, body)
+
+
+def _seal(path: Path, text: str, who: str) -> None:
+    _write(path, text)
+    docs.confirm([str(path)], who)
+
+
+def _closed(state: dict, phase: str, date: str, who: str, **more) -> dict:
+    return {**state, "phase": phase, "decided": {"date": date, "by": who, "driver": who}, **more}
+
+
+def accept(id: str, by: str, attendees: list[str] | None, base_sha: str) -> dict:
+    """The person's decision: every point chosen, `Accepted (date)`, who decided, owned by a human and confirmed. The
+    ADR it supersedes is marked in the same action. Attendees given replace those of the review; none keeps them."""
+    who, given = _who(by), _names(attendees) if attendees is not None else []
+    with FileLock(LOCK):
+        state, path, raw = _open(id, base_sha)
+        outcome, old = _outcome(state, raw), _supersession(state, id, path.name)
+        date, names = today(), given or _names(state.get("attendees") or [])
+        text = _with_status(raw, f"Accepted ({date})")
+        if outcome is not None:
+            text = adr_doc.replace_section(text, "decision", outcome)
+        text = adr_doc.replace_section(text, "decided_by", adr_doc.render_decided_by(
+            date, names, who, str(state.get("mode") or "manual")))
+        _seal(path, _owned(text, path.name, id, state), who)
+        if old:
+            old_path, old_text = old
+            _write(old_path, old_text)
+            if docs.split_fm(old_text)[0]:                  # a file with no frontmatter cannot be confirmed, and gets none
+                docs.confirm([str(old_path)], who)
+        save_state(_closed(state, "accepted", date, who, attendees=names))
+    return get(id)
+
+
+def reject(id: str, why: str, by: str, base_sha: str) -> dict:
+    reason = " ".join(why.split()) if isinstance(why, str) else ""
+    if not reason:
+        raise AdrError("a rejection needs a reason")
+    who = _who(by)
+    with FileLock(LOCK):
+        state, path, raw = _open(id, base_sha)
+        date = today()
+        _seal(path, _owned(_with_status(raw, f"Rejected ({date}): {reason}"), path.name, id, state), who)
+        save_state(_closed(state, "rejected", date, who))
+    return get(id)
+
+
+# ---------- what an accepted ADR covers ----------
+def covering(logical: str) -> list[dict]:
+    """The accepted ADRs a page falls under: they share a source with it (fragments and `repo://` ignored) or cite it as
+    `docs/<logical>`. Read from the files, so an accepted ADR written elsewhere covers too; never the page itself."""
+    page = dict(docs.iter_docs()).get(logical)
+    if page is None:
+        return []
+    cited, found = set(_touches_of(_sources(docs.split_fm(_read(page))[0]))), []
+    for id, path in sorted(_files().items()):
+        fm, body = docs.split_fm(_read(path))
+        theirs = set(_touches_of(_sources(fm)))
+        if f"decisions/{path.name}" == logical or adr_doc.status_of(body)[0] != "accepted":
+            continue
+        if cited & theirs or f"{CAM_DIR}:docs/{logical}" in theirs:
+            state = _load_or_none(id) or {}
+            found.append({"id": id, "title": _title(id, fm, body), "path": f"decisions/{path.name}",
+                          "kind": state.get("kind") or "retro", "implementation": state.get("implementation") or "n/a"})
+    return found
