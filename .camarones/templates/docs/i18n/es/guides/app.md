@@ -201,7 +201,7 @@ la ejecución** (los agentes se paran, sus unidades vuelven a la cola y su traba
 código desde que se escribió.
 
 **Las unidades.** Hechas de total, y cada unidad como tarjeta en un **Tablero** (Listas para empezar, En curso, Te
-necesitan, Esperan a otras, Hechas) o por **Fases**. Colores: en curso ámbar, en pausa ámbar apagado, hecha verde,
+necesitan, Esperan a otras, Hechas), por **Fases** o en el **Lienzo** (más abajo). Colores: en curso ámbar, en pausa ámbar apagado, hecha verde,
 bloqueada rojo, espera tu aprobación violeta, espera a otras con borde discontinuo. Al pulsar una tarjeta se abre su
 detalle: fase, quién la hace, su repo, de qué depende, sus notas y, con su terminal abierta, qué está haciendo el agente
 (la herramienta y el fichero de su último paso, o que te está esperando). El botón del detalle la mueve:
@@ -216,6 +216,23 @@ detalle: fase, quién la hace, su repo, de qué depende, sus notas y, con su ter
 | Una entrevista antes de elegir el modo | **Cuestionario del equipo** o **En vivo, con un agente** |
 
 **Ver su registro en el portal** abre la unidad en el Pipeline del portal.
+
+**El lienzo.** La tercera vista, junto a Tablero y Fases: las unidades como un grafo con sus dependencias. Mientras
+corre una ejecución (el piloto automático o **Ejecutar las listas**), cada unidad en la que trabaja un agente se abre en
+su nodo como una **terminal de solo lectura** con lo que hace, línea a línea (✎ edita, ⌕ lee o busca, ▶ ejecuta, »
+dice, ✕ falla), el agente, el tiempo que lleva y el coste. Su cabecera dice **hecha** solo cuando el plan la tiene
+hecha: una cuyo agente terminó sin acabarla dice cómo la tiene el plan (por hacer, en pausa, bloqueada, espera tu
+aprobación), y una que no pudo empezar dice por qué. Unos 4 segundos después de acabar vuelve a una tarjeta
+compacta con su tiempo y su coste (**Ver terminal** la reabre); una que falla conserva su terminal. Si subes dentro de
+una terminal, deja de seguir el final hasta que pulses **Ir al final**; **⤢** la maximiza y Escape vuelve al lienzo.
+**Encajar** enmarca cada terminal abierta (todas las unidades si no hay ninguna), **Reordenar** devuelve todo el lienzo
+a la disposición automática, y las posiciones que arrastres se conservan mientras la ventana de ese proyecto siga
+abierta. Tab y las flechas se mueven entre nodos e Intro abre el detalle de la unidad. Sin elegir vista, el Plan pasa al
+lienzo en cuanto hay una ejecución en marcha (ya al entrar, o lanzada desde el propio Plan; una unidad que empiezas a
+mano en su propia terminal no cuenta) y se queda ahí, también al acabar, hasta que elijas otra. El lienzo lee el registro de la ejecución (el mismo que lee el portal) y sigue el tema claro u oscuro de la
+app; parar sigue en la tarjeta **Ejecutar el plan**. Una ejecución parada desde fuera (su trabajo parado, su proceso
+terminado) se ve acabada en unos segundos: sus terminales dejan de decir «en marcha», y una unidad que dejó a medias
+dice cómo la tiene el plan, con su reloj parado en su última línea.
 
 **Plan desde 0**, debajo de las unidades. Lo que ha costado el plan desde que empezó (o desde el último borrado), para todo el equipo: tiempo
 de agente desatendido, tiempo con una persona delante, tiempo de calendario, tokens y dólares equivalentes de la API,

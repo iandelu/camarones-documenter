@@ -39,6 +39,10 @@ function usePipeline() {
         setError(null)
         if (run && !run.finished) {
           source = new EventSource(`/api/runs/${encodeURIComponent(run.run)}/events`)
+          const es = source
+          source.onerror = () => {   // closed for good (a 204: a run stopped from outside, read to its end): back to the poll
+            if (es.readyState === EventSource.CLOSED && source === es) source = null
+          }
           source.onmessage = (m) => {
             const event = JSON.parse(m.data)
             dispatch({ type: 'event', event })
