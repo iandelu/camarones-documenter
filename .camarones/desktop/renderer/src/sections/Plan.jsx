@@ -1,24 +1,27 @@
 import { useEffect, useRef, useState } from 'react'
 import { Aviso, Button, Card, Chip, EmptyState, PlanCost, Skeleton, uiText } from '@camaron/ui'
 import { board, phases, sessionLine, tone, waitsFor } from '../plan.js'
+import { defaultView } from '../canvas.js'
 import { useAgents, useCmd, useStore } from '../hooks.js'
 import { AgentPicker, Failed, Fold, JobOutput, Page, UnitActions } from '../parts.jsx'
+import Canvas from './Canvas.jsx'
 import Commands from './Commands.jsx'
 import { ago } from '../jobs.js'
 import { lang, t } from '../i18n.js'
 
 // The Plan by task: run the ready units (in parallel, or the autopilot one after another) or stop what runs; then
 // every unit coloured by its state (running yellow, done green, ready white, blocked red, awaiting you in the accent),
-// as a board by state or lane by phase like the portal. A unit opens beside the board with the one action that moves
-// it. A unit in progress with no terminal window open is paused; an open one says what its agent is doing. The graph
-// with its arrows stays in the portal.
-const VIEWS = ['board', 'phases']
+// as a board by state or lane by phase like the portal, or as the canvas: the graph, where each unit a run works on is
+// a live terminal (canvas.js). A unit opens beside the view with the one action that moves it. A unit in progress with
+// no terminal window open is paused; an open one says what its agent is doing. With no view picked, the canvas opens
+// while something runs.
+const VIEWS = ['board', 'phases', 'canvas']
 const TONES = ['ready', 'running', 'paused', 'awaiting', 'blocked', 'waiting', 'done']
 
 export default function Plan({ srv, jobs }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
-  const [view, setView] = useState(() => { try { return localStorage.getItem('dk.planView') || 'board' } catch { return 'board' } })
+  const [view, setView] = useState(() => { try { return localStorage.getItem('dk.planView') } catch { return null } })
   const [open, setOpen] = useState(null)
   const a = useAgents(srv)
   const { running } = useStore(jobs)
@@ -26,6 +29,7 @@ export default function Plan({ srv, jobs }) {
   const load = () => srv.get('pipeline', { lang: lang() }).then((d) => { setData(d); setError('') }, (e) => setError(e.message))
   const active = !!pilot || (data?.run && !data.run.finished)
   const windows = !!data?.units.some((u) => u.session?.live)
+  const shown = defaultView(view, active || windows)
   useEffect(() => {                                   // often while something runs, rarely otherwise
     load()
     const id = setInterval(load, active ? 3000 : windows ? 5000 : 15000)
@@ -49,7 +53,7 @@ export default function Plan({ srv, jobs }) {
         <b>{t('plan.progress', { done, total: live.length })}</b>
         <progress className="dk-progress dk-grow" value={done} max={live.length || 1} aria-label={t('stat.plan')} />
         <div className="dk-seg" role="tablist" aria-label={t('plan.view')}>
-          {VIEWS.map((v) => <button key={v} type="button" role="tab" aria-selected={view === v} className={view === v ? 'on' : ''}
+          {VIEWS.map((v) => <button key={v} type="button" role="tab" aria-selected={shown === v} className={shown === v ? 'on' : ''}
             onClick={() => pick(v)}>{t('plan.' + v)}</button>)}
         </div>
         <AgentPicker a={a} />
@@ -58,7 +62,9 @@ export default function Plan({ srv, jobs }) {
         {TONES.map((k) => <span key={k} className={`dk-tone tone-${k}`}><i></i>{t('tone.' + k)}</span>)}
       </div>
       <div className={'dk-plan' + (unit ? ' with-detail' : '')}>
-        {view === 'board' ? (
+        {shown === 'canvas' ? (
+          <Canvas srv={srv} units={data.units} run={data.run} pilot={pilot} onOpen={setOpen} />
+        ) : shown === 'board' ? (
           <div className="dk-board">{board(data.units).map((c) => (
             <section key={c.key} className="dk-col" aria-label={t('col.' + c.key)}>
               <h2 className="eyebrow dk-col-head">{t('col.' + c.key)} <span>{c.units.length}</span></h2>

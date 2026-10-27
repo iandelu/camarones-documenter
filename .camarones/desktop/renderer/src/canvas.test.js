@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { atBottom, changedRun, defaultView, emptyFeed, feed, FOLD_MS, GAP, layout, MAX_ROWS, neighbour, openUnits, place, row, SIZE } from './canvas.js'
+import { atBottom, changedRun, defaultView, emptyFeed, feed, FOLD_MS, followRun, GAP, layout, MAX_ROWS, neighbour, openUnits, place, row, SIZE } from './canvas.js'
 
 const ev = (type, f = {}) => ({ v: 1, ts: '2026-10-27T10:00:00.000Z', type, unit: 'a', ...f })
 
@@ -184,4 +184,69 @@ test('with nothing beside, arrows pick the diagonal that stays more in line', ()
   const box = (id, x, y) => ({ id, position: { x: x - 1, y: y - 1 }, width: 2, height: 2 })
   const nodes = [box('o', 0, 0), box('p', 10, 6), box('q', 14, 3)]
   expect(neighbour(nodes, 'o', 'right')).toBe('q')
+})
+
+// Following a run: one stream from the start, read again from the last id when it drops, until the run ends.
+const quiet = { sleep: async () => {} }
+const finishing = (calls) => async (name, onEvent, opts) => { calls.push([name, opts.from]); onEvent({ type: 'run.finished' }); return { id: '9' } }
+
+test('a dropped stream resumes from the last id it read, and ends with the run', async () => {
+  const calls = []
+  const srv = { stream: async (name, onEvent, opts) => {
+    calls.push([name, opts.from])
+    if (calls.length === 1) { onEvent({ type: 'unit.started', unit: 'a' }); onEvent({ type: 'log', unit: 'a', text: 'x' }); return { id: '20' } }
+    onEvent({ type: 'run.finished' }); return { id: '31' } } }
+  const seen = []
+  await followRun(srv, 'r-1', (ev) => seen.push(ev.type), { sleep: async () => {} })
+  expect(calls).toEqual([['runs/r-1/events', undefined], ['runs/r-1/events', '20']])
+  expect(seen).toEqual(['unit.started', 'log', 'run.finished'])
+})
+
+test('following stops when the canvas goes away', async () => {
+  const ac = new AbortController()
+  let n = 0
+  const srv = { stream: async () => { n += 1; ac.abort(); return { id: '5' } } }
+  await followRun(srv, 'r-1', () => {}, { signal: ac.signal, sleep: async () => {} })
+  expect(n).toBe(1)
+})
+
+test('a run that has ended is not followed again', async () => {
+  const calls = []
+  await followRun({ stream: finishing(calls) }, 'r-1', () => {}, quiet)
+  expect(calls).toHaveLength(1)
+})
+
+test('an error resumes from the id the stream got to, or from the last one it ended on', async () => {
+  const calls = []
+  const waits = []
+  const srv = { stream: async (name, onEvent, opts) => {
+    calls.push(opts.from)
+    if (calls.length === 1) return { id: '20' }
+    if (calls.length === 2) throw Object.assign(new TypeError('network error'), { id: '25' })
+    if (calls.length === 3) throw new Error('server restarting')
+    onEvent({ type: 'run.finished' }); return { id: '40' } } }
+  await followRun(srv, 'r-1', () => {}, { retry: 700, sleep: async (ms) => { waits.push(ms) } })
+  expect(calls).toEqual([undefined, '20', '25', '25'])
+  expect(waits).toEqual([700, 700, 700])
+})
+
+test('a run whose log is gone is not followed again', async () => {
+  let n = 0
+  const srv = { stream: async () => { n += 1; throw Object.assign(new Error('no run r-9'), { status: 404 }) } }
+  await followRun(srv, 'r-9', () => {}, quiet)
+  expect(n).toBe(1)
+})
+
+test('an error after the abort ends quietly, and an abort while waiting does not wait it out', async () => {
+  const ac = new AbortController()
+  const gone = { stream: async () => { ac.abort(); throw Object.assign(new Error('aborted'), { name: 'AbortError' }) } }
+  await expect(followRun(gone, 'r-1', () => {}, { signal: ac.signal, ...quiet })).resolves.toBeUndefined()
+
+  const slow = new AbortController()
+  const srv = { stream: async () => ({ id: '1' }) }
+  const started = Date.now()
+  const done = followRun(srv, 'r-1', () => {}, { signal: slow.signal, retry: 60000 })
+  setTimeout(() => slow.abort(), 20)
+  await done
+  expect(Date.now() - started).toBeLessThan(5000)
 })

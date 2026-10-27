@@ -158,3 +158,27 @@ export function changedRun(shown, latest) {
   if (!latest) return false
   return !shown || latest.run !== shown.run || latest.finished !== shown.finished
 }
+
+const wait = (ms, signal) => new Promise((resolve) => {
+  const timer = setTimeout(done, ms)
+  function done() { clearTimeout(timer); signal?.removeEventListener('abort', done); resolve() }
+  signal?.addEventListener('abort', done)
+})
+
+// A run's events from the start, until its end. A stream that ends or breaks before run.finished is opened again from
+// the id it got to; a run whose log is gone (404) or an abort ends it quietly.
+export async function followRun(srv, run, onEvent, { signal, retry = 2000, sleep = wait } = {}) {
+  let from
+  let ended = false
+  const seen = (ev) => { if (ev.type === 'run.finished') ended = true; onEvent(ev) }
+  while (!ended && !signal?.aborted) {
+    try {
+      from = (await srv.stream(`runs/${run}/events`, seen, { from, signal })).id ?? from
+    } catch (err) {
+      if (signal?.aborted || err.status === 404) return
+      from = err.id ?? from
+    }
+    if (ended || signal?.aborted) return
+    await sleep(retry, signal)
+  }
+}

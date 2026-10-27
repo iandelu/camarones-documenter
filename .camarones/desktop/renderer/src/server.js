@@ -4,7 +4,8 @@ import { parseSSE } from '@camaron/ui'
 // a write also carries X-Camarones, which a page on another site cannot send. A read's `query` goes in the address
 // ({ lang } for the units' titles in the app's language). A refusal throws an Error with the server's message, its
 // `status` and the response `data`.
-// `stream` follows a server-sent stream (a run's events) and resolves with the last id it read, to resume from there.
+// `stream` follows a server-sent stream (a run's events) and resolves with the last id it read, to resume from there;
+// when it rejects (a refusal, a dropped connection, an abort) the error carries that same `id`.
 export function server(token, fetcher = (...a) => fetch(...a)) {
   const refused = async (name, r) => {
     const data = await r.json().catch(() => ({}))
@@ -20,22 +21,24 @@ export function server(token, fetcher = (...a) => fetch(...a)) {
     post: (name, body) => call(name, { method: 'POST', body: JSON.stringify(body || {}),
       headers: { 'Content-Type': 'application/json', 'X-Camarones': '1' } }),
     stream: async (name, onEvent, { from, signal } = {}) => {
-      const url = `../api/${name}${from == null ? '' : `?${new URLSearchParams({ from })}`}`
-      const r = await fetcher(url, { headers: { 'X-Camaron-Token': token }, signal })
-      if (!r.ok) throw await refused(name, r)
-      const reader = r.body.pipeThrough(new TextDecoderStream()).getReader()
-      let rest = ''
       let id = from == null ? null : String(from)
       try {
-        for (;;) {
-          const { done, value } = await reader.read()
-          if (done) return { id }
-          const piece = parseSSE(rest + value)
-          rest = piece.rest
-          if (piece.id !== null) id = piece.id
-          piece.events.forEach(onEvent)
-        }
-      } finally { reader.cancel().catch(() => {}) }
+        const url = `../api/${name}${from == null ? '' : `?${new URLSearchParams({ from })}`}`
+        const r = await fetcher(url, { headers: { 'X-Camaron-Token': token }, signal })
+        if (!r.ok) throw await refused(name, r)
+        const reader = r.body.pipeThrough(new TextDecoderStream()).getReader()
+        let rest = ''
+        try {
+          for (;;) {
+            const { done, value } = await reader.read()
+            if (done) return { id }
+            const piece = parseSSE(rest + value)
+            rest = piece.rest
+            if (piece.id !== null) id = piece.id
+            piece.events.forEach((ev) => onEvent(ev))
+          }
+        } finally { reader.cancel().catch(() => {}) }
+      } catch (e) { throw e instanceof Object ? Object.assign(e, { id }) : e }   // where it got to, to resume from there
     },
   }
 }

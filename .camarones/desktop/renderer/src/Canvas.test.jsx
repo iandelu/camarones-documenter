@@ -1,7 +1,7 @@
 import { ReactFlowProvider } from '@xyflow/react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, expect, test } from 'vitest'
-import { TermNode, UnitNode } from './sections/Canvas.jsx'
+import Canvas, { TermNode, UnitNode } from './sections/Canvas.jsx'
 import { setLang } from './i18n.js'
 
 afterEach(() => setLang('es'))
@@ -76,4 +76,31 @@ test("the clock stops at the unit's end and never runs backwards", () => {
   const done = { runner: 'claude', started: 0, ended: 60000, outcome: 'ok', cost: 0, rows: [] }
   expect(html(<TermNode data={{ unit, fu: done, now: 9e9, ...on }} />)).toContain('1 min')
   expect(html(<TermNode data={{ unit, fu: { ...done, started: 5000, ended: null }, now: 1000, ...on }} />)).toContain('0 s')
+})
+
+// The container: the toolbar says what runs (the Plan's own Run card keeps Stop) and offers Fit and Re-layout.
+const srv = { stream: () => new Promise(() => {}) }
+const units = [unit, { id: 'review', title: 'Revisar', status: 'todo', runner: 'agent', phase: 3, deps: ['explain:api'] }]
+const live = () => ({ run: 'r-1', started: new Date(Date.now() - 90000).toISOString(), finished: false, units: 2, done: 1, failed: 0, seconds: 90, cost_usd: 1.2 })
+const canvas = (props) => renderToStaticMarkup(<Canvas srv={srv} units={units} run={live()} pilot={null} onOpen={() => {}} {...props} />)
+
+test('the toolbar says what the autopilot or a run is doing, and offers Fit and Re-layout', () => {
+  const out = canvas({ pilot: { id: 'j-1' } })
+  expect(out).toContain('Piloto automático · 1/2 · 1 min · $1.20')
+  expect(out).toMatch(/<button[^>]*>Encajar<\/button>/)
+  expect(out).toMatch(/<button[^>]*>Reordenar<\/button>/)
+  expect(canvas()).toContain('Ejecución · 1/2')
+})
+
+test('with no run live, the toolbar says nothing is running', () => {
+  expect(canvas({ run: { ...live(), finished: true } })).toContain('Nada en marcha')
+  expect(canvas({ run: null })).toContain('Nada en marcha')
+})
+
+test('the canvas speaks English', () => {
+  setLang('en')
+  const out = canvas({ pilot: { id: 'j-1' } })
+  expect(out).toContain('Autopilot · 1/2')
+  expect(out).toContain('>Fit<')
+  expect(out).toContain('>Re-layout<')
 })

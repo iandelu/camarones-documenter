@@ -303,9 +303,11 @@ a.dk-stat-n:hover { color: var(--color-acento-texto); }
 
 /* The Plan's canvas: a node for each unit, a compact card or, while its agent works, a terminal that is dark in both
    themes. The two boxes are in px because canvas.js (SIZE) lays them out in px. */
+.dk-cv { display: grid; gap: .5rem; min-width: 0; }
 .dk-canvas { position: relative; height: calc(100vh - 18rem); min-height: 28rem; overflow: hidden;
              border: 1px solid var(--color-rule); border-radius: var(--consola-radio-tarjeta); }
 .dk-cv-handle { opacity: 0; pointer-events: none; }
+.dk-canvas .react-flow__node.selectable:focus-visible { outline: 2px solid var(--color-acento-texto); outline-offset: 3px; }
 .dk-cv-unit { position: relative; width: 200px; height: 64px; min-height: 0; padding: .3rem .5rem .3rem .6rem; }
 .dk-cv-open { display: flex; flex-direction: column; justify-content: center; gap: .1rem; width: 100%; height: 100%; min-width: 0; padding: 0;
               border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
@@ -347,8 +349,10 @@ a.dk-stat-n:hover { color: var(--color-acento-texto); }
 .dk-term-follow { position: absolute; right: .75rem; bottom: .5rem; background: var(--color-canvas); color: var(--color-ink);
                   box-shadow: var(--sombra-menu); }
 .dk-term-follow:focus-visible { outline-color: var(--color-aurora-cyan); }
-.dk-term-max { position: absolute; inset: 0; z-index: 5; display: flex; background: var(--color-canvas); }
-.dk-term-max .dk-term { width: 100%; height: 100%; border: 0; border-radius: 0; }
+.dk-term-max { position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column; background: var(--color-canvas); }
+.dk-term-max-bar { flex: none; display: flex; padding: .3rem .5rem; border-bottom: 1px solid var(--color-rule); }
+.dk-term-max .dk-term { flex: 1; width: 100%; height: auto; min-height: 0; border: 0; border-radius: 0; }
+.dk-term-max .dk-term-head .dk-icon { display: none; }
 
 /* How the interviews run, chosen once: two options that say what they mean. */
 .dk-modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: .75rem; }
