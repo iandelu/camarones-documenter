@@ -156,3 +156,20 @@ main[tabindex="-1"]:focus { outline: none; }
 @media (prefers-reduced-motion: reduce) {
   .cu-btn { transition: none; }
 }
+
+/* PlanCost (plancost.jsx): what the plan took from zero */
+.cu-pc { display: flex; flex-direction: column; gap: .75rem; }
+.cu-pc .cu-pc-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem .75rem; }
+.cu-pc .cu-pc-head .cu-btn { margin-left: auto; }
+.cu-pc .cu-pc-title { margin: 0; font-size: var(--text-body-sm); font-weight: 600; }
+.cu-pc .cu-pc-sub { margin: 0; font-size: var(--text-micro); font-weight: 500; color: var(--color-ink-dim); letter-spacing: .04em; }
+.cu-pc .cu-pc-note { margin: 0; font-size: var(--text-meta); color: var(--color-ink-soft); }
+.cu-pc .cu-pc-figs { flex-wrap: wrap; }
+.cu-pc .cu-pc-top { display: flex; flex-wrap: wrap; gap: .25rem 1.25rem; margin: 0; padding: 0; list-style: none; font-size: var(--text-meta); }
+.cu-pc .cu-pc-top li { display: inline-flex; gap: .5rem; }
+.cu-pc .cu-pc-top span { font-family: var(--font-mono); }
+.cu-pc .cu-pc-fold summary { cursor: pointer; font-size: var(--text-meta); color: var(--color-ink-soft); }
+.cu-pc .cu-pc-phases { margin-top: .5rem; border-collapse: collapse; font-size: var(--text-meta); }
+.cu-pc .cu-pc-phases th, .cu-pc .cu-pc-phases td { padding: .2rem 1rem .2rem 0; text-align: left; border-bottom: 1px solid var(--color-rule); }
+.cu-pc .cu-pc-phases td + td { font-family: var(--font-mono); }
+.cu-pc .cu-pc-gaps strong { color: var(--color-estado-aviso); font-weight: 500; }

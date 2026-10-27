@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getJSON, postJSON } from './api.js'
 import { t } from './i18n.js'
-import { Skeleton } from '@camaron/ui'
+import { Aviso, PlanCost, Skeleton, uiText } from '@camaron/ui'
 import Failed from './Failed.jsx'
 import { core } from './core.js'
 import { money, segments, tiles } from './kpis.js'
@@ -12,8 +12,13 @@ const link = (path) => core.hrefFor(path)
 export default function Kpis() {
   const [d, setD] = useState(null)
   const [error, setError] = useState('')
+  const [bill, setBill] = useState(null)
+  const [billError, setBillError] = useState('')
   const load = () => getJSON('kpis').then((x) => { setD(x); setError('') }, (e) => setError(e.message))
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    getJSON('plan/cost').then(setBill, (e) => setBillError(e.message))       // a read: the app harvests, not the portal
+  }, [])
   async function miss(q, action) {
     try {
       const r = await postJSON('kpis/miss', { q, action })
@@ -26,6 +31,7 @@ export default function Kpis() {
     <section className="view kpis">
       <h1>{t('kpisTitle')}</h1>
       <p className="lede">{t('kpisLead')}</p>
+      {billError ? <Aviso tone="warn" title={uiText('pc.failed')} detail={billError} /> : bill ? <PlanCost bill={bill} /> : null}
       <div className="tiles">
         {tiles(d).map((x) => (
           <div className={`tile ${x.state || ''}`} key={x.key} title={t(`tip.${x.key}`)}>

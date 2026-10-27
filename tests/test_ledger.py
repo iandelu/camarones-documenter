@@ -309,3 +309,10 @@ def test_plan_cost_prints_the_bill_and_its_json(kit):
     assert j.returncode == 0, j.stderr
     b = json.loads(j.stdout)
     assert b["cost_usd"] == 1.5 and b["units"][0]["unit"] == "domain"
+
+
+def test_an_empty_bill_reads_well(priced, ledger):
+    set_epoch(priced, None)
+    priced.plan.set_status("domain", "done", record=False)
+    out = "\n".join(ledger.lines(ledger.bill()))
+    assert "0 people" not in out and "1 unit done with no run or session" in out
