@@ -46,7 +46,7 @@ The first run walks you through: workspace (project name) → repos → tools (i
 what to install) → setup (repos, Claude/Codex wiring, git hooks) → stack & tools (each repo's stack and the tools you
 already use — Backstage, Sonar, component library, linters, contracts, CI — found without AI; fix a wrong stack there
 or later with `camaron stack`; saved in `docs/overview/tooling.md`, with every direct dependency by category in
-`docs/overview/libraries.md`, also `camaron inventory` (`camaron bump <repo> <library> <version>` updates one on a new branch of its repo); `--cves` adds known vulnerabilities from OSV-Scanner's offline
+`docs/overview/libraries.md`, also `camaron inventory` (`camaron bump <repo> <library> <version>` updates one on a new branch of its repo, in the parent pom when a Maven module inherits it); `--cves` adds known vulnerabilities from OSV-Scanner's offline
 database; and each repo's tables and collections in the repo's page (`docs/repos/<repo>/index.md`; `docs/data/<repo>.md` before 4.52), also `camaron schemas`) → quick C4 draft → how sessions work. Esc always goes one step back; long
 tasks show what they are doing, a progress bar and crustacean facts. After that the main menu shows the plan progress and the next step.
 
@@ -470,7 +470,10 @@ stored in `~/.camarones/ab-samples/`, never in the repo) and `ab --replay` runs 
 `agentic-heavy` (long units), `bounded` (translations, summaries) and `judge` (eval scoring). `runner:model` also picks
 the model. The team sets it in `.camarones/workspace.yaml` (`agents: routing:`); `~/.camarones.json` (`routing`) wins on
 this machine. Local models go only through OpenCode (`opencode:ollama/qwen3-coder:30b`) and never do `agentic-heavy`
-work. `autopilot` and `run` read it unit by unit. Each run is logged in `.camarones/.cache/runs/` (`camaron runs`).
+work. `autopilot` and `run` read it unit by unit, and so do the sessions you open yourself (the wizard's next unit, a
+unit's button in the app): with the agent you pick, the model `pipeline.yaml` sets for that unit, else its kind of work's
+(the docs update is `agentic-heavy`); with none for that agent, the one in Settings. Each run is logged in
+`.camarones/.cache/runs/` (`camaron runs`).
 
 ## 10. Troubleshooting
 

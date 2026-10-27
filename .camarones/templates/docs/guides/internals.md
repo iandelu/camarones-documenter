@@ -193,8 +193,10 @@ agents:
 Local models never get `agentic-heavy` work. `camaron doctor --local` proposes one that fits this machine's memory.
 
 An **interactive session** (Start, Continue in the app; the wizard's Next step) opens the agent in its own terminal
-window, in the workspace, with the unit's prompt. While its window is open the app does not open another one for the
-same unit, and it shows what the agent is doing from its transcript.
+window, in the workspace, with the unit's prompt. It goes through the same routing: with the agent you pick, the model
+the unit's `pipeline.yaml` node sets, else its tier's (the docs update is `agentic-heavy`); with none for that agent,
+this machine's model from Settings. The wizard and the app say which model it opened with. While its window is open the
+app does not open another one for the same unit, and it shows what the agent is doing from its transcript.
 
 ## Trust in pages: review and freshness
 
@@ -265,7 +267,7 @@ A fresh install already documents a lot from static analysis, with sources on ev
 |---|---|
 | `camaron pages` (alias `diagrams`) | `docs/index.md` (what the project is, a card per repo, the context map), `docs/repos/<repo>/index.md` (endpoints, data as an ER diagram, state diagrams per status enum, messages, env vars and commands) and `docs/architecture/messaging.md` |
 | `camaron radar`, `camaron stack` | `docs/overview/tooling.md`: each repo's stack and the tools it uses |
-| `camaron inventory [--cves]` | `docs/overview/libraries.md`: direct dependencies by category, versions that differ, known vulnerabilities |
+| `camaron inventory [--cves]` | `docs/overview/libraries.md`: direct dependencies by category, versions that differ, known vulnerabilities; a Maven module takes its versions from its parent pom and the BOMs of the same repo |
 | `camaron schemas` | Tables and collections from migrations, entities, Mongo and Firestore |
 | `camaron history` | `docs/overview/history.md`: hotspots, who works where, files that change together |
 | `camaron arch-draft` | A first C4 model to verify |

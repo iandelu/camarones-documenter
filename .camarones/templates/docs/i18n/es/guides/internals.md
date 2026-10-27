@@ -200,8 +200,11 @@ Los modelos locales nunca reciben trabajo `agentic-heavy`. `camaron doctor --loc
 de esta máquina.
 
 Una **sesión interactiva** (Empezar, Seguir en la app; el Siguiente paso del asistente) abre el agente en su propia
-ventana de terminal, en el workspace, con el prompt de la unidad. Mientras esa ventana siga abierta, la app no abre otra
-para la misma unidad, y enseña qué está haciendo el agente leyendo su historial.
+ventana de terminal, en el workspace, con el prompt de la unidad. Pasa por el mismo enrutado: con el agente que elijas,
+el modelo que fije el nodo de la unidad en `pipeline.yaml` o, si no, el de su nivel (la actualización de la doc es
+`agentic-heavy`); si no hay ninguno para ese agente, el modelo de esta máquina en Ajustes. El asistente y la app dicen
+con qué modelo la abren. Mientras esa ventana siga abierta, la app no abre otra para la misma unidad, y enseña qué está
+haciendo el agente leyendo su historial.
 
 ## Confianza en las páginas: revisión y frescura
 
@@ -277,7 +280,7 @@ Una instalación nueva ya documenta mucho con análisis estático, con fuentes e
 |---|---|
 | `camaron pages` (alias `diagrams`) | `docs/index.md` (qué es el proyecto, una tarjeta por repo, el mapa de contexto), `docs/repos/<repo>/index.md` (endpoints, datos como diagrama ER, diagramas de estados por cada enum de estado, mensajes, variables de entorno y comandos) y `docs/architecture/messaging.md` |
 | `camaron radar`, `camaron stack` | `docs/overview/tooling.md`: el stack de cada repo y las herramientas que usa |
-| `camaron inventory [--cves]` | `docs/overview/libraries.md`: dependencias directas por categoría, versiones que difieren, vulnerabilidades conocidas |
+| `camaron inventory [--cves]` | `docs/overview/libraries.md`: dependencias directas por categoría, versiones que difieren, vulnerabilidades conocidas; un módulo Maven toma sus versiones del pom padre y los BOM del mismo repo |
 | `camaron schemas` | Tablas y colecciones desde migraciones, entidades, Mongo y Firestore |
 | `camaron history` | `docs/overview/history.md`: puntos calientes, quién trabaja dónde, ficheros que cambian juntos |
 | `camaron arch-draft` | Un primer modelo C4 para verificar |

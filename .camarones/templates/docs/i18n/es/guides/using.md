@@ -137,7 +137,8 @@ recalcula (`camaron health --refresh`). Una herramienta que falta tiene ahí su 
 
 **Librerías** lista cada dependencia por repo. **Buscar vulnerabilidades** las compara con la base de datos sin conexión
 de OSV (`camaron inventory --cves`; nada sale de tu máquina). El **Actualizar** de una librería marcada propone la
-versión que lo corrige y crea una rama en ese repo (`camaron bump`), sin commit ni push.
+versión que lo corrige y crea una rama en ese repo (`camaron bump`), sin commit ni push; en un módulo Maven cambia el
+pom padre del mismo repo, que es donde está la versión.
 
 SonarQube: guarda un token en **Máquina › Tokens** y la comprobación de salud lee la puerta de calidad, la cobertura y
 los problemas de cada repo.

@@ -74,25 +74,33 @@ def _edit_python(text: str, name: str, version: str, requirements: bool) -> str:
     raise ValueError(f"{name}: not found in the manifest")
 
 
-def _edit_maven(text: str, row: dict, version: str) -> str:
-    group, artifact = row["name"].split(":", 1)
-    declared = row["declared"]
-    if not declared:
-        raise ValueError(f"{row['name']}: its version comes from the parent {row.get('managedBy') or 'pom'}; "
-                         "update the parent, or give the dependency a version of its own")
-    if m := re.fullmatch(r"\$\{([\w.-]+)\}", declared):
-        prop = re.escape(m.group(1))
-        new, n = re.subn(rf"(<{prop}>)\s*[^<]*?\s*(</{prop}>)", rf"\g<1>{version}\g<2>", text, count=1)
+def _maven_site(repo: str, row: dict) -> dict:
+    """The pom and the property or <version> that set this dependency's version, in the module or in a parent or BOM
+    of the same repo (a multi-module repo keeps them in its root pom)."""
+    from . import inventory
+    site = inventory.version_site(repo_dir(repo), row["source"].split(":", 1)[1], row["name"])
+    if site is None:
+        raise ValueError(f"{row['name']}: its version is set outside {repo}, by the parent or BOM "
+                         f"{row.get('managedBy') or 'pom'}; update it there, or give the dependency a version of its own")
+    return site
+
+
+def _edit_maven(text: str, name: str, site: dict, version: str) -> str:
+    if prop := site.get("property"):
+        p = re.escape(prop)
+        new, n = re.subn(rf"(<{p}>)\s*[^<]*?\s*(</{p}>)", rf"\g<1>{version}\g<2>", text, count=1)
         if n:
             return new
-        raise ValueError(f"{row['name']}: the property {m.group(1)} is not in this pom (a parent sets it)")
+        raise ValueError(f"{name}: the property {prop} is not in {site['file']}")
+    group, artifact = name.split(":", 1)
     for block in re.finditer(r"<dependency>.*?</dependency>", text, re.S):
         b = block.group(0)
         if re.search(rf"<groupId>\s*{re.escape(group)}\s*</groupId>", b) and \
                 re.search(rf"<artifactId>\s*{re.escape(artifact)}\s*</artifactId>", b):
-            nb = re.sub(rf"<version>\s*{re.escape(declared)}\s*</version>", f"<version>{version}</version>", b, count=1)
-            return text[:block.start()] + nb + text[block.end():]
-    raise ValueError(f"{row['name']}: not found in the pom")
+            nb, n = re.subn(rf"<version>\s*{re.escape(site['version'])}\s*</version>", f"<version>{version}</version>", b, count=1)
+            if n:
+                return text[:block.start()] + nb + text[block.end():]
+    raise ValueError(f"{name}: not found in {site['file']}")
 
 
 def _edit_gradle(text: str, row: dict, version: str, catalog: bool) -> str:
@@ -119,6 +127,7 @@ def plan(repo: str, name: str, version: str, ecosystem: str | None = None) -> di
     rel = row["source"].split(":", 1)[1]
     manifest = repo_dir(repo) / rel
     cwd, base, eco = manifest.parent, manifest.name, row["ecosystem"]
+    site = None
     if eco == "npm":
         argv = _npm(row, cwd, version)
     elif eco == "PyPI":
@@ -128,15 +137,18 @@ def plan(repo: str, name: str, version: str, ecosystem: str | None = None) -> di
     elif eco == "Maven":
         argv = None
         if base == "pom.xml":
-            _edit_maven(_read(manifest), row, version)     # refused now, not on the branch
+            site = _maven_site(repo, row)
+            rel = site["file"]
+            manifest = repo_dir(repo) / rel
+            _edit_maven(_read(manifest), name, site, version)     # refused now, not on the branch
         elif not base.startswith("build.gradle") and base != "libs.versions.toml":
             raise ValueError(f"{base}: updating it from here is not supported yet")
     else:
         raise ValueError(f"{eco}: updating it from here is not supported yet; change {rel} by hand")
     slug = re.sub(r"[^\w.-]+", "-", name.rsplit(":", 1)[-1].rsplit("/", 1)[-1]).strip("-")
     return {"repo": repo, "ecosystem": eco, "name": name, "from": row["version"] or row["declared"], "to": version,
-            "scope": row["scope"], "manifest": f"{repo}/{rel}", "argv": argv, "branch": f"camaron/bump-{slug}-{version}",
-            "_row": row, "_file": manifest}
+            "scope": row["scope"], "manifest": f"{repo}/{rel}", "property": (site or {}).get("property"), "argv": argv,
+            "branch": f"camaron/bump-{slug}-{version}", "_row": row, "_file": manifest, "_site": site}
 
 
 def _read(f: Path) -> str:
@@ -151,7 +163,7 @@ def _edit(p: dict) -> None:
     if p["ecosystem"] == "PyPI":
         new = _edit_python(text, p["name"], v, requirements=f.name != "pyproject.toml")
     elif f.name == "pom.xml":
-        new = _edit_maven(text, row, v)
+        new = _edit_maven(text, p["name"], p["_site"], v)
     else:
         new = _edit_gradle(text, row, v, catalog=f.name == "libs.versions.toml")
     with open(f, "w", encoding="utf-8", newline="") as h:

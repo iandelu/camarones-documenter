@@ -48,7 +48,7 @@ La primera vez te lleva por 6 pasos:
 2. **Herramientas:** tabla con lo que tienes y lo que falta; eliges **instalar todo (recomendado)** o **qué instalar** (git, Node, Docker, Java, Claude/Codex, graphify, LikeC4, OpenWiki, hooks…).
 3. **Setup:** herramientas, repos, conexión de Claude/Codex y hooks de git.
 4. **Stack y herramientas:** el stack de cada repo y las herramientas que ya usáis (Backstage, Sonar, librería de componentes, linters, contratos, CI), detectados sin IA; si un stack está mal lo corriges ahí o luego con `camaron stack`. Queda en `docs/overview/tooling.md`, y cada dependencia directa por categoría (framework, datos, caché, seguridad,
-   mensajería, tests…) en `docs/overview/libraries.md` (también `camaron inventory`, y `camaron bump <repo> <librería> <versión>` actualiza una en una rama nueva de su repo; `--cves` añade las vulnerabilidades conocidas
+   mensajería, tests…) en `docs/overview/libraries.md` (también `camaron inventory`, y `camaron bump <repo> <librería> <versión>` actualiza una en una rama nueva de su repo, en el pom padre si un módulo Maven la hereda; `--cves` añade las vulnerabilidades conocidas
    con la base de datos offline de OSV-Scanner), y las tablas y colecciones de cada repo, con su diagrama ER, en
    la página del repo (`docs/repos/<repo>/index.md`; `docs/data/<repo>.md` antes de la 4.52), también `camaron schemas`).
 5. **Diagrama C4 rápido:** un primer borrador de la arquitectura, también sin IA.
@@ -492,8 +492,10 @@ tiempo, herramientas, ficheros cambiados y el diff, y si el check pasa en cada u
 `agentic-heavy` (unidades largas), `bounded` (traducciones, resúmenes) y `judge` (puntuar evaluaciones). `runner:modelo`
 elige también el modelo. El equipo lo fija en `.camarones/workspace.yaml` (`agents: routing:`); `~/.camarones.json`
 (`routing`) manda en esta máquina. Los modelos locales solo pasan por OpenCode (`opencode:ollama/qwen3-coder:30b`) y nunca
-hacen trabajo `agentic-heavy`. `autopilot` y `run` lo leen unidad a unidad. Cada ejecución queda registrada en
-`.camarones/.cache/runs/` (`camaron runs`).
+hacen trabajo `agentic-heavy`. `autopilot` y `run` lo leen unidad a unidad, y también las sesiones que abres tú (la
+siguiente unidad del asistente, el botón de la unidad en la app): con el agente que elijas, el modelo que `pipeline.yaml`
+fije para esa unidad o, si no, el de su tipo de trabajo (la actualización de la doc es `agentic-heavy`); si no hay
+ninguno para ese agente, el de Ajustes. Cada ejecución queda registrada en `.camarones/.cache/runs/` (`camaron runs`).
 
 ## 10. Problemas frecuentes
 

@@ -180,7 +180,8 @@ campos.
 
 **Librerías** (`#/libs`, en vivo): las dependencias directas de cada repo como matriz librería × repo, con filtros
 (categoría, lenguaje, repo, ámbito, solo vulnerables); las vulnerables primero, con sus avisos y la versión que las
-corrige. `#/libs/<repo>` la abre para un solo repo.
+corrige. Cada librería dice en qué repos está, primero donde tiene avisos, y su columna se queda fija al desplazar la
+tabla. `#/libs/<repo>` la abre para un solo repo.
 
 <!-- portal:#/c4 -->
 
