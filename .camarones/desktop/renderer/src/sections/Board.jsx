@@ -11,7 +11,8 @@ export { AddForm, StoryPanel }
 // The Board: the project's Backlog.md board in six columns, a card per work item. The app's token writes it, so a
 // card moves here by mouse (drag) or keyboard (the portal's way: Space grabs, arrows move, Enter drops, Escape puts
 // it back). A move shows at once and is undone if the server refuses it. A picked card opens its panel beside the
-// columns (a story's lists its tasks and adds one); Add in the header opens the form for any item.
+// columns (a story's lists its tasks and adds one; any card can be deleted, which archives it); Add in the header opens
+// the form for any item.
 const KEYS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', 'Enter', 'Escape']
 
 export default function Board({ srv }) {
@@ -29,6 +30,7 @@ export default function Board({ srv }) {
   const [item, setItem] = useState(null)                 // what GET kanban/item returned for the open card
   const [itemError, setItemError] = useState('')
   const [land, setLand] = useState(null)                 // the card just added: it takes the focus once drawn
+  const [delError, setDelError] = useState('')          // why the open card could not be deleted
   const load = useCallback(() => srv.get('kanban').then((b) => { setBoard(b); setError('') }, (e) => setError(e.message)), [srv])
   useEffect(() => { load() }, [load])
   useEffect(() => {                                    // the card keeps the focus when a move redraws it elsewhere
@@ -60,12 +62,12 @@ export default function Board({ srv }) {
     else { setBoard(before); if (r.kind === 'error') setNotice(r.message) }       // declined: back, with nothing to say
     await load()
   }
-  const show = (id) => { setAdding(null); setFormError(''); setOpen(id) }
+  const show = (id) => { setAdding(null); setFormError(''); setDelError(''); setOpen(id) }
   const openForm = (prefill) => { setOpen(null); setFormError(''); setAdding(prefill) }
   const pick = (id) => { const at = cardAt(cols, id); if (at) setKb(at) }       // a click or a drag starts the keys from that card
   const openCard = (id) => { pick(id); show(id) }
   const drag = (id) => { if (id) pick(id); setDragging(id) }
-  const closePanel = () => { setOpen(null); setAdding(null); setFormError('') }
+  const closePanel = () => { setOpen(null); setAdding(null); setFormError(''); setDelError('') }
   async function create(body) {
     setBusy(true); setFormError('')
     try {
@@ -74,6 +76,17 @@ export default function Board({ srv }) {
       const story = adding?.parent && body.parent === adding.parent ? adding.parent : null     // opened from a story: back to it
       setAdding(null); setOpen(story); setLand(row.id); setSay(t('bd.added', { id: row.id }))
     } catch (e) { setFormError(e.message) } finally { setBusy(false) }     // the form stays, filled
+  }
+  // Deleting archives the item (its file goes to backlog/archive/tasks, off the board), once the person says yes.
+  async function remove(id) {
+    const kids = childrenOf(board.cards, id).length
+    if (!window.confirm(t(kids ? 'bd.deleteAskKids' : 'bd.deleteAsk', { id }))) return
+    setBusy(true); setDelError('')
+    try {
+      await srv.post('kanban/archive', { id })
+      setKb(null); closePanel(); setSay(t('bd.deleted', { id }))
+      await load()
+    } catch (e) { setDelError(e.message) } finally { setBusy(false) }      // the panel stays, with why
   }
   async function init() {
     try { await srv.post('kanban/init', {}); setNotice(''); await load() } catch (e) { setNotice(e.message) }
@@ -106,10 +119,11 @@ export default function Board({ srv }) {
       onSubmit={create} onClose={closePanel} />
   ) : open ? (
     <StoryPanel id={open} item={shown} error={itemError} tasks={childrenOf(board.cards, open)} lang={lang()} writable={!!board.writable}
-      onAddTask={(story) => openForm({ type: 'task', parent: story })} onOpen={openCard} onClose={closePanel} />
+      busy={busy} deleteError={delError} onAddTask={(story) => openForm({ type: 'task', parent: story })} onOpen={openCard}
+      onDelete={remove} onClose={closePanel} />
   ) : null
   return (
-    <Page title={t('nav.board')} wide>
+    <Page title={t('nav.board')} full>
       <BoardView board={board} lang={lang()} kb={kb} notice={notice} say={say} open={open} dragging={dragging} over={over} side={side}
         onMove={move} onOpen={openCard} onAdd={() => openForm({})} onKey={onKey} onInit={init} onDrag={drag} onOver={setOver} />
     </Page>
