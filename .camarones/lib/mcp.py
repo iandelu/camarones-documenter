@@ -63,6 +63,18 @@ TOOLS = [
                                           "repo is omitted. Cheaper and more precise than grepping.",
      "inputSchema": {"type": "object", "properties": {"question": {"type": "string"}, "repo": {"type": "string"}},
                      "required": ["question"]}},
+    {"name": "board_next", "description": "The tasks you may start now without colliding with work in progress: free of "
+                                           "unfinished dependencies and of files that an In Progress task touches (a task "
+                                           "with no declared files counts as touching its whole repo), in wave order, plus "
+                                           "the ones that must wait and why. Agents cannot move cards: a person moves them "
+                                           "(or the harness, through the gate).",
+     "inputSchema": {"type": "object", "properties": {"n": {"type": "integer", "default": 3, "minimum": 1, "maximum": 20},
+                                                      "story": {"type": "string"}}}},
+    {"name": "board_waves", "description": "The open work of the board in waves: tasks of one wave can run in parallel, "
+                                           "each wave starts after the previous one (or the cycle that blocks it). "
+                                           "Agents cannot move cards: a person moves them (or the harness, through the "
+                                           "gate).",
+     "inputSchema": {"type": "object", "properties": {"story": {"type": "string"}, "epic": {"type": "string"}}}},
 ]
 
 
@@ -289,10 +301,31 @@ def kpis() -> str:
     return json.dumps(k.report(months=1, run_check=False), ensure_ascii=False, default=str)[:20000]
 
 
+# ---------- board (read only: agents never move cards) ----------
+def _board_call(fn, **kw) -> str:
+    from .kanban import BOARD, ops
+    try:
+        return json.dumps(fn(**kw), ensure_ascii=False, default=str)
+    except ops.BoardError as e:
+        return f"{'Board' if BOARD.exists() else 'No board here'}: {str(e).splitlines()[0]}"
+
+
+def board_next(n=3, story: str | None = None) -> str:
+    from .kanban import ops
+    if isinstance(n, bool) or not isinstance(n, (int, str)) or (isinstance(n, str) and not n.strip().lstrip("-").isdigit()):
+        return f"Board: n must be an integer from 1 to 20, not {n!r}."
+    return _board_call(ops.next_items, n=max(1, min(int(n), 20)), story=story or None, agent=True)
+
+
+def board_waves(story: str | None = None, epic: str | None = None) -> str:
+    from .kanban import ops
+    return _board_call(ops.waves, story=story or None, epic=epic or None)
+
+
 HANDLERS = {"search_docs": search_docs, "read_doc": read_doc, "list_docs": list_docs, "doc_status": doc_status,
             "ask": ask, "repo_graph": repo_graph, "propose_edit": propose_edit, "add_feedback": add_feedback,
             "mark_suspect": mark_suspect, "pipeline_status": pipeline_status, "run_node": run_node,
-            "run_events": run_events, "kpis": kpis}
+            "run_events": run_events, "kpis": kpis, "board_next": board_next, "board_waves": board_waves}
 
 PROMPTS = {
     "implement-feature": {
