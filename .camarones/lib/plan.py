@@ -22,7 +22,7 @@ from pathlib import Path
 import yaml
 
 from .common import CTX, KIT, PREFS, ROOT, load_json, WORK, CAM_LAYOUT, CAM_DIR, WORKSPACE, cli_cmd, ws_rel, rel_file, IS_WIN, which
-from . import docs
+from . import docs, sessions
 from .adapters import runners
 from .adapters.runners.base import LIMIT_HINTS  # noqa: F401  (kept for callers)
 from .harness import awake, drafts, freshness, kpis, ledger, pipeline, routing
@@ -896,12 +896,15 @@ def _autopilot(agents: list[str], lang: str, max_units: int | None, poll_seconds
         data = sync()
         ready = available(data)
         queue = [u for u in ready if u["runner"] == "agent" and u["type"] not in skip]
+        taken = sessions.taken(queue)
+        queue = [u for u in queue if u["id"] not in taken]
         if not queue:
             wizard = [u["id"] for u in ready if u["runner"] == "wizard"]
             interviews = [u["id"] for u in ready if u["type"] in skip]
-            if wizard or interviews:
+            if wizard or interviews or taken:
                 why = ([f"wizard step(s) {', '.join(wizard)} (run `{cli_cmd()}`)"] if wizard else []) + \
-                      ([f"interview(s) {', '.join(interviews)} (need you, in an interactive session)"] if interviews else [])
+                      ([f"interview(s) {', '.join(interviews)} (need you, in an interactive session)"] if interviews else []) + \
+                      ([f"{', '.join(taken)} open in a session (finish them there)"] if taken else [])
                 log(f"Autopilot stopped: what is left needs you — {'; '.join(why)}. Then start autopilot again.")
             else:
                 d, t = progress(data)

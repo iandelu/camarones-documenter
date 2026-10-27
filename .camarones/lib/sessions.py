@@ -78,6 +78,11 @@ def live(rec: dict | None) -> bool:
         time.time() - float(rec.get("launched") or 0) < GRACE
 
 
+def taken(units: list[dict]) -> list[str]:
+    """Ids of `units` with a session open right now: the person's to finish, not a run's to start."""
+    return [u["id"] for u in units if live(load(u["id"]))]
+
+
 def claude_dir(cwd: Path) -> Path:
     """Claude Code's saved conversations for `cwd`: its projects dir is the path with every non-alphanumeric → -.
     That name repeats the whole workspace path, so on Windows it often passes MAX_PATH: Claude Code (node) copes, and
