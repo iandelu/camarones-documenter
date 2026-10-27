@@ -58,9 +58,11 @@ def update(uid: str, **fields) -> None:
     _save(uid, {**(load(uid) or {}), **fields})
 
 
-def wrap(record: Path, cmd: list[str]) -> list[str]:
-    """The command the terminal runs: the agent inside session_run.py, with this interpreter (stdlib only)."""
-    return [sys.executable, str(Path(__file__).with_name("session_run.py")), str(record), "--", *cmd]
+def wrap(record: Path | None, cmd: list[str]) -> list[str]:
+    """The command the terminal runs: the agent inside session_run.py, with this interpreter (stdlib only). No record
+    (the docs update) is `-`."""
+    return [sys.executable, str(Path(__file__).with_name("session_run.py")), "-" if record is None else str(record),
+            "--", *cmd]
 
 
 def running(rec: dict | None) -> bool:

@@ -198,3 +198,11 @@ def test_headless_uses_the_lock_answer_it_is_given(wired, monkeypatch):
     monkeypatch.setattr(scheduler, "busy", lambda: pytest.fail("probed again"))
     assert sessions.headless(busy=True) == {"u1"}
     assert sessions.headless(busy=False) == set()
+
+
+def test_the_wrapper_can_run_without_a_record(monkeypatch, tmp_path):
+    from lib import session_run, sessions
+    monkeypatch.chdir(tmp_path)
+    assert sessions.wrap(None, ["agent", "x"])[-4:] == ["-", "--", "agent", "x"]
+    assert session_run.main(["-", "--", sys.executable, "-c", "raise SystemExit(4)"]) == 4
+    assert list(tmp_path.iterdir()) == []

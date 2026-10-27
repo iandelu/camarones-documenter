@@ -1,7 +1,7 @@
 """PTYs in the project server (lib/terminals.py): a real terminal per session, on every OS (pywinpty on Windows)."""
 from __future__ import annotations
 
-import json, re, sys, time
+import json, os, re, sys, time
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -151,3 +151,53 @@ def test_shutdown_also_kills_what_ignores_the_hang_up(pty, monkeypatch):
     pty.t.close(b["id"])
     pty.t.shutdown()
     until(lambda: not any(pid_alive(k) for k in kids))
+
+
+def test_the_ninth_terminal_is_refused(pty, monkeypatch):
+    assert pty.t.MAX_LIVE == 8
+    monkeypatch.setattr(pty.t, "MAX_LIVE", 2)
+    a, _ = pty.open(), pty.open()
+    with pytest.raises(pty.t.Limit):
+        pty.open()
+    pty.t.close(a["id"])
+    until(lambda: pty.t.get(a["id"])["ended"])
+    pty.open()                                                         # room again
+
+
+def test_a_unit_terminal_closes_its_session_record(pty, kit):
+    from lib import sessions
+    rec = sessions.start("discovery:api", "claude", None)
+    m = pty.t.spawn(sessions.wrap(rec, [sys.executable, str(ECHO)]), kit.root, kind="unit", unit="discovery:api",
+                    agent="claude")
+    assert m["id"].startswith("t-discovery_api-")
+    until(lambda: sessions.running(sessions.load("discovery:api")))      # inside session_run, as in a window
+    assert pty.t.find("unit", "discovery:api")["id"] == m["id"]
+    pty.t.close(m["id"])
+    until(lambda: (sessions.load("discovery:api") or {}).get("ended"))
+    assert not sessions.live(sessions.load("discovery:api")) and pty.t.find("unit", "discovery:api") is None
+
+
+def test_a_record_taken_by_a_newer_session_is_left_alone(pty, kit):
+    from lib import sessions
+    rec = sessions.start("discovery:api", "claude", None)
+    m = pty.t.spawn(sessions.wrap(rec, [sys.executable, str(ECHO)]), kit.root, kind="unit", unit="discovery:api",
+                    agent="claude")
+    until(lambda: sessions.running(sessions.load("discovery:api")))
+    sessions.start("discovery:api", "codex", None)                       # a new session took the record
+    pty.t.close(m["id"])
+    until(lambda: pty.t.get(m["id"])["ended"])
+    assert "ended" not in sessions.load("discovery:api")
+
+
+def test_old_terminal_files_are_pruned_when_the_first_one_opens(pty, monkeypatch):
+    monkeypatch.setattr(pty.t, "KEEP", 3)
+    pty.t.DIR.mkdir(parents=True, exist_ok=True)
+    for i in range(5):
+        for ext in (".json", ".log"):
+            f = pty.t.DIR / f"t-old-{i}{ext}"
+            f.write_text("{}", encoding="utf-8")
+            os.utime(f, (1000 + i, 1000 + i))
+    m = pty.open()
+    left = sorted(p.name for p in pty.t.DIR.glob("*.json"))
+    assert left == sorted([f"{m['id']}.json", "t-old-3.json", "t-old-4.json"])
+    assert not (pty.t.DIR / "t-old-0.log").exists()
