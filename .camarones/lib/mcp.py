@@ -63,10 +63,11 @@ TOOLS = [
                                           "repo is omitted. Cheaper and more precise than grepping.",
      "inputSchema": {"type": "object", "properties": {"question": {"type": "string"}, "repo": {"type": "string"}},
                      "required": ["question"]}},
-    {"name": "board_next", "description": "The tasks you may start now without colliding with work in progress: free of "
-                                           "unfinished dependencies and of files that an In Progress task touches (a task "
-                                           "with no declared files counts as touching its whole repo), in wave order, plus "
-                                           "the ones that must wait and why. Agents cannot move cards: a person moves them "
+    {"name": "board_next", "description": "The tasks you may start now without colliding with work in progress or with "
+                                           "each other: free of unfinished dependencies and of files that an In Progress "
+                                           "task touches (a task with no declared files counts as touching its whole "
+                                           "repo), one wave at most n long, plus the ones that must wait and why (kind "
+                                           "'wave': it would collide with a task handed out now). Agents cannot move cards: a person moves them "
                                            "(or the harness, through the gate).",
      "inputSchema": {"type": "object", "properties": {"n": {"type": "integer", "default": 3, "minimum": 1, "maximum": 20},
                                                       "story": {"type": "string"}}}},

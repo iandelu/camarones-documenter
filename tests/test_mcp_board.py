@@ -59,6 +59,14 @@ def test_board_next_omits_a_task_that_collides_with_work_in_progress(board, mcp)
     assert got["waiting"][0]["blocked_by"][0]["id"] == "WI-1"
 
 
+def test_board_next_never_hands_out_two_tasks_on_the_same_file(board, mcp):
+    board.add("task", "One", touches=["api:a.py"])
+    board.add("task", "Two", touches=["api:a.py"])
+    got = json.loads(call(mcp, "board_next")[0])
+    assert ids(got["ready"]) == ["WI-1"]
+    assert got["waiting"] == [{"id": "WI-2", "blocked_by": [{"kind": "wave", "wave": 1}]}]
+
+
 def test_board_next_judges_an_item_without_touches_as_its_whole_repo(board, mcp):
     board.add("task", "Declared", touches=["api:a.py"])
     board.add("task", "Open", repos=["api"])

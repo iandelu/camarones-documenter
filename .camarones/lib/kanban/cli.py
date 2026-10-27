@@ -56,7 +56,11 @@ def _lang(ops) -> str:
 
 def note(b: dict, lang: str) -> str:
     """Why an item cannot start, in the project's language."""
-    es, i = lang == "es", b["id"]
+    es, i = lang == "es", b.get("id")
+    if b["kind"] == "wave":
+        k = int(b.get("wave") or 0) + 1                      # 0-based in --json, as `board waves` numbers them here
+        return (f"choca con otra tarea lista: va en la ola {k}" if es
+                else f"collides with another ready task: it goes in wave {k}")
     if b["kind"] == "dependency":
         return f"espera a {i}" if es else f"waits for {i}"
     if b["kind"] == "missing":

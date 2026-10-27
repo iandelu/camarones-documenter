@@ -167,8 +167,36 @@ def test_ready_orders_by_wave_then_priority_then_id(kit):
         node("WI-4", status="Ready", priority=None, touches=["web:c.js"]),
         node("WI-5", status="Ready", priority="P2", touches=["web:d.js"]),
     ]
-    # priority order places WI-2 before WI-1 -> WI-2 wave 0, WI-1 wave 1
-    assert ready(board) == ["WI-2", "WI-3", "WI-5", "WI-4", "WI-1"]
+    # priority order places WI-2 before WI-1 -> WI-2 wave 0, WI-1 wave 1: only wave 0 is handed out
+    waiting = []
+    assert ready(board, waiting=waiting) == ["WI-2", "WI-3", "WI-5", "WI-4"]
+    assert waiting == [{"id": "WI-1", "blocked_by": [{"kind": "wave", "wave": 1}]}]
+    assert ready(board, n=2) == ["WI-2", "WI-3"]
+    assert ready(board, n=0) == []
+
+
+def test_ready_never_hands_out_two_tasks_on_the_same_file(kit):
+    from lib.kanban.deps import ready
+    board = [node("WI-1", touches=["api:a.py"]), node("WI-2", touches=["api:a.py"]),
+             node("WI-3", touches=["api:a.py"]), node("WI-4", status="In Progress", touches=["web:x.js"]),
+             node("WI-5", touches=["web:x.js"])]
+    waiting = []
+    assert ready(board, waiting=waiting) == ["WI-1"]
+    assert waiting == [{"id": "WI-2", "blocked_by": [{"kind": "wave", "wave": 1}]},
+                       {"id": "WI-3", "blocked_by": [{"kind": "wave", "wave": 2}]},
+                       {"id": "WI-5", "blocked_by": [{"id": "WI-4", "kind": "conflict", "files": ["web:x.js"]}]}]
+    waiting = []
+    assert ready(board, among={"WI-2", "WI-3"}, waiting=waiting) == ["WI-2"]     # judged among the scope only
+    assert [w["id"] for w in waiting] == ["WI-3"]
+
+
+def test_ready_people_view_uses_people_footprints(kit):
+    from lib.kanban.deps import ready, waves
+    board = [node("WI-1", repos=["api"]), node("WI-2", repos=["api"]), node("WI-3", touches=["api:a.py"])]
+    assert ready(board) == ["WI-1"]                                    # agents: no files = the whole repo
+    assert ready(board, agent=False) == ["WI-1", "WI-2", "WI-3"]       # people: no files = nothing declared
+    assert waves(board, agent=False) == [["WI-1", "WI-2", "WI-3"]]
+    assert waves(board) == [["WI-1"], ["WI-2"], ["WI-3"]]
 
 
 def test_a_node_listing_itself_is_never_blocked_by_itself(kit):
@@ -200,5 +228,9 @@ def test_containers_never_block_never_wait_for_conflicts_and_are_never_candidate
     assert blocked_by(by["WI-1"], board, agent=True) == []              # a container touches nothing itself...
     board[0]["deps"] = ["WI-9"]
     assert blocked_by(by["WI-1"], board, agent=True) == [{"id": "WI-9", "kind": "dependency"}]   # ...but waits as any
-    assert ready(board) == ["WI-2", "WI-9", "WI-3"]                     # the container is not a candidate
+    assert ready(board) == ["WI-2", "WI-9"]                             # the container is not a candidate
+    waiting = []
+    ready(board, waiting=waiting)
+    assert waiting == [{"id": "WI-3", "blocked_by": [{"kind": "wave", "wave": 1}]},
+                       {"id": "WI-4", "blocked_by": [{"id": "WI-9", "kind": "dependency"}]}]
     assert waves(board) == [["WI-2", "WI-9"], ["WI-3"], ["WI-4"]]                  # none holds only the container

@@ -140,12 +140,14 @@ def test_next_is_the_peoples_view(ops, server):
     ops.add("task", "Collides", touches=["api:a.py"])
     ops.add("task", "Free", touches=["api:b.py"])
     ops.add("task", "Open", repos=["api"])                        # no declared files: an agent would count the whole repo
+    ops.add("task", "Also free", touches=["api:b.py"])                # free, but collides with WI-3: a later wave
     ops.move("WI-1", "In Progress")
     code, b = get(server, "/api/kanban/next?n=5")
     assert code == 200
-    assert [r["id"] for r in b["ready"]] == ["WI-3", "WI-4"]      # WI-4 would wait for an agent
-    assert all(isinstance(r["wave"], int) for r in b["ready"])
-    assert b["waiting"] == [{"id": "WI-2", "blocked_by": [{"id": "WI-1", "kind": "conflict", "files": ["api:a.py"]}]}]
+    assert [r["id"] for r in b["ready"]] == ["WI-3", "WI-4"]      # WI-4 would wait for an agent (and share WI-3's wave)
+    assert all(r["wave"] == 0 for r in b["ready"])
+    assert b["waiting"] == [{"id": "WI-2", "blocked_by": [{"id": "WI-1", "kind": "conflict", "files": ["api:a.py"]}]},
+                           {"id": "WI-5", "blocked_by": [{"kind": "wave", "wave": 1}]}]
     assert [r["id"] for r in get(server, "/api/kanban/next?n=1")[1]["ready"]] == ["WI-3"]
     assert len(get(server, "/api/kanban/next")[1]["ready"]) == 2          # n defaults to 3
 
