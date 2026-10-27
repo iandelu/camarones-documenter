@@ -93,6 +93,16 @@ test('a run that finished without closing a unit no longer calls it running', ()
   expect(html(<TermNode data={{ unit, fu, now: 1000, finished: true, viewed: true, ...on }} />)).toContain('Plegar')
 })
 
+// A stopped autopilot leaves its unit with no end of its own: the header says where the plan has it, not nothing.
+test('a unit cut off by a run that is over says where the plan has it', () => {
+  const fu = { runner: 'claude', started: 0, ended: null, outcome: null, cost: 0, rows: [{ kind: 'read', text: 'Read a.md' }] }
+  const head = (u) => html(<TermNode data={{ unit: u, fu, now: 1000, finished: true, ...on }} />).split('role="log"')[0]
+  expect(head({ ...unit, status: 'todo', ready: true })).toContain('por hacer')
+  expect(head({ ...unit, status: 'doing', paused: true })).toContain('en pausa')
+  const late = html(<TermNode data={{ unit, fu: { ...fu, last: 90000 }, now: 9e9, finished: true, ...on }} />)
+  expect(late).toContain('1 min')                       // until its last event, not until whenever the page looks
+})
+
 test('a unit that is done tells how long it took and what it cost', () => {
   const fu = { runner: 'claude', started: 0, ended: 120000, outcome: 'ok', cost: 0.31, rows: [{ kind: 'log', text: 'hecho' }] }
   const out = html(<UnitNode data={{ unit: { ...unit, status: 'done' }, fu, now: 9e9, ...on }} />)

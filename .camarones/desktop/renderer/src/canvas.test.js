@@ -71,6 +71,15 @@ test("the feed keeps the plan status a unit ended with, and a new start forgets 
   expect(feed(emptyFeed('r-1'), ev('unit.finished', { outcome: 'ok' })).units.a.status).toBe(null)
 })
 
+// A unit cut off by a stopped run has no end of its own: its last event is the last sign of life.
+test('the feed keeps when a unit was last heard from', () => {
+  let f = feed(emptyFeed('r-1'), ev('unit.started', { runner: 'claude' }))
+  expect(f.units.a.last).toBe(f.units.a.started)
+  f = feed(f, ev('tool.call', { name: 'Read', arg: 'a.md', ts: '2026-10-27T10:01:30.000Z' }))
+  f = feed(f, ev('usage', { cost_usd: 0.1, ts: '2026-10-27T10:02:00.000Z' }))
+  expect(f.units.a.last - f.units.a.started).toBe(120000)
+})
+
 test('a unit that could not start says why, bounded like any other row', () => {
   let f = feed(emptyFeed('r-1'), ev('unit.started', { runner: 'claude' }))
   f = feed(f, ev('unit.finished', { outcome: 'failed', error: 'claude: command not found\nsecond line' }))

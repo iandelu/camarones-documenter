@@ -180,7 +180,7 @@ them. `#/libs/<repo>` opens it for one repo.
 do, running, blocked, done, dropped). A unit's panel: its agent, outcome, time, tokens and cost, whether it worked in its
 own copy, what it waits for, its notes and the agent's live log. **Approve** lets the units after one waiting for a
 person start; **Retry** puts a blocked one back in the queue. Running and cancelling are the app's (Plan). A run
-stopped from outside (its job stopped, its process killed) shows as interrupted within a few seconds.
+stopped from outside (its job stopped, its process killed) shows as finished within a few seconds, not as running.
 
 **Interview** (`#/interview`, live): when the interviews run as a team questionnaire, each person answers here — what
 was inferred from the code with its evidence, the options, "Other" and a comment. It saves the same file as the offline

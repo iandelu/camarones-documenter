@@ -226,7 +226,7 @@ started from the Plan itself; a unit you start by hand in its own terminal does 
 it ends, until you pick another view. The canvas reads the
 run's log (the same one the portal reads) and follows the app's light or dark theme; stopping stays on the **Run the
 plan** card. A run stopped from outside (its job stopped, its process killed) shows as over within a few seconds: its
-terminals stop saying running and their clocks stop.
+terminals stop saying running, and a unit it cut off says where the plan has it, its clock stopped at its last line.
 
 **Plan from zero**, under the units. What the plan has cost since it started (or since the last wipe), for the whole team: agent time
 unattended, time with a person, calendar time, tokens and API-equivalent dollars, the most expensive units and a table
