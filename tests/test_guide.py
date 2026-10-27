@@ -2,8 +2,9 @@
 installed kit (never a project's stale copy), in the machine's language with English as the fallback per file."""
 from __future__ import annotations
 
-import json, threading, urllib.error, urllib.request
+import json, re, threading, urllib.error, urllib.request
 from http.server import ThreadingHTTPServer
+from pathlib import Path
 
 import pytest
 
@@ -60,3 +61,66 @@ def test_guide_endpoint_needs_the_app_token(kit, app):
     assert status == 200
     assert body["lang"] == "en" and isinstance(body["guides"], list)
     assert body["guides"] and body["guides"][-1]["name"] == "tutorial"
+
+
+# The guides the kit ships: each statement must match the code, so the buttons and links they carry are checked here.
+GUIDES = Path(__file__).resolve().parents[1] / ".camarones" / "templates" / "docs"
+MARKER = re.compile(r"^<!--\s*(go|cmd|portal|tour):(\S+)\s*-->\s*$", re.M)
+LINK = re.compile(r"\]\(((?:\./)?[\w-]+\.md)?(?:#([^)\s]*))?\)")
+
+
+def shipped():
+    for lang, folder in (("en", GUIDES / "guides"), ("es", GUIDES / "i18n" / "es" / "guides")):
+        for f in sorted(folder.glob("*.md")):
+            yield lang, f
+
+
+def test_the_kit_ships_the_guides_in_order(kit):
+    from lib import guide
+    got = guide.guides("en")
+    assert [g["name"] for g in got] == list(guide.ORDER)
+    assert all(g["title"] and g["description"] for g in got)
+
+
+def test_cmd_markers_name_catalog_commands(kit):
+    from lib import appapi
+    names = {c["name"] for c in appapi.catalog()["commands"]}
+    for _, f in shipped():
+        for kind, target in MARKER.findall(f.read_text(encoding="utf-8")):
+            if kind == "cmd":
+                assert target in names, f"{f.name}: cmd:{target}"
+
+
+def test_portal_markers_are_portal_routes():
+    zones = (GUIDES.parents[1] / "portal" / "app" / "src" / "zones.js").read_text(encoding="utf-8")
+    routes = set(re.findall(r"(\w+): \['", zones.split("const ROUTES = {")[1].split("}")[0])) | {"", "search", "ask", "new"}
+    for _, f in shipped():
+        for kind, target in MARKER.findall(f.read_text(encoding="utf-8")):
+            if kind == "portal":
+                head = re.match(r"^#/([\w-]*)", target)
+                assert head and head.group(1) in routes, f"{f.name}: portal:{target}"
+
+
+def test_guide_links_point_at_headings(kit):
+    from lib import docs
+    for lang, f in shipped():
+        body = docs.split_fm(f.read_text(encoding="utf-8"))[1]
+        for file, anchor in LINK.findall(body):
+            target = f.parent / Path(file).name if file else f
+            assert target.is_file(), f"{f.name} ({lang}): {file}"
+            if anchor:
+                slugs = {h["slug"] for h in docs.headings(docs.split_fm(target.read_text(encoding="utf-8"))[1])}
+                assert anchor in slugs, f"{f.name} ({lang}): {file}#{anchor}"
+
+
+def test_projects_get_the_guides_without_overwriting(kit):
+    from lib import env
+    mine = kit.root / "docs" / "guides" / "app.md"
+    if mine.exists():
+        mine.unlink()
+    portal = kit.root / "docs" / "guides" / "portal.md"
+    portal.parent.mkdir(parents=True, exist_ok=True)
+    portal.write_text("# Our own notes\n", encoding="utf-8")
+    env.init_templates("shop", log=lambda _: None)
+    assert mine.is_file()
+    assert portal.read_text(encoding="utf-8") == "# Our own notes\n"
