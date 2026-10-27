@@ -173,14 +173,15 @@ export function footprintOf(touches, groups = {}) {
     pages: all.length - code.length }
 }
 
-// The tasks analyze returned, with the ticks the person left on the same keys. A new one comes ticked, unless the
-// story's subtasks already on the board (`onBoard`, rows with `touches`) cover all of its files: an existing story
-// opens with its proposals again, and saving them as they come would add the same work twice.
-export function withChecks(tasks, previous, onBoard = []) {
+// The tasks analyze returned, with the ticks the person left on the same keys (new ones come ticked), followed by the
+// unticked ones, which were not sent (they have no wave and wait for nothing until they are ticked again).
+export function withChecks(tasks, previous) {
   const was = Object.fromEntries((previous || []).map((t) => [t.key, t.checked !== false]))
-  const done = new Set((onBoard || []).flatMap((s) => s.touches || []))
-  const covered = (t) => (t.touches || []).length > 0 && t.touches.every((f) => done.has(f))
-  return (tasks || []).map((t) => ({ ...t, checked: was[t.key] ?? !covered(t) }))
+  const fresh = (tasks || []).map((t) => ({ ...t, checked: was[t.key] ?? true }))
+  const back = new Set(fresh.map((t) => t.key))
+  const off = (previous || []).filter((t) => t.checked === false && !back.has(t.key))
+    .map((t) => ({ ...t, wave: -1, deps: [], conflicts: [] }))
+  return [...fresh, ...off]
 }
 
 // Any change to a task marks it edited: analyze then keeps it as given instead of proposing it afresh.
@@ -249,9 +250,37 @@ const storyOf = (d) => ({ id: d.id || null, as: d.as, want: d.want, so: d.so,
 const taskOf = (t) => ({ key: t.key, kind: t.kind || 'change', title: t.title, group: t.group || '', touches: t.touches || [],
   criteria: t.criteria || [], edited: !!t.edited, added: t.added || [], dropped: t.dropped || [] })
 
-// POST /api/stories/analyze: the story, every task the person has (unedited ones come back fresh), `removed`.
+// POST /api/stories/analyze: the story, the ticked tasks (unedited ones come back fresh) and `removed` with the keys of
+// the unticked ones, so they are neither proposed again nor counted in the waves.
 export function analyzeBody(draft, lang) {
-  return { story: storyOf(draft), tasks: (draft.tasks || []).map(taskOf), removed: draft.removed || [], lang }
+  const tasks = draft.tasks || []
+  const off = tasks.filter((t) => t.checked === false).map((t) => t.key)
+  return { story: storyOf(draft), tasks: tasks.filter((t) => t.checked !== false).map(taskOf),
+    removed: uniq([...(draft.removed || []), ...off]), lang }
+}
+
+// What the analyze effect does with the draft as it is now. `key` is the body to send, prefixed with a nonce that
+// changes each time a story is opened; `last` the key whose answer is on screen. A blank want clears the analysis
+// and forgets `last`, so typing the same text back runs it again. → {action: 'run' | 'skip' | 'clear', last}
+export function planAnalyze(last, key, want) {
+  if (!clean(want)) return { action: 'clear', last: '' }
+  return { action: key === last ? 'skip' : 'run', last }
+}
+
+// The files the story's linked doc pages cite (GET /api/stories/item → doc_sources) join Toca when it opens; those not
+// already picked are marked `fromDocs` until the person removes or keeps them.
+export function mergeDocSources(draft, sources) {
+  const more = sorted(sources).filter((t) => !(draft.touches || []).includes(t))
+  if (!more.length) return draft
+  return { ...draft, touches: sorted([...(draft.touches || []), ...more]), fromDocs: uniq([...(draft.fromDocs || []), ...more]) }
+}
+
+// Escape while an AI suggestion is on its way stops that request and nothing else: the key goes no further, so the
+// form or search box under the focus keeps its state. → whether it was taken.
+export function escapeAborts(e, running, stop) {
+  if (e.key !== 'Escape' || !running) return false
+  e.stopPropagation(); e.preventDefault(); stop()
+  return true
 }
 
 // POST /api/stories/save: the ticked tasks only, each with the dependencies analyze worked out (keys of ticked tasks or

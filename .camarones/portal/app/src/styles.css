@@ -293,6 +293,9 @@
 #native .st-files ul { margin: 4px 0 0; padding-left: 1rem; font-size: 12px; }
 #native .st-warn { color: var(--warn); margin: 0; }
 #native .st-addtask { display: grid; gap: 6px; padding: 12px; margin: 8px 0; border: 1px dashed var(--line); border-radius: var(--consola-radio-chico); }
+#native .st-docmark { font-size: 10px; color: var(--color-acento-texto); margin: 0 2px; }
+#native .st-fromdocs { margin: 0; }
+#native .st-status { font-size: 11px; border: 1px solid var(--line); border-radius: var(--radius-pildora); padding: 0 6px; color: var(--ink-2); }
 #native .st-existing li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; padding: 4px 0; }
 #native .st-ai { margin: 8px 0; }
 #native .st-ai-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 8px; margin-top: 6px;

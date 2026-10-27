@@ -1,5 +1,6 @@
 import { useId, useRef, useState } from 'react'
 import { core } from '../core.js'
+import { STATUS_LABELS } from '../kanban.js'
 import { addDep, addTask, dropDep, editTask, mergeTasks, removeTask, taskNames } from '../stories.js'
 import TouchPicker from './TouchPicker.jsx'
 import { Suggest } from './Suggest.jsx'
@@ -9,6 +10,7 @@ import { Suggest } from './Suggest.jsx'
 // again by analyze. Enter on a title moves to the next one.
 const t = core.t
 const plural = (key, n) => t(`${key}.${n === 1 ? 'one' : 'many'}`, { n })
+const statusLabel = (s) => (STATUS_LABELS[core.lang() === 'es' ? 'es' : 'en'] || STATUS_LABELS.en)[s] || s
 const short = (s, n = 40) => (s.length > n ? `${s.slice(0, n - 1)}…` : s)
 
 function Row({ task, n, tasks, unknown, change, onEnter }) {
@@ -96,11 +98,12 @@ function AddTask({ change, groups, onDone }) {
   )
 }
 
-export default function TasksStep({ draft, change, analysis, existing, ai, aiOn }) {
+export default function TasksStep({ draft, change, analysis, ai, aiOn }) {
   const id = useId()
   const list = useRef(null)
   const [adding, setAdding] = useState(false)
   const tasks = draft.tasks || []
+  const existing = analysis?.existing || []
   const next = (el) => {
     const all = [...(list.current?.querySelectorAll('[data-task-title]') || [])]
     all[all.indexOf(el) + 1]?.focus()
@@ -124,11 +127,13 @@ export default function TasksStep({ draft, change, analysis, existing, ai, aiOn 
       {existing.length ? (
         <>
           <h3>{t('stories.tasks.existing')}</h3>
+          <p className="muted small">{t('stories.tasks.existingNote')}</p>
           <ul className="st-existing">
             {existing.map((s) => (
               <li key={s.id}><a href={`#/kanban/${s.id}`}><span className="card-id">{s.id}</span> {s.title}</a>
-                <span className="muted small"> · {s.status}</span>
-                {s.wave >= 0 ? <span className="st-wave">{t('stories.wave', { n: s.wave + 1 })}</span> : null}</li>
+                <span className="st-status">{statusLabel(s.status)}</span>
+                {Number.isInteger(s.wave) && s.wave >= 0 ? <span className="st-wave">{t('stories.wave', { n: s.wave + 1 })}</span> : null}
+                {s.touches?.length ? <span className="muted small">{plural('stories.task.files', s.touches.length)}</span> : null}</li>
             ))}
           </ul>
         </>

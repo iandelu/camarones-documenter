@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { postJSON } from '../api.js'
 import { core } from '../core.js'
+import { escapeAborts } from '../stories.js'
 
 // "Sugerir con IA" (spec §7): only when the server says AI is available. A suggestion is shown apart, marked IA, and
 // does nothing until the person accepts it; it never decides files, dependencies, waves or the verdict. Escape cancels
@@ -16,9 +17,10 @@ export function useSuggest({ draft, lang, onReadOnly }) {
   const stop = useCallback(() => { ctrl.current?.abort() }, [])
   useEffect(() => {
     if (!state?.running) return undefined
-    const onKey = (e) => { if (e.key === 'Escape') stop() }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
+    // capture: the key is taken before the form or search box under the focus sees it
+    const onKey = (e) => { escapeAborts(e, true, stop) }
+    document.addEventListener('keydown', onKey, true)
+    return () => document.removeEventListener('keydown', onKey, true)
   }, [state?.running, stop])
   useEffect(() => () => ctrl.current?.abort(), [])
 

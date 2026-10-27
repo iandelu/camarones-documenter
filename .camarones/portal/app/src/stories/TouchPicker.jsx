@@ -10,7 +10,8 @@ const SEARCH_MS = 150
 const pathOf = (touch) => touch.slice(touch.indexOf(':') + 1)
 
 // `onChange(touches, groups)`: the new list and the group of each file a hit named.
-export default function TouchPicker({ touches, groups, onChange, label, error, describedBy }) {
+// `fromDocs`: files that came from the story's linked pages, marked until the person removes them or keeps them all.
+export default function TouchPicker({ touches, groups, onChange, label, error, describedBy, fromDocs = [], onKeep }) {
   const [q, setQ] = useState('')
   const [hits, setHits] = useState(null)
   const input = useRef(null)
@@ -61,6 +62,7 @@ export default function TouchPicker({ touches, groups, onChange, label, error, d
               {r.touches.map((touch) => (
                 <span key={touch} className="st-chip" title={touch}>
                   <code>{pathOf(touch)}</code>
+                  {fromDocs.includes(touch) ? <span className="st-docmark">{t('stories.fromDocs')}</span> : null}
                   <button type="button" className="icon" aria-label={t('stories.touches.remove', { touch })} onClick={() => remove(touch)}>✕</button>
                 </span>
               ))}
@@ -68,6 +70,8 @@ export default function TouchPicker({ touches, groups, onChange, label, error, d
           ))}
         </div>
       ) : <p className="muted small">{t('stories.touches.empty')}</p>}
+      {fromDocs.length && onKeep ? <p className="muted small st-fromdocs">{t('stories.fromDocs.note')}{' '}
+        <button type="button" className="ghost small" onClick={onKeep}>{t('stories.fromDocs.keep')}</button></p> : null}
       {error ? <p className="error" role="alert">{error}</p> : null}
     </div>
   )
