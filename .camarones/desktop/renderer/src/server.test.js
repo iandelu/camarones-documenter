@@ -42,3 +42,32 @@ test('an error also carries the status and the response body', async () => {
   expect(err.status).toBe(409)
   expect(err.data.blocked_by).toEqual(['WI-3'])
 })
+
+const sse = (...pieces) => new ReadableStream({ start(c) {
+  const enc = new TextEncoder(); pieces.forEach((p) => c.enqueue(enc.encode(p))); c.close() } })
+
+test("stream reads a run's events with the token and says where it stopped", async () => {
+  const calls = []
+  const fetcher = async (url, init) => { calls.push([url, init]); return new Response(sse(
+    'id: 10\ndata: {"type":"unit.started","unit":"a"}\n\nid: 2', '0\ndata: {"type":"log","unit":"a","text":"hi"}\n\n')) }
+  const seen = []
+  const end = await server('tok', fetcher).stream('runs/r-1/events', (ev) => seen.push(ev.type), { from: 5 })
+  expect(calls[0][0]).toBe('../api/runs/r-1/events?from=5')
+  expect(calls[0][1].headers['X-Camaron-Token']).toBe('tok')
+  expect(seen).toEqual(['unit.started', 'log'])
+  expect(end).toEqual({ id: '20' })
+})
+
+test('a refused stream throws the server message', async () => {
+  const fetcher = async () => new Response(JSON.stringify({ error: 'no run r-9' }), { status: 404 })
+  await expect(server('t', fetcher).stream('runs/r-9/events', () => {})).rejects.toThrow('no run r-9')
+})
+
+test('a stream with nothing new ends where it started, and an abort signal reaches the fetcher', async () => {
+  const seen = []
+  const fetcher = async (url, init) => { seen.push([url, init.signal]); return new Response(sse(': keep-alive\n\n')) }
+  const ctl = new AbortController()
+  const end = await server('t', fetcher).stream('runs/r-1/events', () => seen.push('event'), { from: '42', signal: ctl.signal })
+  expect(end).toEqual({ id: '42' })
+  expect(seen).toEqual([['../api/runs/r-1/events?from=42', ctl.signal]])
+})
