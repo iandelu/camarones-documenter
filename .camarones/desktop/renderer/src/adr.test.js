@@ -61,7 +61,16 @@ test('a hand-written ADR skips the AI steps', () => {
 
 test('the stepper stays calm with a phase it does not know', () => {
   expect(states(undefined)).toEqual(['todo', 'todo', 'todo', 'todo', 'todo', 'todo'])
+  expect(stepper('nonsense').every((s) => s.state === 'todo')).toBe(true)
+})
+
+test('a rejected ADR ends on a Rejected step, never on Accepted', () => {
+  const ids = (phase, mode) => stepper(phase, mode).map((s) => s.id)
+  expect(ids('rejected')).toEqual(['problem', 'evidence', 'research', 'synthesis', 'review', 'rejected'])
   expect(states('rejected')).toEqual(['done', 'done', 'done', 'done', 'done', 'current'])
+  expect(ids('rejected', 'manual')).toEqual(['problem', 'evidence', 'research', 'synthesis', 'review', 'rejected'])
+  expect(states('rejected', 'manual')).toEqual(['done', 'done', 'skipped', 'skipped', 'done', 'current'])
+  expect(ids('accepted')).toEqual(STEPS)
 })
 
 const parts = [{ id: 'context', status: 'pending' }, { id: 'drivers', status: 'approved' }, { id: 'options', status: 'pending' }]
