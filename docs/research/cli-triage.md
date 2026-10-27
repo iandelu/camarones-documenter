@@ -12,11 +12,12 @@ every command either way.
 | `confirm` | — |  |  |  |
 | `feedback` | — |  |  |  |
 
-## Desktop app (46)
+## Desktop app (47)
 
 | Command | Zone | AI | Destructive | --json |
 |---|---|---|---|---|
 | `ab` | check | yes |  | yes |
+| `adr` | team |  |  | yes |
 | `arch-draft` | analyze |  |  |  |
 | `arch-validate` | check |  |  |  |
 | `autopilot` | generate | yes |  |  |
