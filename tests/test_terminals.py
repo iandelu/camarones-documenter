@@ -186,6 +186,8 @@ def test_a_record_taken_by_a_newer_session_is_left_alone(pty, kit):
     sessions.start("discovery:api", "codex", None)                       # a new session took the record
     pty.t.close(m["id"])
     until(lambda: pty.t.get(m["id"])["ended"])
+    with pty.t._term(m["id"]).finishing:                                 # its end, the record's included, is done
+        pass
     assert "ended" not in sessions.load("discovery:api")
 
 

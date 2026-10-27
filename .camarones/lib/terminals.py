@@ -449,13 +449,15 @@ def _finish(t: _Term) -> None:
 
 
 def _end_record(meta: dict) -> None:
-    """A unit's session record gets the terminal's end, which its wrapper did not write when it was killed with it:
-    the unit reads as paused, as after a closed window. Left alone when the wrapper wrote it, when there is none or it
-    is being rewritten, and once it is another session's (its pid is not this terminal's)."""
+    """A unit's session record gets the terminal's end, which its wrapper did not write when it was killed with it (or
+    never started): the unit reads as paused, as after a closed window. The record is this terminal's when it was
+    launched at or before the terminal started, as the caller starts it before it spawns; a newer session's was
+    launched later. Not the pid: on Windows a venv's python.exe is a launcher, and the wrapper is its child. Left
+    alone when the wrapper wrote its end, when there is none or it is being rewritten, and once it is another's."""
     if meta["kind"] != "unit" or not meta["unit"]:
         return
     rec = sessions.load(meta["unit"])
-    if not rec or rec.get("ended") or rec.get("pid") != meta["pid"]:
+    if not rec or rec.get("ended") or float(rec.get("launched") or 0) > meta["started"]:
         return
     try:
         sessions.update(meta["unit"], ended=meta["ended"], code=meta["code"])
