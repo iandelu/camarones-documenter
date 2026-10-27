@@ -1,7 +1,7 @@
 // The portal server's API (lib/serve.py), relative so the app also works under a sub-path. Mutations need the
 // X-Camarones header, which a cross-site page cannot send. In the desktop app's window (its preload sets
 // window.camaronApp) every request also carries the app's token: only then does the server start processes.
-import { parseSSE } from './sse.js'
+import { parseSSE } from '@camaron/ui'
 
 // (Read once at import; without a page — the tests — it is the live server, outside the app.)
 export const STATIC = typeof document !== 'undefined' && document.querySelector('meta[name="cam-mode"]')?.content === 'static'
