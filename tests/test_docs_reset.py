@@ -168,3 +168,13 @@ def test_cli_docs_reset(documented):
     r = cli(documented, "reset", "--wipe", "--yes")
     assert r.returncode == 0, r.stdout + r.stderr
     assert not (root / "docs" / "domain" / "context-map.md").exists()
+
+
+def test_wipe_starts_a_new_epoch_and_redo_keeps_it(documented, monkeypatch):
+    plan = documented.plan
+    old = plan.load()["epoch"]
+    monkeypatch.setattr(plan, "utcnow", lambda: "2099-01-01T00:00:00Z")
+    documented.reset.run("redo")
+    assert plan.load()["epoch"] == old
+    documented.reset.run("wipe")
+    assert plan.load()["epoch"] == "2099-01-01T00:00:00Z"

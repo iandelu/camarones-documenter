@@ -181,6 +181,7 @@ def _restart_plan() -> int:
     data = plan.load()
     n = len(data["units"])
     data["units"] = [u for u in data["units"] if u["type"] in KEEP_TYPES]
+    data["epoch"] = plan.utcnow()                     # the plan bill counts from here again
     plan.save(data)
     plan.sync()
     return n - len(data["units"])

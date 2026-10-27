@@ -53,6 +53,10 @@ def now() -> str:
     return dt.datetime.now().replace(microsecond=0).isoformat()
 
 
+def utcnow() -> str:
+    return dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def load() -> dict:
     if PLAN.exists():
         data = yaml.safe_load(PLAN.read_text(encoding="utf-8")) or {}
@@ -196,7 +200,9 @@ def settings(uid: str) -> dict:
 
 @locked
 def sync() -> dict:
-    """Merge the blueprint into the stored plan: keep statuses/notes, add units for new repos, drop removed repos."""
+    """Merge the blueprint into the stored plan: keep statuses/notes, add units for new repos, drop removed repos.
+    A plan created here starts its epoch: the plan bill counts from it ("from zero")."""
+    fresh = not PLAN.exists()
     data = load()
     old_profile = data.get('profile', 'full')
     profile = docs.workspace()['project'].get('profile', 'full')
@@ -262,6 +268,8 @@ def sync() -> dict:
             u["status"], u["notes"] = "dropped", LIVE_INTERVIEWS
     data["units"] = merged
     data['profile'] = profile
+    if fresh:
+        data.setdefault("epoch", utcnow())
     save(data)
     return data
 
