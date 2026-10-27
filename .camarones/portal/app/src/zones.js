@@ -1,6 +1,6 @@
 // How the portal is navigated: zones (Docs, Board, Stories, Architecture, Plan, Quality, Review) that group the views, what is
-// available in the static export or on the live server (the desktop app's window shows what live shows; machine work
-// is the app's own sections since 4.53), the breadcrumbs of any address and the ⌘K entries.
+// available in the static export or on the live server (machine work is the desktop app's own sections since 4.53),
+// the breadcrumbs of any address and the ⌘K entries.
 // Pure functions over the index the portal loads (`tree`), used by the shell, Home and the palette.
 // Labels are i18n keys of i18n/portal.js: zone.<id>, zoned.<id>, view.<id>, viewd.<id>, sec.<section>.
 

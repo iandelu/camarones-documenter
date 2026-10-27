@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Thinking } from '@camaron/ui'
-import { getJSON, postJSON } from './api.js'
+import { getJSON } from './api.js'
 import { t } from './i18n.js'
-import AppOnly from './AppOnly.jsx'
 import { core } from './core.js'
 import { drawMermaid, render } from './content/doc.js'
 
@@ -17,26 +15,6 @@ function Section({ text, path }) {
     drawMermaid(doc)
   }, [text, path])
   return <div ref={ref} />
-}
-
-// Opt-in, one click per question: the runner for bounded work answers from the sections Ask found, citing them.
-function AiAnswer({ question, runner, link }) {
-  const [state, setState] = useState(null)
-  async function go() {
-    setState({ busy: true })
-    try { setState(await postJSON('ask/answer', { q: question })) } catch (e) { setState({ error: e.message }) }
-  }
-  if (!state) return <AppOnly><button type="button" className="ghost small ai-go" onClick={go}>✨ {t('aiAnswer')} · {runner}</button></AppOnly>
-  if (state.busy) return <p className="ai-busy" role="status"><Thinking timer>{t('aiBusy')}</Thinking></p>
-  if (state.error) return <p className="error" role="alert">{state.error}</p>
-  const cost = state.cost_usd ? ` · $${state.cost_usd.toFixed(3)}` : ''
-  return (
-    <div className="ai-answer">
-      <p className="muted small">{t('aiBy')} {state.runner}{state.model ? ` (${state.model})` : ''} · {state.seconds} s{cost}. {t('aiCheck')}</p>
-      <p>{state.answer || t('aiNone')}</p>
-      {state.cited?.length ? <p className="small">{state.cited.map((c) => <a key={c} href={link(c)}>{c}</a>)}</p> : null}
-    </div>
-  )
 }
 
 export default function Ask({ arg }) {
@@ -54,7 +32,7 @@ export default function Ask({ arg }) {
     setBusy(true)
     try {
       const r = await getJSON(`ask?q=${encodeURIComponent(question)}`)
-      setTurns((ts) => [{ question, sections: r.sections, ai: r.ai }, ...ts])
+      setTurns((ts) => [{ question, sections: r.sections }, ...ts])
       setQ('')
     } catch (e) {
       setTurns((ts) => [{ question, sections: [], error: e.message }, ...ts])
@@ -78,7 +56,6 @@ export default function Ask({ arg }) {
       {turns.map((turn, i) => (
         <div className="turn" key={turns.length - i}>
           <div className="q">{turn.question}</div>
-          {turn.ai && turn.sections.length ? <AiAnswer question={turn.question} runner={turn.ai} link={link} /> : null}
           {turn.sections.length ? turn.sections.map((s) => (
             <article className="cited" key={s.cite}>
               <div className="cited-head">
