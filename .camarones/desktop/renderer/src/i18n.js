@@ -291,6 +291,12 @@ export const S = {
     'q.libsNoAi': 'Sin IA: se leen los manifiestos de cada repo.', 'q.libsSearch': 'Buscar una librería', 'q.libsCategory': 'Categoría',
     'q.libsRepo': 'Servicio', 'q.libsOnlyVuln': 'Solo vulnerables', 'q.libsLibrary': 'Librería', 'q.libsVersions': 'versiones distintas',
     'q.libsFixed': 'arreglada en {v}', 'q.libsNone': 'Aún no hay librerías leídas: pulsa Releer del código.', 'q.libsAll': 'todas',
+    // the scan as it goes (Libs.jsx ScanStatus): the waiting line is its one joke
+    'lb.scanPrep': 'Preparando el escáner…', 'lb.scanRepo': 'Buceando en {repo}…', 'lb.scanCount': 'repo {n} de {total}', 'lb.scanLeft': '{n} más',
+    'lb.reading': 'Leyendo los manifiestos…', 'lb.scanned': 'Escaneo terminado', 'lb.read': 'Librerías releídas',
+    'lb.scannedVuln': '{repos} repos revisados · {n} librerías con avisos conocidos', 'lb.scannedClean': '{repos} repos revisados · ninguna librería con avisos conocidos',
+    'lb.scanFailedRepos': 'No se pudo escanear: {repos}.', 'lb.readWhat': '{n} librerías en {repos} repos',
+    'lb.noScanner': 'OSV-Scanner no está disponible en esta máquina', 'lb.noScannerWhat': 'Las librerías se han releído, pero sin vulnerabilidades.',
     // the Board (sections/Board.jsx): the work items of the project in columns
     'nav.board': 'Tablero', 'bd.failed': 'No he podido leer el tablero', 'bd.readOnly': 'Esta ventana no puede escribir en el tablero: es de solo lectura.',
     'bd.off': 'Este proyecto aún no tiene tablero', 'bd.offBody': 'Con él, las historias y tareas del proyecto viven en columnas, de Backlog a Hecho. Se crea en cam-docs/backlog/ y no toca nada más.',
@@ -600,6 +606,11 @@ export const S = {
     'q.libsNoAi': 'No AI: it reads each repo\'s manifests.', 'q.libsSearch': 'Find a library', 'q.libsCategory': 'Category',
     'q.libsRepo': 'Service', 'q.libsOnlyVuln': 'Vulnerable only', 'q.libsLibrary': 'Library', 'q.libsVersions': 'different versions',
     'q.libsFixed': 'fixed in {v}', 'q.libsNone': 'No libraries read yet: press Reread from the code.', 'q.libsAll': 'all',
+    'lb.scanPrep': 'Getting the scanner ready…', 'lb.scanRepo': 'Diving into {repo}…', 'lb.scanCount': 'repo {n} of {total}', 'lb.scanLeft': '{n} more',
+    'lb.reading': 'Reading the manifests…', 'lb.scanned': 'Scan finished', 'lb.read': 'Libraries reread',
+    'lb.scannedVuln': '{repos} repos checked · {n} libraries with known advisories', 'lb.scannedClean': '{repos} repos checked · no library with a known advisory',
+    'lb.scanFailedRepos': 'Could not scan: {repos}.', 'lb.readWhat': '{n} libraries in {repos} repos',
+    'lb.noScanner': 'OSV-Scanner is not available on this machine', 'lb.noScannerWhat': 'The libraries were reread, without vulnerabilities.',
     // the Board (sections/Board.jsx): the work items of the project in columns
     'nav.board': 'Board', 'bd.failed': 'I could not read the board', 'bd.readOnly': 'This window cannot write to the board: it is read-only.',
     'bd.off': 'This project has no board yet', 'bd.offBody': "With it, the project's stories and tasks live in columns, from Backlog to Done. It is created in cam-docs/backlog/ and touches nothing else.",
