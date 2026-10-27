@@ -99,8 +99,8 @@ def test_the_react_views_are_reached_through_zones(kit):
         assert f"'{href}'" in zones
     assert "'#/boards'" not in zones                                              # boards were removed in 4.49
     assert "if (view === 'boards') return { kind: 'redirect', to: '#/arch' }" in router
-    # the Taller left the portal in 4.53: its addresses open the desktop app's own sections, served at /desktop/
-    assert "'#/taller'" not in zones and "./desktop/#/" in router
+    # the Taller left the portal in 4.53 (its work is the desktop app's own sections): its addresses open home
+    assert "'#/taller'" not in zones and "./desktop/" not in router
     assert not (app_dir / "src" / "Taller.jsx").exists() and not (kit.kit_dir / "desktop" / "hub").exists()
     assert "'#/ask/'" in home                                                    # Home's question goes to Ask
     assert "return { kind: 'native', view, arg: rest }" in router

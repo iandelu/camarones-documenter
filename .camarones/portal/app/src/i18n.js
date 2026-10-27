@@ -1,7 +1,7 @@
 // Strings of the React views written since 4.42; the docs views' strings are in i18n/portal.js (read through core.t).
 export const S = {
   en: {
-    'shell.nav': 'Sections', 'shell.theme': 'Light or dark', 'shell.lang': 'Language', 'shell.skip': 'Skip to content', 'shell.app': 'Back to the app', pInApp: 'Run it in the app',
+    'shell.nav': 'Sections', 'shell.theme': 'Light or dark', 'shell.lang': 'Language', 'shell.skip': 'Skip to content',
     'pipe.title': 'Pipeline', 'pipe.todo': 'To do', 'pipe.running': 'Running', 'pipe.blocked': 'Blocked', 'pipe.done': 'Done',
     'pipe.dropped': 'Dropped', 'pipe.awaiting': 'awaiting your approval', 'pipe.ownCopy': 'own copy', 'pipe.phase': 'phase {n}',
     'pipe.count': '{done}/{total} units done', 'pipe.runDone': 'last run {run}, finished', 'pipe.runNow': 'run {run} running now',
@@ -11,7 +11,6 @@ export const S = {
     'pipe.cost': 'cost', 'pipe.waits': 'waits for', 'pipe.approve': 'Approve: let the next units start', 'pipe.retry': 'Retry this unit',
     'pipe.log': 'Live log', 'pipe.noLog': 'Nothing yet in this run.', 'pipe.down': 'The portal server is not answering',
     'pipe.downHow': 'Start it with camaron up, then try again.', retry: 'Try again', ciFailed: 'I could not read the CI state', kpisFailed: 'I could not read the KPIs', dataFailed: 'I could not read the data model', libsFailed: 'I could not read the libraries', healthFailed: 'I could not read the project health', healthTitle: 'Health',
-    'home.firstLook': 'First look from the code (no AI)', 'home.firstLookFailed': 'I could not start the first look',
     'review.title': 'Review.', 'review.waiting': '{n} pages wait.', 'review.none': 'Nothing waits.',
     'review.f.all': 'All', 'review.f.draft': 'Drafts', 'review.f.needs-reconfirm': 'To reconfirm',
     'review.selected': '{n} selected', 'review.confirmN': 'Confirm the {n}', 'review.by': 'Your name',
@@ -42,8 +41,6 @@ export const S = {
     askPh: 'How is a payment retried?', ask: 'Ask', asking: 'Searching…', askEmpty: 'There is no documentation to search yet. '
       + 'Start with a first look from the code on Home (no AI).',
     askFailed: 'I could not search:', nothing: 'Nothing in the docs answers this.', withheld: 'agents do not get this page yet',
-    aiAnswer: 'Answer with AI', aiBusy: 'Reading these sections…', aiBy: 'AI answer from the sections below, by',
-    aiNone: 'The AI found no answer in these sections.', aiCheck: 'Check it against the sections it cites.',
     kpisTitle: 'KPIs', kpisLead: 'Is the documentation working? What a person has confirmed, what went out of date, what '
       + 'people and agents could not find and what the AI runs cost: the numbers of `camaron kpis` and `camaron stats`.',
     'tile.confirmed': 'Pages confirmed', 'sub.confirmed': '{n} pages', 'tip.confirmed': 'Pages a person confirmed as correct',
@@ -66,14 +63,13 @@ export const S = {
     dataTitle: 'Data', dataLead: 'The tables and collections each repo declares, read from its migrations, schema files and '
       + 'entity classes without AI: keys, references and where each one comes from.',
     dataNone: 'No tables or collections found in the code yet.', 'dataKind.sql': 'SQL', 'dataKind.document': 'Documents',
-    dataFrom: 'read from', dataPage: 'Its data page', dataWrite: 'Write the data pages',
+    dataFrom: 'read from', dataPage: 'Its data page',
     dataCli: 'In a terminal: `camaron schemas`. The data unit then explains what each table means and who owns it.',
     libsTitle: 'Libraries', libsLead: 'Every repo\'s direct dependencies, read from its manifests without AI: what each is for, '
       + 'its version in each service and its known vulnerabilities. Click a library in red to see them.',
     libsCount: '{n} libraries', libsVulnerable: '{n} with known vulnerabilities', libsDrift: '{n} at different versions',
     libsNoScan: 'Not scanned for vulnerabilities yet.', libsOffline: 'offline database', libsOnline: 'osv.dev API',
-    libsScan: 'Scan for vulnerabilities', libsRefresh: 'Read the manifests again', libsScanning: 'Scanning with OSV-Scanner… (the first time it downloads its offline database)',
-    libsRefreshing: 'Reading the manifests…', libsSearch: 'Search a library', libsCategory: 'Category', libsLanguage: 'Language',
+    libsSearch: 'Search a library', libsCategory: 'Category', libsLanguage: 'Language',
     libsRepo: 'Repo', libsScope: 'Scope', libsOnlyVulnerable: 'Only vulnerable', libsLibrary: 'Library', libsVersions: 'versions differ', libsIn: 'in', libsMore: '+{n} more',
     libsFixed: 'fixed in {v}', libsNone: 'No library matches.', all: 'all',
     libsCli: 'In a terminal: `camaron inventory --cves`; in CI add `--fail-on high` to fail on a high or critical one.',
@@ -85,8 +81,7 @@ export const S = {
     ciFiles: 'Pipeline files', 'ciFile.umbrella': 'Docs repo pipeline', 'ciFile.snippet': 'Service repo job (wiki refresh)',
     'ciFile.fresh': 'Service repo pull request check (no AI)', 'ciFile.propose': 'Service repo docs proposal (AI, your runners)',
     'ciState.missing': 'not generated', 'ciState.outdated': 'differs from the definition', 'ciState.current': 'up to date',
-    ciGenerate: 'Generate the pipeline', ciRegenerate: 'Regenerate', ciOther: 'Or for', ciNoPush: 'Writes the files in cam-docs; '
-      + 'commit and push them yourself.', ciChecks: 'Checks now', ciErrors: '{n} check errors', ciWarnings: '{n} warnings',
+    ciChecks: 'Checks now', ciErrors: '{n} check errors', ciWarnings: '{n} warnings',
     ciOutOfDate: '{n} pages out of date', ciReview: 'Review', ciRepos: 'For each service repo',
     ciReposLead: 'Copy these into each service repo (or include them from cam-docs). The pull request check comments which docs '
       + 'the change touches and never blocks the merge.', copy: 'Copy', copied: 'Copied', ciGuide: 'Guide: run the AI job on your own runner',
@@ -133,7 +128,7 @@ export const S = {
     'kanban.sub': 'Subtask of {id}', 'kanban.parent': 'Story {id} and its subtasks', 'kanban.parentClear': 'Show the whole board',
   },
   es: {
-    'shell.nav': 'Secciones', 'shell.theme': 'Claro u oscuro', 'shell.lang': 'Idioma', 'shell.skip': 'Saltar al contenido', 'shell.app': 'Volver a la app', pInApp: 'Ejecutar en la app',
+    'shell.nav': 'Secciones', 'shell.theme': 'Claro u oscuro', 'shell.lang': 'Idioma', 'shell.skip': 'Saltar al contenido',
     'pipe.title': 'Pipeline', 'pipe.todo': 'Por hacer', 'pipe.running': 'En curso', 'pipe.blocked': 'Bloqueada', 'pipe.done': 'Hecha',
     'pipe.dropped': 'Descartada', 'pipe.awaiting': 'espera tu aprobación', 'pipe.ownCopy': 'copia propia', 'pipe.phase': 'fase {n}',
     'pipe.count': '{done}/{total} unidades hechas', 'pipe.runDone': 'última ejecución {run}, terminada', 'pipe.runNow': 'ejecución {run} en curso',
@@ -143,7 +138,6 @@ export const S = {
     'pipe.cost': 'coste', 'pipe.waits': 'espera a', 'pipe.approve': 'Aprobar: que empiecen las siguientes', 'pipe.retry': 'Reintentar esta unidad',
     'pipe.log': 'Registro en vivo', 'pipe.noLog': 'Nada todavía en esta ejecución.', 'pipe.down': 'El servidor del portal no responde',
     'pipe.downHow': 'Arráncalo con camaron up y vuelve a intentarlo.', retry: 'Reintentar', ciFailed: 'No he podido leer el estado de la CI', kpisFailed: 'No he podido leer los KPIs', dataFailed: 'No he podido leer el modelo de datos', libsFailed: 'No he podido leer las librerías', healthFailed: 'No he podido leer la salud del proyecto', healthTitle: 'Salud',
-    'home.firstLook': 'Primer vistazo desde el código (sin IA)', 'home.firstLookFailed': 'No he podido arrancar el primer vistazo',
     'review.title': 'Revisión.', 'review.waiting': '{n} páginas esperan.', 'review.none': 'Nada espera.',
     'review.f.all': 'Todas', 'review.f.draft': 'Borradores', 'review.f.needs-reconfirm': 'Por reconfirmar',
     'review.selected': '{n} seleccionadas', 'review.confirmN': 'Confirmar las {n}', 'review.by': 'Tu nombre',
@@ -195,8 +189,6 @@ export const S = {
       + 'Empieza con un primer vistazo desde el código en Inicio (sin IA).',
     askFailed: 'No he podido buscar:', nothing: 'Nada en la documentación responde a esto.',
     withheld: 'los agentes aún no reciben esta página',
-    aiAnswer: 'Responder con IA', aiBusy: 'Leyendo estas secciones…', aiBy: 'Respuesta de la IA con las secciones de abajo, por',
-    aiNone: 'La IA no encontró la respuesta en estas secciones.', aiCheck: 'Compruébala con las secciones que cita.',
     kpisTitle: 'KPIs', kpisLead: '¿Funciona la documentación? Lo que ha confirmado una persona, lo que se ha quedado viejo, lo '
       + 'que personas y agentes no encontraron y lo que cuestan las ejecuciones de IA: las cifras de `camaron kpis` y `camaron stats`.',
     'tile.confirmed': 'Páginas confirmadas', 'sub.confirmed': '{n} páginas', 'tip.confirmed': 'Páginas que una persona confirmó como correctas',
@@ -219,14 +211,13 @@ export const S = {
     dataTitle: 'Datos', dataLead: 'Las tablas y colecciones que declara cada repo, leídas sin IA de sus migraciones, ficheros de '
       + 'esquema y clases de entidad: claves, referencias y de dónde sale cada una.',
     dataNone: 'Aún no se han encontrado tablas ni colecciones en el código.', 'dataKind.sql': 'SQL', 'dataKind.document': 'Documentos',
-    dataFrom: 'leído de', dataPage: 'Su página de datos', dataWrite: 'Escribir las páginas de datos',
+    dataFrom: 'leído de', dataPage: 'Su página de datos',
     dataCli: 'En una terminal: `camaron schemas`. Después la unidad de datos explica qué significa cada tabla y de quién es.',
     libsTitle: 'Librerías', libsLead: 'Las dependencias directas de cada repo, leídas de sus manifiestos sin IA: para qué sirve cada '
       + 'una, su versión en cada servicio y sus vulnerabilidades conocidas. Pulsa una librería en rojo para verlas.',
     libsCount: '{n} librerías', libsVulnerable: '{n} con vulnerabilidades conocidas', libsDrift: '{n} con versiones distintas',
     libsNoScan: 'Aún no se han buscado vulnerabilidades.', libsOffline: 'base de datos offline', libsOnline: 'API de osv.dev',
-    libsScan: 'Buscar vulnerabilidades', libsRefresh: 'Releer los manifiestos', libsScanning: 'Analizando con OSV-Scanner… (la primera vez descarga su base de datos offline)',
-    libsRefreshing: 'Leyendo los manifiestos…', libsSearch: 'Busca una librería', libsCategory: 'Categoría', libsLanguage: 'Lenguaje',
+    libsSearch: 'Busca una librería', libsCategory: 'Categoría', libsLanguage: 'Lenguaje',
     libsRepo: 'Repo', libsScope: 'Ámbito', libsOnlyVulnerable: 'Solo vulnerables', libsLibrary: 'Librería', libsVersions: 'versiones distintas', libsIn: 'en', libsMore: '+{n} más',
     libsFixed: 'corregida en {v}', libsNone: 'Ninguna librería coincide.', all: 'todas',
     libsCli: 'En una terminal: `camaron inventory --cves`; en CI añade `--fail-on high` para fallar si hay alguna alta o crítica.',
@@ -238,8 +229,7 @@ export const S = {
     ciFiles: 'Ficheros de pipeline', 'ciFile.umbrella': 'Pipeline del repo de documentación', 'ciFile.snippet': 'Job del repo de servicio (refresco de la wiki)',
     'ciFile.fresh': 'Comprobación de pull requests del repo de servicio (sin IA)', 'ciFile.propose': 'Propuesta de docs del repo de servicio (IA, tus runners)',
     'ciState.missing': 'sin generar', 'ciState.outdated': 'distinto de la definición', 'ciState.current': 'al día',
-    ciGenerate: 'Generar el pipeline', ciRegenerate: 'Regenerar', ciOther: 'O para', ciNoPush: 'Escribe los ficheros en cam-docs; '
-      + 'el commit y el push los haces tú.', ciChecks: 'Comprobaciones ahora', ciErrors: '{n} errores de check', ciWarnings: '{n} avisos',
+    ciChecks: 'Comprobaciones ahora', ciErrors: '{n} errores de check', ciWarnings: '{n} avisos',
     ciOutOfDate: '{n} páginas desactualizadas', ciReview: 'Revisión', ciRepos: 'Para cada repo de servicio',
     ciReposLead: 'Copia esto en cada repo de servicio (o inclúyelo desde cam-docs). La comprobación de pull requests comenta qué '
       + 'documentación toca el cambio y nunca bloquea el merge.', copy: 'Copiar', copied: 'Copiado', ciGuide: 'Guía: el job de IA en tu propio runner',
