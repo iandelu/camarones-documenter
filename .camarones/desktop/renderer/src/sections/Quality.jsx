@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Aviso, Button, Chip, HealthBoard, Skeleton, sonarConnectHash } from '@camaron/ui'
 import { severities } from '@camaron/ui/result.js'
 import { ago } from '../jobs.js'
-import { BOARD_ACTIONS, doctorRows, seconds } from '../quality.js'
+import { BOARD_ACTIONS, doctorRows, driftWhy, fixableDrift, seconds } from '../quality.js'
 import { useAgents, useCmd, useJob, useStore } from '../hooks.js'
 import { AgentPicker, Failed, Fold, JobOutput, Page, ResultView, UnitRow } from '../parts.jsx'
 import Commands from './Commands.jsx'
@@ -62,15 +62,38 @@ export default function Quality({ srv, jobs }) {
 
 const now = () => Date.now() / 1000
 
-// What the kit wrote on this machine that is no longer as it left it: put it back (repair). The Doctor row shows which.
+// What the kit wrote on this machine that is no longer as it left it, each with why (the doctor's last check), and
+// repair: it puts back what is the kit's, then the doctor looks again so the list says what is still off and why.
 function Drift({ srv, jobs }) {
   const c = useCmd(srv, jobs)
+  const check = useJob(srv, jobs, () => srv.post('app/doctor', {}))
+  const [rec, setRec] = useState(undefined)
+  const [repaired, setRepaired] = useState(false)
+  const load = () => srv.get('app/doctor').then((d) => setRec(d.checked), () => setRec(null))
+  useEffect(() => { load() }, [])
+  const repair = async () => { await c.run('repair', {}); await check.run(); await load(); setRepaired(true) }
+  const busy = c.running || check.running
   return (
-    <div className="dk-body">
-      <div className="row"><Button size="sm" disabled={c.running} onClick={() => c.run('repair', {})}>{t('q.repairNow')}</Button></div>
+    <div className="dk-body dk-run">
+      {rec?.result ? <DriftList items={rec.result.drift} repaired={repaired && !busy} /> : rec === undefined ? <Skeleton lines={2} /> : null}
+      <div className="row"><Button size="sm" disabled={busy} onClick={repair}>{t('q.repairNow')}</Button>
+        {check.running ? <span className="muted small">{t('q.driftChecking')}</span> : null}</div>
       <JobOutput c={c} />
     </div>
   )
+}
+
+export function DriftList({ items, repaired }) {
+  const fixable = fixableDrift(items)
+  return (<>
+    {!fixable.length ? <p className="small">{t('q.driftNone')}</p>
+      : repaired ? <p className="small">{t('q.driftStill', { n: fixable.length })}</p> : null}
+    {items.length ? <ul className="dk-units">{items.map((d) => (
+      <li key={d.path} className="dk-unit"><div className="dk-unit-main"><b><code>{d.path}</code></b>
+        <span className="muted small">{t(driftWhy(d))}</span></div>
+        <div className="row dk-unit-acts"><Chip state={d.why === 'yours' ? undefined : 'warn'}>{d.why === 'yours' ? t('q.driftKept') : d.state}</Chip></div>
+      </li>))}</ul> : null}
+  </>)
 }
 
 // The doctor, kept (lib/doctor.check): shown at once, checked again on request — and once by itself, the first time
@@ -102,9 +125,9 @@ function Doctor({ srv, jobs }) {
               {x.fix ? <Button size="sm" disabled={busy} onClick={() => run(x.fix)}>{x.fix.cmd === 'setup' ? t('q.prepare') : t('q.install')}</Button> : null}</div>
           </li>))}</ul>
       ) : <p className="small">{t('q.allGood')}</p>}
-      {r?.drift.length ? (
-        <Aviso tone="warn" title={t('q.drift', { n: r.drift.length })}>
-          <span className="row"><span className="muted small">{r.drift.map((d) => d.path).join(', ')}</span>
+      {fixableDrift(r?.drift).length ? (
+        <Aviso tone="warn" title={t('q.drift', { n: fixableDrift(r.drift).length })}>
+          <span className="row"><span className="muted small">{fixableDrift(r.drift).map((d) => d.path).join(', ')}</span>
             <Button size="sm" disabled={busy} onClick={() => run(r.fix_drift)}>{t('q.repair')}</Button></span>
         </Aviso>
       ) : null}

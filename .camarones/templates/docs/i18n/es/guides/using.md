@@ -179,7 +179,7 @@ Cuando el código se mueve, la documentación lo sigue:
   (`camaron docs reset --redo | --wipe`).
 - **Desinstalar un proyecto:** **Máquina › Desinstalar este proyecto**, primero **Ver qué borraría**. Para el portal,
   guarda `cam-docs` en un `.zip` en la carpeta temporal del sistema, quita lo que el kit añadió a cada repo y a la
-  carpeta del workspace, y borra `cam-docs`. Los repos quedan exactamente como en su último commit
+  carpeta del workspace (también dentro de tu propio `.claude/` y `CLAUDE.md`), y borra `cam-docs`. Los repos quedan exactamente como en su último commit
   (`camaron uninstall`).
 - **Actualizar el kit:** **Máquina › Actualizar el kit** (`camaron self-update`) actualiza a la vez todos los proyectos
   de esta máquina y reinicia la app.
@@ -192,6 +192,7 @@ Cuando el código se mueve, la documentación lo sigue:
 |---|---|
 | Falta una herramienta o tiene otra versión | **Calidad › Requisitos y herramientas**, o `camaron doctor` |
 | Alguien editó o borró un fichero o un enlace del kit | **Máquina › Reparar los archivos del kit**, o `camaron repair` |
+| Ya tenías tu propio `.claude/` o `CLAUDE.md` en la carpeta del espacio de trabajo | Nada: setup y **Reparar** enlazan dentro de tu carpeta lo del kit e importan sus reglas en tu `CLAUDE.md`; un fichero tuyo que no se puede combinar sale como tuyo y se queda |
 | Un repo privado no se clona | Guarda un token en **Máquina › Tokens** y **Clonar o actualizar los repos** |
 | Una sesión de agente dejó una unidad a medias | **Plan**, abre la unidad y **Seguir** (o **Empezar de cero**) |
 | Una unidad de una ejecución queda bloqueada al fusionar | La resuelve su unidad `integrate:<unidad>`; o **Reintentar** |

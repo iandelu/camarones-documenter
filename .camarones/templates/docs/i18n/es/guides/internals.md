@@ -61,6 +61,12 @@ mi-proyecto/
 └── orders-api/  payments-api/  …   los repos de servicio, intactos
 ```
 
+Si en la carpeta del workspace ya tenías tu propio `.claude/` (por ejemplo con el `settings.local.json` de Claude Code)
+o tu `CLAUDE.md`, el kit no los reemplaza: enlaza dentro de tu carpeta lo suyo y añade a tu `CLAUDE.md` dos líneas que
+importan sus reglas (`@AGENTS.md`), con los finales de línea del propio fichero. `uninstall`, y rechazar la
+configuración de agentes en `trust`, lo quitan. Un fichero tuyo en medio que no se puede combinar (tu propio
+`AGENTS.md`, por ejemplo) se queda como está: `doctor` y `repair` lo listan como tuyo, no como algo por arreglar.
+
 `.camarones/.cache/` guarda lo que se puede reconstruir: los registros de las ejecuciones (`runs/<run>/events.jsonl`),
 la web exportada (`site/`), el índice del tablero (`board.db`), la foto de la salud y copias de los ficheros del kit
 sustituidos.
