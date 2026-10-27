@@ -124,6 +124,8 @@
 #native .libs-table tr.vuln.sev-bad td:first-child { box-shadow: inset 3px 0 0 var(--bad); }
 #native .libs-table tr.vuln.sev-warn td:first-child { box-shadow: inset 3px 0 0 var(--warn); }
 #native .libs-table td.cell-vuln { color: var(--bad); font-weight: 600; }
+#native .libs-table tr:not(.vuln-detail) > :first-child { position: sticky; left: 0; z-index: 1; background: var(--bg); }
+#native .libs-where-bad { color: var(--bad); font-weight: 600; }
 #native .libs-table .pill { margin-left: .4rem; }
 #native .pill.muted { color: var(--muted); }
 #native .vuln-detail td { white-space: normal; background: var(--panel); }

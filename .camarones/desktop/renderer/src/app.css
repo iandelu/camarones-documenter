@@ -121,6 +121,8 @@ a.dk-stat-n:hover { color: var(--color-acento-texto); }
 .dk-libs tr.vuln.sev-bad td:first-child { box-shadow: inset 3px 0 0 var(--color-estado-mal); }
 .dk-libs tr.vuln.sev-warn td:first-child { box-shadow: inset 3px 0 0 var(--color-estado-aviso); }
 .dk-libs td.cell-vuln { color: var(--color-estado-mal); font-weight: 600; }
+.dk-libs tr:not(.dk-lib-row) > :first-child { position: sticky; left: 0; z-index: 1; background: var(--color-canvas); }
+.dk-where-bad { color: var(--color-estado-mal); font-weight: 600; }
 .dk-linkish { min-height: 1.5rem; padding: 0; border: 0; background: none; color: var(--color-acento-texto); font: inherit; cursor: pointer; text-decoration: underline dotted; }
 .dk-linkish:focus-visible { outline: 2px solid var(--color-acento-texto); outline-offset: 2px; }
 .dk-libs tr.on td { background: var(--color-canvas-elevated); }

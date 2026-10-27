@@ -20,7 +20,9 @@ export function matrix(rows) {
     const key = `${r.ecosystem}|${r.name}`
     const item = byKey.get(key) || { key, name: r.name, ecosystem: r.ecosystem, category: r.category, language: r.language,
       cells: {}, vulns: [], drift: false }
-    item.cells[r.repo] = { version: r.version || r.declared || (r.managedBy ? 'managed' : ''), scope: r.scope, vulns: r.vulns || [] }
+    const cell = item.cells[r.repo]                       // a multi-module repo declares it in several poms
+    item.cells[r.repo] = cell ? { ...cell, vulns: [...cell.vulns, ...(r.vulns || [])] }
+      : { version: r.version || r.declared || (r.managedBy ? 'managed' : ''), scope: r.scope, vulns: r.vulns || [] }
     item.vulns.push(...(r.vulns || []))
     item.drift = item.drift || r.drift
     byKey.set(key, item)
@@ -28,6 +30,15 @@ export function matrix(rows) {
   const items = [...byKey.values()].map((x) => ({ ...x, worst: worst(x.vulns) }))
   items.sort((a, b) => (RANK[b.worst] || 0) - (RANK[a.worst] || 0) || a.category.localeCompare(b.category) || a.name.localeCompare(b.name))
   return { repos, items }
+}
+
+// The repos of one line of the matrix, the ones it is flagged in first, then the others up to `max` names: with many
+// services their columns sit off screen, so the line itself says where to update.
+export function placesOf(item, max = 3) {
+  const flagged = (r) => item.cells[r].vulns.length > 0
+  const repos = Object.keys(item.cells).sort((a, b) => flagged(b) - flagged(a) || a.localeCompare(b))
+  const shown = repos.slice(0, Math.max(max, repos.filter(flagged).length))
+  return { shown: shown.map((repo) => ({ repo, flagged: flagged(repo) })), more: repos.length - shown.length }
 }
 
 export function facets(rows) {
