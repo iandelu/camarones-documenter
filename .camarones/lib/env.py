@@ -1482,7 +1482,7 @@ def serve_editor(port: int = 8080, log: Log = print, static: bool = False) -> st
             if sck.connect_ex(("127.0.0.1", port)) == 0:
                 break
     url = portal_url(port, token or None)       # the static export takes no writes (POST is 405): no token
-    log(f"✔ portal at {url}" + (" (read-only export, no Docker)" if static else " (live: edit · confirm · rebuild · wikis)"))
+    log(f"✔ portal at {url}" + (" (read-only export, no Docker)" if static else " (live: read · edit · confirm · review)"))
     return url
 
 

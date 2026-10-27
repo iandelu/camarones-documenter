@@ -30,7 +30,7 @@ test('a project window skips to its content', () => {
 // main (d2c94ca): the header is the window's title bar; with no menu bar on screen, ⋯ opens the app menu.
 test('the project header offers the app menu when the window has one', () => {
   globalThis.window = { camaronApp: { token: 't', menu: () => {} } }
-  expect(renderToStaticMarkup(<App />)).toMatch(/<button type="button" class="dk-icon" aria-label="[^"]+" title="[^"]+">⋯<\/button><\/header>/)
+  expect(renderToStaticMarkup(<App />)).toMatch(/<button type="button" class="dk-icon" aria-label="[^"]+" title="[^"]+" data-tour="menu">⋯<\/button><\/header>/)
   globalThis.window = { camaronApp: { token: 't' } }
   expect(renderToStaticMarkup(<App />)).not.toContain('⋯')
 })
@@ -55,7 +55,7 @@ test("the hub asks what to document and offers a folder or the team's docs", () 
 test('the header opens the palette and the sidebar shows the shortcuts', () => {
   globalThis.window = { camaronApp: { token: 't' } }
   const out = renderToStaticMarkup(<App />)
-  expect(out).toMatch(/<button type="button" class="dk-find" aria-haspopup="dialog">[^<]+<span class="cu-keys">/)
+  expect(out).toMatch(/<button type="button" class="dk-find" aria-haspopup="dialog" data-tour="find">[^<]+<span class="cu-keys">/)
   expect(out).toContain('<span class="dk-hint" aria-hidden="true"><span class="cu-keys"><kbd class="cu-kbd">g</kbd><kbd class="cu-kbd">p</kbd></span></span>')
   expect(out).toContain('<dialog class="dk-pal"></dialog>')
 })
@@ -65,6 +65,6 @@ test('the header opens the palette and the sidebar shows the shortcuts', () => {
 test('the project header has Ver portal, a button that opens the browser', () => {
   globalThis.window = { camaronApp: { token: 't', openExternal: () => {} } }
   const out = renderToStaticMarkup(<App />)
-  expect(out).toMatch(/<button type="button" class="cu-btn cu-btn--ghost cu-btn--sm">Ver portal[^<]*(<svg[^>]*>.*?<\/svg>)?<\/button>/)
+  expect(out).toMatch(/<button type="button" class="cu-btn cu-btn--ghost cu-btn--sm" data-tour="portal">Ver portal[^<]*(<svg[^>]*>.*?<\/svg>)?<\/button>/)
   expect(out.split('<header')[1].split('</header>')[0]).not.toMatch(/<a [^>]*href="\.\.\//)
 })
