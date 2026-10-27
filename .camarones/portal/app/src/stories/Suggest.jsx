@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { postJSON } from '../api.js'
 import { core } from '../core.js'
 import { escapeAborts } from '../stories.js'
 
-// "Sugerir con IA" (spec §7): only when the server says AI is available. A suggestion is shown apart, marked IA, and
-// does nothing until the person accepts it; it never decides files, dependencies, waves or the verdict. Escape cancels
-// a suggestion on its way. The answer's `missing` means nothing usable came back — broken or nothing new — and the
+// "✨ Sugerir con IA" (spec §7): in each place AI helps, always; disabled with the reason when it cannot run (aiGate). A
+// suggestion is shown apart, marked IA, and does nothing until the person accepts it; it never decides files,
+// dependencies, waves or the verdict. Escape cancels a suggestion on its way. The answer's `missing` means nothing usable came back — broken or nothing new — and the
 // page says so plainly, without calling it an error.
 const t = core.t
 const key = (s) => String(s || '').trim().toLowerCase()
@@ -55,14 +55,17 @@ export function useSuggest({ draft, lang, onReadOnly }) {
 }
 
 // The button and, under it, what came back for this kind.
-export function Suggest({ ai, what, on, onAccept }) {
-  if (!on) return null
+export function Suggest({ ai, what, gate, onAccept }) {
+  const id = useId()
   const s = ai.state?.what === what ? ai.state : null
   const items = !s?.result ? [] : what === 'rewrite' ? (s.result.rewrite ? [s.result.rewrite] : []) : s.result[what] || []
   const text = (x) => (what === 'rewrite' ? t('stories.ai.rewrite', { as: x.as_, want: x.want, so: x.so }) : x.title ?? x)
   return (
     <div className="st-ai">
-      <button type="button" className="ghost small" disabled={!!ai.state?.running} onClick={() => ai.run(what)}>{t('stories.ai.suggest')}</button>
+      <button type="button" className="ghost small" disabled={!gate.on || !!ai.state?.running}
+              aria-describedby={gate.on ? undefined : `${id}-why`} onClick={() => ai.run(what)}>
+        {`✨ ${t('stories.ai.suggest')}${gate.runner && gate.on ? ` · ${gate.runner}` : ''}`}</button>
+      {gate.on ? null : <span id={`${id}-why`} className="muted small"> {t(gate.why)}</span>}
       {s?.running ? <span className="muted small" role="status"> {t('stories.ai.running')}</span> : null}
       {s?.note ? <span className="muted small" role="status"> {s.note}</span> : null}
       {s?.error ? <p className="error" role="alert">{s.error}</p> : null}

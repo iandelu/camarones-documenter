@@ -3,7 +3,7 @@ import { Skeleton } from '@camaron/ui'
 import { getJSON, postJSON } from './api.js'
 import { core } from './core.js'
 import Failed from './Failed.jsx'
-import { analyzeBody, draftKey, dropDraft, initialDraft, loadDraft, mergeDocSources, nextStep, planAnalyze, primaryLabel, saveBlock,
+import { aiGate, analyzeBody, draftKey, dropDraft, initialDraft, loadDraft, mergeDocSources, nextStep, planAnalyze, primaryLabel, saveBlock,
   saveBody, saveDraft, titleFrom, withChecks } from './stories.js'
 import StoryList from './stories/StoryList.jsx'
 import WriteStep from './stories/WriteStep.jsx'
@@ -160,6 +160,7 @@ export default function Stories() {
   const words = meta.lint_words?.[lang()] || {}
   const step = Math.max(1, draft.step || 1)
   const block = saveBlock(draft, pending ? null : analysis, pending ? null : sent)
+  const gate = aiGate(meta)
   const goOn = () => change({ step: nextStep({ ...draft, step }, analysis) })
   return (
     <>
@@ -177,11 +178,11 @@ export default function Stories() {
             <button type="button" className="ghost small" onClick={() => { dropDraft(draftKey(draft.id)); setRestored(false); setDraft(mergeDocSources(fresh(item), item?.doc_sources)) }}>
               {t('stories.draft.discard')}</button></p> : null}
           <WriteStep draft={draft} change={change} words={words} lang={lang()} epics={epics} existing={!!draft.id} repos={meta.repos || []}
-                     touchError={saveError?.where === 'touches' ? saveError.msg : ''} ai={ai} aiOn={meta.ai?.available && meta.writable}
+                     touchError={saveError?.where === 'touches' ? saveError.msg : ''} ai={ai} aiGate={gate}
                      onNext={step === 1 ? goOn : null} />
           {step >= 2 ? <ReviewStep draft={draft} change={change} analysis={analysis} pending={pending} ai={ai}
-                                   aiOn={meta.ai?.available && meta.writable} onNext={step === 2 ? goOn : null} /> : null}
-          {step >= 3 ? <TasksStep draft={draft} change={change} analysis={analysis} ai={ai} aiOn={meta.ai?.available && meta.writable}
+                                   aiGate={gate} onNext={step === 2 ? goOn : null} /> : null}
+          {step >= 3 ? <TasksStep draft={draft} change={change} analysis={analysis} ai={ai} aiGate={gate}
                                   repos={meta.repos || []} /> : null}
           {analyzeError ? <p className="error" role="alert">{t('stories.analyzeFailed')} {analyzeError}</p> : null}
           {step >= 3 ? (

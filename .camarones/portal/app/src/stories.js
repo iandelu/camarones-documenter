@@ -295,6 +295,17 @@ export function mergeDocSources(draft, sources) {
   return { ...draft, touches: more, fromDocs: more }
 }
 
+// The AI button is shown wherever AI helps; it runs only when the server has a runner, its switch is on and this page
+// holds the token. → {on, why: the i18n key saying why not, runner}. The switch comes first: a token would not help.
+export function aiGate(meta) {
+  const ai = meta?.ai || {}
+  const runner = ai.runner || null
+  if (ai.reason === 'off') return { on: false, why: 'stories.ai.why.off', runner }
+  if (!ai.available) return { on: false, why: 'stories.ai.why.runner', runner }
+  if (!meta.writable) return { on: false, why: 'stories.ai.why.token', runner }
+  return { on: true, why: null, runner }
+}
+
 // Escape while an AI suggestion is on its way stops that request and nothing else: the key goes no further, so the
 // form or search box under the focus keeps its state. → whether it was taken.
 export function escapeAborts(e, running, stop) {
