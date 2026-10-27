@@ -11,7 +11,7 @@ export const TOURS = {
     { section: null, target: 'jobs' }, nav('guide')],
   summary: at('summary', 'summary-next', 'summary-doctor', 'summary-stats'),
   board: at('board', 'board-columns', 'board-add', 'board-help'),
-  plan: at('plan', 'plan-run', 'plan-keep', 'plan-cost', 'plan-units', 'plan-reset'),
+  plan: at('plan', 'plan-run', 'plan-keep', 'plan-units', 'plan-cost', 'plan-reset'),
   interviews: at('interviews', 'iv-mode', 'iv-questionnaire', 'iv-agents'),
   team: at('team', 'team-repo', 'team-trust', 'team-plugins'),
   quality: at('quality', 'q-verdict', 'q-areas', 'q-repos'),

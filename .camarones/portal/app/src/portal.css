@@ -29,13 +29,14 @@ button, select, input, textarea { font: inherit; color: inherit; }
 button, a.button { background: var(--accent); color: var(--on-accent); border: 1px solid var(--accent); border-radius: var(--radius-pildora); padding: .4rem 1rem;
                    cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: .35rem; line-height: 1.35;
                    transition: background-color .15s var(--ease), color .15s var(--ease), border-color .15s var(--ease), transform .1s var(--ease); }
-button:hover, a.button:hover { opacity: .88; text-decoration: none; }
-button:active, a.button:active { transform: scale(.98); }
+button:hover:not(:disabled, [aria-disabled="true"]), a.button:hover { opacity: .88; text-decoration: none; }
+button:active:not(:disabled, [aria-disabled="true"]), a.button:active { transform: scale(.98); }
 button.ghost, a.button.ghost { background: transparent; color: var(--ink-2); border-color: var(--line); }
-button.ghost:hover, a.button.ghost:hover { background: var(--panel); color: var(--ink); border-color: var(--muted); opacity: 1; }
+button.ghost:hover:not(:disabled, [aria-disabled="true"]), a.button.ghost:hover { background: var(--panel); color: var(--ink); border-color: var(--muted); opacity: 1; }
 button.small, a.button.small { font-size: .82rem; padding: .22rem .6rem; min-height: 1.75rem; }      /* 2.5.8: 24 px at least */
 button.icon { padding: .25rem .5rem; border-color: transparent; min-height: 1.75rem; min-width: 1.75rem; }
-button:disabled { opacity: .5; cursor: default; }
+button:disabled, button[aria-disabled="true"] { opacity: .5; cursor: default; }
+button[aria-busy="true"] { opacity: 1; cursor: progress; }               /* pending: its shimmering label is the feedback */
 select { background: var(--raise); border: 1px solid var(--line); border-radius: var(--consola-radio-chico); padding: .25rem .4rem; font-size: .88rem; }
 input, textarea { background: var(--raise); border: 1px solid var(--line); border-radius: var(--radius-campo); padding: .45rem .65rem; }
 input:focus, textarea:focus, select:focus { outline: 2px solid color-mix(in srgb, var(--ink) 30%, transparent); outline-offset: 0; }

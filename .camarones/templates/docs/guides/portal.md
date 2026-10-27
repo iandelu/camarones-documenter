@@ -146,7 +146,9 @@ Nothing is written until **Add the story + n subtasks to the backlog** (or **Sav
 only what you changed: what someone else changed meanwhile is kept, and if you both changed the same thing it asks you
 to reload. **✨ Suggest with AI** appears in the three steps and spends only when pressed; it
 only suggests — never footprints, dependencies, waves or the verdict — and it is off, with the reason, without an
-agent, without the token, or with `stories: {ai: false}`. A draft you leave half written is kept in this browser.
+agent, without the token, or with `stories: {ai: false}`. While it thinks the button shimmers and cannot be pressed
+again (<kbd>Esc</kbd> cancels); what it proposes stays in this browser, per story, until you accept or dismiss it,
+even if you ask for something else, open another story or reload. A draft you leave half written is kept too.
 
 <!-- portal:#/stories -->
 

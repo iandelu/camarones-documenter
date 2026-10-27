@@ -1,20 +1,24 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { Thinking } from '@camaron/ui'
 import { postJSON } from '../api.js'
 import { core } from '../core.js'
-import { escapeAborts } from '../stories.js'
+import { dismissSuggestion, dropSuggestions, escapeAborts, keepSuggestions, loadSuggestions, noSuggestions, saveSuggestions,
+  suggestExclude, suggestKey } from '../stories.js'
 
 // "✨ Sugerir con IA" (spec §7): in each place AI helps, always; disabled with the reason when it cannot run (aiGate). A
 // suggestion is shown apart, marked IA, and does nothing until the person accepts it; it never decides files,
 // dependencies, waves or the verdict. Escape cancels a suggestion on its way. The answer's `missing` means nothing usable came back — broken or nothing new — and the
-// page says so plainly, without calling it an error.
+// page says so plainly, without calling it an error. What came back is kept per story in this browser (stories.js).
 const t = core.t
-const key = (s) => String(s || '').trim().toLowerCase()
 
 export function useSuggest({ draft, lang, onReadOnly }) {
-  const [state, setState] = useState(null)          // {what, running, result, note, error}
-  const [gone, setGone] = useState({})              // texts dismissed per kind: never proposed again this session
+  const story = suggestKey(draft.id)
+  const [kept, setKept] = useState(() => loadSuggestions(story))
+  const [state, setState] = useState(null)          // {story, what, running, note, error}: the request on its way, or how it ended
+  const here = useRef(story)
   const ctrl = useRef(null)
   const stop = useCallback(() => { ctrl.current?.abort() }, [])
+  useEffect(() => { here.current = story; setKept(loadSuggestions(story)) }, [story])
   useEffect(() => {
     if (!state?.running) return undefined
     // capture: the key is taken before the form or search box under the focus sees it
@@ -24,49 +28,55 @@ export function useSuggest({ draft, lang, onReadOnly }) {
   }, [state?.running, stop])
   useEffect(() => () => ctrl.current?.abort(), [])
 
+  // An answer lands in the story it was asked for, even when another one is open by then.
+  const remember = (at, edit) => {
+    if (here.current !== at) return saveSuggestions(at, edit(loadSuggestions(at)))
+    setKept((k) => { const next = edit(k); saveSuggestions(at, next); return next })
+  }
+
   async function run(what) {
     ctrl.current?.abort()
     const mine = new AbortController()
     ctrl.current = mine
-    const have = what === 'criteria' ? draft.criteria : what === 'tasks' ? (draft.tasks || []).map((x) => x.title) : []
-    const exclude = [...have, ...(gone[what] || [])].filter((x) => String(x || '').trim())
-    setState({ what, running: true })
+    const at = story
+    setState({ story: at, what, running: true })
     try {
       const res = await postJSON('stories/suggest', { story: { id: draft.id, as: draft.as, want: draft.want, so: draft.so,
-        criteria: draft.criteria.filter((c) => c.trim()), touches: draft.touches, epic: draft.epic || null }, what, exclude, lang },
-      { signal: mine.signal })
+        criteria: draft.criteria.filter((c) => c.trim()), touches: draft.touches, epic: draft.epic || null }, what,
+      exclude: suggestExclude(draft, kept, what), lang }, { signal: mine.signal })
       const empty = (res.missing || []).includes(what)
-      setState({ what, result: empty ? null : res, note: empty ? t('stories.ai.nothing') : '' })
+      if (!empty) remember(at, (k) => keepSuggestions(k, what, res))
+      setState({ story: at, what, note: empty ? t('stories.ai.nothing') : '' })
     } catch (e) {
-      if (e.name === 'AbortError') return setState({ what, note: t('stories.ai.cancelled') })
+      if (e.name === 'AbortError') return setState({ story: at, what, note: t('stories.ai.cancelled') })
       if (e.status === 403) onReadOnly()
-      setState({ what, error: e.message })
+      setState({ story: at, what, error: e.message })
     } finally { if (ctrl.current === mine) ctrl.current = null }
   }
-  const dismiss = (what, text) => {
-    setGone((g) => ({ ...g, [what]: [...(g[what] || []), text] }))
-    setState((s) => {
-      if (!s?.result) return s
-      const list = what === 'rewrite' ? null : s.result[what].filter((x) => key(x.title ?? x) !== key(text))
-      return list && list.length ? { ...s, result: { ...s.result, [what]: list } } : null
-    })
-  }
-  return { state, run, stop, dismiss, clear: () => setState(null) }
+  const dismiss = (what, text) => remember(story, (k) => dismissSuggestion(k, what, text))
+  // Saved or discarded: what was proposed for this story goes with its draft.
+  const forget = () => { dropSuggestions(story); setKept(noSuggestions()); setState(null) }
+  return { story, kept, state, run, stop, dismiss, forget }
 }
 
-// The button and, under it, what came back for this kind.
+// The button and, under it, what is kept for this kind. While it thinks, the button that started it is the indicator
+// (a pending button, as in React Aria): it keeps the focus, shimmers and cannot be pressed again.
 export function Suggest({ ai, what, gate, onAccept }) {
   const id = useId()
-  const s = ai.state?.what === what ? ai.state : null
-  const items = !s?.result ? [] : what === 'rewrite' ? (s.result.rewrite ? [s.result.rewrite] : []) : s.result[what] || []
+  const s = ai.state?.what === what && ai.state.story === ai.story ? ai.state : null
+  const busy = !!s?.running
+  const items = what === 'rewrite' ? (ai.kept.rewrite ? [ai.kept.rewrite] : []) : ai.kept[what] || []
   const text = (x) => (what === 'rewrite' ? t('stories.ai.rewrite', { as: x.as_, want: x.want, so: x.so }) : x.title ?? x)
   return (
     <div className="st-ai">
-      <button type="button" className="ghost small" disabled={!gate.on || !!ai.state?.running}
-              aria-describedby={gate.on ? undefined : `${id}-why`} onClick={() => ai.run(what)}>
-        {`✨ ${t('stories.ai.suggest')}${gate.runner && gate.on ? ` · ${gate.runner}` : ''}`}</button>
+      <button type="button" className="ghost small" disabled={!busy && (!gate.on || !!ai.state?.running)}
+              aria-disabled={busy || undefined} aria-busy={busy || undefined}
+              aria-describedby={gate.on ? undefined : `${id}-why`} onClick={busy ? undefined : () => ai.run(what)}>
+        {busy ? <>✨ <Thinking timer>{t('stories.ai.thinking')}</Thinking></>
+          : `✨ ${t('stories.ai.suggest')}${gate.runner && gate.on ? ` · ${gate.runner}` : ''}`}</button>
       {gate.on ? null : <span id={`${id}-why`} className="muted small"> {t(gate.why)}</span>}
-      {s?.running ? <span className="muted small" role="status"> {t('stories.ai.running')}</span> : null}
+      {busy ? <span className="muted small" role="status"> <span className="sr-only">{t('stories.ai.thinking')} </span>
+        {t('stories.ai.escape')}</span> : null}
       {s?.note ? <span className="muted small" role="status"> {s.note}</span> : null}
       {s?.error ? <p className="error" role="alert">{s.error}</p> : null}
       {items.length ? (

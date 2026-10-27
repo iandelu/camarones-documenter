@@ -1,20 +1,20 @@
 {
-  "_Failed-BXKy-2CV.js": {
-    "file": "assets/Failed-BXKy-2CV.js",
+  "_Failed-gXkHviG6.js": {
+    "file": "assets/Failed-gXkHviG6.js",
     "name": "Failed",
     "imports": [
-      "_i18n-B5voliVy.js"
+      "_i18n-Bz-YsjGi.js"
     ]
   },
-  "_core-Ct3sIeby.js": {
-    "file": "assets/core-Ct3sIeby.js",
+  "_core-jkBrBcRD.js": {
+    "file": "assets/core-jkBrBcRD.js",
     "name": "core",
     "imports": [
-      "_i18n-B5voliVy.js"
+      "_i18n-Bz-YsjGi.js"
     ]
   },
-  "_i18n-B5voliVy.js": {
-    "file": "assets/i18n-B5voliVy.js",
+  "_i18n-Bz-YsjGi.js": {
+    "file": "assets/i18n-Bz-YsjGi.js",
     "name": "i18n"
   },
   "_kanban-B_jOjNId.js": {
@@ -22,13 +22,13 @@
     "name": "kanban"
   },
   "index.html": {
-    "file": "assets/index-BgMJLjnj.js",
+    "file": "assets/index-_q62HKJN.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
     "imports": [
-      "_i18n-B5voliVy.js",
-      "_core-Ct3sIeby.js"
+      "_i18n-Bz-YsjGi.js",
+      "_core-jkBrBcRD.js"
     ],
     "dynamicImports": [
       "src/Pipeline.jsx",
@@ -43,93 +43,93 @@
       "src/Stories.jsx"
     ],
     "css": [
-      "assets/index-Xsz_3iep.css"
+      "assets/index-Dyu5rO2E.css"
     ]
   },
   "src/Ci.jsx": {
-    "file": "assets/Ci-wjiPOgS7.js",
+    "file": "assets/Ci-BTgKQoEA.js",
     "name": "Ci",
     "src": "src/Ci.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-B5voliVy.js",
-      "_core-Ct3sIeby.js",
+      "_i18n-Bz-YsjGi.js",
+      "_core-jkBrBcRD.js",
       "index.html",
-      "_Failed-BXKy-2CV.js"
+      "_Failed-gXkHviG6.js"
     ]
   },
   "src/Data.jsx": {
-    "file": "assets/Data-BUZtifXF.js",
+    "file": "assets/Data-BkbohGgF.js",
     "name": "Data",
     "src": "src/Data.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-B5voliVy.js",
-      "_core-Ct3sIeby.js",
+      "_i18n-Bz-YsjGi.js",
+      "_core-jkBrBcRD.js",
       "index.html",
-      "_Failed-BXKy-2CV.js"
+      "_Failed-gXkHviG6.js"
     ]
   },
   "src/Health.jsx": {
-    "file": "assets/Health-CwrBbpr0.js",
+    "file": "assets/Health-skdP9C2o.js",
     "name": "Health",
     "src": "src/Health.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-B5voliVy.js",
-      "_Failed-BXKy-2CV.js"
+      "_i18n-Bz-YsjGi.js",
+      "_Failed-gXkHviG6.js"
     ]
   },
   "src/Interview.jsx": {
-    "file": "assets/Interview-IRe4Gg5a.js",
+    "file": "assets/Interview-DFwNe_aA.js",
     "name": "Interview",
     "src": "src/Interview.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-B5voliVy.js",
-      "_Failed-BXKy-2CV.js"
+      "_i18n-Bz-YsjGi.js",
+      "_Failed-gXkHviG6.js"
     ]
   },
   "src/Kanban.jsx": {
-    "file": "assets/Kanban-DNsFaNwL.js",
+    "file": "assets/Kanban-B9vTVcvO.js",
     "name": "Kanban",
     "src": "src/Kanban.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-B5voliVy.js",
-      "_Failed-BXKy-2CV.js",
+      "_i18n-Bz-YsjGi.js",
+      "_Failed-gXkHviG6.js",
       "_kanban-B_jOjNId.js"
     ]
   },
   "src/Kpis.jsx": {
-    "file": "assets/Kpis-BBAsU8Pk.js",
+    "file": "assets/Kpis-9u7k6SBR.js",
     "name": "Kpis",
     "src": "src/Kpis.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-B5voliVy.js",
-      "_core-Ct3sIeby.js",
-      "_Failed-BXKy-2CV.js"
+      "_i18n-Bz-YsjGi.js",
+      "_core-jkBrBcRD.js",
+      "_Failed-gXkHviG6.js"
     ]
   },
   "src/Libs.jsx": {
-    "file": "assets/Libs-DSmgeGja.js",
+    "file": "assets/Libs-BfoZixB8.js",
     "name": "Libs",
     "src": "src/Libs.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-B5voliVy.js",
+      "_i18n-Bz-YsjGi.js",
       "index.html",
-      "_Failed-BXKy-2CV.js"
+      "_Failed-gXkHviG6.js"
     ]
   },
   "src/Pipeline.jsx": {
-    "file": "assets/Pipeline-C2_VBJxu.js",
+    "file": "assets/Pipeline-C4dBSuwX.js",
     "name": "Pipeline",
     "src": "src/Pipeline.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-B5voliVy.js",
+      "_i18n-Bz-YsjGi.js",
       "index.html"
     ],
     "css": [
@@ -137,25 +137,25 @@
     ]
   },
   "src/Stories.jsx": {
-    "file": "assets/Stories-Bk3EgZPM.js",
+    "file": "assets/Stories-Wm7lRePa.js",
     "name": "Stories",
     "src": "src/Stories.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-B5voliVy.js",
-      "_core-Ct3sIeby.js",
-      "_Failed-BXKy-2CV.js",
+      "_i18n-Bz-YsjGi.js",
+      "_core-jkBrBcRD.js",
+      "_Failed-gXkHviG6.js",
       "_kanban-B_jOjNId.js"
     ]
   },
   "src/Sync.jsx": {
-    "file": "assets/Sync-CQDDIFq-.js",
+    "file": "assets/Sync-DBK8Sb0o.js",
     "name": "Sync",
     "src": "src/Sync.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_i18n-B5voliVy.js",
-      "_Failed-BXKy-2CV.js"
+      "_i18n-Bz-YsjGi.js",
+      "_Failed-gXkHviG6.js"
     ]
   }
 }

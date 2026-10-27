@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { t } from '../i18n/index.js'
 
 // The kit's base components: markup and classes only (ui.css), so the portal and the desktop app look like one
@@ -67,6 +68,19 @@ export function Skeleton({ lines = 3, lang }) {
       {Array.from({ length: lines }, (_, i) => <div key={i} className="cu-skel-line" />)}
     </div>
   )
+}
+
+// An agent at work: its words under the loading skeleton's shimmer (ui.css), as AI "thinking" is shown elsewhere. With
+// timer, the seconds once they matter; for the eye only, since a live region reading them every second drowns the page.
+export function Thinking({ timer, children }) {
+  const [waited, setWaited] = useState(0)
+  useEffect(() => {
+    if (!timer) return undefined
+    const started = Date.now()
+    const id = setInterval(() => setWaited(Math.round((Date.now() - started) / 1000)), 1000)
+    return () => clearInterval(id)
+  }, [timer])
+  return <span className="cu-thinking">{children}{waited >= 3 ? <span aria-hidden="true"> · {waited} s</span> : null}</span>
 }
 
 // A human label; the CLI flag stays as a hint for whoever knows the command.

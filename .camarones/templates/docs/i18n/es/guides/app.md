@@ -200,11 +200,6 @@ la ejecución** (los agentes se paran, sus unidades vuelven a la cola y su traba
 **Mantenerla al día.** **Empezar con {agente}** abre una sesión que actualiza la documentación con lo que cambió en el
 código desde que se escribió.
 
-**Plan desde 0.** Lo que ha costado el plan desde que empezó (o desde el último borrado), para todo el equipo: tiempo
-de agente desatendido, tiempo con una persona delante, tiempo de calendario, tokens y dólares equivalentes de la API,
-las unidades más caras y una tabla por fase. **Actualizar** recoge antes las sesiones de agente de esta máquina. Lo que
-no se pudo medir o no tiene precio sale con su nombre, nunca como 0.
-
 **Las unidades.** Hechas de total, y cada unidad como tarjeta en un **Tablero** (Listas para empezar, En curso, Te
 necesitan, Esperan a otras, Hechas) o por **Fases**. Colores: en curso ámbar, en pausa ámbar apagado, hecha verde,
 bloqueada rojo, espera tu aprobación violeta, espera a otras con borde discontinuo. Al pulsar una tarjeta se abre su
@@ -221,6 +216,11 @@ detalle: fase, quién la hace, su repo, de qué depende, sus notas y, con su ter
 | Una entrevista antes de elegir el modo | **Cuestionario del equipo** o **En vivo, con un agente** |
 
 **Ver su registro en el portal** abre la unidad en el Pipeline del portal.
+
+**Plan desde 0**, debajo de las unidades. Lo que ha costado el plan desde que empezó (o desde el último borrado), para todo el equipo: tiempo
+de agente desatendido, tiempo con una persona delante, tiempo de calendario, tokens y dólares equivalentes de la API,
+las unidades más caras y una tabla por fase. **Actualizar** recoge antes las sesiones de agente de esta máquina. Lo que
+no se pudo medir o no tiene precio sale con su nombre, nunca como 0.
 
 **Todos los comandos** tiene el resto de comandos del plan (`plan`, `wiki`, `pr`, `runs`), cada uno con su formulario.
 
@@ -308,7 +308,10 @@ Las dependencias de cada repo, leídas de sus manifiestos y lockfiles sin IA (`#
 <!-- tour:libs -->
 
 - **Buscar vulnerabilidades** ejecuta `camaron inventory --cves` (OSV-Scanner con su base de datos sin conexión, que se
-  descarga una vez); **Releer del código** ejecuta `camaron inventory`.
+  descarga una vez); **Releer del código** ejecuta `camaron inventory`. El escaneo va repo a repo —en el que está
+  buceando, cuántos lleva, una barra y **Parar**— y acaba con un tick con lo que encontró («5 repos revisados · 3
+  librerías con avisos conocidos», y los repos que no pudo escanear). Si sales de Librerías y vuelves mientras corre,
+  retoma su progreso. Sin OSV-Scanner en la máquina, las librerías se releen sin vulnerabilidades y lo dice.
 - Filtros: búsqueda, categoría, servicio, ámbito y **Solo vulnerables**. La tabla es librería × servicio, las peores
   primero, con un chip cuando dos repos usan versiones distintas.
 - Abre una librería: **Por qué está aquí** (qué repo la declara, en qué manifiesto, con qué rango y ámbito) y **Por qué
