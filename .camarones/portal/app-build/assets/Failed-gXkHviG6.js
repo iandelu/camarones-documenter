@@ -1,0 +1,1 @@
+import{C as e,b as t,j as n,n as r}from"./i18n-Bz-YsjGi.js";var i=n();function a({title:n,detail:a,onRetry:o}){return(0,i.jsx)(t,{tone:`error`,title:n,detail:a,action:o?(0,i.jsx)(e,{size:`sm`,onClick:o,children:r(`retry`)}):null})}export{a as t};

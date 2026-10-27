@@ -224,8 +224,11 @@ wizard and the desktop app always keep it.
 The portal's **Stories** zone (`#/stories`) is one place to write a story, check it and turn it into subtasks that
 do not collide. The verdict, subtasks and waves come from rules, templates and the code map, with no AI: the same board
 always gives the same verdict, subtasks and waves. AI only proposes, and only when you ask: **✨ Suggest with AI** sits in
-the three places it helps (rewriting the story, the criteria and the subtasks) and only spends when you press it. When it
-cannot run (no agent installed, a portal not opened with `camaron up`, or turned off) it shows disabled and says why.
+the three places it helps (rewriting the story, the criteria and the subtasks) and only spends when you press it. While
+it thinks, the button says so (it shimmers, cannot be pressed again and **Escape** cancels); what it proposes stays in
+your browser, per story, until you accept or dismiss it: asking for something else, opening another story or reloading
+does not lose it. When it cannot run (no agent installed, a portal not opened with `camaron up`, or turned off) it shows
+disabled and says why.
 
 1. **Write** *As / I want / so that* (or *Como / quiero / para*). Hints appear as you type (a generic role, two goals
    in one, a *so that* that repeats the *I want*, too long, a solution inside the *I want*); only an empty clause

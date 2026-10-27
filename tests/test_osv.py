@@ -133,3 +133,14 @@ def test_a_finding_stays_with_the_repo_it_was_found_in(kit, repos, scanner):  # 
     rows = {(r["repo"], r["name"]): r for r in repos.load()["libraries"]}
     assert rows[("api", "org.postgresql:postgresql")]["vulns"]
     assert rows[("web", "org.postgresql:postgresql")]["vulns"] == []    # OSV found nothing in web's pom
+
+
+def test_each_repo_is_counted_as_it_starts(kit, repos, scanner):  # noqa: F811
+    """`[n/total] repo:` before each repo's scan, the convention of the setup job: the desktop app draws its bar
+    from these lines."""
+    logs = []
+    repos.run(log=logs.append, cves=True)
+    counted = [l for l in logs if l.startswith("[")]
+    assert counted == ["[1/3] api: scanning for known vulnerabilities (offline database)…",
+                       "[2/3] web: scanning for known vulnerabilities (offline database)…",
+                       "[3/3] worker: scanning for known vulnerabilities (offline database)…"]

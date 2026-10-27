@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { BOARD_ACTIONS, doctorRows, pytestSummary, seconds, setupProgress } from './quality.js'
+import { BOARD_ACTIONS, doctorRows, inventoryArgs, pytestSummary, scanProgress, seconds, setupProgress } from './quality.js'
 
 const fix = (cmd, args = {}) => ({ cmd, args })
 
@@ -37,4 +37,25 @@ test('the board rows whose controls the app owns; review is a link and repos a t
   expect(BOARD_ACTIONS).toEqual(['doctor', 'drift', 'fresh', 'evals', 'context', 'blocks', 'ab', 'libs'])
   expect(BOARD_ACTIONS).not.toContain('review')
   expect(BOARD_ACTIONS).not.toContain('repos')
+})
+
+// `inventory --cves` logs `[n/total] repo: …` as it starts each repo; its --json result also lands in the log.
+test('the vulnerability scan\'s progress: the repo it reads, the ones before it done', () => {
+  expect(scanProgress([])).toEqual({ n: 0, total: 0, repo: '', done: [] })
+  const lines = ['[1/3] api: scanning for known vulnerabilities (offline database)…', '[2/3] web: scanning for known vulnerabilities…']
+  expect(scanProgress(lines)).toEqual({ n: 2, total: 3, repo: 'web', done: ['api'] })
+  const end = [...lines, '[3/3] worker: scanning…', '✔ 2 libraries with known vulnerabilities', '{', '  "libraries": [],', '}']
+  expect(scanProgress(end)).toEqual({ n: 3, total: 3, repo: 'worker', done: ['api', 'web'] })
+  expect(scanProgress(undefined).total).toBe(0)
+})
+
+// Back on Libraries while a scan runs (started here, then the section was left): the same arguments attach to it.
+test('a running inventory job gives back the arguments that attach to it', () => {
+  const job = (kind) => ({ id: '1', kind, status: 'running' })
+  expect(inventoryArgs([job('cmd:inventory --json --cves')])).toEqual({ json: true, cves: true })
+  expect(inventoryArgs([job('cmd:inventory --json')])).toEqual({ json: true, cves: false })
+  expect(inventoryArgs([job('cmd:inventory --json --cves --fail-on high')])).toBeNull()     // not ours: it fails CI
+  expect(inventoryArgs([job('cmd:doctor --json')])).toBeNull()
+  expect(inventoryArgs([])).toBeNull()
+  expect(inventoryArgs(undefined)).toBeNull()
 })

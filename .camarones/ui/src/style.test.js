@@ -46,3 +46,23 @@ test('the skip link stays off screen until it is focused', () => {
   expect(css).toMatch(/\.cu-skip:focus(-visible)?\s*\{[^}]*(top|transform)/)
   expect(css).toMatch(/main\[tabindex="-1"\]:focus\s*\{/)    // and the main it lands on takes the focus quietly
 })
+
+// AI at work shimmers like the loading skeleton; for who asked for less motion it is the words, still. Both ends of
+// the sweep are text colours that reach 4.5:1 (theme/tokens.test.js), so the word stays legible at every frame.
+test('the thinking shimmer moves only without reduced motion, between two legible text colours', () => {
+  const css = read('ui.css')
+  expect(css).toMatch(/\.cu-thinking\s*\{[^}]*--cu-think-base:\s*var\(--color-ink-dim\)[^}]*--cu-think-glint:\s*var\(--color-ink\)[^}]*color:\s*var\(--cu-think-base\)/)
+  const moving = css.match(/@media \(prefers-reduced-motion: no-preference\)\s*\{([\s\S]*?)\n\}/)
+  expect(moving).not.toBeNull()
+  expect(moving[1]).toMatch(/\.cu-thinking\s*\{[^}]*background-clip:\s*text[^}]*animation:\s*cu-thinking/)
+  expect(css.replace(moving[0], '')).not.toMatch(/\.cu-thinking[^{]*\{[^}]*animation/)
+  expect(css).toMatch(/\.cu-chip--info \.cu-thinking\s*\{[^}]*--cu-think-base:\s*var\(--color-acento-texto\)/)
+})
+
+// A disabled or pending button does nothing, so it never looks like it would: no hover, no press.
+test('a disabled or pending kit button does not light up on hover', () => {
+  const css = read('ui.css')
+  for (const [, sel] of css.matchAll(/(?:^|\n)([^{}\n]*\.cu-btn[^{}\n]*:hover[^{}\n]*)\{/g))
+    expect(sel, sel).toContain(':not(:disabled, [aria-disabled="true"])')
+  expect(css).toMatch(/\.cu-btn\[aria-disabled="true"\]/)
+})

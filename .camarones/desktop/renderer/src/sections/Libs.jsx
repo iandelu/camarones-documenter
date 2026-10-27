@@ -4,15 +4,18 @@ import { advisories, applyFilter, facets, fixTarget, matrix, rowsOf } from '@cam
 import { severities } from '@camaron/ui/result.js'
 import { useCmd } from '../hooks.js'
 import { Failed, JobOutput, Page } from '../parts.jsx'
+import { inventoryArgs, scanProgress } from '../quality.js'
 import { t } from '../i18n.js'
 
 // Libraries: what every repo declares, read from the code without AI (inventory), as a library x service table. Any
 // line opens on why the library is there (which manifest, which scope), why it is flagged (the advisories with their
 // affected versions and full text, read offline from the last scan) and an update: `bump` on a new branch of that
-// repo, with its own package manager, never committed.
+// repo, with its own package manager, never committed. A scan shows the repo it reads and ends on a tick; back here
+// while one runs, the section attaches to it.
 export const SEV = { critical: 'bad', high: 'bad', medium: 'warn', moderate: 'warn' }
 export const sevWord = (s) => { const k = `sev.${s}`; const w = t(k); return w === k ? s : w }
 const slug = (name) => name.split(':').pop().split('/').pop().replace(/[^\w.-]+/g, '-')
+const libCount = (rows) => new Set(rows.map((r) => r.ecosystem + r.name)).size
 
 export default function Libs({ srv, jobs }) {
   const c = useCmd(srv, jobs)
@@ -20,16 +23,22 @@ export default function Libs({ srv, jobs }) {
   const [error, setError] = useState('')
   const [f, setF] = useState({})
   const [open, setOpen] = useState(null)
+  const [cves, setCves] = useState(true)
+  const [closed, setClosed] = useState(false)
   const load = () => srv.get('inventory').then((x) => { setInv(x); setError('') }, (e) => setError(e.message))
-  useEffect(() => { load() }, [])
   const rows = inv?.libraries || []
   const shown = useMemo(() => applyFilter(rows, f), [rows, f])
   const m = useMemo(() => matrix(shown), [shown])
   const fc = useMemo(() => facets(rows), [rows])
   const sev = severities(rows)
-  const run = async (args) => { await c.run('inventory', args); load() }
+  const run = async (args) => { setCves(!!args.cves); setClosed(false); await c.run('inventory', args); load() }
+  useEffect(() => {
+    load()
+    const args = inventoryArgs(jobs?.get().running)
+    if (args) run(args)
+  }, [])
   const set = (k) => (v) => setF((cur) => ({ ...cur, [k]: v }))
-  const count = new Set(rows.map((r) => r.ecosystem + r.name)).size
+  const count = libCount(rows)
   return (
     <Page title={t('nav.libs')} wide>
       <p className="muted">{t('lb.lead')}</p>
@@ -46,10 +55,10 @@ export default function Libs({ srv, jobs }) {
       ) : !error ? <Skeleton lines={3} /> : null}
       <div className="row" data-tour="libs-actions">
         <Button size="sm" variant="primary" disabled={c.running} onClick={() => run({ cves: true, json: true })}>{t('q.cvScan')}</Button>
-        <Button size="sm" disabled={c.running} onClick={() => run({})}>{t('q.libsRead')}</Button>
+        <Button size="sm" disabled={c.running} onClick={() => run({ json: true })}>{t('q.libsRead')}</Button>
         <span className="muted small">{t('q.libsNoAi')}</span>
       </div>
-      <JobOutput c={c} />
+      {closed ? null : <ScanStatus c={c} cves={cves} onClose={() => setClosed(true)} />}
       {rows.length ? (<>
         <div className="row" data-tour="libs-filters">
           <input type="search" className="cu-input dk-grow" placeholder={t('q.libsSearch')} aria-label={t('q.libsSearch')} value={f.q || ''} onChange={(e) => set('q')(e.target.value)} />
@@ -84,6 +93,85 @@ export default function Libs({ srv, jobs }) {
     </Page>
   )
 }
+
+// A scan (`cves`) or a reread as it goes, then a tick and what it found. A failed or stopped one shows the command's
+// output; a scan without OSV-Scanner warns with the reason it gave instead of ticking.
+export function ScanStatus({ c, cves, onClose }) {
+  const job = c.job
+  if (!job || c.error || job.status === 'failed') return <JobOutput c={c} />
+  if (job.status === 'running') return <Scanning job={job} cves={cves} onStop={c.stop} />
+  const r = job.result
+  if (cves && r && r.vulns === null) {
+    const why = job.lines.find((l) => l.startsWith('⚠'))
+    return <Aviso tone="warn" title={t('lb.noScanner')} detail={why?.replace(/^⚠\s*/, '')}>{t('lb.noScannerWhat')}</Aviso>
+  }
+  const failed = cves ? r?.vulns?.failed || [] : []
+  return (
+    <div className="dk-scan done" role="status">
+      <Tick />
+      <div className="dk-scan-what">
+        <b>{t(cves ? 'lb.scanned' : 'lb.read')}</b>
+        {r ? <span className="muted small">{found(r, cves)}</span> : null}
+        {failed.length ? <span className="small">{t('lb.scanFailedRepos', { repos: failed.join(', ') })}</span> : null}
+      </div>
+      <span className="dk-grow"></span>
+      <button type="button" className="dk-icon" aria-label={t('close')} onClick={onClose}>×</button>
+    </div>
+  )
+}
+
+function found(r, cves) {
+  const rows = r.libraries || []
+  if (!cves) return t('lb.readWhat', { n: libCount(rows), repos: new Set(rows.map((x) => x.repo)).size })
+  const n = libCount(rows.filter((x) => (x.vulns || []).length))
+  return t(n ? 'lb.scannedVuln' : 'lb.scannedClean', { repos: r.vulns?.scanned ?? 0, n })
+}
+
+// While it runs: the repo it reads with the ones done before it and how many are left (lib/osv.py counts them).
+function Scanning({ job, cves, onStop }) {
+  const p = scanProgress(job.lines)
+  const left = Math.max(0, p.total - p.n)
+  return (
+    <div className="dk-scan" role="status">
+      <div className="row">
+        <b>{!cves ? t('lb.reading') : p.repo ? t('lb.scanRepo', { repo: p.repo }) : t('lb.scanPrep')}</b>
+        <span className="dk-grow"></span>
+        {p.total ? <span className="muted small">{t('lb.scanCount', { n: p.n, total: p.total })}</span> : null}
+        <Button size="sm" variant="ghost" onClick={onStop}>{t('job.stop')}</Button>
+      </div>
+      <Bar n={p.n} total={p.total} />
+      {p.total > 1 ? (
+        <ol className="dk-scan-repos">
+          {p.done.map((r) => <li key={r} className="done">{`✓ ${r}`}</li>)}
+          <li className="current"><i></i>{p.repo}</li>
+          {left ? <li className="muted">{t('lb.scanLeft', { n: left })}</li> : null}
+        </ol>
+      ) : null}
+    </div>
+  )
+}
+
+// The repos done fill the bar and the one being read glows after them; before the first count it sweeps.
+function Bar({ n, total }) {
+  if (!total) return <div className="dk-bar indeterminate" aria-hidden="true"><i></i></div>
+  const done = (n - 1) / total
+  return (
+    <div className="dk-bar" aria-hidden="true">
+      <span style={{ transform: `scaleX(${done})` }}></span>
+      <i style={{ transform: `translateX(${done * 100}%) scaleX(${1 / total})` }}></i>
+    </div>
+  )
+}
+
+// The check that draws itself in its circle once a scan ends (an approved drawing, see the design system's CAMARON.md).
+const Tick = () => (
+  <svg className="dk-tick" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2"
+    strokeLinecap="round" strokeLinejoin="round">
+    <circle className="dk-tick-ripple" cx="12" cy="12" r="10" />
+    <circle className="dk-tick-ring" cx="12" cy="12" r="10" />
+    <path className="dk-tick-check" d="m7.5 12.5 3 3 6-7" pathLength="1" />
+  </svg>
+)
 
 function FacetSelect({ label, value, onChange, options }) {
   return (

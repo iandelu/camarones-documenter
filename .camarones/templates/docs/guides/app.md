@@ -194,11 +194,6 @@ while the autopilot is on, **Stop the autopilot**. Only one run exists at a time
 **Keep it current.** **Start with {agent}** opens a session that updates the docs with what changed in the code since
 they were written.
 
-**Plan from zero.** What the plan has cost since it started (or since the last wipe), for the whole team: agent time
-unattended, time with a person, calendar time, tokens and API-equivalent dollars, the most expensive units and a table
-by phase. **Update** first collects this machine's agent sessions. What could not be measured or priced is named, never
-counted as 0.
-
 **The units.** Done of total, and every unit as a card on a **Board** (Ready to start, Running, Need you, Waiting for
 others, Done) or by **Phases**. Colours: running amber, paused dimmed amber, done green, blocked red, awaiting your
 approval violet, waiting for others dashed. Pick a card to open its detail: phase, who does it, its repo, what it
@@ -215,6 +210,11 @@ or that it is waiting for you). The detail's button moves it:
 | An interview before the mode is chosen | **Team questionnaire** or **Live, with an agent** |
 
 **See its log in the portal** opens the unit in the portal's Pipeline.
+
+**Plan from zero**, under the units. What the plan has cost since it started (or since the last wipe), for the whole team: agent time
+unattended, time with a person, calendar time, tokens and API-equivalent dollars, the most expensive units and a table
+by phase. **Update** first collects this machine's agent sessions. What could not be measured or priced is named, never
+counted as 0.
 
 **All commands** holds the rest of the plan's commands (`plan`, `wiki`, `pr`, `runs`), each with a form.
 
@@ -297,7 +297,10 @@ Every repo's dependencies, read from its manifests and lockfiles without AI (`#/
 <!-- tour:libs -->
 
 - **Scan for vulnerabilities** runs `camaron inventory --cves` (OSV-Scanner with its offline database, downloaded once);
-  **Reread from the code** runs `camaron inventory`.
+  **Reread from the code** runs `camaron inventory`. The scan goes repo by repo — the one it is diving into, how many
+  are done, a bar and **Stop** — and ends on a tick with what it found ("5 repos checked · 3 libraries with known
+  advisories", and the repos it could not scan). Leave Libraries and come back while it runs: it picks its progress up.
+  Without OSV-Scanner on the machine the libraries are reread, without vulnerabilities, and it says so.
 - Filters: search, category, service, scope and **Vulnerable only**. The table is library × service, the worst first,
   with a chip when two repos use different versions.
 - Open a library: **Why it is here** (which repo declares it, in which manifest, with which range and scope) and **Why

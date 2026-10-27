@@ -45,3 +45,12 @@ test('a full page has no width cap and fills the height', () => {
   expect(rule('.dk-page.full')).toMatch(/max-width:\s*none/)
   expect(rule('.dk-page.full')).toMatch(/min-height:\s*100%/)
 })
+
+// The Libraries scan: its bar and its tick stand still for who asked for less motion, and the check rests drawn, so
+// nothing waits invisible for an animation.
+test('the scan\'s bar and tick do not move for who asked for less motion, and the check rests drawn', () => {
+  const reduced = css.slice(css.lastIndexOf('@media (prefers-reduced-motion: reduce)'))
+  expect(reduced).toMatch(/\.dk-tick \*[^{]*\{\s*animation:\s*none/)
+  expect(reduced).toMatch(/\.dk-bar i[^{]*\{[^}]*animation:\s*none/)
+  expect(rule('.dk-tick-check')).toMatch(/stroke-dashoffset:\s*0\b/)
+})

@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.70.0-ff875f?style=flat-square" alt="Versión 4.70.0">
+  <img src="https://img.shields.io/badge/version-4.72.0-ff875f?style=flat-square" alt="Versión 4.72.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -249,11 +249,11 @@ escribirías en la terminal.
 |---|---|
 | 🏠 **Resumen** (`g s`) | El siguiente paso con un solo botón, avisos de la máquina y cómo van el plan, la revisión y los trabajos |
 | 📋 **Tablero** (`g b`) | El Kanban del proyecto: seis columnas de Backlog a Bloqueado, mover con ratón o teclado, abrir, añadir, eliminar |
-| 🗺️ **Plan** (`g p`) | Ejecutar las unidades listas en paralelo o con el piloto automático, cada unidad con su botón (aprobar, reintentar, seguir, rehacer), lo que lleva costado el plan y empezar la documentación otra vez |
+| 🗺️ **Plan** (`g p`) | Ejecutar las unidades listas en paralelo o con el piloto automático, cada unidad con su botón (aprobar, reintentar, seguir, rehacer), lo que lleva costado el plan (debajo del tablero de unidades) y empezar la documentación otra vez |
 | 🎙️ **Entrevistas** (`g i`) | Cuestionario del equipo o en vivo, exportar e importar respuestas, cerrar la ronda |
 | 🤝 **Equipo** (`g t`) | El repo del equipo y compartir, aprobar lo que llegó con él, hooks y plugins |
 | ✅ **Calidad** (`g q`) | La salud del proyecto sin IA: máquina, documentación y código, repo a repo (SonarQube, cobertura, vulnerabilidades, deuda) |
-| 📦 **Librerías** (`g l`) | Las dependencias de cada repo, sus vulnerabilidades y **Actualizar** en una rama nueva, sin commit |
+| 📦 **Librerías** (`g l`) | Las dependencias de cada repo y sus vulnerabilidades (el escaneo va repo a repo con su barra, se puede parar y acaba con un tick con lo que encontró) y **Actualizar** en una rama nueva, sin commit |
 | 📖 **Docs** (`g d`) | Abrir el portal, construir el explorador C4, generar la wiki de cada repo y preguntar con IA |
 | 🧰 **Máquina** (`g m`) | Preparar la máquina, idioma y modelos, tokens, repos, el kit y desinstalar |
 | 📘 **Guía** (`g h`) | Toda la documentación de Camarón dentro de la app, con botones que te llevan a cada sitio y un **recorrido guiado** |
@@ -447,7 +447,9 @@ Python, Go, .NET, Composer, Cargo y Flutter/Dart), con versión, ámbito y categ
 `docs/overview/libraries.md`. Con `--cves` añade las vulnerabilidades conocidas con OSV-Scanner (binario fijado y
 comprobado por SHA-256 en `~/.camarones/bin`) y su base de datos **sin conexión** (`~/.camarones/osv-db`, unos 220 MB),
 sin resolver transitivas: ningún nombre de paquete sale de tu máquina, salvo con `"osv": {"online": true}` en
-`~/.camarones.json`. Encontrar vulnerabilidades sale con 0; en CI, `--fail-on high` (o `critical`) sale con 1.
+`~/.camarones.json`. Encontrar vulnerabilidades sale con 0; en CI, `--fail-on high` (o `critical`) sale con 1. El escaneo cuenta los repos a
+medida que entra en cada uno (`[2/5] <repo>: …`); con `--json` la salida estándar es solo el JSON y ese progreso va a
+stderr.
 
 `camaron bump <repo> <librería> <versión>` la actualiza en una rama nueva (`camaron/bump-<nombre>-<versión>`) con su
 gestor de paquetes (npm, pnpm, yarn, uv, poetry, go) o reescribiendo el manifiesto (Maven, Gradle, requirements): sin
@@ -486,7 +488,9 @@ camaron board repair                                  # también corre antes de 
 Mover a *In Progress* comprueba dependencias y choques de ficheros (`x-touches`): una persona puede seguir con
 `--force` o **Mover igualmente**; un agente nunca. Las historias se escriben en la zona **Historias** del portal, en
 tres pasos (escribir con lo que toca, revisar el veredicto INVEST, subtareas en oleadas) y no se guarda nada hasta
-aprobarlas. Ajustes opcionales en `workspace.yaml`: `stories: {ai: false}` apaga **✨ Sugerir con IA**,
+aprobarlas. Mientras **✨ Sugerir con IA** piensa, el botón brilla, no se puede volver a pulsar y Escape cancela; lo que
+propone se queda en tu navegador, por historia, hasta que lo aceptas o lo descartas. Ajustes opcionales en
+`workspace.yaml`: `stories: {ai: false}` lo apaga,
 `stories: {model: …}` y `stories: {small: {groups, files, repos}}`. El índice `.camarones/.cache/board.db` se reconstruye
 solo. Al desinstalar, la CLI pregunta si conservas `backlog/` (`--keep-board` / `--drop-board`); la app lo conserva.
 
@@ -525,7 +529,8 @@ token. Nunca se exporta una página retenida por la puerta de frescura.
   cambian las personas lo que escribió la IA antes de confirmarlo) y utilidad.
 - `camaron plan cost`: tokens, horas y dólares equivalentes de la API desde que empezó el plan, para todo el equipo,
   por fase y por unidad (precios en `lib/pricing.yaml`, cambiables con `pricing:` en `workspace.yaml`). Lo que no se
-  puede medir sale con su nombre, nunca como 0.
+  puede medir sale con su nombre, nunca como 0. La app lo enseña en el Plan, debajo del tablero de unidades, y el
+  portal en Calidad › KPIs.
 - `camaron eval draft | confirm <id> --by <nombre> | run [--judge]`: preguntas de oro que la documentación debe
   responder, aprobadas por una persona y puntuadas sin IA (páginas citadas e identificadores nombrados).
 - `camaron ab --qa "…"` hace la misma pregunta con y sin `cam-docs` y compara contexto, tiempo, coste y herramientas

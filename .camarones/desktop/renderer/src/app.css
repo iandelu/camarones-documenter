@@ -138,6 +138,35 @@ a.dk-stat-n:hover { color: var(--color-acento-texto); }
 .dk-adv-text { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 22rem; overflow-y: auto; font-size: var(--text-meta); }
 .dk-adv-refs { margin: 0; padding-left: 1.1rem; font-size: var(--text-meta); overflow-wrap: anywhere; }
 .dk-bump { display: flex; flex-direction: column; gap: .4rem; min-width: 14rem; }
+/* the scan as it goes: the repos done fill the bar (green) and the one being read glows after them (amber, like a
+   running unit); once it ends, a tick: its ring pops, a ripple leaves it and the check draws itself */
+.dk-scan { display: flex; flex-direction: column; gap: .6rem; padding: .75rem .9rem; border: 1px solid var(--color-rule);
+           border-radius: var(--consola-radio-tarjeta); background: var(--color-canvas-elevated); }
+.dk-scan.done { flex-direction: row; align-items: center; gap: .85rem; animation: dk-rise var(--duration-normal) var(--ease-out-soft) both; }
+.dk-scan-what { display: flex; flex-direction: column; gap: .15rem; min-width: 0; }
+.dk-bar { position: relative; height: .4rem; overflow: hidden; border-radius: var(--consola-radio-chico); background: var(--color-rule); }
+.dk-bar span, .dk-bar i { position: absolute; inset: 0; transform-origin: left; transition: transform var(--duration-normal) var(--ease-out-soft); }
+.dk-bar span { background: var(--color-estado-bien); }
+.dk-bar i { background: var(--color-aurora-amber); animation: dk-glow 1.2s ease-in-out infinite; }
+.dk-bar.indeterminate i { transform: scaleX(.35); animation: dk-sweep 1.4s var(--ease-in-out-soft) infinite; }
+.dk-scan-repos { display: flex; flex-wrap: wrap; gap: .3rem; margin: 0; padding: 0; list-style: none; font-size: var(--text-meta); }
+.dk-scan-repos li { display: inline-flex; align-items: center; gap: .35rem; padding: .15rem .5rem; border: 1px solid var(--color-rule);
+                    border-radius: var(--consola-radio-chico); color: var(--color-ink-dim); }
+.dk-scan-repos li.done { color: var(--color-estado-bien); animation: dk-rise var(--duration-normal) var(--ease-out-soft) both; }
+.dk-scan-repos li.current { color: var(--color-ink); border-color: var(--color-aurora-amber); }
+.dk-scan-repos li.current i { width: .5rem; height: .5rem; border-radius: 50%; background: var(--color-aurora-amber); animation: dk-glow 1.2s ease-in-out infinite; }
+.dk-scan-repos li.muted { border-style: dashed; }
+.dk-tick { width: 2.25rem; height: 2.25rem; flex: none; overflow: visible; color: var(--color-estado-bien); }
+.dk-tick circle { transform-box: fill-box; transform-origin: center; }
+.dk-tick-ring { animation: dk-tick-pop var(--duration-normal) var(--ease-out-soft) both; }
+.dk-tick-ripple { opacity: 0; animation: dk-tick-ripple var(--duration-slow) var(--ease-out-soft) 150ms; }
+.dk-tick-check { stroke-dasharray: 1; stroke-dashoffset: 0; animation: dk-tick-draw var(--duration-normal) var(--ease-out-soft) 250ms both; }
+@keyframes dk-rise { from { opacity: 0; transform: translateY(4px); } }
+@keyframes dk-glow { 50% { opacity: .45; } }
+@keyframes dk-sweep { from { transform: translateX(-35%) scaleX(.35); } to { transform: translateX(100%) scaleX(.35); } }
+@keyframes dk-tick-pop { from { opacity: 0; transform: scale(.5); } }
+@keyframes dk-tick-ripple { from { opacity: .5; transform: scale(1); } to { opacity: 0; transform: scale(1.8); } }
+@keyframes dk-tick-draw { from { stroke-dashoffset: 1; } }
 .dk-bump .row { flex-wrap: nowrap; }
 .dk-bump-v { width: 7rem; }
 .dk-advisories { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: .35rem; white-space: normal; }
@@ -354,6 +383,10 @@ a.dk-stat-n:hover { color: var(--color-acento-texto); }
   .dk-hint { transition: none; }
   .dk-card { transition: none; }
   .dk-card.tone-running { animation: none; }
+  .dk-scan.done, .dk-scan-repos li.done, .dk-scan-repos li.current i { animation: none; }
+  .dk-bar span, .dk-bar i, .dk-bar.indeterminate i { animation: none; transition: none; }
+  .dk-tick * { animation: none; }
+  .dk-tour-ring { transition: none; }
 }
 
 /* The guide (sections/Guide.jsx): tabs per guide, a search, the chapter index beside the text */
@@ -416,4 +449,3 @@ a.dk-stat-n:hover { color: var(--color-acento-texto); }
 .dk-tour-title { font-size: var(--text-body); }
 .dk-tour-body { margin: 0; color: var(--color-ink-soft); font-size: var(--text-meta); line-height: 1.5; }
 .dk-tour-bubble > p { margin: 0; }
-@media (prefers-reduced-motion: reduce) { .dk-tour-ring { transition: none; } }

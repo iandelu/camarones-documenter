@@ -196,6 +196,7 @@ def test_the_cli(kit, repos):
     data = json.loads(r.stdout)
     assert {x["repo"] for x in data["libraries"]} == {"api", "web", "worker"} and data["vulns"] is None
     assert (kit.root / "docs" / "overview" / "libraries.md").is_file()
+    assert "libraries in 3 repos" in r.stderr          # --json: what it is doing goes to stderr, stdout stays JSON
 
 
 def test_the_portal_reads_it_and_refreshes_it(kit, repos):

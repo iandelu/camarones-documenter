@@ -236,8 +236,10 @@ La zona **Historias** (`#/stories`) del portal es un solo sitio para escribir un
 subtareas que no chocan. El veredicto, las subtareas y las oleadas salen de reglas, plantillas y el mapa del código, sin
 IA: el mismo tablero da siempre el mismo veredicto, las mismas subtareas y las mismas oleadas. La IA solo propone, y solo
 cuando la pides: **✨ Sugerir con IA** está en los tres sitios donde ayuda (reescribir la historia, los criterios y las
-subtareas) y solo gasta cuando lo pulsas. Si no puede usarse (no hay agente instalado, el portal no se abrió con
-`camaron up` o está apagada) sale desactivado y dice por qué.
+subtareas) y solo gasta cuando lo pulsas. Mientras piensa, el botón lo dice (brilla, no se puede volver a pulsar y
+**Escape** cancela); lo que propone se queda en tu navegador, por historia, hasta que lo aceptas o lo descartas: pedir
+otra cosa, abrir otra historia o recargar no lo pierde. Si no puede usarse (no hay agente instalado, el portal no se
+abrió con `camaron up` o está apagada) sale desactivado y dice por qué.
 
 1. **Escribe** *Como / quiero / para* (o *As / I want / so that*). Mientras escribes salen avisos (rol genérico, dos
    objetivos en uno, un *para* que repite el *quiero*, demasiado largo, una solución dentro del *quiero*); solo una

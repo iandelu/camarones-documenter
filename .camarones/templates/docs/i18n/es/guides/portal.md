@@ -154,7 +154,9 @@ No se escribe nada hasta **Añadir historia + n subtareas al backlog** (o **Guar
 existía escribe solo lo que tú cambiaste: lo que otra persona cambió mientras tanto se conserva, y si los dos
 cambiasteis lo mismo te pide recargarla. **✨ Sugerir con IA** está en los tres pasos y solo gasta al pulsarlo; solo
 sugiere —nunca huellas, dependencias, oleadas ni el veredicto— y sale desactivado, con el motivo, sin agente, sin el
-token o con `stories: {ai: false}`. Un borrador que dejas a medias se guarda en este navegador.
+token o con `stories: {ai: false}`. Mientras piensa, el botón brilla y no se puede volver a pulsar (<kbd>Esc</kbd>
+cancela); lo que propone se queda en este navegador, por historia, hasta que lo aceptas o lo descartas, aunque pidas
+otra cosa, abras otra historia o recargues. Un borrador que dejas a medias también se guarda.
 
 <!-- portal:#/stories -->
 

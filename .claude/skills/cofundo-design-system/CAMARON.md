@@ -31,3 +31,7 @@ for the portal.
   A third approved exception: the portal's freshness icons (`FreshIcon` in `portal/app/src/views/Sources.jsx`: fresh,
   changed, missing, unchecked) on a doc page's header pill and its Sources card, inline SVG, aria-hidden, in
   currentColor, always next to their word or with it as the link's label.
+  A fourth approved exception: the desktop Libraries scan's tick (`Tick` in `desktop/renderer/src/sections/Libs.jsx`),
+  inline SVG, aria-hidden, in currentColor, next to its «Escaneo terminado». It is also the one animation that moves
+  more than `transform` and `opacity`: its check draws itself with `stroke-dashoffset` (it rests drawn, and stands
+  still under `prefers-reduced-motion`).
