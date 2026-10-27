@@ -233,19 +233,34 @@ def test_the_markdown_is_cut_at_the_limit(pack_world, monkeypatch):
 def test_affected_are_the_pages_citing_the_touches(pack_world, adr):
     kit, adr_pack, state = pack_world
     write_doc(kit, "notes/choice.md", f"---\ntype: decision\ntitle: Choice\nx-sources:\n  - {ORDER}\n---\n# Choice\n")
+    write_doc(kit, "flows/checkout.md", "---\ntitle: Checkout\nx-sources:\n  - repo://api/" + ORDER_FILE + "#place\n---\n# C\n")
+    write_doc(kit, "flows/pay.md", f"---\ntitle: Pay\nx-sources:\n  - {PAY}\n---\n# Pay\n")
+    write_doc(kit, "flows/plain.md", "---\ntitle: Plain\nx-sources: not-a-list\n---\n# Plain\n")
+    write_doc(kit, "flows/broken.md", "---\ntitle: [oops\n---\n# Broken\n")
     a = adr.new({"title": "More orders", "kind": "new", "touches": [ORDER]})
-    assert a["id"] == "0002" and adr.get("0002")["affected"] == ["orders.md"]
+    assert a["id"] == "0002" and adr.get("0002")["affected"] == ["flows/checkout.md", "orders.md"]
     assert adr.get("0001")["affected"] == []                          # a legacy ADR has no state to read touches from
     b = adr.new({"title": "Nothing touched", "kind": "new"})
     assert adr.get(b["id"])["affected"] == []
+    c = adr.new({"title": "A page touched", "kind": "new", "touches": ["cam-docs:docs/orders.md"]})
+    assert adr.get(c["id"])["affected"] == []                         # nothing cites a page
 
 
-def test_affected_is_empty_when_the_index_cannot_be_read(pack_world, adr, monkeypatch):
+def test_an_edit_answers_without_opening_the_board_index(pack_world, adr, monkeypatch):
     kit, adr_pack, state = pack_world
-    adr.new({"title": "More orders", "kind": "new", "touches": [ORDER]})
+    a = adr.new({"title": "More orders", "kind": "new", "touches": [ORDER]})
+    opened = []
     index = importlib.import_module("lib.kanban.index")
-    monkeypatch.setattr(index, "connect", lambda: (_ for _ in ()).throw(OSError("locked")))
-    assert adr.get("0002")["affected"] == []
+
+    def refuse(*args, **kwargs):
+        opened.append(1)
+        raise AssertionError("an edit must not rebuild the board index")
+    monkeypatch.setattr(index, "connect", refuse)
+    a = adr.write_without_ai(a["id"])                                  # writes docs/decisions/0002-*.md, which cites ORDER
+    assert a["affected"] == ["orders.md"]
+    a = adr.part(a["id"], "context", "edit", "Orders and payments are coupled.", base_sha=a["sha"])
+    assert a["affected"] == ["orders.md"] and adr.get(a["id"])["affected"] == ["orders.md"]
+    assert opened == []
 
 
 def test_pack_moves_the_phase_and_is_cached(adr, kit):
