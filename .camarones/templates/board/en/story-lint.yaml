@@ -206,5 +206,21 @@
     "upload",
     "view",
     "write"
+  ],
+  "function_words": [
+    "a",
+    "an",
+    "the",
+    "to",
+    "of",
+    "my",
+    "your",
+    "our",
+    "their",
+    "it",
+    "in",
+    "on",
+    "for",
+    "with"
   ]
 }

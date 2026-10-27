@@ -350,7 +350,9 @@ PAGES = {
      tasks/wi-42 - Titulo.md   -> una tarjeta (Markdown, lo lee Backlog.md)
      board.yaml                -> columna y orden de cada tarjeta
    camaron board add story "..." --repo api --doc flows/pago.md
-   camaron board move WI-42 Ready""",
+   camaron board move WI-42 Ready
+   camaron board story split WI-42 --accept   -> subtareas sin choques
+   camaron board next                         -> lo que puede empezar ya""",
          "text": "Un Kanban versionado con la documentación: epics, historias, bugs y tareas con repos, criterios de "
                  "aceptación y páginas enlazadas. Se activa con `camaron board init` (los proyectos sin él siguen igual) "
                  "y se maneja con `camaron board add|list|show|move|assign|link|archive|repair`, todos con `--json`.\n\n"
@@ -359,6 +361,24 @@ PAGES = {
                  "que la enlazaste o si sigue sin confirmar. En el portal, la zona «Tablero» (`#/kanban`) tiene el Kanban, "
                  "con filtros por repo, epic, etiqueta y estado de la documentación, y el detalle de cada tarjeta; para escribir pide el token, que lleva el portal que la app de escritorio abre en tu navegador mientras la app está abierta, y que "
                  "`camaron up` imprime en la dirección (`#cam-token=…`). Sin él, solo lectura.\n\n"
+                 "Historias. La zona «Historias» (`#/stories`) te ayuda a escribir una historia (Como / quiero / "
+                 "para) con avisos al instante, sin IA; calcula un veredicto INVEST por reglas; en «Toca» eliges los "
+                 "ficheros y las páginas que cambia (su huella); propone subtareas por plantilla con sus dependencias "
+                 "y las reparte en oleadas de tareas que no chocan; y no escribe nada en `backlog/` hasta que la apruebas"
+                 " y la guardas. En la terminal: `camaron board story lint|invest|split ID [--touch repo:ruta] "
+                 "[--accept]`, `camaron board next [--n 3] [--story ID|--epic ID]` (lo que puede empezar ya: una "
+                 "oleada de tareas que no chocan entre sí ni con lo que está en curso) y `camaron board waves`. "
+                 "`--accept` no vuelve a dividir una historia que ya tiene subtareas.\n\n"
+                 "La puerta de salida. Mover una tarjeta a «In Progress» comprueba que sus dependencias estén "
+                 "hechas y que su huella no choque con lo que ya está en curso. A una persona se le avisa y puede "
+                 "seguir con `--force` (en el portal y en la app, «Mover igualmente»; se cuenta en las estadísticas "
+                 "de uso); a un agente (MCP `board_next` y"
+                 " `board_waves`, o el harness) se le rechaza siempre. Una tarjeta con hijas es un contenedor y no "
+                 "bloquea a sus propias tareas.\n\n"
+                 "Ajustes opcionales en `workspace.yaml`: `stories: {ai: true}` activa «Sugerir con IA» (apagado por "
+                 "defecto; solo sugiere, nunca decide huellas, dependencias, oleadas ni el veredicto), `stories: {model: "
+                 "…}` elige el modelo y `stories: {small: {groups, files, repos}}` los umbrales de la «S» de INVEST. "
+                 "El índice `.camarones/.cache/board.db` se reconstruye solo y se puede borrar.\n\n"
                  "Tu gambita de prácticas ya ha colgado los post-its en su sitio: tú solo los mueves."},
         {"icon": "🧰", "title": "Piezas de apoyo",
          "art": r"""
@@ -756,7 +776,9 @@ PAGES = {
      tasks/wi-42 - Title.md    -> one card (Markdown, Backlog.md reads it)
      board.yaml                -> each card's column and order
    camaron board add story "..." --repo api --doc flows/payment.md
-   camaron board move WI-42 Ready""",
+   camaron board move WI-42 Ready
+   camaron board story split WI-42 --accept   -> subtasks that do not collide
+   camaron board next                         -> what can start now""",
          "text": "A Kanban versioned with the docs: epics, stories, bugs and tasks with repos, acceptance criteria and "
                  "linked pages. Turn it on with `camaron board init` (projects without it stay as they were) and use "
                  "`camaron board add|list|show|move|assign|link|archive|repair`, all with `--json`.\n\n"
@@ -765,6 +787,25 @@ PAGES = {
                  "or is still unconfirmed. In the portal, the “Board” zone (`#/kanban`) has the Kanban, "
                  "with filters by repo, epic, label and docs state, and the card detail; writing needs the token, which the portal the desktop app opens in your browser carries while the app is open, and `camaron up` prints in the "
                  "URL (`#cam-token=…`). Without it, read-only.\n\n"
+                 "Stories. The “Stories” zone (`#/stories`) helps you write a story (As / I want / so that) with "
+                 "instant hints, no AI; works out an INVEST verdict by rules; in “Touches” you pick the files and "
+                 "pages it changes (its footprint); proposes subtasks by template with their dependencies and spreads "
+                 "them into waves of tasks that do not collide; and writes nothing to `backlog/` until you approve and"
+                 " save it. In the terminal: `camaron board story lint|invest|split ID [--touch repo:path] "
+                 "[--accept]`, `camaron board next [--n 3] [--story ID|--epic ID]` (what can start now: one wave of "
+                 "tasks that collide neither with each other nor with work in progress) and `camaron board waves`. "
+                 "`--accept` never splits a story that already has subtasks.\n\n"
+                 "The start gate. Moving a card into “In Progress” checks that its dependencies are done and that "
+                 "its footprint collides with nothing already in progress. A person is warned and can go on with "
+                 "`--force` (in the portal and the app, “Move anyway”; it is counted in the usage statistics); an "
+                 "agent (MCP `board_next` and "
+                 "`board_waves`, or the harness) is always refused. A card with children is a container and never "
+                 "blocks its own tasks.\n\n"
+                 "Optional settings in `workspace.yaml`: `stories: {ai: true}` turns on “Suggest with AI” (off by "
+                 "default; it only suggests and never decides footprints, dependencies, waves or the verdict), "
+                 "`stories: {model: …}` picks the model and `stories: {small: {groups, files, repos}}` sets the "
+                 "thresholds of INVEST's “S”. The index `.camarones/.cache/board.db` rebuilds itself and is safe to "
+                 "delete.\n\n"
                  "Your intern shrimp has pinned the sticky notes up already: all you do is move them."},
         {"icon": "🧰", "title": "Supporting pieces",
          "art": r"""

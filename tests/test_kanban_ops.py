@@ -577,6 +577,38 @@ def test_update_item_title_docs_and_errors(board, kit):
     assert tree(kit.root) == before
 
 
+def test_update_item_case_only_rename_keeps_the_file(board, kit):
+    """On a case-insensitive filesystem (macOS, Windows) the old and the new name are the same file: it must survive."""
+    board.add("story", "exportar pdf", description="Keep me.")
+    board.update_item("WI-1", title="Exportar PDF")
+    files = [p.name for p in (kit.root / "backlog" / "tasks").glob("*.md")]
+    assert files == ["wi-1 - Exportar PDF.md"]
+    assert _fm(kit, "WI-1").title == "Exportar PDF"
+    assert board.show("WI-1")["description"] == "Keep me."
+
+
+def test_update_item_rename_moves_and_never_deletes(board, kit, monkeypatch):
+    """The rename is a move of the item's file, then a write to the new name: no unlink, so a case-insensitive
+    filesystem cannot lose the only copy (simulated here for every OS)."""
+    from pathlib import Path
+    board.add("task", "Old name", description="Keep me.")
+    tasks = (kit.root / "backlog" / "tasks").resolve()
+    unlinked = []
+    real_unlink = Path.unlink
+
+    def spy(self, *a, **k):
+        if self.suffix == ".md" and self.resolve().parent == tasks:
+            unlinked.append(self.name)
+        return real_unlink(self, *a, **k)
+    monkeypatch.setattr(Path, "unlink", spy)
+    board.update_item("WI-1", title="New name")
+    assert unlinked == []
+    assert [p.name for p in tasks.glob("*.md")] == ["wi-1 - New name.md"]
+    assert board.show("WI-1")["description"] == "Keep me."
+    board.update_item("WI-1", title="New name ")                # same file name: nothing moves
+    assert [p.name for p in tasks.glob("*.md")] == ["wi-1 - New name.md"]
+
+
 def test_update_item_counts_the_surface(board, kit):
     kit.usage.set_enabled(True)
     board.add("task", "x")

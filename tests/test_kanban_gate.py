@@ -126,12 +126,21 @@ def test_next_respects_waves_and_in_progress(board):
     board.add("task", "After", touches=["web:c.js"], dependencies=["WI-1"])
     board.move("WI-1", "In Progress")
     got = board.next_items(10)
-    assert [(r["id"], r["wave"]) for r in got["ready"]] == [("WI-3", 0), ("WI-4", 1)]
+    assert [(r["id"], r["wave"]) for r in got["ready"]] == [("WI-3", 0)]     # WI-4 would collide with WI-3
     assert got["ready"][0]["title"] == "Free first" and got["ready"][0]["status"] == "Backlog"
     assert got["waiting"] == [
         {"id": "WI-2", "blocked_by": [{"id": "WI-1", "kind": "conflict", "files": ["api:a.py"]}]},
+        {"id": "WI-4", "blocked_by": [{"kind": "wave", "wave": 1}]},
         {"id": "WI-5", "blocked_by": [{"id": "WI-1", "kind": "dependency"}]}]
     assert [r["id"] for r in board.next_items(1)["ready"]] == ["WI-3"]
+
+
+def test_next_hands_out_tasks_that_never_collide_with_each_other(board):
+    board.add("task", "One", touches=["api:a.py"])
+    board.add("task", "Two", touches=["api:a.py"])
+    got = board.next_items(3)
+    assert [r["id"] for r in got["ready"]] == ["WI-1"]
+    assert got["waiting"] == [{"id": "WI-2", "blocked_by": [{"kind": "wave", "wave": 1}]}]
 
 
 def test_next_is_scoped_to_a_story_or_epic(board):
@@ -185,8 +194,8 @@ def test_next_and_waves_list_only_leaves(board):
     board.add("story", "Childless story", touches=["web:s.js"])
     board.move("WI-2", "In Progress")                         # a container running: nobody is blocked by it
     got = board.next_items(10)
-    assert [(r["id"], r["wave"]) for r in got["ready"]] == [("WI-3", 0), ("WI-5", 0), ("WI-4", 1)]
-    assert got["waiting"] == []
+    assert [(r["id"], r["wave"]) for r in got["ready"]] == [("WI-3", 0), ("WI-5", 0)]
+    assert got["waiting"] == [{"id": "WI-4", "blocked_by": [{"kind": "wave", "wave": 1}]}]
     assert [[r["id"] for r in w] for w in board.waves()["waves"]] == [["WI-3", "WI-5"], ["WI-4"]]
     assert [r["id"] for r in board.next_items(10, story="WI-2")["ready"]] == ["WI-3"]
     assert [[r["id"] for r in w] for w in board.waves(epic="WI-1")["waves"]] == [["WI-3"]]
@@ -218,3 +227,27 @@ def test_an_archived_child_still_makes_its_parent_a_container(board):
     board.move("WI-1", "In Progress")
     assert board.move("WI-3", "In Progress", surface="mcp")["status"] == "In Progress"
     assert [r["id"] for r in board.next_items(10)["ready"]] == []         # the story is a container, WI-3 is running
+
+
+def test_the_gate_uses_the_card_statuses_loaded_under_the_lock(board, monkeypatch):
+    board.add("task", "Running", touches=["api:a.py"])
+    board.add("task", "Clashes", touches=["api:a.py"])
+    board.move("WI-1", "In Progress")
+    from lib.kanban import index
+    real = index.nodes
+    monkeypatch.setattr(index, "nodes", lambda conn: [{**n, "status": "Backlog"} for n in real(conn)])   # a stale index
+    with pytest.raises(board.GateError) as err:
+        board.move("WI-2", "In Progress", surface="mcp")
+    assert err.value.blocked_by == [{"id": "WI-1", "kind": "conflict", "files": ["api:a.py"]}]
+
+
+def test_the_index_snapshot_changes_with_the_formats(board, monkeypatch):
+    from lib import codemap
+    from lib.kanban import index
+    before = index.snapshot()
+    monkeypatch.setattr(codemap, "FORMAT", codemap.FORMAT + 1)
+    assert index.snapshot() != before
+    monkeypatch.undo()
+    assert index.snapshot() == before
+    monkeypatch.setattr(index, "FORMAT", index.FORMAT + 1)
+    assert index.snapshot() != before

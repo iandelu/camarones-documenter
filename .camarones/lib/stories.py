@@ -118,7 +118,7 @@ def _words(lang: str) -> dict:
 
 def lint_words(lang: str) -> dict[str, list[str]]:
     """The word lists as loaded (a copy): `generic_roles`, `conjunctions`, `solution_words`, `observable_verbs`,
-    `stopwords`, `verbs`."""
+    `stopwords`, `verbs`, and per language `function_words` (en) or `short_verbs` and `not_verbs` (es)."""
     return {key: list(value) for key, value in _words("es" if lang == "es" else "en").items()}
 
 
@@ -142,9 +142,12 @@ def _two_goals(want: str, lang: str, words: dict) -> bool:
     conjunctions = set(words["conjunctions"])
     positions = [i for i, w in enumerate(tokens) if w in conjunctions and 0 < i < len(tokens) - 1]
     if lang == "es":
-        return any(_INFINITIVE.search(w) and len(w) >= 4 for i in positions for w in tokens[i + 1:i + 3])
-    stop, verbs = set(words["stopwords"]), set(words["verbs"])
-    return (any(tokens[i + 1] not in stop for i in positions)
+        short, nouns = set(words.get("short_verbs", ())), set(words.get("not_verbs", ()))
+        is_verb = lambda w: w in short or (w not in nouns and len(w) >= 4 and bool(_INFINITIVE.search(w)))  # noqa: E731
+        return any(is_verb(w) for i in positions for w in tokens[i + 1:i + 3])
+    skip = set(words["stopwords"]) | set(words.get("function_words", ()))
+    verbs = set(words["verbs"])
+    return (any(tokens[i + 1] not in skip for i in positions)
             and sum(1 for w in tokens if w in verbs) >= 2)
 
 
@@ -436,11 +439,13 @@ def _pages(conn, touches: list[str]) -> list[str]:
     return sorted({t for t in touches if t.startswith(DOCS)} | set(index.pages_citing(conn, _code(touches))))
 
 
-def _proposals(story: Story, conn, lang: str) -> list[Proposal]:
-    """Steps 1–4 of spec §4.4: the tasks, without dependencies, conflicts or waves yet."""
+def _proposals(story: Story, conn, lang: str, covered: frozenset[str] = frozenset()) -> list[Proposal]:
+    """Steps 1–4 of spec §4.4: the tasks, without dependencies, conflicts or waves yet. `covered` holds the files the
+    story's own subtasks on the board already change: no task is proposed for them (a page citing them still gets its
+    docs task, unless a subtask covers the page too)."""
     templates = split_templates(lang)
     touches = _touches(story["touches"])
-    code = _code(touches)
+    code = [t for t in _code(touches) if t not in covered]
     grp = index.groups(conn, code)
     name = {t: f"{_repo(t)}:{_group(t, grp)}" for t in code}          # a group belongs to one repo
     members: dict[str, list[str]] = defaultdict(list)
@@ -465,8 +470,15 @@ def _proposals(story: Story, conn, lang: str) -> list[Proposal]:
         out.append(_proposal(f"change:{_repo(comp[0])}:{'+'.join(labels)}", "change", title, group,
                              sorted(t for g in comp for t in members[g]),
                              [_fill(templates, lang, "change_criterion", refs=refs)] if refs else []))
-    for page in _pages(conn, touches):
-        title = index.page_title(conn, page) or PurePosixPath(page.partition(":")[2]).stem
+    pages = [p for p in _pages(conn, touches) if p not in covered]
+    named = {p: index.page_title(conn, p) or PurePosixPath(p.partition(":")[2]).stem for p in pages}
+    seen = defaultdict(int)
+    for title in named.values():
+        seen[title.casefold()] += 1
+    for page in pages:
+        title = named[page]
+        if seen[title.casefold()] > 1:                               # two pages, one title: save needs them apart
+            title = f"{title} ({page.partition(':')[2]})"
         out.append(_proposal(f"docs:{page}", "docs", _fill(templates, lang, "docs_title", page=title),
                              index.DOCS_GROUP, [page], []))
     return out
@@ -477,11 +489,18 @@ def _code_groups(groups: dict[str, str]) -> dict[str, str]:
     return {t: f"{_repo(t)}:{g}" for t, g in groups.items() if not t.startswith(DOCS)}
 
 
-def _settle(story: Story, tasks: list[Proposal], conn) -> dict:
+def _children(story: Story, board: list[deps.Node]) -> list[deps.Node]:
+    """The story's subtasks already on the board (archived ones too): the work it has. None for a new story."""
+    sid = (story.get("id") or "").strip().upper()
+    return [n for n in board if sid and (n.get("parent") or "").strip().upper() == sid] if sid else []
+
+
+def _settle(story: Story, tasks: list[Proposal], conn, existing: Sequence[deps.Node] = ()) -> dict:
     """Spec §4.5 on the tasks. Each task's `deps` = (code order: provider first, docs after the code they cite ∪ the
     In Progress items it shares files with ∪ `added`) − `dropped`. Conflicts are with the board's open leaf items (not
     the story's own children). Waves are left empty while the tasks' dependencies have a cycle or two tasks share a
-    key. Returns `{tasks (by wave, then group), waves (keys), cycle, duplicates, unknown_deps}`."""
+    key. `existing` are the story's subtasks on the board: a task whose code uses their files, or whose page cites
+    them, depends on them by id. Returns `{tasks (by wave, then group), waves (keys), cycle, duplicates, unknown_deps}`."""
     sid = (story.get("id") or "").strip().upper()
     count: dict[str, int] = defaultdict(int)
     files: dict[str, set[str]] = defaultdict(set)
@@ -496,8 +515,10 @@ def _settle(story: Story, tasks: list[Proposal], conn) -> dict:
               if not _done(n) and n["id"] not in grouping and n["id"] != sid and n["id"] not in count
               and not (sid and (n.get("parent") or "").strip().upper() == sid)]
     status = {n["id"]: n["status"] for n in leaves}
-    mine = sorted(set().union(*files.values()))
-    order = deps.order({k: sorted(v) for k, v in files.items()}, index.edges(conn, mine), index.cites(conn, mine))
+    owned = {n["id"]: sorted(n["touches"]) for n in existing if n["id"] not in count}
+    mine = sorted(set().union(*files.values(), *map(set, owned.values())))
+    order = deps.order({**owned, **{k: sorted(v) for k, v in files.items()}}, index.edges(conn, mine),
+                       index.cites(conn, mine))
     near = _code_groups(index.groups(conn, mine + [f for n in leaves for f in n["touches"]]))
     unknown: dict[str, list[str]] = {}
     for t in tasks:
@@ -540,8 +561,30 @@ def _settle(story: Story, tasks: list[Proposal], conn) -> dict:
 
 def split(story: Story, conn, *, lang: str) -> list[Proposal]:
     """Subtasks for a story (spec §4.4): one change task per code-map group of its files (groups that use each other
-    merged into one), one docs task per page in its footprint or citing its files; ordered by wave, then group."""
-    return _settle(story, _proposals(story, conn, lang), conn)["tasks"]
+    merged into one), one docs task per page in its footprint or citing its files; ordered by wave, then group. An
+    existing story's subtasks on the board cover their files: nothing is proposed for them again."""
+    kids = _children(story, index.nodes(conn))
+    covered = frozenset(f for n in kids for f in n["touches"])
+    return _settle(story, _proposals(story, conn, lang, covered), conn, kids)["tasks"]
+
+
+def _existing(conn, board: list[deps.Node], kids: list[deps.Node], sid: str) -> list[dict]:
+    """The story's subtasks as the wizard lists them: `{id, title, status, touches, wave}`, `wave` 0-based as
+    `ops.waves(story=…)` places the open ones (None for a Done or archived one, or while they wait on each other)."""
+    if not kids:
+        return []
+    grouping = deps.containers(board)
+    scope = {sid} | {n["id"] for n in kids}
+    open_ = [n for n in board if n["id"] in scope and not n["archived"] and n["id"] not in grouping
+             and n["status"] != "Done"]
+    try:
+        placed = {i: w for w, wave in enumerate(deps.waves(open_)) for i in wave}
+    except deps.CycleError:
+        placed = {}
+    ids = [n["id"] for n in kids]
+    titles = dict(conn.execute(f"select id, title from items where id in ({','.join('?' * len(ids))})", ids).fetchall())
+    return [{"id": n["id"], "title": titles.get(n["id"]) or "", "status": n["status"], "touches": list(n["touches"]),
+             "wave": None if n["archived"] else placed.get(n["id"])} for n in kids]
 
 
 def _refs(v: object) -> list[str]:
@@ -565,8 +608,9 @@ def analyze(story: Story, tasks: list[Proposal] | None = None, *, lang: str, rem
     """Everything the story wizard shows, recomputed from scratch on the current story: lint hints, the INVEST
     verdict, the tasks, the waves as task keys, conflicts with other open stories, the first dependency cycle among
     the tasks, duplicate task keys (`cycle` and `duplicates` are `[]` when none; waves are `[]` while either is not),
-    the `added` dependencies that name nothing (`unknown_deps`, `{key: [ref…]}`) and the repos of the story's files
-    that have no code graph.
+    the `added` dependencies that name nothing (`unknown_deps`, `{key: [ref…]}`), the repos of the story's files
+    that have no code graph and, for a story already on the board, its subtasks there (`existing`, `[]` otherwise):
+    their files are covered, so no task is proposed for them and what uses them depends on the subtask by id.
 
     The tasks are always a fresh `split`, except that the person's `tasks` marked `edited` (or with `added` or
     `dropped` dependencies, which count as an edit and come back `edited`) are kept as given, with `outside`: their
@@ -584,6 +628,8 @@ def analyze(story: Story, tasks: list[Proposal] | None = None, *, lang: str, rem
         verdict = invest(story, others, groups=grp, lang=lang)
         sid = (story.get("id") or "").strip().upper()
         conflicts = deps.conflicts(_node(sid, touches), others, groups=_code_groups(grp))
+        kids = _children(story, board)
+        covered = frozenset(f for n in kids for f in n["touches"])
         gone = {str(k) for k in removed or ()}
         kept = []
         for p in (_as_proposal(t) for t in tasks or ()):
@@ -591,9 +637,10 @@ def analyze(story: Story, tasks: list[Proposal] | None = None, *, lang: str, rem
             if p["edited"] or p["key"] in gone:
                 kept.append(p)
         skip = gone | {p["key"] for p in kept}
-        proposals = kept + [p for p in _proposals(story, conn, lang) if p["key"] not in skip]
+        proposals = kept + [p for p in _proposals(story, conn, lang, covered) if p["key"] not in skip]
         footprint = set(touches) | set(_pages(conn, touches))
-        settled = _settle(story, proposals, conn)
+        settled = _settle(story, proposals, conn, kids)
+        existing = _existing(conn, board, kids, sid)
     finally:
         conn.close()
     for t in settled["tasks"]:
@@ -602,4 +649,5 @@ def analyze(story: Story, tasks: list[Proposal] | None = None, *, lang: str, rem
     graphless = sorted({_repo(t) for t in _code(touches) if not codemap.graph_file(_repo(t)).is_file()})
     return {"hints": lint(story["as_"], story["want"], story["so"], lang, touches=touches), "invest": verdict,
             "tasks": settled["tasks"], "waves": settled["waves"], "conflicts": conflicts, "cycle": settled["cycle"],
-            "duplicates": settled["duplicates"], "unknown_deps": settled["unknown_deps"], "graphless": graphless}
+            "duplicates": settled["duplicates"], "unknown_deps": settled["unknown_deps"], "graphless": graphless,
+            "existing": existing}

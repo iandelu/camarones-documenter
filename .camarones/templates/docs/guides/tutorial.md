@@ -290,6 +290,65 @@ desktop app opens in your browser carries one while the app is open, and `camaro
 `camaron uninstall` asks whether to keep `backlog/` (`--keep-board` / `--drop-board` choose without asking); the
 wizard and the desktop app always keep it.
 
+### 📝 Stories
+
+The portal's **Stories** zone (`#/stories`) is one place to write a story, check it and turn it into subtasks that
+do not collide. It is all rules, templates and the code map, with no AI unless you turn on `stories.ai`: the same board always gives
+the same verdict, subtasks and waves.
+
+1. **Write** *As / I want / so that* (or *Como / quiero / para*). Hints appear as you type (a generic role, two goals
+   in one, a *so that* that repeats the *I want*, too long, a solution inside the *I want*) and never block.
+2. **Review** the INVEST verdict (good, to improve or poor) with one chip and one reason per letter. In **Touches**
+   (*Toca*) pick the files, groups and doc pages the story changes: its *footprint*. For a file a task will create, or
+   one in a repo without a code map, type `repo:path` and pick **Add «…» (new)**; saving checks that its folder exists.
+3. **Subtasks** come from a template: one task per code group and one per doc page affected, each with its files, its
+   dependencies (what provides goes before what consumes) and what it collides with. They are spread into **waves**:
+   the tasks of one wave can run side by side without touching the same files. Edit, drop, add or merge them and the
+   waves update at once.
+4. **Approve and save.** Nothing is written to `backlog/` until then; the story and its subtasks become ordinary cards
+   in Backlog. On a story that already existed only what you changed is written: a title or footprint someone else
+   changed meanwhile is kept, and if you both changed the same one you are asked to reload.
+
+Git only stores `dependencies` and `x-touches` (`<repo>:<path>`, or `cam-docs:<page>`) on the cards, and Backlog.md
+still opens them. Conflicts, waves and verdicts are computed and never stored.
+
+```sh
+camaron board story lint WI-14                 # hints about the wording
+camaron board story invest WI-14               # the INVEST verdict and each letter's reason
+camaron board story split WI-14                # proposed subtasks with dependencies, collisions and waves
+camaron board story split WI-14 --touch api:src/pay.py --accept   # add files to the footprint and create the tasks
+camaron board next --n 3 [--story WI-14|--epic WI-1]   # what can start now, and why the rest cannot
+camaron board waves [--story WI-14|--epic WI-1]        # the open work in waves
+```
+
+All of them take `--json`. `board next` only hands out Backlog or Ready tasks whose dependencies are done and whose
+footprint collides with nothing in progress **nor with each other**: one wave, at most `--n`; the ones that would
+collide with it wait for a later wave (`{"kind": "wave", "wave": k}` in `--json`). A card without `x-touches` counts
+as touching everything in its repos. On a dependency cycle, `board waves --json` exits 0 with `{"cycle": [...]}`
+(without `--json` it says so and exits 2). `split --accept` refuses a story that already has subtasks. `--touch` and
+`--accept` only go with `story`, `--story` and `--n` with `next` and `waves`, and `--force` with `move`.
+
+**The start gate.** Moving a card into *In Progress* checks its dependencies and its footprint against what is
+already in progress. A person (CLI, portal, app) is told why and can go on with `--force` (the portal and the app ask
+**Move anyway**); a forced move is counted in the usage statistics. An agent is always refused: the MCP tools `board_next` and `board_waves`
+only read, and the harness moves cards with its own surface. A card with children is a container and never blocks its
+own tasks. With no collision, `board move` works as it always did.
+
+Optional settings in `workspace.yaml`:
+
+```yaml
+stories:
+  ai: true          # off by default: turns on "Suggest with AI"; it only suggests, never decides
+  model: haiku      # optional: the model to ask for (default: a cheap one of the runner)
+  small:            # thresholds of INVEST's "S"
+    groups: 3
+    files: 15
+    repos: 2
+```
+
+The AI never decides footprints, dependencies, waves or the verdict. The index that answers `next` and the waves
+quickly is `.camarones/.cache/board.db`: it rebuilds itself when the board or the code map changes and is safe to delete.
+
 ## 6. Editing: where and when
 
 | Where | What you can do | Where the change goes |

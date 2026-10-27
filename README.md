@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.65.0-ff875f?style=flat-square" alt="Versión 4.65.0">
+  <img src="https://img.shields.io/badge/version-4.66.0-ff875f?style=flat-square" alt="Versión 4.66.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -559,6 +559,44 @@ Todos los comandos aceptan `--json`. Una tarjeta enlaza páginas por su `x-id` (
 En el portal, la zona **Tablero** (`#/kanban`) enseña la vista Kanban (arrastrar y soltar, o con teclado: flechas para elegir, espacio para agarrar, flechas para mover, Enter para soltar), con filtros por repo, epic, etiqueta y estado de la documentación, y el detalle de cada tarjeta (criterios, páginas enlazadas con su confianza e historial). La app de escritorio tiene su propia sección **Tablero** (`g b`) y escribe con el token de la app. **Escribir** desde el portal pide el token de la máquina: el portal que la app de escritorio abre en tu navegador lo lleva (un token de esa sesión, que vale mientras la app está abierta), y `camaron up` imprime una dirección del tipo `http://localhost:8080/#cam-token=…`; en los dos casos la página lo guarda para esa pestaña. Sin él el tablero se ve en solo lectura y dice por qué.
 
 Al desinstalar, `camaron uninstall` (CLI) pregunta si conservas o borras `backlog/`; `--keep-board` / `--drop-board` lo deciden sin preguntar, y el asistente y la app de escritorio lo conservan siempre. La desinstalación siempre retira el *merge driver* y la línea de `.gitattributes` que puso. Los proyectos que ya existían no cambian: el tablero llega con `camaron board init`, y su copia de la guía `tutorial.md` es la que tenían (las plantillas se copian una sola vez).
+
+### Historias
+
+Escribir bien una historia y partirla en tareas es donde más fallan los tableros: roles vagos, dos objetivos en un «quiero», subtareas que ignoran cómo está hecho el código y, con agentes, dos de ellos editando los mismos ficheros a la vez. La zona **Historias** (`#/stories`) del portal es un solo sitio para escribirla, revisarla y convertirla en subtareas que no chocan. **Todo es determinista y sin IA, salvo que actives `stories.ai`**: reglas, plantillas, el mapa del código y un índice SQLite; el mismo tablero da siempre el mismo veredicto, las mismas subtareas y las mismas oleadas.
+
+1. **Escribe** *Como / quiero / para* (o *As / I want / so that*), con el título sacado del «quiero» y, opcionalmente, una épica. Mientras escribes salen avisos al instante, sin IA (rol genérico, dos objetivos en uno, un «para» que repite el «quiero», demasiado largo, una solución dentro del «quiero», sin huella). Los avisos nunca bloquean.
+2. **Revisa** el veredicto INVEST (*Bien*, *Mejorable* o *Mal*) calculado por reglas, con un chip y su motivo por letra. En **Toca** eliges los ficheros y grupos de código y las páginas de la documentación que cambia la historia (su *huella*); si la historia enlaza páginas, parte de las fuentes (`x-sources`) de ellas. Para un fichero que aún no existe (lo creará una tarea) o de un repo sin mapa del código, escribe `repo:ruta` y elige *Añadir «…» (nuevo)*; al guardar se comprueba que su carpeta exista. Verás también los choques con otras historias abiertas.
+3. **Subtareas** propuestas por plantilla: una tarea por grupo de código y otra por página de documentación afectada, cada una con sus ficheros, sus dependencias (quien da servicio va antes que quien lo usa) y con qué choca. Las agrupa en **oleadas**: las tareas de una ola pueden hacerse a la vez sin tocar los mismos ficheros. Puedes editar títulos, quitar, añadir o fusionar tareas, y las oleadas se recalculan al momento.
+4. **Aprueba y guarda**: hasta ese botón no se escribe nada en `backlog/`. Entonces la historia y sus subtareas pasan a ser tarjetas normales, en Backlog. En una historia que ya existía solo se escribe lo que tú cambiaste: si otra persona cambió el título o la huella mientras la editabas, se conserva; si los dos cambiasteis lo mismo, te pide recargarla. Una subtarea sin ficheros cuenta, para los agentes, como si tocara los repos de su historia.
+
+En git solo se guardan dos campos de la tarjeta: `dependencies` (el de Backlog.md) y `x-touches` (la huella, `<repo>:<ruta>` o `cam-docs:<página>`); Backlog.md sigue abriéndolas. Los conflictos, las oleadas y los veredictos se calculan siempre y no se guardan, así que no provocan fusiones.
+
+```sh
+camaron board story lint WI-14                    # los avisos de la redacción
+camaron board story invest WI-14                  # el veredicto INVEST y el motivo de cada letra
+camaron board story split WI-14                   # subtareas propuestas, con dependencias, choques y oleadas
+camaron board story split WI-14 --touch api:src/pay.py --accept   # añade ficheros a la huella y crea las tareas
+camaron board next --n 3 [--story WI-14|--epic WI-1]   # lo que puede empezar ya, y por qué se quedó fuera el resto
+camaron board waves [--story WI-14|--epic WI-1]        # el trabajo abierto en oleadas
+```
+
+Todos aceptan `--json`. `board next` solo da tareas en Backlog o Ready cuyas dependencias están hechas y cuya huella no choca con nada en curso **ni entre sí**: una sola oleada, como mucho `--n`; las que chocarían con una de ellas esperan a una oleada posterior (en `--json`, `{"kind": "wave", "wave": k}`). Una tarjeta sin `x-touches` cuenta como si tocara todo lo de sus repos, así que una tarjeta antigua nunca se cuela por no tener huella. Con un ciclo de dependencias, `board waves --json` sale con 0 y `{"cycle": [...]}` (sin `--json`, lo dice y sale con 2). `split --accept` no vuelve a dividir una historia que ya tiene subtareas. `--touch` y `--accept` solo valen con `story`, `--story` y `--n` con `next` y `waves`, y `--force` con `move`; en otra acción son un error. En el Tablero del portal, la insignia *Ola N* solo sale en las tarjetas que declaran ficheros, así que un tablero antiguo no muestra oleadas.
+
+**La puerta de salida.** Mover una tarjeta a *In Progress* (`camaron board move WI-15 "In Progress"`, o arrastrándola en el portal o en la app) comprueba que sus dependencias estén hechas y que su huella no choque con lo que ya está en curso. Una **persona** (CLI, portal, app) recibe el motivo y puede seguir con `--force` o con *Mover igualmente*; el movimiento forzado se cuenta en las estadísticas de uso. Un **agente** (las herramientas MCP `board_next` y `board_waves` solo leen, y el *harness* mueve con su propia superficie) es rechazado siempre, sin forzar. Una tarjeta con hijas es un contenedor y nunca bloquea a sus propias tareas. Sin colisión, `board move` se comporta exactamente como antes.
+
+**Ajustes** (todos opcionales, en `workspace.yaml`):
+
+```yaml
+stories:
+  ai: true                          # apagado por defecto: activa «Sugerir con IA»; solo sugiere
+  model: haiku                      # opcional: el modelo que se pide (por defecto, uno barato del ejecutor)
+  small:                            # umbrales de la «S» de INVEST
+    groups: 3
+    files: 15
+    repos: 2
+```
+
+La IA, si la activas, solo sugiere (reescribir las frases, criterios, ideas de subtareas) y cada sugerencia queda aparte, marcada, sin hacer nada hasta que la aceptas; nunca decide la huella, las dependencias, las oleadas ni el veredicto. Para responder deprisa, el kit mantiene un índice derivado en `.camarones/.cache/board.db`: se reconstruye solo cuando cambia el tablero o el mapa del código y puedes borrarlo sin perder nada. Los proyectos que ya existían no cambian: sus tarjetas sin huella se abren como siempre y su copia de la guía `tutorial.md` es la que tenían. La próxima `camaron board repair` añade a las épicas antiguas los ids de subtareas que les falten.
 
 ### Revisión en vivo
 

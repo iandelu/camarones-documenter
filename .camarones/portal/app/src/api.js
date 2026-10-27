@@ -15,20 +15,27 @@ const token = () => {
   return tok ? { 'X-Camaron-Token': tok } : {}
 }
 
-export async function getJSON(path) {
-  const res = await fetch(`api/${path}`, { headers: { Accept: 'application/json', ...token() } })
-  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `${path}: ${res.status}`)
+// A refused request is an Error with the server's message, its HTTP `status` and the body it sent (`data`: a 409's
+// `blocked_by`, a 403's `token`…), so a view can tell a conflict from a bad input.
+function failed(path, res, data) {
+  return Object.assign(new Error(data.error || `${path}: ${res.status}`), { status: res.status, data })
+}
+
+export async function getJSON(path, { signal } = {}) {
+  const res = await fetch(`api/${path}`, { headers: { Accept: 'application/json', ...token() }, signal })
+  if (!res.ok) throw failed(path, res, await res.json().catch(() => ({})))
   return res.json()
 }
 
-export async function postJSON(path, body) {
+export async function postJSON(path, body, { signal } = {}) {
   const res = await fetch(`api/${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Camarones': '1', ...token() },
     body: JSON.stringify(body || {}),
+    signal,
   })
   const data = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(data.error || `${path}: ${res.status}`)
+  if (!res.ok) throw failed(path, res, data)
   return data
 }
 

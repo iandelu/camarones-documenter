@@ -127,6 +127,10 @@ export const S = {
     hrImpact: 'Impact', hrEffort: 'Effort', hrOwner: 'Owner', hrRecommendation: 'Recommendation', hrEvidence: 'Evidence', hrSource: 'Source',
     hrDocs: 'Documentation of this repo', hrNoDocs: 'No page that cites this repo is out of date or suspect.',
     hrStale: 'out of date', hrSuspect: 'suspect',
+    'kanban.wave': 'Wave {n}', 'kanban.blocked': 'Cannot start yet: {ids}', 'kanban.blockedBadge': 'Blocked',
+    'kanban.force': 'Move anyway', 'kanban.forceAsk': '{id} cannot start yet. Moving it now may collide with this work:',
+    'kanban.kind.conflict': 'shares files', 'kanban.kind.dependency': 'not done yet', 'kanban.kind.missing': 'not on the board',
+    'kanban.sub': 'Subtask of {id}', 'kanban.parent': 'Story {id} and its subtasks', 'kanban.parentClear': 'Show the whole board',
   },
   es: {
     'shell.nav': 'Secciones', 'shell.theme': 'Claro u oscuro', 'shell.lang': 'Idioma', 'shell.skip': 'Saltar al contenido', 'shell.app': 'Volver a la app', pInApp: 'Ejecutar en la app',
@@ -256,6 +260,10 @@ export const S = {
     hrImpact: 'Impacto', hrEffort: 'Esfuerzo', hrOwner: 'Responsable', hrRecommendation: 'Recomendación', hrEvidence: 'Evidencia', hrSource: 'Fuente',
     hrDocs: 'Documentación de este repo', hrNoDocs: 'Ninguna página que cite este repo está desactualizada o es sospechosa.',
     hrStale: 'desactualizada', hrSuspect: 'sospechosa',
+    'kanban.wave': 'Oleada {n}', 'kanban.blocked': 'Aún no puede empezar: {ids}', 'kanban.blockedBadge': 'Bloqueada',
+    'kanban.force': 'Mover igualmente', 'kanban.forceAsk': '{id} aún no puede empezar. Si la mueves ahora puede chocar con este trabajo:',
+    'kanban.kind.conflict': 'comparte archivos', 'kanban.kind.dependency': 'sin terminar', 'kanban.kind.missing': 'no está en el tablero',
+    'kanban.sub': 'Subtarea de {id}', 'kanban.parent': 'Historia {id} y sus subtareas', 'kanban.parentClear': 'Ver todo el tablero',
   },
 }
 export { S as STRINGS }                       // for tests: every string in both languages
