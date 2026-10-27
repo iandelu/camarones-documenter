@@ -1,0 +1,29 @@
+# API list prices, USD per million tokens, for the plan bill (`camaron plan cost`). Only used where the agent does not
+# report a cost itself (Claude Code does; Codex and transcripts of interactive sessions do not). A team overrides any
+# entry with `pricing:` in workspace.yaml, same shape. Cache writes: 1.25x input for the 5-minute TTL, 2x for 1 hour.
+revised: 2026-10-27
+source: >-
+  Claude: the claude-api reference (model table cached 2026-10-06; cache reads per model, writes 1.25x/2x input).
+  OpenAI: https://developers.openai.com/api/docs/pricing (standard tier, short context).
+models:
+  claude-fable-5-1:  {in: 10.0, out: 50.0, cache_read: 0.25, cache_write_5m: 12.5, cache_write_1h: 20.0}
+  claude-fable-5:    {in: 10.0, out: 50.0, cache_read: 1.0, cache_write_5m: 12.5, cache_write_1h: 20.0}
+  claude-opus-5-5:   {in: 4.0, out: 20.0, cache_read: 0.2, cache_write_5m: 5.0, cache_write_1h: 8.0}
+  claude-opus-5:     {in: 5.0, out: 25.0, cache_read: 0.5, cache_write_5m: 6.25, cache_write_1h: 10.0}
+  claude-opus-4-8:   {in: 5.0, out: 25.0, cache_read: 0.5, cache_write_5m: 6.25, cache_write_1h: 10.0}
+  claude-opus-4-7:   {in: 5.0, out: 25.0, cache_read: 0.5, cache_write_5m: 6.25, cache_write_1h: 10.0}
+  claude-opus-4-6:   {in: 5.0, out: 25.0, cache_read: 0.5, cache_write_5m: 6.25, cache_write_1h: 10.0}
+  claude-sonnet-5-5: {in: 2.0, out: 10.0, cache_read: 0.2, cache_write_5m: 2.5, cache_write_1h: 4.0}
+  claude-sonnet-5:   {in: 2.0, out: 10.0, cache_read: 0.2, cache_write_5m: 2.5, cache_write_1h: 4.0}
+  claude-sonnet-4-6: {in: 3.0, out: 15.0, cache_read: 0.3, cache_write_5m: 3.75, cache_write_1h: 6.0}
+  claude-haiku-5-5:  {in: 0.1, out: 0.5, cache_read: 0.01, cache_write_5m: 0.125, cache_write_1h: 0.2}
+  claude-haiku-4-5:  {in: 1.0, out: 5.0, cache_read: 0.1, cache_write_5m: 1.25, cache_write_1h: 2.0}
+  gpt-5.6-terra:     {in: 2.0, out: 12.0, cache_read: 0.2, cache_write_5m: 2.5, cache_write_1h: 5.0}
+aliases:
+  fable: claude-fable-5-1
+  opus: claude-opus-5-5
+  sonnet: claude-sonnet-5-5
+  haiku: claude-haiku-5-5
+runners:                     # when the run did not say which model: the kit's default for that agent
+  claude: claude-sonnet-5-5
+  codex: gpt-5.6-terra
