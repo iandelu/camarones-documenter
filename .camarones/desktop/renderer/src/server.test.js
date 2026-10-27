@@ -71,3 +71,37 @@ test('a stream with nothing new ends where it started, and an abort signal reach
   expect(end).toEqual({ id: '42' })
   expect(seen).toEqual([['../api/runs/r-1/events?from=42', ctl.signal]])
 })
+
+// A stream that rejects (network drop, abort, a consumer that throws) still says where it got to, so the caller can
+// resume there instead of from an older id and read the same events twice.
+const broken = (...pieces) => { let n = 0; const enc = new TextEncoder()
+  return new ReadableStream({ pull(c) { if (n < pieces.length) c.enqueue(enc.encode(pieces[n++])); else c.error(new TypeError('network error')) } }) }
+
+test('a stream that breaks says the last id it read', async () => {
+  const fetcher = async () => new Response(broken('id: 10\ndata: {"type":"log"}\n\n'))
+  const err = await server('t', fetcher).stream('runs/r-1/events', () => {}, { from: 5 }).catch((e) => e)
+  expect(err).toBeInstanceOf(TypeError)
+  expect(err.id).toBe('10')
+})
+
+test('a stream that breaks before reading anything says where it started', async () => {
+  const fetcher = async () => new Response(broken())
+  expect((await server('t', fetcher).stream('runs/r-1/events', () => {}, { from: 5 }).catch((e) => e)).id).toBe('5')
+  expect((await server('t', fetcher).stream('runs/r-1/events', () => {}).catch((e) => e)).id).toBeNull()
+})
+
+test('a refused stream and a consumer that throws carry the id too', async () => {
+  const refused = async () => new Response(JSON.stringify({ error: 'no run r-9' }), { status: 404 })
+  const gone = await server('t', refused).stream('runs/r-9/events', () => {}, { from: 7 }).catch((e) => e)
+  expect(gone).toMatchObject({ status: 404, id: '7' })
+  const fetcher = async () => new Response(sse('id: 10\ndata: {"type":"log"}\n\n'))
+  const bad = await server('t', fetcher).stream('runs/r-1/events', () => { throw new Error('boom') }).catch((e) => e)
+  expect(bad).toMatchObject({ message: 'boom', id: '10' })
+})
+
+test('the consumer gets each event alone', async () => {
+  const fetcher = async () => new Response(sse('data: {"type":"log"}\n\ndata: {"type":"usage"}\n\n'))
+  const calls = []
+  await server('t', fetcher).stream('runs/r-1/events', (...args) => calls.push(args))
+  expect(calls).toEqual([[{ type: 'log' }], [{ type: 'usage' }]])
+})
