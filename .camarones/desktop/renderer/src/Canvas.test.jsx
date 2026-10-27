@@ -25,6 +25,27 @@ test('a unit with no event yet says it waits for the agent', () => {
   expect(out).toContain('2 min')
 })
 
+test('a unit whose agent ended without finishing it is not called done: it says where the plan has it', () => {
+  const ok = (status) => ({ runner: 'claude', started: 0, ended: 16000, outcome: 'ok', status, cost: 0.05, rows: [{ kind: 'log', text: 'x' }] })
+  const head = (u, fu) => html(<TermNode data={{ unit: u, fu, now: 9e9, ...on }} />).split('role="log"')[0]
+  expect(head({ ...unit, status: 'done' }, ok('done'))).toContain('hecha')
+  const doing = head({ ...unit, status: 'doing', paused: true }, ok('doing'))
+  expect(doing).not.toContain('hecha')
+  expect(doing).toContain('en pausa')
+  const todo = head({ ...unit, status: 'todo', ready: true }, ok('todo'))
+  expect(todo).not.toContain('hecha')
+  expect(todo).toContain('por hacer')
+  expect(head({ ...unit, status: 'blocked' }, ok('blocked'))).toContain('bloqueada')
+  expect(head({ ...unit, status: 'doing', awaiting: true }, ok('doing'))).toContain('espera tu aprobación')
+})
+
+test('only a running unit waits for its agent: one that ended with no line says nothing more', () => {
+  const failed = { runner: 'claude', started: 0, ended: 1000, outcome: 'failed', cost: 0, rows: [] }
+  expect(html(<TermNode data={{ unit, fu: failed, now: 9e9, ...on }} />)).not.toContain('Esperando al agente')
+  const stale = { runner: 'claude', started: 0, ended: null, outcome: null, cost: 0, rows: [] }
+  expect(html(<TermNode data={{ unit, fu: stale, now: 9e9, finished: true, ...on }} />)).not.toContain('Esperando al agente')
+})
+
 test('a failed unit keeps its terminal, in the blocked tone', () => {
   const out = html(<TermNode data={{ unit, fu: { runner: 'codex', started: 0, ended: 60000, outcome: 'failed', cost: 0, rows: [{ kind: 'error', text: 'boom' }] }, now: 90000, ...on }} />)
   expect(out).toContain('tone-blocked')
@@ -47,7 +68,7 @@ test('the terminal speaks English', () => {
 
 test('a terminal folds only when it was opened by hand and its agent is done; it can always be maximised', () => {
   const fu = { runner: 'claude', started: 0, ended: null, outcome: null, cost: 0, rows: [] }
-  const done = { ...fu, ended: 5000, outcome: 'ok' }
+  const done = { ...fu, ended: 5000, outcome: 'ok', status: 'done' }
   const term = (f, extra) => html(<TermNode data={{ unit, fu: f, now: 9e9, ...on, ...extra }} />)
   expect(term(done, { viewed: false })).not.toContain('Plegar')
   expect(term(done)).not.toContain('Plegar')

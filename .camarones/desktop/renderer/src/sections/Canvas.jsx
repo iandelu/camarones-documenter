@@ -9,7 +9,14 @@ import { useTheme } from '../hooks.js'
 import { t } from '../i18n.js'
 import { tone } from '../plan.js'
 
-const OUTCOMES = new Set(['ok', 'failed', 'limited', 'cancelled', 'retry'])
+const OUTCOMES = new Set(['failed', 'limited', 'cancelled', 'retry'])
+
+// What the terminal's header says once the agent is no longer at work: `ok` is only its exit code, so a unit is called
+// done when the plan has it done, and otherwise by its state in the plan (to do, paused, blocked, awaiting you…).
+function ended(fu, unit) {
+  if (fu.outcome === 'ok') return fu.status === 'done' ? t('cv.st.ok') : t('tone.' + tone(unit))
+  return OUTCOMES.has(fu.outcome) ? t(`cv.st.${fu.outcome}`) : (fu.outcome ?? '')
+}
 
 // The maximised terminal is the same component outside the flow, where a handle has no node to belong to.
 function Ports() {
@@ -40,7 +47,8 @@ export function UnitNode({ data: { unit, fu, onOpen, onView } }) {
 }
 
 // Follows the end while the person has not scrolled up to read; scrolling up stops it, the button brings it back.
-function Log({ rows, label }) {
+// Only a unit at work waits for its agent: one that ended with no line has nothing more to show.
+function Log({ rows, label, running }) {
   const el = useRef(null)
   const [follow, setFollow] = useState(true)
   useLayoutEffect(() => {
@@ -51,7 +59,7 @@ function Log({ rows, label }) {
       <div ref={el} role="log" aria-live="polite" aria-label={label} tabIndex={0} className="dk-term-log nowheel nodrag nokey"
         onScroll={() => setFollow(atBottom(el.current))}>
         {rows.length ? rows.map((r, i) => <div key={i} className={`k-${r.kind}`}><span aria-hidden="true">{GLYPH[r.kind]}</span> {r.text}</div>)
-          : <p className="dk-term-wait">{t('cv.waiting')}</p>}
+          : running ? <p className="dk-term-wait">{t('cv.waiting')}</p> : null}
       </div>
       {follow ? null : <button type="button" className="dk-cv-btn dk-term-follow nodrag" onClick={() => setFollow(true)}>{t('cv.follow')}</button>}
     </div>
@@ -63,7 +71,7 @@ function Log({ rows, label }) {
 export function TermNode({ data: { unit, fu, now, viewed, finished, onOpen, onView, onMax } }) {
   const k = fu?.outcome === 'failed' ? 'blocked' : tone(unit)
   const running = fu?.ended === null && !finished
-  const state = running ? t('cv.st.running') : OUTCOMES.has(fu?.outcome) ? t(`cv.st.${fu.outcome}`) : (fu?.outcome ?? '')
+  const state = !fu ? '' : running ? t('cv.st.running') : ended(fu, unit)
   return (
     <div className={`dk-term tone-${k}`}>
       <Ports />
@@ -78,7 +86,7 @@ export function TermNode({ data: { unit, fu, now, viewed, finished, onOpen, onVi
         {viewed && !running ? <button type="button" className="dk-cv-btn" onClick={() => onView(unit.id)}>{t('cv.hide')}</button> : null}
         <button type="button" className="dk-icon" aria-label={t('cv.max')} title={t('cv.max')} onClick={() => onMax(unit.id)}>⤢</button>
       </div>
-      <Log rows={fu?.rows ?? []} label={t('cv.log', { unit: unit.title })} />
+      <Log rows={fu?.rows ?? []} label={t('cv.log', { unit: unit.title })} running={running} />
     </div>
   )
 }

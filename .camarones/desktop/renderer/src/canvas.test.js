@@ -61,6 +61,25 @@ test("the feed keeps each unit's rows, cost, end and outcome", () => {
   expect(f.units.a.ended - f.units.a.started).toBe(240000)
 })
 
+// `ok` only says the agent exited 0: a unit it left to do, blocked or awaiting approval also ends ok.
+test("the feed keeps the plan status a unit ended with, and a new start forgets it", () => {
+  let f = emptyFeed('r-1')
+  for (const e of [ev('unit.started', { runner: 'claude' }), ev('unit.finished', { outcome: 'ok', status: 'doing' })]) f = feed(f, e)
+  expect(f.units.a).toMatchObject({ outcome: 'ok', status: 'doing' })
+  expect(feed(f, ev('unit.started', { runner: 'codex' })).units.a.status).toBe(null)
+  expect(feed(emptyFeed('r-1'), ev('unit.finished', { outcome: 'ok' })).units.a.status).toBe(null)
+})
+
+test('a unit that could not start says why, bounded like any other row', () => {
+  let f = feed(emptyFeed('r-1'), ev('unit.started', { runner: 'claude' }))
+  f = feed(f, ev('unit.finished', { outcome: 'failed', error: 'claude: command not found\nsecond line' }))
+  expect(f.units.a.rows.map(({ kind, text }) => [kind, text])).toEqual([['error', 'claude: command not found'], ['error', 'second line']])
+  const long = feed(emptyFeed('r-1'), ev('unit.finished', { outcome: 'failed', error: 'z'.repeat(10000) })).units.a.rows
+  expect(long).toHaveLength(1)
+  expect(long[0].text).toHaveLength(400)
+  expect(feed(emptyFeed('r-1'), ev('unit.finished', { outcome: 'failed', error: null })).units.a.rows).toEqual([])
+})
+
 test('a long run keeps the last 500 rows of a unit', () => {
   let f = feed(emptyFeed('r-1'), ev('unit.started', { runner: 'claude' }))
   for (let i = 0; i < 10000; i++) f = feed(f, ev('tool.call', { name: 'Read', arg: `f${i}` }))
