@@ -7,7 +7,7 @@ import Commands from './Commands.jsx'
 import { tokenPrefill } from '../nav.js'
 import { t } from '../i18n.js'
 
-// This machine by task: prepare it (setup, with its progress), the language and models of the agent sessions, the
+// This machine by task: the guide to all of it, prepare it (setup, with its progress), the language and models of the agent sessions, the
 // forge and SonarQube tokens (kept in the OS keychain), this project's repos and plan, the kit itself; and, apart, uninstall —
 // previewed first. Every action is a catalog command run by the server (lib/appapi.py).
 export default function Machine({ srv, jobs, app }) {
@@ -19,6 +19,11 @@ export default function Machine({ srv, jobs, app }) {
   const fill = tokenPrefill(useHash())          // #/machine?host=<h>&kind=sonarqube: where Quality sends a repo's Sonar
   return (
     <Page title={t('nav.machine')}>
+      <Card className="dk-run" data-tour="mc-guide">
+        <span className="eyebrow">{t('mc.guide')}</span>
+        <p className="muted small">{t('mc.guideBody')}</p>
+        <div className="row"><Button size="sm" variant="primary" href="#/guide">{t('mc.guideOpen')}</Button></div>
+      </Card>
       {error ? <Failed title={t('mc.failed')} detail={error} onRetry={() => { setError(''); load() }} /> : null}
       {!m && !error ? <Skeleton lines={6} /> : null}
       {m ? (<>

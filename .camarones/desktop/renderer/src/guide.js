@@ -176,3 +176,7 @@ export function searchGuides(guides, q) {
   }
   return out
 }
+
+// The palette's Guide group: every chapter of every guide, opened in the Guide.
+export const guideEntries = (guides) => guides.flatMap((g) => chapters(g.blocks)
+  .map((c) => ({ id: `guide:${g.name}/${c.id}`, label: plain(c.text), sub: g.title, href: guideHref(g.name, c.id) })))
