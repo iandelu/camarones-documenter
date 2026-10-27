@@ -181,108 +181,29 @@ la confianza y las traducciones, revisa:
 mermaid-cli y gitleaks vienen con la instalación completa (el componente `quality`; mermaid-cli descarga una vez un
 Chromium sin ventana). Si faltan, `check` lo avisa una vez y se salta esa comprobación.
 
-## 5. Portal
+## 5. Portal y app de escritorio
 
-Un proyecto recién instalado nunca enseña vistas en blanco: Inicio, Docs y Arquitectura ofrecen un **primer vistazo
-desde el código (sin IA)** —el borrador C4 con su página, el stack y las herramientas— y Código ofrece construir el grafo.
-
-Un solo portal, dos modos y la misma interfaz, con el lenguaje visual de Cofundo y la marca Camarón (claro u oscuro, con las fuentes servidas por el propio portal). No hay barra de pestañas: **Inicio** pregunta primero (Preguntar en vivo, el buscador en el exportado), enseña el estado del proyecto (confirmadas, por reconfirmar, borradores, feedback pendiente); el menú lateral mantiene cinco zonas —Docs, Arquitectura, Plan, Calidad y Revisión— en todas las vistas; la barra de arriba dice dónde estás y Ctrl K / ⌘K salta a cualquier página, zona o vista, o (en vivo) lleva la pregunta a Preguntar. Las direcciones de siempre (`#/c4`, `#/docs/…`) siguen funcionando. Las vistas: **Docs** (árbol, búsqueda, confianza), **Arquitectura (C4)** (bajo cada vista, sus elementos: edita título,
-tecnología, descripción y relaciones, elimina un elemento y confirma lo que redactó la IA, de uno en uno o la vista entera;
-lo confirmado se pliega en su propia sección),
-**Grafo de código** (todos los repos o uno), **Wikis** (OpenWiki por repo, sus páginas y su grafo), **Revisión**
-(páginas pendientes con sus fuentes, que se confirman varias a la vez; revisiones que espera un agente, peticiones de cambio, código cambiado desde la doc, `check`),
-**Preguntar** (las secciones que mejor responden a una pregunta, con citas, sin IA; «base de datos» también encuentra PostgreSQL y las preguntas en español encuentran páginas en inglés; con un agente configurado, «Answer
-with AI» redacta la respuesta solo con ellas), **Librerías** (las dependencias de cada repo como matriz librería × servicio, con filtros por
-categoría, lenguaje, repo o ámbito y las vulnerabilidades conocidas en rojo), **Datos** (las tablas y colecciones de cada
-repo leídas del código, como diagrama ER), **Pipeline** y **KPIs** (páginas y elementos C4 confirmados, páginas desactualizadas, coste de IA por
-mes y las preguntas que nadie encontró, que con un clic pasan a pregunta abierta). El selector de idioma cambia la interfaz y
-la documentación. Las tablas se ordenan por columna (las largas se filtran), `:::tabs`/`:::steps`/`:::details`/`:::cards`
-se ven como pestañas, pasos, desplegables y tarjetas, un interruptor «Todo / Negocio» (en cada página y encima del menú) oculta los bloques `:::tech` y, en Negocio, deja
-en el menú y en la portada solo las páginas de visión general, dominio, glosario, flujos y decisiones; la portada tiene
-además una caja «¿Cómo funciona…?» que lleva la pregunta a Preguntar, y en
-Mermaid los nombres que coinciden con una página o un repo son enlaces. Un bloque `:::rule ORD-1 Título` explica una
-regla de negocio con anclas `enforced:`/`test:` (`repo:ruta#Símbolo`); `check` falla si ese código ya no existe.
-
-La vista **Pipeline** (zona Plan; viene ya compilada
-con el kit, no hace falta Node) muestra el plan en vivo: un grafo de las unidades por fase, un
-tablero por estado y, por unidad, su agente, resultado, tiempo, tokens, coste y el log del agente línea a línea. Si lanzas
-`camaron run` con la página abierta, la ejecución aparece sola. Desde la vista también puedes lanzar una ejecución,
-cancelarla (los agentes se paran y sus unidades vuelven a la cola sin perder su trabajo) y reintentar una unidad
-bloqueada. Una ejecución a la vez, desde la terminal o desde el portal.
+Dos caras del mismo proyecto. El **portal** (en tu navegador) es donde el equipo lee: la documentación, la
+arquitectura, el tablero y las historias, el estado en vivo del plan, la calidad y la revisión. La **app de escritorio**
+(`camaron app`) es donde operas: ejecutar el plan, las entrevistas, compartir, la salud y las librerías, las wikis y el
+explorador C4, la preparación. El portal nunca ejecuta nada en tu máquina, así que el botón que echas de menos ahí está
+en la app. Las dos se explican pantalla a pantalla en sus propias guías —[el portal](portal.md) y
+[la app de escritorio](app.md)— y la app enseña todas las guías en **Máquina › Guía**, con un recorrido guiado.
+[Cómo funciona Camarón](internals.md) cuenta el servidor, las APIs y el MCP.
 
 | | Comando | Qué es |
 |---|---|---|
-| Local, editable | `camaron up` (asistente → 🌐 Portal → 📝 Abrir el portal) | `http://127.0.0.1:8080`, solo en tu equipo |
-| Exportación para desplegar | `camaron portal` (asistente → 📦 Exportar) | HTML + JSON de solo lectura en `.camarones/.cache/site`, sin npm |
+| Local, editable | `camaron up` (asistente → 🌐 Portal → 📝 Abrir el portal), o **Ver portal** en la app | `http://127.0.0.1:8080`, solo en tu máquina |
+| Exportación para desplegar | `camaron portal` (asistente → 📦 Exportar) | HTML + JSON de solo lectura en `.camarones/.cache/site`, sin build de npm |
 | Ver la exportación | `camaron up --static` o `camaron up --docker` | exactamente lo que servirá el servidor |
+| App de escritorio | `camaron app` (asistente → 🖥️ App de escritorio) | una ventana por proyecto; necesita Node.js 22 y la primera vez descarga su Electron fijado |
 
-La exportación son ficheros estáticos (imagen nginx, GitLab/GitHub Pages) y funciona sin internet. En un servidor, arranca la
-imagen que publicó el CI: `docker run -d -p 8080:80 <registry>/<grupo>/cam-docs/portal:latest`.
+La exportación son ficheros estáticos (imagen de nginx, GitLab/GitHub Pages) y funciona sin Internet. En un servidor,
+ejecuta la imagen que subió la CI: `docker run -d -p 8080:80 <registry>/<group>/cam-docs/portal:latest`.
 
-### 🖥️ La app de escritorio
-
-Donde se opera un proyecto; el portal es donde se lee. Cada proyecto se abre en su ventana: a la izquierda el raíl con
-tus proyectos y las secciones, abajo el panel de trabajos (lo que corre y los últimos, su salida y **Parar**). El portal
-del navegador queda como visor del equipo (leer, editar, revisar, estado de la pipeline, la entrevista): **Ver portal**, en la
-cabecera, y **Docs** lo abren en tu navegador, y no enseña lo que no puede hacer. Con el teclado, Ctrl K / ⌘K va a una sección, a otro proyecto o a cualquier comando, y `g` y una letra salta de
-sección (`g s` Resumen, `g b` Tablero, `g p` Plan, `g q` Calidad…).
-
-| Sección | Qué haces ahí |
-|---|---|
-| 🏠 Resumen | el siguiente paso con un solo botón (el mismo que propone el asistente), lo que le falta a esta máquina, cómo van el plan, la revisión y los trabajos |
-| 📋 Tablero | las columnas de Backlog a Hecho: mueves una tarjeta arrastrándola o con el teclado (Tab hasta la tarjeta, Espacio la coge, las flechas la mueven, Intro la suelta, Escape la devuelve); una tarjeta abre su descripción, sus criterios y la definición de hecho, y una historia lista sus tareas y tiene **Añadir tarea**; **Eliminar** archiva la tarjeta (su fichero pasa a `backlog/archive/tasks`); **Añadir** crea un elemento (tipo, título, dentro de qué, prioridad); si el tablero no está activado, **Activar el tablero** |
-| 🗺️ Plan | ejecutar las unidades listas en paralelo o el piloto automático, y pararlos; las unidades agrupadas por lo que te piden (aprobar, reintentar, seguir, empezar, rehacer) con el agente que elijas; la actualización de la doc; y, con vista previa, empezar la documentación otra vez (`docs reset`: rehacer o borrar) |
-| 🎙️ Entrevistas | cuestionario del equipo o en vivo, exportar el formulario sin conexión, importar respuestas, cerrar la ronda, cada entrevista con su agente |
-| 🤝 Equipo | el repo del equipo y compartir, aprobar la configuración de agentes que vino con él, hooks, plugins |
-| ✅ Calidad | requisitos y herramientas (guardados entre visitas, «Volver a comprobar»), el contexto que carga cada sesión de agente, preguntas de control, con y sin cam-docs; sin IA, vulnerabilidades conocidas, páginas desactualizadas, bloques generados |
-| 📖 Docs | **Leer la documentación**, **Revisar borradores** y **Buscar o preguntar** abren el portal en tu navegador. Debajo, **Construir el explorador C4**; por cada repo, **Generar la wiki** (elige el repo y escribe un brief inicial sin IA si aún no tiene) y, cuando ya tiene páginas, **Grafo del wiki**: cada uno un trabajo con su salida y, al acabar, **Ver** abre el resultado en el portal (**Reintentar** si falló); y **Preguntar con IA**, que responde con lo que dice la documentación y enlaza sus fuentes en el portal |
-| 🧰 Máquina | setup con progreso, idioma y modelos, tokens de GitLab / GitHub, repos y su stack, el perfil del plan, actualizar el kit, repair y, aparte y con vista previa, uninstall |
-
-Cada sección acaba con **Todos los comandos**, plegado: el resto de su zona del catálogo, cada uno con su formulario.
-
-**Instalarla y abrirla**
-
-1. El kit instalado (instalación global: el comando `camaron` en tu PATH).
-2. Node.js 22 o superior: `node --version`. ¿Falta? `camaron doctor --install node` (winget en Windows, Homebrew en
-   macOS).
-3. `camaron app`. La primera vez descarga Electron (fijado, unos 100 MB) en `~/.camarones/desktop`, sin permisos de
-   administrador y sin tocar tus proyectos; después se abre al momento.
-
-Desde la carpeta de un proyecto abre ese proyecto; desde cualquier otra, la pantalla de inicio (más abajo). El
-asistente tiene la misma entrada (🖥️ App de escritorio). Dentro, la cabecera es la barra de la ventana (arrástrala
-para moverla) y tus proyectos están en el raíl: otro se abre en la misma ventana, que vuelve a salir donde la dejaste.
-<kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>O</kbd> (o el **+** del raíl) vuelve a la pantalla de inicio,
-**Ver portal** abre el portal en tu navegador y el botón **⋯** de la barra abre el menú de la app, con **Abrir en el
-navegador**. En Linux con los *user namespaces* restringidos (Ubuntu
-24.04 o posterior) el kit la arranca con `--no-sandbox`: sus ventanas solo cargan el servidor local de tu proyecto.
-
-**La pantalla de inicio y el primer arranque**
-
-Fuera de un proyecto la app pregunta una sola cosa, **¿Qué quieres documentar?**, y ofrece los **Recientes**:
-
-- **Elegir carpeta**: cualquier carpeta. Antes de tocar nada dice qué ha encontrado:
-  - varios repos: los documenta, con `cam-docs` en esa carpeta;
-  - un repo, o una carpeta dentro de uno: `cam-docs` va junto al repo, en su carpeta padre, y se pueden sumar los repos hermanos;
-  - una carpeta vacía: un proyecto nuevo, aún sin nada que leer (se documenta el diseño antes de programar);
-  - un proyecto que ya tiene `cam-docs`: se abre tal cual;
-  - código que no está en git: no deja continuar, y **Inicializar git aquí** hace `git init` (sin commits ni push) en cada carpeta con código y vuelve a mirar;
-  - tu carpeta personal o la raíz de un disco: la rechaza y explica por qué. Elige la carpeta de un proyecto.
-
-  Confirmas el nombre y pulsas **Continuar**.
-- **Unirme a la documentación de mi equipo**: pega la URL del repo `cam-docs` del equipo (la de la documentación, no la
-  del código) y elige dónde clonarlo. Si git no tiene acceso, la app pide un token y lo guarda en el llavero del
-  sistema, nunca en el proyecto; cualquier otro motivo (sin permisos, no existe, sin red) lo dice con esas palabras.
-
-«Crear proyecto», «Unirse» y «Añadir carpeta» ya no están en la app; la CLI conserva `camaron new` y `camaron projects --add`.
-
-Un proyecto sin preparar abre en su ventana el asistente de primer arranque (`#/start`, a pantalla completa):
-**Repos** (añade un repo de código con su URL, nombre y rama) → **Herramientas** → **Instalar** (progreso, salida en
-vivo, **Cancelar**) → **Stack** (editable) → **Arquitectura** (un borrador C4 sin IA que guardas, miras con **Ver
-diagrama** o mejoras con IA) → **Listo**, que te lleva al **Resumen**. Es el mismo estado que usa el asistente de la
-terminal, así que puedes cerrar la app a medias y seguir en cualquiera de los dos; si te vas a otra sección antes
-de terminar, el **Resumen** te ofrece **Seguir con la preparación**. Un proyecto del equipo al que te
-uniste solo pasa por Herramientas, Instalar y Listo. Una carpeta vacía permite cero repos y se salta Stack y
-Arquitectura.
+El menú lateral del portal tiene siete zonas —Docs, Tablero, Historias, Arquitectura, Plan, Calidad y Revisión— y
+Ctrl K / ⌘K salta a cualquier página o vista. Las secciones de la app son Resumen, Tablero, Plan, Entrevistas, Equipo,
+Calidad, Librerías y Docs, más Máquina y Guía; `g` y una letra salta de una a otra.
 
 ### 📋 El tablero
 
@@ -319,17 +240,17 @@ subtareas) y solo gasta cuando lo pulsas. Si no puede usarse (no hay agente inst
 `camaron up` o está apagada) sale desactivado y dice por qué.
 
 1. **Escribe** *Como / quiero / para* (o *As / I want / so that*). Mientras escribes salen avisos (rol genérico, dos
-   objetivos en uno, un *para* que repite el *quiero*, demasiado largo, una solución dentro del *quiero*) que nunca
-   bloquean.
-2. **Revisa** el veredicto INVEST (bien, mejorable o mal) con un chip y un motivo por letra. En **Toca** eliges los
-   ficheros, grupos y páginas de la documentación que cambia la historia: su *huella*. Para un fichero que creará una
-   tarea, o de un repo sin mapa del código, escribe `repo:ruta` y elige **Añadir «…» (nuevo)**; al guardar se comprueba
-   que su carpeta exista.
+   objetivos en uno, un *para* que repite el *quiero*, demasiado largo, una solución dentro del *quiero*); solo una
+   frase vacía te para. En **Toca** eliges los ficheros, grupos y páginas de la documentación que cambia la historia:
+   su *huella*. Para un fichero que creará una tarea, o de un repo sin mapa del código, escribe `repo:ruta` y elige
+   **Añadir «…» (nuevo)**; al guardar se comprueba que su carpeta exista.
+2. **Revisa** el veredicto INVEST (bien, mejorable o mal) con un chip y un motivo por letra, los criterios de
+   aceptación y lo que se solapa con otras historias abiertas.
 3. **Subtareas** por plantilla: una tarea por grupo de código y otra por página de documentación afectada, cada una con
    sus ficheros, sus dependencias (quien da servicio va antes que quien lo usa) y con qué choca. Se reparten en
    **oleadas**: las tareas de una oleada pueden hacerse a la vez sin tocar los mismos ficheros. Edítalas, quítalas,
    añade o fusiona y las oleadas se recalculan al momento.
-4. **Aprueba y guarda.** Hasta entonces no se escribe nada en `backlog/`; la historia y sus subtareas pasan a ser
+**Aprueba y guarda.** Hasta entonces no se escribe nada en `backlog/`; la historia y sus subtareas pasan a ser
    tarjetas normales en Backlog. En una historia que ya existía solo se escribe lo que cambiaste: el título o la huella
    que otra persona cambió mientras tanto se conservan, y si los dos cambiasteis lo mismo te pide recargarla.
 
