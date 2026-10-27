@@ -308,3 +308,53 @@ def test_what_render_new_writes_is_read_back_by_the_section_helpers(adr_doc, kit
     assert adr_doc.section(after, "decision") == "**Where do sessions live?** — Redis. already used by notifications"
     assert adr_doc.section(after, "context") == adr_doc.section(body, "context")
     assert adr_doc.section(after, "decided_by").startswith("- Date: 2026-10-27")
+
+
+def status_doc(section: str, tail: str = "") -> str:
+    return f"# T\n\n## Status\n\n{section}\n\n## Context\n\nx\n{tail}"
+
+
+@pytest.mark.parametrize("section, want", [
+    ("Proposed", "Accepted (d)"),
+    ("Proposed <!-- agents only write \"Proposed\" -->", "Accepted (d)"),
+    ("<!-- pick one -->\nProposed", "<!-- pick one -->\nAccepted (d)"),
+    ("<!-- pick one:\nproposed | accepted -->\nProposed", "<!-- pick one:\nproposed | accepted -->\nAccepted (d)"),
+    ("<!-- a -->\n<!-- b\nc -->\n\nProposed\n\nnote", "<!-- a -->\n<!-- b\nc -->\n\nAccepted (d)\n\nnote"),
+    ("<!-- c --> Proposed", "<!-- c --> Accepted (d)"),
+    ("<!-- pick\none --> Proposed", "<!-- pick\none --> Accepted (d)"),
+    ("Proposed <!-- one of:\nproposed, accepted -->", "Accepted (d)"),
+    ("Proposed <!-- a\nb --> <!-- c\nd --> tail", "Accepted (d)"),
+    ("Proposed\n\nLast discussed 2026-02-01.", "Accepted (d)\n\nLast discussed 2026-02-01."),
+    ("  Proposed", "  Accepted (d)")])
+def test_replace_status_replaces_the_line_status_of_reads_and_keeps_comments_and_notes(adr_doc, section, want):
+    out = adr_doc.replace_status(status_doc(section), "Accepted (d)")
+    assert out == status_doc(want)
+    assert adr_doc.status_of(out)[0] == "accepted"
+
+
+def test_replace_status_keeps_the_frontmatter_and_the_line_endings(adr_doc):
+    text = ("---\r\ntype: decision\r\n---\r\n# T\r\n\r\n## Estado\r\n\r\n<!-- pick\r\none -->\r\nPropuesto\r\n\r\n"
+            "## Notas\r\n\r\nk\r\n")
+    out = adr_doc.replace_status(text, "Rejected (d): no")
+    assert out == text.replace("Propuesto", "Rejected (d): no")
+    assert adr_doc.status_of(adr_doc.docs.split_fm(out)[1])[0] == "rejected"
+
+
+def test_replace_status_adds_the_status_below_a_section_that_only_has_a_comment(adr_doc):
+    out = adr_doc.replace_status(status_doc("<!-- set me -->"), "Accepted (d)")
+    assert out == status_doc("<!-- set me -->\nAccepted (d)")
+    assert adr_doc.status_of(out)[0] == "accepted"
+
+
+@pytest.mark.parametrize("text, want", [
+    ("# T\n\n## Status\n\n## Context\n\nx\n", "# T\n\n## Status\n\nAccepted (d)\n\n## Context\n\nx\n"),
+    ("# T\n\n## Status\n", "# T\n\n## Status\n\nAccepted (d)\n"),
+    ("# T\n\n## Context\n\nx\n", "# T\n\n## Status\n\nAccepted (d)\n\n## Context\n\nx\n")])
+def test_replace_status_fills_an_empty_section_and_adds_a_missing_one(adr_doc, text, want):
+    assert adr_doc.replace_status(text, "Accepted (d)") == want
+
+
+def test_replace_status_ignores_a_status_heading_inside_a_comment(adr_doc):
+    text = "# T\n\n<!--\n## Status\n\nProposed\n-->\n\n## Status\n\nProposed\n"
+    out = adr_doc.replace_status(text, "Accepted (d)")
+    assert out == text[:-len("Proposed\n")] + "Accepted (d)\n" and adr_doc.status_of(out)[0] == "accepted"
