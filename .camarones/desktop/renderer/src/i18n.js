@@ -317,6 +317,16 @@ export const S = {
     'bd.delete': 'Eliminar', 'bd.deleteAsk': '¿Eliminar {id} del tablero? Su fichero pasa a backlog/archive/tasks.',
     'bd.deleteAskKids': '¿Eliminar {id} del tablero? Su fichero pasa a backlog/archive/tasks; sus tareas se quedan en el tablero.',
     'bd.deleted': '{id} eliminada del tablero.', 'bd.deleteFailed': 'No se ha eliminado',
+    // the Decisiones section (adr.js): the ADR's status chip, the stepper, the list filters, why accept is refused
+    'nav.decisions': 'Decisiones',
+    'adr.chip.running': 'En curso', 'adr.chip.review': 'En revisión', 'adr.chip.proposed': 'Propuesta', 'adr.chip.accepted': 'Aceptada',
+    'adr.chip.superseded': 'Sustituida', 'adr.chip.rejected': 'Rechazada', 'adr.chip.deprecated': 'Obsoleta', 'adr.chip.unknown': 'Sin estado',
+    'adr.step.problem': 'Problema', 'adr.step.evidence': 'Evidencia', 'adr.step.research': 'Investigación', 'adr.step.synthesis': 'Síntesis',
+    'adr.step.review': 'Revisión', 'adr.step.accepted': 'Aceptado',
+    'adr.filter.all': 'Todas', 'adr.filter.running': 'En curso', 'adr.filter.review': 'En revisión', 'adr.filter.accepted': 'Aceptadas',
+    'adr.filter.superseded': 'Sustituidas',
+    'adr.why.deferred': 'El punto {point} está aplazado: decídelo o quítalo', 'adr.why.unchosen': 'El punto {point} aún no tiene elección',
+    'adr.why.noDecision': 'Escribe la sección Decisión o añade un punto de decisión',
   },
   en: {
     'nav.summary': 'Summary', 'nav.plan': 'Plan', 'nav.interviews': 'Interviews', 'nav.team': 'Team',
@@ -632,6 +642,16 @@ export const S = {
     'bd.delete': 'Delete', 'bd.deleteAsk': 'Delete {id} from the board? Its file moves to backlog/archive/tasks.',
     'bd.deleteAskKids': 'Delete {id} from the board? Its file moves to backlog/archive/tasks; its tasks stay on the board.',
     'bd.deleted': '{id} deleted from the board.', 'bd.deleteFailed': 'It was not deleted',
+    // the Decisions section (adr.js): the ADR's status chip, the stepper, the list filters, why accept is refused
+    'nav.decisions': 'Decisions',
+    'adr.chip.running': 'In progress', 'adr.chip.review': 'In review', 'adr.chip.proposed': 'Proposed', 'adr.chip.accepted': 'Accepted',
+    'adr.chip.superseded': 'Superseded', 'adr.chip.rejected': 'Rejected', 'adr.chip.deprecated': 'Deprecated', 'adr.chip.unknown': 'No status',
+    'adr.step.problem': 'Problem', 'adr.step.evidence': 'Evidence', 'adr.step.research': 'Research', 'adr.step.synthesis': 'Synthesis',
+    'adr.step.review': 'Review', 'adr.step.accepted': 'Accepted',
+    'adr.filter.all': 'All', 'adr.filter.running': 'In progress', 'adr.filter.review': 'In review', 'adr.filter.accepted': 'Accepted',
+    'adr.filter.superseded': 'Superseded',
+    'adr.why.deferred': 'Point {point} is deferred: decide it or remove it', 'adr.why.unchosen': 'Point {point} has no choice yet',
+    'adr.why.noDecision': 'Write the Decision section or add a decision point',
   },
 }
 
