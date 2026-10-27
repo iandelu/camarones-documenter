@@ -56,6 +56,13 @@ def test_number_of_reads_a_path_and_wants_an_md_file(adr_doc):
     ("## Status\n\nSuperseded\n", ("superseded", None)),
     ("## Status\n\nPending review\n", ("unknown", None)),
     ("## Status\n\n## Context\n\nStatus: accepted\n", ("accepted", None)),
+    ("## Status\n\nSuperseded (2026-10-21) by 0010\n", ("superseded", "0010")),
+    ("## Status\n\nSuperseded on 2026-01-05\n", ("superseded", None)),
+    ("## Estado\n\nSustituida (21/10/2026) por ADR-0010\n", ("superseded", "0010")),
+    ("## Estado\n\nSustituida el 21-10-2026\n", ("superseded", None)),
+    ("## Status\n\nSuperseded 2026-10-21 by [0010](0010-caffeine.md)\n", ("superseded", "0010")),
+    ("## Status\n\nSuperseded by ADR-0010 on 2026.10.21\n", ("superseded", "0010")),
+    ("## Status\n\nSuperseded 0010\n", ("superseded", "0010")),
     ("", ("unknown", None)),
 ])
 def test_status_is_read_in_both_languages(adr_doc, body, want):
@@ -229,7 +236,7 @@ def test_decided_by_lists_date_attendees_mode_and_who_led(adr_doc):
 def test_a_new_adr_renders_the_template(adr_doc, kit):
     fields = {"title": "Sessions in Redis", "kind": "new", "problem": "Pods lose sessions.", "drivers": ["No downtime"],
               "options_hint": ["Redis", "Postgres"], "touches": ["api:src/S.java", "cam-docs:docs/orders.md"]}
-    text = adr_doc.render_new(fields, "0012", "2026-10-27")
+    text = adr_doc.render_new(fields, "0012")
     fm, body = kit.docs.split_fm(text)
     assert fm["type"] == "decision" and fm["x-owner"] == "ai" and fm["title"] == "0012 — Sessions in Redis"
     assert fm["x-sources"] == ["api:src/S.java", "docs/orders.md"]
@@ -244,13 +251,13 @@ def test_a_new_adr_renders_the_template(adr_doc, kit):
 
 def test_a_new_adr_tags_the_repos_it_touches_once_each(adr_doc, kit):
     fields = {"title": "T", "touches": ["web:a.ts", "api:b.java", "api:c.java", "cam-docs:docs/x.md", "api:b.java"]}
-    fm, _ = kit.docs.split_fm(adr_doc.render_new(fields, "0001", "2026-10-27"))
+    fm, _ = kit.docs.split_fm(adr_doc.render_new(fields, "0001"))
     assert fm["tags"] == ["api", "web"]
     assert fm["x-sources"] == ["web:a.ts", "api:b.java", "api:c.java", "docs/x.md"]
 
 
 def test_a_new_adr_with_only_a_title_asks_instead_of_inventing(adr_doc, kit):
-    text = adr_doc.render_new({"title": "Caching"}, "0001", "2026-10-27")
+    text = adr_doc.render_new({"title": "Caching"}, "0001")
     fm, body = kit.docs.split_fm(text)
     assert fm["tags"] == [] and fm["x-sources"] == []
     assert adr_doc.section(body, "context").startswith("TODO(question):")
@@ -262,36 +269,36 @@ def test_a_new_adr_with_only_a_title_asks_instead_of_inventing(adr_doc, kit):
 
 def test_a_new_adr_keeps_the_constraints_the_person_gave(adr_doc, kit):
     fields = {"title": "T", "problem": "Pods lose sessions.", "constraints": ["No new infrastructure", "EU only"]}
-    _, body = kit.docs.split_fm(adr_doc.render_new(fields, "0001", "2026-10-27"))
+    _, body = kit.docs.split_fm(adr_doc.render_new(fields, "0001"))
     assert adr_doc.section(body, "context") == "Pods lose sessions.\n\n**Constraints**\n\n- No new infrastructure\n- EU only"
 
 
 def test_a_long_title_is_kept_in_the_title_and_cut_in_the_description(adr_doc, kit):
     title = "Move every session to a managed cache " * 12
-    fm, body = kit.docs.split_fm(adr_doc.render_new({"title": title}, "0001", "2026-10-27"))
+    fm, body = kit.docs.split_fm(adr_doc.render_new({"title": title}, "0001"))
     assert fm["title"] == "0001 — " + title.strip() and len(fm["description"]) == 300
     assert body.startswith("# 0001 — Move every")
 
 
 def test_a_title_on_two_lines_stays_on_one(adr_doc, kit):
-    fm, body = kit.docs.split_fm(adr_doc.render_new({"title": "Two\nlines "}, "0001", "2026-10-27"))
+    fm, body = kit.docs.split_fm(adr_doc.render_new({"title": "Two\nlines "}, "0001"))
     assert fm["title"] == "0001 — Two lines" and body.startswith("# 0001 — Two lines\n")
 
 
 def test_a_new_adr_passes_the_kit_structure_check(adr_doc, kit):
     fields = {"title": "Sessions in Redis", "problem": "Pods lose sessions.", "drivers": ["No downtime"],
               "options_hint": ["Redis", "Postgres"], "touches": ["api:src/S.java"]}
-    text = adr_doc.render_new(fields, "0012", "2026-10-27")
+    text = adr_doc.render_new(fields, "0012")
     assert kit.quality.structure_issues("decisions/0012-sessions-in-redis.md", text, kit.quality.skeletons()) == []
 
 
 def test_a_new_adr_is_written_with_unix_line_endings_and_ends_with_one_newline(adr_doc):
-    text = adr_doc.render_new({"title": "T", "options_hint": ["A", "B"]}, "0001", "2026-10-27")
+    text = adr_doc.render_new({"title": "T", "options_hint": ["A", "B"]}, "0001")
     assert "\r" not in text and text.endswith("\n") and not text.endswith("\n\n")
 
 
 def test_what_render_new_writes_is_read_back_by_the_section_helpers(adr_doc, kit):
-    text = adr_doc.render_new({"title": "T", "problem": "P"}, "0001", "2026-10-27")
+    text = adr_doc.render_new({"title": "T", "problem": "P"}, "0001")
     _, body = kit.docs.split_fm(text)
     decided = adr_doc.replace_section(text, "decision", adr_doc.render_decision(POINTS[:1]))
     decided = adr_doc.replace_section(decided, "status", "Accepted (2026-10-27)")
