@@ -32,3 +32,10 @@ test('a running job says so with the thinking shimmer; a finished one is a plain
   expect(done).toContain('Hecho')
   expect(html(<JobChip job={{ status: 'failed', stopped: true }} />)).toContain('Parado')
 })
+
+// A page whose header carries its actions (Decisiones: Candidatas, Nuevo ADR) sets them beside the title.
+test('a page with actions sets them beside its title; one without keeps the bare title', () => {
+  const out = renderToStaticMarkup(<Page title="Decisiones" actions={<button type="button">Nuevo</button>} />)
+  expect(out).toMatch(/^<div class="dk-page"><div class="dk-page-head"><h1 class="t-impact">Decisiones<\/h1><div class="row dk-page-acts"><button/)
+  expect(renderToStaticMarkup(<Page title="Plan" />)).toBe('<div class="dk-page"><h1 class="t-impact">Plan</h1></div>')
+})

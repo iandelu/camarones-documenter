@@ -3,6 +3,7 @@ import { Brand, Breadcrumbs, Button, EmptyState, Keys, Skeleton, SkipLink } from
 import { START, firstRunRoute, initials, sectionOf, sections } from './nav.js'
 import { jobsStore } from './jobs.js'
 import { chord, entries, keyFor, typing } from './palette.js'
+import { crumb } from './adr.js'
 import { portalUrl } from './docs.js'
 import { server } from './server.js'
 import { useHash, useStore } from './hooks.js'
@@ -11,6 +12,7 @@ import Hub from './Hub.jsx'
 import JobsPanel from './JobsPanel.jsx'
 import Palette from './Palette.jsx'
 import Board from './sections/Board.jsx'
+import Decisions from './sections/Decisions.jsx'
 import { catalog } from './sections/Commands.jsx'
 import Docs from './sections/Docs.jsx'
 import Interviews from './sections/Interviews.jsx'
@@ -78,6 +80,7 @@ function Project({ app }) {
   }, [])
   const here = sectionOf(hash, { kitdev })
   const full = here === START                           // the first-run wizard: no rail, no section nav
+  const sub = here === 'decisions' ? crumb(hash, t) : null     // a place inside a section: its own crumb, the section a link
   const { project, machine } = sections({ kitdev })
   const all = [...project, ...machine]
   useEffect(() => {                                     // ⌘K / Ctrl K anywhere; g + a letter outside fields and dialogs
@@ -108,7 +111,8 @@ function Project({ app }) {
       <SkipLink target="main">{t('skip')}</SkipLink>
       <header className="dk-top">
         <Brand project={index?.project} href="#/summary" />
-        <Breadcrumbs items={[{ label: index?.project || '…', href: '#/summary' }, { label: t('nav.' + here) }]} />
+        <Breadcrumbs items={[{ label: index?.project || '…', href: '#/summary' }, { label: t('nav.' + here), href: sub ? `#/${here}` : undefined },
+          ...(sub ? [{ label: sub }] : [])]} />
         <span className="dk-grow"></span>
         {/* the portal is the reader, with no token: it opens in the system browser, never in this window */}
         <Button size="sm" variant="ghost" onClick={() => app.openExternal?.(portalUrl(location.origin, '#/'))}>{t('portal.open')}</Button>
@@ -174,7 +178,7 @@ function Rail({ app, projects: { list, busy, open } }) {
   )
 }
 
-const SECTIONS = { summary: Summary, board: Board, plan: Plan, interviews: Interviews, team: Team, quality: Quality, libs: Libs, docs: Docs, machine: Machine,
+const SECTIONS = { summary: Summary, board: Board, decisions: Decisions, plan: Plan, interviews: Interviews, team: Team, quality: Quality, libs: Libs, docs: Docs, machine: Machine,
   kitdev: KitDev, start: Start }
 function Section({ here, ...props }) {
   const View = SECTIONS[here]
