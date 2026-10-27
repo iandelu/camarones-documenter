@@ -47,8 +47,10 @@ export const emptyFeed = (run) => ({ run, finished: false, units: {} })
 
 const ms = (ts) => Date.parse(ts) || 0
 // `status` is the plan's status of the unit when it ended: `ok` only says its agent exited 0. Each row gets the unit's
-// next `seq`, its key once the cap drops the oldest rows.
-const fresh = (ts) => ({ runner: null, started: ms(ts), ended: null, outcome: null, status: null, cost: 0, rows: [], next: 0 })
+// next `seq`, its key once the cap drops the oldest rows. `last`: when it was last heard from, the only end a unit cut
+// off by a stopped run has.
+const fresh = (ts) => ({ runner: null, started: ms(ts), ended: null, outcome: null, status: null, cost: 0, rows: [], next: 0,
+  last: ms(ts) })
 const append = (u, rows) => (rows.length
   ? { ...u, next: u.next + rows.length, rows: [...u.rows, ...rows.map((r, i) => ({ ...r, seq: u.next + i }))].slice(-MAX_ROWS) }
   : u)
@@ -71,7 +73,8 @@ export function feed(f, ev) {
   if (ev.type === 'run.finished') return f.finished ? f : { ...f, finished: true }
   if (!ev.unit) return f
   const known = f.units[ev.unit]
-  const next = step(known || fresh(ev.ts), ev, Boolean(known))
+  const stepped = step(known || fresh(ev.ts), ev, Boolean(known))
+  const next = ms(ev.ts) > stepped.last ? { ...stepped, last: ms(ev.ts) } : stepped
   return next === known ? f : { ...f, units: { ...f.units, [ev.unit]: next } }
 }
 

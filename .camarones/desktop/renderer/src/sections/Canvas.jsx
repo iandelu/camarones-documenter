@@ -12,9 +12,10 @@ import { tone } from '../plan.js'
 const OUTCOMES = new Set(['failed', 'limited', 'cancelled', 'retry'])
 
 // What the terminal's header says once the agent is no longer at work: `ok` is only its exit code, so a unit is called
-// done when the plan has it done, and otherwise by its state in the plan (to do, paused, blocked, awaiting you…).
+// done when the plan has it done, and otherwise by its state in the plan (to do, paused, blocked, awaiting you…), as
+// is a unit with no end of its own in a run that is over (a stopped autopilot).
 function ended(fu, unit) {
-  if (fu.outcome === 'ok') return fu.status === 'done' ? t('cv.st.ok') : t('tone.' + tone(unit))
+  if (fu.outcome === 'ok' || fu.outcome == null) return fu.status === 'done' ? t('cv.st.ok') : t('tone.' + tone(unit))
   return OUTCOMES.has(fu.outcome) ? t(`cv.st.${fu.outcome}`) : (fu.outcome ?? '')
 }
 
@@ -80,7 +81,7 @@ export function TermNode({ data: { unit, fu, now, viewed, finished, onOpen, onVi
         {fu ? (
           <span className="dk-term-meta">
             <span>{fu.runner}</span><span>{state}</span>
-            <span>{fmtDuration(Math.max(0, ((fu.ended ?? now) - fu.started) / 1000))}</span><span>{money(fu.cost)}</span>
+            <span>{fmtDuration(Math.max(0, ((fu.ended ?? (running ? now : fu.last ?? now)) - fu.started) / 1000))}</span><span>{money(fu.cost)}</span>
           </span>
         ) : null}
         {viewed && !running ? <button type="button" className="dk-cv-btn" onClick={() => onView(unit.id)}>{t('cv.hide')}</button> : null}

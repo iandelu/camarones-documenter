@@ -231,7 +231,8 @@ abierta. Tab y las flechas se mueven entre nodos e Intro abre el detalle de la u
 lienzo en cuanto hay una ejecución en marcha (ya al entrar, o lanzada desde el propio Plan; una unidad que empiezas a
 mano en su propia terminal no cuenta) y se queda ahí, también al acabar, hasta que elijas otra. El lienzo lee el registro de la ejecución (el mismo que lee el portal) y sigue el tema claro u oscuro de la
 app; parar sigue en la tarjeta **Ejecutar el plan**. Una ejecución parada desde fuera (su trabajo parado, su proceso
-terminado) se ve acabada en unos segundos: sus terminales dejan de decir «en marcha» y sus relojes se paran.
+terminado) se ve acabada en unos segundos: sus terminales dejan de decir «en marcha», y una unidad que dejó a medias
+dice cómo la tiene el plan, con su reloj parado en su última línea.
 
 **Plan desde 0**, debajo de las unidades. Lo que ha costado el plan desde que empezó (o desde el último borrado), para todo el equipo: tiempo
 de agente desatendido, tiempo con una persona delante, tiempo de calendario, tokens y dólares equivalentes de la API,
