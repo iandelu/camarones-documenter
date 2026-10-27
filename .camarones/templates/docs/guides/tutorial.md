@@ -38,7 +38,9 @@ The agents' setup is shared with the team, so it is never loaded blindly: hooks,
 kit did not write are listed when you open the wizard, and the workspace only links them once you approve them on this
 machine (`camaron trust`). Approvals live in `~/.camarones/trust/`, never in the repo. What the kit installed on this
 machine (its skills, graphify's and OpenWiki's, recorded in `~/.camarones/install/`) is recognised without asking;
-`camaron doctor` shows a kit file edited or a link gone, and `camaron repair` puts them back.
+`camaron doctor` shows a kit file edited or a link gone, and `camaron repair` puts them back. Your own `.claude/` or
+`CLAUDE.md` already in the workspace folder are never replaced: the kit links its entries inside the folder and adds
+to your `CLAUDE.md` the line that imports its rules (`@AGENTS.md`); `uninstall` takes both out.
 
 ## 2. The guided flow
 
@@ -219,7 +221,7 @@ between sections (`g s` Summary, `g b` Board, `g p` Plan, `g q` Quality…).
 | 🤝 Team | the team's repo and sharing, approving the agent config that came with it, hooks, plugins |
 | ✅ Quality | prerequisites and tools (kept between visits, "Check again"), the context every agent session loads, golden questions, with vs without cam-docs; without AI, known vulnerabilities, pages out of date, generated blocks |
 | 📖 Docs | **Read the docs**, **Review drafts** and **Search or ask** open the portal in your browser. Below, **Build the C4 explorer**; per repo, **Generate the wiki** (chooses the repo and writes a starter brief without AI if it has none) and, once it has pages, **Wiki graph**: each a job with its output, then **View** opens the result in the portal (**Retry** if it failed); and **Ask with AI**, which answers from the docs and links its sources in the portal |
-| 🧰 Machine | setup with progress, language and models, GitLab / GitHub tokens, repos and their stack, the plan profile, kit updates, repair and, apart and previewed first, uninstall |
+| 🧰 Machine | setup with progress ("Ready" once it has run here), language and models, GitLab / GitHub tokens, repos and their stack, the plan profile, kit updates, repair and, apart and previewed first, uninstall |
 
 Every section ends with **All commands**, folded: the rest of its catalog zone, each with its form.
 

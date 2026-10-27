@@ -1,13 +1,16 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Aviso, Button, Chip, Skeleton } from '@camaron/ui'
-import { advisories, applyFilter, facets, fixTarget, matrix, rowsOf } from '@camaron/ui/libs.js'
+import { advisories, applyFilter, facets, fixTarget, managedLabel, matrix, rowsOf } from '@camaron/ui/libs.js'
 import { severities } from '@camaron/ui/result.js'
-import { useCmd } from '../hooks.js'
+import { useCmd, useJob } from '../hooks.js'
 import { Failed, JobOutput, Page } from '../parts.jsx'
+import { scanProgress } from '../quality.js'
 import { t } from '../i18n.js'
 
-// Libraries: what every repo declares, read from the code without AI (inventory), as a library x service table. Any
-// line opens on why the library is there (which manifest, which scope), why it is flagged (the advisories with their
+// Libraries: what every repo declares, read from the code without AI (inventory), as a library x service table with
+// each library's versions next to its name. Rereading and scanning run as the server's inventory job, which says which
+// repo it is on (a scan that finds vulnerabilities has worked: the CLI's exit 1 is for CI). Any line opens on why the
+// library is there (which manifest, which scope), why it is flagged (the advisories with their
 // affected versions and full text, read offline from the last scan) and an update: `bump` on a new branch of that
 // repo, with its own package manager, never committed.
 export const SEV = { critical: 'bad', high: 'bad', medium: 'warn', moderate: 'warn' }
@@ -15,7 +18,8 @@ export const sevWord = (s) => { const k = `sev.${s}`; const w = t(k); return w =
 const slug = (name) => name.split(':').pop().split('/').pop().replace(/[^\w.-]+/g, '-')
 
 export default function Libs({ srv, jobs }) {
-  const c = useCmd(srv, jobs)
+  const c = useJob(srv, jobs, (cves) => srv.post('inventory', { cves }))
+  const [cves, setCves] = useState(false)
   const [inv, setInv] = useState(null)
   const [error, setError] = useState('')
   const [f, setF] = useState({})
@@ -27,7 +31,7 @@ export default function Libs({ srv, jobs }) {
   const m = useMemo(() => matrix(shown), [shown])
   const fc = useMemo(() => facets(rows), [rows])
   const sev = severities(rows)
-  const run = async (args) => { await c.run('inventory', args); load() }
+  const run = async (scan) => { setCves(scan); await c.run(scan); load() }
   const set = (k) => (v) => setF((cur) => ({ ...cur, [k]: v }))
   const count = new Set(rows.map((r) => r.ecosystem + r.name)).size
   return (
@@ -45,11 +49,11 @@ export default function Libs({ srv, jobs }) {
         </div>
       ) : !error ? <Skeleton lines={3} /> : null}
       <div className="row">
-        <Button size="sm" variant="primary" disabled={c.running} onClick={() => run({ cves: true, json: true })}>{t('q.cvScan')}</Button>
-        <Button size="sm" disabled={c.running} onClick={() => run({})}>{t('q.libsRead')}</Button>
+        <Button size="sm" variant="primary" disabled={c.running} onClick={() => run(true)}>{t('q.cvScan')}</Button>
+        <Button size="sm" disabled={c.running} onClick={() => run(false)}>{t('q.libsRead')}</Button>
         <span className="muted small">{t('q.libsNoAi')}</span>
       </div>
-      <JobOutput c={c} />
+      <ScanStatus c={c} cves={cves} />
       {rows.length ? (<>
         <div className="row">
           <input type="search" className="cu-input dk-grow" placeholder={t('q.libsSearch')} aria-label={t('q.libsSearch')} value={f.q || ''} onChange={(e) => set('q')(e.target.value)} />
@@ -58,30 +62,55 @@ export default function Libs({ srv, jobs }) {
           <FacetSelect label={t('lb.scope')} value={f.scope} onChange={set('scope')} options={fc.scope} />
           <label className="dk-check"><input type="checkbox" checked={!!f.vulnerable} onChange={(e) => set('vulnerable')(e.target.checked)} />{t('q.libsOnlyVuln')}</label>
         </div>
-        {m.items.length ? (
-          <div className="dk-scroll"><table className="dk-table dk-libs">
-            <thead><tr><th>{t('q.libsLibrary')}</th><th>{t('q.libsCategory')}</th>{m.repos.map((r) => <th key={r}>{r}</th>)}</tr></thead>
-            <tbody>{m.items.map((x) => (
-              <Fragment key={x.key}>
-                <tr className={(x.worst ? `vuln sev-${SEV[x.worst] || 'low'}` : '') + (open === x.key ? ' on' : '')}>
-                  <td><button type="button" className="dk-linkish" aria-expanded={open === x.key} onClick={() => setOpen(open === x.key ? null : x.key)}>
-                      <code>{x.name}</code></button> <span className="muted small">{x.ecosystem}</span>
-                    {x.worst ? <> <Chip state={SEV[x.worst]}>{sevWord(x.worst)}</Chip></> : null}
-                    {x.drift ? <> <Chip state="warn">{t('q.libsVersions')}</Chip></> : null}</td>
-                  <td className="muted small">{x.category}</td>
-                  {m.repos.map((r) => { const v = x.cells[r]; return <td key={r} className={v?.vulns.length ? 'cell-vuln' : ''}>{v ? v.version || '—' : ''}</td> })}
-                </tr>
-                {open === x.key ? (
-                  <tr className="dk-lib-row"><td colSpan={2 + m.repos.length}>
-                    <Library item={x} rows={rowsOf(rows, x.key)} scanned={!!inv.vulns} srv={srv} jobs={jobs} onChanged={load} />
-                  </td></tr>
-                ) : null}
-              </Fragment>
-            ))}</tbody>
-          </table></div>
-        ) : <p className="muted small">{t('nothing')}</p>}
+        {m.items.length ? <LibTable m={m} rows={rows} inv={inv} open={open} setOpen={setOpen} srv={srv} jobs={jobs} onChanged={load} />
+          : <p className="muted small">{t('nothing')}</p>}
       </>) : inv ? <p className="muted small">{t('q.libsNone')}</p> : null}
     </Page>
+  )
+}
+
+// While it runs: the repo it is on out of how many (a scan), and why the first scan is slow; then the job's outcome.
+export function ScanStatus({ c, cves }) {
+  if (!c.running || !cves) return <JobOutput c={c} />
+  const p = scanProgress(c.job?.lines)
+  return (
+    <div className="dk-out" role="status">
+      <progress className="dk-progress" value={p.total ? p.pct : undefined} max={100} aria-label={t('q.cvScan')} />
+      <span className="small">{p.total ? t('lb.scanning', { repo: p.repo, n: p.n, total: p.total }) : t('lb.scanStart')}</span>
+      {p.n <= 1 ? <span className="muted small">{t('lb.scanFirst')}</span> : null}
+    </div>
+  )
+}
+
+// The library x service table: the versions next to the name, then each repo's own; a version a parent or BOM outside
+// the repo sets, which the inventory cannot read offline, says which one instead of a blank.
+export function LibTable({ m, rows, inv, open, setOpen, srv, jobs, onChanged }) {
+  const managed = (by) => <span className="muted" title={t('lb.managedTitle', { by })}>{managedLabel(by)}</span>
+  return (
+    <div className="dk-scroll"><table className="dk-table dk-libs">
+      <thead><tr><th>{t('q.libsLibrary')}</th><th>{t('lb.versions')}</th><th>{t('q.libsCategory')}</th>{m.repos.map((r) => <th key={r}>{r}</th>)}</tr></thead>
+      <tbody>{m.items.map((x) => {
+        const by = Object.values(x.cells).find((v) => v.managedBy)?.managedBy
+        return (
+          <Fragment key={x.key}>
+            <tr className={(x.worst ? `vuln sev-${SEV[x.worst] || 'low'}` : '') + (open === x.key ? ' on' : '')}>
+              <td><button type="button" className="dk-linkish" aria-expanded={open === x.key} onClick={() => setOpen(open === x.key ? null : x.key)}>
+                  <code>{x.name}</code></button> <span className="muted small">{x.ecosystem}</span>
+                {x.worst ? <> <Chip state={SEV[x.worst]}>{sevWord(x.worst)}</Chip></> : null}
+                {x.drift ? <> <Chip state="warn">{t('q.libsVersions')}</Chip></> : null}</td>
+              <td>{x.versions.length ? x.versions.join(' · ') : by ? managed(by) : '—'}</td>
+              <td className="muted small">{x.category}</td>
+              {m.repos.map((r) => { const v = x.cells[r]; return <td key={r} className={v?.vulns.length ? 'cell-vuln' : ''}>{!v ? '' : v.managedBy ? managed(v.managedBy) : v.version || '—'}</td> })}
+            </tr>
+            {open === x.key ? (
+              <tr className="dk-lib-row"><td colSpan={3 + m.repos.length}>
+                <Library item={x} rows={rowsOf(rows, x.key)} scanned={!!inv.vulns} srv={srv} jobs={jobs} onChanged={onChanged} />
+              </td></tr>
+            ) : null}
+          </Fragment>
+        )
+      })}</tbody>
+    </table></div>
   )
 }
 

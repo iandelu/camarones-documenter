@@ -78,6 +78,39 @@ def test_workspace_links_go_and_real_files_stay(un, before):
     assert kit.stopped == ["portal"]
 
 
+def test_what_the_kit_put_in_the_person_s_own_folder_and_claude_md_goes_too(un, before):
+    """A real .claude/ of theirs got the kit's entries linked in, a real CLAUDE.md the import line: both go back."""
+    kit = un
+    p = kit.ws / ".claude"
+    kit.env._unlink(p)
+    p.mkdir()
+    (p / "settings.local.json").write_text("{}", encoding="utf-8")
+    kit.env._unlink(kit.ws / "AGENTS.md") if kit.env._linked(kit.ws / "AGENTS.md") else None
+    kit.env.link_workspace(log=lambda _: None)
+    assert kit.env._linked(p / "skills")
+    labels = "\n".join(s.label for s in kit.uninstall.steps())
+    assert f"{kit.ws.name}/.claude/skills" in labels
+    run(kit, backup=False)
+    assert sorted(x.name for x in p.iterdir()) == ["settings.local.json"]
+
+
+def test_the_import_line_in_the_person_s_claude_md_is_taken_out(un, monkeypatch):
+    kit = un
+    wire_project(kit)
+    monkeypatch.setattr(kit.env, "docker_down", lambda: None)
+    monkeypatch.setattr(kit.uninstall, "which", lambda name: None)
+    if not kit.env._linked(kit.ws / "AGENTS.md"):           # Windows without file-symlink rights
+        return
+    mine = kit.ws / "CLAUDE.md"
+    kit.env._unlink(mine)
+    mine.write_text("# Ours\n", encoding="utf-8")
+    kit.env.link_workspace(log=lambda _: None)
+    assert "@AGENTS.md" in mine.read_text(encoding="utf-8")
+    assert any("CLAUDE.md" in s.label and s.kind == "edit" for s in kit.uninstall.steps())
+    run(kit, backup=False)
+    assert mine.read_text(encoding="utf-8") == "# Ours\n"
+
+
 def test_backup_zip_keeps_docs_and_history(un, before):
     kit = un
     (kit.root / ".camarones" / ".cache").mkdir(exist_ok=True)

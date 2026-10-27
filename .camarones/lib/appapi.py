@@ -112,9 +112,11 @@ def start(b: dict, start_job) -> dict:
     and (for --json) its parsed output to the job."""
     e = entry(str(b.get("cmd", "")))
     cmd = argv(e, b.get("args") or {}, bool(b.get("confirmed")))
-    # cwd outside the project (CAMARONES_ROOT names it): Windows cannot delete a folder a process works in
+    # cwd outside the project (CAMARONES_ROOT names it): Windows cannot delete a folder a process works in.
+    # Unbuffered: a pipe is block-buffered, and the app would see a command's lines only once it ends.
     job = stream_job(start_job, "cmd:" + " ".join(cmd), [sys.executable, str(KIT / "camarones.py"), *cmd], HOME,
-                     {**os.environ, "CAMARONES_ROOT": str(ROOT), "PYTHONUTF8": "1"}, parse_json="--json" in cmd,
+                     {**os.environ, "CAMARONES_ROOT": str(ROOT), "PYTHONUTF8": "1", "PYTHONUNBUFFERED": "1"},
+                     parse_json="--json" in cmd,
                      label=" ".join(cmd), shown=cmd)
     job.setdefault("quiet", bool(b.get("quiet")))        # a panel's background read: the app's jobs panel skips it
     return job

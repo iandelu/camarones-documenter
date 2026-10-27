@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { BOARD_ACTIONS, doctorRows, pytestSummary, seconds, setupProgress } from './quality.js'
+import { BOARD_ACTIONS, doctorRows, pytestSummary, scanProgress, seconds, setupProgress } from './quality.js'
 
 const fix = (cmd, args = {}) => ({ cmd, args })
 
@@ -26,6 +26,13 @@ test('setup\'s progress: the steps it reports done against the steps it will tak
   expect(setupProgress(['  ✔ git', '  ✔ node', 'installing likec4…'], 4)).toEqual({ done: 2, pct: 50 })
   expect(setupProgress(['✔ a', '✔ b', '✔ c'], 2)).toEqual({ done: 3, pct: 100 })
   expect(setupProgress([], 0)).toEqual({ done: 0, pct: 0 })
+})
+
+test('a vulnerability scan\'s progress: the repo it is on out of how many, from its numbered lines', () => {
+  expect(scanProgress(['osv-scanner ready', '[1/3] api: scanning for known vulnerabilities (offline database)…',
+    '[2/3] web: scanning for known vulnerabilities (offline database)…'])).toEqual({ n: 2, total: 3, pct: 33, repo: 'web' })
+  expect(scanProgress(['[3/3] worker: scanning…', '✔ 2 libraries with known vulnerabilities'])).toEqual({ n: 3, total: 3, pct: 67, repo: 'worker' })
+  expect(scanProgress([])).toEqual({ n: 0, total: 0, pct: 0, repo: '' })
 })
 
 test('a check\'s time in seconds, for "checked n min ago"', () => {

@@ -276,7 +276,7 @@ elif os.environ.get("CAMARONES_GLOBAL") and not os.environ.get("CAMARONES_ROOT")
         _relaunch(_dest, sys.argv[1:])
 
 from lib import docs, env, plan                     # noqa: E402
-from lib.common import VERSIONS, PREFS, cli_cmd, ROOT, CACHE, load_json   # noqa: E402
+from lib.common import VERSIONS, PREFS, cli_cmd, ROOT, CACHE, CAM_DIR, load_json   # noqa: E402
 
 
 def cmd_trust(a) -> int:
@@ -590,6 +590,8 @@ def main() -> int:
         if not a.ci:
             plan.sync()
             plan.set_status("setup", "done", "cli setup")
+            from lib import install_state
+            install_state.mark_setup()
     elif a.cmd == "init":
         env.init_templates()
         docs.save_workspace(docs.workspace())   # persist workspace.yaml even with 0 repos yet — global
@@ -698,10 +700,14 @@ def main() -> int:
     elif a.cmd == "repair":
         from lib import install_state
         left = install_state.repair()
+        yours = [d for d in left if d.get("why") == "yours"]
         print("✔ kit files and links restored" if not left else "\n".join(
-            [f"⚠ still off ({len(left)}):"] + [f"    {d['state']:<10} {d['path']}" for d in left]
+            [f"⚠ still off ({len(left)}):"]
+            + [f"    {d['state']:<10} {d['path']}{'  (yours: kept)' if d in yours else ''}" for d in left]
             + ([f"  links held back: review the agent config with `{cli_cmd()} trust`"]
-               if any(d["state"] == "not linked" for d in left) else [])))
+               if any(d["state"] == "not linked" and d not in yours for d in left) else [])
+            + ([f"  yours: a file of yours is there and the kit never replaces it — move it into {CAM_DIR}/ to "
+                "share it with the team, or leave it as it is"] if yours else [])))
     elif a.cmd == "removed":
         from lib import removed
         print(f"✔ {removed.add(a.what, a.why, a.decision)}: {a.what}")
@@ -879,7 +885,7 @@ def main() -> int:
             print(f"→ {page.relative_to(ROOT).as_posix()}")
     elif a.cmd == "inventory":
         from lib import inventory
-        page = inventory.run(log=(lambda _: None) if a.json else print, cves=a.cves)
+        page = inventory.run(log=(lambda m: print(m, file=sys.stderr, flush=True)) if a.json else print, cves=a.cves)
         data = inventory.load()
         if a.json:
             print(json.dumps(data, indent=2, ensure_ascii=False))

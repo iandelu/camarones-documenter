@@ -30,7 +30,7 @@ Log = env.Log
 
 @dataclass
 class Step:
-    kind: str       # stop | wiki | backup | repo | link | board | delete | registry | user
+    kind: str       # stop | wiki | backup | repo | link | edit | board | delete | registry | user
     label: str
 
 
@@ -79,6 +79,10 @@ def remove_link(p: Path) -> None:
         p.unlink()
     except OSError:
         os.rmdir(p)
+
+
+def _text(p: Path) -> str:
+    return p.read_text(encoding="utf-8") if p.is_file() and not env._linked(p) else ""
 
 
 def root_links() -> list[str]:
@@ -188,6 +192,10 @@ def steps(include_global: bool = False, backup: bool = True, keep_board: bool | 
         if env.repo_mcp_entry(name):
             out.append(Step("registry", f"Claude Code's local config for {name}: the camarones MCP server"))
     out += [Step("link", f"{WORKSPACE.name}/{n} → {CAM_DIR}/{n} (link)") for n in root_links()]
+    out += [Step("link", f"{WORKSPACE.name}/{p.parent.name}/{p.name} → {CAM_DIR}/{p.parent.name}/{p.name} (link in your own "
+                         f"folder)") for p in env.merged_links()]
+    if env.KIT_IMPORT in _text(WORKSPACE / "CLAUDE.md"):
+        out.append(Step("edit", f"{WORKSPACE.name}/CLAUDE.md (yours): the two lines that import the kit's rules"))
     if (WORKSPACE / ".cw").exists():
         out.append(Step("delete", f"{WORKSPACE.name}/.cw/ — the units' worktrees (work not integrated yet is lost)"))
     if has_board():
@@ -265,8 +273,11 @@ def run(include_global: bool = False, backup: bool = True, backup_dir: Path | No
         if forget_repo_mcp(name):
             acts.append("camarones MCP")
         log(f"✔ {name}: " + (f"{len(acts)} trace(s) removed" if acts else "clean"))
+    for p in env.merged_links():                # the kit's links inside a folder of the person's own
+        remove_link(p)
     for n in root_links():
         remove_link(WORKSPACE / n)
+    env.drop_kit_import(WORKSPACE / "CLAUDE.md")
     log(f"✔ {WORKSPACE.name}/: links into {CAM_DIR}/ removed")
     projects.unregister(ROOT, WORKSPACE)
     trust.forget()

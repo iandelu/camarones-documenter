@@ -228,7 +228,7 @@ PAGES = {
                  "automático, y las unidades en un tablero de colores por estado o por fases; una unidad empezada sin su terminal abierta queda en pausa hasta que la sigues, y una abierta dice qué está haciendo su agente), Entrevistas, Equipo (repo del equipo y "
                  "compartir, lo que falta aprobar, plugins), Calidad (la salud del proyecto de un vistazo: veredicto, máquina, documentación y código, y cada repo con su cobertura (la de SonarQube si hay token guardado), vulnerabilidades, deuda técnica y la puerta de calidad de Sonar; requisitos y herramientas guardados entre "
                  "visitas, contexto, preguntas de control, con y sin cam-docs, librerías y vulnerabilidades, páginas "
-                 "desactualizadas), Librerías (por qué está cada una, sus avisos de seguridad completos y Actualizar en una rama nueva del repo, sin commit) y Docs, que abre el portal en tu navegador y construye el explorador C4, genera la wiki de cada repo y su grafo, y responde con IA a tus preguntas; debajo, Máquina (setup, idioma y modelos, tokens, repos, "
+                 "desactualizadas), Librerías (la versión de cada una junto a su nombre, por qué está, sus avisos de seguridad completos y Actualizar en una rama nueva del repo, sin commit; buscar vulnerabilidades dice en qué repo va) y Docs, que abre el portal en tu navegador y construye el explorador C4, genera la wiki de cada repo y su grafo, y responde con IA a tus preguntas; debajo, Máquina (setup, que dice «Lista» cuando ya corrió en esta máquina, idioma y modelos, tokens, repos, "
                  "el kit y desinstalar con vista previa). Cada comando de la CLI está ahí, con su formulario en «Todos "
                  "los comandos», su salida en el panel de trabajos y su resultado; lo que borra o mueve datos va aparte "
                  "y pregunta antes. Ctrl K / ⌘K va a una sección, a otro proyecto o a un comando, y g y una letra (g b, g p, "
@@ -328,7 +328,9 @@ PAGES = {
                  "/ Codex solo los cargan cuando los apruebas en esta máquina (o con `camaron trust`). Las aprobaciones "
                  "viven en ~/.camarones/trust/, nunca en el repo, así que nadie puede aprobarlas por ti con un push. Lo "
                  "que el kit instaló en esta máquina (sus skills y los de graphify y OpenWiki) lo reconoce sin "
-                 "preguntar, y `camaron repair` lo devuelve a su sitio si alguien lo edita o lo borra."},
+                 "preguntar, y `camaron repair` lo devuelve a su sitio si alguien lo edita o lo borra. Si ya tenías tu "
+                 "propio .claude/ o CLAUDE.md en la carpeta del espacio de trabajo, no los reemplaza: enlaza dentro lo "
+                 "del kit y añade a tu CLAUDE.md la línea que importa sus reglas (uninstall la quita)."},
         {"icon": "⚙️", "title": "CI: documentación que se actualiza sola",
          "art": r"""
    git push --> pipeline (GitLab CI / GitHub Actions)
@@ -658,7 +660,7 @@ PAGES = {
                  "this wizard suggests), Board (the columns from Backlog to Done: move a card by dragging it or with the keyboard, open its description and criteria, and on a story its tasks with Add a task; Delete archives it; Add creates a story, a task…; if the board is not on, the section offers to turn it on), Plan (run the ready units or the autopilot, and the units on a board coloured by "
                  "state or by phase; a started unit whose terminal is closed stays paused until you continue it, and an open one says what its agent is doing), Interviews, Team (the team's repo and sharing, what is left to approve, plugins), Quality "
                  "(the project's health at a glance: verdict, machine, docs and code, and each repo with its coverage (SonarQube's when a token is saved), vulnerabilities, tech debt and Sonar quality gate; prerequisites and tools kept between visits, context, golden questions, with and without cam-docs, "
-                 "libraries and vulnerabilities, pages out of date), Libraries (why each one is there, its security advisories in full, and Update on a new branch of the repo, not committed) and Docs, which opens the portal in your browser and builds the C4 explorer, generates each repo's wiki and its graph, and answers your questions with AI; below, Machine (setup, "
+                 "libraries and vulnerabilities, pages out of date), Libraries (each one's version next to its name, why it is there, its security advisories in full, and Update on a new branch of the repo, not committed; scanning for vulnerabilities says which repo it is on) and Docs, which opens the portal in your browser and builds the C4 explorer, generates each repo's wiki and its graph, and answers your questions with AI; below, Machine (setup, which says \"Ready\" once it has run on this machine, "
                  "language and models, tokens, repos, the kit and uninstall previewed first). Every CLI command is "
                  "there, with its form under \"All commands\", its output in the jobs panel and its result; what deletes "
                  "or moves data sits apart and asks first. Ctrl K / ⌘K goes to a section, another project or a command, "
@@ -757,7 +759,9 @@ PAGES = {
                  "open the wizard, and Claude Code / Codex only load them once you approve them on this machine (or with "
                  "`camaron trust`). Approvals live in ~/.camarones/trust/, never in the repo, so nobody can approve them "
                  "for you with a push. What the kit installed on this machine (its skills, graphify's and OpenWiki's) is "
-                 "recognised without asking, and `camaron repair` puts it back if someone edits or deletes it."},
+                 "recognised without asking, and `camaron repair` puts it back if someone edits or deletes it. If the "
+                 "workspace folder already had your own .claude/ or CLAUDE.md, it never replaces them: it links the "
+                 "kit's entries inside and adds to your CLAUDE.md the line that imports its rules (uninstall takes it out)."},
         {"icon": "⚙️", "title": "CI: docs that update themselves",
          "art": r"""
    git push --> pipeline (GitLab CI / GitHub Actions)

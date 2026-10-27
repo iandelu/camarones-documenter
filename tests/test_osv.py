@@ -71,6 +71,14 @@ def test_findings_join_the_inventory_rows(kit, repos, scanner):  # noqa: F811
     assert "CVE-2024-1597 (critical, fixed in 42.7.2)" in page
 
 
+def test_the_scan_says_which_repo_it_is_on_out_of_how_many(kit, repos, scanner):  # noqa: F811
+    logs = []
+    repos.run(log=logs.append, cves=True)
+    steps = [l for l in logs if l.startswith("[")]
+    assert steps == [f"[{i}/3] {r}: scanning for known vulnerabilities (offline database)…"
+                     for i, r in enumerate(["api", "web", "worker"], 1)]          # the app's progress bar reads these
+
+
 def test_the_offline_database_is_the_default(kit, repos, scanner):  # noqa: F811
     repos.run(log=lambda _: None, cves=True)
     argv, env = scanner[0]
