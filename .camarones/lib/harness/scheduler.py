@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 
 from .. import docs, plan
 from ..common import CAM_DIR, CTX, cli_cmd
-from . import awake, kpis, routing
+from . import awake, kpis, ledger, routing
 from .ctx import Ctx
 from .events import EventLog
 from .integrate import GATES, _kit, integrate
@@ -143,10 +143,12 @@ def _run(lang, max_parallel, per_runner, max_units, poll_seconds, include_interv
                 j.proc.kill()
         emit("run.finished", interrupted=True)
         kpis.record_run(run_id)
+        ledger.harvest()
         raise
     cancelled = cancel_file(run_id).exists()
     emit("run.finished", done=done, **({"interrupted": True, "cancelled": True} if cancelled else {}))
     kpis.record_run(run_id)
+    ledger.harvest()
     return done
 
 
