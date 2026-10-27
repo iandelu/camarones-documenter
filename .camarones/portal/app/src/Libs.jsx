@@ -4,7 +4,7 @@ import { t } from './i18n.js'
 import { Skeleton } from '@camaron/ui'
 import Failed from './Failed.jsx'
 import AppOnly from './AppOnly.jsx'
-import { applyFilter, facets, matrix, repoFilter } from './libs.js'
+import { applyFilter, facets, matrix, placesOf, repoFilter } from './libs.js'
 
 const SEV = { critical: 'bad', high: 'bad', medium: 'warn', low: 'muted', unknown: 'muted' }
 
@@ -14,6 +14,16 @@ function Select({ label, value, onChange, options }) {
       <option value="">{label}: {t('all')}</option>
       {options.map(([k, n]) => <option key={k} value={k}>{k} ({n})</option>)}
     </select>
+  )
+}
+
+// Which repos have this library, the flagged ones first: with many services their columns sit off screen.
+export function Where({ item }) {
+  const { shown, more } = placesOf(item)
+  return (
+    <span className="libs-where muted small">{t('libsIn')} {shown.map((p, i) => (
+      <Fragment key={p.repo}>{i ? ' · ' : ''}{p.flagged ? <b className="libs-where-bad">{p.repo}</b> : p.repo}</Fragment>
+    ))}{more ? ` ${t('libsMore', { n: more })}` : ''}</span>
   )
 }
 
@@ -82,7 +92,8 @@ export default function Libs({ arg = '' }) {
                 <tr className={x.worst ? `vuln sev-${SEV[x.worst]}` : ''} onClick={() => setOpen(open === x.key ? null : x.key)}>
                   <td><code>{x.name}</code> <span className="muted small">{x.ecosystem}</span>
                     {x.worst ? <span className={`pill ${SEV[x.worst]}`}>⚠ {t(`sev.${x.worst}`)}</span> : null}
-                    {x.drift ? <span className="pill warn">{t('libsVersions')}</span> : null}</td>
+                    {x.drift ? <span className="pill warn">{t('libsVersions')}</span> : null}
+                    <br /><Where item={x} /></td>
                   <td><span className="chip">{x.category}</span></td>
                   {m.repos.map((r) => {
                     const c = x.cells[r]
