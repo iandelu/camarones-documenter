@@ -198,3 +198,44 @@ def test_openwiki_own_engine_counts_as_complete_only_with_a_coverage_brief(wired
     brief.write_text("# brief\n\n## Coverage\n- one page per endpoint group\n", encoding="utf-8")
     assert env.openwiki_generate("api", log=lambda _: None) is True
     assert not env.wiki_old("api")
+
+
+# ---------- a wiki written by an agent is a run of its own, with its tokens and cost ----------
+@pytest.fixture
+def engine_streaming(wired, engine, monkeypatch):
+    """The fake engine, now speaking Claude Code's stream-json: one tool call, then the result with its usage."""
+    env = wired.env
+    lines = [{"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Write",
+                                                            "input": {"file_path": "openwiki/index.md"}}]}},
+             {"type": "result", "result": "done", "total_cost_usd": 0.42,
+              "usage": {"input_tokens": 100, "output_tokens": 20, "cache_read_input_tokens": 5}}]
+
+    def stream(cmd, cwd, log, env_=None):
+        (wired.ws / "api" / "openwiki" / "index.md").write_text("# api\n", encoding="utf-8")
+        for line in lines:
+            log(json.dumps(line))
+        return 0
+    monkeypatch.setattr(env, "stream", stream)
+    return engine
+
+
+def test_a_wiki_by_an_agent_is_a_run_with_its_cost(wired, engine_streaming):
+    shown = []
+    assert wired.env.openwiki_generate("api", log=shown.append, force=True) is True
+    from lib.harness import runs
+    rid = runs.ids()[0]
+    assert rid.endswith("-wiki-api") and runs.ids(wiki=False) == []
+    s = runs.summary(rid)
+    assert (s["cost_usd"], s["tokens_in"], s["done"], s["finished"]) == (0.42, 100, 1, True)
+    u = runs.detail(rid)["units"][0]
+    assert (u["unit"], u["runner"], u["outcome"]) == ("repo-wiki:api", "claude", "ok")
+    assert not any(l.startswith("{") for l in shown)                     # progress, not raw JSON
+    assert any("Write" in l for l in shown)
+
+
+def test_openwikis_own_engine_writes_no_run(wired, engine, monkeypatch):
+    monkeypatch.setattr(wired.env, "wiki_engines", lambda: ["openwiki"])
+    (wired.root / "wikis" / "api" / "INSTRUCTIONS.md").write_text("# brief\n", encoding="utf-8")
+    assert wired.env.openwiki_generate("api", log=lambda _: None) is True
+    from lib.harness import runs
+    assert runs.ids() == []

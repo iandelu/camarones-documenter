@@ -1165,6 +1165,45 @@ ENGINE_DOWN = re.compile(r"session limit|usage limit|weekly limit|limit reached|
                          r"log ?in again|token (?:has )?expired|overloaded", re.I)
 
 
+class _WikiRun:
+    """A wiki written by an agent runner is a run of its own (`r-…-wiki-<repo>`): `runs`, the KPIs and the plan bill
+    see its tokens and cost. The user reads the agent's progress, not its JSON stream."""
+
+    def __init__(self, repo: str, uid: str, engine: str):
+        from .harness import runs
+        from .harness.events import EventLog
+        self.uid, self.engine, self.started = uid, engine, dt.datetime.now()
+        self.run_id = f"r-{self.started:%Y%m%d-%H%M%S}-{os.getpid()}{runs.WIKI}{repo}"
+        self.log = EventLog(CTX.runs / self.run_id / "events.jsonl")
+        self.runner = runners.get(engine)
+        self.log.emit("run.started", run=self.run_id, what="wiki")
+        self.log.emit("unit.started", run=self.run_id, unit=uid, runner=engine, isolation="none")
+
+    def line(self, show: Log, tail: deque) -> Log:
+        from . import plan
+
+        def each(line: str) -> None:
+            events = self.runner.parse(line)
+            for ev in events:
+                if ev["type"] == "usage":
+                    self.log.emit("usage", run=self.run_id, unit=self.uid, runner=self.engine,
+                                  **{k: v for k, v in ev.items() if k != "type"})
+            shown, err = plan._show(events)
+            for s in shown:
+                show(s)
+            if err:
+                tail.append(err)
+        return each
+
+    def finish(self, ok: bool) -> None:
+        from .harness import kpis
+        seconds = round((dt.datetime.now() - self.started).total_seconds(), 1)
+        self.log.emit("unit.finished", run=self.run_id, unit=self.uid, runner=self.engine,
+                      outcome="ok" if ok else "failed", status="done" if ok else "todo", seconds=seconds)
+        self.log.emit("run.finished", run=self.run_id, done=1 if ok else 0)
+        kpis.record_run(self.run_id)
+
+
 def openwiki_generate(repo: str, mode: str = "", log: Log = print, engine: str = "", force: bool = False) -> bool:
     """Write or refresh one repo's OpenWiki (same path for the wizard, the portal and the CLI). Raises WikiAbort when
     the engine itself is down, so batches stop instead of failing every remaining repo."""
@@ -1191,6 +1230,7 @@ def openwiki_generate(repo: str, mode: str = "", log: Log = print, engine: str =
 
     if engine != "openwiki":
         wire_openwiki(engine, log)
+    record = None
     with wiki_lock(repo):
         if known:
             plan.set_status(uid, "doing")
@@ -1201,9 +1241,12 @@ def openwiki_generate(repo: str, mode: str = "", log: Log = print, engine: str =
             else:
                 tools = ("mcp__openwiki", "Skill", "Read", "Write", "Edit", "Glob", "Grep", "Bash(git:*)", "Bash(ls:*)",
                          "Bash(graphify:*)", f"Bash({cli_cmd()} plan note:*)")
-                req = RunRequest(prompt=wiki_prompt(repo, mode), cwd=WORKSPACE, allow_tools=tools)
-                rc = stream(runners.get(engine).build(req).argv, WORKSPACE, tee)
+                req = RunRequest(prompt=wiki_prompt(repo, mode), cwd=WORKSPACE, allow_tools=tools, stream=True)
+                record = _WikiRun(repo, uid, engine)
+                rc = stream(runners.get(engine).build(req).argv, WORKSPACE, record.line(tee, tail))
     ok = rc == 0 and bool(wiki_pages(repo))
+    if record:
+        record.finish(ok)
     if ok:
         brief = docs.wiki_dir(repo) / "INSTRUCTIONS.md"
         if engine != "openwiki" or (brief.is_file() and "## Coverage" in brief.read_text(encoding="utf-8")):

@@ -107,12 +107,12 @@ def test_wiki_by_claude_is_scoped_to_edits_and_wiki_tools(kit, wiki_cmd):
     cmd, cwd = wiki_cmd("claude")
     assert cmd == ["claude", "-p", "PROMPT", "--permission-mode", "acceptEdits", "--allowedTools",
                    "mcp__openwiki Skill Read Write Edit Glob Grep Bash(git:*) Bash(ls:*) Bash(graphify:*) "
-                   f"Bash({kit.common.cli_cmd()} plan note:*)"]
+                   f"Bash({kit.common.cli_cmd()} plan note:*)", "--output-format", "stream-json", "--verbose"]
     assert cwd == kit.common.WORKSPACE
 
 
 def test_wiki_by_codex_runs_full_auto_in_the_workspace(kit, wiki_cmd):
-    assert wiki_cmd("codex") == (["codex", "exec", "--full-auto", "-C", str(kit.common.WORKSPACE), "PROMPT"],
+    assert wiki_cmd("codex") == (["codex", "exec", "--full-auto", "-C", str(kit.common.WORKSPACE), "--json", "PROMPT"],
                                  kit.common.WORKSPACE)
 
 
