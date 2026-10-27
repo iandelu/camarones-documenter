@@ -1,4 +1,4 @@
-// How the portal is navigated: zones (Docs, Board, Architecture, Plan, Quality, Review) that group the views, what is
+// How the portal is navigated: zones (Docs, Board, Stories, Architecture, Plan, Quality, Review) that group the views, what is
 // available in the static export or on the live server (the desktop app's window shows what live shows; machine work
 // is the app's own sections since 4.53), the breadcrumbs of any address and the ⌘K entries.
 // Pure functions over the index the portal loads (`tree`), used by the shell, Home and the palette.
@@ -12,6 +12,7 @@ export const ZONES = [
     { id: 'pages', href: '#/docs' },
     { id: 'wikis', href: '#/wikis', needs: (index, mode) => mode !== 'static' || hasWiki(index) }] },
   { id: 'board', href: '#/kanban', views: [{ id: 'kanban', href: '#/kanban', live: true }] },
+  { id: 'stories', href: '#/stories', views: [{ id: 'stories', href: '#/stories', live: true }] },
   { id: 'arch', href: '#/arch', views: [
     { id: 'c4', href: '#/c4' },
     { id: 'code', href: '#/code', needs: hasCode },
@@ -26,7 +27,7 @@ export const ZONES = [
 
 // The first segment of an address → its zone and view. Old addresses (doc, status, wiki) keep working.
 const ROUTES = {
-  kanban: ['board', 'kanban'],
+  kanban: ['board', 'kanban'], stories: ['stories', 'stories'],
   docs: ['docs', 'pages'], doc: ['docs', 'pages'], wikis: ['docs', 'wikis'], wiki: ['docs', 'wikis'],
   c4: ['arch', 'c4'], code: ['arch', 'code'], data: ['arch', 'data'], libs: ['arch', 'libs'],
   pipeline: ['plan', 'pipeline'], interview: ['plan', 'interview'], sync: ['plan', 'sync'], kpis: ['quality', 'kpis'], ci: ['quality', 'ci'], health: ['quality', 'health'],

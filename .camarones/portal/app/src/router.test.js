@@ -29,7 +29,7 @@ test('home: the root, an unknown address', () => {
 })
 
 test('the React views need the server; in the export they fall back to home', () => {
-  for (const v of ['pipeline', 'ask', 'kpis', 'ci', 'libs', 'data', 'interview', 'sync', 'health']) {
+  for (const v of ['pipeline', 'ask', 'kpis', 'ci', 'libs', 'data', 'interview', 'sync', 'health', 'stories']) {
     expect(go(`#/${v}/x`)).toEqual({ kind: 'native', view: v, arg: 'x' })
     expect(go(`#/${v}`, { mode: 'static' })).toEqual(HOME)
   }
