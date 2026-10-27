@@ -414,9 +414,11 @@ def _board_nodes(cards: dict[str, dict], items: dict[str, Item]) -> list[graph.N
 
 
 def _gate(key: str, item: Item, card: dict, cards: dict, items: dict, *, agent: bool) -> list[dict]:
-    """Why `key` cannot go In Progress now (empty when it can). The card itself is read from its file, not the index."""
+    """Why `key` cannot go In Progress now (empty when it can). The card itself is read from its file, not the index, and
+    every other card's status from the `cards` loaded under the lock: an index a moment behind cannot open the gate."""
     me = _node(_row(item, card))
-    board = [n for n in _board_nodes(cards, items) if n["id"] != key] + [me]
+    board = [{**n, "status": cards[n["id"]]["status"]} if n["id"] in cards else n
+             for n in _board_nodes(cards, items) if n["id"] != key] + [me]
     return graph.blocked_by(me, board, agent=agent)
 
 
@@ -505,10 +507,9 @@ def update_item(item_id: str, *, title: str | None = None, description: str | No
         cards, items, _ = load_state()
         key, item, card = _find(items, cards, item_id, by)
         subs = None if subtasks is None else _existing(subtasks, items, "subtasks")
-        old_path = item.path
         if title is not None:
             item.fm["title"] = title.strip()
-            item.path = TASKS / file_name(item.id, item.title)
+            _rename(item, TASKS / file_name(item.id, item.title))
         if description is not None:
             item.body = set_description(item.body, description)
         item.body = append_criteria(item.body, add_criteria)
@@ -520,11 +521,21 @@ def update_item(item_id: str, *, title: str | None = None, description: str | No
             item.fm["subtasks"] = subs or None
         _mirror(item, card)
         save_item(item)
-        if item.path != old_path:
-            old_path.unlink(missing_ok=True)
         save_board(cards)                       # the card _find may have just adopted
     _count("update", surface)
     return _row(item, card)
+
+
+def _rename(item: Item, new_path: Path) -> None:
+    """Move the item's file to `new_path` before anything is written to it, and only when the name changes. Never an
+    unlink: on a filesystem that ignores case (macOS, Windows) "a.md" and "A.md" are one file, and deleting the old
+    name after writing the new one would delete the only copy."""
+    old_path = item.path
+    if new_path.name == old_path.name:
+        return
+    if old_path.exists():
+        os.replace(old_path, new_path)          # a case-only change renames the one file in place
+    item.path = new_path
 
 
 def archive(item_id: str, *, by: str | None = None, surface: str = "cli") -> dict:
@@ -637,26 +648,19 @@ def _scope(rows: dict[str, dict], story: str | None, epic: str | None) -> set[st
 
 
 def next_items(n: int = 3, *, story: str | None = None, epic: str | None = None, agent: bool = True) -> dict:
-    """What can start now: `ready` (at most `n`, by wave, then priority, then id; each row has its 0-based `wave`) and
-    `waiting` (every Backlog/Ready item that cannot start, with why). Limited to a story's or an epic's items if given.
-    Conflicts are always judged against the whole board."""
+    """What can start now, as `deps.ready` decides it: `ready` (at most `n` items that never collide with each other or
+    with work In Progress, by priority, then id; each row has `wave` 0) and `waiting` (every other Backlog/Ready item,
+    by id, with why: the start gate's reasons, or `{"kind": "wave", "wave": k}` for one that would collide with an item
+    handed out now). Limited to a story's or an epic's items if given; conflicts are always judged against the whole
+    board. `agent` False is the people's view: an item without declared files touches nothing."""
     cards, items, _ = load_state()
     rows = {i: _row(item, cards.get(i)) for i, item in items.items()}
     scope = _scope(rows, story, epic)
     board = _board_nodes(cards, items)
-    grouping = graph.containers(board)                  # stories and epics with children: their tasks are the work
-    mine = [x for x in board if (scope is None or x["id"] in scope) and x["id"] in rows and x["id"] not in grouping]
-    free, waiting = [], []
-    for x in mine:
-        if x["status"] not in ("Backlog", "Ready") or x["archived"]:
-            continue
-        why = graph.blocked_by(x, board, agent=agent)
-        if why:
-            waiting.append({"id": x["id"], "blocked_by": why})
-        else:
-            free.append({**x, "deps": []})              # its dependencies are Done: only file clashes separate waves
-    ready = [{**rows[i], "wave": w} for w, wave in enumerate(graph.waves(free)) for i in wave]
-    return {"ready": ready[:max(n, 0)], "waiting": waiting}
+    among = set(rows) if scope is None else scope & set(rows)
+    waiting: list[dict] = []
+    ready = graph.ready(board, agent=agent, among=among, n=n, waiting=waiting)
+    return {"ready": [{**rows[i], "wave": 0} for i in ready], "waiting": waiting}
 
 
 def waves(*, story: str | None = None, epic: str | None = None) -> dict:

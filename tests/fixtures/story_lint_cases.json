@@ -159,6 +159,28 @@
   "codes": []
  },
  {
+  "lang": "es",
+  "as": "dev",
+  "want": "exportar y ver informes",
+  "so": "compartir con el equipo",
+  "touches": [
+   "portal:a.py"
+  ],
+  "codes": [
+   "two-goals"
+  ]
+ },
+ {
+  "lang": "es",
+  "as": "dev",
+  "want": "revisar el arte y la parte final",
+  "so": "compartir con el equipo",
+  "touches": [
+   "portal:a.py"
+  ],
+  "codes": []
+ },
+ {
   "lang": "en",
   "as": "service owner",
   "want": "export a page to PDF",
@@ -312,6 +334,48 @@
   "as": "service owner",
   "want": "browse the full history of changes for each published document browse the full history of changes for each published document browse the full history of changes for each published document browse the full history of changes for each publish",
   "so": "keep a complete audit trail",
+  "touches": [
+   "portal:a.py"
+  ],
+  "codes": []
+ },
+ {
+  "lang": "en",
+  "as": "service owner",
+  "want": "see a list of invoices and a summary of payments",
+  "so": "keep track of what is owed",
+  "touches": [
+   "portal:a.py"
+  ],
+  "codes": []
+ },
+ {
+  "lang": "en",
+  "as": "service owner",
+  "want": "export the report and send it",
+  "so": "share results with the team",
+  "touches": [
+   "portal:a.py"
+  ],
+  "codes": [
+   "two-goals"
+  ]
+ },
+ {
+  "lang": "es",
+  "as": "dev",
+  "want": "reiniciar el router y el server",
+  "so": "recuperar el servicio",
+  "touches": [
+   "portal:a.py"
+  ],
+  "codes": []
+ },
+ {
+  "lang": "es",
+  "as": "dev",
+  "want": "ver los logs del worker y del scheduler",
+  "so": "entender los fallos",
   "touches": [
    "portal:a.py"
   ],

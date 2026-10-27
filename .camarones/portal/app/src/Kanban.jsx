@@ -3,7 +3,7 @@ import { getJSON, postJSON } from './api.js'
 import { lang, t } from './i18n.js'
 import { Skeleton } from '@camaron/ui'
 import Failed from './Failed.jsx'
-import { applyFilters, columns, dropAnchor, keyMove, parseNewArg, STATUS_LABELS } from './kanban.js'
+import { applyFilters, blockedText, columns, dropAnchor, keyMove, parentOf, parseArg, STATUS_LABELS, waveOf } from './kanban.js'
 
 // The Board (spec §7): the project's Backlog.md board in cam-docs/backlog/, six columns, a card's goal, the docs it
 // links and its history. Anyone on localhost reads it; writes need the machine token (the app, or `camaron up`).
@@ -14,6 +14,8 @@ const typeLabel = (ty) => known(`kbt.${ty}`, ty)
 const splitList = (s) => s.split(',').map((x) => x.trim()).filter(Boolean)
 const sectionOf = (link) => String(link || '').match(/#([^@]+)/)?.[1] || ''
 const when = (iso) => { try { return new Date(iso).toLocaleString(document.documentElement.lang || 'en', { dateStyle: 'medium', timeStyle: 'short' }) } catch { return iso } }
+const kindLabel = (k) => known(`kanban.kind.${k}`, k)
+const NO_FILTERS = { repo: '', epic: '', label: '', docs: '', parent: '' }
 const KEYS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', 'Enter', 'Escape']
 
 // A side panel takes the focus when it opens (its `data-first` field, else itself), Escape closes it, and the focus
@@ -39,19 +41,25 @@ function placed(cols, kb) {
   return out
 }
 
-function Card({ card, grabbed, writable, onKey, onOpen, onDragStart, onDragEnd, refFor }) {
+function Card({ card, story, wave, grabbed, writable, onKey, onOpen, onDragStart, onDragEnd, refFor }) {
   const suspect = (card.links || []).some((l) => l.fresh === 'suspect' || l.fresh === 'stale')
+  const blocked = card.blocked_by || []
+  const why = blocked.length ? fmt('kanban.blocked', { ids: blockedText(blocked, kindLabel) }) : ''
   return (
     <div ref={refFor(card.id)} className={`kb-card${grabbed ? ' grabbed' : ''}`} role="button" tabIndex={0}
          aria-grabbed={writable ? grabbed : undefined} aria-describedby="kb-help" draggable={writable}
          onKeyDown={(e) => onKey(e, card)} onClick={() => onOpen(card.id)}
          onDragStart={(e) => onDragStart(e, card)} onDragEnd={onDragEnd}>
       <span className="kb-card-top"><span className="card-id">{card.id}</span><span className={`kb-type t-${card.type}`}>{typeLabel(card.type)}</span>
-        {card.priority ? <span className="kb-prio">{card.priority}</span> : null}</span>
+        {card.priority ? <span className="kb-prio">{card.priority}</span> : null}
+        {wave ? <span className="kb-wave">{fmt('kanban.wave', { n: wave })}</span> : null}
+        {why ? <span className="kb-blocked" title={why}>{t('kanban.blockedBadge')}<span className="sr-only">: {why}</span></span> : null}</span>
+      {story ? <span className="kb-sub" title={fmt('kanban.sub', { id: story })}><span aria-hidden="true">↳ {story}</span>
+        <span className="sr-only">{fmt('kanban.sub', { id: story })}</span></span> : null}
       <span className="kb-card-title">{card.title}</span>
       <span className="card-meta">
-        {[card.assignee?.[0] && `@${card.assignee[0]}`, card.epic, ...(card.repos || [])].filter(Boolean).join(' · ')}
-        {card.docs?.length ? <span className={suspect ? 'kb-docs warn' : 'kb-docs'}>{card.assignee?.[0] || card.epic || card.repos?.length ? ' · ' : ''}{fmt(card.docs.length === 1 ? 'kbDocsOne' : 'kbDocsMany', { n: card.docs.length })}{suspect ? ` (${t('kbf.suspect')})` : ''}</span> : null}
+        {[card.assignee?.[0] && `@${card.assignee[0]}`, !story && card.epic, ...(card.repos || [])].filter(Boolean).join(' · ')}
+        {card.docs?.length ? <span className={suspect ? 'kb-docs warn' : 'kb-docs'}>{card.assignee?.[0] || (!story && card.epic) || card.repos?.length ? ' · ' : ''}{fmt(card.docs.length === 1 ? 'kbDocsOne' : 'kbDocsMany', { n: card.docs.length })}{suspect ? ` (${t('kbf.suspect')})` : ''}</span> : null}
       </span>
     </div>
   )
@@ -180,10 +188,30 @@ function AddForm({ board, prefill, writable, onClose, onCreated }) {
   )
 }
 
+// The start gate said no: what the card waits for or collides with, and the choice to move it anyway (a person may;
+// agents never can). The focus goes to Cancel, the safe answer; Escape cancels.
+function ForceMove({ gate, onCancel, onForce }) {
+  const ref = useRef(null)
+  useEffect(() => { ref.current?.focus() }, [])
+  return (
+    <div className="aviso kb-gate" role="alertdialog" aria-labelledby="kb-gate-q"
+         onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); onCancel() } }}>
+      <p id="kb-gate-q">{fmt('kanban.forceAsk', { id: gate.id })}</p>
+      <ul className="kb-gate-list">{gate.blocked.map((b) => (
+        <li key={`${b.id}:${b.kind}`}><b>{b.id}</b> {kindLabel(b.kind)}{b.files?.length ? <> · <code>{b.files.join(', ')}</code></> : null}</li>))}</ul>
+      <div className="row kb-form-actions">
+        <button type="button" ref={ref} className="ghost" onClick={onCancel}>{t('kbCancel')}</button>
+        <button type="button" onClick={onForce}>{t('kanban.force')}</button>
+      </div>
+    </div>
+  )
+}
+
 export default function Kanban({ arg }) {
   const [board, setBoard] = useState(null)
   const [error, setError] = useState('')
-  const [filters, setFilters] = useState({ repo: '', epic: '', label: '', docs: '' })
+  const [filters, setFilters] = useState(NO_FILTERS)
+  const [gate, setGate] = useState(null)               // a move the start gate refused: {id, status, anchor, blocked}
   const [open, setOpen] = useState(null)
   const [adding, setAdding] = useState(null)
   const [kb, setKb] = useState(null)
@@ -196,9 +224,10 @@ export default function Kanban({ arg }) {
 
   const load = useCallback(() => getJSON('kanban').then((b) => { setBoard(b); setError('') }, (e) => setError(e.message)), [])
   useEffect(() => { load() }, [load])
-  useEffect(() => {                                    // #/kanban/new?… opens the add form, #/kanban/WI-3 a card
-    const n = parseNewArg(arg)
-    if (n) { setAdding(n); setOpen(null) } else if (arg) { setOpen(String(arg).toUpperCase()); setAdding(null) }
+  useEffect(() => {                  // #/kanban/new?… opens the add form, #/kanban/WI-3 a card, #/kanban?parent=WI-14 filters
+    const a = parseArg(arg)
+    if (a.add) { setAdding(a.add); setOpen(null) } else if (a.open) { setOpen(a.open); setAdding(null) }
+    setFilters((f) => ({ ...f, parent: a.parent || '' }))
   }, [arg])
   useEffect(() => {                                    // the card keeps the focus when a move redraws it elsewhere
     const el = kb?.focus && nodes.current[kb.focus]
@@ -210,20 +239,28 @@ export default function Kanban({ arg }) {
   const cols = useMemo(() => (board ? columns(shown, board.statuses) : []), [board, shown])
   const drawn = useMemo(() => placed(cols, kb), [cols, kb])
   const writable = !!board?.writable
+  const byId = useMemo(() => Object.fromEntries((board?.cards || []).map((c) => [c.id, c])), [board])
+  const waves = useMemo(() => waveOf(board?.cards || []), [board])
 
   // Back to the bare address (the crumbs follow it); the board stays mounted (Native keys it by view only).
-  const closeArg = () => { if (/^#\/kanban\/./.test(location.hash)) location.replace('#/kanban') }
+  const closeArg = () => { if (/^#\/kanban\/./.test(location.hash)) location.replace(filters.parent ? `#/kanban?parent=${filters.parent}` : '#/kanban') }
+  const clearFilters = () => { setFilters(NO_FILTERS); if (/^#\/kanban\?/.test(location.hash)) location.replace('#/kanban') }
   const close = () => { setOpen(null); setAdding(null); closeArg() }
 
-  async function move(id, status, anchor) {
+  // A move into In Progress passes the start gate: refused (409 with blocked_by), the person may move it anyway.
+  async function move(id, status, anchor, force = false) {
     const card = board.cards.find((c) => c.id === id)
-    if (!card || (card.status === status && !anchor.before && !anchor.after)) return
-    setNotice('')
+    if (!card || (!force && card.status === status && !anchor.before && !anchor.after)) return
+    setNotice(''); setGate(null)
     try {
-      await postJSON('kanban/move', { id, status, ...anchor })
+      await postJSON('kanban/move', { id, status, ...anchor, ...(force ? { force: true } : {}) })
       setSay(fmt('kbMoved', { id, status: statusLabel(status) }))
       await load()
-    } catch (e) { setNotice(`${t('kbMoveFailed')} ${e.message}`); await load() }
+    } catch (e) {
+      if (e.status === 409 && e.data?.blocked_by?.length && !force) setGate({ id, status, anchor, blocked: e.data.blocked_by })
+      else setNotice(`${t('kbMoveFailed')} ${e.message}`)
+      await load()
+    }
   }
 
   function onKey(e, card) {
@@ -311,13 +348,17 @@ export default function Kanban({ arg }) {
           <option key="u" value="unconfirmed">{t('kbDocsUnconfirmed')}</option>])}
         {filtered ? <>
           <span className="muted small">{fmt('kbShown', { n: shown.length, total })}</span>
-          <button type="button" className="ghost small" onClick={() => setFilters({ repo: '', epic: '', label: '', docs: '' })}>{t('kbClear')}</button>
+          <button type="button" className="ghost small" onClick={clearFilters}>{t('kbClear')}</button>
         </> : null}
+        {filters.parent ? <span className="kb-chip">{fmt('kanban.parent', { id: filters.parent })}
+          <button type="button" className="ghost small" aria-label={t('kanban.parentClear')} title={t('kanban.parentClear')}
+                  onClick={() => { setFilters({ ...filters, parent: '' }); location.replace('#/kanban') }}>✕</button></span> : null}
       </div>
       {board.problems?.length ? <div className="aviso kb-problems" role="status"><ul>{board.problems.map((p) => (
         <li key={p.path}><code>{p.path}</code>: {p.error}</li>))}</ul></div> : null}
       {!total ? <p className="muted kb-empty">{t('kbEmpty')}</p> : null}
       {notice ? <p className="error" role="alert">{notice}</p> : null}
+      {gate ? <ForceMove gate={gate} onCancel={() => setGate(null)} onForce={() => move(gate.id, gate.status, gate.anchor, true)} /> : null}
       <p id="kb-help" className="muted small">{t('kbHelp')}</p>
       <div className="kb-board">
         {drawn.map((col) => (
@@ -327,7 +368,7 @@ export default function Kanban({ arg }) {
                onDrop={(e) => onDrop(e, cols.find((c) => c.status === col.status))}>
             <div className="col-head">{statusLabel(col.status)} <span>{col.cards.length}</span></div>
             {col.cards.map((c) => (
-              <Card key={c.id} card={c} grabbed={!!(kb?.grabbed && kb.focus === c.id)} writable={writable} refFor={refFor}
+              <Card key={c.id} card={c} story={parentOf(c, byId)} wave={waves[c.id]} grabbed={!!(kb?.grabbed && kb.focus === c.id)} writable={writable} refFor={refFor}
                     onKey={onKey} onOpen={(id) => { setAdding(null); setOpen(id) }} onDragStart={onDragStart}
                     onDragEnd={() => { dragged.current = null; setOver(null) }} />
             ))}

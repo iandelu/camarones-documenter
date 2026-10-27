@@ -12,12 +12,14 @@ each request (lib/appapi.py); without it those calls answer 403 with `"app": tru
 Host is not this server is refused (a DNS-rebinding page would otherwise be same-origin)."""
 from __future__ import annotations
 
-import datetime as dt, hmac, itertools, json, mimetypes, os, re, sys, threading, time, urllib.parse
+import datetime as dt, hmac, itertools, json, logging, mimetypes, os, re, sys, threading, time, urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from .common import CTX, KIT, ROOT, DOCS, CACHE, VERSIONS, out, rel_file
 from . import codemap, docs, env, plan, sourcelinks, usage
+
+_log = logging.getLogger("camaron.serve")
 
 APP = KIT / "portal" / "app-build"           # the portal: React views + the docs views (portal/app), built in the kit's CI
 UI = APP                                     # the old name, kept for callers
@@ -679,11 +681,74 @@ def _doc_refs(b: dict) -> list[str]:
     return refs
 
 
+def _story_body(b: dict) -> dict:
+    """The `stories.Story` of a request body (`story`, with `as` accepted for `as_`); anything not text, or a blank
+    `want`, is a ValueError (a 400)."""
+    raw = b.get("story")
+    if not isinstance(raw, dict):
+        raise ValueError("story must be an object")
+    as_ = raw["as_"] if "as_" in raw else raw.get("as")
+    clauses = {"as_": as_, "want": raw.get("want"), "so": raw.get("so")}
+    for k, v in clauses.items():
+        if v is not None and not isinstance(v, str):
+            raise ValueError(f"{'as' if k == 'as_' else k} must be text")
+    if not (clauses["want"] or "").strip():
+        raise ValueError("want is required: say what the story is about")
+    return {"id": (_text(raw, "id") or "").strip() or None, "as_": clauses["as_"] or "", "want": clauses["want"] or "",
+            "so": clauses["so"] or "", "criteria": _text_list(raw, "criteria"), "touches": _text_list(raw, "touches"),
+            "epic": (_text(raw, "epic") or "").strip() or None, "priority": (_text(raw, "priority") or "").strip() or None}
+
+
+def _task_list(b: dict) -> list[dict]:
+    """The `tasks` of a body, each checked field by field so a malformed one is a 400 that names the field (never a
+    TypeError deep in analyze or save): `key` and `title` are required text; `group` and `kind` text; `touches`,
+    `criteria`, `deps`, `added` and `dropped` lists of text; `edited` a bool."""
+    v = b.get("tasks")
+    if v is None:
+        return []
+    if not isinstance(v, list):
+        raise ValueError("tasks must be a list of objects")
+    for n, t in enumerate(v, 1):
+        if not isinstance(t, dict):
+            raise ValueError(f"task {n}: it must be an object")
+        for k in ("key", "title"):
+            if not isinstance(t.get(k), str) or not t[k].strip():
+                raise ValueError(f"task {n}: {k} is required and must be text")
+        for k in ("group", "kind"):
+            if t.get(k) is not None and not isinstance(t[k], str):
+                raise ValueError(f"task {n}: {k} must be text")
+        for k in ("touches", "criteria", "deps", "added", "dropped"):
+            if t.get(k) is not None and not (isinstance(t[k], list) and all(isinstance(x, str) for x in t[k])):
+                raise ValueError(f"task {n}: {k} must be a list of text")
+        if t.get("edited") is not None and not isinstance(t["edited"], bool):
+            raise ValueError(f"task {n}: edited must be true or false")
+    return v
+
+
+def _refuse_groups(story: dict, tasks: list[dict]) -> None:
+    """A group of the code map (`repo:<group label>`) is a way to search, not something a story touches: analyze works
+    on files (save refuses a group itself). The story's and every task's touches are checked."""
+    from .kanban import index
+    asked = []
+    for touches in [story["touches"]] + [t.get("touches") or [] for t in tasks]:
+        if not isinstance(touches, list) or not all(isinstance(x, str) for x in touches):
+            raise ValueError("touches must be a list of text")
+        asked += touches
+    conn = index.connect()
+    try:
+        for touch, files in index.files_of(conn, asked).items():
+            if files:
+                raise ValueError(f'"{touch}" is a group of the code map, not a file: expand groups into files first')
+    finally:
+        conn.close()
+
+
 def kanban_marks(cards: list[dict]) -> dict[str, tuple[int | None, list[dict]]]:
-    """Each card's `(wave, blocked_by)` for the Board, from one index connection (people's view: a card without
-    declared files touches nothing). `wave` is its place in `ops.waves()`: None for a Done or archived card, a container
-    or a board with a dependency cycle. `blocked_by` is the start gate's answer, only for Backlog/Ready leaf cards.
-    If the index cannot open, nothing is marked and the board still loads."""
+    """Each card's `(wave, blocked_by)` for the Board, from one index connection, in the people's view: a card without
+    declared files touches nothing. `wave` is its place in the open work's waves (`deps.waves(agent=False)`), only for
+    a card that declares files: None for one without (an old board shows no waves), for a Done or archived card, a
+    container, or a board with a dependency cycle. `blocked_by` is the start gate's answer, only for Backlog/Ready leaf
+    cards. If the index cannot open, nothing is marked (a warning is logged) and the board still loads."""
     from .kanban import deps, index
     try:
         conn = index.connect()
@@ -693,21 +758,24 @@ def kanban_marks(cards: list[dict]) -> dict[str, tuple[int | None, list[dict]]]:
             conn.close()
         ids = {c["id"] for c in cards}
         grouping = deps.containers(board)                       # judged on the whole board, as ops.waves does
+        by_id = {n["id"]: n for n in board}
         try:
             placed = {i: w for w, wave in enumerate(deps.waves([n for n in board if n["id"] in ids
-                                                                 and n["id"] not in grouping and n["status"] != "Done"]))
-                      for i in wave}
+                                                                 and n["id"] not in grouping and n["status"] != "Done"],
+                                                               agent=False))
+                      for i in wave if by_id[i]["touches"]}
         except deps.CycleError:
             placed = {}
-        by_id = {n["id"]: n for n in board}
         marks = {}
         for c in cards:
             node = by_id.get(c["id"])
             gated = (node is not None and node["id"] not in grouping and not node["archived"]
                      and node["status"] in ("Backlog", "Ready"))
-            marks[c["id"]] = (placed.get(c["id"]), deps.blocked_by(node, board, agent=False) if gated else [])
+            marks[c["id"]] = (placed.get(c["id"]),
+                              deps.blocked_by(node, board, agent=False, grouping=grouping, by_id=by_id) if gated else [])
         return marks
-    except Exception:                                           # noqa: BLE001 — a broken index never hides the board
+    except Exception as e:                                      # noqa: BLE001 — a broken index never hides the board
+        _log.warning("board marks unavailable (%s); the board loads without waves and blockers", e)
         return {}
 
 
@@ -817,6 +885,51 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(ops.archive(_text(b, "id", True), by=by, surface=surface))
         except ops.GateError as e:            # the start gate said no: the Board asks, then resends with `force`
             self.json({"error": str(e), "blocked_by": e.blocked_by}, 409)
+        except ValueError as e:               # BoardError is a ValueError
+            self.json({"error": str(e)}, 400)
+
+    def stories_post(self, action: str, b: dict) -> None:
+        from . import stories, stories_save
+        from .kanban import ops
+        if action not in ("lint", "analyze", "save", "suggest"):
+            return self.json({"error": "not found"}, 404)
+        if action == "save" and not self.can_write():
+            return self.json({"error": "saving a story needs the machine token: open the portal with `camaron up`",
+                              "token": True}, 403)
+        if action == "suggest" and not self.can_write():     # it runs the machine's AI runner
+            return self.json({"error": "AI suggestions need the machine token: open the portal with `camaron up`",
+                              "token": True}, 403)
+        try:                                   # every field is checked before anything is written: bad input is a 400
+            lang = _text(b, "lang") or ops.docs_lang()
+            if action == "lint":
+                for k in ("as", "want", "so"):
+                    _text(b, k)
+                return self.json({"hints": stories.lint(b.get("as") or "", b.get("want") or "", b.get("so") or "", lang,
+                                                        touches=_text_list(b, "touches"))})
+            if action == "suggest":
+                from . import stories_ai
+                what, skip = _text(b, "what", True), _text_list(b, "exclude")
+                if what not in stories_ai.WHAT:
+                    raise ValueError(f"what must be one of {', '.join(stories_ai.WHAT)}")
+                story = _story_body(b)
+                try:
+                    return self.json(stories_ai.suggest(story, what=what, exclude=skip, lang=lang))
+                except RuntimeError as e:      # off, no runner, too slow: the page shows the reason
+                    return self.json({"error": str(e)}, 503)
+            story, tasks = _story_body(b), _task_list(b)
+            if action == "analyze":
+                removed = _text_list(b, "removed")
+                _refuse_groups(story, tasks)
+                return self.json(stories.analyze(story, tasks, lang=lang, removed=removed))
+            by = (_text(b, "by") or "").strip() or None
+            base_sha, docs_refs, title = _text(b, "base_sha") or None, _doc_refs(b), _text(b, "title")
+            base_title = _text(b, "base_title")
+            base_touches = None if b.get("base_touches") is None else _text_list(b, "base_touches")
+            return self.json(stories_save.save(story, title=title, tasks=tasks, base_sha=base_sha, docs=docs_refs,
+                                               lang=lang, by=by, surface="app" if self.is_app() else "portal",
+                                               base_title=base_title, base_touches=base_touches))
+        except stories_save.StoryConflict as e:
+            self.json({"error": str(e), "id": e.story_id}, 409)
         except ValueError as e:               # BoardError is a ValueError
             self.json({"error": str(e)}, 400)
 
@@ -962,6 +1075,34 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json(ops.next_items(n, **scope, agent=False))     # people's view: the portal and the app
             except ValueError as e:                                         # BoardError is a ValueError
                 return self.json({"error": str(e)}, 400)
+        if name == "stories":
+            from . import kanban, stories, stories_ai, stories_save
+            from .kanban.index import DOCS_REPO
+            return self.json({"enabled": kanban.enabled(), "writable": self.can_write(),
+                              "ai": stories_ai.status(),
+                              "lint_words": {lg: stories.lint_words(lg) for lg in ("es", "en")},
+                              "repos": sorted(docs.repo_names()) + [DOCS_REPO],   # Toca's new-file prefixes
+                              "stories": stories_save.list_stories() if kanban.enabled() else []})
+        if name == "stories/item":
+            from . import stories_save
+            from .kanban.ops import BoardError
+            try:
+                return self.json(stories_save.item(q.get("id", "")))
+            except BoardError as e:
+                return self.json({"error": str(e)}, 404)
+        if name == "stories/files":
+            from .kanban import index
+            try:
+                limit = min(max(int(q.get("limit") or 20), 1), 50)
+            except ValueError:
+                return self.json({"error": "limit must be a number"}, 400)
+            conn = index.connect()
+            try:
+                hits = index.search(conn, q.get("q", ""), limit)
+                files = index.files_of(conn, [h["touch"] for h in hits if h["kind"] == "group"])
+            finally:
+                conn.close()
+            return self.json([{**h, "files": files[h["touch"]]} if h["kind"] == "group" else h for h in hits])
         if name == "tree":
             return self.json(tree())
         if name == "doc":
@@ -1160,6 +1301,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json(answers.answer(str(b.get("q", ""))))
             if p.startswith("/api/kanban/"):
                 return self.kanban_post(p[len("/api/kanban/"):], b)
+            if p.startswith("/api/stories/"):
+                return self.stories_post(p[len("/api/stories/"):], b)
             if p == "/api/units/approve":
                 return self.json(*approve_unit(b.get("unit", "")))
             self.json({"error": "not found"}, 404)

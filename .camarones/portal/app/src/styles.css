@@ -202,8 +202,117 @@
 #native .kb-form label { display: grid; gap: .25rem; font-size: 13px; color: var(--muted); }
 #native .kb-form-actions { gap: .6rem; }
 #native .kb-form-actions button { margin-top: 0; }
+#native .kb-wave, #native .kb-blocked { font-size: 11px; border: 1px solid var(--line); border-radius: var(--radius-pildora); padding: 0 6px; color: var(--muted); }
+#native .kb-blocked { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
+#native .kb-sub { font-size: 12px; color: var(--muted); }
+#native .kb-chip { display: inline-flex; align-items: center; gap: .3rem; font-size: 13px; padding: 0 0 0 .6rem; border: 1px solid var(--line);
+  border-radius: var(--radius-pildora); background: var(--panel); }
+#native .kb-chip button { margin: 0; border: 0; }
+#native .kb-gate { margin: 1rem 0; padding: .75rem 1rem; }
+#native .kb-gate p { margin: 0 0 .4rem; }
+#native .kb-gate-list { margin: 0 0 .5rem; padding-left: 1.1rem; font-size: 13px; }
 @media (max-width: 720px) { #native .kb-board { grid-template-columns: repeat(6, 78vw); } }
 @media (prefers-reduced-motion: reduce) { #native .kb-col { transition: none; } }
+
+/* Historias: the stories on the left, one story in three stacked steps on the right */
+#native .st-ro, #native .st-restored { margin: 1rem 0; }
+#native .st-layout { display: grid; grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr); gap: 24px; align-items: start; margin-top: 1.25rem; }
+#native .st-list { display: grid; gap: .5rem; position: sticky; top: calc(var(--top) + 12px); max-height: calc(100svh - var(--top) - 24px); overflow-y: auto; }
+#native .st-list ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+#native .st-search { width: 100%; box-sizing: border-box; }
+#native .st-row { display: grid; gap: 2px; width: 100%; text-align: left; margin: 0; padding: 8px 10px; background: var(--raise); color: var(--fg);
+  border: 1px solid var(--line); border-radius: var(--consola-radio-chico); min-height: 1.75rem; }
+#native .st-row:hover { border-color: var(--muted); opacity: 1; }
+#native .st-row.on { border-color: var(--ink); box-shadow: inset 2px 0 0 var(--ink); }
+#native .st-row-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
+#native .st-row-title { font-size: 14px; line-height: 1.35; overflow-wrap: anywhere; }
+#native .st-verdict, #native .st-clash, #native .st-wave, #native .st-group, #native .st-kind { font-size: 11px; border: 1px solid var(--line);
+  border-radius: var(--radius-pildora); padding: 0 6px; color: var(--muted); white-space: nowrap; }
+#native .st-verdict.v-good { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); }
+#native .st-verdict.v-improve { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
+#native .st-verdict.v-poor, #native .st-clash.k-conflict, #native .st-kind.k-conflict { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); }
+#native .st-clash { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
+#native .st-wave { color: var(--color-acento-texto); border-color: color-mix(in srgb, var(--color-acento-texto) 40%, var(--line)); }
+#native .st-steps { display: grid; gap: 16px; min-width: 0; }
+#native .st-step { padding: 16px 20px; border: 1px solid var(--line); border-radius: var(--consola-radio-tarjeta); background: var(--raise); min-width: 0; }
+#native .st-step h2 { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font-size: 1.1rem; }
+#native .st-step h3 { margin: 16px 0 6px; font-size: .9rem; color: var(--muted); font-weight: 600; }
+#native .st-n { display: inline-grid; place-items: center; width: 1.5rem; height: 1.5rem; border-radius: var(--radius-pildora); background: var(--ink);
+  color: var(--bg); font-size: 13px; }
+#native .st-field { display: grid; gap: 4px; margin-bottom: 10px; min-width: 0; }
+#native .st-field label, #native .st-touches > label, #native .st-addtask > label { font-size: 13px; color: var(--muted); }
+#native .st-field input, #native .st-field select, #native .st-touches input { width: 100%; box-sizing: border-box; }
+#native .st-field input[aria-invalid=true] { border-color: color-mix(in srgb, var(--warn) 60%, var(--line)); }
+#native .st-row2 { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 12px; }
+#native .st-hints { margin: 2px 0 0; padding-left: 1.1rem; font-size: 13px; color: var(--warn); }
+#native .st-touches { display: grid; gap: 6px; margin-top: 4px; }
+#native .st-hits { list-style: none; margin: 0; padding: 4px; border: 1px solid var(--line); border-radius: var(--consola-radio-chico); background: var(--bg);
+  max-height: 16rem; overflow-y: auto; }
+#native .st-hit { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 8px; width: 100%; margin: 0; padding: 4px 8px; background: none; color: var(--fg);
+  border: 1px solid transparent; text-align: left; min-height: 1.75rem; }
+#native .st-hit:hover, #native .st-hit:focus-visible { background: var(--panel); border-color: var(--line); opacity: 1; }
+#native .st-hit code { overflow-wrap: anywhere; font-size: 12px; }
+#native .st-chips { display: grid; gap: 6px; }
+#native .st-chiprow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+#native .st-chiprow > .st-group { font-weight: 600; }
+#native .st-chip { display: inline-flex; align-items: center; gap: 2px; padding: 0 0 0 8px; border: 1px solid var(--line); border-radius: var(--radius-pildora);
+  background: var(--panel); font-size: 12px; max-width: 100%; }
+#native .st-chip code { overflow-wrap: anywhere; }
+#native .st-chip button, #native .st-task button.icon, #native .st-criteria button.icon { margin: 0; background: none; color: var(--muted); }
+#native .st-chip button:hover { color: var(--ink); }
+#native .st-dep-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+#native .st-next { margin-top: 12px; }
+#native .st-verdict-line { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; }
+#native .st-letters { display: flex; flex-wrap: wrap; gap: 6px; }
+#native .st-letter { border: 1px solid var(--line); border-radius: var(--consola-radio-chico); font-size: 13px; max-width: 100%; }
+#native .st-letter summary { cursor: pointer; padding: 2px 8px; list-style: none; min-height: 1.5rem; display: flex; align-items: center; gap: 4px; }
+#native .st-letter summary::-webkit-details-marker { display: none; }
+#native .st-letter.ok { border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); }
+#native .st-letter.ok summary span { color: var(--ok); }
+#native .st-letter.fail { border-color: color-mix(in srgb, var(--warn) 55%, var(--line)); }
+#native .st-letter.fail summary span { color: var(--warn); }
+#native .st-letter p { margin: 0; padding: 4px 8px 6px; color: var(--ink-2); max-width: 32rem; }
+#native .st-letter[open] { flex-basis: 100%; }
+#native .st-criteria ul, #native .st-tasks, #native .st-existing, #native .st-conflicts, #native .st-ai-list { list-style: none; margin: 0 0 8px; padding: 0; }
+#native .st-criteria li { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+#native .st-criteria input { flex: 1; min-width: 0; }
+#native .st-criteria input[readonly] { background: var(--panel); color: var(--ink-2); }
+#native .st-box { color: var(--muted); }
+#native .st-footprint { margin: 0; font-variant-numeric: tabular-nums; }
+#native .st-graphless, #native .st-cycle { margin: 10px 0; }
+#native .st-conflicts li { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; padding: 4px 0; }
+#native .st-task { display: flex; gap: 10px; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--line); }
+#native .st-task.off .st-task-body { opacity: .55; }
+#native .st-task > input[type=checkbox] { margin-top: .6rem; width: 1rem; height: 1rem; }
+#native .st-task-body { flex: 1; min-width: 0; display: grid; gap: 6px; }
+#native .st-task-top { display: flex; align-items: center; gap: 8px; }
+#native .st-task-title { flex: 1; min-width: 0; }
+#native .st-task-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+#native .st-task-meta select { font-size: 12px; }
+#native .st-files summary { cursor: pointer; font-size: 12px; color: var(--muted); }
+#native .st-files ul { margin: 4px 0 0; padding-left: 1rem; font-size: 12px; }
+#native .st-warn { color: var(--warn); margin: 0; }
+#native .st-addtask { display: grid; gap: 6px; padding: 12px; margin: 8px 0; border: 1px dashed var(--line); border-radius: var(--consola-radio-chico); }
+#native .st-docmark { font-size: 10px; color: var(--color-acento-texto); margin: 0 2px; }
+#native .st-fromdocs { margin: 0; }
+#native .st-status { font-size: 11px; border: 1px solid var(--line); border-radius: var(--radius-pildora); padding: 0 6px; color: var(--ink-2); }
+#native .st-existing li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; padding: 4px 0; }
+#native .st-ai { margin: 8px 0; }
+#native .st-ai-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 8px; margin-top: 6px;
+  border: 1px dashed color-mix(in srgb, var(--color-acento-texto) 45%, var(--line)); border-radius: var(--consola-radio-chico); }
+#native .st-ai-badge { font-size: 11px; font-weight: 600; color: var(--color-acento-texto); border: 1px solid currentColor; border-radius: var(--radius-pildora); padding: 0 6px; }
+#native .st-ai-text { flex: 1; min-width: 12rem; }
+#native .st-save { display: grid; gap: 6px; justify-items: start; position: sticky; bottom: 0; padding: 12px 0; background: var(--bg); }
+#native .st-save button { margin: 0; }
+#native .st-toast { position: fixed; right: 24px; bottom: 24px; z-index: 40; display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+  background: var(--ink); color: var(--bg); border-radius: var(--consola-radio-control); box-shadow: var(--shadow); max-width: calc(100vw - 48px); }
+#native .st-toast a { color: var(--bg); text-decoration: underline; }
+#native .st-toast button { margin: 0; color: var(--bg); border-color: transparent; }
+@media (max-width: 900px) {
+  #native .st-layout { grid-template-columns: minmax(0, 1fr); }
+  #native .st-list { position: static; max-height: none; }
+  #native .st-row2 { grid-template-columns: minmax(0, 1fr); }
+}
 
 /* Salud: one repo's page */
 #native .hr-block { margin-top: 1.75rem; }

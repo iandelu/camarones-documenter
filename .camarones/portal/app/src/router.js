@@ -3,7 +3,7 @@
 // #/docs/<a wiki page>, #/boards (removed in 4.49).
 
 // The React views that need the live server.
-export const NATIVE = ['pipeline', 'ask', 'kpis', 'ci', 'libs', 'data', 'interview', 'sync', 'kanban', 'health']
+export const NATIVE = ['pipeline', 'ask', 'kpis', 'ci', 'libs', 'data', 'interview', 'sync', 'kanban', 'health', 'stories']
 const COVERS = ['arch', 'plan', 'quality']
 
 // The Taller's addresses (machine work, in the portal until 4.52) → the desktop app's own section for that work,

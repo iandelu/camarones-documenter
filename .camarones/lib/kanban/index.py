@@ -86,8 +86,10 @@ def _stats() -> Iterator[tuple[str, int, int]]:
 
 
 def snapshot() -> str:
-    """sha256 over the sorted stats of the board, its cards, the docs and each repo's graph."""
+    """sha256 over the index's and the code map's formats and the sorted stats of the board, its cards, the docs and
+    each repo's graph: a kit that reads either differently rebuilds the index."""
     h = hashlib.sha256()
+    h.update(f"format\0{FORMAT}\0{codemap.FORMAT}\n".encode("utf-8"))
     for name, size, mtime in sorted(_stats()):
         h.update(f"{name}\0{size}\0{mtime}\n".encode("utf-8"))
     return h.hexdigest()
@@ -420,6 +422,25 @@ def groups(conn: sqlite3.Connection, touches: Iterable[str]) -> dict[str, str]:
                         [repo, *chunk]):
                     out.setdefault(f"{repo}:{path}", grp)
         out.update({f"{repo}:{p}": _folder(repo, p) for p in paths if f"{repo}:{p}" not in out})
+    return out
+
+
+def files_of(conn: sqlite3.Connection, group_touches: Iterable[str]) -> dict[str, list[str]]:
+    """`{group touch (repo:<group label>): [its file touches]}`, sorted, for each entry of `group_touches`: the files
+    `search` can find in that group (the code map's, plus any a card or page names). An entry that is not a group of a
+    code repo (an unknown label, a doc page) maps to `[]`."""
+    out: dict[str, list[str]] = {}
+    for touch in group_touches:
+        rp = _split(touch)
+        if rp is None:
+            continue
+        repo, label = rp
+        found: set[str] = set()
+        if repo != DOCS_REPO:
+            for table in ("files", "touches", "cites"):
+                found.update(f"{repo}:{path}" for (path,) in conn.execute(
+                    f"select distinct path from {table} where repo = ? and grp = ?", (repo, label)))
+        out[touch] = sorted(found)
     return out
 
 

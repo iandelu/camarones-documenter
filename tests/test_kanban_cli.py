@@ -7,6 +7,8 @@ import shutil
 import subprocess
 import sys
 
+import pytest
+
 
 def cli(kit, *args, cwd=None, root=True):
     e = {**os.environ}
@@ -157,6 +159,17 @@ def test_board_next_json_and_human(wired):
                for l in lines)
 
 
+def test_board_next_says_a_colliding_ready_task_waits_for_a_later_wave(wired):
+    _two_on_one_file(wired)
+    from lib.kanban import ops
+    ops.add("task", "Fourth", touches=["api:b.py"])
+    got = json.loads(cli(wired, "board", "next", "--json").stdout)
+    assert [r["id"] for r in got["ready"]] == ["WI-3"]
+    assert {"id": "WI-4", "blocked_by": [{"kind": "wave", "wave": 1}]} in got["waiting"]
+    human = cli(wired, "board", "next").stdout.splitlines()
+    assert any(l.startswith("  · WI-4: ") and ("ola 2" in l or "wave 2" in l) for l in human)
+
+
 def test_board_waves_json_and_cycle(wired):
     _two_on_one_file(wired)
     got = json.loads(cli(wired, "board", "waves", "--json").stdout)
@@ -180,3 +193,155 @@ def test_board_next_story_flag(wired):
     ops.add("task", "Outside")
     got = json.loads(cli(wired, "board", "next", "--story", "WI-1", "--json").stdout)
     assert "WI-3" not in [r["id"] for r in got["ready"]] and "WI-2" in [r["id"] for r in got["ready"]]
+
+
+# ── board story lint | invest | split ────────────────────────────────────────────────────────────────────────────
+
+_P = "src/main/java/demo/shop/"
+_ORDER, _PAY, _WEB = (f"api:{_P}{p}" for p in ("orders/OrderService.java", "payments/PaymentClient.java",
+                                               "web/OrderResource.java"))
+_TEXT = "Como responsable de pedidos,\nquiero cobrar los pedidos con tarjeta,\npara no perder ventas."
+
+
+def _story_world(kit, touches=(_ORDER, _PAY), description=_TEXT):
+    """A board with story WI-1 and a code graph of `api` (orders, payments, web) with real files behind it."""
+    from test_codemap import node, write_graph
+    from lib.kanban import ops
+    subprocess.run(["git", "init", "-q", str(kit.root)], check=True)
+    assert cli(kit, "board", "init").returncode == 0
+    write_graph(kit, graph={"built_at_commit": "abc1234", "links": [
+        {"source": "web", "target": "order", "relation": "calls"}, {"source": "order", "target": "pay", "relation": "calls"}],
+        "nodes": [node("order", "OrderService", _P + "orders/OrderService.java", True),
+                  node("pay", "PaymentClient", _P + "payments/PaymentClient.java", True),
+                  node("web", "OrderResource", _P + "web/OrderResource.java", True)]})
+    for rel in ("orders/OrderService.java", "payments/PaymentClient.java", "web/OrderResource.java"):
+        f = kit.ws / "api" / _P / rel
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text("class X {}\n", encoding="utf-8")
+    ops.add("story", "Cobrar", touches=list(touches), description=description,
+            criteria=["Dado un pedido, cuando pago, entonces veo el recibo"])
+    return kit
+
+
+def _json(kit, *args):
+    r = cli(kit, "board", "story", *args, "--json")
+    assert r.returncode == 0, r.stderr
+    return json.loads(r.stdout)
+
+
+def test_story_lint_json_is_the_hint_list_and_touch_changes_it(wired):
+    _story_world(wired, touches=())
+    from lib import stories
+    hints = _json(wired, "lint", "WI-1")
+    assert [h["code"] for h in hints] == [h["code"] for h in stories.lint(
+        "responsable de pedidos", "cobrar los pedidos con tarjeta", "no perder ventas", "es", touches=())]
+    assert "no-footprint" in [h["code"] for h in hints]
+    assert "no-footprint" not in [h["code"] for h in _json(wired, "lint", "WI-1", "--touch", _ORDER)]
+    human = cli(wired, "board", "story", "lint", "WI-1")
+    assert human.returncode == 0 and "🦐" not in human.stdout and len(human.stdout.strip().splitlines()) >= 1
+
+
+def test_story_invest_json_has_the_verdict_and_agrees_with_analyze(wired):
+    _story_world(wired)
+    got = _json(wired, "invest", "WI-1")
+    assert got["verdict"] in ("good", "improve", "poor") and set(got["letters"]) == set("INVEST")
+    from lib import stories, stories_save
+    s = stories_save.item("WI-1")
+    story = {k: s[k] for k in ("id", "as_", "want", "so", "criteria", "touches", "epic", "priority")}
+    from lib.kanban import ops
+    assert got == stories.analyze(story, lang=ops.docs_lang())["invest"]
+    human = cli(wired, "board", "story", "invest", "WI-1").stdout
+    assert all(letter in human for letter in "INVEST")
+    bare = _json(wired, "invest", "WI-1", "--touch", _WEB)
+    assert bare["verdict"] in ("good", "improve", "poor")
+
+
+def test_story_split_json_lists_proposals_with_waves_and_human_lines(wired):
+    _story_world(wired)
+    tasks = _json(wired, "split", "WI-1")
+    assert [t["key"] for t in tasks] == ["change:api:payments", "change:api:orders"]
+    assert [t["wave"] for t in tasks] == [0, 1] and tasks[1]["deps"] == ["change:api:payments"]
+    human = cli(wired, "board", "story", "split", "WI-1")
+    assert human.returncode == 0 and human.stderr == ""
+    lines = human.stdout.splitlines()
+    assert lines[0].startswith("wave 1  ") and _PAY in lines[0] and "deps:" not in lines[0]
+    assert lines[1].startswith("wave 2  ") and "deps: change:api:payments" in lines[1]
+    assert cli(wired, "board", "list").stdout.count("\n") == 1          # nothing was saved
+
+
+def test_story_split_accept_saves_every_proposal(wired):
+    _story_world(wired)
+    got = _json(wired, "split", "WI-1", "--accept")
+    assert got["story"]["id"] == "WI-1" and [t["id"] for t in got["tasks"]] == ["WI-2", "WI-3"]
+    assert got["tasks"][1]["dependencies"] == ["WI-2"]
+    rows = json.loads(cli(wired, "board", "list", "--json").stdout)["cards"]
+    assert sorted(r["id"] for r in rows) == ["WI-1", "WI-2", "WI-3"]
+    again = cli(wired, "board", "story", "split", "WI-1", "--accept")       # it has subtasks now: no duplicates
+    assert again.returncode == 2 and again.stderr.startswith("✖") and again.stdout == ""
+
+
+def test_story_split_accept_human_prints_the_new_ids(wired):
+    _story_world(wired)
+    r = cli(wired, "board", "story", "split", "WI-1", "--accept")
+    assert r.returncode == 0, r.stderr
+    assert "WI-2" in r.stdout and "WI-3" in r.stdout and r.stdout.count("🦐") <= 1
+
+
+def test_story_split_accept_refuses_a_cycle_or_duplicates(wired, monkeypatch, capsys):
+    import argparse
+    _story_world(wired)
+    from lib import stories
+    from lib.kanban import cli as board_cli
+    p = argparse.ArgumentParser()
+    board_cli.add_parser(p.add_subparsers(dest="cmd"))
+    args = p.parse_args(["board", "story", "split", "WI-1", "--accept"])
+    real = stories.analyze
+    for bad in ({"cycle": ["a", "b"]}, {"duplicates": ["a"]}):
+        monkeypatch.setattr(stories, "analyze", lambda *a, _b=bad, **k: {**real(*a, **k), **_b})
+        assert board_cli.run(args) == 2
+        out = capsys.readouterr()
+        assert out.err.startswith("✖") and len(out.err.strip().splitlines()) == 1 and out.out == ""
+    assert cli(wired, "board", "list").stdout.count("\n") == 1
+
+
+def test_story_errors_are_plain_and_exit_2(wired):
+    _story_world(wired)
+    for args in (("bogus", "WI-1"), ("lint",), ("lint", "WI-1", "x")):
+        r = cli(wired, "board", "story", *args)
+        assert r.returncode == 2 and r.stdout == "", args
+        assert r.stderr.startswith("✖ usage: camaron board story lint|invest|split ID"), (args, r.stderr)
+    r = cli(wired, "board", "story")
+    assert r.returncode == 2 and "story lint|invest|split ID" in r.stderr
+    for args in (("lint", "WI-99"), ("lint", "WI-1", "--touch", "api:nope/missing/x.java"),
+                 ("lint", "WI-1", "--touch", "nowhere:x")):
+        r = cli(wired, "board", "story", *args, "--json")
+        assert r.returncode == 2 and r.stdout == "" and r.stderr.startswith("✖") and "🦐" not in r.stderr, args
+    cli(wired, "board", "add", "task", "Plain")
+    r = cli(wired, "board", "story", "lint", "WI-2")
+    assert r.returncode == 2 and "not a story" in r.stderr
+
+
+def _parse(*argv):
+    import argparse
+    from lib.kanban import cli as board_cli
+    p = argparse.ArgumentParser()
+    board_cli.add_parser(p.add_subparsers(dest="cmd"))
+    return board_cli, p.parse_args(["board", *argv])
+
+
+@pytest.mark.parametrize("argv, flag", [
+    (("list", "--touch", "api:a.py"), "--touch"), (("next", "--accept"), "--accept"),
+    (("list", "--story", "WI-1"), "--story"), (("show", "WI-1", "--n", "2"), "--n"),
+    (("next", "--force"), "--force"), (("story", "lint", "WI-1", "--force"), "--force"),
+    (("move", "WI-1", "Done", "--n", "1"), "--n")])
+def test_board_flags_only_go_with_their_actions(kit, capsys, argv, flag):
+    board_cli, a = _parse(*argv)
+    assert board_cli.run(a) == 2
+    err = capsys.readouterr().err
+    assert err.startswith("✖ ") and flag in err and len(err.strip().splitlines()) == 1
+
+
+def test_board_n_defaults_to_3_and_is_not_a_form_default(kit):
+    board_cli, a = _parse("next")
+    assert a.n is None                                        # the app's form leaves it empty: no --n on other actions
+    assert board_cli._n(a) == 3
