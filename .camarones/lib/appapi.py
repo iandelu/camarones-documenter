@@ -33,8 +33,9 @@ def entry(name: str) -> dict:
 
 def info() -> dict:
     from . import kitdev
+    from .common import PREFS, load_json
     return {"kit": VERSIONS["kit"], "root": str(ROOT), "user": out(["git", "config", "user.name"], cwd=ROOT) or "",
-            "kitdev": kitdev.available()}
+            "kitdev": kitdev.available(), "tour_offered": bool(load_json(PREFS, {}).get("tour_offered"))}
 
 
 def _value(row: dict, v) -> list[str]:

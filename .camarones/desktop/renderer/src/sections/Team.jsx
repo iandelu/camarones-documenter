@@ -48,7 +48,7 @@ function Repo({ srv, jobs }) {
   const say = (r) => { const k = `sy.${r.status}`; const m = t(k, { detail: r.detail || '' }); return m === k ? r.status : m }
   const clean = url.trim()
   return (
-    <Card className="dk-run">
+    <Card className="dk-run" data-tour="team-repo">
       <span className="eyebrow">{t('tm.repo')}</span>
       <div className="row">
         <input className="cu-input dk-grow" value={url} placeholder="git@github.com:equipo/cam-docs.git" aria-label={t('tm.repo')}
@@ -90,7 +90,7 @@ function Trust({ srv, jobs }) {
   const on = hooks.job?.result?.enabled
   const then = async (p) => { await p; load() }
   return (
-    <Card className="dk-run">
+    <Card className="dk-run" data-tour="team-trust">
       <span className="eyebrow">{t('tm.trust')}</span>
       {rows ? (rows.length ? (<>
         <ul className="dk-units">{rows.map((r) => (
@@ -130,7 +130,7 @@ function Plugins({ srv, jobs }) {
   const toggle = async (p) => { await act.run('plugins', { action: p.status === 'active' ? 'disable' : 'enable', target: p.name }); list.run('plugins', { json: true }) }
   if (Array.isArray(rows) && !rows.length) return null
   return (
-    <Card className="dk-run">
+    <Card className="dk-run" data-tour="team-plugins">
       <span className="eyebrow">{t('tm.plugins')}</span>
       <p className="muted small">{t('tm.pluginsLead')}</p>
       {Array.isArray(rows) ? (
