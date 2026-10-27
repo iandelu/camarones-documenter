@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs'
 import { afterEach, expect, test, vi } from 'vitest'
 import CASES from '../../../../tests/fixtures/story_lint_cases.json'
 import { I18N } from './i18n/portal.js'
-import { aiGate, draftKey, initialDraft, lint, loadDraft, nextStep, outdated, primaryLabel, saveDraft } from './stories.js'
+import { aiGate, dismissSuggestion, draftKey, dropSuggestions, initialDraft, keepSuggestions, lint, loadDraft, loadSuggestions,
+  nextStep, noSuggestions, outdated, primaryLabel, saveDraft, saveSuggestions, suggestExclude, suggestKey } from './stories.js'
 
 // The word lists the server sends in GET /api/stories → lint_words: the kit's YAML files, written in JSON syntax.
 const words = (lang) => JSON.parse(readFileSync(new URL(`../../../templates/board/${lang}/story-lint.yaml`, import.meta.url), 'utf-8'))
@@ -159,4 +160,67 @@ test('aiGate: the AI button is always there; it runs with a runner, the switch o
   expect(aiGate({ writable: true, ai: none })).toEqual({ on: false, why: 'stories.ai.why.runner', runner: null })
   expect(aiGate({ writable: false, ai })).toEqual({ on: false, why: 'stories.ai.why.token', runner: 'claude' })
   expect(aiGate({ writable: true })).toEqual({ on: false, why: 'stories.ai.why.runner', runner: null })
+})
+
+// What the AI proposed waits in this browser, per story, until it is accepted or dismissed: asking for another kind,
+// opening another story, leaving Historias or reloading loses none of it.
+test('the AI suggestions are kept per story in localStorage, apart from the draft', () => {
+  const store = new Map()
+  vi.stubGlobal('localStorage', { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) })
+  expect(suggestKey(null)).toBe('cam-story-ai:new')
+  expect(suggestKey('WI-7')).toBe('cam-story-ai:WI-7')
+  expect(loadSuggestions(suggestKey('WI-7'))).toEqual(noSuggestions())
+  const kept = keepSuggestions(noSuggestions(), 'criteria', { rewrite: null, criteria: ['Shows totals'], tasks: [] })
+  expect(saveSuggestions(suggestKey('WI-7'), kept)).toBe(true)
+  expect(loadSuggestions('cam-story-ai:WI-7')).toEqual(kept)
+  expect(loadSuggestions('cam-story-ai:WI-8')).toEqual(noSuggestions())
+  expect(loadDraft(draftKey('WI-7'))).toBeNull()
+  expect(dropSuggestions('cam-story-ai:WI-7')).toBe(true)
+  expect(loadSuggestions('cam-story-ai:WI-7')).toEqual(noSuggestions())
+  store.set('cam-story-ai:bad', '{"rewrite": "x", "criteria": "nope", "tasks": [1, {"title": "T"}], "gone": []}')
+  expect(loadSuggestions('cam-story-ai:bad')).toEqual({ ...noSuggestions(), tasks: [{ title: 'T', touches: [] }] })
+  store.set('cam-story-ai:broken', '{nope')
+  expect(loadSuggestions('cam-story-ai:broken')).toEqual(noSuggestions())
+  vi.stubGlobal('localStorage', undefined)
+  expect(saveSuggestions('cam-story-ai:new', kept)).toBe(false)
+  expect(loadSuggestions('cam-story-ai:new')).toEqual(noSuggestions())
+})
+
+test('asking for another kind keeps what came before; asking again adds only what is new', () => {
+  let k = keepSuggestions(noSuggestions(), 'criteria', { rewrite: null, criteria: ['Shows totals'], tasks: [] })
+  k = keepSuggestions(k, 'tasks', { rewrite: null, criteria: [], tasks: [{ title: 'Add the API', touches: ['api:a.py'] }] })
+  expect(k.criteria).toEqual(['Shows totals'])
+  expect(k.tasks).toEqual([{ title: 'Add the API', touches: ['api:a.py'] }])
+  k = keepSuggestions(k, 'criteria', { rewrite: null, criteria: [' shows TOTALS', 'Exports CSV'], tasks: [] })
+  expect(k.criteria).toEqual(['Shows totals', 'Exports CSV'])
+  k = keepSuggestions(k, 'rewrite', { rewrite: { as_: 'dev', want: 'see', so: 'decide' }, criteria: [], tasks: [] })
+  k = keepSuggestions(k, 'rewrite', { rewrite: { as_: 'dev', want: 'see more', so: 'decide' }, criteria: [], tasks: [] })
+  expect(k.rewrite).toEqual({ as_: 'dev', want: 'see more', so: 'decide' })
+  expect(keepSuggestions(k, 'rewrite', { rewrite: null, criteria: [], tasks: [] }).rewrite).toEqual(k.rewrite)
+  expect(k.criteria).toEqual(['Shows totals', 'Exports CSV'])
+})
+
+test('accepting or dismissing a suggestion takes it off the list, and it never comes back', () => {
+  let k = keepSuggestions(noSuggestions(), 'criteria', { rewrite: null, criteria: ['A', 'B'], tasks: [] })
+  k = dismissSuggestion(k, 'criteria', 'a ')
+  expect(k.criteria).toEqual(['B'])
+  expect(k.gone).toEqual({ criteria: ['a '] })
+  expect(keepSuggestions(k, 'criteria', { rewrite: null, criteria: ['A', 'C'], tasks: [] }).criteria).toEqual(['B', 'C'])
+  k = keepSuggestions(k, 'tasks', { rewrite: null, criteria: [], tasks: [{ title: 'T1', touches: [] }, { title: 'T2', touches: [] }] })
+  k = dismissSuggestion(k, 'tasks', 'T1')
+  expect(k.tasks.map((x) => x.title)).toEqual(['T2'])
+  k = keepSuggestions(k, 'rewrite', { rewrite: { as_: 'dev', want: 'w', so: 's' }, criteria: [], tasks: [] })
+  k = dismissSuggestion(k, 'rewrite', 'As dev, I want w, so that s.')
+  expect(k.rewrite).toBeNull()
+  expect(k.gone.rewrite).toEqual(['As dev, I want w, so that s.'])
+})
+
+test('the AI is told what the story has, what it proposed already and what was dismissed', () => {
+  let k = keepSuggestions(noSuggestions(), 'criteria', { rewrite: null, criteria: ['A', 'B'], tasks: [] })
+  k = dismissSuggestion(k, 'criteria', 'A')
+  expect(suggestExclude(draft({ criteria: ['Mine', ' '] }), k, 'criteria')).toEqual(['Mine', 'B', 'A'])
+  k = keepSuggestions(k, 'tasks', { rewrite: null, criteria: [], tasks: [{ title: 'Proposed', touches: [] }] })
+  expect(suggestExclude(draft({ tasks: [{ key: 't1', title: 'Have' }] }), k, 'tasks')).toEqual(['Have', 'Proposed'])
+  k = dismissSuggestion(k, 'rewrite', 'As x, I want y, so that z.')
+  expect(suggestExclude(draft(), k, 'rewrite')).toEqual(['As x, I want y, so that z.'])
 })

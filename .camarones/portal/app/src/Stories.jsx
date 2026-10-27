@@ -128,7 +128,7 @@ export default function Stories() {
     setSaving(true); setSaveError(null)
     try {
       const res = await postJSON('stories/save', { ...saveBody(draft), lang: lang() })
-      dropDraft(draftKey(draft.id))
+      dropDraft(draftKey(draft.id)); ai.forget()
       setToast({ id: res.story.id, n: res.tasks.length })
       await load()
       await open(res.story.id)
@@ -175,7 +175,7 @@ export default function Stories() {
           {openError ? <p className="error" role="alert">{openError}</p> : null}
           {opening || openError ? null : <>
           {restored ? <p className="aviso st-restored" role="status">{t('stories.draft.restored')}{' '}
-            <button type="button" className="ghost small" onClick={() => { dropDraft(draftKey(draft.id)); setRestored(false); setDraft(mergeDocSources(fresh(item), item?.doc_sources)) }}>
+            <button type="button" className="ghost small" onClick={() => { dropDraft(draftKey(draft.id)); ai.forget(); setRestored(false); setDraft(mergeDocSources(fresh(item), item?.doc_sources)) }}>
               {t('stories.draft.discard')}</button></p> : null}
           <WriteStep draft={draft} change={change} words={words} lang={lang()} epics={epics} existing={!!draft.id} repos={meta.repos || []}
                      touchError={saveError?.where === 'touches' ? saveError.msg : ''} ai={ai} aiGate={gate}

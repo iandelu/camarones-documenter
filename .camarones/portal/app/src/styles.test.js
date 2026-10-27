@@ -72,3 +72,16 @@ test('the shell drives the title bar in the desktop app', () => {
   expect(shell).toMatch(/APP\?\.menu && <button[^>]*aria-label=\{t\('appMenu'\)\}/)
   expect(readFileSync(new URL('./core.js', import.meta.url), 'utf-8')).toMatch(/APP\?\.theme\?\.\(isDark\(\) \? 'dark' : 'light'\)/)
 })
+
+// A disabled button does nothing, so it never looks like it would: no hover, no press. A pending one (aria-busy, the
+// AI thinking) is at full strength with a progress cursor: the shimmer on its label is the feedback.
+test('a disabled or pending button never lights up on hover nor presses in', () => {
+  const css = read('./portal.css')
+  const rules = [...css.matchAll(/(?:^|\n)([^{}\n]*button[^{}\n]*:(?:hover|active)[^{}\n]*)\{/g)].map((m) => m[1])
+  expect(rules.length).toBeGreaterThan(1)
+  for (const sel of rules)
+    for (const part of sel.split(/,(?![^(]*\))/).filter((x) => /^\s*button\b/.test(x)))
+      expect(part, part).toContain(':not(:disabled, [aria-disabled="true"])')
+  expect(css).toMatch(/button:disabled, button\[aria-disabled="true"\]\s*\{[^}]*opacity:\s*\.5/)
+  expect(css).toMatch(/button\[aria-busy="true"\]\s*\{[^}]*opacity:\s*1[^}]*cursor:\s*progress/)
+})
