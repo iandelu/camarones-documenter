@@ -238,9 +238,10 @@ cannot run (no agent installed, a portal not opened with `camaron up`, or turned
    dependencies (what provides goes before what consumes) and what it collides with. They are spread into **waves**:
    the tasks of one wave can run side by side without touching the same files. Edit, drop, add or merge them and the
    waves update at once.
+
 **Approve and save.** Nothing is written to `backlog/` until then; the story and its subtasks become ordinary cards
-   in Backlog. On a story that already existed only what you changed is written: a title or footprint someone else
-   changed meanwhile is kept, and if you both changed the same one you are asked to reload.
+in Backlog. On a story that already existed only what you changed is written: a title or footprint someone else
+changed meanwhile is kept, and if you both changed the same one you are asked to reload.
 
 Git only stores `dependencies` and `x-touches` (`<repo>:<path>`, or `cam-docs:<page>`) on the cards, and Backlog.md
 still opens them. Conflicts, waves and verdicts are computed and never stored.

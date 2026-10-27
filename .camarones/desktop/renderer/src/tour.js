@@ -56,13 +56,12 @@ export function holes(rect, view, pad = 6) {
   ]
 }
 
-export const tourKey = (key) => ({ ArrowRight: 'next', Enter: 'next', ArrowLeft: 'back', Escape: 'close' })[key] || null
-
-// The Summary offers the tour once: either button keeps it away. A storage that throws (a private window) counts as unseen.
-const SEEN = 'dk.tour.offered'
-export function seen(storage) {
-  try { return storage?.getItem(SEEN) === '1' } catch { return false }
-}
-export function markSeen(storage) {
-  try { storage?.setItem(SEEN, '1') } catch { /* nothing kept: the offer may come back, which is harmless */ }
+// What a key does while a tour is open; null leaves it to the page. Keys typed into a field or a dialog (the palette),
+// or pressed on the control in the hole, are the page's. Inside the bubble a focused button presses itself with Enter.
+export function tourAction(key, { typing = false, inBubble = false, onBubble = false } = {}) {
+  if (typing || !(inBubble || onBubble)) return null
+  if (key === 'Escape') return 'close'
+  if (key === 'ArrowRight') return 'next'
+  if (key === 'ArrowLeft') return 'back'
+  return key === 'Enter' && onBubble ? 'next' : null
 }

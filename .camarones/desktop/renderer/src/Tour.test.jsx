@@ -7,7 +7,7 @@ import { TourBubble } from './Tour.jsx'
 import { TourOffer } from './sections/Summary.jsx'
 import Machine from './sections/Machine.jsx'
 import { entries } from './palette.js'
-import { markSeen, tourIds, TOURS } from './tour.js'
+import { tourIds, TOURS } from './tour.js'
 import { MACHINE, PROJECT } from './nav.js'
 import { setLang, t } from './i18n.js'
 
@@ -55,20 +55,20 @@ test('every step points at something the app marks with data-tour', () => {
   }
 })
 
-const memory = () => { const box = {}; return { getItem: (k) => box[k] ?? null, setItem: (k, v) => { box[k] = v } } }
+const srv = { get: () => new Promise(() => {}), post: () => Promise.resolve({}) }
 
-test('the Summary offers the tour once', () => {
-  const store = memory()
-  const out = renderToStaticMarkup(<TourOffer storage={store} />)
+// The window's origin changes with every launch (a random port), so the offer is remembered by the machine
+// (app/info tour_offered, set through app/tour-offered), not by the page's storage.
+test('the Summary offers the tour until this machine has seen the offer', () => {
+  const out = renderToStaticMarkup(<TourOffer srv={srv} offered={false} />)
   expect(out).toContain('Hacer el recorrido')
   expect(out).toContain('Ahora no')
-  markSeen(store)
-  expect(renderToStaticMarkup(<TourOffer storage={store} />)).toBe('')
+  expect(renderToStaticMarkup(<TourOffer srv={srv} offered />)).toBe('')
+  expect(renderToStaticMarkup(<TourOffer srv={srv} />)).toBe('')        // not known yet: nothing flashes
 })
 
 test('the palette and Machine both start the tour', () => {
   const groups = entries({ sections: ['summary'], t })
   expect(groups.find((g) => g.id === 'actions').items).toContainEqual({ id: 'tour', label: 'Hacer el recorrido', action: 'tour' })
-  const srv = { get: () => new Promise(() => {}), post: () => new Promise(() => {}) }
   expect(renderToStaticMarkup(<Machine srv={srv} jobs={null} app={{}} />)).toContain('Hacer el recorrido')
 })

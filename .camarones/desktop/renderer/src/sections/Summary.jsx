@@ -5,7 +5,6 @@ import { useAgents, useStore } from '../hooks.js'
 import { firstRunPending } from '../nav.js'
 import { AgentPicker, Failed, Page } from '../parts.jsx'
 import { useTour } from '../Tour.jsx'
-import { markSeen, seen } from '../tour.js'
 import { lang, t } from '../i18n.js'
 
 // The project's Summary: one next step (lib/plan.next_step, the wizard's own rule) with the one button that takes
@@ -49,7 +48,7 @@ export default function Summary({ srv, jobs }) {
     ? (step.count === 1 ? t('next.reviewTitle1') : t('next.reviewTitle', { n: step.count })) : t('next.doneTitle')
   return (
     <Page title={title}>
-      {firstRun ? <FirstRunNotice /> : <TourOffer />}
+      {firstRun ? <FirstRunNotice /> : <TourOffer srv={srv} />}
       <Card className="dk-next" data-tour="summary-next">
         <span className="eyebrow">{t(step.kind === 'resume' ? 'next.eyebrowResume' : 'next.eyebrow')}</span>
         <h2 className="dk-next-title">{heading}</h2>
@@ -98,12 +97,14 @@ export function FirstRunNotice() {
   return <Aviso tone="info" title={t('sum.firstRun')} action={<Button size="sm" href="#/start">{t('sum.firstRunGo')}</Button>} />
 }
 
-// Once per machine, after the first run: the tour of the app, or not now. Either button keeps it away.
-export function TourOffer({ storage = globalThis.localStorage }) {
+// Once per machine, after the first run: the tour of the app, or not now. Either button keeps it away. The machine keeps
+// the flag (app/info tour_offered): the window's origin, and so its storage, changes with every launch.
+export function TourOffer({ srv, offered: known }) {
   const tour = useTour()
-  const [gone, setGone] = useState(() => seen(storage))
-  if (gone) return null
-  const done = () => { markSeen(storage); setGone(true) }
+  const [offered, setOffered] = useState(known ?? null)
+  useEffect(() => { if (known === undefined) srv.get('app/info').then((i) => setOffered(!!i.tour_offered), () => setOffered(true)) }, [])
+  if (offered !== false) return null
+  const done = () => { setOffered(true); srv.post('app/tour-offered', {}).catch(() => {}) }
   return (
     <Aviso tone="info" title={t('tour.offer')} action={<span className="row">
       <Button size="sm" variant="primary" onClick={() => { done(); tour.start('app') }}>{t('tour.take')}</Button>

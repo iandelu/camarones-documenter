@@ -250,9 +250,10 @@ subtareas) y solo gasta cuando lo pulsas. Si no puede usarse (no hay agente inst
    sus ficheros, sus dependencias (quien da servicio va antes que quien lo usa) y con qué choca. Se reparten en
    **oleadas**: las tareas de una oleada pueden hacerse a la vez sin tocar los mismos ficheros. Edítalas, quítalas,
    añade o fusiona y las oleadas se recalculan al momento.
+
 **Aprueba y guarda.** Hasta entonces no se escribe nada en `backlog/`; la historia y sus subtareas pasan a ser
-   tarjetas normales en Backlog. En una historia que ya existía solo se escribe lo que cambiaste: el título o la huella
-   que otra persona cambió mientras tanto se conservan, y si los dos cambiasteis lo mismo te pide recargarla.
+tarjetas normales en Backlog. En una historia que ya existía solo se escribe lo que cambiaste: el título o la huella
+que otra persona cambió mientras tanto se conservan, y si los dos cambiasteis lo mismo te pide recargarla.
 
 En git solo se guardan `dependencies` y `x-touches` (`<repo>:<ruta>`, o `cam-docs:<página>`) en las tarjetas, y
 Backlog.md sigue abriéndolas. Los conflictos, las oleadas y los veredictos se calculan y no se guardan.
