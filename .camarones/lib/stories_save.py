@@ -292,10 +292,46 @@ def list_stories() -> list[dict]:
     return sorted(out, key=lambda r: id_key(r["id"]))
 
 
+def _doc_sources(refs: Sequence[str]) -> list[str]:
+    """The files the linked doc pages cite (`x-sources`) as `repo:path`: only files of a known repo that exist, sorted,
+    once each. A link that no longer resolves, or a page that cannot be read, gives nothing (the screen only reads)."""
+    from .kanban import xid
+    if not refs:
+        return []
+    ids, pages = xid.index(), xid._pages()
+    known = set(docs_mod.repo_names()) | {index.DOCS_REPO}
+    out: set[str] = set()
+    for ref in refs:
+        try:
+            link = xid.parse_link(ref)
+        except BoardError:
+            continue
+        f = pages.get(ids.get(link["xid"]) or link["xid"])
+        if f is None:
+            continue
+        try:
+            fm = docs_mod.parse_fm(f.read_text(encoding="utf-8"))[0]
+        except (OSError, UnicodeDecodeError, ValueError):
+            continue
+        raw = fm.get("x-sources") or []
+        for src in (s for s in map(index._source, raw if isinstance(raw, list) else [raw]) if s):
+            repo, path = src
+            if repo not in known:
+                continue
+            base = ROOT if repo == index.DOCS_REPO else repo_dir(repo)
+            try:
+                if (base / path).is_file():
+                    out.add(f"{repo}:{path}")
+            except OSError:
+                continue
+    return sorted(out)
+
+
 def item(story_id: str) -> dict:
     """A story as the wizard opens it: its clauses parsed from the description (`rest` is the text after them), its
-    criteria, footprint, epic, priority and linked pages, its subtasks (rows with their `wave`, 0-based among the open
-    ones, -1 for a Done one or while they wait on each other) and `sha`, the fingerprint to hand back to `save`."""
+    criteria, footprint, epic, priority and linked pages (and the files those pages cite, `doc_sources`), its subtasks
+    (rows with their `wave`, 0-based among the open ones, -1 for a Done one or while they wait on each other) and
+    `sha`, the fingerprint to hand back to `save`."""
     lang = _lang(ops.docs_lang())
     cards, items, _ = ops.load_state()
     key = (story_id or "").strip().upper()
@@ -315,4 +351,4 @@ def item(story_id: str) -> dict:
             "rest": clauses["rest"], "criteria": [c["text"] for c in checklist(found.body, "AC")],
             "touches": row["touches"], "epic": row["epic"], "priority": row["priority"], "docs": row["docs"],
             "subtasks": [{**ops._row(k, cards.get(k.id)), "wave": wave.get(k.id, -1)} for k in kids],
-            "sha": fingerprint(clauses["as_"], clauses["want"], clauses["so"])}
+            "sha": fingerprint(clauses["as_"], clauses["want"], clauses["so"]), "doc_sources": _doc_sources(row["docs"])}

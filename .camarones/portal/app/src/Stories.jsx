@@ -3,8 +3,8 @@ import { Skeleton } from '@camaron/ui'
 import { getJSON, postJSON } from './api.js'
 import { core } from './core.js'
 import Failed from './Failed.jsx'
-import { analyzeBody, draftKey, dropDraft, initialDraft, loadDraft, nextStep, primaryLabel, saveBlock, saveBody, saveDraft, titleFrom,
-  withChecks } from './stories.js'
+import { analyzeBody, draftKey, dropDraft, initialDraft, loadDraft, mergeDocSources, nextStep, planAnalyze, primaryLabel, saveBlock,
+  saveBody, saveDraft, titleFrom, withChecks } from './stories.js'
 import StoryList from './stories/StoryList.jsx'
 import WriteStep from './stories/WriteStep.jsx'
 import ReviewStep from './stories/ReviewStep.jsx'
@@ -40,9 +40,11 @@ export default function Stories() {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)  // {where: 'touches' | 'save' | 'conflict', msg}
   const [toast, setToast] = useState(null)          // {id, n}
-  const lastBody = useRef('')                       // the analyze body whose answer is on screen
-  const nowBody = useRef('')                        // the analyze body of the draft as it is now
-  const onBoard = useRef([])                        // the open story's subtasks already on the board
+  const [openError, setOpenError] = useState('')
+  const [nonce, setNonce] = useState(0)             // a new one on each open: the analysis runs again even on the same text
+  const lastBody = useRef('')                       // the analyze key whose answer is on screen
+  const nowBody = useRef('')                        // the analyze key of the draft as it is now
+  const seq = useRef(0)                             // the latest open(): an answer for an earlier one is dropped
 
   const load = useCallback(() => getJSON('stories').then((m) => { setMeta(m); setError('') }, (e) => setError(e.message)), [])
   useEffect(() => {
@@ -51,20 +53,30 @@ export default function Stories() {
   }, [load])
 
   // Open a story (or a new one): its draft from this browser when it is about the same text, else as on the board.
+  // The steps are hidden while it loads and when it fails, and the draft on screen is a blank one meanwhile: the story
+  // shown before can never be saved under another one. The files its linked pages cite join Toca once (marked).
   const open = useCallback(async (id) => {
-    setSelected(id); setAnalysis(null); setSent(null); setSaveError(null); setAnalyzeError(''); lastBody.current = ''
+    const mine = ++seq.current
+    setSelected(id); setAnalysis(null); setSent(null); setSaveError(null); setAnalyzeError(''); setOpenError('')
+    setItem(null); setRestored(false); setDraft(fresh(null)); setNonce((n) => n + 1); lastBody.current = ''
     if (!id) {
       const kept = loadDraft(draftKey(null))
-      onBoard.current = []; setItem(null); setRestored(!!kept); setDraft(kept ? { ...fresh(null), ...kept } : fresh(null))
+      setRestored(!!kept); setDraft(kept ? { ...fresh(null), ...kept } : fresh(null)); setOpening('')
       return
     }
     setOpening(id)
     try {
       const it = await getJSON(`stories/item?id=${encodeURIComponent(id)}`)
+      if (mine !== seq.current) return
       const kept = loadDraft(draftKey(id))
       const same = kept && kept.sha === it.sha
-      onBoard.current = it.subtasks || []; setItem(it); setRestored(!!same); setDraft(same ? { ...fresh(it), ...kept } : fresh(it)); setOpening('')
-    } catch (e) { setOpening(''); setSaveError({ where: 'open', msg: `${t('stories.loadFailed', { id })} ${e.message}` }) }
+      setItem(it); setRestored(!!same)
+      setDraft(same ? { ...fresh(it), ...kept } : mergeDocSources(fresh(it), it.doc_sources))
+      setOpening('')
+    } catch (e) {
+      if (mine !== seq.current) return
+      setOpening(''); setOpenError(`${t('stories.loadFailed', { id })} ${e.message}`)
+    }
   }, [])
   useEffect(() => { open(null) }, [open])
 
@@ -77,34 +89,38 @@ export default function Stories() {
   // The draft is kept in this browser once the person has changed something; nothing of it reaches the project before Save.
   useEffect(() => { if (draft.dirty && !blank(draft)) saveDraft(draftKey(draft.id), draft) }, [draft])
 
-  // analyze, 200 ms after the last change; an answer for a draft that has changed since is dropped.
-  const body = useMemo(() => JSON.stringify(analyzeBody(draft, lang())), [draft])
+  // analyze, 200 ms after the last change; an answer for a draft that has changed since is dropped (planAnalyze).
+  const keyOf = useCallback((d) => `${nonce}|${JSON.stringify(analyzeBody(d, lang()))}`, [nonce])
+  const key = useMemo(() => keyOf(draft), [draft, keyOf])
   useEffect(() => {
-    nowBody.current = body
-    if (body === lastBody.current) return undefined
-    if (!draft.want.trim()) { setAnalysis(null); setSent(null); setPending(false); return undefined }
+    nowBody.current = key
+    const plan = planAnalyze(lastBody.current, key, draft.want)
+    lastBody.current = plan.last
+    if (plan.action === 'skip') return undefined
+    if (plan.action === 'clear') { setAnalysis(null); setSent(null); setPending(false); return undefined }
+    const body = key.slice(key.indexOf('|') + 1)
     setPending(true)
     const ctrl = new AbortController()
     const timer = setTimeout(async () => {
       const asked = { as: draft.as, want: draft.want, so: draft.so }
       try {
         const res = await postJSON('stories/analyze', JSON.parse(body), { signal: ctrl.signal })
-        if (nowBody.current !== body) return
+        if (nowBody.current !== key) return
         const groups = Object.fromEntries(res.tasks.flatMap((x) => (x.group ? x.touches.map((f) => [f, x.group]) : [])))
         setDraft((d) => {
-          const next = { ...d, tasks: withChecks(res.tasks, d.tasks, onBoard.current), groups: { ...groups, ...d.groups } }
-          lastBody.current = nowBody.current = JSON.stringify(analyzeBody(next, lang()))
+          const next = { ...d, tasks: withChecks(res.tasks, d.tasks), groups: { ...groups, ...d.groups } }
+          lastBody.current = nowBody.current = keyOf(next)
           return next
         })
         setAnalysis(res); setSent(asked); setAnalyzeError(''); setPending(false)
       } catch (e) {
         if (e.name === 'AbortError') return
-        lastBody.current = body
+        lastBody.current = key
         setAnalyzeError(e.message); setPending(false)
       }
     }, ANALYZE_MS)
     return () => { clearTimeout(timer); ctrl.abort() }
-  }, [body]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const ai = useSuggest({ draft, lang: lang(), onReadOnly: () => setMeta((m) => ({ ...m, writable: false })) })
 
@@ -155,17 +171,17 @@ export default function Stories() {
         <StoryList stories={meta.stories} selected={selected} onPick={open} />
         <div className="st-steps">
           {opening ? <p className="muted" role="status">{t('stories.loading', { id: opening })}</p> : null}
-          {saveError?.where === 'open' ? <p className="error" role="alert">{saveError.msg}</p> : null}
+          {openError ? <p className="error" role="alert">{openError}</p> : null}
+          {opening || openError ? null : <>
           {restored ? <p className="aviso st-restored" role="status">{t('stories.draft.restored')}{' '}
-            <button type="button" className="ghost small" onClick={() => { dropDraft(draftKey(draft.id)); setRestored(false); setDraft(fresh(item)) }}>
+            <button type="button" className="ghost small" onClick={() => { dropDraft(draftKey(draft.id)); setRestored(false); setDraft(mergeDocSources(fresh(item), item?.doc_sources)) }}>
               {t('stories.draft.discard')}</button></p> : null}
           <WriteStep draft={draft} change={change} words={words} lang={lang()} epics={epics} existing={!!draft.id}
                      touchError={saveError?.where === 'touches' ? saveError.msg : ''} ai={ai} aiOn={meta.ai?.available && meta.writable}
                      onNext={step === 1 ? goOn : null} />
           {step >= 2 ? <ReviewStep draft={draft} change={change} analysis={analysis} pending={pending} ai={ai}
                                    aiOn={meta.ai?.available && meta.writable} onNext={step === 2 ? goOn : null} /> : null}
-          {step >= 3 ? <TasksStep draft={draft} change={change} analysis={analysis} existing={item?.subtasks || []} ai={ai}
-                                  aiOn={meta.ai?.available && meta.writable} /> : null}
+          {step >= 3 ? <TasksStep draft={draft} change={change} analysis={analysis} ai={ai} aiOn={meta.ai?.available && meta.writable} /> : null}
           {analyzeError ? <p className="error" role="alert">{t('stories.analyzeFailed')} {analyzeError}</p> : null}
           {step >= 3 ? (
             <div className="st-save">
@@ -177,6 +193,7 @@ export default function Stories() {
                 <button type="button" className="ghost small" onClick={() => { dropDraft(draftKey(draft.id)); open(draft.id) }}>{t('stories.reload')}</button></p> : null}
             </div>
           ) : null}
+          </>}
         </div>
       </div>
     </section>

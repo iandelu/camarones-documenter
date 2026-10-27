@@ -222,9 +222,9 @@ def test_analyze_returns_everything_the_wizard_shows(world):
     other = ops.add("story", "Refunds", touches=[PAY])["id"]
     out = stories.analyze(story(), None, lang="es")
     assert set(out) == {"hints", "invest", "tasks", "waves", "conflicts", "cycle", "duplicates", "unknown_deps",
-                        "graphless"}
+                        "graphless", "existing"}
     assert out["hints"] == [] and out["cycle"] == [] and out["graphless"] == []
-    assert out["duplicates"] == [] and out["unknown_deps"] == {}
+    assert out["duplicates"] == [] and out["unknown_deps"] == {} and out["existing"] == []
     assert out["conflicts"] == [{"id": other, "kind": "conflict", "files": [PAY]}]
     assert out["invest"]["letters"]["I"]["ok"] is False and out["invest"]["verdict"] == "improve"
     assert out["waves"] == [[K_PAY], [K_ORDERS], [K_DOCS]]
@@ -345,7 +345,43 @@ def test_resplitting_a_story_leaves_its_own_children_out(world):
     child = ops.add("task", "Pagos", parent=sid, touches=[PAY])["id"]
     ops.move(child, "In Progress")
     tasks = {t["key"]: t for t in split(world, story(id=sid))}
-    assert tasks[K_PAY]["conflicts"] == [] and tasks[K_PAY]["deps"] == []
+    assert K_PAY not in tasks                                           # its files are the child's work already
+    assert tasks[K_ORDERS]["conflicts"] == [] and tasks[K_ORDERS]["deps"] == [child]   # orders uses payments
+
+
+def test_an_existing_story_proposes_only_what_its_children_do_not_cover(world):
+    """Controller ruling: a child's files leave the footprint used for proposals; partly covered → only the rest."""
+    kit, ops, index, stories = world
+    sid = ops.add("story", "Pedidos", touches=[ORDER])["id"]
+    child = ops.add("task", "Servicio", parent=sid, touches=[ORDER])["id"]
+    out = stories.analyze(story(id=sid, touches=[ORDER, REPO]), None, lang="es")
+    by = {t["key"]: t for t in out["tasks"]}
+    assert by[K_ORDERS]["touches"] == [REPO]                            # the uncovered file only
+    assert by[K_ORDERS]["deps"] == []                                   # OrderRepository uses nothing
+    assert by[K_DOCS]["deps"] == [child]                                # the page cites OrderService: the child's
+    keys = set(by)
+    assert all(d in keys or d == child for t in out["tasks"] for d in t["deps"])
+    assert out["existing"] == [{"id": child, "title": "Servicio", "status": "Backlog", "touches": [ORDER], "wave": 0}]
+
+
+def test_an_existing_story_fully_covered_proposes_nothing(world):
+    kit, ops, index, stories = world
+    sid = ops.add("story", "Cobrar", touches=[PAY])["id"]
+    done = ops.add("task", "Pagos", parent=sid, touches=[PAY])["id"]
+    ops.move(done, "Done")
+    gone = ops.add("task", "Página", parent=sid, touches=[PAGE])["id"]
+    ops.archive(gone)
+    assert stories.analyze(story(id=sid, touches=[PAY]), None, lang="es")["tasks"] == []
+    out = stories.analyze(story(id=sid, touches=[PAY, PAGE]), None, lang="es")
+    assert out["tasks"] == [] and out["waves"] == []                    # an archived child still covers its page
+    rows = {r["id"]: r for r in out["existing"]}
+    assert set(rows) == {done, gone} and rows[done]["status"] == "Done" and rows[done]["wave"] is None
+    assert rows[gone]["touches"] == [PAGE] and rows[gone]["wave"] is None
+
+
+def test_a_new_story_has_no_existing_tasks(world):
+    out = world[3].analyze(story(), None, lang="es")
+    assert out["existing"] == []
 
 
 def test_analyze_without_graph_lists_graphless_repo(world):

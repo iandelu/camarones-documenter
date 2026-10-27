@@ -6,8 +6,8 @@
       "_i18n-DfF4WTyu.js"
     ]
   },
-  "_core-BFNPX8K5.js": {
-    "file": "assets/core-BFNPX8K5.js",
+  "_core-BsOnSdJ0.js": {
+    "file": "assets/core-BsOnSdJ0.js",
     "name": "core",
     "imports": [
       "_i18n-DfF4WTyu.js"
@@ -17,14 +17,18 @@
     "file": "assets/i18n-DfF4WTyu.js",
     "name": "i18n"
   },
+  "_kanban-B_jOjNId.js": {
+    "file": "assets/kanban-B_jOjNId.js",
+    "name": "kanban"
+  },
   "index.html": {
-    "file": "assets/index-DOCGGxjN.js",
+    "file": "assets/index-DnNM32KJ.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
     "imports": [
       "_i18n-DfF4WTyu.js",
-      "_core-BFNPX8K5.js"
+      "_core-BsOnSdJ0.js"
     ],
     "dynamicImports": [
       "src/Pipeline.jsx",
@@ -39,29 +43,29 @@
       "src/Stories.jsx"
     ],
     "css": [
-      "assets/index-BNVpcppK.css"
+      "assets/index-DaeI6tOY.css"
     ]
   },
   "src/Ci.jsx": {
-    "file": "assets/Ci-B_wczd6t.js",
+    "file": "assets/Ci-D_1YuJvv.js",
     "name": "Ci",
     "src": "src/Ci.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_i18n-DfF4WTyu.js",
-      "_core-BFNPX8K5.js",
+      "_core-BsOnSdJ0.js",
       "index.html",
       "_Failed-DI8hYgSl.js"
     ]
   },
   "src/Data.jsx": {
-    "file": "assets/Data-D2lZNB5_.js",
+    "file": "assets/Data-2Zbxw8yL.js",
     "name": "Data",
     "src": "src/Data.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_i18n-DfF4WTyu.js",
-      "_core-BFNPX8K5.js",
+      "_core-BsOnSdJ0.js",
       "index.html",
       "_Failed-DI8hYgSl.js"
     ]
@@ -87,28 +91,29 @@
     ]
   },
   "src/Kanban.jsx": {
-    "file": "assets/Kanban-DrSxQ1Qj.js",
+    "file": "assets/Kanban-BfNTcLLQ.js",
     "name": "Kanban",
     "src": "src/Kanban.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_i18n-DfF4WTyu.js",
-      "_Failed-DI8hYgSl.js"
+      "_Failed-DI8hYgSl.js",
+      "_kanban-B_jOjNId.js"
     ]
   },
   "src/Kpis.jsx": {
-    "file": "assets/Kpis-BihjLlrG.js",
+    "file": "assets/Kpis-Xwm-JBun.js",
     "name": "Kpis",
     "src": "src/Kpis.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_i18n-DfF4WTyu.js",
-      "_core-BFNPX8K5.js",
+      "_core-BsOnSdJ0.js",
       "_Failed-DI8hYgSl.js"
     ]
   },
   "src/Libs.jsx": {
-    "file": "assets/Libs-CiIccDi1.js",
+    "file": "assets/Libs-CnpwJw1I.js",
     "name": "Libs",
     "src": "src/Libs.jsx",
     "isDynamicEntry": true,
@@ -119,7 +124,7 @@
     ]
   },
   "src/Pipeline.jsx": {
-    "file": "assets/Pipeline-BaW1CsJw.js",
+    "file": "assets/Pipeline-DBYAKZYt.js",
     "name": "Pipeline",
     "src": "src/Pipeline.jsx",
     "isDynamicEntry": true,
@@ -132,14 +137,15 @@
     ]
   },
   "src/Stories.jsx": {
-    "file": "assets/Stories-CuWmhekz.js",
+    "file": "assets/Stories-tzIQjqJ-.js",
     "name": "Stories",
     "src": "src/Stories.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_i18n-DfF4WTyu.js",
-      "_core-BFNPX8K5.js",
-      "_Failed-DI8hYgSl.js"
+      "_core-BsOnSdJ0.js",
+      "_Failed-DI8hYgSl.js",
+      "_kanban-B_jOjNId.js"
     ]
   },
   "src/Sync.jsx": {

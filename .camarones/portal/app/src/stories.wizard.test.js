@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
-import { addDep, addTask, analyzeBody, chipGroups, dropDep, editTask, footprintOf, initialDraft, mergeTasks, pickHit,
-  removeTask, saveBlock, saveBody, taskNames, titleFrom, withChecks } from './stories.js'
+import { addDep, addTask, analyzeBody, chipGroups, dropDep, editTask, escapeAborts, footprintOf, initialDraft, mergeDocSources,
+  mergeTasks, pickHit, planAnalyze, removeTask, saveBlock, saveBody, taskNames, titleFrom, withChecks } from './stories.js'
 
 // The wizard's pure parts (Stories.jsx): picking files in Toca, the footprint line, the person's edits to the proposed
 // tasks and what goes to analyze and save.
@@ -52,11 +52,13 @@ test('withChecks: the fresh tasks keep the ticks the person left, new ones come 
   expect(withChecks(fresh, null).every((t) => t.checked)).toBe(true)
 })
 
-test('withChecks: a proposal whose files the story\'s subtasks on the board already cover comes unticked', () => {
-  const fresh = [task('a'), task('b', { touches: ['api:b.py', 'api:c.py'] }), task('n', { touches: [] })]
-  const onBoard = [{ id: 'WI-5', touches: ['api:a.py', 'api:b.py'] }, { id: 'WI-6', touches: null }]
-  expect(withChecks(fresh, null, onBoard).map((t) => t.checked)).toEqual([false, true, true])
-  expect(withChecks(fresh, [{ key: 'a', checked: true }], onBoard)[0].checked).toBe(true)      // the person's tick wins
+test('withChecks: unticked tasks were not sent to analyze; they stay on the list, after the others, without a wave', () => {
+  const fresh = [task('a', { wave: 1 }), task('c', { wave: 0 })]
+  const before = [{ ...task('b', { deps: ['a'], wave: 0 }), checked: false }, { ...task('a'), checked: true }]
+  const out = withChecks(fresh, before)
+  expect(out.map((t) => [t.key, t.checked, t.wave])).toEqual([['a', true, 1], ['c', true, 0], ['b', false, -1]])
+  expect(out[2].deps).toEqual([])
+  expect(withChecks([{ ...task('b'), wave: 2 }], before).map((t) => [t.key, t.checked])).toEqual([['b', false]])   // came back
 })
 
 test('editTask marks the task edited; deps: ✕ drops a derived one or takes back an added one, + adds', () => {
@@ -110,9 +112,10 @@ test('mergeTasks: one task with both files and criteria; the second goes to remo
 const story = (over = {}) => ({ ...initialDraft(null), as: 'dev', want: 'ver informes', so: 'decidir', title: 'Ver informes',
   criteria: ['Dado x, cuando y, entonces z', '  '], touches: ['api:a.py'], ...over })
 
-test('analyzeBody: the story, the tasks without the screen-only fields, removed and the language', () => {
-  const body = analyzeBody(story({ id: 'WI-7', epic: 'WI-1', tasks: [{ ...task('a'), checked: false, outside: ['x'] }], removed: ['b'] }), 'es')
-  expect(body).toEqual({ lang: 'es', removed: ['b'],
+test('analyzeBody: the story, the ticked tasks without the screen-only fields, removed (unticked keys too), the language', () => {
+  const body = analyzeBody(story({ id: 'WI-7', epic: 'WI-1', removed: ['b'],
+    tasks: [{ ...task('a'), checked: true, outside: ['x'] }, { ...task('u', { edited: true }), checked: false }] }), 'es')
+  expect(body).toEqual({ lang: 'es', removed: ['b', 'u'],
     story: { id: 'WI-7', as: 'dev', want: 'ver informes', so: 'decidir', criteria: ['Dado x, cuando y, entonces z'], touches: ['api:a.py'], epic: 'WI-1' },
     tasks: [{ key: 'a', kind: 'change', title: 'a', group: 'g', touches: ['api:a.py'], criteria: [], edited: false, added: [], dropped: [] }] })
   expect(analyzeBody(story(), 'en')).toMatchObject({ tasks: [], removed: [], story: { id: null, epic: null } })
@@ -148,4 +151,39 @@ test('saveBlock: why the primary button is off, or null', () => {
   expect(saveBlock(d, { ...fine, duplicates: ['a'] }, sent)).toEqual({ key: 'stories.block.duplicates', vars: { keys: 'a' } })
   expect(saveBlock(story({ tasks: [task('a', { title: ' ' })] }), fine, sent)).toEqual({ key: 'stories.block.title', vars: { key: 'a' } })
   expect(saveBlock(story({ tasks: [task('a', { title: ' ', checked: false })] }), fine, sent)).toBeNull()   // not saved
+})
+
+test('planAnalyze: run on a new body, skip the one on screen; a blank want clears and forgets it, so the same text runs again', () => {
+  let last = ''
+  const step = (key, want) => { const p = planAnalyze(last, key, want); last = p.last; return p.action }
+  expect(step('0|A', 'ver')).toBe('run')
+  last = '0|A'                                         // the answer for A came back
+  expect(step('0|A', 'ver')).toBe('skip')
+  expect(step('0|B', '  ')).toBe('clear')              // the want was emptied
+  expect(last).toBe('')
+  expect(step('0|A', 'ver')).toBe('run')               // typed back: never stuck on "Revisando…"
+  last = '0|A'
+  expect(step('1|A', 'ver')).toBe('run')               // the same story opened again: a new nonce
+})
+
+test('mergeDocSources: the files the linked pages cite join Toca once, marked as coming from the docs', () => {
+  const d = story({ touches: ['api:a.py'] })
+  const out = mergeDocSources(d, ['api:b.py', 'api:a.py', 'api:b.py'])
+  expect(out.touches).toEqual(['api:a.py', 'api:b.py'])
+  expect(out.fromDocs).toEqual(['api:b.py'])                 // already picked: not marked
+  expect(mergeDocSources(d, [])).toBe(d)
+  expect(mergeDocSources(d, undefined)).toBe(d)
+})
+
+test('escapeAborts: Escape while a suggestion runs only stops it; otherwise the page keeps the key', () => {
+  const ev = (key) => ({ key, stopped: 0, prevented: 0, stopPropagation() { this.stopped++ }, preventDefault() { this.prevented++ } })
+  let stops = 0
+  const esc = ev('Escape')
+  expect(escapeAborts(esc, true, () => stops++)).toBe(true)
+  expect([stops, esc.stopped, esc.prevented]).toEqual([1, 1, 1])
+  const idle = ev('Escape')
+  expect(escapeAborts(idle, false, () => stops++)).toBe(false)
+  const other = ev('Enter')
+  expect(escapeAborts(other, true, () => stops++)).toBe(false)
+  expect([stops, idle.stopped, other.stopped]).toEqual([1, 0, 0])
 })

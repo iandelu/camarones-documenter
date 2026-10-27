@@ -311,7 +311,7 @@ def test_item_returns_what_the_screen_needs(world):
     sid = out["story"]["id"]
     got = mod.item(sid.lower())
     assert set(got) == {"id", "title", "as_", "want", "so", "rest", "criteria", "touches", "epic", "priority", "docs",
-                        "subtasks", "sha"}
+                        "subtasks", "sha", "doc_sources"}
     assert got["id"] == sid and got["epic"] == epic and got["priority"] == "P1" and got["rest"] == ""
     assert (got["as_"], got["want"], got["so"]) == tuple(CLAUSES.values())
     assert got["criteria"] == [CRITERION] and got["touches"] == sorted([ORDERS, PAY]) and len(got["docs"]) == 1
@@ -365,3 +365,17 @@ def test_touches_the_filesystem_cannot_hold_are_board_errors(world):
         with pytest.raises(mod.BoardError):
             save(world, story(), [task(K1, "Uno", [touch])])
     assert tree(kit.root) == before
+
+
+def test_item_gives_the_files_its_linked_pages_cite(world):
+    """Spec §2: Toca starts from the `x-sources` of the doc pages the story links — real files only, as `repo:path`."""
+    kit, ops, mod, _ = world
+    web = f"api:{SRC}Web.java"
+    (kit.root / "docs" / "flows" / "checkout.md").write_text(
+        "---\ntitle: Checkout\nx-sources:\n"
+        f"  - {ORDERS}#place\n  - {ORDERS}\n  - repo://api/{SRC}Web.java\n  - api:{SRC}Gone.java\n"
+        f"  - nowhere:{SRC}Orders.java\n  - https://example.com/x\n  - api:{SRC}\n---\n# Checkout\n", encoding="utf-8")
+    sid = save(world, story(), two_tasks(), docs=["flows/checkout.md"])["story"]["id"]
+    assert mod.item(sid)["doc_sources"] == sorted([ORDERS, web])
+    bare = save(world, story(want="ver los pedidos"), [])["story"]["id"]
+    assert mod.item(bare)["doc_sources"] == []

@@ -58,7 +58,9 @@ export default function WriteStep({ draft, change, words, lang, epics, existing,
       </div>
       <TouchPicker touches={draft.touches} groups={draft.groups} label={t('stories.touches')} error={touchError}
                    describedBy={shown('touches').length ? `${id}-touches-h` : undefined}
-                   onChange={(touches, groups) => change((d) => ({ ...d, touches, groups: { ...d.groups, ...groups } }))} />
+                   fromDocs={(draft.fromDocs || []).filter((f) => draft.touches.includes(f))} onKeep={() => change({ fromDocs: [] })}
+                   onChange={(touches, groups) => change((d) => ({ ...d, touches, groups: { ...d.groups, ...groups },
+                     fromDocs: (d.fromDocs || []).filter((f) => touches.includes(f)) }))} />
       <Hints id={`${id}-touches-h`} hints={shown('touches')} />
       {onNext ? <button type="button" className="st-next" onClick={onNext}>{t('stories.next')}</button> : null}
     </section>
