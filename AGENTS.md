@@ -96,7 +96,7 @@ self-aware about being small.
 | Path | What |
 |---|---|
 | `.camarones/camarones.py` | entry point (uv inline script; its header lists runtime deps) |
-| `.camarones/lib/` | `common` (paths, versions, processes), `wizard`, `install`, `env`, `plan`, `docs`, `quality`, `quickarch`, `migrate`, `upgrade`, `uninstall`, `mcp`, `serve`, `install_state` (what the kit wrote on this machine: trust, drift, `repair`), `budget` (`doctor --context`), `history` (git mining), `removed`, `answers` (Ask's AI answer), `kitdev` (the desktop app's bench in a kit checkout: sandbox, pytest, npm, node --test), `machine` (settings, the Machine panel), `doctor` (prerequisites, pinned tools and drift as data, each with the command that fixes it; the last check kept for the app), `agents` (an interactive agent session on a unit or the docs update, in its own terminal window: the wizard and the desktop app), `catalog` (where each CLI command lives: portal / desktop app / CLI; `catalog --check` keeps it in sync with the parser), `exporters`, `review`, `hooks`… |
+| `.camarones/lib/` | `common` (paths, versions, processes), `wizard`, `install`, `env`, `plan`, `docs`, `quality`, `quickarch`, `migrate`, `upgrade`, `uninstall`, `mcp`, `serve`, `install_state` (what the kit wrote on this machine: trust, drift, `repair`), `budget` (`doctor --context`), `history` (git mining), `removed`, `answers` (Ask's AI answer), `guide` (the kit's guides, served to the app's Machine › Guide), `kitdev` (the desktop app's bench in a kit checkout: sandbox, pytest, npm, node --test), `machine` (settings, the Machine panel), `doctor` (prerequisites, pinned tools and drift as data, each with the command that fixes it; the last check kept for the app), `agents` (an interactive agent session on a unit or the docs update, in its own terminal window: the wizard and the desktop app), `catalog` (where each CLI command lives: portal / desktop app / CLI; `catalog --check` keeps it in sync with the parser), `exporters`, `review`, `hooks`… |
 | `.camarones/lib/harness/` | harness core ([RFC](docs/research/harness-refactor.md)): `ctx` (project paths as a value), `events` (run log), `ports` (adapter interfaces), `routing` (which runner does each tier), `pipeline` (YAML plans → units), `locks` (cross-process file locks: plan.yaml, wiki runs), `worktrees` (a unit's own cam-docs worktree in `<workspace>/.cw/<n>`), `integrate` (merge a unit's worktree back: main first into the branch, gates, then a merge that cannot conflict), `scheduler` (parallel runs: worktree units side by side, one in-place unit at a time, integration before dependents), `runs`/`kpis` (what runs did and cost, team roll-ups), `evals` (golden questions), `ab` (with vs without cam-docs), `drafts` (AI draft vs confirmed edits) |
 | `.camarones/lib/pipelines/` | the plans as data: `units.yaml` (unit types), `full.yaml`, `quick.yaml`; `plan.blueprint()` expands them |
 | `.camarones/lib/plugins/` | the kit's own plugins (`plugin.yaml` manifests, e.g. `gemini`); `harness/plugins.py` loads them and a project's `.camarones/plugins/` |
@@ -121,6 +121,10 @@ docs **in the same commit**:
 
 - `README.md` (Spanish): the feature description, commands and examples; the version badge when `VERSIONS["kit"]`
   changes.
+- The guides, in `en` and `es` (`templates/docs/guides/{using,app,portal,internals}.md` and their twins in
+  `templates/docs/i18n/es/guides/`): the app reads them in Machine › Guide, so a screen, button, view, endpoint or MCP
+  tool that changes changes there too. `tests/test_guide.py` checks their markers, links and that both languages match;
+  a step of the guided tour (`desktop/renderer/src/tour.js`) follows a `data-tour` target that moves.
 - The tutorial, in `es` and `en`:
   - `lib/tutorial.py` (the wizard's tutorial pages). Regenerate `.camarones/TUTORIAL.md` from it; `test_wizard.py`
     fails if they differ. From `.camarones/`:
