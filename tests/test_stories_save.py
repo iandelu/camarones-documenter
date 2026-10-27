@@ -92,6 +92,25 @@ def test_save_writes_a_dependent_task_after_what_it_needs(world):
     assert out["tasks"][0]["dependencies"] == [ids["Orders: cobrar"]]
 
 
+def test_a_code_order_cycle_broken_by_a_dropped_dependency_saves(world):
+    """Orders and Pay use each other: analyze proposes a cycle; the person drops one edge, and what is stored (Pay
+    waits for Orders) has no cycle, so the save goes through (spec §4.5)."""
+    from test_codemap import node, write_graph
+    kit = world[0]
+    write_graph(kit, graph={"built_at_commit": "abc1234",
+                            "nodes": [node("o", "Orders", SRC + "Orders.java", True),
+                                      node("p", "Pay", SRC + "Pay.java", True)],
+                            "links": [{"source": "o", "target": "p", "relation": "calls"},
+                                      {"source": "p", "target": "o", "relation": "calls"}]})
+    proposed = world[3].analyze(story(), [task(K1, "Orders: cobrar", [ORDERS]), task(K2, "Pay: cobrar", [PAY])],
+                                lang="es")
+    assert {K1, K2} <= set(proposed["cycle"])                           # the code order alone is a cycle
+    out = save(world, story(), [task(K1, "Orders: cobrar", [ORDERS]), task(K2, "Pay: cobrar", [PAY], deps=[K1])])
+    assert out["tasks"][1]["dependencies"] == [out["tasks"][0]["id"]] and out["tasks"][0]["dependencies"] == []
+    with pytest.raises(world[2].BoardError, match="wait on each other"):
+        save(world, story(), [task(K1, "Orders: b", [ORDERS], deps=[K2]), task(K2, "Pay: b", [PAY], deps=[K1])])
+
+
 def test_save_keeps_dependencies_on_existing_items(world):
     ops = world[1]
     other = ops.add("task", "Prerequisite")

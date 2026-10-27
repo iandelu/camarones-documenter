@@ -19,7 +19,7 @@ from .kanban import LOCK, PRIORITIES, deps, index, ops
 from .kanban.items import checklist, description
 from .kanban.ops import BoardError
 from .kanban.state import id_key
-from .stories import (Proposal, Story, TASK_TITLE_MAX, _clean, _code_groups, _done, _lang, _node, _touches, analyze,
+from .stories import (Proposal, Story, TASK_TITLE_MAX, _clean, _code_groups, _done, _lang, _node, _touches,
                       compose, fingerprint, invest, parse, title_for)
 
 _WIN_BAD = re.compile(r'[<>:"|?*]')
@@ -153,18 +153,13 @@ def _in_order(tasks: list[dict]) -> list[dict]:
     return ordered
 
 
-def _refuse_loops(story: Story, tasks: list[dict], lang: str) -> None:
-    """`analyze` on the tasks as given (their dependencies count as the person's own): a cycle among them, or two with
-    the same key, is refused."""
-    given = [{"key": t["key"], "title": t["title"], "touches": t["touches"], "criteria": t["criteria"], "kind": "change",
-              "group": "", "edited": True, "added": list(t["deps"]), "dropped": []} for t in tasks]
-    found = analyze(story, given, lang=lang)
+def _refuse_loops(tasks: list[dict]) -> None:
+    """A cycle among the dependencies that will be stored is refused. Only those count: a cycle the code order proposed
+    and the person broke by dropping a dependency is gone (spec §4.5). `_tasks_checked` already refused duplicate keys."""
     keys = {t["key"] for t in tasks}
-    cycle = [k for k in found["cycle"] if k in keys]
-    if cycle:
-        raise BoardError("the subtasks wait on each other: " + " -> ".join(cycle))
-    if found["duplicates"]:
-        raise BoardError("two subtasks have the same key: " + ", ".join(found["duplicates"]))
+    cycles = deps.sccs({t["key"]: [d for d in t["deps"] if d in keys] for t in tasks})
+    if cycles:
+        raise BoardError("the subtasks wait on each other: " + " -> ".join(cycles[0]))
 
 
 # ── save ─────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -213,7 +208,7 @@ def save(story: Story, *, title: str | None, tasks: Sequence[Proposal], base_sha
             checked = _tasks_checked(tasks, items, conn)
         finally:
             conn.close()
-        _refuse_loops({**story, "id": sid or None, "touches": footprint}, checked, lang)
+        _refuse_loops(checked)
 
         notes = ""
         if existing is not None:
