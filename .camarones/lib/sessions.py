@@ -21,8 +21,13 @@ TAIL = 256 * 1024               # how much of a transcript's end is read for its
 ARG_KEYS = ("file_path", "path", "command", "pattern", "url", "description")
 
 
+def slug(uid: str) -> str:
+    """A unit's id as a file name (`discovery:api` → `discovery_api`)."""
+    return "".join(c if c.isalnum() or c in "-_." else "_" for c in uid)
+
+
 def path(uid: str) -> Path:
-    return DIR / ("".join(c if c.isalnum() or c in "-_." else "_" for c in uid) + ".json")
+    return DIR / (slug(uid) + ".json")
 
 
 def load(uid: str) -> dict | None:
