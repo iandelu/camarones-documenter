@@ -3,21 +3,23 @@ confirmations, usefulness from usage. Runs are rolled up per person and machine 
 the usage stats, so the team's runs add up; `--compare` puts two runs side by side."""
 from __future__ import annotations
 
-import json, os, subprocess, sys
+import json, os, subprocess, sys, time
 
 import pytest
 
 
 def make_run(kit, run_id, units, wall, ts="2026-10-15T10:00:00.000Z"):
-    """units: (unit, runner, seconds, outcome, tokens_in, tokens_out, cost) — events spread over `wall` seconds."""
+    """units: (unit, runner, seconds, outcome, tokens_in, tokens_out, cost[, extra usage fields]) — events spread over
+    `wall` seconds; cost None leaves cost_usd out, as Codex does."""
     from lib.harness.events import EventLog
     log = EventLog(kit.common.CTX.runs / run_id / "events.jsonl")
     day, clock = ts[:10], 36000
     stamp = lambda s: f"{day}T{(clock + s) // 3600:02d}:{(clock + s) % 3600 // 60:02d}:{(clock + s) % 60:02d}.000Z"  # noqa: E731
     lines = [{"type": "run.started", "ts": stamp(0)}]
-    for u, runner, secs, outcome, tin, tout, cost in units:
-        lines += [{"type": "unit.started", "unit": u, "runner": runner, "isolation": "worktree", "ts": stamp(0)},
-                  {"type": "usage", "unit": u, "runner": runner, "in": tin, "out": tout, "cost_usd": cost, "ts": stamp(1)},
+    for u, runner, secs, outcome, tin, tout, cost, *extra in units:
+        usage = {"type": "usage", "unit": u, "runner": runner, "in": tin, "out": tout, "ts": stamp(1),
+                 **({} if cost is None else {"cost_usd": cost}), **(extra[0] if extra else {})}
+        lines += [{"type": "unit.started", "unit": u, "runner": runner, "isolation": "worktree", "ts": stamp(0)}, usage,
                   {"type": "unit.finished", "unit": u, "runner": runner, "outcome": outcome,
                    "status": "done" if outcome == "ok" else "todo", "seconds": secs, "ts": stamp(secs)}]
     done = sum(1 for x in units if x[3] == "ok")
@@ -105,3 +107,60 @@ def test_the_kpis_command(kit):
     assert "Cost and speed" in text and "Coverage" in text and "Trust" in text
     cmp = json.loads(cli("--compare", "r-20261015-100000-1", "r-20261016-100000-1", "--json").stdout)
     assert cmp["delta"]["seconds"] == -30
+
+
+def rollup(kit) -> dict:
+    files = list((kit.root / "docs" / ".work" / "kpis").glob("*.json"))
+    assert len(files) == 1
+    return json.loads(files[0].read_text(encoding="utf-8"))
+
+
+def test_a_run_is_kept_per_unit(kit, kpis):
+    make_run(kit, "r-20261015-100000-1", [("discovery:api", "codex:gpt-5.6-terra", 60, "ok", 1000, 100, None,
+                                           {"cache_read": 400}),
+                                          ("domain", "claude", 30, "ok", 10, 1, 0.25, {"cache_write": 7})], wall=60)
+    kpis.record_run("r-20261015-100000-1")
+    row = rollup(kit)["runs"]["r-20261015-100000-1"]
+    assert row["units"] == 2                                         # the old integer stays what it was
+    u = row["by_unit"]["discovery:api"]
+    assert (u["in"], u["out"], u["cache_read"], u["seconds"], u["cost_usd"], u["model"]) == \
+        (1000, 100, 400, 60, None, "gpt-5.6-terra")
+    d = row["by_unit"]["domain"]
+    assert (d["cache_write"], d["cost_usd"], d["model"], d["runner"]) == (7, 0.25, None, "claude")
+
+
+def test_a_unit_retried_after_a_limit_adds_its_attempts_up(kit, kpis):
+    make_run(kit, "r-20261015-100000-1", [("domain", "claude", 30, "limited", 10, 1, 0.1),
+                                          ("domain", "codex", 60, "ok", 20, 2, None)], wall=90)
+    u = kpis.run_metrics("r-20261015-100000-1")["by_unit"]["domain"]
+    assert (u["in"], u["out"], u["seconds"], u["cost_usd"]) == (30, 3, 90, 0.1)
+
+
+def test_an_old_rollup_entry_without_by_unit_still_adds_up(kit, kpis):
+    test_a_teammates_rollup_counts_too(kit, kpis)
+
+
+def test_recording_the_same_run_again_does_not_touch_the_file(kit, kpis):
+    make_run(kit, "r-20261015-100000-1", [("a", "claude", 60, "ok", 1, 1, 0.1)], wall=60)
+    kpis.record_run("r-20261015-100000-1")
+    f = next((kit.root / "docs" / ".work" / "kpis").glob("*.json"))
+    before = f.stat().st_mtime_ns
+    time.sleep(0.05)
+    kpis.record_run("r-20261015-100000-1")
+    assert f.stat().st_mtime_ns == before
+
+
+def test_update_rollup_reports_whether_it_wrote(kit, kpis):
+    assert kpis.update_rollup(lambda d: d.setdefault("sessions", {}).update({"s-1": {"unit": "domain"}})) is True
+    assert kpis.update_rollup(lambda d: d.setdefault("sessions", {}).update({"s-1": {"unit": "domain"}})) is False
+    assert rollup(kit)["sessions"]["s-1"]["unit"] == "domain" and rollup(kit)["v"] == 1
+    kit.usage.set_enabled(False)
+    assert kpis.update_rollup(lambda d: d.update(x=1)) is False
+
+
+def test_wiki_runs_are_not_the_plans_latest_run(kit):
+    from lib.harness import runs
+    make_run(kit, "r-20261015-100000-1", [("a", "claude", 1, "ok", 1, 1, 0.1)], wall=1)
+    make_run(kit, "r-20261015-110000-1-wiki-api", [("repo-wiki:api", "claude", 1, "ok", 1, 1, 0.1)], wall=1,
+             ts="2026-10-15T11:00:00.000Z")
+    assert runs.ids()[0].endswith("-wiki-api") and runs.ids(wiki=False)[0] == "r-20261015-100000-1"

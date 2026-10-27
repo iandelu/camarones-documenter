@@ -4,15 +4,17 @@ from __future__ import annotations
 import datetime as dt
 
 from ..common import CTX
+from . import routing
 from .events import EventLog
 
 MERGE = {"merge.ok": "merged", "merge.conflict": "conflict", "gate.failed": "gate-failed", "merge.blocked": "main-dirty"}
+WIKI = "-wiki-"                 # a wiki written by an agent runner: a run of its own, never the plan's latest run
 
 
-def ids() -> list[str]:
+def ids(wiki: bool = True) -> list[str]:
     """Run ids, newest first (they start with their date)."""
-    return sorted((d.name for d in CTX.runs.iterdir() if (d / "events.jsonl").is_file()), reverse=True) \
-        if CTX.runs.is_dir() else []
+    found = (d.name for d in CTX.runs.iterdir() if (d / "events.jsonl").is_file()) if CTX.runs.is_dir() else ()
+    return sorted((r for r in found if wiki or WIKI not in r), reverse=True)
 
 
 def events(run_id: str) -> list[dict]:
@@ -49,14 +51,19 @@ def detail(run_id: str) -> dict:
         if e["type"] == "unit.started":
             open_[uid] = {"unit": uid, "runner": e.get("runner"), "isolation": e.get("isolation"), "outcome": None,
                           "status": None, "seconds": None, "merge": None, "tokens_in": 0, "tokens_cache": 0,
-                          "tokens_out": 0,
+                          "tokens_out": 0, "cache_read": 0, "cache_write": 0,
+                          "model": routing.parse(e.get("runner") or "").model, "cost_reported": False,
                           "cost_usd": 0.0}
             rows.append(open_[uid])
         elif e["type"] == "usage" and uid in open_:
             r = open_[uid]
             r["tokens_in"] += e.get("in", 0)
             r["tokens_cache"] += e.get("cache_read", 0) + e.get("cache_write", 0)
+            r["cache_read"] += e.get("cache_read", 0)
+            r["cache_write"] += e.get("cache_write", 0)
             r["tokens_out"] += e.get("out", 0)
+            r["model"] = e.get("model") or r["model"]
+            r["cost_reported"] = r["cost_reported"] or e.get("cost_usd") is not None
             r["cost_usd"] = round(r["cost_usd"] + (e.get("cost_usd") or 0), 6)
         elif e["type"] == "unit.finished" and uid in open_:
             open_[uid].update(outcome=e.get("outcome"), status=e.get("status"), seconds=e.get("seconds"))

@@ -93,3 +93,26 @@ def test_outside_a_run_nothing_is_recorded(kit, monkeypatch):
     monkeypatch.setattr(kit.plan.subprocess, "Popen", FakeProc)
     kit.plan._run_agent("claude", "do it", "en", "discovery:api", echo=lambda _: None)
     assert not list(kit.common.CTX.runs.glob("*/events.jsonl"))
+
+
+def test_the_usage_event_names_the_routes_model(kit, monkeypatch):
+    from lib.adapters.runners import base
+    from lib.harness.events import EventLog
+    line = {"type": "result", "result": "ok", "usage": {"input_tokens": 10, "output_tokens": 2}}
+
+    class FakeProc:
+        def __init__(self, cmd, **kw):
+            self.stdout = io.StringIO(json.dumps(line) + "\n")
+
+        def wait(self):
+            return 0
+
+        def poll(self):
+            return 0
+    monkeypatch.setattr(base, "which", lambda name: f"/bin/{name}")
+    monkeypatch.setattr(kit.plan.subprocess, "Popen", FakeProc)
+    log = EventLog(kit.root / "events.jsonl")
+    with kit.plan.recording(log, "r-test"):
+        kit.plan._run_agent("claude:sonnet", "do it", "en", "domain", echo=lambda _: None)
+    usage = next(e for e in log.read()[0] if e["type"] == "usage")
+    assert usage["model"] == "sonnet" and usage["runner"] == "claude:sonnet"
