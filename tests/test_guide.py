@@ -124,3 +124,27 @@ def test_projects_get_the_guides_without_overwriting(kit):
     env.init_templates("shop", log=lambda _: None)
     assert mine.is_file()
     assert portal.read_text(encoding="utf-8") == "# Our own notes\n"
+
+
+def test_spanish_twins_mirror_the_english_guides(kit):
+    from lib import docs, guide
+    for name in guide.ORDER:
+        en = GUIDES / "guides" / f"{name}.md"
+        es = GUIDES / "i18n" / "es" / "guides" / f"{name}.md"
+        assert es.is_file(), name
+        if name == "tutorial":
+            continue                                   # the command guide's twins predate this check
+        shape = lambda f: [h["level"] for h in docs.headings(docs.split_fm(f.read_text(encoding="utf-8"))[1]) if h["level"] in (2, 3)]
+        marks = lambda f: MARKER.findall(f.read_text(encoding="utf-8"))
+        assert shape(es) == shape(en), name
+        assert marks(es) == marks(en), name
+        assert docs.split_fm(es.read_text(encoding="utf-8"))[0]["title"] != docs.split_fm(en.read_text(encoding="utf-8"))[0]["title"], name
+
+
+def test_projects_get_the_spanish_guides_too(kit):
+    from lib import env
+    es = kit.root / "docs" / "i18n" / "es" / "guides" / "using.md"
+    if es.exists():
+        es.unlink()
+    env.init_templates("shop", log=lambda _: None)
+    assert es.is_file()
