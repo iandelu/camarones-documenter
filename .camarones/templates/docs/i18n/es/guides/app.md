@@ -220,7 +220,9 @@ detalle: fase, quién la hace, su repo, de qué depende, sus notas y, con su ter
 **El lienzo.** La tercera vista, junto a Tablero y Fases: las unidades como un grafo con sus dependencias. Mientras
 corre una ejecución (el piloto automático o **Ejecutar las listas**), cada unidad en la que trabaja un agente se abre en
 su nodo como una **terminal de solo lectura** con lo que hace, línea a línea (✎ edita, ⌕ lee o busca, ▶ ejecuta, »
-dice, ✕ falla), el agente, el tiempo que lleva y el coste. Unos 4 segundos después de acabar vuelve a una tarjeta
+dice, ✕ falla), el agente, el tiempo que lleva y el coste. Su cabecera dice **hecha** solo cuando el plan la tiene
+hecha: una cuyo agente terminó sin acabarla dice cómo la tiene el plan (por hacer, en pausa, bloqueada, espera tu
+aprobación), y una que no pudo empezar dice por qué. Unos 4 segundos después de acabar vuelve a una tarjeta
 compacta con su tiempo y su coste (**Ver terminal** la reabre); una que falla conserva su terminal. Si subes dentro de
 una terminal, deja de seguir el final hasta que pulses **Ir al final**; **⤢** la maximiza y Escape vuelve al lienzo.
 **Encajar** enmarca cada terminal abierta (todas las unidades si no hay ninguna), **Reordenar** devuelve todo el lienzo

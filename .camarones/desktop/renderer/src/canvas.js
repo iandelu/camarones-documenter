@@ -46,16 +46,18 @@ export function row(ev) {
 export const emptyFeed = (run) => ({ run, finished: false, units: {} })
 
 const ms = (ts) => Date.parse(ts) || 0
-const fresh = (ts) => ({ runner: null, started: ms(ts), ended: null, outcome: null, cost: 0, rows: [] })
+// `status` is the plan's status of the unit when it ended: `ok` only says its agent exited 0.
+const fresh = (ts) => ({ runner: null, started: ms(ts), ended: null, outcome: null, status: null, cost: 0, rows: [] })
 const append = (u, rows) => (rows.length ? { ...u, rows: [...u.rows, ...rows].slice(-MAX_ROWS) } : u)
 
 function step(u, ev, known) {
   switch (ev.type) {
     case 'unit.started': {
       const took = known && ev.runner ? [{ kind: 'log', text: `— ${ev.runner}` }] : []
-      return { ...append(u, took), runner: ev.runner ?? null, ended: null, outcome: null }
+      return { ...append(u, took), runner: ev.runner ?? null, ended: null, outcome: null, status: null }
     }
-    case 'unit.finished': return { ...u, ended: ms(ev.ts), outcome: ev.outcome ?? null }
+    case 'unit.finished':
+      return { ...append(u, textRows('error', ev.error)), ended: ms(ev.ts), outcome: ev.outcome ?? null, status: ev.status ?? null }
     case 'usage': return { ...u, cost: u.cost + (Number(ev.cost_usd) || 0) }
     default: return append(u, row(ev))
   }

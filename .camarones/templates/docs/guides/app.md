@@ -214,7 +214,9 @@ or that it is waiting for you). The detail's button moves it:
 **The canvas.** The third view, beside Board and Phases: the units as a graph with their dependencies. While a run is
 on (the autopilot or **Run the ready ones**), each unit an agent works on opens in its node as a **read-only terminal**
 with what it does, line by line (✎ edits, ⌕ reads or searches, ▶ runs, » says, ✕ fails), its agent, the time it has
-taken and its cost. About 4 seconds after it ends it folds back into a compact card with its time and cost (**View
+taken and its cost. Its header says **done** only when the plan has the unit done: a unit whose agent ended without
+finishing it says where the plan has it (to do, paused, blocked, awaits your approval), and one that could not start
+says why. About 4 seconds after it ends it folds back into a compact card with its time and cost (**View
 terminal** opens it again); a failed unit keeps its terminal. Scroll up inside a terminal and it stops following the
 end until you press **Jump to the end**; **⤢** maximises it and Escape goes back to the canvas. **Fit** frames every
 open terminal (every unit when none is open), **Re-layout** puts the whole canvas back in its automatic layout, and the
