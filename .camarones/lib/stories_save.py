@@ -162,15 +162,49 @@ def _refuse_loops(tasks: list[dict]) -> None:
         raise BoardError("the subtasks wait on each other: " + " -> ".join(cycles[0]))
 
 
+def _norm_set(refs) -> list[str]:
+    out = set()
+    for ref in refs or ():
+        try:
+            out.add(deps.norm_touch(str(ref), fold=False))
+        except ValueError:
+            out.add(str(ref).strip())                     # compared as given: a bad entry is still a difference
+    return sorted(out)
+
+
+def _unchanged_or_mine(sid: str, existing, title: str | None, footprint: list[str], base_title: str | None,
+                       base_touches: Sequence[str] | None) -> tuple[str | None, list[str] | None]:
+    """(title, touches) to write on an existing story: None for a field the person did not change against its base (the
+    disk value stays, whoever changed it), the person's value for one they changed. A field they changed whose disk
+    value is no longer its base is a `StoryConflict`. Without a base, the field is written as given (older callers)."""
+    if base_title is not None:
+        mine = title is not None and _clean(title) != _clean(base_title)
+        if mine and _clean(existing.title) != _clean(base_title):
+            raise StoryConflict(sid)
+        title = title if mine else None
+    touches: list[str] | None = footprint
+    if base_touches is not None:
+        base = _norm_set(base_touches)
+        mine = _norm_set(footprint) != base
+        if mine and _norm_set(ops._as_list(existing.fm.get("x-touches"))) != base:
+            raise StoryConflict(sid)
+        touches = footprint if mine else None
+    return title, touches
+
+
 # ── save ─────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 def save(story: Story, *, title: str | None, tasks: Sequence[Proposal], base_sha: str | None, docs: Sequence[str] = (),
-         lang: str, by: str | None = None, surface: str = "cli") -> dict:
+         lang: str, by: str | None = None, surface: str = "cli", base_title: str | None = None,
+         base_touches: Sequence[str] | None = None) -> dict:
     """Write the story (new when `story["id"]` is empty) and its approved subtasks. `title` None keeps an existing
     story's title and makes a new one from the want. `base_sha` is the fingerprint `item()` gave when the person opened
     the story: if the clauses on disk have changed since and are not the ones being saved, `StoryConflict`. An existing
     story's text becomes the new clauses followed by the notes it already had; criteria it does not have yet are appended
     (existing ones keep their numbers); its footprint is replaced by `story["touches"]`; its epic is not moved here.
+    `base_title` and `base_touches` are the title and footprint as the person loaded them: when given, an existing
+    story's field is written only if the person changed it, so a change someone else made meanwhile is not reverted;
+    a field both changed is a `StoryConflict`.
     Dependencies of a subtask are keys of the subtasks in this call or ids of items on the board. Returns
     `{"story": row, "tasks": [row…]}`, the rows in the order of `tasks`. Any problem is a `BoardError` and nothing is
     written."""
@@ -210,13 +244,14 @@ def save(story: Story, *, title: str | None, tasks: Sequence[Proposal], base_sha
             conn.close()
         _refuse_loops(checked)
 
-        notes = ""
+        notes, footprint_out = "", footprint
         if existing is not None:
             current = parse(description(existing.body), lang)
             before = fingerprint(current["as_"], current["want"], current["so"])
             if before != base_sha and before != fingerprint(as_, want, so):
                 raise StoryConflict(sid)
             notes = current["rest"]
+            title, footprint_out = _unchanged_or_mine(sid, existing, title, footprint, base_title, base_touches)
         text = compose(as_, want, so, lang) + ("\n\n" + notes if notes else "")
         have = {" ".join(c["text"].split()).casefold() for c in checklist(existing.body, "AC")} if existing else set()
         criteria: list[str] = []
@@ -240,7 +275,7 @@ def save(story: Story, *, title: str | None, tasks: Sequence[Proposal], base_sha
             ids[t["key"]] = rows[t["key"]]["id"]
         if existing is not None:
             retitle = title.strip() if title is not None and title.strip() != existing.title else None
-            head = ops.update_item(sid, title=retitle, description=text, add_criteria=criteria, touches=footprint,
+            head = ops.update_item(sid, title=retitle, description=text, add_criteria=criteria, touches=footprint_out,
                                    docs=docs, by=by, surface=surface)
     return {"story": head, "tasks": [rows[t["key"]] for t in checked]}
 

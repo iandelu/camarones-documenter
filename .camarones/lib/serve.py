@@ -923,8 +923,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json(stories.analyze(story, tasks, lang=lang, removed=removed))
             by = (_text(b, "by") or "").strip() or None
             base_sha, docs_refs, title = _text(b, "base_sha") or None, _doc_refs(b), _text(b, "title")
+            base_title = _text(b, "base_title")
+            base_touches = None if b.get("base_touches") is None else _text_list(b, "base_touches")
             return self.json(stories_save.save(story, title=title, tasks=tasks, base_sha=base_sha, docs=docs_refs,
-                                               lang=lang, by=by, surface="app" if self.is_app() else "portal"))
+                                               lang=lang, by=by, surface="app" if self.is_app() else "portal",
+                                               base_title=base_title, base_touches=base_touches))
         except stories_save.StoryConflict as e:
             self.json({"error": str(e), "id": e.story_id}, 409)
         except ValueError as e:               # BoardError is a ValueError
@@ -1074,9 +1077,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json({"error": str(e)}, 400)
         if name == "stories":
             from . import kanban, stories, stories_ai, stories_save
+            from .kanban.index import DOCS_REPO
             return self.json({"enabled": kanban.enabled(), "writable": self.can_write(),
                               "ai": stories_ai.status(),
                               "lint_words": {lg: stories.lint_words(lg) for lg in ("es", "en")},
+                              "repos": sorted(docs.repo_names()) + [DOCS_REPO],   # Toca's new-file prefixes
                               "stories": stories_save.list_stories() if kanban.enabled() else []})
         if name == "stories/item":
             from . import stories_save

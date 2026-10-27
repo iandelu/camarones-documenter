@@ -13,7 +13,7 @@ function Hints({ id, hints }) {
   return <ul id={id} className="st-hints">{hints.map((h) => <li key={h.code}>{t(`stories.hint.${h.code}`)}</li>)}</ul>
 }
 
-export default function WriteStep({ draft, change, words, lang, epics, existing, touchError, ai, aiOn, onNext }) {
+export default function WriteStep({ draft, change, words, lang, epics, existing, touchError, ai, aiOn, onNext, repos }) {
   const id = useId()
   const hints = lint(draft.as, draft.want, draft.so, lang, words, draft.touches)
   const on = (field) => hints.filter((h) => h.field === field || (field === 'so' && h.field === 'story'))
@@ -56,7 +56,7 @@ export default function WriteStep({ draft, change, words, lang, epics, existing,
           {existing ? <p id={`${id}-epic-n`} className="muted small">{t('stories.epic.fixed')}</p> : null}
         </div>
       </div>
-      <TouchPicker touches={draft.touches} groups={draft.groups} label={t('stories.touches')} error={touchError}
+      <TouchPicker touches={draft.touches} groups={draft.groups} label={t('stories.touches')} error={touchError} repos={repos}
                    describedBy={shown('touches').length ? `${id}-touches-h` : undefined}
                    fromDocs={(draft.fromDocs || []).filter((f) => draft.touches.includes(f))} onKeep={() => change({ fromDocs: [] })}
                    onChange={(touches, groups) => change((d) => ({ ...d, touches, groups: { ...d.groups, ...groups },

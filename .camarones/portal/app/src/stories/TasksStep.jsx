@@ -72,7 +72,7 @@ function Row({ task, n, tasks, unknown, change, onEnter }) {
   )
 }
 
-function AddTask({ change, groups, onDone }) {
+function AddTask({ change, groups, onDone, repos }) {
   const id = useId()
   const [title, setTitle] = useState('')
   const [touches, setTouches] = useState([])
@@ -87,7 +87,7 @@ function AddTask({ change, groups, onDone }) {
       <label htmlFor={`${id}-t`}>{t('stories.add.title')}</label>
       <input id={`${id}-t`} autoFocus value={title} maxLength={120} onChange={(e) => setTitle(e.target.value)}
              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); ok() } if (e.key === 'Escape') onDone() }} />
-      <TouchPicker touches={touches} groups={{ ...groups, ...more }} label={t('stories.touches')}
+      <TouchPicker touches={touches} groups={{ ...groups, ...more }} label={t('stories.touches')} repos={repos}
                    onChange={(next, g) => { setTouches(next); setMore((m) => ({ ...m, ...g })) }} />
       {!touches.length ? <p className="st-warn small">{t('stories.task.nofiles')}</p> : null}
       <div className="row">
@@ -98,7 +98,7 @@ function AddTask({ change, groups, onDone }) {
   )
 }
 
-export default function TasksStep({ draft, change, analysis, ai, aiOn }) {
+export default function TasksStep({ draft, change, analysis, ai, aiOn, repos }) {
   const id = useId()
   const list = useRef(null)
   const [adding, setAdding] = useState(false)
@@ -121,7 +121,7 @@ export default function TasksStep({ draft, change, analysis, ai, aiOn }) {
           ))}
         </ol>
       ) : <p className="muted">{t('stories.tasks.none')}</p>}
-      {adding ? <AddTask change={change} groups={draft.groups} onDone={() => setAdding(false)} />
+      {adding ? <AddTask change={change} groups={draft.groups} repos={repos} onDone={() => setAdding(false)} />
         : <button type="button" className="ghost small" onClick={() => setAdding(true)}>+ {t('stories.add')}</button>}
       <Suggest ai={ai} what="tasks" on={aiOn} onAccept={(x) => change((d) => ({ ...d, tasks: addTask(d.tasks, x.title, x.touches || []) }))} />
       {existing.length ? (
