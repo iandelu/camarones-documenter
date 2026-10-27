@@ -39,3 +39,9 @@ test.each(['.dk-top', '.dk-titlebar'])('%s is the window\'s title bar', (sel) =>
   expect(noDrag?.[1]).toContain('button')
   expect(noDrag?.[2]).toMatch(/-webkit-app-region:\s*no-drag/)
 })
+
+// The Board takes the whole window, however wide, and its columns reach the bottom of it.
+test('a full page has no width cap and fills the height', () => {
+  expect(rule('.dk-page.full')).toMatch(/max-width:\s*none/)
+  expect(rule('.dk-page.full')).toMatch(/min-height:\s*100%/)
+})
