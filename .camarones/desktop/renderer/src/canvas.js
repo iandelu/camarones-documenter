@@ -46,9 +46,12 @@ export function row(ev) {
 export const emptyFeed = (run) => ({ run, finished: false, units: {} })
 
 const ms = (ts) => Date.parse(ts) || 0
-// `status` is the plan's status of the unit when it ended: `ok` only says its agent exited 0.
-const fresh = (ts) => ({ runner: null, started: ms(ts), ended: null, outcome: null, status: null, cost: 0, rows: [] })
-const append = (u, rows) => (rows.length ? { ...u, rows: [...u.rows, ...rows].slice(-MAX_ROWS) } : u)
+// `status` is the plan's status of the unit when it ended: `ok` only says its agent exited 0. Each row gets the unit's
+// next `seq`, its key once the cap drops the oldest rows.
+const fresh = (ts) => ({ runner: null, started: ms(ts), ended: null, outcome: null, status: null, cost: 0, rows: [], next: 0 })
+const append = (u, rows) => (rows.length
+  ? { ...u, next: u.next + rows.length, rows: [...u.rows, ...rows.map((r, i) => ({ ...r, seq: u.next + i }))].slice(-MAX_ROWS) }
+  : u)
 
 function step(u, ev, known) {
   switch (ev.type) {
