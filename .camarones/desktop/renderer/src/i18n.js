@@ -310,6 +310,16 @@ export const S = {
     'bd.delete': 'Eliminar', 'bd.deleteAsk': '¿Eliminar {id} del tablero? Su fichero pasa a backlog/archive/tasks.',
     'bd.deleteAskKids': '¿Eliminar {id} del tablero? Su fichero pasa a backlog/archive/tasks; sus tareas se quedan en el tablero.',
     'bd.deleted': '{id} eliminada del tablero.', 'bd.deleteFailed': 'No se ha eliminado',
+    // the guide (sections/Guide.jsx, guide.js): the kit's guides, read in the app
+    'nav.guide': 'Guía', 'pal.guide': 'Guía', 'gd.title': 'Guía',
+    'gd.lead': 'Cómo se usa Camarón, cada pantalla de la app y del portal y cómo funciona por dentro. Los botones te llevan a lo que se explica.',
+    'gd.search': 'Buscar en las guías', 'gd.searchPh': 'Una palabra: token, tablero, MCP…', 'gd.none': 'Nada coincide. Prueba con otra palabra.',
+    'gd.results': '{n} sitios', 'gd.failed': 'No he podido leer las guías', 'gd.empty': 'Esta versión del kit no trae guías.',
+    'gd.index': 'Capítulos', 'gd.copy': 'Copiar', 'gd.copied': 'Copiado', 'gd.go': 'Ir a {s}', 'gd.cmd': 'Abrir camaron {c}',
+    'gd.portal': 'Abrir en el portal', 'gd.tour': 'Enséñamelo', 'gd.note': 'Nota', 'gd.tip': 'Consejo', 'gd.important': 'Importante',
+    'gd.warning': 'Aviso', 'gd.caution': 'Precaución',
+    'mc.guide': 'Guía y recorrido', 'mc.guideOpen': 'Abrir la guía',
+    'mc.guideBody': 'Tu becario gamba lo ha dejado todo por escrito: cómo se usa, cada sección de esta app, cada vista del portal y cómo funciona por dentro (API, MCP, plan).',
   },
   en: {
     'nav.summary': 'Summary', 'nav.plan': 'Plan', 'nav.interviews': 'Interviews', 'nav.team': 'Team',
@@ -619,6 +629,15 @@ export const S = {
     'bd.delete': 'Delete', 'bd.deleteAsk': 'Delete {id} from the board? Its file moves to backlog/archive/tasks.',
     'bd.deleteAskKids': 'Delete {id} from the board? Its file moves to backlog/archive/tasks; its tasks stay on the board.',
     'bd.deleted': '{id} deleted from the board.', 'bd.deleteFailed': 'It was not deleted',
+    'nav.guide': 'Guide', 'pal.guide': 'Guide', 'gd.title': 'Guide',
+    'gd.lead': 'How to use Camarón, every screen of the app and the portal, and how it works inside. The buttons take you to what is explained.',
+    'gd.search': 'Search the guides', 'gd.searchPh': 'A word: token, board, MCP…', 'gd.none': 'Nothing matches. Try another word.',
+    'gd.results': '{n} places', 'gd.failed': 'I could not read the guides', 'gd.empty': 'This version of the kit ships no guides.',
+    'gd.index': 'Chapters', 'gd.copy': 'Copy', 'gd.copied': 'Copied', 'gd.go': 'Go to {s}', 'gd.cmd': 'Open camaron {c}',
+    'gd.portal': 'Open in the portal', 'gd.tour': 'Show me', 'gd.note': 'Note', 'gd.tip': 'Tip', 'gd.important': 'Important',
+    'gd.warning': 'Warning', 'gd.caution': 'Caution',
+    'mc.guide': 'Guide and tour', 'mc.guideOpen': 'Open the guide',
+    'mc.guideBody': 'Your intern shrimp wrote it all down: how to use it, every section of this app, every view of the portal and how it works inside (API, MCP, plan).',
   },
 }
 

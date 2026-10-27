@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { chapters, guideAt, guideHref, inline, linkTarget, parse, searchGuides, slug } from './guide.js'
+import { chapters, guideAt, guideEntries, guideHref, inline, linkTarget, parse, searchGuides, slug } from './guide.js'
 
 const SAMPLE = [
   '# The app',
@@ -109,4 +109,11 @@ test('search never throws on regex characters and ignores one-letter queries', (
 test('search returns at most 20 places', () => {
   const md = Array.from({ length: 30 }, (_, i) => `## Step ${i}\n\nshrimp here`).join('\n\n')
   expect(searchGuides([{ name: 'x', title: 'X', blocks: parse(md) }], 'shrimp')).toHaveLength(20)
+})
+
+test('every chapter of every guide is a palette entry that opens it', () => {
+  expect(guideEntries(GUIDES)).toEqual([
+    { id: 'guide:app/the-window', label: 'The window', sub: 'The app', href: '#/guide/app/the-window' },
+    { id: 'guide:portal/tokens', label: 'Tokens', sub: 'The portal', href: '#/guide/portal/tokens' },
+  ])
 })

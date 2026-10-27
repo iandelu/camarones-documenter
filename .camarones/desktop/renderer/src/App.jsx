@@ -4,6 +4,7 @@ import { START, firstRunRoute, initials, sectionOf, sections } from './nav.js'
 import { jobsStore } from './jobs.js'
 import { chord, entries, keyFor, typing } from './palette.js'
 import { portalUrl } from './docs.js'
+import { guideEntries } from './guide.js'
 import { server } from './server.js'
 import { useHash, useStore } from './hooks.js'
 import { Failed } from './parts.jsx'
@@ -13,6 +14,7 @@ import Palette from './Palette.jsx'
 import Board from './sections/Board.jsx'
 import { catalog } from './sections/Commands.jsx'
 import Docs from './sections/Docs.jsx'
+import Guide, { loadGuides } from './sections/Guide.jsx'
 import Interviews from './sections/Interviews.jsx'
 import KitDev from './sections/KitDev.jsx'
 import Libs from './sections/Libs.jsx'
@@ -52,6 +54,7 @@ function Project({ app }) {
   const [status, setStatus] = useState('')
   const [palette, setPalette] = useState(false)
   const [commands, setCommands] = useState([])
+  const [guide, setGuide] = useState([])
   const srv = useMemo(() => server(app.token), [])
   const jobs = useMemo(() => jobsStore(srv.get), [])           // one for the window: it outlasts the sections
   const { running } = useStore(jobs)
@@ -92,7 +95,11 @@ function Project({ app }) {
     addEventListener('keydown', on)
     return () => removeEventListener('keydown', on)
   }, [kitdev])
-  useEffect(() => { if (palette) catalog(srv).then((c) => setCommands(c.commands), () => {}) }, [palette])
+  useEffect(() => {
+    if (!palette) return
+    catalog(srv).then((c) => setCommands(c.commands), () => {})
+    loadGuides(srv).then((g) => setGuide(guideEntries(g)), () => {})
+  }, [palette])
   const onPick = (it) => {
     if (it.project) projects.open(it.project)
     else if (it.action === 'add') app.hub?.()
@@ -119,7 +126,7 @@ function Project({ app }) {
           onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); app.menu(r.left, r.bottom) }}>⋯</button>}
       </header>
       <Palette open={palette} onClose={() => setPalette(false)} onPick={onPick}
-        groups={entries({ sections: all, projects: projects.list, commands, t, lang: lang() })} />
+        groups={entries({ sections: all, projects: projects.list, commands, guide, t, lang: lang() })} />
       {full ? null : <>
         <Rail app={app} projects={projects} />
         <nav className="dk-side" aria-label={t('nav.project')}>
@@ -131,7 +138,7 @@ function Project({ app }) {
       </>}
       <main className="dk-main" id="main" tabIndex={-1}>
         {error && <Failed title={t('project.failed')} detail={error} onRetry={() => { setError(''); open() }} />}
-        {!index && !error ? <Skeleton lines={4} /> : <Section here={here} srv={srv} jobs={jobs} app={app} index={index} />}
+        {!index && !error ? <Skeleton lines={4} /> : <Section here={here} srv={srv} jobs={jobs} app={app} index={index} sections={all} />}
       </main>
       <JobsPanel srv={srv} jobs={jobs} />
       <footer className="dk-status">
@@ -175,7 +182,7 @@ function Rail({ app, projects: { list, busy, open } }) {
 }
 
 const SECTIONS = { summary: Summary, board: Board, plan: Plan, interviews: Interviews, team: Team, quality: Quality, libs: Libs, docs: Docs, machine: Machine,
-  kitdev: KitDev, start: Start }
+  guide: Guide, kitdev: KitDev, start: Start }
 function Section({ here, ...props }) {
   const View = SECTIONS[here]
   return <View key={here} {...props} />
