@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { applyTheme } from './theme.js'
+import { applyTheme, currentTheme } from './theme.js'
 
 const fakeWindow = ({ pick = '', systemDark = false } = {}) => {
   const said = []
@@ -33,4 +33,17 @@ test('with nothing picked, the system decides and no theme is forced', () => {
 test('no storage (private mode) and no bridge (a browser) still work', () => {
   const w = { ...fakeWindow(), localStorage: { getItem: () => { throw new Error('denied') } }, camaronApp: undefined }
   expect(applyTheme(w)).toBe('light')
+})
+
+// What the canvas (and anything else drawn by a library) must follow: the same answer applyTheme gives, without
+// touching the page.
+test('the current theme is the picked one, else the system\'s, and nothing on the page changes', () => {
+  expect(currentTheme(fakeWindow({ pick: 'light', systemDark: true }))).toBe('light')
+  expect(currentTheme(fakeWindow({ pick: 'dark', systemDark: false }))).toBe('dark')
+  expect(currentTheme(fakeWindow({ systemDark: true }))).toBe('dark')
+  expect(currentTheme(fakeWindow({ pick: 'sepia' }))).toBe('light')
+  const w = fakeWindow({ pick: 'dark' })
+  currentTheme(w)
+  expect(w.dataset.theme).toBeUndefined()
+  expect(w.said).toEqual([])
 })

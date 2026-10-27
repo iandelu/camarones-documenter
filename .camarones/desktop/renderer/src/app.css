@@ -306,6 +306,10 @@ a.dk-stat-n:hover { color: var(--color-acento-texto); }
 .dk-cv { display: grid; gap: .5rem; min-width: 0; }
 .dk-canvas { position: relative; height: calc(100vh - 18rem); min-height: 28rem; overflow: hidden;
              border: 1px solid var(--color-rule); border-radius: var(--consola-radio-tarjeta); }
+/* React Flow's own colours come from its light/dark classes; these variables are what it reads first, so the app's
+   tokens (its picked theme included) draw the background, the grid and the edges in both themes. */
+.dk-canvas .react-flow { --xy-background-color: var(--color-canvas); --xy-background-pattern-color: color-mix(in srgb, var(--color-ink-dim) 35%, transparent);
+                         --xy-edge-stroke: var(--color-ink-dim); --xy-edge-stroke-selected: var(--color-ink); }
 .dk-cv-handle { opacity: 0; pointer-events: none; }
 .dk-canvas .react-flow__node.selectable:focus-visible { outline: 2px solid var(--color-acento-texto); outline-offset: 3px; }
 .dk-cv-unit { position: relative; width: 200px; height: 64px; min-height: 0; padding: .3rem .5rem .3rem .6rem; }

@@ -5,6 +5,7 @@ import { Background, Handle, Position, ReactFlow, ReactFlowProvider, useNodeId, 
 import '@xyflow/react/dist/style.css'
 import { Button, fmtDuration, money } from '@camaron/ui'
 import { atBottom, emptyFeed, feed, followRun, GLYPH, layout, neighbour, openUnits, place } from '../canvas.js'
+import { useTheme } from '../hooks.js'
 import { t } from '../i18n.js'
 import { tone } from '../plan.js'
 
@@ -121,6 +122,7 @@ const toggled = (ids, id) => {
 
 function Flow({ srv, units, run, pilot, onOpen }) {
   const f = useRunFeed(srv, run)
+  const theme = useTheme()
   const rf = useReactFlow()
   const frame = useRef(null)
   const back = useRef(null)
@@ -139,7 +141,8 @@ function Flow({ srv, units, run, pilot, onOpen }) {
     const open = openUnits(units, f, viewed, now)
     const laid = layout(units, open)
     const placed = place(laid.nodes, { ...saved, ...drag })
-    return { edges: laid.edges, nodes: placed.map((n) => ({ ...n, ariaLabel: n.data.unit.title, data: dataOf(n.data.unit) })) }
+    const sized = placed.map((n) => ({ ...n, measured: { width: n.width, height: n.height }, ariaLabel: n.data.unit.title, data: dataOf(n.data.unit) }))
+    return { edges: laid.edges, nodes: sized }
   }, [units, f, viewed, now, saved, drag, onOpen, onView])
   const opened = nodes.filter((n) => n.type === 'term')
   const ticking = live || opened.length > 0 || Boolean(maxed)
@@ -215,7 +218,7 @@ function Flow({ srv, units, run, pilot, onOpen }) {
       </div>
       <div ref={frame} className="dk-canvas">
         <ReactFlow nodes={nodes} edges={edges} nodeTypes={NODE_TYPES} onNodesChange={onNodesChange} onNodeDragStop={onNodeDragStop}
-          colorMode="system" fitView fitViewOptions={FIT} minZoom={0.2} nodesConnectable={false} edgesFocusable={false}
+          colorMode={theme} fitView fitViewOptions={FIT} minZoom={0.2} nodesConnectable={false} edgesFocusable={false}
           disableKeyboardA11y proOptions={{ hideAttribution: true }} aria-label={t('cv.label')} inert={maxed ? true : undefined}>
           <Background gap={24} size={1} />
         </ReactFlow>
