@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Aviso, Button, Chip } from '@camaron/ui'
+import { Aviso, Button, Chip, Thinking } from '@camaron/ui'
 import { shape } from '@camaron/ui/result.js'
 import { chip, state } from './jobs.js'
 import { useCmd } from './hooks.js'
@@ -37,13 +37,19 @@ export function Fold({ label, children, open = false }) {
   )
 }
 
+// A job's state as a chip; while it runs the word shimmers (Thinking), so a long job reads as at work, not stuck.
+export function JobChip({ job }) {
+  const word = t('job.' + state(job))
+  return <Chip state={chip(job)}>{state(job) === 'running' ? <Thinking>{word}</Thinking> : word}</Chip>
+}
+
 // A command's outcome under its panel: the state, the error, and the output folded (open by itself when it failed).
 export function JobOutput({ c }) {
   if (!c.job && !c.error) return null
   const failed = c.job && c.job.status === 'failed' && !c.job.stopped
   return (
     <div className="dk-out">
-      {c.job ? <Chip state={chip(c.job)}>{t('job.' + state(c.job))}</Chip> : null}
+      {c.job ? <JobChip job={c.job} /> : null}
       {c.error ? <Aviso tone="error" title={t('unit.failed')} detail={c.error} /> : null}
       {c.job?.lines.length ? (
         <details open={failed}>
