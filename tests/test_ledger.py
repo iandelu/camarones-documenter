@@ -289,3 +289,23 @@ def test_a_damaged_entry_inside_a_rollup_does_not_break_the_bill(priced, ledger)
                                        "r-2": run_entry("2026-10-21T11:00:00Z", "data", cost=1.0)},
              sessions={"s-1": {"unit": "domain", "started": "2026-10-21T10:00:00Z", "models": "y"}})
     assert ledger.bill()["cost_usd"] == 1.0
+
+
+# ---------- camaron plan cost ----------
+def cli(kit, *args):
+    import os, subprocess, sys
+    e = {**os.environ, "CAMARONES_ROOT": str(kit.root)}
+    return subprocess.run([sys.executable, str(kit.kit_dir / "camarones.py"), *args], env=e, capture_output=True,
+                          text=True, encoding="utf-8")
+
+
+def test_plan_cost_prints_the_bill_and_its_json(kit):
+    kit.plan.sync()
+    teammate(kit, "aaaa-111", runs={"r-1": run_entry(kit.plan.utcnow(), "domain", cost=1.5)})
+    r = cli(kit, "plan", "cost")
+    assert r.returncode == 0, r.stderr
+    assert "Plan from zero" in r.stdout and "$1.50" in r.stdout and "API-equivalent" in r.stdout
+    j = cli(kit, "plan", "cost", "--json")
+    assert j.returncode == 0, j.stderr
+    b = json.loads(j.stdout)
+    assert b["cost_usd"] == 1.5 and b["units"][0]["unit"] == "domain"

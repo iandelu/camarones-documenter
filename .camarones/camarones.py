@@ -408,7 +408,8 @@ def build_parser() -> argparse.ArgumentParser:
     dr.add_argument("--yes", action="store_true")
     ci = sp.add_parser("ci"); ci.add_argument("forge", nargs="?", choices=["gitlab", "github"])
     pl = sp.add_parser("plan"); pl.add_argument("action", nargs="?", default="show",
-                                                choices=["show", "sync", "next", "start", "note", "done", "block", "drop", "add", "redo", "approve"])
+                                                choices=["show", "sync", "next", "start", "note", "done", "block", "drop", "add", "redo", "approve",
+                                                         "cost"])
     pl.add_argument("unit", nargs="?"); pl.add_argument("title", nargs="?")
     pl.add_argument("--note"); pl.add_argument("--type", default="flow"); pl.add_argument("--deps", nargs="*")
     pl.add_argument("--json", action="store_true")
@@ -1522,6 +1523,11 @@ def cmd_plan(a) -> int:
             print("reopened to refine with what it settled: " + ", ".join(u["reopened"]))
         if status != "doing" and env.checkpoint_commit(f"{u['id']} {u['status']}"):
             print("✔ docs committed locally (checkpoint)")
+    elif a.action == "cost":
+        from lib.harness import ledger
+        ledger.harvest()
+        b = ledger.bill()
+        print(json.dumps(b, indent=2, ensure_ascii=False) if a.json else "\n".join(ledger.lines(b)))
     elif a.action == "approve":
         if not a.unit:
             print("usage: plan approve <unit>"); return 2

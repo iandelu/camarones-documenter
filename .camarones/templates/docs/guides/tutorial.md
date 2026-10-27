@@ -95,6 +95,11 @@ patch:
 A unit with `approval: true` waits as "awaiting approval" when its agent finishes; its dependents start after
 `camaron plan approve <unit>` or the Approve button in the portal's Pipeline (Plan zone).
 
+`camaron plan cost` (or `--json`) shows what the plan took from zero, for the whole team: time unattended, with a
+person and on the calendar, tokens and API-equivalent dollars, by phase and unit. "From zero" means since the plan was
+created or the last `camaron docs reset --wipe`. A model with no price goes under `pricing:` in
+`.camarones/workspace.yaml`, with the same shape as the kit's `lib/pricing.yaml`.
+
 `node` is the id as the kit writes it (`discovery:{repo}`) or a prefix with `*` (`repo-wiki:*`). If the file has a
 mistake, the plan stays as it was and `camaron plan` says where (`patch[1].node: unknown node 'cii'`).
 

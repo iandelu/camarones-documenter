@@ -10,7 +10,7 @@ import pytest
 
 TOKEN = "s3cret-token"
 PROCESS = ["/api/runs", "/api/runs/r-1/cancel", "/api/wiki", "/api/build", "/api/inventory", "/api/schemas",
-           "/api/ci", "/api/ask/answer"]
+           "/api/ci", "/api/ask/answer", "/api/plan/cost"]
 
 
 @pytest.fixture
@@ -271,3 +271,16 @@ def test_wiki_graph_builds_are_one_job_per_repo(app_server, kit, monkeypatch):
         gate.set()
     for j in (a, b):
         assert wait_job(app_server, j["id"])["status"] == "done"
+
+
+def test_the_portal_reads_the_plan_bill_without_writing(portal_server, kit):
+    kit.plan.sync()
+    code, body = call(portal_server + "/api/plan/cost")
+    assert code == 200 and body["cost_usd"] == 0 and "units" in body
+    assert not (kit.root / "docs" / ".work" / "kpis").exists()
+
+
+def test_the_app_harvests_then_reads_the_plan_bill(app_server, kit):
+    kit.plan.sync()
+    code, body = call(app_server + "/api/plan/cost", {}, token=TOKEN)
+    assert code == 200 and "unrecorded" in body
