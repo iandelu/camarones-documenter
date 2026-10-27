@@ -23,12 +23,14 @@ function Ports() {
 export function UnitNode({ data: { unit, fu, onOpen, onView } }) {
   const k = tone(unit)
   const ran = Boolean(fu?.rows.length)
+  const over = fu != null && fu.ended != null
   return (
     <div className={`dk-card dk-cv-unit tone-${k}` + (ran ? ' has-view' : '')}>
       <Ports />
       <button type="button" className="dk-cv-open" onClick={() => onOpen(unit.id)} title={unit.title}>
         <span className="dk-card-title">{unit.title}</span>
         <span className="dk-card-meta"><i></i>{t('tone.' + k)} · <code>{unit.id}</code></span>
+        {over ? <span className="dk-card-meta dk-cv-stats">{fmtDuration(Math.max(0, (fu.ended - fu.started) / 1000))} · {money(fu.cost)}</span> : null}
       </button>
       {ran ? <button type="button" className="dk-cv-btn" onClick={() => onView(unit.id)}>{t('cv.view')}</button> : null}
     </div>
@@ -44,7 +46,7 @@ function Log({ rows, label }) {
   }, [rows, follow])
   return (
     <div className="dk-term-body">
-      <div ref={el} role="log" aria-live="polite" aria-label={label} tabIndex={0} className="dk-term-log nowheel nodrag"
+      <div ref={el} role="log" aria-live="polite" aria-label={label} tabIndex={0} className="dk-term-log nowheel nodrag nokey"
         onScroll={() => setFollow(atBottom(el.current))}>
         {rows.length ? rows.map((r, i) => <div key={i} className={`k-${r.kind}`}><span aria-hidden="true">{GLYPH[r.kind]}</span> {r.text}</div>)
           : <p className="dk-term-wait">{t('cv.waiting')}</p>}
@@ -54,9 +56,11 @@ function Log({ rows, label }) {
   )
 }
 
-export function TermNode({ data: { unit, fu, now, onOpen, onView, onMax } }) {
+// `viewed`: the person opened this terminal by hand, so folding it is theirs to do; `finished`: the run ended, so a
+// unit with no end of its own is not running any more.
+export function TermNode({ data: { unit, fu, now, viewed, finished, onOpen, onView, onMax } }) {
   const k = fu?.outcome === 'failed' ? 'blocked' : tone(unit)
-  const running = fu?.ended === null
+  const running = fu?.ended === null && !finished
   const state = running ? t('cv.st.running') : OUTCOMES.has(fu?.outcome) ? t(`cv.st.${fu.outcome}`) : (fu?.outcome ?? '')
   return (
     <div className={`dk-term tone-${k}`}>
@@ -69,7 +73,7 @@ export function TermNode({ data: { unit, fu, now, onOpen, onView, onMax } }) {
             <span>{fmtDuration(Math.max(0, ((fu.ended ?? now) - fu.started) / 1000))}</span><span>{money(fu.cost)}</span>
           </span>
         ) : null}
-        {fu && !running ? <button type="button" className="dk-cv-btn" onClick={() => onView(unit.id)}>{t('cv.hide')}</button> : null}
+        {viewed && !running ? <button type="button" className="dk-cv-btn" onClick={() => onView(unit.id)}>{t('cv.hide')}</button> : null}
         <button type="button" className="dk-icon" aria-label={t('cv.max')} title={t('cv.max')} onClick={() => onMax(unit.id)}>⤢</button>
       </div>
       <Log rows={fu?.rows ?? []} label={t('cv.log', { unit: unit.title })} />

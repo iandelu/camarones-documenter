@@ -16,6 +16,7 @@ test("a running unit's terminal shows what its agent does, as a live log", () =>
   for (const s of ['Explicar la API', 'claude', 'en marcha', '4 min', '$0.22', '✎', 'Edit cam-docs/api.md', '▶']) expect(out).toContain(s)
   expect(out).toMatch(/role="log"[^>]*aria-live="polite"/)
   expect(out).toMatch(/class="[^"]*nowheel[^"]*nodrag/)
+  expect(out).toMatch(/role="log"[^>]*class="[^"]*\bnokey\b/)
 })
 
 test('a unit with no event yet says it waits for the agent', () => {
@@ -44,14 +45,31 @@ test('the terminal speaks English', () => {
   expect(out).toContain('running')
 })
 
-test('a terminal that ended can be folded, one that runs cannot, and both can be maximised', () => {
+test('a terminal folds only when it was opened by hand and its agent is done; it can always be maximised', () => {
   const fu = { runner: 'claude', started: 0, ended: null, outcome: null, cost: 0, rows: [] }
-  const running = html(<TermNode data={{ unit, fu, now: 0, ...on }} />)
-  const ended = html(<TermNode data={{ unit, fu: { ...fu, ended: 5000, outcome: 'ok' }, now: 9e9, ...on }} />)
-  expect(running).not.toContain('Plegar')
-  expect(ended).toContain('Plegar')
-  expect(ended).toContain('hecha')
-  for (const out of [running, ended]) expect(out).toContain('aria-label="Maximizar"')
+  const done = { ...fu, ended: 5000, outcome: 'ok' }
+  const term = (f, extra) => html(<TermNode data={{ unit, fu: f, now: 9e9, ...on, ...extra }} />)
+  expect(term(done, { viewed: false })).not.toContain('Plegar')
+  expect(term(done)).not.toContain('Plegar')
+  expect(term(fu, { viewed: true })).not.toContain('Plegar')
+  expect(term(done, { viewed: true })).toContain('Plegar')
+  expect(term(done, { viewed: true })).toContain('hecha')
+  for (const out of [term(fu), term(done)]) expect(out).toContain('aria-label="Maximizar"')
+})
+
+test('a run that finished without closing a unit no longer calls it running', () => {
+  const fu = { runner: 'claude', started: 0, ended: null, outcome: null, cost: 0, rows: [] }
+  expect(html(<TermNode data={{ unit, fu, now: 1000, ...on }} />)).toContain('en marcha')
+  expect(html(<TermNode data={{ unit, fu, now: 1000, finished: true, ...on }} />)).not.toContain('en marcha')
+  expect(html(<TermNode data={{ unit, fu, now: 1000, finished: true, viewed: true, ...on }} />)).toContain('Plegar')
+})
+
+test('a unit that is done tells how long it took and what it cost', () => {
+  const fu = { runner: 'claude', started: 0, ended: 120000, outcome: 'ok', cost: 0.31, rows: [{ kind: 'log', text: 'hecho' }] }
+  const out = html(<UnitNode data={{ unit: { ...unit, status: 'done' }, fu, now: 9e9, ...on }} />)
+  expect(out).toContain('2 min')
+  expect(out).toContain('$0.31')
+  expect(html(<UnitNode data={{ unit, fu: { ...fu, ended: null }, now: 9e9, ...on }} />)).not.toContain('$0.31')
 })
 
 test("the clock stops at the unit's end and never runs backwards", () => {
