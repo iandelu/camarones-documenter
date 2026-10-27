@@ -698,11 +698,28 @@ def _story_body(b: dict) -> dict:
 
 
 def _task_list(b: dict) -> list[dict]:
+    """The `tasks` of a body, each checked field by field so a malformed one is a 400 that names the field (never a
+    TypeError deep in analyze or save): `key` and `title` are required text; `group` and `kind` text; `touches`,
+    `criteria`, `deps`, `added` and `dropped` lists of text; `edited` a bool."""
     v = b.get("tasks")
     if v is None:
         return []
-    if not isinstance(v, list) or not all(isinstance(t, dict) for t in v):
+    if not isinstance(v, list):
         raise ValueError("tasks must be a list of objects")
+    for n, t in enumerate(v, 1):
+        if not isinstance(t, dict):
+            raise ValueError(f"task {n}: it must be an object")
+        for k in ("key", "title"):
+            if not isinstance(t.get(k), str) or not t[k].strip():
+                raise ValueError(f"task {n}: {k} is required and must be text")
+        for k in ("group", "kind"):
+            if t.get(k) is not None and not isinstance(t[k], str):
+                raise ValueError(f"task {n}: {k} must be text")
+        for k in ("touches", "criteria", "deps", "added", "dropped"):
+            if t.get(k) is not None and not (isinstance(t[k], list) and all(isinstance(x, str) for x in t[k])):
+                raise ValueError(f"task {n}: {k} must be a list of text")
+        if t.get("edited") is not None and not isinstance(t["edited"], bool):
+            raise ValueError(f"task {n}: edited must be true or false")
     return v
 
 

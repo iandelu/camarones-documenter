@@ -375,3 +375,76 @@ def test_lint_defaults_to_the_project_language(world, server):
 def test_suggest_is_not_here_yet(world, server):
     assert post(server, "/api/stories/suggest", story(), token=PORTAL)[0] == 404
     assert post(server, "/api/stories/nope", story(), token=PORTAL)[0] == 404
+
+
+# ── malformed tasks and a project without a board ────────────────────────────────────────────────────────────────
+
+ROUTES = ["/api/stories/analyze", "/api/stories/save"]
+
+
+def with_task(**kw):
+    t = one_task()
+    for k, v in kw.items():
+        if v is KeyError:
+            del t[k]
+        else:
+            t[k] = v
+    return {**story(), "tasks": [t]}
+
+
+@pytest.mark.parametrize("path", ROUTES)
+@pytest.mark.parametrize("field", ["touches", "criteria", "deps", "added", "dropped"])
+@pytest.mark.parametrize("bad", [5, "api:a.py", {"a": 1}, [1], [None], ["ok", 3]])
+def test_a_task_list_field_that_is_not_a_list_of_text_is_a_400(world, server, path, field, bad):
+    before = tree(world.root)
+    code, b = post(server, path, with_task(**{field: bad}), token=PORTAL)
+    assert code == 400 and field in b["error"], (field, bad, code, b)
+    assert tree(world.root) == before
+
+
+@pytest.mark.parametrize("path", ROUTES)
+@pytest.mark.parametrize("field", ["key", "title", "group", "kind"])
+@pytest.mark.parametrize("bad", [5, ["x"], {"a": 1}, True])
+def test_a_task_text_field_that_is_not_text_is_a_400(world, server, path, field, bad):
+    code, b = post(server, path, with_task(**{field: bad}), token=PORTAL)
+    assert code == 400 and field in b["error"], (field, bad, code, b)
+
+
+@pytest.mark.parametrize("path", ROUTES)
+@pytest.mark.parametrize("bad", ["yes", 1, "false", []])
+def test_edited_must_be_a_bool(world, server, path, bad):
+    code, b = post(server, path, with_task(edited=bad), token=PORTAL)
+    assert code == 400 and "edited" in b["error"]
+
+
+@pytest.mark.parametrize("path", ROUTES)
+@pytest.mark.parametrize("field", ["key", "title"])
+def test_a_task_without_a_key_or_title_is_a_400_that_names_it(world, server, path, field):
+    for blank in (KeyError, "", "  ", None):
+        code, b = post(server, path, with_task(**{field: blank}), token=PORTAL)
+        assert code == 400 and field in b["error"], (field, blank, code, b)
+
+
+@pytest.mark.parametrize("path", ROUTES)
+def test_a_well_formed_task_may_leave_the_optional_fields_out(world, server, path):
+    t = {"key": K1, "title": "Orders: cobrar", "touches": [ORDERS]}
+    code, _ = post(server, path, {**story(), "tasks": [t]}, token=PORTAL)
+    assert code == 200
+
+
+def test_reads_on_a_project_without_a_board(world, server):
+    """Search still answers from the code map (a board only adds cards); an item is unknown (404)."""
+    import shutil
+    shutil.rmtree(world.root / "backlog")
+    code, b = get(server, "/api/stories/files?q=zzz-no-such-file")
+    assert code == 200 and b == []
+    code, hits = get(server, "/api/stories/files?q=payment")
+    assert code == 200 and isinstance(hits, list)
+    code, b = get(server, "/api/stories/item?id=WI-1")
+    assert code == 404 and "error" in b
+
+
+@pytest.mark.parametrize("bad", ["api:a.py", 5, {"a": 1}, [1], ["ok", None]])
+def test_lint_touches_must_be_a_list_of_text(world, server, bad):
+    code, b = post(server, "/api/stories/lint", {"as": "a", "want": "b", "so": "c", "touches": bad})
+    assert code == 400 and "touches" in b["error"]
