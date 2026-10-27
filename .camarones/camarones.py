@@ -882,7 +882,8 @@ def main() -> int:
             print(f"→ {page.relative_to(ROOT).as_posix()}")
     elif a.cmd == "inventory":
         from lib import inventory
-        page = inventory.run(log=(lambda _: None) if a.json else print, cves=a.cves)
+        # --json keeps stdout for the JSON; the progress goes to stderr, where the desktop app reads it as it comes
+        page = inventory.run(log=(lambda m: print(m, file=sys.stderr, flush=True)) if a.json else print, cves=a.cves)
         data = inventory.load()
         if a.json:
             print(json.dumps(data, indent=2, ensure_ascii=False))
