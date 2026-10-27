@@ -102,6 +102,7 @@ export function UnitActions({ u, srv, a, plan, onChanged }) {
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState({ ok: '', error: '' })
   const act = unitAction(u, plan)
+  const redo = useCmd(srv)
   async function go(fn, ok = '') {
     setBusy(true)
     setNote({ ok: '', error: '' })
@@ -110,11 +111,16 @@ export function UnitActions({ u, srv, a, plan, onChanged }) {
   const agent = (mode) => go(() => srv.post('app/agent', { unit: u.id, agent: a.agent, lang: lang(), mode }),
     t('next.opened', { agent: a.label(a.agent) }))
   const noAgent = act?.kind === 'agent' && a.agents && !a.agents.length
+  const reopen = () => go(async () => {
+    const end = await redo.run('plan', { action: 'redo', unit: u.id })
+    if (end?.status !== 'done') throw new Error(end?.lines?.at(-1) || t('unit.failed'))
+  }, t('unit.redone'))
   return (<>
     <div className="row dk-unit-acts">
       {act?.kind === 'approve' ? <Button size="sm" variant="primary" disabled={busy} onClick={() => go(() => srv.post('units/approve', { unit: u.id }))}>{t(act.label)}</Button> : null}
       {act?.kind === 'retry' ? <Button size="sm" disabled={busy} onClick={() => go(() => srv.post('units/retry', { unit: u.id }))}>{t(act.label)}</Button> : null}
       {act?.kind === 'link' ? <Button size="sm" href={act.href}>{t(act.label)}</Button> : null}
+      {act?.kind === 'redo' ? <Button size="sm" variant="ghost" disabled={busy} onClick={reopen}>{t(act.label)}</Button> : null}
       {act?.kind === 'mode' ? <><span className="muted small">{t('iv.choose')}:</span><ModeChoice srv={srv} compact onChosen={onChanged} /></> : null}
       {act?.kind === 'agent' && !noAgent ? (<>
         <Button size="sm" variant={act.mode === 'continue' ? 'primary' : 'secondary'} disabled={busy || !a.agent}

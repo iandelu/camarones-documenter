@@ -26,6 +26,10 @@
   uninstall [--dry-run] [--yes] [--global] [--no-backup] [--backup-dir DIR] [--keep-board|--drop-board]
                             undo the project: back up and delete cam-docs, remove every kit trace from the repos
                             and the workspace folder (--global: also ~/.camarones*, saved tokens)
+  docs reset --redo|--wipe [--templates] [--dry-run] [--yes]   start an older project's docs again: --redo reopens
+                            every finished unit (nothing deleted); --wipe tags cam-docs in git, deletes the generated
+                            docs and starts the plan over, keeping the interviews and the pages a person wrote or
+                            confirmed; --templates: PLAYBOOK, CONVENTIONS and skeletons follow the kit again
   mcp [--http [--port N]]   MCP server: agents search/read the docs and the code graph, propose draft edits and
                             feedback; --http serves it on 127.0.0.1 with this machine's token (~/.camarones/mcp-token)
   ci [gitlab|github]        install the umbrella CI pipeline
@@ -396,6 +400,12 @@ def build_parser() -> argparse.ArgumentParser:
     ub = un.add_mutually_exclusive_group()
     ub.add_argument("--keep-board", dest="keep_board", action="store_const", const=True, default=None)
     ub.add_argument("--drop-board", dest="keep_board", action="store_const", const=False)
+    dr = sp.add_parser("docs"); dr.add_argument("action", choices=["reset"])
+    dm = dr.add_mutually_exclusive_group(required=True)
+    dm.add_argument("--redo", dest="mode", action="store_const", const="redo")
+    dm.add_argument("--wipe", dest="mode", action="store_const", const="wipe")
+    dr.add_argument("--templates", action="store_true"); dr.add_argument("--dry-run", action="store_true")
+    dr.add_argument("--yes", action="store_true")
     ci = sp.add_parser("ci"); ci.add_argument("forge", nargs="?", choices=["gitlab", "github"])
     pl = sp.add_parser("plan"); pl.add_argument("action", nargs="?", default="show",
                                                 choices=["show", "sync", "next", "start", "note", "done", "block", "drop", "add", "redo", "approve"])
@@ -678,6 +688,9 @@ def main() -> int:
         from lib import uninstall
         return uninstall.main(include_global=a.user_level, dry_run=a.dry_run, yes=a.yes, backup=not a.no_backup,
                               backup_dir=a.backup_dir, keep_board=a.keep_board)
+    elif a.cmd == "docs":
+        from lib import reset
+        return reset.main(a.mode, dry_run=a.dry_run, yes=a.yes, templates=a.templates)
     elif a.cmd == "history":
         from lib import history
         from lib.common import rel_file

@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.66.0-ff875f?style=flat-square" alt="Versión 4.66.0">
+  <img src="https://img.shields.io/badge/version-4.67.0-ff875f?style=flat-square" alt="Versión 4.67.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -155,6 +155,8 @@ camaron projects --adopt ~/Documents/mi-proyecto [--name X] [--json]   # la vuel
 camaron projects --git-init ~/Documents/mi-codigo [--json]   # git init en el código que aún no está en git (solo cuando lo pides)
 camaron self-update        # trae el kit oficial al día — actualiza todos los proyectos a la vez (en el asistente: ⚙️ Ajustes › ⬆️ Actualizar Camarón)
 camaron migrate            # pasa un proyecto de la estructura anterior (≤2.5) a cam-docs/
+camaron docs reset --redo   # documentación de un kit antiguo: reabre cada unidad terminada para revisarla (no borra nada)
+camaron docs reset --wipe   # o bórrala y empieza de cero: conserva entrevistas y páginas confirmadas; antes, etiqueta en git
 camaron uninstall           # lo deshace todo: borra cam-docs/ (con copia .zip) y los rastros en los repos
 ```
 
@@ -633,6 +635,16 @@ Si un repo usa SonarQube y hay un token guardado en Máquina › Tokens, la comp
 Se incluyen [plantillas de CI para GitHub y GitLab](.camarones/ci/) para automatizar actualizaciones y construir el portal. Además, `camaron ci` genera un job para cada repo de servicio que, en cada PR/MR y **sin IA**, comenta qué páginas deja desactualizadas el cambio y cuáles ya lo estaban: un solo comentario por PR, que se actualiza con cada push y nunca bloquea el merge. En local es `camaron pr fresh <repo> --base main`. Los jobs de GitHub y GitLab salen de una misma definición, y `ci: {target: self-hosted, runner_labels: […], runner_tags: […]}` en `workspace.yaml` los lleva a vuestros runners. Las PR del propio `cam-docs` solo pasan `check`. La vista **CI** del portal (zona Calidad) lo reúne: qué ficheros de pipeline hay en `cam-docs` y si siguen igual que la definición del kit, un botón para generarlos (GitHub o GitLab; el commit y el push los haces tú), los errores de `check` y las páginas desactualizadas de ahora, los ficheros que se copian en cada repo de servicio y el último pipeline si tienes `gh` o `glab` instalado y con sesión (con tu propio login; si no, no se muestra).
 
 **Propuesta con IA para una PR.** `camaron pr propose <url de la PR>` trae la PR sin tocar tu checkout, y un agente actualiza las páginas que deja desactualizadas en la rama `docs/pr-<repo>-<n>` de `cam-docs`, en su propio worktree. El kit hace el commit, la sube y abre la PR de documentación (`--comment` la enlaza en la PR del servicio, `--preview` exporta esa rama como portal estático para revisarla); `--dry-run` enseña antes qué haría. Con `ci.target: self-hosted`, `camaron ci` genera también el job `docs-propose`, que hace lo mismo en vuestro runner cuando alguien del proyecto etiqueta una PR con `docs:update` (otra etiqueta con `ci: {propose_label: …}` en `workspace.yaml`) y nunca corre para forks. La guía para montar el runner se instala en `docs/guides/self-hosted-runner.md` (es + en). Antes de abrir la PR/MR ejecutan `check --secrets`: si la IA copió un secreto en la documentación, el job falla y la rama no se publica. Requieren configurar accesos, secretos y despliegue según el proyecto; no se activan al descargar este repositorio.
+
+### Rehacer o borrar la documentación de un proyecto antiguo
+
+Un proyecto documentado con un kit anterior tiene páginas escritas con las reglas de entonces. `camaron docs reset` lo pone al día de dos formas, y las dos enseñan antes la lista con `--dry-run`:
+
+- **`--redo` (rehacer)**: reabre todas las unidades terminadas del plan para que su agente revise y actualice sus páginas con el PLAYBOOK de hoy. No borra nada. Las entrevistas y la preparación siguen hechas. Para una sola unidad está `camaron plan redo UNIDAD`, y en la app de escritorio el botón **Rehacer** de cada unidad terminada.
+- **`--wipe` (borrar y empezar de cero)**: antes de tocar nada hace commit de `cam-docs/` y lo etiqueta como `camaron/pre-reset-<fecha>` (sin git, o con cambios que git no guardaría, hace además una copia `.zip`). Después borra las páginas generadas, el modelo C4, las wikis y el estado de las ejecuciones, y el plan vuelve a empezar. Se quedan `workspace.yaml`, las entrevistas (`docs/interview/` y sus unidades, que siguen hechas), las páginas que una persona escribió o confirmó (`x-owner: human` o `x-confirmed`, con sus traducciones), las imágenes y demás ficheros que no son páginas, el tablero y los comentarios de revisión. Vuelve a escribir sin IA las páginas que salen del código y deja el reset en su propio commit. Para recuperar una página: `git checkout camaron/pre-reset-<fecha> -- docs/<página>`.
+- **`--templates`** (con cualquiera de los dos): PLAYBOOK, CONVENTIONS y los esqueletos de página vuelven a los del kit aunque el equipo los editara; vuestra versión se guarda al lado como `<nombre>.before-reset-<fecha>`.
+
+Pide confirmación (escribir el nombre del proyecto para `--wipe`) salvo con `--yes`, y no arranca mientras haya una ejecución del plan o de una wiki en marcha. En la app de escritorio está al final de **Plan**, en la tarjeta *Empezar la documentación otra vez*: eliges el modo, ves la lista y confirmas.
 
 ### Deshazlo todo
 
