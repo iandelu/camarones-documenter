@@ -360,5 +360,12 @@ def run(log=print, cves: bool = False) -> Path:
     return PAGE
 
 
+def exit_code(data: dict, fail_on: str | None) -> int:
+    """0 unless CI asked to fail (`--fail-on high` counts critical too) and a known vulnerability is that serious:
+    a scan that finds vulnerabilities did its job, and the desktop app shows a non-zero exit as a failed job."""
+    worst = {"high": ("high", "critical"), "critical": ("critical",)}.get(fail_on or "", ())
+    return 1 if any(v.get("severity") in worst for r in data.get("libraries") or [] for v in r.get("vulns") or []) else 0
+
+
 def load() -> dict:
     return load_json(DATA, {}) if DATA.exists() else {}

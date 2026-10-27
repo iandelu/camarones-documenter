@@ -76,7 +76,7 @@ export const S = {
     libsRefreshing: 'Reading the manifests…', libsSearch: 'Search a library', libsCategory: 'Category', libsLanguage: 'Language',
     libsRepo: 'Repo', libsScope: 'Scope', libsOnlyVulnerable: 'Only vulnerable', libsLibrary: 'Library', libsVersions: 'versions differ',
     libsFixed: 'fixed in {v}', libsNone: 'No library matches.', all: 'all',
-    libsCli: 'In a terminal: `camaron inventory --cves` (exit 1 on a high or critical one, for CI).',
+    libsCli: 'In a terminal: `camaron inventory --cves`; in CI add `--fail-on high` to fail on a high or critical one.',
     'sev.critical': 'critical', 'sev.high': 'high', 'sev.medium': 'medium', 'sev.low': 'low', 'sev.unknown': 'unrated',
     ciTitle: 'CI', ciLead: 'The docs repo pipeline and the checks each service repo runs on its pull requests, generated from '
       + 'one definition. None of them needs AI, except the optional docs proposal on your own runners.',
@@ -229,7 +229,7 @@ export const S = {
     libsRefreshing: 'Leyendo los manifiestos…', libsSearch: 'Busca una librería', libsCategory: 'Categoría', libsLanguage: 'Lenguaje',
     libsRepo: 'Repo', libsScope: 'Ámbito', libsOnlyVulnerable: 'Solo vulnerables', libsLibrary: 'Librería', libsVersions: 'versiones distintas',
     libsFixed: 'corregida en {v}', libsNone: 'Ninguna librería coincide.', all: 'todas',
-    libsCli: 'En una terminal: `camaron inventory --cves` (sale con 1 si hay alguna alta o crítica, para CI).',
+    libsCli: 'En una terminal: `camaron inventory --cves`; en CI añade `--fail-on high` para fallar si hay alguna alta o crítica.',
     'sev.critical': 'crítica', 'sev.high': 'alta', 'sev.medium': 'media', 'sev.low': 'baja', 'sev.unknown': 'sin nota',
     ciTitle: 'CI', ciLead: 'El pipeline del repo de documentación y las comprobaciones que cada repo de servicio lanza en sus pull '
       + 'requests, generados desde una sola definición. Ninguno necesita IA, salvo la propuesta de docs opcional en tus runners.',

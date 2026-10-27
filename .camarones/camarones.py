@@ -70,9 +70,10 @@
   schemas [--json]          each repo's tables and collections from migrations, schema files, entity classes, Mongo and
                           Firestore (no AI) → an ER diagram the kit keeps in sync with the code: in the repo page
                           (docs/data/<repo>.md is for projects from before 4.52; new projects: the repo page)
-  inventory [--cves] [--json]   every repo's direct dependencies by category (framework, data, cache, security…)
-                          → docs/overview/libraries.md, no AI; --cves adds known vulnerabilities (OSV-Scanner with
-                          its offline database, so no package name leaves the machine); exit 1 if one is high/critical
+  inventory [--cves] [--json] [--fail-on high|critical]   every repo's direct dependencies by category (framework,
+                          data, cache, security…) → docs/overview/libraries.md, no AI; --cves adds known vulnerabilities
+                          (OSV-Scanner with its offline database, so no package name leaves the machine); --fail-on
+                          exits 1 when a known one is that serious (for CI; finding one is not a failure otherwise)
   bump <repo> <library> <version> [--ecosystem E] [--json] [--yes]   update one library of a service repo on a new
                           branch camaron/bump-<name>-<version> with its package manager (or the version rewritten in
                           the manifest); without --yes it only says what it would do; never commits or pushes
@@ -427,6 +428,7 @@ def build_parser() -> argparse.ArgumentParser:
     rd = sp.add_parser("radar"); rd.add_argument("--json", action="store_true")
     inv = sp.add_parser("inventory"); inv.add_argument("--json", action="store_true")
     inv.add_argument("--cves", action="store_true")
+    inv.add_argument("--fail-on", choices=["high", "critical"], default=None)
     bmp = sp.add_parser("bump"); bmp.add_argument("repo"); bmp.add_argument("library"); bmp.add_argument("version")
     bmp.add_argument("--ecosystem"); bmp.add_argument("--json", action="store_true"); bmp.add_argument("--yes", action="store_true")
     hl = sp.add_parser("health"); hl.add_argument("--json", action="store_true")
@@ -886,8 +888,7 @@ def main() -> int:
             print(json.dumps(data, indent=2, ensure_ascii=False))
         else:
             print(f"→ {page.relative_to(ROOT).as_posix()}")
-        serious = [v for r in data["libraries"] for v in r.get("vulns") or [] if v["severity"] in ("critical", "high")]
-        return 1 if a.cves and serious else 0
+        return inventory.exit_code(data, a.fail_on)
     elif a.cmd == "bump":
         from lib import bump
         try:
