@@ -118,7 +118,7 @@ def _words(lang: str) -> dict:
 
 def lint_words(lang: str) -> dict[str, list[str]]:
     """The word lists as loaded (a copy): `generic_roles`, `conjunctions`, `solution_words`, `observable_verbs`,
-    `stopwords`, `verbs`."""
+    `stopwords`, `verbs`, and per language `function_words` (en) or `short_verbs` and `not_verbs` (es)."""
     return {key: list(value) for key, value in _words("es" if lang == "es" else "en").items()}
 
 
@@ -142,9 +142,12 @@ def _two_goals(want: str, lang: str, words: dict) -> bool:
     conjunctions = set(words["conjunctions"])
     positions = [i for i, w in enumerate(tokens) if w in conjunctions and 0 < i < len(tokens) - 1]
     if lang == "es":
-        return any(_INFINITIVE.search(w) and len(w) >= 4 for i in positions for w in tokens[i + 1:i + 3])
-    stop, verbs = set(words["stopwords"]), set(words["verbs"])
-    return (any(tokens[i + 1] not in stop for i in positions)
+        short, nouns = set(words.get("short_verbs", ())), set(words.get("not_verbs", ()))
+        is_verb = lambda w: w in short or (w not in nouns and len(w) >= 4 and bool(_INFINITIVE.search(w)))  # noqa: E731
+        return any(is_verb(w) for i in positions for w in tokens[i + 1:i + 3])
+    skip = set(words["stopwords"]) | set(words.get("function_words", ()))
+    verbs = set(words["verbs"])
+    return (any(tokens[i + 1] not in skip for i in positions)
             and sum(1 for w in tokens if w in verbs) >= 2)
 
 
