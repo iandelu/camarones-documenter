@@ -84,7 +84,23 @@ test('a long run keeps the last 500 rows of a unit', () => {
   let f = feed(emptyFeed('r-1'), ev('unit.started', { runner: 'claude' }))
   for (let i = 0; i < 10000; i++) f = feed(f, ev('tool.call', { name: 'Read', arg: `f${i}` }))
   expect(f.units.a.rows).toHaveLength(MAX_ROWS)
-  expect(f.units.a.rows.at(-1).text).toBe('Read f9999')
+  expect(f.units.a.rows.at(-1)).toMatchObject({ text: 'Read f9999', seq: 9999 })
+})
+
+// A row keeps its key once the cap starts dropping the oldest ones: keyed by index, every batch would rewrite every row
+// (the live region announced them all again, and a reader scrolled up saw the text slide away).
+test("each row of a unit has its own increasing seq, which outlives the 500-row cap", () => {
+  let f = feed(emptyFeed('r-1'), ev('unit.started', { runner: 'claude' }))
+  f = feed(f, ev('log', { text: 'one\ntwo' }))
+  expect(f.units.a.rows.map((r) => r.seq)).toEqual([0, 1])
+  for (let i = 0; i < 10000; i++) f = feed(f, ev('tool.call', { name: 'Read', arg: `f${i}` }))
+  const seqs = f.units.a.rows.map((r) => r.seq)
+  expect(seqs.at(-1)).toBe(10001)
+  expect(seqs[0]).toBe(10002 - MAX_ROWS)
+  expect(seqs.every((s, i) => i === 0 || s === seqs[i - 1] + 1)).toBe(true)
+  const again = feed(feed(f, ev('unit.finished', { outcome: 'limited' })), ev('unit.started', { runner: 'codex' }))
+  expect(again.units.a.rows.at(-1)).toMatchObject({ text: '— codex', seq: 10002 })
+  expect(feed(emptyFeed('r-1'), ev('log', { unit: 'b', text: 'x' })).units.b.rows).toEqual([{ kind: 'log', text: 'x', seq: 0 }])
 })
 
 test('a unit started again after a usage limit keeps its rows and says which agent took over', () => {
@@ -97,7 +113,7 @@ test('a unit started again after a usage limit keeps its rows and says which age
 
 test('an event of a unit never started still lands, and run.finished closes the feed', () => {
   let f = feed(emptyFeed('r-1'), ev('log', { unit: 'b', text: 'hola' }))
-  expect(f.units.b.rows).toEqual([{ kind: 'log', text: 'hola' }])
+  expect(f.units.b.rows).toEqual([{ kind: 'log', text: 'hola', seq: 0 }])
   expect(feed(f, { v: 1, ts: '2026-10-27T10:05:00.000Z', type: 'run.finished', done: 1 }).finished).toBe(true)
 })
 

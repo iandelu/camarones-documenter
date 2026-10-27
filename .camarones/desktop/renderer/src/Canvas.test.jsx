@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { ReactFlowProvider } from '@xyflow/react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, expect, test } from 'vitest'
@@ -17,6 +18,13 @@ test("a running unit's terminal shows what its agent does, as a live log", () =>
   expect(out).toMatch(/role="log"[^>]*aria-live="polite"/)
   expect(out).toMatch(/class="[^"]*nowheel[^"]*nodrag/)
   expect(out).toMatch(/role="log"[^>]*class="[^"]*\bnokey\b/)
+})
+
+// React drops keys from what it renders, so the source says it: a row's key is its seq, never its index.
+test('rows are keyed by their seq, so a row dropped by the cap does not rewrite the ones after it', () => {
+  const src = readFileSync(new URL('./sections/Canvas.jsx', import.meta.url), 'utf-8')
+  expect(src).toMatch(/rows\.map\(\(r\) => <div key=\{r\.seq\}/)
+  expect(src).not.toMatch(/key=\{i\}/)
 })
 
 test('a unit with no event yet says it waits for the agent', () => {

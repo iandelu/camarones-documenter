@@ -58,7 +58,7 @@ function Log({ rows, label, running }) {
     <div className="dk-term-body">
       <div ref={el} role="log" aria-live="polite" aria-label={label} tabIndex={0} className="dk-term-log nowheel nodrag nokey"
         onScroll={() => setFollow(atBottom(el.current))}>
-        {rows.length ? rows.map((r, i) => <div key={i} className={`k-${r.kind}`}><span aria-hidden="true">{GLYPH[r.kind]}</span> {r.text}</div>)
+        {rows.length ? rows.map((r) => <div key={r.seq} className={`k-${r.kind}`}><span aria-hidden="true">{GLYPH[r.kind]}</span> {r.text}</div>)
           : running ? <p className="dk-term-wait">{t('cv.waiting')}</p> : null}
       </div>
       {follow ? null : <button type="button" className="dk-cv-btn dk-term-follow nodrag" onClick={() => setFollow(true)}>{t('cv.follow')}</button>}
