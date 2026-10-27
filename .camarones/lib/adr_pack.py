@@ -3,14 +3,19 @@ code graph, the doc pages and ADRs that cite those files, git, the C4 model, the
 questions. Deterministic, no model: the app shows it ("Ver paquete") and the lenses of an AI draft are given it.
 
 Every source is read on its own and a missing or broken one (no graph, inventory, C4 model or git history) leaves its
-part empty, so a fresh project gets an empty pack instead of an error."""
+part empty, so a fresh project gets an empty pack instead of an error.
+
+The same sources, read the other way round, give the *candidates*: the decisions the code already took (a database, a
+broker, a framework, a deployment tool) that no ADR names yet."""
 from __future__ import annotations
 
+import os
 import re
+from fnmatch import fnmatchcase
 from itertools import zip_longest
 from pathlib import Path, PurePosixPath
 
-from . import adr, c4edit, docs, history, inventory
+from . import adr, c4edit, docs, history, inventory, quickarch
 from .common import DOCS, repo_dir
 from .kanban import index
 
@@ -21,6 +26,12 @@ CATEGORIES = ("data", "cache", "messaging", "security", "framework")
 PARTS = ("touches", "neighbours", "pages", "adrs", "commits", "c4", "libraries", "questions")
 _DOCS = f"{index.DOCS_REPO}:docs/"
 _OPEN = re.compile(r"^\s*-\s+\[ \]\s+(.*\S)\s*$")
+_WORD = re.compile(r"[^\W_]+")
+_TECHNOLOGIES = re.compile(r"[·•,;|/]")
+_PREFIXES = ("spring-boot-starter-", "spring-")
+_COMPOSE = ("docker-compose*.y*ml", "compose*.y*ml")
+_CHART, CHART_DEPTH = "Chart.yaml", 3
+_DEPLOY = {"docker-compose": "Docker Compose", "helm": "Helm"}
 
 
 def _safely(read, *args) -> list:
@@ -185,3 +196,124 @@ def render(pack: dict) -> str:
     if len(text) <= LIMIT:
         return text
     return text[:LIMIT].rpartition("\n")[0] + f"\n{CUT}"
+
+
+# ---------- candidates: the decisions the code took that no ADR covers ----------
+def term(name: str) -> str:
+    """The bare artifact of a library or technology name (`org.postgresql:postgresql` → `postgresql`,
+    `spring-boot-starter-data-jpa` → `data-jpa`): what inventory rows, C4 technologies and ADR texts are matched by."""
+    artifact = re.split(r"[:/]", name.strip())[-1].strip().lower()
+    for prefix in _PREFIXES:
+        if artifact.startswith(prefix) and len(artifact) > len(prefix):
+            return artifact[len(prefix):]
+    return artifact
+
+
+def _words(text: str) -> str:
+    """Lower-case words padded with spaces, so that a term matches whole words only and `data-jpa` finds `Data JPA`."""
+    return f" {' '.join(_WORD.findall(text.lower()))} "
+
+
+def _manifest(row: dict) -> str:
+    source, manifest = str(row.get("source") or ""), str(row.get("manifest") or "")
+    return source or (f"{row['repo']}:{manifest}" if manifest else "")
+
+
+def _from_inventory() -> list[tuple]:
+    found = []
+    for r in inventory.load().get("libraries") or []:
+        if not isinstance(r, dict) or r.get("scope") != "runtime" or r.get("category") not in CATEGORIES or not r.get("repo"):
+            continue
+        name = term(str(r.get("name") or ""))
+        if name:
+            found.append((r["category"], name, name, [r["repo"]], [m for m in [_manifest(r)] if m]))
+    return found
+
+
+def _deploy_files(root: Path) -> list[tuple[str, str]]:
+    """(deployment term, repo-relative path): compose files at the repo root, Helm charts up to `CHART_DEPTH` folders down."""
+    found = []
+    for top, dirs, files in os.walk(root):
+        base = Path(top).relative_to(root)
+        dirs[:] = sorted(d for d in dirs if d not in quickarch.SKIP_DIRS) if len(base.parts) < CHART_DEPTH else []
+        for name in sorted(files):
+            rel = (base / name).as_posix()
+            if name == _CHART:
+                found.append(("helm", rel))
+            elif not base.parts and any(fnmatchcase(name.lower(), pattern) for pattern in _COMPOSE):
+                found.append(("docker-compose", rel))
+    return found
+
+
+def _from_deployment() -> list[tuple]:
+    found = []
+    for repo in docs.repo_names():
+        root = repo_dir(repo)
+        if root.is_dir():
+            found += [("deploy", name, _DEPLOY[name], [repo], [f"{repo}:{rel}"]) for name, rel in _deploy_files(root)]
+    return found
+
+
+def _from_c4() -> list[tuple]:
+    """One entry per technology named on a C4 element (`Java · Spring Boot` names two), with the element's repo."""
+    found = []
+    for _, el in sorted(c4edit.index()["elements"].items()):
+        repo = (el.get("metadata") or {}).get("repo")
+        for piece in _TECHNOLOGIES.split(el.get("technology") or ""):
+            label = piece.strip()
+            name = term("-".join(label.split()))
+            if name:
+                found.append(("c4", name, label, [repo] if repo else [], []))
+    return found
+
+
+def _covered() -> list[str]:
+    """The words of every ADR's title, tags and TL;DR, one text each: an ADR in progress counts as much as an accepted one."""
+    texts = []
+    for row in adr.list_adrs():
+        fm, body = {}, ""
+        try:
+            if row["path"]:
+                fm, body = docs.split_fm((DOCS / row["path"]).read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError):
+            pass
+        tags = fm.get("tags")
+        tags = tags if isinstance(tags, list) else str(tags or "").split(",")
+        texts += [_words(str(t)) for t in (row["title"], *tags, docs.tldr(body)) if t]
+    return texts
+
+
+def _grouped(rows: list[tuple], c4_rows: list[tuple]) -> dict[str, dict]:
+    """One candidate per `<category>:<term>`; a C4 technology naming the same term as a library or deployment source adds
+    its repos to that candidate instead of making its own."""
+    grouped: dict[str, dict] = {}
+
+    def add(category: str, name: str, label: str, repos: list, manifests: list) -> None:
+        row = grouped.setdefault(f"{category}:{name}", {"key": f"{category}:{name}", "label": label, "category": category,
+                                                       "repos": set(), "manifests": set()})
+        row["repos"].update(repos)
+        row["manifests"].update(manifests)
+
+    for row in rows:
+        add(*row)
+    by_term: dict[str, list[dict]] = {}
+    for row in grouped.values():
+        by_term.setdefault(row["key"].partition(":")[2], []).append(row)
+    for category, name, label, repos, manifests in c4_rows:
+        for row in by_term.get(name, []):
+            row["repos"].update(repos)
+        if name not in by_term:
+            add(category, name, label, repos, manifests)
+    return grouped
+
+
+def candidates() -> list[dict]:
+    """The decisions the code already took that no ADR covers, found without a model: runtime libraries of the
+    categories that carry an architectural choice, the technologies on C4 elements and the deployment sources
+    (compose, Helm), one per `<category>:<term>` across repos, sorted by category then label. An ADR whose title, tags or
+    TL;DR names the term covers it. A source that cannot be read leaves its share out."""
+    grouped = _grouped(_safely(_from_inventory) + _safely(_from_deployment), _safely(_from_c4))
+    covered = _safely(_covered)
+    found = [{**row, "repos": sorted(row["repos"]), "manifests": sorted(row["manifests"])} for row in grouped.values()
+             if not any(_words(row["key"].partition(":")[2]) in text for text in covered)]
+    return sorted(found, key=lambda c: (c["category"], c["label"].casefold(), c["key"]))
