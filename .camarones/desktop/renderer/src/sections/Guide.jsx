@@ -65,6 +65,9 @@ export default function Guide({ srv, app, sections = [] }) {
   )
 }
 
+// The kit's guides have a short name for their tab; any other guide shows its title.
+const tabName = (g) => { const k = `gd.tab.${g.name}`; const v = t(k); return v === k ? g.title : v }
+
 export function GuideView({ guides, at, sections, commands, tours = [], onPortal, onTour, onExternal }) {
   const [q, setQ] = useState('')
   const g = guides.find((x) => x.name === at.name) || guides[0]
@@ -79,7 +82,7 @@ export function GuideView({ guides, at, sections, commands, tours = [], onPortal
       <div className="dk-guide-tabs" role="tablist" aria-label={t('gd.title')}>
         {guides.map((x) => (
           <a key={x.name} role="tab" aria-selected={x.name === g.name ? 'true' : 'false'} href={guideHref(x.name)}
-            className={'dk-guide-tab' + (x.name === g.name ? ' on' : '')}>{x.title}</a>))}
+            className={'dk-guide-tab' + (x.name === g.name ? ' on' : '')}>{tabName(x)}</a>))}
       </div>
       <div className="dk-guide-find">
         <label className="cu-field-label" htmlFor="gd-q">{t('gd.search')}</label>

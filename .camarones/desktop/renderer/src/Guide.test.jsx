@@ -79,3 +79,14 @@ test('Machine opens with the guide card, before its own read arrives', () => {
   expect(out).toContain('href="#/guide"')
   expect(out.indexOf('Guía y recorrido')).toBeLessThan(out.indexOf('cu-skel') === -1 ? Infinity : out.indexOf('cu-skel'))
 })
+
+test('tabs carry a short name for the guides the kit ships, the title for any other', () => {
+  const guides = [{ name: 'internals', title: 'Cómo funciona Camarón', description: '', blocks: [] },
+    { name: 'tutorial', title: 'Tutorial — Camarón, el asistente de documentación del proyecto', description: '', blocks: [] },
+    { name: 'extra', title: 'Otra guía', description: '', blocks: [] }]
+  const out = renderToStaticMarkup(<GuideView guides={guides} at={{ name: 'internals', anchor: '' }} sections={SECTIONS} commands={[]} />)
+  expect(out).toMatch(/role="tab"[^>]*>Por dentro</)
+  expect(out).toMatch(/role="tab"[^>]*>Comandos</)
+  expect(out).toMatch(/role="tab"[^>]*>Otra guía</)
+  expect(out).not.toContain('>Tutorial — Camarón')
+})
