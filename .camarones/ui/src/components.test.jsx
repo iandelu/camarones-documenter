@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, test } from 'vitest'
-import { Aviso, Brand, Breadcrumbs, Button, Card, Chip, EmptyState, Field, Keys, Skeleton, SkipLink } from './index.js'
+import { Aviso, Brand, Breadcrumbs, Button, Card, Chip, EmptyState, Field, Keys, Skeleton, SkipLink, Thinking } from './index.js'
 
 const html = (node) => renderToStaticMarkup(node)
 
@@ -91,4 +91,10 @@ test('Breadcrumbs: a step without an address is text, not a dead link', () => {
   const out = html(<Breadcrumbs items={[{ label: 'Dominio' }, { label: 'Visitas' }]} />)
   expect(out).toContain('<li><span>Dominio</span><span class="cu-crumbs-sep" aria-hidden="true">→</span></li>')
   expect(out).not.toContain('<a')
+})
+
+// An agent at work: its words under the loading shimmer (ui.css .cu-thinking); the seconds come only once they matter.
+test('Thinking runs the loading shimmer over its words', () => {
+  expect(html(<Thinking>Pensando…</Thinking>)).toBe('<span class="cu-thinking">Pensando…</span>')
+  expect(html(<Thinking timer>Pensando…</Thinking>)).toBe('<span class="cu-thinking">Pensando…</span>')
 })

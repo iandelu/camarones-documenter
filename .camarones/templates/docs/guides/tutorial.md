@@ -219,10 +219,11 @@ between sections (`g s` Summary, `g b` Board, `g p` Plan, `g q` Quality…).
 |---|---|
 | 🏠 Summary | the next step with one button (the one the wizard suggests), what this machine is missing, where the plan, the review and the jobs stand |
 | 📋 Board | the columns from Backlog to Done: move a card by dragging it or with the keyboard (Tab to the card, Space grabs, arrows move, Enter drops, Escape puts it back); a card opens its description, criteria and definition of done, and a story lists its tasks and has **Add a task**; **Delete** archives the card (its file moves to `backlog/archive/tasks`); **Add** creates an item (type, title, parent, priority); if the board is not on, **Turn the board on** |
-| 🗺️ Plan | run the ready units in parallel or the autopilot, and stop them; the units grouped by what they ask of you (approve, retry, continue, start, redo) with the agent you pick; the docs update; and, previewed first, starting the docs again (`docs reset`: redo or wipe) |
+| 🗺️ Plan | run the ready units in parallel or the autopilot, and stop them; the units grouped by what they ask of you (approve, retry, continue, start, redo) with the agent you pick; the docs update; what the plan has cost so far, under the units; and, previewed first, starting the docs again (`docs reset`: redo or wipe) |
 | 🎙️ Interviews | team questionnaire or live, export the offline form, import answers, close the round, each interview with its agent |
 | 🤝 Team | the team's repo and sharing, approving the agent config that came with it, hooks, plugins |
 | ✅ Quality | prerequisites and tools (kept between visits, "Check again"), the context every agent session loads, golden questions, with vs without cam-docs; without AI, known vulnerabilities, pages out of date, generated blocks |
+| 📦 Libraries | every repo's dependencies as a library × service table; **Scan for vulnerabilities** goes repo by repo with its bar and **Stop**, and ends on a tick with what it found; each library opens on why it is there, its advisories in full and **Update** on a new branch of the repo, not committed |
 | 📖 Docs | **Read the docs**, **Review drafts** and **Search or ask** open the portal in your browser. Below, **Build the C4 explorer**; per repo, **Generate the wiki** (chooses the repo and writes a starter brief without AI if it has none) and, once it has pages, **Wiki graph**: each a job with its output, then **View** opens the result in the portal (**Retry** if it failed); and **Ask with AI**, which answers from the docs and links its sources in the portal |
 | 🧰 Machine | setup with progress, language and models, GitLab / GitHub tokens, repos and their stack, the plan profile, kit updates, repair and, apart and previewed first, uninstall |
 
@@ -300,8 +301,11 @@ wizard and the desktop app always keep it.
 The portal's **Stories** zone (`#/stories`) is one place to write a story, check it and turn it into subtasks that
 do not collide. The verdict, subtasks and waves come from rules, templates and the code map, with no AI: the same board
 always gives the same verdict, subtasks and waves. AI only proposes, and only when you ask: **✨ Suggest with AI** sits in
-the three places it helps (rewriting the story, the criteria and the subtasks) and only spends when you press it. When it
-cannot run (no agent installed, a portal not opened with `camaron up`, or turned off) it shows disabled and says why.
+the three places it helps (rewriting the story, the criteria and the subtasks) and only spends when you press it. While
+it thinks, the button says so (it shimmers, cannot be pressed again and **Escape** cancels); what it proposes stays in
+your browser, per story, until you accept or dismiss it: asking for something else, opening another story or reloading
+does not lose it. When it cannot run (no agent installed, a portal not opened with `camaron up`, or turned off) it shows
+disabled and says why.
 
 1. **Write** *As / I want / so that* (or *Como / quiero / para*). Hints appear as you type (a generic role, two goals
    in one, a *so that* that repeats the *I want*, too long, a solution inside the *I want*) and never block.

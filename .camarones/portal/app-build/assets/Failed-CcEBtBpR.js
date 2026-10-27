@@ -1,1 +1,0 @@
-import{A as e,C as t,b as n,n as r}from"./i18n-Biwd-KyK.js";var i=e();function a({title:e,detail:a,onRetry:o}){return(0,i.jsx)(n,{tone:`error`,title:e,detail:a,action:o?(0,i.jsx)(t,{size:`sm`,onClick:o,children:r(`retry`)}):null})}export{a as t};

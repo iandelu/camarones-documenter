@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, expect, test } from 'vitest'
 import { CostView, Reset } from './sections/Plan.jsx'
@@ -46,6 +47,14 @@ test('a plan cost that could not be read says why and offers to retry', () => {
   const out = renderToStaticMarkup(<CostView error="plan.yaml is damaged" onRetry={() => {}} />)
   expect(out).toContain('plan.yaml is damaged')
   expect(out).toContain('<button')
+})
+
+// The section reads top to bottom as run it, the board, then what it cost: the bill does not push the board down.
+test('the plan cost card sits under the board', () => {
+  const src = readFileSync(new URL('./sections/Plan.jsx', import.meta.url), 'utf-8')
+  const page = src.slice(src.indexOf('<Page title={t(\'nav.plan\')} wide>'))
+  expect(page.indexOf('<Cost ')).toBeGreaterThan(page.indexOf('<div className="dk-board">'))
+  expect(page.indexOf('<Cost ')).toBeLessThan(page.indexOf('<Commands '))
 })
 
 test('nothing is drawn while the plan cost loads', () => {

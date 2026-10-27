@@ -231,10 +231,11 @@ sección (`g s` Resumen, `g b` Tablero, `g p` Plan, `g q` Calidad…).
 |---|---|
 | 🏠 Resumen | el siguiente paso con un solo botón (el mismo que propone el asistente), lo que le falta a esta máquina, cómo van el plan, la revisión y los trabajos |
 | 📋 Tablero | las columnas de Backlog a Hecho: mueves una tarjeta arrastrándola o con el teclado (Tab hasta la tarjeta, Espacio la coge, las flechas la mueven, Intro la suelta, Escape la devuelve); una tarjeta abre su descripción, sus criterios y la definición de hecho, y una historia lista sus tareas y tiene **Añadir tarea**; **Eliminar** archiva la tarjeta (su fichero pasa a `backlog/archive/tasks`); **Añadir** crea un elemento (tipo, título, dentro de qué, prioridad); si el tablero no está activado, **Activar el tablero** |
-| 🗺️ Plan | ejecutar las unidades listas en paralelo o el piloto automático, y pararlos; las unidades agrupadas por lo que te piden (aprobar, reintentar, seguir, empezar, rehacer) con el agente que elijas; la actualización de la doc; y, con vista previa, empezar la documentación otra vez (`docs reset`: rehacer o borrar) |
+| 🗺️ Plan | ejecutar las unidades listas en paralelo o el piloto automático, y pararlos; las unidades agrupadas por lo que te piden (aprobar, reintentar, seguir, empezar, rehacer) con el agente que elijas; la actualización de la doc; lo que lleva costado el plan, debajo de las unidades; y, con vista previa, empezar la documentación otra vez (`docs reset`: rehacer o borrar) |
 | 🎙️ Entrevistas | cuestionario del equipo o en vivo, exportar el formulario sin conexión, importar respuestas, cerrar la ronda, cada entrevista con su agente |
 | 🤝 Equipo | el repo del equipo y compartir, aprobar la configuración de agentes que vino con él, hooks, plugins |
 | ✅ Calidad | requisitos y herramientas (guardados entre visitas, «Volver a comprobar»), el contexto que carga cada sesión de agente, preguntas de control, con y sin cam-docs; sin IA, vulnerabilidades conocidas, páginas desactualizadas, bloques generados |
+| 📦 Librerías | las dependencias de cada repo como tabla librería × servicio; **Buscar vulnerabilidades** avanza repo a repo con su barra y **Parar**, y acaba con un tick y lo que encontró; cada librería abre por qué está, sus avisos completos y **Actualizar** en una rama nueva del repo, sin commit |
 | 📖 Docs | **Leer la documentación**, **Revisar borradores** y **Buscar o preguntar** abren el portal en tu navegador. Debajo, **Construir el explorador C4**; por cada repo, **Generar la wiki** (elige el repo y escribe un brief inicial sin IA si aún no tiene) y, cuando ya tiene páginas, **Grafo del wiki**: cada uno un trabajo con su salida y, al acabar, **Ver** abre el resultado en el portal (**Reintentar** si falló); y **Preguntar con IA**, que responde con lo que dice la documentación y enlaza sus fuentes en el portal |
 | 🧰 Máquina | setup con progreso, idioma y modelos, tokens de GitLab / GitHub, repos y su stack, el perfil del plan, actualizar el kit, repair y, aparte y con vista previa, uninstall |
 
@@ -315,8 +316,10 @@ La zona **Historias** (`#/stories`) del portal es un solo sitio para escribir un
 subtareas que no chocan. El veredicto, las subtareas y las oleadas salen de reglas, plantillas y el mapa del código, sin
 IA: el mismo tablero da siempre el mismo veredicto, las mismas subtareas y las mismas oleadas. La IA solo propone, y solo
 cuando la pides: **✨ Sugerir con IA** está en los tres sitios donde ayuda (reescribir la historia, los criterios y las
-subtareas) y solo gasta cuando lo pulsas. Si no puede usarse (no hay agente instalado, el portal no se abrió con
-`camaron up` o está apagada) sale desactivado y dice por qué.
+subtareas) y solo gasta cuando lo pulsas. Mientras piensa, el botón lo dice (brilla, no se puede volver a pulsar y
+**Escape** cancela); lo que propone se queda en tu navegador, por historia, hasta que lo aceptas o lo descartas: pedir
+otra cosa, abrir otra historia o recargar no lo pierde. Si no puede usarse (no hay agente instalado, el portal no se
+abrió con `camaron up` o está apagada) sale desactivado y dice por qué.
 
 1. **Escribe** *Como / quiero / para* (o *As / I want / so that*). Mientras escribes salen avisos (rol genérico, dos
    objetivos en uno, un *para* que repite el *quiero*, demasiado largo, una solución dentro del *quiero*) que nunca

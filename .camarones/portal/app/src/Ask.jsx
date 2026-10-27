@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Thinking } from '@camaron/ui'
 import { getJSON, postJSON } from './api.js'
 import { t } from './i18n.js'
 import AppOnly from './AppOnly.jsx'
@@ -21,20 +22,12 @@ function Section({ text, path }) {
 // Opt-in, one click per question: the runner for bounded work answers from the sections Ask found, citing them.
 function AiAnswer({ question, runner, link }) {
   const [state, setState] = useState(null)
-  const [waited, setWaited] = useState(0)
-  useEffect(() => {
-    if (!state?.busy) return undefined
-    const started = Date.now()
-    const id = setInterval(() => setWaited(Math.round((Date.now() - started) / 1000)), 1000)
-    return () => clearInterval(id)
-  }, [state?.busy])
   async function go() {
-    setWaited(0)
     setState({ busy: true })
     try { setState(await postJSON('ask/answer', { q: question })) } catch (e) { setState({ error: e.message }) }
   }
   if (!state) return <AppOnly><button type="button" className="ghost small ai-go" onClick={go}>✨ {t('aiAnswer')} · {runner}</button></AppOnly>
-  if (state.busy) return <p className="muted ai-busy" role="status">{t('aiBusy')} {waited ? `${waited} s` : ''}</p>
+  if (state.busy) return <p className="ai-busy" role="status"><Thinking timer>{t('aiBusy')}</Thinking></p>
   if (state.error) return <p className="error" role="alert">{state.error}</p>
   const cost = state.cost_usd ? ` · $${state.cost_usd.toFixed(3)}` : ''
   return (
