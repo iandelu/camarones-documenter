@@ -9,10 +9,11 @@ repair pass puts back any missing entry. `list_stories` and `item` are the left 
 wizard; both are recomputed from the board on every call, nothing is stored."""
 from __future__ import annotations
 
+import re
 from typing import Sequence
 
 from . import docs as docs_mod
-from .common import repo_dir, ROOT
+from .common import IS_WIN, ROOT, repo_dir
 from .harness.locks import FileLock
 from .kanban import LOCK, PRIORITIES, deps, index, ops
 from .kanban.items import checklist, description
@@ -20,6 +21,8 @@ from .kanban.ops import BoardError
 from .kanban.state import id_key
 from .stories import (Proposal, Story, TASK_TITLE_MAX, _clean, _code_groups, _done, _lang, _node, _touches, analyze,
                       compose, fingerprint, invest, parse, title_for)
+
+_WIN_BAD = re.compile(r'[<>:"|?*]')
 
 __all__ = ["BoardError", "StoryConflict", "save", "list_stories", "item"]
 
@@ -50,19 +53,29 @@ def _check_touches(refs: Sequence[str], conn, what: str) -> list[str]:
             raise bad(f"{repo} is not a repo of this project")
         if not path.strip("/") or path.startswith("/") or ":" in path:
             raise bad("use repo:path with a path inside the repo")
+        if any(ord(c) < 32 or c == "" for c in path):
+            raise bad("it has control characters")
         base = ROOT if repo == index.DOCS_REPO else repo_dir(repo)
         target = base / path
         try:
             target.resolve().relative_to(base.resolve())
         except ValueError:
             raise bad("the path leaves its repo") from None
-        if target.is_file():
-            out.add(touch)
-            continue
-        if target.exists():
-            raise bad("it is a folder, not a file")
-        if not target.parent.is_dir():
+        except OSError as e:
+            raise bad(f"the file system refuses it: {e.strerror or e}") from None
+        try:
+            if target.is_file():
+                out.add(touch)
+                continue
+            if target.exists():
+                raise bad("it is a folder, not a file")
+            folder = target.parent.is_dir()
+        except (OSError, ValueError) as e:
+            raise bad(f"the file system refuses it: {e}") from None
+        if not folder:
             raise bad("the file does not exist and neither does its folder")
+        if IS_WIN and _WIN_BAD.search(path):
+            raise bad('Windows does not allow < > : " | ? * in a file name')
         if repo != index.DOCS_REPO and conn.execute(
                 "select 1 from files where repo = ? and grp = ? limit 1", (repo, path)).fetchone():
             raise bad("it is a group of the code map, not a file: pick its files")
@@ -71,15 +84,18 @@ def _check_touches(refs: Sequence[str], conn, what: str) -> list[str]:
 
 
 def _check_docs(refs: Sequence[str]) -> None:
-    """The pages exist; nothing is written (linking stamps a page's x-id, which `ops` does when it writes)."""
+    """Every reference resolves as `xid.resolve_ref` will resolve it (the page exists and so does the `#section`), but
+    nothing is written: linking stamps a page's x-id, which `ops` does when it writes."""
     if not refs:
         return
     from .kanban import xid
     ids, pages = xid.index(), xid._pages()
     for ref in refs:
-        found = xid.parse_link(ref)["xid"]
-        if found not in ids and found not in pages:
-            raise BoardError(f"unknown page {found} (use an x-id or a path like flows/payments.md)")
+        link = xid.parse_link(ref)
+        logical = ids.get(link["xid"]) or (link["xid"] if link["xid"] in pages else None)
+        if logical is None:
+            raise BoardError(f"unknown page {link['xid']} (use an x-id or a path like flows/payments.md)")
+        xid._section(xid._body(logical), link["section"])
 
 
 def _tasks_checked(tasks: Sequence[Proposal], items: dict, conn) -> list[dict]:

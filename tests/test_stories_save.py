@@ -323,3 +323,45 @@ def test_item_returns_what_the_screen_needs(world):
         mod.item("WI-99")
     with pytest.raises(mod.BoardError):
         mod.item(out["tasks"][0]["id"])                                              # a task, not a story
+
+
+def existing_story(world):
+    ops, mod = world[1], world[2]
+    sid = ops.add("story", "Ya escrita", touches=[ORDERS], description="Como a,\nquiero b,\npara c.")["id"]
+    return sid, mod.item(sid)["sha"]
+
+
+def test_existing_story_late_failures_write_nothing(world):
+    kit, _, mod, _ = world
+    sid, sha = existing_story(world)
+    (kit.root / "docs" / "flows" / "checkout.md").write_text(
+        "---\ntitle: Checkout\n---\n# Checkout\n\n## Retries\n\nText\n", encoding="utf-8")
+    before = tree(kit.root)
+    page = (kit.root / "docs" / "flows" / "checkout.md").read_bytes()
+    one = task(K1, "Orders: cobrar", [ORDERS])
+    for name, kw, tasks in (
+            ("missing section", {"docs": ["flows/checkout.md#nope"]}, [one, task(K2, "Pay: cobrar", [PAY])]),
+            ("unknown page", {"docs": ["flows/none.md"]}, [one]),
+            ("bad touch on the second task", {}, [one, task(K2, "Pay: cobrar", ["api:src/nope/New.java"])]),
+            ("bad dependency on the second task", {}, [one, task(K2, "Pay: cobrar", [PAY], deps=["WI-99"])])):
+        with pytest.raises(mod.BoardError):
+            save(world, story(id=sid), tasks, base_sha=sha, **kw)
+        assert tree(kit.root) == before, name
+    assert (kit.root / "docs" / "flows" / "checkout.md").read_bytes() == page          # no x-id stamped on a failure
+    save(world, story(id=sid), [one], base_sha=sha, docs=["flows/checkout.md#retries"])      # a real section is fine
+
+
+def test_touches_the_filesystem_cannot_hold_are_board_errors(world):
+    from lib.common import IS_WIN
+    kit, _, mod, _ = world
+    before = tree(kit.root)
+    bad = [f"api:{SRC}Nu\x00ll.java", f"api:{SRC}Tab\t.java", f"api:{SRC}New\nLine.java"]
+    if IS_WIN:
+        bad += [f"api:{SRC}New<File>.java", f"api:{SRC}New|File.java", f"api:{SRC}New?.java", f"api:{SRC}New*.java",
+                f'api:{SRC}New"File.java']
+    for touch in bad:
+        with pytest.raises(mod.BoardError):
+            save(world, story(touches=[touch]))
+        with pytest.raises(mod.BoardError):
+            save(world, story(), [task(K1, "Uno", [touch])])
+    assert tree(kit.root) == before
