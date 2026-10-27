@@ -46,7 +46,8 @@
                             is read most); --record: whether this machine adds its counts
   version                   kit and pinned tool versions
   config [get|set] [KEY] [VALUE] [--json]   this machine's settings the wizard keeps: lang (es|en), model (Claude
-                            Code: sonnet|opus|haiku), codex_model
+                            Code: sonnet|opus|haiku), codex_model, sessions (canvas|window: where the desktop app
+                            opens a session, a terminal on its canvas or a window)
   projects [--json] [--add FOLDER]   the projects registered on this machine, most recent first; --add registers one
   projects --inspect FOLDER [--json]   what a folder is (project, repo, umbrella, code, empty); reads, never writes
   projects --adopt FOLDER [--name NAME] [--json]   make FOLDER a project (docs in a cam-docs/ next to its repos) and register it

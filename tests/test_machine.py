@@ -20,16 +20,20 @@ def cli(kit, *args):
 def test_config_reads_and_writes_the_wizard_settings(kit):
     r = cli(kit, "config", "--json")
     assert r.returncode == 0, r.stderr
-    assert json.loads(r.stdout) == {"lang": "es", "model": "sonnet", "codex_model": kit.wizard.CODEX_MODEL_DEFAULT}
+    assert json.loads(r.stdout) == {"lang": "es", "model": "sonnet", "codex_model": kit.wizard.CODEX_MODEL_DEFAULT,
+                                    "sessions": "canvas"}
     assert cli(kit, "config", "set", "lang", "en").returncode == 0
     assert cli(kit, "config", "set", "model", "opus").returncode == 0
     assert cli(kit, "config", "set", "codex_model", "gpt-9").returncode == 0
+    assert cli(kit, "config", "set", "sessions", "window").returncode == 0
     prefs = json.loads(kit.common.PREFS.read_text(encoding="utf-8"))
-    assert (prefs["lang"], prefs["model"], prefs["codex_model"]) == ("en", "opus", "gpt-9")
+    assert (prefs["lang"], prefs["model"], prefs["codex_model"], prefs["sessions"]) == ("en", "opus", "gpt-9", "window")
     assert cli(kit, "config", "get", "lang").stdout.strip() == "en"
+    assert cli(kit, "config", "get", "sessions").stdout.strip() == "window"
 
 
-@pytest.mark.parametrize("key,value", [("lang", "fr"), ("model", "gpt"), ("nope", "x"), ("codex_model", " ")])
+@pytest.mark.parametrize("key,value", [("lang", "fr"), ("model", "gpt"), ("nope", "x"), ("codex_model", " "),
+                                       ("sessions", "tab")])
 def test_config_refuses_what_the_wizard_would_not_offer(kit, key, value):
     r = cli(kit, "config", "set", key, value)
     assert r.returncode == 2 and r.stderr
@@ -120,6 +124,7 @@ def test_the_machine_panel_data(kit, app):
     assert {r["name"] for r in m["repos"]} == set(kit.docs.repo_names())
     assert all({"name", "url", "stack", "cloned"} <= set(r) for r in m["repos"])
     assert m["profile"] in ("quick", "full", None)
+    assert m["sessions"] == ["canvas", "window"] and isinstance(m["terminals"], bool)
 
 
 @pytest.fixture
