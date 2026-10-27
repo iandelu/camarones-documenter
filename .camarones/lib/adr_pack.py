@@ -29,6 +29,7 @@ _OPEN = re.compile(r"^\s*-\s+\[ \]\s+(.*\S)\s*$")
 _WORD = re.compile(r"[^\W_]+")
 _TECHNOLOGIES = re.compile(r"[·•,;|/]")
 _PREFIXES = ("spring-boot-starter-", "spring-")
+_MAJOR = re.compile(r"v\d+")
 _COMPOSE = ("docker-compose*.y*ml", "compose*.y*ml")
 _CHART, CHART_DEPTH = "Chart.yaml", 3
 _DEPLOY = {"docker-compose": "Docker Compose", "helm": "Helm"}
@@ -202,7 +203,10 @@ def render(pack: dict) -> str:
 def term(name: str) -> str:
     """The bare artifact of a library or technology name (`org.postgresql:postgresql` → `postgresql`,
     `spring-boot-starter-data-jpa` → `data-jpa`): what inventory rows, C4 technologies and ADR texts are matched by."""
-    artifact = re.split(r"[:/]", name.strip())[-1].strip().lower()
+    parts = re.split(r"[:/]", name.strip().lower())
+    if len(parts) > 1 and _MAJOR.fullmatch(parts[-1].strip()) and parts[-2].strip():
+        parts.pop()                                                # a Go module path ends in its major version: `pgx/v5`
+    artifact = parts[-1].strip()
     for prefix in _PREFIXES:
         if artifact.startswith(prefix) and len(artifact) > len(prefix):
             return artifact[len(prefix):]
