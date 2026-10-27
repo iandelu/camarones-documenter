@@ -10,8 +10,8 @@ import { lang, t } from '../i18n.js'
 // The Plan by task: run the ready units (in parallel, or the autopilot one after another) or stop what runs; then
 // every unit coloured by its state (running yellow, done green, ready white, blocked red, awaiting you in the accent),
 // as a board by state or lane by phase like the portal. A unit opens beside the board with the one action that moves
-// it. A unit in progress with no terminal window open is paused; an open one says what its agent is doing. The graph
-// with its arrows stays in the portal.
+// it. A unit in progress with no terminal window open is paused; an open one says what its agent is doing. Under the
+// board, what the plan cost. The graph with its arrows stays in the portal.
 const VIEWS = ['board', 'phases']
 const TONES = ['ready', 'running', 'paused', 'awaiting', 'blocked', 'waiting', 'done']
 
@@ -44,7 +44,6 @@ export default function Plan({ srv, jobs }) {
     <Page title={t('nav.plan')} wide>
       <Run srv={srv} jobs={jobs} run={data.run} pilot={pilot} onChanged={load} ready={ready} />
       <Update srv={srv} a={a} />
-      <Cost srv={srv} active={active} />
       <div className="row dk-units-head">
         <b>{t('plan.progress', { done, total: live.length })}</b>
         <progress className="dk-progress dk-grow" value={done} max={live.length || 1} aria-label={t('stat.plan')} />
@@ -76,6 +75,7 @@ export default function Plan({ srv, jobs }) {
         )}
         {unit ? <Detail u={unit} all={data.units} srv={srv} a={a} plan={data} onClose={() => setOpen(null)} onChanged={load} /> : null}
       </div>
+      <Cost srv={srv} active={active} />
       <Commands srv={srv} jobs={jobs} section="plan" />
       <Reset srv={srv} jobs={jobs} onChanged={load} />
     </Page>
@@ -193,8 +193,6 @@ function Run({ srv, jobs, run, pilot, onChanged, ready }) {
   )
 }
 
-// Keep it current: the docs update (what changed in the code since the docs were written) as a session with the
-// agent in its own terminal, like the wizard's "update" (lib/agents.py).
 // What the plan took from zero (`camaron plan cost`): POST harvests this machine's unit sessions, then answers the
 // team's bill. Asked when the section opens and when a run starts or ends, not on every poll of the board.
 function Cost({ srv, active }) {
@@ -215,6 +213,8 @@ export function CostView({ bill, error, busy, onRefresh, onRetry }) {
   return bill ? <PlanCost bill={bill} busy={busy} onRefresh={onRefresh} /> : null
 }
 
+// Keep it current: the docs update (what changed in the code since the docs were written) as a session with the
+// agent in its own terminal, like the wizard's "update" (lib/agents.py).
 function Update({ srv, a }) {
   const [note, setNote] = useState({ ok: '', error: '' })
   if (a.agents && !a.agents.length) return null
