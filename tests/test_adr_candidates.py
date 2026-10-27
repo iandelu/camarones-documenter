@@ -58,6 +58,14 @@ def test_a_term_is_the_bare_artifact_in_lower_case(adr_pack):
     assert adr_pack.term("") == ""
 
 
+def test_a_go_major_version_suffix_is_not_the_term(adr_pack):
+    assert adr_pack.term("github.com/redis/go-redis/v9") == "go-redis"
+    assert adr_pack.term("github.com/jackc/pgx/v5") == "pgx"
+    assert adr_pack.term("github.com/Jackc/PGX/V5") == "pgx"
+    assert adr_pack.term("v9") == "v9" and adr_pack.term("/v9") == "v9"          # nothing before it to name
+    assert adr_pack.term("github.com/acme/v2ray") == "v2ray" and adr_pack.term("github.com/acme/v1.2") == "v1.2"
+
+
 def test_candidates_group_repos_and_skip_tests_and_covered_ones(adr_pack, kit):
     seed_inventory([
         lib("api", "org.postgresql:postgresql", "data"),
@@ -94,6 +102,18 @@ def test_the_manifest_is_read_from_the_row_source_or_the_repo_and_manifest(adr_p
     (row,) = adr_pack.candidates()
     assert row["repos"] == ["api", "web", "worker"]
     assert row["manifests"] == ["api:pom.xml", "api:services/orders/pom.xml", "web:pom.xml"]
+
+
+def test_two_go_libraries_with_the_same_major_version_stay_two_candidates(adr_pack, kit):
+    seed_inventory([lib("api", "github.com/jackc/pgx/v5", "data", source="api:go.mod"),
+                    lib("api", "github.com/gorilla/mux/v5", "framework", source="api:go.mod"),
+                    lib("web", "github.com/jackc/pgx/v5", "data", source="web:go.mod"),
+                    lib("api", "github.com/lib/pq/v5", "data", source="api:go.mod")])
+    got = adr_pack.candidates()
+    assert [(c["key"], c["label"], c["repos"]) for c in got] == [
+        ("data:pgx", "pgx", ["api", "web"]), ("data:pq", "pq", ["api"]), ("framework:mux", "mux", ["api"])]
+    decide(kit, "0001-db", "# 0001 — Why pgx\n")
+    assert keys(adr_pack) == ["data:pq", "framework:mux"]
 
 
 def test_the_same_term_in_two_categories_is_two_decisions(adr_pack):
