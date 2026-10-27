@@ -16,11 +16,11 @@ test('live: GET api/<name>?<params>, the server error as it is', async () => {
   await expect(docsGet('doc', { path: 'x.md' }, { static: false })).rejects.toThrow('no such page')
 })
 
-test('live: the desktop app token rides along', async () => {
+test('live: a read carries no token (the portal token only writes the board)', async () => {
   const fetch = answer({ 'api/tree': {} })
   vi.stubGlobal('fetch', fetch)
-  await docsGet('tree', {}, { static: false, token: 'tok' })
-  expect(fetch.mock.calls[0][1]).toEqual({ headers: { 'X-Camaron-Token': 'tok' } })
+  await docsGet('tree', {}, { static: false })
+  expect(fetch.mock.calls[0]).toEqual(['api/tree'])
 })
 
 test('export: a page in the reader language, else the English one marked as missing', async () => {
