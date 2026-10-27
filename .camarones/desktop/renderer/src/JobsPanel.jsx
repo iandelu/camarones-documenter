@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { Button, Chip } from '@camaron/ui'
-import { ago, chip, state } from './jobs.js'
+import { Button } from '@camaron/ui'
+import { ago } from './jobs.js'
+import { JobChip } from './parts.jsx'
 import { useStore } from './hooks.js'
 import { t } from './i18n.js'
 
@@ -50,7 +51,7 @@ export default function JobsPanel({ srv, jobs }) {
 function JobLine({ job }) {
   return (
     <>
-      <Chip state={chip(job)}>{t('job.' + state(job))}</Chip>
+      <JobChip job={job} />
       <span className="dk-job-label">{job.label || job.kind}</span>
       <span className="muted small">{ago(job.started, now(), t)}</span>
     </>
