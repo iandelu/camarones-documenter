@@ -86,8 +86,10 @@ def _stats() -> Iterator[tuple[str, int, int]]:
 
 
 def snapshot() -> str:
-    """sha256 over the sorted stats of the board, its cards, the docs and each repo's graph."""
+    """sha256 over the index's and the code map's formats and the sorted stats of the board, its cards, the docs and
+    each repo's graph: a kit that reads either differently rebuilds the index."""
     h = hashlib.sha256()
+    h.update(f"format\0{FORMAT}\0{codemap.FORMAT}\n".encode("utf-8"))
     for name, size, mtime in sorted(_stats()):
         h.update(f"{name}\0{size}\0{mtime}\n".encode("utf-8"))
     return h.hexdigest()

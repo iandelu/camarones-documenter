@@ -111,6 +111,14 @@ def test_a_code_order_cycle_broken_by_a_dropped_dependency_saves(world):
         save(world, story(), [task(K1, "Orders: b", [ORDERS], deps=[K2]), task(K2, "Pay: b", [PAY], deps=[K1])])
 
 
+def test_a_subtask_without_files_counts_as_the_storys_repos(world):
+    kit = world[0]
+    out = save(world, story(touches=[ORDERS, PAGE]), [task(K1, "Orders: cobrar", []), task(K2, "Pay: cobrar", [PAY])])
+    open_, declared = (read(kit, r["id"]) for r in out["tasks"])
+    assert open_.fm["x-repos"] == ["api"] and not open_.fm.get("x-touches")       # cam-docs is not a repo of work
+    assert declared.fm["x-repos"] == ["api"] and declared.fm["x-touches"] == [PAY]
+
+
 def test_save_keeps_dependencies_on_existing_items(world):
     ops = world[1]
     other = ops.add("task", "Prerequisite")

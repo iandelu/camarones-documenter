@@ -41,7 +41,7 @@ def test_tools_are_listed_and_say_agents_cannot_move_cards(mcp):
         assert "cannot move" in text and "person" in text and "gate" in text
         assert tools[name]["inputSchema"]["type"] == "object"
     assert "may start" in tools["board_next"]["description"]
-    assert set(tools["board_next"]["inputSchema"]["properties"]) == {"n", "story"}
+    assert set(tools["board_next"]["inputSchema"]["properties"]) == {"n", "story", "epic"}
     assert set(tools["board_waves"]["inputSchema"]["properties"]) == {"story", "epic"}
     listed = mcp.handle({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})["result"]["tools"]
     assert {"board_next", "board_waves"} <= {t["name"] for t in listed}
@@ -86,7 +86,7 @@ def test_board_next_n_defaults_to_3_and_is_clamped(board, mcp):
     assert len(json.loads(call(mcp, "board_next", n="4")[0])["ready"]) == 4
 
 
-@pytest.mark.parametrize("bad", ["many", None, 2.5, [1], True])
+@pytest.mark.parametrize("bad", ["many", None, 2.5, [1], True, "--5", "²", "4.0", ""])
 def test_board_next_a_bad_n_is_a_plain_message(board, mcp, bad):
     text, err = call(mcp, "board_next", n=bad)
     assert not err and "n must be an integer" in text and "Traceback" not in text
@@ -99,6 +99,16 @@ def test_board_next_scoped_to_a_story_and_unknown_story(board, mcp):
     assert ids(json.loads(call(mcp, "board_next", story="WI-1")[0])["ready"]) == ["WI-2"]
     text, err = call(mcp, "board_next", story="WI-99")
     assert not err and "WI-99" in text and not text.startswith("{") and "Traceback" not in text
+
+
+def test_board_next_scoped_to_an_epic(board, mcp):
+    board.add("epic", "Epic")
+    board.add("story", "Story", parent="WI-1")
+    board.add("task", "In epic", parent="WI-2", touches=["api:a.py"])
+    board.add("task", "Elsewhere", touches=["web:b.js"])
+    assert ids(json.loads(call(mcp, "board_next", epic="WI-1")[0])["ready"]) == ["WI-3"]
+    text, err = call(mcp, "board_next", story="WI-2", epic="WI-1")
+    assert not err and "either a story or an epic" in text and not text.startswith("{")
 
 
 def test_board_waves(board, mcp):

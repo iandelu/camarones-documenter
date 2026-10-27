@@ -227,3 +227,27 @@ def test_an_archived_child_still_makes_its_parent_a_container(board):
     board.move("WI-1", "In Progress")
     assert board.move("WI-3", "In Progress", surface="mcp")["status"] == "In Progress"
     assert [r["id"] for r in board.next_items(10)["ready"]] == []         # the story is a container, WI-3 is running
+
+
+def test_the_gate_uses_the_card_statuses_loaded_under_the_lock(board, monkeypatch):
+    board.add("task", "Running", touches=["api:a.py"])
+    board.add("task", "Clashes", touches=["api:a.py"])
+    board.move("WI-1", "In Progress")
+    from lib.kanban import index
+    real = index.nodes
+    monkeypatch.setattr(index, "nodes", lambda conn: [{**n, "status": "Backlog"} for n in real(conn)])   # a stale index
+    with pytest.raises(board.GateError) as err:
+        board.move("WI-2", "In Progress", surface="mcp")
+    assert err.value.blocked_by == [{"id": "WI-1", "kind": "conflict", "files": ["api:a.py"]}]
+
+
+def test_the_index_snapshot_changes_with_the_formats(board, monkeypatch):
+    from lib import codemap
+    from lib.kanban import index
+    before = index.snapshot()
+    monkeypatch.setattr(codemap, "FORMAT", codemap.FORMAT + 1)
+    assert index.snapshot() != before
+    monkeypatch.undo()
+    assert index.snapshot() == before
+    monkeypatch.setattr(index, "FORMAT", index.FORMAT + 1)
+    assert index.snapshot() != before

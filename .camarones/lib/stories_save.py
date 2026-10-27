@@ -268,10 +268,13 @@ def save(story: Story, *, title: str | None, tasks: Sequence[Proposal], base_sha
             sid = head["id"]
         ids: dict[str, str] = {}
         rows: dict[str, dict] = {}
+        # a subtask without files counts as touching the story's repos (for agents), as the screen says
+        story_repos = sorted({f.partition(":")[0] for f in footprint} - {index.DOCS_REPO}) or (
+            [str(r) for r in ops._as_list(existing.fm.get("x-repos"))] if existing is not None else [])
         for t in _in_order(checked):
             rows[t["key"]] = ops.add("task", t["title"], parent=sid, description=t["title"], criteria=t["criteria"],
                                      touches=t["touches"], dependencies=[ids.get(d, d) for d in t["deps"]], by=by,
-                                     surface=surface)
+                                     repos=() if t["touches"] else story_repos, surface=surface)
             ids[t["key"]] = rows[t["key"]]["id"]
         if existing is not None:
             retitle = title.strip() if title is not None and title.strip() != existing.title else None

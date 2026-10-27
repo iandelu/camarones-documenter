@@ -1,5 +1,5 @@
 {
   "change_title": "{group}: {want}",
   "docs_title": "Actualizar {page}",
-  "change_criterion": "Tests de {refs} escritos primero"
+  "change_criterion": "Tests de los criterios {refs} de la historia escritos primero"
 }
