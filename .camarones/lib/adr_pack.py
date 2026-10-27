@@ -34,15 +34,14 @@ def _text(value) -> str:
     return " ".join(str(value).split()) if value is not None else ""
 
 
-def _page(f: Path) -> tuple[dict, str] | None:
+def read_page(logical: str, f: Path) -> tuple[dict, str] | None:
+    """(frontmatter, body) of a doc page; None when it cannot be read or is a decision (`type: decision`, or under
+    `decisions/`): a decision has its own status and is never evidence about or affected by another."""
     try:
-        return docs.split_fm(f.read_text(encoding="utf-8"))
+        fm, body = docs.split_fm(f.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError):
         return None
-
-
-def _decision(logical: str, fm: dict) -> bool:
-    return fm.get("type") == "decision" or logical.startswith("decisions/")
+    return None if fm.get("type") == "decision" or logical.startswith("decisions/") else (fm, body)
 
 
 # ---------- the board index: neighbours and the pages citing the files ----------
@@ -72,29 +71,11 @@ def _citing(conn, touches: list[str]) -> list[tuple[str, Path]]:
     return found
 
 
-def affected(touches: list[str]) -> list[str]:
-    """The doc pages (logical paths, no decision) citing the touches; empty when the index cannot be read."""
-    if not touches:
-        return []
-    conn = _connect()
-    try:
-        cited = _query(conn, _citing, touches)
-    finally:
-        if conn is not None:
-            conn.close()
-    found = []
-    for logical, f in cited:
-        read = _page(f)
-        if read and not _decision(logical, read[0]):
-            found.append(logical)
-    return found
-
-
 def _pages(cited: list[tuple[str, Path]]) -> list[dict]:
     found = []
     for logical, f in cited:
-        read = _page(f)
-        if read is None or _decision(logical, read[0]):
+        read = read_page(logical, f)
+        if read is None:
             continue
         fm, body = read
         found.append({"page": logical, "title": _text(fm.get("title") or docs.first_heading(body) or logical),

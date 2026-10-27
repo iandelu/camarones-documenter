@@ -232,8 +232,18 @@ def parts_of(state: dict, sections: dict) -> list[str]:
 
 
 def _affected(state: dict | None) -> list[str]:
+    """The doc pages (logical paths under `docs/`, no decision) that cite a file the state touches, read from their own
+    `x-sources`: every action answers with this, so it never opens the board index (an edit would rebuild it)."""
+    touches = set(_touches_of((state or {}).get("touches") or []))
+    if not touches:
+        return []
     from . import adr_pack
-    return adr_pack.affected((state or {}).get("touches") or [])
+    found = []
+    for logical, f in docs.iter_docs():
+        page = adr_pack.read_page(logical, f) if f.is_relative_to(DOCS) else None
+        if page and touches & set(_touches_of(_sources(page[0]))):
+            found.append(logical)
+    return sorted(found)
 
 
 def get(id: str) -> dict:
