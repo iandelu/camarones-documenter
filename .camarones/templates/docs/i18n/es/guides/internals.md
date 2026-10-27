@@ -275,7 +275,7 @@ Una instalación nueva ya documenta mucho con análisis estático, con fuentes e
 |---|---|
 | `camaron pages` (alias `diagrams`) | `docs/index.md` (qué es el proyecto, una tarjeta por repo, el mapa de contexto), `docs/repos/<repo>/index.md` (endpoints, datos como diagrama ER, diagramas de estados por cada enum de estado, mensajes, variables de entorno y comandos) y `docs/architecture/messaging.md` |
 | `camaron radar`, `camaron stack` | `docs/overview/tooling.md`: el stack de cada repo y las herramientas que usa |
-| `camaron inventory [--cves]` | `docs/overview/libraries.md`: dependencias directas por categoría, versiones que difieren, vulnerabilidades conocidas |
+| `camaron inventory [--cves]` | `docs/overview/libraries.md`: dependencias directas por categoría, versiones que difieren, vulnerabilidades conocidas; un módulo Maven toma sus versiones del pom padre y los BOM del mismo repo |
 | `camaron schemas` | Tablas y colecciones desde migraciones, entidades, Mongo y Firestore |
 | `camaron history` | `docs/overview/history.md`: puntos calientes, quién trabaja dónde, ficheros que cambian juntos |
 | `camaron arch-draft` | Un primer modelo C4 para verificar |

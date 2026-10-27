@@ -8,7 +8,7 @@ import json, subprocess
 
 import pytest
 
-from test_inventory import LOCK, PACKAGE, POM, PYPROJECT, UVLOCK, repos  # noqa: F401 — the three-repo fixture
+from test_inventory import BOM, LOCK, MODULE, PACKAGE, PARENT, POM, PYPROJECT, UVLOCK, repos  # noqa: F401 — the three-repo fixture
 
 
 def git(repo, *args):
@@ -114,6 +114,53 @@ def test_maven_rewrites_the_property_or_the_version(kit, committed, tools):
     assert "<artifactId>acme-utils</artifactId><version>1.1</version>" in pom
     with pytest.raises(ValueError, match="parent"):                    # its version comes from the parent pom
         committed.plan("api", "org.postgresql:postgresql", "42.7.2")
+
+
+@pytest.fixture
+def modules(kit, committed):
+    """A multi-module Maven repo: core/pom.xml takes its versions from the root pom and from a BOM of the same repo."""
+    api = kit.ws / "api"
+    (api / "pom.xml").write_text(PARENT, encoding="utf-8")
+    (api / "bom").mkdir()
+    (api / "bom" / "pom.xml").write_text(BOM, encoding="utf-8")
+    (api / "core").mkdir()
+    (api / "core" / "pom.xml").write_text(MODULE, encoding="utf-8")
+    git(api, "add", "-A")
+    git(api, "commit", "-q", "-m", "modules")
+    return committed
+
+
+def test_a_maven_module_updates_the_parent_pom_that_sets_its_version(kit, modules, tools):
+    p = modules.plan("api", "org.springframework:spring-webmvc", "6.2.19")
+    assert p["manifest"] == "api/pom.xml" and p["from"] == "6.1.21" and p["property"] == "spring.version"
+    r = modules.apply("api", "org.springframework:spring-webmvc", "6.2.19", log=lambda _: None)
+    assert r["files"] == ["pom.xml"]
+    assert "<spring.version>6.2.19</spring.version>" in (kit.ws / "api" / "pom.xml").read_text(encoding="utf-8")
+    assert (kit.ws / "api" / "core" / "pom.xml").read_text(encoding="utf-8") == MODULE
+
+
+def test_the_version_changes_where_the_repo_writes_it(kit, modules, tools):
+    p = modules.plan("api", "org.assertj:assertj-core", "3.27.7")             # ${assertj.version}, set by the parent
+    assert p["manifest"] == "api/pom.xml" and p["property"] == "assertj.version"
+    p = modules.plan("api", "org.freemarker:freemarker", "2.3.34")            # a literal version in the repo's BOM
+    assert p["manifest"] == "api/bom/pom.xml" and p["property"] is None
+    modules.apply("api", "org.freemarker:freemarker", "2.3.34", log=lambda _: None)
+    bom = (kit.ws / "api" / "bom" / "pom.xml").read_text(encoding="utf-8")
+    assert "<artifactId>freemarker</artifactId><version>2.3.34</version>" in bom
+    core = kit.ws / "api" / "core" / "pom.xml"
+    git(kit.ws / "api", "checkout", "-q", "main")
+    core.write_text(MODULE.replace("<artifactId>core</artifactId>", "<artifactId>core</artifactId><properties>"
+                                   "<spring.version>${spring-framework.version}</spring.version></properties>"), encoding="utf-8")
+    root = kit.ws / "api" / "pom.xml"
+    root.write_text(PARENT.replace("<revision>", "<spring-framework.version>6.1.22</spring-framework.version><revision>"),
+                    encoding="utf-8")
+    p = modules.plan("api", "org.springframework:spring-webmvc", "6.2.19")    # the module's own property, one hop
+    assert p["manifest"] == "api/pom.xml" and p["property"] == "spring-framework.version" and p["from"] == "6.1.22"
+
+
+def test_a_version_set_outside_the_repo_names_who_sets_it(kit, modules, tools):
+    with pytest.raises(ValueError, match="spring-boot-dependencies:3.2.12"):
+        modules.plan("api", "org.springframework.boot:spring-boot-starter-web", "3.4.0")
 
 
 def test_what_cannot_be_updated_says_why(kit, committed, tools):

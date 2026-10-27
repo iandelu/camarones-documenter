@@ -313,11 +313,14 @@ Las dependencias de cada repo, leídas de sus manifiestos y lockfiles sin IA (`#
   librerías con avisos conocidos», y los repos que no pudo escanear). Si sales de Librerías y vuelves mientras corre,
   retoma su progreso. Sin OSV-Scanner en la máquina, las librerías se releen sin vulnerabilidades y lo dice.
 - Filtros: búsqueda, categoría, servicio, ámbito y **Solo vulnerables**. La tabla es librería × servicio, las peores
-  primero, con un chip cuando dos repos usan versiones distintas.
+  primero, con un chip cuando dos repos usan versiones distintas. Bajo cada librería, los repos donde está, primero
+  donde tiene avisos y en rojo (tres nombres y luego «+N más»); su columna se queda fija al desplazar la tabla.
 - Abre una librería: **Por qué está aquí** (qué repo la declara, en qué manifiesto, con qué rango y ámbito) y **Por qué
   está marcada** (cada aviso con su gravedad, versiones afectadas, fechas, CWE, texto completo y enlaces).
 - **Actualizar** propone la versión que corrige todos sus avisos, pregunta una vez y ejecuta `camaron bump`: una rama
   nueva `camaron/bump-<librería>-<versión>` en ese repo, sin commit ni push. Un repo con cambios sin commit no se toca.
+  En un módulo Maven que hereda su versión cambia donde el repo la escribe: la propiedad o el `<version>` de su pom
+  padre o de un BOM del mismo repo. Si la fija algo de fuera del repo, no la toca y dice quién la fija.
 
 ## Docs
 
