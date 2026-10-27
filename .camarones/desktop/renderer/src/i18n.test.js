@@ -18,6 +18,7 @@ test('every key a component names exists', () => {
     'adr.chip': ['running', 'review', 'proposed', 'accepted', 'superseded', 'rejected', 'deprecated', 'unknown'],   // lib/adr.py CHIPS
     'adr.step': ['problem', 'evidence', 'research', 'synthesis', 'review', 'accepted', 'rejected'], 'adr.filter': ['all', 'running', 'review', 'accepted', 'superseded'],
     'adr.why': ['deferred', 'unchosen', 'noDecision'], 'adr.kind': ['new', 'retro'],
+    'adr.review.status': ['pending', 'approved', 'edited', 'deferred', 'chosen'],     // lib/adr.py PART_ACTIONS, a point once chosen
     'adr.sec': ['context', 'drivers', 'options', 'decision', 'consequences', 'confirmation', 'diagram', 'evidence', 'decided_by'],
     'adr.cat': ['data', 'cache', 'messaging', 'security', 'framework', 'deploy', 'c4'],   // lib/adr_pack.py CATEGORIES + deploy, c4
     'adr.pack': ['files', 'neighbours', 'pages', 'adrs', 'commits', 'c4', 'libraries', 'questions'].flatMap((p) => [`${p}.one`, `${p}.many`]) }

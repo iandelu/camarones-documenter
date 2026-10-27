@@ -108,9 +108,111 @@ export function screen(s, a) {
     case 'packed': return { ...s, packing: false, pack: a.pack, adr: a.adr ?? s.adr }
     case 'packFailed': return { ...s, packing: false, packError: a.error, pack: s.pack === undefined ? null : s.pack }
     case 'busy': return { ...s, busy: true, actError: '' }
-    case 'done': return { ...s, busy: false, adr: a.adr }
+    case 'done': return { ...s, busy: false, adr: a.adr, notice: null }
     case 'actFailed': return { ...s, busy: false, actError: a.error }
     case 'reloaded': return { ...s, busy: false, packing: false, adr: a.adr, notice: { key: 'adr.reloaded' } }
     default: return s
   }
+}
+
+// ---------- the review (sections/adr/Review.jsx) ----------
+
+// A part is a section of text (approved, edited or deferred), a decision point, or the docs the ADR covers once accepted
+// (computed: they are seen and approved, never edited).
+export const partKind = (id) => (String(id ?? '').startsWith('point:') ? 'point' : id === 'affected' ? 'affected' : 'text')
+export const decided = (adr) => ['accepted', 'rejected'].includes(adr?.state?.phase)
+export const pointOf = (adr, part) => (adr?.points || []).find((p) => `point:${p.id}` === part) ?? null
+
+// The parts the review walks (lib/adr.py parts_of). With no decision point, accepting needs the Decision section written
+// (acceptBlock), so it is a part too, after the drivers, with the status the working state keeps for it.
+export function reviewParts(adr) {
+  const parts = (adr?.parts || []).filter((p) => p?.id)
+  if (adr?.points?.length || parts.some((p) => p.id === 'decision')) return parts
+  const ids = parts.map((p) => p.id)
+  const at = Math.max(ids.indexOf('drivers'), ids.indexOf('context')) + 1
+  return [...parts.slice(0, at), { id: 'decision', status: adr?.state?.parts?.decision || 'pending' }, ...parts.slice(at)]
+}
+
+const SEEN = ['approved', 'edited']
+
+// Where a review opens: the first part still to see (pending or deferred), else the first.
+export const firstOpen = (parts) => ((parts || []).find((p) => !SEEN.includes(p.status)) ?? parts?.[0])?.id ?? null
+
+// The part a refused accept points at (acceptBlock): the point it names, or the Decision section; null if not shown.
+export function blockedPart(block, parts) {
+  if (!block) return null
+  const id = block.point ? `point:${String(block.point).toLowerCase()}` : 'decision'
+  return (parts || []).some((p) => (p?.id ?? p) === id) ? id : null
+}
+
+// A keydown on the review as presentKey's action. Not with a modifier held (the app's ⌘K, the system's own), not while
+// typing, not for the letter that ends a `g` chord (App.jsx goes to a section then: `g d` must not defer). A capital
+// (Shift, Caps Lock) is its letter.
+export function reviewKey(e, ctx) {
+  if (!e?.key || e.metaKey || e.ctrlKey || e.altKey || ctx?.chord) return null
+  return presentKey(/^[A-Z]$/.test(e.key) ? e.key.toLowerCase() : e.key, ctx)
+}
+
+// What an action does on the part in view: {go}, {present}, {pick: option id}, {edit: 'text' | 'rationale'},
+// {defer: 'part' | 'point'}, {accept: true} (confirm first), or, when accept is refused, {go, blocked} to the part in
+// the way. A decided ADR only moves and presents; null when the action has nothing to do here.
+export function keyEffect(adr, current, act, ctx) {
+  if (!act) return null
+  const present = !!ctx?.present
+  if (act.do === 'next' || act.do === 'prev') return { go: nextPart(reviewParts(adr), current, act.do === 'next' ? 1 : -1) }
+  if (act.do === 'toggle') return { present: !present }
+  if (act.do === 'exit') return present ? { present: false } : null
+  if (decided(adr)) return null
+  const kind = partKind(current)
+  if (act.do === 'choose') {
+    const option = kind === 'point' ? pointOf(adr, current)?.options?.[act.n - 1] : null
+    return option ? { pick: option.id } : null
+  }
+  if (act.do === 'edit') return kind === 'affected' ? null : { edit: kind === 'point' ? 'rationale' : 'text' }
+  if (act.do === 'defer') return kind === 'affected' ? null : { defer: kind === 'point' ? 'point' : 'part' }
+  if (act.do === 'accept') {
+    const block = acceptBlock(adr)
+    return block ? { go: blockedPart(block, reviewParts(adr)) ?? current, blocked: block } : { accept: true }
+  }
+  return null
+}
+
+// A refusal the file outran (409 with the sha it has now): read the ADR again. A 409 without it is the ADR's lock being
+// busy, a message to show as it is, like any other refusal.
+export const stale = (e) => e?.status === 409 && !!e?.data?.sha
+
+const line = (s) => String(s ?? '').replace(/\s+/g, ' ').trim()
+const lines = (s) => String(s ?? '').split(/\r?\n/).map(line).filter(Boolean)
+
+// The option a point has picked on screen (a draft), else the one it was decided with; 'other' is one typed in.
+export const pickOf = (point, draft) => draft?.picked ?? (point?.other ? 'other' : point?.chosen) ?? null
+
+// The body that decides a point (`point choose`): the option picked, or the one typed, and its one-line why; null while
+// there is nothing to choose.
+export function choiceBody(point, draft) {
+  const picked = pickOf(point, draft)
+  const base = { op: 'choose', point: point?.id, rationale: line(draft?.rationale ?? point?.rationale) }
+  if (picked === 'other') {
+    const other = line(draft?.other ?? point?.other)
+    return other ? { ...base, other } : null
+  }
+  return (point?.options || []).some((o) => o.id === picked) ? { ...base, chosen: picked } : null
+}
+
+// The body of a new point (`point add`) from its form: the question and every named option, pros and cons one per
+// line; null until it has a question and two options.
+export function newPointBody(form) {
+  const question = line(form?.question)
+  const options = (form?.options || []).map((o) => ({ name: line(o?.name), pros: lines(o?.pros), cons: lines(o?.cons) }))
+    .filter((o) => o.name)
+  return question && options.length >= 2 ? { op: 'add', question, options } : null
+}
+
+// The attendees with the ones typed added (several at once, split by commas); a name already there, whatever its case,
+// is not added twice.
+export function addAttendees(list, typed) {
+  const out = [...(list || [])]
+  for (const name of String(typed ?? '').split(',').map(line).filter(Boolean))
+    if (!out.some((n) => n.toLowerCase() === name.toLowerCase())) out.push(name)
+  return out
 }
