@@ -66,7 +66,7 @@ function RepoTable({ snapshot, repoHref, connectHref }) {
   const scanned = snapshot.inventory?.scanned === true
   const rows = Object.keys(repos).map((n) => repoRow(n, repos[n], snapshot.repo_state?.[n] ?? null, t, scanned))
   return (
-    <div className="cu-hb-table-wrap">
+    <div className="cu-hb-table-wrap" data-tour="q-repos">
       <table className="cu-hb-table">
         <thead>
           <tr>
@@ -154,12 +154,12 @@ export function HealthBoard({ snapshot, actions, links, repoHref, connectHref, o
 
   return (
     <div className="cu-hb">
-      <header className="cu-hb-top">
+      <header className="cu-hb-top" data-tour="q-verdict">
         <p className={`cu-hb-verdict cu-hb-verdict--${overall}`}><Dot state={overall} word={overall === 'ok' ? '' : t(`hb.state.${overall}`)} /> {verdictText(snapshot, t)}</p>
         <p className="cu-hb-checked">{t('hb.checked')} {fmtAgo(snapshot.at, Date.now(), t)}</p>
         {refresh}
       </header>
-      <ul className="cu-hb-tiles">
+      <ul className="cu-hb-tiles" data-tour="q-areas">
         {AREAS.map((a) => <Tile key={a} area={a} snapshot={snapshot} actions={actions} links={links} onOpen={openRow} />)}
       </ul>
       <div role="tablist" aria-label={t('hb.areas')} className="cu-hb-tabs" onKeyDown={onKey}>

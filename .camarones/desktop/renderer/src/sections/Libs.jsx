@@ -44,14 +44,14 @@ export default function Libs({ srv, jobs }) {
           <Button size="sm" variant="ghost" href="../#/libs">{t('q.inPortal')}</Button>
         </div>
       ) : !error ? <Skeleton lines={3} /> : null}
-      <div className="row">
+      <div className="row" data-tour="libs-actions">
         <Button size="sm" variant="primary" disabled={c.running} onClick={() => run({ cves: true, json: true })}>{t('q.cvScan')}</Button>
         <Button size="sm" disabled={c.running} onClick={() => run({})}>{t('q.libsRead')}</Button>
         <span className="muted small">{t('q.libsNoAi')}</span>
       </div>
       <JobOutput c={c} />
       {rows.length ? (<>
-        <div className="row">
+        <div className="row" data-tour="libs-filters">
           <input type="search" className="cu-input dk-grow" placeholder={t('q.libsSearch')} aria-label={t('q.libsSearch')} value={f.q || ''} onChange={(e) => set('q')(e.target.value)} />
           <FacetSelect label={t('q.libsCategory')} value={f.category} onChange={set('category')} options={fc.category} />
           <FacetSelect label={t('q.libsRepo')} value={f.repo} onChange={set('repo')} options={fc.repo} />
@@ -59,7 +59,7 @@ export default function Libs({ srv, jobs }) {
           <label className="dk-check"><input type="checkbox" checked={!!f.vulnerable} onChange={(e) => set('vulnerable')(e.target.checked)} />{t('q.libsOnlyVuln')}</label>
         </div>
         {m.items.length ? (
-          <div className="dk-scroll"><table className="dk-table dk-libs">
+          <div className="dk-scroll" data-tour="libs-table"><table className="dk-table dk-libs">
             <thead><tr><th>{t('q.libsLibrary')}</th><th>{t('q.libsCategory')}</th>{m.repos.map((r) => <th key={r}>{r}</th>)}</tr></thead>
             <tbody>{m.items.map((x) => (
               <Fragment key={x.key}>

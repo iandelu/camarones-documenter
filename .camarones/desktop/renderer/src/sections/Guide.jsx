@@ -7,6 +7,8 @@ import { useHash } from '../hooks.js'
 import { Failed, Page } from '../parts.jsx'
 import { catalog } from './Commands.jsx'
 import { lang, t } from '../i18n.js'
+import { useTour } from '../Tour.jsx'
+import { tourIds } from '../tour.js'
 
 // The kit's guides (lib/guide.py, from the installed kit): how to use Camarón, this app, the portal and how it works
 // inside. Rendered from blocks (guide.js) as React elements; the markers become buttons that go where the text says.
@@ -34,8 +36,9 @@ export function markerAction({ kind, target }, { sections = [], commands = [], t
   return null
 }
 
-export default function Guide({ srv, app, sections = [], tours = [], onTour }) {
+export default function Guide({ srv, app, sections = [] }) {
   const hash = useHash()
+  const tour = useTour()
   const [guides, setGuides] = useState(null)
   const [error, setError] = useState('')
   const [commands, setCommands] = useState([])
@@ -57,7 +60,7 @@ export default function Guide({ srv, app, sections = [], tours = [], onTour }) {
   if (!guides) return <Page title={t('gd.title')}><Skeleton lines={8} /></Page>
   if (!guides.length) return <Page title={t('gd.title')}><p className="muted">{t('gd.empty')}</p></Page>
   return (
-    <GuideView guides={guides} at={at} sections={sections} commands={commands} tours={tours} onTour={onTour}
+    <GuideView guides={guides} at={at} sections={sections} commands={commands} tours={tourIds()} onTour={tour.start}
       onPortal={(h) => app.openExternal?.(portalUrl(location.origin, h))} onExternal={(href) => app.openExternal?.(href)} />
   )
 }

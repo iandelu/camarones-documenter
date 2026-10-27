@@ -55,7 +55,7 @@ test('the sections with their shortcut, the other projects that exist, the actio
   expect(by.sections.items[1]).toEqual({ id: 'go:plan', label: '<nav.plan>', keys: ['g', 'p'], href: '#/plan' })
   expect(by.projects.items.map((i) => i.label)).toEqual(['web'])
   expect(by.projects.items[0].project.path).toBe('/w')
-  expect(by.actions.items.map((i) => i.id)).toEqual(['read', 'review', 'search', 'add'])
+  expect(by.actions.items.map((i) => i.id)).toEqual(['read', 'review', 'search', 'add', 'tour'])
   expect(by.actions.items[0].href).toBe('../#/')
   // doctor runs in a Quality panel; radar sits in Quality's "All commands"; confirm is the portal's; team is not here
   expect(by.commands.items).toEqual([
