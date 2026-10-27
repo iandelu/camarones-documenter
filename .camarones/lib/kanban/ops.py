@@ -505,10 +505,9 @@ def update_item(item_id: str, *, title: str | None = None, description: str | No
         cards, items, _ = load_state()
         key, item, card = _find(items, cards, item_id, by)
         subs = None if subtasks is None else _existing(subtasks, items, "subtasks")
-        old_path = item.path
         if title is not None:
             item.fm["title"] = title.strip()
-            item.path = TASKS / file_name(item.id, item.title)
+            _rename(item, TASKS / file_name(item.id, item.title))
         if description is not None:
             item.body = set_description(item.body, description)
         item.body = append_criteria(item.body, add_criteria)
@@ -520,11 +519,21 @@ def update_item(item_id: str, *, title: str | None = None, description: str | No
             item.fm["subtasks"] = subs or None
         _mirror(item, card)
         save_item(item)
-        if item.path != old_path:
-            old_path.unlink(missing_ok=True)
         save_board(cards)                       # the card _find may have just adopted
     _count("update", surface)
     return _row(item, card)
+
+
+def _rename(item: Item, new_path: Path) -> None:
+    """Move the item's file to `new_path` before anything is written to it, and only when the name changes. Never an
+    unlink: on a filesystem that ignores case (macOS, Windows) "a.md" and "A.md" are one file, and deleting the old
+    name after writing the new one would delete the only copy."""
+    old_path = item.path
+    if new_path.name == old_path.name:
+        return
+    if old_path.exists():
+        os.replace(old_path, new_path)          # a case-only change renames the one file in place
+    item.path = new_path
 
 
 def archive(item_id: str, *, by: str | None = None, surface: str = "cli") -> dict:
