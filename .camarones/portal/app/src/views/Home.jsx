@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Aviso, Button, Card } from '@camaron/ui'
-import { t as tr } from '../i18n.js'
-import { useBuild } from '../useBuild.js'
+import { Button, Card } from '@camaron/ui'
 import { homeKpis } from '../zones.js'
 import { askHref, emptyProject, kpiHref, withoutH1 } from './home.js'
 import { core } from '../core.js'
@@ -82,11 +80,9 @@ function AskForm({ mode, t }) {
   )
 }
 
-// Nothing documented yet: one way forward — a first look from the code, no AI (desktop app), then the plan.
+// Nothing documented yet: one way forward — the plan (the first look from the code is the desktop app's) and the tutorial.
 function FirstLook({ index, mode, t }) {
-  const build = useBuild()
   const tutorial = (index.kitGuides || []).find((g) => g.endsWith('tutorial.md')) || (index.kitGuides || [])[0]
-  const run = async () => { const end = await build.start('first-look'); if (end?.status === 'done') location.reload() }
   return (
     <div className="page hero empty aurora-bg">
       <img className="hero-logo" src="favicon.svg" alt="" width="72" height="72" />
@@ -95,12 +91,9 @@ function FirstLook({ index, mode, t }) {
       <p className="muted">{t('noDocsHelp')}</p>
       {mode !== 'static' && (
         <div className="row center">
-          {mode === 'app' && <Button variant="primary" onClick={run} disabled={build.running}>{tr('home.firstLook')}</Button>}
           <Button href="#/pipeline">{t('nextUnit')} <span aria-hidden="true">→</span></Button>
         </div>
       )}
-      {build.job && <pre className="joblog" aria-live="polite">{build.job.lines.join('\n')}</pre>}
-      {build.error && <Aviso tone="error" title={tr('home.firstLookFailed')} detail={build.error} />}
       {tutorial && <p className="small"><a href={core.hrefFor(tutorial)}>{t('readTutorial')} <span aria-hidden="true">→</span></a></p>}
     </div>
   )
