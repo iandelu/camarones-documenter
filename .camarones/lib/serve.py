@@ -885,10 +885,13 @@ class Handler(BaseHTTPRequestHandler):
     def stories_post(self, action: str, b: dict) -> None:
         from . import stories, stories_save
         from .kanban import ops
-        if action not in ("lint", "analyze", "save"):
+        if action not in ("lint", "analyze", "save", "suggest"):
             return self.json({"error": "not found"}, 404)
         if action == "save" and not self.can_write():
             return self.json({"error": "saving a story needs the machine token: open the portal with `camaron up`",
+                              "token": True}, 403)
+        if action == "suggest" and not self.can_write():     # it runs the machine's AI runner
+            return self.json({"error": "AI suggestions need the machine token: open the portal with `camaron up`",
                               "token": True}, 403)
         try:                                   # every field is checked before anything is written: bad input is a 400
             lang = _text(b, "lang") or ops.docs_lang()
@@ -897,6 +900,16 @@ class Handler(BaseHTTPRequestHandler):
                     _text(b, k)
                 return self.json({"hints": stories.lint(b.get("as") or "", b.get("want") or "", b.get("so") or "", lang,
                                                         touches=_text_list(b, "touches"))})
+            if action == "suggest":
+                from . import stories_ai
+                what, skip = _text(b, "what", True), _text_list(b, "exclude")
+                if what not in stories_ai.WHAT:
+                    raise ValueError(f"what must be one of {', '.join(stories_ai.WHAT)}")
+                story = _story_body(b)
+                try:
+                    return self.json(stories_ai.suggest(story, what=what, exclude=skip, lang=lang))
+                except RuntimeError as e:      # off, no runner, too slow: the page shows the reason
+                    return self.json({"error": str(e)}, 503)
             story, tasks = _story_body(b), _task_list(b)
             if action == "analyze":
                 removed = _text_list(b, "removed")
@@ -1054,9 +1067,9 @@ class Handler(BaseHTTPRequestHandler):
             except ValueError as e:                                         # BoardError is a ValueError
                 return self.json({"error": str(e)}, 400)
         if name == "stories":
-            from . import kanban, stories, stories_save
+            from . import kanban, stories, stories_ai, stories_save
             return self.json({"enabled": kanban.enabled(), "writable": self.can_write(),
-                              "ai": {"available": False, "runner": None, "model": None},
+                              "ai": stories_ai.status(),
                               "lint_words": {lg: stories.lint_words(lg) for lg in ("es", "en")},
                               "stories": stories_save.list_stories() if kanban.enabled() else []})
         if name == "stories/item":

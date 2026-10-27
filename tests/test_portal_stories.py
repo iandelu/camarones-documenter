@@ -372,9 +372,8 @@ def test_lint_defaults_to_the_project_language(world, server):
     assert code == 200 and b == {"hints": stories.lint("usuario", "un botón", "x", board.docs_lang(), touches=[])}
 
 
-def test_suggest_is_not_here_yet(world, server):
-    assert post(server, "/api/stories/suggest", story(), token=PORTAL)[0] == 404
-    assert post(server, "/api/stories/nope", story(), token=PORTAL)[0] == 404
+def test_unknown_story_actions_are_404s(world, server):
+    assert post(server, "/api/stories/nope", story(), token=PORTAL)[0] == 404        # suggest: tests/test_stories_ai.py
 
 
 # ── malformed tasks and a project without a board ────────────────────────────────────────────────────────────────
