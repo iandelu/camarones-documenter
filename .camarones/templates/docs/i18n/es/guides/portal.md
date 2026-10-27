@@ -191,7 +191,8 @@ tabla. `#/libs/<repo>` la abre para un solo repo.
 **Tablero** (por hacer, en curso, bloqueada, hecha, descartada). El panel de una unidad: su agente, resultado, tiempo,
 tokens y coste, si trabajó en su propia copia, a qué espera, sus notas y el registro en vivo del agente. **Aprobar**
 deja empezar a las unidades que van detrás de una que espera a una persona; **Reintentar** devuelve a la cola una
-bloqueada. Ejecutar y cancelar son cosa de la app (Plan).
+bloqueada. Ejecutar y cancelar son cosa de la app (Plan). Una ejecución parada desde fuera (su trabajo parado, su
+proceso terminado) se ve terminada en unos segundos, no en curso.
 
 **Entrevista** (`#/interview`, en vivo): cuando las entrevistas van como cuestionario del equipo, cada persona responde
 aquí —lo que se dedujo del código con su evidencia, las opciones, «Otra» y un comentario—. Guarda el mismo fichero que

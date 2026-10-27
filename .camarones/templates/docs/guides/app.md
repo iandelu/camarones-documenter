@@ -195,7 +195,7 @@ while the autopilot is on, **Stop the autopilot**. Only one run exists at a time
 they were written.
 
 **The units.** Done of total, and every unit as a card on a **Board** (Ready to start, Running, Need you, Waiting for
-others, Done) or by **Phases**. Colours: running amber, paused dimmed amber, done green, blocked red, awaiting your
+others, Done), by **Phases** or on the **Canvas** (below). Colours: running amber, paused dimmed amber, done green, blocked red, awaiting your
 approval violet, waiting for others dashed. Pick a card to open its detail: phase, who does it, its repo, what it
 depends on, its notes and, when its terminal is open, what the agent is doing now (the tool and file of its last step,
 or that it is waiting for you). The detail's button moves it:
@@ -210,6 +210,23 @@ or that it is waiting for you). The detail's button moves it:
 | An interview before the mode is chosen | **Team questionnaire** or **Live, with an agent** |
 
 **See its log in the portal** opens the unit in the portal's Pipeline.
+
+**The canvas.** The third view, beside Board and Phases: the units as a graph with their dependencies. While a run is
+on (the autopilot or **Run the ready ones**), each unit an agent works on opens in its node as a **read-only terminal**
+with what it does, line by line (✎ edits, ⌕ reads or searches, ▶ runs, » says, ✕ fails), its agent, the time it has
+taken and its cost. Its header says **done** only when the plan has the unit done: a unit whose agent ended without
+finishing it says where the plan has it (to do, paused, blocked, awaits your approval), and one that could not start
+says why. About 4 seconds after it ends it folds back into a compact card with its time and cost (**View
+terminal** opens it again); a failed unit keeps its terminal. Scroll up inside a terminal and it stops following the
+end until you press **Jump to the end**; **⤢** maximises it and Escape goes back to the canvas. **Fit** frames every
+open terminal (every unit when none is open), **Re-layout** puts the whole canvas back in its automatic layout, and the
+positions you drag are kept while that project's window stays open. Tab and the arrows move between nodes and Enter
+opens the unit's detail. With no view picked, the Plan turns to the canvas as soon as a run is on (when you arrive, or
+started from the Plan itself; a unit you start by hand in its own terminal does not count) and stays there, also when
+it ends, until you pick another view. The canvas reads the
+run's log (the same one the portal reads) and follows the app's light or dark theme; stopping stays on the **Run the
+plan** card. A run stopped from outside (its job stopped, its process killed) shows as over within a few seconds: its
+terminals stop saying running, and a unit it cut off says where the plan has it, its clock stopped at its last line.
 
 **Plan from zero**, under the units. What the plan has cost since it started (or since the last wipe), for the whole team: agent time
 unattended, time with a person, calendar time, tokens and API-equivalent dollars, the most expensive units and a table

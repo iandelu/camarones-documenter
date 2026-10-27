@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.74.0-ff875f?style=flat-square" alt="Versión 4.74.0">
+  <img src="https://img.shields.io/badge/version-4.75.0-ff875f?style=flat-square" alt="Versión 4.75.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -249,7 +249,7 @@ escribirías en la terminal.
 |---|---|
 | 🏠 **Resumen** (`g s`) | El siguiente paso con un solo botón, avisos de la máquina y cómo van el plan, la revisión y los trabajos |
 | 📋 **Tablero** (`g b`) | El Kanban del proyecto: seis columnas de Backlog a Bloqueado, mover con ratón o teclado, abrir, añadir, eliminar |
-| 🗺️ **Plan** (`g p`) | Ejecutar las unidades listas en paralelo o con el piloto automático, cada unidad con su botón (aprobar, reintentar, seguir, rehacer), lo que lleva costado el plan (debajo del tablero de unidades) y empezar la documentación otra vez |
+| 🗺️ **Plan** (`g p`) | Ejecutar las unidades listas en paralelo o con el piloto automático, cada unidad con su botón (aprobar, reintentar, seguir, rehacer), por estado, por fases o en el **lienzo** (el grafo del plan, donde cada unidad que trabaja una ejecución es una terminal en vivo), lo que lleva costado el plan (debajo de las unidades) y empezar la documentación otra vez |
 | 🎙️ **Entrevistas** (`g i`) | Cuestionario del equipo o en vivo, exportar e importar respuestas, cerrar la ronda |
 | 🤝 **Equipo** (`g t`) | El repo del equipo y compartir, aprobar lo que llegó con él, hooks y plugins |
 | ✅ **Calidad** (`g q`) | La salud del proyecto sin IA: máquina, documentación y código, repo a repo (SonarQube, cobertura, vulnerabilidades, deuda) |

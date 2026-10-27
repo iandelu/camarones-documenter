@@ -165,7 +165,9 @@ una termina, el kit trae a esa copia lo último de `cam-docs`, comprueba que no 
 tocar y añade una unidad `integrate:<unidad>`. Las demás unidades van de una en una, y una unidad nunca empieza antes de
 que se haya fusionado lo que necesita. `camaron autopilot` hace las unidades una tras otra sin worktrees. Mientras
 cualquiera de los dos corre, la máquina no se suspende, y una sesión cortada por algo pasajero (suspensión, red, una API
-saturada) vuelve una vez a la cola.
+saturada) vuelve una vez a la cola. Una ejecución parada desde fuera (su trabajo parado, su proceso terminado) no
+puede apuntar su final: en cuanto el cerrojo de las ejecuciones queda libre o caducado, `GET pipeline` la da por
+`finished` e `interrupted`, y su flujo `runs/<id>/events` acaba tras su último evento.
 
 **Lo que costó.** Cada ejecución escribe `.camarones/.cache/runs/<run>/events.jsonl` (`camaron runs`). Cada máquina
 suma su parte —ejecuciones, wikis que escribió un agente y las sesiones interactivas leídas del historial de Claude
