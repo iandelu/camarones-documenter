@@ -173,12 +173,6 @@ export const arrivedLive = (held, live) => Boolean(held) || Boolean(live)
 // A log follows its end only while the person has not scrolled up to read.
 export const atBottom = ({ scrollTop, scrollHeight, clientHeight }, slack = 24) => scrollHeight - scrollTop - clientHeight <= slack
 
-// Whether the plan must reload: another run appeared, or the one shown has finished (the portal's rule, board.js).
-export function changedRun(shown, latest) {
-  if (!latest) return false
-  return !shown || latest.run !== shown.run || latest.finished !== shown.finished
-}
-
 const wait = (ms, signal) => new Promise((resolve) => {
   const timer = setTimeout(done, ms)
   function done() { clearTimeout(timer); signal?.removeEventListener('abort', done); resolve() }

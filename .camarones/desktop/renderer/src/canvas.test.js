@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { expect, test } from 'vitest'
-import { arrivedLive, atBottom, changedRun, clockRuns, runLive, defaultView, emptyFeed, feed, FOLD_MS, followRun, GAP, layout, MAX_ROWS, neighbour, openUnits, place, row, SIZE } from './canvas.js'
+import { arrivedLive, atBottom, clockRuns, runLive, defaultView, emptyFeed, feed, FOLD_MS, followRun, GAP, layout, MAX_ROWS, neighbour, openUnits, place, row, SIZE } from './canvas.js'
 
 const ev = (type, f = {}) => ({ v: 1, ts: '2026-10-27T10:00:00.000Z', type, unit: 'a', ...f })
 
@@ -177,14 +177,6 @@ test('the plan opens on the canvas while something runs, unless a view was picke
 test('the log follows the end only while the person is at the bottom', () => {
   expect(atBottom({ scrollTop: 776, scrollHeight: 1000, clientHeight: 200 })).toBe(true)
   expect(atBottom({ scrollTop: 500, scrollHeight: 1000, clientHeight: 200 })).toBe(false)
-})
-
-test('a new run, or the shown one finishing, is noticed', () => {
-  expect(changedRun(null, { run: 'r-2', finished: false })).toBe(true)
-  expect(changedRun({ run: 'r-1', finished: false }, { run: 'r-2', finished: false })).toBe(true)
-  expect(changedRun({ run: 'r-1', finished: false }, { run: 'r-1', finished: true })).toBe(true)
-  expect(changedRun({ run: 'r-1', finished: false }, { run: 'r-1', finished: false })).toBe(false)
-  expect(changedRun({ run: 'r-1', finished: true }, null)).toBe(false)
 })
 
 // The clock ticks for what changes with time: a unit at work, a fold window, a run the toolbar times. A failed terminal
