@@ -125,6 +125,52 @@ export function dropDraft(key) {
   try { localStorage.removeItem(key); return true } catch { return false }
 }
 
+// ── the AI's suggestions in this browser ──────────────────────────────────────────────────────────────────────────
+
+// What the AI proposed for a story waits here until it is accepted or dismissed: asking for another kind, opening
+// another story, leaving Historias or reloading loses none of it. Dismissed texts stay too, so they never come back.
+export const suggestKey = (id) => `cam-story-ai:${id || 'new'}`
+export const noSuggestions = () => ({ rewrite: null, criteria: [], tasks: [], gone: {} })
+const same = (x) => clean(x?.title ?? x).toLowerCase()
+const isText = (x) => typeof x === 'string' && !!x.trim()
+
+export function loadSuggestions(key) {
+  const v = loadDraft(key)
+  if (!v) return noSuggestions()
+  const list = (xs) => (Array.isArray(xs) ? xs : [])
+  const gone = v.gone && typeof v.gone === 'object' && !Array.isArray(v.gone) ? v.gone : {}
+  return {
+    rewrite: v.rewrite && typeof v.rewrite === 'object' && !Array.isArray(v.rewrite) ? v.rewrite : null,
+    criteria: list(v.criteria).filter(isText),
+    tasks: list(v.tasks).filter((x) => isText(x?.title)).map((x) => ({ ...x, touches: list(x.touches) })),
+    gone: Object.fromEntries(Object.entries(gone).map(([k, xs]) => [k, list(xs).filter(isText)])),
+  }
+}
+export const saveSuggestions = saveDraft
+export const dropSuggestions = dropDraft
+
+// An answer joins what is kept: a list grows by what is new to it and was never dismissed; a rewrite replaces the last.
+export function keepSuggestions(kept, what, res) {
+  if (what === 'rewrite') return res?.rewrite ? { ...kept, rewrite: res.rewrite } : kept
+  const seen = new Set([...kept[what], ...(kept.gone[what] || [])].map(same))
+  const fresh = (res?.[what] || []).filter((x) => { const k = same(x); return k && !seen.has(k) && seen.add(k) })
+  return { ...kept, [what]: [...kept[what], ...fresh] }
+}
+
+// Accepted or dismissed: off the list, and remembered so the AI is not asked for it again.
+export function dismissSuggestion(kept, what, text) {
+  const gone = { ...kept.gone, [what]: [...(kept.gone[what] || []), text] }
+  if (what === 'rewrite') return { ...kept, rewrite: null, gone }
+  return { ...kept, [what]: kept[what].filter((x) => same(x) !== same(text)), gone }
+}
+
+// What the AI must not propose: what the story has, what it proposed already and what the person dismissed.
+export function suggestExclude(draft, kept, what) {
+  const have = what === 'criteria' ? draft.criteria : what === 'tasks' ? (draft.tasks || []).map((x) => x.title) : []
+  const shown = what === 'rewrite' ? [] : kept[what].map((x) => x.title ?? x)
+  return [...have, ...shown, ...(kept.gone[what] || [])].filter(isText)
+}
+
 // ── the wizard's edits (Stories.jsx) ──────────────────────────────────────────────────────────────────────────────
 
 const TITLE_MAX = 80                  // a new story's title (stories.py TITLE_MAX)
