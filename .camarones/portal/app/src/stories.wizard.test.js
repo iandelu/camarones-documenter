@@ -166,13 +166,37 @@ test('planAnalyze: run on a new body, skip the one on screen; a blank want clear
   expect(step('1|A', 'ver')).toBe('run')               // the same story opened again: a new nonce
 })
 
-test('mergeDocSources: the files the linked pages cite join Toca once, marked as coming from the docs', () => {
-  const d = story({ touches: ['api:a.py'] })
+test('planAnalyze: a change undone before its answer (A → B → A) skips and is no longer pending', () => {
+  // the effect as Stories.jsx runs it: pending follows the plan; an answer only lands when its key is still current
+  let last = ''
+  let pending = false
+  let now = ''
+  const effect = (key, want) => { now = key; const p = planAnalyze(last, key, want); last = p.last; pending = p.pending; return p.action }
+  const answer = (key) => { if (now === key) { last = key; pending = false } }
+  expect(effect('0|A', 'ver')).toBe('run')
+  expect(pending).toBe(true)
+  answer('0|A')
+  expect(effect('0|B', 'verx')).toBe('run')            // a character typed: B goes out (and is aborted below)
+  expect(pending).toBe(true)
+  expect(effect('0|A', 'ver')).toBe('skip')            // undone before B's answer: A is the one on screen
+  expect(pending).toBe(false)                          // Save is not held on "Revisando…"
+  answer('0|B')                                        // a late B answer would be dropped
+  expect(last).toBe('0|A')
+  expect(planAnalyze('', '0|A', '').pending).toBe(false)
+})
+
+test('mergeDocSources: an empty footprint starts from the files the linked pages cite, marked as coming from the docs', () => {
+  const d = story({ touches: [] })
   const out = mergeDocSources(d, ['api:b.py', 'api:a.py', 'api:b.py'])
   expect(out.touches).toEqual(['api:a.py', 'api:b.py'])
-  expect(out.fromDocs).toEqual(['api:b.py'])                 // already picked: not marked
+  expect(out.fromDocs).toEqual(['api:a.py', 'api:b.py'])
   expect(mergeDocSources(d, [])).toBe(d)
   expect(mergeDocSources(d, undefined)).toBe(d)
+})
+
+test('mergeDocSources: a saved footprint is left as it is (files the person removed and saved do not come back)', () => {
+  const saved = story({ id: 'WI-7', touches: ['api:a.py'] })
+  expect(mergeDocSources(saved, ['api:b.py', 'api:a.py'])).toBe(saved)
 })
 
 test('escapeAborts: Escape while a suggestion runs only stops it; otherwise the page keeps the key', () => {

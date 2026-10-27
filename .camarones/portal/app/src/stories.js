@@ -261,18 +261,20 @@ export function analyzeBody(draft, lang) {
 
 // What the analyze effect does with the draft as it is now. `key` is the body to send, prefixed with a nonce that
 // changes each time a story is opened; `last` the key whose answer is on screen. A blank want clears the analysis
-// and forgets `last`, so typing the same text back runs it again. → {action: 'run' | 'skip' | 'clear', last}
+// and forgets `last`, so typing the same text back runs it again; a change undone before its answer (A → B → A) is
+// a skip, and nothing is pending any more. → {action: 'run' | 'skip' | 'clear', last, pending}
 export function planAnalyze(last, key, want) {
-  if (!clean(want)) return { action: 'clear', last: '' }
-  return { action: key === last ? 'skip' : 'run', last }
+  if (!clean(want)) return { action: 'clear', last: '', pending: false }
+  return key === last ? { action: 'skip', last, pending: false } : { action: 'run', last, pending: true }
 }
 
-// The files the story's linked doc pages cite (GET /api/stories/item → doc_sources) join Toca when it opens; those not
-// already picked are marked `fromDocs` until the person removes or keeps them.
+// The files the story's linked doc pages cite (GET /api/stories/item → doc_sources) start Toca when it opens with no
+// footprint (a new story, or a saved one without files), marked `fromDocs` until the person removes or keeps them. A
+// saved footprint is the person's choice: files removed from it do not come back.
 export function mergeDocSources(draft, sources) {
-  const more = sorted(sources).filter((t) => !(draft.touches || []).includes(t))
-  if (!more.length) return draft
-  return { ...draft, touches: sorted([...(draft.touches || []), ...more]), fromDocs: uniq([...(draft.fromDocs || []), ...more]) }
+  const more = sorted(sources)
+  if ((draft.touches || []).length || !more.length) return draft
+  return { ...draft, touches: more, fromDocs: more }
 }
 
 // Escape while an AI suggestion is on its way stops that request and nothing else: the key goes no further, so the

@@ -96,10 +96,10 @@ export default function Stories() {
     nowBody.current = key
     const plan = planAnalyze(lastBody.current, key, draft.want)
     lastBody.current = plan.last
+    setPending(plan.pending)                        // a skip (A → B → A) is not left on "Revisando…"
     if (plan.action === 'skip') return undefined
-    if (plan.action === 'clear') { setAnalysis(null); setSent(null); setPending(false); return undefined }
+    if (plan.action === 'clear') { setAnalysis(null); setSent(null); return undefined }
     const body = key.slice(key.indexOf('|') + 1)
-    setPending(true)
     const ctrl = new AbortController()
     const timer = setTimeout(async () => {
       const asked = { as: draft.as, want: draft.want, so: draft.so }
