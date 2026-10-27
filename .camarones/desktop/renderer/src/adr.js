@@ -85,3 +85,32 @@ export function addHit(touches, hit) {
   const added = hit?.kind === 'group' ? hit.files : [hit?.touch]
   return [...new Set([...(touches || []), ...(added || [])].filter((x) => typeof x === 'string' && x))].sort()
 }
+
+// Which screen an ADR opens on: no working state (legacy) → read-only; framed or with its evidence → the evidence step;
+// in review or decided → the review.
+export function viewOf(adr) {
+  const phase = adr?.state?.phase
+  return !adr?.state ? 'legacy' : phase === 'problem' || phase === 'evidence' ? 'evidence' : 'review'
+}
+
+// One ADR's screen as state (Decisions.jsx AdrScreen): React keys it by the ADR, so another one starts afresh from
+// here. `pack` is undefined until read and null when none was gathered; `notice` is a string key and its vars.
+export const startScreen = (notice) => ({ adr: null, error: '', reads: 0, pack: undefined, packError: '', packing: false, busy: false,
+  actError: '', notice: notice ?? null })
+
+export function screen(s, a) {
+  switch (a.type) {
+    case 'read': return { ...s, adr: a.adr, error: '' }
+    case 'readFailed': return { ...s, error: a.error, busy: false, packing: false }
+    case 'retry': return { ...s, error: '', reads: s.reads + 1 }
+    case 'pack': return { ...s, pack: a.pack ?? null }
+    case 'packing': return { ...s, packing: true, packError: '' }
+    case 'packed': return { ...s, packing: false, pack: a.pack, adr: a.adr ?? s.adr }
+    case 'packFailed': return { ...s, packing: false, packError: a.error, pack: s.pack === undefined ? null : s.pack }
+    case 'busy': return { ...s, busy: true, actError: '' }
+    case 'done': return { ...s, busy: false, adr: a.adr }
+    case 'actFailed': return { ...s, busy: false, actError: a.error }
+    case 'reloaded': return { ...s, busy: false, packing: false, adr: a.adr, notice: { key: 'adr.reloaded' } }
+    default: return s
+  }
+}

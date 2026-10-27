@@ -364,7 +364,7 @@ export const S = {
     'adr.pack.libraries.one': '{n} librería', 'adr.pack.libraries.many': '{n} librerías',
     'adr.pack.questions.one': '{n} pregunta abierta', 'adr.pack.questions.many': '{n} preguntas abiertas',
     'adr.next': 'Siguiente paso', 'adr.write': 'Escribir sin IA', 'adr.write.failed': 'No se ha escrito el ADR',
-    'adr.write.what': 'Escribo el ADR propuesto con la plantilla, con el problema, los drivers, las opciones y lo que toca ya puestos. Lo terminas en la revisión; no hace falta ningún agente.',
+    'adr.write.what': 'Escribo el ADR propuesto con la plantilla, con el problema, los drivers, las opciones, lo que toca y la evidencia del paquete ya puestos. Lo terminas en la revisión; no hace falta ningún agente.',
     // the new-ADR form (sections/adr/NewForm.jsx, TouchSearch.jsx)
     'adr.new.lede': 'Cuenta qué hay que decidir y qué toca en el código. Con eso reúno la evidencia, sin IA.',
     'adr.new.number': 'Al crearlo se reserva el número {next}.',
@@ -750,7 +750,7 @@ export const S = {
     'adr.pack.libraries.one': '{n} library', 'adr.pack.libraries.many': '{n} libraries',
     'adr.pack.questions.one': '{n} open question', 'adr.pack.questions.many': '{n} open questions',
     'adr.next': 'Next step', 'adr.write': 'Write without AI', 'adr.write.failed': 'The ADR was not written',
-    'adr.write.what': 'I write the proposed ADR from the template, with the problem, the drivers, the options and what it touches already in. You finish it in the review; no agent needed.',
+    'adr.write.what': 'I write the proposed ADR from the template, with the problem, the drivers, the options, what it touches and the pack\'s evidence already in. You finish it in the review; no agent needed.',
     // the new-ADR form (sections/adr/NewForm.jsx, TouchSearch.jsx)
     'adr.new.lede': 'Say what needs deciding and what it touches in the code. With that I gather the evidence, without AI.',
     'adr.new.number': 'Creating it takes number {next}.',

@@ -1,6 +1,7 @@
+import { readFileSync } from 'node:fs'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, expect, test } from 'vitest'
-import { AdrListView, CandidatesView, EvidenceView, LegacyView, NewFormView } from './sections/Decisions.jsx'
+import Decisions, { AdrListView, CandidatesView, EvidenceView, LegacyView, NewFormView } from './sections/Decisions.jsx'
 import { candidateFields } from './sections/adr/Candidates.jsx'
 import { packLine } from './sections/adr/Evidence.jsx'
 import { EMPTY, check, toBody } from './sections/adr/NewForm.jsx'
@@ -153,6 +154,32 @@ test('the evidence step shows the problem as it was framed', () => {
   const out = evidence({ adr, pack: null })
   for (const s of ['0012 · Sesiones', 'Hoy en memoria del pod.', 'latencia', 'Redis', 'src/Session.java', 'En curso']) expect(out).toContain(s)
   expect(evidence({ adr, pack: null }, 'en')).toContain('Write without AI')
+})
+
+// Spec §2.3: writing without AI brings the pack's evidence (lib/adr.py write_without_ai), and the step says so.
+test('the evidence step says writing without AI brings the evidence of the pack', () => {
+  const adr = { id: '0012', state: { phase: 'evidence', mode: 'manual' } }
+  expect(evidence({ adr, pack: null })).toContain('la evidencia del paquete')
+  expect(evidence({ adr, pack: null }, 'en')).toContain('evidence already in')
+})
+
+// One ADR's work never shows on another's screen: the screen is keyed by the ADR, so React drops its state with it.
+test('each ADR gets a screen of its own', () => {
+  const src = readFileSync(new URL('./sections/Decisions.jsx', import.meta.url), 'utf-8')
+  expect(src).toMatch(/<AdrScreen key=\{r\.id\} id=\{r\.id\}/)
+  expect(src).toMatch(/useReducer\(screen, notice, startScreen\)/)
+})
+
+test('every place of the section draws before its data comes', () => {
+  const waiting = () => new Promise(() => {})
+  const srv = { get: waiting, post: waiting }
+  try {
+    for (const [hash, shown] of [['#/decisions', 'cu-skel'], ['#/decisions/0012', 'ADR 0012'], ['#/decisions/candidates', 'Candidatas'],
+      ['#/decisions/new', 'Crear y reunir la evidencia']]) {
+      globalThis.location = { hash }
+      expect(html(<Decisions srv={srv} />), hash).toContain(shown)
+    }
+  } finally { delete globalThis.location }
 })
 
 test('a write the server refused stays on the screen with its message', () => {

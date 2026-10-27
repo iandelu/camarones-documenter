@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest'
-import { acceptBlock, addHit, counts, crumb, FILTERS, filterRows, nextPart, presentKey, route, STEPS, stepper } from './adr.js'
+import { acceptBlock, addHit, counts, crumb, FILTERS, filterRows, nextPart, presentKey, route, screen, startScreen, STEPS, stepper,
+  viewOf } from './adr.js'
 import { setLang, t } from './i18n.js'
 
 const states = (phase, mode) => stepper(phase, mode).map((s) => s.state)
@@ -175,4 +176,55 @@ test('a place inside the section has its crumb', () => {
   setLang('en')
   expect(crumb('#/decisions/new', t)).toBe('New ADR')
   setLang('es')
+})
+
+// One ADR's screen as state (Decisions.jsx AdrScreen, keyed by the ADR: another one starts from startScreen).
+const run = (...actions) => actions.reduce(screen, startScreen(null))
+const OLD = { summary: { files: 1 }, markdown: 'm' }
+
+test('a screen starts empty and idle, with the notice it was opened with', () => {
+  expect(startScreen(null)).toEqual({ adr: null, error: '', reads: 0, pack: undefined, packError: '', packing: false, busy: false,
+    actError: '', notice: null })
+  expect(startScreen({ key: 'adr.renumbered', vars: { from: '0012', to: '0013' } }).notice.key).toBe('adr.renumbered')
+  const s = run({ type: 'read', adr: { id: '0012' } }, { type: 'pack', pack: null })
+  expect(s.adr.id).toBe('0012')
+  expect(s.pack).toBeNull()
+})
+
+test('a failed read says why; Try again clears it and reads again', () => {
+  const s = run({ type: 'readFailed', error: 'boom' })
+  expect(s.error).toBe('boom')
+  expect(screen(s, { type: 'retry' })).toMatchObject({ error: '', reads: 1 })
+})
+
+test('gathering is under way until the pack comes, or until it fails with the pack it had kept', () => {
+  const s = run({ type: 'read', adr: { id: '0012' } }, { type: 'pack', pack: OLD }, { type: 'packFailed', error: 'x' }, { type: 'packing' })
+  expect(s).toMatchObject({ packing: true, packError: '', pack: OLD })
+  const moved = { id: '0012', state: { phase: 'evidence' } }
+  expect(screen(s, { type: 'packed', pack: { summary: {} }, adr: moved })).toMatchObject({ packing: false, adr: moved, pack: { summary: {} } })
+  expect(screen(s, { type: 'packed', pack: OLD, adr: null }).adr).toBe(s.adr)          // the ADR could not be read again
+  expect(screen(s, { type: 'packFailed', error: 'disk full' })).toMatchObject({ packing: false, packError: 'disk full', pack: OLD })
+  expect(run({ type: 'packFailed', error: 'e' }).pack).toBeNull()                       // never read: none to show
+})
+
+test('an action is busy until it ends, with the ADR it returned or why not', () => {
+  const s = run({ type: 'read', adr: { id: '0012' } }, { type: 'actFailed', error: 'old' }, { type: 'busy' })
+  expect(s).toMatchObject({ busy: true, actError: '' })
+  expect(screen(s, { type: 'done', adr: { id: '0012', sha: 'b' } })).toMatchObject({ busy: false, adr: { sha: 'b' } })
+  expect(screen(s, { type: 'actFailed', error: 'refused' })).toMatchObject({ busy: false, actError: 'refused', adr: { id: '0012' } })
+})
+
+test('a save the file outran ends what was under way and says the ADR was read again', () => {
+  const s = run({ type: 'read', adr: { id: '0012', sha: 'a' } }, { type: 'busy' }, { type: 'packing' },
+    { type: 'reloaded', adr: { id: '0012', sha: 'b' } })
+  expect(s).toMatchObject({ busy: false, packing: false, adr: { sha: 'b' }, notice: { key: 'adr.reloaded' } })
+  expect(screen(s, { type: 'nope' })).toBe(s)
+})
+
+test('an ADR opens by its phase; with no working state it is legacy', () => {
+  expect(viewOf({ state: null })).toBe('legacy')
+  expect(viewOf({})).toBe('legacy')
+  expect(viewOf({ state: { phase: 'problem' } })).toBe('evidence')
+  expect(viewOf({ state: { phase: 'evidence' } })).toBe('evidence')
+  for (const phase of ['review', 'accepted', 'rejected', undefined]) expect(viewOf({ state: { phase } })).toBe('review')
 })
