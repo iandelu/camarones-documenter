@@ -32,7 +32,7 @@ VENDOR_RE = re.compile(r"^/vendor/((?:@[\w.-]+/)?[\w.-]+)@([\w.+-]+)/([\w./+-]+)
 STATIC = False
 APP_TOKEN = ""                               # set by the desktop app (CAMARONES_APP_TOKEN); empty: browser portal only
 PORTAL_TOKEN = ""                            # set by `camaron up` (CAMARONES_PORTAL_TOKEN): lets this machine's browser write the board
-APP_ONLY = re.compile(r"^/api/(runs|runs/[\w.-]+/cancel|wiki|build|inventory|schemas|ci|ask/answer)$")
+APP_ONLY = re.compile(r"^/api/(runs|runs/[\w.-]+/cancel|wiki|build|inventory|schemas|ci|ask/answer|plan/cost)$")
 APP_ONLY_MSG = "this runs on your machine: open it in the desktop app (`camaron app`)"
 mimetypes.add_type("text/javascript", ".js")    # Windows may map .js to text/plain in the registry
 mimetypes.add_type("font/woff2", ".woff2")    # the portal theme fonts; older Pythons do not know the type
@@ -1145,6 +1145,9 @@ class Handler(BaseHTTPRequestHandler):
         if name == "kpis":
             from .harness import kpis
             return self.json(kpis.dashboard())
+        if name == "plan/cost":                 # a read: the bill as the roll-ups have it, never a harvest
+            from .harness import ledger
+            return self.json(ledger.bill())
         if name == "c4/view":
             return self.json(api_c4_view(q.get("id", "")))
         if name == "reviews":
@@ -1286,6 +1289,10 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError("forge: github or gitlab")
                 env.install_ci(b["forge"], log=lambda _: None)
                 return self.json(ci.status(b["forge"]))
+            if p == "/api/plan/cost":            # the app: this machine's sessions first, then the bill
+                from .harness import ledger
+                ledger.harvest()
+                return self.json(ledger.bill())
             if p == "/api/kpis/miss":
                 try:
                     return self.json(kpis_miss(b))
