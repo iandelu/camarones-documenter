@@ -165,9 +165,23 @@ test('columns are as wide as their widest node and nodes stack with the gap; edg
 })
 
 test('arrows ignore an unknown node and break a tie toward the one more in line', () => {
-  const box = (id, x, y) => ({ id, position: { x: x - 1, y: y - 1 }, width: 2, height: 2 })
-  const nodes = [box('o', 0, 0), box('q', 3, 4), box('p', 5, 0)]
-  expect(neighbour(nodes, 'o', 'right')).toBe('p')
-  expect(neighbour(nodes, 'o', 'up')).toBe(null)
+  const box = (id, x, y, h = 2) => ({ id, position: { x: x - 1, y: y - h / 2 }, width: 2, height: h })
+  const nodes = [box('o', 0, 0, 10), box('p', 5, 3), box('q', 5, -1)]
+  expect(neighbour(nodes, 'o', 'right')).toBe('q')
+  expect(neighbour(nodes, 'o', 'left')).toBe(null)
   expect(neighbour(nodes, 'nope', 'right')).toBe(null)
+})
+
+test('arrows prefer the node beside this one, even when a diagonal one is nearer', () => {
+  const { nodes } = layout(units, new Set(['c']))
+  const at = Object.fromEntries(nodes.map((n) => [n.id, n]))
+  expect(at.d.position.y).toBeGreaterThan(at.c.position.y + at.c.height)
+  expect(neighbour(nodes, 'b', 'right')).toBe('c')
+  expect(neighbour(nodes, 'c', 'down')).toBe('d')
+})
+
+test('with nothing beside, arrows pick the diagonal that stays more in line', () => {
+  const box = (id, x, y) => ({ id, position: { x: x - 1, y: y - 1 }, width: 2, height: 2 })
+  const nodes = [box('o', 0, 0), box('p', 10, 6), box('q', 14, 3)]
+  expect(neighbour(nodes, 'o', 'right')).toBe('q')
 })
