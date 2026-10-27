@@ -170,105 +170,28 @@ translations it reports:
 mermaid-cli and gitleaks come with the full install (the `quality` component; mermaid-cli downloads a headless Chromium
 once). Without them `check` prints one warning and skips that check.
 
-## 5. Portal
+## 5. Portal and desktop app
 
-A fresh project never shows blank views: Home, Docs and Architecture offer a **first look from the code (no AI)** — the C4
-draft and its page, the stack and tools — and Code offers to build the code graph.
-
-One portal, two modes, the same interface, in Cofundo's visual language with the Camarón brand (light or dark, fonts served by the portal itself). There is no tab bar: **Home** asks first (Ask live, search in the export), shows the project's state (confirmed, to reconfirm, drafts, pending feedback); the sidebar keeps five zones — Docs, Architecture, Plan, Quality and Review — on every view; the top bar shows where you are and Ctrl K / ⌘K jumps to any page, zone or view, or (live) takes the question to Ask. Old addresses (`#/c4`, `#/docs/…`) still work. The views: **Docs** (tree, search, trust badges), **Architecture (C4)** (under each view, its elements: edit title,
-technology, description and relations, remove an element, and confirm what the AI drafted, one by one or the whole view;
-confirmed ones fold into their own section),
-**Code graph** (all repos or one), **Wikis** (OpenWiki per repo, its pages and graph), **Review** (pending pages with their sources, confirmed several at once; reviews
-an agent is waiting for, change requests, code changed since the docs, `check`), **Ask** (the sections that best answer
-a question, with citations, no AI; "database" also finds PostgreSQL and Spanish questions find English pages; with an agent set up, "Answer with AI" writes the answer from them
-alone), **Libraries** (every repo's dependencies as a library × service matrix, filtered by category,
-language, repo or scope, with known vulnerabilities in red), **Data** (each repo's tables and collections from the code,
-as an ER diagram), **Pipeline** and **KPIs** (pages and C4 elements confirmed, pages out of date, AI cost by month and
-the questions nobody found, which one click turns into an open question). The language switch changes the interface and the docs; a page not translated yet is shown in
-English with a notice. Tables sort by column (long ones filter), `:::tabs`/`:::steps`/`:::details`/`:::cards` render
-as tabs, steps, folds and cards, an "All / Business" switch (on each page and above the menu) hides `:::tech` blocks and, in Business, keeps
-only the overview, domain, glossary, flow and decision pages in the menu and on the home page, which also has a "How
-does … work?" box that sends the question to Ask, and Mermaid names that match a page
-or a repo are links. A `:::rule ORD-1 Title` block states a business rule with `enforced:`/`test:` anchors
-(`repo:path#Symbol`); `check` fails when that code is gone.
-
-The **Pipeline** view (Plan zone; it ships already built
-with the kit, no Node needed) shows the plan live: a graph of the units by phase, a board by
-status, and per unit its agent, outcome, time, tokens, cost and the agent's log line by line. Start `camaron run` with
-the page open and it picks the run up by itself. From the view you can also start a run, cancel it (the agents stop and
-their units go back to the queue, keeping their work) and retry a blocked unit. One run at a time, CLI or portal.
+Two faces over the same project. The **portal** (in your browser) is where the team reads: the docs, the architecture,
+the board and stories, the plan's live state, quality and review. The **desktop app** (`camaron app`) is where you
+operate: run the plan, interviews, sharing, health and libraries, wikis and the C4 explorer, setup. The portal never
+runs anything on your machine, so a button you miss there is in the app. Both are explained screen by screen in their
+own guides — [the portal](portal.md) and [the desktop app](app.md) — and the app shows every guide in **Machine ›
+Guide**, with a guided tour. [How Camarón works](internals.md) covers the server, the APIs and the MCP.
 
 | | Command | What it is |
 |---|---|---|
-| Local, editable | `camaron up` (wizard → 🌐 Portal → 📝 Open the portal) | `http://127.0.0.1:8080`, only on your machine |
+| Local, editable | `camaron up` (wizard → 🌐 Portal → 📝 Open the portal), or **View portal** in the app | `http://127.0.0.1:8080`, only on your machine |
 | Export for deployment | `camaron portal` (wizard → 📦 Export) | read-only HTML + JSON in `.camarones/.cache/site`, no npm build |
 | See the export | `camaron up --static` or `camaron up --docker` | exactly what the server will serve |
+| Desktop app | `camaron app` (wizard → 🖥️ Desktop app) | one window per project; needs Node.js 22 and downloads its pinned Electron the first time |
 
-The export is plain static files (nginx image, GitLab/GitHub Pages) and works without internet. On a server, run the image
-CI pushed: `docker run -d -p 8080:80 <registry>/<group>/cam-docs/portal:latest`.
+The export is plain static files (nginx image, GitLab/GitHub Pages) and works without internet. On a server, run the
+image CI pushed: `docker run -d -p 8080:80 <registry>/<group>/cam-docs/portal:latest`.
 
-### 🖥️ The desktop app
-
-Where you operate a project; the portal is where you read it. Each project opens in its window: at the left the rail
-with your projects and the sections, below the jobs panel (what runs and the last ones, their output and **Stop**). The
-browser portal stays the team's viewer (read, edit, review, pipeline status, the interview): **View portal**, in the
-header, and **Docs** open it in your browser, and it does not show what it cannot do. From the keyboard, Ctrl K / ⌘K goes to a section, another project or any command, and `g` then a letter jumps
-between sections (`g s` Summary, `g b` Board, `g p` Plan, `g q` Quality…).
-
-| Section | What you do there |
-|---|---|
-| 🏠 Summary | the next step with one button (the one the wizard suggests), what this machine is missing, where the plan, the review and the jobs stand |
-| 📋 Board | the columns from Backlog to Done: move a card by dragging it or with the keyboard (Tab to the card, Space grabs, arrows move, Enter drops, Escape puts it back); a card opens its description, criteria and definition of done, and a story lists its tasks and has **Add a task**; **Delete** archives the card (its file moves to `backlog/archive/tasks`); **Add** creates an item (type, title, parent, priority); if the board is not on, **Turn the board on** |
-| 🗺️ Plan | run the ready units in parallel or the autopilot, and stop them; the units grouped by what they ask of you (approve, retry, continue, start, redo) with the agent you pick, or on the canvas, the plan's graph where each unit a run works on opens as a live terminal of what its agent does (time and cost included) and folds back to a card when it ends (a failed unit keeps its terminal); the docs update; what the plan has cost so far, under the units; and, previewed first, starting the docs again (`docs reset`: redo or wipe) |
-| 🎙️ Interviews | team questionnaire or live, export the offline form, import answers, close the round, each interview with its agent |
-| 🤝 Team | the team's repo and sharing, approving the agent config that came with it, hooks, plugins |
-| ✅ Quality | prerequisites and tools (kept between visits, "Check again"), the context every agent session loads, golden questions, with vs without cam-docs; without AI, known vulnerabilities, pages out of date, generated blocks |
-| 📦 Libraries | every repo's dependencies as a library × service table; **Scan for vulnerabilities** goes repo by repo with its bar and **Stop**, and ends on a tick with what it found; each library opens on why it is there, its advisories in full and **Update** on a new branch of the repo, not committed |
-| 📖 Docs | **Read the docs**, **Review drafts** and **Search or ask** open the portal in your browser. Below, **Build the C4 explorer**; per repo, **Generate the wiki** (chooses the repo and writes a starter brief without AI if it has none) and, once it has pages, **Wiki graph**: each a job with its output, then **View** opens the result in the portal (**Retry** if it failed); and **Ask with AI**, which answers from the docs and links its sources in the portal |
-| 🧰 Machine | setup with progress, language and models, GitLab / GitHub tokens, repos and their stack, the plan profile, kit updates, repair and, apart and previewed first, uninstall |
-
-Every section ends with **All commands**, folded: the rest of its catalog zone, each with its form.
-
-**Install and open it**
-
-1. The kit installed (global install: the `camaron` command on your PATH).
-2. Node.js 22 or newer: `node --version`. Missing? `camaron doctor --install node` (winget on Windows, Homebrew on macOS).
-3. `camaron app`. The first time it downloads Electron (pinned, about 100 MB) into `~/.camarones/desktop`, with no admin
-   rights and nothing in your projects; then it opens at once.
-
-From a project's folder it opens that project; from anywhere else, the start screen (below). The wizard has the same
-entry (🖥️ Desktop app). Inside, the header is the window's title bar (drag it to move the window) and your projects sit
-on the rail: another one opens in the same window, which comes back where you left it. <kbd>Ctrl</kbd>/<kbd>⌘</kbd> +
-<kbd>Shift</kbd> + <kbd>O</kbd> (or the rail's **+**) goes back to the start screen, **View portal** opens the portal in
-your browser and the bar's **⋯** button opens the app menu, with **Open in the browser**. On Linux with restricted user namespaces (Ubuntu 24.04+) the kit starts
-it with `--no-sandbox`: its windows only load your project's local server.
-
-**The start screen and the first run**
-
-Outside a project the app asks one thing, **What do you want to document?**, and offers **Recent** projects:
-
-- **Pick a folder**: any folder. Before touching anything it says what it found:
-  - several repos: it documents them, with `cam-docs` in that folder;
-  - one repo, or a folder inside one: `cam-docs` goes next to the repo, in its parent folder, and the sibling repos can be added;
-  - an empty folder: a new project, nothing to read yet (you document the design before coding);
-  - a project that already has `cam-docs`: it opens as is;
-  - code that is not in git: it will not continue, and **Initialise git here** runs `git init` (no commits, no push) in each folder with code, then looks again;
-  - your home folder or a disk root: refused, and it says why. Pick the folder of one project.
-
-  You confirm the name and press **Continue**.
-- **Join my team's documentation**: paste the URL of the team's `cam-docs` repo (the documentation's, not the code's)
-  and pick where to clone it. If git has no access the app asks for a token and keeps it in the system keychain, never
-  in the project; any other reason (no permission, not found, no network) is said in those words.
-
-"Create project", "Join" and "Add folder" are gone from the app; the CLI keeps `camaron new` and `camaron projects --add`.
-
-A project that is not set up yet opens the first-run wizard in its window (`#/start`, full screen): **Repos** (add a
-code repo with its URL, name and branch) → **Tools** → **Install** (progress, live output, **Cancel**) → **Stack**
-(editable) → **Architecture** (a no-AI C4 draft you save, view with **View diagram** or improve with AI) → **Ready**,
-which takes you to the **Summary**. It is the same state the terminal wizard uses, so you can close the app halfway
-and pick it up in either; if you go to another section before finishing, the **Summary** offers **Continue setting it
-up**. A team project you joined only goes through Tools, Install and Ready. An empty folder
-allows zero repos and skips Stack and Architecture.
+The portal's sidebar has seven zones — Docs, Board, Stories, Architecture, Plan, Quality and Review — and Ctrl K / ⌘K
+jumps to any page or view. The app's sections are Summary, Board, Plan, Interviews, Team, Quality, Libraries and Docs,
+plus Machine and Guide; `g` then a letter jumps between them.
 
 ### 📋 The board
 
@@ -308,17 +231,20 @@ does not lose it. When it cannot run (no agent installed, a portal not opened wi
 disabled and says why.
 
 1. **Write** *As / I want / so that* (or *Como / quiero / para*). Hints appear as you type (a generic role, two goals
-   in one, a *so that* that repeats the *I want*, too long, a solution inside the *I want*) and never block.
-2. **Review** the INVEST verdict (good, to improve or poor) with one chip and one reason per letter. In **Touches**
-   (*Toca*) pick the files, groups and doc pages the story changes: its *footprint*. For a file a task will create, or
-   one in a repo without a code map, type `repo:path` and pick **Add «…» (new)**; saving checks that its folder exists.
+   in one, a *so that* that repeats the *I want*, too long, a solution inside the *I want*); only an empty clause
+   stops you. In **Touches** (*Toca*) pick the files, groups and doc pages the story changes: its *footprint*. For a
+   file a task will create, or one in a repo without a code map, type `repo:path` and pick **Add «…» (new)**; saving
+   checks that its folder exists.
+2. **Review** the INVEST verdict (good, to improve or poor) with one chip and one reason per letter, the acceptance
+   criteria and the overlaps with other open stories.
 3. **Subtasks** come from a template: one task per code group and one per doc page affected, each with its files, its
    dependencies (what provides goes before what consumes) and what it collides with. They are spread into **waves**:
    the tasks of one wave can run side by side without touching the same files. Edit, drop, add or merge them and the
    waves update at once.
-4. **Approve and save.** Nothing is written to `backlog/` until then; the story and its subtasks become ordinary cards
-   in Backlog. On a story that already existed only what you changed is written: a title or footprint someone else
-   changed meanwhile is kept, and if you both changed the same one you are asked to reload.
+
+**Approve and save.** Nothing is written to `backlog/` until then; the story and its subtasks become ordinary cards
+in Backlog. On a story that already existed only what you changed is written: a title or footprint someone else
+changed meanwhile is kept, and if you both changed the same one you are asked to reload.
 
 Git only stores `dependencies` and `x-touches` (`<repo>:<path>`, or `cam-docs:<page>`) on the cards, and Backlog.md
 still opens them. Conflicts, waves and verdicts are computed and never stored.

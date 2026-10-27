@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Aviso, Button, Chip, EmptyState, Skeleton } from '@camaron/ui'
 import { docsGet } from '../docsApi.js'
-import { useBuild } from '../useBuild.js'
 import { codeCrumbs, codeRoute, codeView, fileIdByPath, graphModel, inSub, mixHex, nextSeg, searchFiles, singleFolder, subHref } from './code.js'
 import { core } from '../core.js'
 
-const runs = () => core.mode() === 'app'
 const VIS = 'vendor/vis-network@9.1.6/standalone/umd/vis-network.min.js'
 let visReady = null
 const loadVis = () => (visReady ||= new Promise((ok) => {
@@ -192,28 +190,18 @@ function Info({ repo, m, view, id, sub, t }) {
 }
 
 function NoMap({ t }) {
-  const [v, setV] = useState(null)
-  const build = useBuild()
-  useEffect(() => { docsGet('viewers').then(setV, () => setV({})) }, [])
-  const can = runs() && v?.graphify
   return (
     <div className="page">
       <h1>{t('codeTab')}</h1>
-      <EmptyState title={t('noCodeMap')} action={can
-        ? <Button variant="primary" disabled={build.running} onClick={() => build.start('graph').then((s) => { if (s?.status === 'done') location.reload() })}>{t('build')}</Button>
-        : <Button href="#/c4">{t('c4')}</Button>}>
-        {runs() && v && !v.graphify ? t('noGraphify') : null}
-      </EmptyState>
-      {build.job && <pre className="joblog">{build.job.lines.join('\n')}</pre>}
+      <EmptyState title={t('noCodeMap')} action={<Button href="#/c4">{t('c4')}</Button>} />
     </div>
   )
 }
 
-// graphify's own page for a repo (or all of them), with when it was built and, in the app, a rebuild.
+// graphify's own page for a repo (or all of them), with when it was built.
 function GraphifyPage({ repo }) {
   const t = core.t
   const [v, setV] = useState(null)
-  const build = useBuild()
   useEffect(() => { docsGet('viewers').then(setV, () => setV({ graphs: {} })) }, [])
   if (!v) return <div className="page"><Skeleton lines={3} /></div>
   const names = Object.keys(v.graphs || {})
@@ -231,9 +219,6 @@ function GraphifyPage({ repo }) {
         {g ? <span className="muted small">{t('builtAt', { when: core.ago(g.at) })}{g.stale && <> · <span className="warn">{t('stale')}</span></>}</span>
           : <span className="muted small">{t('noGraph')}</span>}
         {g && <a href={src} target="_blank" rel="noopener">{t('openTab')} <span aria-hidden="true">↗</span></a>}
-        {runs() && v.graphify && <Button size="sm" disabled={build.running}
-          onClick={() => build.start('graph').then((s) => { if (s?.status === 'done') location.reload() })}>{t(names.length ? 'rebuild' : 'build')}</Button>}
-        {build.job && <pre className="joblog inline">{build.job.lines.slice(-3).join('\n')}</pre>}
       </div>
       {g && <iframe className="viewer" src={src} title={t('code')}></iframe>}
     </>

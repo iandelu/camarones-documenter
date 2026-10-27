@@ -44,7 +44,7 @@ export default function Interviews({ srv, jobs, app }) {
   const agentUnits = units.filter((u) => u.runner === 'agent')
   if (!d.chosen) return (
     <Page title={t('nav.interviews')}>
-      <Card className="dk-run">
+      <Card className="dk-run" data-tour="iv-mode">
         <span className="eyebrow">{t('iv.mode')}</span>
         <b>{t('iv.chooseTitle')}</b>
         <p className="muted small">{t('iv.chooseLead')}</p>
@@ -54,14 +54,14 @@ export default function Interviews({ srv, jobs, app }) {
   )
   return (
     <Page title={t('nav.interviews')}>
-      <Card className="dk-run">
+      <Card className="dk-run" data-tour="iv-mode">
         <span className="eyebrow">{t('iv.mode')}</span>
         <div className="row"><b>{team ? t('iv.team') : t('iv.live')}</b><span className="dk-grow"></span>
           <Button size="sm" variant="ghost" disabled={c.running}
             onClick={() => step('interview', { action: 'mode', args: [team ? 'live' : 'team'] })}>{team ? t('iv.toLive') : t('iv.toTeam')}</Button></div>
       </Card>
       {team ? (
-        <Card className="dk-run">
+        <Card className="dk-run" data-tour="iv-questionnaire">
           <span className="eyebrow">{t('iv.team')}</span>
           {d.available ? (<>
             <div className="row">
@@ -81,7 +81,7 @@ export default function Interviews({ srv, jobs, app }) {
       ) : null}
       <JobOutput c={c} />
       {agentUnits.length ? (
-        <section className="dk-group-block">
+        <section className="dk-group-block" data-tour="iv-agents">
           <div className="row dk-units-head"><h2 className="eyebrow dk-group">{t('iv.units')}</h2><span className="dk-grow"></span><AgentPicker a={a} /></div>
           <ul className="dk-units">{agentUnits.map((u) => <UnitRow key={u.id} u={u} all={all} srv={srv} a={a} plan={{ interviews: d.mode }} onChanged={load} />)}</ul>
         </section>
