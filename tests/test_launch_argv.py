@@ -41,6 +41,20 @@ def test_claude_model_defaults_to_sonnet(launched):
     assert launched["cmds"][0][0][:3] == ["/bin/claude", "--model", "sonnet"]
 
 
+def test_the_next_unit_opens_with_the_model_routed_to_it(kit, launched):
+    kit.plan.sync()
+    kit.plan.set_status("setup", "done")
+    w = launched["make"](["claude"], routing={"agentic-heavy": ["codex:o5", "claude:opus"]})
+    w.run_unit(kit.plan.get(kit.plan.load(), "discovery:api"))
+    assert launched["cmds"][0][0][:3] == ["/bin/claude", "--model", "opus"]
+
+
+def test_the_docs_update_opens_with_the_agentic_heavy_model(kit, launched):
+    kit.plan.sync()
+    launched["make"](["claude"], routing={"agentic-heavy": ["claude:opus"]}).do_update()
+    assert launched["cmds"][0][0][:3] == ["/bin/claude", "--model", "opus"]
+
+
 def test_resumed_claude_continues_the_conversation(launched):
     launched["make"]().launch_agent("prompt", resume_agent="claude")
     assert launched["cmds"][0][0] == ["/bin/claude", "--model", "sonnet", "--continue", launched["short"]]

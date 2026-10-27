@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.73.0-ff875f?style=flat-square" alt="Versión 4.73.0">
+  <img src="https://img.shields.io/badge/version-4.75.0-ff875f?style=flat-square" alt="Versión 4.75.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -583,6 +583,9 @@ agents:
     bounded: [opencode:ollama/qwen3-coder:30b, claude]
 ```
 
+Las sesiones que abres tú (el siguiente paso del asistente, Empezar en la app) usan también esta tabla: con el agente
+que elijas, el modelo que fije `pipeline.yaml` para la unidad (`{op: set, node: "flow:*", runner: "claude:opus"}`) o el
+de su tipo de trabajo, y si no hay ninguno, el de Ajustes; el asistente y la app dicen con cuál la abren.
 Los modelos locales solo entran por OpenCode y nunca para trabajo `agentic-heavy`; `camaron doctor --local` propone uno
 de pesos abiertos según la memoria de tu equipo. `camaron run --parallel 3 --per-runner claude=2,codex=1` reparte las
 sesiones; mientras dura una ejecución el ordenador no se suspende. `camaron doctor --context` suma los tokens que carga

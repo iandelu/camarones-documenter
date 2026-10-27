@@ -170,7 +170,8 @@ used files, packages and, per file, what it uses and who uses it — with a sear
 
 **Libraries** (`#/libs`, live): every repo's direct dependencies as a library × repo matrix, with filters (category,
 language, repo, scope, only vulnerable); vulnerable ones first, with their advisories and the version that fixes
-them. `#/libs/<repo>` opens it for one repo.
+them. Each library names the repos it is in, the flagged ones first, and its column stays put while the table
+scrolls sideways. `#/libs/<repo>` opens it for one repo.
 
 <!-- portal:#/c4 -->
 

@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { Aviso, Button, Card, Chip, EmptyState, PlanCost, Skeleton, uiText } from '@camaron/ui'
-import { board, phases, sessionLine, tone, waitsFor } from '../plan.js'
+import { board, openedWith, phases, sessionLine, tone, waitsFor } from '../plan.js'
 import { arrivedLive, defaultView, runLive } from '../canvas.js'
 import { useAgents, useCmd, useStore } from '../hooks.js'
 import { AgentPicker, Failed, Fold, JobOutput, Page, UnitActions } from '../parts.jsx'
@@ -234,8 +234,8 @@ function Update({ srv, a }) {
   async function open() {
     setNote({ ok: '', error: '' })
     try {
-      await srv.post('app/agent', { unit: 'update', agent: a.agent, lang: lang() })
-      setNote({ ok: t('next.opened', { agent: a.label(a.agent) }), error: '' })
+      const res = await srv.post('app/agent', { unit: 'update', agent: a.agent, lang: lang() })
+      setNote({ ok: t('next.opened', { agent: openedWith(a.label(a.agent), res) }), error: '' })
     } catch (e) { setNote({ ok: '', error: e.message }) }
   }
   return (
