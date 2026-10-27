@@ -98,7 +98,7 @@ function AddTask({ change, groups, onDone, repos }) {
   )
 }
 
-export default function TasksStep({ draft, change, analysis, ai, aiOn, repos }) {
+export default function TasksStep({ draft, change, analysis, ai, aiGate, repos }) {
   const id = useId()
   const list = useRef(null)
   const [adding, setAdding] = useState(false)
@@ -123,7 +123,7 @@ export default function TasksStep({ draft, change, analysis, ai, aiOn, repos }) 
       ) : <p className="muted">{t('stories.tasks.none')}</p>}
       {adding ? <AddTask change={change} groups={draft.groups} repos={repos} onDone={() => setAdding(false)} />
         : <button type="button" className="ghost small" onClick={() => setAdding(true)}>+ {t('stories.add')}</button>}
-      <Suggest ai={ai} what="tasks" on={aiOn} onAccept={(x) => change((d) => ({ ...d, tasks: addTask(d.tasks, x.title, x.touches || []) }))} />
+      <Suggest ai={ai} what="tasks" gate={aiGate} onAccept={(x) => change((d) => ({ ...d, tasks: addTask(d.tasks, x.title, x.touches || []) }))} />
       {existing.length ? (
         <>
           <h3>{t('stories.tasks.existing')}</h3>

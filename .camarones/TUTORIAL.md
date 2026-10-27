@@ -292,7 +292,7 @@ Stories. The “Stories” zone (`#/stories`) helps you write a story (As / I wa
 
 The start gate. Moving a card into “In Progress” checks that its dependencies are done and that its footprint collides with nothing already in progress. A person is warned and can go on with `--force` (in the portal and the app, “Move anyway”; it is counted in the usage statistics); an agent (MCP `board_next` and `board_waves`, or the harness) is always refused. A card with children is a container and never blocks its own tasks.
 
-Optional settings in `workspace.yaml`: `stories: {ai: true}` turns on “Suggest with AI” (off by default; it only suggests and never decides footprints, dependencies, waves or the verdict), `stories: {model: …}` picks the model and `stories: {small: {groups, files, repos}}` sets the thresholds of INVEST's “S”. The index `.camarones/.cache/board.db` rebuilds itself and is safe to delete.
+“✨ Suggest with AI” is in all three steps (rewriting the story, the criteria and the subtasks) and only spends when you press it: it only suggests and never decides footprints, dependencies, waves or the verdict. When it cannot run (no agent installed, no token, or turned off) it shows disabled and says why. Optional settings in `workspace.yaml`: `stories: {ai: false}` turns it off, `stories: {model: …}` picks the model and `stories: {small: {groups, files, repos}}` sets the thresholds of INVEST's “S”. The index `.camarones/.cache/board.db` rebuilds itself and is safe to delete.
 
 Your intern shrimp has pinned the sticky notes up already: all you do is move them.
 
@@ -619,7 +619,7 @@ Historias. La zona «Historias» (`#/stories`) te ayuda a escribir una historia 
 
 La puerta de salida. Mover una tarjeta a «In Progress» comprueba que sus dependencias estén hechas y que su huella no choque con lo que ya está en curso. A una persona se le avisa y puede seguir con `--force` (en el portal y en la app, «Mover igualmente»; se cuenta en las estadísticas de uso); a un agente (MCP `board_next` y `board_waves`, o el harness) se le rechaza siempre. Una tarjeta con hijas es un contenedor y no bloquea a sus propias tareas.
 
-Ajustes opcionales en `workspace.yaml`: `stories: {ai: true}` activa «Sugerir con IA» (apagado por defecto; solo sugiere, nunca decide huellas, dependencias, oleadas ni el veredicto), `stories: {model: …}` elige el modelo y `stories: {small: {groups, files, repos}}` los umbrales de la «S» de INVEST. El índice `.camarones/.cache/board.db` se reconstruye solo y se puede borrar.
+«✨ Sugerir con IA» está en los tres pasos (reescribir la historia, los criterios y las subtareas) y solo gasta cuando lo pulsas: solo sugiere, nunca decide huellas, dependencias, oleadas ni el veredicto. Si no puede usarse (no hay agente instalado, falta el token o está apagada) sale desactivado y dice por qué. Ajustes opcionales en `workspace.yaml`: `stories: {ai: false}` la apaga, `stories: {model: …}` elige el modelo y `stories: {small: {groups, files, repos}}` los umbrales de la «S» de INVEST. El índice `.camarones/.cache/board.db` se reconstruye solo y se puede borrar.
 
 Tu gambita de prácticas ya ha colgado los post-its en su sitio: tú solo los mueves.
 
