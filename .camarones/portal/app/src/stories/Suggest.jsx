@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { Thinking } from '@camaron/ui'
 import { postJSON } from '../api.js'
 import { core } from '../core.js'
 import { escapeAborts } from '../stories.js'
@@ -54,19 +55,24 @@ export function useSuggest({ draft, lang, onReadOnly }) {
   return { state, run, stop, dismiss, clear: () => setState(null) }
 }
 
-// The button and, under it, what came back for this kind.
+// The button and, under it, what came back for this kind. While it thinks, the button that started it is the indicator
+// (a pending button, as in React Aria): it keeps the focus, shimmers and cannot be pressed again.
 export function Suggest({ ai, what, gate, onAccept }) {
   const id = useId()
   const s = ai.state?.what === what ? ai.state : null
+  const busy = !!s?.running
   const items = !s?.result ? [] : what === 'rewrite' ? (s.result.rewrite ? [s.result.rewrite] : []) : s.result[what] || []
   const text = (x) => (what === 'rewrite' ? t('stories.ai.rewrite', { as: x.as_, want: x.want, so: x.so }) : x.title ?? x)
   return (
     <div className="st-ai">
-      <button type="button" className="ghost small" disabled={!gate.on || !!ai.state?.running}
-              aria-describedby={gate.on ? undefined : `${id}-why`} onClick={() => ai.run(what)}>
-        {`✨ ${t('stories.ai.suggest')}${gate.runner && gate.on ? ` · ${gate.runner}` : ''}`}</button>
+      <button type="button" className="ghost small" disabled={!busy && (!gate.on || !!ai.state?.running)}
+              aria-disabled={busy || undefined} aria-busy={busy || undefined}
+              aria-describedby={gate.on ? undefined : `${id}-why`} onClick={busy ? undefined : () => ai.run(what)}>
+        {busy ? <>✨ <Thinking timer>{t('stories.ai.thinking')}</Thinking></>
+          : `✨ ${t('stories.ai.suggest')}${gate.runner && gate.on ? ` · ${gate.runner}` : ''}`}</button>
       {gate.on ? null : <span id={`${id}-why`} className="muted small"> {t(gate.why)}</span>}
-      {s?.running ? <span className="muted small" role="status"> {t('stories.ai.running')}</span> : null}
+      {busy ? <span className="muted small" role="status"> <span className="sr-only">{t('stories.ai.thinking')} </span>
+        {t('stories.ai.escape')}</span> : null}
       {s?.note ? <span className="muted small" role="status"> {s.note}</span> : null}
       {s?.error ? <p className="error" role="alert">{s.error}</p> : null}
       {items.length ? (
