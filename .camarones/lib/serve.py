@@ -250,6 +250,8 @@ def api_doc(q: dict) -> dict:
     d = read(q["path"], q.get("lang", ""))
     d["blocks"] = _blocks(doc_file(q["path"], q.get("lang", "")), d["raw"])
     sourcelinks.with_files(d["sourceInfo"])        # this machine's portal: the reader's editor opens the file
+    from . import adr_api
+    d["decisions"] = adr_api.covering(q["path"])   # the accepted ADRs that cover this page
     if q.get("track"):
         usage.record("portal:doc", channel="human", page=q["path"])
     return d
@@ -991,6 +993,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json({"rows": rows, "required_ok": all(r["ok"] for r in rows if r["kind"] == "t_required")})
             if name == "onboard/stack":
                 return self.json(onboard.stack_rows())
+        if name == "adr" or name.startswith("adr/"):
+            from . import adr_api
+            return self.json(*adr_api.get(name, q))
         if (m := re.fullmatch(r"jobs/([\w.-]+)/events", name)) and m.group(1) in JOBS:
             return self.stream_job(JOBS[m.group(1)], int(self.headers.get("Last-Event-ID") or q.get("from") or 0))
         self.json({"error": "not found"}, 404)
@@ -1233,6 +1238,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json(*app_kitdev(b))
             if p.startswith("/api/app/creds"):           # tokens only ever travel in this body, never on a command line
                 return self.json(*app_creds(p[len("/api/app/creds"):], b))
+            if m := re.fullmatch(r"/api/app/adr/([a-z]+)", p):     # the decisions (lib/adr_api.py)
+                from . import adr_api
+                return self.json(*adr_api.post(m.group(1), b, by))
             if p == "/api/app/agent":
                 from . import agents
                 agent, lang = str(b.get("agent", "")), b.get("lang") or "es"
