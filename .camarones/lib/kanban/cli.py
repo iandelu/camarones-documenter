@@ -14,10 +14,10 @@ class _Actions(tuple):
         return x == "merge-driver" or tuple.__contains__(self, x)
 
 
-ACTIONS = _Actions(("init", "add", "list", "show", "move", "assign", "link", "archive", "repair", "next", "waves"))
-_NEED = {"add": 2, "show": 1, "archive": 1, "move": 2, "assign": 2, "link": 2, "merge-driver": 3}
+ACTIONS = _Actions(("init", "add", "list", "show", "move", "assign", "link", "archive", "repair", "next", "waves", "story"))
+_NEED = {"add": 2, "show": 1, "archive": 1, "move": 2, "assign": 2, "link": 2, "story": 2, "merge-driver": 3}
 _USAGE = {"add": "add TYPE TITLE", "show": "show ID", "archive": "archive ID", "move": "move ID STATUS",
-          "assign": "assign ID WHO", "link": "link ID REF", "merge-driver": "merge-driver O A B"}
+          "assign": "assign ID WHO", "link": "link ID REF", "story": "story lint|invest|split ID", "merge-driver": "merge-driver O A B"}
 _EMPTY = "The board is empty; this shrimp is waiting for its first card: camaron board add story \"…\""
 
 
@@ -36,6 +36,8 @@ def add_parser(sp) -> None:
     b.add_argument("--after")
     b.add_argument("--story")
     b.add_argument("--n", type=int, default=3)
+    b.add_argument("--touch", action="append")
+    b.add_argument("--accept", action="store_true")
     b.add_argument("--force", action="store_true")
     b.add_argument("--json", action="store_true")
 
@@ -91,6 +93,90 @@ def run(a) -> int:
     except (ops.BoardError, LockBusy, OSError) as e:        # a busy lock, a file another program holds…
         print(f"✖ {e}", file=sys.stderr)
         return 2
+
+
+_VERDICT = {"es": {"good": "bueno", "improve": "mejorable", "poor": "pobre"},
+            "en": {"good": "good", "improve": "needs work", "poor": "poor"}}
+
+
+def _story_input(story_id: str, extra) -> tuple[dict, dict]:
+    """The stored story as `analyze`/`save` take it, plus `item()` itself; `--touch` entries are checked and added to its
+    footprint the way `save` checks them (nothing is written)."""
+    from .. import stories_save
+    from . import index
+    found = stories_save.item(story_id)
+    touches = list(found["touches"])
+    if extra:
+        conn = index.connect()
+        try:
+            touches = sorted({*touches, *stories_save._check_touches(extra, conn, "--touch")})
+        finally:
+            conn.close()
+    story = {k: found[k] for k in ("id", "as_", "want", "so", "criteria", "epic", "priority")}
+    return {**story, "touches": touches}, found
+
+
+def _wave(t: dict) -> str:
+    return str(t["wave"] + 1) if t["wave"] >= 0 else "-"
+
+
+def _story(a, ops) -> int:
+    from .. import stories, stories_save
+    verb = a.args[0]
+    if verb not in ("lint", "invest", "split"):
+        print(f"✖ usage: camaron board {_USAGE['story']}", file=sys.stderr)
+        return 2
+    lang = _lang(ops)
+    es = lang == "es"
+    story, found = _story_input(a.args[1], a.touch)
+    if verb == "split" and a.accept and found["subtasks"]:
+        print(f"✖ {found['id']} ya tiene subtareas: no se vuelve a dividir" if es
+              else f"✖ {found['id']} already has subtasks: it is not split again", file=sys.stderr)
+        return 2
+    analysis = stories.analyze(story, lang=lang)
+    if verb == "lint":
+        if a.json:
+            print(json.dumps(analysis["hints"], ensure_ascii=False, indent=2))
+        else:
+            for h in analysis["hints"]:
+                print(f"{h['code']}: {h['message']}")
+            if not analysis["hints"]:
+                print("Sin avisos" if es else "No hints")
+    elif verb == "invest":
+        verdict = analysis["invest"]
+        if a.json:
+            print(json.dumps(verdict, ensure_ascii=False, indent=2))
+        else:
+            print(("Veredicto: " if es else "Verdict: ") + _VERDICT[lang][verdict["verdict"]])
+            for letter, v in verdict["letters"].items():
+                print(f"{'✔' if v['ok'] else '✖'} {letter}  {v['reason']}")
+    elif not a.accept:
+        if a.json:
+            print(json.dumps(analysis["tasks"], ensure_ascii=False, indent=2))
+        else:
+            for t in analysis["tasks"]:
+                files = f"  [{', '.join(t['touches'])}]" if t["touches"] else ""
+                needs = f"  deps: {', '.join(t['deps'])}" if t["deps"] else ""
+                print(f"wave {_wave(t)}  {t['title']}{files}{needs}")
+    else:
+        if analysis["cycle"]:
+            print(("✖ las subtareas se esperan entre sí: " if es else "✖ the subtasks wait on each other: ")
+                  + " -> ".join(analysis["cycle"]), file=sys.stderr)
+            return 2
+        if analysis["duplicates"]:
+            print(("✖ dos subtareas tienen la misma clave: " if es else "✖ two subtasks have the same key: ")
+                  + ", ".join(analysis["duplicates"]), file=sys.stderr)
+            return 2
+        saved = stories_save.save(story, title=None, tasks=analysis["tasks"], base_sha=found["sha"], lang=lang,
+                                  surface="cli")
+        if a.json:
+            print(json.dumps(saved, ensure_ascii=False, indent=2, default=str))
+        else:
+            for r in saved["tasks"]:
+                print(f"{r['id']}  {r['title']}")
+            print(f"🦐 {len(saved['tasks'])} subtareas en {found['id']}" if es
+                  else f"🦐 {len(saved['tasks'])} subtasks in {found['id']}")
+    return 0
 
 
 def _show(a, data) -> None:
@@ -161,6 +247,8 @@ def _run(a, ops) -> int:
                 print(f"{'Ola' if lang == 'es' else 'Wave'} {n}")
                 for r in wave:
                     print("  " + line(r))
+    elif x == "story":
+        return _story(a, ops)
     elif x == "assign":
         _show(a, ops.assign(args[0], args[1]))
     elif x == "link":
