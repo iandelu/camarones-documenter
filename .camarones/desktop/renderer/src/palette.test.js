@@ -1,11 +1,12 @@
 import { expect, test } from 'vitest'
 import { chord, entries, GO, keyFor, pick, typing } from './palette.js'
 
-const ALL = ['summary', 'board', 'plan', 'interviews', 'team', 'quality', 'libs', 'docs', 'machine', 'kitdev']
+const ALL = ['summary', 'board', 'plan', 'interviews', 'team', 'quality', 'libs', 'docs', 'machine', 'guide', 'kitdev']
 const t = (k) => `<${k}>`
 
 test('one letter per section, each section once', () => {
-  expect(GO).toEqual({ s: 'summary', b: 'board', p: 'plan', i: 'interviews', t: 'team', q: 'quality', l: 'libs', d: 'docs', m: 'machine', k: 'kitdev' })
+  expect(GO).toEqual({ s: 'summary', b: 'board', p: 'plan', i: 'interviews', t: 'team', q: 'quality', l: 'libs', d: 'docs', m: 'machine', h: 'guide', k: 'kitdev' })
+  expect(keyFor('guide')).toBe('h')
   expect(GO.b).toBe('board')
   expect(keyFor('board')).toBe('b')
   expect(keyFor('quality')).toBe('q')
@@ -49,12 +50,12 @@ test('the sections with their shortcut, the other projects that exist, the actio
       cmd('ci', 'team')],
   })
   const by = Object.fromEntries(groups.map((g) => [g.id, g]))
-  expect(groups.map((g) => g.id)).toEqual(['sections', 'projects', 'actions', 'commands'])
+  expect(groups.map((g) => g.id)).toEqual(['sections', 'projects', 'actions', 'commands', 'guide'])
   expect(by.sections.label).toBe('<pal.sections>')
   expect(by.sections.items[1]).toEqual({ id: 'go:plan', label: '<nav.plan>', keys: ['g', 'p'], href: '#/plan' })
   expect(by.projects.items.map((i) => i.label)).toEqual(['web'])
   expect(by.projects.items[0].project.path).toBe('/w')
-  expect(by.actions.items.map((i) => i.id)).toEqual(['read', 'review', 'search', 'add'])
+  expect(by.actions.items.map((i) => i.id)).toEqual(['read', 'review', 'search', 'add', 'tour'])
   expect(by.actions.items[0].href).toBe('../#/')
   // doctor runs in a Quality panel; radar sits in Quality's "All commands"; confirm is the portal's; team is not here
   expect(by.commands.items).toEqual([
@@ -80,4 +81,13 @@ test('every word must match, in the label or its hint; labels that start with th
   expect(pick(groups, 'radar')[0].items.map((i) => i.id)).toEqual(['b', 'a'])
   expect(pick(groups, 'camaron doc')[0].items.map((i) => i.id)).toEqual(['c'])
   expect(pick(groups, 'zzz')).toEqual([])
+})
+
+test('the guide chapters show once you type, like the commands', () => {
+  const guide = [{ id: 'guide:app/plan', label: 'Plan', sub: 'The app', href: '#/guide/app/plan' }]
+  const groups = entries({ sections: ALL, t, guide })
+  expect(pick(groups, '').map((g) => g.id)).not.toContain('guide')
+  const found = pick(groups, 'plan').find((g) => g.id === 'guide')
+  expect(found.label).toBe('<pal.guide>')
+  expect(found.items).toEqual(guide)
 })
