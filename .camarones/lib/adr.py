@@ -502,13 +502,6 @@ def _who(by) -> str:
     return name
 
 
-def _with_status(raw: str, line: str) -> str:
-    """`line` replaces the first line of the Status section; a note a person wrote below it stays."""
-    kept = (adr_doc.section(docs.split_fm(raw)[1], "status") or "").splitlines()
-    first = next((i for i, l in enumerate(kept) if l.strip()), None)
-    return adr_doc.replace_section(raw, "status", "\n".join([line, *([] if first is None else kept[first + 1:])]))
-
-
 def _outcome(state: dict, raw: str) -> str | None:
     """The Decision section an accepted ADR gets, None to keep the one written. What a person wrote there stays, in front
     of one paragraph per point; the placeholder and the points subsection go. Refuses what nobody has decided."""
@@ -543,7 +536,7 @@ def _supersession(state: dict, id: str, name: str) -> tuple[Path, str] | None:
     raw = _read(path)
     if "�" in raw:
         raise AdrError(f"{path.name} is not UTF-8: convert it before superseding it")
-    return path, _with_status(raw, f"Superseded by [{id}]({name})")
+    return path, adr_doc.replace_status(raw, f"Superseded by [{id}]({name})")
 
 
 def _owned(raw: str, name: str, id: str, state: dict) -> str:
@@ -574,7 +567,7 @@ def accept(id: str, by: str, attendees: list[str] | None, base_sha: str) -> dict
         state, path, raw = _open(id, base_sha)
         outcome, old = _outcome(state, raw), _supersession(state, id, path.name)
         date, names = today(), given or _names(state.get("attendees") or [])
-        text = _with_status(raw, f"Accepted ({date})")
+        text = adr_doc.replace_status(raw, f"Accepted ({date})")
         if outcome is not None:
             text = adr_doc.replace_section(text, "decision", outcome)
         text = adr_doc.replace_section(text, "decided_by", adr_doc.render_decided_by(
@@ -597,7 +590,7 @@ def reject(id: str, why: str, by: str, base_sha: str) -> dict:
     with FileLock(LOCK):
         state, path, raw = _open(id, base_sha)
         date = today()
-        _seal(path, _owned(_with_status(raw, f"Rejected ({date}): {reason}"), path.name, id, state), who)
+        _seal(path, _owned(adr_doc.replace_status(raw, f"Rejected ({date}): {reason}"), path.name, id, state), who)
         save_state(_closed(state, "rejected", date, who))
     return get(id)
 
@@ -605,15 +598,19 @@ def reject(id: str, why: str, by: str, base_sha: str) -> dict:
 # ---------- what an accepted ADR covers ----------
 def covering(logical: str) -> list[dict]:
     """The accepted ADRs a page falls under: they share a source with it (fragments and `repo://` ignored) or cite it as
-    `docs/<logical>`. Read from the files, so an accepted ADR written elsewhere covers too; never the page itself."""
+    `docs/<logical>`. Read from the files, so an accepted ADR written elsewhere covers too. A decision page (`type:
+    decision`, or under `decisions/`) is never covered: it has its own status."""
     page = dict(docs.iter_docs()).get(logical)
     if page is None:
         return []
-    cited, found = set(_touches_of(_sources(docs.split_fm(_read(page))[0]))), []
+    mine = docs.split_fm(_read(page))[0]
+    if mine.get("type") == "decision" or logical.startswith("decisions/"):
+        return []
+    cited, found = set(_touches_of(_sources(mine))), []
     for id, path in sorted(_files().items()):
         fm, body = docs.split_fm(_read(path))
         theirs = set(_touches_of(_sources(fm)))
-        if f"decisions/{path.name}" == logical or adr_doc.status_of(body)[0] != "accepted":
+        if adr_doc.status_of(body)[0] != "accepted":
             continue
         if cited & theirs or f"{CAM_DIR}:docs/{logical}" in theirs:
             state = _load_or_none(id) or {}

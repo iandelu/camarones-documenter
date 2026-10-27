@@ -268,6 +268,32 @@ def test_reject_writes_the_reason_owns_and_confirms(adr, kit, monkeypatch):
     assert "#### P1" in out["sections"]["decision"]
 
 
+COMMENTS = ["<!-- pick one -->", "<!-- pick one:\nproposed | accepted -->"]
+
+
+@pytest.mark.parametrize("comment", COMMENTS)
+def test_accepting_a_legacy_adr_replaces_the_status_it_reads_not_a_comment_above_it(adr, kit, comment, monkeypatch):
+    monkeypatch.setattr(adr, "today", lambda: "2026-10-27")
+    f = decisions(kit) / "0003-jpa.md"
+    legacy = LEGACY.replace("Propuesto <!-- x -->", f"{comment}\nPropuesto")
+    f.write_text(legacy, encoding="utf-8")
+    got = adr.start_review("0003")
+    got = adr.part("0003", "decision", "edit", "We keep JPA.", base_sha=got["sha"])
+    out = adr.accept("0003", by="Test", attendees=[], base_sha=got["sha"])
+    body = kit.docs.split_fm(f.read_text(encoding="utf-8"))[1]
+    assert body.startswith(f"# 0003 — JPA\n\n## Estado\n\n{comment}\nAccepted (2026-10-27)\n\n## Contexto\n\nwhy\n")
+    assert "Propuesto" not in body and out["status"] == "accepted" and adr.list_adrs()[0]["status"] == "accepted"
+
+
+@pytest.mark.parametrize("comment", COMMENTS)
+def test_superseding_replaces_the_status_an_old_adr_reads_not_a_comment_above_it(adr, kit, comment):
+    old = decisions(kit) / "0001-ehcache.md"
+    old.write_text(OLD.replace("Accepted", f"{comment}\nAccepted"), encoding="utf-8")
+    accepted_adr(adr, [], supersedes="1")
+    assert old.read_text(encoding="utf-8") == OLD.replace("Accepted", f"{comment}\nSuperseded by [0002](0002-t.md)")
+    assert adr.get("0001")["chip"] == "superseded"
+
+
 def test_superseding_marks_an_old_adr_even_without_frontmatter(adr, kit):
     old = kit.root / "docs" / "decisions" / "0001-ehcache.md"
     old.parent.mkdir(parents=True)
@@ -385,3 +411,22 @@ def test_a_legacy_accepted_adr_covers_a_page_too(adr, kit):
 def test_covering_an_unknown_page_is_empty(adr, kit):
     accepted_adr(adr, ["api:src/S.java"])
     assert adr.covering("nope.md") == [] and adr.covering("../x.md") == []
+
+
+def test_a_decision_page_is_never_covered_but_a_normal_page_is(adr, kit):
+    page(kit, "orders.md", ["api:src/S.java"])
+    first = accepted_adr(adr, ["api:src/S.java"])
+    second = accepted_adr(adr, ["api:src/S.java"])
+    guide = kit.root / "docs" / "guides" / "why-redis.md"
+    guide.parent.mkdir(parents=True, exist_ok=True)
+    guide.write_text("---\ntype: decision\nx-sources:\n  - api:src/S.java\n---\n# Why Redis\n", encoding="utf-8")
+    assert [c["id"] for c in adr.covering("orders.md")] == [first["id"], second["id"]]
+    assert adr.covering(first["path"]) == [] and adr.covering(second["path"]) == []
+    assert adr.covering("guides/why-redis.md") == []
+
+
+def test_a_page_under_decisions_is_not_covered_even_without_type_decision(adr, kit):
+    accepted_adr(adr, ["api:src/S.java"])
+    (decisions(kit) / "0003-jpa.md").write_text(
+        "---\nx-sources:\n  - api:src/S.java\n---\n# 0003 — JPA\n\n## Estado\n\nPropuesta\n", encoding="utf-8")
+    assert adr.covering("decisions/0003-jpa.md") == []

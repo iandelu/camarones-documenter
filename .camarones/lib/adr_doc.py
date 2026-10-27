@@ -3,8 +3,9 @@
 Numbering and slugs, the status of an ADR the kit did not write (no frontmatter, Spanish headings, `Propuesto <!-- … -->`,
 an inline `Status:` line), its sections read and replaced in place, and the one template a new ADR is rendered from.
 Reading is tolerant: a section is an `##` heading whose text is one of the English or Spanish headings of a key.
-Writing is narrow: `replace_section` changes one section and keeps every other byte, frontmatter included; only
-`render_new` renders a whole file. Nothing here touches the disk or a model."""
+Writing is narrow: `replace_section` changes one section and keeps every other byte, frontmatter included,
+`replace_status` changes only the status line `status_of` reads; only `render_new` renders a whole file. Nothing here
+touches the disk or a model."""
 from __future__ import annotations
 
 import re
@@ -138,6 +139,45 @@ def replace_section(text: str, key: str, new_body: str) -> str:
     elif new:
         _insert(lines, key, new, docs.sections(body))
     return head + "".join(lines)
+
+
+def _blank_comments(body: str) -> str:
+    """`body` with each HTML comment turned into spaces, line breaks kept: the same lines and offsets, minus what a reader skips."""
+    return docs.COMMENT_RE.sub(lambda m: "".join(c if len(f"a{c}b".splitlines()) > 1 else " " for c in m[0]), body)
+
+
+def _line_end(text: str, at: int) -> int:
+    rest = text[at:].splitlines()
+    return at + (len(rest[0]) if rest else 0)
+
+
+def replace_status(text: str, new: str) -> str:
+    """Whole file in, whole file out: `new` takes the place of the status `status_of` reads (the first text of the Status
+    section once comments are set aside) and of what else is on its line, comments there included. A comment on a line of
+    its own or before the status, and every note below, stay. A section with only a comment gets `new` below it."""
+    _, body, _ = docs.parse_fm(text)
+    seen = _blank_comments(body)
+    found = _find(seen, "status")
+    if not found:
+        return replace_section(text, "status", new)
+    head, lines, masked = text[:len(text) - len(body)], body.splitlines(keepends=True), seen.splitlines()
+    rows = range(found["start"] + 1, found["end"])
+    first = next((i for i in rows if masked[i].strip()), None)
+    if first is None:
+        written = [i for i in rows if lines[i].strip()]
+        if not written:
+            return replace_section(text, "status", new)
+        last = written[-1]
+        lines[last] += "" if lines[last].endswith(("\n", "\r")) else "\n"
+        lines.insert(last + 1, new + "\n")
+        return head + "".join(lines)
+    start = len("".join(lines[:first]))
+    lo = start + len(masked[first]) - len(masked[first].lstrip())
+    hi = start + len(lines[first].splitlines()[0])
+    for c in docs.COMMENT_RE.finditer(body):
+        if lo <= c.start() < hi < c.end():
+            hi = _line_end(body, c.end())
+    return head + body[:lo] + new + body[hi:]
 
 
 # ---------- rendering ----------
