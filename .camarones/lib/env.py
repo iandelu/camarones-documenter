@@ -382,10 +382,87 @@ def link(dst: Path, target: Path, log: Log = print) -> bool:
         return False
 
 
+LOCAL_ONLY = {"settings.local.json", ".DS_Store", "Thumbs.db", "desktop.ini"}   # a machine's own, never the kit's
+KIT_IMPORT = "<!-- camarones: the docs kit's rules (cam-docs/AGENTS.md); uninstall takes these two lines out -->\n@AGENTS.md\n"
+
+
+def _points_at(p: Path, target: Path) -> bool:
+    return _linked(p) and os.path.realpath(p) == os.path.realpath(target)
+
+
+def _inside(n: str) -> list[tuple[Path, Path]]:
+    """(where in the person's own <workspace>/<n>, the kit's entry of cam-docs/<n> it should lead to)."""
+    src = ROOT / n
+    return [(WORKSPACE / n / c.name, c) for c in sorted(src.iterdir()) if c.name not in LOCAL_ONLY] if src.is_dir() else []
+
+
+def workspace_off(n: str) -> str | None:
+    """Why <workspace>/<n> does not lead agents to cam-docs/<n>: None (linked; or merged: the person's own folder with
+    the kit's entries linked in, their own CLAUDE.md importing the linked AGENTS.md), "missing" (link_workspace fixes
+    it) or "yours" (a file of theirs is in the way, and the kit never replaces one)."""
+    dst, src = WORKSPACE / n, ROOT / n
+    if not src.exists() or _points_at(dst, src):
+        return None
+    if _linked(dst) or not dst.exists():
+        return "missing"
+    if dst.is_dir() and src.is_dir():
+        pairs = _inside(n)
+        if all(_points_at(p, c) for p, c in pairs):
+            return None
+        return "yours" if any((p.exists() or _linked(p)) and not _points_at(p, c) for p, c in pairs) else "missing"
+    if n == "CLAUDE.md" and dst.is_file() and _points_at(WORKSPACE / "AGENTS.md", ROOT / "AGENTS.md"):
+        return None if "@AGENTS.md" in dst.read_text(encoding="utf-8") else "missing"
+    return "yours"
+
+
+def _merge(n: str, log: Log) -> bool:
+    """The person's own <workspace>/<n>: the kit's entries linked in one by one, never over one of theirs; a CLAUDE.md
+    of theirs gets the line that imports the linked AGENTS.md. True when nothing is off any more."""
+    dst = WORKSPACE / n
+    if dst.is_dir():
+        for p, c in _inside(n):
+            if not p.exists() and not _linked(p):
+                link(p, c, log)
+    elif workspace_off(n) == "missing":
+        text = _raw(dst)
+        nl = "\r\n" if "\r\n" in text else "\n"                 # theirs: appended in the file's own line endings
+        with open(dst, "a", encoding="utf-8", newline="") as fh:
+            fh.write(("" if not text or text.endswith(nl) else nl) + nl + KIT_IMPORT.replace("\n", nl))
+        log(f"✔ {WORKSPACE.name}/{n} is yours: it now imports the kit's rules (@AGENTS.md)")
+    off = workspace_off(n)
+    if off == "yours":
+        log(f"⚠ {n} in {WORKSPACE.name}/ is yours and in the way — not merged (move it into {CAM_DIR}/ or run migrate)")
+    return off is None
+
+
+def _raw(f: Path) -> str:
+    with open(f, encoding="utf-8", newline="") as fh:
+        return fh.read()
+
+
+def drop_kit_import(claude_md: Path) -> bool:
+    """Take out the lines _merge added to the person's CLAUDE.md, and nothing else: the file is as it was."""
+    text = _raw(claude_md) if claude_md.is_file() and not _linked(claude_md) else ""
+    for nl in ("\r\n", "\n"):
+        block = KIT_IMPORT.replace("\n", nl)
+        if block in text:
+            with open(claude_md, "w", encoding="utf-8", newline="") as fh:
+                fh.write(text.replace(nl + block, "", 1) if nl + block in text else text.replace(block, "", 1))
+            return True
+    return False
+
+
+def merged_links() -> list[Path]:
+    """The links the kit put inside the person's own agent folders at the workspace root."""
+    from .trust import AGENT_DIRS
+    return [p for n in AGENT_DIRS if (WORKSPACE / n).is_dir() and not _linked(WORKSPACE / n)
+            for p in sorted((WORKSPACE / n).iterdir()) if _linked(p) and Path(os.path.realpath(p)).is_relative_to(ROOT.resolve())]
+
+
 def link_workspace(log: Log = print) -> list[str]:
     """Agents open in the workspace folder (so they see every repo): point its config files at cam-docs. Agent config
     this machine has not approved (lib/trust.py) is not linked; links that already exist are left for the user to
-    decide in the wizard or with `trust`."""
+    decide in the wizard or with `trust`. A folder or CLAUDE.md of the person's own already there is merged into."""
     if not CAM_LAYOUT:
         return []
     from . import trust
@@ -394,8 +471,15 @@ def link_workspace(log: Log = print) -> list[str]:
     if held:
         log(f"⚠ agent config not linked: {len(held)} item(s) not approved on this machine — review them with "
             f"`{cli_cmd()} trust`")
-    return [n for n in LINKS if (ROOT / n).exists() and not (held and n in trust.AGENT_LINKS)
-            and link(WORKSPACE / n, ROOT / n, log)]
+    out = []
+    for n in LINKS:
+        if not (ROOT / n).exists() or (held and n in trust.AGENT_LINKS):
+            continue
+        dst = WORKSPACE / n
+        mine = dst.exists() and not _linked(dst) and ((dst.is_dir() and (ROOT / n).is_dir()) or n == "CLAUDE.md")
+        if _merge(n, log) if mine else link(dst, ROOT / n, log):
+            out.append(n)
+    return out
 
 
 def unlink_agent_config() -> list[str]:
@@ -407,6 +491,9 @@ def unlink_agent_config() -> list[str]:
         if _linked(p) and os.path.realpath(p) == os.path.realpath(ROOT / n):
             _unlink(p)
             gone.append(n)
+    for p in merged_links():
+        _unlink(p)
+        gone.append(f"{p.parent.name}/{p.name}")
     return gone
 
 

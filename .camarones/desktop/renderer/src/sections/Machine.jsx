@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Aviso, Button, Card, Chip, Skeleton } from '@camaron/ui'
-import { setupProgress } from '../quality.js'
+import { seconds, setupProgress } from '../quality.js'
+import { ago } from '../jobs.js'
 import { useCmd, useHash } from '../hooks.js'
 import { Failed, JobOutput, Page } from '../parts.jsx'
 import Commands from './Commands.jsx'
@@ -34,15 +35,23 @@ export default function Machine({ srv, jobs, app }) {
   )
 }
 
-function Setup({ srv, jobs, m }) {
+// Setup is the next step only until it has run on this machine (lib/install_state.last_setup); then the card says when
+// and with which kit, and running it again is a quiet option.
+export function Setup({ srv, jobs, m, reload }) {
   const c = useCmd(srv, jobs)
   const { done, pct } = setupProgress(c.job?.lines, m.setup_steps)
+  const run = async () => { await c.run('setup', {}); reload() }
+  const at = seconds(m.setup?.at)
   return (
     <Card className="dk-run">
-      <span className="eyebrow">{t('mc.setup')}</span>
+      <div className="row"><span className="eyebrow">{t('mc.setup')}</span>
+        {m.setup ? <Chip state="ok">{t('mc.ready')}</Chip> : null}</div>
+      {m.setup ? <p className="muted small">{at ? t('mc.readyAt', { when: ago(at, Date.now() / 1000, t), kit: m.setup.kit })
+        : t('mc.readyKit', { kit: m.setup.kit })} {t('mc.setupAgainWhen')}</p>
+        : <p className="small">{t('mc.setupWhat')}</p>}
       {c.job ? <progress className="dk-progress" value={c.running ? pct : 100} max={100} aria-label={t('mc.setup')} /> : null}
       <div className="row">
-        <Button size="sm" variant="primary" disabled={c.running} onClick={() => c.run('setup', {})}>{t('mc.setupGo')}</Button>
+        <Button size="sm" variant={m.setup ? 'ghost' : 'primary'} disabled={c.running} onClick={run}>{t(m.setup ? 'mc.setupAgain' : 'mc.setupGo')}</Button>
         {c.running ? <span className="muted small">{done}/{m.setup_steps}</span> : null}
       </div>
       <JobOutput c={c} />

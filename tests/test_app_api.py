@@ -150,6 +150,15 @@ def test_a_command_runs_as_a_job_with_its_output(app_server):
     assert j["status"] == "done" and j["rc"] == 0 and any("Camarón" in line for line in j["log"])
 
 
+def test_a_command_s_lines_reach_the_app_as_they_are_printed(kit, monkeypatch):
+    """A pipe is block-buffered: without this, setup's progress or a scan's steps would all arrive when it ends."""
+    from lib import appapi
+    seen = {}
+    monkeypatch.setattr(appapi, "stream_job", lambda start_job, kind, argv, cwd, env, **kw: seen.update(env=env) or {"id": "1"})
+    appapi.start({"cmd": "version", "args": {}}, kit.serve.start_job)
+    assert seen["env"]["PYTHONUNBUFFERED"] == "1"
+
+
 def test_a_json_command_returns_its_result(app_server):
     code, job = call(app_server + "/api/app/cmd", {"cmd": "status", "args": {"json": True}}, token=TOKEN)
     j = wait_job(app_server, job["id"])

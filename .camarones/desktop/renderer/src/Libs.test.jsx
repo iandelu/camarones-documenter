@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, expect, test } from 'vitest'
 import { matrix } from '@camaron/ui/libs.js'
-import Libs, { Library } from './sections/Libs.jsx'
+import Libs, { LibTable, Library, ScanStatus } from './sections/Libs.jsx'
 import { setLang } from './i18n.js'
 
 const srv = { get: () => new Promise(() => {}), post: () => new Promise(() => {}) }
@@ -53,4 +53,37 @@ test('before any scan it says so instead of claiming the library is clean', () =
   const out = render(false)
   expect(out).toContain('Aún sin buscar vulnerabilidades')
   expect(out).not.toContain('Ningún aviso conocido')
+})
+
+const maven = [
+  { repo: 'api', ecosystem: 'Maven', name: 'org.springframework:spring-webmvc', version: '6.1.21', declared: '', scope: 'runtime',
+    category: 'framework', language: 'Java', source: 'api:core/pom.xml', managedBy: 'com.acme:services:2.0', vulns: [] },
+  { repo: 'web', ecosystem: 'Maven', name: 'org.springframework:spring-webmvc', version: '6.1.9', declared: '6.1.9', scope: 'runtime',
+    category: 'framework', language: 'Java', source: 'web:pom.xml', managedBy: null, vulns: [] },
+  { repo: 'gw', ecosystem: 'Maven', name: 'io.quarkus:quarkus-rest', version: null, declared: '', scope: 'runtime', category: 'framework',
+    language: 'Java', source: 'gw:pom.xml', managedBy: 'io.quarkus.platform:quarkus-bom:3.22.3, io.quarkus.platform:quarkus-camel-bom:3.22.3', vulns: [] },
+]
+
+test('each library says its versions next to its name, and a BOM it cannot read instead of a blank', () => {
+  const out = renderToStaticMarkup(<LibTable m={matrix(maven)} rows={maven} inv={{ libraries: maven, vulns: null }} open={null} setOpen={() => {}} srv={srv} jobs={null} onChanged={() => {}} />)
+  expect(out).toContain('<th>Versión</th>')
+  expect(out).toContain('6.1.9 · 6.1.21')
+  expect(out).toContain('quarkus-bom 3.22.3')
+  expect(out).toContain('title="La fija io.quarkus.platform:quarkus-bom:3.22.3, io.quarkus.platform:quarkus-camel-bom:3.22.3"')
+})
+
+test('a scan in progress says which repo it is on, out of how many, and why the first one is slow', () => {
+  const c = { running: true, job: { status: 'running', lines: ['[1/17] web: scanning for known vulnerabilities (offline database)…'] } }
+  const out = renderToStaticMarkup(<ScanStatus c={c} cves />)
+  expect(out).toContain('<progress')
+  expect(out).toContain('Buscando vulnerabilidades en web (1 de 17)')
+  expect(out).toContain('La primera vez descarga')
+})
+
+test('a finished scan says it ended well even when it found vulnerabilities', () => {
+  const c = { running: false, job: { status: 'done', lines: ['[1/1] web: scanning…', '✔ 3 libraries with known vulnerabilities'] } }
+  const out = renderToStaticMarkup(<ScanStatus c={c} cves />)
+  expect(out).toContain('Hecho')
+  expect(out).not.toContain('Falló')
+  expect(out).not.toContain('<progress')
 })

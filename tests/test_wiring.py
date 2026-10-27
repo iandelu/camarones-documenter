@@ -136,3 +136,72 @@ def test_migrate_cleanup_restores_head_bytes_and_line_endings(kit):
     assert (repo / "CLAUDE.md").read_bytes() == head
     assert (repo / ".gitignore").read_bytes() == b"target/\n"
     assert porcelain(repo) == set()
+
+
+# ---------- a workspace that already had its own agent config ----------
+def own_folder(wired, n=".claude"):
+    """The person's own folder at the workspace root, made before the kit (Claude Code's local settings in it)."""
+    p = wired.ws / n
+    if p.is_symlink() or wired.env._linked(p):
+        wired.env._unlink(p)
+    p.mkdir()
+    (p / "settings.local.json").write_text('{"permissions": {"allow": ["Bash(ls)"]}}', encoding="utf-8")
+    return p
+
+
+def test_a_real_agent_folder_gets_the_kit_s_entries_linked_in(wired):
+    """Repair cannot link a folder that is the person's: it links the kit's entries inside it and keeps theirs."""
+    from lib import install_state
+    mine = own_folder(wired)
+    assert any(d["path"].endswith("/.claude") for d in install_state.drift())
+    assert ".claude" in wired.env.link_workspace(log=lambda _: None)
+    assert (mine / "settings.local.json").read_text(encoding="utf-8").startswith('{"permissions"')
+    assert (mine / "skills").resolve() == (wired.root / ".claude" / "skills").resolve()
+    assert not any(d["path"].endswith("/.claude") for d in install_state.drift())
+    said = []
+    assert ".claude" in wired.env.link_workspace(log=said.append)                  # again: nothing to do, nothing said
+    assert not [m for m in said if ".claude" in m]
+
+
+def test_the_person_s_own_claude_md_imports_the_kit_rules(wired):
+    from lib import install_state
+    agents = wired.ws / "AGENTS.md"
+    if not wired.env._linked(agents):                       # Windows without file-symlink rights: nothing to import
+        return
+    mine = wired.ws / "CLAUDE.md"
+    wired.env._unlink(mine)
+    mine.write_text("# Our workspace\n\nRead this first.\n", encoding="utf-8")
+    assert any(d["path"].endswith("/CLAUDE.md") for d in install_state.drift())
+    assert "CLAUDE.md" in wired.env.link_workspace(log=lambda _: None)
+    text = mine.read_text(encoding="utf-8")
+    assert text.startswith("# Our workspace\n\nRead this first.\n") and text.rstrip().endswith("@AGENTS.md")
+    assert not any(d["path"].endswith("/CLAUDE.md") for d in install_state.drift())
+    wired.env.link_workspace(log=lambda _: None)
+    assert mine.read_text(encoding="utf-8") == text                                   # once
+    assert wired.env.drop_kit_import(mine) is True
+    assert mine.read_text(encoding="utf-8") == "# Our workspace\n\nRead this first.\n"
+
+
+def test_a_file_of_the_person_s_that_cannot_be_merged_is_named_as_theirs(wired):
+    from lib import install_state
+    agents = wired.ws / "AGENTS.md"
+    wired.env._unlink(agents)
+    agents.write_text("the team's own\n", encoding="utf-8")
+    off = {d["path"]: d for d in install_state.drift()}
+    assert off[f"{wired.ws.name}/AGENTS.md"]["why"] == "yours"
+    wired.env.link_workspace(log=lambda _: None)
+    assert agents.read_text(encoding="utf-8") == "the team's own\n"
+
+
+def test_the_import_keeps_the_person_s_line_endings_and_comes_out_byte_for_byte(wired):
+    if not wired.env._linked(wired.ws / "AGENTS.md"):
+        return
+    mine = wired.ws / "CLAUDE.md"
+    wired.env._unlink(mine)
+    original = b"# Ours\r\n\r\nWindows notes.\r\n"
+    mine.write_bytes(original)
+    wired.env.link_workspace(log=lambda _: None)
+    merged = mine.read_bytes()
+    assert merged.startswith(original) and b"@AGENTS.md\r\n" in merged and b"\n" not in merged.replace(b"\r\n", b"")
+    assert wired.env.drop_kit_import(mine) is True
+    assert mine.read_bytes() == original

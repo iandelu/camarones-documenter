@@ -21,6 +21,15 @@ export function setupProgress(lines, steps) {
   return { done, pct: steps ? Math.min(100, Math.round((done / steps) * 100)) : 0 }
 }
 
+// A vulnerability scan prints `[n/total] <repo>: scanning…` as it starts each repo (lib/osv.attach): the repos done
+// so far, and the one it is on.
+export function scanProgress(lines) {
+  const last = [...(lines || [])].reverse().map((l) => l.match(/^\[(\d+)\/(\d+)\]\s*([^:]+):/)).find(Boolean)
+  if (!last) return { n: 0, total: 0, pct: 0, repo: '' }
+  const n = +last[1], total = +last[2]
+  return { n, total, pct: Math.round(((n - 1) / total) * 100), repo: last[3].trim() }
+}
+
 export const seconds = (iso) => { const ms = Date.parse(iso); return Number.isNaN(ms) ? null : ms / 1000 }
 
 // The board rows (ui/src/health.js) whose control this app owns. `review` is a link into the portal and `repos` is

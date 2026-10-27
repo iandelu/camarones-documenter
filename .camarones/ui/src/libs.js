@@ -19,13 +19,15 @@ export function matrix(rows) {
   for (const r of rows) {
     const key = `${r.ecosystem}|${r.name}`
     const item = byKey.get(key) || { key, name: r.name, ecosystem: r.ecosystem, category: r.category, language: r.language,
-      cells: {}, vulns: [], drift: false }
-    item.cells[r.repo] = { version: r.version || r.declared || (r.managedBy ? 'managed' : ''), scope: r.scope, vulns: r.vulns || [] }
+      cells: {}, vulns: [], drift: false, known: new Set() }
+    item.cells[r.repo] = { version: r.version || r.declared || (r.managedBy ? 'managed' : ''), scope: r.scope, vulns: r.vulns || [],
+      managedBy: r.version ? null : r.managedBy || null }
+    if (r.version) item.known.add(r.version)
     item.vulns.push(...(r.vulns || []))
     item.drift = item.drift || r.drift
     byKey.set(key, item)
   }
-  const items = [...byKey.values()].map((x) => ({ ...x, worst: worst(x.vulns) }))
+  const items = [...byKey.values()].map(({ known, ...x }) => ({ ...x, versions: [...known].sort(compareVersions), worst: worst(x.vulns) }))
   items.sort((a, b) => (RANK[b.worst] || 0) - (RANK[a.worst] || 0) || a.category.localeCompare(b.category) || a.name.localeCompare(b.name))
   return { repos, items }
 }
@@ -64,6 +66,13 @@ export function fixTarget(vulns) {
 export function advisories(vulns) {
   const one = [...new Map((vulns || []).map((v) => [v.id, v])).values()]
   return one.sort((a, b) => (RANK[b.severity] || 0) - (RANK[a.severity] || 0) || String(a.id).localeCompare(String(b.id)))
+}
+
+// What manages a version the inventory could not read (a parent or BOM outside the repo, maybe several): the first
+// one's artifact and version, short enough for a table cell.
+export function managedLabel(managedBy) {
+  const [group, artifact, version] = String(managedBy || '').split(',')[0].trim().split(':')
+  return artifact ? `${artifact}${version ? ` ${version}` : ''}` : group || ''
 }
 
 // The inventory rows behind one line of the matrix (its key: `<ecosystem>|<name>`), by repo.

@@ -39,7 +39,9 @@ ajustes y skills que no ha escrito el kit se listan al abrir el asistente, y el 
 apruebas en esta máquina (`camaron trust`). Las aprobaciones viven en `~/.camarones/trust/`, nunca en el repo. Lo que
 el kit instaló en esta máquina (sus skills y los de graphify y OpenWiki, anotados en `~/.camarones/install/`) se
 reconoce sin preguntar; `camaron doctor` enseña un fichero del kit editado o un enlace que falta, y `camaron repair` los
-devuelve a su sitio.
+devuelve a su sitio. Tu propio `.claude/` o `CLAUDE.md` en la carpeta del espacio de trabajo nunca se reemplaza: el kit enlaza
+dentro de la carpeta lo suyo y añade a tu `CLAUDE.md` la línea que importa sus reglas (`@AGENTS.md`); `uninstall`
+quita las dos cosas.
 
 ## 2. El flujo guiado
 
@@ -231,7 +233,7 @@ sección (`g s` Resumen, `g b` Tablero, `g p` Plan, `g q` Calidad…).
 | 🤝 Equipo | el repo del equipo y compartir, aprobar la configuración de agentes que vino con él, hooks, plugins |
 | ✅ Calidad | requisitos y herramientas (guardados entre visitas, «Volver a comprobar»), el contexto que carga cada sesión de agente, preguntas de control, con y sin cam-docs; sin IA, vulnerabilidades conocidas, páginas desactualizadas, bloques generados |
 | 📖 Docs | **Leer la documentación**, **Revisar borradores** y **Buscar o preguntar** abren el portal en tu navegador. Debajo, **Construir el explorador C4**; por cada repo, **Generar la wiki** (elige el repo y escribe un brief inicial sin IA si aún no tiene) y, cuando ya tiene páginas, **Grafo del wiki**: cada uno un trabajo con su salida y, al acabar, **Ver** abre el resultado en el portal (**Reintentar** si falló); y **Preguntar con IA**, que responde con lo que dice la documentación y enlaza sus fuentes en el portal |
-| 🧰 Máquina | setup con progreso, idioma y modelos, tokens de GitLab / GitHub, repos y su stack, el perfil del plan, actualizar el kit, repair y, aparte y con vista previa, uninstall |
+| 🧰 Máquina | setup con progreso («Lista» cuando ya corrió aquí), idioma y modelos, tokens de GitLab / GitHub, repos y su stack, el perfil del plan, actualizar el kit, repair y, aparte y con vista previa, uninstall |
 
 Cada sección acaba con **Todos los comandos**, plegado: el resto de su zona del catálogo, cada uno con su formulario.
 
