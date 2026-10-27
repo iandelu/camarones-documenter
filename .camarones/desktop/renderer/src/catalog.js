@@ -2,7 +2,7 @@
 // without the commands its own panels already run. What deletes or moves data goes apart, last.
 export const ZONES = { plan: ['generate'], interviews: ['interviews'], team: ['team'], quality: ['check', 'analyze'],
   machine: ['machine'] }
-const PANELS = { plan: ['run', 'autopilot'], interviews: ['interview'], team: ['remote', 'share', 'trust', 'hooks', 'plugins'],
+const PANELS = { plan: ['run', 'autopilot', 'docs'], interviews: ['interview'], team: ['remote', 'share', 'trust', 'hooks', 'plugins'],
   quality: ['doctor', 'eval', 'ab', 'inventory', 'health', 'fresh', 'blocks'],
   machine: ['setup', 'config', 'sync', 'detect', 'stack', 'profile', 'self-update', 'repair', 'uninstall'] }
 

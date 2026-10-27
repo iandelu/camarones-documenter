@@ -84,21 +84,41 @@ def ensure_agents_import(claude_md: Path) -> None:
         claude_md.write_text("@AGENTS.md\n\n" + text, encoding="utf-8")
 
 
-def sync_kit_docs() -> list[str]:
+def _kit_doc_files() -> list[tuple[str, Path]]:
+    files = [(n, KIT / n) for n in KIT_DOCS]
+    return files + [(f"skeletons/{f.name}", f) for f in sorted((TEMPLATES / "skeletons").glob("*.md"))]
+
+
+def _sha(f: Path) -> str | None:
+    import hashlib
+    return hashlib.sha256(f.read_bytes()).hexdigest() if f.exists() else None
+
+
+def edited_kit_docs() -> list[str]:
+    """PLAYBOOK/CONVENTIONS/skeletons the team edited since the last sync and that differ from this kit's."""
+    if (ROOT / ".camarones").resolve() == KIT.resolve():
+        return []
+    stamp = load_json(KIT_DOCS_STAMP, {})
+    return [n for n, src in _kit_doc_files()
+            if (cur := _sha(ROOT / ".camarones" / n)) and cur != _sha(src) and stamp.get(n) != cur]
+
+
+def sync_kit_docs(aside: str | None = None) -> list[str]:
     """Copy PLAYBOOK/CONVENTIONS and the page skeletons into the project's .camarones/ (versioned with the docs). A copy the team edited
-    since the last sync is kept as is — only untouched copies follow kit upgrades."""
+    since the last sync is kept as is — only untouched copies follow kit upgrades. With `aside` (`docs reset --templates`)
+    an edited copy follows the kit too, and the team's text stays next to it as <name>.<aside>."""
     if (ROOT / ".camarones").resolve() == KIT.resolve():
         return []                                   # legacy: the kit itself lives in this project
-    import hashlib
     stamp, changed = load_json(KIT_DOCS_STAMP, {}), []
-    files = [(n, KIT / n) for n in KIT_DOCS]
-    files += [(f"skeletons/{f.name}", f) for f in sorted((TEMPLATES / "skeletons").glob("*.md"))]
-    for n, src in files:
+    for n, src in _kit_doc_files():
         dst = ROOT / ".camarones" / n
-        cur = hashlib.sha256(dst.read_bytes()).hexdigest() if dst.exists() else None
-        new = hashlib.sha256(src.read_bytes()).hexdigest()
-        if cur == new or (cur and stamp.get(n) != cur):
+        cur, new = _sha(dst), _sha(src)
+        if cur == new:
             continue
+        if cur and stamp.get(n) != cur:
+            if not aside:
+                continue
+            shutil.copyfile(dst, dst.with_name(f"{dst.name}.{aside}"))
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(src, dst)
         stamp[n] = new
