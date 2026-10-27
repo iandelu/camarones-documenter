@@ -249,6 +249,7 @@ a.dk-stat-n:hover { color: var(--color-acento-texto); }
    blocked red, awaiting your approval in the accent, waiting for others dim. A board by state or lanes by phase,
    and the unit opened beside it. */
 .dk-page.wide { max-width: 84rem; }
+.dk-page.full { max-width: none; min-height: 100%; }
 .tone-ready { --tone: var(--color-ink); }
 .tone-running { --tone: var(--color-aurora-amber); }
 .tone-paused { --tone: color-mix(in srgb, var(--color-aurora-amber) 45%, var(--color-ink-dim)); }
@@ -326,6 +327,9 @@ a.dk-stat-n:hover { color: var(--color-acento-texto); }
 .dk-bd-title { line-height: 1.3; overflow-wrap: anywhere; }
 .dk-bd-bar { justify-content: flex-end; }
 .dk-bd-wrap { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; align-items: start; }
+/* on a full page the board fills what is left of the window: the columns reach its bottom, the panel stays at the top */
+.dk-page.full > .dk-bd-wrap { flex: 1; }
+.dk-page.full .dk-bd { align-self: stretch; }
 .dk-bd-wrap.with-side { grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem); }
 .dk-bd-wrap.with-side .dk-bd { grid-template-columns: repeat(6, minmax(8rem, 1fr)); }
 .dk-bd-panel { position: sticky; top: 0; gap: .6rem; max-height: calc(100vh - 2rem); overflow-y: auto; }
@@ -342,6 +346,7 @@ a.dk-stat-n:hover { color: var(--color-acento-texto); }
              color: var(--color-ink); font: inherit; cursor: pointer; }
 .dk-bd-kid:hover { border-color: var(--color-ink-dim); }
 .dk-bd-kid:focus-visible { outline: 2px solid var(--color-acento-texto); outline-offset: 2px; }
+.dk-bd-delete { align-self: flex-start; margin-top: .5rem; }
 .dk-bd-form fieldset { display: flex; flex-direction: column; gap: .75rem; min-width: 0; margin: 0; padding: 0; border: 0; }
 @media (max-width: 70rem) { .dk-bd-wrap.with-side { grid-template-columns: minmax(0, 1fr); } .dk-bd-panel { position: static; max-height: none; } }
 

@@ -39,8 +39,10 @@ const Checks = ({ id, list }) => (
 )
 
 // The picked card. `item` is what GET kanban/item returned (null while it loads, with `error` when it could not);
-// `tasks` are the board's rows under it. Only a story lists its tasks and adds one.
-export function StoryPanel({ item = null, id, error = '', tasks = [], lang, writable = true, onAddTask, onOpen, onClose }) {
+// `tasks` are the board's rows under it. Only a story lists its tasks and adds one. Delete archives the card (`onDelete`
+// asks first); a refusal (`deleteError`) shows above the button.
+export function StoryPanel({ item = null, id, error = '', tasks = [], lang, writable = true, busy = false, deleteError = '',
+  onAddTask, onOpen, onDelete, onClose }) {
   const drawer = useDrawer(onClose || (() => {}), id ?? item?.id)
   const name = item?.id ?? id
   const parent = item && parentOf(item)
@@ -72,6 +74,11 @@ export function StoryPanel({ item = null, id, error = '', tasks = [], lang, writ
               ) : <p className="muted small">{t('bd.noTasks')}</p>}
               <Button variant="primary" size="sm" disabled={!writable} onClick={() => onAddTask(item.id)}>{t('bd.addTask')}</Button>
             </div>
+          ) : null}
+          {deleteError ? <Aviso tone="error" title={t('bd.deleteFailed')} detail={deleteError} /> : null}
+          {onDelete ? (
+            <Button variant="danger" size="sm" className="dk-bd-delete" disabled={!writable || busy} onClick={() => onDelete(item.id)}>
+              {t('bd.delete')}</Button>
           ) : null}
         </>
       )}

@@ -213,7 +213,7 @@ between sections (`g s` Summary, `g b` Board, `g p` Plan, `g q` Quality…).
 | Section | What you do there |
 |---|---|
 | 🏠 Summary | the next step with one button (the one the wizard suggests), what this machine is missing, where the plan, the review and the jobs stand |
-| 📋 Board | the columns from Backlog to Done: move a card by dragging it or with the keyboard (Tab to the card, Space grabs, arrows move, Enter drops, Escape puts it back); a card opens its description, criteria and definition of done, and a story lists its tasks and has **Add a task**; **Add** creates an item (type, title, parent, priority); if the board is not on, **Turn the board on** |
+| 📋 Board | the columns from Backlog to Done: move a card by dragging it or with the keyboard (Tab to the card, Space grabs, arrows move, Enter drops, Escape puts it back); a card opens its description, criteria and definition of done, and a story lists its tasks and has **Add a task**; **Delete** archives the card (its file moves to `backlog/archive/tasks`); **Add** creates an item (type, title, parent, priority); if the board is not on, **Turn the board on** |
 | 🗺️ Plan | run the ready units in parallel or the autopilot, and stop them; the units grouped by what they ask of you (approve, retry, continue, start) with the agent you pick; the docs update |
 | 🎙️ Interviews | team questionnaire or live, export the offline form, import answers, close the round, each interview with its agent |
 | 🤝 Team | the team's repo and sharing, approving the agent config that came with it, hooks, plugins |

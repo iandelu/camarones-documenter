@@ -165,3 +165,17 @@ test('the add form offers the types and priorities the board sent, and the usual
   expect(usual).toMatch(/<option value="epic">/)
   expect(usual).toMatch(/<option value="P3">P3<\/option>/)
 })
+
+test('a picked card can be deleted (archived) from its panel; a read-only window cannot', () => {
+  const out = html(<StoryPanel item={story} tasks={[]} lang="es" writable onAddTask={() => {}} onOpen={() => {}} onDelete={() => {}} />)
+  expect(out).toMatch(/<button [^>]*>Eliminar<\/button>/)
+  expect(html(<StoryPanel item={story} tasks={[]} lang="en" writable onAddTask={() => {}} onOpen={() => {}} onDelete={() => {}} />, 'en'))
+    .toMatch(/<button [^>]*>Delete<\/button>/)
+  expect(html(<StoryPanel item={story} tasks={[]} lang="en" writable={false} onAddTask={() => {}} onOpen={() => {}} onDelete={() => {}} />, 'en'))
+    .toMatch(/<button [^>]*disabled=""[^>]*>Delete<\/button>/)
+})
+
+test('a delete the server refused is shown in the panel as an alert', () => {
+  const out = html(<StoryPanel item={story} tasks={[]} lang="en" writable deleteError="locked" onAddTask={() => {}} onOpen={() => {}} onDelete={() => {}} />, 'en')
+  expect(out).toMatch(/role="alert".*locked/)
+})
