@@ -89,6 +89,7 @@ def load_state(id: str) -> dict | None:
         state = None
     if not isinstance(state, dict):
         raise AdrError(f"{path.name} is not a readable working state: fix it or remove it")
+    state["id"] = id                                        # the file name is the identity, whatever the field says
     return state
 
 
@@ -133,16 +134,37 @@ def _title(id: str, fm: dict, body: str) -> str:
     return bare or heading or id
 
 
+def _split(ref: str) -> tuple[str, str] | None:
+    """(repo, path) of a `repo:path` or `repo://repo/path` reference; None for a URL or a bare path."""
+    if ref.startswith("repo://"):
+        ref = ref[len("repo://"):].replace("/", ":", 1)
+    repo, sep, path = ref.partition(":")
+    return (repo, path) if sep and path and re.fullmatch(r"[\w.-]+", repo) and not path.startswith("//") else None
+
+
+def _refs(sources) -> list[str]:
+    return [str(s).split("#", 1)[0].strip() for s in sources if isinstance(s, str)]
+
+
 def _repos(refs) -> list[str]:
+    parts = (_split(ref) for ref in _refs(refs))
+    return sorted({repo for repo, _ in filter(None, parts) if repo != CAM_DIR})
+
+
+def _touches_of(sources) -> list[str]:
+    """What an ADR written elsewhere cites, named as the board does: `repo:path`, `docs/<p>` as `cam-docs:docs/<p>`."""
     found = set()
-    for ref in refs:
-        ref = str(ref).split("#", 1)[0]
-        if ref.startswith("repo://"):
-            ref = ref[len("repo://"):].replace("/", ":", 1)
-        repo, sep, path = ref.partition(":")
-        if sep and re.fullmatch(r"[\w.-]+", repo) and not path.startswith("//") and repo != CAM_DIR:
-            found.add(repo)
+    for ref in _refs(sources):
+        parts = _split(ref)
+        if parts:
+            found.add(f"{parts[0]}:{parts[1]}")
+        elif ref.startswith("docs/"):
+            found.add(f"{CAM_DIR}:{ref}")
     return sorted(found)
+
+
+def _sources(fm: dict) -> list:
+    return fm.get("x-sources") if isinstance(fm.get("x-sources"), list) else []
 
 
 def _decided(point: dict) -> bool:
@@ -173,11 +195,10 @@ def _row(id: str, path: Path | None, state: dict | None, text: str) -> dict:
     fm, body = docs.split_fm(text)
     status = adr_doc.status_of(body)[0] if path else "proposed"
     points = (state or {}).get("points") or []
-    sources = fm.get("x-sources") if isinstance(fm.get("x-sources"), list) else []
     return {"id": id, "slug": path.stem[5:] if path else (state or {}).get("slug", ""),
             "title": _title(id, fm, body) if path else (state or {}).get("title", ""),
             "kind": (state or {}).get("kind") or "retro", "status": status, "chip": chip(state, status),
-            "repos": _repos([*((state or {}).get("touches") or []), *sources]),
+            "repos": _repos([*((state or {}).get("touches") or []), *_sources(fm)]),
             "points": {"total": len(points), "decided": sum(1 for p in points if _decided(p))},
             "path": f"decisions/{path.name}" if path else "", "updated": _stamp(path, state_file(id) if state else None),
             "decided": _decided_on(state, status, body), "legacy": path is not None and state is None}
@@ -319,7 +340,8 @@ def start_review(id: str) -> dict:
                 raise KeyError(id)
             fm, body = docs.split_fm(_read(path))
             save_state({"id": id, "slug": path.stem[5:], "kind": "retro", "mode": "manual", "title": _title(id, fm, body),
-                        "problem": "", "drivers": [], "constraints": [], "options_hint": [], "touches": [],
+                        "problem": "", "drivers": [], "constraints": [], "options_hint": [],
+                        "touches": _touches_of(_sources(fm)),
                         "phase": "review", "parts": {}, "points": [], "attendees": [], "supersedes": None,
                         "implementation": "n/a"})
     return get(id)
