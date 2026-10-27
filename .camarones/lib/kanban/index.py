@@ -329,7 +329,8 @@ def _chunks(values: list, n: int = _CHUNK) -> Iterator[list]:
         yield values[i:i + n]
 
 
-def _by_repo(touches: Iterable[str]) -> dict[str, set[str]]:
+def by_repo(touches: Iterable[str]) -> dict[str, set[str]]:
+    """`{repo: {paths}}` of the valid `repo:path` entries of `touches`; the rest is left out."""
     out: dict[str, set[str]] = defaultdict(set)
     for t in touches:
         rp = _split(t)
@@ -375,7 +376,7 @@ def page_title(conn: sqlite3.Connection, touch: str) -> str | None:
 def edges(conn: sqlite3.Connection, touches: Iterable[str]) -> set[tuple[str, str]]:
     """Code-map dependencies `(src, dst)`, repo-qualified, between files that are both in `touches`."""
     out: set[tuple[str, str]] = set()
-    for repo, paths in _by_repo(touches).items():
+    for repo, paths in by_repo(touches).items():
         for chunk in _chunks(sorted(paths)):
             for src, dst in conn.execute(
                     f"select src, dst from edges where repo = ? and src in ({_marks(len(chunk))})", [repo, *chunk]):
@@ -384,10 +385,24 @@ def edges(conn: sqlite3.Connection, touches: Iterable[str]) -> set[tuple[str, st
     return out
 
 
+def neighbours(conn: sqlite3.Connection, touches: Iterable[str]) -> set[str]:
+    """Code-map files one dependency away from any of `touches`, in either direction, repo-qualified; the touches
+    themselves are left out."""
+    out: set[str] = set()
+    for repo, paths in by_repo(touches).items():
+        for chunk in _chunks(sorted(paths), _CHUNK // 2):
+            marks = _marks(len(chunk))
+            for src, dst in conn.execute(
+                    f"select src, dst from edges where repo = ? and (src in ({marks}) or dst in ({marks}))",
+                    [repo, *chunk, *chunk]):
+                out.update(f"{repo}:{p}" for p in (src, dst) if p not in paths)
+    return out
+
+
 def pages_citing(conn: sqlite3.Connection, touches: Iterable[str]) -> list[str]:
     """Doc pages (as `cam-docs:<path>`) whose `x-sources` cite any of these files; sorted."""
     pages: set[str] = set()
-    for repo, paths in _by_repo(touches).items():
+    for repo, paths in by_repo(touches).items():
         for chunk in _chunks(sorted(paths)):
             pages.update(p for (p,) in conn.execute(
                 f"select distinct page from cites where repo = ? and path in ({_marks(len(chunk))})", [repo, *chunk]))
@@ -411,7 +426,7 @@ def groups(conn: sqlite3.Connection, touches: Iterable[str]) -> dict[str, str]:
     """`{touch: group label}` for every valid entry of `touches`: the code map's group, else the one a card or page
     recorded, else (a file the graph does not know yet, or a repo without a graph) the name of its folder."""
     out: dict[str, str] = {}
-    for repo, paths in _by_repo(touches).items():
+    for repo, paths in by_repo(touches).items():
         if repo == DOCS_REPO:
             out.update({f"{repo}:{p}": DOCS_GROUP for p in paths})
             continue

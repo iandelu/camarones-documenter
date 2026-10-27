@@ -79,3 +79,19 @@ def test_spanish_twin_and_folders(kit):
     assert "## A quién preguntar" in es
     row = next(r for r in kit.docs.collect() if r["path"] == "overview/history.md")
     assert row["i18n"] == {"es": "current"}
+
+
+def test_commits_are_public_and_empty_without_history(kit):
+    history_repos(kit)
+    from lib import history
+    api = history.commits("api", 12)
+    assert [c["subject"] for c in api][:2] == ["fix: order rounding", "feat(pay): charge PAY-3"]
+    assert all("dependabot[bot]" != c["author"] for c in api) and api[0]["files"] == ["src/Order.java"]
+    assert history.commits("nowhere", 12) == []
+
+
+def test_the_newest_commit_of_a_repo_is_read(kit):
+    history_repos(kit)
+    from lib import history
+    assert [c["subject"] for c in history.commits("web", 12)] == ["update stuff", "feat(cart): show order ORD-12", "initial"]
+    assert history.mine(months=12)["repos"]["web"]["commits"] == 3
