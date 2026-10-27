@@ -423,6 +423,25 @@ def groups(conn: sqlite3.Connection, touches: Iterable[str]) -> dict[str, str]:
     return out
 
 
+def files_of(conn: sqlite3.Connection, group_touches: Iterable[str]) -> dict[str, list[str]]:
+    """`{group touch (repo:<group label>): [its file touches]}`, sorted, for each entry of `group_touches`: the files
+    `search` can find in that group (the code map's, plus any a card or page names). An entry that is not a group of a
+    code repo (an unknown label, a doc page) maps to `[]`."""
+    out: dict[str, list[str]] = {}
+    for touch in group_touches:
+        rp = _split(touch)
+        if rp is None:
+            continue
+        repo, label = rp
+        found: set[str] = set()
+        if repo != DOCS_REPO:
+            for table in ("files", "touches", "cites"):
+                found.update(f"{repo}:{path}" for (path,) in conn.execute(
+                    f"select distinct path from {table} where repo = ? and grp = ?", (repo, label)))
+        out[touch] = sorted(found)
+    return out
+
+
 _KIND_ORDER = {"file": 0, "group": 1, "page": 2}
 
 

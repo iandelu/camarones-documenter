@@ -322,6 +322,21 @@ def test_every_graph_file_is_searchable_and_has_a_group(bare):
         conn.close()
 
 
+def test_files_of_a_group_lists_every_file_the_index_knows_in_it(bare):
+    kit, ops, index = bare
+    extra = "api:api-core/src/main/java/demo/shop/payments/Extra.java"
+    ops.add("task", "Fresh", repos=["api"], touches=[extra])
+    conn = index.connect()
+    try:
+        got = index.files_of(conn, ["api:core/payments", "api:web/web", "api:payments", "api:nope", "cam-docs:docs"])
+        # a file the graph does not know sits in the group its card recorded: its folder's name
+        assert got == {"api:core/payments": [PAY], "api:web/web": [RES], "api:payments": [extra], "api:nope": [],
+                       "cam-docs:docs": []}
+        assert index.files_of(conn, []) == {}
+    finally:
+        conn.close()
+
+
 def test_every_edge_of_the_graph_is_indexed_not_only_touched_ones(bare):
     kit, ops, index = bare
     conn = index.connect()
