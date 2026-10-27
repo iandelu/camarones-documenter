@@ -102,11 +102,30 @@ def test_board_rows_carry_wave_and_blockers(ops, server):
 
 
 def test_a_waiting_dependency_is_listed_and_waves_after_it(ops, server):
-    ops.add("task", "First")
-    ops.add("task", "Second", dependencies=["WI-1"])
+    ops.add("task", "First", touches=["api:a.py"])
+    ops.add("task", "Second", touches=["api:b.py"], dependencies=["WI-1"])
     cards = {c["id"]: c for c in get(server, "/api/kanban")[1]["cards"]}
     assert cards["WI-2"]["blocked_by"] == [{"id": "WI-1", "kind": "dependency"}]
     assert (cards["WI-1"]["wave"], cards["WI-2"]["wave"]) == (0, 1)
+
+
+def test_an_old_board_without_footprints_shows_no_waves(ops, server):
+    ops.add("epic", "Epic")
+    ops.add("story", "Story", parent="WI-1", repos=["api"])
+    ops.add("task", "First", repos=["api"])
+    ops.add("task", "Second", repos=["api"], dependencies=["WI-3"])
+    ops.add("task", "Third", repos=["web"])
+    cards = {c["id"]: c for c in get(server, "/api/kanban")[1]["cards"]}
+    assert {i: c["wave"] for i, c in cards.items()} == {i: None for i in cards}
+    assert cards["WI-4"]["blocked_by"] == [{"id": "WI-3", "kind": "dependency"}]      # the gate still speaks
+
+
+def test_board_waves_use_peoples_footprints(ops, server):
+    ops.add("task", "No files", repos=["api"])                 # an agent would count the whole repo
+    ops.add("task", "Declared", touches=["api:a.py"])
+    ops.add("task", "Same file", touches=["api:a.py"])
+    cards = {c["id"]: c for c in get(server, "/api/kanban")[1]["cards"]}
+    assert (cards["WI-1"]["wave"], cards["WI-2"]["wave"], cards["WI-3"]["wave"]) == (None, 0, 1)
 
 
 def test_a_cycle_leaves_every_wave_null(ops, server):
@@ -124,8 +143,21 @@ def test_the_board_loads_when_the_index_cannot_open(ops, server, monkeypatch):
         raise OSError("disk gone")
     monkeypatch.setattr(index, "connect", broken)
     code, b = get(server, "/api/kanban")
-    assert code == 200 and [c["id"] for c in b["cards"]] == ["WI-1", "WI-2"] or code == 200
+    assert code == 200
+    assert [c["id"] for c in b["cards"]] == ["WI-2", "WI-1"]               # board order: Backlog before In Progress
     assert {c["id"]: (c["wave"], c["blocked_by"]) for c in b["cards"]} == {"WI-1": (None, []), "WI-2": (None, [])}
+
+
+def test_a_broken_index_is_logged_not_swallowed(ops, wired, monkeypatch, caplog):
+    collide(ops)
+    from lib.kanban import index
+
+    def broken():
+        raise OSError("disk gone")
+    monkeypatch.setattr(index, "connect", broken)
+    with caplog.at_level("WARNING"):
+        assert wired.serve.kanban_marks([{"id": "WI-1"}]) == {}
+    assert any("disk gone" in r.getMessage() and r.levelname == "WARNING" for r in caplog.records)
 
 
 def test_the_board_loads_when_there_is_no_board(wired, server):

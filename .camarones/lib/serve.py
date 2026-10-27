@@ -12,12 +12,14 @@ each request (lib/appapi.py); without it those calls answer 403 with `"app": tru
 Host is not this server is refused (a DNS-rebinding page would otherwise be same-origin)."""
 from __future__ import annotations
 
-import datetime as dt, hmac, itertools, json, mimetypes, os, re, sys, threading, time, urllib.parse
+import datetime as dt, hmac, itertools, json, logging, mimetypes, os, re, sys, threading, time, urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from .common import CTX, KIT, ROOT, DOCS, CACHE, VERSIONS, out, rel_file
 from . import codemap, docs, env, plan, sourcelinks, usage
+
+_log = logging.getLogger("camaron.serve")
 
 APP = KIT / "portal" / "app-build"           # the portal: React views + the docs views (portal/app), built in the kit's CI
 UI = APP                                     # the old name, kept for callers
@@ -742,10 +744,11 @@ def _refuse_groups(story: dict, tasks: list[dict]) -> None:
 
 
 def kanban_marks(cards: list[dict]) -> dict[str, tuple[int | None, list[dict]]]:
-    """Each card's `(wave, blocked_by)` for the Board, from one index connection (people's view: a card without
-    declared files touches nothing). `wave` is its place in `ops.waves()`: None for a Done or archived card, a container
-    or a board with a dependency cycle. `blocked_by` is the start gate's answer, only for Backlog/Ready leaf cards.
-    If the index cannot open, nothing is marked and the board still loads."""
+    """Each card's `(wave, blocked_by)` for the Board, from one index connection, in the people's view: a card without
+    declared files touches nothing. `wave` is its place in the open work's waves (`deps.waves(agent=False)`), only for
+    a card that declares files: None for one without (an old board shows no waves), for a Done or archived card, a
+    container, or a board with a dependency cycle. `blocked_by` is the start gate's answer, only for Backlog/Ready leaf
+    cards. If the index cannot open, nothing is marked (a warning is logged) and the board still loads."""
     from .kanban import deps, index
     try:
         conn = index.connect()
@@ -755,21 +758,24 @@ def kanban_marks(cards: list[dict]) -> dict[str, tuple[int | None, list[dict]]]:
             conn.close()
         ids = {c["id"] for c in cards}
         grouping = deps.containers(board)                       # judged on the whole board, as ops.waves does
+        by_id = {n["id"]: n for n in board}
         try:
             placed = {i: w for w, wave in enumerate(deps.waves([n for n in board if n["id"] in ids
-                                                                 and n["id"] not in grouping and n["status"] != "Done"]))
-                      for i in wave}
+                                                                 and n["id"] not in grouping and n["status"] != "Done"],
+                                                               agent=False))
+                      for i in wave if by_id[i]["touches"]}
         except deps.CycleError:
             placed = {}
-        by_id = {n["id"]: n for n in board}
         marks = {}
         for c in cards:
             node = by_id.get(c["id"])
             gated = (node is not None and node["id"] not in grouping and not node["archived"]
                      and node["status"] in ("Backlog", "Ready"))
-            marks[c["id"]] = (placed.get(c["id"]), deps.blocked_by(node, board, agent=False) if gated else [])
+            marks[c["id"]] = (placed.get(c["id"]),
+                              deps.blocked_by(node, board, agent=False, grouping=grouping, by_id=by_id) if gated else [])
         return marks
-    except Exception:                                           # noqa: BLE001 — a broken index never hides the board
+    except Exception as e:                                      # noqa: BLE001 — a broken index never hides the board
+        _log.warning("board marks unavailable (%s); the board loads without waves and blockers", e)
         return {}
 
 
