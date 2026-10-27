@@ -40,7 +40,10 @@ _STATUS = {word: token for token, words in {
 _LABEL_RE = re.compile(r"^[\W_]*(?:status|estado)\b[\W_]*", re.I)
 _INLINE_RE = re.compile(r"^[ \t>*_-]*(?:status|estado)[*_]*[ \t]*:.*$", re.I | re.M)
 _WORD_RE = re.compile(r"[\W_]*([^\W\d_]+)")
-_NUMBER_RE = re.compile(r"(?<![0-9])([0-9]{4})(?![0-9])")
+_NUMBER = r"(?<![0-9])([0-9]{4})(?![0-9])"
+_NUMBER_RE = re.compile(_NUMBER)
+_BY_RE = re.compile(r"\b(?:by|por)\b\D*?" + _NUMBER, re.I)
+_DATE_RE = re.compile(r"[0-9]{4}[-/.][0-9]{1,2}[-/.][0-9]{1,2}|[0-9]{1,2}[-/.][0-9]{1,2}[-/.][0-9]{4}")
 _FILE_RE = re.compile(r"([0-9]{4})-.+\.md")
 
 
@@ -87,11 +90,13 @@ def _status_line(body: str) -> str:
 
 
 def status_of(body: str) -> tuple[str, str | None]:
-    """(token, number of the ADR that supersedes this one). The first line of the Status section, else a `Status:` line."""
+    """(token, number of the ADR that supersedes this one). Read from the first line of the Status section, else a
+    `Status:` line; the number is the one after `by`/`por`, else the first outside a date."""
     line = _LABEL_RE.sub("", _status_line(docs.COMMENT_RE.sub("", body)))
     word = _WORD_RE.match(line)
     token = _STATUS.get(word[1].lower(), "unknown") if word else "unknown"
-    by = _NUMBER_RE.search(line, word.end()) if word and token == "superseded" else None
+    rest = _DATE_RE.sub(" ", line[word.end():]) if word and token == "superseded" else ""
+    by = _BY_RE.search(rest) or _NUMBER_RE.search(rest)
     return token, by[1] if by else None
 
 
@@ -202,7 +207,7 @@ def _source(touch: str) -> str:
     return path if sep and repo == CAM_DIR else touch
 
 
-def render_new(fields: dict, number: str, today: str) -> str:
+def render_new(fields: dict, number: str) -> str:
     """The full proposed file: Status `Proposed`, `x-owner: ai`, the person's framing and an empty decision. What the
     person did not give is a `TODO(question)`, never an invented fact. The proposal carries no date: accepting writes it."""
     title = " ".join(str(fields.get("title") or "").split())
