@@ -215,6 +215,8 @@ def call(url, body=None, token=TOKEN):
 
 
 def test_the_app_lists_agents_and_opens_a_unit(wired, app, term):
+    from lib import machine
+    machine.set_setting("sessions", "window")                   # the route opens where this setting says
     code, a = call(app + "/api/app/agents")
     assert code == 200 and [x["id"] for x in a["agents"]] == ["claude", "codex"]
     u = ready_agent_unit(wired)

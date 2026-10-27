@@ -12,7 +12,8 @@ each request (lib/appapi.py); without it those calls answer 403 with `"app": tru
 Host is not this server is refused (a DNS-rebinding page would otherwise be same-origin)."""
 from __future__ import annotations
 
-import datetime as dt, hmac, itertools, json, logging, mimetypes, os, re, sys, threading, time, urllib.parse
+import atexit, base64, datetime as dt, hmac, itertools, json, logging, mimetypes, os, re, signal, sys, threading, time
+import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -35,6 +36,10 @@ PORTAL_TOKEN = ""                            # set by `camaron up` (CAMARONES_PO
 APP_ONLY = re.compile(r"^/api/(runs|runs/[\w.-]+/cancel|wiki|build|inventory|schemas|ci|ask/answer|plan/cost)$")
 APP_ONLY_MSG = "this runs on your machine: open it in the desktop app (`camaron app`)"
 STOPPED_AFTER = 5.0                          # seconds of quiet before a run's stream asks whether its run was stopped
+TERMINAL_POST = re.compile(r"^/api/app/terminals/(t-[\w.-]+-\d+)/(input|resize|close)$")
+STREAM_FROM = re.compile(r"(t-[\w.-]+-\d+):(\d+)")     # one piece of the terminal stream's `from`
+CHUNK = 64 * 1024                            # bytes of a terminal per stream message, at most
+KEEP_ALIVE = 15.0                            # seconds a stream may stay silent: a write is how it finds the client gone
 mimetypes.add_type("text/javascript", ".js")    # Windows may map .js to text/plain in the registry
 mimetypes.add_type("font/woff2", ".woff2")    # the portal theme fonts; older Pythons do not know the type
 
@@ -350,13 +355,14 @@ def run_stopped(run_id: str, busy: bool | None = None) -> bool:
 
 def api_pipeline(lang: str = "") -> dict:
     """The plan as a graph for the Pipeline tab: every unit with its status and dependencies, how it runs (isolation,
-    tier, runner), its agent session (open or paused, lib/sessions.py) and the latest run. Titles read in `lang`
-    (plan.title); plan.yaml is only read."""
-    from . import sessions
+    tier, runner), its agent session (open or paused, lib/sessions.py), its live terminal in this server and the latest
+    run. Titles read in `lang` (plan.title); plan.yaml is only read."""
+    from . import sessions, terminals
     from .harness import pipeline, runs, scheduler
     lang = ui_lang(lang)
     locked = scheduler.busy() is not None                    # asked once: the second probe could see the first
     busy = sessions.headless(locked)
+    term = {m["unit"]: m["id"] for m in terminals.listing() if m["kind"] == "unit" and m["ended"] is None}
     try:
         nodes = {u["id"]: u for u in plan.pipeline_units()}
     except plan.PipelineError:
@@ -372,7 +378,7 @@ def api_pipeline(lang: str = "") -> dict:
                       "isolation": n.get("isolation") or t.get("isolation", "none"),
                       "tier": n.get("tier") or t.get("tier", "agentic-heavy"), "agent": n.get("runner"),
                       "approval": bool(n.get("approval")), "awaiting": plan.awaiting(u), "ready": u["id"] in ready,
-                      **sessions.board(u, busy)})
+                      "terminal": term.get(u["id"]), **sessions.board(u, busy)})
     latest = runs.ids(wiki=False)
     run = runs.summary(latest[0]) if latest else None
     if run and not run["finished"] and run_stopped(run["run"], locked):
@@ -394,6 +400,49 @@ def app_kitdev(b: dict) -> tuple[dict, int]:
     label = " ".join([Path(argv[0]).stem, *argv[1:]])
     return appapi.stream_job(start_job, f"kitdev:{task}", argv, cwd, {**env, "PYTHONUTF8": "1"}, label=label,
                              shown=[Path(argv[0]).stem, *argv[1:]]), 200
+
+
+def app_session(b: dict) -> tuple[dict, int]:
+    """POST /api/app/terminals (and its old name, /api/app/agent): a unit's session or the docs update, on the canvas or
+    in a window as this machine's `sessions` setting says. Every field is checked first: launch_* moves the unit before
+    the terminal refuses a bad size. Already open, or no room on the canvas, is a 409 that says which or how many."""
+    from . import agents, machine, terminals
+    unit, agent = _text(b, "unit", True), _text(b, "agent", True)
+    lang, mode = _text(b, "lang") or "es", _text(b, "mode") or "new"
+    if mode not in ("new", "continue", "restart"):
+        raise ValueError("mode: new, continue or restart")
+    size = (_dim(b, "cols", terminals.COLS, 80), _dim(b, "rows", terminals.ROWS, 24))
+    where = machine.settings()["sessions"]
+    try:
+        if unit == "update":
+            return agents.launch_update(agent, lang, where=where, size=size), 200
+        return agents.launch_unit(unit, agent, lang, mode, where=where, size=size), 200
+    except agents.AlreadyOpen as e:
+        return {"error": str(e), "terminal": e.terminal}, 409
+    except terminals.Limit:
+        return {"error": f"{terminals.MAX_LIVE} terminals are open: close one first", "limit": terminals.MAX_LIVE}, 409
+
+
+def app_terminal(tid: str, action: str, b: dict) -> tuple[dict, int]:
+    """POST /api/app/terminals/<id>/<action>: keys typed (`input`), a new size (`resize`) or `close`. A bad body is a
+    400 before the terminal is touched, an unknown terminal a 404, input to one that ended or does not take it a 409."""
+    from . import terminals
+    try:
+        if action == "input":
+            data = _text(b, "data", True)
+            if len(data.encode("utf-8")) > terminals.INPUT_MAX:
+                raise ValueError(f"data: at most {terminals.INPUT_MAX} bytes a request")
+            terminals.write(tid, data)
+            return {"ok": True}, 200
+        if action == "resize":
+            return terminals.resize(tid, _dim(b, "cols", terminals.COLS), _dim(b, "rows", terminals.ROWS)), 200
+        return terminals.close(tid), 200
+    except KeyError:
+        return {"error": f"no terminal {tid}"}, 404
+    except terminals.Ended:
+        return {"error": f"{tid} has ended"}, 409
+    except TimeoutError as e:
+        return {"error": str(e)}, 409
 
 
 def app_creds(action: str, b: dict) -> tuple[dict, int]:
@@ -672,6 +721,14 @@ def _text(b: dict, key: str, required: bool = False) -> str | None:
         return None
     if not isinstance(v, str):
         raise ValueError(f"{key} must be text")
+    return v
+
+
+def _dim(b: dict, key: str, bounds: tuple[int, int], default: int | None = None) -> int:
+    """A terminal's columns or rows: a whole number within `bounds` (true is not one), `default` when not given."""
+    v = default if b.get(key) is None else b[key]
+    if isinstance(v, bool) or not isinstance(v, int) or not bounds[0] <= v <= bounds[1]:
+        raise ValueError(f"{key}: a whole number from {bounds[0]} to {bounds[1]}")
     return v
 
 
@@ -976,6 +1033,55 @@ class Handler(BaseHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError):
             return
 
+    def stream_terminals(self, q: dict) -> None:
+        """Server-sent events of every terminal of this server on one connection (Chromium allows six per host). Each
+        is replayed from its offset in `from` (`<id>:<offset>,…`, 0 when not named), then followed: `{t, d, o}` per
+        CHUNK at most, `d` the raw bytes in base64 (a read can split a UTF-8 character), `o` the offset after them and
+        the id `<t>:<o>`; after an ended one's last bytes, `{t, end, o}` once. Terminals opened later join. It ends when
+        the client goes, which only a write finds out: a keep-alive after KEEP_ALIVE s of nothing else."""
+        from . import terminals
+        offsets = {}
+        for piece in q["from"].split(",") if q.get("from") else []:
+            if not (m := STREAM_FROM.fullmatch(piece)):
+                return self.json({"error": "from: <terminal>:<offset>, separated by commas"}, 400)
+            offsets[m[1]] = int(m[2])
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        told, gen, beat = set(), -1, time.monotonic()           # told: the ended terminals whose end went out
+        try:
+            while True:
+                gen = terminals.wait(gen, max(0.0, beat + KEEP_ALIVE - time.monotonic()))
+                wrote = False
+                for meta in terminals.listing():
+                    t = meta["id"]
+                    if t in told:
+                        continue
+                    try:
+                        data, end = terminals.read(t, offsets.get(t, 0))
+                    except KeyError:                            # forgotten since the listing
+                        continue
+                    o = end - len(data)
+                    for i in range(0, len(data), CHUNK):
+                        o += len(chunk := data[i:i + CHUNK])
+                        msg = json.dumps({"t": t, "d": base64.b64encode(chunk).decode("ascii"), "o": o})
+                        self.wfile.write(f"id: {t}:{o}\ndata: {msg}\n\n".encode("utf-8"))
+                    offsets[t], wrote = end, wrote or bool(data)
+                    if meta["ended"] is not None:               # listed before the read: its last bytes went first
+                        msg = json.dumps({"t": t, "end": meta["code"], "o": end})
+                        self.wfile.write(f"data: {msg}\n\n".encode("utf-8"))
+                        told.add(t)
+                        wrote = True
+                if not wrote and time.monotonic() - beat < KEEP_ALIVE:
+                    continue
+                if not wrote:
+                    self.wfile.write(b": keep-alive\n\n")
+                self.wfile.flush()
+                beat = time.monotonic()
+        except OSError:                 # the client went: a broken pipe, a reset, Windows' abort, macOS' EPROTOTYPE
+            return
+
     def api_app_get(self, name: str, q: dict):
         from . import appapi
         if name == "info":
@@ -1007,6 +1113,12 @@ class Handler(BaseHTTPRequestHandler):
             from . import agents
             from .common import PREFS, load_json
             return self.json({"agents": agents.installed(), "last": load_json(PREFS, {}).get("last_agent")})
+        if name == "terminals":
+            from . import terminals
+            return self.json({"terminals": terminals.listing(), "available": terminals.available(),
+                              "limit": terminals.MAX_LIVE})
+        if name == "terminals/stream":
+            return self.stream_terminals(q)
         if name.startswith("onboard/"):
             from . import onboard
             if name == "onboard/state":
@@ -1253,6 +1365,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.json({"error": APP_ONLY_MSG, "app": True}, 403)
         try:
             b = json.loads(raw or b"{}")
+            if m := TERMINAL_POST.match(p):             # keys as they are typed: before `by`, which runs git
+                return self.json(*app_terminal(m[1], m[2], b))
             by = (b.get("by") or reviewer()).strip()
             if p == "/api/app/cmd":
                 from . import appapi
@@ -1275,12 +1389,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json(*app_kitdev(b))
             if p.startswith("/api/app/creds"):           # tokens only ever travel in this body, never on a command line
                 return self.json(*app_creds(p[len("/api/app/creds"):], b))
-            if p == "/api/app/agent":
-                from . import agents
-                agent, lang = str(b.get("agent", "")), b.get("lang") or "es"
-                if b.get("unit") == "update":
-                    return self.json(agents.launch_update(agent, lang))
-                return self.json(agents.launch_unit(str(b.get("unit", "")), agent, lang, b.get("mode") or "new"))
+            if p in ("/api/app/terminals", "/api/app/agent"):     # /agent: its old name
+                return self.json(*app_session(b))
             if m := re.fullmatch(r"/api/app/jobs/([\w.-]+)/cancel", p):
                 return self.json(cancel_job(m.group(1)))
             if p == "/api/doc":
@@ -1370,11 +1480,14 @@ def take_tokens() -> None:
 
 def run_server(port: int = 8080, static: bool = False) -> None:
     global STATIC
+    from . import terminals
     STATIC = static
     take_tokens()
     if static and not (SITE / "index.html").exists():
         raise RuntimeError("the portal is not exported yet — run `camaron portal` first")
     httpd = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    atexit.register(terminals.shutdown)         # no agent outlives its server: the app's stop, Ctrl+C, an error
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))       # how the app stops it on POSIX; SystemExit runs atexit
     if APP_TOKEN:                            # the app reads the port (0 = any free one) from this first line
         print(json.dumps({"ready": True, "port": httpd.server_address[1]}), flush=True)
         sys.stdout.flush()
