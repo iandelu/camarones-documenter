@@ -123,7 +123,7 @@ const KEYS = ['zone.stories', 'zoned.stories', 'view.stories', 'viewd.stories', 
   'stories.verdict.good', 'stories.verdict.improve', 'stories.verdict.poor',
   ...[...'INVEST'].map((l) => `stories.invest.${l}`),
   'stories.save.new', 'stories.save.existing', 'stories.saved', 'stories.readonly', 'stories.graphless', 'stories.conflict',
-  'stories.ai.suggest', 'kanban.wave', 'kanban.blocked', 'kanban.force']
+  'stories.ai.suggest']
 
 test('every Historias string exists in es and en, with the same placeholders', () => {
   const ph = (s) => (s.match(/\{\w+\}/g) || []).sort()

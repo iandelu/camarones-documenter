@@ -127,6 +127,8 @@ test('the Board: live and app only, its own zone right after Docs', () => {
 test('crumbs of the Board', () => {
   expect(crumbs('#/kanban', 'live', idx)).toEqual([{ key: 'zone.board', href: '#/kanban' }])
   expect(crumbs('#/kanban/WI-3', 'app', idx)).toEqual([{ key: 'zone.board', href: '#/kanban' }, { text: 'WI-3', href: null }])
+  expect(crumbs('#/kanban?parent=WI-14', 'live', idx)).toEqual([{ key: 'zone.board', href: '#/kanban' }, { text: 'WI-14', href: null }])   // a story's subtasks
+  expect(crumbs('#/kanban?x=1', 'live', idx)).toEqual([{ key: 'zone.board', href: '#/kanban' }])
   expect(crumbs('#/kanban/new?path=flows%2Fa.md&section=x', 'live', idx))
     .toEqual([{ key: 'zone.board', href: '#/kanban' }, { key: 'kanban.new', href: null }])   // the add form, not its query
   expect(crumbs('#/kanban', 'static', idx)).toEqual([])
