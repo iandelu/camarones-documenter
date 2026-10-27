@@ -52,12 +52,9 @@ test('Librerias opens filtered to a repo on #/libs/<repo>; #/libs is unchanged',
   expect(go('#/libs/api', { mode: 'static' })).toEqual(HOME)
 })
 
-// The Taller left the portal in 4.53: in the app its old addresses open the app's own section, in a browser home.
-test('the Taller\'s old addresses open the desktop app\'s sections', () => {
-  const app = { generate: 'plan', analyze: 'quality', check: 'quality', interviews: 'interviews', team: 'team',
-    machine: 'machine', kitdev: 'kitdev', taller: 'summary' }
-  for (const [old, section] of Object.entries(app)) {
-    expect(go(`#/${old}`, { mode: 'app' })).toEqual({ kind: 'redirect', to: `./desktop/#/${section}` })
+// The Taller left the portal in 4.53: its old addresses open home (its work is the desktop app's own sections).
+test('the Taller\'s old addresses open home', () => {
+  for (const old of ['generate', 'analyze', 'check', 'interviews', 'team', 'machine', 'kitdev', 'taller']) {
     expect(go(`#/${old}`)).toEqual(HOME)
     expect(go(`#/${old}`, { mode: 'static' })).toEqual(HOME)
   }

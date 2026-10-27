@@ -302,12 +302,14 @@ Every repo's dependencies, read from its manifests and lockfiles without AI (`#/
   advisories", and the repos it could not scan). Leave Libraries and come back while it runs: it picks its progress up.
   Without OSV-Scanner on the machine the libraries are reread, without vulnerabilities, and it says so.
 - Filters: search, category, service, scope and **Vulnerable only**. The table is library × service, the worst first,
-  with a chip when two repos use different versions.
+  with a chip when two repos use different versions. Under each library, the repos it is in, the flagged ones first
+  and in red (three names, then "+N more"); its column stays put while the table scrolls sideways.
 - Open a library: **Why it is here** (which repo declares it, in which manifest, with which range and scope) and **Why
   it is flagged** (each advisory with its severity, affected versions, dates, CWE, full text and links).
 - **Update** proposes the version that fixes every advisory, asks once and runs `camaron bump`: a new branch
   `camaron/bump-<library>-<version>` in that repo, with no commit and no push. A repo with uncommitted changes is
-  left alone.
+  left alone. A Maven module that inherits its version is updated where the repo writes it: the property or
+  `<version>` in its parent pom or a BOM of the same repo. One set outside the repo is refused, naming who sets it.
 
 ## Docs
 

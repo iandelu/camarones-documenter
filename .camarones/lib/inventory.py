@@ -49,27 +49,117 @@ def _row(ecosystem: str, name: str, declared: str | None, scope: str, version: s
 
 
 # ---------- one parser per manifest ----------
-def maven(text: str) -> list[dict]:
+def pom(text: str) -> dict:
+    """One pom's own facts, before any inheritance: its coordinates, parent, properties, managed and direct deps."""
     root = ET.fromstring(text)
     ns = {"m": root.tag.split("}")[0][1:]} if root.tag.startswith("{") else {}
     q = (lambda path: "/".join(f"m:{p}" for p in path.split("/"))) if ns else (lambda path: path)  # noqa: E731
     find = lambda el, path: (el.findtext(q(path), namespaces=ns) or "").strip()  # noqa: E731
+    deps = lambda path: [{k: find(d, k) for k in ("groupId", "artifactId", "version", "scope", "type")}  # noqa: E731
+                         for d in root.findall(q(path), ns)]
     props = {}
     for p in root.findall(q("properties"), ns):
         for child in p:
             props[child.tag.split("}")[-1]] = (child.text or "").strip()
-    parent = ":".join(x for x in (find(root, "parent/groupId"), find(root, "parent/artifactId"), find(root, "parent/version")) if x)
-    props.setdefault("project.version", find(root, "version") or find(root, "parent/version"))
-    sub = lambda v: re.sub(r"\$\{([^}]+)\}", lambda m: props.get(m.group(1), m.group(0)), v)  # noqa: E731
-    out = []
-    for d in root.findall(q("dependencies/dependency"), ns):
-        name = f"{find(d, 'groupId')}:{find(d, 'artifactId')}"
-        raw = find(d, "version")
-        version = sub(raw) if raw else None
-        scope = {"test": "test", "provided": "build", "runtime": "runtime"}.get(find(d, "scope"), "runtime")
-        out.append(_row("Maven", sub(name), raw, scope, version if version and "${" not in version else None,
-                        managedBy=parent if not raw and parent else None))
+    parent = tuple(find(root, f"parent/{k}") for k in ("groupId", "artifactId", "version"))
+    group, version = find(root, "groupId") or parent[0], find(root, "version") or parent[2]
+    props.update({"project.groupId": group, "project.version": version, "project.parent.version": parent[2]})
+    return {"key": f"{group}:{find(root, 'artifactId')}", "version": version, "parent": parent if parent[1] else None,
+            "props": props, "managed": deps("dependencyManagement/dependencies/dependency"),
+            "deps": deps("dependencies/dependency")}
+
+
+def _interpolate(value: str, props: dict) -> str:
+    for _ in range(5):                                          # ${a} → ${b} → 1.0
+        new = re.sub(r"\$\{([^}]+)\}", lambda m: props.get(m.group(1), m.group(0)), value)
+        if new == value:
+            break
+        value = new
+    return value
+
+
+def _lineage(p: dict, index: dict) -> list[dict]:
+    """The pom and the ancestors found in the same repo, nearest first (a loop or an outside parent ends it)."""
+    out = [p]
+    while (parent := out[-1]["parent"]) and (up := index.get(f"{parent[0]}:{parent[1]}")) and up not in out:
+        out.append(up)
     return out
+
+
+def _management(p: dict, index: dict, depth: int = 0) -> tuple[dict, list[str]]:
+    """groupId:artifactId → (version, scope, where, raw version, managing pom) from the lineage's dependencyManagement,
+    the repo's own imported BOMs included; and the BOMs imported from outside the repo, named but never fetched."""
+    chain = _lineage(p, index)
+    props = {k: v for x in reversed(chain) for k, v in x["props"].items()}
+    managed, outside = {}, []
+    for x in reversed(chain):
+        where = _interpolate(f"{x['key']}:{x['version']}", props)
+        for d in x["managed"]:
+            name = _interpolate(f"{d['groupId']}:{d['artifactId']}", props)
+            if d["type"] == "pom" and d["scope"] == "import":
+                bom = index.get(name)
+                if bom is not None and bom is not p and depth < 5:
+                    managed.update(_management(bom, index, depth + 1)[0])
+                else:
+                    outside.append(f"{name}:{_interpolate(d['version'], props)}")
+            else:
+                managed[name] = (_interpolate(d["version"], props), d["scope"], where, d["version"], x)
+    return managed, outside
+
+
+def maven(text: str) -> list[dict]:
+    return maven_deps(pom(text), {})
+
+
+def maven_deps(p: dict, index: dict) -> list[dict]:
+    """A pom's direct dependencies. `index` (groupId:artifactId → pom()) holds the repo's other poms: a module takes
+    its versions and properties from a parent or a BOM there, as Maven would, without fetching anything."""
+    chain = _lineage(p, index)
+    props = {k: v for x in reversed(chain) for k, v in x["props"].items()}
+    managed, outside = _management(p, index)
+    parent = _interpolate(":".join(x for x in p["parent"] if x), props) if p["parent"] else None
+    out = []
+    for d in p["deps"]:
+        name = _interpolate(f"{d['groupId']}:{d['artifactId']}", props)
+        raw = d["version"]
+        version, scope, where = (_interpolate(raw, props), d["scope"], None) if raw else managed.get(name, (None, d["scope"], None))[:3]
+        if not raw and not where:
+            where = ", ".join(dict.fromkeys(outside)) or parent
+        scope = {"test": "test", "provided": "build", "runtime": "runtime"}.get(d["scope"] or scope, "runtime")
+        out.append(_row("Maven", name, raw, scope, version if version and "${" not in version else None,
+                        managedBy=None if raw else where))
+    return out
+
+
+PROPERTY = re.compile(r"\s*\$\{([\w.-]+)\}\s*")
+
+
+def version_site(repo: Path, rel: str, name: str) -> dict | None:
+    """Where this repo writes the version `name` gets in the pom at `rel`, which `camaron bump` rewrites: {"file",
+    "property"} or {"file", "version"} (the text of a <version> there). A module's version may sit in its parent or in
+    a BOM of the same repo. None when it is set outside the repo (a parent or a BOM never fetched)."""
+    poms = _poms(repo)
+    if rel not in poms:
+        return None
+    index = {p["key"]: p for p in poms.values()}
+    p = poms[rel]
+    chain = _lineage(p, index)
+    props = {k: v for x in reversed(chain) for k, v in x["props"].items()}
+    own = [d["version"] for d in p["deps"] if d["version"] and _interpolate(f"{d['groupId']}:{d['artifactId']}", props) == name]
+    raw, owner = (own[0], p) if own else (_management(p, index)[0].get(name) or (None,) * 5)[3:]
+    for _ in range(5):                                          # ${a} → ${b} → 1.0: the literal is what changes
+        if not raw:
+            return None
+        if not (m := PROPERTY.fullmatch(raw)):
+            return {"file": owner["rel"], "version": raw.strip()} if "${" not in raw else None
+        prop = m.group(1)
+        holder = next((x for x in chain + _lineage(owner, index) if prop in x["props"] and not prop.startswith("project.")), None)
+        if holder is None:
+            return None
+        if not PROPERTY.fullmatch(holder["props"][prop]):
+            return {"file": holder["rel"], "property": prop}
+        raw, owner = holder["props"][prop], holder
+    return None
 
 
 GRADLE_DEP = re.compile(r"\b(implementation|api|compileOnly|runtimeOnly|annotationProcessor|kapt|ksp|testImplementation|"
@@ -220,9 +310,23 @@ def _read(f: Path) -> str:
     return radar.read_small(f)
 
 
+def _poms(repo: Path, paths: list[str] | None = None) -> dict[str, dict]:
+    """Every readable pom of the repo by its path in it: what a module inherits from is looked up here."""
+    out = {}
+    for rel in radar.entries(repo) if paths is None else paths:
+        if Path(rel).name == "pom.xml" and (repo / rel).is_file():
+            try:
+                out[rel] = {**pom(_read(repo / rel)), "rel": rel}
+            except ET.ParseError:
+                continue
+    return out
+
+
 def scan_repo(name: str, repo: Path) -> list[dict]:
     rows: list[dict] = []
     paths = [p for p in radar.entries(repo) if any(radar.matches(p, m) for m in MANIFEST_NAMES)]
+    poms = _poms(repo, paths)
+    index = {p["key"]: p for p in poms.values()}
     for rel in paths:
         f = repo / rel
         if not f.is_file():
@@ -230,7 +334,7 @@ def scan_repo(name: str, repo: Path) -> list[dict]:
         text, base = _read(f), f.name
         try:
             if base == "pom.xml":
-                found = maven(text)
+                found = maven_deps(poms[rel], index) if rel in poms else []
             elif base in ("build.gradle", "build.gradle.kts"):
                 found = gradle(text)
             elif base == "libs.versions.toml":

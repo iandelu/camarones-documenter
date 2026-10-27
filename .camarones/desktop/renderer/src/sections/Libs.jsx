@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Aviso, Button, Chip, Skeleton } from '@camaron/ui'
-import { advisories, applyFilter, facets, fixTarget, matrix, rowsOf } from '@camaron/ui/libs.js'
+import { advisories, applyFilter, facets, fixTarget, matrix, placesOf, rowsOf } from '@camaron/ui/libs.js'
 import { severities } from '@camaron/ui/result.js'
 import { useCmd } from '../hooks.js'
 import { Failed, JobOutput, Page } from '../parts.jsx'
@@ -76,7 +76,8 @@ export default function Libs({ srv, jobs }) {
                   <td><button type="button" className="dk-linkish" aria-expanded={open === x.key} onClick={() => setOpen(open === x.key ? null : x.key)}>
                       <code>{x.name}</code></button> <span className="muted small">{x.ecosystem}</span>
                     {x.worst ? <> <Chip state={SEV[x.worst]}>{sevWord(x.worst)}</Chip></> : null}
-                    {x.drift ? <> <Chip state="warn">{t('q.libsVersions')}</Chip></> : null}</td>
+                    {x.drift ? <> <Chip state="warn">{t('q.libsVersions')}</Chip></> : null}
+                    <br /><Where item={x} /></td>
                   <td className="muted small">{x.category}</td>
                   {m.repos.map((r) => { const v = x.cells[r]; return <td key={r} className={v?.vulns.length ? 'cell-vuln' : ''}>{v ? v.version || '—' : ''}</td> })}
                 </tr>
@@ -91,6 +92,16 @@ export default function Libs({ srv, jobs }) {
         ) : <p className="muted small">{t('nothing')}</p>}
       </>) : inv ? <p className="muted small">{t('q.libsNone')}</p> : null}
     </Page>
+  )
+}
+
+// Which repos have this library, the flagged ones first: with many services their columns sit off screen.
+export function Where({ item }) {
+  const { shown, more } = placesOf(item)
+  return (
+    <span className="dk-where muted small">{t('lb.in')} {shown.map((p, i) => (
+      <Fragment key={p.repo}>{i ? ' · ' : ''}{p.flagged ? <b className="dk-where-bad">{p.repo}</b> : p.repo}</Fragment>
+    ))}{more ? ` ${t('lb.more', { n: more })}` : ''}</span>
   )
 }
 
