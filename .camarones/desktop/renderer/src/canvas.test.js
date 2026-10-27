@@ -251,18 +251,38 @@ test('an error after the abort ends quietly, and an abort while waiting does not
   expect(Date.now() - started).toBeLessThan(5000)
 })
 
-// With no view picked the default is decided once, when the plan arrives: it must not follow the run, or the canvas
-// would vanish the moment the run ends, with the failed unit's terminal and the last unit's fold window.
-test('the default view is decided when the plan arrives and holds while the run goes on and ends', () => {
-  const held = arrivedLive(null, true)
-  expect(defaultView(null, held)).toBe('canvas')
-  expect(defaultView(null, arrivedLive(held, false))).toBe('canvas')
-  const idle = arrivedLive(null, false)
-  expect(defaultView(null, arrivedLive(idle, true))).toBe('board')
-  expect(arrivedLive(null, undefined)).toBe(false)
+// With no view picked the default turns to the canvas once something is live during the visit and then holds: it must
+// not follow the run back, or the canvas would vanish the moment the run ends, with the failed unit's terminal and the
+// last unit's fold window. `visit` replays what the Plan does on each render: the held flag in, the view out.
+const visit = (picked, lives) => {
+  let held = null
+  return lives.map((live) => { held = arrivedLive(held, live); return defaultView(picked, held) })
+}
+
+test('an idle plan opens on the board, and a run started from the open plan turns it to the canvas', () => {
+  expect(visit(null, [false, false])).toEqual(['board', 'board'])
+  expect(visit(null, [false, false, true, true])).toEqual(['board', 'board', 'canvas', 'canvas'])
 })
 
-test('a view the person picked wins over what was decided on arrival', () => {
-  expect(defaultView('phases', arrivedLive(true, true))).toBe('phases')
-  expect(defaultView('board', arrivedLive(null, true))).toBe('board')
+test('a run already on when the plan arrives opens on the canvas', () => {
+  expect(visit(null, [true, true])).toEqual(['canvas', 'canvas'])
+})
+
+test('the canvas holds after the run ends, and the next run finds it there', () => {
+  expect(visit(null, [false, true, true, false, false])).toEqual(['board', 'canvas', 'canvas', 'canvas', 'canvas'])
+  expect(visit(null, [true, false, true, false])).toEqual(['canvas', 'canvas', 'canvas', 'canvas'])
+})
+
+test('nothing live yet is false, never an undecided value the view could trip on', () => {
+  expect(arrivedLive(null, undefined)).toBe(false)
+  expect(arrivedLive(null, false)).toBe(false)
+  expect(arrivedLive(false, false)).toBe(false)
+  expect(arrivedLive(false, true)).toBe(true)
+  expect(arrivedLive(true, false)).toBe(true)
+})
+
+test('a view the person picked always wins, live or not', () => {
+  expect(visit('phases', [false, true, true, false])).toEqual(['phases', 'phases', 'phases', 'phases'])
+  expect(visit('board', [true, false])).toEqual(['board', 'board'])
+  expect(visit('canvas', [false, false])).toEqual(['canvas', 'canvas'])
 })

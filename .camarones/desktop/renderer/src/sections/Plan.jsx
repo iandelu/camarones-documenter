@@ -15,8 +15,8 @@ const Canvas = lazy(() => import('./Canvas.jsx'))           // React Flow loads 
 // as a board by state or lane by phase like the portal, or as the canvas: the graph, where each unit a run works on is
 // a live terminal (canvas.js). A unit opens beside the view with the one action that moves it. A unit in progress with
 // no terminal window open is paused; an open one says what its agent is doing. With no view picked, the canvas opens
-// if something runs when the plan first arrives, and stays until the person picks another. Under the view, what the
-// plan cost.
+// as soon as something runs during the visit (already running when the plan arrives, or started from here) and stays
+// until the person picks another. Under the view, what the plan cost.
 const VIEWS = ['board', 'phases', 'canvas']
 const TONES = ['ready', 'running', 'paused', 'awaiting', 'blocked', 'waiting', 'done']
 
