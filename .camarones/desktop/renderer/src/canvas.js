@@ -150,6 +150,10 @@ const VIEWS = ['board', 'phases', 'canvas']
 
 export const defaultView = (saved, live) => (VIEWS.includes(saved) ? saved : live ? 'canvas' : 'board')
 
+// With no view picked the default is decided once, when the plan arrives, and holds: following the run would take the
+// canvas away the moment the run ends, with the failed unit's terminal and the last one's fold window.
+export const arrivedLive = (held, live) => held ?? Boolean(live)
+
 // A log follows its end only while the person has not scrolled up to read.
 export const atBottom = ({ scrollTop, scrollHeight, clientHeight }, slack = 24) => scrollHeight - scrollTop - clientHeight <= slack
 

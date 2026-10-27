@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { atBottom, changedRun, defaultView, emptyFeed, feed, FOLD_MS, followRun, GAP, layout, MAX_ROWS, neighbour, openUnits, place, row, SIZE } from './canvas.js'
+import { arrivedLive, atBottom, changedRun, defaultView, emptyFeed, feed, FOLD_MS, followRun, GAP, layout, MAX_ROWS, neighbour, openUnits, place, row, SIZE } from './canvas.js'
 
 const ev = (type, f = {}) => ({ v: 1, ts: '2026-10-27T10:00:00.000Z', type, unit: 'a', ...f })
 
@@ -249,4 +249,20 @@ test('an error after the abort ends quietly, and an abort while waiting does not
   setTimeout(() => slow.abort(), 20)
   await done
   expect(Date.now() - started).toBeLessThan(5000)
+})
+
+// With no view picked the default is decided once, when the plan arrives: it must not follow the run, or the canvas
+// would vanish the moment the run ends, with the failed unit's terminal and the last unit's fold window.
+test('the default view is decided when the plan arrives and holds while the run goes on and ends', () => {
+  const held = arrivedLive(null, true)
+  expect(defaultView(null, held)).toBe('canvas')
+  expect(defaultView(null, arrivedLive(held, false))).toBe('canvas')
+  const idle = arrivedLive(null, false)
+  expect(defaultView(null, arrivedLive(idle, true))).toBe('board')
+  expect(arrivedLive(null, undefined)).toBe(false)
+})
+
+test('a view the person picked wins over what was decided on arrival', () => {
+  expect(defaultView('phases', arrivedLive(true, true))).toBe('phases')
+  expect(defaultView('board', arrivedLive(null, true))).toBe('board')
 })

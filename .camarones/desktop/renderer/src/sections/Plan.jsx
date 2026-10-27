@@ -1,20 +1,21 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { Aviso, Button, Card, Chip, EmptyState, PlanCost, Skeleton, uiText } from '@camaron/ui'
 import { board, phases, sessionLine, tone, waitsFor } from '../plan.js'
-import { defaultView } from '../canvas.js'
+import { arrivedLive, defaultView } from '../canvas.js'
 import { useAgents, useCmd, useStore } from '../hooks.js'
 import { AgentPicker, Failed, Fold, JobOutput, Page, UnitActions } from '../parts.jsx'
-import Canvas from './Canvas.jsx'
 import Commands from './Commands.jsx'
 import { ago } from '../jobs.js'
 import { lang, t } from '../i18n.js'
+
+const Canvas = lazy(() => import('./Canvas.jsx'))           // React Flow loads only with this view
 
 // The Plan by task: run the ready units (in parallel, or the autopilot one after another) or stop what runs; then
 // every unit coloured by its state (running yellow, done green, ready white, blocked red, awaiting you in the accent),
 // as a board by state or lane by phase like the portal, or as the canvas: the graph, where each unit a run works on is
 // a live terminal (canvas.js). A unit opens beside the view with the one action that moves it. A unit in progress with
 // no terminal window open is paused; an open one says what its agent is doing. With no view picked, the canvas opens
-// while something runs.
+// if something runs when the plan first arrives, and stays until the person picks another.
 const VIEWS = ['board', 'phases', 'canvas']
 const TONES = ['ready', 'running', 'paused', 'awaiting', 'blocked', 'waiting', 'done']
 
@@ -23,13 +24,16 @@ export default function Plan({ srv, jobs }) {
   const [error, setError] = useState('')
   const [view, setView] = useState(() => { try { return localStorage.getItem('dk.planView') } catch { return null } })
   const [open, setOpen] = useState(null)
+  const [held, setHeld] = useState(null)               // was something live when the plan arrived: decides the default view
   const a = useAgents(srv)
   const { running } = useStore(jobs)
   const pilot = running.find((j) => j.kind.startsWith('cmd:autopilot'))
   const load = () => srv.get('pipeline', { lang: lang() }).then((d) => { setData(d); setError('') }, (e) => setError(e.message))
   const active = !!pilot || (data?.run && !data.run.finished)
   const windows = !!data?.units.some((u) => u.session?.live)
-  const shown = defaultView(view, active || windows)
+  const arrived = data ? arrivedLive(held, active || windows) : held
+  if (arrived !== held) setHeld(arrived)
+  const shown = defaultView(view, arrived)
   useEffect(() => {                                   // often while something runs, rarely otherwise
     load()
     const id = setInterval(load, active ? 3000 : windows ? 5000 : 15000)
@@ -63,7 +67,9 @@ export default function Plan({ srv, jobs }) {
       </div>
       <div className={'dk-plan' + (unit ? ' with-detail' : '')}>
         {shown === 'canvas' ? (
-          <Canvas srv={srv} units={data.units} run={data.run} pilot={pilot} onOpen={setOpen} />
+          <Suspense fallback={<Skeleton lines={6} />}>
+            <Canvas srv={srv} units={data.units} run={data.run} pilot={pilot} onOpen={setOpen} />
+          </Suspense>
         ) : shown === 'board' ? (
           <div className="dk-board">{board(data.units).map((c) => (
             <section key={c.key} className="dk-col" aria-label={t('col.' + c.key)}>
