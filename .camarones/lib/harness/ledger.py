@@ -349,7 +349,7 @@ def lines(b: dict) -> list[str]:
                                                    for u in b["unmeasured"]))
     if b["unrecorded"]:
         n = b["unrecorded"]
-        out.append(f"  No record  {n} unit{'' if n == 1 else 's'} done with no run or session (by hand, or before kit 4.68)")
+        out.append(f"  No record  {n} unit{'' if n == 1 else 's'} done with no run or session (by hand, or before kit 4.69)")
     if b["before"]:
         out.append(f"  Before the last reset  {_money(b['before']['cost_usd'])} · {_duration(b['before']['seconds'])}")
     out += [f"  ! {n}" for n in [*b["pricing"]["problems"], *b["notes"]]]
