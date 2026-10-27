@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
-import { acceptBlock, addHit, counts, crumb, FILTERS, filterRows, nextPart, presentKey, route, screen, startScreen, STEPS, stepper,
-  viewOf } from './adr.js'
+import { acceptBlock, addAttendees, addHit, blockedPart, choiceBody, counts, crumb, FILTERS, filterRows, firstOpen, keyEffect, newPointBody,
+  nextPart, partKind, presentKey, reviewKey, reviewParts, route, screen, stale, startScreen, STEPS, stepper, viewOf } from './adr.js'
 import { setLang, t } from './i18n.js'
 
 const states = (phase, mode) => stepper(phase, mode).map((s) => s.state)
@@ -227,4 +227,130 @@ test('an ADR opens by its phase; with no working state it is legacy', () => {
   expect(viewOf({ state: { phase: 'problem' } })).toBe('evidence')
   expect(viewOf({ state: { phase: 'evidence' } })).toBe('evidence')
   for (const phase of ['review', 'accepted', 'rejected', undefined]) expect(viewOf({ state: { phase } })).toBe('review')
+})
+
+test('a save that succeeds clears what the screen last said', () => {
+  const s = run({ type: 'read', adr: { id: '0012', sha: 'a' } }, { type: 'reloaded', adr: { id: '0012', sha: 'b' } }, { type: 'busy' },
+    { type: 'done', adr: { id: '0012', sha: 'c' } })
+  expect(s.notice).toBeNull()
+})
+
+// ---------- the review (sections/adr/Review.jsx) ----------
+const PARTS = [{ id: 'context', status: 'approved' }, { id: 'drivers', status: 'pending' }, { id: 'point:p1', status: 'deferred' },
+  { id: 'options', status: 'pending' }, { id: 'affected', status: 'pending' }]
+const inReview = (o = {}) => ({ id: '0012', sha: 's1', state: { phase: 'review', parts: {} }, parts: PARTS,
+  points: [{ id: 'p1', question: 'Q', options: [{ id: 'A', name: 'Redis' }, { id: 'B', name: 'Postgres' }] }], sections: {}, ...o })
+
+test('a part is a text section, a decision point or the affected docs', () => {
+  expect(partKind('context')).toBe('text')
+  expect(partKind('decision')).toBe('text')
+  expect(partKind('point:p1')).toBe('point')
+  expect(partKind('affected')).toBe('affected')
+})
+
+test('the review walks the server\'s parts, and the Decision section too when there is no point to decide', () => {
+  expect(reviewParts(inReview())).toEqual(PARTS)
+  const none = inReview({ points: [], parts: PARTS.filter((p) => p.id !== 'point:p1'), state: { phase: 'review', parts: { decision: 'edited' } } })
+  expect(reviewParts(none).map((p) => p.id)).toEqual(['context', 'drivers', 'decision', 'options', 'affected'])
+  expect(reviewParts(none)[2]).toEqual({ id: 'decision', status: 'edited' })
+  expect(reviewParts(inReview({ points: [], parts: [{ id: 'context' }] }))).toEqual([{ id: 'context' }, { id: 'decision', status: 'pending' }])
+  expect(reviewParts({})).toEqual([{ id: 'decision', status: 'pending' }])
+  expect(reviewParts(null)).toEqual([{ id: 'decision', status: 'pending' }])
+})
+
+test('a review opens on the first part still to see, else on the first', () => {
+  expect(firstOpen(PARTS)).toBe('drivers')
+  expect(firstOpen([{ id: 'context', status: 'approved' }, { id: 'point:p1', status: 'deferred' }])).toBe('point:p1')
+  expect(firstOpen([{ id: 'context', status: 'approved' }, { id: 'affected', status: 'edited' }])).toBe('context')
+  expect(firstOpen([])).toBeNull()
+})
+
+test('a blocked accept points at the part that is in the way', () => {
+  expect(blockedPart({ key: 'adr.why.unchosen', point: 'P1' }, PARTS)).toBe('point:p1')
+  expect(blockedPart({ key: 'adr.why.noDecision' }, [...PARTS, { id: 'decision' }])).toBe('decision')
+  expect(blockedPart({ key: 'adr.why.noDecision' }, PARTS)).toBeNull()
+  expect(blockedPart({ key: 'adr.why.deferred', point: 'P9' }, PARTS)).toBeNull()
+  expect(blockedPart(null, PARTS)).toBeNull()
+})
+
+const key = (k, o = {}) => ({ key: k, metaKey: false, ctrlKey: false, altKey: false, shiftKey: false, ...o })
+
+test('a review key is the presentation\'s, never with a modifier, while typing or as the end of a g chord', () => {
+  const ctx = { typing: false, options: 2 }
+  expect(reviewKey(key('ArrowRight'), ctx)).toEqual({ do: 'next' })
+  expect(reviewKey(key('2'), ctx)).toEqual({ do: 'choose', n: 2 })
+  expect(reviewKey(key('E', { shiftKey: true }), ctx)).toEqual({ do: 'edit' })          // Shift or Caps Lock
+  expect(reviewKey(key('P'), ctx)).toEqual({ do: 'toggle' })
+  for (const mod of ['metaKey', 'ctrlKey', 'altKey']) expect(reviewKey(key('a', { [mod]: true }), ctx), mod).toBeNull()
+  expect(reviewKey(key('d'), { ...ctx, typing: true })).toBeNull()
+  expect(reviewKey(key('d'), { ...ctx, chord: true })).toBeNull()                       // g d goes to Docs, it never defers
+  expect(reviewKey(key('3'), ctx)).toBeNull()
+  expect(reviewKey(key('Enter'), ctx)).toBeNull()
+  expect(reviewKey({}, ctx)).toBeNull()
+})
+
+test('a key moves, presents, picks, edits, defers or accepts the part in view', () => {
+  const a = inReview()
+  const fx = (current, act, ctx = {}) => keyEffect(a, current, act, { present: false, ...ctx })
+  expect(fx('drivers', { do: 'next' })).toEqual({ go: 'point:p1' })
+  expect(fx('context', { do: 'prev' })).toEqual({ go: 'context' })
+  expect(fx('context', { do: 'toggle' })).toEqual({ present: true })
+  expect(fx('context', { do: 'toggle' }, { present: true })).toEqual({ present: false })
+  expect(fx('context', { do: 'exit' }, { present: true })).toEqual({ present: false })
+  expect(fx('context', { do: 'exit' })).toBeNull()
+  expect(fx('point:p1', { do: 'choose', n: 2 })).toEqual({ pick: 'B' })
+  expect(fx('context', { do: 'choose', n: 1 })).toBeNull()
+  expect(fx('context', { do: 'edit' })).toEqual({ edit: 'text' })
+  expect(fx('point:p1', { do: 'edit' })).toEqual({ edit: 'rationale' })
+  expect(fx('affected', { do: 'edit' })).toBeNull()                                    // computed: nothing to write
+  expect(fx('context', { do: 'defer' })).toEqual({ defer: 'part' })
+  expect(fx('point:p1', { do: 'defer' })).toEqual({ defer: 'point' })
+  expect(fx('affected', { do: 'defer' })).toBeNull()
+  expect(fx('context', { do: 'accept' })).toEqual({ go: 'point:p1', blocked: { key: 'adr.why.unchosen', point: 'P1' } })
+  expect(fx('context', null)).toBeNull()
+})
+
+test('a decided ADR only moves and presents; an ADR ready to accept asks to confirm', () => {
+  const done = inReview({ state: { phase: 'accepted' } })
+  const fx = (act) => keyEffect(done, 'point:p1', act, { present: false })
+  expect(fx({ do: 'next' })).toEqual({ go: 'options' })
+  expect(fx({ do: 'toggle' })).toEqual({ present: true })
+  for (const act of [{ do: 'choose', n: 1 }, { do: 'edit' }, { do: 'defer' }, { do: 'accept' }]) expect(fx(act), act.do).toBeNull()
+  const ready = inReview({ points: [{ id: 'p1', chosen: 'A', options: [] }] })
+  expect(keyEffect(ready, 'context', { do: 'accept' }, { present: true })).toEqual({ accept: true })
+})
+
+test('only a save the file outran reloads; a busy lock or a refusal keeps its message', () => {
+  expect(stale({ status: 409, data: { sha: 'b' } })).toBe(true)
+  expect(stale({ status: 409, data: { error: 'another change to this ADR is being saved: try again' } })).toBe(false)
+  expect(stale({ status: 400, data: { sha: 'b' } })).toBe(false)
+  expect(stale(new Error('offline'))).toBe(false)
+  expect(stale(undefined)).toBe(false)
+})
+
+test('a choice is the option picked or the one typed, with its one-line why', () => {
+  const p = { id: 'p1', options: [{ id: 'A' }, { id: 'B' }] }
+  expect(choiceBody(p, { picked: 'B', rationale: '  ya   en uso  ' })).toEqual({ op: 'choose', point: 'p1', chosen: 'B', rationale: 'ya en uso' })
+  expect(choiceBody(p, { picked: 'other', other: ' Hazelcast ' })).toEqual({ op: 'choose', point: 'p1', other: 'Hazelcast', rationale: '' })
+  expect(choiceBody(p, { picked: 'other', other: '  ' })).toBeNull()
+  expect(choiceBody(p, { picked: 'C' })).toBeNull()
+  expect(choiceBody(p, {})).toBeNull()
+  expect(choiceBody(p, undefined)).toBeNull()
+  expect(choiceBody({ ...p, chosen: 'A', rationale: 'kept' }, {})).toEqual({ op: 'choose', point: 'p1', chosen: 'A', rationale: 'kept' })
+  expect(choiceBody({ ...p, other: 'Memcached' }, {})).toEqual({ op: 'choose', point: 'p1', other: 'Memcached', rationale: '' })
+})
+
+test('a new point needs its question and two named options; pros and cons go one per line', () => {
+  expect(newPointBody({ question: ' ¿Dónde? ', options: [{ name: 'Redis', pros: 'ya en uso\n\n rápido ', cons: '' }, { name: ' Postgres ' }, { name: ' ' }] }))
+    .toEqual({ op: 'add', question: '¿Dónde?', options: [{ name: 'Redis', pros: ['ya en uso', 'rápido'], cons: [] },
+      { name: 'Postgres', pros: [], cons: [] }] })
+  expect(newPointBody({ question: '', options: [{ name: 'a' }, { name: 'b' }] })).toBeNull()
+  expect(newPointBody({ question: 'q', options: [{ name: 'a' }, { name: '' }] })).toBeNull()
+  expect(newPointBody(null)).toBeNull()
+})
+
+test('attendees come typed one or several at once, each once whatever its case', () => {
+  expect(addAttendees(['LA'], ' MP, Juan Ruiz ,, la ')).toEqual(['LA', 'MP', 'Juan Ruiz'])
+  expect(addAttendees(['LA'], 'LA')).toEqual(['LA'])
+  expect(addAttendees(undefined, ' ')).toEqual([])
 })

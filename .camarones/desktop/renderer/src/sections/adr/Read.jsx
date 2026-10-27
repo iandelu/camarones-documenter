@@ -4,10 +4,9 @@ import { t } from '../../i18n.js'
 import { Page } from '../../parts.jsx'
 import { Prose } from './Prose.jsx'
 
-// What the screens of one ADR share: its title, the head line (status chip, kind, repos, file), the stepper and its
-// sections read as they are. LegacyView is an ADR with no working state (the kit did not write it, or wrote it before
-// this section): read-only, with the way into a review session. ReadView holds an ADR in review or decided until the
-// review screen takes it.
+// What the screens of one ADR share: its title, the head line (status chip, kind, repos, file), the stepper, its status
+// as the file words it and its sections read as they are. LegacyView is an ADR with no working state (the kit did not
+// write it, or wrote it before this section): read-only, with the way into a review session.
 
 export const CHIPS = ['running', 'review', 'proposed', 'accepted', 'superseded', 'rejected', 'deprecated', 'unknown']   // lib/adr.py
 const TONE = { running: 'info', review: 'warn', accepted: 'ok' }
@@ -54,7 +53,26 @@ export function Stepper({ phase, mode }) {
   )
 }
 
-const said = (text) => String(text ?? '').replace(/<!--[\s\S]*?-->/g, '').trim()
+export const said = (text) => String(text ?? '').replace(/<!--[\s\S]*?-->/g, '').trim()
+
+// The Status and Decided by sections as the file words them (a date, a rejection's reason, what supersedes it): the chip
+// says the word, this the detail. A superseded ADR links to the one that took its place.
+export function StatusNote({ adr, children = null }) {
+  const status = said(adr?.sections?.status)
+  const rows = [[t('adr.review.status'), status], [t('adr.sec.decided_by'), said(adr?.sections?.decided_by)]].filter(([, x]) => x)
+  const by = chipOf(adr) === 'superseded' ? status.match(/\[(\d{4})\]/)?.[1] : null
+  if (!rows.length && !children) return null
+  return (
+    <div className="dk-adr-status">
+      {rows.length ? (
+        <dl className="dk-adr-dl">
+          {rows.map(([k, x]) => <div key={k} className="dk-adr-dlrow"><dt>{k}</dt><dd><Prose text={x} /></dd></div>)}
+        </dl>) : null}
+      {by ? <a href={`#/decisions/${by}`}>{t('adr.review.supersededBy', { id: by })}</a> : null}
+      {children}
+    </div>
+  )
+}
 
 export function Sections({ sections }) {
   const shown = SECTIONS.filter((k) => said(sections?.[k]))
@@ -75,23 +93,13 @@ export function LegacyView({ adr, busy = false, error = '', notice = '', onRevie
   return (
     <Page title={heading(adr)}>
       <AdrHead adr={adr} />
+      {['proposed', 'unknown'].includes(chipOf(adr)) ? null : <StatusNote adr={adr} />}
       {notice ? <Aviso tone="info" title={notice} /> : null}
       <Aviso tone="info" title={t('adr.legacy.title')} action={
         <Button variant="primary" size="sm" disabled={busy} aria-busy={busy || undefined} onClick={onReview}>{t('adr.legacy.review')}</Button>}>
         {t('adr.legacy.body')}
       </Aviso>
       {error ? <Aviso tone="error" title={t('adr.legacy.failed')} detail={error} /> : null}
-      <Sections sections={adr.sections} />
-    </Page>
-  )
-}
-
-export function ReadView({ adr, notice = '' }) {
-  return (
-    <Page title={heading(adr)}>
-      <AdrHead adr={adr} />
-      <Stepper phase={adr.state?.phase} mode={adr.state?.mode} />
-      {notice ? <Aviso tone="info" title={notice} /> : null}
       <Sections sections={adr.sections} />
     </Page>
   )

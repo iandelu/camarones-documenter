@@ -1,12 +1,12 @@
 import { readFileSync } from 'node:fs'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, expect, test } from 'vitest'
-import Decisions, { AdrListView, CandidatesView, EvidenceView, LegacyView, NewFormView } from './sections/Decisions.jsx'
+import Decisions, { AdrListView, CandidatesView, EvidenceView, LegacyView, NewFormView, ReviewView } from './sections/Decisions.jsx'
 import { candidateFields } from './sections/adr/Candidates.jsx'
 import { packLine } from './sections/adr/Evidence.jsx'
 import { EMPTY, check, toBody } from './sections/adr/NewForm.jsx'
 import { blocks } from './sections/adr/Prose.jsx'
-import { ReadView, Stepper } from './sections/adr/Read.jsx'
+import { Stepper } from './sections/adr/Read.jsx'
 import { TouchSearchView } from './sections/adr/TouchSearch.jsx'
 import { setLang, t } from './i18n.js'
 
@@ -214,11 +214,19 @@ test('an ADR with nothing to read says so', () => {
   expect(legacy({ adr: { id: '0004', status: 'unknown', sections: {} } })).toContain('no tiene secciones')
 })
 
-test('an ADR in review reads with its stepper until the review screen takes it', () => {
-  const out = html(<ReadView adr={{ id: '0012', title: 'S', chip: 'review', state: { phase: 'review', mode: 'manual' },
-    sections: { context: 'Hoy' } }} />)
-  expect(out).toMatch(/aria-current="step"[^>]*>.*Revisión/)
+test('an ADR in review opens on the review screen, with its stepper', () => {
+  const out = html(<ReviewView adr={{ id: '0012', title: 'S', chip: 'review', state: { phase: 'review', mode: 'manual' },
+    parts: [{ id: 'context', status: 'pending' }], sections: { context: 'Hoy' } }} current="context" onUi={() => {}} />)
+  expect(out).toMatch(/<li class="current" aria-current="step"><span[^>]*>●<\/span>Revisión/)
   expect(out).toContain('Hoy')
+})
+
+test('a legacy ADR already decided says what its file says about it', () => {
+  const out = legacy({ adr: { id: '0009', title: 'EhCache', status: 'superseded', legacy: true,
+    sections: { status: 'Superseded by [0010](0010-redis.md)' } } })
+  expect(out).toContain('Superseded by')
+  expect(out).toContain('href="#/decisions/0010"')
+  expect(legacy({ adr: { id: '0003', status: 'proposed', legacy: true, sections: { status: 'Propuesto <!-- x -->' } } })).not.toContain('Propuesto')
 })
 
 // ---------- the new-ADR form ----------

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { Skeleton } from '@camaron/ui'
-import { route, screen, startScreen, viewOf } from '../adr.js'
+import { route, screen, stale, startScreen, viewOf } from '../adr.js'
 import { useHash } from '../hooks.js'
 import { Failed, Page } from '../parts.jsx'
 import { lang, t } from '../i18n.js'
@@ -8,9 +8,10 @@ import { AdrListView } from './adr/AdrList.jsx'
 import { CandidatesView, candidateFields } from './adr/Candidates.jsx'
 import { EvidenceView } from './adr/Evidence.jsx'
 import { EMPTY, NewFormView, check, toBody } from './adr/NewForm.jsx'
-import { LegacyView, ReadView } from './adr/Read.jsx'
+import { LegacyView } from './adr/Read.jsx'
+import { Review, ReviewView } from './adr/Review.jsx'
 
-export { AdrListView, CandidatesView, EvidenceView, LegacyView, NewFormView }
+export { AdrListView, CandidatesView, EvidenceView, LegacyView, NewFormView, ReviewView }
 
 // Decisiones: the project's ADRs (lib/adr.py through /api/app/adr…, the app's token). The hash picks the place
 // (adr.js `route`): the list, the new-ADR form, the candidates or one ADR. A read that fails says so with Try again.
@@ -77,8 +78,9 @@ export default function Decisions({ srv }) {
 }
 
 // One ADR, opened at its phase (adr.js `viewOf`). Its state (adr.js `screen`) lives and dies with it: Decisions keys it
-// by the ADR, so what one was doing never shows on another. A save the file outran (409) reads the ADR again and says
-// so; `fresh(id)` says whether it was just created, so its evidence is gathered once; `onMoved` follows a renumbering.
+// by the ADR, so what one was doing never shows on another. A save the file outran (409 with its sha, adr.js `stale`)
+// reads the ADR again and says so; any other refusal, a busy lock included, shows the server's message. `fresh(id)` says
+// whether it was just created, so its evidence is gathered once; `onMoved` follows a renumbering.
 function AdrScreen({ id, srv, notice, fresh, onMoved }) {
   const [s, dispatch] = useReducer(screen, notice, startScreen)
   const alive = useRef(true)
@@ -86,7 +88,7 @@ function AdrScreen({ id, srv, notice, fresh, onMoved }) {
   const read = () => srv.get(`app/adr/${id}`)
 
   async function failed(e, type) {
-    if (e.status !== 409) return dispatch({ type, error: e.message })
+    if (!stale(e)) return dispatch({ type, error: e.message })
     try { dispatch({ type: 'reloaded', adr: await read() }) } catch (again) { dispatch({ type: 'readFailed', error: again.message }) }
   }
   async function gather() {
@@ -122,6 +124,15 @@ function AdrScreen({ id, srv, notice, fresh, onMoved }) {
     if (to && alive.current) onMoved(to.to, { key: 'adr.renumbered', vars: to })
   })
   const review = () => act(() => srv.post('app/adr/review', { id }), (adr) => dispatch({ type: 'done', adr }))
+  // A review write (Review.jsx): made from the ADR as this screen last read it; the ADR it answers with, or null.
+  async function send(name, body) {
+    dispatch({ type: 'busy' })
+    try {
+      const adr = await srv.post(`app/adr/${name}`, { ...body, id, base_sha: s.adr.sha })
+      dispatch({ type: 'done', adr })
+      return adr
+    } catch (e) { await failed(e, 'actFailed'); return null }
+  }
 
   if (s.error) return <Page title={`ADR ${id}`}><Failed title={t('adr.adrFailed', { id })} detail={s.error} onRetry={() => dispatch({ type: 'retry' })} /></Page>
   if (!s.adr) return <Page title={`ADR ${id}`}><Skeleton lines={6} /></Page>
@@ -132,5 +143,5 @@ function AdrScreen({ id, srv, notice, fresh, onMoved }) {
     <EvidenceView adr={s.adr} pack={s.pack} packing={s.packing} packError={s.packError} busy={s.busy} error={s.actError} notice={say}
       onPack={gather} onWrite={write} />
   )
-  return <ReadView adr={s.adr} notice={say} />            // review, accepted, rejected: the review screen takes it next
+  return <Review adr={s.adr} busy={s.busy} error={s.actError} notice={say} send={send} />     // review, accepted, rejected
 }
