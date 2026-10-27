@@ -236,3 +236,22 @@ def test_the_libraries_tldr_counts_every_workspace_repo(kit, repos):
     result = repos.scan()
     result["libraries"] = [r for r in result["libraries"] if r["repo"] == "api"]
     assert "> **TL;DR:** " in repos.render(result) and " across 3 repos" in repos.render(result)
+
+
+def test_finding_vulnerabilities_is_not_a_failure_unless_asked(kit, repos):
+    """A scan that found vulnerabilities did its job (the desktop app showed it as failed); CI asks to fail with
+    --fail-on high|critical, and then the known findings decide, from this scan or the last one."""
+    import os, subprocess, sys
+    repos.run(log=lambda _: None)
+    data = repos.load()
+    for r in data["libraries"]:
+        if (r["repo"], r["name"]) == ("web", "axios"):
+            r["vulns"] = [{"id": "GHSA-x", "cve": "CVE-1", "summary": "", "severity": "high", "score": 7.5, "fixed": "1.6.3"}]
+    data["vulns"] = {"scanned": 3, "failed": [], "online": False, "vulnerable": 1, "at": "2026-10-27T10:00:00+00:00"}
+    (kit.root / "docs" / ".work" / "inventory.json").write_text(json.dumps(data), encoding="utf-8")
+    env = {**os.environ, "CAMARONES_ROOT": str(kit.root)}
+    run = lambda *a: subprocess.run([sys.executable, str(kit.kit_dir / "camarones.py"), "inventory", "--json", *a],  # noqa: E731
+                                    env=env, capture_output=True, text=True, encoding="utf-8", cwd=kit.ws).returncode
+    assert run() == 0
+    assert run("--fail-on", "high") == 1
+    assert run("--fail-on", "critical") == 0
