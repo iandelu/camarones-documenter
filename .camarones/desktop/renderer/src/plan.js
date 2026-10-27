@@ -54,6 +54,7 @@ export const waitsFor = (unit, units) => {
 export function unitAction(u, plan = {}) {
   if (u.awaiting) return { kind: 'approve', label: 'unit.approve' }
   if (u.status === 'blocked') return { kind: 'retry', label: 'unit.retry' }
+  if (u.status === 'done') return { kind: 'redo', label: 'unit.redo' }           // `plan redo`: review and update it
   const open = u.status === 'doing' || (u.status === 'todo' && u.ready)
   if (!open) return null
   if (u.runner !== 'agent') return linkFor(u)

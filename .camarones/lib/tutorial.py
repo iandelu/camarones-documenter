@@ -430,6 +430,9 @@ PAGES = {
                  "máquina y reinicia el asistente. Tus proyectos y tu documentación no se tocan. Con una copia local "
                  "del kit en el proyecto, `camaron upgrade <carpeta del kit nuevo>` la pone al día y borra los "
                  "ficheros del kit que la versión nueva ya no trae, salvo los que hayáis editado.\n\n"
+                 "¿La documentación es de un kit antiguo? `camaron docs reset --redo` reabre las unidades terminadas "
+                 "para revisarlas, y `--wipe` borra lo generado (antes lo etiqueta en git) y el plan vuelve a empezar, "
+                 "sin tocar las entrevistas ni las páginas confirmadas. En la app de escritorio, al final de «Plan».\n\n"
                  "¿Quieres empezar de cero? «Ajustes › 🧹 Deshacer todo» (o `camaron uninstall`) guarda una copia .zip "
                  "de cam-docs/, lo borra y quita todo rastro del kit de los repos y de la carpeta del workspace. Los "
                  "repos quedan exactamente como en su último commit."},
@@ -856,6 +859,9 @@ PAGES = {
                  "restarts the wizard. Your projects and documentation are not touched. With a local kit copy in the "
                  "project, `camaron upgrade <new-kit-folder>` brings it up to date and deletes the kit files the new "
                  "version no longer ships, except the ones your team edited.\n\n"
+                 "Docs from an older kit? `camaron docs reset --redo` reopens the finished units to review them, and "
+                 "`--wipe` deletes what was generated (tagged in git first) and starts the plan over, keeping the "
+                 "interviews and the confirmed pages. In the desktop app, at the bottom of “Plan”.\n\n"
                  "Want to start over? “Settings › 🧹 Undo everything” (or `camaron uninstall`) zips cam-docs/ as a "
                  "backup, deletes it, and removes every trace of the kit from the repos and the workspace folder. The "
                  "repos end up exactly as in their last commit."},

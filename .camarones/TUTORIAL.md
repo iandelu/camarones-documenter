@@ -324,6 +324,8 @@ That's all, and it is all on the top part of the menu. Stop whenever you like: p
 
 Is there a new Camarón? “Settings › ⬆️ Update Camarón” (or `camaron self-update`) checks the official kit, tells you what changed and, if you say yes, updates it for every project on this machine and restarts the wizard. Your projects and documentation are not touched. With a local kit copy in the project, `camaron upgrade <new-kit-folder>` brings it up to date and deletes the kit files the new version no longer ships, except the ones your team edited.
 
+Docs from an older kit? `camaron docs reset --redo` reopens the finished units to review them, and `--wipe` deletes what was generated (tagged in git first) and starts the plan over, keeping the interviews and the confirmed pages. In the desktop app, at the bottom of “Plan”.
+
 Want to start over? “Settings › 🧹 Undo everything” (or `camaron uninstall`) zips cam-docs/ as a backup, deletes it, and removes every trace of the kit from the repos and the workspace folder. The repos end up exactly as in their last commit.
 
 ## Español
@@ -648,5 +650,7 @@ El asistente comprueba todo esto y lo instala por ti (winget en Windows, Homebre
 Con esto basta, y todo está en la parte de arriba del menú. Puedes parar cuando quieras: el progreso se guarda solo. Esc siempre vuelve atrás.
 
 ¿Hay un Camarón nuevo? «Ajustes › ⬆️ Actualizar Camarón» (o `camaron self-update`) mira el kit oficial, te dice qué ha cambiado y, si le dices que sí, lo actualiza para todos los proyectos de esta máquina y reinicia el asistente. Tus proyectos y tu documentación no se tocan. Con una copia local del kit en el proyecto, `camaron upgrade <carpeta del kit nuevo>` la pone al día y borra los ficheros del kit que la versión nueva ya no trae, salvo los que hayáis editado.
+
+¿La documentación es de un kit antiguo? `camaron docs reset --redo` reabre las unidades terminadas para revisarlas, y `--wipe` borra lo generado (antes lo etiqueta en git) y el plan vuelve a empezar, sin tocar las entrevistas ni las páginas confirmadas. En la app de escritorio, al final de «Plan».
 
 ¿Quieres empezar de cero? «Ajustes › 🧹 Deshacer todo» (o `camaron uninstall`) guarda una copia .zip de cam-docs/, lo borra y quita todo rastro del kit de los repos y de la carpeta del workspace. Los repos quedan exactamente como en su último commit.

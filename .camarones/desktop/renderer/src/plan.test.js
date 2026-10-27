@@ -26,7 +26,7 @@ test('each unit has the one action that moves it', () => {
   expect(unitAction(u('r', 'todo', { ready: true }))).toEqual({ kind: 'agent', mode: 'new', label: 'unit.start' })
   expect(unitAction(u('setup', 'todo', { ready: true, runner: 'wizard' }))).toEqual({ kind: 'link', href: '#/machine', label: 'next.machine' })
   expect(unitAction(u('w', 'todo'))).toBeNull()
-  expect(unitAction(u('d', 'done'))).toBeNull()
+  expect(unitAction(u('d', 'done'))).toEqual({ kind: 'redo', label: 'unit.redo' })
   expect(unitAction(u('s', 'doing', { runner: 'wizard', type: 'answers' }))).toEqual({ kind: 'link', href: '#/interviews', label: 'next.answers' })
 })
 
