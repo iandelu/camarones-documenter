@@ -263,7 +263,7 @@ A fresh install already documents a lot from static analysis, with sources on ev
 |---|---|
 | `camaron pages` (alias `diagrams`) | `docs/index.md` (what the project is, a card per repo, the context map), `docs/repos/<repo>/index.md` (endpoints, data as an ER diagram, state diagrams per status enum, messages, env vars and commands) and `docs/architecture/messaging.md` |
 | `camaron radar`, `camaron stack` | `docs/overview/tooling.md`: each repo's stack and the tools it uses |
-| `camaron inventory [--cves]` | `docs/overview/libraries.md`: direct dependencies by category, versions that differ, known vulnerabilities |
+| `camaron inventory [--cves]` | `docs/overview/libraries.md`: direct dependencies by category, versions that differ, known vulnerabilities; a Maven module takes its versions from its parent pom and the BOMs of the same repo |
 | `camaron schemas` | Tables and collections from migrations, entities, Mongo and Firestore |
 | `camaron history` | `docs/overview/history.md`: hotspots, who works where, files that change together |
 | `camaron arch-draft` | A first C4 model to verify |

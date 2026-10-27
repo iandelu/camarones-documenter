@@ -129,7 +129,8 @@ and a row per repo (SonarQube gate, coverage, vulnerabilities, debt). **Check ev
 
 **Libraries** lists every dependency by repo. **Scan for vulnerabilities** checks them against OSV's offline database
 (`camaron inventory --cves`; nothing leaves your machine). A flagged library's **Update** proposes the version that
-fixes it and makes a branch in that repo (`camaron bump`), without committing or pushing.
+fixes it and makes a branch in that repo (`camaron bump`), without committing or pushing; in a Maven module it changes
+the parent pom of the same repo, where the version is set.
 
 SonarQube: save a token in **Machine › Tokens** and the health check reads each repo's gate, coverage and issues.
 
