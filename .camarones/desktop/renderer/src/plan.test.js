@@ -1,5 +1,8 @@
-import { expect, test } from 'vitest'
-import { board, COLUMNS, groups, phases, sessionLine, tone, unitAction, waitsFor } from './plan.js'
+import { afterEach, expect, test } from 'vitest'
+import { setLang, t } from './i18n.js'
+import { board, COLUMNS, groups, openedWith, phases, sessionLine, tone, unitAction, waitsFor } from './plan.js'
+
+afterEach(() => setLang('es'))
 
 const u = (id, status, more = {}) => ({ id, status, phase: 1, runner: 'agent', type: id, deps: [], ready: false, awaiting: false, ...more })
 
@@ -85,4 +88,13 @@ test('what an open session is doing, from its agent\'s last steps', () => {
   expect(sessionLine(u('l', 'doing', { session: s({ state: 'working', tool: 'Bash', arg: 'npm i', ts: '2026-10-26T10:01:00Z' }) }), now).key)
     .toBe('sess.stuck')                                                   // a tool call with no answer for minutes: a permission prompt?
   expect(sessionLine(u('t', 'todo'), now)).toBeNull()
+})
+
+// The model the kit routed to the unit (lib/agents.py), when the server names it, next to the agent that opened.
+test('the opened note says which model the session took', () => {
+  expect(t('next.opened', { agent: openedWith('Claude Code', { launched: true, model: 'opus' }) }))
+    .toBe('Abierta en una terminal con Claude Code (opus).')
+  setLang('en')
+  expect(t('next.opened', { agent: openedWith('Codex', { model: 'o5' }) })).toBe('Opened in a terminal with Codex (o5).')
+  for (const res of [{ model: null }, {}, undefined]) expect(openedWith('OpenCode', res)).toBe('OpenCode')
 })
