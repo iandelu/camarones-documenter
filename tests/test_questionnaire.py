@@ -301,7 +301,7 @@ def quiet(kit, monkeypatch):
 @pytest.fixture
 def launched(kit, monkeypatch):
     prompts = []
-    monkeypatch.setattr(kit.wizard.W, "launch_agent", lambda self, prompt, resume_agent=None: prompts.append(prompt) or "bg")
+    monkeypatch.setattr(kit.wizard.W, "launch_agent", lambda self, prompt, resume_agent=None, uid=None: prompts.append(prompt) or "bg")
     return prompts
 
 

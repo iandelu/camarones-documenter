@@ -6,6 +6,7 @@ import json, threading, urllib.error, urllib.request
 from http.server import ThreadingHTTPServer
 
 import pytest
+import yaml
 
 
 @pytest.fixture
@@ -90,6 +91,67 @@ def test_update_session(wired, term):
     term["agents"].launch_update("codex", lang="es")
     assert term["cmds"][0][0][0] == "/bin/codex"
     assert term["cmds"][0][0][-1].startswith("Sigue las instrucciones de ")
+
+
+# ---------- the model: the unit's route for that agent, else this machine's ----------
+
+def route(wired, team=None, machine=None, patch=None):
+    if team is not None:
+        ws = wired.docs.workspace()
+        ws.setdefault("agents", {})["routing"] = team
+        wired.docs.save_workspace(ws)
+    if machine is not None:
+        wired.common.save_json(wired.common.PREFS, {**wired.common.load_json(wired.common.PREFS, {}), **machine})
+    if patch is not None:
+        (wired.root / ".camarones" / "pipeline.yaml").write_text(
+            yaml.safe_dump({"extends": "kit:full", "patch": patch}), encoding="utf-8")
+        wired.plan.sync()
+
+
+def model_of(cmd):
+    cmd = cmd[cmd.index("--") + 1:] if "--" in cmd else cmd
+    return cmd[cmd.index("--model") + 1] if "--model" in cmd else None
+
+
+def test_a_unit_opens_with_the_model_its_tier_routes_to_that_agent(wired, term):
+    route(wired, team={"agentic-heavy": ["codex", "claude:opus"]})
+    r = term["agents"].launch_unit(ready_agent_unit(wired)["id"], "claude")
+    assert model_of(term["cmds"][0][0]) == "opus" and r["model"] == "opus"
+
+
+def test_this_machines_routing_wins_over_the_teams(wired, term):
+    route(wired, team={"agentic-heavy": ["claude:opus"]}, machine={"routing": {"agentic-heavy": ["claude:haiku"]}})
+    term["agents"].launch_unit(ready_agent_unit(wired)["id"], "claude")
+    assert model_of(term["cmds"][0][0]) == "haiku"
+
+
+def test_the_units_pipeline_node_picks_its_own_model_and_tier(wired, term):
+    route(wired, team={"agentic-heavy": ["claude:sonnet"], "bounded": ["claude:haiku"]},
+          patch=[{"op": "set", "node": "discovery:*", "runner": "claude:opus"}])
+    term["agents"].launch_unit("discovery:api", "claude")
+    route(wired, patch=[{"op": "set", "node": "discovery:*", "tier": "bounded"}])
+    term["agents"].launch_unit("discovery:web", "claude")
+    assert [model_of(c) for c, _ in term["cmds"]] == ["opus", "haiku"]
+
+
+def test_without_a_model_routed_to_that_agent_the_machine_model_is_used(wired, term):
+    route(wired, team={"agentic-heavy": ["claude", "codex"]}, machine={"model": "haiku", "codex_model": "o5"})
+    uid = ready_agent_unit(wired)["id"]
+    term["agents"].launch_unit(uid, "claude")
+    term["agents"].launch_unit(next(u["id"] for u in wired.plan.available() if u["runner"] == "agent"), "codex")
+    assert [model_of(c) for c, _ in term["cmds"]] == ["haiku", "o5"]
+
+
+def test_the_docs_update_follows_the_agentic_heavy_routing(wired, term):
+    route(wired, team={"agentic-heavy": ["claude:opus"], "bounded": ["claude:haiku"]})
+    r = term["agents"].launch_update("claude")
+    assert model_of(term["cmds"][0][0]) == "opus" and r["model"] == "opus"
+
+
+def test_a_prompt_that_is_no_unit_keeps_the_machine_model(wired, term):
+    route(wired, team={"agentic-heavy": ["claude:opus"]})
+    term["agents"].launch_prompt("Refine the C4 model", "claude")
+    assert model_of(term["cmds"][0][0]) == "sonnet"
 
 
 # ---------- through the app's server ----------
