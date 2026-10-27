@@ -125,6 +125,9 @@ function titleBar(platform, dark) {
   return { titleBarStyle: 'hidden', titleBarOverlay: barColors(platform, dark) }
 }
 
+// The shrimp (scripts/icons.py renders both from the portal's favicon): the dock wants the padding of its own grid.
+const appIcon = (platform) => (platform === 'darwin' ? 'icon-mac.png' : 'icon.png')
+
 module.exports = { backendArgv, cliArgv, cliEnv, backendEnv, parseReady, sameOrigin, externalOk, killCommand,
-  windowArgs, readArgs, inside, lastJson, BAR, barColors, titleBar, inspectArgs, adoptArgs, gitInitArgs, joinArgs, folderArg,
-  joinEnv, joinFailure, errLine, adoptError }
+  windowArgs, readArgs, inside, lastJson, BAR, barColors, titleBar, appIcon, inspectArgs, adoptArgs, gitInitArgs, joinArgs,
+  folderArg, joinEnv, joinFailure, errLine, adoptError }

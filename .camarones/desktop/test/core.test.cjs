@@ -120,6 +120,16 @@ test('the bar\'s colours are the theme\'s canvas and ink, light and dark', () =>
   assert.equal(core.BAR.height, 56)                                           // the portal's --top, 3.5rem
 })
 
+test('the app\'s icon is the shrimp: padded to the dock\'s grid on macOS, the whole tile elsewhere', () => {
+  assert.equal(core.appIcon('darwin'), 'icon-mac.png')
+  for (const platform of ['win32', 'linux']) assert.equal(core.appIcon(platform), 'icon.png')
+  for (const name of ['icon.png', 'icon-mac.png']) {
+    const png = fs.readFileSync(path.join(__dirname, '..', name))
+    assert.equal(png.subarray(1, 4).toString('latin1'), 'PNG')
+    assert.deepEqual([png.readUInt32BE(16), png.readUInt32BE(20)], [512, 512])
+  }
+})
+
 test('inspectArgs asks the CLI what a folder is', () => {
   const dir = path.join(KIT, '..', 'shop')
   assert.deepEqual(core.inspectArgs(dir), ['projects', '--inspect', dir, '--json'])

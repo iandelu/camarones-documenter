@@ -19,6 +19,7 @@ const renderer = require('./lib/renderer.cjs')
 const KIT = process.env.CAMARONES_KIT || path.resolve(__dirname, '..')
 const PY = process.env.CAMARONES_PY || (process.platform === 'win32' ? 'python' : 'python3')
 const PRELOAD = path.join(__dirname, 'preload.cjs')
+const ICON = path.join(__dirname, core.appIcon(process.platform))
 const projects = new Map()           // docs root → { win, proc, origin, portalToken }
 let hub = null
 
@@ -70,7 +71,7 @@ function guard(win, origin, portalToken) {
 function windowOptions(extraArgs) {
   const dark = nativeTheme.shouldUseDarkColors
   return { ...renderer.DEFAULT_BOUNDS, minWidth: renderer.MIN.width, minHeight: renderer.MIN.height, title: 'camarón', show: false,
-    ...core.titleBar(process.platform, dark), backgroundColor: (dark ? core.BAR.dark : core.BAR.light).bg,
+    icon: ICON, ...core.titleBar(process.platform, dark), backgroundColor: (dark ? core.BAR.dark : core.BAR.light).bg,
     webPreferences: { preload: PRELOAD, contextIsolation: true, sandbox: true, nodeIntegration: false,
       webSecurity: true, spellcheck: false, additionalArguments: extraArgs } }
 }
@@ -287,6 +288,7 @@ if (!app.requestSingleInstanceLock()) {
 } else {
   app.on('second-instance', () => openHub())
   app.whenReady().then(() => {
+    if (app.dock) app.dock.setIcon(ICON)          // npm's Electron.app would show Electron's own
     session.defaultSession.setPermissionRequestHandler((_wc, _perm, done) => done(false))
     handlers()
     menu()
