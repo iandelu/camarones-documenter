@@ -973,6 +973,11 @@ class Handler(BaseHTTPRequestHandler):
         if name == "machine":
             from . import machine
             return self.json(machine.panel())
+        if name == "guide":
+            from . import guide
+            from .common import PREFS, load_json
+            lang = q.get("lang") or load_json(PREFS, {}).get("lang", "es")
+            return self.json({"lang": lang, "guides": guide.guides(lang)})
         if name == "creds":
             from . import creds
             return self.json({"backend": creds.backend_name(), "hosts": [
