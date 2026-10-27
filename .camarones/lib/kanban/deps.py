@@ -190,11 +190,12 @@ def conflicts(node: Node, others: list[Node], *, groups: dict[str, str] | None =
     return found
 
 
-def waves(nodes: list[Node]) -> list[list[str]]:
+def waves(nodes: list[Node], *, agent: bool = True) -> list[list[str]]:
     """Groups of items that can run in parallel. Dependencies among `nodes` give topological levels; level by level,
     each item (by priority, then id) goes into the first wave after every wave holding its dependencies in which no
-    item clashes with it, or a new wave. Dependencies outside `nodes` are ignored, and so are containers (their
-    children are the work). Raises CycleError."""
+    item clashes with it, or a new wave. Clashes use `footprint(agent=agent)`: for an agent an item without declared
+    files fills its repos; for people it touches nothing. Dependencies outside `nodes` are ignored, and so are
+    containers (their children are the work). Raises CycleError."""
     grouping = containers(nodes)
     by_id = {n["id"]: n for n in nodes if n["id"] not in grouping}
     deps = {i: sorted({d for d in n["deps"] if d in by_id and d != i}, key=id_key) for i, n in by_id.items()}
@@ -212,7 +213,7 @@ def waves(nodes: list[Node]) -> list[list[str]]:
     prints: list[list[set[str]]] = []                  # footprints of the items in each wave
     wave_of: dict[str, int] = {}
     for i in sorted(by_id, key=lambda i: (level[i], *_sort_key(by_id[i]))):
-        fp = footprint(by_id[i], agent=True)
+        fp = footprint(by_id[i], agent=agent)
         w = max((wave_of[d] + 1 for d in deps[i]), default=0)
         while w < len(placed) and any(overlap(fp, other) for other in prints[w]):
             w += 1
@@ -225,12 +226,14 @@ def waves(nodes: list[Node]) -> list[list[str]]:
     return [sorted(w, key=lambda i: _sort_key(by_id[i])) for w in placed]
 
 
-def blocked_by(node: Node, board: list[Node], *, agent: bool) -> list[dict]:
+def blocked_by(node: Node, board: list[Node], *, agent: bool, grouping: set[str] | None = None,
+               by_id: dict[str, Node] | None = None) -> list[dict]:
     """Why `node` cannot start now: dependencies not Done (`dependency`, or `missing` when the id is unknown) and In
     Progress items sharing files with it (`conflict`). A container (an item with children) touches nothing itself: it
-    is never a conflict and has none, but it still waits for its dependencies."""
-    by_id = {n["id"]: n for n in board}
-    grouping = containers(board)
+    is never a conflict and has none, but it still waits for its dependencies. A caller asking for many nodes of the
+    same board passes `grouping` (`containers(board)`) and `by_id` (the board by id) once."""
+    by_id = {n["id"]: n for n in board} if by_id is None else by_id
+    grouping = containers(board) if grouping is None else grouping
     reasons: list[dict] = []
     for d in sorted(set(node["deps"]) - {node["id"]}, key=id_key):      # an item never waits for itself
         dep = by_id.get(d)
@@ -251,12 +254,31 @@ def blocked_by(node: Node, board: list[Node], *, agent: bool) -> list[dict]:
     return reasons
 
 
-def ready(board: list[Node], *, agent: bool = True) -> list[str]:
-    """Backlog/Ready items that can start now, by wave among themselves, then priority, then id. Containers (items
-    with children) are never candidates."""
+def ready(board: list[Node], *, agent: bool = True, among: set[str] | None = None, n: int | None = None,
+          waiting: list[dict] | None = None) -> list[str]:
+    """Backlog/Ready items that can start now and never collide with each other: the first wave of the items the start
+    gate lets through (by priority, then id), at most `n`. Containers (items with children) are never candidates;
+    `among` limits the candidates to those ids (the gate still looks at the whole board). When `waiting` is a list,
+    every other candidate is appended to it, by id, as `{"id", "blocked_by"}`: the gate's reasons, or
+    `[{"kind": "wave", "wave": k}]` for one the gate lets through that clashes with an item handed out first (it fits
+    in wave `k`, 0 being the one returned)."""
     grouping = containers(board)
-    free = [n for n in board
-            if n["status"] in ("Backlog", "Ready") and not n.get("archived") and n["id"] not in grouping
-            and not blocked_by(n, board, agent=agent)]
-    # Everything free has its dependencies Done, so the waves only separate items that clash with each other.
-    return [i for wave in waves([{**n, "deps": []} for n in free]) for i in wave]
+    by_id = {x["id"]: x for x in board}
+    free: list[Node] = []
+    held: list[dict] = []
+    for x in sorted(board, key=lambda o: id_key(o["id"])):
+        if (x["status"] not in ("Backlog", "Ready") or x.get("archived") or x["id"] in grouping
+                or (among is not None and x["id"] not in among)):
+            continue
+        why = blocked_by(x, board, agent=agent, grouping=grouping, by_id=by_id)
+        if why:
+            held.append({"id": x["id"], "blocked_by": why})
+        else:
+            free.append({**x, "deps": []})      # its dependencies are Done: only file clashes separate the waves
+    placed = waves(free, agent=agent)
+    held += [{"id": i, "blocked_by": [{"kind": "wave", "wave": k}]} for k, wave in enumerate(placed[1:], 1)
+             for i in wave]
+    if waiting is not None:
+        waiting.extend(sorted(held, key=lambda w: id_key(w["id"])))
+    first = placed[0] if placed else []
+    return first if n is None else first[:max(n, 0)]

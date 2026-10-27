@@ -646,26 +646,19 @@ def _scope(rows: dict[str, dict], story: str | None, epic: str | None) -> set[st
 
 
 def next_items(n: int = 3, *, story: str | None = None, epic: str | None = None, agent: bool = True) -> dict:
-    """What can start now: `ready` (at most `n`, by wave, then priority, then id; each row has its 0-based `wave`) and
-    `waiting` (every Backlog/Ready item that cannot start, with why). Limited to a story's or an epic's items if given.
-    Conflicts are always judged against the whole board."""
+    """What can start now, as `deps.ready` decides it: `ready` (at most `n` items that never collide with each other or
+    with work In Progress, by priority, then id; each row has `wave` 0) and `waiting` (every other Backlog/Ready item,
+    by id, with why: the start gate's reasons, or `{"kind": "wave", "wave": k}` for one that would collide with an item
+    handed out now). Limited to a story's or an epic's items if given; conflicts are always judged against the whole
+    board. `agent` False is the people's view: an item without declared files touches nothing."""
     cards, items, _ = load_state()
     rows = {i: _row(item, cards.get(i)) for i, item in items.items()}
     scope = _scope(rows, story, epic)
     board = _board_nodes(cards, items)
-    grouping = graph.containers(board)                  # stories and epics with children: their tasks are the work
-    mine = [x for x in board if (scope is None or x["id"] in scope) and x["id"] in rows and x["id"] not in grouping]
-    free, waiting = [], []
-    for x in mine:
-        if x["status"] not in ("Backlog", "Ready") or x["archived"]:
-            continue
-        why = graph.blocked_by(x, board, agent=agent)
-        if why:
-            waiting.append({"id": x["id"], "blocked_by": why})
-        else:
-            free.append({**x, "deps": []})              # its dependencies are Done: only file clashes separate waves
-    ready = [{**rows[i], "wave": w} for w, wave in enumerate(graph.waves(free)) for i in wave]
-    return {"ready": ready[:max(n, 0)], "waiting": waiting}
+    among = set(rows) if scope is None else scope & set(rows)
+    waiting: list[dict] = []
+    ready = graph.ready(board, agent=agent, among=among, n=n, waiting=waiting)
+    return {"ready": [{**rows[i], "wave": 0} for i in ready], "waiting": waiting}
 
 
 def waves(*, story: str | None = None, epic: str | None = None) -> dict:

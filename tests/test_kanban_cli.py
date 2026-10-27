@@ -157,6 +157,17 @@ def test_board_next_json_and_human(wired):
                for l in lines)
 
 
+def test_board_next_says_a_colliding_ready_task_waits_for_a_later_wave(wired):
+    _two_on_one_file(wired)
+    from lib.kanban import ops
+    ops.add("task", "Fourth", touches=["api:b.py"])
+    got = json.loads(cli(wired, "board", "next", "--json").stdout)
+    assert [r["id"] for r in got["ready"]] == ["WI-3"]
+    assert {"id": "WI-4", "blocked_by": [{"kind": "wave", "wave": 1}]} in got["waiting"]
+    human = cli(wired, "board", "next").stdout.splitlines()
+    assert any(l.startswith("  · WI-4: ") and ("ola 2" in l or "wave 2" in l) for l in human)
+
+
 def test_board_waves_json_and_cycle(wired):
     _two_on_one_file(wired)
     got = json.loads(cli(wired, "board", "waves", "--json").stdout)
