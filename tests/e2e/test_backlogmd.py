@@ -46,3 +46,35 @@ def test_backlogmd_reads_and_edits_our_board(kit):
 
     warnings = repair.repair(log=lambda _: None)["warnings"]
     assert all("wi-2" in w.lower() for w in warnings), warnings
+
+
+def test_backlogmd_edits_keep_touches_and_dependencies(kit):
+    """`x-touches` (a story's footprint) and `dependencies` (a task waiting for another) survive a Backlog.md edit."""
+    from lib import common
+    from lib.kanban import TASKS, ops, repair
+    from lib.kanban.items import parse_item
+    ops.init(log=lambda _: None)
+    ops.add("story", "Export a page", repos=["api", "web"], touches=["api:src/export.py", "web:src/Export.jsx"],
+            by="ana")
+    ops.add("task", "Export endpoint", parent="WI-1", repos=["api"], touches=["api:src/export.py"], by="ana")
+    ops.add("task", "Export button", parent="WI-1", repos=["web"], touches=["web:src/Export.jsx"],
+            dependencies=["WI-2"], by="ana")
+
+    def card(n):
+        return next(parse_item(p.read_text(encoding="utf-8"), p) for p in TASKS.glob(f"wi-{n} - *.md"))
+
+    before = {n: dict(card(n).fm) for n in (1, 3)}
+    assert before[1]["x-touches"] == ["api:src/export.py", "web:src/Export.jsx"]
+    assert before[3]["dependencies"] == ["WI-2"]
+
+    backlog(common, "task", "edit", "WI-1", "-t", "Export a page v2")
+    backlog(common, "task", "edit", "WI-3", "-t", "Export button v2")
+    story, button = card(1), card(3)
+    assert story.fm["title"] == "Export a page v2" and button.fm["title"] == "Export button v2"
+    assert story.fm["x-touches"] == before[1]["x-touches"]
+    assert button.fm["x-touches"] == before[3]["x-touches"]
+    assert button.fm["dependencies"] == before[3]["dependencies"]
+
+    # the footprint files were never created, so repair says so; it finds nothing else wrong after Backlog.md's edits
+    warnings = repair.repair(log=lambda _: None)["warnings"]
+    assert all("x-touches file not found" in w for w in warnings), warnings
