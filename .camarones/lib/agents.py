@@ -13,6 +13,7 @@ from pathlib import Path
 from .common import PREFS, WORK, WORKSPACE, load_json, save_json, which, ws_rel
 from . import docs, env, plan, sessions
 from .adapters import runners
+from .harness import routing
 from .harness.ports import RunRequest
 
 CODEX_MODEL_DEFAULT = "gpt-5.6-terra"          # Codex's model slugs rotate, so this is just a starting default, not a fixed list
@@ -28,11 +29,26 @@ def installed() -> list[dict]:
     return [{"id": r.id, "label": r.label} for r in runners.all() if which(r.command or r.id)]
 
 
-def request(agent: str, lang: str, prefs: dict, resume: bool = False, session: str | None = None) -> RunRequest:
+def model_for(agent: str, prefs: dict, uid: str | None = None) -> str | None:
+    """The model a session asks for: the first route to this agent for the unit (its pipeline node's runner, then its
+    tier's routing) when it names one, else this machine's model for the agent. `update` is agentic-heavy work."""
+    default = {"claude": prefs.get("model", "sonnet"), "codex": prefs.get("codex_model", CODEX_MODEL_DEFAULT)
+               }.get(agent, prefs.get(f"{agent}_model"))
+    if uid:
+        s = plan.settings(uid)
+        tier = s["tier"]
+        targets = ([s["runner"]] if s.get("runner") else []) + routing.table(docs.workspace(), prefs)[tier]
+        keep, _ = routing.candidates(tier, {tier: targets}, bool(s.get("allow_local")))
+        route = next((r for r in keep if r.runner == agent), None)
+        if route and route.model:
+            return route.model
+    return default or None
+
+
+def request(agent: str, lang: str, prefs: dict, resume: bool = False, session: str | None = None,
+            uid: str | None = None) -> RunRequest:
     short = f"Follow the instructions in {ws_rel(PROMPT)}" if lang == "en" else f"Sigue las instrucciones de {ws_rel(PROMPT)}"
-    model = {"claude": prefs.get("model", "sonnet"), "codex": prefs.get("codex_model", CODEX_MODEL_DEFAULT)
-             }.get(agent, prefs.get(f"{agent}_model"))
-    return RunRequest(prompt=short, cwd=WORKSPACE, model=model or None, interactive=True, resume=resume,
+    return RunRequest(prompt=short, cwd=WORKSPACE, model=model_for(agent, prefs, uid), interactive=True, resume=resume,
                       session=session)
 
 
@@ -41,7 +57,9 @@ def write_prompt(prompt: str) -> None:
     (WORK / "next-prompt.md").write_text(prompt, encoding="utf-8")
 
 
-def _open(prompt: str, agent: str, lang: str, resume: bool, uid: str | None = None, session: str | None = None) -> dict:
+def _open(prompt: str, agent: str, lang: str, resume: bool, uid: str | None = None, session: str | None = None,
+          route: str | None = None) -> dict:
+    """uid: the plan unit whose session this is; route: whose model it takes, when that is not a unit (`update`)."""
     if agent not in {a["id"] for a in installed()}:
         raise ValueError(f"{agent} is not installed on this machine")
     prefs = load_json(PREFS, {})
@@ -50,12 +68,13 @@ def _open(prompt: str, agent: str, lang: str, resume: bool, uid: str | None = No
     write_prompt(prompt)
     if agent == "claude" and resume and not session and not claude_history(WORKSPACE):
         resume = False                               # nothing to continue here: `--continue` would just error out
-    cmd = runners.get(agent).build(request(agent, lang, prefs, resume, session)).argv
+    req = request(agent, lang, prefs, resume, session, uid=uid or route)
+    cmd = runners.get(agent).build(req).argv
     if uid:
         cmd = sessions.wrap(sessions.start(uid, agent, session), cmd)
     if not env.open_new_terminal(cmd, WORKSPACE):
         raise RuntimeError(f"no terminal window could be opened on this machine: the prompt is in {ws_rel(PROMPT)}")
-    return {"launched": True, "agent": agent, "prompt": ws_rel(PROMPT)}
+    return {"launched": True, "agent": agent, "model": req.model, "prompt": ws_rel(PROMPT)}
 
 
 def launch_unit(uid: str, agent: str, lang: str = "es", mode: str = "new") -> dict:
@@ -96,7 +115,7 @@ def launch_unit(uid: str, agent: str, lang: str = "es", mode: str = "new") -> di
 
 
 def launch_update(agent: str, lang: str = "es") -> dict:
-    return {**_open(plan.prompt("update", lang=lang), agent, lang, resume=False), "unit": "update"}
+    return {**_open(plan.prompt("update", lang=lang), agent, lang, resume=False, route="update"), "unit": "update"}
 
 
 def launch_prompt(prompt: str, agent: str, lang: str = "es") -> dict:

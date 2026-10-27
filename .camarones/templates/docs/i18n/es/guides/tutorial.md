@@ -492,8 +492,10 @@ tiempo, herramientas, ficheros cambiados y el diff, y si el check pasa en cada u
 `agentic-heavy` (unidades largas), `bounded` (traducciones, resúmenes) y `judge` (puntuar evaluaciones). `runner:modelo`
 elige también el modelo. El equipo lo fija en `.camarones/workspace.yaml` (`agents: routing:`); `~/.camarones.json`
 (`routing`) manda en esta máquina. Los modelos locales solo pasan por OpenCode (`opencode:ollama/qwen3-coder:30b`) y nunca
-hacen trabajo `agentic-heavy`. `autopilot` y `run` lo leen unidad a unidad. Cada ejecución queda registrada en
-`.camarones/.cache/runs/` (`camaron runs`).
+hacen trabajo `agentic-heavy`. `autopilot` y `run` lo leen unidad a unidad, y también las sesiones que abres tú (la
+siguiente unidad del asistente, el botón de la unidad en la app): con el agente que elijas, el modelo que `pipeline.yaml`
+fije para esa unidad o, si no, el de su tipo de trabajo (la actualización de la doc es `agentic-heavy`); si no hay
+ninguno para ese agente, el de Ajustes. Cada ejecución queda registrada en `.camarones/.cache/runs/` (`camaron runs`).
 
 ## 10. Problemas frecuentes
 

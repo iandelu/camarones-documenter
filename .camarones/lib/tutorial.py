@@ -80,7 +80,9 @@ PAGES = {
                  "reglas de formato (CONVENTIONS). Con tener uno instalado basta. Si no tienes ninguno, puedes copiar el "
                  "prompt y pegarlo donde quieras. También sirven OpenCode (la vía para modelos locales, como Qwen con "
                  "Ollama) y Gemini CLI; `camaron doctor --local` te propone un modelo local según la memoria de tu "
-                 "equipo. Cuando luego implementéis features, la IA consulta la documentación con el servidor MCP "
+                 "equipo. Cada unidad se abre con el modelo que el equipo le asigna (`routing` en workspace.yaml o "
+                 "`pipeline.yaml`), y si no le asigna ninguno, con el de Ajustes. Cuando luego implementéis features, "
+                 "la IA consulta la documentación con el servidor MCP "
                  "«camarones» (preguntar con citas, buscar, leer una página o solo la sección que hace falta, grafo del "
                  "repo), también con Claude Code abierto dentro de un solo repo."},
         {"icon": "📖", "title": "OpenWiki: la wiki de cada repo",
@@ -522,7 +524,9 @@ PAGES = {
                  "commands and write files. Camarones gives them the instructions for each unit (PLAYBOOK) and the format "
                  "rules (CONVENTIONS). One of them is enough. With none, you can copy the prompt and paste it anywhere. "
                  "OpenCode (the way to local models, such as Qwen on Ollama) and Gemini CLI work too; "
-                 "`camaron doctor --local` proposes a local model that fits your computer's memory. Later, when you "
+                 "`camaron doctor --local` proposes a local model that fits your computer's memory. Each unit opens "
+                 "with the model the team routes to it (`routing` in workspace.yaml, or `pipeline.yaml`), and with "
+                 "none, with the one in Settings. Later, when you "
                  "implement features, the AI looks the docs up through the “camarones” MCP server (ask with citations, "
                  "search, read a page or just the section it needs, repo graph), also with Claude Code opened inside "
                  "a single repo."},
