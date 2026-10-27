@@ -108,3 +108,18 @@ def test_a_codex_session_is_not_harvested(kit, ledger):
     record(kit, "domain", None, agent="codex")
     assert ledger.harvest() == 0 and ledger.local_sessions() == {}
 
+
+# ---------- the epoch: where "from zero" starts ----------
+def test_a_new_plan_starts_its_epoch(kit):
+    import re
+    kit.plan.sync()
+    assert re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ", kit.plan.load()["epoch"])
+
+
+def test_an_old_plan_gets_no_epoch(kit):
+    kit.plan.sync()
+    data = kit.plan.load()
+    data.pop("epoch")
+    kit.plan.save(data)
+    kit.plan.sync()
+    assert "epoch" not in kit.plan.load()
