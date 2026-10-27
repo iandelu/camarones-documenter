@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Aviso, Button, Card, Chip, EmptyState, Skeleton } from '@camaron/ui'
+import { Aviso, Button, Card, Chip, EmptyState, PlanCost, Skeleton, uiText } from '@camaron/ui'
 import { board, phases, sessionLine, tone, waitsFor } from '../plan.js'
 import { useAgents, useCmd, useStore } from '../hooks.js'
 import { AgentPicker, Failed, Fold, JobOutput, Page, UnitActions } from '../parts.jsx'
@@ -44,6 +44,7 @@ export default function Plan({ srv, jobs }) {
     <Page title={t('nav.plan')} wide>
       <Run srv={srv} jobs={jobs} run={data.run} pilot={pilot} onChanged={load} ready={ready} />
       <Update srv={srv} a={a} />
+      <Cost srv={srv} active={active} />
       <div className="row dk-units-head">
         <b>{t('plan.progress', { done, total: live.length })}</b>
         <progress className="dk-progress dk-grow" value={done} max={live.length || 1} aria-label={t('stat.plan')} />
@@ -194,6 +195,26 @@ function Run({ srv, jobs, run, pilot, onChanged, ready }) {
 
 // Keep it current: the docs update (what changed in the code since the docs were written) as a session with the
 // agent in its own terminal, like the wizard's "update" (lib/agents.py).
+// What the plan took from zero (`camaron plan cost`): POST harvests this machine's unit sessions, then answers the
+// team's bill. Asked when the section opens and when a run starts or ends, not on every poll of the board.
+function Cost({ srv, active }) {
+  const [bill, setBill] = useState(null)
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const load = () => {
+    setBusy(true)
+    return srv.post('plan/cost', {}).then((b) => { setBill(b); setError('') }, (e) => setError(e.message))
+      .finally(() => setBusy(false))
+  }
+  useEffect(() => { load() }, [active])
+  return <CostView bill={bill} error={error} busy={busy} onRefresh={load} onRetry={load} />
+}
+
+export function CostView({ bill, error, busy, onRefresh, onRetry }) {
+  if (error) return <Failed title={uiText('pc.failed')} detail={error} onRetry={onRetry} />
+  return bill ? <PlanCost bill={bill} busy={busy} onRefresh={onRefresh} /> : null
+}
+
 function Update({ srv, a }) {
   const [note, setNote] = useState({ ok: '', error: '' })
   if (a.agents && !a.agents.length) return null

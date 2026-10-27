@@ -1,10 +1,8 @@
 // Pure helpers of the KPIs tab: the headline tiles and the per-repo trust bar, from GET /api/kpis.
-export const pct = (n, total) => (total ? `${Math.round((100 * n) / total)} %` : '—')
+import { money } from '@camaron/ui'
 
-export function money(usd) {
-  if (usd === null || usd === undefined) return '—'
-  return usd >= 0.01 || usd === 0 ? `$${usd.toFixed(2)}` : `$${usd.toPrecision(2)}`
-}
+export { money }
+export const pct = (n, total) => (total ? `${Math.round((100 * n) / total)} %` : '—')
 
 export function tiles(d) {
   const tr = d.trust || {}, c4 = d.c4 || {}, fr = d.freshness || {}, use = d.usefulness || {}

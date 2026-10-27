@@ -325,8 +325,8 @@ def _count(n) -> str:
 
 def lines(b: dict) -> list[str]:
     since = str(b["since"] or "")[:10] or "the start"
-    who = f"{b['people']} {'person' if b['people'] == 1 else 'people'}"
-    out = [f"Plan from zero (since {since}, {who})"]
+    who = f", {b['people']} {'person' if b['people'] == 1 else 'people'}" if b["people"] else ""
+    out = [f"Plan from zero (since {since}{who})"]
     if not b["units"]:
         out.append("  Nothing recorded yet: runs, unit sessions and agent-written wikis appear here as they happen.")
     else:
@@ -348,7 +348,8 @@ def lines(b: dict) -> list[str]:
         out.append("  Not measured  " + " · ".join(f"{u['unit']} ({WHY.get(u['why'], u['why'].replace('-', ' '))})"
                                                    for u in b["unmeasured"]))
     if b["unrecorded"]:
-        out.append(f"  No record  {b['unrecorded']} units done with no run or session (by hand, or before kit 4.68)")
+        n = b["unrecorded"]
+        out.append(f"  No record  {n} unit{'' if n == 1 else 's'} done with no run or session (by hand, or before kit 4.68)")
     if b["before"]:
         out.append(f"  Before the last reset  {_money(b['before']['cost_usd'])} · {_duration(b['before']['seconds'])}")
     out += [f"  ! {n}" for n in [*b["pricing"]["problems"], *b["notes"]]]
