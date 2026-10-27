@@ -333,7 +333,9 @@ PAGES = {
                  "/ Codex solo los cargan cuando los apruebas en esta máquina (o con `camaron trust`). Las aprobaciones "
                  "viven en ~/.camarones/trust/, nunca en el repo, así que nadie puede aprobarlas por ti con un push. Lo "
                  "que el kit instaló en esta máquina (sus skills y los de graphify y OpenWiki) lo reconoce sin "
-                 "preguntar, y `camaron repair` lo devuelve a su sitio si alguien lo edita o lo borra."},
+                 "preguntar, y `camaron repair` lo devuelve a su sitio si alguien lo edita o lo borra. Si ya tenías tu "
+                 "propio .claude/ o CLAUDE.md en la carpeta del espacio de trabajo, no los reemplaza: enlaza dentro lo "
+                 "del kit y añade a tu CLAUDE.md las líneas que importan sus reglas (uninstall las quita)."},
         {"icon": "⚙️", "title": "CI: documentación que se actualiza sola",
          "art": r"""
    git push --> pipeline (GitLab CI / GitHub Actions)
@@ -775,7 +777,9 @@ PAGES = {
                  "open the wizard, and Claude Code / Codex only load them once you approve them on this machine (or with "
                  "`camaron trust`). Approvals live in ~/.camarones/trust/, never in the repo, so nobody can approve them "
                  "for you with a push. What the kit installed on this machine (its skills, graphify's and OpenWiki's) is "
-                 "recognised without asking, and `camaron repair` puts it back if someone edits or deletes it."},
+                 "recognised without asking, and `camaron repair` puts it back if someone edits or deletes it. If the "
+                 "workspace folder already had your own .claude/ or CLAUDE.md, it never replaces them: it links the "
+                 "kit's entries inside and adds to your CLAUDE.md the lines that import its rules (uninstall takes them out)."},
         {"icon": "⚙️", "title": "CI: docs that update themselves",
          "art": r"""
    git push --> pipeline (GitLab CI / GitHub Actions)
