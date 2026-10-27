@@ -20,7 +20,7 @@ test('static export: live-only zones and views are gone', () => {
 })
 
 test('live: every zone, code only with a graph', () => {
-  expect(zonesFor('live', idx).map((x) => x.id)).toEqual(['docs', 'board', 'arch', 'plan', 'quality', 'review'])
+  expect(zonesFor('live', idx).map((x) => x.id)).toEqual(['docs', 'board', 'stories', 'arch', 'plan', 'quality', 'review'])
   expect(zonesFor('live', idx).find((x) => x.id === 'arch').views.map((v) => v.id)).toEqual(['c4', 'data', 'libs'])
   expect(zonesFor('live', { ...idx, codeMaps: ['api'] }).find((x) => x.id === 'arch').views[1].id).toBe('code')
   expect(paletteEntries('live', idx).map((e) => e.href)).not.toContain('#/boards')
@@ -109,7 +109,7 @@ test('home KPIs come from the index only, none for an empty project', () => {
 
 test('desktop app: the same zones as the live portal; machine work is the app\'s own sections (4.53)', () => {
   expect(zonesFor('app', idx)).toEqual(zonesFor('live', idx))
-  expect(zonesFor('app', idx).map((x) => x.id)).toEqual(['docs', 'board', 'arch', 'plan', 'quality', 'review'])
+  expect(zonesFor('app', idx).map((x) => x.id)).toEqual(['docs', 'board', 'stories', 'arch', 'plan', 'quality', 'review'])
   expect(zonesFor('app', idx).find((x) => x.id === 'docs').views.map((v) => v.id)).toEqual(['pages', 'wikis'])
   expect(paletteEntries('app', { ...idx, kitdev: true }).map((e) => e.href)).not.toContain('#/generate')
 })
@@ -148,4 +148,19 @@ test('locate: the zone and view of an address, old addresses included', () => {
   expect(locate('#/arch')).toEqual({ zone: 'arch', view: null })
   expect(locate('#/search/x')).toEqual({ zone: null, view: null })
   expect(locate('')).toEqual({ zone: null, view: null })
+})
+
+test('Historias: live and app only, right after the Board', () => {
+  for (const mode of ['live', 'app']) {
+    expect(zonesFor(mode, idx).find((x) => x.id === 'stories'))
+      .toEqual({ id: 'stories', href: '#/stories', views: [{ id: 'stories', href: '#/stories' }] })
+  }
+  expect(zonesFor('static', idx).map((x) => x.id)).not.toContain('stories')
+  expect(locate('#/stories')).toEqual({ zone: 'stories', view: 'stories' })
+  expect(locate('#/stories/WI-7')).toEqual({ zone: 'stories', view: 'stories' })
+  expect(paletteEntries('live', idx).filter((e) => e.href === '#/stories')).toEqual([{ key: 'zone.stories', href: '#/stories', zone: 'stories' }])
+  expect(paletteEntries('static', idx).map((e) => e.href)).not.toContain('#/stories')
+  expect(crumbs('#/stories', 'live', idx)).toEqual([{ key: 'zone.stories', href: '#/stories' }])
+  expect(crumbs('#/stories/WI-7', 'app', idx)).toEqual([{ key: 'zone.stories', href: '#/stories' }, { text: 'WI-7', href: null }])
+  expect(crumbs('#/stories', 'static', idx)).toEqual([])
 })

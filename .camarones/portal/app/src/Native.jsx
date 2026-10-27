@@ -20,12 +20,13 @@ const Interview = lazy(() => import('./Interview.jsx'))
 const Sync = lazy(() => import('./Sync.jsx'))
 const Kanban = lazy(() => import('./Kanban.jsx'))
 const Health = lazy(() => import('./Health.jsx'))
+const Stories = lazy(() => import('./Stories.jsx'))
 
 // The React views of the portal; the shell (shell/Shell.jsx) shows them when the router says `native`.
 export default function Native({ view, arg }) {
   const View = { home: Home, search: Search, review: Review, docs: DocsHome, doc: Doc, wikis: Wikis, wikigraph: WikiGraph,
     wikipage: WikiPage, code: CodeMap, c4: C4, new: NewPage, pipeline: Pipeline, ask: Ask, kpis: Kpis, ci: Ci, libs: Libs,
-    data: Data, interview: Interview, sync: Sync, kanban: Kanban, health: Health }[view]
+    data: Data, interview: Interview, sync: Sync, kanban: Kanban, health: Health, stories: Stories }[view]
   if (!View) return null
   return (
     <MotionConfig reducedMotion="user">
