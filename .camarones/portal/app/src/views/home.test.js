@@ -13,7 +13,6 @@ test('a project with only the kit guides and interview notes is empty', () => {
 
 test('the home question asks on the server and searches in the export', () => {
   expect(askHref('how is a visit paid?', 'live')).toBe('#/ask/how%20is%20a%20visit%20paid%3F')
-  expect(askHref('visits', 'app')).toBe('#/ask/visits')
   expect(askHref('visits', 'static')).toBe('#/search/visits')
   expect(askHref('   ', 'live')).toBe('')
 })

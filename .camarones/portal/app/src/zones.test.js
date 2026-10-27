@@ -107,18 +107,15 @@ test('home KPIs come from the index only, none for an empty project', () => {
   expect(homeKpis({ ...idx, summary: { ...idx.summary, confirmed: 0 } })[0]).toEqual({ id: 'confirmed', value: '0/3', tone: null })
 })
 
-test('desktop app: the same zones as the live portal; machine work is the app\'s own sections (4.53)', () => {
-  expect(zonesFor('app', idx)).toEqual(zonesFor('live', idx))
-  expect(zonesFor('app', idx).map((x) => x.id)).toEqual(['docs', 'board', 'stories', 'arch', 'plan', 'quality', 'review'])
-  expect(zonesFor('app', idx).find((x) => x.id === 'docs').views.map((v) => v.id)).toEqual(['pages', 'wikis'])
-  expect(paletteEntries('app', { ...idx, kitdev: true }).map((e) => e.href)).not.toContain('#/generate')
+test('live: every zone; machine work is the desktop app\'s own sections (4.53)', () => {
+  expect(zonesFor('live', idx).map((x) => x.id)).toEqual(['docs', 'board', 'stories', 'arch', 'plan', 'quality', 'review'])
+  expect(zonesFor('live', idx).find((x) => x.id === 'docs').views.map((v) => v.id)).toEqual(['pages', 'wikis'])
+  expect(paletteEntries('live', { ...idx, kitdev: true }).map((e) => e.href)).not.toContain('#/generate')
 })
 
-test('the Board: live and app only, its own zone right after Docs', () => {
-  for (const mode of ['live', 'app']) {
-    const board = zonesFor(mode, idx).find((x) => x.id === 'board')
-    expect(board).toEqual({ id: 'board', href: '#/kanban', views: [{ id: 'kanban', href: '#/kanban' }] })
-  }
+test('the Board: live only, its own zone right after Docs', () => {
+  expect(zonesFor('live', idx).find((x) => x.id === 'board'))
+    .toEqual({ id: 'board', href: '#/kanban', views: [{ id: 'kanban', href: '#/kanban' }] })
   expect(zonesFor('static', idx).map((x) => x.id)).not.toContain('board')
   expect(paletteEntries('live', idx).filter((e) => e.href === '#/kanban')).toEqual([{ key: 'zone.board', href: '#/kanban', zone: 'board' }])
   expect(paletteEntries('static', idx).map((e) => e.href)).not.toContain('#/kanban')
@@ -126,7 +123,7 @@ test('the Board: live and app only, its own zone right after Docs', () => {
 
 test('crumbs of the Board', () => {
   expect(crumbs('#/kanban', 'live', idx)).toEqual([{ key: 'zone.board', href: '#/kanban' }])
-  expect(crumbs('#/kanban/WI-3', 'app', idx)).toEqual([{ key: 'zone.board', href: '#/kanban' }, { text: 'WI-3', href: null }])
+  expect(crumbs('#/kanban/WI-3', 'live', idx)).toEqual([{ key: 'zone.board', href: '#/kanban' }, { text: 'WI-3', href: null }])
   expect(crumbs('#/kanban?parent=WI-14', 'live', idx)).toEqual([{ key: 'zone.board', href: '#/kanban' }, { text: 'WI-14', href: null }])   // a story's subtasks
   expect(crumbs('#/kanban?x=1', 'live', idx)).toEqual([{ key: 'zone.board', href: '#/kanban' }])
   expect(crumbs('#/kanban/new?path=flows%2Fa.md&section=x', 'live', idx))
@@ -136,9 +133,9 @@ test('crumbs of the Board', () => {
   expect(crumbs('#/boards', 'live', idx)).toEqual([])                       // the old whiteboards' address stays apart
 })
 
-test('the Taller\'s old addresses have no crumbs: the router sends them to the app', () => {
-  expect(crumbs('#/generate', 'app', idx)).toEqual([])
-  expect(crumbs('#/taller', 'app', idx)).toEqual([])
+test('the Taller\'s old addresses have no crumbs: the router sends them home', () => {
+  expect(crumbs('#/generate', 'live', idx)).toEqual([])
+  expect(crumbs('#/taller', 'live', idx)).toEqual([])
 })
 
 // The shell's sidebar marks where the reader is: the zone and, inside it, the view.
@@ -152,17 +149,15 @@ test('locate: the zone and view of an address, old addresses included', () => {
   expect(locate('')).toEqual({ zone: null, view: null })
 })
 
-test('Historias: live and app only, right after the Board', () => {
-  for (const mode of ['live', 'app']) {
-    expect(zonesFor(mode, idx).find((x) => x.id === 'stories'))
-      .toEqual({ id: 'stories', href: '#/stories', views: [{ id: 'stories', href: '#/stories' }] })
-  }
+test('Historias: live only, right after the Board', () => {
+  expect(zonesFor('live', idx).find((x) => x.id === 'stories'))
+    .toEqual({ id: 'stories', href: '#/stories', views: [{ id: 'stories', href: '#/stories' }] })
   expect(zonesFor('static', idx).map((x) => x.id)).not.toContain('stories')
   expect(locate('#/stories')).toEqual({ zone: 'stories', view: 'stories' })
   expect(locate('#/stories/WI-7')).toEqual({ zone: 'stories', view: 'stories' })
   expect(paletteEntries('live', idx).filter((e) => e.href === '#/stories')).toEqual([{ key: 'zone.stories', href: '#/stories', zone: 'stories' }])
   expect(paletteEntries('static', idx).map((e) => e.href)).not.toContain('#/stories')
   expect(crumbs('#/stories', 'live', idx)).toEqual([{ key: 'zone.stories', href: '#/stories' }])
-  expect(crumbs('#/stories/WI-7', 'app', idx)).toEqual([{ key: 'zone.stories', href: '#/stories' }, { text: 'WI-7', href: null }])
+  expect(crumbs('#/stories/WI-7', 'live', idx)).toEqual([{ key: 'zone.stories', href: '#/stories' }, { text: 'WI-7', href: null }])
   expect(crumbs('#/stories', 'static', idx)).toEqual([])
 })

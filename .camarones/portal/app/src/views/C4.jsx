@@ -2,11 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { Aviso, Button, Chip, EmptyState, Skeleton } from '@camaron/ui'
 import { postJSON } from '../api.js'
 import { docsGet } from '../docsApi.js'
-import { c4Box, drawC4, flowViewId, loadViewers, runBuild } from '../content/doc.js'
+import { c4Box, drawC4, flowViewId, loadViewers } from '../content/doc.js'
 import { core } from '../core.js'
 import { splitElements } from './c4.js'
 
-const runs = () => core.mode() === 'app'
 export const VIEW_GROUPS = ['system', 'element', 'dynamic', 'deployment']
 export const viewGroup = (v) => (v.id === 'index' ? 'system' : v.kind)
 const defaultView = (views) => (views.find((v) => v.id === 'index') || views[0])?.id || ''
@@ -44,18 +43,6 @@ const C4State = ({ v, t }) => (v.exists
   ? <span className="muted small">{t('builtAt', { when: core.ago(v.at) })}{v.stale && <> · <span className="warn">{t('stale')}</span></>}</span>
   : <span className="muted small">{t(v.model ? 'notBuilt' : 'noC4')}</span>)
 
-// A bar over a visualizer: its state and, in the app, the button that (re)builds it, with the build's log.
-function BuildBar({ children, what, label, t }) {
-  const log = useRef(null)
-  return (
-    <div className="vbar">
-      {children}
-      {runs() && label && <Button size="sm" onClick={(e) => runBuild(what, '', e.currentTarget, log.current, () => location.reload())}>{label}</Button>}
-      <pre ref={log} className="joblog inline" hidden></pre>
-    </div>
-  )
-}
-
 // #/c4/<view>: one view of the C4 model, drawn by LikeC4's web component, with its elements to review below.
 export default function C4({ arg }) {
   const t = core.t
@@ -75,7 +62,6 @@ function C4View({ view, t }) {
     if (!v || !stage.current) return
     stage.current.replaceChildren(c4Box(view.id))
     drawC4(stage.current, { caption: false, maxH: () => Math.max(320, innerHeight * 0.7) })
-    restoreScroll(view.id)
   }, [v])
   if (!v) return <div className="page"><Skeleton lines={4} /></div>
   return (
@@ -92,52 +78,20 @@ function C4View({ view, t }) {
             {t('openExplorer')} <span aria-hidden="true">↗</span></Button>}
         </div>
       </div>
-      <BuildBar what="c4" label={v.model ? t(v.exists ? 'rebuild' : 'build') : ''} t={t}><C4State v={v} t={t} /></BuildBar>
+      <div className="vbar"><C4State v={v} t={t} /></div>
       <div className="c4stage" ref={stage}></div>
-      <Elements id={view.id} model={v.model} t={t} />
+      <Elements id={view.id} t={t} />
     </div>
   )
 }
 
-// After a change the diagram is rebuilt and the page reloads (LikeC4's web component cannot be redefined in place);
-// coming back, the page scrolls to where you were, so the panel you were reviewing stays under your eyes.
-const SCROLL_KEY = 'c4-scroll'
-function keepScroll(id) { try { sessionStorage.setItem(SCROLL_KEY, JSON.stringify({ id, y: scrollY })) } catch { /* private mode */ } }
-function restoreScroll(id) {
-  let at = null
-  try { at = JSON.parse(sessionStorage.getItem(SCROLL_KEY) || 'null'); sessionStorage.removeItem(SCROLL_KEY) } catch { /* private mode */ }
-  if (at?.id === id) setTimeout(() => scrollTo(0, at.y), 300)
-}
-
 // The view's elements: review, edit, confirm or remove what the AI drafted (lib/c4edit.py), its relations in and out.
 // What is still to review is open; what a person confirmed folds into its own section.
-function Elements({ id, model, t }) {
+function Elements({ id, t }) {
   const [v, setV] = useState(null)
   const [error, setError] = useState('')
-  const [drawing, setDrawing] = useState(false)
-  const log = useRef(null)
-  const timer = useRef(null)
-  const building = useRef(false)
-  const again = useRef(false)
   const load = () => docsGet('c4/view', { id }).then(setV, () => setV({ elements: [] }))
   useEffect(() => { load() }, [id])
-  useEffect(() => () => clearTimeout(timer.current), [])
-  // One rebuild for a burst of changes (confirming several in a row): it starts once they stop, and a change made while
-  // it runs asks for one more after it.
-  const build = async () => {
-    if (building.current) { again.current = true; return }
-    building.current = true
-    const j = await runBuild('c4', '', null, log.current)
-    building.current = false
-    if (again.current) { again.current = false; return build() }
-    if (j?.status === 'done') { keepScroll(id); location.reload() } else setDrawing(false)
-  }
-  const redraw = () => {
-    if (!runs() || !model) return
-    setDrawing(true)
-    clearTimeout(timer.current)
-    timer.current = setTimeout(build, 1200)
-  }
   if (!v?.elements?.length) return null
   const edit = v.editable && core.mode() !== 'static'
   const drafts = v.elements.filter((e) => e.draft).length
@@ -146,9 +100,8 @@ function Elements({ id, model, t }) {
     setError('')
     try {
       await postJSON(`c4/${path}`, body)
-      core.toast(t(runs() && model ? 'c4Saved' : 'c4SavedNoBuild'))
+      core.toast(t('c4SavedNoBuild'))
       await load()
-      redraw()
       return true
     } catch (e) { setError(e.message); return false }
   }
@@ -157,11 +110,9 @@ function Elements({ id, model, t }) {
     <section className="c4el-panel">
       <div className="c4el-head"><h2>{t('c4Elements')}</h2>
         <span className="muted small">{t('c4Count', { n: v.elements.length, d: drafts })}</span>
-        {drawing && <Chip state="info">{t('c4Redrawing')}</Chip>}
         {edit && drafts > 0 && <Button size="sm" variant="primary" onClick={() => change('confirm', { view: id })}>{t('c4ConfirmAll')}</Button>}</div>
       {edit && <p className="muted small">{t('c4Help')}</p>}
       {error && <Aviso tone="error" title={t('error')} detail={error} />}
-      <pre ref={log} className="joblog" hidden></pre>
       {pending.length > 0 ? <div className="c4el-list">{pending.map(card)}</div>
         : <p className="muted small">{t('c4AllConfirmed')}</p>}
       {confirmed.length > 0 && (
@@ -234,16 +185,16 @@ function Element({ e, v, edit, t, change }) {
   )
 }
 
-// #/c4/explorer: LikeC4's full explorer; with no model yet, the app drafts one from the code first.
+// #/c4/explorer: LikeC4's full explorer, once the desktop app has built it.
 function Explorer({ t }) {
   const v = useViewers()
   if (!v) return <div className="page"><Skeleton lines={3} /></div>
   return (
     <>
-      <BuildBar what={v.model ? 'c4' : 'first-look'} label={v.model ? t(v.exists ? 'rebuild' : 'build') : t('firstLook')} t={t}>
+      <div className="vbar">
         <b>{t('explorer')}</b><C4State v={v} t={t} />
         {v.exists && <a href="architecture/" target="_blank" rel="noopener">{t('openTab')} <span aria-hidden="true">↗</span></a>}
-      </BuildBar>
+      </div>
       {v.exists && <iframe className="viewer" src="architecture/" title="C4"></iframe>}
     </>
   )
