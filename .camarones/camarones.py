@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.10"
-# dependencies = ["pyyaml>=6", "rich>=13", "questionary>=2", "keyring>=25", "pywinpty==3.0.5; sys_platform == 'win32'"]
+# dependencies = ["pyyaml>=6", "rich>=13", "questionary>=2", "keyring>=25", "pywinpty==3.1.0; sys_platform == 'win32' and python_version < '3.16'"]
 # ///
 """🦐 Camarón — project documentation wizard + CLI. No arguments opens the wizard.
 

@@ -28,6 +28,7 @@ INPUT_WAIT = 5.0                # seconds a program has to take input
 COLS, ROWS = (10, 500), (5, 200)
 DIR = CACHE / "terminals"
 TICK = 0.5                      # how often a reader or a writer looks again
+CLOSE_GRACE = 3.0               # seconds from Close's hang-up to its SIGKILL
 CTTY = "import fcntl, os, sys, termios; fcntl.ioctl(0, termios.TIOCSCTTY, 0); os.execvp(sys.argv[1], sys.argv[1:])"
 
 
@@ -53,6 +54,7 @@ _lock = threading.Condition(threading.Lock())  # _terms, every terminal's meta, 
 _gen = 0                                        # bumped on output, an end, a new or forgotten terminal
 _terms: dict[str, _Term] = {}                   # this server's terminals, in start order
 _spawning = threading.Lock()                    # one id handed out at a time
+_hung: set[int] = set()                         # groups Close hung up whose SIGKILL is still due (POSIX)
 
 
 def _bump() -> None:
@@ -247,10 +249,21 @@ def close(tid: str) -> dict:
         kill_tree(t.meta["pid"])
     else:
         kill_tree(t.meta["pid"], signal.SIGHUP)
-        hard = threading.Timer(3, kill_tree, (t.meta["pid"], signal.SIGKILL))
+        with _lock:
+            _hung.add(t.meta["pid"])
+        hard = threading.Timer(CLOSE_GRACE, _hard, (t.meta["pid"],))
         hard.daemon = True
         hard.start()
     return _meta(t)
+
+
+def _hard(pid: int) -> None:
+    """Close's SIGKILL for what ignored its hang-up, unless `shutdown` sent it first."""
+    with _lock:
+        due = pid in _hung
+        _hung.discard(pid)
+    if due:
+        kill_tree(pid, signal.SIGKILL)
 
 
 def wait(seen: int, timeout: float) -> int:
@@ -261,22 +274,41 @@ def wait(seen: int, timeout: float) -> int:
 
 
 def shutdown() -> None:
-    """Ends every live terminal, for the server's exit: hung up, killed if still there 2 s later, then ended."""
+    """Ends every live terminal, for the server's exit: its process group is hung up, and what is left of it 2 s later
+    is killed, as is what is left of a group Close hung up less than CLOSE_GRACE s ago (its timer would not outlive
+    the server); then they are all ended."""
     with _lock:
         live = [t for t in _terms.values() if t.meta["ended"] is None]
+        groups = {t.meta["pid"] for t in live} | _hung
+        _hung.clear()
     for t in live:
         kill_tree(t.meta["pid"], None if IS_WIN else signal.SIGHUP)
-
-    def settle(timeout: float) -> bool:
-        with _lock:
-            return _lock.wait_for(lambda: all(t.meta["ended"] is not None for t in live), timeout)
-    if not settle(2):
-        for t in live:
-            if t.meta["ended"] is None and not IS_WIN:
-                kill_tree(t.meta["pid"], signal.SIGKILL)
-        settle(1)
+    end = time.monotonic() + 2
+    while time.monotonic() < end and not _quiet(live, groups):
+        time.sleep(0.05)
+    if not IS_WIN:
+        for pid in groups:
+            kill_tree(pid, signal.SIGKILL)      # what ignored the hang-up; nothing when the group is gone
+    with _lock:
+        _lock.wait_for(lambda: all(t.meta["ended"] is not None for t in live), 1)
     for t in live:
         _finish(t)                              # a reader still at it (something holds the PTY) stops at its next look
+
+
+def _quiet(live: list[_Term], groups: set[int]) -> bool:
+    """Every terminal of `live` ended and, on POSIX, nothing left in `groups`."""
+    with _lock:
+        if any(t.meta["ended"] is None for t in live):
+            return False
+    return IS_WIN or not any(_group_alive(pid) for pid in groups)
+
+
+def _group_alive(pid: int) -> bool:
+    try:
+        os.killpg(pid, 0)
+    except OSError:                             # ESRCH: gone; EPERM: only its zombie is left (macOS)
+        return False
+    return True
 
 
 def _pump(t: _Term) -> None:
@@ -349,7 +381,8 @@ def _log(t: _Term, data: bytes) -> None:
 
 
 def _alive(t: _Term) -> bool:
-    return t.proc.isalive() if IS_WIN else t.proc.poll() is None
+    # not PtyProcess.isalive(): it marks the process closed, so its close() would leave its two sockets open
+    return t.proc.pty.isalive() if IS_WIN else t.proc.poll() is None
 
 
 def _finish(t: _Term) -> None:

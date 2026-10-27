@@ -136,3 +136,18 @@ def test_shutdown_ends_every_terminal(pty):
     pty.t.shutdown()
     assert all(pty.t.get(x["id"])["ended"] for x in (a, b))
     until(lambda: not pid_alive(a["pid"]) and not pid_alive(b["pid"]))
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="groups and SIGHUP are POSIX; taskkill /T /F takes the tree")
+def test_shutdown_also_kills_what_ignores_the_hang_up(pty, monkeypatch):
+    from lib.harness.locks import pid_alive
+    monkeypatch.setattr(pty.t, "CLOSE_GRACE", 60)                      # a closed one: shutdown kills it, not Close
+    stubborn = [sys.executable, "-c", "import subprocess, sys, time; subprocess.Popen([sys.executable, '-c', "
+                "'import os, signal, time; signal.signal(signal.SIGHUP, signal.SIG_IGN); "
+                "print(\"stubborn\", os.getpid(), flush=True); time.sleep(60)']); time.sleep(60)"]
+    a, b = pty.open(stubborn), pty.open(stubborn)
+    until(lambda: all(re.search(rb"stubborn (\d+)", screen(pty.t, x["id"])) for x in (a, b)))
+    kids = [int(re.search(rb"stubborn (\d+)", screen(pty.t, x["id"])).group(1)) for x in (a, b)]
+    pty.t.close(b["id"])
+    pty.t.shutdown()
+    until(lambda: not any(pid_alive(k) for k in kids))
