@@ -73,11 +73,13 @@ export function lint(as, want, so, lang, words, touches = []) {
 // ── the draft ─────────────────────────────────────────────────────────────────────────────────────────────────────
 
 // A new story, or the draft of an existing one from GET /api/stories/item. `tasks` stays null until the person has
-// seen the proposals; `sha` is what `save` gets back as base_sha to notice a story changed meanwhile.
+// seen the proposals; `sha` is what `save` gets back as base_sha to notice a story changed meanwhile, and `baseTitle`
+// / `baseTouches` (the title and footprint as loaded; null for a new story) let save keep what someone else changed.
 export function initialDraft(item) {
   const it = item || {}
   return { id: it.id || null, sha: it.sha || null, as: it.as_ || '', want: it.want || '', so: it.so || '', title: it.title || '',
-    epic: it.epic || '', criteria: [...(it.criteria || [])], touches: [...(it.touches || [])], tasks: null, step: 1 }
+    epic: it.epic || '', criteria: [...(it.criteria || [])], touches: [...(it.touches || [])], tasks: null, step: 1,
+    baseTitle: it.id ? it.title || '' : null, baseTouches: it.id ? [...(it.touches || [])] : null }
 }
 
 // The step the wizard's Next leads to: 1 while the story lacks one of its three parts; otherwise one on from the
@@ -150,6 +152,22 @@ export function titleFrom(want) {
 export function pickHit(touches, hit) {
   const more = hit.kind === 'group' ? hit.files || [] : [hit.touch]
   return sorted([...(touches || []), ...more])
+}
+
+// Toca's "Añadir «…» (nuevo)": the query as the touch of a file a task will create, when it reads `repo:path` for one
+// of `repos` and the search had no exact hit (nor is it picked already). Save checks that its folder exists. The path
+// is cleaned as the kit cleans a touch (`/` separators, no `./`, no empty segment); a folder, an absolute path or a
+// `..` is never offered. → the touch, or null.
+export function newTouch(q, repos, hits, touches) {
+  const m = String(q ?? '').trim().match(/^([^:\s]+):(.+)$/)
+  if (!m || !(repos || []).includes(m[1])) return null
+  const raw = m[2].trim().replace(/\\/g, '/')
+  if (!raw || raw.startsWith('/') || raw.endsWith('/') || raw.includes(':')) return null
+  const parts = raw.split('/').filter((p) => p && p !== '.')
+  if (!parts.length || parts.includes('..')) return null
+  const touch = `${m[1]}:${parts.join('/')}`
+  if ((hits || []).some((h) => h.touch === touch) || (touches || []).includes(touch)) return null
+  return touch
 }
 
 // The chips of Toca, one row per group: the code-map group a search hit or a task named (`groups`: {touch: group}),
@@ -286,12 +304,16 @@ export function escapeAborts(e, running, stop) {
 }
 
 // POST /api/stories/save: the ticked tasks only, each with the dependencies analyze worked out (keys of ticked tasks or
-// board ids); the title; base_sha to notice a change made meanwhile.
+// board ids); the title; base_sha to notice a change made meanwhile; for an existing story base_title and
+// base_touches, so a title or footprint the person left alone is not written over someone else's change.
 export function saveBody(draft) {
   const tasks = (draft.tasks || []).filter((t) => t.checked !== false)
   const keys = new Set((draft.tasks || []).map((t) => t.key))
   const kept = new Set(tasks.map((t) => t.key))
+  const existing = !!draft.id
   return { story: storyOf(draft), title: clean(draft.title) || null, base_sha: draft.sha || null,
+    base_title: existing && typeof draft.baseTitle === 'string' ? draft.baseTitle : null,
+    base_touches: existing && Array.isArray(draft.baseTouches) ? sorted(draft.baseTouches) : null,
     tasks: tasks.map((t) => ({ key: t.key, title: clean(t.title), touches: t.touches || [], criteria: t.criteria || [],
       deps: (t.deps || []).filter((d) => !keys.has(d) || kept.has(d)) })) }
 }

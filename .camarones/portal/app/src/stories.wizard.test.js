@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import { addDep, addTask, analyzeBody, chipGroups, dropDep, editTask, escapeAborts, footprintOf, initialDraft, mergeDocSources,
-  mergeTasks, pickHit, planAnalyze, removeTask, saveBlock, saveBody, taskNames, titleFrom, withChecks } from './stories.js'
+  mergeTasks, newTouch, pickHit, planAnalyze, removeTask, saveBlock, saveBody, taskNames, titleFrom, withChecks } from './stories.js'
 
 // The wizard's pure parts (Stories.jsx): picking files in Toca, the footprint line, the person's edits to the proposed
 // tasks and what goes to analyze and save.
@@ -131,6 +131,30 @@ test('saveBody: only the ticked tasks; a dependency on an unticked one is left o
   expect(body.tasks[0]).not.toHaveProperty('checked')
   expect(saveBody(story({ title: '  ' })).title).toBeNull()
   expect(saveBody(story()).base_sha).toBeNull()
+})
+
+test('saveBody: an existing story sends the title and footprint it was loaded with, so save keeps what others changed', () => {
+  const loaded = initialDraft({ id: 'WI-7', sha: 'abcd1234', title: 'Ver informes', touches: ['api:b.py', 'api:a.py'] })
+  const body = saveBody({ ...loaded, title: 'Otro título', touches: ['api:a.py'] })
+  expect(body.base_title).toBe('Ver informes')
+  expect(body.base_touches).toEqual(['api:a.py', 'api:b.py'])
+  expect(body.title).toBe('Otro título')
+  const fresh = saveBody(story())
+  expect(fresh.base_title).toBeNull()
+  expect(fresh.base_touches).toBeNull()
+})
+
+test('newTouch: a repo:path the search does not know is offered as a file to create, for a known repo only', () => {
+  const repos = ['api', 'cam-docs']
+  expect(newTouch(' api:src/New.java ', repos, [], [])).toBe('api:src/New.java')
+  expect(newTouch('api:.\\src\\New.java', repos, null, null)).toBe('api:src/New.java')
+  expect(newTouch('cam-docs:docs/flows/new.md', repos, [], [])).toBe('cam-docs:docs/flows/new.md')
+  expect(newTouch('api:src/A.java', repos, [{ kind: 'file', touch: 'api:src/A.java' }], [])).toBeNull()   // an exact hit
+  expect(newTouch('api:src/A.java', repos, [], ['api:src/A.java'])).toBeNull()                          // already picked
+  expect(newTouch('web:src/A.js', repos, [], [])).toBeNull()                                              // not a repo here
+  for (const q of ['api:', 'api:src/', 'api:../x', 'api:a/../../x', 'OrderService', ':x', 'api:/abs', '']) {
+    expect(newTouch(q, repos, [], [])).toBeNull()
+  }
 })
 
 test('taskNames: titles for the keys of the tasks on screen, the rest as they are', () => {

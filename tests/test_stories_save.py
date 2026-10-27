@@ -151,6 +151,44 @@ def test_save_existing_story_can_retitle_and_does_not_repeat_criteria(world):
     assert [c["n"] for c in checklist(read(kit, sid).body, "AC")] == [1]
 
 
+def test_save_keeps_a_title_and_footprint_someone_else_changed_meanwhile(world):
+    kit, ops, mod, _ = world
+    sid = ops.add("story", "Antes", description="Como a,\nquiero b,\npara c.", touches=[ORDERS])["id"]
+    loaded = mod.item(sid)
+    ops.update_item(sid, title="Renombrada en el tablero", touches=[ORDERS, PAY])        # someone else, meanwhile
+    out = save(world, story(id=sid, touches=loaded["touches"]), title=loaded["title"], base_sha=loaded["sha"],
+               base_title=loaded["title"], base_touches=loaded["touches"])
+    assert out["story"]["title"] == "Renombrada en el tablero"           # the person did not touch it: not reverted
+    assert read(kit, sid).fm["x-touches"] == sorted([ORDERS, PAY])
+    assert [p.name for p in (kit.root / "backlog" / "tasks").glob("*.md")] == [f"{sid.lower()} - Renombrada en el tablero.md"]
+
+
+def test_save_writes_what_the_person_changed_when_nobody_else_did(world):
+    kit, ops, mod, _ = world
+    sid = ops.add("story", "Antes", description="Como a,\nquiero b,\npara c.", touches=[ORDERS])["id"]
+    loaded = mod.item(sid)
+    out = save(world, story(id=sid, touches=[ORDERS, PAY]), title="Después", base_sha=loaded["sha"],
+               base_title="Antes", base_touches=[ORDERS])
+    assert out["story"]["title"] == "Después" and read(kit, sid).fm["x-touches"] == sorted([ORDERS, PAY])
+
+
+@pytest.mark.parametrize("field", ["title", "touches"])
+def test_a_field_both_people_changed_is_a_conflict(world, field):
+    kit, ops, mod, _ = world
+    sid = ops.add("story", "Antes", description="Como a,\nquiero b,\npara c.", touches=[ORDERS])["id"]
+    loaded = mod.item(sid)
+    if field == "title":
+        ops.update_item(sid, title="Otra persona")
+        kw = {"title": "Yo", "s": story(id=sid, touches=[ORDERS])}
+    else:
+        ops.update_item(sid, touches=[PAY])
+        kw = {"title": "Antes", "s": story(id=sid, touches=[ORDERS, WEB])}
+    before = tree(kit.root)
+    with pytest.raises(mod.StoryConflict):
+        save(world, kw["s"], title=kw["title"], base_sha=loaded["sha"], base_title="Antes", base_touches=[ORDERS])
+    assert tree(kit.root) == before
+
+
 def test_save_story_without_clauses_puts_them_above_old_text(world):
     kit, ops, mod, _ = world
     sid = ops.add("story", "Nota suelta", description="Algo que alguien escribió sin plantilla")["id"]

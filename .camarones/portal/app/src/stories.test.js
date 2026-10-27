@@ -41,18 +41,19 @@ const draft = (over = {}) => ({ ...initialDraft(null), as: 'dev', want: 'ver inf
 
 test('initialDraft: empty for a new story, filled from an item', () => {
   expect(initialDraft(null)).toEqual({ id: null, sha: null, as: '', want: '', so: '', title: '', epic: '', criteria: [], touches: [],
-    tasks: null, step: 1 })
+    tasks: null, step: 1, baseTitle: null, baseTouches: null })
   const item = { id: 'WI-7', title: 'Ver informes', as_: 'dev', want: 'ver informes', so: 'decidir', criteria: ['Dado x'],
     touches: ['api:a.py'], epic: 'WI-1', sha: 'abcd1234', rest: 'notes', priority: 'P1' }
   expect(initialDraft(item)).toEqual({ id: 'WI-7', sha: 'abcd1234', as: 'dev', want: 'ver informes', so: 'decidir',
-    title: 'Ver informes', epic: 'WI-1', criteria: ['Dado x'], touches: ['api:a.py'], tasks: null, step: 1 })
+    title: 'Ver informes', epic: 'WI-1', criteria: ['Dado x'], touches: ['api:a.py'], tasks: null, step: 1,
+    baseTitle: 'Ver informes', baseTouches: ['api:a.py'] })   // the title and footprint as loaded: save's bases
   expect(initialDraft({ id: 'WI-8' })).toMatchObject({ id: 'WI-8', as: '', criteria: [], touches: [], epic: '' })
 })
 
 test('initialDraft copies the lists so editing the draft never edits the item', () => {
   const item = { id: 'WI-7', criteria: ['a'], touches: ['b:c'] }
   const d = initialDraft(item)
-  d.criteria.push('z'); d.touches.push('z:z')
+  d.criteria.push('z'); d.touches.push('z:z'); d.baseTouches.push('z:z')
   expect(item).toEqual({ id: 'WI-7', criteria: ['a'], touches: ['b:c'] })
 })
 

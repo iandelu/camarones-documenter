@@ -256,6 +256,8 @@ def test_the_list_needs_no_token_and_carries_the_lint_words(world, server):
     from lib import stories
     assert b["lint_words"] == {"es": stories.lint_words("es"), "en": stories.lint_words("en")}
     assert get(server, "/api/stories", token=PORTAL)[1]["writable"] is True
+    from lib import docs
+    assert b["repos"] == sorted(docs.repo_names()) + ["cam-docs"]        # the prefixes Toca accepts for a new file
 
 
 def test_the_list_without_a_board_is_empty(world, server):
@@ -333,6 +335,24 @@ def test_a_stale_base_sha_is_a_409(world, server):
     code, b = post(server, "/api/stories/save", {**stale, "tasks": [], "base_sha": sha}, token=PORTAL)
     assert code == 409 and b["id"] == "WI-1" and "WI-1" in b["error"]
     assert tree(world.root) == before
+
+
+def test_save_passes_the_bases_and_a_field_both_changed_is_a_409(world, server):
+    post(server, "/api/stories/save", {**story(), "tasks": []}, token=PORTAL)
+    it = get(server, "/api/stories/item?id=WI-1")[1]
+    from lib.kanban import ops
+    ops.update_item("WI-1", title="Renombrada")
+    base = {"base_sha": it["sha"], "base_title": it["title"], "base_touches": it["touches"]}
+    code, b = post(server, "/api/stories/save", {**story(id="WI-1"), "title": it["title"], "tasks": [], **base},
+                   token=PORTAL)
+    assert code == 200 and b["story"]["title"] == "Renombrada"                       # not reverted
+    before = tree(world.root)
+    code, b = post(server, "/api/stories/save", {**story(id="WI-1"), "title": "Mía", "tasks": [], **base}, token=PORTAL)
+    assert code == 409 and b["id"] == "WI-1"
+    assert tree(world.root) == before
+    for bad in ({"base_title": 3}, {"base_touches": "api:x"}, {"base_touches": [1]}):
+        assert post(server, "/api/stories/save", {**story(id="WI-1"), "tasks": [], **base, **bad},
+                    token=PORTAL)[0] == 400
 
 
 @pytest.mark.parametrize("path", ["/api/stories/analyze", "/api/stories/save"])
