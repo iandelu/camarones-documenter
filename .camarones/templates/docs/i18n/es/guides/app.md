@@ -349,7 +349,7 @@ Esta máquina y la preparación de este proyecto (`#/machine`, <kbd>g</kbd> <kbd
 | Tarjeta | Qué hace |
 |---|---|
 | Guía y recorrido | Abre esta guía, o el recorrido por la app |
-| Preparar esta máquina | **Ejecutar setup** (`camaron setup`): herramientas, repos, conexión de los agentes, con barra de progreso |
+| Preparar esta máquina | **Ejecutar setup** (`camaron setup`): herramientas, repos, conexión de los agentes, con barra de progreso. Cuando ya ha corrido en esta máquina, la tarjeta dice **Lista**, cuándo y con qué kit, y **Volver a ejecutar** queda como opción discreta |
 | Idioma y modelos | El idioma de las sesiones de IA, el modelo de Claude Code y el de Codex (la lista del propio Codex, u **Otro…** para escribirlo). Cada cambio es un `camaron config set` |
 | Tokens de GitLab, GitHub y SonarQube | Los servidores guardados con **Probar** y **Borrar**; un formulario (servidor, tipo, token) cuyo **Comprobar y guardar** prueba antes el token contra el servidor (**Guardarlo igualmente** si insistes). Los tokens viven en el llavero del sistema, nunca en el proyecto ni en una línea de comandos. SonarQube solo por https (http solo en localhost) |
 | Repos y plan | Cada repo, clonado o no, con su stack (edítalo, o **Volver al detectado**); **Clonar o actualizar los repos** (`sync`), **Detectar repos en la carpeta** (`detect`) y el perfil del plan, rápido o completo |

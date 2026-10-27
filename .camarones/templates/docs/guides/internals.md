@@ -73,7 +73,7 @@ board's index (`board.db`), the health snapshot and backups of replaced kit file
 | `~/.camarones/desktop` | The pinned Electron for `camaron app` |
 | `~/.camarones/bin`, `~/.camarones/osv-db` | Pinned binaries (gitleaks, OSV-Scanner) and OSV's offline database |
 | `~/.camarones/trust/` | What you approved of each team's agent config — never in a repo |
-| `~/.camarones/install/` | What the kit installed here (its skills, graphify's, OpenWiki's), so they need no approval |
+| `~/.camarones/install/` | What the kit installed here (its skills, graphify's, OpenWiki's), so they need no approval, and when setup last ran here and with which kit |
 | `~/.camarones/mcp-token` | The token of `camaron mcp --http` |
 | `~/.camarones/hosts.json` | Which host is GitLab, GitHub or SonarQube, and its user (no secrets) |
 | System keychain | The tokens themselves (`credentials.json` only where there is no keychain) |

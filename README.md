@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.72.0-ff875f?style=flat-square" alt="Versión 4.72.0">
+  <img src="https://img.shields.io/badge/version-4.73.0-ff875f?style=flat-square" alt="Versión 4.73.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -255,7 +255,7 @@ escribirías en la terminal.
 | ✅ **Calidad** (`g q`) | La salud del proyecto sin IA: máquina, documentación y código, repo a repo (SonarQube, cobertura, vulnerabilidades, deuda) |
 | 📦 **Librerías** (`g l`) | Las dependencias de cada repo y sus vulnerabilidades (el escaneo va repo a repo con su barra, se puede parar y acaba con un tick con lo que encontró) y **Actualizar** en una rama nueva, sin commit |
 | 📖 **Docs** (`g d`) | Abrir el portal, construir el explorador C4, generar la wiki de cada repo y preguntar con IA |
-| 🧰 **Máquina** (`g m`) | Preparar la máquina, idioma y modelos, tokens, repos, el kit y desinstalar |
+| 🧰 **Máquina** (`g m`) | Preparar la máquina (dice «Lista», cuándo y con qué kit, una vez hecho), idioma y modelos, tokens, repos, el kit y desinstalar |
 | 📘 **Guía** (`g h`) | Toda la documentación de Camarón dentro de la app, con botones que te llevan a cada sitio y un **recorrido guiado** |
 
 <kbd>⌘K</kbd>/<kbd>Ctrl K</kbd> va a una sección, a otro proyecto, a cualquier comando o a un capítulo de la guía. Plan,
