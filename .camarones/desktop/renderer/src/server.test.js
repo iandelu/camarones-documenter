@@ -72,6 +72,12 @@ test('a stream with nothing new ends where it started, and an abort signal reach
   expect(seen).toEqual([['../api/runs/r-1/events?from=42', ctl.signal]])
 })
 
+// A run stopped from outside, already read to its end: the server answers 204, with no body, instead of a stream.
+test('a 204 is a stream with nothing more, ending where it started', async () => {
+  const fetcher = async () => new Response(null, { status: 204 })
+  expect(await server('t', fetcher).stream('runs/r-1/events', () => {}, { from: '42' })).toEqual({ id: '42' })
+})
+
 // A stream that rejects (network drop, abort, a consumer that throws) still says where it got to, so the caller can
 // resume there instead of from an older id and read the same events twice.
 const broken = (...pieces) => { let n = 0; const enc = new TextEncoder()

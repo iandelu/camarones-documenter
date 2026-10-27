@@ -80,6 +80,12 @@ export const FOLD_MS = 4000
 export const SIZE = { unit: { w: 200, h: 64 }, term: { w: 440, h: 280 } }
 export const GAP = { x: 60, y: 24 }
 
+// The 1 s clock is for what changes with time: a unit at work and a fold window. A failed terminal left open after
+// the run shows a time that no longer moves.
+export function clockRuns(f, now) {
+  return Object.values(f?.units || {}).some((u) => (u.ended === null ? !f.finished : now - u.ended < FOLD_MS))
+}
+
 // Failed units stay open: the error is what the person comes for.
 export function openUnits(units, f, viewed, now) {
   const open = new Set()
@@ -176,8 +182,9 @@ const wait = (ms, signal) => new Promise((resolve) => {
 })
 
 // A run's events from the start, until its end. A stream that ends or breaks before run.finished is opened again from
-// the id it got to; a run whose log is gone (404) or an abort ends it quietly.
-export async function followRun(srv, run, onEvent, { signal, retry = 2000, sleep = wait } = {}) {
+// the id it got to, unless `over()` says the run is over all the same (stopped from outside, it never logs its end and
+// the server ends its stream once read); a run whose log is gone (404) or an abort ends it quietly.
+export async function followRun(srv, run, onEvent, { signal, over = () => false, retry = 2000, sleep = wait } = {}) {
   let from
   let ended = false
   const seen = (ev) => { if (ev.type === 'run.finished') ended = true; onEvent(ev) }
@@ -188,7 +195,7 @@ export async function followRun(srv, run, onEvent, { signal, retry = 2000, sleep
       if (signal?.aborted || err.status === 404) return
       from = err.id ?? from
     }
-    if (ended || signal?.aborted) return
+    if (ended || signal?.aborted || over()) return
     await sleep(retry, signal)
   }
 }
