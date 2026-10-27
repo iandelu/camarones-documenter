@@ -1,7 +1,7 @@
 """Shared paths, versions and cross-platform process helpers (macOS, Windows, Linux)."""
 from __future__ import annotations
 
-import json, os, platform, shutil, stat, subprocess, sys, threading, time
+import json, os, platform, shutil, signal, stat, subprocess, sys, threading, time
 from pathlib import Path
 
 from .harness.ctx import KIT, CAM_DIR, Ctx, docs_root, find_project_marker, find_root  # noqa: F401  (re-exported)
@@ -148,6 +148,18 @@ def run(cmd: list[str], cwd: Path | None = None, check: bool = True, quiet: bool
 def out(cmd: list[str], cwd: Path | None = None) -> str:
     r = run(cmd, cwd=cwd, check=False, capture=True)
     return (r.stdout or "").strip() if r.returncode == 0 else ""
+
+
+def kill_tree(pid: int, sig: int | None = None) -> bool:
+    """The process and what it started; False when it was already gone. POSIX signals its process group (`pid` leads
+    one: it was started with start_new_session); Windows has no groups, so taskkill walks the tree (`sig` ignored)."""
+    if IS_WIN:
+        return run(["taskkill", "/PID", str(pid), "/T", "/F"], check=False, quiet=True).returncode == 0
+    try:
+        os.killpg(pid, sig or signal.SIGTERM)
+    except (ProcessLookupError, PermissionError):  # EPERM: macOS's answer for a group left with only its zombie
+        return False
+    return True
 
 
 def uv() -> str:

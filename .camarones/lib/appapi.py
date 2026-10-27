@@ -7,9 +7,9 @@ wrong kinds, values outside the choices and values that look like options are re
 destructive one) runs only once the app has asked the person, and `--yes` is added here, never by the caller."""
 from __future__ import annotations
 
-import functools, json, os, signal, subprocess, sys, threading
+import functools, json, os, subprocess, sys, threading
 
-from .common import HOME, IS_WIN, KIT, ROOT, VERSIONS, out, run
+from .common import HOME, IS_WIN, KIT, ROOT, VERSIONS, kill_tree, out, run
 
 HUB = {"new", "join", "switch", "projects"}   # the app's hub opens projects itself (incl. projects --inspect/--adopt)
 PROCS: dict[str, dict] = {}           # job id → {"proc": Popen} for cancel
@@ -165,11 +165,6 @@ def cancel(job_id: str) -> dict:
         raise KeyError(job_id)
     PROCS[job_id]["stopped"] = True             # the job ends failed, and says a person stopped it
     pr = PROCS[job_id]["proc"]
-    if IS_WIN:                  # the command and what it started (agents, npm, git): Windows has no process groups
-        run(["taskkill", "/PID", str(pr.pid), "/T", "/F"], check=False, quiet=True)
-    else:
-        try:
-            os.killpg(pr.pid, signal.SIGTERM)
-        except OSError:
-            pr.terminate()
+    if not kill_tree(pr.pid):                   # the command and what it started (agents, npm, git)
+        pr.terminate()
     return {"cancelling": job_id}
