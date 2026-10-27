@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Aviso, Button, Card, Chip, EmptyState, Skeleton } from '@camaron/ui'
 import { board, phases, sessionLine, tone, waitsFor } from '../plan.js'
 import { useAgents, useCmd, useStore } from '../hooks.js'
@@ -76,6 +76,7 @@ export default function Plan({ srv, jobs }) {
         {unit ? <Detail u={unit} all={data.units} srv={srv} a={a} plan={data} onClose={() => setOpen(null)} onChanged={load} /> : null}
       </div>
       <Commands srv={srv} jobs={jobs} section="plan" />
+      <Reset srv={srv} jobs={jobs} onChanged={load} />
     </Page>
   )
 }
@@ -210,6 +211,55 @@ function Update({ srv, a }) {
         <Button size="sm" disabled={!a.agent} onClick={open}>{t('next.start', { agent: a.label(a.agent) })}</Button></div>
       {note.ok ? <p className="muted small" role="status">{note.ok}</p> : null}
       {note.error ? <Aviso tone="error" title={t('next.failed')} detail={note.error} /> : null}
+    </Card>
+  )
+}
+
+// Start the docs again (`docs reset`), previewed first like uninstall: redo reopens every finished unit (nothing is
+// deleted), wipe deletes the generated docs (tagged in cam-docs' git first) and starts the plan over; the interviews
+// and the pages a person wrote or confirmed stay. A preview counts only for the options it was made with. No jokes here.
+const RESET = { redo: { label: 'rs.redo', what: 'rs.redoWhat', go: 'rs.goRedo', ask: 'rs.confirmRedo', text: 'rs.confirmRedoText', done: 'rs.doneRedo' },
+  wipe: { label: 'rs.wipe', what: 'rs.wipeWhat', go: 'rs.goWipe', ask: 'rs.confirmWipe', text: 'rs.confirmWipeText', done: 'rs.doneWipe' } }
+
+export function Reset({ srv, jobs, onChanged }) {
+  const preview = useCmd(srv, jobs)
+  const go = useCmd(srv, jobs)
+  const [opts, setOpts] = useState({ mode: 'redo', templates: false })
+  const [seen, setSeen] = useState('')
+  const dialog = useRef(null)
+  const key = JSON.stringify(opts)
+  const lines = seen === key && preview.job?.status === 'done' ? preview.job.lines : null
+  const steps = (lines || []).filter((l) => l.trim().startsWith('•'))
+  const m = RESET[opts.mode]
+  const args = (dry) => ({ action: 'reset', mode: opts.mode, ...(opts.templates ? { templates: true } : {}), ...(dry ? { dry_run: true } : {}) })
+  const look = () => { setSeen(key); preview.run('docs', args(true)) }
+  const run = async () => { dialog.current.close(); await go.run('docs', args(false), true); setSeen(''); onChanged() }
+  return (
+    <Card className="dk-run dk-cmd careful">
+      <span className="eyebrow">{t('rs.title')}</span>
+      <p className="small">{t('rs.lead')}</p>
+      <div className="dk-seg" role="radiogroup" aria-label={t('rs.mode')}>
+        {Object.keys(RESET).map((k) => <button key={k} type="button" role="radio" aria-checked={opts.mode === k} className={opts.mode === k ? 'on' : ''}
+          disabled={go.running} onClick={() => setOpts((o) => ({ ...o, mode: k }))}>{t(RESET[k].label)}</button>)}
+      </div>
+      <p className="muted small">{t(m.what)}</p>
+      <label className="dk-check"><input type="checkbox" checked={opts.templates} disabled={go.running}
+        onChange={(e) => setOpts((o) => ({ ...o, templates: e.target.checked }))} />{t('rs.templates')}</label>
+      <div className="row">
+        <Button size="sm" disabled={preview.running || go.running} onClick={look}>{t('rs.preview')}</Button>
+        {steps.length ? <Button size="sm" variant="danger" disabled={go.running} onClick={() => dialog.current.showModal()}>{t(m.go)}</Button> : null}
+      </div>
+      {lines && !go.job ? <pre className="dk-log">{lines.join('\n')}</pre> : <JobOutput c={go.job ? go : preview} />}
+      {go.job?.status === 'done' ? <p className="small" role="status">{t(m.done)}</p> : null}
+      <dialog ref={dialog} className="dk-dialog">
+        <h2>{t(m.ask)}</h2>
+        <p>{t(m.text)}</p>
+        <pre className="dk-log">{steps.join('\n')}</pre>
+        <div className="row">
+          <Button variant="ghost" onClick={() => dialog.current.close()}>{t('cancel')}</Button>
+          <Button variant="danger" onClick={run}>{t(m.go)}</Button>
+        </div>
+      </dialog>
     </Card>
   )
 }

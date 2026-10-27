@@ -39,6 +39,8 @@ COMMANDS: dict[str, dict] = {
              "What a PR leaves out of date, and propose the fix", ai=True),
     "plan": _e("both", "generate", "El plan de trabajo: ver, añadir, reabrir, aprobar",
                "The work plan: show, add, reopen, approve"),
+    "docs": _e("app", "generate", "Rehacer la documentación (reabrir las unidades) o borrarla y empezar de cero",
+               "Redo the docs (reopen the units) or wipe them and start over", destructive=True, reads="dry_run"),
     "runs": _e("both", "generate", "Qué hizo y costó cada ejecución", "What each run did and cost"),
     # analyze: static analysis, no AI
     "arch-draft": _e("app", "analyze", "Borrador C4 desde el código, sin IA", "C4 draft from the code, no AI"),
