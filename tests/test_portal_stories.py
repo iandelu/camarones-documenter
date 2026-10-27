@@ -174,3 +174,204 @@ def test_waves_reports_a_cycle(ops, server):
     cycle(ops)
     code, b = get(server, "/api/kanban/waves")
     assert code == 200 and sorted(b["cycle"]) == ["WI-1", "WI-2"] and "waves" not in b
+
+
+# ── the stories API (spec §8.1) ──────────────────────────────────────────────────────────────────────────────────
+
+SRC = "src/main/java/demo/"
+ORDERS, PAY = f"api:{SRC}Orders.java", f"api:{SRC}Pay.java"
+CLAUSES = {"as": "responsable de pedidos", "want": "cobrar los pedidos con tarjeta", "so": "no perder ventas"}
+K1 = "change:api:orders"
+
+
+@pytest.fixture
+def world(ops, wired):
+    """A board with real files in the `api` repo and a code map with groups; returns the kit."""
+    from test_codemap import write_graph
+    write_graph(wired)
+    for name in ("Orders", "Pay"):
+        f = wired.ws / "api" / SRC / f"{name}.java"
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(f"class {name} {{}}\n", encoding="utf-8")
+    return wired
+
+
+def tree(root):
+    return {p.relative_to(root).as_posix(): p.read_bytes() for p in (root / "backlog").rglob("*") if p.is_file()}
+
+
+def story(**kw):
+    return {"story": {**CLAUSES, "criteria": ["Dado un pedido, cuando pago, entonces veo el recibo"],
+                      "touches": [ORDERS, PAY], **kw}}
+
+
+def one_task(key=K1, touches=(ORDERS,)):
+    return {"key": key, "kind": "change", "title": "Orders: cobrar", "group": "orders", "touches": list(touches),
+            "criteria": [], "deps": [], "conflicts": [], "wave": 0, "edited": True, "added": [], "dropped": []}
+
+
+def post(server, path, body, token=None):
+    return call(server + path, body, token=token)
+
+
+def test_the_list_needs_no_token_and_carries_the_lint_words(world, server):
+    code, b = get(server, "/api/stories")
+    assert code == 200
+    assert b["enabled"] is True and b["writable"] is False and b["stories"] == []
+    assert b["ai"] == {"available": False, "runner": None, "model": None}
+    from lib import stories
+    assert b["lint_words"] == {"es": stories.lint_words("es"), "en": stories.lint_words("en")}
+    assert get(server, "/api/stories", token=PORTAL)[1]["writable"] is True
+
+
+def test_the_list_without_a_board_is_empty(world, server):
+    import shutil
+    shutil.rmtree(world.root / "backlog")
+    code, b = get(server, "/api/stories")
+    assert code == 200 and b["enabled"] is False and b["stories"] == []
+
+
+def test_save_needs_the_token_and_writes_nothing_without_it(world, server):
+    before = tree(world.root)
+    code, b = post(server, "/api/stories/save", {**story(), "tasks": [one_task()]})
+    assert code == 403 and b["token"] is True and "error" in b
+    assert post(server, "/api/stories/save", {**story(), "tasks": []}, token="nope")[0] == 403
+    assert tree(world.root) == before
+
+
+def test_analyze_needs_no_token_and_leaves_the_backlog_alone(world, server):
+    before = tree(world.root)
+    code, b = post(server, "/api/stories/analyze", story())
+    assert code == 200
+    assert set(b) >= {"hints", "invest", "tasks", "waves", "conflicts", "cycle"}
+    assert b["invest"]["verdict"] in ("good", "improve", "poor") and b["tasks"]
+    assert tree(world.root) == before
+
+
+def test_analyze_keeps_the_tasks_a_person_edited(world, server):
+    code, b = post(server, "/api/stories/analyze", {**story(), "tasks": [one_task()], "removed": ["change:api:pay"]})
+    assert code == 200
+    assert K1 in [t["key"] for t in b["tasks"]] and "change:api:pay" not in [t["key"] for t in b["tasks"]]
+
+
+def test_save_with_the_token_writes_the_story_and_its_tasks(world, server):
+    code, b = post(server, "/api/stories/save", {**story(), "tasks": [one_task()], "lang": "es"}, token=PORTAL)
+    assert code == 200
+    assert b["story"]["id"] == "WI-1" and [t["id"] for t in b["tasks"]] == ["WI-2"]
+    files = sorted(p.name for p in (world.root / "backlog" / "tasks").glob("*.md"))
+    assert len(files) == 2 and files[0].startswith("wi-1 - ") and files[1].startswith("wi-2 - ")
+    code, listed = get(server, "/api/stories")
+    assert [s["id"] for s in listed["stories"]] == ["WI-1"] and listed["stories"][0]["progress"] == {"done": 0, "total": 1}
+
+
+def test_save_by_the_app_works_too(world, server, wired, monkeypatch):
+    monkeypatch.setattr(wired.serve, "APP_TOKEN", APP)
+    code, b = post(server, "/api/stories/save", {**story(), "tasks": []}, token=APP)
+    assert code == 200 and b["story"]["id"] == "WI-1"
+
+
+def test_the_story_as_the_page_sends_it_also_takes_as_underscore(world, server):
+    body = story()
+    body["story"]["as_"] = body["story"].pop("as")
+    assert post(server, "/api/stories/analyze", body)[0] == 200
+
+
+def test_item_returns_the_story_with_its_fingerprint(world, server):
+    post(server, "/api/stories/save", {**story(), "tasks": [one_task()]}, token=PORTAL)
+    code, b = get(server, "/api/stories/item?id=WI-1")
+    assert code == 200 and b["id"] == "WI-1" and b["want"] == CLAUSES["want"] and b["sha"]
+    assert [s["id"] for s in b["subtasks"]] == ["WI-2"]
+
+
+def test_an_unknown_item_is_a_404(world, server):
+    code, b = get(server, "/api/stories/item?id=WI-99")
+    assert code == 404 and "WI-99" in b["error"]
+    assert get(server, "/api/stories/item")[0] == 404
+
+
+def test_a_stale_base_sha_is_a_409(world, server):
+    post(server, "/api/stories/save", {**story(), "tasks": []}, token=PORTAL)
+    sha = get(server, "/api/stories/item?id=WI-1")[1]["sha"]
+    edited = story(id="WI-1", want="cobrar los pedidos con bizum")
+    assert post(server, "/api/stories/save", {**edited, "tasks": [], "base_sha": sha}, token=PORTAL)[0] == 200
+    before = tree(world.root)
+    stale = story(id="WI-1", want="cobrar los pedidos a plazos")
+    code, b = post(server, "/api/stories/save", {**stale, "tasks": [], "base_sha": sha}, token=PORTAL)
+    assert code == 409 and b["id"] == "WI-1" and "WI-1" in b["error"]
+    assert tree(world.root) == before
+
+
+@pytest.mark.parametrize("path", ["/api/stories/analyze", "/api/stories/save"])
+@pytest.mark.parametrize("bad", [{"want": ""}, {"want": "   "}, {"want": None}, {"want": 3}])
+def test_a_story_without_a_want_is_a_400(world, server, path, bad):
+    s = story()
+    s["story"].update(bad)
+    s["tasks"] = []
+    code, b = post(server, path, s, token=PORTAL)
+    assert code == 400 and "want" in b["error"]
+
+
+def test_bad_bodies_are_400s(world, server):
+    for body in ({}, {"story": "text"}, {"story": ["x"]}, {**story(), "tasks": "no"}, {**story(), "tasks": ["x"]},
+                 {**story(), "removed": "no"}, story(touches="api:x"), {**story(), "lang": 4}):
+        assert post(server, "/api/stories/analyze", body)[0] == 400, body
+    assert post(server, "/api/stories/save", {**story(), "tasks": [], "docs": "no"}, token=PORTAL)[0] == 400
+    assert post(server, "/api/stories/save", {**story(), "tasks": [], "base_sha": 4}, token=PORTAL)[0] == 400
+
+
+def test_other_board_errors_on_save_are_400s_and_write_nothing(world, server):
+    before = tree(world.root)
+    bad = story(touches=["api:src/nope/Missing.java"])
+    code, b = post(server, "/api/stories/save", {**bad, "tasks": []}, token=PORTAL)
+    assert code == 400 and "error" in b
+    assert post(server, "/api/stories/save", {**story(priority="P9"), "tasks": []}, token=PORTAL)[0] == 400
+    assert tree(world.root) == before
+
+
+def test_a_group_touch_in_analyze_is_a_400(world, server):
+    code, b = post(server, "/api/stories/analyze", story(touches=[ORDERS, "api:core/payments"]))
+    assert code == 400 and "api:core/payments" in b["error"] and "files" in b["error"]
+    code, b = post(server, "/api/stories/analyze", {**story(), "tasks": [one_task(touches=["api:web/web"])]})
+    assert code == 400 and "api:web/web" in b["error"]
+    # a real file is fine, and so is one that does not exist yet
+    assert post(server, "/api/stories/analyze", story(touches=[ORDERS, f"api:{SRC}New.java"]))[0] == 200
+
+
+def test_the_files_search_returns_groups_with_their_files(world, server):
+    code, hits = get(server, "/api/stories/files?q=payment")
+    assert code == 200
+    file_hit = next(h for h in hits if h["kind"] == "file" and h["touch"].endswith("PaymentClient.java"))
+    assert "files" not in file_hit
+    group = next(h for h in hits if h["kind"] == "group" and h["touch"] == "api:core/payments")
+    assert group["files"] == ["api:api-core/src/main/java/demo/shop/payments/PaymentClient.java"]
+
+
+def test_the_files_search_limit_is_clamped_and_an_empty_query_is_empty(world, server):
+    assert get(server, "/api/stories/files")[1] == [] and get(server, "/api/stories/files?q=%20")[1] == []
+    assert len(get(server, "/api/stories/files?q=a&limit=1")[1]) == 1
+    assert len(get(server, "/api/stories/files?q=a&limit=0")[1]) == 1              # clamped up to 1
+    assert len(get(server, "/api/stories/files?q=a&limit=9999")[1]) <= 50
+    assert get(server, "/api/stories/files?q=a&limit=many")[0] == 400
+
+
+def test_lint_returns_what_stories_lint_returns(world, server):
+    from lib import stories
+    body = {"as": "usuario", "want": "un botón para exportar", "so": "exportar", "touches": [], "lang": "es"}
+    code, b = post(server, "/api/stories/lint", body)
+    want = stories.lint("usuario", "un botón para exportar", "exportar", "es", touches=[])
+    assert code == 200 and b == {"hints": want} and want
+    empty = post(server, "/api/stories/lint", {"as": "", "want": "", "so": "", "lang": "en"})[1]["hints"]
+    assert [h["code"] for h in empty] == [h["code"] for h in stories.lint("", "", "", "en")]
+    assert post(server, "/api/stories/lint", {"want": 3})[0] == 400
+
+
+def test_lint_defaults_to_the_project_language(world, server):
+    from lib import stories
+    from lib.kanban import ops as board
+    code, b = post(server, "/api/stories/lint", {"as": "usuario", "want": "un botón", "so": "x"})
+    assert code == 200 and b == {"hints": stories.lint("usuario", "un botón", "x", board.docs_lang(), touches=[])}
+
+
+def test_suggest_is_not_here_yet(world, server):
+    assert post(server, "/api/stories/suggest", story(), token=PORTAL)[0] == 404
+    assert post(server, "/api/stories/nope", story(), token=PORTAL)[0] == 404
