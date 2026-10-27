@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, test } from 'vitest'
-import { Failed } from './parts.jsx'
+import { Failed, Page } from './parts.jsx'
 import { setLang } from './i18n.js'
 
 // A read that failed says what, shows the server's own message and offers to try again: never a dead end.
@@ -14,4 +14,9 @@ test('a failed read is an alert with the server message and a retry', () => {
 
 test('without a retry, no button', () => {
   expect(renderToStaticMarkup(<Failed title="x" detail="y" />)).not.toContain('<button')
+})
+
+test('a full page says so in its class; a plain one does not', () => {
+  expect(renderToStaticMarkup(<Page title="Tablero" full />)).toMatch(/^<div class="dk-page full">/)
+  expect(renderToStaticMarkup(<Page title="Plan" />)).toMatch(/^<div class="dk-page">/)
 })
