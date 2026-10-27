@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Button } from '@camaron/ui'
-import { TOURS, holes, place, tourKey } from './tour.js'
+import { TOURS, holes, place, tourAction } from './tour.js'
 import { sectionOf } from './nav.js'
+import { typing } from './palette.js'
 import { t } from './i18n.js'
 
 // The guided tour over the app's real controls: one overlay for the window, started from the Guide, Machine, the
@@ -61,10 +62,14 @@ function TourLayer({ state, setState }) {
     const settle = found ? setTimeout(redraw, reduced() ? 0 : 350) : null   // after a smooth scroll into view
     return () => { removeEventListener('resize', redraw); removeEventListener('scroll', redraw, true); clearTimeout(settle) }
   }, [found])
-  useEffect(() => {                                       // the tour's keys win over the app's shortcuts while it is open
+  useEffect(() => {                                       // the tour's keys, on the bubble only; the page keeps its own
     const on = (e) => {
-      if (e.key === 'Tab') { trap(e, bubble.current); return }
-      const k = tourKey(e.key)
+      const b = bubble.current
+      const at = e.target
+      const inBubble = !!b && at !== b && b.contains(at)
+      const onBubble = at === b || !at || at === document.body
+      if (e.key === 'Tab' && (inBubble || onBubble)) { trap(e, b); return }
+      const k = tourAction(e.key, { typing: typing(at), inBubble, onBubble })
       if (!k) return
       e.preventDefault()
       e.stopPropagation()
@@ -72,7 +77,9 @@ function TourLayer({ state, setState }) {
       else go(state.i + (k === 'next' ? 1 : -1))
     }
     addEventListener('keydown', on, true)
-    return () => removeEventListener('keydown', on, true)
+    const away = () => { if (step.section && sectionOf(location.hash, {}) !== step.section) setState(null) }   // left mid-tour (g + a letter)
+    addEventListener('hashchange', away)
+    return () => { removeEventListener('keydown', on, true); removeEventListener('hashchange', away) }
   }, [])
   useLayoutEffect(() => {
     if (!bubble.current) return

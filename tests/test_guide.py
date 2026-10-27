@@ -148,3 +148,34 @@ def test_projects_get_the_spanish_guides_too(kit):
         es.unlink()
     env.init_templates("shop", log=lambda _: None)
     assert es.is_file()
+
+
+
+def post(url, body, token=TOKEN):
+    req = urllib.request.Request(url, data=json.dumps(body).encode(), method="POST",
+                                 headers={"Content-Type": "application/json", "X-Camarones": "1",
+                                          **({"X-Camaron-Token": token} if token else {})})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return r.status, json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        return e.code, json.loads(e.read() or b"{}")
+
+
+def test_the_machine_remembers_the_tour_offer(kit, app):
+    """The app's window changes origin on every launch (a random port): the offer is kept in ~/.camarones.json."""
+    assert call(f"{app}/api/app/info")[1]["tour_offered"] is False
+    assert post(f"{app}/api/app/tour-offered", {}, token=None)[0] == 403
+    assert post(f"{app}/api/app/tour-offered", {})[0] == 200
+    assert call(f"{app}/api/app/info")[1]["tour_offered"] is True
+    assert json.loads(kit.common.PREFS.read_text(encoding="utf-8"))["tour_offered"] is True
+
+
+def test_the_server_keeps_its_tokens_out_of_what_it_starts(kit, monkeypatch):
+    """Commands, runs and agents the server starts inherit its environment: the tokens leave it once read."""
+    import os
+    monkeypatch.setenv("CAMARONES_APP_TOKEN", "app-secret")
+    monkeypatch.setenv("CAMARONES_PORTAL_TOKEN", "portal-secret")
+    kit.serve.take_tokens()
+    assert (kit.serve.APP_TOKEN, kit.serve.PORTAL_TOKEN) == ("app-secret", "portal-secret")
+    assert "CAMARONES_APP_TOKEN" not in os.environ and "CAMARONES_PORTAL_TOKEN" not in os.environ

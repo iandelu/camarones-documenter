@@ -1229,6 +1229,10 @@ class Handler(BaseHTTPRequestHandler):
                     return self.json({"error": str(e), "confirm": True}, 409)
                 except KeyError as e:
                     return self.json({"error": f"unknown command {e}"}, 404)
+            if p == "/api/app/tour-offered":            # the Summary's offer of the tour, once per machine (not per window origin)
+                from .common import PREFS, load_json, save_json
+                save_json(PREFS, {**load_json(PREFS, {}), "tour_offered": True})
+                return self.json({"ok": True})
             if p == "/api/app/doctor":                  # check again: a job that keeps its result (lib/doctor.check)
                 from . import doctor
                 return self.json(start_job("doctor", "doctor", lambda log: bool(doctor.check(log))))
@@ -1324,11 +1328,17 @@ class Handler(BaseHTTPRequestHandler):
             self.json({"error": f"{type(e).__name__}: {e}"}, 500)
 
 
+def take_tokens() -> None:
+    """Read this server's tokens and take them out of the environment, so no command, run or agent it starts inherits them."""
+    global APP_TOKEN, PORTAL_TOKEN
+    APP_TOKEN = os.environ.pop("CAMARONES_APP_TOKEN", "")
+    PORTAL_TOKEN = os.environ.pop("CAMARONES_PORTAL_TOKEN", "")
+
+
 def run_server(port: int = 8080, static: bool = False) -> None:
-    global STATIC, APP_TOKEN, PORTAL_TOKEN
+    global STATIC
     STATIC = static
-    APP_TOKEN = os.environ.get("CAMARONES_APP_TOKEN", "")
-    PORTAL_TOKEN = os.environ.get("CAMARONES_PORTAL_TOKEN", "")
+    take_tokens()
     if static and not (SITE / "index.html").exists():
         raise RuntimeError("the portal is not exported yet — run `camaron portal` first")
     httpd = ThreadingHTTPServer(("127.0.0.1", port), Handler)

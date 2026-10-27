@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { holes, markSeen, place, seen, tourIds, tourKey, TOURS } from './tour.js'
+import { holes, place, tourAction, tourIds, TOURS } from './tour.js'
 import { S } from './i18n.js'
 
 test('a tour of the whole app and one per section, each with something to show', () => {
@@ -55,18 +55,21 @@ test('the dim is four bands around the padded target', () => {
   expect(bands.every((b) => b.width >= 0 && b.height >= 0)).toBe(true)
 })
 
-test('keys: arrows and Enter move, Escape closes, the rest is ignored', () => {
-  expect(['ArrowRight', 'Enter', 'ArrowLeft', 'Escape', 'a'].map(tourKey)).toEqual(['next', 'next', 'back', 'close', null])
+test('on the bubble, arrows and Enter move and Escape closes', () => {
+  const on = { onBubble: true }
+  expect(['ArrowRight', 'Enter', 'ArrowLeft', 'Escape', 'a'].map((k) => tourAction(k, on))).toEqual(['next', 'next', 'back', 'close', null])
 })
 
-test('the one-time offer is remembered, and a storage that throws never breaks it', () => {
-  const box = {}
-  const store = { getItem: (k) => box[k] ?? null, setItem: (k, v) => { box[k] = v } }
-  expect(seen(store)).toBe(false)
-  markSeen(store)
-  expect(seen(store)).toBe(true)
-  const broken = { getItem: () => { throw new Error('denied') }, setItem: () => { throw new Error('denied') } }
-  expect(seen(broken)).toBe(false)
-  expect(() => markSeen(broken)).not.toThrow()
-  expect(seen(undefined)).toBe(false)
+test('a focused button in the bubble presses itself with Enter; arrows still move the tour', () => {
+  const inside = { inBubble: true }
+  expect(tourAction('Enter', inside)).toBeNull()
+  expect(tourAction('ArrowRight', inside)).toBe('next')
+  expect(tourAction('Escape', inside)).toBe('close')
+})
+
+test('keys meant for the page stay with it: a field, a dialog such as the palette, the control in the hole', () => {
+  for (const k of ['Enter', 'Escape', 'ArrowLeft', 'ArrowRight']) {
+    expect(tourAction(k, { typing: true, onBubble: true }), k).toBeNull()
+    expect(tourAction(k, {}), k).toBeNull()
+  }
 })
