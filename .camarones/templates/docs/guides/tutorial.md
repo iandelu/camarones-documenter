@@ -544,7 +544,10 @@ stored in `~/.camarones/ab-samples/`, never in the repo) and `ab --replay` runs 
 `agentic-heavy` (long units), `bounded` (translations, summaries) and `judge` (eval scoring). `runner:model` also picks
 the model. The team sets it in `.camarones/workspace.yaml` (`agents: routing:`); `~/.camarones.json` (`routing`) wins on
 this machine. Local models go only through OpenCode (`opencode:ollama/qwen3-coder:30b`) and never do `agentic-heavy`
-work. `autopilot` and `run` read it unit by unit. Each run is logged in `.camarones/.cache/runs/` (`camaron runs`).
+work. `autopilot` and `run` read it unit by unit, and so do the sessions you open yourself (the wizard's next unit, a
+unit's button in the app): with the agent you pick, the model `pipeline.yaml` sets for that unit, else its kind of work's
+(the docs update is `agentic-heavy`); with none for that agent, the one in Settings. Each run is logged in
+`.camarones/.cache/runs/` (`camaron runs`).
 
 ## 10. Troubleshooting
 
