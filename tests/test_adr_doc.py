@@ -249,6 +249,14 @@ def test_a_new_adr_renders_the_template(adr_doc, kit):
     assert "description" in fm and 40 <= len(fm["description"]) <= 300
 
 
+def test_more_evidence_rows_follow_the_touches_and_add_no_source(adr_doc, kit):
+    fields = {"title": "T", "touches": ["api:a.java"], "evidence": [("Documented in Orders", "`docs/orders.md`")]}
+    fm, body = kit.docs.split_fm(adr_doc.render_new(fields, "0001"))
+    assert adr_doc.section(body, "evidence") == ("| Claim | Evidence |\n|---|---|\n| Named when the decision was framed | `api:a.java` |"
+                                                 "\n| Documented in Orders | `docs/orders.md` |")
+    assert fm["x-sources"] == ["api:a.java"]
+
+
 def test_a_new_adr_tags_the_repos_it_touches_once_each(adr_doc, kit):
     fields = {"title": "T", "touches": ["web:a.ts", "api:b.java", "api:c.java", "cam-docs:docs/x.md", "api:b.java"]}
     fm, _ = kit.docs.split_fm(adr_doc.render_new(fields, "0001"))

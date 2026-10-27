@@ -249,7 +249,8 @@ def _source(touch: str) -> str:
 
 def render_new(fields: dict, number: str) -> str:
     """The full proposed file: Status `Proposed`, `x-owner: ai`, the person's framing and an empty decision. What the
-    person did not give is a `TODO(question)`, never an invented fact. The proposal carries no date: accepting writes it."""
+    person did not give is a `TODO(question)`, never an invented fact. The proposal carries no date: accepting writes it.
+    `fields["evidence"]` are more (claim, evidence) rows, after the touches'; they add no source."""
     title = " ".join(str(fields.get("title") or "").split())
     touches = list(dict.fromkeys(_texts(fields.get("touches"))))
     drivers, constraints, options = (_texts(fields.get(k)) for k in ("drivers", "constraints", "options_hint"))
@@ -268,7 +269,7 @@ def render_new(fields: dict, number: str) -> str:
                           or "TODO(question): which options were considered?"),
               ("decision", PLACEHOLDER),
               ("consequences", "TODO(question): what gets easier and what gets harder?"),
-              ("evidence", evidence_table([(_CLAIM, f"`{t}`") for t in touches]))]
+              ("evidence", evidence_table([(_CLAIM, f"`{t}`") for t in touches] + list(fields.get("evidence") or [])))]
     tldr = f"Decision record for {title}: problem, options, outcome and evidence. Check the status first."
     body = f"# {number} — {title}\n\n> **TL;DR:** {tldr}\n\n" + "\n\n".join(
         f"## {HEADINGS[key]}\n\n{text}" for key, text in parts) + "\n"
