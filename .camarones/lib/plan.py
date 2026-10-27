@@ -25,7 +25,7 @@ from .common import CTX, KIT, PREFS, ROOT, load_json, WORK, CAM_LAYOUT, CAM_DIR,
 from . import docs
 from .adapters import runners
 from .adapters.runners.base import LIMIT_HINTS  # noqa: F401  (kept for callers)
-from .harness import awake, drafts, freshness, kpis, pipeline, routing
+from .harness import awake, drafts, freshness, kpis, ledger, pipeline, routing
 from .harness.events import EventLog
 from .harness.locks import FileLock
 from .harness.ports import RunRequest
@@ -357,6 +357,7 @@ def set_status(uid: str, status: str, note: str | None = None, record: bool = Tr
             freshness.stamp_all()             # the pages it wrote reflect today's code
         except Exception:  # noqa: BLE001 — a measurement must never fail closing a unit
             pass
+        ledger.harvest([uid])                 # its interactive sessions reach the same docs commit
     if record and status in ("done", "blocked", "dropped"):
         WORK.mkdir(parents=True, exist_ok=True)
         with LOG.open("a", encoding="utf-8") as fh:
@@ -859,9 +860,11 @@ def _recorded_autopilot(agents, lang, max_units, poll_seconds, include_interview
         except BaseException:                  # Ctrl+C or a crash: the log must still say the run ended
             _emit("run.finished", interrupted=True)
             kpis.record_run(run_id)
+            ledger.harvest()
             raise
         _emit("run.finished", done=done)
     kpis.record_run(run_id)
+    ledger.harvest()
     return done
 
 

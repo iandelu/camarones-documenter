@@ -40,7 +40,8 @@ def test_run_documents_units_in_parallel_and_runs_reports_it(wired, fake_agent):
     assert run["units"] == 3 and run["done"] == 3 and run["finished"] and not run["interrupted"]
     detail = json.loads(cli(wired, "runs", run["run"], "--json").stdout)
     assert set(detail["units"][0]) == {"unit", "runner", "isolation", "outcome", "status", "seconds", "merge",
-                                       "tokens_in", "tokens_cache", "tokens_out", "cost_usd"}
+                                       "tokens_in", "tokens_cache", "tokens_out", "cost_usd", "cache_read",
+                                       "cache_write", "model", "cost_reported"}
     assert {u["merge"] for u in detail["units"]} == {"merged"}
     text = cli(wired, "runs").stdout
     assert run["run"] in text and "3/3" in text

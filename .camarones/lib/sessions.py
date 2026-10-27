@@ -43,8 +43,15 @@ def _save(uid: str, rec: dict) -> Path:
 
 
 def start(uid: str, agent: str, session: str | None) -> Path:
-    """A fresh record for a window about to open; the wrapper fills in its pid."""
-    return _save(uid, {"unit": uid, "agent": agent, "session": session, "launched": time.time()})
+    """A fresh record for a window about to open; the wrapper fills in its pid. A Claude conversation it replaces is
+    kept in `previous`, so the plan bill still counts it."""
+    old = load(uid) or {}
+    previous = [s for s in old.get("previous") or [] if s]
+    if old.get("agent") == "claude" and old.get("session") and old["session"] != session \
+            and old["session"] not in previous:
+        previous.append(old["session"])
+    return _save(uid, {"unit": uid, "agent": agent, "session": session, "launched": time.time(),
+                       **({"previous": previous} if previous else {})})
 
 
 def update(uid: str, **fields) -> None:
