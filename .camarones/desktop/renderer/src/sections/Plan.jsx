@@ -44,7 +44,7 @@ export default function Plan({ srv, jobs }) {
     <Page title={t('nav.plan')} wide>
       <Run srv={srv} jobs={jobs} run={data.run} pilot={pilot} onChanged={load} ready={ready} />
       <Update srv={srv} a={a} />
-      <div className="row dk-units-head">
+      <div className="row dk-units-head" data-tour="plan-units">
         <b>{t('plan.progress', { done, total: live.length })}</b>
         <progress className="dk-progress dk-grow" value={done} max={live.length || 1} aria-label={t('stat.plan')} />
         <div className="dk-seg" role="tablist" aria-label={t('plan.view')}>
@@ -75,7 +75,7 @@ export default function Plan({ srv, jobs }) {
         )}
         {unit ? <Detail u={unit} all={data.units} srv={srv} a={a} plan={data} onClose={() => setOpen(null)} onChanged={load} /> : null}
       </div>
-      <Cost srv={srv} active={active} />
+      <div data-tour="plan-cost"><Cost srv={srv} active={active} /></div>
       <Commands srv={srv} jobs={jobs} section="plan" />
       <Reset srv={srv} jobs={jobs} onChanged={load} />
     </Page>
@@ -155,7 +155,7 @@ function Run({ srv, jobs, run, pilot, onChanged, ready }) {
   }
   const live = run && !run.finished
   return (
-    <Card className="dk-run">
+    <Card className="dk-run" data-tour="plan-run">
       <span className="eyebrow">{t('plan.run')}</span>
       {pilot ? (
         <div className="row"><span role="status">{t('plan.pilotOn')}</span>
@@ -226,7 +226,7 @@ function Update({ srv, a }) {
     } catch (e) { setNote({ ok: '', error: e.message }) }
   }
   return (
-    <Card className="dk-run">
+    <Card className="dk-run" data-tour="plan-keep">
       <span className="eyebrow">{t('plan.keep')}</span>
       <div className="row"><span>{t('plan.update')}</span><span className="dk-grow"></span>
         <Button size="sm" disabled={!a.agent} onClick={open}>{t('next.start', { agent: a.label(a.agent) })}</Button></div>
@@ -256,7 +256,7 @@ export function Reset({ srv, jobs, onChanged }) {
   const look = () => { setSeen(key); preview.run('docs', args(true)) }
   const run = async () => { dialog.current.close(); await go.run('docs', args(false), true); setSeen(''); onChanged() }
   return (
-    <Card className="dk-run dk-cmd careful">
+    <Card className="dk-run dk-cmd careful" data-tour="plan-reset">
       <span className="eyebrow">{t('rs.title')}</span>
       <p className="small">{t('rs.lead')}</p>
       <div className="dk-seg" role="radiogroup" aria-label={t('rs.mode')}>

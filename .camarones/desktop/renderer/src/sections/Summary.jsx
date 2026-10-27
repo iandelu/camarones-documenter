@@ -5,6 +5,7 @@ import { openedWith } from '../plan.js'
 import { useAgents, useStore } from '../hooks.js'
 import { firstRunPending } from '../nav.js'
 import { AgentPicker, Failed, Page } from '../parts.jsx'
+import { useTour } from '../Tour.jsx'
 import { lang, t } from '../i18n.js'
 
 // The project's Summary: one next step (lib/plan.next_step, the wizard's own rule) with the one button that takes
@@ -48,8 +49,8 @@ export default function Summary({ srv, jobs }) {
     ? (step.count === 1 ? t('next.reviewTitle1') : t('next.reviewTitle', { n: step.count })) : t('next.doneTitle')
   return (
     <Page title={title}>
-      {firstRun ? <FirstRunNotice /> : null}
-      <Card className="dk-next">
+      {firstRun ? <FirstRunNotice /> : <TourOffer srv={srv} />}
+      <Card className="dk-next" data-tour="summary-next">
         <span className="eyebrow">{t(step.kind === 'resume' ? 'next.eyebrowResume' : 'next.eyebrow')}</span>
         <h2 className="dk-next-title">{heading}</h2>
         {step.unit && <code className="muted small">{step.unit.id}</code>}
@@ -67,13 +68,13 @@ export default function Summary({ srv, jobs }) {
         {launch.note && <p className="muted small" role="status">{launch.note}</p>}
         {launch.error && <Aviso tone="error" title={t('next.failed')} detail={launch.error} />}
       </Card>
-      {doc ? (
+      {doc ? (<div data-tour="summary-doctor">
         <Aviso tone="warn" title={t('sum.doctor')}>
           <span className="row"><span className="small">{[doc.names.join(', '), doc.drift ? t('sum.drift', { n: doc.drift }) : ''].filter(Boolean).join(' · ')}</span>
             <Button size="sm" href="#/quality">{t('sum.doctorGo')}</Button></span>
-        </Aviso>
+        </Aviso></div>
       ) : null}
-      <div className="dk-stats">
+      <div className="dk-stats" data-tour="summary-stats">
         <Card className="dk-stat">
           <span className="eyebrow">{t('stat.plan')}</span>
           <b className="t-impact dk-stat-n">{plan.done}/{plan.total}</b>
@@ -95,4 +96,19 @@ export default function Summary({ srv, jobs }) {
 // The way back to the first-run wizard, for whoever left it for another section before finishing.
 export function FirstRunNotice() {
   return <Aviso tone="info" title={t('sum.firstRun')} action={<Button size="sm" href="#/start">{t('sum.firstRunGo')}</Button>} />
+}
+
+// Once per machine, after the first run: the tour of the app, or not now. Either button keeps it away. The machine keeps
+// the flag (app/info tour_offered): the window's origin, and so its storage, changes with every launch.
+export function TourOffer({ srv, offered: known }) {
+  const tour = useTour()
+  const [offered, setOffered] = useState(known ?? null)
+  useEffect(() => { if (known === undefined) srv.get('app/info').then((i) => setOffered(!!i.tour_offered), () => setOffered(true)) }, [])
+  if (offered !== false) return null
+  const done = () => { setOffered(true); srv.post('app/tour-offered', {}).catch(() => {}) }
+  return (
+    <Aviso tone="info" title={t('tour.offer')} action={<span className="row">
+      <Button size="sm" variant="primary" onClick={() => { done(); tour.start('app') }}>{t('tour.take')}</Button>
+      <Button size="sm" variant="ghost" onClick={done}>{t('tour.notNow')}</Button></span>} />
+  )
 }
