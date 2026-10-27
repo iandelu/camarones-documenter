@@ -806,7 +806,8 @@ def _run_agent(agent: str, text: str, lang: str, uid: str, echo=print, *, prompt
         for line in p.stdout:
             events = runner.parse(line.rstrip("\n"))
             for ev in events:
-                emit(ev["type"], unit=uid, runner=agent, **{k: v for k, v in ev.items() if k != "type"})
+                extra = {"model": model} if ev["type"] == "usage" and model else {}
+                emit(ev["type"], unit=uid, runner=agent, **extra, **{k: v for k, v in ev.items() if k != "type"})
             shown, err = _show(events)
             for s in shown:
                 echo(f"  {s}")

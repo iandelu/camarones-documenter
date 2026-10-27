@@ -147,7 +147,7 @@ def headless() -> set[str]:
     """Units the latest parallel run is running right now: doing, but with no window of their own. Only while a run
     holds the run lock: one killed before it logged run.finished works on nothing."""
     from .harness import runs, scheduler
-    latest = runs.ids()
+    latest = runs.ids(wiki=False)
     if not latest or not scheduler.busy():
         return set()
     evs = runs.events(latest[0])

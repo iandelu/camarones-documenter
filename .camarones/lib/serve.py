@@ -355,7 +355,7 @@ def api_pipeline(lang: str = "") -> dict:
                       "tier": n.get("tier") or t.get("tier", "agentic-heavy"), "agent": n.get("runner"),
                       "approval": bool(n.get("approval")), "awaiting": plan.awaiting(u), "ready": u["id"] in ready,
                       **sessions.board(u, busy)})
-    latest = runs.ids()
+    latest = runs.ids(wiki=False)
     return {"units": units, "run": runs.summary(latest[0]) if latest else None,
             "interviews": docs.interview_mode() if docs.interview_mode_chosen() else None}
 

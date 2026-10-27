@@ -6,14 +6,34 @@ from __future__ import annotations
 import json
 import os
 from datetime import date  # noqa: F401  (re-exported for callers and tests)
+from typing import Callable
 
 from ..common import CACHE, WORK, load_json
 from . import runs
+from .locks import FileLock
 
 DIR = WORK / "kpis"
+LOCK = CACHE / "locks" / "kpis.lock"
 KEEP = 500                     # runs kept per machine file
 NUMERIC = ("units", "done", "limited", "failed", "seconds", "tokens_in", "tokens_cache", "tokens_out", "cost_usd", "parallelism",
            "cost_per_unit", "seconds_per_unit")
+
+
+def _by_unit(rows: list[dict]) -> dict[str, dict]:
+    """One entry per unit, its attempts added up; cost_usd only what the agent reported (None when it reported none)."""
+    out: dict[str, dict] = {}
+    for r in rows:
+        u = out.setdefault(r["unit"], {"in": 0, "out": 0, "cache_read": 0, "cache_write": 0, "cost_usd": None,
+                                       "seconds": 0.0, "runner": None, "model": None})
+        u["in"] += r["tokens_in"]
+        u["out"] += r["tokens_out"]
+        u["cache_read"] += r["cache_read"]
+        u["cache_write"] += r["cache_write"]
+        u["seconds"] = round(u["seconds"] + (r["seconds"] or 0), 1)
+        u["runner"], u["model"] = r["runner"], r["model"]
+        if r["cost_reported"]:
+            u["cost_usd"] = round((u["cost_usd"] or 0) + r["cost_usd"], 6)
+    return out
 
 
 def run_metrics(run_id: str) -> dict:
@@ -23,6 +43,7 @@ def run_metrics(run_id: str) -> dict:
     s["parallelism"] = round(busy / s["seconds"], 2) if s["seconds"] else 0.0
     s["cost_per_unit"] = round(s["cost_usd"] / s["done"], 4) if s["done"] else None
     s["seconds_per_unit"] = round(s["seconds"] / s["done"], 1) if s["done"] else None
+    s["by_unit"] = _by_unit(d["units"])
     return s
 
 
@@ -33,23 +54,43 @@ def compare(a: str, b: str) -> dict:
     return {"a": ma, "b": mb, "delta": delta}
 
 
-def record_run(run_id: str) -> None:
-    """Add one run to this machine's roll-up (idempotent). Follows the usage-stats switch; never breaks a run."""
+def update_rollup(change: Callable[[dict], None]) -> bool:
+    """Edit this machine's roll-up in place under the lock; written only when it changed (looking never dirties
+    cam-docs) and only while usage stats are on. True when it wrote."""
     from .. import usage
-    try:
-        if not usage.enabled():
-            return
-        f = DIR / f"{usage.me()}.json"
+    if not usage.enabled():
+        return False
+    f = DIR / f"{usage.me()}.json"
+    with FileLock(LOCK):
+        try:
+            before = f.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            before = ""
         data = load_json(f, {})
-        kept = data.get("runs") if isinstance(data.get("runs"), dict) else {}
-        kept[run_id] = run_metrics(run_id)
-        kept = dict(sorted(kept.items())[-KEEP:])
+        data = data if isinstance(data, dict) else {}
+        change(data)
+        data["v"] = 1
+        text = json.dumps(data, indent=1, sort_keys=True, ensure_ascii=False) + "\n"
+        if text == before:
+            return False
         DIR.mkdir(parents=True, exist_ok=True)
         tmp = CACHE / f"kpis-{os.getpid()}.tmp"
         tmp.parent.mkdir(parents=True, exist_ok=True)
-        tmp.write_text(json.dumps({"v": 1, "runs": kept}, indent=1, sort_keys=True, ensure_ascii=False) + "\n",
-                       encoding="utf-8", newline="\n")
+        tmp.write_text(text, encoding="utf-8", newline="\n")
         os.replace(tmp, f)
+        return True
+
+
+def record_run(run_id: str) -> None:
+    """Add one run to this machine's roll-up (idempotent). Follows the usage-stats switch; never breaks a run."""
+    try:
+        metrics = run_metrics(run_id)
+
+        def change(data: dict) -> None:
+            kept = data.get("runs") if isinstance(data.get("runs"), dict) else {}
+            kept[run_id] = metrics
+            data["runs"] = dict(sorted(kept.items())[-KEEP:])
+        update_rollup(change)
     except Exception:  # noqa: BLE001 — stats must never fail a documentation run
         pass
 
