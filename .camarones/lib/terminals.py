@@ -6,7 +6,9 @@ ends them (`shutdown`).
 A reader thread per terminal keeps what the program printed twice: in memory, a ring of the last RING bytes that a
 client (re)connecting replays from its offset; on disk, `<cache>/terminals/<id>.log`, cut to its last LOG_MAX, to read
 after the server is gone. `<id>.json` beside it holds who, where, the size, when it started and ended and its code; a
-new server numbers its terminals after those files, so it never overwrites an earlier log.
+new server numbers its terminals after those files, so it never overwrites an earlier log, and its first terminal
+leaves only the newest KEEP of them. At most MAX_LIVE run at once. A unit's terminal runs its agent inside
+session_run.py, like a window: when the terminal ends, so does its session record, if the wrapper could not say so.
 
 On POSIX, Popen gives the program no controlling terminal, and without one a resize sends no SIGWINCH and Ctrl+C no
 SIGINT: a stdlib one-liner (CTTY) makes the PTY the program's own and execs it, same pid (preexec_fn is not safe in a
@@ -16,6 +18,7 @@ from __future__ import annotations
 import functools, os, re, select, signal, struct, subprocess, sys, threading, time
 from pathlib import Path
 
+from . import sessions
 from .common import CACHE, IS_WIN, kill_tree, save_json
 
 MAX_LIVE = 8                    # live terminals per project server
@@ -40,6 +43,10 @@ class Ended(RuntimeError):
     """Input to a terminal whose program ended."""
 
 
+class Limit(RuntimeError):
+    """MAX_LIVE terminals are live already."""
+
+
 class _Term:
     def __init__(self, meta: dict, proc, fd: int | None):
         self.meta, self.proc, self.fd = meta, proc, fd
@@ -53,7 +60,8 @@ class _Term:
 _lock = threading.Condition(threading.Lock())  # _terms, every terminal's meta, ring and `over`, and _gen
 _gen = 0                                        # bumped on output, an end, a new or forgotten terminal
 _terms: dict[str, _Term] = {}                   # this server's terminals, in start order
-_spawning = threading.Lock()                    # one id handed out at a time
+_spawning = threading.Lock()                    # one id handed out at a time, and _pruned
+_pruned = False                                 # DIR pruned, by this server's first terminal
 _hung: set[int] = set()                         # groups Close hung up whose SIGKILL is still due (POSIX)
 
 
@@ -122,12 +130,29 @@ def _start(argv: list[str], cwd: Path, env: dict, cols: int, rows: int):
     return proc, master
 
 
+def room() -> None:
+    """Raises Limit while MAX_LIVE terminals are live: a closed one counts until its program is gone."""
+    with _lock:
+        live = sum(t.meta["ended"] is None for t in _terms.values())
+    if live >= MAX_LIVE:
+        raise Limit(f"{MAX_LIVE} terminals are open: close one first")
+
+
+def find(kind: str, unit: str | None = None) -> dict | None:
+    """The live terminal of that kind and unit."""
+    with _lock:
+        return next((dict(t.meta) for t in _terms.values() if t.meta["ended"] is None and t.meta["kind"] == kind
+                     and t.meta["unit"] == unit), None)
+
+
 def spawn(argv: list[str], cwd: Path, *, kind: str, agent: str, unit: str | None = None, session: str | None = None,
           cols: int = 80, rows: int = 24, env: dict | None = None) -> dict:
-    """Starts `argv` on a new terminal; its metadata, also written to DIR/<id>.json."""
-    cols, rows = _size(cols, rows)
-    env = {**os.environ, **(env or {}), "TERM": "xterm-256color", "COLORTERM": "truecolor"}
-    with _spawning:
+    """Starts `argv` on a new terminal; its metadata, also written to DIR/<id>.json. Limit when there is no room."""
+    global _pruned
+    with _spawning:                             # room and the new terminal at once: two spawns cannot both take the last
+        room()
+        cols, rows = _size(cols, rows)
+        env = {**os.environ, **(env or {}), "TERM": "xterm-256color", "COLORTERM": "truecolor"}
         tid = _new_id(unit or kind)
         proc, fd = _start(argv, Path(cwd), env, cols, rows)
         t = _Term({"id": tid, "kind": kind, "unit": unit, "agent": agent, "session": session, "pid": proc.pid,
@@ -136,9 +161,32 @@ def spawn(argv: list[str], cwd: Path, *, kind: str, agent: str, unit: str | None
         with _lock:
             _terms[tid] = t
             _bump()
+        first, _pruned = not _pruned, True
     _save(t)                                    # before the reader: it makes DIR, where the log goes
     threading.Thread(target=_pump, args=(t,), daemon=True, name=f"pty {tid}").start()
+    if first:
+        _prune()
     return _meta(t)
+
+
+def _prune() -> None:
+    """DIR keeps the newest KEEP .json files (by mtime), their .logs, and those of every terminal this server holds.
+    After its id is taken: the first terminal is still numbered after every earlier file."""
+    with _lock:
+        keep = set(_terms)
+    dated = []
+    for f in DIR.glob("*.json"):
+        try:
+            dated.append((f.stat().st_mtime, f.stem))
+        except OSError:
+            pass
+    keep |= {stem for _, stem in sorted(dated, reverse=True)[:KEEP]}
+    for f in [*DIR.glob("*.json"), *DIR.glob("*.log")]:
+        if f.stem not in keep:
+            try:
+                f.unlink()
+            except OSError:                     # Windows: a reader holds it open; the next server tries again
+                pass
 
 
 def _term(tid: str) -> _Term:
@@ -386,8 +434,8 @@ def _alive(t: _Term) -> bool:
 
 
 def _finish(t: _Term) -> None:
-    """The one place a terminal ends: its code, `ended`, the .json rewritten. Called by its reader, and by `shutdown`
-    for one whose reader is still at it."""
+    """The one place a terminal ends: its code, `ended`, the .json rewritten, a unit's session record closed. Called
+    by its reader, and by `shutdown` for one whose reader is still at it."""
     with t.finishing:
         if t.meta["ended"] is not None:
             return
@@ -397,6 +445,22 @@ def _finish(t: _Term) -> None:
             t.meta.update(ended=time.time(), code=code)
             _bump()
         _save(t)
+        _end_record(_meta(t))
+
+
+def _end_record(meta: dict) -> None:
+    """A unit's session record gets the terminal's end, which its wrapper did not write when it was killed with it:
+    the unit reads as paused, as after a closed window. Left alone when the wrapper wrote it, when there is none or it
+    is being rewritten, and once it is another session's (its pid is not this terminal's)."""
+    if meta["kind"] != "unit" or not meta["unit"]:
+        return
+    rec = sessions.load(meta["unit"])
+    if not rec or rec.get("ended") or rec.get("pid") != meta["pid"]:
+        return
+    try:
+        sessions.update(meta["unit"], ended=meta["ended"], code=meta["code"])
+    except OSError:                             # the unit then reads as paused by its dead pid, as before
+        pass
 
 
 def _reap(t: _Term) -> int | None:
