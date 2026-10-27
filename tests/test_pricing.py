@@ -37,7 +37,8 @@ def test_legacy_cache_write_counts_as_five_minutes(kit):
 
 def test_workspace_override_merges_and_names_bad_keys(kit):
     from lib.harness import pricing
-    tbl, problems = pricing.table({"pricing": {"models": {"m-2": {"in": 1, "out": 2}, "bad": {"in": "x"}},
+    m2 = {"in": 1, "out": 2, "cache_read": 0.1, "cache_write_5m": 1.25, "cache_write_1h": 2}
+    tbl, problems = pricing.table({"pricing": {"models": {"m-2": m2, "bad": {"in": "x"}},
                                                "aliases": {"two": "m-2"}}})
     assert tbl["models"]["m-2"]["in"] == 1 and tbl["aliases"]["two"] == "m-2"
     assert "claude-sonnet-5-5" in tbl["models"]                     # the kit's stay
@@ -50,3 +51,17 @@ def test_the_kit_table_is_complete(kit):
     assert not problems and str(tbl["revised"]) and tbl["source"]
     assert all(set(pricing.KINDS) <= set(v) for v in tbl["models"].values())
     assert all(t in tbl["models"] for t in [*tbl["aliases"].values(), *tbl["runners"].values()])
+
+
+def test_a_new_model_needs_every_price_kind(kit):
+    from lib.harness import pricing
+    tbl, problems = pricing.table({"pricing": {"models": {"m-9": {"in": 1, "out": 2}}}})
+    assert "m-9" not in tbl["models"]                                   # its cache tokens would cost $0 unseen
+    assert any("pricing.models.m-9" in p and "cache_read" in p for p in problems)
+
+
+def test_a_bad_key_leaves_the_kits_value_and_keeps_the_good_ones(kit):
+    from lib.harness import pricing
+    tbl, problems = pricing.table({"pricing": {"models": {"claude-sonnet-5-5": {"in": "x", "out": 99}}}})
+    m = tbl["models"]["claude-sonnet-5-5"]
+    assert (m["in"], m["out"]) == (2.0, 99) and any("claude-sonnet-5-5.in" in p for p in problems)

@@ -39,12 +39,15 @@ def table(workspace: dict | None = None) -> tuple[dict, list[str]]:
         if not isinstance(prices, dict):
             problems.append(f"pricing.models.{model}: not a mapping")
             continue
-        bad = [k for k, v in prices.items() if k not in KINDS or not _number(v)]
-        if bad:
-            problems += [f"pricing.models.{model}.{k}: " + ("unknown price kind" if k not in KINDS else "not a number")
-                         for k in bad]
+        problems += [f"pricing.models.{model}.{k}: " + ("unknown price kind" if k not in KINDS else "not a number")
+                     for k, v in prices.items() if k not in KINDS or not _number(v)]
+        merged = {**tbl["models"].get(str(model), {}),
+                  **{k: v for k, v in prices.items() if k in KINDS and _number(v)}}
+        missing = [k for k in KINDS if k not in merged]
+        if missing:                            # a kind left out would price those tokens at $0 without a word
+            problems.append(f"pricing.models.{model}: missing {', '.join(missing)}")
             continue
-        tbl["models"][str(model)] = {**tbl["models"].get(str(model), {}), **prices}
+        tbl["models"][str(model)] = merged
     for key in ("aliases", "runners"):
         for name, target in (over.get(key) or {}).items():
             if isinstance(target, str):

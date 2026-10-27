@@ -1176,8 +1176,14 @@ class _WikiRun:
         self.run_id = f"r-{self.started:%Y%m%d-%H%M%S}-{os.getpid()}{runs.WIKI}{repo}"
         self.log = EventLog(CTX.runs / self.run_id / "events.jsonl")
         self.runner = runners.get(engine)
-        self.log.emit("run.started", run=self.run_id, what="wiki")
-        self.log.emit("unit.started", run=self.run_id, unit=uid, runner=engine, isolation="none")
+        self._emit("run.started", what="wiki")
+        self._emit("unit.started", unit=uid, runner=engine, isolation="none")
+
+    def _emit(self, type: str, **fields) -> None:
+        try:
+            self.log.emit(type, run=self.run_id, **fields)
+        except Exception:  # noqa: BLE001 — a run log that cannot be written must never break the wiki
+            pass
 
     def line(self, show: Log, tail: deque) -> Log:
         from . import plan
@@ -1186,8 +1192,7 @@ class _WikiRun:
             events = self.runner.parse(line)
             for ev in events:
                 if ev["type"] == "usage":
-                    self.log.emit("usage", run=self.run_id, unit=self.uid, runner=self.engine,
-                                  **{k: v for k, v in ev.items() if k != "type"})
+                    self._emit("usage", unit=self.uid, runner=self.engine, **{k: v for k, v in ev.items() if k != "type"})
             shown, err = plan._show(events)
             for s in shown:
                 show(s)
@@ -1198,9 +1203,9 @@ class _WikiRun:
     def finish(self, ok: bool) -> None:
         from .harness import kpis
         seconds = round((dt.datetime.now() - self.started).total_seconds(), 1)
-        self.log.emit("unit.finished", run=self.run_id, unit=self.uid, runner=self.engine,
-                      outcome="ok" if ok else "failed", status="done" if ok else "todo", seconds=seconds)
-        self.log.emit("run.finished", run=self.run_id, done=1 if ok else 0)
+        self._emit("unit.finished", unit=self.uid, runner=self.engine, outcome="ok" if ok else "failed",
+                   status="done" if ok else "todo", seconds=seconds)
+        self._emit("run.finished", done=1 if ok else 0)
         kpis.record_run(self.run_id)
 
 
@@ -1243,7 +1248,11 @@ def openwiki_generate(repo: str, mode: str = "", log: Log = print, engine: str =
                          "Bash(graphify:*)", f"Bash({cli_cmd()} plan note:*)")
                 req = RunRequest(prompt=wiki_prompt(repo, mode), cwd=WORKSPACE, allow_tools=tools, stream=True)
                 record = _WikiRun(repo, uid, engine)
-                rc = stream(runners.get(engine).build(req).argv, WORKSPACE, record.line(tee, tail))
+                try:
+                    rc = stream(runners.get(engine).build(req).argv, WORKSPACE, record.line(tee, tail))
+                except BaseException:          # a crash or Ctrl+C: the run log still says the run ended
+                    record.finish(False)
+                    raise
     ok = rc == 0 and bool(wiki_pages(repo))
     if record:
         record.finish(ok)

@@ -48,27 +48,36 @@ def _lines(f: Path):
 
 def _when(ts) -> dt.datetime | None:
     try:
-        return dt.datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+        d = dt.datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
     except ValueError:
         return None
+    return d if d.tzinfo else d.astimezone()
+
+
+def _int(v) -> int:
+    try:
+        return int(v or 0)
+    except (TypeError, ValueError):
+        return 0
 
 
 def _add(models: dict, msg: dict) -> None:
     u = msg.get("usage") or {}
     m = models.setdefault(str(msg.get("model") or "unknown"), dict.fromkeys(KINDS, 0))
     split = u.get("cache_creation") if isinstance(u.get("cache_creation"), dict) else None
-    hour = int((split or {}).get("ephemeral_1h_input_tokens") or 0)
-    m["in"] += int(u.get("input_tokens") or 0)
-    m["out"] += int(u.get("output_tokens") or 0)
-    m["cache_read"] += int(u.get("cache_read_input_tokens") or 0)
+    hour = _int((split or {}).get("ephemeral_1h_input_tokens"))
+    m["in"] += _int(u.get("input_tokens"))
+    m["out"] += _int(u.get("output_tokens"))
+    m["cache_read"] += _int(u.get("cache_read_input_tokens"))
     m["cache_write_1h"] += hour
-    m["cache_write_5m"] += int(u.get("cache_creation_input_tokens") or 0) - hour
+    m["cache_write_5m"] += _int(u.get("cache_creation_input_tokens")) - hour
 
 
 def read(path: Path) -> dict | None:
     path = Path(path)
     if not path.is_file():
         return None
+    total = size(path)                         # before reading: a line that lands meanwhile makes it grow, read again
     models: dict = {}
     seen: set = set()
     first = last = prev = None
@@ -93,4 +102,4 @@ def read(path: Path) -> dict | None:
                     continue
                 seen.add(mid)
             _add(models, msg)
-    return {"models": models, "first": first, "last": last, "active_seconds": round(active, 1), "bytes": size(path)}
+    return {"models": models, "first": first, "last": last, "active_seconds": round(active, 1), "bytes": total}

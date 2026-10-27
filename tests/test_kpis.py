@@ -164,3 +164,15 @@ def test_wiki_runs_are_not_the_plans_latest_run(kit):
     make_run(kit, "r-20261015-110000-1-wiki-api", [("repo-wiki:api", "claude", 1, "ok", 1, 1, 0.1)], wall=1,
              ts="2026-10-15T11:00:00.000Z")
     assert runs.ids()[0].endswith("-wiki-api") and runs.ids(wiki=False)[0] == "r-20261015-100000-1"
+
+
+def test_the_rollup_is_replaced_even_when_windows_holds_it_a_moment(kit, kpis, monkeypatch):
+    real, calls = os.replace, []
+
+    def busy_once(src, dst):
+        calls.append(1)
+        if len(calls) == 1:
+            raise PermissionError("held by a reader")
+        return real(src, dst)
+    monkeypatch.setattr(kpis.os, "replace", busy_once)
+    assert kpis.update_rollup(lambda d: d.update(x=1)) is True and rollup(kit)["x"] == 1

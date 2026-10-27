@@ -14,7 +14,8 @@ from ..common import WORKSPACE, load_json
 from . import kpis, pricing, runs, transcripts
 
 KEEP = 500                     # sessions kept per machine file
-WHY = {"codex-session": "Codex session", "openwiki-native": "native OpenWiki", "transcript-missing": "transcript not found"}
+WHY = {"codex-session": "Codex session", "openwiki-native": "native OpenWiki", "transcript-missing": "transcript not found",
+       "session-id-unknown": "session without its own id"}
 
 
 def _records() -> list[dict]:
@@ -36,9 +37,10 @@ def _claude_ids(rec: dict) -> list[str]:
     return list(dict.fromkeys(ids))
 
 
-def local_sessions(known: dict | None = None, units: list[str] | None = None) -> dict[str, dict]:
+def local_sessions(known: dict | None = None, units: list[str] | None = None,
+                   notes: list[str] | None = None) -> dict[str, dict]:
     """This machine's Claude unit sessions with a transcript; an entry of `known` whose files have not grown is reused
-    without reading them again."""
+    without reading them again. A transcript that cannot be read is left out (with a line in `notes`)."""
     known = known or {}
     folder = sessions.claude_dir(WORKSPACE)
     out: dict[str, dict] = {}
@@ -54,7 +56,12 @@ def local_sessions(known: dict | None = None, units: list[str] | None = None) ->
             if isinstance(old, dict) and old.get("bytes") == size and old.get("unit") == rec["unit"]:
                 out[sid] = old
                 continue
-            r = transcripts.read(path)
+            try:
+                r = transcripts.read(path)
+            except Exception as e:  # noqa: BLE001 — a file the kit did not write must not stop the bill
+                if notes is not None:
+                    notes.append(f"session {sid} ({rec['unit']}): transcript not readable, skipped ({e})")
+                continue
             if r is None:
                 continue
             out[sid] = {"unit": rec["unit"], "agent": "claude", "started": r["first"], "ended": r["last"],
@@ -101,7 +108,10 @@ def _team(notes: list[str]) -> tuple[dict, dict]:
     """Every machine's runs and sessions: {id: (entry, person)}; the first file that has an id keeps it."""
     team_runs, team_sessions = {}, {}
     for f in sorted(kpis.DIR.glob("*.json")) if kpis.DIR.is_dir() else []:
-        data = load_json(f, None)
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            data = None
         if not isinstance(data, dict):
             notes.append(f"{f.name}: not a readable roll-up, skipped")
             continue
@@ -147,12 +157,14 @@ def _unmeasured(epoch, team_sessions: dict, rows: dict, plan_units: dict) -> lis
     out = []
     folder = sessions.claude_dir(WORKSPACE)
     for rec in _records():
-        launched = dt.datetime.fromtimestamp(float(rec.get("launched") or 0), dt.timezone.utc)
-        if epoch and launched < epoch:
+        launched = rec.get("launched")
+        if epoch and launched and dt.datetime.fromtimestamp(float(launched), dt.timezone.utc) < epoch:
             continue
         if rec.get("agent") != "claude":
             out.append({"unit": rec["unit"], "why": f"{rec.get('agent') or 'agent'}-session"})
             continue
+        if not rec.get("session"):             # `claude --continue`: the conversation it reopened has no id here
+            out.append({"unit": rec["unit"], "why": "session-id-unknown"})
         for sid in _claude_ids(rec):
             if sid not in team_sessions and not transcripts.size(folder / f"{sid}.jsonl"):
                 out.append({"unit": rec["unit"], "why": "transcript-missing"})
@@ -183,7 +195,7 @@ def bill() -> dict:
             except (ValueError, KeyError, IndexError, OSError):
                 continue
     own = {sid: e for sid, (e, person) in team_sessions.items() if person == me}
-    for sid, entry in local_sessions(known=own).items():
+    for sid, entry in local_sessions(known=own, notes=notes).items():
         team_sessions[sid] = (entry, me)
 
     rows: dict = {}
@@ -212,6 +224,9 @@ def bill() -> dict:
                 tokens = {"in": r.get("tokens_in", 0), "out": r.get("tokens_out", 0),
                           "cache_read": r.get("tokens_cache", 0), "cache_write": 0}
                 cost, seconds = r.get("cost_usd"), float(r.get("seconds") or 0)
+                if not cost and any(tokens.values()):   # older kits stored 0.0 when the agent reported no cost
+                    cost = None
+                    unpriced.append({"source": "run", "id": rid, "unit": None, "model": None})
             else:
                 tokens = _tokens(u)
                 cost, seconds = u.get("cost_usd"), float(u.get("seconds") or 0)
@@ -341,7 +356,7 @@ def lines(b: dict) -> list[str]:
                 "  Top units " + " · ".join(f"{u['unit'] or 'unit unknown'} {_money(u['cost_usd'])}"
                                             for u in b["units"][:3])]
     if b["unpriced"]:
-        models = sorted({str(x["model"]) for x in b["unpriced"]})
+        models = sorted({str(x["model"] or "unknown model") for x in b["unpriced"]})
         out.append(f"  Unpriced  {len(b['unpriced'])} without a price for: {', '.join(models)} "
                    "(add them under pricing: in workspace.yaml)")
     if b["unmeasured"]:

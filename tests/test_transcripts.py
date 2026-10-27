@@ -65,3 +65,23 @@ def test_damaged_and_half_written_lines_are_skipped(tmp_path, transcripts):
 
 def test_missing_transcript_is_none(tmp_path, transcripts):
     assert transcripts.read(tmp_path / "nope.jsonl") is None and transcripts.size(tmp_path / "nope.jsonl") == 0
+
+
+def test_mixed_timestamp_forms_and_odd_numbers_do_not_break_the_read(tmp_path, transcripts):
+    f = write(tmp_path / "s.jsonl", [a("m1", "x", "2026-10-27T10:00:00Z", output_tokens="7"),
+                                     a("m2", "x", "2026-10-27T10:01:00", output_tokens="x")])
+    r = transcripts.read(f)
+    assert r["models"]["x"]["out"] == 7 and r["active_seconds"] >= 0
+
+
+def test_bytes_are_measured_before_reading(tmp_path, transcripts, monkeypatch):
+    f = write(tmp_path / "s.jsonl", [a("m1", "x", T0, output_tokens=1)])
+    before = f.stat().st_size
+    real = transcripts._lines
+
+    def growing(p):
+        yield from real(p)
+        with p.open("a", encoding="utf-8", newline="\n") as fh:           # a message lands while it is read
+            fh.write(json.dumps(a("m2", "x", T0, output_tokens=5)) + "\n")
+    monkeypatch.setattr(transcripts, "_lines", growing)
+    assert transcripts.read(f)["bytes"] == before < transcripts.size(f)  # so the next harvest reads it again
