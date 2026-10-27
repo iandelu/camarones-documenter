@@ -221,8 +221,9 @@ terminal** opens it again); a failed unit keeps its terminal. Scroll up inside a
 end until you press **Jump to the end**; **⤢** maximises it and Escape goes back to the canvas. **Fit** frames every
 open terminal (every unit when none is open), **Re-layout** puts the whole canvas back in its automatic layout, and the
 positions you drag are kept while that project's window stays open. Tab and the arrows move between nodes and Enter
-opens the unit's detail. With no view picked, the Plan turns to the canvas as soon as something runs (when you arrive,
-or started from the Plan itself) and stays there, also when it ends, until you pick another view. The canvas reads the
+opens the unit's detail. With no view picked, the Plan turns to the canvas as soon as a run is on (when you arrive, or
+started from the Plan itself; a unit you start by hand in its own terminal does not count) and stays there, also when
+it ends, until you pick another view. The canvas reads the
 run's log (the same one the portal reads) and follows the app's light or dark theme; stopping stays on the **Run the
 plan** card. A run stopped from outside (its job stopped, its process killed) shows as over within a few seconds: its
 terminals stop saying running and their clocks stop.

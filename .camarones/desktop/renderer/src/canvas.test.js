@@ -1,5 +1,6 @@
+import { readFileSync } from 'node:fs'
 import { expect, test } from 'vitest'
-import { arrivedLive, atBottom, changedRun, clockRuns, defaultView, emptyFeed, feed, FOLD_MS, followRun, GAP, layout, MAX_ROWS, neighbour, openUnits, place, row, SIZE } from './canvas.js'
+import { arrivedLive, atBottom, changedRun, clockRuns, runLive, defaultView, emptyFeed, feed, FOLD_MS, followRun, GAP, layout, MAX_ROWS, neighbour, openUnits, place, row, SIZE } from './canvas.js'
 
 const ev = (type, f = {}) => ({ v: 1, ts: '2026-10-27T10:00:00.000Z', type, unit: 'a', ...f })
 
@@ -348,6 +349,20 @@ test('nothing live yet is false, never an undecided value the view could trip on
   expect(arrivedLive(false, false)).toBe(false)
   expect(arrivedLive(false, true)).toBe(true)
   expect(arrivedLive(true, false)).toBe(true)
+})
+
+// The canvas shows what a run does; a terminal the person opened on one unit from the board is not on it (until S2),
+// so pressing Start on a unit must not turn the board into the graph.
+test('only a run turns the plan to the canvas, never a terminal opened by hand on one unit', () => {
+  expect(runLive(null, null)).toBe(false)
+  expect(runLive({ run: 'r-1', finished: true }, null)).toBe(false)
+  expect(runLive({ run: 'r-1', finished: true, interrupted: true }, null)).toBe(false)
+  expect(runLive({ run: 'r-1', finished: false }, null)).toBe(true)
+  expect(runLive(null, { id: 'j-1', kind: 'cmd:autopilot' })).toBe(true)
+  const src = readFileSync(new URL('./sections/Plan.jsx', import.meta.url), 'utf-8')
+  expect(src).toMatch(/const active = runLive\(data\?\.run, pilot\)/)
+  expect(src).toMatch(/arrivedLive\(held, active\)/)
+  expect(src).not.toMatch(/arrivedLive\([^)]*windows/)
 })
 
 test('a view the person picked always wins, live or not', () => {

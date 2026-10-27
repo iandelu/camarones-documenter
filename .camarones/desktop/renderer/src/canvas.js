@@ -161,8 +161,12 @@ const VIEWS = ['board', 'phases', 'canvas']
 
 export const defaultView = (saved, live) => (VIEWS.includes(saved) ? saved : live ? 'canvas' : 'board')
 
-// With no view picked, the default turns to the canvas as soon as something is live during the visit (when the plan
-// arrives, or a run started from the open plan) and holds there: following the run back to the board would take the
+// What the canvas shows: a run (the autopilot's job, or a run the Plan's poll says is on). A terminal opened by hand on
+// one unit is not on the canvas, so it does not count.
+export const runLive = (run, pilot) => Boolean(pilot) || Boolean(run && !run.finished)
+
+// With no view picked, the default turns to the canvas as soon as a run is live during the visit (already on when the
+// plan arrives, or started from the open plan) and holds there: following the run back to the board would take the
 // canvas away the moment the run ends, with the failed unit's terminal and the last one's fold window.
 export const arrivedLive = (held, live) => Boolean(held) || Boolean(live)
 

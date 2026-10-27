@@ -228,8 +228,8 @@ una terminal, deja de seguir el final hasta que pulses **Ir al final**; **⤢** 
 **Encajar** enmarca cada terminal abierta (todas las unidades si no hay ninguna), **Reordenar** devuelve todo el lienzo
 a la disposición automática, y las posiciones que arrastres se conservan mientras la ventana de ese proyecto siga
 abierta. Tab y las flechas se mueven entre nodos e Intro abre el detalle de la unidad. Sin elegir vista, el Plan pasa al
-lienzo en cuanto algo corre (ya al entrar, o lanzado desde el propio Plan) y se queda ahí, también al acabar, hasta que
-elijas otra. El lienzo lee el registro de la ejecución (el mismo que lee el portal) y sigue el tema claro u oscuro de la
+lienzo en cuanto hay una ejecución en marcha (ya al entrar, o lanzada desde el propio Plan; una unidad que empiezas a
+mano en su propia terminal no cuenta) y se queda ahí, también al acabar, hasta que elijas otra. El lienzo lee el registro de la ejecución (el mismo que lee el portal) y sigue el tema claro u oscuro de la
 app; parar sigue en la tarjeta **Ejecutar el plan**. Una ejecución parada desde fuera (su trabajo parado, su proceso
 terminado) se ve acabada en unos segundos: sus terminales dejan de decir «en marcha» y sus relojes se paran.
 
