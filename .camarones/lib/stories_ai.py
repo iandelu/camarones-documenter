@@ -1,7 +1,7 @@
-"""Optional AI suggestions for the story wizard, off by default (`stories: {ai: true}` in workspace.yaml turns them on).
-The model only suggests wording (`rewrite` of the three clauses), acceptance `criteria` and subtask ideas (`tasks`); it
-never decides footprints, dependencies, waves or the verdict: those stay with the rules in `stories`, and a file a
-model names is kept only if the board's index knows it. Built like Ask's AI answer (`answers`): the runner routed for
+"""AI suggestions for the story wizard, on by default like Ask (`stories: {ai: false}` in workspace.yaml turns them off);
+nothing runs until the person asks for one. The model only suggests wording (`rewrite` of the three clauses),
+acceptance `criteria` and subtask ideas (`tasks`); it never decides footprints, dependencies, waves or the verdict:
+those stay with the rules in `stories`, and a file a model names is kept only if the board's index knows it. Built like Ask's AI answer (`answers`): the runner routed for
 bounded work (a local model is fine), one headless call with no tools in an empty folder so the project's agent config
 does not load, and only the part asked for, to keep the prompt small. Nothing here writes a file."""
 from __future__ import annotations
@@ -19,7 +19,7 @@ CHEAP = {"claude": "haiku"}    # suggesting wording from a few lines needs no la
 LIMIT = 6000                   # characters of documentation excerpts
 MAX_TASKS = 8
 MAX_CRITERIA = 8
-OFF = "AI suggestions are off: set stories: {ai: true} in workspace.yaml"
+OFF = "AI suggestions are off: stories: {ai: false} in workspace.yaml"
 LANGUAGES = {"es": "Spanish", "en": "English"}
 _GIVEN = {"es": "Dado … cuando … entonces …", "en": "Given … when … then …"}
 
@@ -30,7 +30,7 @@ def _section() -> dict:
 
 
 def _switched_on() -> bool:
-    return _section().get("ai") is True
+    return _section().get("ai") is not False
 
 
 def runner() -> str | None:
@@ -57,12 +57,12 @@ def model(target: str) -> str | None:
 
 
 def status() -> dict:
-    """What `GET /api/stories` tells the page: whether to offer the suggestions, and with what."""
+    """What `GET /api/stories` tells the page: whether the suggestions can run, with what, or why not."""
     target = runner()
     if not target:
-        return {"available": False, "runner": None, "model": None}
+        return {"available": False, "runner": None, "model": None, "reason": "no-runner" if _switched_on() else "off"}
     from .harness import routing
-    return {"available": True, "runner": target, "model": model(target) or routing.parse(target).model}
+    return {"available": True, "runner": target, "model": model(target) or routing.parse(target).model, "reason": None}
 
 
 # ── the prompt ───────────────────────────────────────────────────────────────────────────────────────────────────

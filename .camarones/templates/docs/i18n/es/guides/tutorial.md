@@ -307,8 +307,11 @@ lo deciden sin preguntar); el asistente y la app de escritorio lo conservan siem
 ### 📝 Historias
 
 La zona **Historias** (`#/stories`) del portal es un solo sitio para escribir una historia, revisarla y convertirla en
-subtareas que no chocan. Todo es reglas, plantillas y el mapa del código, sin IA salvo que actives `stories.ai`: el mismo
-tablero da siempre el mismo veredicto, las mismas subtareas y las mismas oleadas.
+subtareas que no chocan. El veredicto, las subtareas y las oleadas salen de reglas, plantillas y el mapa del código, sin
+IA: el mismo tablero da siempre el mismo veredicto, las mismas subtareas y las mismas oleadas. La IA solo propone, y solo
+cuando la pides: **✨ Sugerir con IA** está en los tres sitios donde ayuda (reescribir la historia, los criterios y las
+subtareas) y solo gasta cuando lo pulsas. Si no puede usarse (no hay agente instalado, el portal no se abrió con
+`camaron up` o está apagada) sale desactivado y dice por qué.
 
 1. **Escribe** *Como / quiero / para* (o *As / I want / so that*). Mientras escribes salen avisos (rol genérico, dos
    objetivos en uno, un *para* que repite el *quiero*, demasiado largo, una solución dentro del *quiero*) que nunca
@@ -354,7 +357,7 @@ Ajustes opcionales en `workspace.yaml`:
 
 ```yaml
 stories:
-  ai: true          # apagado por defecto: activa «Sugerir con IA»; solo sugiere, nunca decide
+  ai: false         # encendido por defecto: «✨ Sugerir con IA» solo gasta al pulsarlo; false lo apaga
   model: haiku      # opcional: el modelo que se pide (por defecto, uno barato del ejecutor)
   small:            # umbrales de la «S» de INVEST
     groups: 3
