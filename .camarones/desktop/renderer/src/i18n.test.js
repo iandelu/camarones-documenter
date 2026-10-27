@@ -16,7 +16,7 @@ test('every key a component names exists', () => {
     tk: ['mcp', 'hook', 'setting', 'codex', 'skill', 'file', 'plugin'], ts: ['new', 'changed'],      // lib/trust.py
     pk: ['checks', 'exporters', 'hooks', 'mcp', 'pipelines', 'prompts', 'runners', 'skills', 'types'],     // harness/plugins.py KINDS
     'adr.chip': ['running', 'review', 'proposed', 'accepted', 'superseded', 'rejected', 'deprecated', 'unknown'],   // lib/adr.py CHIPS
-    'adr.step': ['problem', 'evidence', 'research', 'synthesis', 'review', 'accepted'], 'adr.filter': ['all', 'running', 'review', 'accepted', 'superseded'],
+    'adr.step': ['problem', 'evidence', 'research', 'synthesis', 'review', 'accepted', 'rejected'], 'adr.filter': ['all', 'running', 'review', 'accepted', 'superseded'],
     'adr.why': ['deferred', 'unchosen', 'noDecision'] }
   for (const [f, ks] of Object.entries(families)) for (const k of ks) expect(S.es[`${f}.${k}`], `${f}.${k}`).toBeTruthy()
 })

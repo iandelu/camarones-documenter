@@ -31,11 +31,13 @@ export function filterRows(rows, filter, q) {
 export const STEPS = ['problem', 'evidence', 'research', 'synthesis', 'review', 'accepted']
 const MANUAL_SKIPS = ['research', 'synthesis']
 
-// A rejected ADR closed at the last step; a phase it does not know leaves every step to do.
+// A rejected ADR ends on a `rejected` step in the place of `accepted`; a phase it does not know leaves every step to do.
 export function stepper(phase, mode) {
-  const at = STEPS.indexOf(phase === 'rejected' ? 'accepted' : phase)
-  return STEPS.map((id, i) => ({
-    id, state: mode === 'manual' && MANUAL_SKIPS.includes(id) ? 'skipped' : i < at ? 'done' : i === at ? 'current' : 'todo' }))
+  const rejected = phase === 'rejected'
+  const at = STEPS.indexOf(rejected ? 'accepted' : phase)
+  return STEPS.map((step, i) => ({
+    id: rejected && i === at ? 'rejected' : step,
+    state: mode === 'manual' && MANUAL_SKIPS.includes(step) ? 'skipped' : i < at ? 'done' : i === at ? 'current' : 'todo' }))
 }
 
 // The part before or after `current` (an id; `parts` are the API's {id, status}), clamped at both ends. A part that is
