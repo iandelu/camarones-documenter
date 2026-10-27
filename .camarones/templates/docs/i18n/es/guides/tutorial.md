@@ -225,7 +225,7 @@ sección (`g s` Resumen, `g b` Tablero, `g p` Plan, `g q` Calidad…).
 | Sección | Qué haces ahí |
 |---|---|
 | 🏠 Resumen | el siguiente paso con un solo botón (el mismo que propone el asistente), lo que le falta a esta máquina, cómo van el plan, la revisión y los trabajos |
-| 📋 Tablero | las columnas de Backlog a Hecho: mueves una tarjeta arrastrándola o con el teclado (Tab hasta la tarjeta, Espacio la coge, las flechas la mueven, Intro la suelta, Escape la devuelve); una tarjeta abre su descripción, sus criterios y la definición de hecho, y una historia lista sus tareas y tiene **Añadir tarea**; **Añadir** crea un elemento (tipo, título, dentro de qué, prioridad); si el tablero no está activado, **Activar el tablero** |
+| 📋 Tablero | las columnas de Backlog a Hecho: mueves una tarjeta arrastrándola o con el teclado (Tab hasta la tarjeta, Espacio la coge, las flechas la mueven, Intro la suelta, Escape la devuelve); una tarjeta abre su descripción, sus criterios y la definición de hecho, y una historia lista sus tareas y tiene **Añadir tarea**; **Eliminar** archiva la tarjeta (su fichero pasa a `backlog/archive/tasks`); **Añadir** crea un elemento (tipo, título, dentro de qué, prioridad); si el tablero no está activado, **Activar el tablero** |
 | 🗺️ Plan | ejecutar las unidades listas en paralelo o el piloto automático, y pararlos; las unidades agrupadas por lo que te piden (aprobar, reintentar, seguir, empezar) con el agente que elijas; la actualización de la doc |
 | 🎙️ Entrevistas | cuestionario del equipo o en vivo, exportar el formulario sin conexión, importar respuestas, cerrar la ronda, cada entrevista con su agente |
 | 🤝 Equipo | el repo del equipo y compartir, aprobar la configuración de agentes que vino con él, hooks, plugins |

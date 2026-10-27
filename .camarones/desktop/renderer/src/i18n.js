@@ -294,6 +294,9 @@ export const S = {
     'bd.needTitle': 'Escribe un título.', 'bd.addFailed': 'No se ha añadido', 'bd.itemFailed': 'No he podido leer la tarjeta',
     'bd.description': 'Descripción', 'bd.noDescription': 'Sin descripción.', 'bd.criteria': 'Criterios de aceptación', 'bd.nothing': 'Ninguno todavía.',
     'bd.dod': 'Definición de hecho', 'bd.tasks': 'Tareas', 'bd.noTasks': 'Esta historia aún no tiene tareas.',
+    'bd.delete': 'Eliminar', 'bd.deleteAsk': '¿Eliminar {id} del tablero? Su fichero pasa a backlog/archive/tasks.',
+    'bd.deleteAskKids': '¿Eliminar {id} del tablero? Su fichero pasa a backlog/archive/tasks; sus tareas se quedan en el tablero.',
+    'bd.deleted': '{id} eliminada del tablero.', 'bd.deleteFailed': 'No se ha eliminado',
   },
   en: {
     'nav.summary': 'Summary', 'nav.plan': 'Plan', 'nav.interviews': 'Interviews', 'nav.team': 'Team',
@@ -587,6 +590,9 @@ export const S = {
     'bd.needTitle': 'Write a title.', 'bd.addFailed': 'It was not added', 'bd.itemFailed': 'I could not read the card',
     'bd.description': 'Description', 'bd.noDescription': 'No description.', 'bd.criteria': 'Acceptance criteria', 'bd.nothing': 'None yet.',
     'bd.dod': 'Definition of done', 'bd.tasks': 'Tasks', 'bd.noTasks': 'This story has no tasks yet.',
+    'bd.delete': 'Delete', 'bd.deleteAsk': 'Delete {id} from the board? Its file moves to backlog/archive/tasks.',
+    'bd.deleteAskKids': 'Delete {id} from the board? Its file moves to backlog/archive/tasks; its tasks stay on the board.',
+    'bd.deleted': '{id} deleted from the board.', 'bd.deleteFailed': 'It was not deleted',
   },
 }
 
