@@ -341,7 +341,7 @@ This machine and this project's setup (`#/machine`, <kbd>g</kbd> <kbd>m</kbd>).
 |---|---|
 | Guide and tour | Opens this guide, or the tour of the app |
 | Prepare this machine | **Run setup** (`camaron setup`): tools, repos, agent wiring, with a progress bar |
-| Language and models | The language of the AI sessions, the Claude Code model and the Codex model (Codex's own list, or **Other…** to type one). Each change is `camaron config set` |
+| Language and models | The language of the AI sessions, the Claude Code model and the Codex model (Codex's own list, or **Other…** to type one): the ones a session takes when the routing names none for its unit. Each change is `camaron config set` |
 | GitLab, GitHub and SonarQube tokens | Saved hosts with **Test** and **Delete**; a form (host, kind, token) whose **Check and save** checks the token against the server first (**Save it anyway** if you insist). Tokens live in the system keychain, never in the project and never on a command line. SonarQube only over https (http only on localhost) |
 | Repos and plan | Each repo, cloned or not, with its stack (edit it, or **Back to detected**); **Clone or pull the repos** (`sync`), **Detect repos in the folder** (`detect`) and the plan's profile, quick or full |
 | The kit | **Update the kit** (`self-update`, global install only) and then **Restart the app on the new version**; **Repair the kit's files** (`repair`) |

@@ -191,8 +191,10 @@ agents:
 Local models never get `agentic-heavy` work. `camaron doctor --local` proposes one that fits this machine's memory.
 
 An **interactive session** (Start, Continue in the app; the wizard's Next step) opens the agent in its own terminal
-window, in the workspace, with the unit's prompt. While its window is open the app does not open another one for the
-same unit, and it shows what the agent is doing from its transcript.
+window, in the workspace, with the unit's prompt. It goes through the same routing: with the agent you pick, the model
+the unit's `pipeline.yaml` node sets, else its tier's (the docs update is `agentic-heavy`); with none for that agent,
+this machine's model from Settings. The wizard and the app say which model it opened with. While its window is open the
+app does not open another one for the same unit, and it shows what the agent is doing from its transcript.
 
 ## Trust in pages: review and freshness
 

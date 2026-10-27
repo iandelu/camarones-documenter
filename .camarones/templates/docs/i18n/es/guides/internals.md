@@ -198,8 +198,11 @@ Los modelos locales nunca reciben trabajo `agentic-heavy`. `camaron doctor --loc
 de esta máquina.
 
 Una **sesión interactiva** (Empezar, Seguir en la app; el Siguiente paso del asistente) abre el agente en su propia
-ventana de terminal, en el workspace, con el prompt de la unidad. Mientras esa ventana siga abierta, la app no abre otra
-para la misma unidad, y enseña qué está haciendo el agente leyendo su historial.
+ventana de terminal, en el workspace, con el prompt de la unidad. Pasa por el mismo enrutado: con el agente que elijas,
+el modelo que fije el nodo de la unidad en `pipeline.yaml` o, si no, el de su nivel (la actualización de la doc es
+`agentic-heavy`); si no hay ninguno para ese agente, el modelo de esta máquina en Ajustes. El asistente y la app dicen
+con qué modelo la abren. Mientras esa ventana siga abierta, la app no abre otra para la misma unidad, y enseña qué está
+haciendo el agente leyendo su historial.
 
 ## Confianza en las páginas: revisión y frescura
 
