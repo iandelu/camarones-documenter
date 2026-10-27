@@ -86,6 +86,10 @@ export function crumbs(hash, mode, index) {
     return out
   }
   if (view === 'kanban' && /^new(\?|$)/.test(rest)) return [...out, { key: 'kanban.new', href: null }]
+  if (view === 'kanban' && rest.startsWith('?')) {                     // ?parent=WI-14: a story and its subtasks
+    const parent = new URLSearchParams(rest.slice(1)).get('parent')
+    return parent ? [...out, { text: parent.toUpperCase(), href: null }] : out
+  }
   if (rest && view !== 'wikis') out.push({ text: rest, href: null })
   return out
 }

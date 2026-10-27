@@ -118,3 +118,167 @@ export function loadDraft(key) {
 export function saveDraft(key, draft) {
   try { localStorage.setItem(key, JSON.stringify(draft)); return true } catch { return false }
 }
+
+export function dropDraft(key) {
+  try { localStorage.removeItem(key); return true } catch { return false }
+}
+
+// ── the wizard's edits (Stories.jsx) ──────────────────────────────────────────────────────────────────────────────
+
+const TITLE_MAX = 80                  // a new story's title (stories.py TITLE_MAX)
+const DOCS_REPO = 'cam-docs'
+const uniq = (xs) => [...new Set((xs || []).filter(Boolean))]
+const sorted = (xs) => uniq(xs).sort()
+const repoOf = (touch) => String(touch).split(':')[0]
+const without = (xs, gone) => (xs || []).filter((x) => !gone.includes(x))
+
+// A new story's title from its want (stories.py `title_for`): one line, cut at 80 characters on a word boundary,
+// without trailing punctuation, first letter upper-cased.
+export function titleFrom(want) {
+  let text = clean(want)
+  const chars = [...text]
+  if (chars.length > TITLE_MAX) {
+    const cut = chars.slice(0, TITLE_MAX).join('')
+    text = chars[TITLE_MAX] !== ' ' && cut.includes(' ') ? cut.slice(0, cut.lastIndexOf(' ')) : cut
+  }
+  text = text.replace(/[ .,;:]+$/, '')
+  return text.charAt(0).toUpperCase() + text.slice(1)
+}
+
+// Toca: a picked search hit (GET /api/stories/files). A file or a page adds itself; a group adds its files, never the
+// group's own touch (save refuses it). → the touches, sorted, once each.
+export function pickHit(touches, hit) {
+  const more = hit.kind === 'group' ? hit.files || [] : [hit.touch]
+  return sorted([...(touches || []), ...more])
+}
+
+// The chips of Toca, one row per group: the code-map group a search hit or a task named (`groups`: {touch: group}),
+// else the repo and folder; doc pages under "docs". Rows and chips sorted.
+export function chipGroups(touches, groups = {}) {
+  const rows = {}
+  for (const touch of sorted(touches)) {
+    const [repo, ...rest] = touch.split(':')
+    const path = rest.join(':')
+    const group = groups[touch] || (repo === DOCS_REPO ? 'docs' : [repo, ...path.split('/').slice(0, -1)].join('/'))
+    ;(rows[group] ||= []).push(touch)
+  }
+  return Object.keys(rows).sort().map((group) => ({ group, touches: rows[group] }))
+}
+
+// The footprint line: "3 grupos · 9 archivos · 1 repo · 2 páginas" (pages are counted apart, as INVEST's S does).
+export function footprintOf(touches, groups = {}) {
+  const all = sorted(touches)
+  const code = all.filter((t) => repoOf(t) !== DOCS_REPO)
+  return { groups: chipGroups(code, groups).length, files: code.length, repos: new Set(code.map(repoOf)).size,
+    pages: all.length - code.length }
+}
+
+// The tasks analyze returned, with the ticks the person left on the same keys. A new one comes ticked, unless the
+// story's subtasks already on the board (`onBoard`, rows with `touches`) cover all of its files: an existing story
+// opens with its proposals again, and saving them as they come would add the same work twice.
+export function withChecks(tasks, previous, onBoard = []) {
+  const was = Object.fromEntries((previous || []).map((t) => [t.key, t.checked !== false]))
+  const done = new Set((onBoard || []).flatMap((s) => s.touches || []))
+  const covered = (t) => (t.touches || []).length > 0 && t.touches.every((f) => done.has(f))
+  return (tasks || []).map((t) => ({ ...t, checked: was[t.key] ?? !covered(t) }))
+}
+
+// Any change to a task marks it edited: analyze then keeps it as given instead of proposing it afresh.
+export function editTask(tasks, key, patch) {
+  return (tasks || []).map((t) => (t.key === key ? { ...t, ...patch, edited: true } : t))
+}
+
+// ✕ on a "depende de" chip: an added dependency is taken back, a derived one is dropped.
+export function dropDep(tasks, key, dep) {
+  const t = (tasks || []).find((x) => x.key === key)
+  if (!t) return tasks
+  const mine = (t.added || []).includes(dep)
+  return editTask(tasks, key, { added: without(t.added, [dep]),
+    dropped: mine ? t.dropped || [] : uniq([...(t.dropped || []), dep]), deps: without(t.deps, [dep]) })
+}
+
+// "+" on a task: a dependency on another task (its key) or a board item (its id); a dropped one is restored.
+export function addDep(tasks, key, dep) {
+  const t = (tasks || []).find((x) => x.key === key)
+  if (!t || !dep || dep === key || (t.deps || []).includes(dep)) return tasks
+  const back = (t.dropped || []).includes(dep)
+  return editTask(tasks, key, { dropped: without(t.dropped, [dep]),
+    added: back ? t.added || [] : uniq([...(t.added || []), dep]), deps: uniq([...(t.deps || []), dep]) })
+}
+
+// ✕ on a task: out of the list, its key in `removed` (analyze does not propose it again), and out of the others'
+// added dependencies.
+export function removeTask(draft, key) {
+  const tasks = (draft.tasks || []).filter((t) => t.key !== key)
+    .map((t) => ((t.added || []).includes(key) || (t.deps || []).includes(key)
+      ? { ...t, added: without(t.added, [key]), deps: without(t.deps, [key]) } : t))
+  return { ...draft, tasks, removed: uniq([...(draft.removed || []), key]) }
+}
+
+// "Añadir subtarea": a task of the person's own, key `added:<n>`. Without files it counts as the whole repo for agents.
+export function addTask(tasks, title, touches = []) {
+  const n = Math.max(0, ...(tasks || []).map((t) => Number((t.key.match(/^added:(\d+)$/) || [])[1]) || 0)) + 1
+  return [...(tasks || []), { key: `added:${n}`, kind: 'change', title: clean(title), group: '', touches: sorted(touches),
+    criteria: [], deps: [], conflicts: [], wave: -1, edited: true, added: [], dropped: [], checked: true }]
+}
+
+// "Fusionar": `b` folds into `a` (files, criteria and the person's dependencies of both); `b` goes to `removed`, and
+// whoever waited for `b` now waits for `a`.
+export function mergeTasks(draft, a, b) {
+  const tasks = draft.tasks || []
+  const ta = tasks.find((t) => t.key === a)
+  const tb = tasks.find((t) => t.key === b)
+  if (!ta || !tb || a === b) return draft
+  const both = [a, b]
+  const merged = { ...ta, edited: true, touches: sorted([...ta.touches, ...tb.touches]),
+    criteria: uniq([...ta.criteria, ...tb.criteria]),
+    added: without(uniq([...(ta.added || []), ...(tb.added || [])]), both),
+    dropped: without(uniq([...(ta.dropped || []), ...(tb.dropped || [])]), both),
+    deps: without(uniq([...(ta.deps || []), ...(tb.deps || [])]), both) }
+  const swap = (xs) => uniq((xs || []).map((x) => (x === b ? a : x)))
+  const out = tasks.filter((t) => t.key !== b).map((t) => {
+    if (t.key === a) return merged
+    if (!(t.added || []).includes(b) && !(t.deps || []).includes(b)) return t
+    return { ...t, edited: true, added: swap(t.added), deps: swap(t.deps) }
+  })
+  return { ...draft, tasks: out, removed: uniq([...(draft.removed || []), b]) }
+}
+
+const storyOf = (d) => ({ id: d.id || null, as: d.as, want: d.want, so: d.so,
+  criteria: (d.criteria || []).map(clean).filter(Boolean), touches: sorted(d.touches), epic: d.epic || null })
+const taskOf = (t) => ({ key: t.key, kind: t.kind || 'change', title: t.title, group: t.group || '', touches: t.touches || [],
+  criteria: t.criteria || [], edited: !!t.edited, added: t.added || [], dropped: t.dropped || [] })
+
+// POST /api/stories/analyze: the story, every task the person has (unedited ones come back fresh), `removed`.
+export function analyzeBody(draft, lang) {
+  return { story: storyOf(draft), tasks: (draft.tasks || []).map(taskOf), removed: draft.removed || [], lang }
+}
+
+// POST /api/stories/save: the ticked tasks only, each with the dependencies analyze worked out (keys of ticked tasks or
+// board ids); the title; base_sha to notice a change made meanwhile.
+export function saveBody(draft) {
+  const tasks = (draft.tasks || []).filter((t) => t.checked !== false)
+  const keys = new Set((draft.tasks || []).map((t) => t.key))
+  const kept = new Set(tasks.map((t) => t.key))
+  return { story: storyOf(draft), title: clean(draft.title) || null, base_sha: draft.sha || null,
+    tasks: tasks.map((t) => ({ key: t.key, title: clean(t.title), touches: t.touches || [], criteria: t.criteria || [],
+      deps: (t.deps || []).filter((d) => !keys.has(d) || kept.has(d)) })) }
+}
+
+// Task keys as people read them: the task's title («…» around it), else the key itself (a board id stays an id).
+export function taskNames(keys, tasks) {
+  const title = Object.fromEntries((tasks || []).map((t) => [t.key, clean(t.title)]))
+  return (keys || []).map((k) => (title[k] ? `«${title[k]}»` : k))
+}
+
+// Why the primary button is off (an i18n key and its values), or null. `sent` is the {as, want, so} of the analysis on
+// screen; null while one is on its way.
+export function saveBlock(draft, analysis, sent) {
+  const no = (key, vars = {}) => ({ key, vars })
+  if (!analysis || outdated(draft, sent)) return no('stories.block.pending')
+  if ((analysis.hints || []).some((h) => h.code === 'empty')) return no('stories.block.empty')
+  if ((analysis.cycle || []).length) return no('stories.block.cycle', { keys: taskNames(analysis.cycle, draft.tasks).join(' → ') })
+  if ((analysis.duplicates || []).length) return no('stories.block.duplicates', { keys: analysis.duplicates.join(', ') })
+  const blank = (draft.tasks || []).find((t) => t.checked !== false && !clean(t.title))
+  return blank ? no('stories.block.title', { key: blank.key }) : null
+}
