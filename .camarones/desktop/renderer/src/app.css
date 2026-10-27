@@ -386,4 +386,66 @@ a.dk-stat-n:hover { color: var(--color-acento-texto); }
   .dk-scan.done, .dk-scan-repos li.done, .dk-scan-repos li.current i { animation: none; }
   .dk-bar span, .dk-bar i, .dk-bar.indeterminate i { animation: none; transition: none; }
   .dk-tick * { animation: none; }
+  .dk-tour-ring { transition: none; }
 }
+
+/* The guide (sections/Guide.jsx): tabs per guide, a search, the chapter index beside the text */
+.dk-guide-tabs { display: flex; flex-wrap: wrap; gap: .25rem; border-bottom: 1px solid var(--color-rule); }
+.dk-guide-tab { padding: .45rem .8rem; border-radius: var(--consola-radio-chico) var(--consola-radio-chico) 0 0; color: var(--color-ink-soft);
+  text-decoration: none; font-size: var(--text-meta); font-weight: 500; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.dk-guide-tab:hover { color: var(--color-ink); }
+.dk-guide-tab.on { color: var(--color-ink); border-bottom-color: var(--color-acento-texto); }
+.dk-guide-find { display: flex; flex-direction: column; gap: .35rem; max-width: 40rem; }
+.dk-guide-hits { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .15rem; max-height: 22rem; overflow: auto;
+  border: 1px solid var(--color-rule); border-radius: var(--consola-radio-tarjeta); background: var(--color-canvas-elevated); }
+.dk-guide-hits a { display: flex; flex-wrap: wrap; gap: .1rem .5rem; padding: .5rem .75rem; color: var(--color-ink); text-decoration: none; }
+.dk-guide-hits a:hover, .dk-guide-hits a:focus-visible { background: var(--color-canvas); }
+.dk-guide-snip { flex-basis: 100%; color: var(--color-ink-soft); }
+.dk-guide { display: grid; grid-template-columns: minmax(11rem, 15rem) minmax(0, 1fr); gap: 2rem; align-items: start; }
+.dk-guide-index { position: sticky; top: 0; display: flex; flex-direction: column; gap: .4rem; font-size: var(--text-meta); }
+.dk-guide-index ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .15rem; }
+.dk-guide-index ol ol { padding-left: .75rem; margin: .15rem 0 .35rem; border-left: 1px solid var(--color-rule); }
+.dk-guide-index a { color: var(--color-ink-soft); text-decoration: none; display: block; padding: .15rem .35rem; border-radius: var(--consola-radio-chico); }
+.dk-guide-index a:hover { color: var(--color-ink); }
+.dk-guide-index a[aria-current] { color: var(--color-ink); font-weight: 600; background: var(--color-canvas-elevated); }
+.dk-guide-doc { min-width: 0; max-width: 46rem; font-size: var(--text-body); line-height: 1.6; color: var(--color-ink); }
+.dk-guide-doc > :first-child { margin-top: 0; }
+.dk-guide-lede { color: var(--color-ink-soft); font-size: var(--text-body); }
+.dk-guide-h { scroll-margin-top: 1rem; line-height: 1.25; }
+.dk-guide-doc h2 { font-size: var(--text-h2); margin: 2.25rem 0 .5rem; padding-top: 1rem; border-top: 1px solid var(--color-rule); }
+.dk-guide-doc h3 { font-size: var(--text-h3); margin: 1.5rem 0 .4rem; }
+.dk-guide-doc h4 { font-size: var(--text-body); margin: 1.1rem 0 .3rem; }
+.dk-guide-doc :is(ul, ol) { padding-left: 1.25rem; }
+.dk-guide-doc li + li { margin-top: .2rem; }
+.dk-guide-doc code { font-family: var(--font-mono); font-size: .9em; padding: .05rem .3rem; border-radius: var(--consola-radio-chico); background: var(--color-canvas-elevated); }
+.dk-guide-doc kbd { font-family: var(--font-mono); font-size: .85em; padding: .05rem .35rem; border: 1px solid var(--color-rule); border-bottom-width: 2px;
+  border-radius: var(--consola-radio-chico); background: var(--color-canvas-elevated); }
+.dk-guide-code { position: relative; }
+.dk-guide-code pre { margin: .5rem 0; padding: .75rem 1rem; overflow-x: auto; border-radius: var(--consola-radio-tarjeta); background: var(--color-canvas-elevated);
+  border: 1px solid var(--color-rule); font-size: var(--text-meta); }
+.dk-guide-code pre code { padding: 0; background: none; }
+.dk-guide-code > .cu-btn { position: absolute; top: .35rem; right: .35rem; }
+.dk-guide-table { overflow-x: auto; margin: .5rem 0; }
+.dk-callout { margin: .75rem 0; padding: .6rem 1rem; border-left: 3px solid var(--color-rule); background: var(--color-canvas-elevated);
+  border-radius: 0 var(--consola-radio-chico) var(--consola-radio-chico) 0; color: var(--color-ink-soft); }
+.dk-callout > p { margin: .3rem 0; }
+.dk-callout-title { display: block; color: var(--color-ink); font-size: var(--text-meta); }
+.dk-callout.tip { border-left-color: var(--color-estado-bien); }
+.dk-callout:is(.warning, .caution) { border-left-color: var(--color-estado-aviso); }
+.dk-callout.important { border-left-color: var(--color-acento-texto); }
+.dk-guide-acts { margin: .25rem 0 .75rem; }
+@media (max-width: 760px) { .dk-guide { grid-template-columns: minmax(0, 1fr); } .dk-guide-index { position: static; } }
+
+/* The guided tour (Tour.jsx): four dim bands around the target, a ring on it and the bubble */
+.dk-stack { display: flex; flex-direction: column; gap: 1.25rem; }
+.dk-tour { position: fixed; inset: 0; z-index: 60; pointer-events: none; }
+.dk-tour-dim { position: fixed; background: color-mix(in oklch, var(--color-canvas) 72%, transparent); pointer-events: auto; }
+.dk-tour-ring { position: fixed; border: 2px solid var(--color-acento-texto); border-radius: var(--consola-radio-chico);
+  box-shadow: 0 0 0 4px color-mix(in oklch, var(--color-acento-texto) 20%, transparent); transition: top var(--duration-quick) var(--ease-out-soft), left var(--duration-quick) var(--ease-out-soft),
+  width var(--duration-quick) var(--ease-out-soft), height var(--duration-quick) var(--ease-out-soft); }
+.dk-tour-bubble { position: fixed; width: min(22rem, calc(100vw - 1rem)); display: flex; flex-direction: column; gap: .4rem; padding: 1rem;
+  pointer-events: auto; border: 1px solid var(--color-rule); border-radius: var(--consola-radio-tarjeta); background: var(--color-canvas-elevated);
+  color: var(--color-ink); box-shadow: 0 12px 32px color-mix(in oklch, var(--color-ink) 14%, transparent); }
+.dk-tour-title { font-size: var(--text-body); }
+.dk-tour-body { margin: 0; color: var(--color-ink-soft); font-size: var(--text-meta); line-height: 1.5; }
+.dk-tour-bubble > p { margin: 0; }

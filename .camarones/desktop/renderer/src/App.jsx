@@ -4,15 +4,18 @@ import { START, firstRunRoute, initials, sectionOf, sections } from './nav.js'
 import { jobsStore } from './jobs.js'
 import { chord, entries, keyFor, typing } from './palette.js'
 import { portalUrl } from './docs.js'
+import { guideEntries } from './guide.js'
 import { server } from './server.js'
 import { useHash, useStore } from './hooks.js'
 import { Failed } from './parts.jsx'
 import Hub from './Hub.jsx'
 import JobsPanel from './JobsPanel.jsx'
 import Palette from './Palette.jsx'
+import { TourProvider, useTour } from './Tour.jsx'
 import Board from './sections/Board.jsx'
 import { catalog } from './sections/Commands.jsx'
 import Docs from './sections/Docs.jsx'
+import Guide, { loadGuides } from './sections/Guide.jsx'
 import Interviews from './sections/Interviews.jsx'
 import KitDev from './sections/KitDev.jsx'
 import Libs from './sections/Libs.jsx'
@@ -31,7 +34,7 @@ const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator
 // /desktop/ (neither: say where the app is).
 export default function App() {
   if (typeof window !== 'undefined' && window.camaronHub) return <Hub hub={window.camaronHub} />
-  if (typeof window !== 'undefined' && window.camaronApp) return <Project app={window.camaronApp} />
+  if (typeof window !== 'undefined' && window.camaronApp) return <TourProvider><Project app={window.camaronApp} /></TourProvider>
   return (
     <main className="dk-outside">
       <EmptyState title={t('outside.title')} action={<Button variant="primary" href="../#/">{t('outside.portal')}</Button>}>
@@ -52,6 +55,8 @@ function Project({ app }) {
   const [status, setStatus] = useState('')
   const [palette, setPalette] = useState(false)
   const [commands, setCommands] = useState([])
+  const [guide, setGuide] = useState([])
+  const tour = useTour()
   const srv = useMemo(() => server(app.token), [])
   const jobs = useMemo(() => jobsStore(srv.get), [])           // one for the window: it outlasts the sections
   const { running } = useStore(jobs)
@@ -92,15 +97,20 @@ function Project({ app }) {
     addEventListener('keydown', on)
     return () => removeEventListener('keydown', on)
   }, [kitdev])
-  useEffect(() => { if (palette) catalog(srv).then((c) => setCommands(c.commands), () => {}) }, [palette])
+  useEffect(() => {
+    if (!palette) return
+    catalog(srv).then((c) => setCommands(c.commands), () => {})
+    loadGuides(srv).then((g) => setGuide(guideEntries(g)), () => {})
+  }, [palette])
   const onPick = (it) => {
     if (it.project) projects.open(it.project)
     else if (it.action === 'add') app.hub?.()
+    else if (it.action === 'tour') tour.start('app')
     else if (it.href.startsWith('../')) location.href = it.href
     else { location.hash = it.href; focusMain() }
   }
   const link = (s) => (
-    <a key={s} href={`#/${s}`} className={'dk-nav' + (s === here ? ' on' : '')} aria-current={s === here ? 'page' : undefined}>
+    <a key={s} href={`#/${s}`} className={'dk-nav' + (s === here ? ' on' : '')} aria-current={s === here ? 'page' : undefined} data-tour={`nav-${s}`}>
       {t('nav.' + s)}<span className="dk-hint" aria-hidden="true"><Keys keys={['g', keyFor(s)]} /></span></a>
   )
   return (
@@ -111,15 +121,15 @@ function Project({ app }) {
         <Breadcrumbs items={[{ label: index?.project || '…', href: '#/summary' }, { label: t('nav.' + here) }]} />
         <span className="dk-grow"></span>
         {/* the portal is the reader, with no token: it opens in the system browser, never in this window */}
-        <Button size="sm" variant="ghost" onClick={() => app.openExternal?.(portalUrl(location.origin, '#/'))}>{t('portal.open')}</Button>
-        <button type="button" className="dk-find" aria-haspopup="dialog" onClick={() => setPalette(true)}>
+        <Button size="sm" variant="ghost" data-tour="portal" onClick={() => app.openExternal?.(portalUrl(location.origin, '#/'))}>{t('portal.open')}</Button>
+        <button type="button" className="dk-find" aria-haspopup="dialog" data-tour="find" onClick={() => setPalette(true)}>
           {t('pal.open')}<Keys keys={MAC ? ['⌘', 'K'] : ['Ctrl', 'K']} /></button>
         {/* no menu bar on screen (the header is the title bar): this opens the app menu under itself */}
-        {app.menu && <button type="button" className="dk-icon" aria-label={t('appMenu')} title={t('appMenu')}
+        {app.menu && <button type="button" className="dk-icon" aria-label={t('appMenu')} title={t('appMenu')} data-tour="menu"
           onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); app.menu(r.left, r.bottom) }}>⋯</button>}
       </header>
       <Palette open={palette} onClose={() => setPalette(false)} onPick={onPick}
-        groups={entries({ sections: all, projects: projects.list, commands, t, lang: lang() })} />
+        groups={entries({ sections: all, projects: projects.list, commands, guide, t, lang: lang() })} />
       {full ? null : <>
         <Rail app={app} projects={projects} />
         <nav className="dk-side" aria-label={t('nav.project')}>
@@ -131,7 +141,7 @@ function Project({ app }) {
       </>}
       <main className="dk-main" id="main" tabIndex={-1}>
         {error && <Failed title={t('project.failed')} detail={error} onRetry={() => { setError(''); open() }} />}
-        {!index && !error ? <Skeleton lines={4} /> : <Section here={here} srv={srv} jobs={jobs} app={app} index={index} />}
+        {!index && !error ? <Skeleton lines={4} /> : <Section here={here} srv={srv} jobs={jobs} app={app} index={index} sections={all} />}
       </main>
       <JobsPanel srv={srv} jobs={jobs} />
       <footer className="dk-status">
@@ -164,7 +174,7 @@ function useProjects(app, name, onStatus) {
 
 function Rail({ app, projects: { list, busy, open } }) {
   return (
-    <nav className="dk-rail" aria-label={t('rail')}>
+    <nav className="dk-rail" aria-label={t('rail')} data-tour="rail">
       {list.map((p) => (p.current
         ? <a key={p.path || p.name} className="dk-proj on" href="#/summary" aria-current="true" title={p.name}>{initials(p.name)}</a>
         : <button key={p.path} type="button" className="dk-proj" disabled={!p.exists || busy} onClick={() => open(p)}
@@ -175,7 +185,7 @@ function Rail({ app, projects: { list, busy, open } }) {
 }
 
 const SECTIONS = { summary: Summary, board: Board, plan: Plan, interviews: Interviews, team: Team, quality: Quality, libs: Libs, docs: Docs, machine: Machine,
-  kitdev: KitDev, start: Start }
+  guide: Guide, kitdev: KitDev, start: Start }
 function Section({ here, ...props }) {
   const View = SECTIONS[here]
   return <View key={here} {...props} />

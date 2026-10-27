@@ -54,3 +54,12 @@ test('the copy the design agreed on, word for word', () => {
   expect(I18N.es['stories.criteria.ph']).toMatch(/^Dado … cuando … entonces/)
   expect(['Bien', 'Mejorable', 'Mal', 'Sin revisar']).toEqual(['good', 'improve', 'poor', 'none'].map((v) => I18N.es[`stories.verdict.short.${v}`]))
 })
+
+// The browser portal runs nothing on the machine: its words never send people there for wikis, builds or runs.
+test('the portal never promises machine work', () => {
+  for (const lang of ['en', 'es']) {
+    expect(I18N[lang].readOnly, lang).not.toMatch(/wiki/i)
+    expect(I18N[lang].noDocsHelp, lang).toMatch(/desktop app|app de escritorio/)
+    expect(I18N[lang].noDocsHelp, lang).not.toMatch(/Pipeline/)
+  }
+})
