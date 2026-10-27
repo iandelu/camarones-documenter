@@ -339,8 +339,8 @@ def write_without_ai(id: str) -> dict:
         if state.get("phase") in ("accepted", "rejected") or (state.get("phase") == "review" and id in files):
             return get(id)
         number = adr_doc.next_number({*files, *_state_ids()}) if id in files else id
-        raw = adr_doc.render_new({k: state.get(k) for k in ("title", "problem", "drivers", "constraints", "options_hint",
-                                                            "touches")}, number)
+        raw = adr_doc.render_new({**{k: state.get(k) for k in ("title", "problem", "drivers", "constraints", "options_hint",
+                                                               "touches")}, "evidence": _pack_evidence(id)}, number)
         if state.get("points"):
             raw = _with_points(raw, state["points"])
         _write(DOCS / "decisions" / f"{number}-{state.get('slug') or adr_doc.slugify(state.get('title') or '')}.md", raw)
@@ -388,16 +388,37 @@ def pack(id: str) -> dict:
     return {"summary": adr_pack.summary(built), "markdown": markdown}
 
 
+def _cached(id: str) -> dict | None:
+    try:
+        built = json.loads(_read(CACHE / "adr" / _id(id) / "pack.json"))
+    except (OSError, ValueError):
+        return None
+    return built if isinstance(built, dict) else None
+
+
 def read_pack(id: str) -> dict | None:
     """The pack `pack` kept in the cache, None when there is none (or it cannot be read: it is rebuilt on demand)."""
     from . import adr_pack
-    folder = CACHE / "adr" / _id(id)
+    built = _cached(id)
     try:
-        built = json.loads(_read(folder / "pack.json"))
-        markdown = _read(folder / "pack.md")
-    except (OSError, ValueError):
+        markdown = _read(CACHE / "adr" / _id(id) / "pack.md")
+    except OSError:
         return None
-    return {"summary": adr_pack.summary(built), "markdown": markdown} if isinstance(built, dict) else None
+    return {"summary": adr_pack.summary(built), "markdown": markdown} if built is not None else None
+
+
+def _pack_evidence(id: str) -> list[tuple[str, str]]:
+    """The Evidence rows the cached pack adds to what the person named: the doc pages that cite those files and the
+    related ADRs. No pack, or a row it cannot read, adds nothing."""
+    built = _cached(id) or {}
+    rows = []
+    for p in built.get("pages") if isinstance(built.get("pages"), list) else []:
+        if isinstance(p, dict) and p.get("page"):
+            rows.append((f"Documented in {p.get('title') or p['page']}", f"`docs/{p['page']}`"))
+    for a in built.get("adrs") if isinstance(built.get("adrs"), list) else []:
+        if isinstance(a, dict) and a.get("id") and a.get("path"):
+            rows.append((f"Related decision {a['id']}", f"`docs/{a['path']}`"))
+    return rows
 
 
 # ---------- review actions ----------

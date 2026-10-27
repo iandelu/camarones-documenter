@@ -3,6 +3,7 @@ file, review parts and decision points. An ADR the kit did not write is read as 
 from __future__ import annotations
 
 import importlib
+import json
 import threading
 
 import pytest
@@ -171,6 +172,40 @@ def test_renumbering_takes_the_evidence_cache_along(adr, kit):
     (decisions(kit) / f"{got['id']}-pulled.md").write_text("# pulled\n", encoding="utf-8")
     adr.write_without_ai(got["id"])
     assert not cache.exists() and (kit.common.CACHE / "adr" / "0002" / "pack.json").exists()
+
+
+def cached_pack(kit, id, pack):
+    folder = kit.common.CACHE / "adr" / id
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "pack.json").write_text(json.dumps(pack), encoding="utf-8")
+    (folder / "pack.md").write_text("# Evidence pack\n", encoding="utf-8")
+
+
+FRAMED = "| Claim | Evidence |\n|---|---|\n| Named when the decision was framed | `api:a.java` |"
+
+
+# Spec §2.3: writing without AI puts the pack's evidence in place; the sources stay what the person named.
+def test_writing_without_ai_brings_the_evidence_of_the_pack(adr, kit):
+    got = adr.new({"title": "A", "kind": "new", "touches": ["api:a.java"]})
+    cached_pack(kit, got["id"], {
+        "touches": ["api:a.java"],
+        "pages": [{"page": "architecture/orders.md", "title": "Orders | flow", "description": "", "trust": "draft"}],
+        "adrs": [{"id": "0007", "title": "JPA", "status": "accepted", "path": "decisions/0007-jpa.md"}]})
+    a = adr.write_without_ai(got["id"])
+    assert a["sections"]["evidence"] == (FRAMED + "\n| Documented in Orders \\| flow | `docs/architecture/orders.md` |"
+                                         "\n| Related decision 0007 | `docs/decisions/0007-jpa.md` |")
+    assert kit.docs.split_fm(a["raw"])[0]["x-sources"] == ["api:a.java"]
+
+
+def test_writing_without_ai_with_no_pack_or_a_broken_one_names_the_touches_only(adr, kit):
+    assert written(adr, touches=["api:a.java"])["sections"]["evidence"] == FRAMED
+    got = adr.new({"title": "B", "kind": "new", "touches": ["api:a.java"]})
+    cached_pack(kit, got["id"], {"pages": [{"title": "no page"}, "x"], "adrs": None})
+    assert adr.write_without_ai(got["id"])["sections"]["evidence"] == FRAMED
+    got = adr.new({"title": "C", "kind": "new", "touches": ["api:a.java"]})
+    cached_pack(kit, got["id"], {})
+    (kit.common.CACHE / "adr" / got["id"] / "pack.json").write_text("{not json", encoding="utf-8")
+    assert adr.write_without_ai(got["id"])["sections"]["evidence"] == FRAMED
 
 
 def test_writing_twice_keeps_the_edits_of_the_first_time(adr, kit):
