@@ -360,5 +360,25 @@
   "codes": [
    "two-goals"
   ]
+ },
+ {
+  "lang": "es",
+  "as": "dev",
+  "want": "reiniciar el router y el server",
+  "so": "recuperar el servicio",
+  "touches": [
+   "portal:a.py"
+  ],
+  "codes": []
+ },
+ {
+  "lang": "es",
+  "as": "dev",
+  "want": "ver los logs del worker y del scheduler",
+  "so": "entender los fallos",
+  "touches": [
+   "portal:a.py"
+  ],
+  "codes": []
  }
 ]

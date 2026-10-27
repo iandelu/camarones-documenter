@@ -12,10 +12,12 @@ from __future__ import annotations
 
 from typing import TypedDict
 
+from ..common import IS_MAC, IS_WIN
 from . import PRIORITIES
 from .state import id_key
 
 ALL = "*"                  # a footprint that overlaps everything
+FOLD = IS_WIN or IS_MAC     # the filesystem ignores case: two spellings of a path are one file
 _NO_PRIORITY = len(PRIORITIES)
 
 
@@ -47,16 +49,18 @@ class CycleError(ValueError):
 
 
 def norm_touch(ref: str, *, fold: bool) -> str:
-    """`repo:path` with `/` separators and no leading `./`; `..` is refused. `fold` lower-cases the path, for keys."""
+    """`repo:path` with `/` separators, no empty or `.` segment (`a//b`, `./a`, `a/./b` and a trailing `/` collapse as
+    PurePosixPath does; a leading `/` stays, for the caller to refuse); `..` is refused. `fold` lower-cases the path,
+    for keys."""
     repo, sep, path = ref.strip().partition(":")
     repo = repo.strip()
     if not sep or not repo:
         raise ValueError(f"touch needs 'repo:path': {ref!r}")
     path = path.strip().replace("\\", "/")
-    while path.startswith("./"):
-        path = path[2:]
-    if ".." in path.split("/"):
+    parts = [p for p in path.split("/") if p not in ("", ".")]
+    if ".." in parts:
         raise ValueError(f"touch may not leave its repo: {ref!r}")
+    path = ("/" if path.startswith("/") and parts else "") + "/".join(parts)
     return f"{repo}:{path.lower() if fold else path}"
 
 
@@ -85,12 +89,25 @@ def footprint(node: Node, *, agent: bool) -> set[str]:
     return {f"{r}:*" for r in node["repos"]} or {ALL}
 
 
-def overlap(a: set[str], b: set[str]) -> set[str]:
-    """Entries the two footprints share. `ALL` meets everything; `repo:*` meets every entry of that repo."""
+def _same(x: str, y: str, fold: bool) -> bool:
+    if x == y:
+        return True
+    if not fold:
+        return False
+    rx, _, px = x.partition(":")
+    ry, _, py = y.partition(":")
+    return rx == ry and px.lower() == py.lower()
+
+
+def overlap(a: set[str], b: set[str], *, fold: bool | None = None) -> set[str]:
+    """Entries the two footprints share (those of `a` when the spellings differ). `ALL` meets everything; `repo:*`
+    meets every entry of that repo. `fold` (default: this OS's filesystem, `FOLD`) compares paths ignoring case, as
+    macOS and Windows do; repo names are compared as they are."""
+    fold = FOLD if fold is None else fold
     shared: set[str] = set()
     for x in a:
         for y in b:
-            if x == y:
+            if _same(x, y, fold):
                 shared.add(x)
             elif x == ALL:
                 shared.add(y)

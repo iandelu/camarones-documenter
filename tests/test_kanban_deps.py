@@ -234,3 +234,25 @@ def test_containers_never_block_never_wait_for_conflicts_and_are_never_candidate
     assert waiting == [{"id": "WI-3", "blocked_by": [{"kind": "wave", "wave": 1}]},
                        {"id": "WI-4", "blocked_by": [{"id": "WI-9", "kind": "dependency"}]}]
     assert waves(board) == [["WI-2", "WI-9"], ["WI-3"], ["WI-4"]]                  # none holds only the container
+
+
+def test_norm_touch_collapses_empty_and_dot_segments(kit):
+    from lib.kanban.deps import norm_touch
+    assert norm_touch("api:src//A.java", fold=False) == "api:src/A.java"
+    assert norm_touch("api:src/./main/./A.java", fold=False) == "api:src/main/A.java"
+    assert norm_touch("api:src/main/", fold=False) == "api:src/main"
+    assert norm_touch("api:.//src\\A.java", fold=False) == "api:src/A.java"
+    assert norm_touch("api:./", fold=False) == "api:"
+    with pytest.raises(ValueError):
+        norm_touch("api:src//../x", fold=False)
+
+
+def test_overlap_folds_case_where_the_filesystem_does(kit):
+    from lib.common import IS_MAC, IS_WIN
+    from lib.kanban.deps import overlap
+    assert overlap({"api:src/A.java"}, {"api:src/a.java"}, fold=True) == {"api:src/A.java"}
+    assert overlap({"api:src/A.java"}, {"api:src/a.java"}, fold=False) == set()
+    assert overlap({"API:a.py"}, {"api:a.py"}, fold=True) == set()          # repos are names, never folded
+    assert overlap({"api:*"}, {"api:B.py"}, fold=True) == {"api:B.py"}
+    expected = {"api:src/A.java"} if (IS_WIN or IS_MAC) else set()
+    assert overlap({"api:src/A.java"}, {"api:src/a.java"}) == expected     # default: as this OS's files behave

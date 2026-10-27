@@ -470,8 +470,15 @@ def _proposals(story: Story, conn, lang: str, covered: frozenset[str] = frozense
         out.append(_proposal(f"change:{_repo(comp[0])}:{'+'.join(labels)}", "change", title, group,
                              sorted(t for g in comp for t in members[g]),
                              [_fill(templates, lang, "change_criterion", refs=refs)] if refs else []))
-    for page in (p for p in _pages(conn, touches) if p not in covered):
-        title = index.page_title(conn, page) or PurePosixPath(page.partition(":")[2]).stem
+    pages = [p for p in _pages(conn, touches) if p not in covered]
+    named = {p: index.page_title(conn, p) or PurePosixPath(p.partition(":")[2]).stem for p in pages}
+    seen = defaultdict(int)
+    for title in named.values():
+        seen[title.casefold()] += 1
+    for page in pages:
+        title = named[page]
+        if seen[title.casefold()] > 1:                               # two pages, one title: save needs them apart
+            title = f"{title} ({page.partition(':')[2]})"
         out.append(_proposal(f"docs:{page}", "docs", _fill(templates, lang, "docs_title", page=title),
                              index.DOCS_GROUP, [page], []))
     return out

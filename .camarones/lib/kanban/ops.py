@@ -414,9 +414,11 @@ def _board_nodes(cards: dict[str, dict], items: dict[str, Item]) -> list[graph.N
 
 
 def _gate(key: str, item: Item, card: dict, cards: dict, items: dict, *, agent: bool) -> list[dict]:
-    """Why `key` cannot go In Progress now (empty when it can). The card itself is read from its file, not the index."""
+    """Why `key` cannot go In Progress now (empty when it can). The card itself is read from its file, not the index, and
+    every other card's status from the `cards` loaded under the lock: an index a moment behind cannot open the gate."""
     me = _node(_row(item, card))
-    board = [n for n in _board_nodes(cards, items) if n["id"] != key] + [me]
+    board = [{**n, "status": cards[n["id"]]["status"]} if n["id"] in cards else n
+             for n in _board_nodes(cards, items) if n["id"] != key] + [me]
     return graph.blocked_by(me, board, agent=agent)
 
 

@@ -7,6 +7,8 @@ import shutil
 import subprocess
 import sys
 
+import pytest
+
 
 def cli(kit, *args, cwd=None, root=True):
     e = {**os.environ}
@@ -317,3 +319,29 @@ def test_story_errors_are_plain_and_exit_2(wired):
     cli(wired, "board", "add", "task", "Plain")
     r = cli(wired, "board", "story", "lint", "WI-2")
     assert r.returncode == 2 and "not a story" in r.stderr
+
+
+def _parse(*argv):
+    import argparse
+    from lib.kanban import cli as board_cli
+    p = argparse.ArgumentParser()
+    board_cli.add_parser(p.add_subparsers(dest="cmd"))
+    return board_cli, p.parse_args(["board", *argv])
+
+
+@pytest.mark.parametrize("argv, flag", [
+    (("list", "--touch", "api:a.py"), "--touch"), (("next", "--accept"), "--accept"),
+    (("list", "--story", "WI-1"), "--story"), (("show", "WI-1", "--n", "2"), "--n"),
+    (("next", "--force"), "--force"), (("story", "lint", "WI-1", "--force"), "--force"),
+    (("move", "WI-1", "Done", "--n", "1"), "--n")])
+def test_board_flags_only_go_with_their_actions(kit, capsys, argv, flag):
+    board_cli, a = _parse(*argv)
+    assert board_cli.run(a) == 2
+    err = capsys.readouterr().err
+    assert err.startswith("✖ ") and flag in err and len(err.strip().splitlines()) == 1
+
+
+def test_board_n_defaults_to_3_and_is_not_a_form_default(kit):
+    board_cli, a = _parse("next")
+    assert a.n is None                                        # the app's form leaves it empty: no --n on other actions
+    assert board_cli._n(a) == 3

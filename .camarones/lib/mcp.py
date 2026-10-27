@@ -70,7 +70,7 @@ TOOLS = [
                                            "'wave': it would collide with a task handed out now). Agents cannot move cards: a person moves them "
                                            "(or the harness, through the gate).",
      "inputSchema": {"type": "object", "properties": {"n": {"type": "integer", "default": 3, "minimum": 1, "maximum": 20},
-                                                      "story": {"type": "string"}}}},
+                                                      "story": {"type": "string"}, "epic": {"type": "string"}}}},
     {"name": "board_waves", "description": "The open work of the board in waves: tasks of one wave can run in parallel, "
                                            "each wave starts after the previous one (or the cycle that blocks it). "
                                            "Agents cannot move cards: a person moves them (or the harness, through the "
@@ -311,11 +311,16 @@ def _board_call(fn, **kw) -> str:
         return f"{'Board' if BOARD.exists() else 'No board here'}: {str(e).splitlines()[0]}"
 
 
-def board_next(n=3, story: str | None = None) -> str:
+def board_next(n=3, story: str | None = None, epic: str | None = None) -> str:
     from .kanban import ops
-    if isinstance(n, bool) or not isinstance(n, (int, str)) or (isinstance(n, str) and not n.strip().lstrip("-").isdigit()):
-        return f"Board: n must be an integer from 1 to 20, not {n!r}."
-    return _board_call(ops.next_items, n=max(1, min(int(n), 20)), story=story or None, agent=True)
+    plain = f"Board: n must be an integer from 1 to 20, not {n!r}."
+    if isinstance(n, bool) or not isinstance(n, (int, str)):
+        return plain
+    try:
+        k = int(n)
+    except ValueError:                                  # "--5", "²", "4.0": int() is the one judge
+        return plain
+    return _board_call(ops.next_items, n=max(1, min(k, 20)), story=story or None, epic=epic or None, agent=True)
 
 
 def board_waves(story: str | None = None, epic: str | None = None) -> str:

@@ -148,14 +148,25 @@ def test_split_one_task_per_group_plus_docs(world):
     o, p, d = tasks[K_ORDERS], tasks[K_PAY], tasks[K_DOCS]
     assert (o["kind"], o["group"], o["touches"]) == ("change", "orders", [ORDER])
     assert o["title"] == "orders: cobrar los pedidos con tarjeta"
-    assert o["criteria"] == ["Tests de #1 escritos primero"]
+    assert o["criteria"] == ["Tests de los criterios #1 de la historia escritos primero"]
     assert o["deps"] == [K_PAY] and p["deps"] == []                    # OrderService calls PaymentClient
     assert (d["kind"], d["group"], d["touches"], d["title"]) == ("docs", "docs", [PAGE], "Actualizar Checkout")
     assert d["deps"] == [K_ORDERS]
     assert all(t["edited"] is False and t["conflicts"] == [] for t in tasks.values())
     assert [t["key"] for t in split(world, story())] == [K_PAY, K_ORDERS, K_DOCS]          # by wave
     en = {t["key"]: t for t in split(world, story(criteria=["a", "b"]), lang="en")}
-    assert en[K_DOCS]["title"] == "Update Checkout" and en[K_PAY]["criteria"] == ["Tests for #1, #2 written first"]
+    assert en[K_DOCS]["title"] == "Update Checkout"
+    assert en[K_PAY]["criteria"] == ["Tests for the story's criteria #1, #2 written first"]
+
+
+def test_split_two_pages_with_the_same_title_get_their_paths(world):
+    kit = world[0]
+    (kit.root / "docs" / "guides").mkdir(parents=True, exist_ok=True)
+    (kit.root / "docs" / "guides" / "checkout.md").write_text("---\ntitle: Checkout\n---\n# Checkout\n", encoding="utf-8")
+    other = "cam-docs:docs/guides/checkout.md"
+    docs = sorted(t["title"] for t in split(world, story(touches=[ORDER, PAY, PAGE, other])) if t["kind"] == "docs")
+    assert docs == ["Actualizar Checkout (docs/flows/checkout.md)", "Actualizar Checkout (docs/guides/checkout.md)"]
+    assert len({t.casefold() for t in docs}) == 2                     # save refuses two subtasks with one title
 
 
 def test_split_merges_two_way_groups(world):
@@ -212,7 +223,7 @@ def test_project_template_override(world):
     tasks = {t["key"]: t for t in split(world, story())}
     assert tasks[K_ORDERS]["title"] == "[orders] cobrar los pedidos con tarjeta"
     assert tasks[K_DOCS]["title"] == "Actualizar Checkout"            # the kit's template for the other keys
-    assert tasks[K_ORDERS]["criteria"] == ["Tests de #1 escritos primero"]
+    assert tasks[K_ORDERS]["criteria"] == ["Tests de los criterios #1 de la historia escritos primero"]
 
 
 # ── analyze ──────────────────────────────────────────────────────────────────────────────────────────────────────

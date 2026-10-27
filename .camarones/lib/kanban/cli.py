@@ -35,7 +35,7 @@ def add_parser(sp) -> None:
     b.add_argument("--before")
     b.add_argument("--after")
     b.add_argument("--story")
-    b.add_argument("--n", type=int, default=3)
+    b.add_argument("--n", type=int)                         # None: 3 (no form default for the other actions)
     b.add_argument("--touch", action="append")
     b.add_argument("--accept", action="store_true")
     b.add_argument("--force", action="store_true")
@@ -52,6 +52,24 @@ def _lang(ops) -> str:
         return "es" if ops.docs_lang() == "es" else "en"
     except Exception:                                        # noqa: BLE001 — a note must never break the command
         return "en"
+
+
+# flags that only mean something for some actions: anywhere else they are an error, not silently ignored
+_ONLY = (("touch", "--touch", ("story",)), ("accept", "--accept", ("story",)), ("story", "--story", ("next", "waves")),
+         ("n", "--n", ("next", "waves")), ("force", "--force", ("move",)))
+
+
+def _n(a) -> int:
+    return 3 if a.n is None else a.n
+
+
+def _misplaced(a, ops) -> str | None:
+    """The error line for the first flag given to an action it does not belong to, or None."""
+    for dest, flag, actions in _ONLY:
+        if getattr(a, dest, None) not in (None, False, []) and a.action not in actions:
+            only = ", ".join(actions)
+            return (f"✖ {flag} solo vale con: {only}" if _lang(ops) == "es" else f"✖ {flag} only goes with: {only}")
+    return None
 
 
 def note(b: dict, lang: str) -> str:
@@ -77,6 +95,10 @@ def run(a) -> int:
             print("✖ usage: camaron board merge-driver O A B", file=sys.stderr)
             return 2
         return merge.driver(*(Path(p) for p in a.args))
+    wrong = _misplaced(a, ops)
+    if wrong:
+        print(wrong, file=sys.stderr)
+        return 2
     n, need = len(a.args), _NEED.get(a.action, 0)
     if n < need or (n > need and a.action != "add"):         # add: the title may be several words
         print(f"✖ usage: camaron board {_USAGE.get(a.action, a.action)}", file=sys.stderr)
@@ -225,7 +247,7 @@ def _run(a, ops) -> int:
     elif x == "move":
         _show(a, ops.move(args[0], args[1], before=a.before, after=a.after, force=a.force))
     elif x == "next":
-        data = ops.next_items(a.n, story=a.story, epic=a.epic)
+        data = ops.next_items(_n(a), story=a.story, epic=a.epic)
         if a.json:
             print(json.dumps(data, ensure_ascii=False, indent=2, default=str))
         else:
