@@ -280,11 +280,19 @@ Optional: a pipeline that, after each change in the repos or in cam-docs, update
      board.yaml                -> each card's column and order
    camaron board add story "..." --repo api --doc flows/payment.md
    camaron board move WI-42 Ready
+   camaron board story split WI-42 --accept   -> subtasks that do not collide
+   camaron board next                         -> what can start now
 ```
 
 A Kanban versioned with the docs: epics, stories, bugs and tasks with repos, acceptance criteria and linked pages. Turn it on with `camaron board init` (projects without it stay as they were) and use `camaron board add|list|show|move|assign|link|archive|repair`, all with `--json`.
 
 Each card is a Markdown file compatible with Backlog.md, so that tool reads and edits it too. What you link from the docs is watched: the Board tells you whether the page changed since you linked it or is still unconfirmed. In the portal, the “Board” zone (`#/kanban`) has the Kanban, with filters by repo, epic, label and docs state, and the card detail; writing needs the token, which the portal the desktop app opens in your browser carries while the app is open, and `camaron up` prints in the URL (`#cam-token=…`). Without it, read-only.
+
+Stories. The “Stories” zone (`#/stories`) helps you write a story (As / I want / so that) with instant hints, no AI; works out an INVEST verdict by rules; in “Touches” you pick the files and pages it changes (its footprint); proposes subtasks by template with their dependencies and spreads them into waves of tasks that do not collide; and writes nothing to `backlog/` until you approve and save it. In the terminal: `camaron board story lint|invest|split ID [--touch repo:path] [--accept]`, `camaron board next [--n 3] [--story ID|--epic ID]` (what can start now) and `camaron board waves`.
+
+The start gate. Moving a card into “In Progress” checks that its dependencies are done and that its footprint collides with nothing already in progress. A person is warned and can go on with `--force` (in the portal and the app, “Move anyway”); an agent (MCP `board_next` and `board_waves`, or the harness) is always refused. A card with children is a container and never blocks its own tasks.
+
+Optional settings in `workspace.yaml`: `stories: {ai: true}` turns on “Suggest with AI” (off by default; it only suggests and never decides footprints, dependencies, waves or the verdict), `stories: {model: …}` picks the model and `stories: {small: {groups, files, repos}}` sets the thresholds of INVEST's “S”. The index `.camarones/.cache/board.db` rebuilds itself and is safe to delete.
 
 Your intern shrimp has pinned the sticky notes up already: all you do is move them.
 
@@ -597,11 +605,19 @@ Opcional: un pipeline que, tras cada cambio en los repos o en cam-docs, actualiz
      board.yaml                -> columna y orden de cada tarjeta
    camaron board add story "..." --repo api --doc flows/pago.md
    camaron board move WI-42 Ready
+   camaron board story split WI-42 --accept   -> subtareas sin choques
+   camaron board next                         -> lo que puede empezar ya
 ```
 
 Un Kanban versionado con la documentación: epics, historias, bugs y tareas con repos, criterios de aceptación y páginas enlazadas. Se activa con `camaron board init` (los proyectos sin él siguen igual) y se maneja con `camaron board add|list|show|move|assign|link|archive|repair`, todos con `--json`.
 
 Cada tarjeta es un fichero Markdown compatible con Backlog.md, así que esa herramienta también lo lee y lo edita. Lo que enlazas de la documentación se vigila: el Tablero te dice si la página cambió desde que la enlazaste o si sigue sin confirmar. En el portal, la zona «Tablero» (`#/kanban`) tiene el Kanban, con filtros por repo, epic, etiqueta y estado de la documentación, y el detalle de cada tarjeta; para escribir pide el token, que lleva el portal que la app de escritorio abre en tu navegador mientras la app está abierta, y que `camaron up` imprime en la dirección (`#cam-token=…`). Sin él, solo lectura.
+
+Historias. La zona «Historias» (`#/stories`) te ayuda a escribir una historia (Como / quiero / para) con avisos al instante, sin IA; calcula un veredicto INVEST por reglas; en «Toca» eliges los ficheros y las páginas que cambia (su huella); propone subtareas por plantilla con sus dependencias y las reparte en oleadas de tareas que no chocan; y no escribe nada en `backlog/` hasta que la apruebas y la guardas. En la terminal: `camaron board story lint|invest|split ID [--touch repo:ruta] [--accept]`, `camaron board next [--n 3] [--story ID|--epic ID]` (lo que puede empezar ya) y `camaron board waves`.
+
+La puerta de salida. Mover una tarjeta a «In Progress» comprueba que sus dependencias estén hechas y que su huella no choque con lo que ya está en curso. A una persona se le avisa y puede seguir con `--force` (en el portal y en la app, «Mover igualmente»); a un agente (MCP `board_next` y `board_waves`, o el harness) se le rechaza siempre. Una tarjeta con hijas es un contenedor y no bloquea a sus propias tareas.
+
+Ajustes opcionales en `workspace.yaml`: `stories: {ai: true}` activa «Sugerir con IA» (apagado por defecto; solo sugiere, nunca decide huellas, dependencias, oleadas ni el veredicto), `stories: {model: …}` elige el modelo y `stories: {small: {groups, files, repos}}` los umbrales de la «S» de INVEST. El índice `.camarones/.cache/board.db` se reconstruye solo y se puede borrar.
 
 Tu gambita de prácticas ya ha colgado los post-its en su sitio: tú solo los mueves.
 
