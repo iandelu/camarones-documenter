@@ -8,17 +8,19 @@ export const LINES = 20
 export const GLYPH = { edit: '✎', read: '⌕', run: '▶', tool: '·', log: '»', error: '✕' }
 
 const KIND = new Map([
-  ...['Edit', 'Write', 'MultiEdit', 'NotebookEdit'].map((n) => [n, 'edit']),
-  ...['Read', 'Glob', 'Grep', 'LS'].map((n) => [n, 'read']),
-  ...['Bash', '$'].map((n) => [n, 'run']),
+  ...['edit', 'write', 'multiedit', 'notebookedit', 'patch'].map((n) => [n, 'edit']),
+  ...['read', 'glob', 'grep', 'ls', 'list'].map((n) => [n, 'read']),
+  ...['bash', '$'].map((n) => [n, 'run']),
 ])
 
+// Every row is bounded, whatever an agent sends: a heredoc or a whole error would otherwise be one huge row.
 const cut = (s) => (s.length > LINE ? `${s.slice(0, LINE - 1)}…` : s)
+const firstLine = (s) => String(s).split(/\r?\n/).find((l) => l.trim()) ?? ''
 
-function logRows(text) {
+function textRows(kind, text) {
   const lines = String(text ?? '').split(/\r?\n/).filter((l) => l.trim())
-  const rows = lines.slice(0, LINES).map((l) => ({ kind: 'log', text: cut(l) }))
-  if (lines.length > LINES) rows.push({ kind: 'log', text: `… +${lines.length - LINES}` })
+  const rows = lines.slice(0, LINES).map((l) => ({ kind, text: cut(l) }))
+  if (lines.length > LINES) rows.push({ kind, text: `… +${lines.length - LINES}` })
   return rows
 }
 
@@ -26,12 +28,15 @@ export function row(ev) {
   switch (ev.type) {
     case 'tool.call': {
       const name = String(ev.name ?? '')
-      const arg = ev.arg == null || ev.arg === '' ? '' : ` ${ev.arg}`
-      return [{ kind: KIND.get(name) || 'tool', text: name + arg }]
+      const arg = ev.arg == null ? '' : firstLine(ev.arg)
+      return [{ kind: KIND.get(name.toLowerCase()) || 'tool', text: cut(arg ? `${name} ${arg}` : name) }]
     }
-    case 'file.changed': return [{ kind: 'edit', text: `edit ${ev.path}` }]
-    case 'log': return logRows(ev.text)
-    case 'error': return [{ kind: 'error', text: String(ev.text ?? '') }]
+    case 'file.changed': return [{ kind: 'edit', text: cut(`edit ${ev.path}`) }]
+    case 'log': return textRows('log', ev.text)
+    case 'error': {
+      const rows = textRows('error', ev.text)
+      return rows.length ? rows : [{ kind: 'error', text: '' }]
+    }
     default: return []
   }
 }
