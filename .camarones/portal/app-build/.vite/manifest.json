@@ -22,7 +22,7 @@
     "name": "kanban"
   },
   "index.html": {
-    "file": "assets/index-BMkkiCFX.js",
+    "file": "assets/index-Dq6bERam.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
@@ -58,7 +58,7 @@
     ]
   },
   "src/Data.jsx": {
-    "file": "assets/Data-xumzUt7q.js",
+    "file": "assets/Data-41VbO48C.js",
     "name": "Data",
     "src": "src/Data.jsx",
     "isDynamicEntry": true,
@@ -122,7 +122,7 @@
     ]
   },
   "src/Pipeline.jsx": {
-    "file": "assets/Pipeline-DdLJQ4YX.js",
+    "file": "assets/Pipeline-CuQeVff3.js",
     "name": "Pipeline",
     "src": "src/Pipeline.jsx",
     "isDynamicEntry": true,

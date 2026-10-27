@@ -66,7 +66,12 @@ def test_a_reconnect_resumes_after_the_last_event_seen(server, run_log):
 
 
 def test_a_live_run_streams_events_as_they_are_written(kit, server):
+    """A live run holds the run lock from before its log exists (scheduler.run, plan.run_autopilot)."""
+    from lib.harness import scheduler
     from lib.harness.events import EventLog
+    from lib.harness.locks import FileLock
+    lock = FileLock(scheduler.RUN_LOCK, wait=0)
+    lock.acquire()
     log = EventLog(kit.common.CTX.runs / "r-live" / "events.jsonl")
     log.emit("run.started", run="r-live")
 
@@ -75,6 +80,7 @@ def test_a_live_run_streams_events_as_they_are_written(kit, server):
         time.sleep(0.6)
         log.emit("unit.started", run="r-live", unit="a", runner="claude")
         log.emit("run.finished", run="r-live", done=0)
+        lock.release()
     threading.Thread(target=later).start()
     assert [e["type"] for _, e in sse(f"{server}/api/runs/r-live/events")] == ["run.started", "unit.started",
                                                                              "run.finished"]
@@ -118,3 +124,81 @@ def test_the_pipeline_says_how_interviews_run_once_chosen(kit, server):
     assert get_json(server + "/api/pipeline")["interviews"] is None
     kit.docs.set_interview_mode("team")
     assert get_json(server + "/api/pipeline")["interviews"] == "team"
+
+
+def stopped_run(kit, rid="r-20261027-100000-1"):
+    """A run whose process was killed after it started a unit (the app's Stop sends SIGTERM to its group, taskkill /F
+    on Windows): its log never gets run.finished."""
+    from lib.harness.events import EventLog
+    log = EventLog(kit.common.CTX.runs / rid / "events.jsonl")
+    log.emit("run.started", run=rid)
+    log.emit("unit.started", run=rid, unit="discovery:api", runner="claude")
+    return rid
+
+
+def dead_pid() -> int:
+    import subprocess, sys
+    p = subprocess.Popen([sys.executable, "-c", "pass"])
+    p.wait()
+    return p.pid
+
+
+def test_a_run_stopped_from_outside_is_over_once_the_run_lock_is_free_or_stale(kit, server):
+    import socket, time
+    from lib.harness import scheduler
+    from lib.harness.locks import FileLock
+    kit.plan.sync()
+    stopped_run(kit)
+    with FileLock(scheduler.RUN_LOCK, wait=0, info={"what": "autopilot"}):        # held by a live process: running
+        run = get_json(f"{server}/api/pipeline")["run"]
+    assert (run["finished"], run["interrupted"]) == (False, False)
+    scheduler.RUN_LOCK.write_text(json.dumps({"pid": dead_pid(), "host": socket.gethostname(), "ts": time.time()}),
+                                  encoding="utf-8")                              # its holder is gone: stale
+    run = get_json(f"{server}/api/pipeline")["run"]
+    assert (run["finished"], run["interrupted"]) == (True, True)
+    scheduler.RUN_LOCK.unlink(missing_ok=True)                                   # free
+    run = get_json(f"{server}/api/pipeline")["run"]
+    assert (run["finished"], run["interrupted"]) == (True, True)
+    assert run["run"] == "r-20261027-100000-1"
+
+
+def test_a_run_that_logged_its_end_is_not_called_interrupted(kit, server, run_log):
+    kit.plan.sync()
+    run = get_json(f"{server}/api/pipeline")["run"]
+    assert (run["finished"], run["interrupted"]) == (True, False)
+
+
+def test_the_stream_of_a_stopped_run_ends_after_its_last_event(kit, server, monkeypatch):
+    """Without this a stopped run's stream stayed open for the server's hour of quiet, one thread per window."""
+    monkeypatch.setattr(kit.serve, "STOPPED_AFTER", 0.2)
+    rid = stopped_run(kit)
+    got = sse(f"{server}/api/runs/{rid}/events")
+    assert [e["type"] for _, e in got] == ["run.started", "unit.started"]
+
+
+def test_the_stream_of_a_running_run_stays_open_while_it_holds_the_lock(kit, server, monkeypatch):
+    from lib.harness import scheduler
+    from lib.harness.events import EventLog
+    from lib.harness.locks import FileLock
+    monkeypatch.setattr(kit.serve, "STOPPED_AFTER", 0.2)
+    rid = stopped_run(kit)
+    lock = FileLock(scheduler.RUN_LOCK, wait=0)
+    lock.acquire()
+
+    def later():
+        import time
+        time.sleep(1.0)                                       # several of the stream's checks see the lock held
+        EventLog(kit.common.CTX.runs / rid / "events.jsonl").emit("run.finished", run=rid, done=0)
+        lock.release()
+    threading.Thread(target=later).start()
+    assert [e["type"] for _, e in sse(f"{server}/api/runs/{rid}/events")] == ["run.started", "unit.started", "run.finished"]
+
+
+def test_a_stopped_run_read_to_its_end_answers_204_so_a_browser_stops_reconnecting(kit, server):
+    """EventSource (the portal's Pipeline) reconnects to a stream that ends; a 204 is the one answer that stops it."""
+    rid = stopped_run(kit)
+    end = (kit.common.CTX.runs / rid / "events.jsonl").stat().st_size
+    req = urllib.request.Request(f"{server}/api/runs/{rid}/events", headers={"Last-Event-ID": str(end)})
+    with urllib.request.urlopen(req, timeout=10) as r:
+        assert r.status == 204 and r.read() == b""
+    assert [e["type"] for _, e in sse(f"{server}/api/runs/{rid}/events", last_id=0)][:1] == ["run.started"]

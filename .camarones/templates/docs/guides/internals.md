@@ -160,7 +160,9 @@ from its last checkpoint.
 collides with another unit's work blocks its unit, leaves `cam-docs` untouched and adds an `integrate:<unit>` unit.
 Other units run one at a time, and a unit never starts before what it needs is merged. `camaron autopilot` runs units
 one after another without worktrees. While either runs, the machine is kept awake, and a session cut by something
-passing (sleep, network, an overloaded API) goes back to the queue once.
+passing (sleep, network, an overloaded API) goes back to the queue once. A run stopped from outside (its job stopped,
+its process killed) cannot log its end: once the run lock is free or stale, `GET pipeline` reports it `finished` and
+`interrupted`, and its `runs/<id>/events` stream ends after its last event.
 
 **What it cost.** Each run writes `.camarones/.cache/runs/<run>/events.jsonl` (`camaron runs`). Each machine adds its
 share — runs, wikis written by an agent and the interactive sessions read from Claude Code's transcripts — to

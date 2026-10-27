@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Background, Handle, Position, ReactFlow, ReactFlowProvider, useNodeId, useReactFlow } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { Button, fmtDuration, money } from '@camaron/ui'
-import { atBottom, emptyFeed, feed, followRun, GLYPH, layout, neighbour, openUnits, place } from '../canvas.js'
+import { atBottom, clockRuns, emptyFeed, feed, followRun, GLYPH, layout, neighbour, openUnits, place } from '../canvas.js'
 import { useTheme } from '../hooks.js'
 import { t } from '../i18n.js'
 import { tone } from '../plan.js'
@@ -101,10 +101,13 @@ const savedPositions = () => {
   try { return JSON.parse(localStorage.getItem(POSITIONS)) || {} } catch { return {} }
 }
 
-// A run's events, folded into one feed every BATCH_MS: a busy agent would otherwise render on every line.
+// A run's events, folded into one feed every BATCH_MS: a busy agent would otherwise render on every line. Once the
+// Plan's poll says the run is over, a stream that ends is not opened again.
 function useRunFeed(srv, run) {
   const [f, setF] = useState(() => emptyFeed(run?.run ?? null))
   const id = run?.run
+  const over = useRef(false)
+  over.current = Boolean(run?.finished)
   useEffect(() => {
     if (!id) return undefined
     const stop = new AbortController()
@@ -116,7 +119,8 @@ function useRunFeed(srv, run) {
     }
     setF(emptyFeed(id))
     const timer = setInterval(flush, BATCH_MS)
-    followRun(srv, id, (ev) => buffer.push(ev), { signal: stop.signal }).finally(() => { clearInterval(timer); flush() })
+    followRun(srv, id, (ev) => buffer.push(ev), { signal: stop.signal, over: () => over.current })
+      .finally(() => { clearInterval(timer); flush() })
     return () => { stop.abort(); clearInterval(timer) }
   }, [srv, id])
   return f
@@ -128,8 +132,11 @@ const toggled = (ids, id) => {
   return next
 }
 
+// The run is over when its log says so or when the Plan's poll does: a run stopped from outside never logs its end.
 function Flow({ srv, units, run, pilot, onOpen }) {
-  const f = useRunFeed(srv, run)
+  const log = useRunFeed(srv, run)
+  const ended = log.finished || Boolean(run?.finished)
+  const f = useMemo(() => (ended === log.finished ? log : { ...log, finished: true }), [log, ended])
   const theme = useTheme()
   const rf = useReactFlow()
   const frame = useRef(null)
@@ -153,7 +160,7 @@ function Flow({ srv, units, run, pilot, onOpen }) {
     return { edges: laid.edges, nodes: sized }
   }, [units, f, viewed, now, saved, drag, onOpen, onView])
   const opened = nodes.filter((n) => n.type === 'term')
-  const ticking = live || opened.length > 0 || Boolean(maxed)
+  const ticking = live || clockRuns(f, now)
 
   useEffect(() => {
     if (!ticking) return undefined

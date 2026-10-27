@@ -230,7 +230,8 @@ a la disposición automática, y las posiciones que arrastres se conservan mient
 abierta. Tab y las flechas se mueven entre nodos e Intro abre el detalle de la unidad. Sin elegir vista, el Plan pasa al
 lienzo en cuanto algo corre (ya al entrar, o lanzado desde el propio Plan) y se queda ahí, también al acabar, hasta que
 elijas otra. El lienzo lee el registro de la ejecución (el mismo que lee el portal) y sigue el tema claro u oscuro de la
-app; parar sigue en la tarjeta **Ejecutar el plan**.
+app; parar sigue en la tarjeta **Ejecutar el plan**. Una ejecución parada desde fuera (su trabajo parado, su proceso
+terminado) se ve acabada en unos segundos: sus terminales dejan de decir «en marcha» y sus relojes se paran.
 
 **Plan desde 0**, debajo de las unidades. Lo que ha costado el plan desde que empezó (o desde el último borrado), para todo el equipo: tiempo
 de agente desatendido, tiempo con una persona delante, tiempo de calendario, tokens y dólares equivalentes de la API,

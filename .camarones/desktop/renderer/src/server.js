@@ -26,6 +26,7 @@ export function server(token, fetcher = (...a) => fetch(...a)) {
         const url = `../api/${name}${from == null ? '' : `?${new URLSearchParams({ from })}`}`
         const r = await fetcher(url, { headers: { 'X-Camaron-Token': token }, signal })
         if (!r.ok) throw await refused(name, r)
+        if (r.status === 204) return { id }               // a run stopped from outside, read to its end: nothing more
         const reader = r.body.pipeThrough(new TextDecoderStream()).getReader()
         let rest = ''
         try {

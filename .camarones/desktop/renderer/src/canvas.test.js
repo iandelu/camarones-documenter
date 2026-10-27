@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { arrivedLive, atBottom, changedRun, defaultView, emptyFeed, feed, FOLD_MS, followRun, GAP, layout, MAX_ROWS, neighbour, openUnits, place, row, SIZE } from './canvas.js'
+import { arrivedLive, atBottom, changedRun, clockRuns, defaultView, emptyFeed, feed, FOLD_MS, followRun, GAP, layout, MAX_ROWS, neighbour, openUnits, place, row, SIZE } from './canvas.js'
 
 const ev = (type, f = {}) => ({ v: 1, ts: '2026-10-27T10:00:00.000Z', type, unit: 'a', ...f })
 
@@ -186,6 +186,18 @@ test('a new run, or the shown one finishing, is noticed', () => {
   expect(changedRun({ run: 'r-1', finished: true }, null)).toBe(false)
 })
 
+// The clock ticks for what changes with time: a unit at work, a fold window, a run the toolbar times. A failed terminal
+// left open after the run has a fixed time and must not keep the canvas re-rendering every second.
+test('the clock runs only while a unit works or is inside its fold window', () => {
+  const at = (units, finished = false) => ({ run: 'r', finished, units })
+  expect(clockRuns(at({ a: { ended: null } }), 0)).toBe(true)
+  expect(clockRuns(at({ a: { ended: null } }, true), 0)).toBe(false)
+  expect(clockRuns(at({ a: { ended: 10_000, outcome: 'ok' } }), 10_000 + FOLD_MS - 1)).toBe(true)
+  expect(clockRuns(at({ a: { ended: 10_000, outcome: 'failed' } }), 10_000 + FOLD_MS + 1)).toBe(false)
+  expect(clockRuns(at({}), 0)).toBe(false)
+  expect(clockRuns(null, 0)).toBe(false)
+})
+
 test('nothing opens without a feed, and a dropped unit never does', () => {
   expect(openUnits(units, null, new Set(), 0).size).toBe(0)
   expect(openUnits(units, emptyFeed('r'), new Set(['x']), 0).size).toBe(0)
@@ -263,6 +275,28 @@ test('an error resumes from the id the stream got to, or from the last one it en
   await followRun(srv, 'r-1', () => {}, { retry: 700, sleep: async (ms) => { waits.push(ms) } })
   expect(calls).toEqual([undefined, '20', '25', '25'])
   expect(waits).toEqual([700, 700, 700])
+})
+
+// A run stopped from outside never logs run.finished; the server ends its stream once the log is read, and the Plan's
+// poll says the run is over: the follow does not open it again.
+test('a run the plan says is over is not followed again once its stream ends', async () => {
+  const capped = (stream) => {                       // a follow that ignored `over` would never end: stop it at 10
+    const ac = new AbortController()
+    let n = 0
+    return { ac, calls: () => n, srv: { stream: async (...a) => { n += 1; if (n >= 10) ac.abort(); return stream(n, ...a) } } }
+  }
+  const once = capped(async (n, name, onEvent) => { onEvent({ type: 'unit.started', unit: 'a' }); return { id: '7' } })
+  await followRun(once.srv, 'r-1', () => {}, { over: () => true, signal: once.ac.signal, ...quiet })
+  expect(once.calls()).toBe(1)
+
+  let over = false
+  const later = capped(async (n) => { if (n === 3) over = true; return { id: String(n) } })
+  await followRun(later.srv, 'r-1', () => {}, { over: () => over, signal: later.ac.signal, ...quiet })
+  expect(later.calls()).toBe(3)
+
+  const broken = capped(async () => { throw new Error('network error') })
+  await followRun(broken.srv, 'r-1', () => {}, { over: () => true, signal: broken.ac.signal, ...quiet })
+  expect(broken.calls()).toBe(1)
 })
 
 test('a run whose log is gone is not followed again', async () => {
