@@ -24,12 +24,16 @@ RUN_LOCK = CTX.state_root / ".camarones" / ".cache" / "locks" / "run.lock"   # o
 
 
 def busy() -> dict | None:
-    """Who holds the run lock (a run is in progress somewhere), or None."""
+    """Who holds the run lock (a run is in progress somewhere), or None. The probe takes the lock for an instant, so a
+    reader that needs the answer twice asks once and passes it on: two probes can see each other. On Windows the last
+    holder's file may still be deleting (PermissionError): nobody holds it."""
     try:
         with FileLock(RUN_LOCK, wait=0):
             return None
     except LockBusy as e:
         return e.holder
+    except PermissionError:
+        return None
 
 
 def cancel_file(run_id: str):

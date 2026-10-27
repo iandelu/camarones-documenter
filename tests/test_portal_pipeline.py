@@ -162,6 +162,26 @@ def test_a_run_stopped_from_outside_is_over_once_the_run_lock_is_free_or_stale(k
     assert run["run"] == "r-20261027-100000-1"
 
 
+def test_a_pipeline_read_probes_the_run_lock_once(kit, monkeypatch):
+    from lib.harness import scheduler
+    kit.plan.sync()
+    stopped_run(kit)
+    calls = []
+    monkeypatch.setattr(scheduler, "busy", lambda: calls.append(1) or {"pid": 1})
+    run = kit.serve.api_pipeline("es")["run"]
+    assert calls == [1]
+    assert run["finished"] is False                           # one answer, held: the run is on
+
+
+def test_a_run_lock_windows_is_still_deleting_reads_as_free(kit, monkeypatch):
+    from lib.harness import locks, scheduler
+
+    def deleting(self):
+        raise PermissionError(13, "delete pending")
+    monkeypatch.setattr(locks.FileLock, "acquire", deleting)
+    assert scheduler.busy() is None
+
+
 def test_a_run_that_logged_its_end_is_not_called_interrupted(kit, server, run_log):
     kit.plan.sync()
     run = get_json(f"{server}/api/pipeline")["run"]

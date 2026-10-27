@@ -186,3 +186,15 @@ def test_a_run_that_died_does_not_keep_its_units_busy(wired, monkeypatch):
     assert sessions.headless() == {"u1"}
     monkeypatch.setattr(scheduler, "busy", lambda: None)
     assert sessions.headless() == set()
+
+
+def test_headless_uses_the_lock_answer_it_is_given(wired, monkeypatch):
+    from lib import sessions
+    from lib.harness import scheduler
+    from lib.harness.events import EventLog
+    log = wired.common.CTX.runs / "2026-10-26-run" / "events.jsonl"
+    log.parent.mkdir(parents=True, exist_ok=True)
+    EventLog(log).emit("unit.started", unit="u1")
+    monkeypatch.setattr(scheduler, "busy", lambda: pytest.fail("probed again"))
+    assert sessions.headless(busy=True) == {"u1"}
+    assert sessions.headless(busy=False) == set()

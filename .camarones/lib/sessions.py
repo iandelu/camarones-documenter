@@ -150,12 +150,15 @@ def state(uid: str, cwd: Path | None = None) -> dict | None:
             "ended": _iso(rec.get("ended")), "activity": act}
 
 
-def headless() -> set[str]:
+def headless(busy: bool | None = None) -> set[str]:
     """Units the latest parallel run is running right now: doing, but with no window of their own. Only while a run
-    holds the run lock: one killed before it logged run.finished works on nothing."""
+    holds the run lock: one killed before it logged run.finished works on nothing. `busy` is that answer when the
+    caller already probed the lock (a probe holds it for an instant, so one read asks once); None probes."""
     from .harness import runs, scheduler
     latest = runs.ids(wiki=False)
-    if not latest or not scheduler.busy():
+    if busy is None:
+        busy = scheduler.busy() is not None
+    if not latest or not busy:
         return set()
     evs = runs.events(latest[0])
     if any(e["type"] == "run.finished" for e in evs):
