@@ -6,6 +6,7 @@ import importlib
 import threading
 
 import pytest
+import yaml
 
 LEGACY = "# 0003 — JPA\n\n## Estado\n\nPropuesto <!-- x -->\n\n## Contexto\n\nwhy\n\n## Notas\n\nkeep\n"
 
@@ -88,6 +89,24 @@ def test_starting_a_review_twice_keeps_the_first_state(adr, kit):
     assert adr.start_review("0003")["state"]["attendees"] == ["LA"]
     with pytest.raises(KeyError):
         adr.start_review("0004")
+
+
+def test_a_started_review_takes_its_touches_from_the_x_sources(adr, kit):
+    f = decisions(kit) / "0006-x.md"
+    raw = ("---\ntype: decision\nx-sources:\n  - api:src/S.java#L1-L9\n  - repo://web/b.ts#x\n  - docs/orders.md#why\n"
+           "  - api:src/S.java\n  - https://x.io/p\n  - plain.md\n  - 3\n---\n# 0006 — X\n\n## Status\n\nAccepted\n")
+    f.write_text(raw, encoding="utf-8")
+    state = adr.start_review("0006")["state"]
+    assert state["touches"] == ["api:src/S.java", "cam-docs:docs/orders.md", "web:b.ts"]
+    assert f.read_text(encoding="utf-8") == raw
+
+
+@pytest.mark.parametrize("raw", [
+    LEGACY, "---\ntype: decision\n---\n# 0006 — X\n", "---\nx-sources: api:a.java\n---\n# 0006 — X\n",
+    "---\nx-sources: []\n---\n# 0006 — X\n"])
+def test_a_started_review_without_x_sources_touches_nothing(adr, kit, raw):
+    (decisions(kit) / "0006-x.md").write_text(raw, encoding="utf-8")
+    assert adr.start_review("0006")["state"]["touches"] == []
 
 
 @pytest.mark.parametrize("heading, title", [
@@ -371,6 +390,32 @@ def test_a_damaged_state_never_breaks_the_list_nor_gets_overwritten(adr, kit):
     with pytest.raises(adr.AdrError, match="0003.yaml"):
         adr.start_review("0003")
     assert adr.next_id() == "0005"
+
+
+def test_the_file_name_decides_whose_state_it_is(adr, kit):
+    written(adr)
+    b = written(adr)
+    other = adr.state_file("0001").read_bytes()
+    adr.state_file("0002").write_text(
+        adr.state_file("0002").read_text(encoding="utf-8").replace("id: '0002'", "id: '0001'"), encoding="utf-8")
+    adr.set_attendees("0002", ["LA"])
+    adr.part("0002", "context", "approve", None, b["sha"])
+    out = adr.point("0002", "add", {"question": "Q", "options": [{"name": "x"}, {"name": "y"}]}, b["sha"])
+    assert out["id"] == "0002" and out["state"]["id"] == "0002" and adr.load_state("0002")["id"] == "0002"
+    assert "id: '0002'\n" in adr.state_file("0002").read_text(encoding="utf-8")
+    assert adr.state_file("0001").read_bytes() == other and adr.get("0001")["state"]["attendees"] == []
+
+
+def test_an_unquoted_id_in_a_state_file_still_opens_and_is_saved_quoted(adr, kit):
+    a = written(adr)
+    text = adr.state_file("0001").read_text(encoding="utf-8")
+    assert "id: '0001'\n" in text
+    adr.state_file("0001").write_text(text.replace("id: '0001'", "id: 0001"), encoding="utf-8")
+    assert yaml.safe_load(adr.state_file("0001").read_text(encoding="utf-8"))["id"] == 1
+    assert adr.get("0001")["state"]["id"] == "0001" and adr.list_adrs()[0]["id"] == "0001"
+    out = adr.part("0001", "context", "approve", None, a["sha"])
+    assert out["state"]["parts"] == {"context": "approved"} and "id: '0001'\n" in adr.state_file("0001").read_text(encoding="utf-8")
+    assert adr.set_attendees("0001", ["LA"])["state"]["attendees"] == ["LA"]
 
 
 def test_the_numbers_of_files_and_states_are_both_taken(adr, kit):
