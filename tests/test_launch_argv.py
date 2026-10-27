@@ -36,6 +36,11 @@ def test_fresh_claude_session_uses_the_model_pref(kit, launched):
     assert cmd == ["/bin/claude", "--model", "opus", launched["short"]] and cwd == kit.common.WORKSPACE
 
 
+def test_the_wizard_opens_a_window_whatever_the_sessions_setting(launched):
+    assert launched["make"](["claude"], sessions="canvas").launch_agent("prompt") == "bg"
+    assert len(launched["cmds"]) == 1
+
+
 def test_claude_model_defaults_to_sonnet(launched):
     launched["make"](["claude"]).launch_agent("prompt")
     assert launched["cmds"][0][0][:3] == ["/bin/claude", "--model", "sonnet"]
