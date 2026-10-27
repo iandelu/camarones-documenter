@@ -120,22 +120,28 @@ export function place(nodes, saved) {
 
 const centre = (n) => ({ x: n.position.x + n.width / 2, y: n.position.y + n.height / 2 })
 
-// The nearest node whose centre lies beyond this one's in that direction; a tie goes to the one more in line.
+// The nearest node in that direction: one beside this one (its box overlaps on the other axis) before any diagonal,
+// and a diagonal counts its offset off the line double.
 export function neighbour(nodes, id, dir) {
-  const from = nodes.find((n) => n.id === id)
-  if (!from) return null
-  const c = centre(from)
+  const origin = nodes.find((n) => n.id === id)
+  if (!origin) return null
+  const c = centre(origin)
   const horizontal = dir === 'left' || dir === 'right'
   const sign = dir === 'left' || dir === 'up' ? -1 : 1
+  const span = (n) => (horizontal ? [n.position.y, n.position.y + n.height] : [n.position.x, n.position.x + n.width])
+  const [lo, hi] = span(origin)
   let best = null
   for (const n of nodes) {
-    if (n === from) continue
+    if (n === origin) continue
     const m = centre(n)
     const along = (horizontal ? m.x - c.x : m.y - c.y) * sign
     if (along <= 0) continue
     const across = Math.abs(horizontal ? m.y - c.y : m.x - c.x)
-    const dist = along * along + across * across
-    if (!best || dist < best.dist || (dist === best.dist && across < best.across)) best = { id: n.id, dist, across }
+    const [from, to] = span(n)
+    const beside = lo < to && from < hi
+    const cost = beside ? along : along * along + 4 * across * across
+    const cand = { id: n.id, diagonal: beside ? 0 : 1, cost, across }
+    if (!best || (cand.diagonal - best.diagonal || cand.cost - best.cost || cand.across - best.across) < 0) best = cand
   }
   return best ? best.id : null
 }
