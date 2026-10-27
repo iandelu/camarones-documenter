@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { acceptBlock, addHit, counts, FILTERS, filterRows, nextPart, presentKey, route, STEPS, stepper } from './adr.js'
+import { acceptBlock, addHit, counts, crumb, FILTERS, filterRows, nextPart, presentKey, route, STEPS, stepper } from './adr.js'
 import { setLang, t } from './i18n.js'
 
 const states = (phase, mode) => stepper(phase, mode).map((s) => s.state)
@@ -161,5 +161,18 @@ test('a why key reads as a sentence with its point in both languages', () => {
   expect(t(block.key, { point: block.point })).toBe('El punto P2 está aplazado: decídelo o quítalo')
   setLang('en')
   expect(t(block.key, { point: block.point })).toBe('Point P2 is deferred: decide it or remove it')
+  setLang('es')
+})
+
+// The header's last breadcrumb inside the section (App.jsx): the form, the candidates or the ADR; none on the list.
+test('a place inside the section has its crumb', () => {
+  setLang('es')
+  expect(crumb('#/decisions/new', t)).toBe('Nuevo ADR')
+  expect(crumb('#/decisions/candidates', t)).toBe('Candidatas')
+  expect(crumb('#/decisions/0012', t)).toBe('ADR 0012')
+  expect(crumb('#/decisions', t)).toBeNull()
+  expect(crumb('#/decisions/x', t)).toBeNull()
+  setLang('en')
+  expect(crumb('#/decisions/new', t)).toBe('New ADR')
   setLang('es')
 })

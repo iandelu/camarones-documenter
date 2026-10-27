@@ -68,3 +68,16 @@ test('the project header has Ver portal, a button that opens the browser', () =>
   expect(out).toMatch(/<button type="button" class="cu-btn cu-btn--ghost cu-btn--sm">Ver portal[^<]*(<svg[^>]*>.*?<\/svg>)?<\/button>/)
   expect(out.split('<header')[1].split('</header>')[0]).not.toMatch(/<a [^>]*href="\.\.\//)
 })
+
+// CAMARON.md: breadcrumbs on every view. Inside Decisiones the section itself is a step back, then the place.
+test('a place inside the decisions adds its crumb and links back to the list', () => {
+  globalThis.window = { camaronApp: { token: 't' } }
+  globalThis.location = { hash: '#/decisions/0012' }
+  const crumbs = renderToStaticMarkup(<App />).split('<nav class="cu-crumbs"')[1].split('</nav>')[0]
+  expect(crumbs).toContain('<a href="#/decisions">Decisiones</a>')
+  expect(crumbs).toContain('<span aria-current="page">ADR 0012</span>')
+  globalThis.location = { hash: '#/decisions' }
+  expect(renderToStaticMarkup(<App />)).toContain('<span aria-current="page">Decisiones</span>')
+  globalThis.location = { hash: '#/plan' }
+  expect(renderToStaticMarkup(<App />)).toContain('<span aria-current="page">Plan</span>')
+})

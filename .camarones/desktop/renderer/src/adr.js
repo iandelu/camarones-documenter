@@ -9,6 +9,12 @@ export function route(hash) {
   return /^\d{4}$/.test(seg ?? '') ? { view: 'adr', id: seg } : { view: 'list' }
 }
 
+// The header's last breadcrumb (App.jsx) for a place inside the section; the list has none, the section's own is last.
+export function crumb(hash, t) {
+  const r = route(hash)
+  return r.view === 'new' ? t('adr.new') : r.view === 'candidates' ? t('adr.cand.title') : r.view === 'adr' ? `ADR ${r.id}` : null
+}
+
 export const FILTERS = ['all', 'running', 'review', 'accepted', 'superseded']
 
 const norm = (s) => String(s ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
