@@ -593,6 +593,8 @@ def main() -> int:
         if not a.ci:
             plan.sync()
             plan.set_status("setup", "done", "cli setup")
+            from lib import install_state
+            install_state.mark_setup()
     elif a.cmd == "init":
         env.init_templates()
         docs.save_workspace(docs.workspace())   # persist workspace.yaml even with 0 repos yet — global

@@ -74,7 +74,7 @@ sustituidos.
 | `~/.camarones/desktop` | El Electron fijado para `camaron app` |
 | `~/.camarones/bin`, `~/.camarones/osv-db` | Binarios fijados (gitleaks, OSV-Scanner) y la base de datos sin conexión de OSV |
 | `~/.camarones/trust/` | Lo que aprobaste de la configuración de agentes de cada equipo; nunca en un repo |
-| `~/.camarones/install/` | Lo que el kit instaló aquí (sus skills, los de graphify y OpenWiki), para que no pida aprobación |
+| `~/.camarones/install/` | Lo que el kit instaló aquí (sus skills, los de graphify y OpenWiki), para que no pida aprobación, y cuándo corrió setup aquí por última vez y con qué kit |
 | `~/.camarones/mcp-token` | El token de `camaron mcp --http` |
 | `~/.camarones/hosts.json` | Qué servidor es GitLab, GitHub o SonarQube, y su usuario (sin secretos) |
 | Llavero del sistema | Los tokens en sí (`credentials.json` solo donde no hay llavero) |
