@@ -6,6 +6,7 @@ import { Failed, JobOutput, Page } from '../parts.jsx'
 import Commands from './Commands.jsx'
 import { tokenPrefill } from '../nav.js'
 import { t } from '../i18n.js'
+import { useTour } from '../Tour.jsx'
 
 // This machine by task: the guide to all of it, prepare it (setup, with its progress), the language and models of the agent sessions, the
 // forge and SonarQube tokens (kept in the OS keychain), this project's repos and plan, the kit itself; and, apart, uninstall —
@@ -16,13 +17,15 @@ export default function Machine({ srv, jobs, app }) {
   const load = () => srv.get('app/machine').then((x) => { setM(x); setError('') }, (e) => setError(e.message))
   useEffect(() => { load() }, [])
   const p = { srv, jobs, m, reload: load }
+  const tour = useTour()
   const fill = tokenPrefill(useHash())          // #/machine?host=<h>&kind=sonarqube: where Quality sends a repo's Sonar
   return (
     <Page title={t('nav.machine')}>
       <Card className="dk-run" data-tour="mc-guide">
         <span className="eyebrow">{t('mc.guide')}</span>
         <p className="muted small">{t('mc.guideBody')}</p>
-        <div className="row"><Button size="sm" variant="primary" href="#/guide">{t('mc.guideOpen')}</Button></div>
+        <div className="row"><Button size="sm" variant="primary" href="#/guide">{t('mc.guideOpen')}</Button>
+          <Button size="sm" onClick={() => tour.start('app')}>{t('tour.take')}</Button></div>
       </Card>
       {error ? <Failed title={t('mc.failed')} detail={error} onRetry={() => { setError(''); load() }} /> : null}
       {!m && !error ? <Skeleton lines={6} /> : null}
@@ -43,7 +46,7 @@ function Setup({ srv, jobs, m }) {
   const c = useCmd(srv, jobs)
   const { done, pct } = setupProgress(c.job?.lines, m.setup_steps)
   return (
-    <Card className="dk-run">
+    <Card className="dk-run" data-tour="mc-setup">
       <span className="eyebrow">{t('mc.setup')}</span>
       {c.job ? <progress className="dk-progress" value={c.running ? pct : 100} max={100} aria-label={t('mc.setup')} /> : null}
       <div className="row">
@@ -63,7 +66,7 @@ function Settings({ srv, jobs, m, reload }) {
   const [other, setOther] = useState(!listed && !!m.codex_models?.length)
   const set = async (key, value) => { await c.run('config', { action: 'set', key, value }); reload() }
   return (
-    <Card className="dk-run">
+    <Card className="dk-run" data-tour="mc-settings">
       <span className="eyebrow">{t('mc.settings')}</span>
       <div className="dk-fields">
         <div className="cu-field"><label className="cu-field-label" htmlFor="mc-lang">{t('mc.lang')}</label>
@@ -107,7 +110,7 @@ export function Tokens({ srv, host = '', kind = '' }) {
   }
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
   return (
-    <Card className="dk-run">
+    <Card className="dk-run" data-tour="mc-tokens">
       <span className="eyebrow">{t('mc.tokens')}</span>
       {d?.hosts.length ? (
         <ul className="dk-units">{d.hosts.map((h) => (
@@ -146,7 +149,7 @@ function Repos({ srv, jobs, m, reload }) {
   useEffect(() => { setStacks(Object.fromEntries(m.repos.map((r) => [r.name, r.stack || '']))) }, [m])
   const run = async (cmd, args) => { await c.run(cmd, args); reload() }
   return (
-    <Card className="dk-run">
+    <Card className="dk-run" data-tour="mc-repos">
       <span className="eyebrow">{t('mc.repos')}</span>
       {m.repos.length ? (
         <ul className="dk-units">{m.repos.map((r) => (
@@ -181,7 +184,7 @@ function Kit({ srv, jobs, m, app }) {
   const [updated, setUpdated] = useState(false)
   const update = async () => { const end = await c.run('self-update', {}); if (end?.status === 'done') setUpdated(true) }
   return (
-    <Card className="dk-run">
+    <Card className="dk-run" data-tour="mc-kit">
       <div className="row"><span className="eyebrow">{t('mc.kit')}</span><span className="muted small">{t('mc.version', { v: m.kit.version })}</span></div>
       <div className="row">
         {m.kit.global ? <Button size="sm" disabled={c.running} onClick={update}>{t('mc.update')}</Button> : <span className="muted small">{t('mc.localKit')}</span>}
@@ -205,7 +208,7 @@ function Uninstall({ srv, jobs, app }) {
   const args = (dry) => ({ ...(opts.user_level ? { user_level: true } : {}), ...(opts.no_backup && !dry ? { no_backup: true } : {}), ...(dry ? { dry_run: true } : {}) })
   const set = (k) => (e) => setOpts((o) => ({ ...o, [k]: e.target.checked }))
   return (
-    <Card className="dk-run dk-cmd careful">
+    <Card className="dk-run dk-cmd careful" data-tour="mc-uninstall">
       <span className="eyebrow">{t('un.title')}</span>
       <p className="small">{t('un.lead')}</p>
       <label className="dk-check"><input type="checkbox" checked={opts.user_level} onChange={set('user_level')} disabled={go.running} />{t('un.global')}</label>

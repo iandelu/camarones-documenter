@@ -28,7 +28,8 @@ export function entries({ sections, projects = [], commands = [], guide = [], t,
       { id: 'read', label: t('docs.read'), href: '../#/' },
       { id: 'review', label: t('docs.review'), href: '../#/review' },
       { id: 'search', label: t('docs.search'), href: '../#/search' },
-      { id: 'add', label: t('rail.add'), action: 'add' }] },
+      { id: 'add', label: t('rail.add'), action: 'add' },
+      { id: 'tour', label: t('tour.take'), action: 'tour' }] },
     { id: 'commands', label: t('pal.commands'), items: commands.flatMap((c) => {
       const s = sectionFor(c, sections)
       return s ? [{ id: `cmd:${c.name}`, label: c[lang] || c.en, sub: `camaron ${c.name}`, href: inPanel(c) ? `#/${s}` : `#/${s}/${c.name}` }] : []

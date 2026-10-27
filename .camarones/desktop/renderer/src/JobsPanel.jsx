@@ -18,7 +18,7 @@ export default function JobsPanel({ srv, jobs }) {
     try { await srv.post(`app/jobs/${j.id}/cancel`, {}) } finally { jobs.refresh() }
   }
   return (
-    <section className={'dk-jobs' + (open ? ' open' : '')} aria-label={t('jobs')}>
+    <section className={'dk-jobs' + (open ? ' open' : '')} aria-label={t('jobs')} data-tour="jobs">
       <div className="dk-jobs-bar">
         <span className="eyebrow">{t('jobs')}</span>
         {head ? <JobLine job={head} /> : <span className="muted small">{t('jobs.none')}</span>}
