@@ -143,3 +143,17 @@ test('the canvas speaks English', () => {
   expect(out).toContain('>Fit<')
   expect(out).toContain('>Re-layout<')
 })
+
+test('a paused unit says so and offers to continue it', () => {
+  const out = html(<UnitNode data={{ unit: { ...unit, status: 'doing', paused: true }, now: 0, canStart: true, onSession() {}, ...on }} />)
+  expect(out).toContain('En pausa: su sesión se cerró')
+  expect(out).toMatch(/<button[^>]*>Seguir<\/button>/)
+})
+
+// A stopped autopilot leaves its unit paused with the run's log: both buttons fit beside the note, the log's as a glyph.
+test("a paused unit a run worked on still offers the run's terminal", () => {
+  const fu = { runner: 'claude', started: 0, ended: null, outcome: null, cost: 0, rows: [{ kind: 'read', text: 'Read a.md' }] }
+  const out = html(<UnitNode data={{ unit: { ...unit, status: 'doing', paused: true }, fu, now: 0, canStart: false, onSession() {}, ...on }} />)
+  expect(out).toMatch(/<button[^>]*disabled=""[^>]*>Seguir<\/button>/)
+  expect(out).toMatch(/<button[^>]*aria-label="Ver terminal"[^>]*>&gt;_<\/button>/)
+})
