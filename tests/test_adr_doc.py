@@ -243,7 +243,9 @@ def test_the_considered_options_leave_out_what_the_section_already_names(adr_doc
 @pytest.mark.parametrize("text, blank", [
     ("", True), ("  \n\n ", True), ("TODO(question): which options were considered?", True), ("<!-- list them -->", True),
     ("TODO(question): a\n\nTODO(question): b <!-- x -->", True), ("### A · Redis", False),
-    ("TODO(question): which?\n\nRedis, because it is there.", False)])
+    ("TODO(question): which?\n\nRedis, because it is there.", False), ("<What was chosen.>", True),
+    ("<What was chosen.>\n\n<!-- and why -->", True), ("To be decided in review: see the decision points.", True),
+    ("<What was chosen.>\n\nWe keep JPA.", False), ("We keep <abbr>JPA</abbr>.", False)])
 def test_unwritten_is_a_section_with_nothing_a_person_wrote(adr_doc, text, blank):
     assert adr_doc.unwritten(text) is blank
 

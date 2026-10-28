@@ -49,6 +49,7 @@ _DATE_RE = re.compile(r"[0-9]{4}[-/.][0-9]{1,2}[-/.][0-9]{1,2}|[0-9]{1,2}[-/.][0
 _FILE_RE = re.compile(r"([0-9]{4})-.+\.md")
 _ITEM_RE = re.compile(r"^[ \t]*(?:#{1,6}[ \t]+|[-*+][ \t]+|[0-9]+[.)][ \t]+)(.+)$", re.M)
 _TOKEN_RE = re.compile(r"[^\W_]+")
+_SKELETON_RE = re.compile(r"<[^<>]+>")
 TODO = "TODO(question)"
 
 
@@ -94,10 +95,11 @@ def section(body: str, key: str) -> str | None:
 
 
 def unwritten(text: str) -> bool:
-    """The text of a section holds nothing a person wrote: once comments are set aside it is empty or only
-    `TODO(question)` lines, the questions the kit leaves where it knew nothing."""
+    """The text of a section holds nothing a person wrote: once comments are set aside it is empty or only placeholders,
+    the `TODO(question)` lines the kit leaves where it knew nothing, its Decision placeholder, and the `<…>` lines of a
+    4.x skeleton (`<What was chosen.>`)."""
     lines = [l.strip() for l in docs.COMMENT_RE.sub("", text or "").splitlines() if l.strip()]
-    return all(l.startswith(TODO) for l in lines)
+    return all(l.startswith(TODO) or l == PLACEHOLDER or _SKELETON_RE.fullmatch(l) for l in lines)
 
 
 def _status_line(body: str) -> str:
