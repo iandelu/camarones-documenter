@@ -27,7 +27,7 @@ Each project has its own window, served by that project's own local server (see
 | Part | What it does |
 |---|---|
 | Header | The brand (back to Summary), where you are (`project › section`), **View portal**, **Search or go to…** (<kbd>Ctrl</kbd> <kbd>K</kbd> / <kbd>⌘</kbd> <kbd>K</kbd>) and **⋯**. The header is the window's title bar: drag it to move the window |
-| Rail | One button per project of this machine, with its initials. Another project opens **in this window**: the app starts that project's server, moves the window to it and stops the old one. A project that is not on disk is greyed out. **+** opens the start screen |
+| Rail | One button per project of this machine, with its initials. Another project opens **in this window**: the app starts that project's server, moves the window to it and stops the old one. Stopping it ends the sessions open on its canvas, so when one is live the app asks first: *{n} sessions are open in this project: switching project ends them.* — **Cancel** or **Switch anyway**. A project that is not on disk is greyed out. **+** opens the start screen |
 | Sections | Summary, Board, Decisions, Plan, Interviews, Team, Quality, Libraries and Docs; then, under **This app**, Machine, Guide and (only in a checkout of the kit) Kit dev. Hover one to see its shortcut |
 | Main area | The section you are in |
 | Jobs panel and status bar | What runs now and the last jobs, with their output; the status bar shows the first running job and the kit's version |
@@ -135,7 +135,7 @@ unit, then pages waiting for review, then nothing ("All caught up"). Its button 
 
 | The step is | The button |
 |---|---|
-| A unit an agent does | **Start with {agent}** or **Continue with {agent}** (pick the agent when you have two or more): it opens the agent in its own terminal on that unit |
+| A unit an agent does | **Start with {agent}** or **Continue with {agent}** (pick the agent when you have two or more): it opens the agent on that unit as a terminal on the Plan's canvas and takes you there (or in a terminal window of its own, as Machine › **Where sessions open** says) |
 | An interview, before anyone chose how interviews run | **Choose how the interviews run** → Interviews |
 | Setting the machine up (`setup`) | **Prepare the machine** → Machine |
 | The team's answers (`answers`) | **Collect the answers** → Interviews |
@@ -214,10 +214,13 @@ default 2), each discovery, repo brief and flow in its own copy of `cam-docs`, m
 holds sessions per agent (`claude=2,codex=1`), a maximum number of units and whether to include the interviews.
 **Autopilot** does one unit after another instead, unattended. Both are off while no unit is ready. While a run is on,
 the card shows its progress and **Cancel the run** (agents stop, their units go back to the queue, their work is kept);
-while the autopilot is on, **Stop the autopilot**. Only one run exists at a time, from the app or the terminal.
+while the autopilot is on, **Stop the autopilot**. Only one run exists at a time, from the app or the terminal. Neither
+starts a unit whose session you have open (on the canvas or in a window); when only such units are left, it stops and
+names them, for you to finish there.
 
 **Keep it current.** **Start with {agent}** opens a session that updates the docs with what changed in the code since
-they were written.
+they were written: on the canvas, a terminal called **Update docs** in the **Loose sessions** lane (or a window, as
+Machine › **Where sessions open** says). While that terminal is open, the button takes you to it.
 
 **The units.** Done of total, and every unit as a card on a **Board** (Ready to start, Running, Need you, Waiting for
 others, Done), by **Phases** or on the **Canvas** (below). Colours: running amber, paused dimmed amber, done green, blocked red, awaiting your
@@ -232,7 +235,13 @@ or that it is waiting for you). The detail's button moves it:
 | Done | **Redo**: reopened for its agent (`camaron plan redo`) |
 | Started, terminal closed (paused) | **Continue** its conversation, or **Start over** |
 | Ready | **Start** with the agent you pick |
+| Open on the canvas | **Show its terminal** |
+| Open in a terminal window | none: it says "Open in its terminal" |
 | An interview before the mode is chosen | **Team questionnaire** or **Live, with an agent** |
+
+**Start** and **Continue** open the session on the canvas, in the unit's node, and take you to it (or in a window, as
+Machine says); starting a unit whose session is already open there takes you to its terminal ("It already has an open
+session: here is its terminal.").
 
 **See its log in the portal** opens the unit in the portal's Pipeline.
 
@@ -243,15 +252,32 @@ taken and its cost. Its header says **done** only when the plan has the unit don
 finishing it says where the plan has it (to do, paused, blocked, awaits your approval), and one that could not start
 says why. About 4 seconds after it ends it folds back into a compact card with its time and cost (**View
 terminal** opens it again); a failed unit keeps its terminal. Scroll up inside a terminal and it stops following the
-end until you press **Jump to the end**; **⤢** maximises it and Escape goes back to the canvas. **Fit** frames every
+end until you press **Jump to the end**; **⤢** maximises a run's terminal and Escape (or **Back to the canvas**) goes back. **Fit** frames every
 open terminal (every unit when none is open), **Re-layout** puts the whole canvas back in its automatic layout, and the
-positions you drag are kept while that project's window stays open. Tab and the arrows move between nodes and Enter
-opens the unit's detail. With no view picked, the Plan turns to the canvas as soon as a run is on (when you arrive, or
-started from the Plan itself; a unit you start by hand in its own terminal does not count) and stays there, also when
-it ends, until you pick another view. The canvas reads the
+positions you drag are kept while that project's window stays open. Tab and the arrows move between nodes; Enter
+opens a unit's detail, or goes into a terminal with you. Escape does nothing on a node: it only leaves a maximised
+one. With no view picked, the Plan turns to the canvas as soon as a run is on or a unit's session is
+open (when you arrive, or started from the Plan itself) and stays there, also when it ends, until you pick another
+view. The canvas reads the
 run's log (the same one the portal reads) and follows the app's light or dark theme; stopping stays on the **Run the
 plan** card. A run stopped from outside (its job stopped, its process killed) shows as over within a few seconds: its
 terminals stop saying running, and a unit it cut off says where the plan has it, its clock stopped at its last line.
+
+**Terminals with you.** A session you open from the app — **Start** or **Continue** on a unit (in its detail or on the
+Summary), **Propose questions with {agent}** in Quality or **Keep it current** — opens on the canvas, and the Plan puts it in front: the unit's node
+becomes a terminal where you type to the agent as in any terminal, its header saying "with you", its agent and its
+time. Everything you type goes to the agent: Escape, Tab, Shift+Tab, the arrows, Ctrl+C. **F6** leaves the terminal (on
+a Mac laptop, Fn+F6): to its node, where the arrows move between nodes again and Enter goes back into the terminal, or, when it is
+maximised, back to the canvas (there Escape still goes to the agent). **⤢** maximises it and **Back to the canvas** returns; the agent gets each new size. **Close** ends
+the session: the node folds back into its card, "Paused: its session was closed", and its **Continue** opens it again
+(when it opens in a window instead, the canvas says so above the graph).
+A terminal whose agent ended with an error stays with what it printed, **Remove** and, for a unit, **Open a new
+session**; one that ended cleanly folds back like a run's. The docs update belongs to no unit: its terminal, **Update
+docs**, sits in the **Loose sessions** lane under the graph. A unit open on the canvas is never opened twice: its
+button takes you to its terminal, and its detail offers **Show its terminal**. A project holds up to 8 terminals at
+once. They live in the project's server, so closing the project's window ends them and their units read as paused.
+Machine › **Where sessions open** › **In a terminal window** opens sessions in a window of their own instead, as before
+(`camaron config set sessions window`); a machine where the app cannot open terminals does that by itself and says so.
 
 **Plan from zero**, under the units. What the plan has cost since it started (or since the last wipe), for the whole team: agent time
 unattended, time with a person, calendar time, tokens and API-equivalent dollars, the most expensive units and a table
@@ -383,7 +409,7 @@ This machine and this project's setup (`#/machine`, <kbd>g</kbd> <kbd>m</kbd>).
 |---|---|
 | Guide and tour | Opens this guide, or the tour of the app |
 | Prepare this machine | **Run setup** (`camaron setup`): tools, repos, agent wiring, with a progress bar |
-| Language and models | The language of the AI sessions, the Claude Code model and the Codex model (Codex's own list, or **Other…** to type one): the ones a session takes when the routing names none for its unit. Each change is `camaron config set` |
+| Language and models | The language of the AI sessions, the Claude Code model and the Codex model (Codex's own list, or **Other…** to type one): the ones a session takes when the routing names none for its unit; and **Where sessions open**: **On the plan's canvas** (the default) or **In a terminal window** (a machine that cannot open terminals inside the app says that they open in a window). Each change is `camaron config set` |
 | GitLab, GitHub and SonarQube tokens | Saved hosts with **Test** and **Delete**; a form (host, kind, token) whose **Check and save** checks the token against the server first (**Save it anyway** if you insist). Tokens live in the system keychain, never in the project and never on a command line. SonarQube only over https (http only on localhost) |
 | Repos and plan | Each repo, cloned or not, with its stack (edit it, or **Back to detected**); **Clone or pull the repos** (`sync`), **Detect repos in the folder** (`detect`) and the plan's profile, quick or full |
 | The kit | **Update the kit** (`self-update`, global install only) and then **Restart the app on the new version**; **Repair the kit's files** (`repair`) |

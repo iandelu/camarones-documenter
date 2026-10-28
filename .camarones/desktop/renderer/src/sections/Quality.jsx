@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Aviso, Button, Chip, HealthBoard, Skeleton, sonarConnectHash } from '@camaron/ui'
 import { severities } from '@camaron/ui/result.js'
 import { ago } from '../jobs.js'
-import { openedWith } from '../plan.js'
+import { openSession, sessionNote } from '../plan.js'
 import { BOARD_ACTIONS, doctorRows, seconds } from '../quality.js'
 import { useAgents, useCmd, useJob, useStore } from '../hooks.js'
 import { AgentPicker, Failed, Fold, JobOutput, Page, ResultView, UnitRow } from '../parts.jsx'
@@ -163,8 +163,8 @@ function Evals({ srv, jobs, user }) {
     const end = await act.run('eval', { action: 'draft' })
     if (end?.status !== 'done') return
     try {
-      const res = await srv.post('app/agent', { unit: DRAFT, agent: a.agent, lang: lang(), mode: 'new' })
-      setNote({ ok: t('q.proposing', { agent: openedWith(a.label(a.agent), res) }), error: '' })
+      const n = sessionNote(await openSession(srv, { unit: DRAFT, agent: a.agent, lang: lang(), mode: 'new' }), a.label(a.agent))
+      setNote({ ok: n.key === 'next.opened' ? t('q.proposing', n.vars) : t(n.key, n.vars), error: '' })
     } catch (e) { setNote({ ok: '', error: e.message }) }
     loadPlan()
   }

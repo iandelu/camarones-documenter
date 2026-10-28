@@ -193,6 +193,12 @@ The portal's sidebar has seven zones — Docs, Board, Stories, Architecture, Pla
 jumps to any page or view. The app's sections are Summary, Board, Decisions, Plan, Interviews, Team, Quality, Libraries and Docs,
 plus Machine and Guide; `g` then a letter jumps between them.
 
+In the app, **Start** or **Continue** on a unit and the docs update (**Plan › Keep it current**) open the agent as a
+terminal on the Plan's canvas, where you type to it as in any terminal: F6 leaves the terminal (Fn+F6 on a Mac laptop),
+**Close** ends the session and pauses the unit (**Continue** opens it again), and the docs update sits under **Loose
+sessions**. The terminals live in the project's server, so closing the project's window ends them. `camaron config set
+sessions window` opens them in a terminal window instead, as the wizard always does.
+
 ### 📋 The board
 
 A Kanban stored in `cam-docs/backlog/` and versioned with the docs. Each card is a Markdown file compatible with
@@ -468,7 +474,7 @@ every agent session loads before reading a page, against `context.budget`), `aut
 evidence, write, accept, reject; all take `--json`), `history [--months 12]`
 (hotspots, who to ask per repo, files that change together, read from git without AI into `docs/overview/history.md`),
 `catalog [--json|--check]` (every command with where it lives: portal, desktop app or CLI only, and its arguments),
-`projects [--json]` (the projects registered on this machine; `--inspect DIR` says what a folder is, `--adopt DIR [--name NAME]` turns it into a project and `--git-init DIR` puts its code under git: all three take `--json` and a refusal is `{"error": taken|home|no-git|git-init, "detail"}`), `join URL --no-open` / `new NAME --no-open` (print `{"path"}`; a refused access is `{"error": auth|denied|not-found|network|unknown, "host", "detail"}`, and a token for a private repo comes in `CAMARONES_JOIN_TOKEN`, never on the command line), `config [get|set KEY VALUE]` (lang, model, codex_model: the wizard's settings), `trust --json` and `hooks --json` (what is pending
+`projects [--json]` (the projects registered on this machine; `--inspect DIR` says what a folder is, `--adopt DIR [--name NAME]` turns it into a project and `--git-init DIR` puts its code under git: all three take `--json` and a refusal is `{"error": taken|home|no-git|git-init, "detail"}`), `join URL --no-open` / `new NAME --no-open` (print `{"path"}`; a refused access is `{"error": auth|denied|not-found|network|unknown, "host", "detail"}`, and a token for a private repo comes in `CAMARONES_JOIN_TOKEN`, never on the command line), `config [get|set KEY VALUE]` (lang, model, codex_model: the wizard's settings; sessions: `canvas` or `window`, where the desktop app opens a session), `trust --json` and `hooks --json` (what is pending
 approval, whether the method hooks are on), the portal's **Plan › Sync** (the same as `share`, with where you stand), `app` (the desktop app: the project's sections by task, the portal to read,
 where runs, wikis, scans and checks start; the browser portal only shows them).
 
@@ -509,7 +515,9 @@ what it needs to be merged. A clash blocks the unit, leaves `cam-docs/` untouche
 `camaron runs` shows what each run did and cost; `camaron pipeline show` lists the units and where each one works.
 `autopilot` stays sequential. Runs keep the computer awake (a laptop that sleeps breaks the agent's session); a
 session cut by something passing (sleep, network, an overloaded API) is retried once. One session per agent by default:
-with a single agent installed, `--per-runner claude=2` lets it take more.
+with a single agent installed, `--per-runner claude=2` lets it take more. `run` and the autopilot both leave alone a unit whose
+session the app has open (on its canvas or in a window); when only such units are left they stop and name them, for you to finish
+there.
 
 **Is it working?** `camaron kpis` shows the team's runs per month (time, tokens, cost per unit, parallelism, limits,
 failures), coverage (repos with a brief, flows, C4 files, `check` errors), trust (confirmed, drafts, re-confirmations,

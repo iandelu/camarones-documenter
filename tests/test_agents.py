@@ -2,7 +2,7 @@
 so the desktop app opens the same session in its own terminal window. And the app's Run with its options."""
 from __future__ import annotations
 
-import json, threading, urllib.error, urllib.request
+import json, re, threading, urllib.error, urllib.request
 from http.server import ThreadingHTTPServer
 
 import pytest
@@ -29,6 +29,18 @@ def ready_agent_unit(wired):
     return next(u for u in wired.plan.available() if u["runner"] == "agent")
 
 
+def window_closed(uid):
+    """The unit's session window closed: until then (or its wrapper's pid gone) the unit is not opened again."""
+    import time
+    from lib import sessions
+    sessions.update(uid, ended=time.time())
+
+
+def prompt_of(wired, name):
+    """The prompt file of a unit's (or the update's) own session, as the kit names it in the cache."""
+    return wired.common.CACHE / "prompts" / f"{name.replace(':', '_')}.md"
+
+
 def test_installed_agents_are_the_runners_found_on_this_machine(term):
     ids = [a["id"] for a in term["agents"].installed()]
     assert ids == ["claude", "codex"]
@@ -42,8 +54,9 @@ def test_a_ready_unit_opens_in_its_own_terminal_in_the_workspace(wired, term):
     assert cmd[:3] == ["/bin/claude", "--model", "sonnet"] and cmd[-1].startswith("Follow the instructions in ")
     assert cwd == wired.common.WORKSPACE
     assert wired.plan.get(wired.plan.load(), u["id"])["status"] == "doing"
-    prompt = (wired.common.WORK / "next-prompt.md").read_text(encoding="utf-8")
+    prompt = prompt_of(wired, u["id"]).read_text(encoding="utf-8")
     assert u["id"] in prompt and r["agent"] == "claude"
+    assert not (wired.common.WORK / "next-prompt.md").exists()
     assert json.loads(wired.common.PREFS.read_text(encoding="utf-8"))["last_agent"] == "claude"
 
 
@@ -52,6 +65,7 @@ def test_continue_resumes_the_agents_last_conversation(wired, term):
     wired.plan.set_status(u["id"], "doing")
     term["agents"].launch_unit(u["id"], "claude", mode="continue")
     assert "--continue" in term["cmds"][0][0]
+    window_closed(u["id"])
     term["history"] = False                                     # nothing to continue: a fresh session
     term["agents"].launch_unit(u["id"], "claude", mode="continue")
     assert "--continue" not in term["cmds"][1][0]
@@ -83,8 +97,36 @@ def test_what_cannot_be_launched_says_why(wired, term, case):
 
 def test_without_a_terminal_it_points_at_the_prompt(wired, term):
     term["ok"] = False
-    with pytest.raises(RuntimeError, match="next-prompt.md"):
-        term["agents"].launch_unit(ready_agent_unit(wired)["id"], "claude")
+    uid = ready_agent_unit(wired)["id"]
+    with pytest.raises(RuntimeError, match=re.escape(f"prompts/{uid.replace(':', '_')}.md")):
+        term["agents"].launch_unit(uid, "claude")
+
+
+def test_each_session_reads_its_own_prompt_file(wired, term):
+    a, b = [u["id"] for u in wired.plan.available() if u["runner"] == "agent"][:2]
+    ra = term["agents"].launch_unit(a, "claude", lang="en")
+    rb = term["agents"].launch_unit(b, "claude", lang="en")
+    ru = term["agents"].launch_update("claude", lang="en")
+    texts = {name: prompt_of(wired, name).read_text(encoding="utf-8") for name in (a, b, "update")}
+    assert a in texts[a] and b not in texts[a] and b in texts[b] and a not in texts[b]
+    assert texts["update"] == wired.plan.prompt("update", lang="en")
+    for r, name, (cmd, _) in zip((ra, rb, ru), (a, b, "update"), term["cmds"]):
+        assert (wired.common.WORKSPACE / r["prompt"]).resolve() == prompt_of(wired, name).resolve()
+        assert cmd[-1] == f"Follow the instructions in {r['prompt']}"
+    assert len({ra["prompt"], rb["prompt"], ru["prompt"]}) == 3 and ru["prompt"].endswith("prompts/update.md")
+
+
+def test_a_prompt_file_outside_the_workspace_is_named_in_full(wired, term, tmp_path):
+    outside = tmp_path / "prompts" / "u.md"
+    assert term["agents"].prompt_ref(outside) == str(outside)
+    assert term["agents"].prompt_ref(wired.common.WORKSPACE / "a" / "u.md") == "a/u.md"
+
+
+def test_a_prompt_that_is_no_unit_keeps_the_shared_prompt_file(wired, term):
+    r = term["agents"].launch_prompt("Refine the C4 model", "claude", lang="en")
+    assert (wired.common.WORKSPACE / r["prompt"]).resolve() == (wired.common.WORK / "next-prompt.md").resolve()
+    assert (wired.common.WORK / "next-prompt.md").read_text(encoding="utf-8") == "Refine the C4 model"
+    assert term["cmds"][0][0][-1] == f"Follow the instructions in {r['prompt']}"
 
 
 def test_update_session(wired, term):
@@ -138,6 +180,7 @@ def test_without_a_model_routed_to_that_agent_the_machine_model_is_used(wired, t
     route(wired, team={"agentic-heavy": ["claude", "codex"]}, machine={"model": "haiku", "codex_model": "o5"})
     uid = ready_agent_unit(wired)["id"]
     term["agents"].launch_unit(uid, "claude")
+    window_closed(uid)
     term["agents"].launch_unit(next(u["id"] for u in wired.plan.available() if u["runner"] == "agent"), "codex")
     assert [model_of(c) for c, _ in term["cmds"]] == ["haiku", "o5"]
 
@@ -181,6 +224,8 @@ def call(url, body=None, token=TOKEN):
 
 
 def test_the_app_lists_agents_and_opens_a_unit(wired, app, term):
+    from lib import machine
+    machine.set_setting("sessions", "window")                   # the route opens where this setting says
     code, a = call(app + "/api/app/agents")
     assert code == 200 and [x["id"] for x in a["agents"]] == ["claude", "codex"]
     u = ready_agent_unit(wired)

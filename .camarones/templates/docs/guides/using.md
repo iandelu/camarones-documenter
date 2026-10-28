@@ -70,8 +70,9 @@ until you approve it on your machine: **Team › What came with the team's repo*
 ## A normal day
 
 1. **See the next step** — the app's **Summary**, or `camaron plan next`.
-2. **Do a unit with your agent** — **Start with Claude Code** (or Codex) opens it in its own terminal, on that unit
-   only. Close the terminal whenever you like: the unit pauses and **Continue** picks the conversation up.
+2. **Do a unit with your agent** — **Start with Claude Code** (or Codex) opens it as a terminal on the Plan's canvas,
+   on that unit only, where you type to the agent. Close it whenever you like: the unit pauses and **Continue** picks
+   the conversation up.
 3. **Or do several at once** — **Plan › Run the ready ones** (`camaron run --parallel 2`): each unit in its own copy of
    `cam-docs`, merged when it ends. **Autopilot** (`camaron autopilot`) goes one by one, unattended.
 4. **Read and review** what it wrote — **View portal**, then Review.

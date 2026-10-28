@@ -10,7 +10,7 @@ import time
 
 import pytest
 
-from test_agents import ready_agent_unit, term  # noqa: F401  (fixture)
+from test_agents import ready_agent_unit, term, window_closed  # noqa: F401  (fixture)
 
 
 def inner(cmd):
@@ -48,6 +48,7 @@ def test_continue_reopens_the_units_own_conversation(wired, term):
     term["agents"].launch_unit(u["id"], "claude")
     first = sessions.load(u["id"])["session"]
     write_transcript(wired, first, [assistant({"type": "text", "text": "hola"})])
+    window_closed(u["id"])
     term["agents"].launch_unit(u["id"], "claude", mode="continue")
     assert inner(term["cmds"][1][0])[3:5] == ["--resume", first]
     assert sessions.load(u["id"])["session"] == first
@@ -65,6 +66,7 @@ def test_restart_starts_a_new_conversation(wired, term):
     u = ready_agent_unit(wired)
     term["agents"].launch_unit(u["id"], "claude")
     first = sessions.load(u["id"])["session"]
+    window_closed(u["id"])
     term["agents"].launch_unit(u["id"], "claude", mode="restart")
     assert sessions.load(u["id"])["session"] != first
 
@@ -186,3 +188,23 @@ def test_a_run_that_died_does_not_keep_its_units_busy(wired, monkeypatch):
     assert sessions.headless() == {"u1"}
     monkeypatch.setattr(scheduler, "busy", lambda: None)
     assert sessions.headless() == set()
+
+
+def test_headless_uses_the_lock_answer_it_is_given(wired, monkeypatch):
+    from lib import sessions
+    from lib.harness import scheduler
+    from lib.harness.events import EventLog
+    log = wired.common.CTX.runs / "2026-10-26-run" / "events.jsonl"
+    log.parent.mkdir(parents=True, exist_ok=True)
+    EventLog(log).emit("unit.started", unit="u1")
+    monkeypatch.setattr(scheduler, "busy", lambda: pytest.fail("probed again"))
+    assert sessions.headless(busy=True) == {"u1"}
+    assert sessions.headless(busy=False) == set()
+
+
+def test_the_wrapper_can_run_without_a_record(monkeypatch, tmp_path):
+    from lib import session_run, sessions
+    monkeypatch.chdir(tmp_path)
+    assert sessions.wrap(None, ["agent", "x"])[-4:] == ["-", "--", "agent", "x"]
+    assert session_run.main(["-", "--", sys.executable, "-c", "raise SystemExit(4)"]) == 4
+    assert list(tmp_path.iterdir()) == []

@@ -3,7 +3,7 @@ import { Aviso, Button, Chip, Thinking } from '@camaron/ui'
 import { shape } from '@camaron/ui/result.js'
 import { chip, state } from './jobs.js'
 import { useCmd } from './hooks.js'
-import { openedWith, unitAction, waitsFor } from './plan.js'
+import { openSession, sessionNote, unitAction, waitsFor } from './plan.js'
 import { lang, t } from './i18n.js'
 
 // The pieces the sections share: the page, the agent picker, a fold, a job's outcome and a plan unit's row.
@@ -109,8 +109,8 @@ export function ModeChoice({ srv, jobs, onChosen, compact = false }) {
 }
 
 // The one action that moves a plan unit (plan.js): approve, retry, continue or start with the agent picked, choose
-// how interviews run first, or go where a unit the wizard runs is done. A half-done one can also start over.
-// plan: {interviews} from the pipeline; onChanged: look again.
+// how interviews run first, or go where a unit the wizard runs is done. A half-done one can also start over; one open
+// on the canvas shows its terminal. plan: {interviews} from the pipeline; onChanged: look again.
 export function UnitActions({ u, srv, a, plan, onChanged }) {
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState({ ok: '', error: '' })
@@ -125,8 +125,8 @@ export function UnitActions({ u, srv, a, plan, onChanged }) {
       onChanged?.()
     } catch (e) { setNote({ ok: '', error: e.message }) } finally { setBusy(false) }
   }
-  const agent = (mode) => go(() => srv.post('app/agent', { unit: u.id, agent: a.agent, lang: lang(), mode }),
-    (res) => t('next.opened', { agent: openedWith(a.label(a.agent), res) }))
+  const agent = (mode) => go(() => openSession(srv, { unit: u.id, agent: a.agent, lang: lang(), mode }),
+    (res) => { const n = sessionNote(res, a.label(a.agent)); return t(n.key, n.vars) })
   const noAgent = act?.kind === 'agent' && a.agents && !a.agents.length
   const reopen = () => go(async () => {
     const end = await redo.run('plan', { action: 'redo', unit: u.id })
@@ -145,7 +145,8 @@ export function UnitActions({ u, srv, a, plan, onChanged }) {
         {act.mode === 'continue' ? <Button size="sm" variant="ghost" disabled={busy || !a.agent} onClick={() => agent('restart')}>{t('unit.restart')}</Button> : null}
       </>) : null}
       {noAgent ? <Button size="sm" href="#/machine">{t('next.machine')}</Button> : null}
-      {act?.kind === 'live' ? <span className="muted small">{t('sess.openShort')}</span> : null}
+      {act?.kind === 'live' && act.term ? <Button size="sm" href={`#/plan?term=${act.term}`}>{t('pty.show')}</Button> : null}
+      {act?.kind === 'live' && !act.term ? <span className="muted small">{t('sess.openShort')}</span> : null}
     </div>
     {note.ok ? <p className="muted small dk-unit-note" role="status">{note.ok}</p> : null}
     {note.error ? <div className="dk-unit-note"><Aviso tone="error" title={t('unit.failed')} detail={note.error} /></div> : null}
