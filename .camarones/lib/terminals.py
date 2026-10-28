@@ -110,8 +110,15 @@ def _start(argv: list[str], cwd: Path, env: dict, cols: int, rows: int):
         if not available():
             raise Unavailable("pywinpty is not installed")
         import winpty
+        # Not PtyProcess.spawn: it passes argv[0] unquoted, and winpty-rs puts it in front of the command line that
+        # CreateProcessW splits (no application name), so a python.exe under "Program Files" would run as "C:\Program".
+        # The env block is the one PtyProcess.spawn builds; winpty-rs adds the final NUL and the space before cmdline.
         try:
-            return winpty.PtyProcess.spawn(argv, cwd=str(cwd), env=env, dimensions=(rows, cols)), None
+            pty = winpty.PTY(cols, rows)
+            if not pty.spawn(subprocess.list2cmdline(argv[:1]), cmdline=subprocess.list2cmdline(argv[1:]) or None,
+                             cwd=str(cwd), env="\0".join(f"{k}={v}" for k, v in env.items()) + "\0"):
+                raise OSError(f"{argv[0]} did not start")
+            return winpty.PtyProcess(pty), None
         except Exception as e:
             raise Unavailable(f"no ConPTY: {e}") from e
     import pty
