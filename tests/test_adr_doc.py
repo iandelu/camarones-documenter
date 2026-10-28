@@ -33,6 +33,15 @@ def test_next_number_skips_gaps_and_ignores_junk(adr_doc):
     assert adr_doc.number_of("0012-sessions.md") == "0012" and adr_doc.number_of("notes.md") is None
 
 
+@pytest.mark.parametrize("logical, kind, want", [
+    ("decisions/0001-jpa.md", "", True), ("decisions/0001-jpa.md", None, True), ("guides/why-redis.md", "decision", True),
+    ("decisions/README.md", "", False), ("decisions/old/0002-b.md", "", False), ("guides/0003-c.md", "", False),
+    ("decisions/0001-jpa.txt", "", False), ("decisionsx/0001-a.md", "", False), ("decisions/0001-.md", "", False),
+    ("decisions/README.md", "decision", True)])
+def test_one_rule_says_what_a_decision_page_is(adr_doc, logical, kind, want):
+    assert adr_doc.is_decision(logical, kind) is want
+
+
 def test_number_of_reads_a_path_and_wants_an_md_file(adr_doc):
     assert adr_doc.number_of("docs/decisions/0004-cache.md") == "0004"
     assert adr_doc.number_of("0004-cache.yaml") is None and adr_doc.number_of("0004.md") is None

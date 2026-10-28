@@ -402,7 +402,8 @@ la revisión va decidiendo (partes, puntos, asistentes) queda aparte en `docs/.w
    git). **Escribir sin IA** escribe el ADR propuesto con la plantilla, con el problema, los drivers, las opciones, lo que
    toca y la evidencia del paquete ya puestos.
 4. **Revisa y decide.** La revisión recorre el ADR **parte por parte** (cada sección se aprueba, se edita o se aplaza, más
-   las páginas de documentación afectadas) y cada **punto de decisión** (una pregunta con sus opciones, a favor y en
+   las páginas de documentación afectadas: las que toca el ADR y las que citan los ficheros que toca, las mismas que, al
+   aceptarlo, dirán que esta decisión las cubre) y cada **punto de decisión** (una pregunta con sus opciones, a favor y en
    contra: eliges una, o *Otra* con lo que se decida en la reunión, y una razón en una línea). Se pueden añadir y quitar
    puntos y apuntar los **asistentes**. **Presentar** (`P`) muestra una parte por pantalla, en letra grande, para llevar
    una reunión compartiendo pantalla, todo con el teclado: <kbd>←</kbd>/<kbd>→</kbd> cambian de parte,

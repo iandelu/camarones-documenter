@@ -132,7 +132,7 @@ def _files() -> dict[str, Path]:
     found: dict[str, Path] = {}
     for f in sorted(folder.glob("*.md")) if folder.is_dir() else []:
         number = adr_doc.number_of(f.name)
-        if number and number not in found:
+        if adr_doc.is_decision(f"decisions/{f.name}") and number not in found:
             found[number] = f
     return found
 
@@ -248,9 +248,16 @@ def parts_of(state: dict, sections: dict) -> list[str]:
             "consequences", "confirmation", "affected"]
 
 
+def _covers(theirs: set[str], logical: str, page_sources: list) -> bool:
+    """Whether an ADR citing `theirs` (named as `_touches_of` names them) is about the doc page `logical`: it cites the page
+    itself, or a file the page's own `x-sources` cite (fragments and `repo://` aside). The one rule for the pages a review
+    calls affected and the pages an accepted ADR covers."""
+    return f"{CAM_DIR}:docs/{logical}" in theirs or bool(theirs & set(_touches_of(page_sources)))
+
+
 def _affected(state: dict | None) -> list[str]:
-    """The doc pages (logical paths under `docs/`, no decision) that cite a file the state touches, read from their own
-    `x-sources`: every action answers with this, so it never opens the board index (an edit would rebuild it)."""
+    """The doc pages (logical paths under `docs/`, no decision) the state's touches are about (`_covers`), read from their
+    own `x-sources`: every action answers with this, so it never opens the board index (an edit would rebuild it)."""
     touches = set(_touches_of((state or {}).get("touches") or []))
     if not touches:
         return []
@@ -258,7 +265,7 @@ def _affected(state: dict | None) -> list[str]:
     found = []
     for logical, f in docs.iter_docs():
         page = adr_pack.read_page(logical, f) if f.is_relative_to(DOCS) else None
-        if page and touches & set(_touches_of(_sources(page[0]))):
+        if page and _covers(touches, logical, _sources(page[0])):
             found.append(logical)
     return sorted(found)
 
@@ -709,22 +716,21 @@ def reject(id: str, why: str, by: str, base_sha: str) -> dict:
 
 # ---------- what an accepted ADR covers ----------
 def covering(logical: str) -> list[dict]:
-    """The accepted ADRs a page falls under: they share a source with it (fragments and `repo://` ignored) or cite it as
-    `docs/<logical>`. Read from the files, so an accepted ADR written elsewhere covers too. A decision page (`type:
-    decision`, or under `decisions/`) is never covered: it has its own status."""
+    """The accepted ADRs a page falls under (`_covers`: the pages their review called affected). Read from the files, so
+    an accepted ADR written elsewhere covers too. A decision page (`adr_doc.is_decision`) is never covered: it has its own
+    status."""
     page = dict(docs.iter_docs()).get(logical)
     if page is None:
         return []
     mine = docs.split_fm(_read(page))[0]
-    if mine.get("type") == "decision" or logical.startswith("decisions/"):
+    if adr_doc.is_decision(logical, mine.get("type")):
         return []
-    cited, found = set(_touches_of(_sources(mine))), []
+    found = []
     for id, path in sorted(_files().items()):
         fm, body = docs.split_fm(_read(path))
-        theirs = set(_touches_of(_sources(fm)))
         if adr_doc.status_of(body)[0] != "accepted":
             continue
-        if cited & theirs or f"{CAM_DIR}:docs/{logical}" in theirs:
+        if _covers(set(_touches_of(_sources(fm))), logical, _sources(mine)):
             state = _load_or_none(id) or {}
             found.append({"id": id, "title": _title(id, fm, body), "path": f"decisions/{path.name}",
                           "kind": state.get("kind") or "retro", "implementation": state.get("implementation") or "n/a"})

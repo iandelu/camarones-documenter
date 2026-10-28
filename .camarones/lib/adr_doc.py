@@ -66,6 +66,13 @@ def number_of(name: str) -> str | None:
     return m[1] if m else None
 
 
+def is_decision(logical: str, kind: object = None) -> bool:
+    """A decision page: `type: decision`, or an ADR file right in `decisions/` (`decisions/<NNNN>-….md`, the files the app
+    lists), whoever wrote it. It has its own status: no ADR covers it, and it is no evidence about another one."""
+    folder, _, name = logical.partition("/")
+    return kind == "decision" or (folder == "decisions" and "/" not in name and bool(_FILE_RE.fullmatch(name)))
+
+
 # ---------- reading ----------
 def _key_of(title: str) -> str | None:
     return _KEY_OF.get(title.strip().lower())

@@ -384,7 +384,8 @@ the review decides along the way (parts, points, attendees) is kept apart in `do
    calls no model, and is kept in `.camarones/.cache/adr/<NNNN>/` (not in git). **Write without AI** writes the proposed
    ADR from the template with the problem, drivers, options, what it touches and the pack's evidence already in.
 4. **Review and decide.** The review walks the ADR **part by part** (each section is approved, edited or deferred, plus
-   the affected doc pages) and each **decision point** (a question with its options, for and against: you pick one, or
+   the affected doc pages: the ones the ADR touches and the ones citing the files it touches, the same pages that say
+   this decision covers them once it is accepted) and each **decision point** (a question with its options, for and against: you pick one, or
    *Other* with what the meeting decides, and a reason in one line). You can add and remove points and note the
    **attendees**. **Present** (`P`) shows one part per screen in large type to run a meeting while sharing a screen,
    all by keyboard: <kbd>←</kbd>/<kbd>→</kbd> change part, <kbd>1</kbd>–<kbd>9</kbd> pick an option, <kbd>E</kbd> edits,

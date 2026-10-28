@@ -112,7 +112,7 @@ test('the affected docs part lists the pages, read-only', () => {
   expect(out).toContain('orders.md')
   expect(out).toContain('>Aprobar<')
   expect(out).not.toContain('>Editar<')
-  expect(review({ adr: adr({ affected: [] }), current: 'affected' })).toContain('Ninguna página de docs cita')
+  expect(review({ adr: adr({ affected: [] }), current: 'affected' })).toContain('Este ADR no toca ninguna página de docs y ninguna cita')
 })
 
 test('the Decision part is there to write when there is no point to decide', () => {

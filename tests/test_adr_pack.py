@@ -254,7 +254,7 @@ def test_affected_are_the_pages_citing_the_touches(pack_world, adr):
     b = adr.new({"title": "Nothing touched", "kind": "new"})
     assert adr.get(b["id"])["affected"] == []
     c = adr.new({"title": "A page touched", "kind": "new", "touches": ["cam-docs:docs/orders.md"]})
-    assert adr.get(c["id"])["affected"] == []                         # nothing cites a page
+    assert adr.get(c["id"])["affected"] == ["orders.md"]              # a page touched is a page affected
 
 
 def test_an_edit_answers_without_opening_the_board_index(pack_world, adr, monkeypatch):

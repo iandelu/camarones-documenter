@@ -66,8 +66,8 @@ def tree() -> dict:
 
 
 def _with_adr_status(rows: list[dict]) -> list[dict]:
-    """The docs index rows; a decision (`type: decision`, or `decisions/<NNNN>-….md` an older kit or a person wrote)
-    also says its ADR's status, read from the file as it stands."""
+    """The docs index rows; a decision page (`adr_doc.is_decision`) also says its ADR's status, read from the file as it
+    stands."""
     keys = ("path", "file", "title", "description", "type", "space", "trust", "owner", "i18n", "orphan_sources")
     files = dict(docs.iter_docs()) if any(_is_decision(r) for r in rows) else {}
     out = []
@@ -83,7 +83,7 @@ def _with_adr_status(rows: list[dict]) -> list[dict]:
 
 
 def _is_decision(row: dict) -> bool:
-    return row["type"] == "decision" or (row["path"].startswith("decisions/") and bool(adr_doc.number_of(row["path"])))
+    return adr_doc.is_decision(row["path"], row["type"])
 
 
 def read(path: str, lang: str = "") -> dict:
