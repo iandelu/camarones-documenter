@@ -395,7 +395,8 @@ the review decides along the way (parts, points, attendees) is kept apart in `do
    *Considered options* (a section that already had text only gains the ones it does not name); if the ADR supersedes
    another, that one is marked `Superseded by [NNNN]`.
    What is not decided is not accepted (a deferred point, a point with no choice, or an ADR with no *Decision* section and
-   no points): the app refuses and says which. **Reject** needs a reason and leaves the file as `Rejected (date): reason`,
+   no points): the app refuses and says which. Sections that still hold a `TODO(question)` do not stop it, but the accept
+   dialog names them. **Reject** needs a reason and leaves the file as `Rejected (date): reason`,
    so nobody proposes it again without knowing why it did not go through. An accepted or rejected decision is read as it
    is; to change it, write a new ADR that supersedes it.
 
