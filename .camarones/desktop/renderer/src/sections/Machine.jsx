@@ -8,8 +8,8 @@ import { tokenPrefill } from '../nav.js'
 import { t } from '../i18n.js'
 import { useTour } from '../Tour.jsx'
 
-// This machine by task: the guide to all of it, prepare it (setup, with its progress), the language and models of the agent sessions, the
-// forge and SonarQube tokens (kept in the OS keychain), this project's repos and plan, the kit itself; and, apart, uninstall —
+// This machine by task: the guide to all of it, prepare it (setup, with its progress), the language and models of the agent sessions and
+// where they open, the forge and SonarQube tokens (kept in the OS keychain), this project's repos and plan, the kit itself; and, apart, uninstall —
 // previewed first. Every action is a catalog command run by the server (lib/appapi.py).
 export default function Machine({ srv, jobs, app }) {
   const [m, setM] = useState(null)
@@ -58,6 +58,10 @@ function Setup({ srv, jobs, m }) {
   )
 }
 
+// Where a session opened from the app goes (`sessions`): a terminal on the plan's canvas, or a window. A machine whose
+// server cannot open terminals (lib/terminals.available) opens windows whatever it says.
+const SESSIONS = { canvas: 'mc.sessCanvas', window: 'mc.sessWindow' }
+
 function Settings({ srv, jobs, m, reload }) {
   const c = useCmd(srv, jobs)
   const s = m.settings
@@ -84,6 +88,10 @@ function Settings({ srv, jobs, m, reload }) {
           {other ? <input className="cu-input" value={codex} disabled={c.running} aria-label={t('mc.codexSlug')} placeholder="gpt-…"
                  onChange={(e) => setCodex(e.target.value)}
                  onBlur={() => codex.trim() && codex.trim() !== s.codex_model && set('codex_model', codex.trim())} /> : null}</div>
+        <div className="cu-field"><label className="cu-field-label" htmlFor="mc-sessions">{t('mc.sessions')}</label>
+          <select id="mc-sessions" className="cu-input" value={s.sessions} disabled={c.running} onChange={(e) => set('sessions', e.target.value)}>
+            {m.sessions.map((x) => <option key={x} value={x}>{t(SESSIONS[x] ?? x)}</option>)}</select>
+          {m.terminals === false ? <span className="muted small">{t('mc.noPty')}</span> : null}</div>
       </div>
       <p className="muted small">{t('mc.agents', { list: m.agents.length ? m.agents.map((a) => a.label).join(', ') : t('mc.noAgents') })}</p>
       <JobOutput c={c} />

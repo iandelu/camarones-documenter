@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { firstRunPending, firstRunRoute, initials, MACHINE, PROJECT, sectionOf, sections, tokenPrefill } from './nav.js'
+import { firstRunPending, firstRunRoute, initials, MACHINE, PROJECT, sectionOf, sections, termOf, tokenPrefill } from './nav.js'
 
 test('a project has its sections; this machine has its own, Kit dev only in a kit checkout', () => {
   expect(PROJECT).toEqual(['summary', 'board', 'decisions', 'plan', 'interviews', 'team', 'quality', 'libs', 'docs'])
@@ -79,4 +79,11 @@ test('the Machine address can prefill the token form', () => {
   expect(tokenPrefill('#/plan?host=x&kind=sonarqube')).toEqual({ host: '', kind: '' })
   expect(tokenPrefill('')).toEqual({ host: '', kind: '' })
   expect(sectionOf('#/machine?host=x&kind=sonarqube', {})).toBe('machine')
+})
+
+test('an address can ask the Plan for one terminal', () => {
+  expect(termOf('#/plan?term=t-explain_api-2')).toBe('t-explain_api-2')
+  expect(termOf('#/plan')).toBe(null)
+  expect(termOf('#/plan?term=../x')).toBe(null)
+  expect(termOf('#/board?term=t-a-1')).toBe(null)
 })

@@ -3,7 +3,7 @@ one in-place unit at a time; finished worktree units are integrated before their
 pauses only that runner and re-queues only its unit."""
 from __future__ import annotations
 
-import json, sys
+import json, os, sys
 from pathlib import Path
 
 import pytest
@@ -217,3 +217,14 @@ def test_a_unit_blocked_by_integration_is_retried_and_its_fix_unit_dropped(wired
     assert status(wired, "integrate:discovery:api") == "dropped"
     note = next(u for u in wired.plan.load()["units"] if u["id"] == "discovery:api")["notes"]
     assert not note.startswith("integrate:")                  # the block's reason does not outlive the block
+
+
+def test_a_unit_open_in_a_session_is_not_the_runs(wired, fake):
+    from lib import sessions
+    fake["configure"](["fake"], sleep="0.2")
+    wired.plan.set_status("setup", "done")
+    wired.plan.set_status("discovery:api", "doing")
+    sessions.start("discovery:api", "claude", None)
+    sessions.update("discovery:api", pid=os.getpid())
+    done, _ = run(wired, max_parallel=3, per_runner={"fake": 3}, max_units=2)
+    assert done == 2 and "discovery:api" not in spans(fake["entries"]())

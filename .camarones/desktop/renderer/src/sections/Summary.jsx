@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Aviso, Button, Card, Skeleton } from '@camaron/ui'
 import { action, doctorNote } from '../summary.js'
-import { openedWith } from '../plan.js'
+import { openSession, sessionNote } from '../plan.js'
 import { useAgents, useStore } from '../hooks.js'
 import { firstRunPending } from '../nav.js'
 import { AgentPicker, Failed, Page } from '../parts.jsx'
@@ -38,8 +38,8 @@ export default function Summary({ srv, jobs }) {
   const start = async () => {
     setLaunch({ busy: true, note: '', error: '' })
     try {
-      const res = await srv.post('app/agent', { unit: next.unit, agent: a.agent, lang: lang(), mode: next.mode })
-      setLaunch({ busy: false, note: t('next.opened', { agent: openedWith(a.label(a.agent), res) }), error: '' })
+      const n = sessionNote(await openSession(srv, { unit: next.unit, agent: a.agent, lang: lang(), mode: next.mode }), a.label(a.agent))
+      setLaunch({ busy: false, note: t(n.key, n.vars), error: '' })
       load()
     } catch (e) {
       setLaunch({ busy: false, note: '', error: e.message })

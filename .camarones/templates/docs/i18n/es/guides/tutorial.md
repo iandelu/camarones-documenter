@@ -205,6 +205,13 @@ El menú lateral del portal tiene siete zonas —Docs, Tablero, Historias, Arqui
 Ctrl K / ⌘K salta a cualquier página o vista. Las secciones de la app son Resumen, Tablero, Decisiones, Plan, Entrevistas, Equipo,
 Calidad, Librerías y Docs, más Máquina y Guía; `g` y una letra salta de una a otra.
 
+En la app, **Empezar** o **Seguir** una unidad y la actualización de la doc (**Plan › Mantenerla al día**) abren el
+agente como una terminal en el lienzo del Plan, donde le escribes como en cualquier terminal: F6 sale de la terminal
+(Fn+F6 en un portátil Mac), **Cerrar** termina la sesión y deja la unidad en pausa (**Seguir** la vuelve a abrir), y la
+actualización de la doc va en **Sesiones sueltas**. Las terminales viven en el servidor del proyecto, así que cerrar la
+ventana del proyecto las termina. `camaron config set sessions window` las abre en una ventana de terminal, como hace
+siempre el asistente.
+
 ### 📋 El tablero
 
 Un Kanban guardado en `cam-docs/backlog/` y versionado con la documentación. Cada tarjeta es un fichero Markdown
@@ -485,7 +492,7 @@ que carga cada sesión de un agente antes de leer una página, frente a `context
 `adr list|new|show|pack|candidates|write|accept|reject` (las decisiones: plantear, reunir la
 evidencia, escribir, aceptar, rechazar; todos aceptan `--json`), `history [--months 12]` (puntos calientes, a quién preguntar en cada repo, ficheros que cambian juntos, leídos de git sin
 IA en `docs/overview/history.md`), `catalog [--json|--check]` (cada comando con dónde vive: portal, app de escritorio o
-solo CLI, y sus argumentos) y `projects [--json]` (los proyectos registrados en esta máquina; `--inspect DIR` dice qué es una carpeta, `--adopt DIR [--name NOMBRE]` la convierte en proyecto y `--git-init DIR` pone en git su código: los tres aceptan `--json` y un rechazo es `{"error": taken|home|no-git|git-init, "detail"}`), `join URL --no-open` / `new NOMBRE --no-open` (imprimen `{"path"}`; un acceso rechazado es `{"error": auth|denied|not-found|network|unknown, "host", "detail"}`, y el token de un repo privado llega en `CAMARONES_JOIN_TOKEN`, nunca en la línea de comandos), `config [get|set CLAVE VALOR]` (lang, model, codex_model: los ajustes del asistente), `trust --json` y `hooks --json` (lo pendiente de
+solo CLI, y sus argumentos) y `projects [--json]` (los proyectos registrados en esta máquina; `--inspect DIR` dice qué es una carpeta, `--adopt DIR [--name NOMBRE]` la convierte en proyecto y `--git-init DIR` pone en git su código: los tres aceptan `--json` y un rechazo es `{"error": taken|home|no-git|git-init, "detail"}`), `join URL --no-open` / `new NOMBRE --no-open` (imprimen `{"path"}`; un acceso rechazado es `{"error": auth|denied|not-found|network|unknown, "host", "detail"}`, y el token de un repo privado llega en `CAMARONES_JOIN_TOKEN`, nunca en la línea de comandos), `config [get|set CLAVE VALOR]` (lang, model, codex_model: los ajustes del asistente; sessions: `canvas` o `window`, dónde abre una sesión la app de escritorio), `trust --json` y `hooks --json` (lo pendiente de
 aprobar, si los hooks del método están activos), **Plan › Sincronizar** en el portal (lo mismo que `share`, con dónde estás) y `app` (la app de escritorio: las secciones del proyecto por tareas, el portal para leer,
 donde se lanzan ejecuciones, wikis, análisis y comprobaciones; el portal del navegador solo las enseña).
 
@@ -529,7 +536,9 @@ van de una en una, y una unidad espera a que se integre lo que necesita. Si hay 
 ejecución; `camaron pipeline show` lista las unidades y dónde trabaja cada una. `autopilot` sigue siendo secuencial.
 Las ejecuciones mantienen el ordenador despierto (un portátil que se duerme corta la sesión del agente); una sesión
 cortada por algo pasajero (suspensión, red, API saturada) se reintenta una vez. Por defecto, una sesión por agente: con
-un solo agente instalado, `--per-runner claude=2` le deja hacer más.
+un solo agente instalado, `--per-runner claude=2` le deja hacer más. `run` y el piloto automático dejan en paz una
+unidad cuya sesión tiene abierta la app (en su lienzo o en una ventana); si solo quedan de esas, se paran y las nombran, para que las acabes
+allí.
 
 **¿Está funcionando?** `camaron kpis` muestra las ejecuciones del equipo por mes (tiempo, tokens, coste por unidad,
 paralelismo, límites, fallos), la cobertura (repos con ficha, flujos, ficheros C4, errores de `check`), la confianza

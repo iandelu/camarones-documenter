@@ -21,8 +21,13 @@ TAIL = 256 * 1024               # how much of a transcript's end is read for its
 ARG_KEYS = ("file_path", "path", "command", "pattern", "url", "description")
 
 
+def slug(uid: str) -> str:
+    """A unit's id as a file name (`discovery:api` → `discovery_api`)."""
+    return "".join(c if c.isalnum() or c in "-_." else "_" for c in uid)
+
+
 def path(uid: str) -> Path:
-    return DIR / ("".join(c if c.isalnum() or c in "-_." else "_" for c in uid) + ".json")
+    return DIR / (slug(uid) + ".json")
 
 
 def load(uid: str) -> dict | None:
@@ -58,9 +63,11 @@ def update(uid: str, **fields) -> None:
     _save(uid, {**(load(uid) or {}), **fields})
 
 
-def wrap(record: Path, cmd: list[str]) -> list[str]:
-    """The command the terminal runs: the agent inside session_run.py, with this interpreter (stdlib only)."""
-    return [sys.executable, str(Path(__file__).with_name("session_run.py")), str(record), "--", *cmd]
+def wrap(record: Path | None, cmd: list[str]) -> list[str]:
+    """The command the terminal runs: the agent inside session_run.py, with this interpreter (stdlib only). No record
+    (the docs update) is `-`."""
+    return [sys.executable, str(Path(__file__).with_name("session_run.py")), "-" if record is None else str(record),
+            "--", *cmd]
 
 
 def running(rec: dict | None) -> bool:
@@ -76,6 +83,11 @@ def live(rec: dict | None) -> bool:
         return True
     return bool(rec) and not rec.get("ended") and not rec.get("pid") and \
         time.time() - float(rec.get("launched") or 0) < GRACE
+
+
+def taken(units: list[dict]) -> list[str]:
+    """Ids of `units` with a session open right now: the person's to finish, not a run's to start."""
+    return [u["id"] for u in units if live(load(u["id"]))]
 
 
 def claude_dir(cwd: Path) -> Path:
@@ -150,12 +162,15 @@ def state(uid: str, cwd: Path | None = None) -> dict | None:
             "ended": _iso(rec.get("ended")), "activity": act}
 
 
-def headless() -> set[str]:
+def headless(busy: bool | None = None) -> set[str]:
     """Units the latest parallel run is running right now: doing, but with no window of their own. Only while a run
-    holds the run lock: one killed before it logged run.finished works on nothing."""
+    holds the run lock: one killed before it logged run.finished works on nothing. `busy` is that answer when the
+    caller already probed the lock (a probe holds it for an instant, so one read asks once); None probes."""
     from .harness import runs, scheduler
     latest = runs.ids(wiki=False)
-    if not latest or not scheduler.busy():
+    if busy is None:
+        busy = scheduler.busy() is not None
+    if not latest or not busy:
         return set()
     evs = runs.events(latest[0])
     if any(e["type"] == "run.finished" for e in evs):

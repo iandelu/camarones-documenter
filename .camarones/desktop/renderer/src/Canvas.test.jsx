@@ -18,6 +18,7 @@ test("a running unit's terminal shows what its agent does, as a live log", () =>
   expect(out).toMatch(/role="log"[^>]*aria-live="polite"/)
   expect(out).toMatch(/class="[^"]*nowheel[^"]*nodrag/)
   expect(out).toMatch(/role="log"[^>]*class="[^"]*\bnokey\b/)
+  expect(out).toMatch(/role="log"[^>]*class="[^"]*\bnopan\b/)          // a drag in it selects text, not pans
 })
 
 // React drops keys from what it renders, so the source says it: a row's key is its seq, never its index.
@@ -142,4 +143,18 @@ test('the canvas speaks English', () => {
   expect(out).toContain('Autopilot · 1/2')
   expect(out).toContain('>Fit<')
   expect(out).toContain('>Re-layout<')
+})
+
+test('a paused unit says so and offers to continue it', () => {
+  const out = html(<UnitNode data={{ unit: { ...unit, status: 'doing', paused: true }, now: 0, canStart: true, onSession() {}, ...on }} />)
+  expect(out).toContain('En pausa: su sesión se cerró')
+  expect(out).toMatch(/<button[^>]*>Seguir<\/button>/)
+})
+
+// A stopped autopilot leaves its unit paused with the run's log: both buttons fit beside the note, the log's as a glyph.
+test("a paused unit a run worked on still offers the run's terminal", () => {
+  const fu = { runner: 'claude', started: 0, ended: null, outcome: null, cost: 0, rows: [{ kind: 'read', text: 'Read a.md' }] }
+  const out = html(<UnitNode data={{ unit: { ...unit, status: 'doing', paused: true }, fu, now: 0, canStart: false, onSession() {}, ...on }} />)
+  expect(out).toMatch(/<button[^>]*disabled=""[^>]*>Seguir<\/button>/)
+  expect(out).toMatch(/<button[^>]*aria-label="Ver terminal"[^>]*>&gt;_<\/button>/)
 })

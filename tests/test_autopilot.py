@@ -1,7 +1,7 @@
 """Autopilot: ready agent units back to back, switching agents on usage limits, stopping when a human is needed."""
 from __future__ import annotations
 
-import json, subprocess
+import json, os, subprocess
 
 import pytest
 
@@ -81,6 +81,23 @@ def test_interviews_are_left_to_a_human(kit, pilot):
     ran = [uid for _, uid in pilot["calls"]]
     assert ran and not any(uid.startswith("interview-") for uid in ran)          # drafts go on without them
     assert any("interview" in l and "needs you" in l for l in pilot["echo"])
+
+
+def test_a_unit_open_in_a_session_is_not_picked(kit, pilot):
+    from lib import sessions
+    first = next(u for u in kit.plan.available() if u["runner"] == "agent")
+    kit.plan.set_status(first["id"], "doing")                   # doing: available() lists it first
+    sessions.start(first["id"], "claude", None)
+    sessions.update(first["id"], pid=os.getpid())               # its window is open
+    pilot["run"](max_units=1)
+    assert pilot["calls"] and first["id"] not in [uid for _, uid in pilot["calls"]]
+
+
+def test_with_only_open_units_left_it_stops_and_names_them(kit, pilot, monkeypatch):
+    from lib import sessions
+    monkeypatch.setattr(sessions, "live", lambda rec: True)
+    assert pilot["run"]() == 0 and pilot["calls"] == []
+    assert any("needs you" in line and "open in a session" in line for line in pilot["echo"])
 
 
 def test_stream_rendering_shows_tool_calls(kit):

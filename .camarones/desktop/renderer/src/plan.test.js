@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from 'vitest'
 import { setLang, t } from './i18n.js'
-import { board, COLUMNS, groups, openedWith, phases, sessionLine, tone, unitAction, waitsFor } from './plan.js'
+import { board, canvasNote, COLUMNS, groups, openedWith, openSession, phases, sessionLine, sessionNote, tone, unitAction, waitsFor } from './plan.js'
 
 afterEach(() => setLang('es'))
 
@@ -73,7 +73,7 @@ test('a unit in progress with no window open is paused: it needs you to continue
   expect(Object.fromEntries(board([p, live]).map((c) => [c.key, c.units.map((x) => x.id)]))).toMatchObject({
     running: ['l'], attention: ['p'] })
   expect(unitAction(p)).toEqual({ kind: 'agent', mode: 'continue', label: 'unit.continue' })
-  expect(unitAction(live)).toEqual({ kind: 'live' })                     // open already: a second window would fight it
+  expect(unitAction(live)).toEqual({ kind: 'live', term: null })                     // open already: a second window would fight it
 })
 
 test('what an open session is doing, from its agent\'s last steps', () => {
@@ -97,4 +97,55 @@ test('the opened note says which model the session took', () => {
   setLang('en')
   expect(t('next.opened', { agent: openedWith('Codex', { model: 'o5' }) })).toBe('Opened in a terminal with Codex (o5).')
   for (const res of [{ model: null }, {}, undefined]) expect(openedWith('OpenCode', res)).toBe('OpenCode')
+})
+
+test('a session opened on the canvas takes you to its terminal', async () => {
+  const went = []
+  const srv = { post: async (name, body) => ({ where: 'canvas', terminal: { id: 't-a-1' }, model: 'opus', name, body }) }
+  const res = await openSession(srv, { unit: 'a', agent: 'claude' }, (h) => went.push(h))
+  expect([res.name, res.body.unit]).toEqual(['app/terminals', 'a'])
+  expect(went).toEqual(['#/plan?term=t-a-1'])
+  expect(sessionNote(res, 'Claude Code')).toEqual({ key: 'next.onCanvas', vars: { agent: 'Claude Code (opus)' } })
+})
+
+test('an already open session takes you to its terminal', async () => {
+  const went = []
+  const srv = { post: async () => { throw Object.assign(new Error('open'), { status: 409, data: { terminal: 't-a-1' } }) } }
+  const res = await openSession(srv, { unit: 'a' }, (h) => went.push(h))
+  expect(went).toEqual(['#/plan?term=t-a-1'])
+  expect(sessionNote(res, 'x').key).toBe('pty.already')
+})
+
+// The server says why in English (lib/serve.py); the app says it in the person's language, wherever it opens one.
+test('no room for a terminal, or a unit open in a window, is said in the app language', async () => {
+  const refused = (data, message = 'refused') => ({ post: async () => { throw Object.assign(new Error(message), { status: 409, data }) } })
+  await expect(openSession(refused({ error: '8 terminals are open: close one first', limit: 8 }), {}, () => {}))
+    .rejects.toThrow('Hay 8 terminales abiertas: cierra una primero.')
+  const window = refused({ error: 'a: its session is already open in its own terminal window', terminal: null })
+  await expect(openSession(window, {}, () => {})).rejects.toMatchObject({ status: 409, data: { terminal: null } })
+  setLang('en')
+  await expect(openSession(window, {}, () => {})).rejects.toThrow('This unit already has its session open in a window.')
+  await expect(openSession(refused({ limit: 8 }), {}, () => {})).rejects.toThrow('8 terminals are open: close one first.')
+  await expect(openSession(refused({}, 'a is blocked'), {}, () => {})).rejects.toThrow('a is blocked')
+  const gone = { post: async () => { throw Object.assign(new Error('app/terminals: 500'), { status: 500, data: {} }) } }
+  await expect(openSession(gone, {}, () => {})).rejects.toThrow('app/terminals: 500')
+})
+
+test('a window, and a window instead of the canvas, say which', () => {
+  expect(sessionNote({ where: 'window' }, 'Codex').key).toBe('next.opened')
+  expect(sessionNote({ where: 'window', fallback: 'no-pty' }, 'Codex').key).toBe('next.noPty')
+})
+
+// Continue on the canvas: a terminal that lands there shows itself; one that opened in a window says so on the canvas.
+test('the canvas notes a session only when it opened outside it', () => {
+  expect(canvasNote({ where: 'canvas', terminal: { id: 't-a-1' } }, 'Codex')).toBeNull()
+  expect(canvasNote({ already: true, terminal: { id: 't-a-1' } }, 'Codex')).toBeNull()
+  expect(canvasNote({ where: 'window', model: 'o5' }, 'Codex')).toEqual({ key: 'next.opened', vars: { agent: 'Codex (o5)' } })
+  expect(canvasNote({ where: 'window', fallback: 'no-pty' }, 'Codex').key).toBe('next.noPty')
+})
+
+test('a unit open on the canvas offers its terminal', () => {
+  const u = { id: 'a', status: 'doing', runner: 'agent', session: { live: true }, terminal: 't-a-1' }
+  expect(unitAction(u)).toEqual({ kind: 'live', term: 't-a-1' })
+  expect(unitAction({ ...u, terminal: null })).toEqual({ kind: 'live', term: null })
 })

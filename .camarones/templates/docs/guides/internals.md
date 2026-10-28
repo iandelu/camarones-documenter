@@ -62,13 +62,15 @@ my-project/
 ```
 
 `.camarones/.cache/` holds what can be rebuilt: run logs (`runs/<run>/events.jsonl`), the exported site (`site/`), the
-board's index (`board.db`), the health snapshot and backups of replaced kit files.
+board's index (`board.db`), the health snapshot and backups of replaced kit files; and what the app's sessions leave on
+this machine: each one's prompt (`prompts/`), each unit's session record (`sessions/`) and the canvas's terminals
+(`terminals/`).
 
 **On this machine:**
 
 | Path | Holds |
 |---|---|
-| `~/.camarones.json` | This machine's choices: language, Claude Code and Codex models, extra runners, routing overrides, OSV online mode |
+| `~/.camarones.json` | This machine's choices: language, Claude Code and Codex models, where the app opens sessions (`sessions`), extra runners, routing overrides, OSV online mode |
 | `~/.camarones/kit` (Windows: `%LOCALAPPDATA%\camarones-documenter\kit`) | The global install of the kit, shared by every project |
 | `~/.camarones/desktop` | The pinned Electron for `camaron app` |
 | `~/.camarones/bin`, `~/.camarones/osv-db` | Pinned binaries (gitleaks, OSV-Scanner) and OSV's offline database |
@@ -127,7 +129,7 @@ The API serves the portal and the app; it is not a stable public interface (the 
 | Plan | `GET pipeline?lang`, `runs/<id>`, `runs/<id>/events` (server-sent events), `plan/cost`, `interview`, `sync`; `POST units/approve`, `units/retry`, `interview/answer`, `sync/share` |
 | Quality | `GET health`, `kpis`, `inventory`, `schemas`, `ci`; `POST kpis/miss` |
 | Machine work (app token) | `POST runs`, `runs/<id>/cancel`, `wiki`, `build`, `inventory`, `schemas`, `ci`, `ask/answer`, `plan/cost` |
-| The app (app token) | `GET app/info`, `catalog`, `summary`, `machine`, `guide`, `creds`, `agents`, `doctor`, `kitdev`, `onboard/*`, `jobs/<id>/events`; `POST app/cmd`, `agent`, `creds`, `doctor`, `kitdev`, `onboard/*`, `jobs/<id>/cancel` |
+| The app (app token) | `GET app/info`, `catalog`, `summary`, `machine`, `guide`, `creds`, `agents`, `terminals`, `terminals/stream` (server-sent events), `doctor`, `kitdev`, `onboard/*`, `jobs/<id>/events`; `POST app/cmd`, `terminals` (a session, on the canvas or in a window; its old name `agent` still works), `terminals/<id>/input`, `terminals/<id>/resize`, `terminals/<id>/close`, `creds`, `doctor`, `kitdev`, `onboard/*`, `jobs/<id>/cancel` |
 
 Long work is a **job**: `GET jobs` lists them, `GET jobs/<id>?since=n` reads its lines from line `n`.
 
@@ -160,9 +162,10 @@ from its last checkpoint.
 collides with another unit's work blocks its unit, leaves `cam-docs` untouched and adds an `integrate:<unit>` unit.
 Other units run one at a time, and a unit never starts before what it needs is merged. `camaron autopilot` runs units
 one after another without worktrees. While either runs, the machine is kept awake, and a session cut by something
-passing (sleep, network, an overloaded API) goes back to the queue once. A run stopped from outside (its job stopped,
-its process killed) cannot log its end: once the run lock is free or stale, `GET pipeline` reports it `finished` and
-`interrupted`, and its `runs/<id>/events` stream ends after its last event.
+passing (sleep, network, an overloaded API) goes back to the queue once. Neither starts a unit whose session the app has
+open (on the canvas or in a window); when only such units are left, it stops and names them. A run stopped from
+outside (its job stopped, its process killed) cannot log its end: once the run lock is free or stale, `GET pipeline`
+reports it `finished` and `interrupted`, and its `runs/<id>/events` stream ends after its last event.
 
 **What it cost.** Each run writes `.camarones/.cache/runs/<run>/events.jsonl` (`camaron runs`). Each machine adds its
 share — runs, wikis written by an agent and the interactive sessions read from Claude Code's transcripts — to
@@ -192,11 +195,37 @@ agents:
 
 Local models never get `agentic-heavy` work. `camaron doctor --local` proposes one that fits this machine's memory.
 
-An **interactive session** (Start, Continue in the app; the wizard's Next step) opens the agent in its own terminal
-window, in the workspace, with the unit's prompt. It goes through the same routing: with the agent you pick, the model
-the unit's `pipeline.yaml` node sets, else its tier's (the docs update is `agentic-heavy`); with none for that agent,
-this machine's model from Settings. The wizard and the app say which model it opened with. While its window is open the
-app does not open another one for the same unit, and it shows what the agent is doing from its transcript.
+An **interactive session** (Start, Continue in the app; the wizard's Next step) opens the agent in the workspace with
+the unit's prompt: in the app, as a terminal on the Plan's canvas, or in a terminal window of its own when this
+machine's `sessions` setting is `window`; in the wizard, always in a window. It goes through the same routing: with the
+agent you pick, the model the unit's `pipeline.yaml` node sets, else its tier's (the docs update is `agentic-heavy`);
+with none for that agent, this machine's model from Settings. The wizard and the app say which model it opened with.
+Each session the app opens reads a prompt file of its own in the project's cache, `.camarones/.cache/prompts/<unit>.md`
+(`update.md` for the docs update), so sessions open side by side never read one another's; the wizard and the first
+run's C4 refinement still use `docs/.work/next-prompt.md`. A unit's session runs its agent inside `session_run.py`,
+which keeps the unit's record in `.camarones/.cache/sessions/` (its pid while the agent runs, then when it ended): while
+it is open, or its window is still opening (up to 30 s before the wrapper writes its pid), the app does not open another
+one for the same unit, `run` and `autopilot` leave the unit alone, and the app shows what the agent is doing from its
+transcript.
+
+**Terminals on the canvas.** The project server holds the canvas's terminals (`lib/terminals.py`): real PTYs, the
+standard library's `pty` on macOS and Linux and ConPTY through pywinpty 3.1.0 on Windows (when it does not import,
+`GET app/terminals` says `available: false` and sessions open in a window). At most 8 are live at once: a ninth is
+refused (409) before the unit or its session record change, and so is a unit that already has one (409 with its
+terminal's id). Each keeps its last 256 KB in memory, which `GET app/terminals/stream` replays from the offset a client
+asks for (`from=<id>:<offset>,…`) and then follows, every terminal on one server-sent stream with its bytes in base64
+(one you closed sends only its end, and the app gives a screen only to the terminals the canvas shows).
+`GET app/terminals` gives each one's `offset`, where its output was 2 s before: the app replays what comes before it as
+history, without answering the queries in it again, and what is fresher as live, so an agent opened from another view
+still gets the answer to its startup query once the canvas mounts. On disk, `.camarones/.cache/terminals/<id>.log` keeps
+its last 5 MB beside `<id>.json` (its unit, agent, size, when it started and ended, its exit code). What you type and a
+new size are `POST app/terminals/<id>/input` and `resize`; `close` hangs up its process group and kills what is left 3 s
+later (`taskkill` on Windows). The terminals live as long as the server: when it exits (the app's window closes), it
+hangs up each one, kills what remains 2 s later and writes their end into the units' session records, so the units read
+as paused and **Continue** reopens them. On Windows the app ends the server with `taskkill /T /F`, which takes the
+terminals with it and leaves no time to write anything; the units still read as paused, because their sessions' pid is
+dead. `sessions: window` in `~/.camarones.json`
+(`camaron config set sessions window`) opens sessions in a terminal window instead, as before.
 
 ## Trust in pages: review and freshness
 

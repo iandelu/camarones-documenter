@@ -27,8 +27,8 @@ Cada proyecto tiene su ventana, servida por el servidor local de ese proyecto (v
 | Parte | Qué hace |
 |---|---|
 | Cabecera | La marca (vuelve al Resumen), dónde estás (`proyecto › sección`), **Ver portal**, **Buscar o ir a…** (<kbd>Ctrl</kbd> <kbd>K</kbd> / <kbd>⌘</kbd> <kbd>K</kbd>) y **⋯**. La cabecera es la barra de la ventana: arrástrala para moverla |
-| Raíl | Un botón por cada proyecto de esta máquina, con sus iniciales. Otro proyecto se abre **en esta ventana**: la app arranca el servidor de ese proyecto, lleva la ventana a él y para el anterior. Un proyecto que no está en el disco sale apagado. **+** abre la pantalla de inicio |
-| Secciones | Resumen, Tablero, Plan, Entrevistas, Equipo, Calidad, Librerías y Docs; después, bajo **Esta app**, Máquina, Guía y (solo en un checkout del kit) Kit dev. Al pasar por una ves su atajo |
+| Raíl | Un botón por cada proyecto de esta máquina, con sus iniciales. Otro proyecto se abre **en esta ventana**: la app arranca el servidor de ese proyecto, lleva la ventana a él y para el anterior. Pararlo cierra las sesiones abiertas en su lienzo, así que si alguna sigue viva la app pregunta antes: *Hay {n} sesiones abiertas en este proyecto: al cambiar de proyecto se cierran.* — **Cancelar** o **Cambiar igualmente**. Un proyecto que no está en el disco sale apagado. **+** abre la pantalla de inicio |
+| Secciones | Resumen, Tablero, Decisiones, Plan, Entrevistas, Equipo, Calidad, Librerías y Docs; después, bajo **Esta app**, Máquina, Guía y (solo en un checkout del kit) Kit dev. Al pasar por una ves su atajo |
 | Zona central | La sección en la que estás |
 | Panel de trabajos y barra de estado | Lo que corre ahora y los últimos trabajos, con su salida; la barra de estado enseña el primer trabajo en curso y la versión del kit |
 
@@ -138,7 +138,7 @@ pelar». Su botón depende de qué paso sea:
 
 | El paso es | El botón |
 |---|---|
-| Una unidad que hace un agente | **Empezar con {agente}** o **Seguir con {agente}** (eliges el agente si tienes dos o más): abre el agente en su propia terminal, con esa unidad |
+| Una unidad que hace un agente | **Empezar con {agente}** o **Seguir con {agente}** (eliges el agente si tienes dos o más): abre el agente con esa unidad como una terminal en el lienzo del Plan y te lleva allí (o en una ventana de terminal propia, según Máquina › **Dónde se abren las sesiones**) |
 | Una entrevista, antes de que nadie eligiera cómo se hacen | **Elige cómo se hacen las entrevistas** → Entrevistas |
 | Preparar la máquina (`setup`) | **Preparar la máquina** → Máquina |
 | Las respuestas del equipo (`answers`) | **Recoger las respuestas** → Entrevistas |
@@ -221,10 +221,14 @@ que se fusiona al terminar. **Opciones** tiene las sesiones por agente (`claude=
 incluir las entrevistas. **Piloto automático** hace en cambio una unidad tras otra, sin vigilancia. Los dos están
 apagados mientras no haya ninguna unidad lista. Con una ejecución en marcha, la tarjeta enseña su avance y **Cancelar
 la ejecución** (los agentes se paran, sus unidades vuelven a la cola y su trabajo se conserva); con el piloto en marcha,
-**Parar el piloto**. Solo existe una ejecución a la vez, se lance desde la app o desde la terminal.
+**Parar el piloto**. Solo existe una ejecución a la vez, se lance desde la app o desde la terminal. Ninguno de los dos
+empieza una unidad cuya sesión tienes abierta (en el lienzo o en una ventana); si solo quedan de esas, se para y las
+nombra, para que las acabes allí.
 
 **Mantenerla al día.** **Empezar con {agente}** abre una sesión que actualiza la documentación con lo que cambió en el
-código desde que se escribió.
+código desde que se escribió: en el lienzo, una terminal llamada **Actualizar docs** en la franja **Sesiones sueltas**
+(o una ventana, según Máquina › **Dónde se abren las sesiones**). Mientras esa terminal sigue abierta, el botón te
+lleva a ella.
 
 **Las unidades.** Hechas de total, y cada unidad como tarjeta en un **Tablero** (Listas para empezar, En curso, Te
 necesitan, Esperan a otras, Hechas), por **Fases** o en el **Lienzo** (más abajo). Colores: en curso ámbar, en pausa ámbar apagado, hecha verde,
@@ -239,7 +243,13 @@ detalle: fase, quién la hace, su repo, de qué depende, sus notas y, con su ter
 | Hecha | **Rehacer**: se reabre para su agente (`camaron plan redo`) |
 | Empezada, terminal cerrada (en pausa) | **Seguir** su conversación, o **Empezar de cero** |
 | Lista | **Empezar** con el agente que elijas |
+| Abierta en el lienzo | **Ver su terminal** |
+| Abierta en una ventana de terminal | ninguno: dice «Abierta en su terminal» |
 | Una entrevista antes de elegir el modo | **Cuestionario del equipo** o **En vivo, con un agente** |
+
+**Empezar** y **Seguir** abren la sesión en el lienzo, en el nodo de la unidad, y te llevan a ella (o en una ventana,
+según Máquina); empezar una unidad cuya sesión ya está abierta allí te lleva a su terminal («Ya tiene una sesión
+abierta: aquí está su terminal.»).
 
 **Ver su registro en el portal** abre la unidad en el Pipeline del portal.
 
@@ -250,15 +260,32 @@ dice, ✕ falla), el agente, el tiempo que lleva y el coste. Su cabecera dice **
 hecha: una cuyo agente terminó sin acabarla dice cómo la tiene el plan (por hacer, en pausa, bloqueada, espera tu
 aprobación), y una que no pudo empezar dice por qué. Unos 4 segundos después de acabar vuelve a una tarjeta
 compacta con su tiempo y su coste (**Ver terminal** la reabre); una que falla conserva su terminal. Si subes dentro de
-una terminal, deja de seguir el final hasta que pulses **Ir al final**; **⤢** la maximiza y Escape vuelve al lienzo.
+una terminal, deja de seguir el final hasta que pulses **Ir al final**; **⤢** maximiza la terminal de una ejecución y Escape (o **Volver al lienzo**) regresa.
 **Encajar** enmarca cada terminal abierta (todas las unidades si no hay ninguna), **Reordenar** devuelve todo el lienzo
 a la disposición automática, y las posiciones que arrastres se conservan mientras la ventana de ese proyecto siga
-abierta. Tab y las flechas se mueven entre nodos e Intro abre el detalle de la unidad. Sin elegir vista, el Plan pasa al
-lienzo en cuanto hay una ejecución en marcha (ya al entrar, o lanzada desde el propio Plan; una unidad que empiezas a
-mano en su propia terminal no cuenta) y se queda ahí, también al acabar, hasta que elijas otra. El lienzo lee el registro de la ejecución (el mismo que lee el portal) y sigue el tema claro u oscuro de la
+abierta. Tab y las flechas se mueven entre nodos; Intro abre el detalle de una unidad, o entra en una terminal contigo. Escape no
+hace nada sobre un nodo: solo sale de uno maximizado. Sin elegir vista, el Plan pasa al
+lienzo en cuanto hay una ejecución en marcha o la sesión de una unidad abierta (ya al entrar, o lanzadas desde el
+propio Plan) y se queda ahí, también al acabar, hasta que elijas otra. El lienzo lee el registro de la ejecución (el mismo que lee el portal) y sigue el tema claro u oscuro de la
 app; parar sigue en la tarjeta **Ejecutar el plan**. Una ejecución parada desde fuera (su trabajo parado, su proceso
 terminado) se ve acabada en unos segundos: sus terminales dejan de decir «en marcha», y una unidad que dejó a medias
 dice cómo la tiene el plan, con su reloj parado en su última línea.
+
+**Terminales contigo.** Una sesión que abres desde la app —**Empezar** o **Seguir** una unidad (en su detalle o en el
+Resumen), **Proponer preguntas con {agente}** en Calidad o **Mantenerla al día**— se abre en el lienzo, y el Plan te la pone delante: el nodo de la unidad
+se convierte en una terminal donde le escribes al agente como en cualquier terminal, con «contigo», su agente y su
+tiempo en la cabecera. Todo lo que tecleas va al agente: Escape, Tab, Mayús+Tab, las flechas, Ctrl+C. **F6** sale de la
+terminal (en un portátil Mac, Fn+F6): a su nodo, donde las flechas vuelven a moverse entre nodos e Intro vuelve a entrar en la terminal, o, si
+está maximizada, de vuelta al lienzo (ahí Escape sigue yendo al agente). **⤢** la maximiza y **Volver al lienzo** regresa; el agente recibe cada tamaño nuevo.
+**Cerrar** termina la sesión: el nodo vuelve a su tarjeta, «En pausa: su sesión se cerró», y su **Seguir** la abre otra
+vez (si se abre en una ventana, el lienzo lo dice encima del grafo). Una terminal cuyo agente acabó con error se queda con lo que escribió, **Quitar** y, si es de una unidad, **Abrir
+una sesión nueva**; una que acabó bien se pliega como las de una ejecución. La actualización de la documentación no es
+de ninguna unidad: su terminal, **Actualizar docs**, va en la franja **Sesiones sueltas**, debajo del grafo. Una unidad
+abierta en el lienzo nunca se abre dos veces: su botón te lleva a su terminal, y su detalle ofrece **Ver su terminal**.
+Un proyecto tiene como mucho 8 terminales a la vez. Viven en el servidor del proyecto, así que cerrar la ventana del
+proyecto las termina y sus unidades quedan en pausa. Máquina › **Dónde se abren las sesiones** › **En una ventana de
+terminal** abre las sesiones en una ventana propia, como antes (`camaron config set sessions window`); una máquina en
+la que la app no puede abrir terminales lo hace sola y lo dice.
 
 **Plan desde 0**, debajo de las unidades. Lo que ha costado el plan desde que empezó (o desde el último borrado), para todo el equipo: tiempo
 de agente desatendido, tiempo con una persona delante, tiempo de calendario, tokens y dólares equivalentes de la API,
@@ -396,7 +423,7 @@ Esta máquina y la preparación de este proyecto (`#/machine`, <kbd>g</kbd> <kbd
 |---|---|
 | Guía y recorrido | Abre esta guía, o el recorrido por la app |
 | Preparar esta máquina | **Ejecutar setup** (`camaron setup`): herramientas, repos, conexión de los agentes, con barra de progreso |
-| Idioma y modelos | El idioma de las sesiones de IA, el modelo de Claude Code y el de Codex (la lista del propio Codex, u **Otro…** para escribirlo): los que usa una sesión cuando el enrutado no da ninguno para su unidad. Cada cambio es un `camaron config set` |
+| Idioma y modelos | El idioma de las sesiones de IA, el modelo de Claude Code y el de Codex (la lista del propio Codex, u **Otro…** para escribirlo): los que usa una sesión cuando el enrutado no da ninguno para su unidad; y **Dónde se abren las sesiones**: **En el lienzo del plan** (por defecto) o **En una ventana de terminal** (en una máquina que no puede abrir terminales dentro de la app, avisa de que se abren en una ventana). Cada cambio es un `camaron config set` |
 | Tokens de GitLab, GitHub y SonarQube | Los servidores guardados con **Probar** y **Borrar**; un formulario (servidor, tipo, token) cuyo **Comprobar y guardar** prueba antes el token contra el servidor (**Guardarlo igualmente** si insistes). Los tokens viven en el llavero del sistema, nunca en el proyecto ni en una línea de comandos. SonarQube solo por https (http solo en localhost) |
 | Repos y plan | Cada repo, clonado o no, con su stack (edítalo, o **Volver al detectado**); **Clonar o actualizar los repos** (`sync`), **Detectar repos en la carpeta** (`detect`) y el perfil del plan, rápido o completo |
 | El kit | **Actualizar el kit** (`self-update`, solo con la instalación global) y después **Reiniciar la app con la versión nueva**; **Reparar los archivos del kit** (`repair`) |

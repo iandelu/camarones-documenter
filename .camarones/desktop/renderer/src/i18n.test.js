@@ -60,3 +60,13 @@ test('the uninstall dialog says where the backup really goes', () => {
   expect(S.en['un.confirmBackup']).toMatch(/system's temporary folder/)
   expect(S.en['un.confirmBackup']).not.toMatch(/workspace/)
 })
+
+// Switching project ends this one's sessions: the rail asks first, in the words the app guide quotes.
+test('the rail asks before a switch ends live sessions', () => {
+  expect(t('rail.live', { n: 2 })).toBe('Hay 2 sesiones abiertas en este proyecto: al cambiar de proyecto se cierran.')
+  expect([t('cancel'), t('rail.switch')]).toEqual(['Cancelar', 'Cambiar igualmente'])
+  setLang('en')
+  expect(t('rail.live', { n: 2 })).toBe('2 sessions are open in this project: switching project ends them.')
+  expect([t('cancel'), t('rail.switch')]).toEqual(['Cancel', 'Switch anyway'])
+  setLang('es')
+})

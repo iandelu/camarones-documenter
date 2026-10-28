@@ -10,7 +10,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 
-from .. import docs, plan
+from .. import docs, plan, sessions
 from ..common import CAM_DIR, CTX, cli_cmd
 from . import awake, kpis, ledger, routing
 from .ctx import Ctx
@@ -24,12 +24,16 @@ RUN_LOCK = CTX.state_root / ".camarones" / ".cache" / "locks" / "run.lock"   # o
 
 
 def busy() -> dict | None:
-    """Who holds the run lock (a run is in progress somewhere), or None."""
+    """Who holds the run lock (a run is in progress somewhere), or None. The probe takes the lock for an instant, so a
+    reader that needs the answer twice asks once and passes it on: two probes can see each other. On Windows the last
+    holder's file may still be deleting (PermissionError): nobody holds it."""
     try:
         with FileLock(RUN_LOCK, wait=0):
             return None
     except LockBusy as e:
         return e.holder
+    except PermissionError:
+        return None
 
 
 def cancel_file(run_id: str):
@@ -275,6 +279,8 @@ def _loop(jobs, lang, max_parallel, per_runner, max_units, poll_seconds, include
             ready = [u for u in plan.available(view) if u["id"] not in hold]
             queue = [u for u in ready if u["runner"] == "agent" and u["type"] not in skip
                      and (only is None or u["id"] in only)]
+            taken = sessions.taken(queue)
+            queue = [u for u in queue if u["id"] not in taken]
             waiting_on_limits = False
             for u in queue:
                 if len(jobs) >= max_parallel or (max_units is not None and started >= max_units):
@@ -318,10 +324,11 @@ def _loop(jobs, lang, max_parallel, per_runner, max_units, poll_seconds, include
                 if not queue:
                     wizard = [u["id"] for u in ready if u["runner"] == "wizard"]
                     interviews = [u["id"] for u in ready if u["type"] in skip]
-                    if wizard or interviews:
+                    if wizard or interviews or taken:
                         why = ([f"wizard step(s) {', '.join(wizard)} (run `{cli_cmd()}`)"] if wizard else []) + \
                               ([f"interview(s) {', '.join(interviews)} (need you, in an interactive session)"]
-                               if interviews else [])
+                               if interviews else []) + \
+                              ([f"{', '.join(taken)} open in a session (finish them there)"] if taken else [])
                         log(f"Run stopped: what is left needs you — {'; '.join(why)}.")
                     else:
                         d, t = plan.progress(data)
