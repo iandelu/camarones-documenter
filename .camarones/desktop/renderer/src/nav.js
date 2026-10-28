@@ -25,6 +25,13 @@ export function tokenPrefill(hash) {
   return { host: q.get('host') || '', kind: TOKEN_KINDS.includes(kind) ? kind : '' }
 }
 
+// #/plan?term=<id>: the Plan opens with that terminal in front. Anything but a terminal's id is ignored.
+export function termOf(hash) {
+  const [route, query = ''] = String(hash || '').split('?')
+  const id = route === '#/plan' ? new URLSearchParams(query).get('term') : null
+  return /^t-[\w.-]+-\d+$/.test(id || '') ? id : null
+}
+
 // Where a project window goes once it knows its first run (GET app/onboard/state): an unfinished one to the wizard,
 // unless it is there already; a finished one (or no state: the read failed) stays where it was asked. null: stay.
 export const firstRunPending = (state) => state?.done === false
