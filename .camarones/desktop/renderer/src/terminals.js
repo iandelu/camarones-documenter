@@ -33,6 +33,10 @@ export async function followTerminals(srv, onEvent, { signal, offsets, retry = 2
 
 const live = (term) => term.ended == null
 
+// How many terminals a switch of project would end (the server that holds them stops); 0 when the list cannot be read.
+export const liveSessions = (srv) => srv.get('app/terminals')
+  .then((r) => (r?.terminals || []).filter(live).length, () => 0)
+
 // Seconds count from the server's clock (epoch seconds); `now` is Date.now() in ms.
 const sinceEnd = (term, now) => now - term.ended * 1000
 

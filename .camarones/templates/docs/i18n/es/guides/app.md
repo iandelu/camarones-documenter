@@ -27,7 +27,7 @@ Cada proyecto tiene su ventana, servida por el servidor local de ese proyecto (v
 | Parte | Qué hace |
 |---|---|
 | Cabecera | La marca (vuelve al Resumen), dónde estás (`proyecto › sección`), **Ver portal**, **Buscar o ir a…** (<kbd>Ctrl</kbd> <kbd>K</kbd> / <kbd>⌘</kbd> <kbd>K</kbd>) y **⋯**. La cabecera es la barra de la ventana: arrástrala para moverla |
-| Raíl | Un botón por cada proyecto de esta máquina, con sus iniciales. Otro proyecto se abre **en esta ventana**: la app arranca el servidor de ese proyecto, lleva la ventana a él y para el anterior. Un proyecto que no está en el disco sale apagado. **+** abre la pantalla de inicio |
+| Raíl | Un botón por cada proyecto de esta máquina, con sus iniciales. Otro proyecto se abre **en esta ventana**: la app arranca el servidor de ese proyecto, lleva la ventana a él y para el anterior. Pararlo cierra las sesiones abiertas en su lienzo, así que si alguna sigue viva la app pregunta antes: *Hay {n} sesiones abiertas en este proyecto: al cambiar de proyecto se cierran.* — **Cancelar** o **Cambiar igualmente**. Un proyecto que no está en el disco sale apagado. **+** abre la pantalla de inicio |
 | Secciones | Resumen, Tablero, Plan, Entrevistas, Equipo, Calidad, Librerías y Docs; después, bajo **Esta app**, Máquina, Guía y (solo en un checkout del kit) Kit dev. Al pasar por una ves su atajo |
 | Zona central | La sección en la que estás |
 | Panel de trabajos y barra de estado | Lo que corre ahora y los últimos trabajos, con su salida; la barra de estado enseña el primer trabajo en curso y la versión del kit |

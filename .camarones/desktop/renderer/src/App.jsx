@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Brand, Breadcrumbs, Button, EmptyState, Keys, Skeleton, SkipLink } from '@camaron/ui'
 import { START, firstRunRoute, initials, sectionOf, sections } from './nav.js'
 import { jobsStore } from './jobs.js'
@@ -6,6 +6,7 @@ import { chord, entries, keyFor, typing } from './palette.js'
 import { portalUrl } from './docs.js'
 import { guideEntries } from './guide.js'
 import { server } from './server.js'
+import { liveSessions } from './terminals.js'
 import { useHash, useStore } from './hooks.js'
 import { Failed } from './parts.jsx'
 import Hub from './Hub.jsx'
@@ -60,7 +61,7 @@ function Project({ app }) {
   const srv = useMemo(() => server(app.token), [])
   const jobs = useMemo(() => jobsStore(srv.get), [])           // one for the window: it outlasts the sections
   const { running } = useStore(jobs)
-  const projects = useProjects(app, index?.project, setStatus)
+  const projects = useProjects(app, srv, index?.project, setStatus)
   // The index and where the first run stands, read side by side; the section mounts only after both, so a first run
   // left unfinished opens straight on the wizard (#/start) and the summary never fires its reads first. Without the
   // state (that read failed) the window stays as it is.
@@ -144,6 +145,7 @@ function Project({ app }) {
         {!index && !error ? <Skeleton lines={4} /> : <Section here={here} srv={srv} jobs={jobs} app={app} index={index} sections={all} />}
       </main>
       <JobsPanel srv={srv} jobs={jobs} />
+      <SwitchAsk projects={projects} />
       <footer className="dk-status">
         <span role="status">{status || (running[0] ? `${t('job.running')}: ${running[0].label || running[0].kind}` : '')}</span>
         <span className="dk-grow"></span>
@@ -154,13 +156,22 @@ function Project({ app }) {
 
 // This machine's projects, this window's marked: another one opens in this window's place (the main process starts
 // its server and stops this one). Until the list arrives, this project alone; a project opened by its folder but
-// never listed comes first. The rail and the palette share it.
-function useProjects(app, name, onStatus) {
+// never listed comes first. The rail and the palette share it. This project's server stops with the switch, and the
+// sessions open on its canvas with it: when one is live, the switch waits for a yes (`asking`).
+function useProjects(app, srv, name, onStatus) {
   const [rows, setRows] = useState(null)
   const [busy, setBusy] = useState(false)          // one switch at a time: the other server takes seconds to start
+  const [asking, setAsking] = useState(null)       // { p, n }: the project to switch to, and how many sessions it ends
   useEffect(() => { app.projects?.().then((r) => r?.projects && setRows(r.projects), () => {}) }, [])
   const open = async (p) => {
     if (busy) return
+    setBusy(true)
+    const n = await liveSessions(srv)
+    if (n) { setBusy(false); setAsking({ p, n }); return }
+    await go(p)
+  }
+  const go = async (p) => {
+    setAsking(null)
     setBusy(true)
     onStatus(t('hub.opening', { name: p.name }))
     const r = await app.switchTo(p.path).catch((e) => ({ error: e.message }))
@@ -169,7 +180,25 @@ function useProjects(app, name, onStatus) {
   }
   const self = name ? [{ name, path: '', exists: true, current: true }] : []
   const list = !rows ? self : rows.some((p) => p.current) ? rows : [...self, ...rows]    // opened but never listed
-  return { list, busy, open }
+  return { list, busy, open, asking, go, cancel: () => setAsking(null) }
+}
+
+function SwitchAsk({ projects: { asking, go, cancel } }) {
+  const dialog = useRef(null)
+  useEffect(() => {
+    const d = dialog.current
+    if (asking && d && !d.open) d.showModal()
+    if (!asking && d?.open) d.close()
+  }, [asking])
+  return (
+    <dialog ref={dialog} className="dk-dialog" onClose={cancel}>
+      <p>{asking ? t('rail.live', { n: asking.n }) : ''}</p>
+      <div className="row">
+        <Button variant="ghost" onClick={cancel}>{t('cancel')}</Button>
+        <Button variant="danger" onClick={() => go(asking.p)}>{t('rail.switch')}</Button>
+      </div>
+    </dialog>
+  )
 }
 
 function Rail({ app, projects: { list, busy, open } }) {
