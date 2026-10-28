@@ -375,8 +375,9 @@ the review decides along the way (parts, points, attendees) is kept apart in `do
    with that number, the next free one is used when the file is written and the app says so.
 2. **Candidates.** The decisions the code already took that no ADR names, without AI: the data, cache, messaging,
    security and framework libraries of the inventory (runtime scope only), the C4 technologies and the deployment files
-   (Docker Compose, Helm). **Create a retro ADR** opens the form with the title and what it touches already in. With no
-   inventory or C4 yet the list is empty, not an error.
+   (Docker Compose, Helm). **Create a retro ADR** opens the form with the title and what it touches already in. Without
+   an inventory or a C4 model only the deployment files (Docker Compose, Helm) show; `camaron inventory` adds the
+   libraries. An empty list is not an error.
 3. **Evidence.** The *evidence pack* gathers what the project already knows about what the ADR touches: neighbouring
    files in the code graph, the doc pages that cite them, related ADRs, the last year of commits, C4 elements,
    libraries and open questions. It reads what is already there (graph, docs, git, C4, inventory and `open-questions.md`),
