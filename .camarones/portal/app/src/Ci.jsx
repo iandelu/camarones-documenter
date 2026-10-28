@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react'
-import { getJSON, postJSON } from './api.js'
+import { getJSON } from './api.js'
 import { t } from './i18n.js'
 import { Skeleton } from '@camaron/ui'
 import Failed from './Failed.jsx'
 import { core } from './core.js'
-import AppOnly from './AppOnly.jsx'
 import { pipelineState, rows } from './ci.js'
 
 const link = (path) => core.hrefFor(path)
@@ -21,17 +20,10 @@ function Copy({ text }) {
 export default function Ci() {
   const [s, setS] = useState(null)
   const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
   const load = () => getJSON('ci').then((x) => { setS(x); setError('') }, (e) => setError(e.message))
   useEffect(() => { load() }, [])
-  async function generate(forge) {
-    setBusy(true)
-    try { setS(await postJSON('ci', { forge })); setError('') } catch (e) { setError(e.message) } finally { setBusy(false) }
-  }
   if (!s) return <section className="view"><h1>{t('ciTitle')}</h1>{error ? <Failed title={t('ciFailed')} detail={error} onRetry={() => { setError(''); load() }} /> : <Skeleton lines={4} />}</section>
   const p = pipelineState(s.pipeline)
-  const other = s.forge === 'github' ? 'gitlab' : 'github'
-  const anyMissing = rows(s).some((r) => r.state !== 'current')
   return (
     <section className="view ci">
       <h1>{t('ciTitle')}</h1>
@@ -51,13 +43,6 @@ export default function Ci() {
           <tr key={r.key}><td>{t(`ciFile.${r.key}`)}</td><td><code>{r.path || '—'}</code></td>
             <td className={`ci-state ${r.state}`}>{t(`ciState.${r.state}`)}</td></tr>))}</tbody>
       </table>
-      <div className="row ci-gen"><AppOnly>
-        <button type="button" disabled={busy} onClick={() => generate(s.forge)}>
-          {anyMissing ? t('ciGenerate') : t('ciRegenerate')} ({s.forge === 'github' ? 'GitHub' : 'GitLab'})</button>
-        <button type="button" className="ghost small" disabled={busy} onClick={() => generate(other)}>
-          {t('ciOther')} {other === 'github' ? 'GitHub' : 'GitLab'}</button>
-        <span className="muted small">{t('ciNoPush')}</span>
-      </AppOnly></div>
 
       <h2>{t('ciChecks')}</h2>
       <p>

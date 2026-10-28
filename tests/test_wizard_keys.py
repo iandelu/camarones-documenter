@@ -38,7 +38,7 @@ def ui(kit, monkeypatch):
     monkeypatch.setattr(wz.time, "sleep", lambda _s: None)
     monkeypatch.setattr(wz.console, "clear", lambda *a, **kw: None)
     monkeypatch.setattr(wz.W, "launch_agent",
-                        lambda self, prompt, resume_agent=None: box["launched"].append(prompt.splitlines()[0]) or "bg")
+                        lambda self, prompt, resume_agent=None, uid=None: box["launched"].append(prompt.splitlines()[0]) or "bg")
     monkeypatch.setattr(wz.W, "reveal", lambda self, folder: box["revealed"].append(folder))
     monkeypatch.setattr(wz.env, "open_url", lambda url: pytest.fail(f"opened {url}"))
 

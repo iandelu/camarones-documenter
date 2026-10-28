@@ -90,6 +90,81 @@ def test_maven_with_properties_managed_versions_and_scopes(repos):
     assert web["ecosystem"] == "Maven" and web["language"] == "Java" and web["source"] == "api:pom.xml"
 
 
+PARENT = """<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <groupId>com.acme</groupId><artifactId>services</artifactId><version>2.${revision}</version><packaging>pom</packaging>
+  <properties><revision>9999-SNAPSHOT</revision><spring.version>6.1.21</spring.version>
+    <assertj.version>3.27.3</assertj.version><boot.version>3.2.12</boot.version></properties>
+  <dependencyManagement><dependencies>
+    <dependency><groupId>org.springframework</groupId><artifactId>spring-webmvc</artifactId><version>${spring.version}</version></dependency>
+    <dependency><groupId>com.acme</groupId><artifactId>acme-bom</artifactId><version>1.0</version><type>pom</type><scope>import</scope></dependency>
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-dependencies</artifactId><version>${boot.version}</version><type>pom</type><scope>import</scope></dependency>
+  </dependencies></dependencyManagement>
+</project>
+"""
+BOM = """<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <groupId>com.acme</groupId><artifactId>acme-bom</artifactId><version>1.0</version><packaging>pom</packaging>
+  <dependencyManagement><dependencies>
+    <dependency><groupId>org.freemarker</groupId><artifactId>freemarker</artifactId><version>2.3.32</version></dependency>
+  </dependencies></dependencyManagement>
+</project>
+"""
+MODULE = """<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <parent><groupId>com.acme</groupId><artifactId>services</artifactId><version>2.${revision}</version></parent>
+  <artifactId>core</artifactId>
+  <dependencies>
+    <dependency><groupId>org.springframework</groupId><artifactId>spring-webmvc</artifactId></dependency>
+    <dependency><groupId>org.freemarker</groupId><artifactId>freemarker</artifactId></dependency>
+    <dependency><groupId>org.assertj</groupId><artifactId>assertj-core</artifactId><version>${assertj.version}</version><scope>test</scope></dependency>
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId></dependency>
+  </dependencies>
+</project>
+"""
+
+
+def test_maven_modules_take_versions_from_the_parent_in_the_same_repo(kit):
+    """A multi-module repo: the version comes from the parent pom's dependencyManagement and properties, an imported
+    BOM of the same repo included. A BOM from outside the repo is named, never fetched."""
+    api = kit.ws / "api"
+    (api / "pom.xml").write_text(PARENT, encoding="utf-8")
+    (api / "bom").mkdir()
+    (api / "bom" / "pom.xml").write_text(BOM, encoding="utf-8")
+    (api / "core").mkdir()
+    (api / "core" / "pom.xml").write_text(MODULE, encoding="utf-8")
+    from lib import inventory
+    core = {r["name"]: r for r in inventory.scan()["libraries"] if r["source"] == "api:core/pom.xml"}
+    assert core["org.springframework:spring-webmvc"]["version"] == "6.1.21"
+    assert core["org.springframework:spring-webmvc"]["declared"] == ""          # bump still knows to go to the parent
+    assert core["org.springframework:spring-webmvc"]["managedBy"] == "com.acme:services:2.9999-SNAPSHOT"
+    assert core["org.freemarker:freemarker"]["version"] == "2.3.32"
+    assert core["org.assertj:assertj-core"]["version"] == "3.27.3"
+    assert core["org.assertj:assertj-core"]["declared"] == "${assertj.version}"
+    web = core["org.springframework.boot:spring-boot-starter-web"]
+    assert web["version"] is None and web["managedBy"] == "org.springframework.boot:spring-boot-dependencies:3.2.12"
+
+
+def test_a_module_property_overrides_the_parent(kit):
+    api = kit.ws / "api"
+    (api / "pom.xml").write_text(PARENT, encoding="utf-8")
+    (api / "core").mkdir()
+    (api / "core" / "pom.xml").write_text(MODULE.replace("<artifactId>core</artifactId>",
+        "<artifactId>core</artifactId><properties><spring.version>6.1.22</spring.version></properties>"), encoding="utf-8")
+    from lib import inventory
+    core = {r["name"]: r for r in inventory.scan()["libraries"] if r["source"] == "api:core/pom.xml"}
+    assert core["org.springframework:spring-webmvc"]["version"] == "6.1.22"
+
+
+def test_maven_parents_that_loop_or_are_missing_do_not_break_the_scan(kit):
+    api = kit.ws / "api"
+    (api / "pom.xml").write_text(PARENT.replace("<packaging>pom</packaging>",
+        "<packaging>pom</packaging><parent><groupId>com.acme</groupId><artifactId>core</artifactId><version>1</version></parent>"),
+        encoding="utf-8")
+    (api / "core").mkdir()
+    (api / "core" / "pom.xml").write_text(MODULE, encoding="utf-8")
+    from lib import inventory
+    core = {r["name"]: r for r in inventory.scan()["libraries"] if r["source"] == "api:core/pom.xml"}
+    assert core["org.springframework:spring-webmvc"]["version"] == "6.1.21"
+
+
 @pytest.mark.parametrize("repo, name, category", [
     ("api", "org.springframework.boot:spring-boot-starter-web", "framework"),
     ("api", "org.springframework.boot:spring-boot-starter-security", "security"),

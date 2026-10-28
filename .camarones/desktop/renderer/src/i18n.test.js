@@ -53,3 +53,10 @@ test('no string says runner, worktree, drift or Taller', () => {
   for (const l of ['es', 'en']) for (const [k, v] of Object.entries(S[l]))
     expect(v, `${l}.${k}`).not.toMatch(/runner|worktree|\bdrift|Taller|Workshop/i)
 })
+
+// lib/uninstall.py writes the backup to the system's temporary folder, not next to the workspace.
+test('the uninstall dialog says where the backup really goes', () => {
+  expect(S.es['un.confirmBackup']).toMatch(/carpeta temporal del sistema/)
+  expect(S.en['un.confirmBackup']).toMatch(/system's temporary folder/)
+  expect(S.en['un.confirmBackup']).not.toMatch(/workspace/)
+})

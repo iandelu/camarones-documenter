@@ -71,3 +71,12 @@ test('the decision strings of the docs tree and pages exist in es and en, and sa
   expect(['Proposed', 'Accepted', 'Rejected', 'Superseded', 'Deprecated', 'No status'])
     .toEqual(['proposed', 'accepted', 'rejected', 'superseded', 'deprecated', 'unknown'].map((s) => I18N.en[`adr.${s}`]))
 })
+
+// The browser portal runs nothing on the machine: its words never send people there for wikis, builds or runs.
+test('the portal never promises machine work', () => {
+  for (const lang of ['en', 'es']) {
+    expect(I18N[lang].readOnly, lang).not.toMatch(/wiki/i)
+    expect(I18N[lang].noDocsHelp, lang).toMatch(/desktop app|app de escritorio/)
+    expect(I18N[lang].noDocsHelp, lang).not.toMatch(/Pipeline/)
+  }
+})

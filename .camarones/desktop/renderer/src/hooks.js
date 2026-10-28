@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { follow } from './cmd.js'
+import { currentTheme } from './theme.js'
 
 // The address after the #, as state: the app routes by it.
 export function useHash() {
@@ -10,6 +11,18 @@ export function useHash() {
     return () => removeEventListener('hashchange', on)
   }, [])
   return hash
+}
+
+// The theme the window resolved (the picked one, else the system's) as state, for what a library draws on its own.
+export function useTheme() {
+  const [theme, setTheme] = useState(() => (typeof window !== 'undefined' ? currentTheme() : 'light'))
+  useEffect(() => {
+    const query = matchMedia('(prefers-color-scheme: dark)')
+    const on = () => setTheme(currentTheme())
+    query.addEventListener('change', on)
+    return () => query.removeEventListener('change', on)
+  }, [])
+  return theme
 }
 
 // A store with get() and subscribe(fn) (jobs.js) as React state; the same snapshot when rendered to text (tests).

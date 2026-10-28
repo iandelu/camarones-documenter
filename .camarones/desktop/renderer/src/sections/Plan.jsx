@@ -1,31 +1,40 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { Aviso, Button, Card, Chip, EmptyState, PlanCost, Skeleton, uiText } from '@camaron/ui'
-import { board, phases, sessionLine, tone, waitsFor } from '../plan.js'
+import { board, openedWith, phases, sessionLine, tone, waitsFor } from '../plan.js'
+import { arrivedLive, defaultView, runLive } from '../canvas.js'
 import { useAgents, useCmd, useStore } from '../hooks.js'
 import { AgentPicker, Failed, Fold, JobOutput, Page, UnitActions } from '../parts.jsx'
 import Commands from './Commands.jsx'
 import { ago } from '../jobs.js'
 import { lang, t } from '../i18n.js'
 
+const Canvas = lazy(() => import('./Canvas.jsx'))           // React Flow loads only with this view
+
 // The Plan by task: run the ready units (in parallel, or the autopilot one after another) or stop what runs; then
 // every unit coloured by its state (running yellow, done green, ready white, blocked red, awaiting you in the accent),
-// as a board by state or lane by phase like the portal. A unit opens beside the board with the one action that moves
-// it. A unit in progress with no terminal window open is paused; an open one says what its agent is doing. Under the
-// board, what the plan cost. The graph with its arrows stays in the portal.
-const VIEWS = ['board', 'phases']
+// as a board by state or lane by phase like the portal, or as the canvas: the graph, where each unit a run works on is
+// a live terminal (canvas.js). A unit opens beside the view with the one action that moves it. A unit in progress with
+// no terminal window open is paused; an open one says what its agent is doing. With no view picked, the canvas opens
+// as soon as a run is on during the visit (already on when the plan arrives, or started from here) and stays until the
+// person picks another; a terminal opened by hand on one unit does not count. Under the view, what the plan cost.
+const VIEWS = ['board', 'phases', 'canvas']
 const TONES = ['ready', 'running', 'paused', 'awaiting', 'blocked', 'waiting', 'done']
 
 export default function Plan({ srv, jobs }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
-  const [view, setView] = useState(() => { try { return localStorage.getItem('dk.planView') || 'board' } catch { return 'board' } })
+  const [view, setView] = useState(() => { try { return localStorage.getItem('dk.planView') } catch { return null } })
   const [open, setOpen] = useState(null)
+  const [held, setHeld] = useState(null)               // a run was live at some point of this visit: decides the default view
   const a = useAgents(srv)
   const { running } = useStore(jobs)
   const pilot = running.find((j) => j.kind.startsWith('cmd:autopilot'))
   const load = () => srv.get('pipeline', { lang: lang() }).then((d) => { setData(d); setError('') }, (e) => setError(e.message))
-  const active = !!pilot || (data?.run && !data.run.finished)
+  const active = runLive(data?.run, pilot)
   const windows = !!data?.units.some((u) => u.session?.live)
+  const arrived = data ? arrivedLive(held, active) : held
+  if (arrived !== held) setHeld(arrived)
+  const shown = defaultView(view, arrived)
   useEffect(() => {                                   // often while something runs, rarely otherwise
     load()
     const id = setInterval(load, active ? 3000 : windows ? 5000 : 15000)
@@ -44,11 +53,11 @@ export default function Plan({ srv, jobs }) {
     <Page title={t('nav.plan')} wide>
       <Run srv={srv} jobs={jobs} run={data.run} pilot={pilot} onChanged={load} ready={ready} />
       <Update srv={srv} a={a} />
-      <div className="row dk-units-head">
+      <div className="row dk-units-head" data-tour="plan-units">
         <b>{t('plan.progress', { done, total: live.length })}</b>
         <progress className="dk-progress dk-grow" value={done} max={live.length || 1} aria-label={t('stat.plan')} />
         <div className="dk-seg" role="tablist" aria-label={t('plan.view')}>
-          {VIEWS.map((v) => <button key={v} type="button" role="tab" aria-selected={view === v} className={view === v ? 'on' : ''}
+          {VIEWS.map((v) => <button key={v} type="button" role="tab" aria-selected={shown === v} className={shown === v ? 'on' : ''}
             onClick={() => pick(v)}>{t('plan.' + v)}</button>)}
         </div>
         <AgentPicker a={a} />
@@ -57,7 +66,11 @@ export default function Plan({ srv, jobs }) {
         {TONES.map((k) => <span key={k} className={`dk-tone tone-${k}`}><i></i>{t('tone.' + k)}</span>)}
       </div>
       <div className={'dk-plan' + (unit ? ' with-detail' : '')}>
-        {view === 'board' ? (
+        {shown === 'canvas' ? (
+          <Suspense fallback={<Skeleton lines={6} />}>
+            <Canvas srv={srv} units={data.units} run={data.run} pilot={pilot} onOpen={setOpen} />
+          </Suspense>
+        ) : shown === 'board' ? (
           <div className="dk-board">{board(data.units).map((c) => (
             <section key={c.key} className="dk-col" aria-label={t('col.' + c.key)}>
               <h2 className="eyebrow dk-col-head">{t('col.' + c.key)} <span>{c.units.length}</span></h2>
@@ -75,7 +88,7 @@ export default function Plan({ srv, jobs }) {
         )}
         {unit ? <Detail u={unit} all={data.units} srv={srv} a={a} plan={data} onClose={() => setOpen(null)} onChanged={load} /> : null}
       </div>
-      <Cost srv={srv} active={active} />
+      <div data-tour="plan-cost"><Cost srv={srv} active={active} /></div>
       <Commands srv={srv} jobs={jobs} section="plan" />
       <Reset srv={srv} jobs={jobs} onChanged={load} />
     </Page>
@@ -155,7 +168,7 @@ function Run({ srv, jobs, run, pilot, onChanged, ready }) {
   }
   const live = run && !run.finished
   return (
-    <Card className="dk-run">
+    <Card className="dk-run" data-tour="plan-run">
       <span className="eyebrow">{t('plan.run')}</span>
       {pilot ? (
         <div className="row"><span role="status">{t('plan.pilotOn')}</span>
@@ -221,12 +234,12 @@ function Update({ srv, a }) {
   async function open() {
     setNote({ ok: '', error: '' })
     try {
-      await srv.post('app/agent', { unit: 'update', agent: a.agent, lang: lang() })
-      setNote({ ok: t('next.opened', { agent: a.label(a.agent) }), error: '' })
+      const res = await srv.post('app/agent', { unit: 'update', agent: a.agent, lang: lang() })
+      setNote({ ok: t('next.opened', { agent: openedWith(a.label(a.agent), res) }), error: '' })
     } catch (e) { setNote({ ok: '', error: e.message }) }
   }
   return (
-    <Card className="dk-run">
+    <Card className="dk-run" data-tour="plan-keep">
       <span className="eyebrow">{t('plan.keep')}</span>
       <div className="row"><span>{t('plan.update')}</span><span className="dk-grow"></span>
         <Button size="sm" disabled={!a.agent} onClick={open}>{t('next.start', { agent: a.label(a.agent) })}</Button></div>
@@ -256,7 +269,7 @@ export function Reset({ srv, jobs, onChanged }) {
   const look = () => { setSeen(key); preview.run('docs', args(true)) }
   const run = async () => { dialog.current.close(); await go.run('docs', args(false), true); setSeen(''); onChanged() }
   return (
-    <Card className="dk-run dk-cmd careful">
+    <Card className="dk-run dk-cmd careful" data-tour="plan-reset">
       <span className="eyebrow">{t('rs.title')}</span>
       <p className="small">{t('rs.lead')}</p>
       <div className="dk-seg" role="radiogroup" aria-label={t('rs.mode')}>

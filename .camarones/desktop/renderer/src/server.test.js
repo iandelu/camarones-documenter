@@ -42,3 +42,72 @@ test('an error also carries the status and the response body', async () => {
   expect(err.status).toBe(409)
   expect(err.data.blocked_by).toEqual(['WI-3'])
 })
+
+const sse = (...pieces) => new ReadableStream({ start(c) {
+  const enc = new TextEncoder(); pieces.forEach((p) => c.enqueue(enc.encode(p))); c.close() } })
+
+test("stream reads a run's events with the token and says where it stopped", async () => {
+  const calls = []
+  const fetcher = async (url, init) => { calls.push([url, init]); return new Response(sse(
+    'id: 10\ndata: {"type":"unit.started","unit":"a"}\n\nid: 2', '0\ndata: {"type":"log","unit":"a","text":"hi"}\n\n')) }
+  const seen = []
+  const end = await server('tok', fetcher).stream('runs/r-1/events', (ev) => seen.push(ev.type), { from: 5 })
+  expect(calls[0][0]).toBe('../api/runs/r-1/events?from=5')
+  expect(calls[0][1].headers['X-Camaron-Token']).toBe('tok')
+  expect(seen).toEqual(['unit.started', 'log'])
+  expect(end).toEqual({ id: '20' })
+})
+
+test('a refused stream throws the server message', async () => {
+  const fetcher = async () => new Response(JSON.stringify({ error: 'no run r-9' }), { status: 404 })
+  await expect(server('t', fetcher).stream('runs/r-9/events', () => {})).rejects.toThrow('no run r-9')
+})
+
+test('a stream with nothing new ends where it started, and an abort signal reaches the fetcher', async () => {
+  const seen = []
+  const fetcher = async (url, init) => { seen.push([url, init.signal]); return new Response(sse(': keep-alive\n\n')) }
+  const ctl = new AbortController()
+  const end = await server('t', fetcher).stream('runs/r-1/events', () => seen.push('event'), { from: '42', signal: ctl.signal })
+  expect(end).toEqual({ id: '42' })
+  expect(seen).toEqual([['../api/runs/r-1/events?from=42', ctl.signal]])
+})
+
+// A run stopped from outside, already read to its end: the server answers 204, with no body, instead of a stream.
+test('a 204 is a stream with nothing more, ending where it started', async () => {
+  const fetcher = async () => new Response(null, { status: 204 })
+  expect(await server('t', fetcher).stream('runs/r-1/events', () => {}, { from: '42' })).toEqual({ id: '42' })
+})
+
+// A stream that rejects (network drop, abort, a consumer that throws) still says where it got to, so the caller can
+// resume there instead of from an older id and read the same events twice.
+const broken = (...pieces) => { let n = 0; const enc = new TextEncoder()
+  return new ReadableStream({ pull(c) { if (n < pieces.length) c.enqueue(enc.encode(pieces[n++])); else c.error(new TypeError('network error')) } }) }
+
+test('a stream that breaks says the last id it read', async () => {
+  const fetcher = async () => new Response(broken('id: 10\ndata: {"type":"log"}\n\n'))
+  const err = await server('t', fetcher).stream('runs/r-1/events', () => {}, { from: 5 }).catch((e) => e)
+  expect(err).toBeInstanceOf(TypeError)
+  expect(err.id).toBe('10')
+})
+
+test('a stream that breaks before reading anything says where it started', async () => {
+  const fetcher = async () => new Response(broken())
+  expect((await server('t', fetcher).stream('runs/r-1/events', () => {}, { from: 5 }).catch((e) => e)).id).toBe('5')
+  expect((await server('t', fetcher).stream('runs/r-1/events', () => {}).catch((e) => e)).id).toBeNull()
+})
+
+test('a refused stream and a consumer that throws carry the id too', async () => {
+  const refused = async () => new Response(JSON.stringify({ error: 'no run r-9' }), { status: 404 })
+  const gone = await server('t', refused).stream('runs/r-9/events', () => {}, { from: 7 }).catch((e) => e)
+  expect(gone).toMatchObject({ status: 404, id: '7' })
+  const fetcher = async () => new Response(sse('id: 10\ndata: {"type":"log"}\n\n'))
+  const bad = await server('t', fetcher).stream('runs/r-1/events', () => { throw new Error('boom') }).catch((e) => e)
+  expect(bad).toMatchObject({ message: 'boom', id: '10' })
+})
+
+test('the consumer gets each event alone', async () => {
+  const fetcher = async () => new Response(sse('data: {"type":"log"}\n\ndata: {"type":"usage"}\n\n'))
+  const calls = []
+  await server('t', fetcher).stream('runs/r-1/events', (...args) => calls.push(args))
+  expect(calls).toEqual([[{ type: 'log' }], [{ type: 'usage' }]])
+})

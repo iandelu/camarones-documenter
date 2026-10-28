@@ -1737,7 +1737,7 @@ class W:
                 resume_agent = prev
         plan.set_status(u["id"], "doing")               # so a closed window still knows what was in progress
         prompt = plan.prompt(u["id"], lang=self.lang)
-        res = self.launch_agent(prompt, resume_agent=resume_agent)
+        res = self.launch_agent(prompt, resume_agent=resume_agent, uid=u["id"])
         if not res:
             return
         if res == "bg":               # own window: it updates plan.yaml itself, nothing to report here yet
@@ -1754,10 +1754,10 @@ class W:
         if env.checkpoint_commit(what):
             self.say(self.t("saved_ckpt"), "grey62")
 
-    def launch_agent(self, prompt: str, resume_agent: str | None = None) -> bool | str:
+    def launch_agent(self, prompt: str, resume_agent: str | None = None, uid: str | None = None) -> bool | str:
         """Returns "bg" when the session was launched in its own window (the wizard stays usable), True when it
         ran to completion in this terminal (no terminal emulator was found), or False when nothing was launched.
-        resume_agent reopens that agent's last conversation."""
+        resume_agent reopens that agent's last conversation; uid picks the model routed to that unit."""
         agent_sessions.write_prompt(prompt)
         if resume_agent:
             agent = resume_agent
@@ -1775,11 +1775,11 @@ class W:
             return False
         self.prefs["last_agent"] = agent
         save_json(PREFS, self.prefs)
-        self.say(self.t("launching", agent=agent), f"bold {ORANGE}")
         if resume_agent == "claude" and not claude_history(WORKSPACE):
             resume_agent = None                          # nothing to continue here: `--continue` would just error out
         runner = runners.get(agent)
-        req = agent_sessions.request(agent, self.lang, self.prefs, bool(resume_agent))
+        req = agent_sessions.request(agent, self.lang, self.prefs, bool(resume_agent), uid=uid)
+        self.say(self.t("launching", agent=f"{agent} ({req.model})" if req.model else agent), f"bold {ORANGE}")
         cmd = runner.build(req).argv
         if env.open_new_terminal(cmd, WORKSPACE):   # own window, in the workspace: the agent sees every repo + cam-docs
             self.say(self.t("launched_bg"), "green")
@@ -1796,7 +1796,8 @@ class W:
         return True
 
     def do_update(self) -> None:
-        if self.launch_agent(plan.prompt("update", lang=self.lang)) is True:   # not "bg": that session checkpoints itself
+        # not "bg": that session checkpoints itself
+        if self.launch_agent(plan.prompt("update", lang=self.lang), uid="update") is True:
             self.checkpoint("update")
 
     def do_plan(self) -> None:

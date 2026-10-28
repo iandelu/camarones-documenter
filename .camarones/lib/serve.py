@@ -34,6 +34,7 @@ APP_TOKEN = ""                               # set by the desktop app (CAMARONES
 PORTAL_TOKEN = ""                            # set by `camaron up` (CAMARONES_PORTAL_TOKEN): lets this machine's browser write the board
 APP_ONLY = re.compile(r"^/api/(runs|runs/[\w.-]+/cancel|wiki|build|inventory|schemas|ci|ask/answer|plan/cost)$")
 APP_ONLY_MSG = "this runs on your machine: open it in the desktop app (`camaron app`)"
+STOPPED_AFTER = 5.0                          # seconds of quiet before a run's stream asks whether its run was stopped
 mimetypes.add_type("text/javascript", ".js")    # Windows may map .js to text/plain in the registry
 mimetypes.add_type("font/woff2", ".woff2")    # the portal theme fonts; older Pythons do not know the type
 
@@ -353,6 +354,18 @@ def ui_lang(lang: str = "") -> str:
     return lang if lang in machine.LANGS else machine.settings()["lang"]
 
 
+def run_stopped(run_id: str) -> bool:
+    """A plan run whose log has no run.finished and never will: stopped from outside (its job stopped, which is SIGTERM
+    to its process group or taskkill /F on Windows, or a crash) before it could log its end. One run holds the run lock
+    at a time, the latest, so an older one is over, and the latest is once the lock is free or stale; its log is read
+    again after that, so a run that ended on its own in between is not taken for a stopped one."""
+    from .harness import runs, scheduler
+    latest = runs.ids(wiki=False)
+    if run_id not in latest or (run_id == latest[0] and scheduler.busy()):
+        return False
+    return not any(e["type"] == "run.finished" for e in runs.events(run_id))
+
+
 def api_pipeline(lang: str = "") -> dict:
     """The plan as a graph for the Pipeline tab: every unit with its status and dependencies, how it runs (isolation,
     tier, runner), its agent session (open or paused, lib/sessions.py) and the latest run. Titles read in `lang`
@@ -378,8 +391,10 @@ def api_pipeline(lang: str = "") -> dict:
                       "approval": bool(n.get("approval")), "awaiting": plan.awaiting(u), "ready": u["id"] in ready,
                       **sessions.board(u, busy)})
     latest = runs.ids(wiki=False)
-    return {"units": units, "run": runs.summary(latest[0]) if latest else None,
-            "interviews": docs.interview_mode() if docs.interview_mode_chosen() else None}
+    run = runs.summary(latest[0]) if latest else None
+    if run and not run["finished"] and run_stopped(run["run"]):
+        run.update(finished=True, interrupted=True)
+    return {"units": units, "run": run, "interviews": docs.interview_mode() if docs.interview_mode_chosen() else None}
 
 
 def app_kitdev(b: dict) -> tuple[dict, int]:
@@ -995,6 +1010,11 @@ class Handler(BaseHTTPRequestHandler):
         if name == "machine":
             from . import machine
             return self.json(machine.panel())
+        if name == "guide":
+            from . import guide
+            from .common import PREFS, load_json
+            lang = q.get("lang") or load_json(PREFS, {}).get("lang", "es")
+            return self.json({"lang": lang, "guides": guide.guides(lang)})
         if name == "creds":
             from . import creds
             return self.json({"backend": creds.backend_name(), "hosts": [
@@ -1195,15 +1215,23 @@ class Handler(BaseHTTPRequestHandler):
         self.json({"error": "not found"}, 404)
 
     def stream_events(self, run_id: str, offset: int) -> None:
-        """Server-sent events: one message per run event, its id the byte offset after it. Ends with the run, or
-        after an hour with nothing new (a run killed without run.finished)."""
+        """Server-sent events: one message per run event, its id the byte offset after it. Ends with the run; for a
+        plan run stopped from outside (run_stopped), once its log is read to the end; or after an hour with nothing
+        new. A stopped run already read to its end is a 204, the one answer that stops a browser's EventSource from
+        reconnecting."""
         from .harness.events import EventLog
         log = EventLog(CTX.runs / run_id / "events.jsonl")
+        stopped = run_stopped(run_id)
+        if stopped and not log.read_lines(offset):
+            self.send_response(204)
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            return
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
-        quiet = beat = time.monotonic()
+        quiet = beat = looked = time.monotonic()
         try:
             while time.monotonic() - quiet < 3600:
                 batch = log.read_lines(offset)
@@ -1215,10 +1243,15 @@ class Handler(BaseHTTPRequestHandler):
                 if batch:
                     self.wfile.flush()
                     quiet = time.monotonic()
+                elif stopped:
+                    return              # read once more after it was found stopped: nothing was left
                 elif time.monotonic() - beat > 15:
                     self.wfile.write(b": keep-alive\n\n")
                     self.wfile.flush()
                     beat = time.monotonic()
+                now = time.monotonic()
+                if not batch and min(now - quiet, now - looked) > STOPPED_AFTER:
+                    looked, stopped = now, run_stopped(run_id)
                 time.sleep(0.3)
         except (BrokenPipeError, ConnectionResetError):
             return
@@ -1249,6 +1282,10 @@ class Handler(BaseHTTPRequestHandler):
                     return self.json({"error": str(e), "confirm": True}, 409)
                 except KeyError as e:
                     return self.json({"error": f"unknown command {e}"}, 404)
+            if p == "/api/app/tour-offered":            # the Summary's offer of the tour, once per machine (not per window origin)
+                from .common import PREFS, load_json, save_json
+                save_json(PREFS, {**load_json(PREFS, {}), "tour_offered": True})
+                return self.json({"ok": True})
             if p == "/api/app/doctor":                  # check again: a job that keeps its result (lib/doctor.check)
                 from . import doctor
                 return self.json(start_job("doctor", "doctor", lambda log: bool(doctor.check(log))))
@@ -1347,11 +1384,17 @@ class Handler(BaseHTTPRequestHandler):
             self.json({"error": f"{type(e).__name__}: {e}"}, 500)
 
 
+def take_tokens() -> None:
+    """Read this server's tokens and take them out of the environment, so no command, run or agent it starts inherits them."""
+    global APP_TOKEN, PORTAL_TOKEN
+    APP_TOKEN = os.environ.pop("CAMARONES_APP_TOKEN", "")
+    PORTAL_TOKEN = os.environ.pop("CAMARONES_PORTAL_TOKEN", "")
+
+
 def run_server(port: int = 8080, static: bool = False) -> None:
-    global STATIC, APP_TOKEN, PORTAL_TOKEN
+    global STATIC
     STATIC = static
-    APP_TOKEN = os.environ.get("CAMARONES_APP_TOKEN", "")
-    PORTAL_TOKEN = os.environ.get("CAMARONES_PORTAL_TOKEN", "")
+    take_tokens()
     if static and not (SITE / "index.html").exists():
         raise RuntimeError("the portal is not exported yet — run `camaron portal` first")
     httpd = ThreadingHTTPServer(("127.0.0.1", port), Handler)

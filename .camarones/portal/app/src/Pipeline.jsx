@@ -3,7 +3,7 @@ import '@xyflow/react/dist/style.css'
 import { AnimatePresence, motion } from 'motion/react'
 import { memo, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { Aviso, Button, Skeleton } from '@camaron/ui'
-import { getJSON, postJSON, RUNS } from './api.js'
+import { getJSON, postJSON } from './api.js'
 import { lang, t } from './i18n.js'
 import { apply, changedRun, column, COLUMNS, columns, initial, layout, pipelinePath } from './board.js'
 
@@ -39,6 +39,10 @@ function usePipeline() {
         setError(null)
         if (run && !run.finished) {
           source = new EventSource(`/api/runs/${encodeURIComponent(run.run)}/events`)
+          const es = source
+          source.onerror = () => {   // closed for good (a 204: a run stopped from outside, read to its end): back to the poll
+            if (es.readyState === EventSource.CLOSED && source === es) source = null
+          }
           source.onmessage = (m) => {
             const event = JSON.parse(m.data)
             dispatch({ type: 'event', event })
@@ -142,7 +146,6 @@ function Drawer({ unit, onClose, onChanged }) {
         ? <button className="small" onClick={() => act('units/approve')}>{t('pipe.approve')}</button>
         : unit.status === 'blocked' ? <button className="small" onClick={() => act('units/retry')}>{t('pipe.retry')}</button> : null}
       {message ? <p className="error" role="alert">{message}</p> : null}
-      {RUNS && unit.runner === 'agent' && ['todo', 'doing'].includes(unit.status) ? <a className="button small" href="./desktop/#/plan">{t('pInApp')}</a> : null}
       <h3>{t('pipe.log')}</h3>
       <pre className="log">{l.log.length ? l.log.join('\n') : t('pipe.noLog')}</pre>
     </motion.aside>
@@ -174,7 +177,6 @@ export default function Pipeline({ arg }) {
             {' · '}{run ? t(state.finished ? 'pipe.runDone' : 'pipe.runNow', { run: run.run }) : t('pipe.noRun')}
           </p>
         </div>
-        {RUNS ? <a className="button small" href="./desktop/#/plan">{t('pInApp')}</a> : null}
         <div className="seg" role="tablist">
           {['graph', 'board'].map((m) => (
             <button key={m} role="tab" aria-selected={mode === m} className={mode === m ? 'on' : ''}

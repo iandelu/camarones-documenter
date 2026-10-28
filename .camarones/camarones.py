@@ -76,7 +76,8 @@
                           exits 1 when a known one is that serious (for CI; finding one is not a failure otherwise)
   bump <repo> <library> <version> [--ecosystem E] [--json] [--yes]   update one library of a service repo on a new
                           branch camaron/bump-<name>-<version> with its package manager (or the version rewritten in
-                          the manifest); without --yes it only says what it would do; never commits or pushes
+                          the manifest, or in the repo's parent pom or BOM a Maven module inherits it from); without
+                          --yes it only says what it would do; never commits or pushes
   health [--json] [--refresh]   project health at a glance: the machine, the docs and the code, each ok / warn / bad
                           with its reasons, and per repo Sonar, coverage, vulnerabilities and debt; read from the last
                           snapshot (cam-docs/.cache/health.json), built when there is none; --refresh builds it again
@@ -905,7 +906,8 @@ def main() -> int:
                 p = bump.public(bump.plan(a.repo, a.library, a.version, a.ecosystem))
                 print(json.dumps(p, indent=2, ensure_ascii=False) if a.json else
                       f"{p['repo']}: {p['name']} {p['from']} → {p['to']} on a new branch {p['branch']}\n"
-                      f"  {' '.join(p['argv']) if p['argv'] else 'the version is rewritten in ' + p['manifest']}\n"
+                      f"  {' '.join(p['argv']) if p['argv'] else 'the version is rewritten in ' + p['manifest']}"
+                      f"{' (property ' + p['property'] + ')' if p.get('property') else ''}\n"
                       "  run again with --yes to do it (nothing is committed or pushed)")
                 return 0
             r = bump.apply(a.repo, a.library, a.version, a.ecosystem,

@@ -64,6 +64,10 @@ export function unitAction(u, plan = {}) {
     : { kind: 'agent', mode: 'new', label: 'unit.start' }
 }
 
+// Who a session opened with, for its note: the agent, and the model the kit routed to the unit (POST app/agent) when it
+// names one.
+export const openedWith = (label, res) => res?.model ? `${label} (${res.model})` : label
+
 // What a unit's agent session is doing, for its detail: paused (no window open), or open and what its agent did last
 // (Claude Code's transcript): waiting for you, a tool it is running, or a tool call with no answer for minutes (it
 // may be asking permission in its terminal). ts in seconds.

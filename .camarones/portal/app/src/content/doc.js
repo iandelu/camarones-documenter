@@ -1,7 +1,6 @@
 // Markdown → page: heading anchors, highlighted code, callouts, Mermaid (clickable, with zoom), embedded LikeC4 views,
 // `:::` directives, live tables, the business/technical switch and the page outline. Moved from legacy/doc.js; the
 // vendor libraries (marked, DOMPurify, highlight.js, Mermaid) are the page's own scripts (index.html).
-import { getJSON, postJSON } from '../api.js'
 import { docsGet } from '../docsApi.js'
 import * as directives from './directives.js'
 import * as generated from './generated.js'
@@ -229,31 +228,9 @@ export async function c4Available() {
   return { v, ok: v.exists && await loadLikeC4() }
 }
 
-// A build of the portal's server followed until it ends, its lines into `log` (a <pre>).
-export async function runBuild(what, repo, btn, log, onEnd) {
-  if (btn) btn.disabled = true
-  try {
-    const job = await postJSON('build', { what, repo })
-    core.toast(t('jobStarted', { label: job.label }))
-    for (let since = 0; ;) {
-      const j = await getJSON(`jobs/${job.id}?since=${since}`)
-      since = j.lines
-      if (log && j.log.length) { log.hidden = false; log.textContent += j.log.join('\n') + '\n'; log.scrollTop = log.scrollHeight }
-      if (j.status !== 'running') { core.toast(`${j.label}: ${t(j.status)}`); onEnd?.(j); return j }
-      await new Promise((ok) => setTimeout(ok, 1000))
-    }
-  } catch (e) { core.toast(e.message); if (btn) btn.disabled = false }
-  return null
-}
-
 function c4Missing(box, v) {
-  const mode = core.mode()
-  if (mode === 'static') { box.remove(); return }
-  box.innerHTML = `<div class="c4missing"><span class="muted">${esc(v.exists ? t('c4Unavailable') : t('c4Missing'))}</span>
-    ${v.model && mode === 'app' ? `<button class="small" type="button">${esc(v.exists ? t('rebuild') : t('build'))}</button>` : ''}
-    <pre class="joblog" hidden></pre></div>`
-  box.querySelector('button')?.addEventListener('click', (e) =>
-    runBuild('c4', '', e.target, box.querySelector('pre'), () => location.reload()))
+  if (core.mode() === 'static') { box.remove(); return }
+  box.innerHTML = `<div class="c4missing"><span class="muted">${esc(v.exists ? t('c4Unavailable') : t('c4Missing'))}</span></div>`
 }
 
 const EMBED_MAX_H = () => Math.min(innerHeight * 0.75, 760)

@@ -1,17 +1,15 @@
 // The portal server's API (lib/serve.py), relative so the app also works under a sub-path. Mutations need the
-// X-Camarones header, which a cross-site page cannot send. In the desktop app's window (its preload sets
-// window.camaronApp) every request also carries the app's token: only then does the server start processes.
-import { parseSSE } from './sse.js'
+// X-Camarones header, which a cross-site page cannot send. Work that starts a process is the desktop app's: the
+// server refuses it here (lib/serve.py APP_ONLY).
+import { parseSSE } from '@camaron/ui'
 
-// (Read once at import; without a page — the tests — it is the live server, outside the app.)
+// (Read once at import; without a page — the tests — it is the live server.)
 export const STATIC = typeof document !== 'undefined' && document.querySelector('meta[name="cam-mode"]')?.content === 'static'
-export const APP = typeof window !== 'undefined' && window.camaronApp?.token ? window.camaronApp : null
-export const RUNS = !STATIC && !!APP
 
-// Outside the app, the token `camaron up` put in the address (token.js keeps it for this tab): board writes need it.
+// The token `camaron up` (or the desktop app) put in the address, kept for this tab by token.js: board writes need it.
 const portalToken = () => { try { return sessionStorage.getItem('cam-token') || '' } catch { return '' } }
 const token = () => {
-  const tok = APP ? APP.token : portalToken()
+  const tok = portalToken()
   return tok ? { 'X-Camaron-Token': tok } : {}
 }
 
@@ -39,7 +37,7 @@ export async function postJSON(path, body, { signal } = {}) {
   return data
 }
 
-// Server-sent events through fetch: EventSource cannot send the app's token.
+// Server-sent events through fetch: EventSource cannot send the token.
 export async function streamEvents(path, onEvent, signal) {
   const res = await fetch(`api/${path}`, { headers: token(), signal })
   if (!res.ok || !res.body) throw new Error((await res.json().catch(() => ({}))).error || `${path}: ${res.status}`)

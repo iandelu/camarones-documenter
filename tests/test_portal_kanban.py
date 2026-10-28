@@ -403,3 +403,34 @@ def test_a_static_portal_gets_no_token(wired, monkeypatch):
     url = wired.env.serve_editor(port=8099, log=said.append, static=True)
     assert url == "http://localhost:8099/" and "cam-token" not in " ".join(said)
     assert "CAMARONES_PORTAL_TOKEN" not in seen["env"]
+
+
+def test_the_live_portal_does_not_promise_machine_work(wired, monkeypatch):
+    """`camaron up` edits, confirms and reviews; builds and wikis are the desktop app's, so its line does not offer them."""
+    class Pr:
+        pid = 4243
+
+        def poll(self):
+            return None
+
+    class Sock:
+        n = 0
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def connect_ex(self, addr):                     # free before the server starts, taken once it runs
+            Sock.n += 1
+            return 1 if Sock.n == 1 else 0
+
+    import socket
+    monkeypatch.setattr(wired.env.subprocess, "Popen", lambda cmd, **kw: Pr())
+    monkeypatch.setattr(socket, "socket", lambda *a, **k: Sock())
+    monkeypatch.setattr("time.sleep", lambda *_: None)
+    said = []
+    wired.env.serve_editor(port=8099, log=said.append)
+    line = " ".join(said)
+    assert "edit" in line and "rebuild" not in line and "wikis" not in line
