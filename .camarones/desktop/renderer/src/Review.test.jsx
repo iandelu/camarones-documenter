@@ -148,6 +148,18 @@ test('accepting confirms what is decided and who decides', () => {
   expect(review({ adr: chosen({ chosen: null, other: 'Hazelcast' }), current: 'context', ui: { dialog: 'accept' } })).toContain('Otra · Hazelcast')
 })
 
+test('the accept dialog warns of the sections that still ask a question, and still accepts', () => {
+  const todo = chosen()
+  todo.sections = { ...todo.sections, consequences: 'TODO(question): what gets easier and what gets harder?',
+    context: 'Hoy en memoria. TODO(question): ¿y mañana?' }
+  const out = review({ adr: todo, current: 'context', ui: { dialog: 'accept' } })
+  expect(out).toMatch(/cu-aviso--warn[^]*Aún quedan preguntas sin responder[^]*Contexto, Consecuencias/)
+  expect(out).toContain('Aceptar el ADR 0012')
+  expect(out).toMatch(/<button[^>]*data-autofocus[^>]*>Aceptar ADR<\/button>/)
+  expect(review({ adr: chosen(), current: 'context', ui: { dialog: 'accept' } })).not.toContain('Aún quedan preguntas')
+  expect(review({ adr: todo, current: 'context', ui: { dialog: 'accept' } }, 'en')).toContain('These sections still hold a TODO(question): Context, Consequences')
+})
+
 test('rejecting asks why in a dialog', () => {
   const out = review({ adr: adr(), current: 'context', ui: { dialog: 'reject' } })
   for (const s of ['Rechazar el ADR 0012', 'Por qué se rechaza', '<textarea', '>Rechazar el ADR<']) expect(out).toContain(s)

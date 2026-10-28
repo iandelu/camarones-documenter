@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Aviso, Button, Chip, Keys } from '@camaron/ui'
 import { acceptBlock, addAttendees, blockedPart, choiceBody, decided, firstOpen, keyEffect, newPointBody, nextPart, partKind, pickOf,
-  pointOf, reviewKey, reviewParts } from '../../adr.js'
+  pointOf, reviewKey, reviewParts, todoSections } from '../../adr.js'
 import { t } from '../../i18n.js'
 import { initials } from '../../nav.js'
 import { chord, GO, typing } from '../../palette.js'
@@ -475,6 +475,7 @@ function Dialogs({ adr, here, ui, error, onUi, onAccept, onReject, onPoint }) {
   const point = pointOf(adr, here)
   const tag = point ? String(point.id).toUpperCase() : ''
   const refused = error ? <Aviso tone="error" title={t('adr.review.failed')} detail={error} /> : null
+  const todos = todoSections(adr).map((k) => t(`adr.sec.${k}`))
   return (<>
     <Modal open={ui.dialog === 'accept'} onClose={close} labelledBy="rv-dlg-accept">
       <h2 id="rv-dlg-accept">{t('adr.review.acceptTitle', { id: adr.id })}</h2>
@@ -485,6 +486,7 @@ function Dialogs({ adr, here, ui, error, onUi, onAccept, onReject, onPoint }) {
       ) : <Prose text={adr.sections?.decision} />}
       <p>{names.length ? t('adr.review.acceptBy', { names: names.join(', ') }) : t('adr.review.noAttendees')}</p>
       {adr.state?.supersedes ? <p>{t('adr.review.supersedes', { id: adr.state.supersedes })}</p> : null}
+      {todos.length ? <Aviso tone="warn" title={t('adr.review.todoTitle')}>{t('adr.review.todoBody', { sections: todos.join(', ') })}</Aviso> : null}
       {refused}
       <div className="row dk-rv-dlg-acts">
         <Button variant="ghost" onClick={close}>{t('cancel')}</Button>

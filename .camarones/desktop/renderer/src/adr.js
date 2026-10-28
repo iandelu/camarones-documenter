@@ -66,6 +66,13 @@ export function presentKey(key, ctx) {
 }
 
 const PLACEHOLDER = 'To be decided in review: see the decision points.'
+const TODO = 'TODO(question)'
+const POINTS_HEADING = '### Decision points'
+const bare = (text) => String(text ?? '').replace(/<!--[\s\S]*?-->/g, '')
+
+// A section holding nothing a person wrote (lib/adr_doc.py `unwritten`): once comments are set aside, empty or only
+// TODO(question) lines.
+export const unwritten = (text) => bare(text).split(/\r?\n/).map((l) => l.trim()).filter(Boolean).every((l) => l.startsWith(TODO))
 
 // The first reason accept is refused, in the server's own order (lib/adr.py `_outcome`): the string key and the point
 // it names, null when nothing is in the way.
@@ -78,6 +85,19 @@ export function acceptBlock(adr) {
   if (adr?.points?.length) return null
   const written = String(adr?.sections?.decision ?? '').trim()
   return !written || written === PLACEHOLDER ? { key: 'adr.why.noDecision' } : null
+}
+
+const ASKED = ['context', 'drivers', 'options', 'decision', 'consequences', 'confirmation', 'diagram', 'evidence']
+
+// The sections that will still ask a TODO(question) once the ADR is accepted, in reading order: a warning in the accept
+// dialog, never a block. With decision points, accepting fills a Considered options that holds nothing written and puts
+// their paragraphs in place of an unwritten Decision (lib/adr.py `_considered`, `_outcome`), so those are left out.
+export function todoSections(adr) {
+  const points = (adr?.points?.length ?? 0) > 0
+  return ASKED.filter((key) => {
+    const text = bare(key === 'decision' ? String(adr?.sections?.decision ?? '').split(POINTS_HEADING)[0] : adr?.sections?.[key])
+    return text.includes(TODO) && !(points && ['options', 'decision'].includes(key) && unwritten(text))
+  })
 }
 
 // A search hit added to the files an ADR touches: a group brings its files, a file or a page itself; sorted, once each.

@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { acceptBlock, addAttendees, addHit, blockedPart, choiceBody, counts, crumb, FILTERS, filterRows, firstOpen, keyEffect, newPointBody,
+import { acceptBlock, todoSections, addAttendees, addHit, blockedPart, choiceBody, counts, crumb, FILTERS, filterRows, firstOpen, keyEffect, newPointBody,
   nextPart, partKind, presentKey, reviewKey, reviewParts, route, screen, stale, startScreen, STEPS, stepper, viewOf } from './adr.js'
 import { setLang, t } from './i18n.js'
 
@@ -212,6 +212,19 @@ test('an action is busy until it ends, with the ADR it returned or why not', () 
   expect(s).toMatchObject({ busy: true, actError: '' })
   expect(screen(s, { type: 'done', adr: { id: '0012', sha: 'b' } })).toMatchObject({ busy: false, adr: { sha: 'b' } })
   expect(screen(s, { type: 'actFailed', error: 'refused' })).toMatchObject({ busy: false, actError: 'refused', adr: { id: '0012' } })
+})
+
+test('the accept dialog names the sections that will still ask a TODO(question) once accepted', () => {
+  const sections = { context: 'TODO(question): what is the problem?', options: 'TODO(question): which options were considered?',
+    drivers: '<!-- TODO(question): hidden -->', consequences: 'Cheaper.\n\nTODO(question): and slower?', evidence: '| a | b |',
+    decision: 'To be decided in review: see the decision points.\n\n### Decision points\n\n#### P1 · TODO(question) later?' }
+  expect(todoSections({ sections, points: [{ id: 'p1' }] })).toEqual(['context', 'consequences'])      // the points fill the options
+  expect(todoSections({ sections, points: [] })).toEqual(['context', 'options', 'consequences'])
+  expect(todoSections({ sections: { options: '### A · Redis\n\nTODO(question): more?' }, points: [{ id: 'p1' }] })).toEqual(['options'])
+  expect(todoSections({ sections: { decision: 'TODO(question): which?\n\n### Decision points\n\n#### P1 · Q' }, points: [{ id: 'p1' }] }))
+    .toEqual([])                                                                       // the paragraphs take its place
+  expect(todoSections({ sections: { decision: 'We go. TODO(question): when?' }, points: [] })).toEqual(['decision'])
+  expect(todoSections(null)).toEqual([])
 })
 
 test('a dialog opens without the refusal of an action taken before it', () => {

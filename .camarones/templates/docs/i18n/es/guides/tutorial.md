@@ -413,7 +413,8 @@ la revisión va decidiendo (partes, puntos, asistentes) queda aparte en `docs/.w
    pasan a *Considered options* (si esa sección ya tenía texto, solo se añaden las que no nombra); si el ADR sustituye a
    otro, ese queda marcado `Superseded by [NNNN]`. No se
    acepta lo que no está decidido (un punto aplazado, un punto sin elección, o un ADR sin sección *Decision* ni puntos): la
-   app se niega y dice cuál es el que falta. **Rechazar** exige un motivo y deja el fichero con `Rejected (fecha): motivo`,
+   app se niega y dice cuál es el que falta. Las secciones que aún tienen un `TODO(question)` no lo impiden, pero el
+   diálogo de aceptar las nombra. **Rechazar** exige un motivo y deja el fichero con `Rejected (fecha): motivo`,
    para que nadie lo vuelva a proponer sin saber por qué no salió. Una decisión aceptada o rechazada se lee tal cual; para
    cambiarla, un ADR nuevo que la sustituya.
 
