@@ -257,6 +257,7 @@ function Flow({ srv, units, run, pilot, onOpen, focus, onFocused, onSession, can
     const what = canvasKey(e.key, { inTerminal: Boolean(e.target.closest('.dk-pty-slot')), inLog: Boolean(e.target.closest('.dk-term-log')),
       maxed, node: Boolean(el), self: e.target === el, mods: e.altKey || e.ctrlKey || e.metaKey })
     if (what === 'leave') { e.preventDefault(); leave(); return }
+    if (what === 'node') { e.preventDefault(); el?.focus(); return }
     if (what === 'open') {
       e.preventDefault()
       const n = nodes.find((x) => x.id === el.dataset.id)

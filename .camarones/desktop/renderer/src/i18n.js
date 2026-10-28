@@ -272,7 +272,7 @@ export const S = {
     // the canvas's terminals (sections/Terms.jsx): a session opened by hand, typed into on its node
     'pty.you': 'contigo', 'pty.ended': 'terminó ({code})', 'pty.close': 'Cerrar', 'pty.remove': 'Quitar',
     'pty.fresh': 'Abrir una sesión nueva', 'pty.show': 'Ver su terminal', 'pty.update': 'Actualizar docs',
-    'pty.label': 'Terminal de {name}', 'pty.loose': 'Sesiones sueltas',
+    'pty.label': 'Terminal de {name}', 'pty.loose': 'Sesiones sueltas', 'pty.leave': 'F6: salir de la terminal',
     'pty.already': 'Ya tiene una sesión abierta: aquí está su terminal.',
     'tone.ready': 'por hacer', 'tone.running': 'en curso', 'tone.awaiting': 'espera tu aprobación', 'tone.blocked': 'bloqueada',
     'tone.waiting': 'espera a otras', 'tone.done': 'hecha', 'tone.dropped': 'descartada', 'tone.paused': 'en pausa',
@@ -667,7 +667,7 @@ export const S = {
     // the canvas's terminals (sections/Terms.jsx): a session opened by hand, typed into on its node
     'pty.you': 'with you', 'pty.ended': 'ended ({code})', 'pty.close': 'Close', 'pty.remove': 'Remove',
     'pty.fresh': 'Open a new session', 'pty.show': 'Show its terminal', 'pty.update': 'Update docs',
-    'pty.label': 'Terminal: {name}', 'pty.loose': 'Loose sessions',
+    'pty.label': 'Terminal: {name}', 'pty.loose': 'Loose sessions', 'pty.leave': 'F6: leave the terminal',
     'pty.already': 'It already has an open session: here is its terminal.',
     'tone.ready': 'to do', 'tone.running': 'running', 'tone.awaiting': 'awaits your approval', 'tone.blocked': 'blocked',
     'tone.waiting': 'waits for others', 'tone.done': 'done', 'tone.dropped': 'dropped', 'tone.paused': 'paused',

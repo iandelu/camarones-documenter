@@ -2,7 +2,7 @@ import { ReactFlowProvider } from '@xyflow/react'
 import { readFileSync } from 'node:fs'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, expect, test } from 'vitest'
-import { PtyNode } from './sections/Terms.jsx'
+import { PtyNode, screenKey } from './sections/Terms.jsx'
 import { setLang } from './i18n.js'
 
 afterEach(() => setLang('es'))
@@ -42,4 +42,26 @@ test('a drag inside a terminal selects its text: the canvas neither pans, drags,
     expect(slot).toContain(c)
     expect(host).toContain(c)
   }
+})
+
+// WCAG 2.1.2: xterm keeps Escape, Tab and Enter for the program, so F6 is the way out (the canvas's canvasKey).
+test('a terminal says how to leave it, in Spanish and English', () => {
+  const slot = () => html(<PtyNode data={{ unit, term: live, now: 0, ...on }} />).match(/<div[^>]*dk-pty-slot[^>]*>/)[0]
+  expect(slot()).toContain('aria-description="F6: salir de la terminal"')
+  setLang('en')
+  expect(slot()).toContain('aria-description="F6: leave the terminal"')
+})
+
+// Shift+Tab changes Claude Code's permission mode: sent to the agent, it must not also move the focus out.
+test('F6 is left to the canvas, and Shift+Tab goes to the agent without moving the focus', () => {
+  const key = (k, more = {}) => {
+    const e = { type: 'keydown', key: k, shiftKey: false, prevented: false, preventDefault() { this.prevented = true }, ...more }
+    return [screenKey(e), e.prevented]
+  }
+  expect(key('F6')).toEqual([false, false])
+  expect(key('Tab', { shiftKey: true })).toEqual([true, true])
+  expect(key('Tab', { shiftKey: true, type: 'keyup' })).toEqual([true, false])
+  for (const k of ['Tab', 'Escape', 'Enter', 'a']) expect(key(k)).toEqual([true, false])
+  const src = readFileSync(new URL('./sections/Terms.jsx', import.meta.url), 'utf-8')
+  expect(src).toMatch(/attachCustomKeyEventHandler\(screenKey\)/)
 })

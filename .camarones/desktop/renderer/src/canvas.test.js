@@ -390,6 +390,8 @@ test('a key typed in a terminal belongs to the agent', () => {
   for (const key of ['Escape', 'Enter', ' ', 'ArrowLeft', 'Backspace']) {
     expect(canvasKey(key, { inTerminal: true, maxed: true, node: true, self: true })).toBe(null)
   }
+  expect(canvasKey('F6', { inTerminal: true, maxed: true })).toBe('leave')      // F6 leaves a terminal, as in VS Code
+  expect(canvasKey('F6', { inTerminal: true, node: true })).toBe('node')
   expect(canvasKey('Escape', { inLog: true, maxed: true, node: true })).toBe('leave')
   expect(canvasKey('ArrowRight', { inLog: true, node: true })).toBe(null)
   expect(canvasKey('Escape', { node: true, maxed: false })).toBe(null)
