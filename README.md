@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.75.0-ff875f?style=flat-square" alt="Versión 4.75.0">
+  <img src="https://img.shields.io/badge/version-4.76.0-ff875f?style=flat-square" alt="Versión 4.76.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -224,7 +224,7 @@ y algo que parece un secreto no se publica.
 | Paso | En la app | En la terminal |
 |---|---|---|
 | 1. Ver qué toca | **Resumen**: el siguiente paso con un botón | `camaron plan next` |
-| 2. Documentar una unidad con tu agente | **Empezar con Claude Code** (se abre en su propia terminal; si la cierras, **Seguir** la retoma) | el asistente → 🦐 Siguiente paso |
+| 2. Documentar una unidad con tu agente | **Empezar con Claude Code** (se abre como una terminal en el lienzo del Plan, donde le escribes al agente; si la cierras, **Seguir** la retoma) | el asistente → 🦐 Siguiente paso |
 | 3. O varias a la vez | **Plan › Ejecutar las listas**, o el **Piloto automático** | `camaron run --parallel 2`, `camaron autopilot` |
 | 4. Revisar y confirmar | **Ver portal** → Revisión | `camaron confirm`, `camaron feedback` |
 | 5. Compartir | **Equipo › Compartir ahora** | `camaron share` |
@@ -249,13 +249,13 @@ escribirías en la terminal.
 |---|---|
 | 🏠 **Resumen** (`g s`) | El siguiente paso con un solo botón, avisos de la máquina y cómo van el plan, la revisión y los trabajos |
 | 📋 **Tablero** (`g b`) | El Kanban del proyecto: seis columnas de Backlog a Bloqueado, mover con ratón o teclado, abrir, añadir, eliminar |
-| 🗺️ **Plan** (`g p`) | Ejecutar las unidades listas en paralelo o con el piloto automático, cada unidad con su botón (aprobar, reintentar, seguir, rehacer), por estado, por fases o en el **lienzo** (el grafo del plan, donde cada unidad que trabaja una ejecución es una terminal en vivo), lo que lleva costado el plan (debajo de las unidades) y empezar la documentación otra vez |
+| 🗺️ **Plan** (`g p`) | Ejecutar las unidades listas en paralelo o con el piloto automático (se saltan una unidad con su sesión abierta), cada unidad con su botón (aprobar, reintentar, seguir, rehacer), por estado, por fases o en el **lienzo**: el grafo del plan, donde cada unidad que trabaja una ejecución es una terminal en vivo, y **Empezar** o **Seguir** una unidad y la actualización de la doc (**Mantenerla al día**) abren una terminal en la que le escribes al agente (<kbd>F6</kbd> sale de ella; **Cerrar** deja la unidad en pausa, **Quitar** retira una que acabó con error y la actualización va en **Sesiones sueltas**; `camaron config set sessions window` las abre en una ventana); lo que lleva costado el plan (debajo de las unidades) y empezar la documentación otra vez |
 | 🎙️ **Entrevistas** (`g i`) | Cuestionario del equipo o en vivo, exportar e importar respuestas, cerrar la ronda |
 | 🤝 **Equipo** (`g t`) | El repo del equipo y compartir, aprobar lo que llegó con él, hooks y plugins |
 | ✅ **Calidad** (`g q`) | La salud del proyecto sin IA: máquina, documentación y código, repo a repo (SonarQube, cobertura, vulnerabilidades, deuda) |
 | 📦 **Librerías** (`g l`) | Las dependencias de cada repo y sus vulnerabilidades (el escaneo va repo a repo con su barra, se puede parar y acaba con un tick con lo que encontró) y **Actualizar** en una rama nueva, sin commit |
 | 📖 **Docs** (`g d`) | Abrir el portal, construir el explorador C4, generar la wiki de cada repo y preguntar con IA |
-| 🧰 **Máquina** (`g m`) | Preparar la máquina, idioma y modelos, tokens, repos, el kit y desinstalar |
+| 🧰 **Máquina** (`g m`) | Preparar la máquina, idioma y modelos, dónde se abren las sesiones (en el lienzo del plan o en una ventana de terminal), tokens, repos, el kit y desinstalar |
 | 📘 **Guía** (`g h`) | Toda la documentación de Camarón dentro de la app, con botones que te llevan a cada sitio y un **recorrido guiado** |
 
 <kbd>⌘K</kbd>/<kbd>Ctrl K</kbd> va a una sección, a otro proyecto, a cualquier comando o a un capítulo de la guía. Plan,
@@ -585,7 +585,11 @@ agents:
 
 Las sesiones que abres tú (el siguiente paso del asistente, Empezar en la app) usan también esta tabla: con el agente
 que elijas, el modelo que fije `pipeline.yaml` para la unidad (`{op: set, node: "flow:*", runner: "claude:opus"}`) o el
-de su tipo de trabajo, y si no hay ninguno, el de Ajustes; el asistente y la app dicen con cuál la abren.
+de su tipo de trabajo, y si no hay ninguno, el de Ajustes; el asistente y la app dicen con cuál la abren. En la app se
+abren como terminales del lienzo que tiene el servidor del proyecto (el `pty` de Python en macOS y Linux, ConPTY con
+pywinpty 3.1.0 en Windows; 8 a la vez como mucho), y cerrar la ventana del proyecto las termina: sus unidades quedan en
+pausa. Cada una lee su prompt de un fichero propio, `.camarones/.cache/prompts/<unidad>.md`, así que dos sesiones
+abiertas a la vez no se pisan.
 Los modelos locales solo entran por OpenCode y nunca para trabajo `agentic-heavy`; `camaron doctor --local` propone uno
 de pesos abiertos según la memoria de tu equipo. `camaron run --parallel 3 --per-runner claude=2,codex=1` reparte las
 sesiones; mientras dura una ejecución el ordenador no se suspende. `camaron doctor --context` suma los tokens que carga

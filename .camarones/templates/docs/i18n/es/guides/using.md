@@ -71,8 +71,9 @@ plugins) espera a que lo apruebes en tu máquina: **Equipo › Lo que llegó con
 ## Un día normal
 
 1. **Mira el siguiente paso**: el **Resumen** de la app, o `camaron plan next`.
-2. **Haz una unidad con tu agente**: **Empezar con Claude Code** (o Codex) la abre en su propia terminal, solo con esa
-   unidad. Cierra la terminal cuando quieras: la unidad queda en pausa y **Seguir** retoma la conversación.
+2. **Haz una unidad con tu agente**: **Empezar con Claude Code** (o Codex) la abre como una terminal en el lienzo del
+   Plan, solo con esa unidad, y ahí le escribes al agente. Ciérrala cuando quieras: la unidad queda en pausa y
+   **Seguir** retoma la conversación.
 3. **O haz varias a la vez**: **Plan › Ejecutar las listas** (`camaron run --parallel 2`), cada unidad en su propia
    copia de `cam-docs`, que se fusiona al terminar. El **Piloto automático** (`camaron autopilot`) va una a una, sin
    vigilancia.
