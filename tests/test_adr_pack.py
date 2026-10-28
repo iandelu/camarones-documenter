@@ -328,5 +328,8 @@ def test_pack_refuses_what_it_cannot_find_or_a_legacy_adr(adr, kit):
     assert adr.read_pack("0009") is None
     (kit.root / "docs" / "decisions").mkdir(parents=True, exist_ok=True)
     (kit.root / "docs" / "decisions" / "0003-old.md").write_text("# 0003 — Old\n\n## Status\n\nAccepted\n", encoding="utf-8")
-    with pytest.raises(adr.AdrError, match="start its review first"):
+    with pytest.raises(adr.AdrError, match="already accepted: supersede it"):
         adr.pack("0003")
+    (kit.root / "docs" / "decisions" / "0004-new.md").write_text("# 0004 — New\n\n## Status\n\nProposed\n", encoding="utf-8")
+    with pytest.raises(adr.AdrError, match=r"start its review in the app first \(Decisiones › Revisar en sesión\)"):
+        adr.pack("0004")

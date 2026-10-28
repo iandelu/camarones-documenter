@@ -463,9 +463,11 @@ def _unwritten(id: str) -> AdrError:
 def _need_state(id: str) -> dict:
     state = load_state(_id(id))
     if state is None:
-        if id not in _files():
+        path = _files().get(id)
+        if path is None:
             raise KeyError(id)
-        raise AdrError(f"{id} was not created here: start its review first")
+        _refuse_decided(id, docs.split_fm(_read(path))[1])
+        raise AdrError(f"{id} was not created here: start its review in the app first (Decisiones › Revisar en sesión)")
     return state
 
 
