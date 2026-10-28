@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { bytes, elapsed, fitSize, followTerminals, historyBytes, inputPieces, needsScreen, screenFeed, shown, streamFrom } from './terminals.js'
+import { bytes, elapsed, fitSize, followTerminals, historyBytes, inputPieces, liveSessions, needsScreen, screenFeed, shown, streamFrom } from './terminals.js'
 
 const b64 = (u8) => btoa(String.fromCharCode(...u8))
 
@@ -164,4 +164,15 @@ test('loose terminals fold, leave once closed and keep their start order', () =>
     L('t-update-6', { ended: 199, code: 0 })]
   expect(shown(list, now).loose.map((x) => x.id)).toEqual(['t-update-3', 't-update-1', 't-update-6', 't-update-2'])
   expect(list[0]).toBe(late)
+})
+
+// Switching project from the rail stops this project's server and every terminal it holds: the rail asks first when
+// one is live, and switches as before when the list cannot be read.
+test('a switch of project counts the live sessions it would end', async () => {
+  const T = (id, f = {}) => ({ id, kind: 'unit', unit: 'a', started: 100, ended: null, code: null, closed: false, ...f })
+  const srv = (terminals) => ({ get: async (name) => { expect(name).toBe('app/terminals'); return { terminals } } })
+  expect(await liveSessions(srv([T('t-a-1'), T('t-b-1', { ended: 150, code: 0 }), T('t-update-1', { kind: 'update' })]))).toBe(2)
+  expect(await liveSessions(srv([T('t-a-1', { ended: 150, code: 1 })]))).toBe(0)
+  expect(await liveSessions(srv(undefined))).toBe(0)
+  expect(await liveSessions({ get: async () => { throw new Error('gone') } })).toBe(0)
 })

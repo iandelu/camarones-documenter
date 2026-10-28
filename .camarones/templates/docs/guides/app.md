@@ -27,7 +27,7 @@ Each project has its own window, served by that project's own local server (see
 | Part | What it does |
 |---|---|
 | Header | The brand (back to Summary), where you are (`project › section`), **View portal**, **Search or go to…** (<kbd>Ctrl</kbd> <kbd>K</kbd> / <kbd>⌘</kbd> <kbd>K</kbd>) and **⋯**. The header is the window's title bar: drag it to move the window |
-| Rail | One button per project of this machine, with its initials. Another project opens **in this window**: the app starts that project's server, moves the window to it and stops the old one. A project that is not on disk is greyed out. **+** opens the start screen |
+| Rail | One button per project of this machine, with its initials. Another project opens **in this window**: the app starts that project's server, moves the window to it and stops the old one. Stopping it ends the sessions open on its canvas, so when one is live the app asks first: *{n} sessions are open in this project: switching project ends them.* — **Cancel** or **Switch anyway**. A project that is not on disk is greyed out. **+** opens the start screen |
 | Sections | Summary, Board, Plan, Interviews, Team, Quality, Libraries and Docs; then, under **This app**, Machine, Guide and (only in a checkout of the kit) Kit dev. Hover one to see its shortcut |
 | Main area | The section you are in |
 | Jobs panel and status bar | What runs now and the last jobs, with their output; the status bar shows the first running job and the kit's version |
