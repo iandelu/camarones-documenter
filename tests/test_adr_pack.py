@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import importlib
 import json
+import logging
 
 import pytest
 from fixtures.builder import git
@@ -122,6 +123,16 @@ def test_a_source_that_fails_leaves_its_part_empty(pack_world, monkeypatch):
     p = adr_pack.build(state)
     assert p["c4"] == [] and p["libraries"] == [] and p["commits"] == []
     assert PAY in p["neighbours"] and [x["page"] for x in p["pages"]] == ["orders.md"]
+
+
+def test_a_source_that_fails_is_logged_with_the_part_it_left_empty(pack_world, monkeypatch, caplog):
+    kit, adr_pack, state = pack_world
+    monkeypatch.setattr(importlib.import_module("lib.c4edit"), "index", lambda *a, **k: (_ for _ in ()).throw(TypeError("bug")))
+    with caplog.at_level(logging.INFO, logger="camaron.adr_pack"):
+        assert adr_pack.build(state)["c4"] == []
+    seen = [r for r in caplog.records if r.getMessage() == "evidence pack: c4 left empty"]
+    assert len(seen) == 1 and seen[0].name == "camaron.adr_pack" and seen[0].levelno == logging.INFO
+    assert seen[0].exc_info[0] is TypeError and str(seen[0].exc_info[1]) == "bug"
 
 
 def test_an_index_that_cannot_be_read_leaves_its_parts_empty(pack_world, monkeypatch):
