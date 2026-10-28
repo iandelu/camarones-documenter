@@ -1,7 +1,7 @@
 """PTYs in the project server (lib/terminals.py): a real terminal per session, on every OS (pywinpty on Windows)."""
 from __future__ import annotations
 
-import json, os, re, sys, time
+import json, os, re, socket, subprocess, sys, time
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -231,3 +231,95 @@ def test_old_terminal_files_are_pruned_when_the_first_one_opens(pty, monkeypatch
     left = sorted(p.name for p in pty.t.DIR.glob("*.json"))
     assert left == sorted([f"{m['id']}.json", "t-old-3.json", "t-old-4.json"])
     assert not (pty.t.DIR / "t-old-0.log").exists()
+
+
+# Windows, on every OS: a stand-in for pywinpty 3.1.0 (winpty.PTY, the Rust binding, and winpty.PtyProcess, its Python
+# wrapper) with the two behaviours that bit. PtyProcess.spawn passes argv[0] unquoted as the application name and
+# winpty-rs puts it in front of the command line, so a python.exe under "Program Files" ran as "C:\Program".
+# PtyProcess.isalive() marks the process closed, after which close() leaves its two sockets open.
+class FakePTY:
+    def __init__(self, cols, rows, backend=None):
+        self.size, self.alive, self.code, self.spawned, self.pid = (cols, rows), True, None, None, 4242
+
+    def spawn(self, appname, cmdline=None, cwd=None, env=None):
+        self.spawned = {"appname": appname, "cmdline": cmdline, "cwd": cwd, "env": env}
+        return True
+
+    def isalive(self):
+        return self.alive
+
+    def get_exitstatus(self):
+        return self.code
+
+    def set_size(self, cols, rows):
+        self.size = (cols, rows)
+
+
+class FakePtyProcess:
+    def __init__(self, pty):
+        assert isinstance(pty, FakePTY)
+        self.pty, self.pid, self.closed = pty, pty.pid, False
+        self.fileobj, self._server = socket.socketpair()
+
+    @classmethod
+    def spawn(cls, argv, cwd=None, env=None, dimensions=(24, 80)):
+        pty = FakePTY(dimensions[1], dimensions[0])
+        pty.spawn(argv[0], cwd=cwd, env="\0".join(f"{k}={v}" for k, v in env.items()) + "\0",
+                  cmdline=" " + subprocess.list2cmdline(argv[1:]))
+        return cls(pty)
+
+    @property
+    def exitstatus(self):
+        return self.pty.get_exitstatus()
+
+    def isalive(self):
+        alive = self.pty.isalive()
+        self.closed = not alive
+        return alive
+
+    def close(self, force=False):
+        if not self.closed:
+            self.fileobj.close()
+            self._server.close()
+            self.closed = True
+
+    def read(self, size=1024):
+        data = self.fileobj.recv(size)
+        if not data:
+            raise EOFError("Pty is closed")
+        return data.decode("utf-8")
+
+    def setwinsize(self, rows, cols):
+        self.pty.set_size(cols, rows)
+
+
+@pytest.fixture
+def conpty(kit, monkeypatch):
+    from lib import terminals
+    monkeypatch.setitem(sys.modules, "winpty", SimpleNamespace(PTY=FakePTY, PtyProcess=FakePtyProcess))
+    monkeypatch.setattr(terminals, "IS_WIN", True)
+    monkeypatch.setattr(terminals, "TICK", 0.05)
+    killed = []
+    monkeypatch.setattr(terminals, "kill_tree", lambda pid, sig=None: killed.append(pid))
+    terminals.available.cache_clear()
+    yield SimpleNamespace(t=terminals, killed=killed)
+    terminals.shutdown()
+    terminals.available.cache_clear()
+
+
+def test_on_windows_the_program_is_quoted_and_its_args_are_one_command_line(conpty, tmp_path):
+    exe = r"C:\Program Files\Python 3.13\python.exe"
+    argv = [exe, r"C:\kit dir\session_run.py", "-", "--", "claude", "--model", "x y"]
+    proc, fd = conpty.t._start(argv, tmp_path, {"A": "1", "PATH": r"C:\bin"}, 100, 30)
+    assert fd is None and isinstance(proc, FakePtyProcess) and proc.pty.size == (100, 30)
+    assert proc.pty.spawned == {"appname": f'"{exe}"', "cmdline": r'"C:\kit dir\session_run.py" - -- claude --model "x y"',
+                                "cwd": str(tmp_path), "env": "A=1\0PATH=" + "C:\\bin" + "\0"}
+
+
+def test_on_windows_a_program_that_ended_lets_go_of_its_sockets(conpty, kit):
+    m = conpty.t.spawn([sys.executable, "-c", "pass"], kit.root, kind="update", agent="test")
+    proc = conpty.t._term(m["id"]).proc
+    proc.pty.code, proc.pty.alive = 0, False              # it exited; nothing more to read, the socket still open
+    until(lambda: conpty.t.get(m["id"])["ended"])
+    assert conpty.t.get(m["id"])["code"] == 0
+    assert proc.fileobj.fileno() == -1 and proc._server.fileno() == -1
