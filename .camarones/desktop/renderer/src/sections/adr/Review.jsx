@@ -45,7 +45,7 @@ const choiceName = (p) => {
 export function Review({ adr, busy = false, error = '', notice = '', send }) {
   const [current, setCurrent] = useState(() => (decided(adr) ? reviewParts(adr)[0]?.id : firstOpen(reviewParts(adr))) ?? null)
   const [present, setPresent] = useState(false)
-  const [ui, setUi] = useState({ drafts: {}, adding: null, dialog: null, why: '', tried: false, attendee: '', say: '' })
+  const [ui, setUi] = useState({ drafts: {}, adding: null, kept: null, dialog: null, why: '', tried: false, attendee: '', say: '' })
   const root = useRef(null)
   const focusNext = useRef(null)        // a selector inside the review that takes the focus after the next render
   const inside = useRef(false)          // the focus was in the review: if what held it goes, it lands on the part again
@@ -63,7 +63,9 @@ export function Review({ adr, busy = false, error = '', notice = '', send }) {
     ;(box.querySelector(sel || '[data-primary]') || box.querySelector('.dk-rv-pane'))?.focus()
   })
 
-  const go = (id) => { setCurrent(id); patch({ adding: null, say: '' }); focusNext.current = '[data-primary]' }
+  // Moving away from the add-point form puts what it holds aside (`kept`): Añadir punto brings it back.
+  const shelve = (p = {}) => setUi((u) => ({ ...u, kept: u.adding || u.kept, adding: null, ...p }))
+  const go = (id) => { setCurrent(id); shelve({ say: '' }); focusNext.current = '[data-primary]' }
   const presenting = (on) => { setPresent(on); focusNext.current = '[data-primary]' }
   async function write(name, body, then) {
     if (busy) return
@@ -78,7 +80,7 @@ export function Review({ adr, busy = false, error = '', notice = '', send }) {
   const onPoint = (body) => {
     const after = nextPart(parts, here, 1)                        // a removed point's place goes to the part after it
     return write('point', body, (next) => {
-      if (body.op === 'add') { const last = next.points?.at(-1); return last ? go(`point:${last.id}`) : patch({ adding: null }) }
+      if (body.op === 'add') { patch({ adding: null, kept: null }); const last = next.points?.at(-1); return last ? go(`point:${last.id}`) : null }
       draft(here, null)
       patch({ dialog: null })
       go(body.op === 'remove' ? after : nextPart(reviewParts(next), here, 1))
@@ -102,13 +104,16 @@ export function Review({ adr, busy = false, error = '', notice = '', send }) {
       return
     }
     const point = pointOf(adr, here)
-    const fx = keyEffect(adr, here, reviewKey(e, { typing: false, options: point?.options?.length ?? 0, chord: chorded }), { present })
-    if (!fx || (ui.adding && 'go' in fx)) return                 // moving away would drop the point being written
+    const open = !decided(adr) && { adding: !!ui.adding, editing: partKind(here) === 'text' && !!ui.drafts[here]?.editing }
+    const fx = keyEffect(adr, here, reviewKey(e, { typing: false, options: point?.options?.length ?? 0, chord: chorded }), { present, ...open })
+    if (!fx) return
     e.preventDefault()
     if ('go' in fx) { go(fx.go); if (fx.blocked) patch({ say: t(fx.blocked.key, { point: fx.blocked.point }) }) }
     else if ('present' in fx) presenting(fx.present)
     else if (fx.pick) { draft(here, { picked: fx.pick }); focusNext.current = '#rv-rationale' }
-    else if (fx.edit === 'text') draft(here, { editing: true })
+    else if (fx.close === 'adding') { shelve(); focusNext.current = '[data-primary]' }
+    else if (fx.close === 'editing') { draft(here, { editing: false }); focusNext.current = '[data-primary]' }     // the text stays
+    else if (fx.edit === 'text') { draft(here, { editing: true }); focusNext.current = '#rv-edit' }
     else if (fx.edit === 'rationale') root.current?.querySelector('#rv-rationale')?.focus()
     else if (fx.defer === 'part') onPart('defer')
     else if (fx.defer === 'point' && point) onPoint({ op: 'defer', point: point.id })
@@ -134,7 +139,8 @@ export function Review({ adr, busy = false, error = '', notice = '', send }) {
 }
 
 // `ui`: what the screen holds that the ADR does not: drafts by part ({editing, draft, picked, rationale, other}), the
-// point being added, the open dialog ('accept' | 'reject' | 'remove'), the reason typed to reject, the attendee typed.
+// point being added (and `kept`, one put aside), the open dialog ('accept' | 'reject' | 'remove'), the reason typed to
+// reject, the attendee typed.
 export function ReviewView({ adr, current, present = false, ui = {}, busy = false, error = '', notice = '', onPart, onPoint, onAttendees,
   onAccept, onReject, onPresent, onGo, onUi }) {
   const parts = reviewParts(adr)
@@ -172,7 +178,7 @@ export function ReviewView({ adr, current, present = false, ui = {}, busy = fals
             <People adr={adr} closed={closed} typed={ui.attendee} onUi={onUi} onAttendees={onAttendees} />
             {closed ? null : <Decide block={block} parts={parts} onGo={onGo} onUi={onUi} />}
           </div>
-          <KeyHints adr={adr} here={here} closed={closed} present={present} />
+          <KeyHints adr={adr} here={here} closed={closed} present={present} adding={!!adding} editing={!closed && kind === 'text' && !!d.editing} />
         </div>
         <div className="dk-rv-whole"><Fold label={t('adr.review.whole')}><Sections sections={adr.sections} /></Fold></div>
         <p className="sr-only" role="status">{busy ? t('adr.review.saving') : ui.say || `${pane.where}: ${pane.label}`}</p>
@@ -202,7 +208,7 @@ function PartsNav({ adr, parts, here, closed, adding, present, ui, onGo, onUi })
         })}
       </ol>
       {closed ? null : (
-        <button type="button" className={cls('dk-rv-addpt', adding && 'on')} onClick={() => onUi({ adding: ui.adding || blankPoint() })}>
+        <button type="button" className={cls('dk-rv-addpt', adding && 'on')} onClick={() => onUi({ adding: ui.adding || ui.kept || blankPoint() })}>
           <span aria-hidden="true">+</span> {t('adr.review.addPoint')}
         </button>)}
     </nav>
@@ -366,7 +372,7 @@ function AddPoint({ form, onUi, onPoint }) {
       <div className="row dk-rv-acts">
         <Button variant="primary" type="submit">{t('adr.review.add.go')}</Button>
         {options.length < MAX_OPTIONS ? <Button onClick={() => set({ options: [...options, { name: '' }] })}>{t('adr.review.add.more')}</Button> : null}
-        <Button variant="ghost" onClick={() => onUi({ adding: null })}>{t('cancel')}</Button>
+        <Button variant="ghost" onClick={() => onUi({ adding: null, kept: null })}>{t('cancel')}</Button>
       </div>
     </form>
   )
@@ -427,14 +433,20 @@ function Decide({ block, parts, onGo, onUi }) {
   )
 }
 
-function KeyHints({ adr, here, closed, present }) {
+// The keys keyEffect answers to here (adr.js): with the add-point form open, Esc (closes it) and P; while a part is being
+// edited, the moves, E and Esc (closes the editor, keeping its text) and P.
+function KeyHints({ adr, here, closed, present, adding = false, editing = false }) {
   const kind = partKind(here)
   const n = Math.min(MAX_OPTIONS, kind === 'point' ? pointOf(adr, here)?.options?.length || 0 : 0)
-  const keys = [[['←', '→'], t('adr.review.k.parts')]]
-  if (!closed && n) keys.push([[n > 1 ? `1–${n}` : '1'], t('adr.review.k.choose')])
-  if (!closed && kind !== 'affected') keys.push([['E'], t('adr.review.k.edit')], [['D'], t('adr.review.k.defer')])
-  if (!closed) keys.push([['A'], t('adr.review.k.accept')])
-  keys.push(present ? [['Esc'], t('adr.review.k.leave')] : [['P'], t('adr.review.k.present')])
+  const open = adding || editing
+  const acts = !closed && !open
+  const keys = adding ? [] : [[['←', '→'], t('adr.review.k.parts')]]
+  if (acts && n) keys.push([[n > 1 ? `1–${n}` : '1'], t('adr.review.k.choose')])
+  if (!closed && !adding && kind !== 'affected') keys.push([['E'], t('adr.review.k.edit')])
+  if (acts && kind !== 'affected') keys.push([['D'], t('adr.review.k.defer')])
+  if (acts) keys.push([['A'], t('adr.review.k.accept')])
+  if (open) keys.push([['Esc'], t('adr.review.k.close')], [['P'], present ? t('adr.review.k.leave') : t('adr.review.k.present')])
+  else keys.push(present ? [['Esc'], t('adr.review.k.leave')] : [['P'], t('adr.review.k.present')])
   return (
     <ul className="dk-rv-keys" aria-label={t('adr.review.keys')}>
       {keys.map(([k, word]) => <li key={word}><Keys keys={k} />{` ${word}`}</li>)}

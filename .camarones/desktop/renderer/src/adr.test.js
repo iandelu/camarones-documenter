@@ -354,3 +354,30 @@ test('attendees come typed one or several at once, each once whatever its case',
   expect(addAttendees(['LA'], 'LA')).toEqual(['LA'])
   expect(addAttendees(undefined, ' ')).toEqual([])
 })
+
+// While the add-point form or a part's editor is open, a key never reaches what is not on screen (nor throws away what
+// is being written). Esc closes what is open first, as it does a dialog; P still toggles the presentation.
+test('with the add-point form open, only P and Esc do something, and Esc closes the form', () => {
+  const a = inReview()
+  const fx = (current, act, present = false) => keyEffect(a, current, act, { present, adding: true })
+  for (const act of [{ do: 'next' }, { do: 'prev' }, { do: 'choose', n: 1 }, { do: 'edit' }, { do: 'defer' }, { do: 'accept' }]) {
+    expect(fx('point:p1', act), act.do).toBeNull()
+    expect(fx('context', act), act.do).toBeNull()
+  }
+  expect(fx('context', { do: 'exit' })).toEqual({ close: 'adding' })
+  expect(fx('context', { do: 'exit' }, true)).toEqual({ close: 'adding' })       // the form first, the presentation next
+  expect(fx('context', { do: 'toggle' })).toEqual({ present: true })
+  expect(fx('context', { do: 'toggle' }, true)).toEqual({ present: false })
+})
+
+test('with a part being edited, no key defers, chooses or accepts; moving keeps the draft and Esc closes the editor', () => {
+  const a = inReview()
+  const fx = (act, present = false) => keyEffect(a, 'drivers', act, { present, editing: true })
+  for (const act of [{ do: 'defer' }, { do: 'accept' }, { do: 'choose', n: 1 }]) expect(fx(act), act.do).toBeNull()
+  expect(fx({ do: 'edit' })).toEqual({ edit: 'text' })                         // back into the text being written
+  expect(fx({ do: 'next' })).toEqual({ go: 'point:p1' })                       // drafts are kept by part
+  expect(fx({ do: 'exit' })).toEqual({ close: 'editing' })
+  expect(fx({ do: 'exit' }, true)).toEqual({ close: 'editing' })
+  expect(fx({ do: 'toggle' }, true)).toEqual({ present: false })
+  expect(keyEffect(a, 'drivers', { do: 'exit' }, { present: true })).toEqual({ present: false })   // nothing open: leave
+})

@@ -199,6 +199,22 @@ test('the key hints follow the part in view', () => {
   expect(hint(done, 'partes')).toBe(true)
 })
 
+test('the key hints follow what is open: the add-point form and the editor', () => {
+  const hint = (out, word) => new RegExp(`</kbd></span> ${word}<`).test(out)
+  const adding = review({ adr: adr(), current: 'point:p1', ui: { adding: { question: '', options: [{}, {}] } } })
+  for (const s of ['partes', 'elegir', 'editar', 'aplazar', 'aceptar']) expect(hint(adding, s), s).toBe(false)
+  expect(adding).toContain('<kbd class="cu-kbd">Esc</kbd></span> cerrar<')
+  expect(adding).toContain('<kbd class="cu-kbd">P</kbd></span> presentar<')
+  const presenting = review({ adr: adr(), current: 'context', present: true, ui: { adding: { question: '', options: [{}, {}] } } })
+  expect(presenting).toContain('<kbd class="cu-kbd">Esc</kbd></span> cerrar<')
+  expect(presenting).toContain('<kbd class="cu-kbd">P</kbd></span> salir<')
+  const editing = review({ adr: adr(), current: 'context', ui: { drafts: { context: { editing: true } } } })
+  for (const s of ['aplazar', 'aceptar', 'elegir']) expect(hint(editing, s), s).toBe(false)
+  for (const s of ['partes', 'editar']) expect(hint(editing, s), s).toBe(true)
+  expect(editing).toContain('<kbd class="cu-kbd">Esc</kbd></span> cerrar<')
+  expect(review({ adr: adr(), current: 'context', present: true })).toContain('<kbd class="cu-kbd">Esc</kbd></span> salir<')
+})
+
 test('outside the presentation the screen offers it; inside, the way out', () => {
   const out = review({ adr: adr(), current: 'context' })
   expect(out).not.toContain('dk-present')
