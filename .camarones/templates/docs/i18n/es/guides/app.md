@@ -251,7 +251,7 @@ tiempo en la cabecera. Todo lo que tecleas va al agente: Escape, Tab, Mayús+Tab
 terminal (en un portátil Mac, Fn+F6): a su nodo, donde las flechas y Escape vuelven a moverse por el lienzo, o, si está
 maximizada, de vuelta al lienzo. **⤢** la maximiza y **Volver al lienzo** regresa; el agente recibe cada tamaño nuevo.
 **Cerrar** termina la sesión: el nodo vuelve a su tarjeta, «En pausa: su sesión se cerró», y su **Seguir** la abre otra
-vez. Una terminal cuyo agente acabó con error se queda con lo que escribió, **Quitar** y, si es de una unidad, **Abrir
+vez (si se abre en una ventana, el lienzo lo dice encima del grafo). Una terminal cuyo agente acabó con error se queda con lo que escribió, **Quitar** y, si es de una unidad, **Abrir
 una sesión nueva**; una que acabó bien se pliega como las de una ejecución. La actualización de la documentación no es
 de ninguna unidad: su terminal, **Actualizar docs**, va en la franja **Sesiones sueltas**, debajo del grafo. Una unidad
 abierta en el lienzo nunca se abre dos veces: su botón te lleva a su terminal, y su detalle ofrece **Ver su terminal**.

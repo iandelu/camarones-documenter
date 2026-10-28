@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from 'vitest'
 import { setLang, t } from './i18n.js'
-import { board, COLUMNS, groups, openedWith, openSession, phases, sessionLine, sessionNote, tone, unitAction, waitsFor } from './plan.js'
+import { board, canvasNote, COLUMNS, groups, openedWith, openSession, phases, sessionLine, sessionNote, tone, unitAction, waitsFor } from './plan.js'
 
 afterEach(() => setLang('es'))
 
@@ -134,6 +134,14 @@ test('no room for a terminal, or a unit open in a window, is said in the app lan
 test('a window, and a window instead of the canvas, say which', () => {
   expect(sessionNote({ where: 'window' }, 'Codex').key).toBe('next.opened')
   expect(sessionNote({ where: 'window', fallback: 'no-pty' }, 'Codex').key).toBe('next.noPty')
+})
+
+// Continue on the canvas: a terminal that lands there shows itself; one that opened in a window says so on the canvas.
+test('the canvas notes a session only when it opened outside it', () => {
+  expect(canvasNote({ where: 'canvas', terminal: { id: 't-a-1' } }, 'Codex')).toBeNull()
+  expect(canvasNote({ already: true, terminal: { id: 't-a-1' } }, 'Codex')).toBeNull()
+  expect(canvasNote({ where: 'window', model: 'o5' }, 'Codex')).toEqual({ key: 'next.opened', vars: { agent: 'Codex (o5)' } })
+  expect(canvasNote({ where: 'window', fallback: 'no-pty' }, 'Codex').key).toBe('next.noPty')
 })
 
 test('a unit open on the canvas offers its terminal', () => {
