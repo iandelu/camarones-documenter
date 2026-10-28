@@ -71,8 +71,9 @@ const POINTS_HEADING = '### Decision points'
 const bare = (text) => String(text ?? '').replace(/<!--[\s\S]*?-->/g, '')
 
 // A section holding nothing a person wrote (lib/adr_doc.py `unwritten`): once comments are set aside, empty or only
-// TODO(question) lines.
-export const unwritten = (text) => bare(text).split(/\r?\n/).map((l) => l.trim()).filter(Boolean).every((l) => l.startsWith(TODO))
+// placeholders: TODO(question) lines, the kit's Decision placeholder, a 4.x skeleton's `<…>` lines (`<What was chosen.>`).
+export const unwritten = (text) => bare(text).split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+  .every((l) => l.startsWith(TODO) || l === PLACEHOLDER || /^<[^<>]+>$/.test(l))
 
 // The first reason accept is refused, in the server's own order (lib/adr.py `_outcome`): the string key and the point
 // it names, null when nothing is in the way.
@@ -83,8 +84,7 @@ export function acceptBlock(adr) {
     if (!(p.chosen || p.other)) return { key: 'adr.why.unchosen', point }
   }
   if (adr?.points?.length) return null
-  const written = String(adr?.sections?.decision ?? '').trim()
-  return !written || written === PLACEHOLDER ? { key: 'adr.why.noDecision' } : null
+  return unwritten(adr?.sections?.decision) ? { key: 'adr.why.noDecision' } : null
 }
 
 const ASKED = ['context', 'drivers', 'options', 'decision', 'consequences', 'confirmation', 'diagram', 'evidence']

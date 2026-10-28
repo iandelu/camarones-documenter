@@ -606,7 +606,8 @@ def _who(by) -> str:
 
 def _outcome(state: dict, raw: str) -> str | None:
     """The Decision section an accepted ADR gets, None to keep the one written. What a person wrote there stays, in front
-    of one paragraph per point; the placeholder and the points subsection go. Refuses what nobody has decided."""
+    of one paragraph per point; a placeholder (`adr_doc.unwritten`) and the points subsection go. Refuses what nobody has
+    decided."""
     points = state.get("points") or []
     for p in points:
         label = str(p.get("id")).upper()
@@ -615,7 +616,7 @@ def _outcome(state: dict, raw: str) -> str | None:
         if not _decided(p):
             raise AdrError(f"point {label} has no choice yet")
     prose = _prose(raw)
-    written = "" if prose == adr_doc.PLACEHOLDER else prose
+    written = "" if adr_doc.unwritten(prose) else prose
     if not points:
         if not written:
             raise AdrError("write the Decision section or add a decision point")

@@ -174,6 +174,22 @@ def test_accept_with_no_points_and_no_decision_section_is_refused(adr, kit):
     assert (decisions(kit) / "0003-jpa.md").read_text(encoding="utf-8") == LEGACY
 
 
+@pytest.mark.parametrize("decision", ["<What was chosen.>", "<!-- what was chosen -->", "<What was chosen.>\n\n<!-- why -->"])
+def test_a_decision_that_is_only_a_skeleton_placeholder_or_comments_is_not_written(adr, kit, decision):
+    f = decisions(kit) / "0003-jpa.md"
+    raw = f"# 0003 — JPA\n\n## Status\n\nProposed\n\n## Context\n\nwhy\n\n## Decision\n\n{decision}\n"
+    f.write_text(raw, encoding="utf-8")
+    got = adr.start_review("0003")
+    with pytest.raises(adr.AdrError) as exc:
+        adr.accept("0003", by="Test", attendees=[], base_sha=got["sha"])
+    assert str(exc.value) == "write the Decision section or add a decision point"
+    assert f.read_text(encoding="utf-8") == raw
+    got = adr.point("0003", "add", {"question": "ORM?", "options": [{"name": "JPA"}, {"name": "jOOQ"}]}, got["sha"])
+    got = adr.point("0003", "choose", {"point": "p1", "chosen": "A", "rationale": "in use"}, got["sha"])
+    out = adr.accept("0003", by="Test", attendees=[], base_sha=got["sha"])
+    assert out["sections"]["decision"] == "**ORM?** — JPA. in use"
+
+
 def test_accept_refuses_a_stale_read_and_changes_nothing(adr, kit):
     a = decided(adr, chosen="A", rationale="r")
     f = kit.root / "docs" / a["path"]

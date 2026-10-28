@@ -156,6 +156,13 @@ test('with no points, a written Decision is enough and the placeholder is not', 
   expect(acceptBlock(null)).toEqual({ key: 'adr.why.noDecision' })
 })
 
+test('a Decision that is only a skeleton placeholder or comments is not written either', () => {
+  for (const text of ['<What was chosen.>', '<!-- what was chosen -->', '<What was chosen.>\n\n<!-- and why\n-->', 'TODO(question): which?'])
+    expect(acceptBlock(adr([], text))).toEqual({ key: 'adr.why.noDecision' })
+  expect(acceptBlock(adr([], '<What was chosen.>\n\nWe keep JPA.'))).toBeNull()
+  expect(acceptBlock(adr([], 'We keep <abbr>JPA</abbr>.'))).toBeNull()
+})
+
 test('a why key reads as a sentence with its point in both languages', () => {
   const block = acceptBlock(adr([{ id: 'p2', deferred: true }]))
   setLang('es')

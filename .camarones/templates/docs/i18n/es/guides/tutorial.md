@@ -408,15 +408,15 @@ la revisión va decidiendo (partes, puntos, asistentes) queda aparte en `docs/.w
    puntos y apuntar los **asistentes**. **Presentar** (`P`) muestra una parte por pantalla, en letra grande, para llevar
    una reunión compartiendo pantalla, todo con el teclado: <kbd>←</kbd>/<kbd>→</kbd> cambian de parte,
    <kbd>1</kbd>–<kbd>9</kbd> eligen opción, <kbd>E</kbd> edita, <kbd>D</kbd> aplaza, <kbd>A</kbd> acepta y <kbd>Esc</kbd> sale.
-5. **Acepta, rechaza o sustituye.** **Aceptar** deja el fichero en `Accepted (fecha)`, con `x-owner: human`, confirmado, y
-   una sección *Decided by* con quién decidió; las opciones que se sopesaron en cada punto, con sus a favor y en contra,
-   pasan a *Considered options* (si esa sección ya tenía texto, solo se añaden las que no nombra); si el ADR sustituye a
-   otro, ese queda marcado `Superseded by [NNNN]`. No se
-   acepta lo que no está decidido (un punto aplazado, un punto sin elección, o un ADR sin sección *Decision* ni puntos): la
-   app se niega y dice cuál es el que falta. Las secciones que aún tienen un `TODO(question)` no lo impiden, pero el
-   diálogo de aceptar las nombra. **Rechazar** exige un motivo y deja el fichero con `Rejected (fecha): motivo`,
-   para que nadie lo vuelva a proponer sin saber por qué no salió. Una decisión aceptada o rechazada se lee tal cual; para
-   cambiarla, un ADR nuevo que la sustituya.
+5. **Acepta, rechaza o sustituye.** **Aceptar** deja el fichero en `Accepted (fecha)`, con `x-owner: human`, confirmado,
+   y una sección *Decided by* con quién decidió; las opciones que se sopesaron en cada punto, con sus a favor y en
+   contra, pasan a *Considered options* (si esa sección ya tenía texto, solo se añaden las que no nombra); si el ADR
+   sustituye a otro, ese queda marcado `Superseded by [NNNN]`. No se acepta lo que no está decidido (un punto aplazado,
+   un punto sin elección, o un ADR sin puntos ni texto en su sección *Decision*, donde un marcador como
+   `<What was chosen.>` o un comentario no cuentan): la app se niega y dice cuál es el que falta. Las secciones que aún
+   tienen un `TODO(question)` no lo impiden, pero el diálogo de aceptar las nombra. **Rechazar** exige un motivo y deja
+   el fichero con `Rejected (fecha): motivo`, para que nadie lo vuelva a proponer sin saber por qué no salió. Una
+   decisión aceptada o rechazada se lee tal cual; para cambiarla, un ADR nuevo que la sustituya.
 
 Si el fichero cambia mientras lo revisas (un pull, un editor), el guardado falla con un aviso, no pisa nada, y la app lo
 vuelve a leer. **Un ADR que el kit no escribió** (sin frontmatter, con los encabezados en español, `Propuesto <!-- … -->` o
