@@ -8,10 +8,11 @@ import { fmtDuration } from '@camaron/ui'
 import { useTheme } from '../hooks.js'
 import { t } from '../i18n.js'
 import { tone } from '../plan.js'
-import { bytes, elapsed, fitSize, followTerminals, inputPieces } from '../terminals.js'
+import { bytes, elapsed, fitSize, followTerminals, inputPieces, isHistory, nap, screenFeed } from '../terminals.js'
 
 const LIST = 'app/terminals'
 const SETTLE_MS = 150
+const RETRY_MS = 2000
 const SCREEN = { scrollback: 5000, screenReaderMode: true, fontSize: 12 }
 
 // xterm.js needs a DOM: it loads with the first terminal, never on import, so the nodes render to text in the tests.
@@ -39,22 +40,27 @@ function desk(srv, onList) {
   const gone = new Set()           // closed here: what they print on the way out has no screen to go to
   let offsets = {}
   let list = []
+  let upTo = new Map()             // how far each terminal's output went when the stream opened: history up to there
   let busy = null
   let again = false
 
   // One request at a time; asked again while one is out, it runs once more after it, so the list is never older.
+  // Resolves to null once listed, else the refusal.
   const refresh = () => {
     if (busy) { again = true; return busy }
     busy = (async () => {
+      let failed = null
       do {
         again = false
         try {
           const r = await srv.get(LIST)
           list = r.terminals || []
+          failed = null
           onList({ list, available: Boolean(r.available) })
-        } catch { /* a server without terminals, or gone: the list stays as it was */ }
+        } catch (e) { failed = e }   // a server without terminals, or gone: the list stays as it was
       } while (again)
       busy = null
+      return failed
     })()
     return busy
   }
@@ -109,7 +115,7 @@ function desk(srv, onList) {
   // program drew for that size is read at it.
   const make = (id) => {
     const host = document.createElement('div')
-    host.className = 'dk-pty-screen nowheel nodrag nokey'
+    host.className = 'dk-pty-screen nowheel nodrag nopan nokey'
     const x = { id, host, slots: [], term: null, fitter: null, queue: [], sending: false, wantsFocus: false, gone: false }
     const meta = () => list.find((m) => m.id === id)
     x.ready = Promise.all([xterm(), meta() ? null : refresh()]).then(([{ Terminal, FitAddon }]) => {
@@ -119,7 +125,7 @@ function desk(srv, onList) {
       x.fitter = new FitAddon()
       term.loadAddon(x.fitter)
       term.open(host)
-      term.onData((data) => send(x, data))
+      x.write = screenFeed(term, (data) => send(x, data))
       term.onResize(({ cols, rows }) => {
         clearTimeout(x.sizing)
         x.sizing = setTimeout(() => srv.post(`${LIST}/${id}/resize`, { cols, rows }).catch(() => {}), SETTLE_MS)
@@ -154,13 +160,16 @@ function desk(srv, onList) {
     if (gone.has(id) || typeof ev.d !== 'string') return
     const x = screen(id)
     const data = bytes(ev.d)
-    x.ready.then((term) => { if (term && !x.gone) term.write(data) })
+    const past = isHistory(ev.o, upTo.get(id))
+    x.ready.then((term) => { if (term && !x.gone) x.write(data, past) })
   }
 
   return {
     refresh,
     onEvent,
     offsets: () => offsets,
+    // Called with the list the stream opens after: what each terminal had printed by then is history.
+    mark() { upTo = new Map(list.map((m) => [m.id, m.offset])) },
     attach(id, el) {
       if (gone.has(id)) return () => {}
       const x = screen(id)
@@ -193,6 +202,7 @@ function desk(srv, onList) {
     dispose() {
       for (const x of [...screens.values()]) drop(x)
       offsets = {}
+      upTo = new Map()
       ended.clear()
     },
   }
@@ -202,9 +212,21 @@ export function useTerminals(srv) {
   const [state, setState] = useState({ list: [], available: false })
   const d = useMemo(() => desk(srv, setState), [srv])
   const theme = useTheme()
+  // The stream opens once the list has come: it says where each terminal's history ends. A server without terminals
+  // (an older one, or the token refused) is not asked again.
   useEffect(() => {
     const stop = new AbortController()
-    d.refresh().finally(() => followTerminals(srv, d.onEvent, { signal: stop.signal, offsets: d.offsets }))
+    const { signal } = stop
+    ;(async () => {
+      for (let e = await d.refresh(); e; e = await d.refresh()) {
+        if (signal.aborted || e.status === 403 || e.status === 404) return
+        await nap(RETRY_MS, signal)
+        if (signal.aborted) return
+      }
+      if (signal.aborted) return
+      d.mark()
+      await followTerminals(srv, d.onEvent, { signal, offsets: d.offsets })
+    })()
     return () => { stop.abort(); d.dispose() }
   }, [d, srv])
   useEffect(() => { d.restyle() }, [d, theme])
@@ -235,7 +257,7 @@ export function PtyNode({ data: { unit, term, now, attach, onClose, onMax, onSes
         <button type="button" className="dk-cv-btn" onClick={() => onClose(term.id)}>{live ? t('pty.close') : t('pty.remove')}</button>
         <button type="button" className="dk-icon" aria-label={t('cv.max')} title={t('cv.max')} onClick={() => onMax(unit?.id ?? term.id)}>⤢</button>
       </div>
-      <div ref={slot} className="dk-term-body dk-pty-slot nowheel nodrag nokey" role="group" aria-label={t('pty.label', { name })} />
+      <div ref={slot} className="dk-term-body dk-pty-slot nowheel nodrag nokey nopan" role="group" aria-label={t('pty.label', { name })} />
     </div>
   )
 }

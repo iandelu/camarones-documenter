@@ -74,6 +74,19 @@ def test_the_end_of_a_program_is_kept_with_its_code(pty):
         pty.t.write(m["id"], "hola\r")
 
 
+# The app writes what a terminal printed before it opened the stream as history, with xterm's answers to old queries
+# muted (a replayed DA or CPR would otherwise be typed into the program): the listing says where history ends.
+def test_a_listed_terminal_says_how_far_its_output_goes(pty):
+    m = pty.open()
+    until(lambda: b"ready" in screen(pty.t, m["id"]))
+    pty.t.write(m["id"], "exit\r")
+    until(lambda: pty.t.get(m["id"])["ended"])
+    listed = next(x for x in pty.t.listing() if x["id"] == m["id"])
+    assert listed["offset"] == pty.t.read(m["id"], 0)[1] > 0
+    saved = json.loads((pty.t.DIR / f"{m['id']}.json").read_text(encoding="utf-8"))
+    assert "offset" not in saved and "offset" not in pty.t.get(m["id"])
+
+
 def test_output_is_kept_in_a_ring_and_a_log_both_bounded(pty, monkeypatch):
     monkeypatch.setattr(pty.t, "RING", 16 * 1024)
     monkeypatch.setattr(pty.t, "LOG_MAX", 64 * 1024)

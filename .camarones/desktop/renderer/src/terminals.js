@@ -10,7 +10,7 @@ export const streamFrom = (offsets) => Object.entries(offsets || {}).map(([t, o]
 // A chunk is cut anywhere, inside a UTF-8 character included: xterm gets the bytes and joins them itself.
 export const bytes = (b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
 
-const nap = (ms, signal) => new Promise((resolve) => {
+export const nap = (ms, signal) => new Promise((resolve) => {
   if (signal?.aborted) return resolve()
   const done = () => { clearTimeout(timer); signal?.removeEventListener('abort', done); resolve() }
   const timer = setTimeout(done, ms)
@@ -72,4 +72,21 @@ export function inputPieces(text, max = INPUT_MAX) {
   }
   if (start < text.length) pieces.push(text.slice(start))
   return pieces
+}
+
+// GET app/terminals gives each terminal's `offset`, how far its output had gone: a chunk of the stream that ends there
+// or before is history, replayed. A terminal not in that first list joined later: live from its first byte.
+export const isHistory = (o, upTo) => Number.isFinite(upTo) && Number.isFinite(o) && o <= upTo
+
+// xterm answers the queries it parses (DA, the cursor's position, the colours) through onData, as if typed. History is
+// written with those answers muted, so an old query is never answered to the program again (a stray Esc interrupts an
+// agent). xterm parses in order: a live write queued after history is answered as usual.
+export function screenFeed(term, send) {
+  let muted = 0
+  term.onData((data) => { if (muted === 0) send(data) })
+  return (data, history) => {
+    if (!history) { term.write(data); return }
+    muted += 1
+    term.write(data, () => { muted -= 1 })
+  }
 }
