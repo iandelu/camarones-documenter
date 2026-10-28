@@ -48,6 +48,14 @@ export function shown(terms, now) {
   return { units, loose: open.filter((term) => term.kind !== 'unit' && stays(term, now)) }
 }
 
+// A streamed chunk gets an xterm for a terminal the canvas shows, or for one the list does not have yet (it just
+// opened); the rest (folded, a unit's older one) only move their offset: nothing would ever show their screen.
+export function needsScreen(id, terms, now) {
+  if (!(terms || []).some((term) => term.id === id)) return true
+  const { units, loose } = shown(terms, now)
+  return [...units.values(), ...loose].some((term) => term.id === id)
+}
+
 export const elapsed = (term, now) => Math.max(0, Math.floor((live(term) ? now / 1000 : term.ended) - term.started))
 
 // What lib/terminals.py takes: 10–500 columns, 5–200 rows. The fit addon proposes nothing while the screen is hidden.
@@ -74,8 +82,9 @@ export function inputPieces(text, max = INPUT_MAX) {
   return pieces
 }
 
-// GET app/terminals gives each terminal's `offset`, how far its output had gone: the stream's bytes up to there are
-// history, replayed. A chunk of `n` bytes ending at `o` may straddle it (the program printed between the list and the
+// GET app/terminals gives each terminal's `offset`, how far its output had gone 2 s before: the stream's bytes up to
+// there are history, replayed; fresher ones are live, so a query an agent sent just before the canvas mounted is
+// answered. A chunk of `n` bytes ending at `o` may straddle it (the program printed between the list and the
 // stream's first read): how many of its first bytes are history. None for a terminal not in that first list: it
 // joined later, live from its first byte.
 export const historyBytes = (o, n, upTo) => (Number.isFinite(upTo) && Number.isFinite(o) ? clamp(upTo - (o - n), 0, n) : 0)

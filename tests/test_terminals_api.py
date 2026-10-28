@@ -145,6 +145,18 @@ def test_an_ended_terminal_says_its_code_after_its_last_bytes(app, wired):
     assert call(f"{app.url}/api/app/terminals/{tid}/input", {"data": "x"})[0] == 409
 
 
+# A terminal the person closed is never shown again: the stream says where it ended, so the app keeps its offset,
+# and replays none of it (no screen to parse it into on every canvas mount).
+def test_a_closed_terminal_streams_its_end_and_none_of_its_bytes(app, wired):
+    _, r = call(app.url + "/api/app/terminals", {"unit": "update", "agent": "claude"})
+    tid = r["terminal"]["id"]
+    until(lambda: b"ready" in app.t.read(tid, 0)[0])
+    call(f"{app.url}/api/app/terminals/{tid}/close", {})
+    until(lambda: app.t.get(tid)["ended"])
+    msgs = sse(app.url + "/api/app/terminals/stream", lambda m: any(d["t"] == tid and "end" in d for _, d in m))
+    assert [d for _, d in msgs if d["t"] == tid] == [{"t": tid, "end": app.t.get(tid)["code"], "o": app.t.read(tid, 0)[1]}]
+
+
 def test_bad_input_is_a_400_and_an_unknown_terminal_a_404(app, wired):
     _, r = call(app.url + "/api/app/terminals", {"unit": "update", "agent": "claude"})
     tid = r["terminal"]["id"]

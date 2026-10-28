@@ -8,7 +8,7 @@ import { fmtDuration } from '@camaron/ui'
 import { useTheme } from '../hooks.js'
 import { t } from '../i18n.js'
 import { tone } from '../plan.js'
-import { bytes, elapsed, fitSize, followTerminals, historyBytes, inputPieces, nap, screenFeed } from '../terminals.js'
+import { bytes, elapsed, fitSize, followTerminals, historyBytes, inputPieces, nap, needsScreen, screenFeed } from '../terminals.js'
 
 const LIST = 'app/terminals'
 const SETTLE_MS = 150
@@ -167,6 +167,7 @@ function desk(srv, onList) {
       return
     }
     if (gone.has(id) || typeof ev.d !== 'string') return
+    if (!screens.has(id) && !needsScreen(id, list, Date.now())) return
     const x = screen(id)
     const data = bytes(ev.d)
     const cut = historyBytes(ev.o, data.length, upTo.get(id))
@@ -181,7 +182,7 @@ function desk(srv, onList) {
     refresh,
     onEvent,
     offsets: () => offsets,
-    // Called with the list the stream opens after: what each terminal had printed by then is history.
+    // Called with the list the stream opens after: what each terminal had printed by its listed offset is history.
     mark() { upTo = new Map(list.map((m) => [m.id, m.offset])) },
     attach(id, el) {
       if (gone.has(id)) return () => {}

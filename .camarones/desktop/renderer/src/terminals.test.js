@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { bytes, elapsed, fitSize, followTerminals, historyBytes, inputPieces, screenFeed, shown, streamFrom } from './terminals.js'
+import { bytes, elapsed, fitSize, followTerminals, historyBytes, inputPieces, needsScreen, screenFeed, shown, streamFrom } from './terminals.js'
 
 const b64 = (u8) => btoa(String.fromCharCode(...u8))
 
@@ -125,4 +125,20 @@ test('a chunk that straddles the end of history answers only the query after it'
   term.parse()
   expect(sent).toEqual(['\x1b[?1;2c'])
   expect(cut).toBe(9)
+})
+
+// Every canvas mount replays the stream: a terminal the canvas does not show (closed, folded, a unit's older one) moves
+// its offset and gets no xterm; one the list does not have yet just opened, and gets its screen.
+test('a chunk gets a screen only for a terminal the canvas shows, or a new one', () => {
+  const T = (id, f = {}) => ({ id, kind: 'unit', unit: 'a', started: 100, ended: null, code: null, closed: false, ...f })
+  const now = 200_000
+  const list = [T('t-a-1', { started: 50, ended: 60, code: 1 }), T('t-a-2'), T('t-b-1', { unit: 'b', ended: 10, code: 0 }),
+    T('t-c-1', { unit: 'c', ended: 150, code: 1, closed: true }), T('t-update-1', { kind: 'update', unit: null })]
+  expect(needsScreen('t-a-2', list, now)).toBe(true)
+  expect(needsScreen('t-update-1', list, now)).toBe(true)
+  expect(needsScreen('t-a-9', list, now)).toBe(true)
+  expect(needsScreen('t-a-1', list, now)).toBe(false)
+  expect(needsScreen('t-b-1', list, now)).toBe(false)
+  expect(needsScreen('t-c-1', list, now)).toBe(false)
+  expect(needsScreen('t-a-1', [], now)).toBe(true)
 })
