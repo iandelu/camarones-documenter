@@ -95,6 +95,17 @@ def test_a_fresh_project_gets_an_empty_pack(kit):
     assert "api:src/main/java/demo/Api.java" in adr_pack.render(p)
 
 
+@pytest.mark.parametrize("repo", ["..", "ABSOLUTE"])
+def test_commits_come_only_from_the_projects_repos(kit, tmp_path, repo):
+    adr_pack = importlib.import_module("lib.adr_pack")
+    git(tmp_path, "init", "-q")
+    (tmp_path / "secret.txt").write_text("x\n", encoding="utf-8")
+    git(tmp_path, "add", "secret.txt")
+    git(tmp_path, "commit", "-q", "-m", "outside the workspace")
+    name = str(tmp_path) if repo == "ABSOLUTE" else repo
+    assert adr_pack.build({"id": "0001", "touches": [f"{name}:secret.txt"]})["commits"] == []
+
+
 def test_a_state_with_no_touches_gets_an_empty_pack(kit):
     adr_pack = importlib.import_module("lib.adr_pack")
     p = adr_pack.build({"id": "0001"})

@@ -143,6 +143,45 @@ def test_a_state_without_a_slug_still_writes_a_named_file(adr, kit):
     assert adr.write_without_ai(got["id"])["path"] == "decisions/0001-sessions-in-redis.md"
 
 
+@pytest.mark.parametrize("slug, name", [
+    ("../../escaped", "escaped"), ("..\\..\\escaped", "escaped"), ("ABSOLUTE", None), ("esc\0aped", "esc-aped"),
+    ("../../../../AGENTS", "agents"), ("", "sessions-in-redis")])
+def test_a_pulled_slug_never_writes_outside_docs_decisions(adr, kit, tmp_path, slug, name):
+    slug = str(tmp_path / "escaped") if slug == "ABSOLUTE" else slug
+    name = name or adr.adr_doc.slugify(slug)
+    got = adr.new({"title": "Sessions in Redis", "kind": "new"})
+    adr.save_state({**got["state"], "slug": slug})                 # a working state that came in through git
+    before = set(tmp_path.rglob("*.md"))
+    out = adr.write_without_ai(got["id"])
+    made = set(tmp_path.rglob("*.md")) - before
+    assert out["path"] == f"decisions/0001-{name}.md"
+    assert made == {kit.root / "docs" / "decisions" / f"0001-{name}.md"}
+
+
+def test_a_name_that_would_leave_docs_decisions_is_refused(adr, kit, tmp_path, monkeypatch):
+    got = adr.new({"title": "Sessions in Redis", "kind": "new"})
+    monkeypatch.setattr(adr.adr_doc, "slugify", lambda _title: "../../escaped")
+    before = set(tmp_path.rglob("*.md"))
+    with pytest.raises(adr.AdrError, match="docs/decisions"):
+        adr.write_without_ai(got["id"])
+    assert set(tmp_path.rglob("*.md")) == before and adr.load_state(got["id"])["phase"] == "problem"
+
+
+def test_an_adr_file_that_links_outside_docs_decisions_is_never_written(adr, kit, tmp_path):
+    outside = tmp_path / "AGENTS.md"
+    outside.write_text(LEGACY, encoding="utf-8")
+    try:
+        (decisions(kit) / "0003-jpa.md").symlink_to(outside)
+    except OSError:
+        pytest.skip("this machine cannot make symbolic links")
+    got = adr.start_review("0003")
+    with pytest.raises(adr.AdrError, match="docs/decisions"):
+        adr.part("0003", "context", "edit", "mine", got["sha"])
+    with pytest.raises(adr.AdrError, match="docs/decisions"):
+        adr.point("0003", "add", {"question": "Q", "options": [{"name": "x"}, {"name": "y"}]}, got["sha"])
+    assert outside.read_text(encoding="utf-8") == LEGACY
+
+
 def test_writing_without_ai_renders_the_proposed_file_and_opens_the_review(adr, kit):
     a = written(adr, problem="why", touches=["api:a.java"])
     f = kit.root / "docs" / "decisions" / "0001-a.md"
