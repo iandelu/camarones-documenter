@@ -145,6 +145,20 @@ def test_a_bare_workspace_still_builds_the_tree(kit):
     assert all(w["nav"]["pages"] == [] for w in kit.env.wikis())
 
 
+# ---------- decisions ----------
+def test_a_decision_row_carries_the_status_of_its_adr_and_no_other_row_does(serve_mod):
+    docs = serve_mod.root / "docs"
+    page(docs, "decisions/0001-redis.md", "---\ntitle: 0001 — Redis\ntype: decision\n---\n# 0001 — Redis\n\n## Status\n\nAccepted (2026-10-01)\n")
+    page(docs, "decisions/0002-orm.md", "---\ntitle: 0002 — ORM\ntype: decision\n---\n# 0002 — ORM\n\n## Status\n\nProposed\n")
+    page(docs, "decisions/0003-jpa.md", "# 0003 — JPA\n\n## Estado\n\nSustituida por [0004](0004-orm.md)\n")
+    page(docs, "decisions/0005-odd.md", "---\ntype: decision\n---\n# 0005 — Odd\n\nNo status section.\n")
+    page(docs, "decisions/index.md", "# Decisions\n\nThe list.\n")
+    r = rows(serve_mod)
+    assert [r[f"decisions/{n}.md"].get("adr_status") for n in ("0001-redis", "0002-orm", "0003-jpa", "0005-odd")] \
+        == ["accepted", "proposed", "superseded", "unknown"]
+    assert "adr_status" not in r["decisions/index.md"] and "adr_status" not in r["flows/checkout.md"]
+
+
 # ---------- static export ----------
 def test_static_export_carries_the_new_fields(serve_mod, monkeypatch):
     env, docs = serve_mod.env, serve_mod.docs
@@ -165,6 +179,24 @@ def test_static_export_carries_the_new_fields(serve_mod, monkeypatch):
     texts = [f.read_text(encoding="utf-8", errors="ignore") for f in site.rglob("*")
              if f.suffix in (".html", ".css", ".js") and f.relative_to(site).parts[0] not in viewers]
     assert not any(re.search(r"fonts\.(googleapis|gstatic)\.com", t) for t in texts)   # the portal asks no font CDN
+
+
+def test_static_export_carries_the_decisions_that_cover_each_page(serve_mod, monkeypatch):
+    env, docs = serve_mod.env, serve_mod.docs
+    env.set_components(["agents"])
+    monkeypatch.setattr(docs, "vendor_file", lambda *_a: None)
+    monkeypatch.setattr(docs, "vendor", lambda _site: (0, []))
+    root = serve_mod.root / "docs"
+    page(root, "orders.md", "---\ntitle: Orders\nx-sources:\n  - api:src/S.java\n---\n# Orders\n")
+    page(root / "i18n" / "es", "orders.md", "---\ntitle: Pedidos\n---\n# Pedidos\n")
+    page(root, "decisions/0003-jpa.md", "---\nx-sources:\n  - api:src/S.java\n---\n# 0003 — JPA\n\n## Estado\n\nAceptada\n")
+    site = env.export_site(log=lambda _: None)
+    read = lambda lang, rel: json.loads((site / "api" / "doc" / lang / f"{rel}.json").read_text(encoding="utf-8"))  # noqa: E731
+    covering = [{"id": "0003", "title": "JPA", "path": "decisions/0003-jpa.md", "kind": "retro", "implementation": "n/a"}]
+    assert read("_", "orders.md")["decisions"] == covering and read("es", "orders.md")["decisions"] == covering
+    assert read("_", "flows/checkout.md")["decisions"] == []
+    tree = json.loads((site / "api" / "tree.json").read_text(encoding="utf-8"))
+    assert {d["path"]: d.get("adr_status") for d in tree["docs"]}["decisions/0003-jpa.md"] == "accepted"
 
 
 def test_wiki_graph_export_does_not_pass_flags_openwiki_rejects(serve_mod, monkeypatch):
