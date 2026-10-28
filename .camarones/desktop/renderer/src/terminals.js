@@ -49,3 +49,27 @@ export function shown(terms, now) {
 }
 
 export const elapsed = (term, now) => Math.max(0, Math.floor((live(term) ? now / 1000 : term.ended) - term.started))
+
+// What lib/terminals.py takes: 10–500 columns, 5–200 rows. The fit addon proposes nothing while the screen is hidden.
+const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n))
+export const fitSize = (dims) => (dims && Number.isFinite(dims.cols) && Number.isFinite(dims.rows)
+  ? { cols: clamp(dims.cols, 10, 500), rows: clamp(dims.rows, 5, 200) } : null)
+
+// The server takes 256 KB of input a request (UTF-8). A paste goes in pieces, cut between characters, never inside one.
+export const INPUT_MAX = 256 * 1024
+const utf8 = (cp) => (cp < 0x80 ? 1 : cp < 0x800 ? 2 : cp < 0x10000 ? 3 : 4)
+export function inputPieces(text, max = INPUT_MAX) {
+  if (text.length * 3 <= max) return text ? [text] : []
+  const pieces = []
+  let start = 0
+  let size = 0
+  for (let i = 0; i < text.length;) {
+    const cp = text.codePointAt(i)
+    const n = utf8(cp)
+    if (size + n > max) { pieces.push(text.slice(start, i)); start = i; size = 0 }
+    size += n
+    i += cp > 0xffff ? 2 : 1
+  }
+  if (start < text.length) pieces.push(text.slice(start))
+  return pieces
+}
