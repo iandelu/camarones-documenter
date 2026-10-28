@@ -56,6 +56,17 @@ def test_accept_needs_a_file_and_a_decision(kit):
     assert r.returncode == 2 and r.stderr.startswith("✖") and "write the Decision section" in r.stderr
 
 
+def test_deciding_an_adr_the_kit_did_not_write_points_to_the_app(kit, capsys):
+    folder = kit.root / "docs" / "decisions"
+    folder.mkdir(parents=True)
+    (folder / "0003-jpa.md").write_text("# 0003 — JPA\n\n## Estado\n\nPropuesto\n", encoding="utf-8")
+    (folder / "0004-old.md").write_text("# 0004 — Old\n\n## Status\n\nAccepted\n", encoding="utf-8")
+    for argv in (("accept", "0003"), ("reject", "3", "--why", "no")):
+        assert call(capsys, *argv) == (2, "", "✖ 0003 was not created here: start its review in the app first "
+                                              "(Decisiones › Revisar en sesión)\n")
+    assert call(capsys, "accept", "0004") == (2, "", "✖ ADR 0004 is already accepted: supersede it with a new ADR instead\n")
+
+
 def test_the_catalog_knows_adr(kit):
     from lib import catalog
     assert catalog.COMMANDS["adr"]["verdict"] == "app"
