@@ -395,6 +395,31 @@ def test_replace_status_fills_an_empty_section_and_adds_a_missing_one(adr_doc, t
     assert adr_doc.replace_status(text, "Accepted (d)") == want
 
 
+@pytest.mark.parametrize("line, want", [
+    ("Status: proposed", "Status: Accepted (d)"),
+    ("* Status: proposed", "* Status: Accepted (d)"),
+    ("- Status: Proposed", "- Status: Accepted (d)"),
+    ("**Status:** proposed", "**Status:** Accepted (d)"),
+    ("**Status**: proposed", "**Status**: Accepted (d)"),
+    ("Estado: propuesto", "Estado: Accepted (d)"),
+    ("> Status: proposed <!-- one of: proposed, accepted -->", "> Status: Accepted (d)"),
+    ("Status: proposed <!-- one of:\nproposed, accepted -->", "Status: Accepted (d)"),
+    ("<!-- Status: draft -->\nStatus: proposed", "<!-- Status: draft -->\nStatus: Accepted (d)"),
+    ("* Status: proposed\n* Deciders: LA", "* Status: Accepted (d)\n* Deciders: LA")])
+def test_replace_status_replaces_an_inline_status_line_in_place(adr_doc, line, want):
+    text = f"# 0003 — JPA\n\n{line}\n\n## Context\n\nx\n"
+    out = adr_doc.replace_status(text, "Accepted (d)")
+    assert out == f"# 0003 — JPA\n\n{want}\n\n## Context\n\nx\n"
+    assert adr_doc.status_of(out)[0] == "accepted" and "## Status" not in out
+
+
+def test_replace_status_of_an_inline_line_keeps_the_frontmatter_and_the_line_endings(adr_doc):
+    text = "---\r\nstatus: proposed\r\n---\r\n# T\r\n\r\n* Status: proposed\r\n\r\n## Context\r\n\r\nx\r\n"
+    out = adr_doc.replace_status(text, "Superseded by [0009](0009-x.md)")
+    assert out == text.replace("* Status: proposed", "* Status: Superseded by [0009](0009-x.md)")
+    assert adr_doc.status_of(adr_doc.docs.split_fm(out)[1]) == ("superseded", "0009")
+
+
 def test_replace_status_ignores_a_status_heading_inside_a_comment(adr_doc):
     text = "# T\n\n<!--\n## Status\n\nProposed\n-->\n\n## Status\n\nProposed\n"
     out = adr_doc.replace_status(text, "Accepted (d)")
