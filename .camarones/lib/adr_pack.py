@@ -9,6 +9,7 @@ The same sources, read the other way round, give the *candidates*: the decisions
 broker, a framework, a deployment tool) that no ADR names yet."""
 from __future__ import annotations
 
+import logging
 import os
 import re
 from fnmatch import fnmatchcase
@@ -34,11 +35,16 @@ _COMPOSE = ("docker-compose*.y*ml", "compose*.y*ml")
 _CHART, CHART_DEPTH = "Chart.yaml", 3
 _DEPLOY = {"docker-compose": "Docker Compose", "helm": "Helm"}
 
+log = logging.getLogger("camaron.adr_pack")
+
 
 def _safely(read, *args) -> list:
+    """What `read` gives, or nothing when it fails: a missing source is the normal case of a fresh project, so it is
+    logged (with its traceback, for a bug) and never raised."""
     try:
         return read(*args)
-    except Exception:
+    except Exception:  # noqa: BLE001 — one source never stops the pack
+        log.info("evidence pack: %s left empty", read.__name__.strip("_"), exc_info=True)
         return []
 
 
