@@ -81,6 +81,7 @@ COMMANDS: dict[str, dict] = {
                     "Interview questionnaire: mode, export, import, status"),
     # team: shared repo, agent config, CI
     "board": _e("both", "team", "El tablero: historias, épicas y su estado", "The board: stories, epics and their status"),
+    "adr": _e("app", "team", "Decisiones (ADR): listar, crear, aceptar", "Decisions (ADRs): list, create, accept"),
     "remote": _e("both", "team", "Ver o fijar el repo cam-docs del equipo", "Show or set the team's cam-docs repo"),
     "share": _e("both", "team", "Sincronizar con el equipo (pull y push)", "Sync with the team (pull and push)"),
     "checkpoint": _e("both", "team", "Guardar el progreso en un commit local", "Save progress in a local commit"),

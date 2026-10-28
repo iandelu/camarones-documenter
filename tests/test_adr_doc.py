@@ -1,0 +1,428 @@
+"""The ADR document, pure (`lib/adr_doc.py`): numbering, slugs, the status of an ADR the kit did not write, sections read
+and replaced in place (every other byte kept), and the one template a new ADR is rendered from."""
+from __future__ import annotations
+
+import importlib
+
+import pytest
+
+LEGACY = ("---\ntype: decision\ntitle:   0003 — JPA\ntags: [api,   db]\n# kept as typed\n---\n"
+          "# 0003 — JPA\n\n## Estado\n\nPropuesto <!-- x -->\n\n## Contexto\n\nwhy\n\n## Notas\n\nkeep\n")
+
+
+@pytest.fixture
+def adr_doc(kit):
+    return importlib.import_module("lib.adr_doc")
+
+
+def test_slug_folds_accents_and_caps_length(adr_doc):
+    assert adr_doc.slugify("Sesiones en Redis, ¿sí o no?") == "sesiones-en-redis-si-o-no"
+    assert adr_doc.slugify("  ") == "decision"
+    assert len(adr_doc.slugify("x" * 200)) == 60
+
+
+def test_a_slug_cut_never_ends_on_a_dash(adr_doc):
+    slug = adr_doc.slugify("a" * 59 + " tail")
+    assert slug == "a" * 59
+
+
+def test_next_number_skips_gaps_and_ignores_junk(adr_doc):
+    assert adr_doc.next_number([]) == "0001"
+    assert adr_doc.next_number(["0001", "0007", "0003"]) == "0008"
+    assert adr_doc.next_number(["0002", "notes", "", "12x"]) == "0003"
+    assert adr_doc.number_of("0012-sessions.md") == "0012" and adr_doc.number_of("notes.md") is None
+
+
+@pytest.mark.parametrize("logical, kind, want", [
+    ("decisions/0001-jpa.md", "", True), ("decisions/0001-jpa.md", None, True), ("guides/why-redis.md", "decision", True),
+    ("decisions/README.md", "", False), ("decisions/old/0002-b.md", "", False), ("guides/0003-c.md", "", False),
+    ("decisions/0001-jpa.txt", "", False), ("decisionsx/0001-a.md", "", False), ("decisions/0001-.md", "", False),
+    ("decisions/README.md", "decision", True)])
+def test_one_rule_says_what_a_decision_page_is(adr_doc, logical, kind, want):
+    assert adr_doc.is_decision(logical, kind) is want
+
+
+def test_number_of_reads_a_path_and_wants_an_md_file(adr_doc):
+    assert adr_doc.number_of("docs/decisions/0004-cache.md") == "0004"
+    assert adr_doc.number_of("0004-cache.yaml") is None and adr_doc.number_of("0004.md") is None
+
+
+@pytest.mark.parametrize("body, want", [
+    ("## Status\n\nProposed <!-- agents only write \"Proposed\" -->\n", ("proposed", None)),
+    ("## Estado\n\nAceptada (2026-10-21)\n", ("accepted", None)),
+    ("Status: accepted\n\n## Context\n", ("accepted", None)),
+    ("## Status\n\nSuperseded by [0010](0010-caffeine.md)\n", ("superseded", "0010")),
+    ("## Estado\n\nSustituida por 0010\n", ("superseded", "0010")),
+    ("## Context\n\nno status here\n", ("unknown", None)),
+    ("## Status\n\nRejected (2026-10-22): too costly\n", ("rejected", None)),
+    ("## Estado\n\nRechazado\n", ("rejected", None)),
+    ("## Status\n\nDeprecated\n", ("deprecated", None)),
+    ("## Estado\n\nObsoleta\n", ("deprecated", None)),
+    ("**Status:** Accepted\n\n## Context\n", ("accepted", None)),
+    ("# 0001 — X\n\nEstado: propuesta\n\n## Contexto\n", ("proposed", None)),
+    ("## Status\n\nStatus: Accepted\n", ("accepted", None)),
+    ("## Status\n\n<!-- a note -->\n\n**ACCEPTED**\n", ("accepted", None)),
+    ("## Status\n\nSuperseded\n", ("superseded", None)),
+    ("## Status\n\nPending review\n", ("unknown", None)),
+    ("## Status\n\n## Context\n\nStatus: accepted\n", ("accepted", None)),
+    ("## Status\n\nSuperseded (2026-10-21) by 0010\n", ("superseded", "0010")),
+    ("## Status\n\nSuperseded on 2026-01-05\n", ("superseded", None)),
+    ("## Estado\n\nSustituida (21/10/2026) por ADR-0010\n", ("superseded", "0010")),
+    ("## Estado\n\nSustituida el 21-10-2026\n", ("superseded", None)),
+    ("## Status\n\nSuperseded 2026-10-21 by [0010](0010-caffeine.md)\n", ("superseded", "0010")),
+    ("## Status\n\nSuperseded by ADR-0010 on 2026.10.21\n", ("superseded", "0010")),
+    ("## Status\n\nSuperseded 0010\n", ("superseded", "0010")),
+    ("", ("unknown", None)),
+])
+def test_status_is_read_in_both_languages(adr_doc, body, want):
+    assert adr_doc.status_of(body) == want
+
+
+def test_a_status_inside_a_comment_is_not_a_status(adr_doc):
+    assert adr_doc.status_of("<!-- Status: accepted -->\n\n## Context\n\nx\n") == ("unknown", None)
+
+
+def test_section_reads_both_languages_and_stops_at_the_next_heading(adr_doc):
+    body = ("# 0001 — X\n\n## Contexto\n\nwhy\n\n### Detail\n\nmore\n\n## Decision drivers\n\n- fast\n\n"
+            "## Decisión\n\nWe keep it.\n")
+    assert adr_doc.section(body, "context") == "why\n\n### Detail\n\nmore"
+    assert adr_doc.section(body, "drivers") == "- fast"
+    assert adr_doc.section(body, "decision") == "We keep it."
+    assert adr_doc.section(body, "consequences") is None
+
+
+def test_section_ignores_headings_inside_code(adr_doc):
+    body = "## Context\n\n```md\n## Decision\n```\n\n## Decision\n\nreal\n"
+    assert adr_doc.section(body, "decision") == "real"
+    assert adr_doc.section(body, "context") == "```md\n## Decision\n```"
+
+
+def test_section_is_empty_text_when_the_heading_has_no_body(adr_doc):
+    assert adr_doc.section("## Status\n\n## Context\n\nx\n", "status") == ""
+
+
+def test_the_keys_are_ordered_and_have_an_english_heading(adr_doc):
+    assert adr_doc.KEYS == ("status", "context", "drivers", "options", "decision", "consequences", "confirmation",
+                            "diagram", "evidence", "decided_by")
+    assert adr_doc.ORDER == adr_doc.KEYS
+    assert adr_doc.HEADINGS == {"status": "Status", "context": "Context", "drivers": "Decision drivers",
+                                "options": "Considered options", "decision": "Decision",
+                                "consequences": "Consequences", "confirmation": "Confirmation", "diagram": "Diagram",
+                                "evidence": "Evidence", "decided_by": "Decided by"}
+
+
+def test_replace_section_keeps_every_other_byte(adr_doc):
+    text = "---\ntitle: X\n---\n# 0001 — X\n\n## Status\n\nProposed\n\n## Contexto\n\nold\n\n## Notes\n\nmine\n"
+    out = adr_doc.replace_section(text, "context", "new text")
+    assert out == text.replace("old", "new text")
+    added = adr_doc.replace_section(text, "decided_by", "2026-10-27 · LA")
+    assert added.startswith(text.rstrip("\n")) and added.endswith("## Decided by\n\n2026-10-27 · LA\n")
+
+
+def test_replace_section_leaves_a_legacy_file_untouched_outside_the_section(adr_doc):
+    out = adr_doc.replace_section(LEGACY, "status", "Accepted (2026-10-27)")
+    assert out == LEGACY.replace("Propuesto <!-- x -->", "Accepted (2026-10-27)")
+    assert out.startswith("---\ntype: decision\ntitle:   0003 — JPA\ntags: [api,   db]\n# kept as typed\n---\n")
+    assert adr_doc.status_of(out.split("---\n", 2)[2]) == ("accepted", None)
+
+
+def test_replace_section_works_on_a_file_with_no_frontmatter(adr_doc):
+    text = "# 0002 — Y\n\n## Estado\n\nPropuesta\n"
+    assert adr_doc.replace_section(text, "status", "Rejected (2026-10-27): no budget") == (
+        "# 0002 — Y\n\n## Estado\n\nRejected (2026-10-27): no budget\n")
+
+
+def test_replace_section_keeps_a_missing_final_newline_and_replaces_a_whole_section(adr_doc):
+    text = "# T\n\n## Context\n\nline one\nline two\n\n## Evidence\n\nlast"
+    out = adr_doc.replace_section(text, "evidence", "a\nb")
+    assert out == "# T\n\n## Context\n\nline one\nline two\n\n## Evidence\n\na\nb"
+    assert adr_doc.replace_section(text, "context", "one") == "# T\n\n## Context\n\none\n\n## Evidence\n\nlast"
+
+
+def test_replace_section_fills_an_empty_section(adr_doc):
+    assert adr_doc.replace_section("# T\n\n## Status\n\n## Context\n\nx\n", "status", "Proposed") == (
+        "# T\n\n## Status\n\nProposed\n\n## Context\n\nx\n")
+    assert adr_doc.replace_section("# T\n\n## Status\n", "status", "Proposed") == "# T\n\n## Status\n\nProposed\n"
+
+
+def test_replace_section_keeps_subsections_it_does_not_replace(adr_doc):
+    text = "# T\n\n## Decision\n\nchosen\n\n### Decision points\n\n#### P1 · Q\n\n## Evidence\n\nx\n"
+    out = adr_doc.replace_section(text, "decision", "chosen\n\n### Decision points\n\n#### P1 · Q2")
+    assert out == text.replace("Q\n", "Q2\n")
+
+
+def test_a_missing_section_goes_before_the_first_later_one(adr_doc):
+    text = "# T\n\n## Status\n\nProposed\n\n## Consequences\n\nc\n\n## Notes\n\nmine\n"
+    out = adr_doc.replace_section(text, "decision", "We keep it.")
+    assert out == "# T\n\n## Status\n\nProposed\n\n## Decision\n\nWe keep it.\n\n## Consequences\n\nc\n\n## Notes\n\nmine\n"
+    assert adr_doc.section(out, "decision") == "We keep it."
+
+
+def test_a_missing_section_is_added_at_the_end_when_none_should_follow_it(adr_doc):
+    text = "# T\n\n## Context\n\nc\n\n## Notes\n\nmine\n"
+    out = adr_doc.replace_section(text, "evidence", "e")
+    assert out == "# T\n\n## Context\n\nc\n\n## Notes\n\nmine\n\n## Evidence\n\ne\n"
+
+
+def test_a_file_out_of_order_gets_the_section_before_the_first_one_that_should_follow(adr_doc):
+    text = "# T\n\n## Evidence\n\ne\n\n## Context\n\nc\n"
+    out = adr_doc.replace_section(text, "drivers", "- fast")
+    assert out == "# T\n\n## Decision drivers\n\n- fast\n\n## Evidence\n\ne\n\n## Context\n\nc\n"
+
+
+def test_a_missing_section_is_added_after_a_file_with_no_final_newline_or_no_sections(adr_doc):
+    assert adr_doc.replace_section("# T\n\n## Status\n\nProposed", "context", "why") == (
+        "# T\n\n## Status\n\nProposed\n\n## Context\n\nwhy\n")
+    assert adr_doc.replace_section("---\ntitle: X\n---\n", "context", "why") == (
+        "---\ntitle: X\n---\n## Context\n\nwhy\n")
+
+
+def test_a_section_is_inserted_with_a_blank_line_before_the_next_heading(adr_doc):
+    out = adr_doc.replace_section("# T\ntext\n## Evidence\n\ne\n", "context", "why")
+    assert out == "# T\ntext\n\n## Context\n\nwhy\n\n## Evidence\n\ne\n"
+
+
+def test_an_unknown_key_is_an_error(adr_doc):
+    with pytest.raises(KeyError):
+        adr_doc.replace_section("# T\n", "notes", "x")
+    with pytest.raises(KeyError):
+        adr_doc.section("# T\n", "notes")
+
+
+def test_evidence_table_escapes_cells(adr_doc):
+    assert adr_doc.evidence_table([("a | b", "`x:y`\nz")]) == "| Claim | Evidence |\n|---|---|\n| a \\| b | `x:y` z |"
+    assert adr_doc.evidence_table([]) == "| Claim | Evidence |\n|---|---|"
+
+
+POINTS = [
+    {"id": "p1", "question": "Where do sessions live?", "chosen": "A", "rationale": "already used by notifications",
+     "options": [{"id": "A", "name": "Redis", "pros": ["already in use", "fast"], "cons": ["one more service"]},
+                 {"id": "B", "name": "Postgres", "pros": [], "cons": ["a write per request"]}]},
+    {"id": "p2", "question": "Who invalidates?", "other": "The gateway, on logout", "rationale": "",
+     "options": [{"id": "A", "name": "Each service"}, {"id": "B", "name": "A job"}]},
+    {"id": "p3", "question": "How do we migrate?", "deferred": True,
+     "options": [{"id": "A", "name": "Big bang"}, {"id": "B", "name": "Gradual"}]},
+]
+
+
+def test_points_render_one_line_per_option_with_pros_and_cons(adr_doc):
+    out = adr_doc.render_points(POINTS[:1])
+    assert out == ("#### P1 · Where do sessions live?\n\n"
+                   "- **A · Redis** — + already in use; + fast; − one more service\n"
+                   "- **B · Postgres** — − a write per request")
+    assert adr_doc.POINTS_HEADING == "### Decision points"
+
+
+def test_points_without_pros_or_cons_are_just_the_option(adr_doc):
+    out = adr_doc.render_points(POINTS[1:2])
+    assert out == "#### P2 · Who invalidates?\n\n- **A · Each service**\n- **B · A job**"
+    assert adr_doc.render_points([]) == ""
+
+
+def test_points_are_separated_by_a_blank_line(adr_doc):
+    out = adr_doc.render_points(POINTS)
+    assert out.count("#### P") == 3 and "\n\n#### P2 · Who invalidates?" in out and "\n\n#### P3 ·" in out
+
+
+def test_the_considered_options_list_what_each_point_weighed(adr_doc):
+    assert adr_doc.render_options(POINTS[:2]) == (
+        "### P1 · Where do sessions live?\n\n"
+        "- **A · Redis** (chosen) — + already in use; + fast; − one more service\n"
+        "- **B · Postgres** — − a write per request\n\n"
+        "### P2 · Who invalidates?\n\n- **A · Each service**\n- **B · A job**")
+    assert adr_doc.render_options([]) == ""
+
+
+def test_the_considered_options_leave_out_what_the_section_already_names(adr_doc):
+    written = "### A · redis\n\nWe run it already.\n\n- Each SERVICE: one call each\n- **B · A job**\n\nPostgres was discussed."
+    assert adr_doc.render_options(POINTS[:2], written) == ("### P1 · Where do sessions live?\n\n"
+                                                         "- **B · Postgres** — − a write per request")
+    assert adr_doc.render_options(POINTS[1:2], written) == ""
+
+
+@pytest.mark.parametrize("text, blank", [
+    ("", True), ("  \n\n ", True), ("TODO(question): which options were considered?", True), ("<!-- list them -->", True),
+    ("TODO(question): a\n\nTODO(question): b <!-- x -->", True), ("### A · Redis", False),
+    ("TODO(question): which?\n\nRedis, because it is there.", False), ("<What was chosen.>", True),
+    ("<What was chosen.>\n\n<!-- and why -->", True), ("To be decided in review: see the decision points.", True),
+    ("<What was chosen.>\n\nWe keep JPA.", False), ("We keep <abbr>JPA</abbr>.", False)])
+def test_unwritten_is_a_section_with_nothing_a_person_wrote(adr_doc, text, blank):
+    assert adr_doc.unwritten(text) is blank
+
+
+def test_the_decision_names_what_each_point_chose(adr_doc):
+    assert adr_doc.render_decision(POINTS[:1]) == "**Where do sessions live?** — Redis. already used by notifications"
+    assert adr_doc.render_decision(POINTS[1:2]) == "**Who invalidates?** — The gateway, on logout."
+
+
+def test_the_decision_skips_points_nobody_decided(adr_doc):
+    out = adr_doc.render_decision(POINTS)
+    assert out == ("**Where do sessions live?** — Redis. already used by notifications\n\n"
+                   "**Who invalidates?** — The gateway, on logout.")
+    assert adr_doc.render_decision([]) == ""
+
+
+def test_decided_by_lists_date_attendees_mode_and_who_led(adr_doc):
+    assert adr_doc.render_decided_by("2026-10-27", ["LA", " MP ", ""], "Luis", "manual") == (
+        "- Date: 2026-10-27\n- Attendees: LA, MP\n- Mode: manual\n- Led by: Luis")
+    assert adr_doc.render_decided_by("2026-10-27", [], "", "manual") == "- Date: 2026-10-27\n- Mode: manual"
+
+
+def test_a_new_adr_renders_the_template(adr_doc, kit):
+    fields = {"title": "Sessions in Redis", "kind": "new", "problem": "Pods lose sessions.", "drivers": ["No downtime"],
+              "options_hint": ["Redis", "Postgres"], "touches": ["api:src/S.java", "cam-docs:docs/orders.md"]}
+    text = adr_doc.render_new(fields, "0012")
+    fm, body = kit.docs.split_fm(text)
+    assert fm["type"] == "decision" and fm["x-owner"] == "ai" and fm["title"] == "0012 — Sessions in Redis"
+    assert fm["x-sources"] == ["api:src/S.java", "docs/orders.md"]
+    assert adr_doc.status_of(body) == ("proposed", None)
+    assert adr_doc.section(body, "context") == "Pods lose sessions."
+    assert "- No downtime" in adr_doc.section(body, "drivers")
+    assert "### A · Redis" in adr_doc.section(body, "options") and "### B · Postgres" in adr_doc.section(body, "options")
+    assert adr_doc.section(body, "decision") == adr_doc.PLACEHOLDER
+    assert "| Named when the decision was framed | `api:src/S.java` |" in adr_doc.section(body, "evidence")
+    assert "description" in fm and 40 <= len(fm["description"]) <= 300
+
+
+def test_more_evidence_rows_follow_the_touches_and_add_no_source(adr_doc, kit):
+    fields = {"title": "T", "touches": ["api:a.java"], "evidence": [("Documented in Orders", "`docs/orders.md`")]}
+    fm, body = kit.docs.split_fm(adr_doc.render_new(fields, "0001"))
+    assert adr_doc.section(body, "evidence") == ("| Claim | Evidence |\n|---|---|\n| Named when the decision was framed | `api:a.java` |"
+                                                 "\n| Documented in Orders | `docs/orders.md` |")
+    assert fm["x-sources"] == ["api:a.java"]
+
+
+def test_a_new_adr_tags_the_repos_it_touches_once_each(adr_doc, kit):
+    fields = {"title": "T", "touches": ["web:a.ts", "api:b.java", "api:c.java", "cam-docs:docs/x.md", "api:b.java"]}
+    fm, _ = kit.docs.split_fm(adr_doc.render_new(fields, "0001"))
+    assert fm["tags"] == ["api", "web"]
+    assert fm["x-sources"] == ["web:a.ts", "api:b.java", "api:c.java", "docs/x.md"]
+
+
+def test_a_new_adr_with_only_a_title_asks_instead_of_inventing(adr_doc, kit):
+    text = adr_doc.render_new({"title": "Caching"}, "0001")
+    fm, body = kit.docs.split_fm(text)
+    assert fm["tags"] == [] and fm["x-sources"] == []
+    assert adr_doc.section(body, "context").startswith("TODO(question):")
+    assert adr_doc.section(body, "options") == "TODO(question): which options were considered?"
+    assert adr_doc.section(body, "consequences").startswith("TODO(question):")
+    assert adr_doc.section(body, "drivers") is None
+    assert adr_doc.section(body, "evidence") == "| Claim | Evidence |\n|---|---|"
+
+
+def test_a_new_adr_keeps_the_constraints_the_person_gave(adr_doc, kit):
+    fields = {"title": "T", "problem": "Pods lose sessions.", "constraints": ["No new infrastructure", "EU only"]}
+    _, body = kit.docs.split_fm(adr_doc.render_new(fields, "0001"))
+    assert adr_doc.section(body, "context") == "Pods lose sessions.\n\n**Constraints**\n\n- No new infrastructure\n- EU only"
+
+
+def test_a_long_title_is_kept_in_the_title_and_cut_in_the_description(adr_doc, kit):
+    title = "Move every session to a managed cache " * 12
+    fm, body = kit.docs.split_fm(adr_doc.render_new({"title": title}, "0001"))
+    assert fm["title"] == "0001 — " + title.strip() and len(fm["description"]) == 300
+    assert body.startswith("# 0001 — Move every")
+
+
+def test_a_title_on_two_lines_stays_on_one(adr_doc, kit):
+    fm, body = kit.docs.split_fm(adr_doc.render_new({"title": "Two\nlines "}, "0001"))
+    assert fm["title"] == "0001 — Two lines" and body.startswith("# 0001 — Two lines\n")
+
+
+def test_a_new_adr_passes_the_kit_structure_check(adr_doc, kit):
+    fields = {"title": "Sessions in Redis", "problem": "Pods lose sessions.", "drivers": ["No downtime"],
+              "options_hint": ["Redis", "Postgres"], "touches": ["api:src/S.java"]}
+    text = adr_doc.render_new(fields, "0012")
+    assert kit.quality.structure_issues("decisions/0012-sessions-in-redis.md", text, kit.quality.skeletons()) == []
+
+
+def test_a_new_adr_is_written_with_unix_line_endings_and_ends_with_one_newline(adr_doc):
+    text = adr_doc.render_new({"title": "T", "options_hint": ["A", "B"]}, "0001")
+    assert "\r" not in text and text.endswith("\n") and not text.endswith("\n\n")
+
+
+def test_what_render_new_writes_is_read_back_by_the_section_helpers(adr_doc, kit):
+    text = adr_doc.render_new({"title": "T", "problem": "P"}, "0001")
+    _, body = kit.docs.split_fm(text)
+    decided = adr_doc.replace_section(text, "decision", adr_doc.render_decision(POINTS[:1]))
+    decided = adr_doc.replace_section(decided, "status", "Accepted (2026-10-27)")
+    decided = adr_doc.replace_section(decided, "decided_by", adr_doc.render_decided_by("2026-10-27", ["LA"], "LA", "manual"))
+    _, after = kit.docs.split_fm(decided)
+    assert adr_doc.status_of(after) == ("accepted", None)
+    assert adr_doc.section(after, "decision") == "**Where do sessions live?** — Redis. already used by notifications"
+    assert adr_doc.section(after, "context") == adr_doc.section(body, "context")
+    assert adr_doc.section(after, "decided_by").startswith("- Date: 2026-10-27")
+
+
+def status_doc(section: str, tail: str = "") -> str:
+    return f"# T\n\n## Status\n\n{section}\n\n## Context\n\nx\n{tail}"
+
+
+@pytest.mark.parametrize("section, want", [
+    ("Proposed", "Accepted (d)"),
+    ("Proposed <!-- agents only write \"Proposed\" -->", "Accepted (d)"),
+    ("<!-- pick one -->\nProposed", "<!-- pick one -->\nAccepted (d)"),
+    ("<!-- pick one:\nproposed | accepted -->\nProposed", "<!-- pick one:\nproposed | accepted -->\nAccepted (d)"),
+    ("<!-- a -->\n<!-- b\nc -->\n\nProposed\n\nnote", "<!-- a -->\n<!-- b\nc -->\n\nAccepted (d)\n\nnote"),
+    ("<!-- c --> Proposed", "<!-- c --> Accepted (d)"),
+    ("<!-- pick\none --> Proposed", "<!-- pick\none --> Accepted (d)"),
+    ("Proposed <!-- one of:\nproposed, accepted -->", "Accepted (d)"),
+    ("Proposed <!-- a\nb --> <!-- c\nd --> tail", "Accepted (d)"),
+    ("Proposed\n\nLast discussed 2026-02-01.", "Accepted (d)\n\nLast discussed 2026-02-01."),
+    ("  Proposed", "  Accepted (d)")])
+def test_replace_status_replaces_the_line_status_of_reads_and_keeps_comments_and_notes(adr_doc, section, want):
+    out = adr_doc.replace_status(status_doc(section), "Accepted (d)")
+    assert out == status_doc(want)
+    assert adr_doc.status_of(out)[0] == "accepted"
+
+
+def test_replace_status_keeps_the_frontmatter_and_the_line_endings(adr_doc):
+    text = ("---\r\ntype: decision\r\n---\r\n# T\r\n\r\n## Estado\r\n\r\n<!-- pick\r\none -->\r\nPropuesto\r\n\r\n"
+            "## Notas\r\n\r\nk\r\n")
+    out = adr_doc.replace_status(text, "Rejected (d): no")
+    assert out == text.replace("Propuesto", "Rejected (d): no")
+    assert adr_doc.status_of(adr_doc.docs.split_fm(out)[1])[0] == "rejected"
+
+
+def test_replace_status_adds_the_status_below_a_section_that_only_has_a_comment(adr_doc):
+    out = adr_doc.replace_status(status_doc("<!-- set me -->"), "Accepted (d)")
+    assert out == status_doc("<!-- set me -->\nAccepted (d)")
+    assert adr_doc.status_of(out)[0] == "accepted"
+
+
+@pytest.mark.parametrize("text, want", [
+    ("# T\n\n## Status\n\n## Context\n\nx\n", "# T\n\n## Status\n\nAccepted (d)\n\n## Context\n\nx\n"),
+    ("# T\n\n## Status\n", "# T\n\n## Status\n\nAccepted (d)\n"),
+    ("# T\n\n## Context\n\nx\n", "# T\n\n## Status\n\nAccepted (d)\n\n## Context\n\nx\n")])
+def test_replace_status_fills_an_empty_section_and_adds_a_missing_one(adr_doc, text, want):
+    assert adr_doc.replace_status(text, "Accepted (d)") == want
+
+
+@pytest.mark.parametrize("line, want", [
+    ("Status: proposed", "Status: Accepted (d)"),
+    ("* Status: proposed", "* Status: Accepted (d)"),
+    ("- Status: Proposed", "- Status: Accepted (d)"),
+    ("**Status:** proposed", "**Status:** Accepted (d)"),
+    ("**Status**: proposed", "**Status**: Accepted (d)"),
+    ("Estado: propuesto", "Estado: Accepted (d)"),
+    ("> Status: proposed <!-- one of: proposed, accepted -->", "> Status: Accepted (d)"),
+    ("Status: proposed <!-- one of:\nproposed, accepted -->", "Status: Accepted (d)"),
+    ("<!-- Status: draft -->\nStatus: proposed", "<!-- Status: draft -->\nStatus: Accepted (d)"),
+    ("* Status: proposed\n* Deciders: LA", "* Status: Accepted (d)\n* Deciders: LA")])
+def test_replace_status_replaces_an_inline_status_line_in_place(adr_doc, line, want):
+    text = f"# 0003 — JPA\n\n{line}\n\n## Context\n\nx\n"
+    out = adr_doc.replace_status(text, "Accepted (d)")
+    assert out == f"# 0003 — JPA\n\n{want}\n\n## Context\n\nx\n"
+    assert adr_doc.status_of(out)[0] == "accepted" and "## Status" not in out
+
+
+def test_replace_status_of_an_inline_line_keeps_the_frontmatter_and_the_line_endings(adr_doc):
+    text = "---\r\nstatus: proposed\r\n---\r\n# T\r\n\r\n* Status: proposed\r\n\r\n## Context\r\n\r\nx\r\n"
+    out = adr_doc.replace_status(text, "Superseded by [0009](0009-x.md)")
+    assert out == text.replace("* Status: proposed", "* Status: Superseded by [0009](0009-x.md)")
+    assert adr_doc.status_of(adr_doc.docs.split_fm(out)[1]) == ("superseded", "0009")
+
+
+def test_replace_status_ignores_a_status_heading_inside_a_comment(adr_doc):
+    text = "# T\n\n<!--\n## Status\n\nProposed\n-->\n\n## Status\n\nProposed\n"
+    out = adr_doc.replace_status(text, "Accepted (d)")
+    assert out == text[:-len("Proposed\n")] + "Accepted (d)\n" and adr_doc.status_of(out)[0] == "accepted"

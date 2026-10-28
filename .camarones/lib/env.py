@@ -1291,7 +1291,7 @@ def forge_edit_base() -> str:
 def export_site(log: Log = print) -> Path:
     """The same portal app, read-only: HTML + JSON snapshots of the API, the viewers and the libraries they need.
     No npm build — any static host (nginx image, GitLab/GitHub Pages) serves it."""
-    from . import quality, serve
+    from . import adr_api, quality, serve
     quality.assert_no_secrets()
     writable(CACHE)
     site, tmp = CACHE / "site", CACHE / "site.tmp"
@@ -1314,10 +1314,12 @@ def export_site(log: Log = print) -> Path:
     langs = [""] + t["langs"]
     index = []
     for d in t["docs"]:
+        decisions = adr_api.covering(d["path"])
         for lang in langs:
             doc = serve.read(d["path"], lang)
             if lang and not doc["exists"]:
                 continue
+            doc["decisions"] = decisions
             dump(f"doc/{lang or '_'}/{d['path']}.json", doc)
             index.append({"path": d["path"], "lang": lang, "title": doc["title"], "trust": d["trust"],
                           "text": docs.split_fm(doc["raw"])[1][:20000]})

@@ -194,7 +194,7 @@ The 🦐 portal is where the team reads the docs, in English or Spanish and offl
    +----------------------------------------------------------------------------+
 ```
 
-`camaron app` (or wizard → 🖥️ Desktop app) opens the app where you operate the project, one window per project: at the left, the rail with your projects and the sections, by task. Summary (the next step with one button, the one this wizard suggests), Board, Plan (run the ready units or the autopilot, each unit with the button that moves it, by state, by phase or on the canvas, where each unit a run works on opens as a live terminal; below, what the plan has cost so far), Interviews, Team (share, approve what came with the team's repo, plugins), Quality (the project's health: machine, docs and code, repo by repo), Libraries (scan for vulnerabilities repo by repo, with its bar, Stop and a tick when it ends; which repos each one is in, the flagged ones first; and Update on a new branch, a Maven module whose parent pom sets the version included) and Docs (opens the portal in your browser, builds the C4 explorer, generates the wikis and answers with AI); below, Machine (setup, language and models, tokens, repos, the kit and uninstall) and Guide: all of this explained in depth, with buttons that take you to each place and a tour that points at every control. Every button runs a CLI command and its output lands in the jobs panel; “All commands” has the rest, each with its form. Ctrl K / ⌘K goes to a section, another project, a command or a chapter of the guide, and g then a letter jumps between sections (g s, g p, g q, g l, g h…). The portal runs nothing on your machine: that is why those buttons are only here. The first time it installs Electron into ~/.camarones/desktop (needs Node.js); without it the CLI and this wizard work the same.
+`camaron app` (or wizard → 🖥️ Desktop app) opens the app where you operate the project, one window per project: at the left, the rail with your projects and the sections, by task. Summary (the next step with one button, the one this wizard suggests), Board, Decisions (the ADRs: frame a decision, gather its evidence without AI, review it part by part and accept it; see “Decisions: the ADRs”), Plan (run the ready units or the autopilot, each unit with the button that moves it, by state, by phase or on the canvas, where each unit a run works on opens as a live terminal; below, what the plan has cost so far), Interviews, Team (share, approve what came with the team's repo, plugins), Quality (the project's health: machine, docs and code, repo by repo), Libraries (scan for vulnerabilities repo by repo, with its bar, Stop and a tick when it ends; which repos each one is in, the flagged ones first; and Update on a new branch, a Maven module whose parent pom sets the version included) and Docs (opens the portal in your browser, builds the C4 explorer, generates the wikis and answers with AI); below, Machine (setup, language and models, tokens, repos, the kit and uninstall) and Guide: all of this explained in depth, with buttons that take you to each place and a tour that points at every control. Every button runs a CLI command and its output lands in the jobs panel; “All commands” has the rest, each with its form. Ctrl K / ⌘K goes to a section, another project, a command or a chapter of the guide, and g then a letter jumps between sections (g s, g a, g p, g q, g l, g h…). The portal runs nothing on your machine: that is why those buttons are only here. The first time it installs Electron into ~/.camarones/desktop (needs Node.js); without it the CLI and this wizard work the same.
 
 ### 13. 📦 Installing and opening the desktop app
 
@@ -300,7 +300,35 @@ The start gate. Moving a card into “In Progress” checks that its dependencie
 
 Your intern shrimp has pinned the sticky notes up already: all you do is move them.
 
-### 19. 🧰 Supporting pieces
+### 19. 📜 Decisions: the ADRs, with the evidence in front of you
+
+```text
+   Decisions (g a)                        docs/decisions/0007-why-jpa.md
+   +--------------------------------+     ---
+   | 0007  Accepted   Why spring... |     type: decision      x-owner: human
+   | 0008  In review  Cache de...   |     ## Status   Accepted (2026-10-28)
+   | Candidates: 3                  |     ## Context, Decision, Evidence
+   +--------------------------------+     ## Decided by   ana, luis
+
+   problem -> evidence -> review -> accepted
+   camaron adr candidates | new | pack | write | accept | reject
+```
+
+An ADR writes down why the code is the way it is. The “Decisions” section of the desktop app (`g a`) helps you make the decision with the evidence in front of you and works entirely without AI, with no agent installed. The ADR lives in `docs/decisions/NNNN-title.md` and what the review decides along the way, in `docs/.work/adr/NNNN.yaml`.
+
+Framing. “New ADR” asks for a title and what it is about: new (something the code does not do yet) or retroactive (something the code already does that nobody wrote down). In “Touches” you search the files, code-map groups and doc pages it affects. “Candidates” lists, without AI, the decisions the code already took that no ADR names: data, cache, messaging, security and framework libraries from the inventory, C4 technologies and deployment files (Docker Compose, Helm); “Create a retro ADR” opens one with the title and what it touches already in.
+
+Evidence. The evidence pack gathers what the project already knows about what the ADR touches: neighbouring files in the code graph, the pages that cite them, other ADRs, the last year of commits, C4 elements, libraries and open questions. “Write without AI” writes the proposed ADR from the template with that evidence already in.
+
+Review and decide. The review walks the ADR part by part (approve, edit or defer each section) and each decision point (a question with its options: you pick one, with its reason in one line). You can add points and note the attendees. “Present” (`P`) shows one part per screen in large type to run the meeting while sharing a screen, by keyboard: ←/→ change part, 1–9 pick an option, E edits, D defers, A accepts and Esc leaves. Accepting leaves the file as “Accepted” with the date, owned by a person (`x-owner: human`), confirmed and with “Decided by”, and each point's options, with their pros and cons, go into “Considered options”; rejecting needs a reason and keeps the file; an ADR that supersedes another marks it “Superseded by”. What is not decided cannot be accepted: a deferred point or one with no choice, or no text in “Decision” and no points; sections that still hold a `TODO(question)` do not stop it, but the accept dialog names them.
+
+An ADR written by hand or by another kit (no frontmatter, Spanish headings…) shows in the list with its status and is never rewritten until someone starts a review session on it, and in that session each edit rewrites only the section edited; one already accepted, rejected, superseded or deprecated is closed: it opens no session, and changing it takes a new ADR that supersedes it. In the portal each ADR shows its status in the tree and on its page, and the pages an accepted decision cites carry a banner (“pending implementation” for a new decision), also in the static export.
+
+In the terminal: `camaron adr list|new|show|pack|candidates|write|accept|reject`, all with `--json` (`new TITLE --kind new|retro [--problem T] [--touch repo:path] [--supersedes N]`, `accept ID [--attendee NAME]`, `reject ID --why REASON`). The part-by-part review is the app's.
+
+Your intern shrimp has already combed the code for the decisions nobody wrote down: you get the last word.
+
+### 20. 🧰 Supporting pieces
 
 ```text
    uv        -> runs Camarones (Python) without installing anything else
@@ -313,7 +341,7 @@ Your intern shrimp has pinned the sticky notes up already: all you do is move th
 
 The wizard checks all of this and installs it for you (winget on Windows, Homebrew on Mac) when you choose “Install everything recommended”. Only git and Node.js are required. The quality gate (mermaid-cli and gitleaks) comes with the full install; mermaid-cli downloads a headless Chromium the first time. Without AI, the install writes `docs/index.md` (what the project is, a card per repo and the context map) and, for each repo, `docs/repos/<repo>/index.md`: what it exposes (the endpoints map, with the endpoints table folded), what data it stores (ER diagram), its lifecycles (one state diagram per status enum; transitions are never guessed), its messages and what it needs to run (env vars and commands, folded), all read from its files; with topics, also `docs/architecture/messaging.md`. `camaron pages` (`camaron diagrams` is its alias) brings them up to date, and `camaron blocks` and `sync` keep the blocks current. A project from before 4.52 keeps its pages (`reference.md`, `diagrams.md`, `system-map.md`, `first-look.md`, `data/<repo>.md`) until you run `camaron pages --adopt`: it moves the blocks with their confirmations into the new pages, deletes only the kit pages it emptied, never writes a person's page (`x-owner: human` or `x-confirmed`) and lists what it could not touch (pages, links, translations). They are ordinary Docs pages made of generated blocks: a person can confirm one by copying the block's `sha=` value into `confirmed=` and putting their name in `by=` (one word, or quoted when it has spaces: `by="Ana López"`), e.g. `<!-- generated:states repo=api id=OrderStatus confirmed=3fa1c2d4e5f6 by=ana sha=3fa1c2d4e5f6 -->`; the kit then stops rewriting it, and `check` warns when the code has changed since or no longer has the diagram's source. To take the code's version, remove `confirmed=` and `by=` from the marker, run `camaron diagrams` and confirm it again. The portal tells you for each diagram whether it comes from the code, was edited by hand, a person confirmed it, or the code changed. Team extensions go in `.camarones/plugins/` as plugins (`camaron plugins add` brings one in and pins it in plugins.lock); the ones that run code or steer agents are not loaded until you approve them on your machine, and any change asks again. Also without AI: `camaron history` reads the git history (hotspots, who to ask), `camaron doctor --context` counts what every agent session loads and `camaron repair` puts the kit's files back if someone touches them.
 
-### 20. 🗺 Your day to day
+### 21. 🗺 Your day to day
 
 ```text
    1. camarones              -> opens the project's wizard (cam-docs)
@@ -525,7 +553,7 @@ El portal 🦐 es donde el equipo lee la documentación, en español o inglés y
    +----------------------------------------------------------------------------+
 ```
 
-`camaron app` (o asistente → 🖥️ App de escritorio) abre la app donde se opera el proyecto, una ventana por proyecto: a la izquierda el raíl con tus proyectos y las secciones, por tareas. Resumen (el siguiente paso con un solo botón, el mismo que propone este asistente), Tablero, Plan (ejecutar las unidades listas o el piloto automático, cada unidad con el botón que la mueve, por estado, por fases o en el lienzo, donde cada unidad que trabaja una ejecución se abre como una terminal en vivo; debajo, lo que lleva costado el plan), Entrevistas, Equipo (compartir, aprobar lo que llegó con el repo del equipo, plugins), Calidad (la salud del proyecto: máquina, documentación y código, repo a repo), Librerías (buscar vulnerabilidades repo a repo, con su barra, Parar y un tick al acabar; en qué repos está cada una, primero donde tiene avisos; y Actualizar en una rama nueva, también un módulo Maven cuya versión fija el pom padre) y Docs (abre el portal en tu navegador, construye el explorador C4, genera las wikis y responde con IA); debajo, Máquina (setup, idioma y modelos, tokens, repos, el kit y desinstalar) y Guía: todo esto explicado a fondo, con botones que te llevan a cada sitio y un recorrido que señala cada control. Cada botón ejecuta un comando de la CLI y su salida queda en el panel de trabajos; «Todos los comandos» tiene el resto, con su formulario. Ctrl K / ⌘K va a una sección, a otro proyecto, a un comando o a un capítulo de la guía, y g y una letra salta de sección (g s, g p, g q, g l, g h…). El portal no ejecuta nada en tu máquina: por eso esos botones solo están aquí. La primera vez instala Electron en ~/.camarones/desktop (necesita Node.js); sin él, la CLI y este asistente funcionan igual.
+`camaron app` (o asistente → 🖥️ App de escritorio) abre la app donde se opera el proyecto, una ventana por proyecto: a la izquierda el raíl con tus proyectos y las secciones, por tareas. Resumen (el siguiente paso con un solo botón, el mismo que propone este asistente), Tablero, Decisiones (los ADR: plantear una decisión, reunir su evidencia sin IA, revisarla por partes y aceptarla; ver «Decisiones: los ADR»), Plan (ejecutar las unidades listas o el piloto automático, cada unidad con el botón que la mueve, por estado, por fases o en el lienzo, donde cada unidad que trabaja una ejecución se abre como una terminal en vivo; debajo, lo que lleva costado el plan), Entrevistas, Equipo (compartir, aprobar lo que llegó con el repo del equipo, plugins), Calidad (la salud del proyecto: máquina, documentación y código, repo a repo), Librerías (buscar vulnerabilidades repo a repo, con su barra, Parar y un tick al acabar; en qué repos está cada una, primero donde tiene avisos; y Actualizar en una rama nueva, también un módulo Maven cuya versión fija el pom padre) y Docs (abre el portal en tu navegador, construye el explorador C4, genera las wikis y responde con IA); debajo, Máquina (setup, idioma y modelos, tokens, repos, el kit y desinstalar) y Guía: todo esto explicado a fondo, con botones que te llevan a cada sitio y un recorrido que señala cada control. Cada botón ejecuta un comando de la CLI y su salida queda en el panel de trabajos; «Todos los comandos» tiene el resto, con su formulario. Ctrl K / ⌘K va a una sección, a otro proyecto, a un comando o a un capítulo de la guía, y g y una letra salta de sección (g s, g a, g p, g q, g l, g h…). El portal no ejecuta nada en tu máquina: por eso esos botones solo están aquí. La primera vez instala Electron en ~/.camarones/desktop (necesita Node.js); sin él, la CLI y este asistente funcionan igual.
 
 ### 13. 📦 Instalar y abrir la app de escritorio
 
@@ -631,7 +659,35 @@ La puerta de salida. Mover una tarjeta a «In Progress» comprueba que sus depen
 
 Tu gambita de prácticas ya ha colgado los post-its en su sitio: tú solo los mueves.
 
-### 19. 🧰 Piezas de apoyo
+### 19. 📜 Decisiones: los ADR, con la evidencia delante
+
+```text
+   Decisiones (g a)                       docs/decisions/0007-why-jpa.md
+   +--------------------------------+     ---
+   | 0007  Aceptada   Why spring... |     type: decision      x-owner: human
+   | 0008  En revision  Cache de... |     ## Status   Accepted (2026-10-28)
+   | Candidatas: 3                  |     ## Context, Decision, Evidence
+   +--------------------------------+     ## Decided by   ana, luis
+
+   problema -> evidencia -> revision -> aceptado
+   camaron adr candidates | new | pack | write | accept | reject
+```
+
+Un ADR deja por escrito por qué el código es como es. La sección «Decisiones» de la app de escritorio (`g a`) ayuda a tomar la decisión con la evidencia delante y funciona entera sin IA, sin ningún agente instalado. El ADR vive en `docs/decisions/NNNN-titulo.md` y lo que la revisión va decidiendo, en `docs/.work/adr/NNNN.yaml`.
+
+Plantear. «Nuevo ADR» pide un título y de qué va: nuevo (algo que el código aún no hace) o retroactivo (algo que el código ya hace y nadie dejó escrito). En «Toca» buscas los ficheros, los grupos del mapa del código y las páginas de documentación que afecta. «Candidatas» lista, sin IA, las decisiones que el código ya tomó y ningún ADR nombra: librerías de datos, caché, mensajería, seguridad y frameworks del inventario, tecnologías del C4 y ficheros de despliegue (Docker Compose, Helm); «Crear ADR retro» las abre con el título y lo que toca ya puestos.
+
+Evidencia. El paquete de evidencia reúne lo que el proyecto ya sabe de lo que toca el ADR: ficheros vecinos del grafo del código, páginas que los citan, otros ADR, commits del último año, elementos del C4, librerías y preguntas abiertas. «Escribir sin IA» escribe el ADR propuesto con la plantilla y esa evidencia ya puesta.
+
+Revisar y decidir. La revisión recorre el ADR parte por parte (aprobar, editar o aplazar cada sección) y cada punto de decisión (una pregunta con sus opciones: eliges una, con su razón en una línea). Puedes añadir puntos y apuntar a los asistentes. «Presentar» (`P`) pone una parte por pantalla en letra grande para llevar la reunión compartiendo pantalla, con el teclado: ←/→ cambian de parte, 1–9 eligen opción, E edita, D aplaza, A acepta y Esc sale. Aceptar deja el fichero en «Accepted» con la fecha, de una persona (`x-owner: human`), confirmado y con «Decided by», y las opciones de cada punto, con sus a favor y en contra, pasan a «Considered options»; rechazar exige un motivo y deja el fichero; un ADR que sustituye a otro lo marca «Superseded by». No se acepta lo que no está decidido: un punto aplazado o sin elección, o ningún texto en «Decision» ni puntos; las secciones que siguen con un `TODO(question)` no lo impiden, pero el diálogo de aceptar las nombra.
+
+Un ADR escrito a mano o por otro kit (sin frontmatter, con encabezados en español…) sale en la lista con su estado y no se reescribe hasta que alguien abre una sesión de revisión sobre él, y en esa sesión cada edición reescribe solo la sección editada; si ya está aceptado, rechazado, sustituido u obsoleto, está cerrado: no abre sesión y, para cambiarlo, un ADR nuevo que lo sustituya. En el portal, cada ADR enseña su estado en el árbol y en su página, y las páginas que cita una decisión aceptada llevan un aviso («pendiente de implementar» si es una decisión nueva), también en la exportación estática.
+
+En la terminal: `camaron adr list|new|show|pack|candidates|write|accept|reject`, todos con `--json` (`new TÍTULO --kind new|retro [--problem T] [--touch repo:ruta] [--supersedes N]`, `accept ID [--attendee NOMBRE]`, `reject ID --why MOTIVO`). La revisión por partes es de la app.
+
+Tu gambita de prácticas ya ha rebuscado en el código las decisiones que nadie escribió: tú pones la última palabra.
+
+### 20. 🧰 Piezas de apoyo
 
 ```text
    uv        -> ejecuta Camarones (Python) sin instalar nada mas
@@ -644,7 +700,7 @@ Tu gambita de prácticas ya ha colgado los post-its en su sitio: tú solo los mu
 
 El asistente comprueba todo esto y lo instala por ti (winget en Windows, Homebrew en Mac) si eliges «Instalar todo lo recomendado». Solo git y Node.js son obligatorios. El control de calidad (mermaid-cli y gitleaks) viene con la instalación completa; mermaid-cli descarga un Chromium sin ventana la primera vez. Sin IA, la instalación escribe `docs/index.md` (qué es el proyecto, una tarjeta por repo y el mapa de contexto) y, por cada repo, `docs/repos/<repo>/index.md`: qué expone (el mapa de endpoints, con la tabla de endpoints plegada), qué datos guarda (diagrama ER), sus ciclos de vida (un diagrama de estados por enum de estado; las transiciones no se adivinan), sus mensajes y qué necesita para arrancar (variables de entorno y comandos, plegados), todo leído de sus ficheros; con topics, también `docs/architecture/messaging.md`. `camaron pages` (`camaron diagrams` es su alias) los pone al día, y `camaron blocks` y `sync` mantienen los bloques. Un proyecto anterior a la 4.52 conserva sus páginas (`reference.md`, `diagrams.md`, `system-map.md`, `first-look.md`, `data/<repo>.md`) hasta que ejecutes `camaron pages --adopt`: mueve los bloques con sus confirmaciones a las páginas nuevas, borra solo las páginas del kit que deja vacías, no escribe nunca una página de una persona (`x-owner: human` o `x-confirmed`) y te lista lo que no pudo tocar (páginas, enlaces, traducciones). Son páginas normales de Docs hechas de bloques generados: una persona puede confirmar uno copiando el `sha=` del bloque en `confirmed=` y poniendo su nombre en `by=` (una palabra, o entre comillas si lleva espacios: `by="Ana López"`), p. ej. `<!-- generated:states repo=api id=OrderStatus confirmed=3fa1c2d4e5f6 by=ana sha=3fa1c2d4e5f6 -->`; entonces el kit ya no lo reescribe, y `check` avisa si el código cambió desde entonces o si ya no tiene la fuente del diagrama. Para quedarte con la versión del código, quita `confirmed=` y `by=` del marcador, ejecuta `camaron diagrams` y vuelve a confirmarlo. El portal dice de cada diagrama si viene del código, si se editó a mano, si lo confirmó alguien o si el código cambió. Las extensiones del equipo van como plugins en `.camarones/plugins/` (`camaron plugins add` las trae y las fija en plugins.lock); las que ejecutan código o guían a los agentes no se cargan hasta que las apruebas en tu máquina, y cualquier cambio vuelve a preguntar. También sin IA: `camaron history` lee el historial de git (ficheros más tocados, a quién preguntar), `camaron doctor --context` cuenta lo que carga cada sesión de un agente y `camaron repair` devuelve a su sitio los ficheros del kit si alguien los toca.
 
-### 20. 🗺 Tu día a día
+### 21. 🗺 Tu día a día
 
 ```text
    1. camarones              -> abre el asistente del proyecto (cam-docs)

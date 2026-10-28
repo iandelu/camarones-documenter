@@ -202,7 +202,7 @@ La exportación son ficheros estáticos (imagen de nginx, GitLab/GitHub Pages) y
 ejecuta la imagen que subió la CI: `docker run -d -p 8080:80 <registry>/<group>/cam-docs/portal:latest`.
 
 El menú lateral del portal tiene siete zonas —Docs, Tablero, Historias, Arquitectura, Plan, Calidad y Revisión— y
-Ctrl K / ⌘K salta a cualquier página o vista. Las secciones de la app son Resumen, Tablero, Plan, Entrevistas, Equipo,
+Ctrl K / ⌘K salta a cualquier página o vista. Las secciones de la app son Resumen, Tablero, Decisiones, Plan, Entrevistas, Equipo,
 Calidad, Librerías y Docs, más Máquina y Guía; `g` y una letra salta de una a otra.
 
 ### 📋 El tablero
@@ -297,6 +297,74 @@ stories:
 La IA nunca decide huellas, dependencias, oleadas ni el veredicto. El índice que responde deprisa a `next` y a las
 oleadas es `.camarones/.cache/board.db`: se reconstruye solo cuando cambia el tablero o el mapa del código y se puede
 borrar sin perder nada.
+
+### 📜 Decisiones
+
+Un ADR deja por escrito por qué el código es como es, y casi siempre se escribe tarde o no se escribe. La sección
+**Decisiones** (`g a`) de la app de escritorio ayuda a *tomar* la decisión con la evidencia delante y a dejarla escrita, y
+**funciona entera sin IA**: no hace falta ningún agente instalado. El ADR vive en `docs/decisions/<NNNN>-<título>.md`; lo que
+la revisión va decidiendo (partes, puntos, asistentes) queda aparte en `docs/.work/adr/<NNNN>.yaml`, que va a git.
+
+1. **Plantea.** **Nuevo ADR** pide un título y de qué va: *nuevo* (algo que el código aún no hace) o *retroactivo* (algo que
+   el código ya hace y nadie dejó escrito). Opcionalmente, el problema, los drivers, las restricciones, las opciones
+   candidatas y a qué ADR sustituye. **Toca** busca los ficheros, los grupos del mapa del código y las páginas de
+   documentación que afecta, con el mismo buscador que Historias. El número se reserva al crearlo; si un pull trae otro
+   ADR con ese número, se usa el siguiente libre al escribir el fichero y la app lo dice.
+2. **Candidatas.** Las decisiones que el código ya tomó y que ningún ADR nombra, sin IA: las librerías de datos, caché,
+   mensajería, seguridad y frameworks del inventario (solo las de runtime), las tecnologías del C4 y los ficheros de
+   despliegue (Docker Compose, Helm). **Crear ADR retro** abre el formulario con el título y lo que toca ya puestos. Sin
+   inventario ni modelo C4 solo salen los ficheros de despliegue (Docker Compose, Helm); `camaron inventory` añade las
+   librerías. Una lista vacía no es un error.
+3. **Evidencia.** El *paquete de evidencia* reúne lo que el proyecto ya sabe de lo que toca el ADR: los ficheros vecinos en
+   el grafo del código, las páginas de documentación que los citan, otros ADR relacionados, los commits del último año, los
+   elementos del C4, las librerías y las preguntas abiertas. Sale de lo que ya hay (grafo, documentación, git, C4,
+   inventario y `open-questions.md`), no llama a ningún modelo y se guarda en `.camarones/.cache/adr/<NNNN>/` (fuera de
+   git). **Escribir sin IA** escribe el ADR propuesto con la plantilla, con el problema, los drivers, las opciones, lo que
+   toca y la evidencia del paquete ya puestos.
+4. **Revisa y decide.** La revisión recorre el ADR **parte por parte** (cada sección se aprueba, se edita o se aplaza, más
+   las páginas de documentación afectadas: las que toca el ADR y las que citan los ficheros que toca, las mismas que, al
+   aceptarlo, dirán que esta decisión las cubre) y cada **punto de decisión** (una pregunta con sus opciones, a favor y en
+   contra: eliges una, o *Otra* con lo que se decida en la reunión, y una razón en una línea). Se pueden añadir y quitar
+   puntos y apuntar los **asistentes**. **Presentar** (`P`) muestra una parte por pantalla, en letra grande, para llevar
+   una reunión compartiendo pantalla, todo con el teclado: <kbd>←</kbd>/<kbd>→</kbd> cambian de parte,
+   <kbd>1</kbd>–<kbd>9</kbd> eligen opción, <kbd>E</kbd> edita, <kbd>D</kbd> aplaza, <kbd>A</kbd> acepta y <kbd>Esc</kbd> sale.
+5. **Acepta, rechaza o sustituye.** **Aceptar** deja el fichero en `Accepted (fecha)`, con `x-owner: human`, confirmado,
+   y una sección *Decided by* con quién decidió; las opciones que se sopesaron en cada punto, con sus a favor y en
+   contra, pasan a *Considered options* (si esa sección ya tenía texto, solo se añaden las que no nombra); si el ADR
+   sustituye a otro, ese queda marcado `Superseded by [NNNN]`. No se acepta lo que no está decidido (un punto aplazado,
+   un punto sin elección, o un ADR sin puntos ni texto en su sección *Decision*, donde un marcador como
+   `<What was chosen.>` o un comentario no cuentan): la app se niega y dice cuál es el que falta. Las secciones que aún
+   tienen un `TODO(question)` no lo impiden, pero el diálogo de aceptar las nombra. **Rechazar** exige un motivo y deja
+   el fichero con `Rejected (fecha): motivo`, para que nadie lo vuelva a proponer sin saber por qué no salió. Una
+   decisión aceptada o rechazada se lee tal cual; para cambiarla, un ADR nuevo que la sustituya.
+
+Si el fichero cambia mientras lo revisas (un pull, un editor), el guardado falla con un aviso, no pisa nada, y la app lo
+vuelve a leer. **Un ADR que el kit no escribió** (sin frontmatter, con los encabezados en español, `Propuesto <!-- … -->` o
+una línea `Status: accepted`) aparece en la lista con su estado, se abre tal cual y no se reescribe hasta que alguien
+abre una sesión de revisión sobre él; en esa sesión, cada edición reescribe solo la sección editada. Si ya está
+aceptado, rechazado, sustituido u obsoleto, está cerrado: la app no ofrece la sesión de revisión, y para cambiarlo
+hace falta un ADR nuevo que lo sustituya.
+
+En el **portal**, cada ADR enseña su estado en el árbol y en su página, y las páginas que cita una decisión aceptada llevan
+un aviso (*«Esta página la cubre la decisión 0007»*; si es una decisión nueva, *«Decisión 0007 aceptada, pendiente de
+implementar: esta página describe el código de hoy»*), también en la exportación estática.
+
+```sh
+camaron adr list                                   # los ADR: número, estado y título
+camaron adr candidates                             # las decisiones del código que ningún ADR nombra
+camaron adr new "Why spring-data-jpa" --kind retro --touch api:pom.xml   # --kind new|retro, --problem, --supersedes N
+camaron adr pack 0001                              # la evidencia del ADR, en Markdown
+camaron adr write 0001                             # escribe el ADR propuesto en docs/decisions/, sin IA
+camaron adr show 0001                              # el ADR tal como está
+camaron adr accept 0001 --attendee ana             # lo acepta (decide el usuario de git; --attendee, repetible)
+camaron adr reject 0001 --why "El equipo prefiere jOOQ"
+```
+
+Todos aceptan `--json`; un error sale con una línea y código 2. `accept` y `reject` piden lo mismo que la app (algo decidido;
+un motivo), pero **la revisión (partes, puntos, asistentes) es de la app**: la CLI sirve para listar, plantear, reunir la
+evidencia, escribir y cerrar. Las reglas de las secciones opcionales (*Decision drivers*, *Considered options*,
+*Confirmation*, *Diagram*, *Decided by*) y la de que un ADR con estado de trabajo lo deciden personas y ningún agente lo
+reescribe están en `CONVENTIONS.md` sección 6.
 
 ## 6. Editar: dónde y cuándo
 
@@ -414,7 +482,8 @@ comprobado, los comandos ejecutados y la siguiente acción.
 que carga cada sesión de un agente antes de leer una página, frente a `context.budget`), `autopilot`, `plugins [--json]`,
 `run`, `runs`, `kpis`, `eval`, `ab`, `pipeline show|validate`, `blocks [--force]`, `pages [--adopt] [--json]`, `diagrams [--json]`, `pr fresh <repo>` y
 `plugins add|update|outdated|remove`, `pr propose <url>`, `removed add`, `repair`, `export codetour <flujo>`,
-`history [--months 12]` (puntos calientes, a quién preguntar en cada repo, ficheros que cambian juntos, leídos de git sin
+`adr list|new|show|pack|candidates|write|accept|reject` (las decisiones: plantear, reunir la
+evidencia, escribir, aceptar, rechazar; todos aceptan `--json`), `history [--months 12]` (puntos calientes, a quién preguntar en cada repo, ficheros que cambian juntos, leídos de git sin
 IA en `docs/overview/history.md`), `catalog [--json|--check]` (cada comando con dónde vive: portal, app de escritorio o
 solo CLI, y sus argumentos) y `projects [--json]` (los proyectos registrados en esta máquina; `--inspect DIR` dice qué es una carpeta, `--adopt DIR [--name NOMBRE]` la convierte en proyecto y `--git-init DIR` pone en git su código: los tres aceptan `--json` y un rechazo es `{"error": taken|home|no-git|git-init, "detail"}`), `join URL --no-open` / `new NOMBRE --no-open` (imprimen `{"path"}`; un acceso rechazado es `{"error": auth|denied|not-found|network|unknown, "host", "detail"}`, y el token de un repo privado llega en `CAMARONES_JOIN_TOKEN`, nunca en la línea de comandos), `config [get|set CLAVE VALOR]` (lang, model, codex_model: los ajustes del asistente), `trust --json` y `hooks --json` (lo pendiente de
 aprobar, si los hooks del método están activos), **Plan › Sincronizar** en el portal (lo mismo que `share`, con dónde estás) y `app` (la app de escritorio: las secciones del proyecto por tareas, el portal para leer,

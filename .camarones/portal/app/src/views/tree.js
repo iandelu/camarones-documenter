@@ -26,6 +26,12 @@ export function sortedDirs(node, sections) {
   return Object.values(node.dirs).sort((a, b) => (node.path ? 0 : rank(a.name) - rank(b.name)) || a.name.localeCompare(b.name))
 }
 
+// An ADR's status (the tree row's `adr_status`) as the key of its label and the tone of its pill; a page that is not an
+// ADR has neither. A status nobody can read is shown as such, not hidden.
+const ADR_STATUS = { proposed: 'info', accepted: 'ok', rejected: 'bad', superseded: 'warn', deprecated: 'warn', unknown: undefined }
+export const adrStatusLabel = (status) => (status ? 'adr.' + (Object.hasOwn(ADR_STATUS, status) ? status : 'unknown') : '')
+export const adrTone = (status) => (Object.hasOwn(ADR_STATUS, status) ? ADR_STATUS[status] : undefined)
+
 export const byTitle = (lang) => (a, b) => a.title.localeCompare(b.title, lang || 'en')
 
 export function flatten(node, sections, lang, out = []) {
