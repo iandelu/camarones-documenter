@@ -17,7 +17,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from .common import CTX, KIT, ROOT, DOCS, CACHE, VERSIONS, out, rel_file
-from . import codemap, docs, env, plan, sourcelinks, usage
+from . import adr_doc, codemap, docs, env, plan, sourcelinks, usage
 
 _log = logging.getLogger("camaron.serve")
 
@@ -62,8 +62,28 @@ def tree() -> dict:
             "summary": docs.summary(rows), "feedback": len(docs.pending_feedback()), "kit": VERSIONS["kit"],
             "repos": docs.repo_names(), "codeGraphs": list(env.code_graphs()), "engines": env.wiki_engines(), "engineHelp": env.wiki_engine_help(), "kitGuides": sorted(docs.kit_guides()),
             "sections": docs.SECTIONS, "views": env.c4_views(), "codeMaps": codemap.available(), "editBase": "",
-            "docs": [{k: r[k] for k in ("path", "file", "title", "description", "type", "space", "trust", "owner", "i18n",
-                                        "orphan_sources")} for r in rows]}
+            "docs": _with_adr_status(rows)}
+
+
+def _with_adr_status(rows: list[dict]) -> list[dict]:
+    """The docs index rows; a decision (`type: decision`, or `decisions/<NNNN>-….md` an older kit or a person wrote)
+    also says its ADR's status, read from the file as it stands."""
+    keys = ("path", "file", "title", "description", "type", "space", "trust", "owner", "i18n", "orphan_sources")
+    files = dict(docs.iter_docs()) if any(_is_decision(r) for r in rows) else {}
+    out = []
+    for r in rows:
+        row = {k: r[k] for k in keys}
+        if _is_decision(r) and r["path"] in files:
+            try:
+                row["adr_status"] = adr_doc.status_of(docs.split_fm(files[r["path"]].read_text(encoding="utf-8"))[1])[0]
+            except OSError:
+                pass
+        out.append(row)
+    return out
+
+
+def _is_decision(row: dict) -> bool:
+    return row["type"] == "decision" or (row["path"].startswith("decisions/") and bool(adr_doc.number_of(row["path"])))
 
 
 def read(path: str, lang: str = "") -> dict:

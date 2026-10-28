@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { buildTree, docsTrees, flatten, forBusiness, sortedDirs } from './tree.js'
+import { adrStatusLabel, adrTone, buildTree, docsTrees, flatten, forBusiness, sortedDirs } from './tree.js'
 
 const doc = (path, title, extra = {}) => ({ path, title, space: 'docs', ...extra })
 const rows = [
@@ -46,4 +46,16 @@ test('the Business view keeps what the system does and why, and the page being r
   expect(forBusiness(doc('architecture/c4.md', 'x'))).toBe(false)
   const t = docsTrees(rows, { sections, lang: 'en', business: true, active: 'architecture/c4.md' })
   expect(t.order).toEqual(['index.md', 'architecture/c4.md', 'domain/index.md', 'domain/pets.md', 'domain/visits.md'])
+})
+
+test('a decision row names its status by the key of its label; a page that is not an ADR names none', () => {
+  for (const s of ['proposed', 'accepted', 'rejected', 'superseded', 'deprecated', 'unknown']) expect(adrStatusLabel(s)).toBe('adr.' + s)
+  expect(adrStatusLabel('whatever')).toBe('adr.unknown')
+  expect(adrStatusLabel(undefined)).toBe('')
+  expect(adrStatusLabel('')).toBe('')
+})
+
+test('an ADR status has a tone for its pill, none when the status is unknown', () => {
+  expect(['accepted', 'proposed', 'rejected', 'superseded', 'deprecated', 'unknown'].map(adrTone))
+    .toEqual(['ok', 'info', 'bad', 'warn', 'warn', undefined])
 })
