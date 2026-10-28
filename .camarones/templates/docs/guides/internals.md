@@ -212,9 +212,11 @@ standard library's `pty` on macOS and Linux and ConPTY through pywinpty 3.1.0 on
 `GET app/terminals` says `available: false` and sessions open in a window). At most 8 are live at once: a ninth is
 refused (409) before the unit or its session record change, and so is a unit that already has one (409 with its
 terminal's id). Each keeps its last 256 KB in memory, which `GET app/terminals/stream` replays from the offset a client
-asks for (`from=<id>:<offset>,…`) and then follows, every terminal on one server-sent stream with its bytes in base64;
-on disk, `.camarones/.cache/terminals/<id>.log` keeps its last 5 MB beside `<id>.json` (its unit, agent, size, when it
-started and ended, its exit code). What you type and a new size are `POST app/terminals/<id>/input` and `resize`;
+asks for (`from=<id>:<offset>,…`) and then follows, every terminal on one server-sent stream with its bytes in base64.
+`GET app/terminals` gives each one's `offset`, where its output was 2 s before: the app replays what comes before it
+as history, without answering the queries in it again, and what is fresher as live, so an agent opened from another
+view still gets the answer to its startup query once the canvas mounts. On disk, `.camarones/.cache/terminals/<id>.log`
+keeps its last 5 MB beside `<id>.json` (its unit, agent, size, when it started and ended, its exit code). What you type and a new size are `POST app/terminals/<id>/input` and `resize`;
 `close` hangs up its process group and kills what is left 3 s later (`taskkill` on Windows). The terminals live as long
 as the server: when it exits (the app's window closes), it hangs up each one, kills what remains 2 s later and writes
 their end into the units' session records, so the units read as paused and **Continue** reopens them. `sessions: window`

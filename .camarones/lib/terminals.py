@@ -15,7 +15,7 @@ SIGINT: a stdlib one-liner (CTTY) makes the PTY the program's own and execs it, 
 threaded server). The program leads its own process group, so closing its terminal reaches what it started too."""
 from __future__ import annotations
 
-import functools, os, re, select, signal, struct, subprocess, sys, threading, time
+import collections, functools, os, re, select, signal, struct, subprocess, sys, threading, time
 from pathlib import Path
 
 from . import sessions
@@ -32,6 +32,8 @@ COLS, ROWS = (10, 500), (5, 200)
 DIR = CACHE / "terminals"
 TICK = 0.5                      # how often a reader or a writer looks again
 CLOSE_GRACE = 3.0               # seconds from Close's hang-up to its SIGKILL
+FRESH = 2.0                     # seconds output stays live for a client that lists it: a TUI waits ~2 s for an answer
+MARK_EVERY = 0.05               # at most one mark of where the output was per MARK_EVERY s
 CTTY = "import fcntl, os, sys, termios; fcntl.ioctl(0, termios.TIOCSCTTY, 0); os.execvp(sys.argv[1], sys.argv[1:])"
 
 
@@ -51,6 +53,7 @@ class _Term:
     def __init__(self, meta: dict, proc, fd: int | None):
         self.meta, self.proc, self.fd = meta, proc, fd
         self.ring, self.end = bytearray(), 0    # the last bytes, and the offset after them
+        self.marks = collections.deque()        # (monotonic, end before that output) over the last FRESH s
         self.over = False                       # no more input or resizes reach the PTY
         self.wlock = threading.Lock()           # one write at a time
         self.saving = threading.Lock()          # one .json write at a time, so the newest meta is written last
@@ -204,10 +207,12 @@ def get(tid: str) -> dict:
 
 
 def listing() -> list[dict]:
-    """Every terminal's meta and `offset`, the stream offset its output has reached: what a client that opens the
-    stream after this reads as history. Not in the .json: it moves with every byte the program prints."""
+    """Every terminal's meta and `offset`, where its output was FRESH s ago: what a client that opens the stream after
+    this reads as history, its answers to old queries muted. Fresher output is live, so a query an agent sent while
+    no canvas was looking (opened from another view) is still answered. Not in the .json: it moves with the output."""
+    cut = time.monotonic() - FRESH
     with _lock:
-        return [{**t.meta, "offset": t.end} for t in _terms.values()]
+        return [{**t.meta, "offset": next((end for at, end in t.marks if at > cut), t.end)} for t in _terms.values()]
 
 
 def read(tid: str, offset: int) -> tuple[bytes, int]:
@@ -407,7 +412,12 @@ def _take(t: _Term) -> bytes | None:
 
 def _output(t: _Term, data: bytes) -> None:
     _log(t, data)                               # first: what the ring shows is in the log already
+    now = time.monotonic()
     with _lock:
+        if not t.marks or now - t.marks[-1][0] >= MARK_EVERY:
+            t.marks.append((now, t.end))
+        while t.marks and t.marks[0][0] <= now - FRESH:      # no listing from now on looks that far back
+            t.marks.popleft()
         t.ring += data
         if len(t.ring) > RING:
             del t.ring[:len(t.ring) - RING]

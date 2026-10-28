@@ -221,7 +221,10 @@ importar, `GET app/terminals` dice `available: false` y las sesiones se abren en
 la vez: una novena se rechaza (409) antes de que cambien la unidad o el registro de su sesión, igual que una unidad que
 ya tiene la suya (409 con el id de su terminal). Cada una guarda en memoria sus últimos 256 KB, que
 `GET app/terminals/stream` repite desde el punto que pide el cliente (`from=<id>:<offset>,…`) y luego sigue, todas las
-terminales en un mismo flujo de eventos del servidor con sus bytes en base64; en disco,
+terminales en un mismo flujo de eventos del servidor con sus bytes en base64. `GET app/terminals` da el `offset` de
+cada una, por dónde iba su salida 2 s antes: la app repite lo anterior como historia, sin volver a contestar las
+preguntas que trae, y lo más reciente como vivo, así que un agente abierto desde otra vista recibe la respuesta a su
+pregunta de arranque en cuanto se monta el lienzo. En disco,
 `.camarones/.cache/terminals/<id>.log` guarda sus últimos 5 MB junto a `<id>.json` (su unidad, su agente, su tamaño,
 cuándo empezó y acabó, su código de salida). Lo que tecleas y un tamaño nuevo son `POST app/terminals/<id>/input` y
 `resize`; `close` cuelga su grupo de procesos y mata lo que quede 3 s después (`taskkill` en Windows). Las terminales
