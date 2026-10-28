@@ -392,8 +392,9 @@ la revisión va decidiendo (partes, puntos, asistentes) queda aparte en `docs/.w
    ADR con ese número, se usa el siguiente libre al escribir el fichero y la app lo dice.
 2. **Candidatas.** Las decisiones que el código ya tomó y que ningún ADR nombra, sin IA: las librerías de datos, caché,
    mensajería, seguridad y frameworks del inventario (solo las de runtime), las tecnologías del C4 y los ficheros de
-   despliegue (Docker Compose, Helm). **Crear ADR retro** abre el formulario con el título y lo que toca ya puestos. Si
-   aún no hay inventario ni C4, la lista sale vacía, no falla.
+   despliegue (Docker Compose, Helm). **Crear ADR retro** abre el formulario con el título y lo que toca ya puestos. Sin
+   inventario ni modelo C4 solo salen los ficheros de despliegue (Docker Compose, Helm); `camaron inventory` añade las
+   librerías. Una lista vacía no es un error.
 3. **Evidencia.** El *paquete de evidencia* reúne lo que el proyecto ya sabe de lo que toca el ADR: los ficheros vecinos en
    el grafo del código, las páginas de documentación que los citan, otros ADR relacionados, los commits del último año, los
    elementos del C4, las librerías y las preguntas abiertas. Sale de lo que ya hay (grafo, documentación, git, C4,
