@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { bytes, elapsed, fitSize, followTerminals, inputPieces, shown, streamFrom } from './terminals.js'
+import { bytes, elapsed, fitSize, followTerminals, inputPieces, isHistory, screenFeed, shown, streamFrom } from './terminals.js'
 
 const b64 = (u8) => btoa(String.fromCharCode(...u8))
 
@@ -70,4 +70,42 @@ test('a paste bigger than one request goes in pieces, in order, never cutting a 
     expect(p.charCodeAt(0) >= 0xdc00 && p.charCodeAt(0) <= 0xdfff, 'a piece starts inside a character').toBe(false)
   }
   expect(inputPieces('x'.repeat(256 * 1024 + 1)).map((p) => p.length)).toEqual([256 * 1024, 1])
+})
+
+// GET app/terminals says how far each terminal's output went: up to there, the stream replays history.
+test('what a terminal printed before the app looked is history, what comes after is live', () => {
+  expect(isHistory(100, 120)).toBe(true)
+  expect(isHistory(120, 120)).toBe(true)
+  expect(isHistory(121, 120)).toBe(false)
+  expect(isHistory(5, undefined)).toBe(false)                  // not in the first list: it joined later
+})
+
+// A stand-in for xterm: writes are parsed in order on parse(), and a query it parses is answered through onData, as
+// xterm answers DA, CPR or a colour query, as if typed.
+const fakeTerm = () => {
+  const queue = []
+  let on = () => {}
+  return {
+    onData: (fn) => { on = fn },
+    write: (data, done) => queue.push([data, done]),
+    press: (key) => on(key),
+    parse: () => {
+      for (const [data, done] of queue.splice(0)) {
+        if (data.includes('\x1b[c')) on('\x1b[?1;2c')
+        done?.()
+      }
+    },
+  }
+}
+
+test('old queries in the history are not answered to the program; live ones and keys are', () => {
+  const term = fakeTerm()
+  const sent = []
+  const write = screenFeed(term, (data) => sent.push(data))
+  write('then \x1b[c', true)
+  write('now \x1b[c', false)
+  term.parse()
+  expect(sent).toEqual(['\x1b[?1;2c'])
+  term.press('y')
+  expect(sent).toEqual(['\x1b[?1;2c', 'y'])
 })

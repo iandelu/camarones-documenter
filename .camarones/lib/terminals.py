@@ -204,8 +204,10 @@ def get(tid: str) -> dict:
 
 
 def listing() -> list[dict]:
+    """Every terminal's meta and `offset`, the stream offset its output has reached: what a client that opens the
+    stream after this reads as history. Not in the .json: it moves with every byte the program prints."""
     with _lock:
-        return [dict(t.meta) for t in _terms.values()]
+        return [{**t.meta, "offset": t.end} for t in _terms.values()]
 
 
 def read(tid: str, offset: int) -> tuple[bytes, int]:

@@ -1,4 +1,5 @@
 import { ReactFlowProvider } from '@xyflow/react'
+import { readFileSync } from 'node:fs'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, expect, test } from 'vitest'
 import { PtyNode } from './sections/Terms.jsx'
@@ -28,4 +29,17 @@ test('the docs update is a loose session, in English too', () => {
   const term = { ...live, id: 't-update-1', kind: 'update', unit: null }
   const out = html(<PtyNode data={{ term, now: 0, ...on }} />)
   for (const s of ['Update docs', 'with you', 'Close']) expect(out).toContain(s)
+})
+
+// React Flow pans on a drag that starts anywhere but in a nopan element (nodrag only keeps the node still), and its pan
+// swallows the mouse moves xterm needs to select text.
+test('a drag inside a terminal selects its text: the canvas neither pans, drags, zooms nor takes its keys', () => {
+  const out = html(<PtyNode data={{ unit, term: live, now: 0, ...on }} />)
+  const slot = out.match(/class="([^"]*dk-pty-slot[^"]*)"/)[1].split(' ')
+  const src = readFileSync(new URL('./sections/Terms.jsx', import.meta.url), 'utf-8')
+  const host = src.match(/host\.className = '([^']*)'/)[1].split(' ')
+  for (const c of ['nopan', 'nodrag', 'nowheel', 'nokey']) {
+    expect(slot).toContain(c)
+    expect(host).toContain(c)
+  }
 })
