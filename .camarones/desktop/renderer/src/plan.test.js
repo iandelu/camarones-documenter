@@ -114,8 +114,21 @@ test('an already open session takes you to its terminal', async () => {
   const res = await openSession(srv, { unit: 'a' }, (h) => went.push(h))
   expect(went).toEqual(['#/plan?term=t-a-1'])
   expect(sessionNote(res, 'x').key).toBe('pty.already')
-  const full = { post: async () => { throw Object.assign(new Error('8 terminals are open'), { status: 409, data: { limit: 8 } }) } }
-  await expect(openSession(full, {}, () => {})).rejects.toThrow('8 terminals are open')
+})
+
+// The server says why in English (lib/serve.py); the app says it in the person's language, wherever it opens one.
+test('no room for a terminal, or a unit open in a window, is said in the app language', async () => {
+  const refused = (data, message = 'refused') => ({ post: async () => { throw Object.assign(new Error(message), { status: 409, data }) } })
+  await expect(openSession(refused({ error: '8 terminals are open: close one first', limit: 8 }), {}, () => {}))
+    .rejects.toThrow('Hay 8 terminales abiertas: cierra una primero.')
+  const window = refused({ error: 'a: its session is already open in its own terminal window', terminal: null })
+  await expect(openSession(window, {}, () => {})).rejects.toMatchObject({ status: 409, data: { terminal: null } })
+  setLang('en')
+  await expect(openSession(window, {}, () => {})).rejects.toThrow('This unit already has its session open in a window.')
+  await expect(openSession(refused({ limit: 8 }), {}, () => {})).rejects.toThrow('8 terminals are open: close one first.')
+  await expect(openSession(refused({}, 'a is blocked'), {}, () => {})).rejects.toThrow('a is blocked')
+  const gone = { post: async () => { throw Object.assign(new Error('app/terminals: 500'), { status: 500, data: {} }) } }
+  await expect(openSession(gone, {}, () => {})).rejects.toThrow('app/terminals: 500')
 })
 
 test('a window, and a window instead of the canvas, say which', () => {
