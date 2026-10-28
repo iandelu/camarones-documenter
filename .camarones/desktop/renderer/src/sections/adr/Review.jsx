@@ -42,7 +42,8 @@ const choiceName = (p) => {
   return o ? `${o.id} · ${o.name}` : ''
 }
 
-export function Review({ adr, busy = false, error = '', notice = '', send }) {
+// `onDialog` is told when a dialog opens, so that the refusal of an earlier action does not show inside it.
+export function Review({ adr, busy = false, error = '', notice = '', send, onDialog }) {
   const [current, setCurrent] = useState(() => (decided(adr) ? reviewParts(adr)[0]?.id : firstOpen(reviewParts(adr))) ?? null)
   const [present, setPresent] = useState(false)
   const [ui, setUi] = useState({ drafts: {}, adding: null, kept: null, dialog: null, why: '', tried: false, attendee: '', say: '' })
@@ -52,7 +53,7 @@ export function Review({ adr, busy = false, error = '', notice = '', send }) {
   const pending = useRef(0)             // when a `g` was pressed: the letter after it is App.jsx's chord, not the review's
   const parts = reviewParts(adr)
   const here = parts.some((p) => p.id === current) ? current : firstOpen(parts)
-  const patch = (p) => setUi((u) => ({ ...u, ...p }))
+  const patch = (p) => { if (p.dialog) onDialog?.(); setUi((u) => ({ ...u, ...p })) }
   const draft = (part, p) => setUi((u) => ({ ...u, drafts: { ...u.drafts, [part]: p && { ...u.drafts[part], ...p } } }))
 
   useEffect(() => {
