@@ -1,4 +1,5 @@
 // The Plan section's units (GET /api/pipeline) by what each asks of you, and the one action that moves it.
+import { t } from './i18n.js'
 import { INTERVIEW_TYPES, linkFor } from './summary.js'
 
 export function groups(units) {
@@ -68,13 +69,22 @@ export function unitAction(u, plan = {}) {
 // names one.
 export const openedWith = (label, res) => res?.model ? `${label} (${res.model})` : label
 
+// The server's refusals are in English: no room for another terminal (409 with its limit), or the unit open in a
+// window (409 with terminal: null) are said in the app's language; any other keeps the server's words.
+const refusal = (e) => (e?.status !== 409 || !e.data ? null
+  : Number.isFinite(e.data.limit) ? t('pty.full', { n: e.data.limit })
+    : 'terminal' in e.data && e.data.terminal === null ? t('pty.alreadyWindow') : null)
+
 // A session started from the app (POST app/terminals) lands on the Plan, on its terminal when it opened on the canvas.
 // A unit already open (409 with its terminal) lands there too instead of opening twice; any other refusal throws.
 export async function openSession(srv, body, go = (h) => { location.hash = h }) {
   let res
   try { res = await srv.post('app/terminals', body) } catch (e) {
     const id = e?.data?.terminal
-    if (!id) throw e
+    if (!id) {
+      const said = refusal(e)
+      throw said ? Object.assign(new Error(said), { status: e.status, data: e.data }) : e
+    }
     go(`#/plan?term=${id}`)
     return { already: true, terminal: { id } }
   }
