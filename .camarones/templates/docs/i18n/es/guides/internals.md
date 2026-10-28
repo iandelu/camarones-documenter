@@ -231,7 +231,9 @@ cuanto se monta el lienzo. En disco, `.camarones/.cache/terminals/<id>.log` guar
 `POST app/terminals/<id>/input` y `resize`; `close` cuelga su grupo de procesos y mata lo que quede 3 s después
 (`taskkill` en Windows). Las terminales viven lo que vive el servidor: cuando sale (se cierra la ventana de la app),
 cuelga cada una, mata lo que quede 2 s después y apunta su final en los registros de sesión de las unidades, así que
-estas quedan en pausa y **Seguir** las vuelve a abrir. `sessions: window` en `~/.camarones.json`
+estas quedan en pausa y **Seguir** las vuelve a abrir. En Windows la app termina el servidor con `taskkill /T /F`, que
+se lleva las terminales con él sin tiempo para apuntar nada; las unidades quedan en pausa igualmente, porque el pid de
+su sesión está muerto. `sessions: window` en `~/.camarones.json`
 (`camaron config set sessions window`) abre las sesiones en una ventana de terminal, como antes.
 
 ## Confianza en las páginas: revisión y frescura

@@ -467,8 +467,8 @@ van de una en una, y una unidad espera a que se integre lo que necesita. Si hay 
 ejecución; `camaron pipeline show` lista las unidades y dónde trabaja cada una. `autopilot` sigue siendo secuencial.
 Las ejecuciones mantienen el ordenador despierto (un portátil que se duerme corta la sesión del agente); una sesión
 cortada por algo pasajero (suspensión, red, API saturada) se reintenta una vez. Por defecto, una sesión por agente: con
-un solo agente instalado, `--per-runner claude=2` le deja hacer más. Las dos dejan en paz una unidad cuya sesión tiene
-abierta la app (en su lienzo o en una ventana); si solo quedan de esas, se paran y las nombran, para que las acabes
+un solo agente instalado, `--per-runner claude=2` le deja hacer más. `run` y el piloto automático dejan en paz una
+unidad cuya sesión tiene abierta la app (en su lienzo o en una ventana); si solo quedan de esas, se paran y las nombran, para que las acabes
 allí.
 
 **¿Está funcionando?** `camaron kpis` muestra las ejecuciones del equipo por mes (tiempo, tokens, coste por unidad,

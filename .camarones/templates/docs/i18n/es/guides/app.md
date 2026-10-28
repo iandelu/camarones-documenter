@@ -234,22 +234,23 @@ dice, ✕ falla), el agente, el tiempo que lleva y el coste. Su cabecera dice **
 hecha: una cuyo agente terminó sin acabarla dice cómo la tiene el plan (por hacer, en pausa, bloqueada, espera tu
 aprobación), y una que no pudo empezar dice por qué. Unos 4 segundos después de acabar vuelve a una tarjeta
 compacta con su tiempo y su coste (**Ver terminal** la reabre); una que falla conserva su terminal. Si subes dentro de
-una terminal, deja de seguir el final hasta que pulses **Ir al final**; **⤢** la maximiza y Escape vuelve al lienzo.
+una terminal, deja de seguir el final hasta que pulses **Ir al final**; **⤢** maximiza la terminal de una ejecución y Escape (o **Volver al lienzo**) regresa.
 **Encajar** enmarca cada terminal abierta (todas las unidades si no hay ninguna), **Reordenar** devuelve todo el lienzo
 a la disposición automática, y las posiciones que arrastres se conservan mientras la ventana de ese proyecto siga
-abierta. Tab y las flechas se mueven entre nodos e Intro abre el detalle de la unidad. Sin elegir vista, el Plan pasa al
+abierta. Tab y las flechas se mueven entre nodos; Intro abre el detalle de una unidad, o entra en una terminal contigo. Escape no
+hace nada sobre un nodo: solo sale de uno maximizado. Sin elegir vista, el Plan pasa al
 lienzo en cuanto hay una ejecución en marcha o la sesión de una unidad abierta (ya al entrar, o lanzadas desde el
 propio Plan) y se queda ahí, también al acabar, hasta que elijas otra. El lienzo lee el registro de la ejecución (el mismo que lee el portal) y sigue el tema claro u oscuro de la
 app; parar sigue en la tarjeta **Ejecutar el plan**. Una ejecución parada desde fuera (su trabajo parado, su proceso
 terminado) se ve acabada en unos segundos: sus terminales dejan de decir «en marcha», y una unidad que dejó a medias
 dice cómo la tiene el plan, con su reloj parado en su última línea.
 
-**Terminales contigo.** Una sesión que abres desde la app —**Empezar** o **Seguir** una unidad (en su detalle, en el
-Resumen o en Calidad) o **Mantenerla al día**— se abre en el lienzo, y el Plan te la pone delante: el nodo de la unidad
+**Terminales contigo.** Una sesión que abres desde la app —**Empezar** o **Seguir** una unidad (en su detalle o en el
+Resumen), **Proponer preguntas con {agente}** en Calidad o **Mantenerla al día**— se abre en el lienzo, y el Plan te la pone delante: el nodo de la unidad
 se convierte en una terminal donde le escribes al agente como en cualquier terminal, con «contigo», su agente y su
 tiempo en la cabecera. Todo lo que tecleas va al agente: Escape, Tab, Mayús+Tab, las flechas, Ctrl+C. **F6** sale de la
-terminal (en un portátil Mac, Fn+F6): a su nodo, donde las flechas y Escape vuelven a moverse por el lienzo, o, si está
-maximizada, de vuelta al lienzo. **⤢** la maximiza y **Volver al lienzo** regresa; el agente recibe cada tamaño nuevo.
+terminal (en un portátil Mac, Fn+F6): a su nodo, donde las flechas vuelven a moverse entre nodos e Intro vuelve a entrar en la terminal, o, si
+está maximizada, de vuelta al lienzo (ahí Escape sigue yendo al agente). **⤢** la maximiza y **Volver al lienzo** regresa; el agente recibe cada tamaño nuevo.
 **Cerrar** termina la sesión: el nodo vuelve a su tarjeta, «En pausa: su sesión se cerró», y su **Seguir** la abre otra
 vez (si se abre en una ventana, el lienzo lo dice encima del grafo). Una terminal cuyo agente acabó con error se queda con lo que escribió, **Quitar** y, si es de una unidad, **Abrir
 una sesión nueva**; una que acabó bien se pliega como las de una ejecución. La actualización de la documentación no es

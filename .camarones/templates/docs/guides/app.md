@@ -227,22 +227,23 @@ taken and its cost. Its header says **done** only when the plan has the unit don
 finishing it says where the plan has it (to do, paused, blocked, awaits your approval), and one that could not start
 says why. About 4 seconds after it ends it folds back into a compact card with its time and cost (**View
 terminal** opens it again); a failed unit keeps its terminal. Scroll up inside a terminal and it stops following the
-end until you press **Jump to the end**; **⤢** maximises it and Escape goes back to the canvas. **Fit** frames every
+end until you press **Jump to the end**; **⤢** maximises a run's terminal and Escape (or **Back to the canvas**) goes back. **Fit** frames every
 open terminal (every unit when none is open), **Re-layout** puts the whole canvas back in its automatic layout, and the
-positions you drag are kept while that project's window stays open. Tab and the arrows move between nodes and Enter
-opens the unit's detail. With no view picked, the Plan turns to the canvas as soon as a run is on or a unit's session is
+positions you drag are kept while that project's window stays open. Tab and the arrows move between nodes; Enter
+opens a unit's detail, or goes into a terminal with you. Escape does nothing on a node: it only leaves a maximised
+one. With no view picked, the Plan turns to the canvas as soon as a run is on or a unit's session is
 open (when you arrive, or started from the Plan itself) and stays there, also when it ends, until you pick another
 view. The canvas reads the
 run's log (the same one the portal reads) and follows the app's light or dark theme; stopping stays on the **Run the
 plan** card. A run stopped from outside (its job stopped, its process killed) shows as over within a few seconds: its
 terminals stop saying running, and a unit it cut off says where the plan has it, its clock stopped at its last line.
 
-**Terminals with you.** A session you open from the app — **Start** or **Continue** on a unit (in its detail, on the
-Summary or in Quality) or **Keep it current** — opens on the canvas, and the Plan puts it in front: the unit's node
+**Terminals with you.** A session you open from the app — **Start** or **Continue** on a unit (in its detail or on the
+Summary), **Propose questions with {agent}** in Quality or **Keep it current** — opens on the canvas, and the Plan puts it in front: the unit's node
 becomes a terminal where you type to the agent as in any terminal, its header saying "with you", its agent and its
 time. Everything you type goes to the agent: Escape, Tab, Shift+Tab, the arrows, Ctrl+C. **F6** leaves the terminal (on
-a Mac laptop, Fn+F6): to its node, where the arrows and Escape move around the canvas again, or, when it is maximised,
-back to the canvas. **⤢** maximises it and **Back to the canvas** returns; the agent gets each new size. **Close** ends
+a Mac laptop, Fn+F6): to its node, where the arrows move between nodes again and Enter goes back into the terminal, or, when it is
+maximised, back to the canvas (there Escape still goes to the agent). **⤢** maximises it and **Back to the canvas** returns; the agent gets each new size. **Close** ends
 the session: the node folds back into its card, "Paused: its session was closed", and its **Continue** opens it again
 (when it opens in a window instead, the canvas says so above the graph).
 A terminal whose agent ended with an error stays with what it printed, **Remove** and, for a unit, **Open a new

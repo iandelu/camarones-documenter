@@ -447,8 +447,8 @@ what it needs to be merged. A clash blocks the unit, leaves `cam-docs/` untouche
 `camaron runs` shows what each run did and cost; `camaron pipeline show` lists the units and where each one works.
 `autopilot` stays sequential. Runs keep the computer awake (a laptop that sleeps breaks the agent's session); a
 session cut by something passing (sleep, network, an overloaded API) is retried once. One session per agent by default:
-with a single agent installed, `--per-runner claude=2` lets it take more. Both leave alone a unit whose session the
-app has open (on its canvas or in a window); when only such units are left they stop and name them, for you to finish
+with a single agent installed, `--per-runner claude=2` lets it take more. `run` and the autopilot both leave alone a unit whose
+session the app has open (on its canvas or in a window); when only such units are left they stop and name them, for you to finish
 there.
 
 **Is it working?** `camaron kpis` shows the team's runs per month (time, tokens, cost per unit, parallelism, limits,
