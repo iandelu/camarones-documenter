@@ -212,8 +212,9 @@ caché del proyecto, `.camarones/.cache/prompts/<unidad>.md` (`update.md` para l
 sesiones abiertas a la vez nunca leen la de la otra; el asistente y el refinado del C4 del primer arranque siguen usando
 `docs/.work/next-prompt.md`. La sesión de una unidad ejecuta su agente dentro de `session_run.py`, que guarda el
 registro de la unidad en `.camarones/.cache/sessions/` (su pid mientras el agente corre, y después cuándo acabó):
-mientras sigue abierta, la app no abre otra para la misma unidad, `run` y `autopilot` dejan la unidad en paz, y la app
-enseña qué está haciendo el agente leyendo su historial.
+mientras sigue abierta, o su ventana aún se está abriendo (hasta 30 s antes de que el envoltorio apunte su pid), la app
+no abre otra para la misma unidad, `run` y `autopilot` dejan la unidad en paz, y la app enseña qué está haciendo el
+agente leyendo su historial.
 
 **Terminales en el lienzo.** El servidor del proyecto tiene las terminales del lienzo (`lib/terminals.py`): PTY de
 verdad, el `pty` de la biblioteca estándar en macOS y Linux y ConPTY con pywinpty 3.1.0 en Windows (si no se puede

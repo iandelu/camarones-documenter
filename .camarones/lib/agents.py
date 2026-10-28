@@ -156,9 +156,10 @@ def launch_unit(uid: str, agent: str, lang: str = "es", mode: str = "new", where
     with _opening:
         rec = sessions.load(uid)
         term = terminals.find("unit", uid)
-        if term or sessions.running(rec):
+        if term or sessions.live(rec):                # live: a window whose wrapper has not written its pid yet too
             raise AlreadyOpen(f"{uid}: its session is already open in " +
-                              (f"terminal {term['id']}" if term else "its own terminal window"), term and term["id"])
+                              (f"terminal {term['id']}" if term else "its own terminal window"),
+                              term["id"] if term else None)
         if where == "canvas":
             terminals.room()
         session = None

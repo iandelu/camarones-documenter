@@ -204,8 +204,9 @@ Each session the app opens reads a prompt file of its own in the project's cache
 (`update.md` for the docs update), so sessions open side by side never read one another's; the wizard and the first
 run's C4 refinement still use `docs/.work/next-prompt.md`. A unit's session runs its agent inside `session_run.py`,
 which keeps the unit's record in `.camarones/.cache/sessions/` (its pid while the agent runs, then when it ended): while
-it is open the app does not open another one for the same unit, `run` and `autopilot` leave the unit alone, and the
-app shows what the agent is doing from its transcript.
+it is open, or its window is still opening (up to 30 s before the wrapper writes its pid), the app does not open another
+one for the same unit, `run` and `autopilot` leave the unit alone, and the app shows what the agent is doing from its
+transcript.
 
 **Terminals on the canvas.** The project server holds the canvas's terminals (`lib/terminals.py`): real PTYs, the
 standard library's `pty` on macOS and Linux and ConPTY through pywinpty 3.1.0 on Windows (when it does not import,

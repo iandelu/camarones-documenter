@@ -112,3 +112,16 @@ def test_two_quick_opens_of_one_unit_open_it_once(wired, canvas, monkeypatch):
     [c.start() for c in clicks]
     [c.join() for c in clicks]
     assert sorted(type(o).__name__ for o in outcomes) == ["AlreadyOpen", "str"] and len(terminals.listing()) == 1
+
+
+# A window's wrapper writes its pid a moment after it opens: a second click before that must not open a second agent.
+def test_a_window_still_opening_is_not_opened_again(wired, canvas):
+    from lib import sessions
+    u = ready_agent_unit(wired)
+    canvas["agents"].launch_unit(u["id"], "claude")
+    assert "pid" not in sessions.load(u["id"])
+    for where in ("window", "canvas"):
+        with pytest.raises(canvas["agents"].AlreadyOpen) as e:
+            canvas["agents"].launch_unit(u["id"], "claude", mode="continue", where=where)
+        assert e.value.terminal is None
+    assert len(canvas["cmds"]) == 1
