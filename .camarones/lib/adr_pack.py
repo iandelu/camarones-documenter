@@ -106,10 +106,11 @@ def _adrs(cited: list[tuple[str, Path]], own: str | None) -> list[dict]:
 # ---------- git, C4, inventory, open questions ----------
 def _commits(touches: list[str]) -> list[dict]:
     """Per touched code repo, the commits that changed a touched file (only those files listed), in `git log` order;
-    repos take turns so that a busy one does not hide the others."""
-    per_repo = []
+    repos take turns so that a busy one does not hide the others. Only the project's repos: a touch is pulled data, and
+    its repo could name any folder."""
+    per_repo, known = [], set(docs.repo_names())
     for repo, paths in sorted(index.by_repo(touches).items()):
-        if repo == index.DOCS_REPO or not (repo_dir(repo) / ".git").exists():
+        if repo == index.DOCS_REPO or repo not in known or not (repo_dir(repo) / ".git").exists():
             continue
         found = []
         for c in history.commits(repo, MONTHS):

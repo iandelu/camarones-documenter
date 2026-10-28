@@ -356,6 +356,22 @@ def test_superseding_refuses_an_old_adr_that_is_not_utf8_before_writing_anything
     assert new.read_bytes() == before and old.read_bytes().endswith(b"\xff\n")
 
 
+def test_superseding_a_file_that_links_outside_docs_decisions_is_refused(adr, kit, tmp_path):
+    outside = tmp_path / "AGENTS.md"
+    outside.write_text(OLD, encoding="utf-8")
+    try:
+        (decisions(kit) / "0001-ehcache.md").symlink_to(outside)
+    except OSError:
+        pytest.skip("this machine cannot make symbolic links")
+    a = adr.write_without_ai(adr.new({"title": "Caffeine", "kind": "new", "supersedes": "1"})["id"])
+    a = adr.part(a["id"], "decision", "edit", "Caffeine.", base_sha=a["sha"])
+    new = kit.root / "docs" / a["path"]
+    before = new.read_bytes()
+    with pytest.raises(adr.AdrError, match="docs/decisions"):
+        adr.accept(a["id"], by="Test", attendees=[], base_sha=a["sha"])
+    assert outside.read_text(encoding="utf-8") == OLD and new.read_bytes() == before
+
+
 def test_covering_finds_accepted_adrs_through_shared_sources(adr, kit):
     page = kit.root / "docs" / "orders.md"
     page.parent.mkdir(exist_ok=True)

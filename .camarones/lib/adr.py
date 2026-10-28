@@ -36,6 +36,7 @@ TEXT_PARTS = ("context", "drivers", "options", "decision", "diagram", "consequen
 LOCK = CACHE / "locks" / "adr.lock"
 _ID = re.compile(r"[0-9]{4}")
 _ISO = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
+_NAME = re.compile(r"[0-9]{4}-[^/\\\0]+\.md")
 _POINTS_RE = re.compile("^" + re.escape(adr_doc.POINTS_HEADING) + r"[ \t]*$", re.M)
 
 
@@ -79,6 +80,21 @@ def _write(path: Path, text: str) -> None:
 
 def _read(path: Path) -> str:
     return retry_busy(path.read_bytes).decode("utf-8", errors="replace")
+
+
+def _in_decisions(path: Path) -> Path:
+    """`path` if it is a file right in `docs/decisions` once resolved; working states and files come in through git, so
+    neither a name nor a link may lead an ADR's write anywhere else."""
+    folder = (DOCS / "decisions").resolve()
+    if not _NAME.fullmatch(path.name) or path.resolve().parent != folder:
+        raise AdrError(f"{path.name} is not a file in docs/decisions: refusing to write it")
+    return path
+
+
+def _adr_file(number: str, state: dict) -> Path:
+    """Where `write_without_ai` puts an ADR: the name is always a slug, whatever the pulled state says its slug is."""
+    slug = adr_doc.slugify(str(state.get("slug") or state.get("title") or ""))
+    return _in_decisions(DOCS / "decisions" / f"{number}-{slug}.md")
 
 
 def load_state(id: str) -> dict | None:
@@ -343,7 +359,7 @@ def write_without_ai(id: str) -> dict:
                                                                "touches")}, "evidence": _pack_evidence(id)}, number)
         if state.get("points"):
             raw = _with_points(raw, state["points"])
-        _write(DOCS / "decisions" / f"{number}-{state.get('slug') or adr_doc.slugify(state.get('title') or '')}.md", raw)
+        _write(_adr_file(number, state), raw)
         save_state({**state, "id": number, "phase": "review"})
         if number != id:
             retry_busy(lambda: state_file(id).unlink(missing_ok=True))
@@ -443,7 +459,7 @@ def _open(id: str, base_sha: str) -> tuple[dict, Path, str]:
         raise _unwritten(id)
     if state.get("phase") != "review":
         raise AdrError(f"{id} is already {state.get('phase')}: it can no longer be edited")
-    raw = _read(path)
+    raw = _read(_in_decisions(path))
     sha = docs.body_sha(docs.split_fm(raw)[1])
     if base_sha != sha:
         raise AdrConflict(f"{id} changed while you were editing it: reload it", sha)
@@ -601,7 +617,7 @@ def _supersession(state: dict, id: str, name: str) -> tuple[Path, str] | None:
     path = _files().get(old)
     if path is None:
         raise AdrError(f"{id} supersedes {old}, but there is no ADR {old}")
-    raw = _read(path)
+    raw = _read(_in_decisions(path))
     if "�" in raw:
         raise AdrError(f"{path.name} is not UTF-8: convert it before superseding it")
     return path, adr_doc.replace_status(raw, f"Superseded by [{id}]({name})")
