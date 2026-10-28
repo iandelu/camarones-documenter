@@ -215,6 +215,30 @@ def test_points_are_separated_by_a_blank_line(adr_doc):
     assert out.count("#### P") == 3 and "\n\n#### P2 · Who invalidates?" in out and "\n\n#### P3 ·" in out
 
 
+def test_the_considered_options_list_what_each_point_weighed(adr_doc):
+    assert adr_doc.render_options(POINTS[:2]) == (
+        "### P1 · Where do sessions live?\n\n"
+        "- **A · Redis** (chosen) — + already in use; + fast; − one more service\n"
+        "- **B · Postgres** — − a write per request\n\n"
+        "### P2 · Who invalidates?\n\n- **A · Each service**\n- **B · A job**")
+    assert adr_doc.render_options([]) == ""
+
+
+def test_the_considered_options_leave_out_what_the_section_already_names(adr_doc):
+    written = "### A · redis\n\nWe run it already.\n\n- Each SERVICE: one call each\n- **B · A job**\n\nPostgres was discussed."
+    assert adr_doc.render_options(POINTS[:2], written) == ("### P1 · Where do sessions live?\n\n"
+                                                         "- **B · Postgres** — − a write per request")
+    assert adr_doc.render_options(POINTS[1:2], written) == ""
+
+
+@pytest.mark.parametrize("text, blank", [
+    ("", True), ("  \n\n ", True), ("TODO(question): which options were considered?", True), ("<!-- list them -->", True),
+    ("TODO(question): a\n\nTODO(question): b <!-- x -->", True), ("### A · Redis", False),
+    ("TODO(question): which?\n\nRedis, because it is there.", False)])
+def test_unwritten_is_a_section_with_nothing_a_person_wrote(adr_doc, text, blank):
+    assert adr_doc.unwritten(text) is blank
+
+
 def test_the_decision_names_what_each_point_chose(adr_doc):
     assert adr_doc.render_decision(POINTS[:1]) == "**Where do sessions live?** — Redis. already used by notifications"
     assert adr_doc.render_decision(POINTS[1:2]) == "**Who invalidates?** — The gateway, on logout."

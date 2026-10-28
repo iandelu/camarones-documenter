@@ -86,10 +86,48 @@ def test_accept_changes_the_status_decision_and_owner_and_nothing_else(adr, kit,
     fm, body = read(kit, out)
     assert {k: v for k, v in fm.items() if k not in ("x-owner", "x-confirmed")} == \
         {k: v for k, v in before_fm.items() if k != "x-owner"}
-    for key in ("context", "options", "consequences", "evidence"):
+    for key in ("context", "consequences", "evidence"):
         assert doc.section(body, key) == doc.section(before, key)
+    assert doc.section(before, "options") == "TODO(question): which options were considered?"
+    assert doc.section(body, "options") == "### P1 · Where?\n\n- **A · Redis** (chosen)\n- **B · Postgres**"
     assert kit.docs.tldr(body) == kit.docs.tldr(before) and body.startswith(before.split("## Status")[0])
     assert doc.PLACEHOLDER not in body and "### Decision points" not in body
+
+
+@pytest.mark.parametrize("options", [None, "", "<!-- which? -->"])
+def test_accept_puts_what_the_points_weighed_in_an_empty_considered_options(adr, kit, doc, options):
+    a = adr.write_without_ai(adr.new({"title": "Sessions", "kind": "new"})["id"])
+    if options is not None:
+        a = adr.part(a["id"], "options", "edit", options, base_sha=a["sha"])
+    a = adr.point(a["id"], "add", {"question": "Where?", "options": [
+        {"name": "Redis", "pros": ["fast"], "cons": ["one more service"]}, {"name": "Postgres", "pros": ["already there"]}]},
+        a["sha"])
+    a = adr.point(a["id"], "add", {"question": "Who?", "options": [{"name": "Gateway"}, {"name": "Each service"}]}, a["sha"])
+    a = adr.point(a["id"], "choose", {"point": "p1", "chosen": "B", "rationale": "no new service"}, a["sha"])
+    a = adr.point(a["id"], "choose", {"point": "p2", "other": "A job"}, a["sha"])
+    out = adr.accept(a["id"], by="Test", attendees=[], base_sha=a["sha"])
+    assert out["sections"]["options"] == (
+        "### P1 · Where?\n\n- **A · Redis** — + fast; − one more service\n- **B · Postgres** (chosen) — + already there\n\n"
+        "### P2 · Who?\n\n- **A · Gateway**\n- **B · Each service**")
+    assert out["sections"]["decision"] == "**Where?** — Postgres. no new service\n\n**Who?** — A job."
+    assert "TODO(question): which options" not in out["raw"] and out["raw"].count("## Considered options") == 1
+
+
+def test_accept_adds_to_considered_options_a_person_wrote_only_the_options_it_does_not_name(adr, kit):
+    a = decided(adr, chosen="A", rationale="r")
+    written = "### A · redis\n\nWe run it for notifications."
+    a = adr.part(a["id"], "options", "edit", written, base_sha=a["sha"])
+    out = adr.accept(a["id"], by="Test", attendees=[], base_sha=a["sha"])
+    assert out["sections"]["options"] == written + "\n\n### P1 · Where?\n\n- **B · Postgres**"
+    assert out["sections"]["decision"] == "**Where?** — Redis. r"
+
+
+def test_accept_leaves_considered_options_alone_when_they_name_every_option(adr, kit):
+    a = decided(adr, chosen="A", rationale="r")
+    written = "- Redis: in use\n- POSTGRES: a write per request"
+    a = adr.part(a["id"], "options", "edit", written, base_sha=a["sha"])
+    out = adr.accept(a["id"], by="Test", attendees=[], base_sha=a["sha"])
+    assert out["sections"]["options"] == written
 
 
 def test_accept_keeps_what_a_person_wrote_in_the_decision(adr, kit):

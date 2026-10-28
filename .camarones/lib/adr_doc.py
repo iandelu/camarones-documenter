@@ -46,6 +46,9 @@ _NUMBER_RE = re.compile(_NUMBER)
 _BY_RE = re.compile(r"\b(?:by|por)\b\D*?" + _NUMBER, re.I)
 _DATE_RE = re.compile(r"[0-9]{4}[-/.][0-9]{1,2}[-/.][0-9]{1,2}|[0-9]{1,2}[-/.][0-9]{1,2}[-/.][0-9]{4}")
 _FILE_RE = re.compile(r"([0-9]{4})-.+\.md")
+_ITEM_RE = re.compile(r"^[ \t]*(?:#{1,6}[ \t]+|[-*+][ \t]+|[0-9]+[.)][ \t]+)(.+)$", re.M)
+_TOKEN_RE = re.compile(r"[^\W_]+")
+TODO = "TODO(question)"
 
 
 def slugify(title: str) -> str:
@@ -80,6 +83,13 @@ def section(body: str, key: str) -> str | None:
     if not found:
         return None
     return "\n".join(body.splitlines()[found["start"] + 1:found["end"]]).strip()
+
+
+def unwritten(text: str) -> bool:
+    """The text of a section holds nothing a person wrote: once comments are set aside it is empty or only
+    `TODO(question)` lines, the questions the kit leaves where it knew nothing."""
+    lines = [l.strip() for l in docs.COMMENT_RE.sub("", text or "").splitlines() if l.strip()]
+    return all(l.startswith(TODO) for l in lines)
 
 
 def _status_line(body: str) -> str:
@@ -201,9 +211,10 @@ def evidence_table(rows: list[tuple[str, str]]) -> str:
     return "\n".join(["| Claim | Evidence |", "|---|---|", *(f"| {_cell(c)} | {_cell(e)} |" for c, e in rows)])
 
 
-def _option_line(i: int, option: dict) -> str:
+def _option_line(i: int, option: dict, chosen: bool = False) -> str:
     notes = [f"+ {p}" for p in option.get("pros") or []] + [f"− {c}" for c in option.get("cons") or []]
-    return f"- **{option.get('id') or _letter(i)} · {option.get('name', '')}**" + (" — " + "; ".join(notes) if notes else "")
+    return (f"- **{option.get('id') or _letter(i)} · {option.get('name', '')}**" + (" (chosen)" if chosen else "")
+            + (" — " + "; ".join(notes) if notes else ""))
 
 
 def render_points(points: list[dict]) -> str:
@@ -213,6 +224,25 @@ def render_points(points: list[dict]) -> str:
         options = [_option_line(i, o) for i, o in enumerate(point.get("options") or [])]
         head = f"#### {str(point.get('id') or f'p{n}').upper()} · {point.get('question', '')}"
         blocks.append("\n".join([head, "", *options]) if options else head)
+    return "\n\n".join(blocks)
+
+
+def _words(text: str) -> str:
+    return " " + " ".join(_TOKEN_RE.findall(text.casefold())) + " "
+
+
+def render_options(points: list[dict], existing: str = "") -> str:
+    """What the points weighed, for Considered options: one `### P1 · question` block per point with a line per option,
+    its pros (+) and cons (−), the chosen one marked. An option that `existing` already names in a heading or a list
+    item (case aside) is left out, and so is a point with no option left."""
+    items = [_words(m[1]) for m in _ITEM_RE.finditer(docs.COMMENT_RE.sub("", existing))]
+    blocks = []
+    for n, point in enumerate(points, 1):
+        options = [_option_line(i, o, o.get("id") == point.get("chosen")) for i, o in enumerate(point.get("options") or [])
+                   if not any(_words(str(o.get("name") or "")) in item for item in items)]
+        if options:
+            blocks.append("\n".join([f"### {str(point.get('id') or f'p{n}').upper()} · {point.get('question', '')}", "",
+                                     *options]))
     return "\n\n".join(blocks)
 
 

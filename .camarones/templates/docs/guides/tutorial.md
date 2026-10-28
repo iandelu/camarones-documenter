@@ -390,7 +390,9 @@ the review decides along the way (parts, points, attendees) is kept apart in `do
    all by keyboard: <kbd>←</kbd>/<kbd>→</kbd> change part, <kbd>1</kbd>–<kbd>9</kbd> pick an option, <kbd>E</kbd> edits,
    <kbd>D</kbd> defers, <kbd>A</kbd> accepts and <kbd>Esc</kbd> leaves.
 5. **Accept, reject or supersede.** **Accept** leaves the file as `Accepted (date)`, with `x-owner: human`, confirmed, and
-   a *Decided by* section with who decided; if the ADR supersedes another, that one is marked `Superseded by [NNNN]`.
+   a *Decided by* section with who decided; the options each point weighed, with their pros and cons, go into
+   *Considered options* (a section that already had text only gains the ones it does not name); if the ADR supersedes
+   another, that one is marked `Superseded by [NNNN]`.
    What is not decided is not accepted (a deferred point, a point with no choice, or an ADR with no *Decision* section and
    no points): the app refuses and says which. **Reject** needs a reason and leaves the file as `Rejected (date): reason`,
    so nobody proposes it again without knowing why it did not go through. An accepted or rejected decision is read as it
