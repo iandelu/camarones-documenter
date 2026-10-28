@@ -357,7 +357,7 @@ def confirm(files: list[str], by: str) -> list[str]:
         if not fm:
             raise RuntimeError(f"{p}: no frontmatter, refusing to confirm")
         fm["x-confirmed"] = {"by": by, "at": now(), "body_sha": body_sha(body)}
-        f.write_text(join_fm(fm, body), encoding="utf-8")
+        f.write_text(join_fm(fm, body), encoding="utf-8", newline="\n")
         done.append(p)
         logical = next((lp for lp, df in iter_docs() if df.resolve() == f.resolve()), None)
         if logical:
@@ -382,7 +382,7 @@ def translated(files: list[str]) -> list[str]:
         _, cbody = split_fm(canon[logical].read_text(encoding="utf-8"))
         fm, body = split_fm(f.read_text(encoding="utf-8"))
         fm["x-translation-of"] = {"path": logical, "lang": lang, "body_sha": body_sha(cbody)}
-        f.write_text(join_fm(fm, body), encoding="utf-8")
+        f.write_text(join_fm(fm, body), encoding="utf-8", newline="\n")
         done.append(f"{p} <- {logical}")
     return done
 
