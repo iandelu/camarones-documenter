@@ -74,9 +74,11 @@ export function inputPieces(text, max = INPUT_MAX) {
   return pieces
 }
 
-// GET app/terminals gives each terminal's `offset`, how far its output had gone: a chunk of the stream that ends there
-// or before is history, replayed. A terminal not in that first list joined later: live from its first byte.
-export const isHistory = (o, upTo) => Number.isFinite(upTo) && Number.isFinite(o) && o <= upTo
+// GET app/terminals gives each terminal's `offset`, how far its output had gone: the stream's bytes up to there are
+// history, replayed. A chunk of `n` bytes ending at `o` may straddle it (the program printed between the list and the
+// stream's first read): how many of its first bytes are history. None for a terminal not in that first list: it
+// joined later, live from its first byte.
+export const historyBytes = (o, n, upTo) => (Number.isFinite(upTo) && Number.isFinite(o) ? clamp(upTo - (o - n), 0, n) : 0)
 
 // xterm answers the queries it parses (DA, the cursor's position, the colours) through onData, as if typed. History is
 // written with those answers muted, so an old query is never answered to the program again (a stray Esc interrupts an

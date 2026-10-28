@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { bytes, elapsed, fitSize, followTerminals, inputPieces, isHistory, screenFeed, shown, streamFrom } from './terminals.js'
+import { bytes, elapsed, fitSize, followTerminals, historyBytes, inputPieces, screenFeed, shown, streamFrom } from './terminals.js'
 
 const b64 = (u8) => btoa(String.fromCharCode(...u8))
 
@@ -72,12 +72,16 @@ test('a paste bigger than one request goes in pieces, in order, never cutting a 
   expect(inputPieces('x'.repeat(256 * 1024 + 1)).map((p) => p.length)).toEqual([256 * 1024, 1])
 })
 
-// GET app/terminals says how far each terminal's output went: up to there, the stream replays history.
-test('what a terminal printed before the app looked is history, what comes after is live', () => {
-  expect(isHistory(100, 120)).toBe(true)
-  expect(isHistory(120, 120)).toBe(true)
-  expect(isHistory(121, 120)).toBe(false)
-  expect(isHistory(5, undefined)).toBe(false)                  // not in the first list: it joined later
+// GET app/terminals says how far each terminal's output went: up to there, the stream replays history. A chunk ends at
+// `o` and holds `n` bytes; what the program printed between the list and the stream's first read makes one straddle.
+test('what a terminal printed before the app looked is history, up to the byte', () => {
+  expect(historyBytes(130, 50, 120)).toBe(40)                  // straddles: bytes 80..120 history, 120..130 live
+  expect(historyBytes(130, 30, 120)).toBe(20)                  // 100..120 history
+  expect(historyBytes(100, 50, 120)).toBe(50)
+  expect(historyBytes(120, 50, 120)).toBe(50)
+  expect(historyBytes(200, 50, 120)).toBe(0)
+  expect(historyBytes(130, 50, undefined)).toBe(0)             // not in the first list: it joined later
+  expect(historyBytes(undefined, 50, 120)).toBe(0)
 })
 
 // A stand-in for xterm: writes are parsed in order on parse(), and a query it parses is answered through onData, as
@@ -108,4 +112,17 @@ test('old queries in the history are not answered to the program; live ones and 
   expect(sent).toEqual(['\x1b[?1;2c'])
   term.press('y')
   expect(sent).toEqual(['\x1b[?1;2c', 'y'])
+})
+
+test('a chunk that straddles the end of history answers only the query after it', () => {
+  const term = fakeTerm()
+  const sent = []
+  const write = screenFeed(term, (data) => sent.push(data))
+  const chunk = new TextEncoder().encode('start \x1b[c | spin \x1b[c')
+  const cut = historyBytes(chunk.length, chunk.length, 9)
+  write(new TextDecoder().decode(chunk.subarray(0, cut)), true)
+  write(new TextDecoder().decode(chunk.subarray(cut)), false)
+  term.parse()
+  expect(sent).toEqual(['\x1b[?1;2c'])
+  expect(cut).toBe(9)
 })
