@@ -77,6 +77,18 @@ def test_builds_and_answers(world):
         conn.close()
 
 
+def test_neighbours_are_one_edge_away(world):
+    kit, ops, index, *_ = world
+    conn = index.connect()
+    try:
+        assert PAY in index.neighbours(conn, [ORDER]) and ORDER not in index.neighbours(conn, [ORDER])
+        assert ORDER in index.neighbours(conn, [PAY])                      # either direction
+        assert index.neighbours(conn, [ORDER, PAY]) >= {DTO} and not {ORDER, PAY} & index.neighbours(conn, [ORDER, PAY])
+        assert index.neighbours(conn, []) == set() and index.neighbours(conn, [PAGE, "no-colon"]) == set()
+    finally:
+        conn.close()
+
+
 def test_types_and_page_titles(world):
     kit, ops, index, one, two = world
     story = ops.add("story", "Checkout")["id"]

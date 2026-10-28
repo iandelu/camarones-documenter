@@ -62,18 +62,22 @@ TEXT = {
 }
 
 
-def _commits(repo: str, months: int) -> list[dict]:
+def commits(repo: str, months: int) -> list[dict]:
+    """The human commits of a repo in the last `months`, newest first, with the files each changed (lockfiles and build
+    folders left out); empty when git cannot read the repo."""
     log = out(["git", "-C", str(repo_dir(repo)), "log", f"--since={months}.months", "--no-merges", "--no-renames",
                "--format=%x1e%aN%x09%s", "--name-only"])
-    commits = []
-    for chunk in log.split("\x1e")[1:]:
+    found = []
+    for chunk in log.split("\x1e"):                                  # `out` strips the record mark in front of the first one
+        if not chunk.strip():
+            continue
         head, *files = chunk.strip("\n").split("\n")
         author, _, subject = head.partition("\t")
         if BOT.search(author):
             continue
-        commits.append({"author": author, "subject": subject,
-                        "files": [f for f in files if f.strip() and not NOISE.search(f)]})
-    return commits
+        found.append({"author": author, "subject": subject,
+                      "files": [f for f in files if f.strip() and not NOISE.search(f)]})
+    return found
 
 
 def _rank(counter: Counter) -> list[tuple]:
@@ -85,9 +89,9 @@ def mine(months: int = 12, top: int = 10) -> dict:
     for repo in docs.repo_names():
         if not (repo_dir(repo) / ".git").exists():
             continue
-        commits = _commits(repo, months)
+        found = commits(repo, months)
         files, owners, pairs, areas = Counter(), Counter(), Counter(), {}
-        for c in commits:
+        for c in found:
             files.update(set(c["files"]))
             owners[c["author"]] += 1
             code = sorted({f for f in c["files"] if not MANIFEST.search(f)})
@@ -97,11 +101,11 @@ def mine(months: int = 12, top: int = 10) -> dict:
                 areas.setdefault(c["author"], Counter())[f.rpartition("/")[0] or "."] += 1
             for k in set(TICKET.findall(c["subject"])):
                 keys.setdefault(k, set()).add(repo)
-        repos[repo] = {"commits": len(commits), "hotspots": _rank(files)[:top], "owners": _rank(owners)[:top],
+        repos[repo] = {"commits": len(found), "hotspots": _rank(files)[:top], "owners": _rank(owners)[:top],
                        "co_change": [p for p in _rank(pairs) if p[1] > 1][:top],
                        "areas": {a: _rank(c)[0][0] for a, c in areas.items()},
-                       "conventional": (sum(1 for c in commits if CONVENTIONAL.match(c["subject"])), len(commits)),
-                       "tickets": sum(1 for c in commits if TICKET.search(c["subject"]))}
+                       "conventional": (sum(1 for c in found if CONVENTIONAL.match(c["subject"])), len(found)),
+                       "tickets": sum(1 for c in found if TICKET.search(c["subject"]))}
     across = sorted(((k, sorted(v)) for k, v in keys.items() if len(v) > 1), key=lambda kv: kv[0])
     return {"months": months, "repos": repos, "across": across}
 

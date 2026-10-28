@@ -1,4 +1,4 @@
-import { docsTrees, sortedDirs, byTitle } from './tree.js'
+import { docsTrees, sortedDirs, byTitle, adrStatusLabel, adrTone } from './tree.js'
 import { core } from '../core.js'
 
 
@@ -28,7 +28,8 @@ export default function DocsTree({ active = '', onChange }) {
   const leaf = (d, label) => (
     <a key={d.path} href={core.hrefFor(d.path)} className={d.path === active ? 'on' : ''} title={t('trust.' + d.trust)}
       aria-current={d.path === active ? 'page' : undefined}>
-      <span className={'dot ' + (d.trust || '')} aria-hidden="true"></span>{label || d.title}</a>
+      <span className={'dot ' + (d.trust || '')} aria-hidden="true"></span>{label || d.title}
+      {d.adr_status && <span className="adr-chip" data-tone={adrTone(d.adr_status) || 'none'}>{t(adrStatusLabel(d.adr_status))}</span>}</a>
   )
   const node = (n) => [
     ...n.pages.slice().sort(byTitle(lang)).map((d) => leaf(d)),

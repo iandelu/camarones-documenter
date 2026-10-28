@@ -8,10 +8,17 @@ import { lang, t } from './i18n.js'
 
 // The pieces the sections share: the page, the agent picker, a fold, a job's outcome and a plan unit's row.
 
-// `wide` widens the page; `full` takes the whole window, however wide, and its height (the Board's columns).
-export const Page = ({ title, children, wide = false, full = false }) => (
-  <div className={'dk-page' + (wide ? ' wide' : '') + (full ? ' full' : '')}><h1 className="t-impact">{title}</h1>{children}</div>
-)
+// `wide` widens the page; `full` takes the whole window, however wide, and its height (the Board's columns). `actions`
+// sit beside the title (Decisiones: Candidatas, Nuevo ADR).
+export const Page = ({ title, actions = null, children, wide = false, full = false }) => {
+  const h1 = <h1 className="t-impact">{title}</h1>
+  return (
+    <div className={'dk-page' + (wide ? ' wide' : '') + (full ? ' full' : '')}>
+      {actions ? <div className="dk-page-head">{h1}<div className="row dk-page-acts">{actions}</div></div> : h1}
+      {children}
+    </div>
+  )
+}
 
 // A read that failed: what, the server's own message, and a way out.
 export const Failed = ({ title, detail, onRetry }) => (
