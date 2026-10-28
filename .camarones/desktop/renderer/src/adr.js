@@ -156,13 +156,18 @@ export function reviewKey(e, ctx) {
 // What an action does on the part in view: {go}, {present}, {pick: option id}, {edit: 'text' | 'rationale'},
 // {defer: 'part' | 'point'}, {accept: true} (confirm first), or, when accept is refused, {go, blocked} to the part in
 // the way. A decided ADR only moves and presents; null when the action has nothing to do here.
+// ctx.adding (the add-point form is in view) and ctx.editing (the part's text is being written): Esc closes that first,
+// as it does a dialog, and P still presents. With the form open no key reaches the part behind it; while editing none
+// defers, chooses or accepts, which would act on or drop the text unsaved. Moving keeps it: drafts are kept by part.
 export function keyEffect(adr, current, act, ctx) {
   if (!act) return null
   const present = !!ctx?.present
-  if (act.do === 'next' || act.do === 'prev') return { go: nextPart(reviewParts(adr), current, act.do === 'next' ? 1 : -1) }
   if (act.do === 'toggle') return { present: !present }
-  if (act.do === 'exit') return present ? { present: false } : null
+  if (act.do === 'exit') return ctx?.adding ? { close: 'adding' } : ctx?.editing ? { close: 'editing' } : present ? { present: false } : null
+  if (ctx?.adding) return null
+  if (act.do === 'next' || act.do === 'prev') return { go: nextPart(reviewParts(adr), current, act.do === 'next' ? 1 : -1) }
   if (decided(adr)) return null
+  if (ctx?.editing) return act.do === 'edit' ? { edit: 'text' } : null
   const kind = partKind(current)
   if (act.do === 'choose') {
     const option = kind === 'point' ? pointOf(adr, current)?.options?.[act.n - 1] : null
