@@ -142,3 +142,26 @@ test('a chunk gets a screen only for a terminal the canvas shows, or a new one',
   expect(needsScreen('t-c-1', list, now)).toBe(false)
   expect(needsScreen('t-a-1', [], now)).toBe(true)
 })
+
+// Per unit its newest terminal decides: the person closed it, or it folded away, and an older failed one stays gone.
+test('a unit whose newest terminal was closed or folded shows none of its older ones', () => {
+  const T = (id, f = {}) => ({ id, kind: 'unit', unit: 'a', started: 100, ended: null, code: null, closed: false, ...f })
+  const now = 200_000
+  const failed = T('t-a-1', { started: 50, ended: 60, code: 1 })
+  expect(shown([failed, T('t-a-2', { ended: 199, code: -1, closed: true })], now).units.size).toBe(0)
+  expect(shown([failed, T('t-a-2', { closed: true })], now).units.size).toBe(0)
+  expect(shown([T('t-a-2', { ended: 150, code: 0 }), failed], now).units.size).toBe(0)
+  expect(shown([failed], now).units.get('a')).toBe(failed)
+})
+
+test('loose terminals fold, leave once closed and keep their start order', () => {
+  const L = (id, f = {}) => ({ id, kind: 'update', unit: null, started: 100, ended: null, code: null, closed: false, ...f })
+  const now = 200_000
+  const late = L('t-update-2', { started: 120 })
+  const early = L('t-update-1', { started: 90 })
+  const failed = L('t-update-3', { started: 80, ended: 85, code: 2 })
+  const list = [late, early, failed, L('t-update-4', { ended: 150, code: 0 }), L('t-update-5', { closed: true }),
+    L('t-update-6', { ended: 199, code: 0 })]
+  expect(shown(list, now).loose.map((x) => x.id)).toEqual(['t-update-3', 't-update-1', 't-update-6', 't-update-2'])
+  expect(list[0]).toBe(late)
+})
