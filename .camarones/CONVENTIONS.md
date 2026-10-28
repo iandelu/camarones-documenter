@@ -148,6 +148,19 @@ ERD · ownership table (table → writer services → reader services) · migrat
 **Decision** (`docs/decisions/NNNN-<slug>.md`, `type: decision`, `x-owner: human` once accepted)
 Status · Context · Decision · Consequences · Evidence. Agents may only create `Status: proposed`.
 
+Optional sections, in this order, left out when they have nothing to say: **Decision drivers** (after Context),
+**Considered options** (after the drivers), **Confirmation** (how the team will know the decision is followed: a test,
+a check, a review step), **Diagram** (a Mermaid block, section 5, when a picture explains the options or the result)
+and **Decided by** (who decided, written by the person who accepts the ADR, never by an agent). The kit also reads the
+Spanish headings (`Estado`, `Contexto`, `Drivers`, `Opciones consideradas`, `Decisión`, `Consecuencias`,
+`Confirmación`, `Diagrama`, `Evidencia`, `Decidido por`).
+
+An ADR with a working state in `docs/.work/adr/<NNNN>.yaml` is being decided by people (the desktop app's
+*Decisiones*): its parts, decision points, chosen options and attendees live there. Agents never rewrite such an ADR.
+Once accepted it is closed: to change the decision, write a new ADR that supersedes it. An ADR with no working state
+(one a person wrote, or an older kit) is read as it is and never rewritten until a person accepts or rejects it in a
+session.
+
 **Domain** (`docs/domain/`): `bounded-contexts.md` (context map, which repo implements which context),
 `glossary.md` (term · definition · code name · context · avoid), `actors.md` (people & external systems). **Avoid** is
 optional: comma-separated synonyms not to use (`purchase, request` for *Order*); `CLI check` warns wherever they appear
