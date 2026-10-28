@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, expect, test } from 'vitest'
 import { matrix } from '@camaron/ui/libs.js'
-import Libs, { Library, ScanStatus } from './sections/Libs.jsx'
+import Libs, { Library, ScanStatus, Where } from './sections/Libs.jsx'
 import { setLang } from './i18n.js'
 
 const srv = { get: () => new Promise(() => {}), post: () => new Promise(() => {}) }
@@ -22,6 +22,16 @@ test('Libraries is its own section of the app', () => {
   const out = renderToStaticMarkup(<Libs srv={srv} jobs={null} />)
   expect(out).toContain('Librerías')
   expect(out).toContain('Buscar vulnerabilidades')
+})
+
+test('a line of the table names its repos, the flagged ones first, so their columns need no scrolling', () => {
+  const many = ['wallet-adapter', 'backoffice-app', 'integration-service', 'lobby-service', 'content-service']
+    .map((repo) => ({ ...rows[0], repo, vulns: repo === 'integration-service' ? vulns : [] }))
+  const out = renderToStaticMarkup(<Where item={matrix(many).items[0]} />)
+  expect(out).toMatch(/^<span class="dk-where[^"]*">en <b class="dk-where-bad">integration-service<\/b>/)
+  expect(out.indexOf('integration-service')).toBeLessThan(out.indexOf('backoffice-app'))
+  expect(out).toContain('+2 más')
+  expect(out).not.toContain('wallet-adapter')
 })
 
 test('a library opens on why it is there: the repo, its manifest, the range and the scope', () => {

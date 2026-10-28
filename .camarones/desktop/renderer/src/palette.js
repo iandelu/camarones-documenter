@@ -2,7 +2,7 @@ import { inPanel, sectionFor } from './catalog.js'
 
 // The ⌘K palette and the `g` shortcuts, pure: which letter goes where, what the palette lists, how a query picks.
 
-export const GO = { s: 'summary', b: 'board', a: 'decisions', p: 'plan', i: 'interviews', t: 'team', q: 'quality', l: 'libs', d: 'docs', m: 'machine', k: 'kitdev' }
+export const GO = { s: 'summary', b: 'board', a: 'decisions', p: 'plan', i: 'interviews', t: 'team', q: 'quality', l: 'libs', d: 'docs', m: 'machine', h: 'guide', k: 'kitdev' }
 export const keyFor = (section) => Object.keys(GO).find((k) => GO[k] === section)
 const CHORD_MS = 1500
 
@@ -18,7 +18,7 @@ export const typing = (el) => !!el && (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagNa
 
 // The palette's groups: this window's sections with their shortcut, the other projects of this machine (opened in
 // this window), the actions that leave the app for the portal, and the commands, each taken to where it runs.
-export function entries({ sections, projects = [], commands = [], t, lang = 'es' }) {
+export function entries({ sections, projects = [], commands = [], guide = [], t, lang = 'es' }) {
   return [
     { id: 'sections', label: t('pal.sections'),
       items: sections.map((s) => ({ id: `go:${s}`, label: t('nav.' + s), keys: ['g', keyFor(s)], href: `#/${s}` })) },
@@ -28,21 +28,24 @@ export function entries({ sections, projects = [], commands = [], t, lang = 'es'
       { id: 'read', label: t('docs.read'), href: '../#/' },
       { id: 'review', label: t('docs.review'), href: '../#/review' },
       { id: 'search', label: t('docs.search'), href: '../#/search' },
-      { id: 'add', label: t('rail.add'), action: 'add' }] },
+      { id: 'add', label: t('rail.add'), action: 'add' },
+      { id: 'tour', label: t('tour.take'), action: 'tour' }] },
     { id: 'commands', label: t('pal.commands'), items: commands.flatMap((c) => {
       const s = sectionFor(c, sections)
       return s ? [{ id: `cmd:${c.name}`, label: c[lang] || c.en, sub: `camaron ${c.name}`, href: inPanel(c) ? `#/${s}` : `#/${s}/${c.name}` }] : []
     }) },
+    { id: 'guide', label: t('pal.guide'), items: guide },
   ]
 }
 
 const norm = (s) => String(s || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
 
 // Every word of the query in the label or its hint, accents and case aside; labels that start with the first word go
-// first, then the ones with a word that does. With no query, all but the commands (they show once you type).
+// first, then the ones with a word that does. With no query, all but the commands and the guide's chapters (they show
+// once you type).
 export function pick(groups, q) {
   const words = norm(q).split(/\s+/).filter(Boolean)
-  if (!words.length) return groups.filter((g) => g.id !== 'commands' && g.items.length)
+  if (!words.length) return groups.filter((g) => g.id !== 'commands' && g.id !== 'guide' && g.items.length)
   const rank = (it) => {
     const l = norm(it.label)
     return l.startsWith(words[0]) ? 0 : l.split(/[\s/-]+/).some((w) => w.startsWith(words[0])) ? 1 : 2

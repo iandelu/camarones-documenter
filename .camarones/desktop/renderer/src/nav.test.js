@@ -3,8 +3,14 @@ import { firstRunPending, firstRunRoute, initials, MACHINE, PROJECT, sectionOf, 
 
 test('a project has its sections; this machine has its own, Kit dev only in a kit checkout', () => {
   expect(PROJECT).toEqual(['summary', 'board', 'decisions', 'plan', 'interviews', 'team', 'quality', 'libs', 'docs'])
-  expect(sections({ kitdev: false }).machine).toEqual(['machine'])
+  expect(sections({ kitdev: false }).machine).toEqual(['machine', 'guide'])
   expect(sections({ kitdev: true }).machine).toEqual(MACHINE)
+  expect(MACHINE).toEqual(['machine', 'guide', 'kitdev'])
+})
+
+test('the guide is a place of this app, with a guide and a chapter in its address', () => {
+  expect(sectionOf('#/guide', {})).toBe('guide')
+  expect(sectionOf('#/guide/app/plan', {})).toBe('guide')
 })
 
 test('the board sits right after the summary', () => {

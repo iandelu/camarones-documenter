@@ -28,16 +28,15 @@ test('the export searches instead of asking', () => {
   expect(renderToStaticMarkup(<Home />)).toContain('aria-label="search"')
 })
 
-test('an empty project offers the first look in the app; the browser shows no button it cannot run', () => {
+// The first look runs in the desktop app (Docs); the portal shows no button it cannot run.
+test('an empty project leads to the Pipeline and the tutorial, with no first-look button', () => {
   const empty = { ...documented, docs: [], kitGuides: ['guides/tutorial.md'] }
-  fake(empty, 'app')
-  const app = renderToStaticMarkup(<Home />)
-  expect(app).toContain('cu-btn--primary')
-  expect(app).toContain('href="#/docs/guides/tutorial.md"')
   fake(empty, 'live')
   const live = renderToStaticMarkup(<Home />)
   expect(live).not.toContain('cu-btn--primary')
-  expect(live).not.toContain('appOnly')                                     // no "open it in the app" since 4.53
+  expect(live).not.toContain('joblog')
+  expect(live).toContain('href="#/pipeline"')
+  expect(live).toContain('href="#/docs/guides/tutorial.md"')
   fake(empty, 'static')
   expect(renderToStaticMarkup(<Home />)).not.toContain('#/pipeline')
 })

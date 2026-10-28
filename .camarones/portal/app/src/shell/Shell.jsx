@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
-import { Brand, Breadcrumbs, Button, Chip, Keys, SkipLink } from '@camaron/ui'
+import { Brand, Breadcrumbs, Chip, Keys, SkipLink } from '@camaron/ui'
 import '@camaron/ui/ui.css'
 import Native from '../Native.jsx'
 import Palette from '../views/Palette.jsx'
@@ -10,7 +10,6 @@ import { CodeSide } from '../views/CodeMap.jsx'
 import { ArchSide } from '../views/C4.jsx'
 import { drawToc, scrollToAnchor, wireDocs } from '../content/doc.js'
 import { t as tr } from '../i18n.js'
-import { APP } from '../api.js'
 import { resolve } from '../router.js'
 import { crumbs, locate, zonesFor } from '../zones.js'
 import { core } from '../core.js'
@@ -67,7 +66,6 @@ export default function Shell() {
     addEventListener('hashchange', onHash)
     addEventListener('keydown', onKey)
     document.body.classList.add('native-mode')
-    document.documentElement.classList.toggle('in-app', !!APP)   // the header is the window's title bar (portal.css)
     document.body.dataset.audience = audience()      // `:::tech` blocks follow the reader's audience (DocsTree)
     wireDocs()
     core.boot().then(() => { setReady(true); go() }, (e) => setFailed(e.message || String(e)))
@@ -90,15 +88,10 @@ export default function Shell() {
           <Keys keys={MAC ? ['⌘', 'K'] : ['Ctrl', 'K']} />
         </button>
         <div className="tools">
-          {/* in the desktop app: its own UI is one folder down on this server (desktop/renderer) */}
-          {APP && <Button variant="ghost" size="sm" href="./desktop/#/summary">{tr('shell.app')}</Button>}
           {index && <Summary s={index.summary || {}} feedback={index.feedback} t={t} />}
           {index && <Language index={index} core={core} onChange={go} />}
           <button className="ghost icon" type="button" aria-label={tr('shell.theme')} title={tr('shell.theme')}
             onClick={() => { core.toggleTheme(); go() }}>◐</button>
-          {/* the app has no menu bar on screen (its header is the title bar): this opens the app menu under itself */}
-          {APP?.menu && <button className="ghost icon" type="button" aria-label={t('appMenu')} title={t('appMenu')}
-            onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); APP.menu(r.left, r.bottom) }}>⋯</button>}
         </div>
       </header>
       {core.isStatic() && <div id="ro" className="ro aviso" dangerouslySetInnerHTML={{ __html: t('readOnly') }} />}

@@ -19,16 +19,18 @@ export default function Docs({ srv, jobs, app, index }) {
   const { running } = useStore(jobs || NO_JOBS)
   return (
     <Page title={t('nav.docs')}>
-      <div className="row">
+      <div className="row" data-tour="docs-portal">
         <Button variant="primary" onClick={() => open('#/')}>{t('docs.read')}</Button>
         <Button onClick={() => open('#/review')}>{t('docs.review')}</Button>
         <Button variant="ghost" onClick={() => open('#/search')}>{t('docs.search')}</Button>
       </div>
-      <Build srv={srv} jobs={jobs} card={c4Card} title={t('docs.c4')} hint={t('docs.c4Hint')} onView={() => open(c4Card.hash)} />
+      <div data-tour="docs-c4"><Build srv={srv} jobs={jobs} card={c4Card} title={t('docs.c4')} hint={t('docs.c4Hint')} onView={() => open(c4Card.hash)} /></div>
       {failed ? <WikisUnread kept={!!rows} onRetry={reload} /> : null}
-      {wikiBlocks(index, rows).map((b) => (               // a failed read is said once, above: the blocks do not repeat it
-        <WikiBlock key={b.repo} srv={srv} jobs={jobs} block={b} loading={loading || failed} busyWith={wikiBusyWith(running, b.repo)}
-          onView={() => open(b.hash)} onDone={reload} />))}
+      <div className="dk-stack" data-tour="docs-wikis">
+        {wikiBlocks(index, rows).map((b) => (             // a failed read is said once, above: the blocks do not repeat it
+          <WikiBlock key={b.repo} srv={srv} jobs={jobs} block={b} loading={loading || failed} busyWith={wikiBusyWith(running, b.repo)}
+            onView={() => open(b.hash)} onDone={reload} />))}
+      </div>
       <Ask srv={srv} open={open} />
     </Page>
   )
@@ -138,7 +140,7 @@ function Ask({ srv, open }) {
     }
   }
   return (
-    <Card className="dk-run">
+    <Card className="dk-run" data-tour="docs-ask">
       <span className="eyebrow">{t('docs.ask')}</span>
       <p className="muted small">{t('docs.askHint')}</p>
       <form className="row" onSubmit={submit}>

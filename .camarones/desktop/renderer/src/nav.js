@@ -1,10 +1,10 @@
 // The app's places, pure: a project's sections, this machine's, which one an address asks for, a project's initials.
 
 export const PROJECT = ['summary', 'board', 'decisions', 'plan', 'interviews', 'team', 'quality', 'libs', 'docs']
-export const MACHINE = ['machine', 'kitdev']
+export const MACHINE = ['machine', 'guide', 'kitdev']
 
 // Kit dev is the bench of a checkout of the kit (lib/kitdev.py): only there.
-export const sections = ({ kitdev }) => ({ project: PROJECT, machine: kitdev ? MACHINE : ['machine'] })
+export const sections = ({ kitdev }) => ({ project: PROJECT, machine: kitdev ? MACHINE : MACHINE.filter((s) => s !== 'kitdev') })
 
 // The first-run wizard (#/start): a place of its own, full width, never listed in the nav.
 export const START = 'start'
