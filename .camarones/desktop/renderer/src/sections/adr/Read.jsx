@@ -1,0 +1,113 @@
+import { Aviso, Button, Chip } from '@camaron/ui'
+import { stepper } from '../../adr.js'
+import { t } from '../../i18n.js'
+import { Page } from '../../parts.jsx'
+import { Prose } from './Prose.jsx'
+
+// What the screens of one ADR share: its title, the head line (status chip, kind, repos, file), the stepper, its status
+// as the file words it and its sections read as they are. LegacyView is an ADR with no working state (the kit did not
+// write it, or wrote it before this section): read-only, with the way into a review session.
+
+export const CHIPS = ['running', 'review', 'proposed', 'accepted', 'superseded', 'rejected', 'deprecated', 'unknown']   // lib/adr.py
+const TONE = { running: 'info', review: 'warn', accepted: 'ok' }
+const SECTIONS = ['context', 'drivers', 'options', 'decision', 'consequences', 'confirmation', 'diagram', 'evidence', 'decided_by']
+
+// The chip the server derived, else the file's status (a hand-made row may carry either), else none known.
+export const chipOf = (adr) => [adr?.chip, adr?.status].find((c) => CHIPS.includes(c)) || 'unknown'
+export const StatusChip = ({ chip }) => <Chip state={TONE[chip]}>{t(`adr.chip.${chip}`)}</Chip>
+export const heading = (adr) => [adr?.id, adr?.title].filter(Boolean).join(' · ')
+// A legacy ADR's kind is the server's default, not something anyone said: it reads as legacy instead.
+export const kindWord = (adr) => (adr?.legacy ? t('adr.legacy') : ['new', 'retro'].includes(adr?.kind) ? t(`adr.kind.${adr.kind}`) : '')
+
+export function AdrHead({ adr }) {
+  const meta = [kindWord(adr), (adr.repos || []).join(', ')].filter(Boolean).join(' · ')
+  return (
+    <div className="dk-adr-head">
+      <StatusChip chip={chipOf(adr)} />
+      {meta ? <span className="muted small">{meta}</span> : null}
+      {adr.path ? <code className="dk-adr-path">{adr.path}</code> : null}
+    </div>
+  )
+}
+
+const GLYPH = { done: '✓', current: '●', todo: '○' }
+
+// Where the ADR stands (adr.js `stepper`); the steps writing without AI skips are left out. The last step, once
+// reached, is an end: accepted reads as done, rejected as crossed out.
+export function Stepper({ phase, mode }) {
+  const steps = stepper(phase, mode).filter((s) => s.state !== 'skipped')
+  return (
+    <ol className="dk-adr-steps" aria-label={t('adr.steps')}>
+      {steps.map((s, i) => {
+        const end = s.state === 'current' && i === steps.length - 1
+        const cls = [s.state, end && (s.id === 'rejected' ? 'rejected' : 'end')].filter(Boolean).join(' ')
+        return (
+          <li key={s.id} className={cls} aria-current={s.state === 'current' ? 'step' : undefined}>
+            <span className="dk-adr-glyph" aria-hidden="true">{end ? (s.id === 'rejected' ? '✕' : '✓') : GLYPH[s.state]}</span>
+            {t(`adr.step.${s.id}`)}
+            {s.state === 'done' ? <span className="sr-only">{` (${t('adr.stepDone')})`}</span> : null}
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
+export const said = (text) => String(text ?? '').replace(/<!--[\s\S]*?-->/g, '').trim()
+
+// The Status and Decided by sections as the file words them (a date, a rejection's reason, what supersedes it): the chip
+// says the word, this the detail. A superseded ADR links to the one that took its place.
+export function StatusNote({ adr, children = null }) {
+  const status = said(adr?.sections?.status)
+  const rows = [[t('adr.review.status'), status], [t('adr.sec.decided_by'), said(adr?.sections?.decided_by)]].filter(([, x]) => x)
+  const by = chipOf(adr) === 'superseded' ? status.match(/\[(\d{4})\]/)?.[1] : null
+  if (!rows.length && !children) return null
+  return (
+    <div className="dk-adr-status">
+      {rows.length ? (
+        <dl className="dk-adr-dl">
+          {rows.map(([k, x]) => <div key={k} className="dk-adr-dlrow"><dt>{k}</dt><dd><Prose text={x} /></dd></div>)}
+        </dl>) : null}
+      {by ? <a href={`#/decisions/${by}`}>{t('adr.review.supersededBy', { id: by })}</a> : null}
+      {children}
+    </div>
+  )
+}
+
+export function Sections({ sections }) {
+  const shown = SECTIONS.filter((k) => said(sections?.[k]))
+  if (!shown.length) return <p className="muted">{t('adr.noSections')}</p>
+  return (
+    <article className="dk-adr-doc">
+      {shown.map((k) => (
+        <section key={k} aria-labelledby={`adr-sec-${k}`}>
+          <h2 id={`adr-sec-${k}`} className="dk-adr-sec">{t(`adr.sec.${k}`)}</h2>
+          <Prose text={sections[k]} />
+        </section>
+      ))}
+    </article>
+  )
+}
+
+// Only an open one (proposed, or a status nobody can read) offers a review: a decided ADR is closed, and changing it is
+// a new ADR that supersedes it (lib/adr.py `start_review` refuses it too).
+export function LegacyView({ adr, busy = false, error = '', notice = '', onReview }) {
+  const open = ['proposed', 'unknown'].includes(chipOf(adr))
+  return (
+    <Page title={heading(adr)}>
+      <AdrHead adr={adr} />
+      {open ? null : (
+        <StatusNote adr={adr}>
+          <p className="muted small">{t('adr.review.closed')} <a href="#/decisions/new">{t('adr.new')}</a></p>
+        </StatusNote>)}
+      {notice ? <Aviso tone="info" title={notice} /> : null}
+      {open ? (
+        <Aviso tone="info" title={t('adr.legacy.title')} action={
+          <Button variant="primary" size="sm" disabled={busy} aria-busy={busy || undefined} onClick={onReview}>{t('adr.legacy.review')}</Button>}>
+          {t('adr.legacy.body')}
+        </Aviso>) : null}
+      {error ? <Aviso tone="error" title={t('adr.legacy.failed')} detail={error} /> : null}
+      <Sections sections={adr.sections} />
+    </Page>
+  )
+}

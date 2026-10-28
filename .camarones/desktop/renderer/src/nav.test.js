@@ -2,7 +2,7 @@ import { expect, test } from 'vitest'
 import { firstRunPending, firstRunRoute, initials, MACHINE, PROJECT, sectionOf, sections, termOf, tokenPrefill } from './nav.js'
 
 test('a project has its sections; this machine has its own, Kit dev only in a kit checkout', () => {
-  expect(PROJECT).toEqual(['summary', 'board', 'plan', 'interviews', 'team', 'quality', 'libs', 'docs'])
+  expect(PROJECT).toEqual(['summary', 'board', 'decisions', 'plan', 'interviews', 'team', 'quality', 'libs', 'docs'])
   expect(sections({ kitdev: false }).machine).toEqual(['machine', 'guide'])
   expect(sections({ kitdev: true }).machine).toEqual(MACHINE)
   expect(MACHINE).toEqual(['machine', 'guide', 'kitdev'])
@@ -16,6 +16,13 @@ test('the guide is a place of this app, with a guide and a chapter in its addres
 test('the board sits right after the summary', () => {
   expect(PROJECT[1]).toBe('board')
   expect(sectionOf('#/board', {})).toBe('board')
+})
+
+test('the decisions sit right after the board, and every place inside them is theirs', () => {
+  expect(PROJECT[2]).toBe('decisions')
+  expect(sectionOf('#/decisions', {})).toBe('decisions')
+  expect(sectionOf('#/decisions/0012', {})).toBe('decisions')
+  expect(sectionOf('#/decisions/new', {})).toBe('decisions')
 })
 
 test('the address picks the section; anything else is the summary', () => {

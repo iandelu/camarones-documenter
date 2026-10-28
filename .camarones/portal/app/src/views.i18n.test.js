@@ -55,6 +55,23 @@ test('the copy the design agreed on, word for word', () => {
   expect(['Bien', 'Mejorable', 'Mal', 'Sin revisar']).toEqual(['good', 'improve', 'poor', 'none'].map((v) => I18N.es[`stories.verdict.short.${v}`]))
 })
 
+test('the decision strings of the docs tree and pages exist in es and en, and say what the design agreed', () => {
+  const keys = ['banner.adrPending', 'banner.adr', ...['proposed', 'accepted', 'rejected', 'superseded', 'deprecated', 'unknown'].map((s) => `adr.${s}`)]
+  for (const k of keys) {
+    expect(I18N.en[k], `en.${k}`).toBeTruthy()
+    expect(I18N.es[k], `es.${k}`).toBeTruthy()
+    expect(ph(I18N.es[k]), k).toEqual(ph(I18N.en[k]))
+  }
+  expect(I18N.es['banner.adrPending']).toBe('Decisión {id} aceptada, pendiente de implementar: esta página describe el código de hoy.')
+  expect(I18N.en['banner.adrPending']).toBe("Decision {id} accepted, pending implementation: this page describes today's code.")
+  expect(I18N.es['banner.adr']).toBe('Esta página la cubre la decisión {id}.')
+  expect(I18N.en['banner.adr']).toBe('Decision {id} covers this page.')
+  expect(['Propuesta', 'Aceptada', 'Rechazada', 'Sustituida', 'Obsoleta', 'Sin estado'])
+    .toEqual(['proposed', 'accepted', 'rejected', 'superseded', 'deprecated', 'unknown'].map((s) => I18N.es[`adr.${s}`]))
+  expect(['Proposed', 'Accepted', 'Rejected', 'Superseded', 'Deprecated', 'No status'])
+    .toEqual(['proposed', 'accepted', 'rejected', 'superseded', 'deprecated', 'unknown'].map((s) => I18N.en[`adr.${s}`]))
+})
+
 // The browser portal runs nothing on the machine: its words never send people there for wikis, builds or runs.
 test('the portal never promises machine work', () => {
   for (const lang of ['en', 'es']) {

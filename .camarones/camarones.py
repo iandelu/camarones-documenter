@@ -123,6 +123,9 @@
                             show ID | move ID STATUS | assign ID WHO | link ID REF | archive ID | repair
                             (list: --status --epic --repo --label --docs suspect|unconfirmed; add: --epic --repo
                             --label --priority --doc; move: --before/--after ID); merge-driver is git's, not yours
+  adr ACTION [ARGS] [--json]   the decisions (docs/decisions): list | new TITLE --kind new|retro [--problem T]
+                            [--touch REPO:PATH] [--supersedes N] | show ID | pack ID (the evidence) | candidates |
+                            write ID (the proposed file, no AI) | accept ID [--attendee NAME] | reject ID --why T
   hooks [on|off] [--json]   method hooks for Claude Code in cam-docs: the plan state at session start, a check of each
                             docs page right after it is edited, a reminder to update the docs before stopping
   ab --qa "QUESTION" | --golden [--runner T] [--judge T] [--json]
@@ -449,6 +452,8 @@ def build_parser() -> argparse.ArgumentParser:
     cat.add_argument("--markdown", action="store_true"); cat.add_argument("--check", action="store_true")
     from lib.kanban import cli as board_cli
     board_cli.add_parser(sp)
+    from lib import adr_cli
+    adr_cli.add_parser(sp)
     pj = sp.add_parser("projects"); pj.add_argument("--json", action="store_true"); pj.add_argument("--add", type=Path)
     # the desktop start screen's way in (it calls them itself); own dests, apart from `pages --adopt`
     pj.add_argument("--inspect", dest="inspect_dir", type=Path, metavar="DIR", help="what a folder is, writes nothing")
@@ -500,6 +505,9 @@ def main() -> int:
     elif a.cmd == "board":
         from lib.kanban import cli as board_cli
         return board_cli.run(a)
+    elif a.cmd == "adr":
+        from lib import adr_cli
+        return adr_cli.run(a)
     elif a.cmd == "config":
         from lib import machine
         try:

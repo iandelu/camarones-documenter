@@ -18,7 +18,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from .common import CTX, KIT, ROOT, DOCS, CACHE, VERSIONS, out, rel_file
-from . import codemap, docs, env, plan, sourcelinks, usage
+from . import adr_doc, codemap, docs, env, plan, sourcelinks, usage
 
 _log = logging.getLogger("camaron.serve")
 
@@ -68,8 +68,28 @@ def tree() -> dict:
             "summary": docs.summary(rows), "feedback": len(docs.pending_feedback()), "kit": VERSIONS["kit"],
             "repos": docs.repo_names(), "codeGraphs": list(env.code_graphs()), "engines": env.wiki_engines(), "engineHelp": env.wiki_engine_help(), "kitGuides": sorted(docs.kit_guides()),
             "sections": docs.SECTIONS, "views": env.c4_views(), "codeMaps": codemap.available(), "editBase": "",
-            "docs": [{k: r[k] for k in ("path", "file", "title", "description", "type", "space", "trust", "owner", "i18n",
-                                        "orphan_sources")} for r in rows]}
+            "docs": _with_adr_status(rows)}
+
+
+def _with_adr_status(rows: list[dict]) -> list[dict]:
+    """The docs index rows; a decision page (`adr_doc.is_decision`) also says its ADR's status, read from the file as it
+    stands."""
+    keys = ("path", "file", "title", "description", "type", "space", "trust", "owner", "i18n", "orphan_sources")
+    files = dict(docs.iter_docs()) if any(_is_decision(r) for r in rows) else {}
+    out = []
+    for r in rows:
+        row = {k: r[k] for k in keys}
+        if _is_decision(r) and r["path"] in files:
+            try:
+                row["adr_status"] = adr_doc.status_of(docs.split_fm(files[r["path"]].read_text(encoding="utf-8"))[1])[0]
+            except OSError:
+                pass
+        out.append(row)
+    return out
+
+
+def _is_decision(row: dict) -> bool:
+    return adr_doc.is_decision(row["path"], row["type"])
 
 
 def read(path: str, lang: str = "") -> dict:
@@ -256,6 +276,8 @@ def api_doc(q: dict) -> dict:
     d = read(q["path"], q.get("lang", ""))
     d["blocks"] = _blocks(doc_file(q["path"], q.get("lang", "")), d["raw"])
     sourcelinks.with_files(d["sourceInfo"])        # this machine's portal: the reader's editor opens the file
+    from . import adr_api
+    d["decisions"] = adr_api.covering(q["path"])   # the accepted ADRs that cover this page
     if q.get("track"):
         usage.record("portal:doc", channel="human", page=q["path"])
     return d
@@ -1131,6 +1153,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json({"rows": rows, "required_ok": all(r["ok"] for r in rows if r["kind"] == "t_required")})
             if name == "onboard/stack":
                 return self.json(onboard.stack_rows())
+        if name == "adr" or name.startswith("adr/"):
+            from . import adr_api
+            return self.json(*adr_api.get(name, q))
         if (m := re.fullmatch(r"jobs/([\w.-]+)/events", name)) and m.group(1) in JOBS:
             return self.stream_job(JOBS[m.group(1)], int(self.headers.get("Last-Event-ID") or q.get("from") or 0))
         self.json({"error": "not found"}, 404)
@@ -1392,6 +1417,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json(*app_kitdev(b))
             if p.startswith("/api/app/creds"):           # tokens only ever travel in this body, never on a command line
                 return self.json(*app_creds(p[len("/api/app/creds"):], b))
+            if m := re.fullmatch(r"/api/app/adr/([a-z]+)", p):     # the decisions (lib/adr_api.py)
+                from . import adr_api
+                return self.json(*adr_api.post(m.group(1), b, by))
             if p in ("/api/app/terminals", "/api/app/agent"):     # /agent: its old name
                 return self.json(*app_session(b))
             if m := re.fullmatch(r"/api/app/jobs/([\w.-]+)/cancel", p):

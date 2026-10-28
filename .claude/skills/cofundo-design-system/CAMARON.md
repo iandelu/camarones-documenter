@@ -23,6 +23,11 @@ for the portal.
   internal networks and makes no request to third parties.
 - **Density**: the portal is a console. Use the `-sm` sizes, `--consola-radio-*` for cards and controls, and keep
   the display sizes (`--text-display-*`) for the Home hero only.
+  A fifth approved exception: the presentation mode of the desktop review (`.dk-present`, in
+  `desktop/renderer/src/sections/adr/Review.jsx`; `P` enters it, `Esc` leaves), made for a screen shared in a meeting.
+  While it is on, the review takes a larger type scale, all from the theme's tokens: a decision point's question at
+  `--text-display-md`, a part's heading at `--text-h1`, its text at `--text-h3`, the options at `--text-h2`, the meta
+  at `--text-body`. Nowhere else, and never outside presentation mode: the review itself keeps the console sizes.
 - **Icons**: there is no icon system. Text glyphs (`→`) and the existing trust labels only. One approved exception: the
   desktop start screen (`desktop/renderer/src/Hub.jsx`) draws its two option icons (folder, people) as inline SVG; the
   portal keeps text glyphs.

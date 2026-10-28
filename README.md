@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.76.0-ff875f?style=flat-square" alt="Versión 4.76.0">
+  <img src="https://img.shields.io/badge/version-4.77.0-ff875f?style=flat-square" alt="Versión 4.77.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -249,6 +249,7 @@ escribirías en la terminal.
 |---|---|
 | 🏠 **Resumen** (`g s`) | El siguiente paso con un solo botón, avisos de la máquina y cómo van el plan, la revisión y los trabajos |
 | 📋 **Tablero** (`g b`) | El Kanban del proyecto: seis columnas de Backlog a Bloqueado, mover con ratón o teclado, abrir, añadir, eliminar |
+| 📜 **Decisiones** (`g a`) | Los ADR sin IA: plantear una decisión (nueva o retroactiva) o partir de una **candidata** que el código ya tomó, reunir su **evidencia**, revisarla parte por parte y punto por punto, y **aceptarla** o rechazarla |
 | 🗺️ **Plan** (`g p`) | Ejecutar las unidades listas en paralelo o con el piloto automático (se saltan una unidad con su sesión abierta), cada unidad con su botón (aprobar, reintentar, seguir, rehacer), por estado, por fases o en el **lienzo**: el grafo del plan, donde cada unidad que trabaja una ejecución es una terminal en vivo, y **Empezar** o **Seguir** una unidad y la actualización de la doc (**Mantenerla al día**) abren una terminal en la que le escribes al agente (<kbd>F6</kbd> sale de ella; **Cerrar** deja la unidad en pausa, **Quitar** retira una que acabó con error y la actualización va en **Sesiones sueltas**; `camaron config set sessions window` las abre en una ventana); lo que lleva costado el plan (debajo de las unidades) y empezar la documentación otra vez |
 | 🎙️ **Entrevistas** (`g i`) | Cuestionario del equipo o en vivo, exportar e importar respuestas, cerrar la ronda |
 | 🤝 **Equipo** (`g t`) | El repo del equipo y compartir, aprobar lo que llegó con él, hooks y plugins |
@@ -383,6 +384,7 @@ Cada función es un comando `camaron`; `camaron catalog` dice dónde vive cada u
 | Leer y revisar | `up`, `down`, `portal`, `status`, `confirm`, `feedback`, `review`, `fresh`, `translated`, `llms` |
 | Documentación sin IA | `pages` (alias `diagrams`), `blocks`, `schemas`, `inventory`, `bump`, `radar`, `history`, `arch-draft`, `arch-validate`, `graph`, `wiki` |
 | Calidad y medida | `check`, `health`, `kpis`, `stats`, `eval`, `ab`, `changes`, `mark-documented` |
+| Decisiones | `adr` (`list`, `candidates`, `new`, `pack`, `write`, `show`, `accept`, `reject`) |
 | Tablero | `board` (`init`, `add`, `list`, `show`, `move`, `assign`, `link`, `archive`, `repair`, `next`, `waves`, `story`) |
 | CI y exportar | `ci`, `pr` (`fresh`, `propose`), `export` (`pdf`, `tour`, `codetour`, `confluence`, `notion`), `removed`, `checkpoint` |
 | Agentes | `mcp`, `hooks`, `plugins`, `catalog` |
@@ -596,6 +598,36 @@ sesiones; mientras dura una ejecución el ordenador no se suspende. `camaron doc
 cada sesión de agente (avisa por encima de 6000; `context: {budget: N}`). `camaron hooks on` añade tres hooks de Claude
 Code: el estado del plan al empezar, la revisión de cada página al editarla y un recordatorio si los repos cambiaron.
 `camaron eval comply <unidad>` ejecuta una unidad de verdad y puntúa lo escrito, sin IA (para el sandbox).
+
+</details>
+
+<details>
+<summary><strong>Decisiones (ADR)</strong></summary>
+
+Un ADR deja por escrito por qué el código es como es, y casi siempre se escribe tarde o no se escribe. La sección **Decisiones** (`g a`) de la app de escritorio ayuda a *tomar* la decisión con la evidencia delante y a dejarla escrita, y **funciona entera sin IA**: no hace falta ningún agente instalado. El ADR vive en `docs/decisions/<NNNN>-<título>.md`, y lo que la revisión va decidiendo (partes, puntos, asistentes) queda aparte en `docs/.work/adr/<NNNN>.yaml`, que va a git.
+
+1. **Plantea.** **Nuevo ADR** pide un título y de qué va: *nuevo* (algo que el código aún no hace) o *retroactivo* (algo que el código ya hace y nadie dejó escrito). Opcionalmente, el problema, los drivers, las restricciones, las opciones candidatas y a qué ADR sustituye. En **Toca** buscas los ficheros, los grupos del mapa del código y las páginas de documentación que afecta, con el mismo buscador que Historias. El número se reserva al crearlo; si un pull trae otro ADR con ese número, se usa el siguiente libre al escribir el fichero y la app lo dice.
+2. **Candidatas.** Las decisiones que el código ya tomó y que ningún ADR nombra, sin IA: las librerías de datos, caché, mensajería, seguridad y frameworks del inventario (solo las de runtime), las tecnologías del C4 y los ficheros de despliegue (Docker Compose, Helm). **Crear ADR retro** abre el formulario con el título y lo que toca ya puestos. Sin inventario ni modelo C4 solo salen los ficheros de despliegue (Docker Compose, Helm); `camaron inventory` añade las librerías. Una lista vacía no es un error.
+3. **Evidencia.** El *paquete de evidencia* reúne lo que el proyecto ya sabe de lo que toca el ADR: los ficheros vecinos en el grafo del código, las páginas de documentación que los citan, otros ADR relacionados, los commits del último año, los elementos del C4, las librerías y las preguntas abiertas. Sale de lo que ya hay (grafo, documentación, git, C4, inventario y `open-questions.md`), no llama a ningún modelo y se guarda en `.camarones/.cache/adr/<NNNN>/` (fuera de git). **Escribir sin IA** escribe el ADR propuesto con la plantilla, con el problema, los drivers, las opciones, lo que toca y la evidencia del paquete ya puestos; un proyecto nuevo, sin grafo ni historial, recibe un paquete con las secciones vacías.
+4. **Revisa y decide.** La revisión recorre el ADR **parte por parte** (cada sección se aprueba, se edita o se aplaza, más las páginas de documentación afectadas: las que toca el ADR y las que citan los ficheros que toca, las mismas que, al aceptarlo, dirán que esta decisión las cubre) y cada **punto de decisión** (una pregunta con sus opciones, a favor y en contra: eliges una, o *Otra* con lo que se decida en la reunión, y una razón en una línea). Se pueden añadir y quitar puntos, y apuntar los **asistentes**. **Presentar** (`P`) muestra una parte por pantalla, en letra grande, para llevar la reunión compartiendo pantalla, todo con el teclado: <kbd>←</kbd>/<kbd>→</kbd> cambian de parte, <kbd>1</kbd>–<kbd>9</kbd> eligen opción, <kbd>E</kbd> edita, <kbd>D</kbd> aplaza, <kbd>A</kbd> acepta y <kbd>Esc</kbd> sale.
+5. **Acepta, rechaza o sustituye.** **Aceptar** deja el fichero en `Accepted (fecha)`, con `x-owner: human`, confirmado, y una sección *Decided by* con quién decidió; las opciones que se sopesaron en cada punto, con sus a favor y en contra, pasan a *Considered options* (si esa sección ya tenía texto, solo se añaden las que no nombra); si el ADR sustituye a otro, ese queda marcado `Superseded by [NNNN]`. No se acepta lo que no está decidido (un punto aplazado, un punto sin elección, o un ADR sin puntos ni texto en su sección *Decision*, donde un marcador como `<What was chosen.>` o un comentario no cuentan): la app se niega y dice cuál es el que falta. Las secciones que aún tienen un `TODO(question)` no lo impiden, pero el diálogo de aceptar las nombra. **Rechazar** exige un motivo y deja el fichero con `Rejected (fecha): motivo`, para que nadie lo vuelva a proponer sin saber por qué no salió. Una decisión aceptada o rechazada se lee tal cual; para cambiarla, un ADR nuevo que la sustituya.
+
+Si cambias un fichero a mano o con un pull mientras lo revisas, la app lo detecta (el guardado falla con un aviso, no pisa nada) y lo vuelve a leer. **Un ADR que el kit no escribió** (sin frontmatter, con los encabezados en español, `Propuesto <!-- … -->` o una línea `Status: accepted`) aparece en la lista con su estado, se abre tal cual y no se reescribe hasta que alguien abre una sesión de revisión sobre él; en esa sesión, cada edición reescribe solo la sección editada. Si ya está aceptado, rechazado, sustituido u obsoleto, está cerrado: la app no ofrece la sesión de revisión, y para cambiarlo hace falta un ADR nuevo que lo sustituya.
+
+En el **portal**, cada ADR enseña su estado en el árbol y en su página, y las páginas de documentación que cita una decisión aceptada llevan un aviso: *«Esta página la cubre la decisión 0007»*, y si es una decisión nueva, *«Decisión 0007 aceptada, pendiente de implementar: esta página describe el código de hoy»*. Los avisos van también en la exportación estática (`camaron up --static`, `camaron portal`).
+
+```sh
+camaron adr list                                   # los ADR: número, estado y título
+camaron adr candidates                             # las decisiones del código que ningún ADR nombra
+camaron adr new "Why spring-data-jpa" --kind retro --touch api:pom.xml   # --kind new|retro, --problem, --supersedes N
+camaron adr pack 0001                              # la evidencia del ADR, en Markdown
+camaron adr write 0001                             # escribe el ADR propuesto en docs/decisions/, sin IA
+camaron adr show 0001                              # el ADR tal como está
+camaron adr accept 0001 --attendee ana             # lo acepta (decide el usuario de git; --attendee, repetible)
+camaron adr reject 0001 --why "El equipo prefiere jOOQ"
+```
+
+Todos aceptan `--json`; un error sale con una línea y código 2. `accept` y `reject` piden lo mismo que la app (algo decidido; un motivo), pero **la revisión (partes, puntos, asistentes) es de la app**: la CLI sirve para listar, plantear, reunir la evidencia, escribir y cerrar. Las reglas de las secciones opcionales (*Decision drivers*, *Considered options*, *Confirmation*, *Diagram*, *Decided by*) y la de que un ADR con estado de trabajo lo deciden personas y ningún agente lo reescribe están en `CONVENTIONS.md` §6. Los proyectos que ya existían no cambian: la sección aparece al actualizar el kit, sus ADR se leen como están y su copia de la guía `tutorial.md` es la que tenían (las plantillas se copian una sola vez).
 
 </details>
 

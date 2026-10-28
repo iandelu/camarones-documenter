@@ -28,7 +28,7 @@ Cada proyecto tiene su ventana, servida por el servidor local de ese proyecto (v
 |---|---|
 | Cabecera | La marca (vuelve al Resumen), dónde estás (`proyecto › sección`), **Ver portal**, **Buscar o ir a…** (<kbd>Ctrl</kbd> <kbd>K</kbd> / <kbd>⌘</kbd> <kbd>K</kbd>) y **⋯**. La cabecera es la barra de la ventana: arrástrala para moverla |
 | Raíl | Un botón por cada proyecto de esta máquina, con sus iniciales. Otro proyecto se abre **en esta ventana**: la app arranca el servidor de ese proyecto, lleva la ventana a él y para el anterior. Pararlo cierra las sesiones abiertas en su lienzo, así que si alguna sigue viva la app pregunta antes: *Hay {n} sesiones abiertas en este proyecto: al cambiar de proyecto se cierran.* — **Cancelar** o **Cambiar igualmente**. Un proyecto que no está en el disco sale apagado. **+** abre la pantalla de inicio |
-| Secciones | Resumen, Tablero, Plan, Entrevistas, Equipo, Calidad, Librerías y Docs; después, bajo **Esta app**, Máquina, Guía y (solo en un checkout del kit) Kit dev. Al pasar por una ves su atajo |
+| Secciones | Resumen, Tablero, Decisiones, Plan, Entrevistas, Equipo, Calidad, Librerías y Docs; después, bajo **Esta app**, Máquina, Guía y (solo en un checkout del kit) Kit dev. Al pasar por una ves su atajo |
 | Zona central | La sección en la que estás |
 | Panel de trabajos y barra de estado | Lo que corre ahora y los últimos trabajos, con su salida; la barra de estado enseña el primer trabajo en curso y la versión del kit |
 
@@ -57,7 +57,7 @@ una **Salida** plegada que se abre sola cuando algo falla.
 | Teclas | Va a |
 |---|---|
 | <kbd>Ctrl</kbd> <kbd>K</kbd> / <kbd>⌘</kbd> <kbd>K</kbd> | La paleta: una sección, otro proyecto, una acción o, en cuanto escribes, cualquier comando y cualquier capítulo de esta guía |
-| <kbd>g</kbd> y después <kbd>s</kbd> <kbd>b</kbd> <kbd>p</kbd> <kbd>i</kbd> <kbd>t</kbd> <kbd>q</kbd> <kbd>l</kbd> <kbd>d</kbd> | Resumen, Tablero, Plan, Entrevistas, Equipo, Calidad, Librerías, Docs |
+| <kbd>g</kbd> y después <kbd>s</kbd> <kbd>b</kbd> <kbd>a</kbd> <kbd>p</kbd> <kbd>i</kbd> <kbd>t</kbd> <kbd>q</kbd> <kbd>l</kbd> <kbd>d</kbd> | Resumen, Tablero, Decisiones, Plan, Entrevistas, Equipo, Calidad, Librerías, Docs |
 | <kbd>g</kbd> y después <kbd>m</kbd> <kbd>h</kbd> <kbd>k</kbd> | Máquina, Guía, Kit dev (en un checkout del kit) |
 
 La segunda letra tiene que llegar en segundo y medio desde la <kbd>g</kbd>. Los atajos no cuentan mientras escribes en
@@ -178,6 +178,32 @@ Un proyecto sin tablero enseña **Activar el tablero** (`camaron board init`). C
   historia, un bug o un spike bajo una épica) y prioridad.
 
 Escribir historias con sus subtareas y oleadas se hace en las [Historias del portal](portal.md#historias).
+
+## Decisiones
+
+Los ADR del proyecto, decididos con la evidencia delante y escritos, sin IA (`#/decisions`, <kbd>g</kbd>
+<kbd>a</kbd>). Cada ADR es `docs/decisions/<NNNN>-<título>.md`; lo que su revisión va decidiendo se guarda en
+`docs/.work/adr/<NNNN>.yaml`, que va a git. La guía de comandos tiene [todas las reglas](tutorial.md#-decisiones).
+
+<!-- go:decisions -->
+
+- **La lista**: cada ADR con su estado (En curso, En revisión, Propuesta, Aceptada, Sustituida, Rechazada…), filtros y
+  búsqueda por título, número o repo. Un ADR que el kit no escribió aparece con su estado y no se reescribe.
+- **Nuevo ADR**: un título, *nuevo* o *retroactivo* y, si quieres, el problema, los drivers, las restricciones, las
+  opciones candidatas y el ADR al que sustituye. **Toca** elige los ficheros, grupos del mapa y páginas que afecta.
+- **Candidatas**: las decisiones que el código ya tomó y que ningún ADR nombra (librerías de runtime, tecnologías del
+  C4, ficheros de Docker Compose y Helm). **Crear ADR retro** abre el formulario ya relleno.
+- **Evidencia**: el paquete de lo que el proyecto sabe de lo que toca el ADR (vecinos en el grafo del código, páginas
+  que lo citan, ADR relacionados, commits, C4, librerías, preguntas abiertas). **Escribir sin IA** escribe con él el ADR
+  propuesto.
+- **Revisión**: parte por parte (aprobar, editar o aplazar cada sección y las páginas afectadas) y punto por punto
+  (elegir una opción u *Otra*, con un motivo), más los asistentes. **Presentar** (<kbd>P</kbd>) enseña una parte por
+  pantalla para una reunión: <kbd>←</kbd> <kbd>→</kbd> cambian de parte, <kbd>1</kbd>–<kbd>9</kbd> eligen,
+  <kbd>E</kbd> edita, <kbd>D</kbd> aplaza, <kbd>A</kbd> acepta, <kbd>Esc</kbd> sale.
+- **Aceptar** confirma el ADR con `x-owner: human` y *Decided by*; lo que aún no está decidido no se acepta, y la app
+  dice qué punto o sección falta. **Rechazar** pide un motivo.
+
+<!-- cmd:adr -->
 
 ## Plan
 
