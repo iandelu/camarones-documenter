@@ -76,15 +76,30 @@ def test_the_end_of_a_program_is_kept_with_its_code(pty):
 
 # The app writes what a terminal printed before it opened the stream as history, with xterm's answers to old queries
 # muted (a replayed DA or CPR would otherwise be typed into the program): the listing says where history ends.
-def test_a_listed_terminal_says_how_far_its_output_goes(pty):
+def test_a_listed_terminal_says_how_far_its_output_goes(pty, monkeypatch):
+    monkeypatch.setattr(pty.t, "FRESH", 0.2)
     m = pty.open()
     until(lambda: b"ready" in screen(pty.t, m["id"]))
     pty.t.write(m["id"], "exit\r")
     until(lambda: pty.t.get(m["id"])["ended"])
-    listed = next(x for x in pty.t.listing() if x["id"] == m["id"])
-    assert listed["offset"] == pty.t.read(m["id"], 0)[1] > 0
+    listed = lambda: next(x for x in pty.t.listing() if x["id"] == m["id"])      # noqa: E731
+    until(lambda: listed()["offset"] == pty.t.read(m["id"], 0)[1] > 0)
     saved = json.loads((pty.t.DIR / f"{m['id']}.json").read_text(encoding="utf-8"))
     assert "offset" not in saved and "offset" not in pty.t.get(m["id"])
+
+
+# What a program printed in the last FRESH s is not history yet: an agent opened from another view queries the
+# terminal on startup (crossterm's cursor position, which Codex waits 2 s for) before the canvas mounts and lists it.
+def test_output_fresher_than_two_seconds_is_not_listed_as_history(pty, monkeypatch):
+    assert pty.t.FRESH == 2.0
+    monkeypatch.setattr(pty.t, "FRESH", 60)
+    m = pty.open()
+    until(lambda: b"ready" in screen(pty.t, m["id"]))
+    pty.t.write(m["id"], "hola\r")
+    until(lambda: b"echo hola (4)" in screen(pty.t, m["id"]))
+    assert next(x for x in pty.t.listing() if x["id"] == m["id"])["offset"] == 0      # all of it is fresh
+    monkeypatch.setattr(pty.t, "FRESH", 0.2)                                            # quiet for that long: all old
+    until(lambda: next(x for x in pty.t.listing() if x["id"] == m["id"])["offset"] == pty.t.read(m["id"], 0)[1])
 
 
 def test_output_is_kept_in_a_ring_and_a_log_both_bounded(pty, monkeypatch):
