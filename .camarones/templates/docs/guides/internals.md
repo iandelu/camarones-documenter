@@ -222,7 +222,9 @@ its last 5 MB beside `<id>.json` (its unit, agent, size, when it started and end
 new size are `POST app/terminals/<id>/input` and `resize`; `close` hangs up its process group and kills what is left 3 s
 later (`taskkill` on Windows). The terminals live as long as the server: when it exits (the app's window closes), it
 hangs up each one, kills what remains 2 s later and writes their end into the units' session records, so the units read
-as paused and **Continue** reopens them. `sessions: window` in `~/.camarones.json`
+as paused and **Continue** reopens them. On Windows the app ends the server with `taskkill /T /F`, which takes the
+terminals with it and leaves no time to write anything; the units still read as paused, because their sessions' pid is
+dead. `sessions: window` in `~/.camarones.json`
 (`camaron config set sessions window`) opens sessions in a terminal window instead, as before.
 
 ## Trust in pages: review and freshness
