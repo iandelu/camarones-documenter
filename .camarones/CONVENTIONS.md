@@ -158,8 +158,8 @@ Spanish headings (`Estado`, `Contexto`, `Drivers`, `Opciones consideradas`, `Dec
 An ADR with a working state in `docs/.work/adr/<NNNN>.yaml` is being decided by people (the desktop app's
 *Decisiones*): its parts, decision points, chosen options and attendees live there. Agents never rewrite such an ADR.
 Once accepted it is closed: to change the decision, write a new ADR that supersedes it. An ADR with no working state
-(one a person wrote, or an older kit) is read as it is and never rewritten until a person accepts or rejects it in a
-session.
+(one a person wrote, or an older kit) is read as it is and never rewritten until a person starts a review session on
+it; in that session each edit rewrites only the section edited, and a decided one opens no session.
 
 **Domain** (`docs/domain/`): `bounded-contexts.md` (context map, which repo implements which context),
 `glossary.md` (term · definition · code name · context · avoid), `actors.md` (people & external systems). **Avoid** is

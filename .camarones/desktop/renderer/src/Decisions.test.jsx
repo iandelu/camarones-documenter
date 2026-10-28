@@ -39,6 +39,15 @@ test('a legacy ADR opens read-only with a way into a session', () => {
   expect(out).not.toContain('<textarea')
 })
 
+test('a legacy ADR says when its file is rewritten: from a review session on, one edited section at a time', () => {
+  const adr = { id: '0003', chip: 'proposed', legacy: true, sections: {} }
+  expect(legacy({ adr })).toContain('no se reescribe hasta que alguien abre una sesión de revisión sobre él')
+  expect(legacy({ adr })).toContain('cada edición reescribe solo la sección editada')
+  expect(legacy({ adr }, 'en')).toContain('never rewritten until someone starts a review session on it')
+  expect(legacy({ adr }, 'en')).toContain('each edit rewrites only the section edited')
+  for (const lang of ['es', 'en']) expect(legacy({ adr }, lang)).not.toMatch(/ni un byte|not a byte/)
+})
+
 test('a decided legacy ADR reads as closed, with no way back into a review', () => {
   for (const chip of ['accepted', 'rejected', 'superseded', 'deprecated']) {
     const out = legacy({ adr: { id: '0003', title: 'JPA', chip, legacy: true, sections: { status: 'Accepted (2024-03-01)' } } })

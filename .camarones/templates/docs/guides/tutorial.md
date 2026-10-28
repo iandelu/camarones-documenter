@@ -402,9 +402,10 @@ the review decides along the way (parts, points, attendees) is kept apart in `do
 
 If the file changes under you (a pull, an editor) the save fails with a notice instead of overwriting, and the app reads it
 again. **An ADR the kit did not write** (no frontmatter, Spanish headings, `Propuesto <!-- … -->`, an inline
-`Status: accepted`) shows in the list with its status, opens as it is, and not a byte of it changes until you accept or
-reject it in a review session. One that is already accepted, rejected, superseded or deprecated is closed: the app
-offers no review session, and changing it takes a new ADR that supersedes it.
+`Status: accepted`) shows in the list with its status, opens as it is, and is never rewritten until someone starts a
+review session on it; in that session each edit rewrites only the section edited. One that is already accepted,
+rejected, superseded or deprecated is closed: the app offers no review session, and changing it takes a new ADR that
+supersedes it.
 
 In the **portal** each ADR shows its status in the tree and on its page, and the pages an accepted decision cites carry a
 banner (*"Decision 0007 covers this page"*; for a new decision, *"Decision 0007 accepted, pending implementation: this
