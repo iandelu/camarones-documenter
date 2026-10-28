@@ -323,6 +323,18 @@ def test_accepting_a_legacy_adr_replaces_the_status_it_reads_not_a_comment_above
     assert "Propuesto" not in body and out["status"] == "accepted" and adr.list_adrs()[0]["status"] == "accepted"
 
 
+def test_accepting_a_legacy_adr_with_an_inline_status_leaves_one_status(adr, kit, monkeypatch):
+    monkeypatch.setattr(adr, "today", lambda: "2026-10-27")
+    f = decisions(kit) / "0003-jpa.md"
+    f.write_text("# 0003 — JPA\n\n* Status: proposed\n* Deciders: LA\n\n## Context\n\nwhy\n", encoding="utf-8")
+    got = adr.start_review("0003")
+    got = adr.part("0003", "decision", "edit", "We keep JPA.", base_sha=got["sha"])
+    adr.accept("0003", by="Test", attendees=[], base_sha=got["sha"])
+    body = kit.docs.split_fm(f.read_text(encoding="utf-8"))[1]
+    assert body.startswith("# 0003 — JPA\n\n* Status: Accepted (2026-10-27)\n* Deciders: LA\n\n## Context\n\nwhy\n")
+    assert "proposed" not in body and "## Status" not in body and adr.list_adrs()[0]["status"] == "accepted"
+
+
 @pytest.mark.parametrize("comment", COMMENTS)
 def test_superseding_replaces_the_status_an_old_adr_reads_not_a_comment_above_it(adr, kit, comment):
     old = decisions(kit) / "0001-ehcache.md"

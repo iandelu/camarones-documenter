@@ -40,6 +40,7 @@ _STATUS = {word: token for token, words in {
     "deprecated": ("deprecated", "obsoleto", "obsoleta")}.items() for word in words}
 _LABEL_RE = re.compile(r"^[\W_]*(?:status|estado)\b[\W_]*", re.I)
 _INLINE_RE = re.compile(r"^[ \t>*_-]*(?:status|estado)[*_]*[ \t]*:.*$", re.I | re.M)
+_INLINE_LABEL_RE = re.compile(r"[ \t>*_-]*(?:status|estado)[*_]*[ \t]*:[*_]*[ \t]*", re.I)
 _WORD_RE = re.compile(r"[\W_]*([^\W\d_]+)")
 _NUMBER = r"(?<![0-9])([0-9]{4})(?![0-9])"
 _NUMBER_RE = re.compile(_NUMBER)
@@ -168,16 +169,38 @@ def _line_end(text: str, at: int) -> int:
     return at + (len(rest[0]) if rest else 0)
 
 
+def _put(body: str, lo: int, hi: int, new: str) -> str:
+    """`body` with `new` in place of `lo:hi`, and of the rest of a comment that starts there and ends on a later line."""
+    for c in docs.COMMENT_RE.finditer(body):
+        if lo <= c.start() < hi < c.end():
+            hi = _line_end(body, c.end())
+    return body[:lo] + new + body[hi:]
+
+
+def _inline(body: str, seen: str, new: str) -> str | None:
+    """`body` with `new` as the value of its inline status line (`Status: …`, `* Status: …`, `**Status:** …`), its label
+    kept; None when it has none."""
+    found = _INLINE_RE.search(seen)
+    if found is None:
+        return None
+    lo = _INLINE_LABEL_RE.match(seen, found.start()).end()
+    gap = "" if seen[lo - 1] in " \t" else " "
+    return _put(body, lo, _line_end(body, found.start()), gap + new)
+
+
 def replace_status(text: str, new: str) -> str:
     """Whole file in, whole file out: `new` takes the place of the status `status_of` reads (the first text of the Status
-    section once comments are set aside) and of what else is on its line, comments there included. A comment on a line of
-    its own or before the status, and every note below, stay. A section with only a comment gets `new` below it."""
+    section once comments are set aside, else the value of an inline `Status:` line) and of what else is on its line,
+    comments there included. A comment on a line of its own or before the status, and every note below, stay. A section
+    with only a comment gets `new` below it; a file with neither gets a Status section."""
     _, body, _ = docs.parse_fm(text)
     seen = _blank_comments(body)
     found = _find(seen, "status")
+    head = text[:len(text) - len(body)]
     if not found:
-        return replace_section(text, "status", new)
-    head, lines, masked = text[:len(text) - len(body)], body.splitlines(keepends=True), seen.splitlines()
+        inline = _inline(body, seen, new)
+        return replace_section(text, "status", new) if inline is None else head + inline
+    lines, masked = body.splitlines(keepends=True), seen.splitlines()
     rows = range(found["start"] + 1, found["end"])
     first = next((i for i in rows if masked[i].strip()), None)
     if first is None:
@@ -190,11 +213,7 @@ def replace_status(text: str, new: str) -> str:
         return head + "".join(lines)
     start = len("".join(lines[:first]))
     lo = start + len(masked[first]) - len(masked[first].lstrip())
-    hi = start + len(lines[first].splitlines()[0])
-    for c in docs.COMMENT_RE.finditer(body):
-        if lo <= c.start() < hi < c.end():
-            hi = _line_end(body, c.end())
-    return head + body[:lo] + new + body[hi:]
+    return head + _put(body, lo, start + len(lines[first].splitlines()[0]), new)
 
 
 # ---------- rendering ----------
