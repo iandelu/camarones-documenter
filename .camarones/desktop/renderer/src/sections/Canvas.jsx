@@ -157,13 +157,16 @@ function Flow({ srv, units, run, pilot, onOpen, focus, onFocused, onSession, can
   const [max, setMax] = useState(null)              // {id, pty}: a run's terminal (by its unit) or one with you
   const [refit, setRefit] = useState(0)
   const [error, setError] = useState(null)          // {title, detail}: what the server refused
+  const [note, setNote] = useState(null)            // {key, vars}: a session that opened in a window, not here
   const live = Boolean(run) && !run.finished
   const onView = useCallback((id) => setViewed((v) => toggled(v, id)), [])
   const maxTerm = useCallback((id) => setMax({ id, pty: false }), [])
   const maxPty = useCallback((id) => setMax({ id, pty: true }), [])
   const session = useCallback((uid, mode) => {
     setError(null)
-    return Promise.resolve().then(() => onSession(uid, mode)).catch((e) => setError({ title: 'next.failed', detail: e.message }))
+    setNote(null)
+    return Promise.resolve().then(() => onSession(uid, mode)).then((n) => setNote(n || null),
+      (e) => setError({ title: 'next.failed', detail: e.message }))
   }, [onSession])
   const close = useCallback((id) => {
     setError(null)
@@ -286,6 +289,7 @@ function Flow({ srv, units, run, pilot, onOpen, focus, onFocused, onSession, can
       </div>
       {noAgent ? <Aviso tone="warn" title={t('next.noAgent')}><Button size="sm" href="#/machine">{t('next.machine')}</Button></Aviso> : null}
       {error ? <Aviso tone="error" title={t(error.title)} detail={error.detail} /> : null}
+      {note ? <Aviso tone="info" title={t(note.key, note.vars)} /> : null}
       <div ref={frame} className="dk-canvas">
         <ReactFlow nodes={nodes} edges={edges} nodeTypes={NODE_TYPES} onNodesChange={onNodesChange} onNodeDragStop={onNodeDragStop}
           colorMode={theme} fitView fitViewOptions={FIT} minZoom={0.2} nodesConnectable={false} edgesFocusable={false}

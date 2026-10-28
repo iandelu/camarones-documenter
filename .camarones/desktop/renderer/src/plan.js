@@ -98,6 +98,9 @@ export function sessionNote(res, label) {
   return { key, vars: { agent: openedWith(label, res) } }
 }
 
+// On the canvas a session that lands there shows itself (its terminal is focused); one in a window needs the note.
+export const canvasNote = (res, label) => (res?.already || res?.where === 'canvas' ? null : sessionNote(res, label))
+
 // What a unit's agent session is doing, for its detail: paused (no window open), or open and what its agent did last
 // (Claude Code's transcript): waiting for you, a tool it is running, or a tool call with no answer for minutes (it
 // may be asking permission in its terminal). ts in seconds.

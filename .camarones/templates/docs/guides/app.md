@@ -243,7 +243,8 @@ becomes a terminal where you type to the agent as in any terminal, its header sa
 time. Everything you type goes to the agent: Escape, Tab, Shift+Tab, the arrows, Ctrl+C. **F6** leaves the terminal (on
 a Mac laptop, Fn+F6): to its node, where the arrows and Escape move around the canvas again, or, when it is maximised,
 back to the canvas. **⤢** maximises it and **Back to the canvas** returns; the agent gets each new size. **Close** ends
-the session: the node folds back into its card, "Paused: its session was closed", and its **Continue** opens it again.
+the session: the node folds back into its card, "Paused: its session was closed", and its **Continue** opens it again
+(when it opens in a window instead, the canvas says so above the graph).
 A terminal whose agent ended with an error stays with what it printed, **Remove** and, for a unit, **Open a new
 session**; one that ended cleanly folds back like a run's. The docs update belongs to no unit: its terminal, **Update
 docs**, sits in the **Loose sessions** lane under the graph. A unit open on the canvas is never opened twice: its

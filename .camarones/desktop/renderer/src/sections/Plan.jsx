@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { Aviso, Button, Card, Chip, EmptyState, PlanCost, Skeleton, uiText } from '@camaron/ui'
-import { board, openSession, phases, sessionLine, sessionNote, tone, waitsFor } from '../plan.js'
+import { board, canvasNote, openSession, phases, sessionLine, sessionNote, tone, waitsFor } from '../plan.js'
 import { arrivedLive, defaultView, planLive, runLive } from '../canvas.js'
 import { useAgents, useCmd, useHash, useStore } from '../hooks.js'
 import { termOf } from '../nav.js'
@@ -55,7 +55,9 @@ export default function Plan({ srv, jobs }) {
     dispatchEvent(new Event('hashchange'))
   }, [asked])
   const pick = (v) => { setVisit(false); setFocus(null); setView(v); try { localStorage.setItem('dk.planView', v) } catch { /* private window: not kept */ } }
-  const onSession = useCallback((unit, mode) => openSession(srv, { unit, agent: a.agent, lang: lang(), mode }).then(load), [srv, a.agent])
+  // Resolves with the note the canvas shows when the session opened in a window (null when it is on the canvas).
+  const onSession = useCallback((unit, mode) => openSession(srv, { unit, agent: a.agent, lang: lang(), mode })
+    .then((res) => load().then(() => canvasNote(res, a.label(a.agent)))), [srv, a.agent, a.agents])
   const onFocused = useCallback(() => setFocus(null), [])
   if (error) return <Page title={t('nav.plan')}><Failed title={t('plan.failed')} detail={error} onRetry={() => { setError(''); load() }} /></Page>
   if (!data) return <Page title={t('nav.plan')}><Skeleton lines={6} /></Page>
