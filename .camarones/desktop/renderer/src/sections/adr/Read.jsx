@@ -89,16 +89,23 @@ export function Sections({ sections }) {
   )
 }
 
+// Only an open one (proposed, or a status nobody can read) offers a review: a decided ADR is closed, and changing it is
+// a new ADR that supersedes it (lib/adr.py `start_review` refuses it too).
 export function LegacyView({ adr, busy = false, error = '', notice = '', onReview }) {
+  const open = ['proposed', 'unknown'].includes(chipOf(adr))
   return (
     <Page title={heading(adr)}>
       <AdrHead adr={adr} />
-      {['proposed', 'unknown'].includes(chipOf(adr)) ? null : <StatusNote adr={adr} />}
+      {open ? null : (
+        <StatusNote adr={adr}>
+          <p className="muted small">{t('adr.review.closed')} <a href="#/decisions/new">{t('adr.new')}</a></p>
+        </StatusNote>)}
       {notice ? <Aviso tone="info" title={notice} /> : null}
-      <Aviso tone="info" title={t('adr.legacy.title')} action={
-        <Button variant="primary" size="sm" disabled={busy} aria-busy={busy || undefined} onClick={onReview}>{t('adr.legacy.review')}</Button>}>
-        {t('adr.legacy.body')}
-      </Aviso>
+      {open ? (
+        <Aviso tone="info" title={t('adr.legacy.title')} action={
+          <Button variant="primary" size="sm" disabled={busy} aria-busy={busy || undefined} onClick={onReview}>{t('adr.legacy.review')}</Button>}>
+          {t('adr.legacy.body')}
+        </Aviso>) : null}
       {error ? <Aviso tone="error" title={t('adr.legacy.failed')} detail={error} /> : null}
       <Sections sections={adr.sections} />
     </Page>
