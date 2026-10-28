@@ -629,13 +629,13 @@ def _outcome(state: dict, raw: str) -> str | None:
 
 def _considered(state: dict, raw: str) -> str | None:
     """The Considered options an accepted ADR gets: what its points weighed, pros and cons with them (spec §3.1, "kept, all
-    of them"). A section with nothing written takes them all; one a person wrote keeps its text and gains the options it
-    does not name. None to leave it as it is."""
+    of them"). A section with nothing written, or only the headings Write without AI made of the candidate options, takes
+    them all; one a person wrote keeps its text and gains the options it does not name. None to leave it as it is."""
     points = state.get("points") or []
     if not points:
         return None
     current = adr_doc.section(docs.split_fm(raw)[1], "options") or ""
-    if adr_doc.unwritten(current):
+    if adr_doc.unwritten(current) or current.strip() == adr_doc.render_hints(state.get("options_hint") or []):
         return adr_doc.render_options(points)
     missing = adr_doc.render_options(points, current)
     return f"{current}\n\n{missing}" if missing else None
