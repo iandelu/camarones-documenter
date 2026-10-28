@@ -39,13 +39,14 @@ const sinceEnd = (term, now) => now - term.ended * 1000
 // A clean end folds away after FOLD_MS; a failed one stays for its error until it is removed (closed).
 const stays = (term, now) => live(term) || term.code !== 0 || sinceEnd(term, now) < FOLD_MS
 
-// What the canvas shows: per unit its newest terminal, and the ones that belong to no unit (the docs update).
+// What the canvas shows: per unit its newest terminal, unless it was closed or folded away (an older one never comes
+// back), and the ones that belong to no unit (the docs update).
 export function shown(terms, now) {
-  const open = (terms || []).filter((term) => !term.closed).sort((a, b) => a.started - b.started)
+  const all = [...(terms || [])].sort((a, b) => a.started - b.started)
   const units = new Map()
-  for (const term of open) if (term.kind === 'unit') units.set(term.unit, term)
-  for (const [uid, term] of units) if (!stays(term, now)) units.delete(uid)
-  return { units, loose: open.filter((term) => term.kind !== 'unit' && stays(term, now)) }
+  for (const term of all) if (term.kind === 'unit') units.set(term.unit, term)
+  for (const [uid, term] of units) if (term.closed || !stays(term, now)) units.delete(uid)
+  return { units, loose: all.filter((term) => term.kind !== 'unit' && !term.closed && stays(term, now)) }
 }
 
 // A streamed chunk gets an xterm for a terminal the canvas shows, or for one the list does not have yet (it just
