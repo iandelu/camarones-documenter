@@ -1,13 +1,14 @@
 // The Plan's canvas: the nodes of the plan's units (a compact card, or a terminal while the unit's agent works, from
 // the run's events in canvas.js) and the container that follows the run, lays them out and moves between them by keys.
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Background, Handle, Position, ReactFlow, ReactFlowProvider, useNodeId, useReactFlow } from '@xyflow/react'
+import { Background, ReactFlow, ReactFlowProvider, useReactFlow } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { Button, fmtDuration, money } from '@camaron/ui'
 import { atBottom, clockRuns, emptyFeed, feed, followRun, GLYPH, layout, neighbour, openUnits, place } from '../canvas.js'
 import { useTheme } from '../hooks.js'
 import { t } from '../i18n.js'
 import { tone } from '../plan.js'
+import { Ports } from './Terms.jsx'
 
 const OUTCOMES = new Set(['failed', 'limited', 'cancelled', 'retry'])
 
@@ -17,17 +18,6 @@ const OUTCOMES = new Set(['failed', 'limited', 'cancelled', 'retry'])
 function ended(fu, unit) {
   if (fu.outcome === 'ok' || fu.outcome == null) return fu.status === 'done' ? t('cv.st.ok') : t('tone.' + tone(unit))
   return OUTCOMES.has(fu.outcome) ? t(`cv.st.${fu.outcome}`) : (fu.outcome ?? '')
-}
-
-// The maximised terminal is the same component outside the flow, where a handle has no node to belong to.
-function Ports() {
-  if (useNodeId() === null) return null
-  return (
-    <>
-      <Handle type="target" position={Position.Left} className="dk-cv-handle" />
-      <Handle type="source" position={Position.Right} className="dk-cv-handle" />
-    </>
-  )
 }
 
 export function UnitNode({ data: { unit, fu, onOpen, onView } }) {

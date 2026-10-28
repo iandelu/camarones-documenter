@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { bytes, elapsed, followTerminals, shown, streamFrom } from './terminals.js'
+import { bytes, elapsed, fitSize, followTerminals, inputPieces, shown, streamFrom } from './terminals.js'
 
 const b64 = (u8) => btoa(String.fromCharCode(...u8))
 
@@ -47,4 +47,27 @@ test('which terminals show: live, a clean end for a moment, a failed end until r
   expect(shown([up], now).loose).toEqual([up])
   expect(elapsed(T('t-a-1', { started: 100 }), 160_000)).toBe(60)
   expect(elapsed(T('t-a-1', { started: 100, ended: 130 }), 999_000)).toBe(30)
+})
+
+// lib/terminals.py takes 10–500 columns and 5–200 rows: a node squeezed small or a maximised one on a wide screen asks
+// for what it can have.
+test('the size a screen fits to stays in what the server takes', () => {
+  expect(fitSize({ cols: 61, rows: 17 })).toEqual({ cols: 61, rows: 17 })
+  expect(fitSize({ cols: 2, rows: 1 })).toEqual({ cols: 10, rows: 5 })
+  expect(fitSize({ cols: 900, rows: 400 })).toEqual({ cols: 500, rows: 200 })
+  expect(fitSize(undefined)).toBe(null)
+  expect(fitSize({ cols: NaN, rows: 20 })).toBe(null)
+})
+
+test('a paste bigger than one request goes in pieces, in order, never cutting a character', () => {
+  expect(inputPieces('ls\r')).toEqual(['ls\r'])
+  expect(inputPieces('')).toEqual([])
+  const text = 'añ─😀'.repeat(20)
+  const pieces = inputPieces(text, 9)
+  expect(pieces.join('')).toBe(text)
+  for (const p of pieces) {
+    expect(new TextEncoder().encode(p).length).toBeLessThanOrEqual(9)
+    expect(p.charCodeAt(0) >= 0xdc00 && p.charCodeAt(0) <= 0xdfff, 'a piece starts inside a character').toBe(false)
+  }
+  expect(inputPieces('x'.repeat(256 * 1024 + 1)).map((p) => p.length)).toEqual([256 * 1024, 1])
 })
