@@ -59,7 +59,7 @@ export function unitAction(u, plan = {}) {
   if (!open) return null
   if (u.runner !== 'agent') return linkFor(u)
   if (plan.interviews === null && INTERVIEW_TYPES.includes(u.type)) return { kind: 'mode', label: 'iv.choose' }
-  if (u.status === 'doing' && u.session?.live) return { kind: 'live' }
+  if (u.status === 'doing' && u.session?.live) return { kind: 'live', term: u.terminal ?? null }
   return u.status === 'doing' ? { kind: 'agent', mode: 'continue', label: 'unit.continue' }      // the agent: the section's picker
     : { kind: 'agent', mode: 'new', label: 'unit.start' }
 }
@@ -67,6 +67,26 @@ export function unitAction(u, plan = {}) {
 // Who a session opened with, for its note: the agent, and the model the kit routed to the unit (POST app/agent) when it
 // names one.
 export const openedWith = (label, res) => res?.model ? `${label} (${res.model})` : label
+
+// A session started from the app (POST app/terminals) lands on the Plan, on its terminal when it opened on the canvas.
+// A unit already open (409 with its terminal) lands there too instead of opening twice; any other refusal throws.
+export async function openSession(srv, body, go = (h) => { location.hash = h }) {
+  let res
+  try { res = await srv.post('app/terminals', body) } catch (e) {
+    const id = e?.data?.terminal
+    if (!id) throw e
+    go(`#/plan?term=${id}`)
+    return { already: true, terminal: { id } }
+  }
+  if (res?.terminal) go(`#/plan?term=${res.terminal.id}`)
+  return res
+}
+
+// The note under the button: which way the session opened.
+export function sessionNote(res, label) {
+  const key = res.already ? 'pty.already' : res.where === 'canvas' ? 'next.onCanvas' : res.fallback ? 'next.noPty' : 'next.opened'
+  return { key, vars: { agent: openedWith(label, res) } }
+}
 
 // What a unit's agent session is doing, for its detail: paused (no window open), or open and what its agent did last
 // (Claude Code's transcript): waiting for you, a tool it is running, or a tool call with no answer for minutes (it
