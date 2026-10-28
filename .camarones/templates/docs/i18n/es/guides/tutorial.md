@@ -420,9 +420,10 @@ la revisión va decidiendo (partes, puntos, asistentes) queda aparte en `docs/.w
 
 Si el fichero cambia mientras lo revisas (un pull, un editor), el guardado falla con un aviso, no pisa nada, y la app lo
 vuelve a leer. **Un ADR que el kit no escribió** (sin frontmatter, con los encabezados en español, `Propuesto <!-- … -->` o
-una línea `Status: accepted`) aparece en la lista con su estado, se abre tal cual y no cambia ni un byte hasta que lo
-aceptes o lo rechaces en una sesión de revisión. Si ya está aceptado, rechazado, sustituido u obsoleto, está cerrado:
-la app no ofrece la sesión de revisión, y para cambiarlo hace falta un ADR nuevo que lo sustituya.
+una línea `Status: accepted`) aparece en la lista con su estado, se abre tal cual y no se reescribe hasta que alguien
+abre una sesión de revisión sobre él; en esa sesión, cada edición reescribe solo la sección editada. Si ya está
+aceptado, rechazado, sustituido u obsoleto, está cerrado: la app no ofrece la sesión de revisión, y para cambiarlo
+hace falta un ADR nuevo que lo sustituya.
 
 En el **portal**, cada ADR enseña su estado en el árbol y en su página, y las páginas que cita una decisión aceptada llevan
 un aviso (*«Esta página la cubre la decisión 0007»*; si es una decisión nueva, *«Decisión 0007 aceptada, pendiente de

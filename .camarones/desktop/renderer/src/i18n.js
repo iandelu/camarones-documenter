@@ -347,7 +347,7 @@ export const S = {
     'adr.sec.consequences': 'Consecuencias', 'adr.sec.confirmation': 'Confirmación', 'adr.sec.diagram': 'Diagrama', 'adr.sec.evidence': 'Evidencia',
     'adr.sec.decided_by': 'Decidido por',
     'adr.legacy.title': 'Escrito fuera de esta sección',
-    'adr.legacy.body': 'Lo leo tal cual: el fichero no cambia ni un byte hasta que lo aceptes o lo rechaces en una sesión de revisión.',
+    'adr.legacy.body': 'Lo leo tal cual: el fichero no se reescribe hasta que alguien abre una sesión de revisión sobre él, y en esa sesión cada edición reescribe solo la sección editada.',
     'adr.legacy.review': 'Revisar en sesión', 'adr.legacy.failed': 'No he podido abrir la sesión de revisión',
     // the evidence step (sections/adr/Evidence.jsx)
     'adr.f.problem': 'El problema', 'adr.f.drivers': 'Drivers', 'adr.f.constraints': 'Restricciones', 'adr.f.options': 'Opciones candidatas',
@@ -780,7 +780,7 @@ export const S = {
     'adr.sec.consequences': 'Consequences', 'adr.sec.confirmation': 'Confirmation', 'adr.sec.diagram': 'Diagram', 'adr.sec.evidence': 'Evidence',
     'adr.sec.decided_by': 'Decided by',
     'adr.legacy.title': 'Written outside this section',
-    'adr.legacy.body': 'I read it as it is: not a byte of the file changes until you accept or reject it in a review session.',
+    'adr.legacy.body': 'I read it as it is: the file is never rewritten until someone starts a review session on it, and in that session each edit rewrites only the section edited.',
     'adr.legacy.review': 'Review in a session', 'adr.legacy.failed': 'I could not open the review session',
     // the evidence step (sections/adr/Evidence.jsx)
     'adr.f.problem': 'The problem', 'adr.f.drivers': 'Drivers', 'adr.f.constraints': 'Constraints', 'adr.f.options': 'Candidate options',
