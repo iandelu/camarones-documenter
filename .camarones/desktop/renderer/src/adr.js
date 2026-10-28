@@ -110,6 +110,7 @@ export function screen(s, a) {
     case 'busy': return { ...s, busy: true, actError: '' }
     case 'done': return { ...s, busy: false, adr: a.adr, notice: null }
     case 'actFailed': return { ...s, busy: false, actError: a.error }
+    case 'dialog': return { ...s, actError: '' }          // a dialog opens: a refusal from before it is not its own
     case 'reloaded': return { ...s, busy: false, packing: false, adr: a.adr, notice: { key: 'adr.reloaded' } }
     default: return s
   }

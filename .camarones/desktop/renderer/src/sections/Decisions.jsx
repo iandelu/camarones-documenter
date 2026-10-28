@@ -143,5 +143,6 @@ function AdrScreen({ id, srv, notice, fresh, onMoved }) {
     <EvidenceView adr={s.adr} pack={s.pack} packing={s.packing} packError={s.packError} busy={s.busy} error={s.actError} notice={say}
       onPack={gather} onWrite={write} />
   )
-  return <Review adr={s.adr} busy={s.busy} error={s.actError} notice={say} send={send} />     // review, accepted, rejected
+  return <Review adr={s.adr} busy={s.busy} error={s.actError} notice={say} send={send}           // review, accepted, rejected
+    onDialog={() => dispatch({ type: 'dialog' })} />
 }

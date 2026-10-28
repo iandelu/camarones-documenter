@@ -214,6 +214,12 @@ test('an action is busy until it ends, with the ADR it returned or why not', () 
   expect(screen(s, { type: 'actFailed', error: 'refused' })).toMatchObject({ busy: false, actError: 'refused', adr: { id: '0012' } })
 })
 
+test('a dialog opens without the refusal of an action taken before it', () => {
+  const s = run({ type: 'read', adr: { id: '0012' } }, { type: 'actFailed', error: 'point P1 has no choice yet' })
+  expect(screen(s, { type: 'dialog' })).toEqual({ ...s, actError: '' })
+  expect(screen(screen(s, { type: 'dialog' }), { type: 'actFailed', error: 'busy' }).actError).toBe('busy')   // its own shows
+})
+
 test('a save the file outran ends what was under way and says the ADR was read again', () => {
   const s = run({ type: 'read', adr: { id: '0012', sha: 'a' } }, { type: 'busy' }, { type: 'packing' },
     { type: 'reloaded', adr: { id: '0012', sha: 'b' } })
