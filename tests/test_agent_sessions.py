@@ -10,7 +10,7 @@ import time
 
 import pytest
 
-from test_agents import ready_agent_unit, term  # noqa: F401  (fixture)
+from test_agents import ready_agent_unit, term, window_closed  # noqa: F401  (fixture)
 
 
 def inner(cmd):
@@ -48,6 +48,7 @@ def test_continue_reopens_the_units_own_conversation(wired, term):
     term["agents"].launch_unit(u["id"], "claude")
     first = sessions.load(u["id"])["session"]
     write_transcript(wired, first, [assistant({"type": "text", "text": "hola"})])
+    window_closed(u["id"])
     term["agents"].launch_unit(u["id"], "claude", mode="continue")
     assert inner(term["cmds"][1][0])[3:5] == ["--resume", first]
     assert sessions.load(u["id"])["session"] == first
@@ -65,6 +66,7 @@ def test_restart_starts_a_new_conversation(wired, term):
     u = ready_agent_unit(wired)
     term["agents"].launch_unit(u["id"], "claude")
     first = sessions.load(u["id"])["session"]
+    window_closed(u["id"])
     term["agents"].launch_unit(u["id"], "claude", mode="restart")
     assert sessions.load(u["id"])["session"] != first
 

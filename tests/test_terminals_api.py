@@ -177,6 +177,15 @@ def test_opening_twice_or_a_ninth_is_a_409_that_says_why(app, wired, monkeypatch
     assert code == 409 and body["limit"] == 1
 
 
+# Open in a window: the 409 says so with `terminal: null`, which the app words in the person's language.
+def test_a_unit_open_in_a_window_is_a_409_with_no_terminal(app, wired):
+    from lib import machine
+    machine.set_setting("sessions", "window")
+    u, _ = open_unit(app, wired)
+    code, body = call(app.url + "/api/app/terminals", {"unit": u["id"], "agent": "claude", "mode": "continue"})
+    assert code == 409 and "terminal" in body and body["terminal"] is None and len(app.term["cmds"]) == 1
+
+
 def test_with_the_window_setting_it_opens_a_window_and_the_old_route_too(app, wired):
     from lib import machine
     machine.set_setting("sessions", "window")

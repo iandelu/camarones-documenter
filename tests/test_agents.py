@@ -29,6 +29,13 @@ def ready_agent_unit(wired):
     return next(u for u in wired.plan.available() if u["runner"] == "agent")
 
 
+def window_closed(uid):
+    """The unit's session window closed: until then (or its wrapper's pid gone) the unit is not opened again."""
+    import time
+    from lib import sessions
+    sessions.update(uid, ended=time.time())
+
+
 def prompt_of(wired, name):
     """The prompt file of a unit's (or the update's) own session, as the kit names it in the cache."""
     return wired.common.CACHE / "prompts" / f"{name.replace(':', '_')}.md"
@@ -58,6 +65,7 @@ def test_continue_resumes_the_agents_last_conversation(wired, term):
     wired.plan.set_status(u["id"], "doing")
     term["agents"].launch_unit(u["id"], "claude", mode="continue")
     assert "--continue" in term["cmds"][0][0]
+    window_closed(u["id"])
     term["history"] = False                                     # nothing to continue: a fresh session
     term["agents"].launch_unit(u["id"], "claude", mode="continue")
     assert "--continue" not in term["cmds"][1][0]
@@ -172,6 +180,7 @@ def test_without_a_model_routed_to_that_agent_the_machine_model_is_used(wired, t
     route(wired, team={"agentic-heavy": ["claude", "codex"]}, machine={"model": "haiku", "codex_model": "o5"})
     uid = ready_agent_unit(wired)["id"]
     term["agents"].launch_unit(uid, "claude")
+    window_closed(uid)
     term["agents"].launch_unit(next(u["id"] for u in wired.plan.available() if u["runner"] == "agent"), "codex")
     assert [model_of(c) for c, _ in term["cmds"]] == ["haiku", "o5"]
 
