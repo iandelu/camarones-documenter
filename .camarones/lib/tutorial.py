@@ -225,14 +225,14 @@ PAGES = {
    +----------------------------------------------------------------------------+""",
          "text": "`camaron app` (o asistente → 🖥️ App de escritorio) abre la app donde se opera el proyecto: a la "
                  "izquierda el raíl con tus proyectos y sus secciones, por tareas. Resumen (el siguiente paso con un "
-                 "solo botón, el mismo que propone este asistente), Tablero (las columnas de Backlog a Hecho: mueves una tarjeta arrastrándola o con el teclado, abres su descripción y criterios, y en una historia sus tareas con Añadir tarea; Eliminar la archiva; Añadir crea una historia, una tarea…; si el tablero no está activado, la sección ofrece activarlo), Plan (ejecutar las unidades listas o el piloto "
+                 "solo botón, el mismo que propone este asistente), Tablero (las columnas de Backlog a Hecho: mueves una tarjeta arrastrándola o con el teclado, abres su descripción y criterios, y en una historia sus tareas con Añadir tarea; Eliminar la archiva; Añadir crea una historia, una tarea…; si el tablero no está activado, la sección ofrece activarlo), Decisiones (los ADR: plantear una decisión, reunir su evidencia sin IA, revisarla por partes y aceptarla; ver «Decisiones: los ADR»), Plan (ejecutar las unidades listas o el piloto "
                  "automático, y las unidades en un tablero de colores por estado o por fases; una unidad empezada sin su terminal abierta queda en pausa hasta que la sigues, y una abierta dice qué está haciendo su agente; debajo del tablero, lo que lleva costado el plan), Entrevistas, Equipo (repo del equipo y "
                  "compartir, lo que falta aprobar, plugins), Calidad (la salud del proyecto de un vistazo: veredicto, máquina, documentación y código, y cada repo con su cobertura (la de SonarQube si hay token guardado), vulnerabilidades, deuda técnica y la puerta de calidad de Sonar; requisitos y herramientas guardados entre "
                  "visitas, contexto, preguntas de control, con y sin cam-docs, librerías y vulnerabilidades, páginas "
                  "desactualizadas), Librerías (buscar vulnerabilidades repo a repo, con su barra, Parar y un tick al acabar; por qué está cada una, sus avisos de seguridad completos y Actualizar en una rama nueva del repo, sin commit) y Docs, que abre el portal en tu navegador y construye el explorador C4, genera la wiki de cada repo y su grafo, y responde con IA a tus preguntas; debajo, Máquina (setup, idioma y modelos, tokens, repos, "
                  "el kit y desinstalar con vista previa). Cada comando de la CLI está ahí, con su formulario en «Todos "
                  "los comandos», su salida en el panel de trabajos y su resultado; lo que borra o mueve datos va aparte "
-                 "y pregunta antes. Ctrl K / ⌘K va a una sección, a otro proyecto o a un comando, y g y una letra (g b, g p, "
+                 "y pregunta antes. Ctrl K / ⌘K va a una sección, a otro proyecto o a un comando, y g y una letra (g b, g a, g p, "
                  "g q…) salta de sección. Fuera de un proyecto abre en la pantalla de inicio, «¿Qué quieres documentar?» (ver «El primer arranque en la app»). "
                  "«Ver portal», arriba, abre el portal en tu navegador: ahí se lee, edita y revisa, y es el visor del equipo; sin el "
                  "token de la app no enseña los botones de lo que no puede hacer. La primera vez instala Electron en ~/.camarones/desktop (necesita Node.js); sin "
@@ -386,6 +386,49 @@ PAGES = {
                  "umbrales de la «S» de INVEST. "
                  "El índice `.camarones/.cache/board.db` se reconstruye solo y se puede borrar.\n\n"
                  "Tu gambita de prácticas ya ha colgado los post-its en su sitio: tú solo los mueves."},
+        {"icon": "📜", "title": "Decisiones: los ADR, con la evidencia delante",
+         "art": r"""
+   Decisiones (g a)                       docs/decisions/0007-why-jpa.md
+   +--------------------------------+     ---
+   | 0007  Aceptada   Why spring... |     type: decision      x-owner: human
+   | 0008  En revision  Cache de... |     ## Status   Accepted (2026-10-28)
+   | Candidatas: 3                  |     ## Context, Decision, Evidence
+   +--------------------------------+     ## Decided by   ana, luis
+
+   problema -> evidencia -> revision -> aceptado
+   camaron adr candidates | new | pack | write | accept | reject""",
+         "text": "Un ADR deja por escrito por qué el código es como es. La sección «Decisiones» de la app de escritorio "
+                 "(`g a`) ayuda a tomar la decisión con la evidencia delante y funciona entera sin IA, sin ningún agente "
+                 "instalado. El ADR vive en `docs/decisions/NNNN-titulo.md` y lo que la revisión va decidiendo, en "
+                 "`docs/.work/adr/NNNN.yaml`.\n\n"
+                 "Plantear. «Nuevo ADR» pide un título y de qué va: nuevo (algo que el código aún no hace) o retroactivo "
+                 "(algo que el código ya hace y nadie dejó escrito). En «Toca» buscas los ficheros, los grupos del mapa "
+                 "del código y las páginas de documentación que afecta. «Candidatas» lista, sin IA, las decisiones que el "
+                 "código ya tomó y ningún ADR nombra: librerías de datos, caché, mensajería, seguridad y frameworks del "
+                 "inventario, tecnologías del C4 y ficheros de despliegue (Docker Compose, Helm); «Crear ADR retro» las "
+                 "abre con el título y lo que toca ya puestos.\n\n"
+                 "Evidencia. El paquete de evidencia reúne lo que el proyecto ya sabe de lo que toca el ADR: ficheros "
+                 "vecinos del grafo del código, páginas que los citan, otros ADR, commits del último año, elementos del "
+                 "C4, librerías y preguntas abiertas. «Escribir sin IA» escribe el ADR propuesto con la plantilla y esa "
+                 "evidencia ya puesta.\n\n"
+                 "Revisar y decidir. La revisión recorre el ADR parte por parte (aprobar, editar o aplazar cada sección) "
+                 "y cada punto de decisión (una pregunta con sus opciones: eliges una, con su razón en una línea). Puedes "
+                 "añadir puntos y apuntar a los asistentes. «Presentar» (`P`) pone una parte por pantalla en letra grande "
+                 "para llevar la reunión compartiendo pantalla, con el teclado: ←/→ cambian de parte, 1–9 eligen opción, "
+                 "E edita, D aplaza, A acepta y Esc sale. Aceptar deja el fichero en «Accepted» con la fecha, de una "
+                 "persona (`x-owner: human`), confirmado y con «Decided by»; rechazar exige un motivo y deja el fichero; "
+                 "un ADR que sustituye a otro lo marca «Superseded by». No se acepta lo que no está decidido: un punto "
+                 "aplazado o sin elección, o ningún texto en «Decision» ni puntos.\n\n"
+                 "Un ADR escrito a mano o por otro kit (sin frontmatter, con encabezados en español…) sale en la lista "
+                 "con su estado y no cambia ni un byte hasta que lo aceptes o lo rechaces en una sesión. En el portal, "
+                 "cada ADR enseña su estado en el árbol y en su página, y las páginas que cita una decisión aceptada "
+                 "llevan un aviso («pendiente de implementar» si es una decisión nueva), también en la exportación "
+                 "estática.\n\n"
+                 "En la terminal: `camaron adr list|new|show|pack|candidates|write|accept|reject`, todos con `--json` "
+                 "(`new TÍTULO --kind new|retro [--problem T] [--touch repo:ruta] [--supersedes N]`, `accept ID "
+                 "[--attendee NOMBRE]`, `reject ID --why MOTIVO`). La revisión por partes es de la app.\n\n"
+                 "Tu gambita de prácticas ya ha rebuscado en el código las decisiones que nadie escribió: tú pones la "
+                 "última palabra."},
         {"icon": "🧰", "title": "Piezas de apoyo",
          "art": r"""
    uv        -> ejecuta Camarones (Python) sin instalar nada mas
@@ -662,14 +705,14 @@ PAGES = {
    +----------------------------------------------------------------------------+""",
          "text": "`camaron app` (or wizard → 🖥️ Desktop app) opens the app where you operate the project: at the left, "
                  "the rail with your projects and its sections, by task. Summary (the next step with one button, the one "
-                 "this wizard suggests), Board (the columns from Backlog to Done: move a card by dragging it or with the keyboard, open its description and criteria, and on a story its tasks with Add a task; Delete archives it; Add creates a story, a task…; if the board is not on, the section offers to turn it on), Plan (run the ready units or the autopilot, and the units on a board coloured by "
+                 "this wizard suggests), Board (the columns from Backlog to Done: move a card by dragging it or with the keyboard, open its description and criteria, and on a story its tasks with Add a task; Delete archives it; Add creates a story, a task…; if the board is not on, the section offers to turn it on), Decisions (the ADRs: frame a decision, gather its evidence without AI, review it part by part and accept it; see “Decisions: the ADRs”), Plan (run the ready units or the autopilot, and the units on a board coloured by "
                  "state or by phase; a started unit whose terminal is closed stays paused until you continue it, and an open one says what its agent is doing; under the board, what the plan has cost so far), Interviews, Team (the team's repo and sharing, what is left to approve, plugins), Quality "
                  "(the project's health at a glance: verdict, machine, docs and code, and each repo with its coverage (SonarQube's when a token is saved), vulnerabilities, tech debt and Sonar quality gate; prerequisites and tools kept between visits, context, golden questions, with and without cam-docs, "
                  "libraries and vulnerabilities, pages out of date), Libraries (scan for vulnerabilities repo by repo, with its bar, Stop and a tick when it ends; why each one is there, its security advisories in full, and Update on a new branch of the repo, not committed) and Docs, which opens the portal in your browser and builds the C4 explorer, generates each repo's wiki and its graph, and answers your questions with AI; below, Machine (setup, "
                  "language and models, tokens, repos, the kit and uninstall previewed first). Every CLI command is "
                  "there, with its form under \"All commands\", its output in the jobs panel and its result; what deletes "
                  "or moves data sits apart and asks first. Ctrl K / ⌘K goes to a section, another project or a command, "
-                 "and g then a letter (g b, g p, g q…) jumps between sections. Outside a project it opens on the start screen, \"What do you want to "
+                 "and g then a letter (g b, g a, g p, g q…) jumps between sections. Outside a project it opens on the start screen, \"What do you want to "
                  "document?\" (see \"First run in the app\"). \"View portal\", at the top, opens the portal in your browser: there you read, edit and review, "
                  "and it is the team's viewer; without the app's token it does not show the buttons for what it cannot do. The first time it installs Electron into ~/.camarones/desktop (needs "
                  "Node.js); without it the CLI and this wizard work the same."},
@@ -821,6 +864,48 @@ PAGES = {
                  "thresholds of INVEST's “S”. The index `.camarones/.cache/board.db` rebuilds itself and is safe to "
                  "delete.\n\n"
                  "Your intern shrimp has pinned the sticky notes up already: all you do is move them."},
+        {"icon": "📜", "title": "Decisions: the ADRs, with the evidence in front of you",
+         "art": r"""
+   Decisions (g a)                        docs/decisions/0007-why-jpa.md
+   +--------------------------------+     ---
+   | 0007  Accepted   Why spring... |     type: decision      x-owner: human
+   | 0008  In review  Cache de...   |     ## Status   Accepted (2026-10-28)
+   | Candidates: 3                  |     ## Context, Decision, Evidence
+   +--------------------------------+     ## Decided by   ana, luis
+
+   problem -> evidence -> review -> accepted
+   camaron adr candidates | new | pack | write | accept | reject""",
+         "text": "An ADR writes down why the code is the way it is. The “Decisions” section of the desktop app (`g a`) "
+                 "helps you make the decision with the evidence in front of you and works entirely without AI, with no "
+                 "agent installed. The ADR lives in `docs/decisions/NNNN-title.md` and what the review decides along "
+                 "the way, in `docs/.work/adr/NNNN.yaml`.\n\n"
+                 "Framing. “New ADR” asks for a title and what it is about: new (something the code does not do yet) or "
+                 "retroactive (something the code already does that nobody wrote down). In “Touches” you search the "
+                 "files, code-map groups and doc pages it affects. “Candidates” lists, without AI, the decisions the "
+                 "code already took that no ADR names: data, cache, messaging, security and framework libraries from "
+                 "the inventory, C4 technologies and deployment files (Docker Compose, Helm); “Create a retro ADR” "
+                 "opens one with the title and what it touches already in.\n\n"
+                 "Evidence. The evidence pack gathers what the project already knows about what the ADR touches: "
+                 "neighbouring files in the code graph, the pages that cite them, other ADRs, the last year of commits, "
+                 "C4 elements, libraries and open questions. “Write without AI” writes the proposed ADR from the "
+                 "template with that evidence already in.\n\n"
+                 "Review and decide. The review walks the ADR part by part (approve, edit or defer each section) and "
+                 "each decision point (a question with its options: you pick one, with its reason in one line). You "
+                 "can add points and note the attendees. “Present” (`P`) shows one part per screen in large type to "
+                 "run the meeting while sharing a screen, by keyboard: ←/→ change part, 1–9 pick an option, E edits, "
+                 "D defers, A accepts and Esc leaves. Accepting leaves the file as “Accepted” with the date, owned by "
+                 "a person (`x-owner: human`), confirmed and with “Decided by”; rejecting needs a reason and keeps the "
+                 "file; an ADR that supersedes another marks it “Superseded by”. What is not decided cannot be "
+                 "accepted: a deferred point or one with no choice, or no text in “Decision” and no points.\n\n"
+                 "An ADR written by hand or by another kit (no frontmatter, Spanish headings…) shows in the list with "
+                 "its status and not a byte changes until you accept or reject it in a session. In the portal each ADR "
+                 "shows its status in the tree and on its page, and the pages an accepted decision cites carry a "
+                 "banner (“pending implementation” for a new decision), also in the static export.\n\n"
+                 "In the terminal: `camaron adr list|new|show|pack|candidates|write|accept|reject`, all with `--json` "
+                 "(`new TITLE --kind new|retro [--problem T] [--touch repo:path] [--supersedes N]`, `accept ID "
+                 "[--attendee NAME]`, `reject ID --why REASON`). The part-by-part review is the app's.\n\n"
+                 "Your intern shrimp has already combed the code for the decisions nobody wrote down: you get the "
+                 "last word."},
         {"icon": "🧰", "title": "Supporting pieces",
          "art": r"""
    uv        -> runs Camarones (Python) without installing anything else
