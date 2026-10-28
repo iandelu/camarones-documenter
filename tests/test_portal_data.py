@@ -159,6 +159,14 @@ def test_a_decision_row_carries_the_status_of_its_adr_and_no_other_row_does(serv
     assert "adr_status" not in r["decisions/index.md"] and "adr_status" not in r["flows/checkout.md"]
 
 
+def test_the_tree_marks_as_decisions_the_pages_the_app_lists(serve_mod):
+    docs = serve_mod.root / "docs"
+    page(docs, "decisions/old/0006-nested.md", "# 0006 — Nested\n\n## Status\n\nAccepted\n")
+    page(docs, "guides/why-redis.md", "---\ntype: decision\n---\n# Why Redis\n\n## Status\n\nProposed\n")
+    r = rows(serve_mod)
+    assert "adr_status" not in r["decisions/old/0006-nested.md"] and r["guides/why-redis.md"]["adr_status"] == "proposed"
+
+
 # ---------- static export ----------
 def test_static_export_carries_the_new_fields(serve_mod, monkeypatch):
     env, docs = serve_mod.env, serve_mod.docs

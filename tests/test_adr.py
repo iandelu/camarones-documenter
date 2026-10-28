@@ -509,6 +509,17 @@ def test_an_unquoted_id_in_a_state_file_still_opens_and_is_saved_quoted(adr, kit
     assert adr.set_attendees("0001", ["LA"])["state"]["attendees"] == ["LA"]
 
 
+def test_the_adrs_listed_are_the_files_that_are_decision_pages(adr, kit):
+    doc = importlib.import_module("lib.adr_doc")
+    for rel in ("0001-a.md", "0002-b.md", "README.md", "old/0003-c.md", "0004-.md", "0005-e.txt"):
+        f = decisions(kit) / rel
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text("# x\n", encoding="utf-8")
+    listed = {f"decisions/{p.name}" for p in adr._files().values()}
+    found = {f"decisions/{p.relative_to(decisions(kit)).as_posix()}" for p in decisions(kit).rglob("*") if p.is_file()}
+    assert listed == {p for p in found if doc.is_decision(p)} == {"decisions/0001-a.md", "decisions/0002-b.md"}
+
+
 def test_the_numbers_of_files_and_states_are_both_taken(adr, kit):
     adr.state_file("0002").parent.mkdir(parents=True)
     adr.state_file("0002").write_text("id: '0002'\n", encoding="utf-8")

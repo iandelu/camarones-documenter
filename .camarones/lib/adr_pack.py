@@ -15,7 +15,7 @@ from fnmatch import fnmatchcase
 from itertools import zip_longest
 from pathlib import Path, PurePosixPath
 
-from . import adr, c4edit, docs, history, inventory, quickarch
+from . import adr, adr_doc, c4edit, docs, history, inventory, quickarch
 from .common import DOCS, repo_dir
 from .kanban import index
 
@@ -47,13 +47,13 @@ def _text(value) -> str:
 
 
 def read_page(logical: str, f: Path) -> tuple[dict, str] | None:
-    """(frontmatter, body) of a doc page; None when it cannot be read or is a decision (`type: decision`, or under
-    `decisions/`): a decision has its own status and is never evidence about or affected by another."""
+    """(frontmatter, body) of a doc page; None when it cannot be read or is a decision (`adr_doc.is_decision`): a
+    decision has its own status and is never evidence about or affected by another."""
     try:
         fm, body = docs.split_fm(f.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError):
         return None
-    return None if fm.get("type") == "decision" or logical.startswith("decisions/") else (fm, body)
+    return None if adr_doc.is_decision(logical, fm.get("type")) else (fm, body)
 
 
 # ---------- the board index: neighbours and the pages citing the files ----------

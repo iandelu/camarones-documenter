@@ -442,6 +442,22 @@ def test_covering_matches_references_not_fragments_or_prefixes(adr, kit, name, s
     assert [c["id"] for c in adr.covering(name)] == ([out["id"]] if covers else [])
 
 
+@pytest.mark.parametrize("sources, touch", [
+    (["api:src/S.java#L1"], "api:src/S.java"), ([], "cam-docs:docs/orders.md"), (["repo://api/src/S.java"], "api:src/S.java")])
+def test_the_pages_a_review_calls_affected_are_the_pages_the_accepted_adr_covers(adr, kit, sources, touch):
+    page(kit, "orders.md", sources)
+    page(kit, "other.md", ["api:src/Other.java"])
+    (decisions(kit) / "0009-old.md").write_text("---\ntype: decision\nx-sources:\n  - api:src/S.java\n---\n# 0009 — Old\n",
+                                               encoding="utf-8")
+    a = adr.write_without_ai(adr.new({"title": "T", "kind": "new", "touches": [touch, "cam-docs:docs/decisions/0009-old.md"]})["id"])
+    assert a["affected"] == ["orders.md"] and adr.covering("orders.md") == []
+    a = adr.part(a["id"], "decision", "edit", "Yes.", base_sha=a["sha"])
+    out = adr.accept(a["id"], by="Test", attendees=[], base_sha=a["sha"])
+    assert out["affected"] == ["orders.md"]
+    assert [c["id"] for c in adr.covering("orders.md")] == [a["id"]]
+    assert adr.covering("other.md") == [] and adr.covering("decisions/0009-old.md") == []
+
+
 def test_only_an_accepted_adr_covers_a_page(adr, kit):
     page(kit, "orders.md", ["api:src/S.java"])
     first = accepted_adr(adr, ["api:src/S.java"])
@@ -477,6 +493,14 @@ def test_a_decision_page_is_never_covered_but_a_normal_page_is(adr, kit):
     assert [c["id"] for c in adr.covering("orders.md")] == [first["id"], second["id"]]
     assert adr.covering(first["path"]) == [] and adr.covering(second["path"]) == []
     assert adr.covering("guides/why-redis.md") == []
+
+
+def test_a_page_beside_the_adrs_that_is_not_one_is_covered_like_any_page(adr, kit):
+    out = accepted_adr(adr, ["api:src/S.java"])
+    page(kit, "decisions/index.md", ["api:src/S.java"])
+    page(kit, "decisions/old/0002-x.md", ["api:src/S.java"])
+    assert [c["id"] for c in adr.covering("decisions/index.md")] == [out["id"]]
+    assert [c["id"] for c in adr.covering("decisions/old/0002-x.md")] == [out["id"]]
 
 
 def test_a_page_under_decisions_is_not_covered_even_without_type_decision(adr, kit):
