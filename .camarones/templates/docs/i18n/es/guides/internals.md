@@ -63,13 +63,14 @@ mi-proyecto/
 
 `.camarones/.cache/` guarda lo que se puede reconstruir: los registros de las ejecuciones (`runs/<run>/events.jsonl`),
 la web exportada (`site/`), el índice del tablero (`board.db`), la foto de la salud y copias de los ficheros del kit
-sustituidos.
+sustituidos; y lo que dejan en esta máquina las sesiones de la app: el prompt de cada una (`prompts/`), el registro de
+la sesión de cada unidad (`sessions/`) y las terminales del lienzo (`terminals/`).
 
 **En esta máquina:**
 
 | Ruta | Guarda |
 |---|---|
-| `~/.camarones.json` | Lo que eliges en esta máquina: idioma, modelos de Claude Code y de Codex, ejecutores extra, cambios al enrutado, modo en línea de OSV |
+| `~/.camarones.json` | Lo que eliges en esta máquina: idioma, modelos de Claude Code y de Codex, dónde abre la app las sesiones (`sessions`), ejecutores extra, cambios al enrutado, modo en línea de OSV |
 | `~/.camarones/kit` (Windows: `%LOCALAPPDATA%\camarones-documenter\kit`) | La instalación global del kit, compartida por todos los proyectos |
 | `~/.camarones/desktop` | El Electron fijado para `camaron app` |
 | `~/.camarones/bin`, `~/.camarones/osv-db` | Binarios fijados (gitleaks, OSV-Scanner) y la base de datos sin conexión de OSV |
@@ -129,7 +130,7 @@ La API sirve al portal y a la app; no es una interfaz pública estable (esa es l
 | Plan | `GET pipeline?lang`, `runs/<id>`, `runs/<id>/events` (eventos enviados por el servidor), `plan/cost`, `interview`, `sync`; `POST units/approve`, `units/retry`, `interview/answer`, `sync/share` |
 | Calidad | `GET health`, `kpis`, `inventory`, `schemas`, `ci`; `POST kpis/miss` |
 | Trabajo en la máquina (token de la app) | `POST runs`, `runs/<id>/cancel`, `wiki`, `build`, `inventory`, `schemas`, `ci`, `ask/answer`, `plan/cost` |
-| La app (token de la app) | `GET app/info`, `catalog`, `summary`, `machine`, `guide`, `creds`, `agents`, `doctor`, `kitdev`, `onboard/*`, `jobs/<id>/events`; `POST app/cmd`, `agent`, `creds`, `doctor`, `kitdev`, `onboard/*`, `jobs/<id>/cancel` |
+| La app (token de la app) | `GET app/info`, `catalog`, `summary`, `machine`, `guide`, `creds`, `agents`, `terminals`, `terminals/stream` (eventos enviados por el servidor), `doctor`, `kitdev`, `onboard/*`, `jobs/<id>/events`; `POST app/cmd`, `terminals` (una sesión, en el lienzo o en una ventana; su nombre antiguo, `agent`, sigue valiendo), `terminals/<id>/input`, `terminals/<id>/resize`, `terminals/<id>/close`, `creds`, `doctor`, `kitdev`, `onboard/*`, `jobs/<id>/cancel` |
 
 El trabajo largo es un **trabajo**: `GET jobs` los lista y `GET jobs/<id>?since=n` lee sus líneas desde la `n`.
 
@@ -165,9 +166,11 @@ una termina, el kit trae a esa copia lo último de `cam-docs`, comprueba que no 
 tocar y añade una unidad `integrate:<unidad>`. Las demás unidades van de una en una, y una unidad nunca empieza antes de
 que se haya fusionado lo que necesita. `camaron autopilot` hace las unidades una tras otra sin worktrees. Mientras
 cualquiera de los dos corre, la máquina no se suspende, y una sesión cortada por algo pasajero (suspensión, red, una API
-saturada) vuelve una vez a la cola. Una ejecución parada desde fuera (su trabajo parado, su proceso terminado) no
-puede apuntar su final: en cuanto el cerrojo de las ejecuciones queda libre o caducado, `GET pipeline` la da por
-`finished` e `interrupted`, y su flujo `runs/<id>/events` acaba tras su último evento.
+saturada) vuelve una vez a la cola. Ninguno de los dos empieza una unidad cuya sesión tiene abierta la app (en el
+lienzo o en una ventana); si solo quedan de esas, se para y las nombra. Una ejecución parada desde fuera (su trabajo
+parado, su proceso terminado) no puede apuntar su final: en cuanto el cerrojo de las ejecuciones queda libre o
+caducado, `GET pipeline` la da por `finished` e `interrupted`, y su flujo `runs/<id>/events` acaba tras su último
+evento.
 
 **Lo que costó.** Cada ejecución escribe `.camarones/.cache/runs/<run>/events.jsonl` (`camaron runs`). Cada máquina
 suma su parte —ejecuciones, wikis que escribió un agente y las sesiones interactivas leídas del historial de Claude
@@ -199,12 +202,33 @@ agents:
 Los modelos locales nunca reciben trabajo `agentic-heavy`. `camaron doctor --local` propone uno que quepa en la memoria
 de esta máquina.
 
-Una **sesión interactiva** (Empezar, Seguir en la app; el Siguiente paso del asistente) abre el agente en su propia
-ventana de terminal, en el workspace, con el prompt de la unidad. Pasa por el mismo enrutado: con el agente que elijas,
-el modelo que fije el nodo de la unidad en `pipeline.yaml` o, si no, el de su nivel (la actualización de la doc es
-`agentic-heavy`); si no hay ninguno para ese agente, el modelo de esta máquina en Ajustes. El asistente y la app dicen
-con qué modelo la abren. Mientras esa ventana siga abierta, la app no abre otra para la misma unidad, y enseña qué está
-haciendo el agente leyendo su historial.
+Una **sesión interactiva** (Empezar, Seguir en la app; el Siguiente paso del asistente) abre el agente en el workspace
+con el prompt de la unidad: en la app, como una terminal en el lienzo del Plan, o en una ventana de terminal propia si
+el ajuste `sessions` de esta máquina es `window`; en el asistente, siempre en una ventana. Pasa por el mismo enrutado:
+con el agente que elijas, el modelo que fije el nodo de la unidad en `pipeline.yaml` o, si no, el de su nivel (la
+actualización de la doc es `agentic-heavy`); si no hay ninguno para ese agente, el modelo de esta máquina en Ajustes.
+El asistente y la app dicen con qué modelo la abren. Cada sesión que abre la app lee un fichero de prompt propio en la
+caché del proyecto, `.camarones/.cache/prompts/<unidad>.md` (`update.md` para la actualización de la doc), así que dos
+sesiones abiertas a la vez nunca leen la de la otra; el asistente y el refinado del C4 del primer arranque siguen usando
+`docs/.work/next-prompt.md`. La sesión de una unidad ejecuta su agente dentro de `session_run.py`, que guarda el
+registro de la unidad en `.camarones/.cache/sessions/` (su pid mientras el agente corre, y después cuándo acabó):
+mientras sigue abierta, la app no abre otra para la misma unidad, `run` y `autopilot` dejan la unidad en paz, y la app
+enseña qué está haciendo el agente leyendo su historial.
+
+**Terminales en el lienzo.** El servidor del proyecto tiene las terminales del lienzo (`lib/terminals.py`): PTY de
+verdad, el `pty` de la biblioteca estándar en macOS y Linux y ConPTY con pywinpty 3.1.0 en Windows (si no se puede
+importar, `GET app/terminals` dice `available: false` y las sesiones se abren en una ventana). Como mucho hay 8 vivas a
+la vez: una novena se rechaza (409) antes de que cambien la unidad o el registro de su sesión, igual que una unidad que
+ya tiene la suya (409 con el id de su terminal). Cada una guarda en memoria sus últimos 256 KB, que
+`GET app/terminals/stream` repite desde el punto que pide el cliente (`from=<id>:<offset>,…`) y luego sigue, todas las
+terminales en un mismo flujo de eventos del servidor con sus bytes en base64; en disco,
+`.camarones/.cache/terminals/<id>.log` guarda sus últimos 5 MB junto a `<id>.json` (su unidad, su agente, su tamaño,
+cuándo empezó y acabó, su código de salida). Lo que tecleas y un tamaño nuevo son `POST app/terminals/<id>/input` y
+`resize`; `close` cuelga su grupo de procesos y mata lo que quede 3 s después (`taskkill` en Windows). Las terminales
+viven lo que vive el servidor: cuando sale (se cierra la ventana de la app), cuelga cada una, mata lo que quede 2 s
+después y apunta su final en los registros de sesión de las unidades, así que estas quedan en pausa y **Seguir** las
+vuelve a abrir. `sessions: window` en `~/.camarones.json` (`camaron config set sessions window`) abre las sesiones en
+una ventana de terminal, como antes.
 
 ## Confianza en las páginas: revisión y frescura
 
