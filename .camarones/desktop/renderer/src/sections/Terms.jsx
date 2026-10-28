@@ -8,7 +8,7 @@ import { fmtDuration } from '@camaron/ui'
 import { useTheme } from '../hooks.js'
 import { t } from '../i18n.js'
 import { tone } from '../plan.js'
-import { bytes, elapsed, fitSize, followTerminals, inputPieces, isHistory, nap, screenFeed } from '../terminals.js'
+import { bytes, elapsed, fitSize, followTerminals, historyBytes, inputPieces, nap, screenFeed } from '../terminals.js'
 
 const LIST = 'app/terminals'
 const SETTLE_MS = 150
@@ -160,8 +160,12 @@ function desk(srv, onList) {
     if (gone.has(id) || typeof ev.d !== 'string') return
     const x = screen(id)
     const data = bytes(ev.d)
-    const past = isHistory(ev.o, upTo.get(id))
-    x.ready.then((term) => { if (term && !x.gone) x.write(data, past) })
+    const cut = historyBytes(ev.o, data.length, upTo.get(id))
+    x.ready.then((term) => {
+      if (!term || x.gone) return
+      if (cut > 0) x.write(data.subarray(0, cut), true)
+      if (cut < data.length) x.write(data.subarray(cut), false)
+    })
   }
 
   return {
