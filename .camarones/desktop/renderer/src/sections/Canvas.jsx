@@ -62,7 +62,7 @@ function Log({ rows, label, running }) {
   }, [rows, follow])
   return (
     <div className="dk-term-body">
-      <div ref={el} role="log" aria-live="polite" aria-label={label} tabIndex={0} className="dk-term-log nowheel nodrag nokey"
+      <div ref={el} role="log" aria-live="polite" aria-label={label} tabIndex={0} className="dk-term-log nowheel nodrag nopan nokey"
         onScroll={() => setFollow(atBottom(el.current))}>
         {rows.length ? rows.map((r) => <div key={r.seq} className={`k-${r.kind}`}><span aria-hidden="true">{GLYPH[r.kind]}</span> {r.text}</div>)
           : running ? <p className="dk-term-wait">{t('cv.waiting')}</p> : null}

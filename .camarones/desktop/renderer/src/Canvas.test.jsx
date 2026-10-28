@@ -18,6 +18,7 @@ test("a running unit's terminal shows what its agent does, as a live log", () =>
   expect(out).toMatch(/role="log"[^>]*aria-live="polite"/)
   expect(out).toMatch(/class="[^"]*nowheel[^"]*nodrag/)
   expect(out).toMatch(/role="log"[^>]*class="[^"]*\bnokey\b/)
+  expect(out).toMatch(/role="log"[^>]*class="[^"]*\bnopan\b/)          // a drag in it selects text, not pans
 })
 
 // React drops keys from what it renders, so the source says it: a row's key is its seq, never its index.
