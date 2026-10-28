@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { expect, test } from 'vitest'
-import { arrivedLive, atBottom, clockRuns, runLive, defaultView, emptyFeed, feed, FOLD_MS, followRun, GAP, layout, MAX_ROWS, neighbour, openUnits, place, row, SIZE } from './canvas.js'
+import { arrivedLive, atBottom, canvasKey, clockRuns, runLive, defaultView, emptyFeed, feed, FOLD_MS, followRun, GAP, layout, MAX_ROWS, neighbour, openUnits, place, planLive, row, SIZE } from './canvas.js'
 
 const ev = (type, f = {}) => ({ v: 1, ts: '2026-10-27T10:00:00.000Z', type, unit: 'a', ...f })
 
@@ -352,9 +352,9 @@ test('nothing live yet is false, never an undecided value the view could trip on
   expect(arrivedLive(true, false)).toBe(true)
 })
 
-// The canvas shows what a run does; a terminal the person opened on one unit from the board is not on it (until S2),
-// so pressing Start on a unit must not turn the board into the graph.
-test('only a run turns the plan to the canvas, never a terminal opened by hand on one unit', () => {
+// A run is on until it finishes; the Plan's default view also counts the sessions open with you (planLive), now that
+// they are terminals on the canvas.
+test('a run is live until it finishes, and the plan turns to the canvas by planLive', () => {
   expect(runLive(null, null)).toBe(false)
   expect(runLive({ run: 'r-1', finished: true }, null)).toBe(false)
   expect(runLive({ run: 'r-1', finished: true, interrupted: true }, null)).toBe(false)
@@ -362,12 +362,45 @@ test('only a run turns the plan to the canvas, never a terminal opened by hand o
   expect(runLive(null, { id: 'j-1', kind: 'cmd:autopilot' })).toBe(true)
   const src = readFileSync(new URL('./sections/Plan.jsx', import.meta.url), 'utf-8')
   expect(src).toMatch(/const active = runLive\(data\?\.run, pilot\)/)
-  expect(src).toMatch(/arrivedLive\(held, active\)/)
-  expect(src).not.toMatch(/arrivedLive\([^)]*windows/)
+  expect(src).toMatch(/arrivedLive\(held, planLive\(data\.run, pilot, data\.units\)\)/)
 })
 
 test('a view the person picked always wins, live or not', () => {
   expect(visit('phases', [false, true, true, false])).toEqual(['phases', 'phases', 'phases', 'phases'])
   expect(visit('board', [true, false])).toEqual(['board', 'board'])
   expect(visit('canvas', [false, false])).toEqual(['canvas', 'canvas'])
+})
+
+test('a terminal opened by hand opens its unit as a terminal node, and loose ones go under the graph', () => {
+  const open = openUnits(units, emptyFeed(null), new Set(), 0, new Set(['d']))
+  expect(open.has('d')).toBe(true)
+  const loose = [{ id: 't-update-1', kind: 'update', unit: null }]
+  const { nodes } = layout(units, open, { pty: new Set(['d']), loose })
+  const at = Object.fromEntries(nodes.map((n) => [n.id, n]))
+  expect(at.d).toMatchObject({ type: 'pty', width: SIZE.term.w, height: SIZE.term.h })
+  expect(at['t-update-1']).toMatchObject({ type: 'pty', data: { term: loose[0] } })
+  const graph = nodes.filter((n) => !['t-update-1', 'lane:loose'].includes(n.id))
+  expect(at['lane:loose'].position.y).toBeGreaterThan(Math.max(...graph.map((n) => n.position.y + n.height)))
+  expect(at['t-update-1'].position.y).toBeGreaterThan(at['lane:loose'].position.y)
+  for (const p of nodes) for (const q of nodes) if (p !== q) expect(overlap(p, q)).toBe(false)
+  expect(layout(units, open).nodes.some((n) => n.type === 'lane')).toBe(false)
+})
+
+test('a key typed in a terminal belongs to the agent', () => {
+  for (const key of ['Escape', 'Enter', ' ', 'ArrowLeft', 'Backspace']) {
+    expect(canvasKey(key, { inTerminal: true, maxed: true, node: true, self: true })).toBe(null)
+  }
+  expect(canvasKey('Escape', { inLog: true, maxed: true, node: true })).toBe('leave')
+  expect(canvasKey('ArrowRight', { inLog: true, node: true })).toBe(null)
+  expect(canvasKey('Escape', { node: true, maxed: false })).toBe(null)
+  expect(canvasKey('Enter', { node: true, self: true })).toBe('open')
+  expect(canvasKey('Enter', { node: true, self: false })).toBe(null)
+  expect(canvasKey('ArrowDown', { node: true })).toBe('down')
+  expect(canvasKey('ArrowDown', { node: true, mods: true })).toBe(null)
+})
+
+test('a session open with you turns the plan to the canvas, as a run does', () => {
+  expect(planLive(null, null, [{ id: 'a', session: { live: true } }])).toBe(true)
+  expect(planLive(null, null, [{ id: 'a', session: { live: false } }, { id: 'b' }])).toBe(false)
+  expect(planLive({ run: 'r', finished: false }, null, [])).toBe(true)
 })

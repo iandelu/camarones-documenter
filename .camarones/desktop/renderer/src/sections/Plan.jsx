@@ -1,8 +1,9 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { Aviso, Button, Card, Chip, EmptyState, PlanCost, Skeleton, uiText } from '@camaron/ui'
-import { board, openedWith, phases, sessionLine, tone, waitsFor } from '../plan.js'
-import { arrivedLive, defaultView, runLive } from '../canvas.js'
-import { useAgents, useCmd, useStore } from '../hooks.js'
+import { board, openSession, phases, sessionLine, sessionNote, tone, waitsFor } from '../plan.js'
+import { arrivedLive, defaultView, planLive, runLive } from '../canvas.js'
+import { useAgents, useCmd, useHash, useStore } from '../hooks.js'
+import { termOf } from '../nav.js'
 import { AgentPicker, Failed, Fold, JobOutput, Page, UnitActions } from '../parts.jsx'
 import Commands from './Commands.jsx'
 import { ago } from '../jobs.js'
@@ -13,10 +14,12 @@ const Canvas = lazy(() => import('./Canvas.jsx'))           // React Flow loads 
 // The Plan by task: run the ready units (in parallel, or the autopilot one after another) or stop what runs; then
 // every unit coloured by its state (running yellow, done green, ready white, blocked red, awaiting you in the accent),
 // as a board by state or lane by phase like the portal, or as the canvas: the graph, where each unit a run works on is
-// a live terminal (canvas.js). A unit opens beside the view with the one action that moves it. A unit in progress with
-// no terminal window open is paused; an open one says what its agent is doing. With no view picked, the canvas opens
-// as soon as a run is on during the visit (already on when the plan arrives, or started from here) and stays until the
-// person picks another; a terminal opened by hand on one unit does not count. Under the view, what the plan cost.
+// a live terminal and each session opened by hand a terminal you type in (canvas.js, Terms.jsx). A unit opens beside
+// the view with the one action that moves it. A unit in progress with no session open is paused; an open one says what
+// its agent is doing. With no view picked, the canvas opens as soon as a run or a session is on during the visit
+// (already on when the plan arrives, or started from here) and stays until the person picks another. An address with a
+// terminal (#/plan?term=<id>, where every session opened from the app lands) shows the canvas for the visit with that
+// terminal in front, without picking the view for later. Under the view, what the plan cost.
 const VIEWS = ['board', 'phases', 'canvas']
 const TONES = ['ready', 'running', 'paused', 'awaiting', 'blocked', 'waiting', 'done']
 
@@ -25,22 +28,35 @@ export default function Plan({ srv, jobs }) {
   const [error, setError] = useState('')
   const [view, setView] = useState(() => { try { return localStorage.getItem('dk.planView') } catch { return null } })
   const [open, setOpen] = useState(null)
-  const [held, setHeld] = useState(null)               // a run was live at some point of this visit: decides the default view
+  const [held, setHeld] = useState(null)               // a run or a session was live at some point of this visit: decides the default view
+  const [visit, setVisit] = useState(false)            // a terminal was asked for by the address: the canvas until a view is picked
+  const [focus, setFocus] = useState(null)             // that terminal, until the canvas has put it in front
   const a = useAgents(srv)
   const { running } = useStore(jobs)
   const pilot = running.find((j) => j.kind.startsWith('cmd:autopilot'))
   const load = () => srv.get('pipeline', { lang: lang() }).then((d) => { setData(d); setError('') }, (e) => setError(e.message))
   const active = runLive(data?.run, pilot)
   const windows = !!data?.units.some((u) => u.session?.live)
-  const arrived = data ? arrivedLive(held, active) : held
+  const arrived = data ? arrivedLive(held, planLive(data.run, pilot, data.units)) : held
   if (arrived !== held) setHeld(arrived)
-  const shown = defaultView(view, arrived)
+  const asked = termOf(useHash())
+  const shown = visit || asked ? 'canvas' : defaultView(view, arrived)
   useEffect(() => {                                   // often while something runs, rarely otherwise
     load()
     const id = setInterval(load, active ? 3000 : windows ? 5000 : 15000)
     return () => clearInterval(id)
   }, [active, windows, running.length])
-  const pick = (v) => { setView(v); try { localStorage.setItem('dk.planView', v) } catch { /* private window: not kept */ } }
+  // The address is taken once: put back to #/plan (and told to useHash), the same terminal asked again is a new visit.
+  useEffect(() => {
+    if (!asked) return
+    setFocus(asked)
+    setVisit(true)
+    history.replaceState(null, '', '#/plan')
+    dispatchEvent(new Event('hashchange'))
+  }, [asked])
+  const pick = (v) => { setVisit(false); setFocus(null); setView(v); try { localStorage.setItem('dk.planView', v) } catch { /* private window: not kept */ } }
+  const onSession = useCallback((unit, mode) => openSession(srv, { unit, agent: a.agent, lang: lang(), mode }).then(load), [srv, a.agent])
+  const onFocused = useCallback(() => setFocus(null), [])
   if (error) return <Page title={t('nav.plan')}><Failed title={t('plan.failed')} detail={error} onRetry={() => { setError(''); load() }} /></Page>
   if (!data) return <Page title={t('nav.plan')}><Skeleton lines={6} /></Page>
   if (!data.units.length) return <Page title={t('nav.plan')}><NoPlan srv={srv} jobs={jobs} onDone={load} /></Page>
@@ -68,7 +84,8 @@ export default function Plan({ srv, jobs }) {
       <div className={'dk-plan' + (unit ? ' with-detail' : '')}>
         {shown === 'canvas' ? (
           <Suspense fallback={<Skeleton lines={6} />}>
-            <Canvas srv={srv} units={data.units} run={data.run} pilot={pilot} onOpen={setOpen} />
+            <Canvas srv={srv} units={data.units} run={data.run} pilot={pilot} onOpen={setOpen} focus={focus} onFocused={onFocused}
+              onSession={onSession} canStart={Boolean(a.agent)} noAgent={a.agents?.length === 0} />
           </Suspense>
         ) : shown === 'board' ? (
           <div className="dk-board">{board(data.units).map((c) => (
@@ -227,15 +244,16 @@ export function CostView({ bill, error, busy, onRefresh, onRetry }) {
 }
 
 // Keep it current: the docs update (what changed in the code since the docs were written) as a session with the
-// agent in its own terminal, like the wizard's "update" (lib/agents.py).
+// agent, a loose terminal on the canvas or a window as this machine's setting says, like the wizard's "update"
+// (lib/agents.py).
 function Update({ srv, a }) {
   const [note, setNote] = useState({ ok: '', error: '' })
   if (a.agents && !a.agents.length) return null
   async function open() {
     setNote({ ok: '', error: '' })
     try {
-      const res = await srv.post('app/agent', { unit: 'update', agent: a.agent, lang: lang() })
-      setNote({ ok: t('next.opened', { agent: openedWith(a.label(a.agent), res) }), error: '' })
+      const n = sessionNote(await openSession(srv, { unit: 'update', agent: a.agent, lang: lang() }), a.label(a.agent))
+      setNote({ ok: t(n.key, n.vars), error: '' })
     } catch (e) { setNote({ ok: '', error: e.message }) }
   }
   return (
