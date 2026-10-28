@@ -1037,8 +1037,9 @@ class Handler(BaseHTTPRequestHandler):
         """Server-sent events of every terminal of this server on one connection (Chromium allows six per host). Each
         is replayed from its offset in `from` (`<id>:<offset>,…`, 0 when not named), then followed: `{t, d, o}` per
         CHUNK at most, `d` the raw bytes in base64 (a read can split a UTF-8 character), `o` the offset after them and
-        the id `<t>:<o>`; after an ended one's last bytes, `{t, end, o}` once. Terminals opened later join. It ends when
-        the client goes, which only a write finds out: a keep-alive after KEEP_ALIVE s of nothing else."""
+        the id `<t>:<o>`; after an ended one's last bytes, `{t, end, o}` once. One the person closed sends that end
+        alone, once it ended. Terminals opened later join. It ends when the client goes, which only a write finds out:
+        a keep-alive after KEEP_ALIVE s of nothing else."""
         from . import terminals
         offsets = {}
         for piece in q["from"].split(",") if q.get("from") else []:
@@ -1056,12 +1057,14 @@ class Handler(BaseHTTPRequestHandler):
                 wrote = False
                 for meta in terminals.listing():
                     t = meta["id"]
-                    if t in told:
+                    if t in told or (meta["closed"] and meta["ended"] is None):
                         continue
                     try:
                         data, end = terminals.read(t, offsets.get(t, 0))
                     except KeyError:                            # forgotten since the listing
                         continue
+                    if meta["closed"]:                          # closed by the person: never shown again
+                        data = b""
                     o = end - len(data)
                     for i in range(0, len(data), CHUNK):
                         o += len(chunk := data[i:i + CHUNK])
