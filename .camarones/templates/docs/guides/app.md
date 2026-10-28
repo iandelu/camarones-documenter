@@ -28,7 +28,7 @@ Each project has its own window, served by that project's own local server (see
 |---|---|
 | Header | The brand (back to Summary), where you are (`project › section`), **View portal**, **Search or go to…** (<kbd>Ctrl</kbd> <kbd>K</kbd> / <kbd>⌘</kbd> <kbd>K</kbd>) and **⋯**. The header is the window's title bar: drag it to move the window |
 | Rail | One button per project of this machine, with its initials. Another project opens **in this window**: the app starts that project's server, moves the window to it and stops the old one. Stopping it ends the sessions open on its canvas, so when one is live the app asks first: *{n} sessions are open in this project: switching project ends them.* — **Cancel** or **Switch anyway**. A project that is not on disk is greyed out. **+** opens the start screen |
-| Sections | Summary, Board, Plan, Interviews, Team, Quality, Libraries and Docs; then, under **This app**, Machine, Guide and (only in a checkout of the kit) Kit dev. Hover one to see its shortcut |
+| Sections | Summary, Board, Decisions, Plan, Interviews, Team, Quality, Libraries and Docs; then, under **This app**, Machine, Guide and (only in a checkout of the kit) Kit dev. Hover one to see its shortcut |
 | Main area | The section you are in |
 | Jobs panel and status bar | What runs now and the last jobs, with their output; the status bar shows the first running job and the kit's version |
 
@@ -56,7 +56,7 @@ Inside a section, a command's card shows the same thing: a state chip, the error
 | Keys | Goes to |
 |---|---|
 | <kbd>Ctrl</kbd> <kbd>K</kbd> / <kbd>⌘</kbd> <kbd>K</kbd> | The palette: a section, another project, an action or, once you type, any command and any chapter of this guide |
-| <kbd>g</kbd> then <kbd>s</kbd> <kbd>b</kbd> <kbd>p</kbd> <kbd>i</kbd> <kbd>t</kbd> <kbd>q</kbd> <kbd>l</kbd> <kbd>d</kbd> | Summary, Board, Plan, Interviews, Team, Quality, Libraries, Docs |
+| <kbd>g</kbd> then <kbd>s</kbd> <kbd>b</kbd> <kbd>a</kbd> <kbd>p</kbd> <kbd>i</kbd> <kbd>t</kbd> <kbd>q</kbd> <kbd>l</kbd> <kbd>d</kbd> | Summary, Board, Decisions, Plan, Interviews, Team, Quality, Libraries, Docs |
 | <kbd>g</kbd> then <kbd>m</kbd> <kbd>h</kbd> <kbd>k</kbd> | Machine, Guide, Kit dev (in a checkout of the kit) |
 
 The second letter has to come within a second and a half of the <kbd>g</kbd>. Shortcuts are ignored while you type in a
@@ -173,6 +173,31 @@ A project without a board shows **Turn the board on** (`camaron board init`). Wi
   spike under an epic) and priority.
 
 Writing stories with their subtasks and waves happens in the [portal's Stories](portal.md#stories).
+
+## Decisions
+
+The project's ADRs, made with the evidence in front of you and written down, without AI (`#/decisions`, <kbd>g</kbd>
+<kbd>a</kbd>). Each ADR is `docs/decisions/<NNNN>-<title>.md`; what its review decides along the way is kept in
+`docs/.work/adr/<NNNN>.yaml`, which goes to git. The command guide has [every rule](tutorial.md#-decisions).
+
+<!-- go:decisions -->
+
+- **The list**: each ADR with its status (Running, In review, Proposed, Accepted, Superseded, Rejected…), filters and a
+  search by title, number or repo. An ADR the kit did not write shows with its status and is not rewritten.
+- **New ADR**: a title, *new* or *retroactive*, and optionally the problem, drivers, constraints, candidate options and
+  the ADR it supersedes. **Touches** picks the files, code-map groups and doc pages it affects.
+- **Candidates**: the decisions the code already took that no ADR names (runtime libraries, C4 technologies, Docker
+  Compose and Helm files). **Create a retro ADR** opens the form already filled in.
+- **Evidence**: the pack of what the project knows about what the ADR touches (code graph neighbours, citing pages,
+  related ADRs, commits, C4, libraries, open questions). **Write without AI** writes the proposed ADR with it.
+- **Review**: part by part (approve, edit or defer each section and the affected pages) and point by point (pick an
+  option or *Other*, with a reason), plus the attendees. **Present** (<kbd>P</kbd>) shows one part per screen for a
+  meeting: <kbd>←</kbd> <kbd>→</kbd> change part, <kbd>1</kbd>–<kbd>9</kbd> pick, <kbd>E</kbd> edits, <kbd>D</kbd>
+  defers, <kbd>A</kbd> accepts, <kbd>Esc</kbd> leaves.
+- **Accept** confirms the ADR with `x-owner: human` and *Decided by*; what is not decided yet is not accepted, and the
+  app says which point or section is missing. **Reject** asks for a reason.
+
+<!-- cmd:adr -->
 
 ## Plan
 

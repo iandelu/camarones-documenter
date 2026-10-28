@@ -6,8 +6,8 @@
       "_i18n-D1vM36Or.js"
     ]
   },
-  "_core-CS7kQPcQ.js": {
-    "file": "assets/core-CS7kQPcQ.js",
+  "_core-D-NNzyou.js": {
+    "file": "assets/core-D-NNzyou.js",
     "name": "core",
     "imports": [
       "_i18n-D1vM36Or.js"
@@ -22,13 +22,13 @@
     "name": "kanban"
   },
   "index.html": {
-    "file": "assets/index-kf_0A6_U.js",
+    "file": "assets/index-B--VObF0.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
     "imports": [
       "_i18n-D1vM36Or.js",
-      "_core-CS7kQPcQ.js"
+      "_core-D-NNzyou.js"
     ],
     "dynamicImports": [
       "src/Pipeline.jsx",
@@ -43,28 +43,28 @@
       "src/Stories.jsx"
     ],
     "css": [
-      "assets/index-Ccqw1bVM.css"
+      "assets/index-BIe2bZ0g.css"
     ]
   },
   "src/Ci.jsx": {
-    "file": "assets/Ci-DHcTI8uu.js",
+    "file": "assets/Ci-CcAIjIpa.js",
     "name": "Ci",
     "src": "src/Ci.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_i18n-D1vM36Or.js",
-      "_core-CS7kQPcQ.js",
+      "_core-D-NNzyou.js",
       "_Failed-IRBuCcAz.js"
     ]
   },
   "src/Data.jsx": {
-    "file": "assets/Data-ySHKoHEo.js",
+    "file": "assets/Data-GNA1n0fP.js",
     "name": "Data",
     "src": "src/Data.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_i18n-D1vM36Or.js",
-      "_core-CS7kQPcQ.js",
+      "_core-D-NNzyou.js",
       "index.html",
       "_Failed-IRBuCcAz.js"
     ]
@@ -101,13 +101,13 @@
     ]
   },
   "src/Kpis.jsx": {
-    "file": "assets/Kpis-B4_6Rt9r.js",
+    "file": "assets/Kpis-BwIQHmwH.js",
     "name": "Kpis",
     "src": "src/Kpis.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_i18n-D1vM36Or.js",
-      "_core-CS7kQPcQ.js",
+      "_core-D-NNzyou.js",
       "_Failed-IRBuCcAz.js"
     ]
   },
@@ -122,7 +122,7 @@
     ]
   },
   "src/Pipeline.jsx": {
-    "file": "assets/Pipeline-Bfzofake.js",
+    "file": "assets/Pipeline-g6sMV9XB.js",
     "name": "Pipeline",
     "src": "src/Pipeline.jsx",
     "isDynamicEntry": true,
@@ -135,13 +135,13 @@
     ]
   },
   "src/Stories.jsx": {
-    "file": "assets/Stories-BZGVImK5.js",
+    "file": "assets/Stories-DlE409Kw.js",
     "name": "Stories",
     "src": "src/Stories.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_i18n-D1vM36Or.js",
-      "_core-CS7kQPcQ.js",
+      "_core-D-NNzyou.js",
       "_Failed-IRBuCcAz.js",
       "_kanban-B_jOjNId.js"
     ]

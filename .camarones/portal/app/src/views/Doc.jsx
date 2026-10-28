@@ -9,6 +9,7 @@ import Sources, { FreshIcon } from './Sources.jsx'
 import { pageFresh } from './sources.js'
 import { mountDoc, render } from '../content/doc.js'
 import { readerTrees } from './DocsTree.jsx'
+import { adrStatusLabel, adrTone } from './tree.js'
 import { core } from '../core.js'
 
 const STATE = { draft: 'warn', 'needs-reconfirm': 'info', confirmed: 'ok' }
@@ -65,6 +66,7 @@ export function DocView({ path, anchor, order, extra = null, banner = null, afte
         <h1>{title}</h1>
         {row.description && <p className="lead">{row.description}</p>}
         <div className="meta">
+          {row.adr_status && <Chip state={adrTone(row.adr_status)}>{t(adrStatusLabel(row.adr_status))}</Chip>}
           <Chip state={STATE[d.trust]}>{t('trust.' + d.trust)}</Chip>
           {d.fresh && (
             <span className="fresh-pill" data-state={pageFresh(d.fresh)} title={t('freshHint.' + pageFresh(d.fresh))}>
@@ -87,7 +89,8 @@ export function DocView({ path, anchor, order, extra = null, banner = null, afte
           </span>
         </div>
         {pageBanners(d, row, lang).map((b) => (
-          <Aviso key={b.key} tone={TONE[b.tone]} title={t(b.key, { lang: core.langName(lang) })} detail={b.code || undefined} />
+          <Aviso key={b.key + (b.adr?.id || '')} tone={TONE[b.tone]} title={t(b.key, { lang: core.langName(lang), id: b.adr?.id })}
+            detail={b.code || undefined} action={b.adr && <a href={core.hrefFor(b.adr.path)}>{b.adr.title}</a>} />
         ))}
         {banner}
         {panel === 'confirm' && <ConfirmPanel d={d} t={t} onDone={() => changed(t('confirmedToast'))} onCancel={() => setPanel('')} />}

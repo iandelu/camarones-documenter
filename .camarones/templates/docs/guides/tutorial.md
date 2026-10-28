@@ -190,7 +190,7 @@ The export is plain static files (nginx image, GitLab/GitHub Pages) and works wi
 image CI pushed: `docker run -d -p 8080:80 <registry>/<group>/cam-docs/portal:latest`.
 
 The portal's sidebar has seven zones — Docs, Board, Stories, Architecture, Plan, Quality and Review — and Ctrl K / ⌘K
-jumps to any page or view. The app's sections are Summary, Board, Plan, Interviews, Team, Quality, Libraries and Docs,
+jumps to any page or view. The app's sections are Summary, Board, Decisions, Plan, Interviews, Team, Quality, Libraries and Docs,
 plus Machine and Guide; `g` then a letter jumps between them.
 
 In the app, **Start** or **Continue** on a unit and the docs update (**Plan › Keep it current**) open the agent as a
@@ -291,6 +291,73 @@ stories:
 
 The AI never decides footprints, dependencies, waves or the verdict. The index that answers `next` and the waves
 quickly is `.camarones/.cache/board.db`: it rebuilds itself when the board or the code map changes and is safe to delete.
+
+### 📜 Decisions
+
+An ADR writes down why the code is the way it is, and it is usually written late or not at all. The desktop app's
+**Decisions** section (`g a`) helps you *make* the decision with the evidence in front of you and write it down, and it
+**works entirely without AI**: no agent needs to be installed. The ADR lives in `docs/decisions/<NNNN>-<title>.md`; what
+the review decides along the way (parts, points, attendees) is kept apart in `docs/.work/adr/<NNNN>.yaml`, which goes to git.
+
+1. **Frame it.** **New ADR** asks for a title and what it is about: *new* (something the code does not do yet) or
+   *retroactive* (something the code already does that nobody wrote down). Optionally the problem, drivers, constraints,
+   candidate options and which ADR it supersedes. **Touches** searches the files, code-map groups and doc pages it
+   affects, with the same search box as Stories. The number is reserved when you create it; if a pull brings another ADR
+   with that number, the next free one is used when the file is written and the app says so.
+2. **Candidates.** The decisions the code already took that no ADR names, without AI: the data, cache, messaging,
+   security and framework libraries of the inventory (runtime scope only), the C4 technologies and the deployment files
+   (Docker Compose, Helm). **Create a retro ADR** opens the form with the title and what it touches already in. Without
+   an inventory or a C4 model only the deployment files (Docker Compose, Helm) show; `camaron inventory` adds the
+   libraries. An empty list is not an error.
+3. **Evidence.** The *evidence pack* gathers what the project already knows about what the ADR touches: neighbouring
+   files in the code graph, the doc pages that cite them, related ADRs, the last year of commits, C4 elements,
+   libraries and open questions. It reads what is already there (graph, docs, git, C4, inventory and `open-questions.md`),
+   calls no model, and is kept in `.camarones/.cache/adr/<NNNN>/` (not in git). **Write without AI** writes the proposed
+   ADR from the template with the problem, drivers, options, what it touches and the pack's evidence already in.
+4. **Review and decide.** The review walks the ADR **part by part** (each section is approved, edited or deferred, plus
+   the affected doc pages: the ones the ADR touches and the ones citing the files it touches, the same pages that say
+   this decision covers them once it is accepted) and each **decision point** (a question with its options, for and against: you pick one, or
+   *Other* with what the meeting decides, and a reason in one line). You can add and remove points and note the
+   **attendees**. **Present** (`P`) shows one part per screen in large type to run a meeting while sharing a screen,
+   all by keyboard: <kbd>←</kbd>/<kbd>→</kbd> change part, <kbd>1</kbd>–<kbd>9</kbd> pick an option, <kbd>E</kbd> edits,
+   <kbd>D</kbd> defers, <kbd>A</kbd> accepts and <kbd>Esc</kbd> leaves.
+5. **Accept, reject or supersede.** **Accept** leaves the file as `Accepted (date)`, with `x-owner: human`, confirmed,
+   and a *Decided by* section with who decided; the options each point weighed, with their pros and cons, go into
+   *Considered options* (a section that already had text only gains the ones it does not name); if the ADR supersedes
+   another, that one is marked `Superseded by [NNNN]`. What is not decided is not accepted (a deferred point, a point
+   with no choice, or an ADR with no points and no text in its *Decision* section, where a placeholder like
+   `<What was chosen.>` or a comment does not count): the app refuses and says which. Sections that still hold a
+   `TODO(question)` do not stop it, but the accept dialog names them. **Reject** needs a reason and leaves the file as
+   `Rejected (date): reason`, so nobody proposes it again without knowing why it did not go through. An accepted or
+   rejected decision is read as it is; to change it, write a new ADR that supersedes it.
+
+If the file changes under you (a pull, an editor) the save fails with a notice instead of overwriting, and the app reads it
+again. **An ADR the kit did not write** (no frontmatter, Spanish headings, `Propuesto <!-- … -->`, an inline
+`Status: accepted`) shows in the list with its status, opens as it is, and is never rewritten until someone starts a
+review session on it; in that session each edit rewrites only the section edited. One that is already accepted,
+rejected, superseded or deprecated is closed: the app offers no review session, and changing it takes a new ADR that
+supersedes it.
+
+In the **portal** each ADR shows its status in the tree and on its page, and the pages an accepted decision cites carry a
+banner (*"Decision 0007 covers this page"*; for a new decision, *"Decision 0007 accepted, pending implementation: this
+page describes today's code"*), also in the static export.
+
+```sh
+camaron adr list                                   # the ADRs: number, status and title
+camaron adr candidates                             # the decisions in the code that no ADR names
+camaron adr new "Why spring-data-jpa" --kind retro --touch api:pom.xml   # --kind new|retro, --problem, --supersedes N
+camaron adr pack 0001                              # the ADR's evidence, as Markdown
+camaron adr write 0001                             # writes the proposed ADR into docs/decisions/, no AI
+camaron adr show 0001                              # the ADR as it stands
+camaron adr accept 0001 --attendee ana             # accepts it (the git user decides; --attendee can repeat)
+camaron adr reject 0001 --why "The team prefers jOOQ"
+```
+
+All of them take `--json`; an error is one line and exit 2. `accept` and `reject` ask for the same as the app (something
+decided; a reason), but **the review (parts, points, attendees) is the app's**: the CLI lists, frames, gathers the
+evidence, writes and closes. The rules for the optional sections (*Decision drivers*, *Considered options*,
+*Confirmation*, *Diagram*, *Decided by*) and the one that says an ADR with a working state is decided by people and never
+rewritten by an agent are in `CONVENTIONS.md` section 6.
 
 ## 6. Editing: where and when
 
@@ -403,7 +470,8 @@ next action apart.
 `doctor --local` (proposes a free local model for this computer, installs nothing), `doctor --context` (the tokens
 every agent session loads before reading a page, against `context.budget`), `autopilot`, `plugins [--json]`,
 `run`, `runs`, `kpis`, `eval`, `ab`, `pipeline show|validate`, `blocks [--force]`, `pages [--adopt] [--json]`, `diagrams [--json]`, `pr fresh <repo>`,
-`plugins add|update|outdated|remove`, `pr propose <url>`, `removed add`, `repair`, `export codetour <flow>`, `history [--months 12]`
+`plugins add|update|outdated|remove`, `pr propose <url>`, `removed add`, `repair`, `export codetour <flow>`, `adr list|new|show|pack|candidates|write|accept|reject` (the decisions: frame, gather the
+evidence, write, accept, reject; all take `--json`), `history [--months 12]`
 (hotspots, who to ask per repo, files that change together, read from git without AI into `docs/overview/history.md`),
 `catalog [--json|--check]` (every command with where it lives: portal, desktop app or CLI only, and its arguments),
 `projects [--json]` (the projects registered on this machine; `--inspect DIR` says what a folder is, `--adopt DIR [--name NAME]` turns it into a project and `--git-init DIR` puts its code under git: all three take `--json` and a refusal is `{"error": taken|home|no-git|git-init, "detail"}`), `join URL --no-open` / `new NAME --no-open` (print `{"path"}`; a refused access is `{"error": auth|denied|not-found|network|unknown, "host", "detail"}`, and a token for a private repo comes in `CAMARONES_JOIN_TOKEN`, never on the command line), `config [get|set KEY VALUE]` (lang, model, codex_model: the wizard's settings; sessions: `canvas` or `window`, where the desktop app opens a session), `trust --json` and `hooks --json` (what is pending
