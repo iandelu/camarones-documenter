@@ -617,6 +617,20 @@ def _outcome(state: dict, raw: str) -> str | None:
     return written if paragraphs in written else "\n\n".join(t for t in (written, paragraphs) if t)
 
 
+def _considered(state: dict, raw: str) -> str | None:
+    """The Considered options an accepted ADR gets: what its points weighed, pros and cons with them (spec §3.1, "kept, all
+    of them"). A section with nothing written takes them all; one a person wrote keeps its text and gains the options it
+    does not name. None to leave it as it is."""
+    points = state.get("points") or []
+    if not points:
+        return None
+    current = adr_doc.section(docs.split_fm(raw)[1], "options") or ""
+    if adr_doc.unwritten(current):
+        return adr_doc.render_options(points)
+    missing = adr_doc.render_options(points, current)
+    return f"{current}\n\n{missing}" if missing else None
+
+
 def _supersession(state: dict, id: str, name: str) -> tuple[Path, str] | None:
     """The ADR this one replaces and its new text, worked out before anything is written."""
     old = str(state.get("supersedes") or "").strip()
@@ -661,10 +675,13 @@ def accept(id: str, by: str, attendees: list[str] | None, base_sha: str) -> dict
     with FileLock(LOCK):
         state, path, raw = _open(id, base_sha)
         outcome, old = _outcome(state, raw), _supersession(state, id, path.name)
+        considered = _considered(state, raw)
         date, names = today(), given or _names(state.get("attendees") or [])
         text = adr_doc.replace_status(raw, f"Accepted ({date})")
         if outcome is not None:
             text = adr_doc.replace_section(text, "decision", outcome)
+        if considered is not None:
+            text = adr_doc.replace_section(text, "options", considered)
         text = adr_doc.replace_section(text, "decided_by", adr_doc.render_decided_by(
             date, names, who, str(state.get("mode") or "manual")))
         _seal(path, _owned(text, path.name, id, state), who)
