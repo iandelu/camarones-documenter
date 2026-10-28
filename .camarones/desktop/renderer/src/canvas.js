@@ -193,10 +193,11 @@ export const arrivedLive = (held, live) => Boolean(held) || Boolean(live)
 const ARROW = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' }
 
 // What a key does on the canvas. Every key typed in a terminal is the agent's (Escape interrupts it, the arrows move in
-// its prompt). A read-only log keeps its keys, but Escape still leaves a maximised node. On a node itself, Enter or
-// Space opens it; anywhere in a node, an arrow without a modifier moves to the next one.
+// its prompt) but F6, the way out (VS Code's): it leaves a maximised terminal, else goes to its node, where the arrows
+// and Escape are the canvas's again. A read-only log keeps its keys, but Escape still leaves a maximised node. On a node
+// itself, Enter or Space opens it; anywhere in a node, an arrow without a modifier moves to the next one.
 export function canvasKey(key, { inTerminal = false, inLog = false, maxed = false, node = false, self = false, mods = false } = {}) {
-  if (inTerminal) return null
+  if (inTerminal) return key === 'F6' ? (maxed ? 'leave' : 'node') : null
   if (key === 'Escape') return maxed ? 'leave' : null
   if (inLog || !node) return null
   if (key === 'Enter' || key === ' ') return self ? 'open' : null

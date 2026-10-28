@@ -21,6 +21,14 @@ const xterm = () => (modules ??= Promise.all([import('@xterm/xterm'), import('@x
   ([{ Terminal }, { FitAddon }]) => ({ Terminal, FitAddon }),
   (e) => { modules = null; throw e }))
 
+// F6 is the canvas's, the way out of a terminal (canvas.js canvasKey): xterm leaves it alone. Shift+Tab is the agent's
+// alone (Claude Code changes its permission mode with it): xterm sends it, and it no longer moves the focus out too.
+export function screenKey(e) {
+  if (e.key === 'F6') return false
+  if (e.type === 'keydown' && e.key === 'Tab' && e.shiftKey) e.preventDefault()
+  return true
+}
+
 // The maximised node is the same component outside the flow, where a handle has no node to belong to.
 export function Ports() {
   if (useNodeId() === null) return null
@@ -124,6 +132,7 @@ function desk(srv, onList) {
       const term = new Terminal({ ...SCREEN, cols: m?.cols || 80, rows: m?.rows || 24 })
       x.fitter = new FitAddon()
       term.loadAddon(x.fitter)
+      term.attachCustomKeyEventHandler(screenKey)
       term.open(host)
       x.write = screenFeed(term, (data) => send(x, data))
       term.onResize(({ cols, rows }) => {
@@ -261,7 +270,8 @@ export function PtyNode({ data: { unit, term, now, attach, onClose, onMax, onSes
         <button type="button" className="dk-cv-btn" onClick={() => onClose(term.id)}>{live ? t('pty.close') : t('pty.remove')}</button>
         <button type="button" className="dk-icon" aria-label={t('cv.max')} title={t('cv.max')} onClick={() => onMax(unit?.id ?? term.id)}>⤢</button>
       </div>
-      <div ref={slot} className="dk-term-body dk-pty-slot nowheel nodrag nokey nopan" role="group" aria-label={t('pty.label', { name })} />
+      <div ref={slot} className="dk-term-body dk-pty-slot nowheel nodrag nokey nopan" role="group" aria-label={t('pty.label', { name })}
+        aria-description={t('pty.leave')} />
     </div>
   )
 }
