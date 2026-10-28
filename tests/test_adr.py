@@ -83,6 +83,23 @@ def test_a_legacy_adr_is_never_rewritten_by_reading_or_starting_a_review(adr, ki
     assert row["legacy"] is False and row["chip"] == "review" and row["title"] == "JPA" and row["path"] == "decisions/0003-jpa.md"
 
 
+DECIDED = [("## Status\n\nAccepted (2024-03-01)", "accepted"), ("## Estado\n\nAceptada", "accepted"),
+           ("## Status\n\nRejected: too costly", "rejected"), ("## Status\n\nSuperseded by [0009](0009-x.md)", "superseded"),
+           ("## Status\n\nDeprecated", "deprecated"), ("* Status: accepted", "accepted")]
+
+
+@pytest.mark.parametrize("status, word", DECIDED)
+def test_a_decided_legacy_adr_is_never_reopened_in_a_review(adr, kit, status, word):
+    f = decisions(kit) / "0003-jpa.md"
+    raw = f"# 0003 — JPA\n\n{status}\n\n## Context\n\nwhy\n"
+    f.write_text(raw, encoding="utf-8")
+    with pytest.raises(adr.AdrError) as exc:
+        adr.start_review("0003")
+    assert str(exc.value) == f"ADR 0003 is already {word}: supersede it with a new ADR instead"
+    assert adr.load_state("0003") is None and f.read_text(encoding="utf-8") == raw
+    assert adr.list_adrs()[0]["legacy"] is True and adr.list_adrs()[0]["chip"] == word
+
+
 def test_starting_a_review_twice_keeps_the_first_state(adr, kit):
     (decisions(kit) / "0003-jpa.md").write_text(LEGACY, encoding="utf-8")
     adr.start_review("0003")
@@ -95,7 +112,7 @@ def test_starting_a_review_twice_keeps_the_first_state(adr, kit):
 def test_a_started_review_takes_its_touches_from_the_x_sources(adr, kit):
     f = decisions(kit) / "0006-x.md"
     raw = ("---\ntype: decision\nx-sources:\n  - api:src/S.java#L1-L9\n  - repo://web/b.ts#x\n  - docs/orders.md#why\n"
-           "  - api:src/S.java\n  - https://x.io/p\n  - plain.md\n  - 3\n---\n# 0006 — X\n\n## Status\n\nAccepted\n")
+           "  - api:src/S.java\n  - https://x.io/p\n  - plain.md\n  - 3\n---\n# 0006 — X\n\n## Status\n\nProposed\n")
     f.write_text(raw, encoding="utf-8")
     state = adr.start_review("0006")["state"]
     assert state["touches"] == ["api:src/S.java", "cam-docs:docs/orders.md", "web:b.ts"]
@@ -129,8 +146,8 @@ def test_a_legacy_row_reads_status_repos_and_date_from_the_file(adr, kit):
 
 def test_the_decided_date_of_a_state_wins_over_the_file(adr, kit):
     (decisions(kit) / "0005-x.md").write_text("# 0005 — X\n\n## Status\n\nAccepted (2026-10-21)\n", encoding="utf-8")
-    state = adr.start_review("0005")["state"]
     assert adr.list_adrs()[0]["decided"] == "2026-10-21"
+    state = {"id": "0005", "slug": "x", "kind": "retro", "mode": "manual", "title": "X", "phase": "accepted"}
     adr.save_state({**state, "decided": {"date": "2026-11-02", "by": "T", "driver": "T"}})
     assert adr.list_adrs()[0]["decided"] == "2026-11-02"
     adr.save_state({**state, "decided": "yesterday"})

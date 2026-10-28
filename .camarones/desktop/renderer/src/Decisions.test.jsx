@@ -39,6 +39,17 @@ test('a legacy ADR opens read-only with a way into a session', () => {
   expect(out).not.toContain('<textarea')
 })
 
+test('a decided legacy ADR reads as closed, with no way back into a review', () => {
+  for (const chip of ['accepted', 'rejected', 'superseded', 'deprecated']) {
+    const out = legacy({ adr: { id: '0003', title: 'JPA', chip, legacy: true, sections: { status: 'Accepted (2024-03-01)' } } })
+    expect(out).not.toContain('Revisar en sesión')
+    expect(out).toContain('Esta decisión está cerrada')
+    expect(out).toContain('href="#/decisions/new"')
+  }
+  expect(legacy({ adr: { id: '0003', chip: 'accepted', legacy: true, sections: {} } }, 'en')).toContain('This decision is closed')
+  expect(legacy({ adr: { id: '0003', chip: 'unknown', legacy: true, sections: {} } })).toContain('Revisar en sesión')
+})
+
 test('an empty project invites the first decision', () => {
   expect(list({ rows: [], candidates: [] })).toContain('Nuevo ADR')
 })

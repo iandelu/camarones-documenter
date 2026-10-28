@@ -159,6 +159,15 @@ def test_a_part_and_the_review_of_an_adr_the_kit_did_not_write(app_server, kit):
     assert code == 200 and [p for p in out["parts"] if p["id"] == "context"][0]["status"] == "approved"
 
 
+def test_a_decided_adr_the_kit_did_not_write_is_not_reopened(app_server, kit):
+    folder = kit.root / "docs" / "decisions"
+    folder.mkdir(parents=True)
+    (folder / "0003-jpa.md").write_text("# 0003 — JPA\n\n## Estado\n\nAceptada\n", encoding="utf-8")
+    code, body = post(app_server, "review", {"id": "0003"})
+    assert (code, body) == (400, {"error": "ADR 0003 is already accepted: supersede it with a new ADR instead"})
+    assert call(f"{api(app_server)}/0003", token=TOKEN)[1]["state"] is None
+
+
 def test_a_part_is_edited(app_server):
     a = written(app_server)
     code, out = post(app_server, "part", {"id": "0001", "part": "context", "action": "edit", "text": "Because.",

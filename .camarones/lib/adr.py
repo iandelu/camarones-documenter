@@ -29,6 +29,7 @@ from .harness.locks import FileLock
 KINDS = ("new", "retro")
 PHASES = ("problem", "evidence", "review", "accepted", "rejected")
 CHIPS = ("running", "review", "proposed", "accepted", "superseded", "rejected", "deprecated", "unknown")
+DECIDED = ("accepted", "rejected", "superseded", "deprecated")
 PART_ACTIONS = {"approve": "approved", "edit": "edited", "defer": "deferred"}
 POINT_OPS = ("add", "choose", "defer", "remove")
 TEXT_PARTS = ("context", "drivers", "options", "decision", "diagram", "consequences", "confirmation")
@@ -370,7 +371,16 @@ def write_without_ai(id: str) -> dict:
     return out
 
 
+def _refuse_decided(id: str, body: str) -> None:
+    """A file that says its decision was taken is closed (CONVENTIONS §6): changing it is a new ADR that supersedes it."""
+    status = adr_doc.status_of(body)[0]
+    if status in DECIDED:
+        raise AdrError(f"ADR {id} is already {status}: supersede it with a new ADR instead")
+
+
 def start_review(id: str) -> dict:
+    """A review session on an ADR the kit did not write: its state, never a change to the file. Only an open one (proposed,
+    or a status nobody can read): a decided ADR is not reopened."""
     id = _id(id)
     with FileLock(LOCK):
         if load_state(id) is None:
@@ -378,6 +388,7 @@ def start_review(id: str) -> dict:
             if path is None:
                 raise KeyError(id)
             fm, body = docs.split_fm(_read(path))
+            _refuse_decided(id, body)
             save_state({"id": id, "slug": path.stem[5:], "kind": "retro", "mode": "manual", "title": _title(id, fm, body),
                         "problem": "", "drivers": [], "constraints": [], "options_hint": [],
                         "touches": _touches_of(_sources(fm)),
