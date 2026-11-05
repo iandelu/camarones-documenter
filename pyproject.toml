@@ -19,4 +19,5 @@ markers = ["e2e: clones real repos from GitHub (network); run with -m e2e",
            "eval: asks a real agent the sandbox's golden questions (spends tokens); run with -m eval",
            "serial: must not run beside another serial test; with -n auto they all go to one worker, one at a time"]
 # loadgroup: tests marked serial share one xdist group (see conftest.py); without -n it changes nothing
-addopts = "-m 'not e2e and not eval' -p no:cacheprovider --dist loadgroup"
+# max-worker-restart=0: under loadgroup, xdist 3.8 never finishes after replacing a crashed worker, so a crash ends the run
+addopts = "-m 'not e2e and not eval' -p no:cacheprovider --dist loadgroup --max-worker-restart=0"
