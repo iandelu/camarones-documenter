@@ -18,12 +18,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
-      - name: "diagnostic: how long npm ls takes"
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          foreach ($i in 1..3) { (Measure-Command { npm ls -g --depth=0 openwiki@0.0.0 | Out-Null }).TotalSeconds }
-          $global:LASTEXITCODE = 0
       - run: uv run pytest -n auto --durations=25
 
   # The portal (React views + the docs views) is built here and committed, so users never need Node for it.
