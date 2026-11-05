@@ -78,6 +78,45 @@ def test_workspace_links_go_and_real_files_stay(un, before):
     assert kit.stopped == ["portal"]
 
 
+def test_what_the_kit_put_in_the_person_s_own_folder_and_claude_md_goes_too(un, before):
+    """A real .claude/ of theirs got the kit's entries linked in, a real .tours/ too: both go back as they were."""
+    kit = un
+    own = {}
+    for n in (".claude", ".tours"):
+        p = kit.ws / n
+        if p.exists() or p.is_symlink():
+            kit.uninstall.remove_link(p)
+        p.mkdir()
+        (p / "settings.local.json" if n == ".claude" else p / "ours.tour").write_text("{}", encoding="utf-8")
+        own[n] = p
+    (kit.root / ".tours").mkdir(exist_ok=True)
+    (kit.root / ".tours" / "kit.tour").write_text("{}", encoding="utf-8")
+    kit.env.link_workspace(log=lambda _: None)
+    assert kit.env._linked(own[".claude"] / "skills")
+    labels = "\n".join(s.label for s in kit.uninstall.steps())
+    assert f"{kit.ws.name}/.claude/skills" in labels
+    run(kit, backup=False)
+    assert sorted(x.name for x in own[".claude"].iterdir()) == ["settings.local.json"]
+    assert [x.name for x in own[".tours"].iterdir()] == ["ours.tour"]
+
+
+def test_the_import_line_in_the_person_s_claude_md_is_taken_out(un, monkeypatch):
+    kit = un
+    wire_project(kit)
+    monkeypatch.setattr(kit.env, "docker_down", lambda: None)
+    monkeypatch.setattr(kit.uninstall, "which", lambda name: None)
+    if not kit.env._linked(kit.ws / "AGENTS.md"):           # Windows without file-symlink rights
+        return
+    mine = kit.ws / "CLAUDE.md"
+    kit.env._unlink(mine)
+    mine.write_text("# Ours\n", encoding="utf-8")
+    kit.env.link_workspace(log=lambda _: None)
+    assert "@AGENTS.md" in mine.read_text(encoding="utf-8")
+    assert any("CLAUDE.md" in s.label and s.kind == "edit" for s in kit.uninstall.steps())
+    run(kit, backup=False)
+    assert mine.read_text(encoding="utf-8") == "# Ours\n"
+
+
 def test_backup_zip_keeps_docs_and_history(un, before):
     kit = un
     (kit.root / ".camarones" / ".cache").mkdir(exist_ok=True)

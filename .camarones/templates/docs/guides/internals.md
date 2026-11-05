@@ -61,6 +61,12 @@ my-project/
 └── orders-api/  payments-api/  …   the service repos, untouched
 ```
 
+If the workspace folder already had your own `.claude/` (Claude Code's `settings.local.json`, say) or `CLAUDE.md`, the
+kit never replaces them: it links its entries inside your folder and adds to your `CLAUDE.md` two lines that import its
+rules (`@AGENTS.md`), in the file's own line endings. `uninstall`, and declining the agent config in `trust`, take them
+back out. A file of yours in the way that cannot be combined (your own `AGENTS.md`, say) stays where it is: `doctor`
+and `repair` list it as yours, not as something to fix.
+
 `.camarones/.cache/` holds what can be rebuilt: run logs (`runs/<run>/events.jsonl`), the exported site (`site/`), the
 board's index (`board.db`), the health snapshot and backups of replaced kit files; and what the app's sessions leave on
 this machine: each one's prompt (`prompts/`), each unit's session record (`sessions/`) and the canvas's terminals
@@ -75,7 +81,7 @@ this machine: each one's prompt (`prompts/`), each unit's session record (`sessi
 | `~/.camarones/desktop` | The pinned Electron for `camaron app` |
 | `~/.camarones/bin`, `~/.camarones/osv-db` | Pinned binaries (gitleaks, OSV-Scanner) and OSV's offline database |
 | `~/.camarones/trust/` | What you approved of each team's agent config — never in a repo |
-| `~/.camarones/install/` | What the kit installed here (its skills, graphify's, OpenWiki's), so they need no approval |
+| `~/.camarones/install/` | What the kit installed here (its skills, graphify's, OpenWiki's), so they need no approval, and when setup last ran here and with which kit |
 | `~/.camarones/mcp-token` | The token of `camaron mcp --http` |
 | `~/.camarones/hosts.json` | Which host is GitLab, GitHub or SonarQube, and its user (no secrets) |
 | System keychain | The tokens themselves (`credentials.json` only where there is no keychain) |
