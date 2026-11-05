@@ -113,6 +113,29 @@ def test_accept_puts_what_the_points_weighed_in_an_empty_considered_options(adr,
     assert "TODO(question): which options" not in out["raw"] and out["raw"].count("## Considered options") == 1
 
 
+def test_accept_fills_the_option_headings_write_without_ai_left_from_the_candidate_options(adr, kit):
+    a = adr.new({"title": "Sessions", "kind": "new", "options_hint": ["Redis", "Postgres"]})
+    a = adr.write_without_ai(a["id"])
+    a = adr.point(a["id"], "add", {"question": "Where?", "options": [
+        {"name": "Redis", "pros": ["fast"], "cons": ["one more service"]}, {"name": "Postgres", "pros": ["already there"]}]},
+        a["sha"])
+    a = adr.point(a["id"], "choose", {"point": "p1", "chosen": "B", "rationale": "no new service"}, a["sha"])
+    out = adr.accept(a["id"], by="Test", attendees=[], base_sha=a["sha"])
+    assert out["sections"]["options"] == (
+        "### P1 · Where?\n\n- **A · Redis** — + fast; − one more service\n- **B · Postgres** (chosen) — + already there")
+
+
+def test_accept_keeps_candidate_option_headings_a_person_wrote_under(adr, kit):
+    a = adr.new({"title": "Sessions", "kind": "new", "options_hint": ["Redis", "Postgres"]})
+    a = adr.write_without_ai(a["id"])
+    written = "### A · Redis\n\nWe run it for notifications.\n\n### B · Postgres"
+    a = adr.part(a["id"], "options", "edit", written, base_sha=a["sha"])
+    a = adr.point(a["id"], "add", {"question": "Where?", "options": [{"name": "Redis"}, {"name": "Postgres"}]}, a["sha"])
+    a = adr.point(a["id"], "choose", {"point": "p1", "chosen": "A", "rationale": "r"}, a["sha"])
+    out = adr.accept(a["id"], by="Test", attendees=[], base_sha=a["sha"])
+    assert out["sections"]["options"] == written
+
+
 def test_accept_adds_to_considered_options_a_person_wrote_only_the_options_it_does_not_name(adr, kit):
     a = decided(adr, chosen="A", rationale="r")
     written = "### A · redis\n\nWe run it for notifications."
