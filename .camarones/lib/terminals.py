@@ -121,12 +121,20 @@ def _set_std_handles(handles: dict[int, int | None]) -> None:
         set_handle(n, handle)
 
 
-def _conpty(winpty, cols: int, rows: int):
-    """A new ConPTY, with this process's std handles put back: winpty-rs points them at a console and leaves them there,
-    so every child started later without its own stdin inherits a terminal nobody types in, and a prompt waits forever."""
+def _conpty(winpty, argv: list[str], cwd: Path, env: dict, cols: int, rows: int):
+    """A ConPTY running `argv`, then this process's std handles put back. winpty-rs points them at a console so that the
+    program inherits it, and leaves them there: every child started later without its own stdin would inherit a
+    terminal nobody types in, and a prompt would wait forever."""
     std = _std_handles()
     try:
-        return winpty.PTY(cols, rows)
+        pty = winpty.PTY(cols, rows)
+        # Not PtyProcess.spawn: it passes argv[0] unquoted, and winpty-rs puts it in front of the command line that
+        # CreateProcessW splits (no application name), so a python.exe under "Program Files" would run as "C:\Program".
+        # The env block is the one PtyProcess.spawn builds; winpty-rs adds the final NUL and the space before cmdline.
+        if not pty.spawn(subprocess.list2cmdline(argv[:1]), cmdline=subprocess.list2cmdline(argv[1:]) or None,
+                         cwd=str(cwd), env="\0".join(f"{k}={v}" for k, v in env.items()) + "\0"):
+            raise OSError(f"{argv[0]} did not start")
+        return pty
     finally:
         _set_std_handles(std)
 
@@ -136,15 +144,8 @@ def _start(argv: list[str], cwd: Path, env: dict, cols: int, rows: int):
         if not available():
             raise Unavailable("pywinpty is not installed")
         import winpty
-        # Not PtyProcess.spawn: it passes argv[0] unquoted, and winpty-rs puts it in front of the command line that
-        # CreateProcessW splits (no application name), so a python.exe under "Program Files" would run as "C:\Program".
-        # The env block is the one PtyProcess.spawn builds; winpty-rs adds the final NUL and the space before cmdline.
         try:
-            pty = _conpty(winpty, cols, rows)
-            if not pty.spawn(subprocess.list2cmdline(argv[:1]), cmdline=subprocess.list2cmdline(argv[1:]) or None,
-                             cwd=str(cwd), env="\0".join(f"{k}={v}" for k, v in env.items()) + "\0"):
-                raise OSError(f"{argv[0]} did not start")
-            return winpty.PtyProcess(pty), None
+            return winpty.PtyProcess(_conpty(winpty, argv, cwd, env, cols, rows)), None
         except Exception as e:
             raise Unavailable(f"no ConPTY: {e}") from e
     import pty
