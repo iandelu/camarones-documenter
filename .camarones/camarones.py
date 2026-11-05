@@ -113,7 +113,8 @@
   history [--months 12]     docs/overview/history.md from git, no AI: hotspots, who to ask per repo, files that
                             change together, tickets that span repos, commit conventions
   repair                    put back what the kit owns in this project: its skills and agent config, the agent tools'
-                            skills, the workspace and wiki links (never the team's pages)
+                            skills, the workspace and wiki links (never the team's pages); your own .claude/ or
+                            CLAUDE.md in the workspace gets the kit's entries linked in, its rules imported
   removed add WHAT --why WHY [--decision decisions/NNNN-x.md]
                             record something removed on purpose (docs/overview/removed.md) so agents do not recreate it
   review request PAGE [--note T] | wait ID [--timeout S] | list
@@ -282,7 +283,7 @@ elif os.environ.get("CAMARONES_GLOBAL") and not os.environ.get("CAMARONES_ROOT")
         _relaunch(_dest, sys.argv[1:])
 
 from lib import docs, env, plan                     # noqa: E402
-from lib.common import VERSIONS, PREFS, cli_cmd, ROOT, CACHE, load_json   # noqa: E402
+from lib.common import VERSIONS, PREFS, cli_cmd, ROOT, CACHE, CAM_DIR, load_json   # noqa: E402
 
 
 def cmd_trust(a) -> int:
@@ -603,6 +604,8 @@ def main() -> int:
         if not a.ci:
             plan.sync()
             plan.set_status("setup", "done", "cli setup")
+            from lib import install_state
+            install_state.mark_setup()
     elif a.cmd == "init":
         env.init_templates()
         docs.save_workspace(docs.workspace())   # persist workspace.yaml even with 0 repos yet — global
@@ -711,10 +714,14 @@ def main() -> int:
     elif a.cmd == "repair":
         from lib import install_state
         left = install_state.repair()
+        yours = [d for d in left if d.get("why") == "yours"]
         print("✔ kit files and links restored" if not left else "\n".join(
-            [f"⚠ still off ({len(left)}):"] + [f"    {d['state']:<10} {d['path']}" for d in left]
+            [f"⚠ still off ({len(left)}):"]
+            + [f"    {d['state']:<10} {d['path']}{'  (yours: kept)' if d in yours else ''}" for d in left]
             + ([f"  links held back: review the agent config with `{cli_cmd()} trust`"]
-               if any(d["state"] == "not linked" for d in left) else [])))
+               if any(d["state"] == "not linked" and d not in yours for d in left) else [])
+            + ([f"  yours: a file of yours is there and the kit never replaces it — move it into {CAM_DIR}/ to "
+                "share it with the team, or leave it as it is"] if yours else [])))
     elif a.cmd == "removed":
         from lib import removed
         print(f"✔ {removed.add(a.what, a.why, a.decision)}: {a.what}")
@@ -864,10 +871,12 @@ def main() -> int:
         from lib.common import WS_FILE
         if WS_FILE.exists():
             off = install_state.drift()
-            print("✔ kit files and links as installed" if not off else
-                  f"⚠ {len(off)} kit file(s) or link(s) off — `{cli_cmd()} repair` puts them back:")
+            fix = [d for d in off if d.get("why") != "yours"]
+            print("✔ kit files and links as installed" if not fix else
+                  f"⚠ {len(fix)} kit file(s) or link(s) off — `{cli_cmd()} repair` puts them back:")
             for d in off:
-                print(f"    {d['state']:<10} {d['path']}  ({d['what']})")
+                print(f"    {d['state']:<10} {d['path']}  ({d['what']}"
+                      + ("; yours: kept, the kit never replaces it)" if d not in fix else ")"))
         print(f"  openwiki  {'ok' if env.openwiki_installed() else 'missing'} (pinned {VERSIONS['openwiki']})")
         print(f"  gitleaks  {'ok' if env.tool_ok('gitleaks') else 'missing'} (pinned {VERSIONS['gitleaks']})")
     elif a.cmd == "plan":

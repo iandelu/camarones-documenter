@@ -70,6 +70,8 @@ def test_what_needs_doing_is_counted_for_the_summary(kit):
     # node is needed and missing; codex is optional; likec4 is a pinned tool out of date; one kit file drifted
     assert doctor.problems(FAKE) == {"missing": ["node"], "tools": ["likec4"], "drift": 1}
     assert doctor.problems({"prerequisites": [], "tools": [], "drift": []}) == {"missing": [], "tools": [], "drift": 0}
+    kept = {"path": "ws/AGENTS.md", "state": "not linked", "what": "workspace link", "why": "yours"}
+    assert doctor.problems({"prerequisites": [], "tools": [], "drift": [kept]})["drift"] == 0   # theirs: nothing to fix
 
 
 def test_the_check_says_what_it_found_in_plain_words(kit, monkeypatch):

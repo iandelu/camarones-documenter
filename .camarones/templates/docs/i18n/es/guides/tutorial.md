@@ -39,7 +39,9 @@ ajustes y skills que no ha escrito el kit se listan al abrir el asistente, y el 
 apruebas en esta máquina (`camaron trust`). Las aprobaciones viven en `~/.camarones/trust/`, nunca en el repo. Lo que
 el kit instaló en esta máquina (sus skills y los de graphify y OpenWiki, anotados en `~/.camarones/install/`) se
 reconoce sin preguntar; `camaron doctor` enseña un fichero del kit editado o un enlace que falta, y `camaron repair` los
-devuelve a su sitio.
+devuelve a su sitio. Tu propio `.claude/` o `CLAUDE.md` en la carpeta del espacio de trabajo nunca se reemplaza: el kit
+enlaza dentro de la carpeta lo suyo y añade a tu `CLAUDE.md` dos líneas que importan sus reglas (`@AGENTS.md`);
+`uninstall` quita las dos cosas.
 
 ## 2. El flujo guiado
 
