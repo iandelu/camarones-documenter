@@ -17,6 +17,8 @@ for p in (str(KIT_DIR), str(TESTS)):
         sys.path.insert(0, p)
 
 from fixtures.builder import GITCONFIG, make_workspace  # noqa: E402
+from fixtures.hang_watchdog import (pytest_configure, pytest_runtest_protocol, pytest_terminal_summary,  # noqa: E402,F401
+                                    pytest_unconfigure)
 
 MODULES = ("common", "docs", "env", "plan", "serve", "projects", "migrate", "quality", "codemap", "install", "quickarch", "creds", "questionnaire", "usage", "onboard", "wizard")
 
