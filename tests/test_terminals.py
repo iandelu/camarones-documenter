@@ -245,7 +245,8 @@ def test_old_terminal_files_are_pruned_when_the_first_one_opens(pty, monkeypatch
 # wrapper) with the two behaviours that bit. PtyProcess.spawn passes argv[0] unquoted as the application name and
 # winpty-rs puts it in front of the command line, so a python.exe under "Program Files" ran as "C:\Program".
 # PtyProcess.isalive() marks the process closed, after which close() leaves its two sockets open.
-# winpty-rs's ConPTY::new points this process's stdin, stdout and stderr at a console and leaves them there.
+# winpty-rs's ConPTY::new points this process's stdin, stdout and stderr at a console and leaves them there; the
+# program spawn starts inherits whatever they are then (on Windows, a test's capture took its output).
 class FakePTY:
     std: dict = {}
 
@@ -255,6 +256,7 @@ class FakePTY:
 
     def spawn(self, appname, cmdline=None, cwd=None, env=None):
         self.spawned = {"appname": appname, "cmdline": cmdline, "cwd": cwd, "env": env}
+        self.inherited = dict(self.std)
         return True
 
     def isalive(self):
@@ -332,8 +334,9 @@ def test_on_windows_the_program_is_quoted_and_its_args_are_one_command_line(conp
                                 "cwd": str(tmp_path), "env": "A=1\0PATH=" + "C:\\bin" + "\0"}
 
 
-def test_on_windows_a_terminal_leaves_this_processs_stdin_where_it_was(conpty, kit):
-    conpty.t.spawn([sys.executable, "-c", "pass"], kit.root, kind="update", agent="test")
+def test_on_windows_the_program_gets_the_console_and_this_process_keeps_its_own(conpty, kit):
+    m = conpty.t.spawn([sys.executable, "-c", "pass"], kit.root, kind="update", agent="test")
+    assert conpty.t._term(m["id"]).proc.pty.inherited == dict.fromkeys(("stdin", "stdout", "stderr"), "console")
     assert conpty.std == {"stdin": "nul", "stdout": "pipe", "stderr": "pipe"}
 
 
