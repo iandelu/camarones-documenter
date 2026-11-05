@@ -305,6 +305,11 @@ def _source(touch: str) -> str:
     return path if sep and repo == CAM_DIR else touch
 
 
+def render_hints(options: list[str]) -> str:
+    """Considered options as Write without AI leaves them: a bare heading per candidate option the person named."""
+    return "\n\n".join(f"### {_letter(i)} · {name}" for i, name in enumerate(options))
+
+
 def render_new(fields: dict, number: str) -> str:
     """The full proposed file: Status `Proposed`, `x-owner: ai`, the person's framing and an empty decision. What the
     person did not give is a `TODO(question)`, never an invented fact. The proposal carries no date: accepting writes it.
@@ -323,8 +328,7 @@ def render_new(fields: dict, number: str) -> str:
     parts = [("status", _PROPOSED), ("context", context)]
     if drivers:
         parts.append(("drivers", _bullets(drivers)))
-    parts += [("options", "\n\n".join(f"### {_letter(i)} · {name}" for i, name in enumerate(options))
-                          or "TODO(question): which options were considered?"),
+    parts += [("options", render_hints(options) or "TODO(question): which options were considered?"),
               ("decision", PLACEHOLDER),
               ("consequences", "TODO(question): what gets easier and what gets harder?"),
               ("evidence", evidence_table([(_CLAIM, f"`{t}`") for t in touches] + list(fields.get("evidence") or [])))]
