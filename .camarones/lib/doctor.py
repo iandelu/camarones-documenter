@@ -58,10 +58,11 @@ def checked() -> dict | None:
 
 
 def problems(result: dict) -> dict:
-    """What needs doing, for the Summary: needed prerequisites missing, pinned tools missing or off, files drifted."""
+    """What needs doing, for the Summary: needed prerequisites missing, pinned tools missing or off, files drifted. A
+    file of the person's that the kit will not replace ("yours") is listed by the doctor but is nothing to do."""
     return {"missing": [p["name"] for p in result.get("prerequisites", []) if p.get("need") and not p.get("ok")],
             "tools": [t["name"] for t in result.get("tools", []) if not t.get("ok")],
-            "drift": len(result.get("drift", []))}
+            "drift": sum(1 for d in result.get("drift", []) if d.get("why") != "yours")}
 
 
 def install(name: str, log=print) -> bool:

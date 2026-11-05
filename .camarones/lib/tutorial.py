@@ -238,7 +238,8 @@ PAGES = {
                  "(buscar vulnerabilidades repo a repo, con su barra, Parar y un tick al acabar; en qué repos está cada "
                  "una, primero donde tiene avisos; y Actualizar en una rama nueva, también un módulo Maven cuya versión "
                  "fija el pom padre) y Docs (abre el portal en tu navegador, construye "
-                 "el explorador C4, genera las wikis y responde con IA); debajo, Máquina (setup, idioma y modelos, "
+                 "el explorador C4, genera las wikis y responde con IA); debajo, Máquina (setup, que dice «Lista» cuando "
+                 "ya corrió en esta máquina, idioma y modelos, "
                  "dónde se abren las sesiones, tokens, repos, el kit y desinstalar) y Guía: todo esto explicado a fondo, con botones que te llevan "
                  "a cada sitio y un recorrido que señala cada control. Cada botón ejecuta un comando de la CLI y su "
                  "salida queda en el panel de trabajos; «Todos los comandos» tiene el resto, con su formulario. Ctrl K "
@@ -338,7 +339,9 @@ PAGES = {
                  "/ Codex solo los cargan cuando los apruebas en esta máquina (o con `camaron trust`). Las aprobaciones "
                  "viven en ~/.camarones/trust/, nunca en el repo, así que nadie puede aprobarlas por ti con un push. Lo "
                  "que el kit instaló en esta máquina (sus skills y los de graphify y OpenWiki) lo reconoce sin "
-                 "preguntar, y `camaron repair` lo devuelve a su sitio si alguien lo edita o lo borra."},
+                 "preguntar, y `camaron repair` lo devuelve a su sitio si alguien lo edita o lo borra. Si ya tenías tu "
+                 "propio .claude/ o CLAUDE.md en la carpeta del espacio de trabajo, no los reemplaza: enlaza dentro lo "
+                 "del kit y añade a tu CLAUDE.md las líneas que importan sus reglas (uninstall las quita)."},
         {"icon": "⚙️", "title": "CI: documentación que se actualiza sola",
          "art": r"""
    git push --> pipeline (GitLab CI / GitHub Actions)
@@ -734,8 +737,8 @@ PAGES = {
                  "each one is in, the flagged ones first; and Update on a new branch, a Maven module whose parent pom "
                  "sets the version included) and "
                  "Docs (opens the portal in your browser, builds the C4 explorer, generates the wikis and answers with "
-                 "AI); below, Machine (setup, language and models, where sessions open, tokens, repos, the kit and "
-                 "uninstall) and Guide: "
+                 "AI); below, Machine (setup, which says \"Ready\" once it has run on this machine, language and models, "
+                 "where sessions open, tokens, repos, the kit and uninstall) and Guide: "
                  "all of this explained in depth, with buttons that take you to each place and a tour that points at "
                  "every control. Every button runs a CLI command and its output lands in the jobs panel; “All "
                  "commands” has the rest, each with its form. Ctrl K / ⌘K goes to a section, another project, a "
@@ -834,7 +837,9 @@ PAGES = {
                  "open the wizard, and Claude Code / Codex only load them once you approve them on this machine (or with "
                  "`camaron trust`). Approvals live in ~/.camarones/trust/, never in the repo, so nobody can approve them "
                  "for you with a push. What the kit installed on this machine (its skills, graphify's and OpenWiki's) is "
-                 "recognised without asking, and `camaron repair` puts it back if someone edits or deletes it."},
+                 "recognised without asking, and `camaron repair` puts it back if someone edits or deletes it. If the "
+                 "workspace folder already had your own .claude/ or CLAUDE.md, it never replaces them: it links the "
+                 "kit's entries inside and adds to your CLAUDE.md the lines that import its rules (uninstall takes them out)."},
         {"icon": "⚙️", "title": "CI: docs that update themselves",
          "art": r"""
    git push --> pipeline (GitLab CI / GitHub Actions)
