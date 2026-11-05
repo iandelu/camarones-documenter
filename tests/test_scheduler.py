@@ -26,6 +26,13 @@ if mode == "flaky" and not os.path.exists(flaky):
     open(flaky, "w").close()
     print("API Error: Your computer went to sleep mid-response. The response above may be incomplete.")
     sys.exit(1)
+together = int(os.environ.get("FAKE_TOGETHER", "0"))    # stay until that many units are running, or give up
+if together:
+    folder = os.path.dirname(os.environ["FAKE_LOG"])
+    open(os.path.join(folder, uid.replace(":", "-") + ".running"), "w").close()
+    give_up = time.monotonic() + 120
+    while sum(n.endswith(".running") for n in os.listdir(folder)) < together and time.monotonic() < give_up:
+        time.sleep(0.05)
 time.sleep(float(os.environ.get("FAKE_SLEEP", "0.8")))
 os.makedirs(notes, exist_ok=True)
 with open(os.path.join(notes, uid.replace(":", "-") + ".md"), "w", encoding="utf-8") as fh:
@@ -49,9 +56,10 @@ def fake(wired, tmp_path, monkeypatch):
     monkeypatch.setenv("KIT_DIR", str(wired.kit_dir))
     from lib.common import PREFS, save_json
 
-    def configure(routing, sleep="0.8", status="done"):
+    def configure(routing, sleep="0.8", status="done", together=0):
         monkeypatch.setenv("FAKE_SLEEP", sleep)
         monkeypatch.setenv("FAKE_STATUS", status)
+        monkeypatch.setenv("FAKE_TOGETHER", str(together))
         save_json(PREFS, {"runners": {"fake": {"argv": [sys.executable, str(script), "ok"]},
                                       "lim": {"argv": [sys.executable, str(script), "limit"]},
                                       "flaky": {"argv": [sys.executable, str(script), "flaky"]}},
@@ -82,8 +90,10 @@ def status(wired, uid):
     return next(u for u in wired.plan.load()["units"] if u["id"] == uid)["status"]
 
 
+# Each unit waits for the others instead of sleeping: their worktrees are made one at a time, under a lock, which on a
+# busy Windows runner took longer than any sleep this test could afford. One at a time, the first would wait in vain.
 def test_independent_units_overlap_in_their_own_worktrees_and_land_in_main(wired, fake):
-    fake["configure"](["fake"])
+    fake["configure"](["fake"], sleep="0", together=3)
     wired.plan.set_status("setup", "done")
     done, _ = run(wired, max_parallel=3, per_runner={"fake": 3}, max_units=3)
     assert done == 3
