@@ -105,6 +105,32 @@ def _new_id(name: str) -> str:
     return f"{prefix}{max((int(m[1]) for m in nums if m), default=0) + 1}"
 
 
+def _std_handles() -> dict[int, int | None]:
+    """This process's stdin, stdout and stderr, as Windows hands them to a child given no others."""
+    import _winapi
+    return {n: _winapi.GetStdHandle(n) for n in (_winapi.STD_INPUT_HANDLE, _winapi.STD_OUTPUT_HANDLE,
+                                                 _winapi.STD_ERROR_HANDLE)}
+
+
+def _set_std_handles(handles: dict[int, int | None]) -> None:
+    import ctypes
+    from ctypes import wintypes
+    set_handle = ctypes.WinDLL("kernel32").SetStdHandle
+    set_handle.argtypes = (wintypes.DWORD, wintypes.HANDLE)
+    for n, handle in handles.items():
+        set_handle(n, handle)
+
+
+def _conpty(winpty, cols: int, rows: int):
+    """A new ConPTY, with this process's std handles put back: winpty-rs points them at a console and leaves them there,
+    so every child started later without its own stdin inherits a terminal nobody types in, and a prompt waits forever."""
+    std = _std_handles()
+    try:
+        return winpty.PTY(cols, rows)
+    finally:
+        _set_std_handles(std)
+
+
 def _start(argv: list[str], cwd: Path, env: dict, cols: int, rows: int):
     if IS_WIN:
         if not available():
@@ -114,7 +140,7 @@ def _start(argv: list[str], cwd: Path, env: dict, cols: int, rows: int):
         # CreateProcessW splits (no application name), so a python.exe under "Program Files" would run as "C:\Program".
         # The env block is the one PtyProcess.spawn builds; winpty-rs adds the final NUL and the space before cmdline.
         try:
-            pty = winpty.PTY(cols, rows)
+            pty = _conpty(winpty, cols, rows)
             if not pty.spawn(subprocess.list2cmdline(argv[:1]), cmdline=subprocess.list2cmdline(argv[1:]) or None,
                              cwd=str(cwd), env="\0".join(f"{k}={v}" for k, v in env.items()) + "\0"):
                 raise OSError(f"{argv[0]} did not start")
