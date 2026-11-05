@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { BOARD_ACTIONS, doctorRows, inventoryArgs, pytestSummary, scanProgress, seconds, setupProgress } from './quality.js'
+import { BOARD_ACTIONS, doctorRows, driftWhy, fixableDrift, inventoryArgs, pytestSummary, scanProgress, seconds, setupProgress } from './quality.js'
 
 const fix = (cmd, args = {}) => ({ cmd, args })
 
@@ -58,4 +58,14 @@ test('a running inventory job gives back the arguments that attach to it', () =>
   expect(inventoryArgs([job('cmd:doctor --json')])).toBeNull()
   expect(inventoryArgs([])).toBeNull()
   expect(inventoryArgs(undefined)).toBeNull()
+})
+
+test('a kit file that is off says why, and one of the person\'s is nothing to repair', () => {
+  const yours = { path: 'ws/CLAUDE.md', state: 'not linked', what: 'workspace link', why: 'yours' }
+  const link = { path: 'ws/.mcp.json', state: 'not linked', what: 'workspace link', why: 'missing' }
+  const edited = { path: '.claude/skills/x/SKILL.md', state: 'edited', what: 'kit skill' }
+  expect([yours, link, edited, { state: 'missing' }, { state: 'not registered' }, { state: 'odd' }].map(driftWhy))
+    .toEqual(['q.driftYours', 'q.driftLink', 'q.driftEdited', 'q.driftMissing', 'q.driftMcp', 'q.driftOther'])
+  expect(fixableDrift([yours, link, edited])).toEqual([link, edited])
+  expect(fixableDrift(undefined)).toEqual([])
 })

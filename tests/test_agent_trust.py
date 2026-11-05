@@ -189,6 +189,20 @@ def test_declining_keeps_a_real_folder_the_user_put_there(trusted):
     assert real.is_dir()
 
 
+def test_declining_takes_the_kit_s_links_out_of_the_user_s_own_folder(trusted):
+    real = trusted.ws / ".claude"
+    __import__("lib.uninstall", fromlist=["u"]).remove_link(real)
+    real.mkdir()
+    (real / "settings.local.json").write_text("{}", encoding="utf-8")
+    trusted.env.link_workspace(log=lambda _: None)
+    assert trusted.env._linked(real / "skills")
+    add_hook(trusted)
+    assert "skills" in " ".join(trusted.trust.decline())
+    assert sorted(p.name for p in real.iterdir()) == ["settings.local.json"]
+    trusted.env.link_workspace(log=lambda _: None)                 # still waiting for an approval: nothing linked in
+    assert sorted(p.name for p in real.iterdir()) == ["settings.local.json"]
+
+
 # ---------- a teammate's repo ----------
 def git(cwd: Path, *args: str) -> str:
     return subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, text=True,

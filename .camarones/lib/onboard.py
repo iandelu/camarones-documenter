@@ -373,6 +373,8 @@ def run_setup(log, cancelled: Callable[[], bool] | None = None) -> bool:
         plan.sync()                        # a setup that raised still leaves the plan in place
     if ok and not (cancelled and cancelled()):
         plan.set_status("setup", "done", "first run")
+        from . import install_state
+        install_state.mark_setup()
         return True
     return False
 
