@@ -346,7 +346,7 @@ and **Check everything** (`camaron health --refresh`). Then three areas, each wi
 
 | Area | States | Figures | What Open reveals |
 |---|---|---|---|
-| Machine | Ready · Review · At risk | tools, missing | **Requirements and tools**: what is missing first, each with **Install** (`camaron doctor --install …`), **Install the pinned ones** (`camaron setup`), **Check again**, and kit files out of place with **Repair**. **Kit files**: **Repair** |
+| Machine | Ready · Review · At risk | tools, missing | **Requirements and tools**: what is missing first, each with **Install** (`camaron doctor --install …`), **Install the pinned ones** (`camaron setup`), **Check again**, and kit files out of place with **Repair**. **Kit files**: each file or link that is off, with why; **Repair** puts back the kit's, checks again and says what it could not fix and why. A file of yours that the kit never replaces is listed as kept, not as something to fix |
 | Documentation | Up to date · Review · At risk | outdated pages, to review | **Outdated pages** (each with **Still holds**, or **Add a unit that refreshes them**), **Control questions (AI)** (confirm golden questions, ask them, or **Propose questions with {agent}**), **Context of each session** (the tokens every agent session loads against the budget), **Pages to review** (portal), **Generated blocks** (refresh them) and **With and without cam-docs (AI)** (the same question asked twice) |
 | Code | Healthy · Review · At risk | libraries, critical or high | **Repos**: per repo its SonarQube quality gate (Passed, Warning, Failed) or whether it uses Sonar, coverage (Sonar's, else its local reports) with its date, vulnerabilities by severity and technical debt, and **See full →** (the portal's page for the repo). **Libraries** → the Libraries section |
 
@@ -408,7 +408,7 @@ This machine and this project's setup (`#/machine`, <kbd>g</kbd> <kbd>m</kbd>).
 | Card | What it does |
 |---|---|
 | Guide and tour | Opens this guide, or the tour of the app |
-| Prepare this machine | **Run setup** (`camaron setup`): tools, repos, agent wiring, with a progress bar |
+| Prepare this machine | **Run setup** (`camaron setup`): tools, repos, agent wiring, with a progress bar. Once it has run on this machine the card says **Ready**, when and with which kit, and **Run it again** stays as a quiet option |
 | Language and models | The language of the AI sessions, the Claude Code model and the Codex model (Codex's own list, or **Other…** to type one): the ones a session takes when the routing names none for its unit; and **Where sessions open**: **On the plan's canvas** (the default) or **In a terminal window** (a machine that cannot open terminals inside the app says that they open in a window). Each change is `camaron config set` |
 | GitLab, GitHub and SonarQube tokens | Saved hosts with **Test** and **Delete**; a form (host, kind, token) whose **Check and save** checks the token against the server first (**Save it anyway** if you insist). Tokens live in the system keychain, never in the project and never on a command line. SonarQube only over https (http only on localhost) |
 | Repos and plan | Each repo, cloned or not, with its stack (edit it, or **Back to detected**); **Clone or pull the repos** (`sync`), **Detect repos in the folder** (`detect`) and the plan's profile, quick or full |
