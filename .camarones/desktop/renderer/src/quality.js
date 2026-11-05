@@ -1,5 +1,5 @@
 // Pure pieces of the Quality, Machine, Kit dev and Libraries sections: the doctor's findings in the order you act on
-// them, pytest's tally, setup's and the vulnerability scan's progress and a check's time.
+// them, the kit files that are off and why, pytest's tally, setup's and the vulnerability scan's progress and a check's time.
 
 // lib/doctor.report() → what is missing (needed prerequisites, pinned tools), with the command that fixes it; what
 // is optional and absent; what is fine.
@@ -8,6 +8,12 @@ export function doctorRows(r) {
     ...(r?.tools || []).map((x) => ({ ...x, kind: 'tool', need: true }))]
   return { missing: rows.filter((x) => !x.ok && x.need), optional: rows.filter((x) => !x.ok && !x.need), fine: rows.filter((x) => x.ok) }
 }
+
+// lib/install_state.drift() → why each item is off, as an i18n key. "yours" is a file of the person's that the kit never
+// replaces: listed, kept, and nothing for Repair to do.
+const DRIFT_WHY = { edited: 'q.driftEdited', missing: 'q.driftMissing', 'not registered': 'q.driftMcp' }
+export const driftWhy = (d) => d.why === 'yours' ? 'q.driftYours' : d.state === 'not linked' ? 'q.driftLink' : DRIFT_WHY[d.state] || 'q.driftOther'
+export const fixableDrift = (items) => (items || []).filter((d) => d.why !== 'yours')
 
 // The last "N passed, M failed …" line pytest prints.
 export function pytestSummary(lines) {

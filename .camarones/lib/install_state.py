@@ -70,6 +70,24 @@ def learn(cmds: list[list[str]], restore: bool = False) -> None:
                 shutil.copy2(scratch / rel, ROOT / rel)
 
 
+def mark_setup() -> None:
+    """Setup finished on this machine: when, and with which kit (the Machine panel stops offering it as a first step)."""
+    from datetime import datetime, timezone
+    state = load()
+    save_json(store_path(), {**state, "root": str(ROOT.resolve()), "kit": VERSIONS["kit"],
+                             "setup": {"at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                                       "kit": VERSIONS["kit"]}})
+
+
+def last_setup() -> dict | None:
+    """{at, kit} of the last setup here, or None. A record from before 4.78 has no `setup`, but only setup or repair
+    write one: the machine was set up, at an unknown time."""
+    state = load()
+    if state.get("setup"):
+        return state["setup"]
+    return {"at": None, "kit": state["kit"]} if state.get("kit") else None
+
+
 def owned() -> dict[str, set[str]]:
     return {k: {d} for k, d in (load().get("owned") or {}).items()}
 
@@ -97,8 +115,8 @@ def drift() -> list[dict]:
         elif _digest(f) != want:
             out.append({"path": rel, "state": "edited", "what": "tool skill"})
     for n in env.LINKS:
-        if (ROOT / n).exists() and os.path.realpath(WORKSPACE / n) != os.path.realpath(ROOT / n):
-            out.append({"path": f"{WORKSPACE.name}/{n}", "state": "not linked", "what": "workspace link"})
+        if why := env.workspace_off(n):                   # "yours": a file of the person's is there, never replaced
+            out.append({"path": f"{WORKSPACE.name}/{n}", "state": "not linked", "what": "workspace link", "why": why})
     if "openwiki" in env.components():
         for r in docs.repo_names():
             d = repo_dir(r)

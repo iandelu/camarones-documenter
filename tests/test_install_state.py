@@ -112,3 +112,29 @@ def test_a_project_without_a_record_still_checks(wired, monkeypatch):
     no_claude(wired, monkeypatch)
     install_state.forget()
     assert install_state.drift() == [] and not install_state.store_path().exists()
+
+
+def test_repair_names_a_file_of_the_person_s_it_leaves_alone(wired):
+    agents = wired.ws / "AGENTS.md"
+    if wired.env._linked(agents):
+        wired.env._unlink(agents)
+    agents.write_text("ours\n", encoding="utf-8")
+    env = {**os.environ, "CAMARONES_ROOT": str(wired.root)}
+    r = subprocess.run([sys.executable, str(KIT_DIR / "camarones.py"), "repair"], env=env, capture_output=True, text=True,
+                       encoding="utf-8")
+    assert r.returncode == 0, r.stderr
+    assert f"{wired.ws.name}/AGENTS.md" in r.stdout and "yours" in r.stdout and "never replaces" in r.stdout
+    assert agents.read_text(encoding="utf-8") == "ours\n"
+
+
+def test_doctor_lists_a_file_of_the_person_s_apart_from_what_repair_fixes(wired):
+    agents = wired.ws / "AGENTS.md"
+    if wired.env._linked(agents):
+        wired.env._unlink(agents)
+    agents.write_text("ours\n", encoding="utf-8")
+    env = {**os.environ, "CAMARONES_ROOT": str(wired.root)}
+    r = subprocess.run([sys.executable, str(KIT_DIR / "camarones.py"), "doctor"], env=env, capture_output=True, text=True,
+                       encoding="utf-8")
+    assert r.returncode == 0, r.stderr
+    line = next(x for x in r.stdout.splitlines() if f"{wired.ws.name}/AGENTS.md" in x)
+    assert "yours" in line

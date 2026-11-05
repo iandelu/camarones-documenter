@@ -214,10 +214,12 @@ proyecto.
 
 Lo que llega con el repo del equipo no se ejecuta a ciegas: los hooks, servidores MCP, ajustes, skills y plugins que no
 escribió el kit solo se cargan cuando los apruebas en tu máquina (**Equipo** en la app, o `camaron trust`); las
-aprobaciones viven en `~/.camarones/trust/`, fuera del repo. Publicar es un paso explícito: **Equipo › Compartir
-ahora**, **Plan › Sincronizar** en el portal o `camaron share` (checkpoint, rebase sobre el trabajo del equipo y push);
-con `camaron share --auto on` cada checkpoint se comparte solo, en esta máquina. Un conflicto se deshace sin tocar nada,
-y algo que parece un secreto no se publica.
+aprobaciones viven en `~/.camarones/trust/`, fuera del repo. Si en la carpeta del workspace ya tenías tu propio
+`.claude/` o tu `CLAUDE.md`, `setup` y `repair` no los reemplazan: enlazan dentro lo del kit y añaden a tu `CLAUDE.md`
+dos líneas que importan sus reglas (`@AGENTS.md`); `uninstall` las quita y deja lo tuyo. Publicar es un paso explícito:
+**Equipo › Compartir ahora**, **Plan › Sincronizar** en el portal o `camaron share` (checkpoint, rebase sobre el trabajo
+del equipo y push); con `camaron share --auto on` cada checkpoint se comparte solo, en esta máquina. Un conflicto se
+deshace sin tocar nada, y algo que parece un secreto no se publica.
 
 ## El día a día en cinco pasos
 
@@ -256,7 +258,7 @@ escribirías en la terminal.
 | ✅ **Calidad** (`g q`) | La salud del proyecto sin IA: máquina, documentación y código, repo a repo (SonarQube, cobertura, vulnerabilidades, deuda) |
 | 📦 **Librerías** (`g l`) | Las dependencias de cada repo y sus vulnerabilidades (el escaneo va repo a repo con su barra, se puede parar y acaba con un tick con lo que encontró) y **Actualizar** en una rama nueva, sin commit |
 | 📖 **Docs** (`g d`) | Abrir el portal, construir el explorador C4, generar la wiki de cada repo y preguntar con IA |
-| 🧰 **Máquina** (`g m`) | Preparar la máquina, idioma y modelos, dónde se abren las sesiones (en el lienzo del plan o en una ventana de terminal), tokens, repos, el kit y desinstalar |
+| 🧰 **Máquina** (`g m`) | Preparar la máquina (dice «Lista», cuándo y con qué kit, una vez hecho), idioma y modelos, dónde se abren las sesiones (en el lienzo del plan o en una ventana de terminal), tokens, repos, el kit y desinstalar |
 | 📘 **Guía** (`g h`) | Toda la documentación de Camarón dentro de la app, con botones que te llevan a cada sitio y un **recorrido guiado** |
 
 <kbd>⌘K</kbd>/<kbd>Ctrl K</kbd> va a una sección, a otro proyecto, a cualquier comando o a un capítulo de la guía. Plan,
@@ -568,9 +570,10 @@ confirmó, el tablero y los comentarios. `--templates` devuelve PLAYBOOK, CONVEN
 
 `camaron uninstall` (o **Máquina › Desinstalar este proyecto**, que primero enseña qué borraría) detiene el portal,
 guarda una copia `.zip` de `cam-docs/` en la carpeta temporal del sistema, quita de cada repo lo que añadió el kit,
-elimina los enlaces de la carpeta del workspace y borra `cam-docs/`, su registro y sus aprobaciones. Los repos quedan
-como en su último commit. La CLI pide escribir el nombre del proyecto; la app, confirmar en un diálogo. `--global`
-limpia también `~/.camarones.json`, `~/.camarones/` y los tokens.
+elimina los enlaces de la carpeta del workspace (también los que puso dentro de tu propio `.claude/` y las líneas que
+añadió a tu `CLAUDE.md`) y borra `cam-docs/`, su registro y sus aprobaciones. Los repos quedan como en su último commit.
+La CLI pide escribir el nombre del proyecto; la app, confirmar en un diálogo. `--global` limpia también
+`~/.camarones.json`, `~/.camarones/` y los tokens.
 
 </details>
 

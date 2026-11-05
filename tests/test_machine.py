@@ -127,6 +127,48 @@ def test_the_machine_panel_data(kit, app):
     assert m["sessions"] == ["canvas", "window"] and isinstance(m["terminals"], bool)
 
 
+def test_the_panel_says_whether_setup_already_ran_on_this_machine(kit, monkeypatch):
+    """The Machine panel offers setup as the next step only until it has run here: then it says when, and with which kit."""
+    from lib import install_state, machine
+    assert machine.panel()["setup"] is None
+    monkeypatch.setattr(kit.env, "setup", lambda ci=False, log=print, comps=None: True)
+    assert kit.onboard.run_setup(lambda _: None) is True
+    done = machine.panel()["setup"]
+    assert done["kit"] == kit.common.VERSIONS["kit"] and done["at"].endswith("Z")
+    install_state.forget()
+    assert machine.panel()["setup"] is None
+
+
+def test_a_cancelled_or_failed_setup_is_not_recorded(kit, monkeypatch):
+    from lib import install_state
+    monkeypatch.setattr(kit.env, "setup", lambda ci=False, log=print, comps=None: True)
+    assert kit.onboard.run_setup(lambda _: None, cancelled=lambda: True) is False
+    monkeypatch.setattr(kit.env, "setup", lambda ci=False, log=print, comps=None: False)
+    assert kit.onboard.run_setup(lambda _: None) is False
+    assert install_state.last_setup() is None
+
+
+def test_setup_from_the_cli_is_recorded_too(kit, monkeypatch, capsys):
+    """The app's Run setup is `camaron setup`; `--ci` (a pipeline, not this machine) records nothing."""
+    import runpy
+    from lib import install_state
+    monkeypatch.setattr(kit.env, "setup", lambda ci=False, log=print, comps=None: True)
+    for args, recorded in ((["setup", "--ci"], False), (["setup"], True)):
+        monkeypatch.setattr(sys, "argv", ["camarones.py", *args])
+        with pytest.raises(SystemExit) as e:
+            runpy.run_path(str(kit.kit_dir / "camarones.py"), run_name="__main__")
+        assert e.value.code in (0, None)
+        assert (install_state.last_setup() is not None) is recorded, args
+    assert install_state.last_setup()["at"].endswith("Z")
+
+
+def test_a_machine_set_up_before_the_record_existed_still_counts(kit):
+    """A 4.x record (what setup or repair wrote) has no `setup`: the machine was set up, the time is unknown."""
+    from lib import install_state
+    install_state._record({"file .claude/skills/x/SKILL.md": "0" * 64})
+    assert install_state.last_setup() == {"at": None, "kit": kit.common.VERSIONS["kit"]}
+
+
 @pytest.fixture
 def entries(kit):
     from lib import appapi

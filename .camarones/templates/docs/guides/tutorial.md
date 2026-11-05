@@ -38,7 +38,9 @@ The agents' setup is shared with the team, so it is never loaded blindly: hooks,
 kit did not write are listed when you open the wizard, and the workspace only links them once you approve them on this
 machine (`camaron trust`). Approvals live in `~/.camarones/trust/`, never in the repo. What the kit installed on this
 machine (its skills, graphify's and OpenWiki's, recorded in `~/.camarones/install/`) is recognised without asking;
-`camaron doctor` shows a kit file edited or a link gone, and `camaron repair` puts them back.
+`camaron doctor` shows a kit file edited or a link gone, and `camaron repair` puts them back. Your own `.claude/` or
+`CLAUDE.md` already in the workspace folder are never replaced: the kit links its entries inside the folder and adds
+to your `CLAUDE.md` two lines that import its rules (`@AGENTS.md`); `uninstall` takes both out.
 
 ## 2. The guided flow
 
