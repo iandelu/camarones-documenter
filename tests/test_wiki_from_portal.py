@@ -3,7 +3,8 @@ repo without its AI brief gets a starter brief written from the static scan (no 
 When no engine can run, the tab says exactly what is missing."""
 from __future__ import annotations
 
-import re, time
+import json, re, sys, time
+from types import SimpleNamespace
 
 import pytest
 
@@ -53,6 +54,71 @@ def test_without_an_engine_the_exact_fix(wired, monkeypatch, comps, installed, f
     assert wired.serve.tree()["engineHelp"] == fix
     with pytest.raises(RuntimeError, match=re.escape(env.ENGINE_HELP[fix][:20])):
         env.openwiki_generate("api", log=lambda _: None)
+
+
+# /api/tree asks on every page load and `npm ls -g` takes seconds: six of them when OpenWiki is missing, which is what
+# timed the request out on Windows.
+@pytest.fixture
+def npm(wired, monkeypatch):
+    """The `npm` commands run, answered `npm_rc`; the rest as they are."""
+    calls, real = SimpleNamespace(cmds=[], rc=1), wired.env.run
+
+    def spy(cmd, *a, **k):
+        if cmd[0] != "npm":
+            return real(cmd, *a, **k)
+        calls.cmds.append(cmd)
+        return SimpleNamespace(returncode=calls.rc, stdout="", stderr="")
+    monkeypatch.setattr(wired.env, "run", spy)
+    return calls
+
+
+def package(folder, version, name="openwiki"):
+    folder.mkdir(parents=True)
+    (folder / "package.json").write_text(json.dumps({"name": name, "version": version}), encoding="utf-8")
+
+
+def on_path(env, monkeypatch, exe):
+    monkeypatch.setattr(env, "which", lambda name: str(exe) if name == "openwiki" else None)
+
+
+def test_a_page_load_without_openwiki_does_not_wait_for_npm(wired, monkeypatch, npm):
+    monkeypatch.setattr(wired.env, "which", lambda name: None)
+    assert wired.serve.tree()["engines"] == []
+    assert npm.cmds == []
+
+
+@pytest.mark.parametrize("found, pinned", [(lambda v: v, True), (lambda v: "0.0.1", False)])
+def test_on_windows_the_version_is_read_beside_the_command(wired, tmp_path, monkeypatch, npm, found, pinned):
+    env = wired.env
+    package(tmp_path / "npm" / "node_modules" / "openwiki", found(env.VERSIONS["openwiki"]))
+    (tmp_path / "npm" / "openwiki.cmd").write_text("@echo off\n", encoding="utf-8")
+    on_path(env, monkeypatch, tmp_path / "npm" / "openwiki.cmd")
+    assert env.openwiki_installed() is pinned and npm.cmds == []
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="npm links a command on POSIX; on Windows it writes a shim")
+@pytest.mark.parametrize("found, pinned", [(lambda v: v, True), (lambda v: "0.0.1", False)])
+def test_on_posix_the_version_is_read_through_the_commands_link(wired, tmp_path, monkeypatch, npm, found, pinned):
+    env = wired.env
+    pkg = tmp_path / "prefix" / "lib" / "node_modules" / "openwiki"
+    package(pkg, found(env.VERSIONS["openwiki"]))
+    (pkg / "dist").mkdir()
+    (pkg / "dist" / "cli.js").write_text("#!/usr/bin/env node\n", encoding="utf-8")
+    (tmp_path / "prefix" / "bin").mkdir()
+    (tmp_path / "prefix" / "bin" / "openwiki").symlink_to(pkg / "dist" / "cli.js")
+    on_path(env, monkeypatch, tmp_path / "prefix" / "bin" / "openwiki")
+    assert env.openwiki_installed() is pinned and npm.cmds == []
+
+
+@pytest.mark.parametrize("rc, installed", [(0, True), (1, False)])
+def test_a_shim_with_no_package_beside_it_still_asks_npm(wired, tmp_path, monkeypatch, npm, rc, installed):
+    env = wired.env
+    (tmp_path / "openwiki").mkdir()                                   # a folder that happens to share the name
+    package(tmp_path / "openwiki" / "shims", "9.9.9", name="something-else")
+    (tmp_path / "openwiki" / "shims" / "openwiki").write_text("#!/bin/sh\n", encoding="utf-8")
+    on_path(env, monkeypatch, tmp_path / "openwiki" / "shims" / "openwiki")
+    npm.rc = rc
+    assert env.openwiki_installed() is installed and npm.cmds and npm.cmds[0][:2] == ["npm", "ls"]
 
 
 def test_the_portal_chooses_the_repo_writes_the_starter_brief_and_generates(wired, engine):  # noqa: F811

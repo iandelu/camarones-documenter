@@ -236,7 +236,29 @@ def npm_global(pkg: str, log: Log) -> None:
         ensure_path()
 
 
+def npm_global_version(exe: Path, name: str) -> str:
+    """The version of the global package behind a command, "" when its package.json is not where `npm install -g` puts
+    it: on POSIX the command links into <prefix>/lib/node_modules/<name>/, on Windows a shim sits beside
+    node_modules/<name>/."""
+    for folder in (exe.parent / "node_modules" / name, *(p for p in exe.resolve().parents if p.name == name)):
+        try:
+            meta = load_json(folder / "package.json", {})
+        except OSError:
+            continue
+        if isinstance(meta, dict) and meta.get("name") == name:
+            return str(meta.get("version") or "")
+    return ""
+
+
 def openwiki_installed() -> bool:
+    """The pinned OpenWiki is what the command runs. The portal asks on every page load and `npm ls -g` takes seconds,
+    so npm only answers for a command whose package is elsewhere (a version manager's shim)."""
+    exe = which("openwiki")
+    if not exe:
+        return False
+    found = npm_global_version(Path(exe), "openwiki")
+    if found:
+        return found == VERSIONS["openwiki"]
     r = run(["npm", "ls", "-g", "--depth=0", f"openwiki@{VERSIONS['openwiki']}"], check=False, quiet=True)
     if r.returncode == 0:
         return True
