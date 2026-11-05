@@ -219,6 +219,14 @@ def test_a_record_taken_by_a_newer_session_is_left_alone(pty, kit):
     assert "ended" not in sessions.load("discovery:api")
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="ConPTY's doing: a POSIX PTY leaves this process's stdin alone")
+def test_a_child_started_after_a_terminal_does_not_wait_on_its_console(pty):
+    pty.open()
+    r = subprocess.run([sys.executable, "-c", "import sys; print(repr(sys.stdin.read()))"], capture_output=True,
+                       text=True, timeout=30)
+    assert r.stdout.strip() == "''", r.stderr
+
+
 def test_old_terminal_files_are_pruned_when_the_first_one_opens(pty, monkeypatch):
     monkeypatch.setattr(pty.t, "KEEP", 3)
     pty.t.DIR.mkdir(parents=True, exist_ok=True)
@@ -237,9 +245,13 @@ def test_old_terminal_files_are_pruned_when_the_first_one_opens(pty, monkeypatch
 # wrapper) with the two behaviours that bit. PtyProcess.spawn passes argv[0] unquoted as the application name and
 # winpty-rs puts it in front of the command line, so a python.exe under "Program Files" ran as "C:\Program".
 # PtyProcess.isalive() marks the process closed, after which close() leaves its two sockets open.
+# winpty-rs's ConPTY::new points this process's stdin, stdout and stderr at a console and leaves them there.
 class FakePTY:
+    std: dict = {}
+
     def __init__(self, cols, rows, backend=None):
         self.size, self.alive, self.code, self.spawned, self.pid = (cols, rows), True, None, None, 4242
+        self.std.update(dict.fromkeys(self.std, "console"))
 
     def spawn(self, appname, cmdline=None, cwd=None, env=None):
         self.spawned = {"appname": appname, "cmdline": cmdline, "cwd": cwd, "env": env}
@@ -301,8 +313,12 @@ def conpty(kit, monkeypatch):
     monkeypatch.setattr(terminals, "TICK", 0.05)
     killed = []
     monkeypatch.setattr(terminals, "kill_tree", lambda pid, sig=None: killed.append(pid))
+    std = {"stdin": "nul", "stdout": "pipe", "stderr": "pipe"}
+    monkeypatch.setattr(FakePTY, "std", std)
+    monkeypatch.setattr(terminals, "_std_handles", lambda: dict(std))
+    monkeypatch.setattr(terminals, "_set_std_handles", std.update)
     terminals.available.cache_clear()
-    yield SimpleNamespace(t=terminals, killed=killed)
+    yield SimpleNamespace(t=terminals, killed=killed, std=std)
     terminals.shutdown()
     terminals.available.cache_clear()
 
@@ -314,6 +330,11 @@ def test_on_windows_the_program_is_quoted_and_its_args_are_one_command_line(conp
     assert fd is None and isinstance(proc, FakePtyProcess) and proc.pty.size == (100, 30)
     assert proc.pty.spawned == {"appname": f'"{exe}"', "cmdline": r'"C:\kit dir\session_run.py" - -- claude --model "x y"',
                                 "cwd": str(tmp_path), "env": "A=1\0PATH=" + "C:\\bin" + "\0"}
+
+
+def test_on_windows_a_terminal_leaves_this_processs_stdin_where_it_was(conpty, kit):
+    conpty.t.spawn([sys.executable, "-c", "pass"], kit.root, kind="update", agent="test")
+    assert conpty.std == {"stdin": "nul", "stdout": "pipe", "stderr": "pipe"}
 
 
 def test_on_windows_a_program_that_ended_lets_go_of_its_sockets(conpty, kit):
