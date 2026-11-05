@@ -25,6 +25,7 @@ credentials.json
 /.codex/
 /.claude/*
 !/.claude/skills/
+!/.claude/settings.json
 /.agents/
 
 # OS / editors
