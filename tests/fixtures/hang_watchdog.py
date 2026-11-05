@@ -1,6 +1,7 @@
 """A test that never returns must not hold CI until its job limit with nothing to show for it: xdist cannot report a
 worker that does not answer. Past LIMIT seconds the worker dumps every thread's stack and exits, from faulthandler's C
-thread, which needs no GIL. xdist then reports the test as crashed and the run goes on; its summary shows the dump."""
+thread, which needs no GIL. xdist then reports the test as crashed and the run ends (--max-worker-restart=0 in
+pyproject.toml); its summary shows the dump."""
 from __future__ import annotations
 
 import faulthandler, os, shutil, tempfile
