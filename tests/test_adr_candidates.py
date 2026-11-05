@@ -266,7 +266,6 @@ def test_a_source_that_fails_leaves_the_others(adr_pack, kit, monkeypatch):
 
 
 def test_a_repo_that_is_not_on_disk_is_skipped(adr_pack, kit):
-    import shutil
-    shutil.rmtree(kit.ws / "web")
+    kit.common.rmtree(kit.ws / "web")                 # git objects are read-only: Windows refuses shutil.rmtree
     (kit.ws / "api" / "compose.yml").write_text("", encoding="utf-8")
     assert [(c["key"], c["repos"]) for c in adr_pack.candidates()] == [("deploy:docker-compose", ["api"])]
