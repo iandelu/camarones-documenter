@@ -283,7 +283,7 @@ elif os.environ.get("CAMARONES_GLOBAL") and not os.environ.get("CAMARONES_ROOT")
         _relaunch(_dest, sys.argv[1:])
 
 from lib import docs, env, plan                     # noqa: E402
-from lib.common import VERSIONS, PREFS, cli_cmd, ROOT, CACHE, CAM_DIR, load_json   # noqa: E402
+from lib.common import VERSIONS, PREFS, cli_cmd, ROOT, CACHE, CAM_DIR, leave_parent_session, load_json   # noqa: E402
 
 
 def cmd_trust(a) -> int:
@@ -486,6 +486,7 @@ def cmd_catalog(a, parser: argparse.ArgumentParser) -> int:
 
 
 def main() -> int:
+    leave_parent_session()
     if len(sys.argv) == 1:
         from lib.wizard import W
         W().run()
