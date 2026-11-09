@@ -344,8 +344,10 @@ la revisión va decidiendo (partes, puntos, asistentes) queda aparte en `docs/.w
    un punto sin elección, o un ADR sin puntos ni texto en su sección *Decision*, donde un marcador como
    `<What was chosen.>` o un comentario no cuentan): la app se niega y dice cuál es el que falta. Las secciones que aún
    tienen un `TODO(question)` no lo impiden, pero el diálogo de aceptar las nombra. **Rechazar** exige un motivo y deja
-   el fichero con `Rejected (fecha): motivo`, para que nadie lo vuelva a proponer sin saber por qué no salió. Una
-   decisión aceptada o rechazada se lee tal cual; para cambiarla, un ADR nuevo que la sustituya.
+   el fichero con `Rejected (fecha): motivo`, para que nadie lo vuelva a proponer sin saber por qué no salió. El
+   subtítulo que el kit escribió en `description` cambia con el estado, también al rechazar o sustituir; si lo escribió
+   una persona, no se toca. Una decisión aceptada o rechazada se lee tal cual; para cambiarla, un ADR nuevo que la
+   sustituya.
 
 Si el fichero cambia mientras lo revisas (un pull, un editor), el guardado falla con un aviso, no pisa nada, y la app lo
 vuelve a leer. **Un ADR que el kit no escribió** (sin frontmatter, con los encabezados en español, `Propuesto <!-- … -->` o

@@ -201,7 +201,8 @@ Los ADR del proyecto, decididos con la evidencia delante y escritos, sin IA (`#/
   pantalla para una reunión: <kbd>←</kbd> <kbd>→</kbd> cambian de parte, <kbd>1</kbd>–<kbd>9</kbd> eligen,
   <kbd>E</kbd> edita, <kbd>D</kbd> aplaza, <kbd>A</kbd> acepta, <kbd>Esc</kbd> sale.
 - **Aceptar** confirma el ADR con `x-owner: human` y *Decided by*; lo que aún no está decidido no se acepta, y la app
-  dice qué punto o sección falta. **Rechazar** pide un motivo.
+  dice qué punto o sección falta. **Rechazar** pide un motivo. En ambos casos el subtítulo que el kit escribió bajo el
+  título (`description`) cambia con el estado; si lo escribió una persona, no se toca.
 
 <!-- cmd:adr -->
 
