@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { expect, test } from 'vitest'
-import { arrivedLive, atBottom, canvasKey, clockRuns, runLive, defaultView, emptyFeed, feed, FOLD_MS, followRun, GAP, layout, MAX_ROWS, neighbour, openUnits, place, planLive, row, SIZE, takeable } from './canvas.js'
+import { arrivedLive, atBottom, canvasKey, clockRuns, runLive, defaultView, emptyFeed, feed, FOLD_MS, followRun, frontZoom, GAP, layout, MAX_ROWS, neighbour, openUnits, place, planLive, row, SIZE, takeable } from './canvas.js'
 
 const ev = (type, f = {}) => ({ v: 1, ts: '2026-10-27T10:00:00.000Z', type, unit: 'a', ...f })
 
@@ -446,4 +446,13 @@ test('only a live autopilot run gives its units up', () => {
   expect(takeable({ run: 'r', kind: 'parallel', finished: false })).toBe(false)
   expect(takeable({ run: 'r', finished: false })).toBe(false)                  // a server of an older kit
   expect(takeable(null)).toBe(false)
+})
+
+test('a terminal comes to the front near enough to read, and never further than the person had it', () => {
+  const node = { width: 440, height: 280 }
+  expect(frontZoom(0.45, node, { width: 1000, height: 570 })).toBe(1)          // a plan of 21 units fits at about 45 %
+  expect(frontZoom(1.5, node, { width: 1000, height: 570 })).toBe(1.5)
+  expect(frontZoom(0.45, node, { width: 330, height: 570 })).toBe(0.75)        // a canvas narrower than the node: what fits
+  expect(frontZoom(0.45, node, { width: 1000, height: 140 })).toBe(0.5)
+  expect(frontZoom(0.9, node, { width: 330, height: 570 })).toBe(0.9)
 })
