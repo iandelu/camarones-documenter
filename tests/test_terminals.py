@@ -67,6 +67,8 @@ def test_the_end_of_a_program_is_kept_with_its_code(pty):
     until(lambda: b"ready" in screen(pty.t, m["id"]))
     pty.t.write(m["id"], "exit\r")
     until(lambda: pty.t.get(m["id"])["ended"])
+    with pty.t._term(m["id"]).finishing:                                 # its end, the .json's included, is done
+        pass
     assert pty.t.get(m["id"])["code"] == 3
     saved = json.loads((pty.t.DIR / f"{m['id']}.json").read_text(encoding="utf-8"))
     assert (saved["code"], saved["unit"], saved["kind"]) == (3, None, "update")

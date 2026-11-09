@@ -19,7 +19,7 @@ from rich.text import Text
 
 from .common import (ROOT, HOME, PREFS, WORK, WS_FILE, CACHE, IS_WIN, IS_MAC, CAM_DIR, CAM_LAYOUT, WORKSPACE, which, cli_cmd,
                      load_json, save_json, out, repo_dir)
-from . import docs, env, genblocks, plan, creds, questionnaire, quickarch, radar, tutorial, upgrade, usage
+from . import docs, env, genblocks, install_state, plan, creds, questionnaire, quickarch, radar, tutorial, upgrade, usage
 from .adapters import runners
 from .harness.ports import RunRequest
 from .common import VERSIONS
@@ -1266,6 +1266,7 @@ class W:
             ok = self.safe(self.busy, env.setup, total=env.setup_steps())
             if ok:
                 plan.set_status("setup", "done", "wizard")
+                install_state.mark_setup()
 
     def fr_intro(self, ws: dict):
         while True:
@@ -2408,6 +2409,7 @@ class W:
         plan.sync()
         if ok:
             plan.set_status("setup", "done", "wizard")
+            install_state.mark_setup()
         self.pause()
         return bool(ok)
 
