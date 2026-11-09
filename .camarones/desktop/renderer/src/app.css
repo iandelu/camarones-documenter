@@ -639,7 +639,14 @@ a.dk-stat-n:hover { color: var(--color-acento-texto); }
 .dk-rv-pages code { display: inline-flex; align-items: center; min-height: 1.75rem; padding: 0 .55rem; border: 1px solid var(--color-rule);
                     border-radius: var(--consola-radio-chico); background: var(--color-canvas); font: var(--rv-small) var(--font-mono); color: var(--color-ink); }
 .dk-rv-editf, .dk-rv-choose, .dk-rv-addf { display: flex; flex-direction: column; gap: .8rem; flex: 1; }
-.dk-rv-edit { min-height: 14rem; padding: .6rem .75rem; font: var(--text-body-sm)/1.5 var(--font-mono); resize: vertical; }
+.dk-rv-sides { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); gap: .8rem 1rem; flex: 1; }
+.dk-rv-side { display: flex; flex-direction: column; gap: .35rem; min-width: 0; }
+.dk-rv-edit { flex: 1 1 auto; min-height: 14rem; padding: .6rem .75rem; font: var(--text-body-sm)/1.5 var(--font-mono); resize: vertical; }
+/* what the file says now, beside a draft it outran (TextPane): the draft's own type, to compare them line by line */
+.dk-rv-theirs { flex: 1 1 auto; min-height: 14rem; max-height: 24rem; margin: 0; padding: .6rem .75rem; overflow: auto; border: 1px solid var(--color-rule);
+                border-radius: var(--consola-radio-control); background: var(--color-canvas); color: var(--color-ink);
+                font: var(--rv-small)/1.5 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.dk-rv-theirs:focus-visible { outline: 2px solid var(--color-acento-texto); outline-offset: 2px; }
 .dk-rv-area { min-height: 3.25rem; padding: .45rem .65rem; line-height: 1.4; resize: vertical; }
 .dk-rv-choose .cu-field, .dk-rv-addf > .cu-field { max-width: 40rem; }
 
@@ -691,27 +698,34 @@ button.dk-rv-why { min-height: 1.5rem; cursor: pointer; text-decoration: underli
 .dk-rv-sum { margin: 0 0 .75rem; padding-left: 1.1rem; display: flex; flex-direction: column; gap: .3rem; font-size: var(--text-body-sm); }
 .dk-rv-dlg-acts { justify-content: flex-end; margin-top: 1rem; }
 
-/* Presenting (P; Esc leaves): a screen shared in a meeting. The app around the review goes, the window's title bar
-   stays; one part per screen under a strip of the parts' marks, in the theme's display sizes (CAMARON.md, the fifth
-   approved exception). */
+/* Presenting (P; Esc leaves): a screen shared in a meeting. The app around the review goes. The header's row stays,
+   empty: it is the window's title bar, which drags the window and has the system's controls drawn over it. One part per
+   screen under a strip of the parts' marks, in the theme's display sizes (CAMARON.md, the fifth approved exception); a
+   part taller than the screen scrolls in its pane, so the attendees, the decision and the keys stay in view. */
 .dk:has(.dk-present) { grid-template: "top" 3.5rem "main" 1fr / minmax(0, 1fr); }
-.dk:has(.dk-present) :is(.dk-rail, .dk-side, .cu-crumbs, .dk-jobs, .dk-status) { display: none; }
-.dk:has(.dk-present) .dk-main { padding: 1.5rem clamp(1.25rem, 4vw, 4rem) 2rem; }
+.dk:has(.dk-present) :is(.dk-rail, .dk-side, .dk-top > *, .dk-jobs, .dk-status) { display: none; }
+.dk:has(.dk-present) .dk-top { border-bottom: 0; }
+.dk:has(.dk-present) .dk-main { display: flex; flex-direction: column; padding: 0 clamp(1.25rem, 4vw, 4rem) 1.25rem; }
+.dk-rv-root:has(> .dk-present), .dk-rv-screen.dk-present { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .dk-rv-screen.dk-present { --rv-q: var(--text-display-md); --rv-h: var(--text-h1); --rv-body: var(--text-h3); --rv-opt: var(--text-h2);
                            --rv-small: var(--text-body); }
-.dk-present .dk-page { max-width: 90rem; margin: 0 auto; gap: 1rem; }
+.dk-present .dk-page { flex: 1; min-height: 0; width: 100%; max-width: 90rem; margin: 0 auto; gap: 1rem; }
 .dk-present .dk-page h1 { font-size: var(--text-h2); }
 .dk-present :is(.dk-adr-steps, .dk-adr-path, .dk-rv-whole) { display: none; }
-.dk-present .dk-rv { grid-template-columns: minmax(0, 1fr); }
-.dk-present .dk-rv-nav { flex-direction: row; flex-wrap: wrap; align-items: center; }
+.dk-present .dk-rv { display: flex; flex-direction: column; align-items: stretch; flex: 1; min-height: 0; }
+.dk-present .dk-rv-nav { flex: none; flex-direction: row; flex-wrap: wrap; align-items: center; }
 .dk-present .dk-rv-parts { display: flex; flex-direction: row; flex-wrap: wrap; padding: .25rem; }
 .dk-present .dk-rv-part { grid-template-columns: auto; justify-items: center; align-items: center; width: auto; min-width: 2.5rem;
                           min-height: 2.5rem; }
 .dk-present :is(.dk-rv-plabel, .dk-rv-pstate) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);
                                                 white-space: nowrap; }
-.dk-present .dk-rv-pane { min-height: 55svh; padding: clamp(1.5rem, 3vw, 3rem); gap: 1.25rem; }
+.dk-present .dk-rv-pane { flex: 1 1 0; min-height: 10rem; overflow-y: auto; padding: clamp(1.5rem, 3vw, 3rem); gap: 1.25rem; }
+.dk-present .dk-rv-foot { flex: none; flex-wrap: nowrap; }
+.dk-present .dk-rv-people { flex: 1 1 0; }
+.dk-present .dk-rv-keys { flex: none; }
 .dk-present .dk-rv-pane .dk-prose { max-width: 60ch; line-height: 1.5; }
-.dk-present .dk-rv :is(.cu-btn, .cu-input) { min-height: 3rem; font-size: var(--text-body); }
+.dk-present .dk-rv :is(.cu-btn, .cu-input) { font-size: var(--text-body); }
+.dk-present .dk-rv :is(.cu-btn, input.cu-input) { min-height: 3rem; }
 .dk-present :is(.dk-rv-why, .cu-aviso-title) { font-size: var(--text-body); }
 .dk-present .dk-rv-opts { grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); gap: 1rem; }
 .dk-present .dk-rv-opt { padding: 1.25rem 1.4rem; gap: .75rem; }
@@ -720,6 +734,7 @@ button.dk-rv-why { min-height: 1.5rem; cursor: pointer; text-decoration: underli
 .dk-present .dk-rv-ini { min-height: 2.25rem; }
 @media (max-width: 60rem) {
   .dk-rv { grid-template-columns: minmax(0, 1fr); }
+  .dk-present .dk-rv-foot { flex-wrap: wrap; }
   .dk-rv-parts { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr)); }
   .dk-rv-err { grid-column: auto; }
 }

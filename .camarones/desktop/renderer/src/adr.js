@@ -207,6 +207,17 @@ export function keyEffect(adr, current, act, ctx) {
 // busy, a message to show as it is, like any other refusal.
 export const stale = (e) => e?.status === 409 && !!e?.data?.sha
 
+// A draft of a text part keeps `base`, what the part said at its first keystroke: the person wrote against that text.
+export const typedDraft = (d, value, text) => ({ ...d, draft: value, base: d?.base ?? text })
+
+// The file moved on under a draft: the part no longer says what the draft started from, whichever answer of the server
+// brought the news (a refused save, or attendees, which carry no sha). Saving would replace text the person has not seen.
+export function outrun(adr, part, d) {
+  if (!adr || d?.draft === undefined || d.base === undefined) return false
+  const now = adr.sections?.[part] ?? ''
+  return now !== d.base && now !== d.draft
+}
+
 const line = (s) => String(s ?? '').replace(/\s+/g, ' ').trim()
 const lines = (s) => String(s ?? '').split(/\r?\n/).map(line).filter(Boolean)
 

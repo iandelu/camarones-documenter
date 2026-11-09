@@ -4,8 +4,8 @@ Numbering and slugs, the status of an ADR the kit did not write (no frontmatter,
 an inline `Status:` line), its sections read and replaced in place, and the one template a new ADR is rendered from.
 Reading is tolerant: a section is an `##` heading whose text is one of the English or Spanish headings of a key.
 Writing is narrow: `replace_section` changes one section and keeps every other byte, frontmatter included,
-`replace_status` changes only the status line `status_of` reads; only `render_new` renders a whole file. Nothing here
-touches the disk or a model."""
+`replace_status` changes only the status line `status_of` reads, `describe` only the description the kit worded; only
+`render_new` renders a whole file. Nothing here touches the disk or a model."""
 from __future__ import annotations
 
 import re
@@ -33,6 +33,13 @@ SLUG_MAX = 60
 DESCRIPTION_MAX = 300
 
 _PROPOSED = 'Proposed <!-- agents only write "Proposed"; people accept, supersede or reject -->'
+_DESCRIPTIONS = {   # "proposed" is what every kit wrote: `describe` recognises it in the files they left
+    "proposed": ("Why the project chose an option for: {title}. Proposed decision with its options, evidence and the decision "
+                 "points the team reviews."),
+    "accepted": "Why the project chose an option for: {title}. Accepted decision with its options, evidence and who decided.",
+    "rejected": "What the project decided against: {title}. Rejected decision with its options, evidence and the reason.",
+    "superseded": ("Why the project once chose an option for: {title}. Superseded decision, kept as history: a newer ADR "
+                   "replaces it.")}
 _CLAIM = "Named when the decision was framed"
 _STATUS = {word: token for token, words in {
     "proposed": ("proposed", "propuesto", "propuesta"), "accepted": ("accepted", "aceptado", "aceptada"),
@@ -218,6 +225,17 @@ def replace_status(text: str, new: str) -> str:
     return head + _put(body, lo, start + len(lines[first].splitlines()[0]), new)
 
 
+def description(title: str, status: str) -> str:
+    return _DESCRIPTIONS[status].format(title=title)[:DESCRIPTION_MAX]
+
+
+def describe(fm: dict, title: str, status: str) -> dict:
+    """`fm` with the description the kit words for `status`, if the one it has is the kit's own for `title`. One a person
+    wrote, or none, is theirs: it stays as it is."""
+    ours = fm.get("description") in [description(title, known) for known in _DESCRIPTIONS]
+    return {**fm, "description": description(title, status)} if ours else fm
+
+
 # ---------- rendering ----------
 def _texts(value) -> list[str]:
     return [t for t in (str(v).strip() for v in value or []) if t]
@@ -318,8 +336,7 @@ def render_new(fields: dict, number: str) -> str:
     touches = list(dict.fromkeys(_texts(fields.get("touches"))))
     drivers, constraints, options = (_texts(fields.get(k)) for k in ("drivers", "constraints", "options_hint"))
     fm = {"type": "decision", "title": f"{number} — {title}",
-          "description": (f"Why the project chose an option for: {title}. Proposed decision with its options, evidence "
-                          "and the decision points the team reviews.")[:DESCRIPTION_MAX],
+          "description": description(title, "proposed"),
           "tags": sorted({t.partition(":")[0] for t in touches if ":" in t and not t.startswith(CAM_DIR + ":")}),
           "x-sources": list(dict.fromkeys(_source(t) for t in touches)), "x-owner": "ai"}
     context = str(fields.get("problem") or "").strip() or "TODO(question): what is the problem and which forces are at play?"
