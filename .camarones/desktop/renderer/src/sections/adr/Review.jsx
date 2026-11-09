@@ -131,7 +131,7 @@ export function Review({ adr, busy = false, error = '', notice = '', send, onDia
   }, [])
 
   return (
-    <div ref={root} onFocus={() => { inside.current = true }}
+    <div ref={root} className="dk-rv-root" onFocus={() => { inside.current = true }}
       onBlur={(e) => { if (e.relatedTarget && !root.current?.contains(e.relatedTarget)) inside.current = false }}>
       <ReviewView adr={adr} current={here} present={present} ui={ui} busy={busy} error={error} notice={notice} onPart={onPart}
         onPoint={onPoint} onAttendees={onAttendees} onAccept={onAccept} onReject={onReject} onPresent={presenting} onGo={go} onUi={patch} />

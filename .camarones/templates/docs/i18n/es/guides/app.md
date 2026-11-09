@@ -199,7 +199,8 @@ Los ADR del proyecto, decididos con la evidencia delante y escritos, sin IA (`#/
 - **Revisión**: parte por parte (aprobar, editar o aplazar cada sección y las páginas afectadas) y punto por punto
   (elegir una opción u *Otra*, con un motivo), más los asistentes. **Presentar** (<kbd>P</kbd>) enseña una parte por
   pantalla para una reunión: <kbd>←</kbd> <kbd>→</kbd> cambian de parte, <kbd>1</kbd>–<kbd>9</kbd> eligen,
-  <kbd>E</kbd> edita, <kbd>D</kbd> aplaza, <kbd>A</kbd> acepta, <kbd>Esc</kbd> sale.
+  <kbd>E</kbd> edita, <kbd>D</kbd> aplaza, <kbd>A</kbd> acepta, <kbd>Esc</kbd> sale. Solo queda la revisión: una parte
+  que no cabe se desplaza en su panel, y aceptar y las teclas siguen a la vista.
 - **Si el fichero cambia mientras revisas** (un pull, un editor), no se pisa nada: el guardado se rechaza y la app vuelve
   a leer el ADR. Si cambió la parte que estabas editando, tu borrador sigue sin guardar junto a lo que dice ahora el
   archivo, y **Guardar** espera a que elijas **Seguir con mi borrador** o **Usar el del archivo**.
