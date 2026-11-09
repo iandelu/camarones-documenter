@@ -215,8 +215,9 @@ holds sessions per agent (`claude=2,codex=1`), a maximum number of units and whe
 **Autopilot** does one unit after another instead, unattended. Both are off while no unit is ready. While a run is on,
 the card shows its progress and **Cancel the run** (agents stop, their units go back to the queue, their work is kept);
 while the autopilot is on, **Stop the autopilot**. Only one run exists at a time, from the app or the terminal. Neither
-starts a unit whose session you have open (on the canvas or in a window); when only such units are left, it stops and
-names them, for you to finish there.
+starts a unit whose session you have open (on the canvas or in a window). When only such units are left, **Run the ready
+ones** stops and names them, for you to finish there, and the autopilot waits for you (*Taking a unit from the autopilot*,
+below).
 
 **Keep it current.** **Start with {agent}** opens a session that updates the docs with what changed in the code since
 they were written: on the canvas, a terminal called **Update docs** in the **Loose sessions** lane (or a window, as
@@ -278,6 +279,20 @@ button takes you to its terminal, and its detail offers **Show its terminal**. A
 once. They live in the project's server, so closing the project's window ends them and their units read as paused.
 Machine › **Where sessions open** › **In a terminal window** opens sessions in a window of their own instead, as before
 (`camaron config set sessions window`); a machine where the app cannot open terminals does that by itself and says so.
+
+**Taking a unit from the autopilot.** While the autopilot runs, started from the app or from a terminal, a unit at work
+has two buttons under its terminal. **Take control** ends its headless agent and opens that same conversation in the
+node, with no prompt, so you speak first; the other units never stop. If the run does not answer in 10 seconds the unit
+stays with it and the canvas says so. An agent with no conversation to resume (anything but Claude Code and Codex) opens
+a new session on the unit's prompt and its checkpoints, and the node says so before you press. **Hand back to the
+pilot** closes your terminal and gives the conversation to the run, which resumes that unit next, headless, with your
+corrections in context; only then does it count as a unit done. On a session you opened yourself the same button is
+**Leave to the pilot**. **Close** instead leaves the unit paused: the autopilot does not pick it up again in this run, and
+**Continue** reopens it. **Stop** ends the unit's agent: the unit goes back to the queue and this run goes on without it.
+When only units with you are left the autopilot waits, and the line over the graph says for which; it goes on as soon as
+you finish one or hand it back, and if you close them unfinished it stops and names them as paused. **Stop the
+autopilot** leaves your terminals open. A unit that failed offers **Open with you**, on the conversation its run left. While a
+run's agent works on a unit, its detail has no **Continue**: its node has the buttons. A parallel run (**Run the ready ones**) keeps its units: its terminals have none of these buttons.
 
 **Plan from zero**, under the units. What the plan has cost since it started (or since the last wipe), for the whole team: agent time
 unattended, time with a person, calendar time, tokens and API-equivalent dollars, the most expensive units and a table

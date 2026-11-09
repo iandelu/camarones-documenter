@@ -135,7 +135,7 @@ The API serves the portal and the app; it is not a stable public interface (the 
 | Plan | `GET pipeline?lang`, `runs/<id>`, `runs/<id>/events` (server-sent events), `plan/cost`, `interview`, `sync`; `POST units/approve`, `units/retry`, `interview/answer`, `sync/share` |
 | Quality | `GET health`, `kpis`, `inventory`, `schemas`, `ci`; `POST kpis/miss` |
 | Machine work (app token) | `POST runs`, `runs/<id>/cancel`, `wiki`, `build`, `inventory`, `schemas`, `ci`, `ask/answer`, `plan/cost` |
-| The app (app token) | `GET app/info`, `catalog`, `summary`, `machine`, `guide`, `creds`, `agents`, `terminals`, `terminals/stream` (server-sent events), `doctor`, `kitdev`, `onboard/*`, `jobs/<id>/events`; `POST app/cmd`, `terminals` (a session, on the canvas or in a window; its old name `agent` still works), `terminals/<id>/input`, `terminals/<id>/resize`, `terminals/<id>/close`, `creds`, `doctor`, `kitdev`, `onboard/*`, `jobs/<id>/cancel` |
+| The app (app token) | `GET app/info`, `catalog`, `summary`, `machine`, `guide`, `creds`, `agents`, `terminals`, `terminals/stream` (server-sent events), `doctor`, `kitdev`, `onboard/*`, `jobs/<id>/events`; `POST app/cmd`, `terminals` (a session, on the canvas or in a window; its old name `agent` still works), `terminals/<id>/input`, `terminals/<id>/resize`, `terminals/<id>/close`, `units/<id>/takeover`, `units/<id>/handback`, `units/<id>/stop`, `creds`, `doctor`, `kitdev`, `onboard/*`, `jobs/<id>/cancel` |
 
 Long work is a **job**: `GET jobs` lists them, `GET jobs/<id>?since=n` reads its lines from line `n`.
 
@@ -169,15 +169,34 @@ collides with another unit's work blocks its unit, leaves `cam-docs` untouched a
 Other units run one at a time, and a unit never starts before what it needs is merged. `camaron autopilot` runs units
 one after another without worktrees. While either runs, the machine is kept awake, and a session cut by something
 passing (sleep, network, an overloaded API) goes back to the queue once. Neither starts a unit whose session the app has
-open (on the canvas or in a window); when only such units are left, it stops and names them. A run stopped from
-outside (its job stopped, its process killed) cannot log its end: once the run lock is free or stale, `GET pipeline`
-reports it `finished` and `interrupted`, and its `runs/<id>/events` stream ends after its last event.
+open (on the canvas or in a window); when only such units are left, `run` stops and names them and `autopilot` waits. A
+run stopped from outside (its process killed, or on Windows its job stopped) cannot log its end: once the run lock is free
+or stale, `GET pipeline` reports it `finished` and `interrupted`, and its `runs/<id>/events` stream ends after its last
+event. An autopilot job stopped on macOS or Linux gets SIGTERM, ends its agent and logs its end itself.
+
+**Handing a unit over.** Every session of the autopilot has a known conversation: Claude Code is given an id
+(`--session-id`, a new one per attempt), Codex says its own (`thread.started`), and `_run_agent` logs it as a `session`
+event; other runners have none. The run may be another process than the project server, so they talk through a file,
+`runs/<run>/handoff/<unit>.json`, as `runs/<run>/cancel` does (which the autopilot now honours too). `POST app/units/<id>/takeover`
+writes `{"to": "you"}` and waits up to 10 s for the run's answer in its log; a watcher beside the agent (twice a second)
+ends the agent's process group and the autopilot logs `unit.finished` with `outcome: "handed"`, neither a failure nor a
+unit done. The server then opens a terminal on `--resume <id>` (`codex resume <id>`) in the same folder, with no prompt,
+and writes `since` into the unit's session record. With the run lock free the run is dead, and the server opens the last
+conversation in its log without asking. `handback` closes the terminal and writes `{"to": "pilot", "session": …,
+"agent": …}`: the autopilot puts that unit first and resumes it headless (`unit.started` with `resume`), on the agent that
+has its conversation. `stop` writes `{"to": "stop"}`: `outcome: "cancelled"`, the unit back to `todo` and left out of this
+run. A unit with a live session is never the run's; with only those left the autopilot logs `unit.waiting` and looks again
+every 5 s. A unit handed over that is closed unfinished is paused, and the run does not pick it up: it stops naming it
+when nothing else is ready. A refusal is a 409 with its `code` (`no-run`, `parallel`, `no-answer`, `finished`,
+`no-terminal`), its terminal or the limit; opening a session on a unit a run's agent has is a 409 with `at-work`. The parallel scheduler does not watch these files yet, so a parallel run refuses.
 
 **What it cost.** Each run writes `.camarones/.cache/runs/<run>/events.jsonl` (`camaron runs`). Each machine adds its
 share — runs, wikis written by an agent and the interactive sessions read from Claude Code's transcripts — to
 `docs/.work/kpis/<person-machine>.json`, which `share` brings to the team. `camaron plan cost` and `camaron kpis` add
 them up; dollars are the API equivalent (the agent's own figure, else tokens × `lib/pricing.yaml`, which `pricing:` in
-`workspace.yaml` can override).
+`workspace.yaml` can override). A conversation a run also wrote to is on the run's bill through its `usage` events, so a
+session record counts only the person's stretches of it: from `since` to its `ended`, earlier ones kept in `spans`. A
+record with neither, every one from an older kit, is counted whole.
 
 <!-- go:plan -->
 
