@@ -51,21 +51,24 @@ def local_sessions(known: dict | None = None, units: list[str] | None = None,
             path = folder / f"{sid}.jsonl"
             size = transcripts.size(path)
             old = known.get(sid)
+            spans = sessions.windows(rec, sid)
             if not size:
                 continue
-            if isinstance(old, dict) and old.get("bytes") == size and old.get("unit") == rec["unit"]:
+            if isinstance(old, dict) and old.get("bytes") == size and old.get("unit") == rec["unit"] \
+                    and old.get("spans") == spans:
                 out[sid] = old
                 continue
             try:
-                r = transcripts.read(path)
+                r = transcripts.read(path, spans)
             except Exception as e:  # noqa: BLE001 — a file the kit did not write must not stop the bill
                 if notes is not None:
                     notes.append(f"session {sid} ({rec['unit']}): transcript not readable, skipped ({e})")
                 continue
-            if r is None:
+            if r is None or (spans is not None and not r["first"]):
                 continue
             out[sid] = {"unit": rec["unit"], "agent": "claude", "started": r["first"], "ended": r["last"],
-                        "active_seconds": r["active_seconds"], "bytes": r["bytes"], "models": r["models"]}
+                        "active_seconds": r["active_seconds"], "bytes": r["bytes"], "models": r["models"],
+                        **({"spans": spans} if spans is not None else {})}
     return out
 
 
