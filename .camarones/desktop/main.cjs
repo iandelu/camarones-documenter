@@ -122,7 +122,8 @@ async function startProject(root, { replace } = {}) {
   const portalToken = crypto.randomBytes(24).toString('hex')      // the browser portal's key: board writes, nothing more
   // cwd outside the project: Windows cannot delete a folder a process works in, and `uninstall` runs from here
   const pr = spawn(PY, core.backendArgv(KIT), { cwd: os.homedir(), env: core.backendEnv(process.env, root, token, portalToken),
-    windowsHide: true, detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe'] })
+    windowsHide: true, detached: process.platform !== 'win32', stdio: core.BACKEND_STDIO })
+  pr.stdin.on('error', () => {})      // never written to: a server gone first must not raise a dialog here
   let port
   try { port = await waitReady(pr) } catch (e) {
     killTree(pr)

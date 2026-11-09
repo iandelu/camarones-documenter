@@ -17,7 +17,7 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from .common import CTX, KIT, ROOT, DOCS, CACHE, VERSIONS, out, rel_file
+from .common import CTX, KIT, ROOT, DOCS, CACHE, VERSIONS, kill_tree, out, rel_file
 from . import adr_doc, codemap, docs, env, plan, sourcelinks, usage
 
 _log = logging.getLogger("camaron.serve")
@@ -31,6 +31,7 @@ UI_LIBS = (("marked", "15.0.12", "lib/marked.umd.js"), ("dompurify", "3.2.6", "d
            ("vis-network", "9.1.6", "standalone/umd/vis-network.min.js"))     # the code map, loaded on its tab only
 VENDOR_RE = re.compile(r"^/vendor/((?:@[\w.-]+/)?[\w.-]+)@([\w.+-]+)/([\w./+-]+)$")
 STATIC = False
+APP_GONE_GRACE = 10                          # seconds the normal stop has once the app is gone (watch_app)
 APP_TOKEN = ""                               # set by the desktop app (CAMARONES_APP_TOKEN); empty: browser portal only
 PORTAL_TOKEN = ""                            # set by `camaron up` (CAMARONES_PORTAL_TOKEN): lets this machine's browser write the board
 APP_ONLY = re.compile(r"^/api/(runs|runs/[\w.-]+/cancel|wiki|build|inventory|schemas|ci|ask/answer|plan/cost)$")
@@ -1534,6 +1535,29 @@ def take_tokens() -> None:
     PORTAL_TOKEN = os.environ.pop("CAMARONES_PORTAL_TOKEN", "")
 
 
+def watch_app() -> None:
+    """Stops this server when the app that started it is gone. A crash or a force-quit runs none of the app's code, so
+    the app holds the other end of our stdin, the system closes it, and the read here returns. The stop is the app's own,
+    what the server started included; one that hangs ends with the process after APP_GONE_GRACE s. What this server
+    starts reads nothing from stdin, as before: nobody writes to this pipe, so a child inheriting it would wait for the
+    app to end (`claude -p` reads its stdin)."""
+    pipe = os.dup(0)
+    nothing = os.open(os.devnull, os.O_RDONLY)
+    os.dup2(nothing, 0)
+    os.close(nothing)
+
+    def wait() -> None:
+        try:
+            while os.read(pipe, 4096):
+                pass
+        except OSError:
+            pass
+        kill_tree(os.getpid())
+        time.sleep(APP_GONE_GRACE)
+        os._exit(1)
+    threading.Thread(target=wait, daemon=True, name="app lifeline").start()
+
+
 def run_server(port: int = 8080, static: bool = False) -> None:
     global STATIC
     from . import terminals
@@ -1544,6 +1568,8 @@ def run_server(port: int = 8080, static: bool = False) -> None:
     httpd = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     atexit.register(terminals.shutdown)         # no agent outlives its server: the app's stop, Ctrl+C, an error
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))       # how the app stops it on POSIX; SystemExit runs atexit
+    if os.environ.pop("CAMARONES_LIFELINE", ""):
+        watch_app()
     if APP_TOKEN:                            # the app reads the port (0 = any free one) from this first line
         print(json.dumps({"ready": True, "port": httpd.server_address[1]}), flush=True)
         sys.stdout.flush()
