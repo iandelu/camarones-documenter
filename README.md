@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.78.1-ff875f?style=flat-square" alt="Versión 4.78.1">
+  <img src="https://img.shields.io/badge/version-4.78.3-ff875f?style=flat-square" alt="Versión 4.78.3">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -568,7 +568,8 @@ y el plan vuelve a empezar, conservando `workspace.yaml`, las entrevistas, las p
 confirmó, el tablero y los comentarios. `--templates` devuelve PLAYBOOK, CONVENTIONS y las plantillas a las del kit
 (guarda la vuestra como `<nombre>.before-reset-<fecha>`). Los dos aceptan `--dry-run`; en la app, al final de **Plan**.
 
-`camaron uninstall` (o **Máquina › Desinstalar este proyecto**, que primero enseña qué borraría) detiene el portal,
+`camaron uninstall` (o **Máquina › Desinstalar este proyecto**, que primero enseña qué borraría con las opciones marcadas y vuelve a
+pedirlo si las cambias) detiene el portal,
 guarda una copia `.zip` de `cam-docs/` en la carpeta temporal del sistema, quita de cada repo lo que añadió el kit,
 elimina los enlaces de la carpeta del workspace (también los que puso dentro de tu propio `.claude/` y las líneas que
 añadió a tu `CLAUDE.md`) y borra `cam-docs/`, su registro y sus aprobaciones. Los repos quedan como en su último commit.
