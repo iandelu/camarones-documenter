@@ -12,7 +12,7 @@ class Codex(CliRunner):
     def build(self, req: RunRequest) -> Invocation:
         model = ["--model", req.model] if req.model else []
         if req.interactive and req.resume:
-            argv = [self.exe(), "resume", "--last"]
+            argv = [self.exe(), "resume", req.session or "--last"]
         elif req.interactive:
             argv = [self.exe(), *model, req.prompt]
         elif req.allow_tools == ():               # an answer from the prompt alone, in a folder that may not be a repo
@@ -23,12 +23,15 @@ class Codex(CliRunner):
             argv = [self.exe(), "exec", "--full-auto", "-C", str(req.cwd), *model, *(["--json"] if req.stream else []),
                     req.prompt]
         else:
-            argv = [self.exe(), "exec", "--approve-for-me", "--skip-git-repo-check", "--json", *model, req.prompt]
+            again = ["resume", req.session] if req.resume and req.session else []
+            argv = [self.exe(), "exec", *again, "--approve-for-me", "--skip-git-repo-check", "--json", *model, req.prompt]
         return Invocation(argv, req.cwd, req.env)
 
     def parse_event(self, ev: dict) -> list[dict]:
         kind = ev.get("type")
         item = ev.get("item") or {}
+        if kind == "thread.started":              # Codex cannot be given an id: it says the one it made
+            return [{"type": "session", "id": ev["thread_id"]}] if ev.get("thread_id") else []
         if kind == "item.started" and item.get("type") == "command_execution":
             # on Windows the command arrives wrapped in `powershell … -Command '…'`
             cmd = str(item.get("command", "")).split("-Command", 1)[-1].strip("' ")
