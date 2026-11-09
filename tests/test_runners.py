@@ -108,7 +108,7 @@ def test_autopilot_session_launches_the_runner_argv(kit, monkeypatch):
     r = kit.plan._run_agent("claude", "do it", "en", "discovery:api", echo=echo.append)
     brief = kit.common.ws_rel(kit.common.rel_file(kit.plan.AUTOPILOT_PROMPT))
     assert seen["cmd"] == ["/bin/claude", "-p", f"Follow the instructions in {brief}", "--dangerously-skip-permissions",
-                           "--output-format", "stream-json", "--verbose"]
+                           "--output-format", "stream-json", "--verbose", "--session-id", r.session]
     assert seen["kw"]["cwd"] == str(kit.common.WORKSPACE)
     assert seen["kw"]["env"]["CAMARONES_ROOT"] == str(kit.common.ROOT)
     assert r.returncode == 0 and "  · Read a.py" in echo
@@ -245,3 +245,46 @@ def test_transient_failures_are_told_apart(runners, tail):
     assert runners.get("claude").classify(1, tail) == "retry"
     assert runners.get("claude").classify(1, "Error: usage limit reached") == "limited"
     assert runners.get("claude").classify(1, "Traceback: KeyError") == "failed"
+
+
+UNATTENDED = ["-p", "p", "--dangerously-skip-permissions", "--output-format", "stream-json", "--verbose"]
+
+
+def test_claude_headless_gets_its_conversation_id(runners, kit):
+    from lib.harness.ports import RunRequest
+    c = runners.get("claude")
+    assert c.own_session
+    assert c.build(RunRequest(prompt="p", cwd=kit.ws)).argv == ["/bin/claude", *UNATTENDED]
+    assert c.build(RunRequest(prompt="p", cwd=kit.ws, session="s-1")).argv == \
+        ["/bin/claude", *UNATTENDED, "--session-id", "s-1"]
+    assert c.build(RunRequest(prompt="p", cwd=kit.ws, session="s-1", resume=True)).argv == \
+        ["/bin/claude", *UNATTENDED, "--resume", "s-1"]
+
+
+def test_a_taken_session_opens_with_no_prompt_so_the_person_speaks_first(runners, kit):
+    from lib.harness.ports import RunRequest
+    argv = runners.get("claude").build(RunRequest(prompt="", cwd=kit.ws, interactive=True, resume=True, session="s-1",
+                                                  model="opus")).argv
+    assert argv == ["/bin/claude", "--model", "opus", "--resume", "s-1"]
+
+
+def test_codex_resumes_the_conversation_it_is_given(runners, kit):
+    from lib.harness.ports import RunRequest
+    c = runners.get("codex")
+    assert not c.own_session
+    assert c.build(RunRequest(prompt="p", cwd=kit.ws, resume=True, session="T", model="m")).argv == \
+        ["/bin/codex", "exec", "resume", "T", "--approve-for-me", "--skip-git-repo-check", "--json", "--model", "m", "p"]
+    assert c.build(RunRequest(prompt="p", cwd=kit.ws, interactive=True, resume=True, session="T")).argv == \
+        ["/bin/codex", "resume", "T"]
+    assert c.build(RunRequest(prompt="p", cwd=kit.ws, interactive=True, resume=True)).argv == \
+        ["/bin/codex", "resume", "--last"]
+
+
+def test_codex_says_its_conversation_when_it_starts(runners):
+    c = runners.get("codex")
+    assert c.parse(json.dumps({"type": "thread.started", "thread_id": "T"})) == [{"type": "session", "id": "T"}]
+    assert c.parse(json.dumps({"type": "thread.started"})) == []
+
+
+def test_a_runner_with_no_conversation_of_its_own_is_the_default(runners):
+    assert not runners.get("opencode").own_session

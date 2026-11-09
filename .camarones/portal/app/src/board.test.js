@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { apply, changedRun, columns, initial, layout, pipelinePath } from './board.js'
+import { apply, changedRun, columns, initial, layout, outcomeWord, pipelinePath } from './board.js'
 
 const pipeline = {
   run: { run: 'r-1', finished: false },
@@ -11,6 +11,24 @@ const pipeline = {
 }
 
 describe('board', () => {
+  it('keeps a unit taken from the run in progress, also once the run ends', () => {
+    let s = initial(pipeline)
+    for (const ev of [
+      { type: 'unit.started', unit: 'discovery:api', runner: 'claude' },
+      { type: 'session', unit: 'discovery:api', runner: 'claude', id: 's-1' },
+      { type: 'unit.finished', unit: 'discovery:api', outcome: 'handed', status: 'doing', session: 's-1', seconds: 9 },
+      { type: 'unit.waiting', units: ['discovery:api'] },
+    ]) s = apply(s, ev)
+    expect(s.units['discovery:api'].status).toBe('doing')
+    s = apply(s, { type: 'run.finished', done: 0 })
+    expect(s.units['discovery:api']).toMatchObject({ status: 'doing', live: { outcome: 'handed', log: [] } })
+  })
+  it('says a handed unit is with you, and any other outcome as it is', () => {
+    const t = (k) => ({ 'pipe.handed': 'with you' })[k]
+    expect(outcomeWord('handed', t)).toBe('with you')
+    expect(outcomeWord('ok', t)).toBe('ok')
+    expect(outcomeWord(null, t)).toBe(null)
+  })
   it('folds a run into the units: start, log, usage, finish, merge', () => {
     let s = initial(pipeline)
     for (const ev of [

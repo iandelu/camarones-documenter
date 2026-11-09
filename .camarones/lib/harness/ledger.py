@@ -51,22 +51,37 @@ def local_sessions(known: dict | None = None, units: list[str] | None = None,
             path = folder / f"{sid}.jsonl"
             size = transcripts.size(path)
             old = known.get(sid)
+            spans = sessions.windows(rec, sid)
             if not size:
                 continue
-            if isinstance(old, dict) and old.get("bytes") == size and old.get("unit") == rec["unit"]:
+            if isinstance(old, dict) and old.get("bytes") == size and old.get("unit") == rec["unit"] \
+                    and old.get("spans") == spans:
                 out[sid] = old
                 continue
             try:
-                r = transcripts.read(path)
+                r = transcripts.read(path, spans)
             except Exception as e:  # noqa: BLE001 — a file the kit did not write must not stop the bill
                 if notes is not None:
                     notes.append(f"session {sid} ({rec['unit']}): transcript not readable, skipped ({e})")
                 continue
-            if r is None:
+            if r is None or (spans is not None and not r["first"]):
                 continue
             out[sid] = {"unit": rec["unit"], "agent": "claude", "started": r["first"], "ended": r["last"],
-                        "active_seconds": r["active_seconds"], "bytes": r["bytes"], "models": r["models"]}
+                        "active_seconds": r["active_seconds"], "bytes": r["bytes"], "models": r["models"],
+                        **({"spans": spans} if spans is not None else {})}
     return out
+
+
+def unreported(session: str, since: float) -> list[dict]:
+    """What a Claude session that ended before its result spent since then, from its transcript: the usage events it never
+    sent, a run's bill being their sum. By model, priced by the table. Never fails its caller."""
+    try:
+        r = transcripts.read(sessions.claude_dir(WORKSPACE) / f"{session}.jsonl", [[since, None]])
+    except Exception:  # noqa: BLE001 — a file the kit did not write must not stop a run
+        return []
+    return [{"type": "usage", "model": model, "in": k["in"], "out": k["out"], "cache_read": k["cache_read"],
+             "cache_write": k["cache_write_5m"] + k["cache_write_1h"]}
+            for model, k in (r or {}).get("models", {}).items() if any(k.values())]
 
 
 def harvest(units: list[str] | None = None) -> int:

@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from 'vitest'
 import { setLang, t } from './i18n.js'
-import { board, canvasNote, COLUMNS, groups, openedWith, openSession, phases, sessionLine, sessionNote, tone, unitAction, waitsFor } from './plan.js'
+import { board, canvasNote, COLUMNS, groups, openedWith, openSession, phases, said, sessionLine, sessionNote, takeNote, takeOver, tone, unitAction, unitRoute, waitsFor } from './plan.js'
 
 afterEach(() => setLang('es'))
 
@@ -148,4 +148,53 @@ test('a unit open on the canvas offers its terminal', () => {
   const u = { id: 'a', status: 'doing', runner: 'agent', session: { live: true }, terminal: 't-a-1' }
   expect(unitAction(u)).toEqual({ kind: 'live', term: 't-a-1' })
   expect(unitAction({ ...u, terminal: null })).toEqual({ kind: 'live', term: null })
+})
+
+test('a unit id goes encoded in its address', () => {
+  expect(unitRoute('discovery:api', 'takeover')).toBe('app/units/discovery%3Aapi/takeover')
+})
+
+test('taking a unit lands on its terminal, one already open included', async () => {
+  const went = []
+  const asked = []
+  const srv = { post: async (name, body) => { asked.push([name, body]); return { terminal: { id: 't-a-1' }, where: 'canvas' } } }
+  const res = await takeOver(srv, 'a:b', { lang: 'en' }, (h) => went.push(h))
+  expect(asked).toEqual([['app/units/a%3Ab/takeover', { lang: 'en' }]])
+  expect(went).toEqual(['#/plan?term=t-a-1'])
+  expect(res.terminal.id).toBe('t-a-1')
+  const open = { post: async () => { throw Object.assign(new Error('x'), { status: 409, data: { error: 'open', terminal: 't-a-1' } }) } }
+  expect(await takeOver(open, 'a', {}, (h) => went.push(h))).toEqual({ already: true, terminal: { id: 't-a-1' } })
+  expect(went).toEqual(['#/plan?term=t-a-1', '#/plan?term=t-a-1'])
+})
+
+test("a handoff's refusals are said in the app's language", async () => {
+  const refused = (code) => ({ post: async () => { throw Object.assign(new Error(code), { status: 409, data: { error: 'english', code } }) } })
+  for (const code of ['no-run', 'parallel', 'no-answer', 'finished', 'no-terminal', 'at-work']) {
+    setLang('es')
+    const es = await takeOver(refused(code), 'a', {}, () => {}).catch((e) => e.message)
+    expect(es).toBe(t(`hand.${code}`))
+    setLang('en')
+    const en = await takeOver(refused(code), 'a', {}, () => {}).catch((e) => e.message)
+    expect(en).toBe(t(`hand.${code}`))
+    expect(en).not.toBe(es)
+    expect(en).not.toBe('english')
+  }
+})
+
+test('said keeps the words of anything but a known refusal', () => {
+  expect(said(new Error('boom'))).toBe('boom')
+  setLang('en')
+  expect(said(Object.assign(new Error('x'), { status: 409, data: { code: 'no-run' } }))).toBe(t('hand.no-run'))
+})
+
+test('a takeover with no conversation to resume says a new session opened', () => {
+  expect(takeNote({ fresh: true, where: 'canvas' }, 'Claude')).toEqual({ key: 'cv.fresh' })
+  expect(takeNote({ fresh: false, where: 'canvas' }, 'Claude')).toBe(null)
+  expect(takeNote({ fresh: false, where: 'window', fallback: 'no-pty' }, 'Claude').key).toBe('next.noPty')
+})
+
+test("a unit a run's agent is working on has no session to open beside it", () => {
+  expect(unitAction(u('g', 'doing', { paused: false }))).toBe(null)
+  expect(unitAction(u('g', 'doing', { paused: true }))).toEqual({ kind: 'agent', mode: 'continue', label: 'unit.continue' })
+  expect(unitAction(u('g', 'doing', { paused: false, session: { live: true }, terminal: 't-g-1' }))).toEqual({ kind: 'live', term: 't-g-1' })
 })

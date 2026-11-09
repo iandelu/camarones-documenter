@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.78.4-ff875f?style=flat-square" alt="Versión 4.78.4">
+  <img src="https://img.shields.io/badge/version-4.79.0-ff875f?style=flat-square" alt="Versión 4.79.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -252,7 +252,7 @@ escribirías en la terminal.
 | 🏠 **Resumen** (`g s`) | El siguiente paso con un solo botón, avisos de la máquina y cómo van el plan, la revisión y los trabajos |
 | 📋 **Tablero** (`g b`) | El Kanban del proyecto: seis columnas de Backlog a Bloqueado, mover con ratón o teclado, abrir, añadir, eliminar |
 | 📜 **Decisiones** (`g a`) | Los ADR sin IA: plantear una decisión (nueva o retroactiva) o partir de una **candidata** que el código ya tomó, reunir su **evidencia**, revisarla parte por parte y punto por punto, y **aceptarla** o rechazarla |
-| 🗺️ **Plan** (`g p`) | Ejecutar las unidades listas en paralelo o con el piloto automático (se saltan una unidad con su sesión abierta), cada unidad con su botón (aprobar, reintentar, seguir, rehacer), por estado, por fases o en el **lienzo**: el grafo del plan, donde cada unidad que trabaja una ejecución es una terminal en vivo, y **Empezar** o **Seguir** una unidad y la actualización de la doc (**Mantenerla al día**) abren una terminal en la que le escribes al agente (<kbd>F6</kbd> sale de ella; **Cerrar** deja la unidad en pausa, **Quitar** retira una que acabó con error y la actualización va en **Sesiones sueltas**; `camaron config set sessions window` las abre en una ventana); lo que lleva costado el plan (debajo de las unidades) y empezar la documentación otra vez |
+| 🗺️ **Plan** (`g p`) | Ejecutar las unidades listas en paralelo o con el piloto automático (se saltan una unidad con su sesión abierta), cada unidad con su botón (aprobar, reintentar, seguir, rehacer), por estado, por fases o en el **lienzo**: el grafo del plan, donde cada unidad que trabaja una ejecución es una terminal en vivo, y **Empezar** o **Seguir** una unidad y la actualización de la doc (**Mantenerla al día**) abren una terminal en la que le escribes al agente (<kbd>F6</kbd> sale de ella; **Cerrar** deja la unidad en pausa, **Quitar** retira una que acabó con error y la actualización va en **Sesiones sueltas**; `camaron config set sessions window` las abre en una ventana). Mientras corre el piloto, **Tomar el control** abre en su nodo la conversación de una unidad en marcha para corregir al agente sin parar las demás, **Devolver al piloto** se la devuelve y sigue con ella, y **Parar** la saca de esa ejecución; lo que lleva costado el plan (debajo de las unidades) y empezar la documentación otra vez |
 | 🎙️ **Entrevistas** (`g i`) | Cuestionario del equipo o en vivo, exportar e importar respuestas, cerrar la ronda |
 | 🤝 **Equipo** (`g t`) | El repo del equipo y compartir, aprobar lo que llegó con él, hooks y plugins |
 | ✅ **Calidad** (`g q`) | La salud del proyecto sin IA: máquina, documentación y código, repo a repo (SonarQube, cobertura, vulnerabilidades, deuda) |
@@ -595,7 +595,10 @@ de su tipo de trabajo, y si no hay ninguno, el de Ajustes; el asistente y la app
 abren como terminales del lienzo que tiene el servidor del proyecto (el `pty` de Python en macOS y Linux, ConPTY con
 pywinpty 3.1.0 en Windows; 8 a la vez como mucho), y cerrar la ventana del proyecto las termina: sus unidades quedan en
 pausa. Cada una lee su prompt de un fichero propio, `.camarones/.cache/prompts/<unidad>.md`, así que dos sesiones
-abiertas a la vez no se pisan.
+abiertas a la vez no se pisan. Las del piloto automático tienen una conversación conocida, así que **Tomar el control**
+la abre en una terminal y **Devolver al piloto** se la devuelve desatendida; se hablan por un fichero
+(`.camarones/.cache/runs/<run>/handoff/`), y el piloto puede ser otro proceso, un `camaron autopilot` en una terminal.
+Mientras solo queden unidades contigo, el piloto espera. `camaron run` en paralelo aún no cede sus unidades.
 Los modelos locales solo entran por OpenCode y nunca para trabajo `agentic-heavy`; `camaron doctor --local` propone uno
 de pesos abiertos según la memoria de tu equipo. `camaron run --parallel 3 --per-runner claude=2,codex=1` reparte las
 sesiones; mientras dura una ejecución el ordenador no se suspende. `camaron doctor --context` suma los tokens que carga

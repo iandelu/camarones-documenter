@@ -73,7 +73,8 @@ def test_the_agent_stream_lands_in_the_run_log(kit, monkeypatch):
     with kit.plan.recording(log, "r-test"):
         kit.plan._run_agent("claude", "do it", "en", "discovery:api", echo=lambda _: None)
     ev = log.read()[0]
-    assert {"type": "tool.call", "name": "Read", "arg": "a.py"}.items() <= ev[0].items()
+    assert ev[0]["type"] == "session" and ev[0]["unit"] == "discovery:api" and ev[0]["id"]
+    assert {"type": "tool.call", "name": "Read", "arg": "a.py"}.items() <= ev[1].items()
     usage = next(e for e in ev if e["type"] == "usage")
     assert (usage["run"], usage["unit"], usage["runner"], usage["cost_usd"]) == ("r-test", "discovery:api", "claude", 0.5)
 

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { expect, test } from 'vitest'
-import { arrivedLive, atBottom, canvasKey, clockRuns, runLive, defaultView, emptyFeed, feed, FOLD_MS, followRun, GAP, layout, MAX_ROWS, neighbour, openUnits, place, planLive, row, SIZE } from './canvas.js'
+import { arrivedLive, atBottom, canvasKey, clockRuns, runLive, defaultView, emptyFeed, feed, FOLD_MS, followRun, GAP, layout, MAX_ROWS, neighbour, openUnits, place, planLive, row, SIZE, takeable, withYou } from './canvas.js'
 
 const ev = (type, f = {}) => ({ v: 1, ts: '2026-10-27T10:00:00.000Z', type, unit: 'a', ...f })
 
@@ -406,3 +406,56 @@ test('a session open with you turns the plan to the canvas, as a run does', () =
   expect(planLive(null, null, [{ id: 'a', session: { live: false } }, { id: 'b' }])).toBe(false)
   expect(planLive({ run: 'r', finished: false }, null, [])).toBe(true)
 })
+
+test("a unit's feed keeps the conversation of its last attempt", () => {
+  let f = feed(emptyFeed('r-1'), ev('unit.started', { runner: 'claude' }))
+  expect(f.units.a.session).toBe(null)
+  f = feed(f, ev('session', { id: 's-1' }))
+  expect(f.units.a.session).toBe('s-1')
+  expect(f.units.a.rows).toEqual([])                                    // no row: it is not something the agent did
+  f = feed(f, ev('unit.finished', { outcome: 'limited' }))
+  f = feed(f, ev('unit.started', { runner: 'codex' }))
+  expect(f.units.a.session).toBe(null)
+  f = feed(f, ev('unit.finished', { outcome: 'handed', status: 'doing' }))
+  f = feed(f, ev('unit.started', { runner: 'claude', resume: 's-1' }))
+  expect(f.units.a.session).toBe('s-1')
+})
+
+test('the feed says what the run waits for until a unit starts or the run ends', () => {
+  const waits = { type: 'unit.waiting', ts: '2026-10-27T10:00:00Z', units: ['a', 'b'] }
+  let f = feed(emptyFeed('r-1'), waits)
+  expect(f.waiting).toEqual(['a', 'b'])
+  expect(feed(f, ev('unit.started', { runner: 'claude' })).waiting).toEqual([])
+  expect(feed(f, { type: 'run.finished', ts: waits.ts }).waiting).toEqual([])
+  expect(emptyFeed('r-1').waiting).toEqual([])
+})
+
+test('a handed unit folds like any end: its terminal is the one with you now', () => {
+  let f = feed(emptyFeed('r-1'), ev('unit.started', { runner: 'claude' }))
+  f = feed(f, ev('unit.finished', { outcome: 'handed', status: 'doing', session: 's-1' }))
+  const ended = f.units.a.ended
+  const units = [{ id: 'a', status: 'doing' }]
+  expect(openUnits(units, f, new Set(), ended + FOLD_MS - 1).has('a')).toBe(true)
+  expect(openUnits(units, f, new Set(), ended + FOLD_MS + 1).has('a')).toBe(false)
+  expect(openUnits(units, f, new Set(), ended + FOLD_MS + 1, new Set(['a'])).has('a')).toBe(true)
+})
+
+test('only a live autopilot run gives its units up', () => {
+  expect(takeable({ run: 'r', kind: 'autopilot', finished: false })).toBe(true)
+  expect(takeable({ run: 'r', kind: 'autopilot', finished: true })).toBe(false)
+  expect(takeable({ run: 'r', kind: 'parallel', finished: false })).toBe(false)
+  expect(takeable({ run: 'r', finished: false })).toBe(false)                  // a server of an older kit
+  expect(takeable(null)).toBe(false)
+})
+
+test("a unit's terminal is its node, unless it ended and a run's agent is at work on the unit", () => {
+  const live = { id: 't-a-1', unit: 'a', ended: null }
+  const dead = { id: 't-a-1', unit: 'a', ended: 10, code: 1 }
+  const atWork = feed(emptyFeed('r-1'), ev('unit.started', { runner: 'claude' }))
+  expect([...withYou(new Map([['a', dead]]), emptyFeed('r-1'))]).toEqual(['a'])
+  expect([...withYou(new Map([['a', dead]]), atWork)]).toEqual([])
+  expect([...withYou(new Map([['a', live]]), atWork)]).toEqual(['a'])
+  const over = feed(atWork, { type: 'run.finished', ts: '2026-10-27T10:00:00Z' })
+  expect([...withYou(new Map([['a', dead]]), over)]).toEqual(['a'])
+})
+

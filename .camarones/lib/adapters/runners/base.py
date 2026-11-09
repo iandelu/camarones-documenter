@@ -19,6 +19,7 @@ class CliRunner:
     id = ""
     label = ""
     command = ""                  # executable name looked up on PATH; defaults to the id
+    own_session = False           # takes a conversation id from the kit (others say theirs in a `session` event, or have none)
 
     def exe(self) -> str | None:
         return which(self.command or self.id)

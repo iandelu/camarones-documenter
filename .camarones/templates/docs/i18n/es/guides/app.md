@@ -227,8 +227,9 @@ incluir las entrevistas. **Piloto automático** hace en cambio una unidad tras o
 apagados mientras no haya ninguna unidad lista. Con una ejecución en marcha, la tarjeta enseña su avance y **Cancelar
 la ejecución** (los agentes se paran, sus unidades vuelven a la cola y su trabajo se conserva); con el piloto en marcha,
 **Parar el piloto**. Solo existe una ejecución a la vez, se lance desde la app o desde la terminal. Ninguno de los dos
-empieza una unidad cuya sesión tienes abierta (en el lienzo o en una ventana); si solo quedan de esas, se para y las
-nombra, para que las acabes allí.
+empieza una unidad cuya sesión tienes abierta (en el lienzo o en una ventana). Si solo quedan de esas, **Ejecutar las
+listas** se para y las nombra, para que las acabes allí, y el piloto automático te espera (*Tomar una unidad del piloto
+automático*, más abajo).
 
 **Mantenerla al día.** **Empezar con {agente}** abre una sesión que actualiza la documentación con lo que cambió en el
 código desde que se escribió: en el lienzo, una terminal llamada **Actualizar docs** en la franja **Sesiones sueltas**
@@ -291,6 +292,22 @@ Un proyecto tiene como mucho 8 terminales a la vez. Viven en el servidor del pro
 proyecto las termina y sus unidades quedan en pausa. Máquina › **Dónde se abren las sesiones** › **En una ventana de
 terminal** abre las sesiones en una ventana propia, como antes (`camaron config set sessions window`); una máquina en
 la que la app no puede abrir terminales lo hace sola y lo dice.
+
+**Tomar una unidad del piloto automático.** Mientras corre el piloto automático, se haya lanzado desde la app o desde una
+terminal, una unidad en marcha tiene dos botones bajo su terminal. **Tomar el control** termina su agente desatendido y
+abre esa misma conversación en el nodo, sin ningún prompt, para que hables tú primero; las demás unidades no se paran. Si
+la ejecución no responde en 10 segundos, la unidad sigue con ella y el lienzo lo dice. Un agente sin conversación que
+retomar (cualquiera que no sea Claude Code o Codex) abre una sesión nueva con el prompt de la unidad y sus puntos de
+control, y el nodo lo avisa antes de que pulses. **Devolver al piloto** cierra tu terminal y le da la conversación a la
+ejecución, que retoma esa unidad la siguiente, desatendida, con tus correcciones presentes; solo entonces cuenta como una
+unidad hecha. En una sesión que abriste tú, ese botón es **Dejársela al piloto**. **Cerrar**, en cambio, deja la unidad en
+pausa: el piloto no vuelve a cogerla en esta ejecución y **Seguir** la reabre. **Parar** termina el agente de la unidad: la
+unidad vuelve a la cola y esta ejecución sigue sin ella. Si solo quedan unidades contigo, el piloto espera, y la línea sobre
+el grafo dice por cuáles; sigue en cuanto acabas una o la devuelves, y si las cierras sin acabar se para y las nombra en
+pausa. **Parar el piloto** deja tus terminales abiertas. Una unidad que falló ofrece **Abrir contigo**, sobre la
+conversación que dejó su ejecución. Mientras el agente de una ejecución trabaja en una unidad, su detalle no tiene
+**Seguir**: los botones están en su nodo. Una ejecución en paralelo (**Ejecutar las listas**) no cede sus unidades: sus terminales
+no tienen ninguno de estos botones.
 
 **Plan desde 0**, debajo de las unidades. Lo que ha costado el plan desde que empezó (o desde el último borrado), para todo el equipo: tiempo
 de agente desatendido, tiempo con una persona delante, tiempo de calendario, tokens y dólares equivalentes de la API,

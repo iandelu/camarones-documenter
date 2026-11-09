@@ -1,19 +1,20 @@
 // The Plan's canvas: the nodes of the plan's units (a compact card, a read-only terminal while a run's agent works on
 // the unit, from the run's events in canvas.js, or a terminal you type in while a session is open with you, Terms.jsx),
 // the loose sessions under them, and the container that follows the run and the terminals, lays them out and moves
-// between them by keys.
+// between them by keys. A unit of the autopilot goes from one kind of terminal to the other: Take control, then Hand
+// back to the pilot (lib/takeover.py).
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Background, ReactFlow, ReactFlowProvider, useReactFlow } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { Aviso, Button, fmtDuration, money } from '@camaron/ui'
-import { atBottom, canvasKey, clockRuns, emptyFeed, feed, followRun, GLYPH, layout, neighbour, openUnits, place } from '../canvas.js'
+import { atBottom, canvasKey, clockRuns, emptyFeed, feed, followRun, GLYPH, layout, neighbour, openUnits, place, takeable, withYou } from '../canvas.js'
 import { useTheme } from '../hooks.js'
 import { t } from '../i18n.js'
-import { tone } from '../plan.js'
+import { said, tone, unitRoute } from '../plan.js'
 import { shown } from '../terminals.js'
 import { LaneNode, Ports, PtyNode, useTerminals } from './Terms.jsx'
 
-const OUTCOMES = new Set(['failed', 'limited', 'cancelled', 'retry'])
+const OUTCOMES = new Set(['failed', 'limited', 'cancelled', 'retry', 'handed'])
 
 // What the terminal's header says once the agent is no longer at work: `ok` is only its exit code, so a unit is called
 // done when the plan has it done, and otherwise by its state in the plan (to do, paused, blocked, awaiting you…), as
@@ -73,11 +74,13 @@ function Log({ rows, label, running }) {
 }
 
 // `viewed`: the person opened this terminal by hand, so folding it is theirs to do; `finished`: the run ended, so a
-// unit with no end of its own is not running any more.
-export function TermNode({ data: { unit, fu, now, viewed, finished, onOpen, onView, onMax } }) {
+// unit with no end of its own is not running any more. The autopilot's unit at work can be stopped or taken (`canTake`).
+export function TermNode({ data: { unit, fu, now, viewed, finished, onOpen, onView, onMax, onSession, canStart, canTake, taking, onTake, onStop } }) {
   const k = fu?.outcome === 'failed' ? 'blocked' : tone(unit)
   const running = fu?.ended === null && !finished
   const state = !fu ? '' : running ? t('cv.st.running') : endWord(fu, unit)
+  const hands = running && canTake
+  const failed = !running && fu?.outcome === 'failed'
   return (
     <div className={`dk-term tone-${k}`}>
       <Ports />
@@ -93,6 +96,14 @@ export function TermNode({ data: { unit, fu, now, viewed, finished, onOpen, onVi
         <button type="button" className="dk-icon" aria-label={t('cv.max')} title={t('cv.max')} onClick={() => onMax(unit.id)}>⤢</button>
       </div>
       <Log rows={fu?.rows ?? []} label={t('cv.log', { unit: unit.title })} running={running} />
+      {hands || failed ? (
+        <div className="dk-term-foot">
+          {hands && !fu.session ? <span className="dk-grow dk-term-note">{t('cv.noSession')}</span> : null}
+          {hands ? <button type="button" className="dk-cv-btn nodrag" disabled={taking} onClick={() => onStop(unit.id)}>{t('cv.stop')}</button> : null}
+          {hands ? <button type="button" className="dk-cv-btn nodrag" disabled={taking || !canStart} onClick={() => onTake(unit.id)}>{t(taking ? 'cv.taking' : 'cv.take')}</button> : null}
+          {failed ? <button type="button" className="dk-cv-btn nodrag" disabled={!canStart} onClick={() => onSession(unit.id, 'continue')}>{t('cv.openYou')}</button> : null}
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -141,7 +152,7 @@ const toggled = (ids, id) => {
 // The run is over when its log says so or when the Plan's poll does: a run stopped from outside never logs its end.
 // The terminals with you come from useTerminals: a unit's newest one is its node, the loose ones go under the graph.
 // `focus`: a terminal to put in front (the Plan's #/plan?term=<id>), once the list has it; then onFocused().
-function Flow({ srv, units, run, pilot, onOpen, focus, onFocused, onSession, canStart, noAgent }) {
+function Flow({ srv, units, run, pilot, onOpen, focus, onFocused, onSession, onTake, canStart, noAgent }) {
   const log = useRunFeed(srv, run)
   const ended = log.finished || Boolean(run?.finished)
   const f = useMemo(() => (ended === log.finished ? log : { ...log, finished: true }), [log, ended])
@@ -158,7 +169,9 @@ function Flow({ srv, units, run, pilot, onOpen, focus, onFocused, onSession, can
   const [refit, setRefit] = useState(0)
   const [error, setError] = useState(null)          // {title, detail}: what the server refused
   const [note, setNote] = useState(null)            // {key, vars}: a session that opened in a window, not here
+  const [taking, setTaking] = useState(null)        // the unit whose run is being asked for it (up to 10 s)
   const live = Boolean(run) && !run.finished
+  const canTake = takeable(run)
   const onView = useCallback((id) => setViewed((v) => toggled(v, id)), [])
   const maxTerm = useCallback((id) => setMax({ id, pty: false }), [])
   const maxPty = useCallback((id) => setMax({ id, pty: true }), [])
@@ -172,12 +185,27 @@ function Flow({ srv, units, run, pilot, onOpen, focus, onFocused, onSession, can
     setError(null)
     return terms.close(id).catch((e) => setError({ title: 'unit.failed', detail: e.message }))
   }, [terms.close])
+  const take = useCallback((uid) => {
+    setError(null)
+    setNote(null)
+    setTaking(uid)
+    return Promise.resolve().then(() => onTake(uid)).then((n) => setNote(n || null),
+      (e) => setError({ title: 'cv.takeFailed', detail: said(e) })).finally(() => setTaking(null))
+  }, [onTake])
+  const stopUnit = useCallback((uid) => {
+    setError(null)
+    return srv.post(unitRoute(uid, 'stop'), {}).catch((e) => setError({ title: 'cv.stopFailed', detail: said(e) }))
+  }, [srv])
+  const handBack = useCallback((uid, id) => {
+    setError(null)
+    return terms.handBack(uid, id).catch((e) => setError({ title: 'cv.handFailed', detail: said(e) }))
+  }, [terms.handBack])
   const dataOf = (unit) => ({ unit, fu: f.units[unit.id], now, viewed: viewed.has(unit.id), finished: f.finished, onOpen, onView,
-    onMax: maxTerm, onSession: session, canStart })
+    onMax: maxTerm, onSession: session, canStart, canTake, taking: taking === unit.id, onTake: take, onStop: stopUnit })
 
   const mine = useMemo(() => shown(terms.list, now), [terms.list, now])
   const { nodes, edges } = useMemo(() => {
-    const pty = new Set(mine.units.keys())
+    const pty = withYou(mine.units, f)
     const laid = layout(units, openUnits(units, f, viewed, now, pty), { pty, loose: mine.loose })
     const placed = place(laid.nodes, { ...saved, ...drag })
     const look = (n) => {
@@ -186,11 +214,12 @@ function Flow({ srv, units, run, pilot, onOpen, focus, onFocused, onSession, can
       const { unit } = n.data
       const term = unit ? mine.units.get(unit.id) : n.data.term
       return { ariaLabel: unit?.title ?? t('pty.update'),
-        data: { unit, term, now, attach: terms.attach, onClose: close, onMax: maxPty, onSession: session, canStart } }
+        data: { unit, term, now, attach: terms.attach, onClose: close, onMax: maxPty, onSession: session, canStart,
+          canHandBack: canTake, taken: f.units[unit?.id]?.outcome === 'handed', onHandBack: handBack } }
     }
     const sized = placed.map((n) => ({ ...n, measured: { width: n.width, height: n.height }, ...look(n) }))
     return { edges: laid.edges, nodes: sized }
-  }, [units, f, viewed, now, saved, drag, onOpen, onView, mine, terms.attach, close, session, canStart])
+  }, [units, f, viewed, now, saved, drag, onOpen, onView, mine, terms.attach, close, session, canStart, canTake, taking, take, stopUnit, handBack])
   const opened = nodes.filter((n) => WIDE.has(n.type))
   // A failed terminal shows a time that no longer moves; a clean end ticks through its fold window.
   const ticking = live || clockRuns(f, now) || [...mine.units.values(), ...mine.loose].some((x) => x.ended == null || x.code === 0)
@@ -276,9 +305,11 @@ function Flow({ srv, units, run, pilot, onOpen, focus, onFocused, onSession, can
   }
 
   const started = run && Date.parse(run.started)
+  const names = f.waiting.map((id) => units.find((u) => u.id === id)?.title ?? id).join(', ')
   const status = live
-    ? t('cv.status', { kind: t(pilot ? 'cv.pilot' : 'cv.run'), done: run.done, units: run.units,
+    ? t('cv.status', { kind: t(pilot || canTake ? 'cv.pilot' : 'cv.run'), done: run.done, units: run.units,
       time: fmtDuration(Number.isFinite(started) ? Math.max(0, (now - started) / 1000) : run.seconds), cost: money(run.cost_usd) })
+      + (names ? ` · ${t('cv.waitingYou', { units: names })}` : '')
     : t('cv.idle')
   return (
     <div className="dk-cv" onKeyDown={onKeyDown}>
