@@ -195,7 +195,8 @@ The project's ADRs, made with the evidence in front of you and written down, wit
   meeting: <kbd>←</kbd> <kbd>→</kbd> change part, <kbd>1</kbd>–<kbd>9</kbd> pick, <kbd>E</kbd> edits, <kbd>D</kbd>
   defers, <kbd>A</kbd> accepts, <kbd>Esc</kbd> leaves.
 - **Accept** confirms the ADR with `x-owner: human` and *Decided by*; what is not decided yet is not accepted, and the
-  app says which point or section is missing. **Reject** asks for a reason.
+  app says which point or section is missing. **Reject** asks for a reason. Either way the subtitle the kit wrote under
+  the title (`description`) follows the status; one a person wrote is left alone.
 
 <!-- cmd:adr -->
 

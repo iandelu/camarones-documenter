@@ -330,8 +330,9 @@ the review decides along the way (parts, points, attendees) is kept apart in `do
    with no choice, or an ADR with no points and no text in its *Decision* section, where a placeholder like
    `<What was chosen.>` or a comment does not count): the app refuses and says which. Sections that still hold a
    `TODO(question)` do not stop it, but the accept dialog names them. **Reject** needs a reason and leaves the file as
-   `Rejected (date): reason`, so nobody proposes it again without knowing why it did not go through. An accepted or
-   rejected decision is read as it is; to change it, write a new ADR that supersedes it.
+   `Rejected (date): reason`, so nobody proposes it again without knowing why it did not go through. The subtitle the
+   kit wrote in `description` follows the status, on reject and supersede too; one a person wrote is left alone. An
+   accepted or rejected decision is read as it is; to change it, write a new ADR that supersedes it.
 
 If the file changes under you (a pull, an editor) the save fails with a notice instead of overwriting, and the app reads it
 again. **An ADR the kit did not write** (no frontmatter, Spanish headings, `Propuesto <!-- … -->`, an inline
