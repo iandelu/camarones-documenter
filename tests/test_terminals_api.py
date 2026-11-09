@@ -1,8 +1,8 @@
 """The terminals over HTTP (lib/serve.py): app token only, and one server-sent stream for every terminal."""
 from __future__ import annotations
 
-import base64, json, os, signal, subprocess, sys, threading, urllib.error, urllib.request
-from http.server import ThreadingHTTPServer
+import base64, json, os, signal, subprocess, sys, threading, time, urllib.error, urllib.request
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from types import SimpleNamespace
 
 import pytest
@@ -44,13 +44,17 @@ def call(url, body=None, token=TOKEN) -> tuple[int, dict]:
         return e.code, json.loads(e.read() or b"{}")
 
 
-def sse(url, until_, timeout=20) -> list[tuple[str, dict]]:
+def sse(url, until_, timeout=20, deadline=60) -> list[tuple[str, dict]]:
     """The stream's messages as (id, data), read line by line with the app token, until `until_(messages)` holds;
-    AssertionError when the stream ends first. `timeout` is the socket's: the stream sends a keep-alive every 15 s."""
+    AssertionError when the stream ends first or `deadline` seconds pass. `timeout` is the socket's, and the stream's
+    keep-alive every 15 s resets it, so only `deadline` limits a live stream."""
     req = urllib.request.Request(url, headers={"X-Camarones": "1", "X-Camaron-Token": TOKEN})
     msgs, ident, data = [], "", []
+    stop = time.monotonic() + deadline
     with urllib.request.urlopen(req, timeout=timeout) as r:
         for raw in r:
+            if time.monotonic() > stop:
+                raise AssertionError(f"no match in {deadline} s, after {len(msgs)} messages")
             line = raw.decode("utf-8").rstrip("\r\n")
             if line.startswith("id: "):
                 ident = line[4:]
@@ -73,6 +77,31 @@ def open_unit(app, wired, **extra):
     code, r = call(app.url + "/api/app/terminals", {"unit": u["id"], "agent": "claude", **extra})
     assert code == 200, r
     return u, r
+
+
+def test_a_stream_that_only_keeps_alive_fails_the_wait_instead_of_holding_the_test():
+    class KeepAlive(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.end_headers()
+            try:
+                while True:
+                    self.wfile.write(b": keep-alive\n\n")
+                    self.wfile.flush()
+                    time.sleep(0.05)
+            except OSError:
+                pass
+
+        def log_message(self, *args):
+            pass
+
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), KeepAlive)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        with pytest.raises(AssertionError, match="no match"):
+            sse(f"http://127.0.0.1:{srv.server_address[1]}/", lambda m: False, deadline=0.3)
+    finally:
+        srv.shutdown()
 
 
 @pytest.mark.parametrize("method,path", ROUTES)
