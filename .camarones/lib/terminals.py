@@ -348,12 +348,17 @@ def close(tid: str) -> dict:
 
 
 def close_wait(tid: str, timeout: float) -> dict:
-    """`close`, then its meta once the program is gone (at most `timeout` s): what comes next needs its conversation free."""
+    """`close`, then its meta once the program and what it started are gone (at most `timeout` s): what comes next needs
+    its conversation free. A terminal reads as ended when its wrapper dies, and the agent may take longer: Close's SIGKILL
+    bounds that."""
     t = _term(tid)
+    end = time.monotonic() + timeout
     close(tid)
     with _lock:
         _lock.wait_for(lambda: t.meta["ended"] is not None, timeout)
-        return dict(t.meta)
+    while not IS_WIN and _group_alive(t.meta["pid"]) and time.monotonic() < end:
+        time.sleep(0.05)
+    return _meta(t)
 
 
 def _hard(pid: int) -> None:

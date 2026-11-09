@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { expect, test } from 'vitest'
-import { arrivedLive, atBottom, canvasKey, clockRuns, runLive, defaultView, emptyFeed, feed, FOLD_MS, followRun, frontZoom, GAP, layout, MAX_ROWS, neighbour, openUnits, place, planLive, row, SIZE, takeable } from './canvas.js'
+import { arrivedLive, atBottom, canvasKey, clockRuns, runLive, defaultView, emptyFeed, feed, FOLD_MS, followRun, frontZoom, GAP, layout, MAX_ROWS, neighbour, openUnits, place, planLive, row, SIZE, takeable, withYou } from './canvas.js'
 
 const ev = (type, f = {}) => ({ v: 1, ts: '2026-10-27T10:00:00.000Z', type, unit: 'a', ...f })
 
@@ -446,6 +446,17 @@ test('only a live autopilot run gives its units up', () => {
   expect(takeable({ run: 'r', kind: 'parallel', finished: false })).toBe(false)
   expect(takeable({ run: 'r', finished: false })).toBe(false)                  // a server of an older kit
   expect(takeable(null)).toBe(false)
+})
+
+test("a unit's terminal is its node, unless it ended and a run's agent is at work on the unit", () => {
+  const live = { id: 't-a-1', unit: 'a', ended: null }
+  const dead = { id: 't-a-1', unit: 'a', ended: 10, code: 1 }
+  const atWork = feed(emptyFeed('r-1'), ev('unit.started', { runner: 'claude' }))
+  expect([...withYou(new Map([['a', dead]]), emptyFeed('r-1'))]).toEqual(['a'])
+  expect([...withYou(new Map([['a', dead]]), atWork)]).toEqual([])
+  expect([...withYou(new Map([['a', live]]), atWork)]).toEqual(['a'])
+  const over = feed(atWork, { type: 'run.finished', ts: '2026-10-27T10:00:00Z' })
+  expect([...withYou(new Map([['a', dead]]), over)]).toEqual(['a'])
 })
 
 test('a terminal comes to the front near enough to read, and never further than the person had it', () => {

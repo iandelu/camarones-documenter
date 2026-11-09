@@ -72,6 +72,18 @@ def local_sessions(known: dict | None = None, units: list[str] | None = None,
     return out
 
 
+def unreported(session: str, since: float) -> list[dict]:
+    """What a Claude session that ended before its result spent since then, from its transcript: the usage events it never
+    sent, a run's bill being their sum. By model, priced by the table. Never fails its caller."""
+    try:
+        r = transcripts.read(sessions.claude_dir(WORKSPACE) / f"{session}.jsonl", [[since, None]])
+    except Exception:  # noqa: BLE001 — a file the kit did not write must not stop a run
+        return []
+    return [{"type": "usage", "model": model, "in": k["in"], "out": k["out"], "cache_read": k["cache_read"],
+             "cache_write": k["cache_write_5m"] + k["cache_write_1h"]}
+            for model, k in (r or {}).get("models", {}).items() if any(k.values())]
+
+
 def harvest(units: list[str] | None = None) -> int:
     """Write this machine's unit sessions into its roll-up; how many entries changed. Never fails its caller."""
     from .. import usage

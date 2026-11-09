@@ -310,3 +310,68 @@ def test_once_the_agent_ended_the_unit_opens_again(pair):
     pair.log.emit("unit.finished", run="r-1", unit=pair.uid, runner="claude", outcome="handed", status="doing")
     r = pair.agents.launch_unit(pair.uid, "claude", mode="new", where="canvas")
     assert r["where"] == "canvas"
+
+
+def test_a_runner_that_cannot_open_a_terminal_keeps_its_agent(pair, monkeypatch):
+    from lib.adapters.runners.claude import Claude
+
+    def build(self, req):
+        raise ValueError("Claude Code has no interactive command in its template")
+    monkeypatch.setattr(Claude, "build", build)
+    at_work(pair)
+    with pytest.raises(ValueError):
+        pair.t.take(pair.uid)
+    assert pair.h.read("r-1", pair.uid) is None and pair.term.listing() == []
+
+
+def test_a_take_that_comes_as_the_agent_hits_a_limit_keeps_the_request_until_it_opens(pair, monkeypatch):
+    """The run restarts a limited unit at once unless a request still says it is the person's."""
+    from lib import terminals
+    at_work(pair)
+    answers_at_limit = threading.Thread(target=lambda: (until(lambda: pair.h.read("r-1", pair.uid)),
+                                                        pair.log.emit("unit.finished", run="r-1", unit=pair.uid,
+                                                                      runner="claude", outcome="limited", status="doing")),
+                                        daemon=True)
+    answers_at_limit.start()
+    seen = {}
+    real = terminals.spawn
+
+    def spawn(*a, **kw):
+        seen["request"] = pair.h.read("r-1", pair.uid)
+        return real(*a, **kw)
+    monkeypatch.setattr(terminals, "spawn", spawn)
+    r = pair.t.take(pair.uid)
+    assert seen["request"]["to"] == "you" and r["terminal"]["session"] == "s-1"
+    assert pair.h.read("r-1", pair.uid) is None
+
+
+def test_handing_back_says_so_before_the_terminal_ends(pair, monkeypatch):
+    from lib import sessions
+    at_work(pair)
+    answers(pair)
+    tid = pair.t.take(pair.uid)["terminal"]["id"]
+    until(lambda: sessions.running(sessions.load(pair.uid)))
+    seen = {}
+    real = pair.term.close_wait
+
+    def close_wait(t, timeout):
+        seen["during"] = pair.h.read("r-1", pair.uid)
+        return real(t, timeout)
+    monkeypatch.setattr(pair.term, "close_wait", close_wait)
+    pair.t.hand_back(pair.uid)
+    assert seen["during"]["to"] == "pilot" and seen["during"]["closing"] is True
+    req = pair.h.read("r-1", pair.uid)
+    assert "closing" not in req and req["session"] == "s-1"
+    assert pair.term.get(tid)["ended"] is not None
+
+
+
+def test_a_take_clears_only_its_own_request(pair, monkeypatch):
+    monkeypatch.setattr(pair.scheduler, "busy", lambda: {"pid": 1})
+    pair.log.emit("run.started", run="r-1", agents=["claude"])
+    pair.log.emit("unit.started", run="r-1", unit=pair.uid, runner="claude")
+    pair.log.emit("session", run="r-1", unit=pair.uid, runner="claude", id="s-1")
+    pair.log.emit("unit.finished", run="r-1", unit=pair.uid, outcome="handed", status="doing")
+    pair.h.request("r-1", pair.uid, "pilot", session="s-1", agent="claude")     # not asked here: the unit is not at work
+    pair.t.take(pair.uid)
+    assert pair.h.read("r-1", pair.uid)["to"] == "pilot"
