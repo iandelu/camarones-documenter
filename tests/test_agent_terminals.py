@@ -20,6 +20,19 @@ def canvas(wired, term, monkeypatch):                                    # noqa:
     terminals.shutdown()
 
 
+def test_a_session_with_no_conversation_to_continue_says_so_on_its_terminal(wired, canvas):
+    from lib import terminals
+    u = ready_agent_unit(wired)
+    r = canvas["agents"].launch_unit(u["id"], "claude", mode="continue", where="canvas")
+    assert r["fresh"] is True and r["terminal"]["fresh"] is True
+    assert terminals.get(r["terminal"]["id"])["fresh"] is True          # the node reads it from the list, from any view
+
+
+def test_a_new_session_is_not_called_fresh(wired, canvas):
+    r = canvas["agents"].launch_unit(ready_agent_unit(wired)["id"], "claude", where="canvas")
+    assert "fresh" not in r and r["terminal"]["fresh"] is False
+
+
 def test_a_unit_opens_as_a_terminal_on_the_canvas(wired, canvas):
     from lib import sessions
     u = ready_agent_unit(wired)

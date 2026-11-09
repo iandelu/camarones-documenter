@@ -255,7 +255,9 @@ detalle: fase, quién la hace, su repo, de qué depende, sus notas y, con su ter
 
 **Empezar** y **Seguir** abren la sesión en el lienzo, en el nodo de la unidad, y te llevan a ella (o en una ventana,
 según Máquina); empezar una unidad cuya sesión ya está abierta allí te lleva a su terminal («Ya tiene una sesión
-abierta: aquí está su terminal.»).
+abierta: aquí está su terminal.»). **Seguir** reabre la conversación de esa unidad; si no se encuentra (su historial
+ya no está, o su agente no guardó ninguno), se abre una sesión nueva sobre las notas de la unidad y su nodo lo dice.
+Nunca retoma otra conversación de la carpeta.
 
 **Ver su registro en el portal** abre la unidad en el Pipeline del portal.
 
@@ -266,7 +268,7 @@ dice, ✕ falla), el agente, el tiempo que lleva y el coste. Su cabecera dice **
 hecha: una cuyo agente terminó sin acabarla dice cómo la tiene el plan (por hacer, en pausa, bloqueada, espera tu
 aprobación), y una que no pudo empezar dice por qué. Unos 4 segundos después de acabar vuelve a una tarjeta
 compacta con su tiempo y su coste (**Ver terminal** la reabre); una que falla conserva su terminal. Si subes dentro de
-una terminal, deja de seguir el final hasta que pulses **Ir al final**; **⤢** maximiza la terminal de una ejecución y Escape (o **Volver al lienzo**) regresa.
+una terminal, deja de seguir el final hasta que pulses **Ir al final**; **⤢** maximiza la terminal de una ejecución sobre todo el panel principal, hasta la barra de trabajos, y Escape (o **Volver al lienzo**) regresa. La rueda mueve la página; pellizcar o Ctrl + rueda acerca el lienzo, y arrastrar su fondo lo desplaza.
 **Encajar** enmarca cada terminal abierta (todas las unidades si no hay ninguna), **Reordenar** devuelve todo el lienzo
 a la disposición automática, y las posiciones que arrastres se conservan mientras la ventana de ese proyecto siga
 abierta. Tab y las flechas se mueven entre nodos; Intro abre el detalle de una unidad, o entra en una terminal contigo. Escape no
@@ -278,7 +280,7 @@ terminado) se ve acabada en unos segundos: sus terminales dejan de decir «en ma
 dice cómo la tiene el plan, con su reloj parado en su última línea.
 
 **Terminales contigo.** Una sesión que abres desde la app —**Empezar** o **Seguir** una unidad (en su detalle o en el
-Resumen), **Proponer preguntas con {agente}** en Calidad o **Mantenerla al día**— se abre en el lienzo, y el Plan te la pone delante: el nodo de la unidad
+Resumen), **Proponer preguntas con {agente}** en Calidad o **Mantenerla al día**— se abre en el lienzo, y el Plan te la pone delante (la página baja hasta ella, a un tamaño que se lee, y solo entonces el teclado va a ella): el nodo de la unidad
 se convierte en una terminal donde le escribes al agente como en cualquier terminal, con «contigo», su agente y su
 tiempo en la cabecera. Todo lo que tecleas va al agente: Escape, Tab, Mayús+Tab, las flechas, Ctrl+C. **F6** sale de la
 terminal (en un portátil Mac, Fn+F6): a su nodo, donde las flechas vuelven a moverse entre nodos e Intro vuelve a entrar en la terminal, o, si

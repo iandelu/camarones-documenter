@@ -213,3 +213,23 @@ test('the buttons of a handoff read in English too', () => {
   expect(out).toContain('Take control')
   expect(out).toContain('>Stop<')
 })
+
+// Nothing here has a layout (the tests run without a DOM), so the source and the stylesheet say it.
+const source = () => readFileSync(new URL('./sections/Canvas.jsx', import.meta.url), 'utf-8')
+const styles = () => readFileSync(new URL('./app.css', import.meta.url), 'utf-8')
+
+test('the wheel scrolls the page, so the canvas never traps it; a pinch or Ctrl + wheel still zooms', () => {
+  expect(source()).toMatch(/zoomOnScroll=\{false\}/)
+  expect(source()).toMatch(/preventScrolling=\{false\}/)
+  expect(source()).not.toMatch(/zoomOnPinch=\{false\}/)
+})
+
+test('keys only go to a terminal the page has brought into view, near enough to read', () => {
+  expect(source()).toMatch(/root\.current\.scrollIntoView\(\{ block: 'nearest' \}\)\s+reveal\(n, true\)\s+terms\.focus\(term\.id\)/)
+})
+
+test('maximised takes the whole main pane, above the jobs bar, wherever the page is scrolled', () => {
+  expect(styles()).toMatch(/\.dk-main \{[^}]*anchor-name: --dk-main/)
+  expect(styles()).toMatch(/\.dk-term-max \{[^}]*position: fixed; position-anchor: --dk-main;/)
+  expect(styles()).toMatch(/\.dk:has\(\.dk-term-max\) \.dk-main \{[^}]*overflow: hidden/)
+})

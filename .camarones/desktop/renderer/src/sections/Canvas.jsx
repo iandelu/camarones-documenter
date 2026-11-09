@@ -7,7 +7,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Background, ReactFlow, ReactFlowProvider, useReactFlow } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { Aviso, Button, fmtDuration, money } from '@camaron/ui'
-import { atBottom, canvasKey, clockRuns, emptyFeed, feed, followRun, GLYPH, layout, neighbour, openUnits, place, takeable, withYou } from '../canvas.js'
+import { atBottom, canvasKey, clockRuns, emptyFeed, feed, followRun, frontZoom, GLYPH, layout, neighbour, openUnits, place, takeable, withYou } from '../canvas.js'
 import { useTheme } from '../hooks.js'
 import { t } from '../i18n.js'
 import { said, tone, unitRoute } from '../plan.js'
@@ -159,6 +159,7 @@ function Flow({ srv, units, run, pilot, onOpen, focus, onFocused, onSession, onT
   const terms = useTerminals(srv)
   const theme = useTheme()
   const rf = useReactFlow()
+  const root = useRef(null)
   const frame = useRef(null)
   const back = useRef(null)
   const [now, setNow] = useState(Date.now)
@@ -233,6 +234,9 @@ function Flow({ srv, units, run, pilot, onOpen, focus, onFocused, onSession, onT
 
   const fit = () => rf.fitView({ ...FIT, duration: 200, nodes: opened.length ? opened.map(({ id }) => ({ id })) : undefined })
   useEffect(() => { if (refit) fit() }, [refit])
+  // Back on the Plan with a session open: the first fit framed the whole graph, before the list said it was there.
+  const sessionsOpen = mine.units.size + mine.loose.length > 0
+  useEffect(() => { if (sessionsOpen && !focus) fit() }, [sessionsOpen])
   const relayout = () => {
     try { localStorage.removeItem(POSITIONS) } catch { /* private window: nothing was kept */ }
     setSaved({})
@@ -252,13 +256,15 @@ function Flow({ srv, units, run, pilot, onOpen, focus, onFocused, onSession, onT
   }
 
   const nodeEl = (id) => [...frame.current.querySelectorAll('.react-flow__node')].find((el) => el.dataset.id === id)
-  const reveal = (n) => {
+  // near: it comes to be read, not only into the frame.
+  const reveal = (n, near = false) => {
     const { x, y, zoom } = rf.getViewport()
     const box = frame.current.getBoundingClientRect()
+    const to = near ? frontZoom(zoom, n, box) : zoom
     const left = n.position.x * zoom + x
     const top = n.position.y * zoom + y
-    if (left < 0 || top < 0 || left + n.width * zoom > box.width || top + n.height * zoom > box.height) {
-      rf.setCenter(n.position.x + n.width / 2, n.position.y + n.height / 2, { zoom, duration: 200 })
+    if (to !== zoom || left < 0 || top < 0 || left + n.width * zoom > box.width || top + n.height * zoom > box.height) {
+      rf.setCenter(n.position.x + n.width / 2, n.position.y + n.height / 2, { zoom: to, duration: 200 })
     }
   }
   // A run's terminal stays maximised once its unit folds; a terminal with you only while it is on the canvas.
@@ -280,7 +286,12 @@ function Flow({ srv, units, run, pilot, onOpen, focus, onFocused, onSession, onT
     const id = term.kind === 'unit' ? term.unit : term.id
     const n = nodes.find((x) => x.id === id && x.type === 'pty' && x.data.term?.id === term.id)
     if (n && max && !(max.pty && max.id === id)) { setMax(null); return }      // the canvas under a maximised node is inert
-    if (n) { reveal(n); terms.focus(term.id) }
+    if (n) {
+      // The page first: xterm's focus does not scroll it, and what is typed must not reach a screen out of sight.
+      root.current.scrollIntoView({ block: 'nearest' })
+      reveal(n, true)
+      terms.focus(term.id)
+    }
     onFocused?.()
   }, [focus, terms.list, max])
 
@@ -312,7 +323,7 @@ function Flow({ srv, units, run, pilot, onOpen, focus, onFocused, onSession, onT
       + (names ? ` · ${t('cv.waitingYou', { units: names })}` : '')
     : t('cv.idle')
   return (
-    <div className="dk-cv" onKeyDown={onKeyDown}>
+    <div ref={root} className="dk-cv" onKeyDown={onKeyDown}>
       <div className="row">
         <span className="dk-grow">{status}</span>
         <Button size="sm" onClick={fit}>{t('cv.fit')}</Button>
@@ -324,6 +335,7 @@ function Flow({ srv, units, run, pilot, onOpen, focus, onFocused, onSession, onT
       <div ref={frame} className="dk-canvas">
         <ReactFlow nodes={nodes} edges={edges} nodeTypes={NODE_TYPES} onNodesChange={onNodesChange} onNodeDragStop={onNodeDragStop}
           colorMode={theme} fitView fitViewOptions={FIT} minZoom={0.2} nodesConnectable={false} edgesFocusable={false}
+          zoomOnScroll={false} preventScrolling={false}
           deleteKeyCode={null} disableKeyboardA11y proOptions={{ hideAttribution: true }} aria-label={t('cv.label')}
           inert={maxed ? true : undefined}>
           <Background gap={24} size={1} />

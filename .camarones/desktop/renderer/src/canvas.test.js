@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { expect, test } from 'vitest'
-import { arrivedLive, atBottom, canvasKey, clockRuns, runLive, defaultView, emptyFeed, feed, FOLD_MS, followRun, GAP, layout, MAX_ROWS, neighbour, openUnits, place, planLive, row, SIZE, takeable, withYou } from './canvas.js'
+import { arrivedLive, atBottom, canvasKey, clockRuns, runLive, defaultView, emptyFeed, feed, FOLD_MS, followRun, frontZoom, GAP, layout, MAX_ROWS, neighbour, openUnits, place, planLive, row, SIZE, takeable, withYou } from './canvas.js'
 
 const ev = (type, f = {}) => ({ v: 1, ts: '2026-10-27T10:00:00.000Z', type, unit: 'a', ...f })
 
@@ -459,3 +459,11 @@ test("a unit's terminal is its node, unless it ended and a run's agent is at wor
   expect([...withYou(new Map([['a', dead]]), over)]).toEqual(['a'])
 })
 
+test('a terminal comes to the front near enough to read, and never further than the person had it', () => {
+  const node = { width: 440, height: 280 }
+  expect(frontZoom(0.45, node, { width: 1000, height: 570 })).toBe(1)          // a plan of 21 units fits at about 45 %
+  expect(frontZoom(1.5, node, { width: 1000, height: 570 })).toBe(1.5)
+  expect(frontZoom(0.45, node, { width: 330, height: 570 })).toBe(0.75)        // a canvas narrower than the node: what fits
+  expect(frontZoom(0.45, node, { width: 1000, height: 140 })).toBe(0.5)
+  expect(frontZoom(0.9, node, { width: 330, height: 570 })).toBe(0.9)
+})

@@ -290,10 +290,10 @@ def test_continue_on_codex_reopens_its_own_conversation(pair, monkeypatch):
     assert pair.reqs[-1].session == "T" and pair.reqs[-1].resume
 
 
-def test_continue_with_no_conversation_known_stays_the_agents_own_last(pair, monkeypatch):
+def test_continue_with_no_conversation_known_opens_a_new_one_and_says_so(pair, monkeypatch):
     monkeypatch.setattr(pair.scheduler, "busy", lambda: None)
-    pair.agents.launch_unit(pair.uid, "codex", mode="continue", where="canvas")
-    assert pair.reqs[-1].session is None and pair.reqs[-1].resume
+    r = pair.agents.launch_unit(pair.uid, "codex", mode="continue", where="canvas")
+    assert pair.reqs[-1].session is None and not pair.reqs[-1].resume and r["fresh"] is True
 
 
 @pytest.mark.parametrize("mode", ["continue", "new", "restart"])
