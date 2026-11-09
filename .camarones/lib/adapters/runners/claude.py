@@ -10,15 +10,15 @@ ARG_KEYS = ("file_path", "path", "command", "pattern", "url", "description")
 class Claude(CliRunner):
     id = "claude"
     label = "Claude Code"
+    own_session = True
 
     def build(self, req: RunRequest) -> Invocation:
         model = ["--model", req.model] if req.model else []
+        again = ["--resume" if req.resume else "--session-id", req.session] if req.session else []
         if req.interactive:
-            if req.session:
-                again = ["--resume" if req.resume else "--session-id", req.session]
-            else:
-                again = ["--continue"] if req.resume else []
-            argv = [self.exe(), *model, *again, req.prompt]
+            if not req.session and req.resume:
+                again = ["--continue"]
+            argv = [self.exe(), *model, *again, *([req.prompt] if req.prompt else [])]
         elif req.allow_tools == ():               # an answer from the prompt alone: no tools, no project MCP servers
             argv = [self.exe(), "-p", req.prompt, "--tools", "", "--strict-mcp-config", *model,
                     *(["--output-format", "stream-json", "--verbose"] if req.stream else [])]
@@ -28,7 +28,7 @@ class Claude(CliRunner):
                     *(["--output-format", "stream-json", "--verbose"] if req.stream else [])]
         else:
             argv = [self.exe(), "-p", req.prompt, "--dangerously-skip-permissions", "--output-format", "stream-json",
-                    "--verbose", *model]
+                    "--verbose", *model, *again]
         return Invocation(argv, req.cwd, req.env)
 
     def parse_event(self, ev: dict) -> list[dict]:
