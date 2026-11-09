@@ -112,6 +112,14 @@ def test_an_agent_with_no_ids_only_reopens_its_last_conversation_when_that_is_th
     assert "resume" not in inner(term["cmds"][3][0]) and r["fresh"] is True
 
 
+def test_a_runner_with_no_way_back_never_reopens(wired, term):
+    from lib import sessions
+    u = ready_agent_unit(wired)
+    sessions.start(u["id"], "gemini", None)
+    assert sessions.last_opened("gemini") == u["id"]
+    assert term["agents"].conversation(u["id"], "gemini", True) == (None, None, False)
+
+
 def test_restart_starts_a_new_conversation(wired, term):
     from lib import sessions
     u = ready_agent_unit(wired)

@@ -212,7 +212,8 @@ agente como una terminal en el lienzo del Plan, donde le escribes como en cualqu
 (Fn+F6 en un portátil Mac), **Cerrar** termina la sesión y deja la unidad en pausa (**Seguir** vuelve a abrir su conversación, o una sesión nueva
 que lo dice si no la encuentra), y la actualización de la doc va en **Sesiones sueltas**. Las terminales viven en el servidor del proyecto, así que cerrar la
 ventana del proyecto las termina. `camaron config set sessions window` las abre en una ventana de terminal, como hace
-siempre el asistente.
+siempre el asistente. En el asistente, una unidad a medias ofrece **Reabrir la conversación de esta unidad**, con la misma
+regla, así que una unidad abierta en uno se puede seguir desde el otro.
 
 Mientras corre el piloto automático, en el lienzo una unidad en marcha ofrece **Tomar el control**: su agente desatendido
 termina y la misma conversación se abre en el nodo para que lo corrijas, mientras las demás unidades siguen. **Devolver al

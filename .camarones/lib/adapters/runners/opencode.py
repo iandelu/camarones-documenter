@@ -26,6 +26,7 @@ def permissions(allow_tools: tuple[str, ...]) -> dict:
 class OpenCode(CliRunner):
     id = "opencode"
     label = "OpenCode"
+    reopens_last = True
 
     def build(self, req: RunRequest) -> Invocation:
         model = ["--model", req.model] if req.model else []
