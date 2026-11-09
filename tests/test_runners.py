@@ -108,7 +108,7 @@ def test_autopilot_session_launches_the_runner_argv(kit, monkeypatch):
     r = kit.plan._run_agent("claude", "do it", "en", "discovery:api", echo=echo.append)
     brief = kit.common.ws_rel(kit.common.rel_file(kit.plan.AUTOPILOT_PROMPT))
     assert seen["cmd"] == ["/bin/claude", "-p", f"Follow the instructions in {brief}", "--dangerously-skip-permissions",
-                           "--output-format", "stream-json", "--verbose"]
+                           "--output-format", "stream-json", "--verbose", "--session-id", r.session]
     assert seen["kw"]["cwd"] == str(kit.common.WORKSPACE)
     assert seen["kw"]["env"]["CAMARONES_ROOT"] == str(kit.common.ROOT)
     assert r.returncode == 0 and "  · Read a.py" in echo
