@@ -293,6 +293,18 @@ def test_a_stale_save_is_refused(adr, kit):
     assert adr.get(a["id"])["state"]["points"] == []
 
 
+def test_a_save_made_again_from_the_refused_sha_replaces_the_outside_edit(adr, kit):
+    """The sha says the file was read again, not that a person saw it: the app has to show the edit (Review.jsx)."""
+    a = written(adr, problem="why")
+    f = kit.root / "docs" / a["path"]
+    f.write_text(f.read_text(encoding="utf-8").replace("why", "said elsewhere"), encoding="utf-8")
+    with pytest.raises(adr.AdrConflict) as refused:
+        adr.part(a["id"], "context", "edit", "mine", base_sha=a["sha"])
+    assert "said elsewhere" in f.read_text(encoding="utf-8")
+    out = adr.part(a["id"], "context", "edit", "mine", base_sha=refused.value.sha)
+    assert out["sections"]["context"] == "mine" and "said elsewhere" not in f.read_text(encoding="utf-8")
+
+
 def test_approving_a_part_leaves_the_file_alone(adr, kit):
     a = written(adr)
     f = kit.root / "docs" / a["path"]

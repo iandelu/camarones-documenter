@@ -335,7 +335,8 @@ the review decides along the way (parts, points, attendees) is kept apart in `do
    accepted or rejected decision is read as it is; to change it, write a new ADR that supersedes it.
 
 If the file changes under you (a pull, an editor) the save fails with a notice instead of overwriting, and the app reads it
-again. **An ADR the kit did not write** (no frontmatter, Spanish headings, `Propuesto <!-- … -->`, an inline
+again. If the part you were editing changed, your draft stays, unsaved, beside what the file says now, and **Save** waits
+until you choose **Keep my draft** or **Use the file's text**: nothing is overwritten unseen. **An ADR the kit did not write** (no frontmatter, Spanish headings, `Propuesto <!-- … -->`, an inline
 `Status: accepted`) shows in the list with its status, opens as it is, and is never rewritten until someone starts a
 review session on it; in that session each edit rewrites only the section edited. One that is already accepted,
 rejected, superseded or deprecated is closed: the app offers no review session, and changing it takes a new ADR that

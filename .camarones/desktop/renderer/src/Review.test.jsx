@@ -67,6 +67,95 @@ test('editing a part opens its Markdown in a field with Guardar', () => {
   expect(typed).toMatch(/<textarea[^>]*>Hoy en Redis\.<\/textarea>/)
 })
 
+// A draft written from text the file no longer has: saving it would replace what someone else wrote (tests/test_adr.py
+// test_a_save_made_again_from_the_refused_sha_replaces_the_outside_edit).
+const outside = () => adr({ sections: { ...adr().sections, context: 'Hoy en Postgres, según un pull.' } })
+const outran = (text = 'Hoy en memoria.') => ({ drafts: { context: { editing: true, draft: 'Hoy en Redis.', base: text } } })
+const armed = (out) => !/<button(?:(?!<\/button>).)*aria-disabled="true"(?:(?!<\/button>).)*>Guardar<\/button>/.test(out)
+
+test('a draft the file outran shows what the file says now beside the draft', () => {
+  const out = review({ adr: outside(), current: 'context', ui: outran() })
+  expect(out).toMatch(/<textarea[^>]*>Hoy en Redis\.<\/textarea>/)
+  expect(out).toMatch(/class="dk-rv-pane"(?:(?!<\/section>)[^])*Ahora en el archivo(?:(?!<\/section>)[^])*Hoy en Postgres, según un pull\./)
+  expect(review({ adr: outside(), current: 'context', ui: outran() }, 'en')).toContain('Now in the file')
+})
+
+test('a draft the file outran cannot be saved until the person says which text stays', () => {
+  const out = review({ adr: outside(), current: 'context', ui: outran() })
+  expect(armed(out)).toBe(false)
+  for (const s of ['Seguir con mi borrador', 'Usar el del archivo']) expect(out).toContain(s)
+  const kept = review({ adr: outside(), current: 'context', ui: outran('Hoy en Postgres, según un pull.') })
+  expect(armed(kept)).toBe(true)
+  expect(kept).not.toContain('Ahora en el archivo')
+})
+
+test('a draft of a part nobody else touched saves as ever', () => {
+  const out = review({ adr: adr(), current: 'context', ui: outran() })
+  expect(armed(out)).toBe(true)
+  expect(out).not.toContain('Ahora en el archivo')
+})
+
+// The screen's own handlers, fired with no DOM: the first element `hit` picks, with the components above it drawn by hand
+// (one with hooks, a dialog, is not on the way to any of these).
+function drawn(node, hit) {
+  if (Array.isArray(node)) { for (const n of node) { const found = drawn(n, hit); if (found) return found } return null }
+  if (!node?.type) return null
+  if (hit(node)) return node
+  if (typeof node.type !== 'function') return drawn(node.props?.children, hit)
+  try { return drawn(node.type(node.props), hit) } catch { return null }
+}
+const view = (props) => <ReviewView current="context" onPart={noop} onPoint={noop} onAttendees={noop} onAccept={noop} onReject={noop} onPresent={noop} onGo={noop} onUi={noop} {...props} />
+const editForm = (props) => drawn(view(props), (n) => n.type === 'form' && n.props.className === 'dk-rv-editf')
+const button = (props, word) => drawn(view(props), (n) => n.type === 'button' && [].concat(n.props.children).includes(word))
+const submit = (form) => form.props.onSubmit({ preventDefault: noop, currentTarget: { querySelector: () => null } })
+
+test('pressing Guardar on a draft the file outran writes nothing, however often', () => {
+  const saved = []
+  const form = editForm({ adr: outside(), ui: outran(), onPart: (...a) => saved.push(a) })
+  submit(form); submit(form)
+  expect(saved).toEqual([])
+})
+
+test('keeping the draft moves it onto the file\'s text, and only then Guardar sends it', () => {
+  let ui
+  button({ adr: outside(), ui: outran(), onUi: (p) => { ui = p } }, 'Seguir con mi borrador').props.onClick()
+  expect(ui.drafts.context).toEqual({ editing: true, draft: 'Hoy en Redis.', base: 'Hoy en Postgres, según un pull.' })
+  const saved = []
+  submit(editForm({ adr: outside(), ui, onPart: (...a) => saved.push(a) }))
+  expect(saved).toEqual([['edit', 'Hoy en Redis.']])
+})
+
+test('using the file\'s text drops the draft and the editor shows it', () => {
+  let ui
+  button({ adr: outside(), ui: outran(), onUi: (p) => { ui = p } }, 'Usar el del archivo').props.onClick()
+  expect(ui.drafts.context).toMatchObject({ editing: true, draft: undefined, base: undefined })
+  expect(review({ adr: outside(), current: 'context', ui })).toMatch(/<textarea[^>]*>Hoy en Postgres, según un pull\.<\/textarea>/)
+})
+
+test('the first keystroke of a draft remembers the text it was typed over', () => {
+  let ui
+  const field = drawn(view({ adr: adr(), ui: { drafts: { context: { editing: true } } }, onUi: (p) => { ui = p } }), (n) => n.type === 'textarea')
+  field.props.onChange({ target: { value: 'Hoy en Redis.' } })
+  expect(ui.drafts.context).toEqual({ editing: true, draft: 'Hoy en Redis.', base: 'Hoy en memoria.' })
+})
+
+test('cancelling forgets the text a draft started from: the next one starts from what the file says then', () => {
+  let ui
+  button({ adr: outside(), ui: outran('Hoy en Postgres, según un pull.'), onUi: (p) => { ui = p } }, 'Cancelar').props.onClick()
+  expect(ui.drafts.context).toMatchObject({ editing: false, draft: undefined, base: undefined })
+})
+
+test('a part emptied from outside says so instead of showing nothing', () => {
+  const out = review({ adr: adr({ sections: { ...adr().sections, context: '' } }), current: 'context', ui: outran() })
+  expect(armed(out)).toBe(false)
+  expect(out).toContain('El archivo tiene esta parte vacía')
+})
+
+test('an open dialog says the ADR was read again: a refused accept stays open over the notice', () => {
+  const out = review({ adr: chosen(), current: 'context', notice: 'El ADR había cambiado', ui: { dialog: 'accept' } })
+  expect(out).toMatch(/<dialog(?:(?!<\/dialog>)[^])*El ADR había cambiado(?:(?!<\/dialog>)[^])*<\/dialog>/)
+})
+
 test('an empty part says how to fill it', () => {
   expect(review({ adr: adr({ parts: [{ id: 'drivers', status: 'pending' }] }), current: 'drivers' })).toContain('Esta parte está vacía')
 })

@@ -350,7 +350,9 @@ la revisión va decidiendo (partes, puntos, asistentes) queda aparte en `docs/.w
    sustituya.
 
 Si el fichero cambia mientras lo revisas (un pull, un editor), el guardado falla con un aviso, no pisa nada, y la app lo
-vuelve a leer. **Un ADR que el kit no escribió** (sin frontmatter, con los encabezados en español, `Propuesto <!-- … -->` o
+vuelve a leer. Si cambió la parte que estabas editando, ves tu borrador, sin guardar, junto a lo que dice ahora el archivo,
+y **Guardar** espera a que elijas **Seguir con mi borrador** o **Usar el del archivo**: nada se pisa sin haberlo visto.
+**Un ADR que el kit no escribió** (sin frontmatter, con los encabezados en español, `Propuesto <!-- … -->` o
 una línea `Status: accepted`) aparece en la lista con su estado, se abre tal cual y no se reescribe hasta que alguien
 abre una sesión de revisión sobre él; en esa sesión, cada edición reescribe solo la sección editada. Si ya está
 aceptado, rechazado, sustituido u obsoleto, está cerrado: la app no ofrece la sesión de revisión, y para cambiarlo

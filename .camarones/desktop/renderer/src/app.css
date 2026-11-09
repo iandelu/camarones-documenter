@@ -639,7 +639,14 @@ a.dk-stat-n:hover { color: var(--color-acento-texto); }
 .dk-rv-pages code { display: inline-flex; align-items: center; min-height: 1.75rem; padding: 0 .55rem; border: 1px solid var(--color-rule);
                     border-radius: var(--consola-radio-chico); background: var(--color-canvas); font: var(--rv-small) var(--font-mono); color: var(--color-ink); }
 .dk-rv-editf, .dk-rv-choose, .dk-rv-addf { display: flex; flex-direction: column; gap: .8rem; flex: 1; }
-.dk-rv-edit { min-height: 14rem; padding: .6rem .75rem; font: var(--text-body-sm)/1.5 var(--font-mono); resize: vertical; }
+.dk-rv-sides { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); gap: .8rem 1rem; flex: 1; }
+.dk-rv-side { display: flex; flex-direction: column; gap: .35rem; min-width: 0; }
+.dk-rv-edit { flex: 1 1 auto; min-height: 14rem; padding: .6rem .75rem; font: var(--text-body-sm)/1.5 var(--font-mono); resize: vertical; }
+/* what the file says now, beside a draft it outran (TextPane): the draft's own type, to compare them line by line */
+.dk-rv-theirs { flex: 1 1 auto; min-height: 14rem; max-height: 24rem; margin: 0; padding: .6rem .75rem; overflow: auto; border: 1px solid var(--color-rule);
+                border-radius: var(--consola-radio-control); background: var(--color-canvas); color: var(--color-ink);
+                font: var(--rv-small)/1.5 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.dk-rv-theirs:focus-visible { outline: 2px solid var(--color-acento-texto); outline-offset: 2px; }
 .dk-rv-area { min-height: 3.25rem; padding: .45rem .65rem; line-height: 1.4; resize: vertical; }
 .dk-rv-choose .cu-field, .dk-rv-addf > .cu-field { max-width: 40rem; }
 
