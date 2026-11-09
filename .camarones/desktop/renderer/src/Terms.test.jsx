@@ -65,3 +65,33 @@ test('F6 is left to the canvas, and Shift+Tab goes to the agent without moving t
   const src = readFileSync(new URL('./sections/Terms.jsx', import.meta.url), 'utf-8')
   expect(src).toMatch(/attachCustomKeyEventHandler\(screenKey\)/)
 })
+
+test('a unit taken from the pilot can be handed back while a run is on', () => {
+  const out = html(<PtyNode data={{ unit, term: live, now: 0, ...on, canHandBack: true, taken: true, onHandBack() {} }} />)
+  expect(out).toContain('Devolver al piloto')
+  expect(out).toContain('Cerrar')
+})
+
+test('a session opened by hand is left to the pilot', () => {
+  const out = html(<PtyNode data={{ unit, term: live, now: 0, ...on, canHandBack: true, taken: false, onHandBack() {} }} />)
+  expect(out).toContain('Dejársela al piloto')
+  expect(out).not.toContain('Devolver al piloto')
+})
+
+test('with no run on, or the session over, only Close is left', () => {
+  const noRun = html(<PtyNode data={{ unit, term: live, now: 0, ...on, canHandBack: false, taken: true, onHandBack() {} }} />)
+  expect(noRun).not.toContain('Devolver al piloto')
+  const over = { ...live, ended: 10, code: 0 }
+  expect(html(<PtyNode data={{ unit, term: over, now: 0, ...on, canHandBack: true, taken: true, onHandBack() {} }} />)).not.toContain('Devolver al piloto')
+  const finished = { ...unit, status: 'done' }
+  expect(html(<PtyNode data={{ unit: finished, term: live, now: 0, ...on, canHandBack: true, taken: true, onHandBack() {} }} />)).not.toContain('Devolver al piloto')
+  const update = { ...live, kind: 'update', unit: null }
+  expect(html(<PtyNode data={{ term: update, now: 0, ...on, canHandBack: true, onHandBack() {} }} />)).not.toContain('al piloto')
+})
+
+test('handing back reads in English too', () => {
+  setLang('en')
+  const data = { unit, term: live, now: 0, ...on, canHandBack: true, onHandBack() {} }
+  expect(html(<PtyNode data={{ ...data, taken: true }} />)).toContain('Hand back to the pilot')
+  expect(html(<PtyNode data={{ ...data, taken: false }} />)).toContain('Leave to the pilot')
+})

@@ -44,14 +44,14 @@ export function row(ev) {
   }
 }
 
-export const emptyFeed = (run) => ({ run, finished: false, units: {} })
+export const emptyFeed = (run) => ({ run, finished: false, waiting: [], units: {} })
 
 const ms = (ts) => Date.parse(ts) || 0
 // `status` is the plan's status of the unit when it ended: `ok` only says its agent exited 0. Each row gets the unit's
 // next `seq`, its key once the cap drops the oldest rows. `last`: when it was last heard from, the only end a unit cut
-// off by a stopped run has.
-const fresh = (ts) => ({ runner: null, started: ms(ts), ended: null, outcome: null, status: null, cost: 0, rows: [], next: 0,
-  last: ms(ts) })
+// off by a stopped run has. `session`: the conversation of its last attempt, null for a runner with none.
+const fresh = (ts) => ({ runner: null, started: ms(ts), ended: null, outcome: null, status: null, session: null, cost: 0, rows: [],
+  next: 0, last: ms(ts) })
 const append = (u, rows) => (rows.length
   ? { ...u, next: u.next + rows.length, rows: [...u.rows, ...rows.map((r, i) => ({ ...r, seq: u.next + i }))].slice(-MAX_ROWS) }
   : u)
@@ -60,8 +60,9 @@ function step(u, ev, known) {
   switch (ev.type) {
     case 'unit.started': {
       const took = known && ev.runner ? [{ kind: 'log', text: `— ${ev.runner}` }] : []
-      return { ...append(u, took), runner: ev.runner ?? null, ended: null, outcome: null, status: null }
+      return { ...append(u, took), runner: ev.runner ?? null, ended: null, outcome: null, status: null, session: ev.resume ?? null }
     }
+    case 'session': return { ...u, session: ev.id ?? u.session }
     case 'unit.finished':
       return { ...append(u, textRows('error', ev.error)), ended: ms(ev.ts), outcome: ev.outcome ?? null, status: ev.status ?? null }
     case 'usage': return { ...u, cost: u.cost + (Number(ev.cost_usd) || 0) }
@@ -71,13 +72,18 @@ function step(u, ev, known) {
 
 // Folds one event into the feed; the feed it gets is never changed, and it comes back as is when the event adds nothing.
 export function feed(f, ev) {
-  if (ev.type === 'run.finished') return f.finished ? f : { ...f, finished: true }
+  if (ev.type === 'run.finished') return f.finished ? f : { ...f, finished: true, waiting: [] }
+  if (ev.type === 'unit.waiting') return { ...f, waiting: ev.units ?? [] }
   if (!ev.unit) return f
   const known = f.units[ev.unit]
   const stepped = step(known || fresh(ev.ts), ev, Boolean(known))
   const next = ms(ev.ts) > stepped.last ? { ...stepped, last: ms(ev.ts) } : stepped
-  return next === known ? f : { ...f, units: { ...f.units, [ev.unit]: next } }
+  const going = ev.type === 'unit.started' && f.waiting.length ? { ...f, waiting: [] } : f
+  return next === known ? going : { ...going, units: { ...f.units, [ev.unit]: next } }
 }
+
+// A run gives its units up (Stop, Take control, Hand back) when the autopilot runs it; a parallel run keeps them.
+export const takeable = (run) => Boolean(run && !run.finished && run.kind === 'autopilot')
 
 // A terminal stays open this long after its unit ends, so the last lines are read before it folds into a card.
 export const FOLD_MS = 4000
