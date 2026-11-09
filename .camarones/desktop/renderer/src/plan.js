@@ -61,6 +61,7 @@ export function unitAction(u, plan = {}) {
   if (u.runner !== 'agent') return linkFor(u)
   if (plan.interviews === null && INTERVIEW_TYPES.includes(u.type)) return { kind: 'mode', label: 'iv.choose' }
   if (u.status === 'doing' && u.session?.live) return { kind: 'live', term: u.terminal ?? null }
+  if (u.status === 'doing' && u.paused === false) return null                     // a run's agent has it: its node has the buttons
   return u.status === 'doing' ? { kind: 'agent', mode: 'continue', label: 'unit.continue' }      // the agent: the section's picker
     : { kind: 'agent', mode: 'new', label: 'unit.start' }
 }

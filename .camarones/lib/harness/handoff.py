@@ -40,7 +40,10 @@ def read(run_id: str, uid: str) -> dict | None:
 
 
 def clear(run_id: str, uid: str) -> None:
-    retry_busy(lambda: file(run_id, uid).unlink(missing_ok=True))
+    try:
+        retry_busy(lambda: file(run_id, uid).unlink(missing_ok=True))
+    except OSError:                             # held open that long on Windows: a run must not end over it
+        pass
 
 
 def pending(run_id: str) -> dict[str, dict]:

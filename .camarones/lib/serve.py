@@ -442,6 +442,8 @@ def app_session(b: dict) -> tuple[dict, int]:
         return agents.launch_unit(unit, agent, lang, mode, where=where, size=size), 200
     except agents.AlreadyOpen as e:
         return {"error": str(e), "terminal": e.terminal}, 409
+    except agents.AtWork as e:
+        return {"error": str(e), "code": "at-work"}, 409
     except terminals.Limit:
         return {"error": f"{terminals.MAX_LIVE} terminals are open: close one first", "limit": terminals.MAX_LIVE}, 409
 

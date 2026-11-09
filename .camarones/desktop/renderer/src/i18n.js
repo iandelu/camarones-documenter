@@ -290,6 +290,7 @@ export const S = {
     'hand.parallel': 'Una ejecución en paralelo no cede sus unidades: solo el piloto automático.',
     'hand.no-answer': 'La ejecución no ha respondido: inténtalo otra vez.',
     'hand.finished': 'Su agente ya la ha terminado.', 'hand.no-terminal': 'Esta unidad no tiene terminal en el lienzo.',
+    'hand.at-work': 'El agente de una ejecución está trabajando en ella: toma el control desde su nodo del lienzo.',
     // the canvas's terminals (sections/Terms.jsx): a session opened by hand, typed into on its node
     'pty.you': 'contigo', 'pty.ended': 'terminó ({code})', 'pty.close': 'Cerrar', 'pty.remove': 'Quitar',
     'pty.fresh': 'Abrir una sesión nueva', 'pty.show': 'Ver su terminal', 'pty.update': 'Actualizar docs',
@@ -826,6 +827,7 @@ export const S = {
     'hand.parallel': 'A parallel run keeps its units: only the autopilot gives them up.',
     'hand.no-answer': 'The run did not answer: try again.',
     'hand.finished': 'Its agent has already finished it.', 'hand.no-terminal': 'This unit has no terminal on the canvas.',
+    'hand.at-work': "A run's agent is working on it: take control from its node on the canvas.",
     // the canvas's terminals (sections/Terms.jsx): a session opened by hand, typed into on its node
     'pty.you': 'with you', 'pty.ended': 'ended ({code})', 'pty.close': 'Close', 'pty.remove': 'Remove',
     'pty.fresh': 'Open a new session', 'pty.show': 'Show its terminal', 'pty.update': 'Update docs',

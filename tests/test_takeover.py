@@ -294,3 +294,19 @@ def test_continue_with_no_conversation_known_stays_the_agents_own_last(pair, mon
     monkeypatch.setattr(pair.scheduler, "busy", lambda: None)
     pair.agents.launch_unit(pair.uid, "codex", mode="continue", where="canvas")
     assert pair.reqs[-1].session is None and pair.reqs[-1].resume
+
+
+@pytest.mark.parametrize("mode", ["continue", "new", "restart"])
+def test_no_session_opens_beside_the_agent_a_run_has_at_work(pair, mode):
+    at_work(pair)
+    with pytest.raises(pair.agents.AtWork) as e:
+        pair.agents.launch_unit(pair.uid, "claude", mode=mode, where="canvas")
+    assert pair.uid in str(e.value) and pair.term.listing() == []
+    assert pair.plan.get(pair.plan.load(), pair.uid)["status"] == "doing"
+
+
+def test_once_the_agent_ended_the_unit_opens_again(pair):
+    at_work(pair)
+    pair.log.emit("unit.finished", run="r-1", unit=pair.uid, runner="claude", outcome="handed", status="doing")
+    r = pair.agents.launch_unit(pair.uid, "claude", mode="new", where="canvas")
+    assert r["where"] == "canvas"

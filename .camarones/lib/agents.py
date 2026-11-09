@@ -37,6 +37,10 @@ class AlreadyOpen(ValueError):
         self.terminal = terminal
 
 
+class AtWork(ValueError):
+    """A run's agent is working on the unit: another session on its conversation would lose it."""
+
+
 def claude_history(cwd: Path) -> bool:
     """Whether Claude Code has a saved conversation for `cwd` (its projects dir is the path with / and . → -)."""
     return any(sessions.claude_dir(cwd).glob("*.jsonl"))
@@ -167,7 +171,8 @@ def launch_unit(uid: str, agent: str, lang: str = "es", mode: str = "new", where
                 size: tuple[int, int] = (80, 24)) -> dict:
     """mode: new (a fresh session), continue (the agent's last conversation, for a unit in progress), restart (the
     unit's notes are put aside and it starts over). where: a window or a terminal on the canvas of `size` (cols, rows);
-    AlreadyOpen when the unit's session is open in either, Limit when the canvas has no room (nothing has changed)."""
+    AlreadyOpen when the unit's session is open in either, AtWork when a run's agent has it, Limit when the canvas has no
+    room (nothing has changed)."""
     if mode not in ("new", "continue", "restart"):
         raise ValueError("mode: new, continue or restart")
     data = plan.sync()
@@ -185,6 +190,9 @@ def launch_unit(uid: str, agent: str, lang: str = "es", mode: str = "new", where
     where, fallback = _place(where)
     with _opening:
         _refuse_open(uid, where)
+        run = runs.active()
+        if run and runs.running(run["run"], uid):
+            raise AtWork(f"{uid}: a run's agent is working on it: take control from its node on the canvas")
         session, since = None, None
         if mode == "continue":
             session, since = _conversation(uid, agent, sessions.load(uid))
