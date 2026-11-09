@@ -13,19 +13,22 @@ import datetime as dt
 import functools
 import json
 import os
+import signal
 import subprocess
+import sys
 import threading
 import time
+import uuid
 from contextvars import ContextVar
 from pathlib import Path
 
 import yaml
 
-from .common import CTX, KIT, PREFS, ROOT, load_json, WORK, CAM_LAYOUT, CAM_DIR, WORKSPACE, cli_cmd, ws_rel, rel_file, IS_WIN, which
+from .common import CTX, KIT, PREFS, ROOT, load_json, WORK, CAM_LAYOUT, CAM_DIR, WORKSPACE, cli_cmd, kill_tree, ws_rel, rel_file, IS_WIN, which
 from . import docs, sessions
 from .adapters import runners
 from .adapters.runners.base import LIMIT_HINTS  # noqa: F401  (kept for callers)
-from .harness import awake, drafts, freshness, kpis, ledger, pipeline, routing
+from .harness import awake, drafts, freshness, handoff, kpis, ledger, pipeline, routing
 from .harness.events import EventLog
 from .harness.locks import FileLock
 from .harness.ports import RunRequest
@@ -688,6 +691,8 @@ You are documenting this project with the Camarón kit (works the same in Claude
 INTERVIEW_TYPES = {"interview-context", "interview-language", "interview-history"}
 AUTOPILOT_PROMPT = WORK / "autopilot-prompt.md"
 _RUN: ContextVar[tuple[EventLog, str] | None] = ContextVar("autopilot_run", default=None)
+WATCH = 0.5            # seconds between looks at a running unit's handoff file
+END_GRACE = 3          # seconds an agent asked to end has before it is killed
 
 
 @contextlib.contextmanager
@@ -770,11 +775,30 @@ def _show(events: list[dict]) -> tuple[list[str], str]:
     return shown, err
 
 
+def _end_agent(p: subprocess.Popen) -> None:
+    """The agent and what it started (it leads its own process group): asked to end, and killed END_GRACE s later if
+    it is still there. What it left behind in that group goes with it."""
+    if not kill_tree(p.pid):
+        p.kill()
+    try:
+        p.wait(END_GRACE)
+    except subprocess.TimeoutExpired:
+        p.kill()
+    if not IS_WIN:
+        kill_tree(p.pid, signal.SIGKILL)
+
+
 def _run_agent(agent: str, text: str, lang: str, uid: str, echo=print, *, prompt_file: Path | None = None,
-               env: dict | None = None, emit=None, on_start=None) -> subprocess.CompletedProcess:
+               env: dict | None = None, emit=None, on_start=None, session: str | None = None) -> subprocess.CompletedProcess:
     """Run one unattended session, streaming a compact view of what the agent does, plus a heartbeat with
-    the unit's last checkpoint when it goes quiet. The returned stdout holds the error/result text only.
-    The parallel scheduler gives each unit its own prompt file, env (its worktree) and event sink."""
+    the unit's last checkpoint when it goes quiet. The returned stdout holds the error/result text only; its `session`
+    is the conversation's id, when the runner has one, and its `handoff` says who ended the agent ("you", "stop",
+    "cancel"). `session` resumes that conversation instead of starting one.
+    The parallel scheduler gives each unit its own prompt file, env (its worktree) and event sink, and its agents are
+    not watched: only the autopilot's unit can be taken (lib/harness/handoff.py), so only its agent gets a process
+    group to end."""
+    cur = _RUN.get()
+    watched = cur[1] if cur and emit is None else None
     emit = emit or _emit
     prompt_file = prompt_file or AUTOPILOT_PROMPT
     # multi-line args do not survive Windows .cmd shims: hand over a one-line pointer to the prompt file
@@ -784,8 +808,10 @@ def _run_agent(agent: str, text: str, lang: str, uid: str, echo=print, *, prompt
     short = f"Follow the instructions in {brief}" if lang == "en" else f"Sigue las instrucciones de {brief}"
     # pin the project: the agent's own `camarones …` calls must hit this plan, whatever folder it cds into
     runner, model = _runner(agent)
+    sid = session or (str(uuid.uuid4()) if getattr(runner, "own_session", False) else None)
     inv = runner.build(RunRequest(prompt=short, cwd=WORKSPACE,
-                                  env={**os.environ, "CAMARONES_ROOT": str(ROOT), **(env or {})}, model=model))
+                                  env={**os.environ, "CAMARONES_ROOT": str(ROOT), **(env or {})}, model=model,
+                                  session=sid, resume=bool(session)))
     cmd = inv.argv
     start = last = time.monotonic()
     seen_note = last_note(uid)
@@ -801,22 +827,42 @@ def _run_agent(agent: str, text: str, lang: str, uid: str, echo=print, *, prompt
             seen_note = ckpt or seen_note
             echo(f"  … {int((time.monotonic() - start) // 60)} min on {uid}, {agent} still working{extra}")
 
+    asked: dict = {}
+
+    def watch() -> None:
+        from .harness.scheduler import cancel_file
+        while not stop.wait(WATCH):
+            to = (handoff.read(watched, uid) or {}).get("to")
+            if to not in ("you", "stop"):
+                to = "cancel" if cancel_file(watched).exists() else None
+            if to:
+                asked["to"] = to
+                _end_agent(p)
+                return
+
     tail: list[str] = []
     try:
         p = subprocess.Popen(cmd, cwd=str(inv.cwd), stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                              stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace", bufsize=1,
-                             env=inv.env)
+                             env=inv.env, **({"start_new_session": True} if watched and not IS_WIN else {}))
     except OSError as e:
         return subprocess.CompletedProcess(cmd, 127, str(e), "")
     if on_start:
         on_start(p)
+    if sid:
+        emit("session", unit=uid, runner=agent, id=sid)
     threading.Thread(target=heartbeat, daemon=True).start()
+    watcher = threading.Thread(target=watch, daemon=True) if watched else None
+    if watcher:
+        watcher.start()
     try:
         for line in p.stdout:
             events = runner.parse(line.rstrip("\n"))
             for ev in events:
                 extra = {"model": model} if ev["type"] == "usage" and model else {}
                 emit(ev["type"], unit=uid, runner=agent, **extra, **{k: v for k, v in ev.items() if k != "type"})
+                if ev["type"] == "session":
+                    sid = ev["id"]
             shown, err = _show(events)
             for s in shown:
                 echo(f"  {s}")
@@ -828,9 +874,27 @@ def _run_agent(agent: str, text: str, lang: str, uid: str, echo=print, *, prompt
     finally:
         stop.set()
         if p.poll() is None:
-            p.kill()
+            _end_agent(p) if watched else p.kill()
+        if watcher:
+            watcher.join(END_GRACE + 1)
+            handoff.clear(watched, uid)
     echo(f"  ({int((time.monotonic() - start) // 60)} min)")
-    return subprocess.CompletedProcess(cmd, rc, "\n".join(tail), "")
+    r = subprocess.CompletedProcess(cmd, rc, "\n".join(tail), "")
+    r.session, r.handoff = sid, asked.get("to")
+    return r
+
+
+@contextlib.contextmanager
+def _term_unwinds():
+    """A job of the server is stopped by SIGTERM to its process group, which no longer reaches the agent: as an
+    exception it ends the agent on the way out, and the log says the run ended."""
+    main = threading.current_thread() is threading.main_thread()
+    old = signal.signal(signal.SIGTERM, lambda *_: sys.exit(128 + signal.SIGTERM)) if main and not IS_WIN else None
+    try:
+        yield
+    finally:
+        if old is not None:
+            signal.signal(signal.SIGTERM, old)
 
 
 def run_autopilot(lang: str = "es", max_units: int | None = None, poll_seconds: int = 900,
@@ -853,7 +917,8 @@ def run_autopilot(lang: str = "es", max_units: int | None = None, poll_seconds: 
                        "started.", echo)
         return 0
     try:
-        return _recorded_autopilot(agents, lang, max_units, poll_seconds, include_interviews, echo)
+        with _term_unwinds():
+            return _recorded_autopilot(agents, lang, max_units, poll_seconds, include_interviews, echo)
     finally:
         lock.release()
 
