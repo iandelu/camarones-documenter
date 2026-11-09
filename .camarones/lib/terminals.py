@@ -183,8 +183,9 @@ def find(kind: str, unit: str | None = None) -> dict | None:
 
 
 def spawn(argv: list[str], cwd: Path, *, kind: str, agent: str, unit: str | None = None, session: str | None = None,
-          cols: int = 80, rows: int = 24, env: dict | None = None) -> dict:
-    """Starts `argv` on a new terminal; its metadata, also written to DIR/<id>.json. Limit when there is no room."""
+          cols: int = 80, rows: int = 24, env: dict | None = None, fresh: bool = False) -> dict:
+    """Starts `argv` on a new terminal; its metadata, also written to DIR/<id>.json. Limit when there is no room.
+    fresh: Continue found no conversation to reopen; the node says so, whichever view the session was opened from."""
     global _pruned
     with _spawning:                             # room and the new terminal at once: two spawns cannot both take the last
         room()
@@ -194,7 +195,7 @@ def spawn(argv: list[str], cwd: Path, *, kind: str, agent: str, unit: str | None
         proc, fd = _start(argv, Path(cwd), env, cols, rows)
         t = _Term({"id": tid, "kind": kind, "unit": unit, "agent": agent, "session": session, "pid": proc.pid,
                    "cwd": str(cwd), "started": time.time(), "ended": None, "code": None, "cols": cols, "rows": rows,
-                   "closed": False}, proc, fd)
+                   "closed": False, "fresh": fresh}, proc, fd)
         with _lock:
             _terms[tid] = t
             _bump()

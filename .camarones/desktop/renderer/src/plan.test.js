@@ -198,3 +198,10 @@ test("a unit a run's agent is working on has no session to open beside it", () =
   expect(unitAction(u('g', 'doing', { paused: true }))).toEqual({ kind: 'agent', mode: 'continue', label: 'unit.continue' })
   expect(unitAction(u('g', 'doing', { paused: false, session: { live: true }, terminal: 't-g-1' }))).toEqual({ kind: 'live', term: 't-g-1' })
 })
+
+test('a session that found no conversation to continue says so; on the canvas its own node does', () => {
+  expect(sessionNote({ where: 'window', fresh: true }, 'Codex')).toEqual({ key: 'next.fresh', vars: { agent: 'Codex' } })
+  expect(sessionNote({ where: 'canvas', fresh: true, terminal: { id: 't' } }, 'Codex').key).toBe('next.fresh')
+  expect(canvasNote({ where: 'window', fresh: true }, 'Codex').key).toBe('next.fresh')
+  expect(canvasNote({ where: 'canvas', fresh: true, terminal: { id: 't' } }, 'Codex')).toBeNull()
+})

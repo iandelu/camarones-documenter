@@ -108,11 +108,12 @@ export const takeOver = (srv, uid, body, go = toHash) => landing(() => srv.post(
 
 // The note under the button: which way the session opened.
 export function sessionNote(res, label) {
-  const key = res.already ? 'pty.already' : res.where === 'canvas' ? 'next.onCanvas' : res.fallback ? 'next.noPty' : 'next.opened'
+  const key = res.already ? 'pty.already' : res.fresh ? 'next.fresh' : res.where === 'canvas' ? 'next.onCanvas' : res.fallback ? 'next.noPty' : 'next.opened'
   return { key, vars: { agent: openedWith(label, res) } }
 }
 
-// On the canvas a session that lands there shows itself (its terminal is focused); one in a window needs the note.
+// On the canvas a session that lands there shows itself (its terminal is focused, and its node says when it is a new
+// conversation); one in a window needs the note.
 export const canvasNote = (res, label) => (res?.already || res?.where === 'canvas' ? null : sessionNote(res, label))
 
 // A takeover also says when there was no conversation to resume.

@@ -262,6 +262,8 @@ export function PtyNode({ data: { unit, term, now, attach, onClose, onMax, onSes
   const failed = !live && term.code !== 0
   const k = live ? 'running' : failed ? 'blocked' : unit ? tone(unit) : 'done'
   const name = unit?.title ?? t('pty.update')
+  const fresh = live && term.fresh                      // Continue found no conversation to reopen, from whichever view
+  const hand = live && unit && canHandBack && unit.status !== 'done'
   return (
     <div className={`dk-term dk-pty tone-${k}`}>
       <Ports />
@@ -279,9 +281,10 @@ export function PtyNode({ data: { unit, term, now, attach, onClose, onMax, onSes
       </div>
       <div ref={slot} className="dk-term-body dk-pty-slot nowheel nodrag nokey nopan" role="group" aria-label={t('pty.label', { name })}
         aria-description={t('pty.leave')} />
-      {live && unit && canHandBack && unit.status !== 'done' ? (
+      {fresh || hand ? (
         <div className="dk-term-foot">
-          <button type="button" className="dk-cv-btn nodrag" onClick={() => onHandBack(unit.id, term.id)}>{t(taken ? 'pty.handBack' : 'pty.leavePilot')}</button>
+          {fresh ? <span className="dk-grow dk-term-note">{t('next.fresh', { agent: term.agent })}</span> : null}
+          {hand ? <button type="button" className="dk-cv-btn nodrag" onClick={() => onHandBack(unit.id, term.id)}>{t(taken ? 'pty.handBack' : 'pty.leavePilot')}</button> : null}
         </div>
       ) : null}
     </div>
