@@ -123,3 +123,13 @@ def test_a_unit_started_again_after_a_handoff_is_the_runs(kit, log):
         ("unit.finished", {"unit": "a", "outcome": "handed"}), ("unit.started", {"unit": "a", "resume": "s"}),
         ("unit.started", {"unit": "b"}), ("unit.finished", {"unit": "b", "outcome": "handed"}))
     assert sessions.headless(True) == {"a"}
+
+
+def test_a_request_that_cannot_be_cleared_does_not_stop_the_run(kit, monkeypatch):
+    from lib.harness import handoff
+
+    def held(_fn):
+        raise PermissionError("Windows: someone is reading it")
+    handoff.request("r-1", "discovery:api", "you")
+    monkeypatch.setattr(handoff, "retry_busy", held)
+    handoff.clear("r-1", "discovery:api")                       # the next look finds it, or the next attempt clears it

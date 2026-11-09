@@ -305,3 +305,8 @@ def test_an_unknown_unit_is_a_404(app, pilot_run, action):
 def test_the_pipeline_says_which_kind_of_run_is_on(app, pilot_run):
     code, r = call(f"{app.url}/api/pipeline")
     assert code == 200 and r["run"]["kind"] == "autopilot"
+
+
+def test_a_session_beside_the_agent_at_work_is_refused(app, pilot_run):
+    code, r = call(f"{app.url}/api/app/terminals", {"unit": pilot_run.uid, "agent": "claude", "mode": "continue"})
+    assert (code, r["code"]) == (409, "at-work")
