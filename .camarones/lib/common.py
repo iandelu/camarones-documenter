@@ -150,6 +150,21 @@ def out(cmd: list[str], cwd: Path | None = None) -> str:
     return (r.stdout or "").strip() if r.returncode == 0 else ""
 
 
+# What a Claude Code session sets on whatever it launches, and what ties a shell to the host that opened it. A `claude`
+# that inherits them is that session's child, and a child saves no transcript: the board has nothing to read and Continue
+# nothing to reopen. Only these go: the same prefix also names a person's own settings (CLAUDE_CODE_USE_BEDROCK, …),
+# without which a session may not even start, and a marker missing from this list only costs that transcript.
+PARENT_SESSION = ("CLAUDECODE", "CLAUDE_CODE_CHILD_SESSION", "CLAUDE_CODE_SESSION_ID", "CLAUDE_CODE_SESSION_ATTENDED",
+                  "CLAUDE_CODE_HOST_SESSION_ID", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_MESSAGING_SOCKET",
+                  "CLAUDE_CODE_MESSAGING_TOKEN", "CLAUDE_CODE_EXECPATH", "CLAUDE_PID", "CLAUDE_EFFORT")
+
+
+def leave_parent_session() -> None:
+    """The kit run from inside a Claude Code session opens sessions of their own: everything it starts inherits this."""
+    for name in PARENT_SESSION:
+        os.environ.pop(name, None)
+
+
 def kill_tree(pid: int, sig: int | None = None) -> bool:
     """The process and what it started; False when it was already gone. POSIX signals its process group (`pid` leads
     one: it was started with start_new_session); Windows has no groups, so taskkill walks the tree (`sig` ignored)."""
