@@ -37,6 +37,7 @@ APP_ONLY = re.compile(r"^/api/(runs|runs/[\w.-]+/cancel|wiki|build|inventory|sch
 APP_ONLY_MSG = "this runs on your machine: open it in the desktop app (`camaron app`)"
 STOPPED_AFTER = 5.0                          # seconds of quiet before a run's stream asks whether its run was stopped
 TERMINAL_POST = re.compile(r"^/api/app/terminals/(t-[\w.-]+-\d+)/(input|resize|close)$")
+UNIT_POST = re.compile(r"^/api/app/units/([^/]+)/(takeover|handback|stop)$")
 STREAM_FROM = re.compile(r"(t-[\w.-]+-\d+):(\d+)")     # one piece of the terminal stream's `from`
 CHUNK = 64 * 1024                            # bytes of a terminal per stream message, at most
 KEEP_ALIVE = 15.0                            # seconds a stream may stay silent: a write is how it finds the client gone
@@ -465,6 +466,26 @@ def app_terminal(tid: str, action: str, b: dict) -> tuple[dict, int]:
         return {"error": f"{tid} has ended"}, 409
     except TimeoutError as e:
         return {"error": str(e)}, 409
+
+
+def app_unit(uid: str, action: str, b: dict) -> tuple[dict, int]:
+    """POST /api/app/units/<uid>/<action>: take a unit from the autopilot, hand it back or stop it (lib/takeover.py). A
+    bad size is a 400 before anything moves, an unknown unit a 404. What the run's state refuses is a 409: `code` for the
+    app, or the terminal it already has, or the limit it reached."""
+    from . import agents, takeover, terminals
+    try:
+        if action == "takeover":
+            size = (_dim(b, "cols", terminals.COLS, 80), _dim(b, "rows", terminals.ROWS, 24))
+            return takeover.take(uid, _text(b, "lang") or "es", size), 200
+        return (takeover.hand_back if action == "handback" else takeover.stop)(uid), 200
+    except KeyError:
+        return {"error": f"no unit {uid}"}, 404
+    except agents.AlreadyOpen as e:
+        return {"error": str(e), "terminal": e.terminal}, 409
+    except terminals.Limit:
+        return {"error": f"{terminals.MAX_LIVE} terminals are open: close one first", "limit": terminals.MAX_LIVE}, 409
+    except takeover.Refused as e:
+        return {"error": str(e), "code": e.code}, 409
 
 
 def app_creds(action: str, b: dict) -> tuple[dict, int]:
@@ -1395,6 +1416,8 @@ class Handler(BaseHTTPRequestHandler):
             b = json.loads(raw or b"{}")
             if m := TERMINAL_POST.match(p):             # keys as they are typed: before `by`, which runs git
                 return self.json(*app_terminal(m[1], m[2], b))
+            if m := UNIT_POST.match(p):
+                return self.json(*app_unit(urllib.parse.unquote(m[1]), m[2], b))
             by = (b.get("by") or reviewer()).strip()
             if p == "/api/app/cmd":
                 from . import appapi
