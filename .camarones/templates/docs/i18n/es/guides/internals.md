@@ -90,7 +90,10 @@ la sesión de cada unidad (`sessions/`) y las terminales del lienzo (`terminals/
 
 `camaron up` arranca el servidor del proyecto actual (puerto 8080 por defecto). Sirve el portal en `/`, la interfaz de
 la app en `/desktop/` y la API en `/api/`. La app de escritorio arranca su propio servidor por ventana
-(`camaron up --foreground --port 0`) y lo para al cerrar la ventana.
+(`camaron up --foreground --port 0`) y lo para al cerrar la ventana. Un cierre inesperado o forzado no ejecuta nada del
+código de la app, así que la app también tiene el otro extremo del stdin del servidor (`CAMARONES_LIFELINE=1`): cuando
+el sistema cierra esa tubería, el servidor se para como lo para la app, terminales incluidas, y acaba a los 10 s con lo
+que aún se esté parando. Nada de lo que arranca puede leer la tubería: su stdin es el dispositivo nulo, como sin ella.
 
 Quién puede hacer qué depende de lo que lleve la petición:
 
@@ -242,6 +245,18 @@ registro de la unidad en `.camarones/.cache/sessions/` (su pid mientras el agent
 mientras sigue abierta, o su ventana aún se está abriendo (hasta 30 s antes de que el envoltorio apunte su pid), la app
 no abre otra para la misma unidad, `run` y `autopilot` dejan la unidad en paz, y la app enseña qué está haciendo el
 agente leyendo su historial.
+
+**Seguir** reabre la conversación de la unidad: la que nombra su registro, con `--resume` cuando su historial está, o la
+que una ejecución dejó en su registro de eventos. Si no hay ninguna, es una sesión nueva sobre el prompt de la unidad, y
+la respuesta y los metadatos de la terminal dicen `fresh`, que su nodo enseña. Un runner que no admite id de conversación
+(Codex, OpenCode) va a su última conversación solo mientras no se haya abierto aquí otra sesión posterior de ese runner.
+La app nunca ejecuta `claude --continue`, que toma el historial más reciente de la carpeta, sea de la unidad o la
+ejecución que sea; el Seguir del asistente no guarda registro de sus sesiones y aún lo usa.
+
+Un kit arrancado desde dentro de una sesión de Claude Code (su herramienta Bash, una terminal que abrió) abre sesiones
+propias. Las marcas de esa sesión harían de cada `claude` un hijo suyo, que no guarda historial, así que la CLI las quita
+al arrancar (`PARENT_SESSION` en `lib/common.py`) y todo lo que arranca lo hereda. Solo se van esas: los ajustes propios de
+cada persona comparten el prefijo (`CLAUDE_CODE_USE_BEDROCK`, …) y se quedan.
 
 **Terminales en el lienzo.** El servidor del proyecto tiene las terminales del lienzo (`lib/terminals.py`): PTY de
 verdad, el `pty` de la biblioteca estándar en macOS y Linux y ConPTY con pywinpty 3.1.0 en Windows (si no se puede
