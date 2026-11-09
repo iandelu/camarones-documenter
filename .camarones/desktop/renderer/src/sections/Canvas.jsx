@@ -7,7 +7,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Background, ReactFlow, ReactFlowProvider, useReactFlow } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { Aviso, Button, fmtDuration, money } from '@camaron/ui'
-import { atBottom, canvasKey, clockRuns, emptyFeed, feed, followRun, GLYPH, layout, neighbour, openUnits, place, takeable } from '../canvas.js'
+import { atBottom, canvasKey, clockRuns, emptyFeed, feed, followRun, GLYPH, layout, neighbour, openUnits, place, takeable, withYou } from '../canvas.js'
 import { useTheme } from '../hooks.js'
 import { t } from '../i18n.js'
 import { said, tone, unitRoute } from '../plan.js'
@@ -205,7 +205,7 @@ function Flow({ srv, units, run, pilot, onOpen, focus, onFocused, onSession, onT
 
   const mine = useMemo(() => shown(terms.list, now), [terms.list, now])
   const { nodes, edges } = useMemo(() => {
-    const pty = new Set(mine.units.keys())
+    const pty = withYou(mine.units, f)
     const laid = layout(units, openUnits(units, f, viewed, now, pty), { pty, loose: mine.loose })
     const placed = place(laid.nodes, { ...saved, ...drag })
     const look = (n) => {

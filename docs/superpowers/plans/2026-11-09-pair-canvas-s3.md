@@ -45,6 +45,17 @@ conversation a run also wrote to (`since`, `spans`).
   it in the detail panel.
 - **No session opens beside the agent at work.** Continue now resumes that very conversation, so `launch_unit` refuses
   (`AtWork`, 409 `at-work`) while a run's agent has the unit, and its detail offers no Continue.
+- **What a killed agent spent is the run's.** Claude says its usage only in its final `result`, so §3.5's "already
+  counted from the run's `usage` events" is false for an agent ended early: `_run_agent` reads what it spent from its
+  transcript and emits those events itself (`ledger.unreported`), for a takeover, a Stop, a cancel and a stopped run.
+- **A hand back is two writes.** `{to: pilot, closing: true}` before the terminal ends, then without `closing` once its
+  process group is gone: between them the run holds the unit, so its end is not taken for a pause, and no agent is left
+  on the conversation. A request older than `sessions.GRACE` has lost its server and holds nothing.
+- **A request outlives the attempt it was for.** `_run_agent` clears only what its watcher acted on; the autopilot's loop
+  honours a `stop` that came as the agent ended, and a `you` keeps the unit until the terminal is open, because a usage
+  limit restarts it at once.
+- **A person's Stop says so** (`stopped: true`), so it is no failure in a run's summary while a `cancelled` in an old log
+  still counts as it did.
 - **Values:** watcher tick 0.5 s; end the agent with SIGTERM, SIGKILL 3 s later; takeover waits at most 10 s; autopilot
   re-syncs every 5 s while waiting; handback waits for the PTY's end at most `CLOSE_GRACE + 2` s.
 
