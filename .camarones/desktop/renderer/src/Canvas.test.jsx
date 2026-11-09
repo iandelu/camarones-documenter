@@ -158,3 +158,58 @@ test("a paused unit a run worked on still offers the run's terminal", () => {
   expect(out).toMatch(/<button[^>]*disabled=""[^>]*>Seguir<\/button>/)
   expect(out).toMatch(/<button[^>]*aria-label="Ver terminal"[^>]*>&gt;_<\/button>/)
 })
+
+const atWork = { runner: 'claude', started: 0, ended: null, outcome: null, cost: 0, rows: [], session: 's-1' }
+const takes = { ...on, canTake: true, canStart: true, onTake() {}, onStop() {} }
+
+test("the autopilot's running unit can be stopped or taken, on no other run", () => {
+  const out = html(<TermNode data={{ unit, fu: atWork, now: 0, ...takes }} />)
+  expect(out).toContain('Parar')
+  expect(out).toContain('Tomar el control')
+  const parallel = html(<TermNode data={{ unit, fu: atWork, now: 0, ...on, canTake: false, canStart: true }} />)
+  expect(parallel).not.toContain('Tomar el control')
+  expect(parallel).not.toContain('Parar')
+})
+
+test('a unit that is not running has nothing to stop or take', () => {
+  const ended = { ...atWork, ended: 1000, outcome: 'ok', status: 'done' }
+  expect(html(<TermNode data={{ unit, fu: ended, now: 2000, ...takes }} />)).not.toContain('Tomar el control')
+  expect(html(<TermNode data={{ unit, fu: atWork, now: 2000, finished: true, ...takes }} />)).not.toContain('Tomar el control')
+})
+
+test('taking a unit shows it is under way, and only one click goes', () => {
+  const out = html(<TermNode data={{ unit, fu: atWork, now: 0, ...takes, taking: true }} />)
+  expect(out).toContain('Tomando el control')
+  expect(out).toMatch(/<button[^>]*disabled[^>]*>Tomando el control/)
+})
+
+test('with no agent installed a unit cannot be taken', () => {
+  const out = html(<TermNode data={{ unit, fu: atWork, now: 0, ...takes, canStart: false }} />)
+  expect(out).toMatch(/<button[^>]*disabled[^>]*>Tomar el control/)
+})
+
+test('a runner with no conversation says a new session opens without it', () => {
+  expect(html(<TermNode data={{ unit, fu: atWork, now: 0, ...takes }} />)).not.toContain('sin esta conversación')
+  expect(html(<TermNode data={{ unit, fu: { ...atWork, session: null }, now: 0, ...takes }} />)).toContain('sin esta conversación')
+})
+
+test('a handed unit says it is with you, and is no error', () => {
+  const fu = { ...atWork, ended: 1000, outcome: 'handed', status: 'doing' }
+  const out = html(<TermNode data={{ unit, fu, now: 2000, ...takes }} />)
+  expect(out).toContain('contigo')
+  expect(out).toContain('tone-running')
+})
+
+test('a failed unit can be opened with you', () => {
+  const fu = { ...atWork, ended: 1000, outcome: 'failed' }
+  const out = html(<TermNode data={{ unit, fu, now: 2000, ...on, canStart: true, onSession() {} }} />)
+  expect(out).toContain('Abrir contigo')
+  expect(html(<TermNode data={{ unit, fu, now: 2000, ...on, canStart: false, onSession() {} }} />)).toMatch(/<button[^>]*disabled[^>]*>Abrir contigo/)
+})
+
+test('the buttons of a handoff read in English too', () => {
+  setLang('en')
+  const out = html(<TermNode data={{ unit, fu: atWork, now: 0, ...takes }} />)
+  expect(out).toContain('Take control')
+  expect(out).toContain('>Stop<')
+})

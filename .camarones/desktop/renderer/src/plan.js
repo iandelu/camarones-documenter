@@ -69,17 +69,23 @@ export function unitAction(u, plan = {}) {
 // names one.
 export const openedWith = (label, res) => res?.model ? `${label} (${res.model})` : label
 
-// The server's refusals are in English: no room for another terminal (409 with its limit), or the unit open in a
-// window (409 with terminal: null) are said in the app's language; any other keeps the server's words.
+// The server's refusals are in English: no room for another terminal (409 with its limit), the unit open in a window
+// (409 with terminal: null) or a handoff the run's state refuses (409 with its code) are said in the app's language;
+// any other keeps the server's words.
 const refusal = (e) => (e?.status !== 409 || !e.data ? null
-  : Number.isFinite(e.data.limit) ? t('pty.full', { n: e.data.limit })
-    : 'terminal' in e.data && e.data.terminal === null ? t('pty.alreadyWindow') : null)
+  : e.data.code ? t(`hand.${e.data.code}`)
+    : Number.isFinite(e.data.limit) ? t('pty.full', { n: e.data.limit })
+      : 'terminal' in e.data && e.data.terminal === null ? t('pty.alreadyWindow') : null)
 
-// A session started from the app (POST app/terminals) lands on the Plan, on its terminal when it opened on the canvas.
-// A unit already open (409 with its terminal) lands there too instead of opening twice; any other refusal throws.
-export async function openSession(srv, body, go = (h) => { location.hash = h }) {
+export const said = (e) => refusal(e) ?? e.message
+
+export const unitRoute = (uid, action) => `app/units/${encodeURIComponent(uid)}/${action}`
+
+// A session started from the app lands on the Plan, on its terminal when it opened on the canvas. A unit already open
+// (409 with its terminal) lands there too instead of opening twice; any other refusal throws.
+const landing = async (post, go) => {
   let res
-  try { res = await srv.post('app/terminals', body) } catch (e) {
+  try { res = await post() } catch (e) {
     const id = e?.data?.terminal
     if (!id) {
       const said = refusal(e)
@@ -92,6 +98,13 @@ export async function openSession(srv, body, go = (h) => { location.hash = h }) 
   return res
 }
 
+const toHash = (h) => { location.hash = h }
+
+export const openSession = (srv, body, go = toHash) => landing(() => srv.post('app/terminals', body), go)
+
+// Takes a unit from the autopilot: the run has up to 10 s to end its agent, then its conversation opens here.
+export const takeOver = (srv, uid, body, go = toHash) => landing(() => srv.post(unitRoute(uid, 'takeover'), body), go)
+
 // The note under the button: which way the session opened.
 export function sessionNote(res, label) {
   const key = res.already ? 'pty.already' : res.where === 'canvas' ? 'next.onCanvas' : res.fallback ? 'next.noPty' : 'next.opened'
@@ -100,6 +113,9 @@ export function sessionNote(res, label) {
 
 // On the canvas a session that lands there shows itself (its terminal is focused); one in a window needs the note.
 export const canvasNote = (res, label) => (res?.already || res?.where === 'canvas' ? null : sessionNote(res, label))
+
+// A takeover also says when there was no conversation to resume.
+export const takeNote = (res, label) => (res?.fresh ? { key: 'cv.fresh' } : canvasNote(res, label))
 
 // What a unit's agent session is doing, for its detail: paused (no window open), or open and what its agent did last
 // (Claude Code's transcript): waiting for you, a tool it is running, or a tool call with no answer for minutes (it

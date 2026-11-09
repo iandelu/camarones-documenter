@@ -7,7 +7,7 @@ import '@xterm/xterm/css/xterm.css'
 import { fmtDuration } from '@camaron/ui'
 import { useTheme } from '../hooks.js'
 import { t } from '../i18n.js'
-import { tone } from '../plan.js'
+import { tone, unitRoute } from '../plan.js'
 import { bytes, elapsed, fitSize, followTerminals, historyBytes, inputPieces, nap, needsScreen, screenFeed } from '../terminals.js'
 
 const LIST = 'app/terminals'
@@ -178,6 +178,14 @@ function desk(srv, onList) {
     })
   }
 
+  const leave = async (id, route) => {
+    try {
+      await srv.post(route, {})
+      gone.add(id)
+      if (screens.has(id)) drop(screens.get(id))
+    } finally { await refresh() }
+  }
+
   return {
     refresh,
     onEvent,
@@ -202,13 +210,9 @@ function desk(srv, onList) {
       if (x.term && x.slots.length) x.term.focus(); else x.wantsFocus = true
     },
     // Live: the server hangs it up; ended: it forgets it. Either way its screen goes.
-    async close(id) {
-      try {
-        await srv.post(`${LIST}/${id}/close`, {})
-        gone.add(id)
-        if (screens.has(id)) drop(screens.get(id))
-      } finally { await refresh() }
-    },
+    close: (id) => leave(id, `${LIST}/${id}/close`),
+    // The server closes it and gives its conversation to the run.
+    handBack: (uid, id) => leave(id, unitRoute(uid, 'handback')),
     restyle() {
       for (const x of screens.values()) if (x.term && x.slots.length) style(x, x.slots.at(-1))
     },
@@ -244,12 +248,14 @@ export function useTerminals(srv) {
     return () => { stop.abort(); d.dispose() }
   }, [d, srv])
   useEffect(() => { d.restyle() }, [d, theme])
-  return { ...state, attach: d.attach, focus: d.focus, close: d.close, refresh: d.refresh }
+  return { ...state, attach: d.attach, focus: d.focus, close: d.close, handBack: d.handBack, refresh: d.refresh }
 }
 
 // A terminal with you: a unit's session, or a loose one (the docs update). A unit's that ended with an error keeps its
-// screen to read and offers a new session; one closed or forgotten leaves the canvas with the list.
-export function PtyNode({ data: { unit, term, now, attach, onClose, onMax, onSession, canStart } }) {
+// screen to read and offers a new session; one closed or forgotten leaves the canvas with the list. While the autopilot
+// runs, a unit's unfinished session can go to it: handed back when it came from the run (`taken`), left to it when you
+// opened it yourself.
+export function PtyNode({ data: { unit, term, now, attach, onClose, onMax, onSession, canStart, canHandBack, taken, onHandBack } }) {
   const slot = useRef(null)
   useEffect(() => attach(term.id, slot.current), [attach, term.id])
   const live = term.ended == null
@@ -273,6 +279,11 @@ export function PtyNode({ data: { unit, term, now, attach, onClose, onMax, onSes
       </div>
       <div ref={slot} className="dk-term-body dk-pty-slot nowheel nodrag nokey nopan" role="group" aria-label={t('pty.label', { name })}
         aria-description={t('pty.leave')} />
+      {live && unit && canHandBack && unit.status !== 'done' ? (
+        <div className="dk-term-foot">
+          <button type="button" className="dk-cv-btn nodrag" onClick={() => onHandBack(unit.id, term.id)}>{t(taken ? 'pty.handBack' : 'pty.leavePilot')}</button>
+        </div>
+      ) : null}
     </div>
   )
 }

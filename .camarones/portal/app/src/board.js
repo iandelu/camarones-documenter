@@ -52,6 +52,9 @@ export function line(ev) {
   return `» ${ev.text}`
 }
 
+// How a unit's run ended, for its drawer: the kit's own word, except a unit taken from the run, which is no failure.
+export const outcomeWord = (outcome, t) => (outcome === 'handed' ? t('pipe.handed') : outcome)
+
 export function column(u) {
   if (u.status === 'doing') return 'running'
   return COLUMNS.includes(u.status) ? u.status : 'todo'
