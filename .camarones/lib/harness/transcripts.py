@@ -2,7 +2,8 @@
 bill. Claude Code writes one line per content block of a message, each with the message's usage: a message id counts
 once. Subagents live in `<session>/subagents/*.jsonl` and add their tokens, not their time (they run inside the main
 session's turns). Active time sums the gaps between lines, each capped at IDLE: a window left open all night adds five
-minutes, not ten hours."""
+minutes, not ten hours. A conversation a run also wrote to is read through the person's stretches of it (`windows`):
+what lies outside counts neither its tokens nor its time, and the gap between two stretches is no time at all."""
 from __future__ import annotations
 
 import datetime as dt
@@ -73,7 +74,16 @@ def _add(models: dict, msg: dict) -> None:
     m["cache_write_5m"] += _int(u.get("cache_creation_input_tokens")) - hour
 
 
-def read(path: Path) -> dict | None:
+def _stretch(ts, windows: list) -> int | None:
+    """Which of `windows` ([from, to] in epoch seconds, `to` None while open) holds this timestamp."""
+    when = _when(ts)
+    if when is None:
+        return None
+    t = when.timestamp()
+    return next((i for i, (a, b) in enumerate(windows) if a <= t and (b is None or t <= b)), None)
+
+
+def read(path: Path, windows: list | None = None) -> dict | None:
     path = Path(path)
     if not path.is_file():
         return None
@@ -82,9 +92,16 @@ def read(path: Path) -> dict | None:
     seen: set = set()
     first = last = prev = None
     active = 0.0
+    stretch = None
     for f in files(path):
         main = f == path
         for ev in _lines(f):
+            if windows is not None:
+                part = _stretch(ev.get("timestamp"), windows)
+                if part is None:
+                    continue
+                if main and part != stretch:
+                    stretch, prev = part, None
             if main and ev.get("timestamp"):
                 when = _when(ev["timestamp"])
                 if when:
