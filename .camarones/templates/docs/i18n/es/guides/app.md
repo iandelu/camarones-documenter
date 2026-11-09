@@ -428,7 +428,7 @@ Esta máquina y la preparación de este proyecto (`#/machine`, <kbd>g</kbd> <kbd
 | Repos y plan | Cada repo, clonado o no, con su stack (edítalo, o **Volver al detectado**); **Clonar o actualizar los repos** (`sync`), **Detectar repos en la carpeta** (`detect`) y el perfil del plan, rápido o completo |
 | El kit | **Actualizar el kit** (`self-update`, solo con la instalación global) y después **Reiniciar la app con la versión nueva**; **Reparar los archivos del kit** (`repair`) |
 | Todos los comandos | down, upgrade, version; con cuidado: migrate, unlink |
-| Desinstalar este proyecto | Primero **Ver qué borraría**; después **Desinstalar** abre un diálogo que repite la lista. Opcional: también los ajustes, tokens y cachés de esta máquina, y sin copia de seguridad. Por defecto se guarda una copia `.zip` de `cam-docs` en la carpeta temporal del sistema, y un tablero que ya existía se conserva (copiado junto a los repos) |
+| Desinstalar este proyecto | Primero **Ver qué borraría**; después **Desinstalar** abre un diálogo que repite la lista. Si cambias una opción, **Desinstalar** desaparece hasta que vuelvas a mirar, para que la lista sea siempre lo que se ejecuta. Opcional: también los ajustes, tokens y cachés de esta máquina, y sin copia de seguridad. Por defecto se guarda una copia `.zip` de `cam-docs` en la carpeta temporal del sistema, y un tablero que ya existía se conserva (copiado junto a los repos) |
 
 La dirección `#/machine?host=<servidor>&kind=sonarqube` (o `gitlab`, `github`) abre el formulario de Tokens relleno.
 
