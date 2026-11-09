@@ -25,6 +25,14 @@ def screen(t, tid) -> bytes:
     return ANSI.sub(b"", t.read(tid, 0)[0])
 
 
+def on_disk(t, tid) -> dict:
+    """A terminal's .json; empty while it is being replaced (Windows refuses the read then)."""
+    try:
+        return json.loads((t.DIR / f"{tid}.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
 @pytest.fixture
 def pty(kit):
     from lib import terminals
@@ -70,7 +78,8 @@ def test_the_end_of_a_program_is_kept_with_its_code(pty):
     with pty.t._term(m["id"]).finishing:                                 # its end, the .json's included, is done
         pass
     assert pty.t.get(m["id"])["code"] == 3
-    saved = json.loads((pty.t.DIR / f"{m['id']}.json").read_text(encoding="utf-8"))
+    until(lambda: on_disk(pty.t, m["id"]).get("code") == 3)      # written right after the end is known
+    saved = on_disk(pty.t, m["id"])
     assert (saved["code"], saved["unit"], saved["kind"]) == (3, None, "update")
     with pytest.raises(pty.t.Ended):
         pty.t.write(m["id"], "hola\r")
@@ -349,3 +358,22 @@ def test_on_windows_a_program_that_ended_lets_go_of_its_sockets(conpty, kit):
     until(lambda: conpty.t.get(m["id"])["ended"])
     assert conpty.t.get(m["id"])["code"] == 0
     assert proc.fileobj.fileno() == -1 and proc._server.fileno() == -1
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="taskkill /T /F ends the tree at once")
+def test_close_wait_returns_once_what_ignored_the_hang_up_is_gone(pty, monkeypatch, tmp_path):
+    from lib.harness.locks import pid_alive
+    monkeypatch.setattr(pty.t, "CLOSE_GRACE", 0.5)
+    child = tmp_path / "child"
+    prog = ("import os, signal, subprocess, sys, time\n"
+            "c = subprocess.Popen([sys.executable, '-c', 'import signal, time; signal.signal(signal.SIGHUP, signal.SIG_IGN); time.sleep(60)'])\n"
+            f"open({str(child)!r}, 'w').write(str(c.pid))\n"
+            "time.sleep(60)\n")
+    m = pty.open([sys.executable, "-c", prog])
+    until(lambda: child.exists() and child.read_text(encoding="utf-8"))
+    time.sleep(0.3)                                             # the child has its handler
+    done = pty.t.close_wait(m["id"], pty.t.CLOSE_GRACE + 2)
+    assert done["ended"] is not None
+    until(lambda: not pid_alive(int(child.read_text(encoding="utf-8"))))     # its zombie, for an instant, on macOS
+    assert done == pty.t.get(m["id"])
+

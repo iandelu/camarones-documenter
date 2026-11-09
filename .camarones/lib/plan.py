@@ -12,20 +12,24 @@ import contextlib
 import datetime as dt
 import functools
 import json
+import math
 import os
+import signal
 import subprocess
+import sys
 import threading
 import time
+import uuid
 from contextvars import ContextVar
 from pathlib import Path
 
 import yaml
 
-from .common import CTX, KIT, PREFS, ROOT, load_json, WORK, CAM_LAYOUT, CAM_DIR, WORKSPACE, cli_cmd, ws_rel, rel_file, IS_WIN, which
+from .common import CTX, KIT, PREFS, ROOT, load_json, WORK, CAM_LAYOUT, CAM_DIR, WORKSPACE, cli_cmd, kill_tree, ws_rel, rel_file, IS_WIN, which
 from . import docs, sessions
 from .adapters import runners
 from .adapters.runners.base import LIMIT_HINTS  # noqa: F401  (kept for callers)
-from .harness import awake, drafts, freshness, kpis, ledger, pipeline, routing
+from .harness import awake, drafts, freshness, handoff, kpis, ledger, pipeline, routing
 from .harness.events import EventLog
 from .harness.locks import FileLock
 from .harness.ports import RunRequest
@@ -688,6 +692,9 @@ You are documenting this project with the Camarón kit (works the same in Claude
 INTERVIEW_TYPES = {"interview-context", "interview-language", "interview-history"}
 AUTOPILOT_PROMPT = WORK / "autopilot-prompt.md"
 _RUN: ContextVar[tuple[EventLog, str] | None] = ContextVar("autopilot_run", default=None)
+WATCH = 0.5            # seconds between looks at a running unit's handoff file
+END_GRACE = 3          # seconds an agent asked to end has before it is killed
+WAIT_TAKEN = 5         # seconds between looks while the autopilot only has units with the person left
 
 
 @contextlib.contextmanager
@@ -770,12 +777,32 @@ def _show(events: list[dict]) -> tuple[list[str], str]:
     return shown, err
 
 
+def _end_agent(p: subprocess.Popen) -> None:
+    """The agent and what it started (it leads its own process group): asked to end, and killed END_GRACE s later if
+    it is still there. What it left behind in that group goes with it."""
+    if not kill_tree(p.pid):
+        p.kill()
+    try:
+        p.wait(END_GRACE)
+    except subprocess.TimeoutExpired:
+        p.kill()
+    if not IS_WIN:
+        kill_tree(p.pid, signal.SIGKILL)
+
+
 def _run_agent(agent: str, text: str, lang: str, uid: str, echo=print, *, prompt_file: Path | None = None,
-               env: dict | None = None, emit=None, on_start=None) -> subprocess.CompletedProcess:
+               env: dict | None = None, emit=None, on_start=None, session: str | None = None) -> subprocess.CompletedProcess:
     """Run one unattended session, streaming a compact view of what the agent does, plus a heartbeat with
-    the unit's last checkpoint when it goes quiet. The returned stdout holds the error/result text only.
-    The parallel scheduler gives each unit its own prompt file, env (its worktree) and event sink."""
+    the unit's last checkpoint when it goes quiet. The returned stdout holds the error/result text only; its `session`
+    is the conversation's id, when the runner has one, and its `handoff` says who ended the agent ("you", "stop",
+    "cancel"). `session` resumes that conversation instead of starting one.
+    The parallel scheduler gives each unit its own prompt file, env (its worktree) and event sink, and its agents are
+    not watched: only the autopilot's unit can be taken (lib/harness/handoff.py), so only its agent gets a process
+    group to end."""
+    cur = _RUN.get()
+    watched = cur[1] if cur and emit is None else None
     emit = emit or _emit
+    begun = time.time()
     prompt_file = prompt_file or AUTOPILOT_PROMPT
     # multi-line args do not survive Windows .cmd shims: hand over a one-line pointer to the prompt file
     prompt_file.parent.mkdir(parents=True, exist_ok=True)
@@ -784,8 +811,10 @@ def _run_agent(agent: str, text: str, lang: str, uid: str, echo=print, *, prompt
     short = f"Follow the instructions in {brief}" if lang == "en" else f"Sigue las instrucciones de {brief}"
     # pin the project: the agent's own `camarones …` calls must hit this plan, whatever folder it cds into
     runner, model = _runner(agent)
+    sid = session or (str(uuid.uuid4()) if getattr(runner, "own_session", False) else None)
     inv = runner.build(RunRequest(prompt=short, cwd=WORKSPACE,
-                                  env={**os.environ, "CAMARONES_ROOT": str(ROOT), **(env or {})}, model=model))
+                                  env={**os.environ, "CAMARONES_ROOT": str(ROOT), **(env or {})}, model=model,
+                                  session=sid, resume=bool(session)))
     cmd = inv.argv
     start = last = time.monotonic()
     seen_note = last_note(uid)
@@ -801,22 +830,44 @@ def _run_agent(agent: str, text: str, lang: str, uid: str, echo=print, *, prompt
             seen_note = ckpt or seen_note
             echo(f"  … {int((time.monotonic() - start) // 60)} min on {uid}, {agent} still working{extra}")
 
+    asked: dict = {}
+    reported = False
+
+    def watch() -> None:
+        from .harness.scheduler import cancel_file
+        while not stop.wait(WATCH):
+            to = (handoff.read(watched, uid) or {}).get("to")
+            if to not in ("you", "stop"):
+                to = "cancel" if cancel_file(watched).exists() else None
+            if to:
+                asked["to"] = to
+                _end_agent(p)
+                return
+
     tail: list[str] = []
     try:
         p = subprocess.Popen(cmd, cwd=str(inv.cwd), stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                              stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace", bufsize=1,
-                             env=inv.env)
+                             env=inv.env, **({"start_new_session": True} if watched and not IS_WIN else {}))
     except OSError as e:
         return subprocess.CompletedProcess(cmd, 127, str(e), "")
     if on_start:
         on_start(p)
+    if sid:
+        emit("session", unit=uid, runner=agent, id=sid)
     threading.Thread(target=heartbeat, daemon=True).start()
+    watcher = threading.Thread(target=watch, daemon=True) if watched else None
+    if watcher:
+        watcher.start()
     try:
         for line in p.stdout:
             events = runner.parse(line.rstrip("\n"))
             for ev in events:
                 extra = {"model": model} if ev["type"] == "usage" and model else {}
                 emit(ev["type"], unit=uid, runner=agent, **extra, **{k: v for k, v in ev.items() if k != "type"})
+                if ev["type"] == "session":
+                    sid = ev["id"]
+                reported = reported or ev["type"] == "usage"
             shown, err = _show(events)
             for s in shown:
                 echo(f"  {s}")
@@ -828,9 +879,35 @@ def _run_agent(agent: str, text: str, lang: str, uid: str, echo=print, *, prompt
     finally:
         stop.set()
         if p.poll() is None:
-            p.kill()
+            _end_agent(p) if watched else p.kill()
+        if watcher:
+            watcher.join(END_GRACE + 1)
+            if asked.get("to") in ("you", "stop"):
+                handoff.clear(watched, uid)
+        if sid and not reported and getattr(runner, "own_session", False):
+            for ev in ledger.unreported(sid, begun):        # ended before its result, the one place Claude says it
+                emit(ev["type"], unit=uid, runner=agent, **{k: v for k, v in ev.items() if k != "type"})
     echo(f"  ({int((time.monotonic() - start) // 60)} min)")
-    return subprocess.CompletedProcess(cmd, rc, "\n".join(tail), "")
+    r = subprocess.CompletedProcess(cmd, rc, "\n".join(tail), "")
+    r.session, r.handoff = sid, asked.get("to")
+    return r
+
+
+@contextlib.contextmanager
+def _term_unwinds():
+    """A job of the server is stopped by SIGTERM to its process group, and a closed terminal hangs up the run in it,
+    neither of which reaches the agent any more: as an exception each ends the agent on the way out, and the log says the
+    run ended. A run started to outlive its terminal (nohup) keeps ignoring the hang-up."""
+    old = {}
+    if threading.current_thread() is threading.main_thread() and not IS_WIN:
+        for sig in (signal.SIGTERM, signal.SIGHUP):
+            if signal.getsignal(sig) != signal.SIG_IGN:
+                old[sig] = signal.signal(sig, lambda n, _: sys.exit(128 + n))
+    try:
+        yield
+    finally:
+        for sig, handler in old.items():
+            signal.signal(sig, handler)
 
 
 def run_autopilot(lang: str = "es", max_units: int | None = None, poll_seconds: int = 900,
@@ -853,7 +930,8 @@ def run_autopilot(lang: str = "es", max_units: int | None = None, poll_seconds: 
                        "started.", echo)
         return 0
     try:
-        return _recorded_autopilot(agents, lang, max_units, poll_seconds, include_interviews, echo)
+        with _term_unwinds():
+            return _recorded_autopilot(agents, lang, max_units, poll_seconds, include_interviews, echo)
     finally:
         lock.release()
 
@@ -870,41 +948,112 @@ def _recorded_autopilot(agents, lang, max_units, poll_seconds, include_interview
             kpis.record_run(run_id)
             ledger.harvest()
             raise
-        _emit("run.finished", done=done)
+        from .harness.scheduler import cancel_file
+        _emit("run.finished", done=done, **({"interrupted": True, "cancelled": True} if cancel_file(run_id).exists() else {}))
     kpis.record_run(run_id)
     ledger.harvest()
     return done
 
 
+def _resume_prompt(uid: str, lang: str) -> str:
+    """What the agent reads when the person hands its conversation back to the run."""
+    cli = cli_cmd()
+    if lang == "en":
+        return (f"The person has just corrected you in this same conversation. Carry on with unit {uid} from where it "
+                f"stands, with their corrections in mind, and close it as its instructions say: `{cli} plan done {uid} "
+                f'--note "<one line>"` (or `plan block`).\nThis is an unattended run again: never ask questions; append '
+                "them to docs/interview/open-questions.md.")
+    return (f"La persona acaba de corregirte en esta misma conversación. Sigue con la unidad {uid} desde donde está, "
+            f"teniendo en cuenta sus correcciones, y ciérrala como dicen sus instrucciones: `{cli} plan done {uid} "
+            f'--note "<una línea>"` (o `plan block`).\nVuelve a ser una ejecución desatendida: no hagas preguntas; '
+            "añádelas a docs/interview/open-questions.md.")
+
+
+def _limit_wait(seconds: int, run_id: str) -> None:
+    """A usage limit's wait, cut short by a cancel or a unit handed back (which may go to an agent that has no limit)."""
+    from .harness.scheduler import cancel_file
+    for _ in range(math.ceil(seconds / WAIT_TAKEN)):
+        time.sleep(WAIT_TAKEN)
+        if cancel_file(run_id).exists() or any(r.get("to") == "pilot" and not r.get("closing")
+                                               for r in handoff.pending(run_id).values()):
+            return
+
+
 def _autopilot(agents: list[str], lang: str, max_units: int | None, poll_seconds: int, include_interviews: bool,
                echo) -> int:
+    from .harness.scheduler import cancel_file
     log = lambda t: _autopilot_log(t, echo)                                    # noqa: E731
+    run_id = _RUN.get()[1]
     # team interviews only consolidate written answers: nothing to ask, so they can run unattended
     skip = set() if include_interviews or docs.interview_mode() == "team" else INTERVIEW_TYPES
     limited: dict[str, dt.datetime] = {}
     noted: set[str] = set()
+    held: set[str] = set()                     # with the person at some point of this run: closed unfinished, they are paused
+    stopped: set[str] = set()                  # stopped by the person: left out for the rest of this run
+    opening: dict[str, float] = {}             # handed, since when: the server opens its terminal right after the event
+    adopted: dict[str, dict] = {}              # handed back: first in the queue, on their conversation
+    told: list[str] | None = None              # what the last unit.waiting named
 
     def log_once(text: str) -> None:           # routing notes once per run, not once per unit
         if text not in noted:
             noted.add(text)
             log(text)
+
+    def requests(ready: list[dict]) -> list[str]:
+        """Acts on the person's requests; the units a terminal is opening or closing on right now, the person's still. A
+        request the agent ended before is honoured here. One that is old has lost its server, so it holds nothing."""
+        moving = []
+        for uid, req in handoff.pending(run_id).items():
+            to, fresh = req.get("to"), time.time() - float(req.get("at") or 0) < sessions.GRACE
+            if to == "stop":
+                handoff.clear(run_id, uid)
+                stopped.add(uid)
+            elif to == "you" or (to == "pilot" and req.get("closing") and fresh):
+                if fresh:
+                    moving.append(uid)
+                else:
+                    handoff.clear(run_id, uid)
+            elif to == "pilot" and not sessions.live(sessions.load(uid)):
+                handoff.clear(run_id, uid)
+                if uid in {u["id"] for u in ready}:
+                    adopted[uid] = req
+                    held.discard(uid)
+                    stopped.discard(uid)
+                    opening.pop(uid, None)
+        return moving
     done = 0
     for problem in pipeline_problems():
         log(f"pipeline.yaml: {problem} — the plan is used as it was")
     log(f"Autopilot started with {', '.join(agents)}" + (f" (max {max_units} units)" if max_units else ""))
     while max_units is None or done < max_units:
+        if cancel_file(run_id).exists():
+            log("Autopilot stopped: cancelled.")
+            return done
         data = sync()
         ready = available(data)
-        queue = [u for u in ready if u["runner"] == "agent" and u["type"] not in skip]
+        moving = requests(ready)
+        queue = [u for u in ready if u["runner"] == "agent" and (u["type"] not in skip or u["id"] in adopted)]
         taken = sessions.taken(queue)
-        queue = [u for u in queue if u["id"] not in taken]
+        taken += [u["id"] for u in queue if u["id"] not in taken and (u["id"] in moving or (
+            u["id"] in opening and time.monotonic() - opening[u["id"]] < sessions.GRACE))]
+        held.update(taken)
+        paused = [u["id"] for u in queue if u["id"] in held and u["id"] not in taken]
+        queue = sorted((u for u in queue if u["id"] not in {*taken, *paused, *stopped}), key=lambda u: u["id"] not in adopted)
         if not queue:
+            if taken:
+                if told != taken:
+                    told = taken
+                    _emit("unit.waiting", units=taken)
+                    log(f"Waiting for you: {', '.join(taken)} (the run goes on when it is closed or handed back)")
+                time.sleep(WAIT_TAKEN)
+                continue
             wizard = [u["id"] for u in ready if u["runner"] == "wizard"]
             interviews = [u["id"] for u in ready if u["type"] in skip]
-            if wizard or interviews or taken:
+            left = [u["id"] for u in ready if u["id"] in stopped]
+            if wizard or interviews or paused or left:
                 why = ([f"wizard step(s) {', '.join(wizard)} (run `{cli_cmd()}`)"] if wizard else []) + \
                       ([f"interview(s) {', '.join(interviews)} (need you, in an interactive session)"] if interviews else []) + \
-                      ([f"{', '.join(taken)} open in a session (finish them there)"] if taken else [])
+                      [f"{uid} paused" for uid in paused] + [f"{uid} stopped" for uid in left]
                 log(f"Autopilot stopped: what is left needs you — {'; '.join(why)}. Then start autopilot again.")
             else:
                 d, t = progress(data)
@@ -912,8 +1061,12 @@ def _autopilot(agents: list[str], lang: str, max_units: int | None, poll_seconds
                     "(finished, or waiting on blocked units / docs/interview/open-questions.md).")
             return done
         u = queue[0]
+        back = adopted.get(u["id"])
+        resume = back.get("session") if back else None
         s = settings(u["id"])
         targets = _agents(log_once, s["tier"], s.get("runner"), bool(s.get("allow_local")))
+        if resume and back.get("agent"):       # a conversation only goes on with the agent that has it
+            targets = [a for a in targets if routing.parse(a).runner == back["agent"]] or [back["agent"]]
         if not targets:
             log(f"Autopilot stopped: no installed agent can run {u['id']} ({s.get('runner') or s['tier']}).")
             return done
@@ -923,18 +1076,45 @@ def _autopilot(agents: list[str], lang: str, max_units: int | None, poll_seconds
             wait = max(60, min(poll_seconds, int((soonest - dt.datetime.now()).total_seconds())))
             log(f"All agents are at their usage limit — retrying in {wait // 60} min "
                 f"(machine must stay on; Ctrl+C to stop, progress is saved).")
-            time.sleep(wait)
+            _limit_wait(wait, run_id)
             continue
         agent = free[0]
-        log(f"{agent} → {u['id']}: {u['title']}")
-        _emit("unit.started", unit=u["id"], runner=agent)
+        log(f"{agent} → {u['id']}: {u['title']}" + (" (handed back)" if back else ""))
+        _emit("unit.started", unit=u["id"], runner=agent, **({"resume": resume} if resume else {}))
+        told = None
         started = time.monotonic()
-        r = _run_agent(agent, prompt(u["id"], lang=lang, unattended=True), lang, u["id"], echo)
+        if resume:
+            r = _run_agent(agent, _resume_prompt(u["id"], lang), lang, u["id"], echo, session=resume)
+        else:
+            r = _run_agent(agent, prompt(u["id"], lang=lang, unattended=True), lang, u["id"], echo)
         output = f"{r.stdout or ''}\n{r.stderr or ''}"
-        outcome = _runner(agent)[0].classify(r.returncode, output)
+        to = getattr(r, "handoff", None)
         status = get(load(), u["id"])["status"]
-        _emit("unit.finished", unit=u["id"], runner=agent, outcome=outcome, rc=r.returncode, status=status,
-              seconds=round(time.monotonic() - started, 1))
+        seconds = round(time.monotonic() - started, 1)
+        if to and status != "done":            # a unit its agent closed just as the request came ended on its own
+            adopted.pop(u["id"], None)
+            if to == "you":
+                sid = getattr(r, "session", None)
+                _emit("unit.finished", unit=u["id"], runner=agent, outcome="handed", rc=r.returncode, status=status,
+                      seconds=seconds, **({"session": sid} if sid else {}))
+                held.add(u["id"])
+                opening[u["id"]] = time.monotonic()
+                log(f"{u['id']} is with you now: the run goes on without it")
+                continue
+            if status == "doing":
+                set_status(u["id"], "todo", record=False)
+            _emit("unit.finished", unit=u["id"], runner=agent, outcome="cancelled", rc=r.returncode,
+                  status="todo" if status == "doing" else status, seconds=seconds, **({"stopped": True} if to == "stop" else {}))
+            if to == "cancel":
+                log("Autopilot stopped: cancelled.")
+                return done
+            stopped.add(u["id"])
+            log(f"{u['id']} stopped: it goes back to the queue, left out of this run")
+            continue
+        outcome = "ok" if to else _runner(agent)[0].classify(r.returncode, output)
+        _emit("unit.finished", unit=u["id"], runner=agent, outcome=outcome, rc=r.returncode, status=status, seconds=seconds)
+        if outcome != "limited":
+            adopted.pop(u["id"], None)
         if outcome == "ok":
             log(f"{agent} finished {u['id']} (status: {status})")
             if status in ("todo", "doing"):

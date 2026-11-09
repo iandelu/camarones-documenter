@@ -10,13 +10,14 @@ Outcome = Literal["ok", "limited", "retry", "failed"]
 
 @dataclass(frozen=True)
 class RunRequest:
-    prompt: str                    # one line: multi-line args do not survive Windows .cmd shims, so point to a file
+    prompt: str                    # one line: multi-line args do not survive Windows .cmd shims, so point to a file;
+                                   # empty on an interactive session: the person speaks first
     cwd: Path
     env: dict = field(default_factory=dict)
     model: str | None = None
     interactive: bool = False      # a terminal session for a person, instead of a headless run
-    resume: bool = False           # interactive only: reopen the agent's last conversation in cwd
-    session: str | None = None     # interactive only: the conversation's own id (new: start it; resume: reopen that one)
+    resume: bool = False           # reopen `session`, or (interactive, none given) the agent's last conversation in cwd
+    session: str | None = None     # the conversation's own id (new: start it; resume: reopen that one)
     allow_tools: tuple[str, ...] | None = None   # headless, edits allowed but tools limited; None = unattended, full access
     stream: bool = False           # tool-limited runs: emit the JSON event stream too (usage, tool calls)
 
@@ -30,8 +31,9 @@ class Invocation:
 
 class Runner(Protocol):
     """An agent CLI. `build` is pure so each adapter's argv can be pinned by tests; `parse` maps one line of the
-    agent's output to normalised events: log, tool.call, file.changed, usage, result, error. Usage events add up:
-    a run's cost is the sum of its usage events."""
+    agent's output to normalised events: log, tool.call, file.changed, usage, result, error, session. Usage events add
+    up: a run's cost is the sum of its usage events. A session event says the conversation's id, for an agent that
+    cannot be given one; a runner with neither has no conversation to resume."""
     id: str
     label: str
 

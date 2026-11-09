@@ -378,6 +378,9 @@ a.dk-stat-n:hover { color: var(--color-acento-texto); }
 .dk-term-meta { display: inline-flex; gap: .5rem; flex: none; white-space: nowrap; }
 .dk-term-head .dk-icon { width: 1.5rem; height: 1.5rem; }
 .dk-term-body { position: relative; display: flex; flex: 1; min-height: 0; }
+.dk-term-foot { display: flex; align-items: center; justify-content: flex-end; gap: .25rem; flex: none; padding: .2rem .3rem;
+  border-top: 1px solid var(--color-rule); }
+.dk-term-note { min-width: 0; padding-left: .3rem; color: var(--color-ink-dim); font-size: var(--text-micro); }
 .dk-term-log { flex: 1; min-width: 0; padding: .5rem .6rem; overflow: auto; background: var(--color-ink); color: var(--color-canvas);
                font: var(--text-micro)/1.5 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
 /* A terminal with you (sections/Terms.jsx): the body is the slot its xterm screen moves into, dark like the log, and

@@ -136,7 +136,7 @@ La API sirve al portal y a la app; no es una interfaz pública estable (esa es l
 | Plan | `GET pipeline?lang`, `runs/<id>`, `runs/<id>/events` (eventos enviados por el servidor), `plan/cost`, `interview`, `sync`; `POST units/approve`, `units/retry`, `interview/answer`, `sync/share` |
 | Calidad | `GET health`, `kpis`, `inventory`, `schemas`, `ci`; `POST kpis/miss` |
 | Trabajo en la máquina (token de la app) | `POST runs`, `runs/<id>/cancel`, `wiki`, `build`, `inventory`, `schemas`, `ci`, `ask/answer`, `plan/cost` |
-| La app (token de la app) | `GET app/info`, `catalog`, `summary`, `machine`, `guide`, `creds`, `agents`, `terminals`, `terminals/stream` (eventos enviados por el servidor), `doctor`, `kitdev`, `onboard/*`, `jobs/<id>/events`; `POST app/cmd`, `terminals` (una sesión, en el lienzo o en una ventana; su nombre antiguo, `agent`, sigue valiendo), `terminals/<id>/input`, `terminals/<id>/resize`, `terminals/<id>/close`, `creds`, `doctor`, `kitdev`, `onboard/*`, `jobs/<id>/cancel` |
+| La app (token de la app) | `GET app/info`, `catalog`, `summary`, `machine`, `guide`, `creds`, `agents`, `terminals`, `terminals/stream` (eventos enviados por el servidor), `doctor`, `kitdev`, `onboard/*`, `jobs/<id>/events`; `POST app/cmd`, `terminals` (una sesión, en el lienzo o en una ventana; su nombre antiguo, `agent`, sigue valiendo), `terminals/<id>/input`, `terminals/<id>/resize`, `terminals/<id>/close`, `units/<id>/takeover`, `units/<id>/handback`, `units/<id>/stop`, `creds`, `doctor`, `kitdev`, `onboard/*`, `jobs/<id>/cancel` |
 
 El trabajo largo es un **trabajo**: `GET jobs` los lista y `GET jobs/<id>?since=n` lee sus líneas desde la `n`.
 
@@ -173,16 +173,37 @@ tocar y añade una unidad `integrate:<unidad>`. Las demás unidades van de una e
 que se haya fusionado lo que necesita. `camaron autopilot` hace las unidades una tras otra sin worktrees. Mientras
 cualquiera de los dos corre, la máquina no se suspende, y una sesión cortada por algo pasajero (suspensión, red, una API
 saturada) vuelve una vez a la cola. Ninguno de los dos empieza una unidad cuya sesión tiene abierta la app (en el
-lienzo o en una ventana); si solo quedan de esas, se para y las nombra. Una ejecución parada desde fuera (su trabajo
-parado, su proceso terminado) no puede apuntar su final: en cuanto el cerrojo de las ejecuciones queda libre o
-caducado, `GET pipeline` la da por `finished` e `interrupted`, y su flujo `runs/<id>/events` acaba tras su último
-evento.
+lienzo o en una ventana); si solo quedan de esas, `run` se para y las nombra y `autopilot` espera. Una ejecución parada
+desde fuera (su proceso terminado, o en Windows su trabajo parado) no puede apuntar su final: en cuanto el cerrojo de las
+ejecuciones queda libre o caducado, `GET pipeline` la da por `finished` e `interrupted`, y su flujo `runs/<id>/events`
+acaba tras su último evento. Un piloto automático parado en macOS o Linux (el SIGTERM de su trabajo, o el cuelgue de una terminal
+cerrada, salvo que corra con `nohup`) termina su agente y apunta su final él mismo.
+
+**Pasar una unidad de mano.** Cada sesión del piloto automático tiene una conversación conocida: a Claude Code se le da un
+id (`--session-id`, uno nuevo por intento), Codex dice el suyo (`thread.started`), y `_run_agent` lo apunta como un evento
+`session`; los demás agentes no tienen. La ejecución puede ser otro proceso que el servidor del proyecto, así que hablan
+por un fichero, `runs/<run>/handoff/<unidad>.json`, como hace `runs/<run>/cancel` (que el piloto ahora también atiende).
+`POST app/units/<id>/takeover` escribe `{"to": "you"}` y espera hasta 10 s la respuesta de la ejecución en su registro; un
+vigilante junto al agente (dos veces por segundo) termina el grupo de procesos del agente y el piloto apunta
+`unit.finished` con `outcome: "handed"`, que no es un fallo ni una unidad hecha. El servidor abre entonces una terminal con
+`--resume <id>` (`codex resume <id>`) en la misma carpeta, sin prompt, y escribe `since` en el registro de sesión de la
+unidad. Con el cerrojo de las ejecuciones libre, la ejecución está muerta, y el servidor abre la última conversación de su
+registro sin preguntar. `handback` escribe `{"to": "pilot", "session": …, "agent": …, "closing": true}`, cierra la terminal, espera a que se vaya
+su grupo de procesos y lo escribe otra vez sin `closing`: el piloto, que entretanto retiene la unidad, la pone la primera y la retoma desatendida (`unit.started` con `resume`), con el agente que tiene su conversación.
+`stop` escribe `{"to": "stop"}`: `outcome: "cancelled"`, la unidad de vuelta a `todo` y fuera de esta ejecución. Una unidad
+con una sesión viva nunca es de la ejecución; si solo quedan de esas, el piloto apunta `unit.waiting` y vuelve a mirar cada
+5 s. Una unidad pasada de mano que se cierra sin acabar queda en pausa y la ejecución no la coge: se para y la nombra si no
+hay nada más listo. Un rechazo es un 409 con su `code` (`no-run`, `parallel`, `no-answer`, `finished`, `no-terminal`), su
+terminal o el límite; abrir una sesión en una unidad que tiene el agente de una ejecución es un 409 con `at-work`. El planificador en paralelo aún no mira estos ficheros, así que una ejecución en paralelo rechaza.
 
 **Lo que costó.** Cada ejecución escribe `.camarones/.cache/runs/<run>/events.jsonl` (`camaron runs`). Cada máquina
 suma su parte —ejecuciones, wikis que escribió un agente y las sesiones interactivas leídas del historial de Claude
 Code— en `docs/.work/kpis/<persona-máquina>.json`, que `share` lleva al equipo. `camaron plan cost` y `camaron kpis` lo
 suman; los dólares son el equivalente de la API (la cifra del propio agente, o si no tokens × `lib/pricing.yaml`, que
-`pricing:` en `workspace.yaml` puede cambiar).
+`pricing:` en `workspace.yaml` puede cambiar). Una conversación en la que también escribió una ejecución ya está en la
+cuenta de esa ejecución por sus eventos `usage` (de una sesión de Claude terminada antes de su resultado, la ejecución los
+lee de su transcripción), así que un registro de sesión solo cuenta los tramos de la persona: de `since` a su `ended`, con
+los anteriores guardados en `spans`. Un registro sin ninguno de los dos, todos los de un kit anterior, cuenta entero.
 
 <!-- go:plan -->
 

@@ -188,7 +188,7 @@ tabla. `#/libs/<repo>` la abre para un solo repo.
 ## Plan
 
 **Pipeline** (`#/pipeline`, en vivo): el plan como **Grafo** (las unidades por fase, con sus dependencias) o como
-**Tablero** (por hacer, en curso, bloqueada, hecha, descartada). El panel de una unidad: su agente, resultado, tiempo,
+**Tablero** (por hacer, en curso, bloqueada, hecha, descartada). El panel de una unidad: su agente, resultado («contigo» si se tomó del piloto automático), tiempo,
 tokens y coste, si trabajó en su propia copia, a qué espera, sus notas y el registro en vivo del agente. **Aprobar**
 deja empezar a las unidades que van detrás de una que espera a una persona; **Reintentar** devuelve a la cola una
 bloqueada. Ejecutar y cancelar son cosa de la app (Plan). Una ejecución parada desde fuera (su trabajo parado, su

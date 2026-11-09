@@ -47,20 +47,45 @@ def _save(uid: str, rec: dict) -> Path:
     return f
 
 
-def start(uid: str, agent: str, session: str | None) -> Path:
+def start(uid: str, agent: str, session: str | None, since: float | None = None) -> Path:
     """A fresh record for a window about to open; the wrapper fills in its pid. A Claude conversation it replaces is
-    kept in `previous`, so the plan bill still counts it."""
+    kept in `previous`, so the plan bill still counts it.
+
+    `since`: a run wrote to this conversation too, on the run's own bill, so this record only counts it from then to
+    its `ended`. Earlier such stretches stay in `spans` by conversation, and reopening one of those is another stretch."""
     old = load(uid) or {}
     previous = [s for s in old.get("previous") or [] if s]
     if old.get("agent") == "claude" and old.get("session") and old["session"] != session \
             and old["session"] not in previous:
         previous.append(old["session"])
+    spans = dict(old.get("spans") or {})
+    if old.get("session") and old.get("since") is not None:
+        spans[old["session"]] = [*spans.get(old["session"], []), [old["since"], old.get("ended") or time.time()]]
+    if since is None and session in spans:
+        since = time.time()
     return _save(uid, {"unit": uid, "agent": agent, "session": session, "launched": time.time(),
-                       **({"previous": previous} if previous else {})})
+                       **({"previous": previous} if previous else {}), **({"spans": spans} if spans else {}),
+                       **({"since": since} if since is not None else {})})
 
 
 def update(uid: str, **fields) -> None:
     _save(uid, {**(load(uid) or {}), **fields})
+
+
+def windows(rec: dict, sid: str) -> list | None:
+    """The person's stretches of conversation `sid` ([from, to] in epoch seconds, `to` None while it is open); None: it
+    is all theirs, as in every record of a kit before takeovers."""
+    closed = (rec.get("spans") or {}).get(sid) or []
+    if sid == rec.get("session") and rec.get("since") is not None:
+        return [*closed, [rec["since"], rec.get("ended")]]
+    return closed or None
+
+
+def bound(uid: str) -> None:
+    """A run takes over a session that was all the person's: from where it ended, the conversation is on the run's bill."""
+    rec = load(uid)
+    if rec and rec.get("session") and rec.get("since") is None:
+        update(uid, since=0.0, ended=rec.get("ended") or time.time())
 
 
 def wrap(record: Path | None, cmd: list[str]) -> list[str]:
@@ -175,8 +200,8 @@ def headless(busy: bool | None = None) -> set[str]:
     evs = runs.events(latest[0])
     if any(e["type"] == "run.finished" for e in evs):
         return set()
-    return {e.get("unit") for e in evs if e["type"] == "unit.started"} - \
-        {e.get("unit") for e in evs if e["type"] == "unit.finished"}
+    last = {e.get("unit"): e["type"] for e in evs if e["type"] in ("unit.started", "unit.finished")}
+    return {uid for uid, kind in last.items() if kind == "unit.started"}     # a unit can start again: handed back, a limit
 
 
 def board(u: dict, busy: set[str]) -> dict:

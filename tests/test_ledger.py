@@ -61,7 +61,7 @@ def test_an_unchanged_transcript_is_neither_read_nor_written(kit, ledger, monkey
     f = kpis_files(kit)[0]
     before = f.stat().st_mtime_ns
     from lib.harness import transcripts
-    monkeypatch.setattr(transcripts, "read", lambda p: pytest.fail("read again"))
+    monkeypatch.setattr(transcripts, "read", lambda *_: pytest.fail("read again"))
     time.sleep(0.05)
     assert ledger.harvest() == 0 and f.stat().st_mtime_ns == before
 
@@ -336,10 +336,10 @@ def test_a_session_that_cannot_be_read_is_skipped_with_a_note(priced, ledger, mo
     from lib.harness import transcripts
     real = transcripts.read
 
-    def read(p):
+    def read(p, windows=None):
         if "s-1" in str(p):
             raise ValueError("not a transcript")
-        return real(p)
+        return real(p, windows)
     monkeypatch.setattr(transcripts, "read", read)
     b = ledger.bill()
     assert set(units_by_id(b)) == {"data"} and any("s-1" in n for n in b["notes"])
@@ -363,3 +363,129 @@ def test_a_claude_session_without_an_id_or_launch_time_is_named(priced, ledger):
     rec.pop("launched")                            # and a record that says nothing of when it opened
     sessions._save("domain", rec)
     assert {"unit": "domain", "why": "session-id-unknown"} in ledger.bill()["unmeasured"]
+
+
+# ---------- a conversation a run also wrote to: only the person's stretches ----------
+H0, H1, H2, H3 = (f"2026-10-27T1{h}:00:00.000Z" for h in (1, 2, 3, 4))
+
+
+def at(ts):
+    import datetime as dt
+    return dt.datetime.fromisoformat(ts.replace("Z", "+00:00")).timestamp()
+
+
+def out_tokens(kit, sid="s-1"):
+    entry = rollup(kit)["sessions"][sid]
+    return sum(m["out"] for m in entry["models"].values())
+
+
+def test_a_taken_session_is_counted_from_the_handoff_on(kit, ledger):
+    from lib import sessions
+    sessions.start("domain", "claude", "s-1", since=at(H1))
+    transcript(kit, "s-1", [a("m1", "x", H0, output_tokens=7), a("m2", "x", H2, output_tokens=5)])
+    assert ledger.harvest() == 1
+    assert out_tokens(kit) == 5 and rollup(kit)["sessions"]["s-1"]["started"] == H2
+
+
+def test_what_the_run_wrote_after_the_hand_back_is_on_the_runs_bill(kit, ledger):
+    from lib import sessions
+    sessions.start("domain", "claude", "s-1", since=at(H0))
+    sessions.update("domain", ended=at(H2))
+    transcript(kit, "s-1", [a("m1", "x", H1, output_tokens=5), a("m2", "x", H3, output_tokens=3)])
+    ledger.harvest()
+    assert out_tokens(kit) == 5
+
+
+def test_taking_it_again_keeps_both_stretches(kit, ledger):
+    from lib import sessions
+    sessions.start("domain", "claude", "s-1", since=at(H0))
+    sessions.update("domain", ended=at(H1))
+    sessions.start("domain", "claude", "s-1", since=at(H2))
+    rec = sessions.load("domain")
+    assert sessions.windows(rec, "s-1") == [[at(H0), at(H1)], [at(H2), None]]
+    transcript(kit, "s-1", [a("m1", "x", H0, output_tokens=1),
+                            a("m2", "x", "2026-10-27T12:30:00.000Z", output_tokens=20),   # the run's, between them
+                            a("m3", "x", H3, output_tokens=4)])
+    ledger.harvest()
+    assert out_tokens(kit) == 5
+
+
+def test_reopening_a_conversation_a_run_wrote_to_counts_from_then_on(kit):
+    from lib import sessions
+    sessions.start("domain", "claude", "s-1", since=at(H0))
+    sessions.update("domain", ended=at(H1))
+    before = time.time()
+    sessions.start("domain", "claude", "s-1")                   # Continue, by hand
+    rec = sessions.load("domain")
+    assert rec["since"] >= before and sessions.windows(rec, "s-1")[0] == [at(H0), at(H1)]
+
+
+def test_a_new_conversation_keeps_the_stretches_of_the_one_it_replaces(kit):
+    from lib import sessions
+    sessions.start("domain", "claude", "s-1", since=at(H0))
+    sessions.update("domain", ended=at(H1))
+    sessions.start("domain", "claude", "s-2")
+    rec = sessions.load("domain")
+    assert rec["previous"] == ["s-1"] and "since" not in rec
+    assert sessions.windows(rec, "s-1") == [[at(H0), at(H1)]] and sessions.windows(rec, "s-2") is None
+
+
+def test_a_record_of_an_older_kit_is_counted_whole(kit, ledger):
+    from lib import sessions
+    sessions.path("domain").parent.mkdir(parents=True, exist_ok=True)
+    sessions.path("domain").write_text(json.dumps({"unit": "domain", "agent": "claude", "session": "s-1", "launched": 1.0,
+                                                   "ended": at(H0)}), encoding="utf-8")
+    assert sessions.windows(sessions.load("domain"), "s-1") is None
+    transcript(kit, "s-1", [a("m1", "x", T0, output_tokens=7), a("m2", "x", H3, output_tokens=5)])
+    ledger.harvest()
+    assert out_tokens(kit) == 12 and "spans" not in rollup(kit)["sessions"]["s-1"]
+
+
+def test_a_stretch_with_nothing_in_it_is_left_out(kit, ledger):
+    from lib import sessions
+    sessions.start("domain", "claude", "s-1", since=at(H3))
+    transcript(kit, "s-1", [a("m1", "x", H0, output_tokens=7)])
+    assert ledger.harvest() == 0
+    assert not kpis_files(kit) or "s-1" not in rollup(kit).get("sessions", {})
+
+
+def test_an_entry_is_read_again_when_its_stretches_change(kit, ledger):
+    from lib import sessions
+    sessions.start("domain", "claude", "s-1", since=at(H0))
+    transcript(kit, "s-1", [a("m1", "x", H1, output_tokens=5), a("m2", "x", H3, output_tokens=3)])
+    ledger.harvest()
+    assert out_tokens(kit) == 8
+    sessions.update("domain", ended=at(H2))                     # the same bytes: only its end is new
+    assert ledger.harvest() == 1
+    assert out_tokens(kit) == 5
+
+
+def test_a_session_left_to_the_pilot_is_bounded_where_it_ended(kit, ledger):
+    from lib import sessions
+    record(kit, "domain", "s-1")
+    sessions.update("domain", ended=at(H1))
+    sessions.bound("domain")
+    assert sessions.windows(sessions.load("domain"), "s-1") == [[0.0, at(H1)]]
+    transcript(kit, "s-1", [a("m1", "x", H0, output_tokens=5), a("m2", "x", H3, output_tokens=3)])
+    ledger.harvest()
+    assert out_tokens(kit) == 5
+
+
+def test_a_stretch_counts_its_subagents_and_its_time_only(kit, ledger):
+    from lib import sessions
+    from lib.harness import transcripts
+    sessions.start("domain", "claude", "s-1", since=at(H1))
+    f = transcript(kit, "s-1", [a("m1", "x", H0), a("m2", "x", H1), a("m3", "x", "2026-10-27T12:01:00.000Z")])
+    subs = f.with_suffix("") / "subagents"
+    subs.mkdir(parents=True)
+    (subs / "one.jsonl").write_text(json.dumps(a("s1", "x", H0, output_tokens=9)) + "\n" +
+                                    json.dumps(a("s2", "x", H2, output_tokens=2)) + "\n", encoding="utf-8", newline="\n")
+    r = transcripts.read(f, sessions.windows(sessions.load("domain"), "s-1"))
+    assert r["models"]["x"]["out"] == 2 and r["active_seconds"] == 60.0 and r["first"] == H1
+
+
+def test_the_time_between_two_stretches_is_not_active_time(kit):
+    from lib.harness import transcripts
+    f = transcript(kit, "s-1", [a("m1", "x", H0), a("m2", "x", H1)])
+    assert transcripts.read(f, [[at(H0), at(H0)], [at(H1), None]])["active_seconds"] == 0
+    assert transcripts.read(f)["active_seconds"] == 300.0

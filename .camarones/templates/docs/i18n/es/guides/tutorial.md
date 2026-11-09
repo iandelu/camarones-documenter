@@ -214,6 +214,11 @@ actualización de la doc va en **Sesiones sueltas**. Las terminales viven en el 
 ventana del proyecto las termina. `camaron config set sessions window` las abre en una ventana de terminal, como hace
 siempre el asistente.
 
+Mientras corre el piloto automático, en el lienzo una unidad en marcha ofrece **Tomar el control**: su agente desatendido
+termina y la misma conversación se abre en el nodo para que lo corrijas, mientras las demás unidades siguen. **Devolver al
+piloto** se la devuelve a la ejecución, que sigue con esa unidad la primera; **Cerrar** la deja en pausa; **Parar** la
+manda a la cola para el resto de la ejecución. Si solo quedan unidades contigo, el piloto te espera.
+
 ### 📋 El tablero
 
 Un Kanban guardado en `cam-docs/backlog/` y versionado con la documentación. Cada tarjeta es un fichero Markdown
@@ -544,8 +549,8 @@ ejecución; `camaron pipeline show` lista las unidades y dónde trabaja cada una
 Las ejecuciones mantienen el ordenador despierto (un portátil que se duerme corta la sesión del agente); una sesión
 cortada por algo pasajero (suspensión, red, API saturada) se reintenta una vez. Por defecto, una sesión por agente: con
 un solo agente instalado, `--per-runner claude=2` le deja hacer más. `run` y el piloto automático dejan en paz una
-unidad cuya sesión tiene abierta la app (en su lienzo o en una ventana); si solo quedan de esas, se paran y las nombran, para que las acabes
-allí.
+unidad cuya sesión tiene abierta la app (en su lienzo o en una ventana). Si solo quedan de esas, `run` se para y las nombra, para
+que las acabes allí, y el piloto te espera hasta que acabes una, la devuelvas o la cierres.
 
 **¿Está funcionando?** `camaron kpis` muestra las ejecuciones del equipo por mes (tiempo, tokens, coste por unidad,
 paralelismo, límites, fallos), la cobertura (repos con ficha, flujos, ficheros C4, errores de `check`), la confianza

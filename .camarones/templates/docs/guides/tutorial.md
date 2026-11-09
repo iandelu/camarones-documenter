@@ -201,6 +201,11 @@ terminal on the Plan's canvas, where you type to it as in any terminal: F6 leave
 sessions**. The terminals live in the project's server, so closing the project's window ends them. `camaron config set
 sessions window` opens them in a terminal window instead, as the wizard always does.
 
+While the autopilot runs, on the canvas a unit at work offers **Take control**: its headless agent ends and the same
+conversation opens in the node for you to correct it, while the other units go on. **Hand back to the pilot** returns it
+to the run, which carries on with that unit first; **Close** leaves it paused; **Stop** sends it back to the queue for the
+rest of the run. With only units with you left, the autopilot waits for you.
+
 ### 📋 The board
 
 A Kanban stored in `cam-docs/backlog/` and versioned with the docs. Each card is a Markdown file compatible with
@@ -521,8 +526,8 @@ what it needs to be merged. A clash blocks the unit, leaves `cam-docs/` untouche
 `autopilot` stays sequential. Runs keep the computer awake (a laptop that sleeps breaks the agent's session); a
 session cut by something passing (sleep, network, an overloaded API) is retried once. One session per agent by default:
 with a single agent installed, `--per-runner claude=2` lets it take more. `run` and the autopilot both leave alone a unit whose
-session the app has open (on its canvas or in a window); when only such units are left they stop and name them, for you to finish
-there.
+session the app has open (on its canvas or in a window). When only such units are left `run` stops and names them, for you to
+finish there, and the autopilot waits until you finish one, hand it back or close it.
 
 **Is it working?** `camaron kpis` shows the team's runs per month (time, tokens, cost per unit, parallelism, limits,
 failures), coverage (repos with a brief, flows, C4 files, `check` errors), trust (confirmed, drafts, re-confirmations,

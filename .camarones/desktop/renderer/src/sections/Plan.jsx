@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { Aviso, Button, Card, Chip, EmptyState, PlanCost, Skeleton, uiText } from '@camaron/ui'
-import { board, canvasNote, openSession, phases, sessionLine, sessionNote, tone, waitsFor } from '../plan.js'
+import { board, canvasNote, openSession, phases, sessionLine, sessionNote, takeNote, takeOver, tone, waitsFor } from '../plan.js'
 import { arrivedLive, defaultView, planLive, runLive } from '../canvas.js'
 import { useAgents, useCmd, useHash, useStore } from '../hooks.js'
 import { termOf } from '../nav.js'
@@ -58,6 +58,8 @@ export default function Plan({ srv, jobs }) {
   // Resolves with the note the canvas shows when the session opened in a window (null when it is on the canvas).
   const onSession = useCallback((unit, mode) => openSession(srv, { unit, agent: a.agent, lang: lang(), mode })
     .then((res) => load().then(() => canvasNote(res, a.label(a.agent)))), [srv, a.agent, a.agents])
+  const onTake = useCallback((unit) => takeOver(srv, unit, { lang: lang() })
+    .then((res) => load().then(() => takeNote(res, a.label(res?.agent)))), [srv, a.agents])
   const onFocused = useCallback(() => setFocus(null), [])
   if (error) return <Page title={t('nav.plan')}><Failed title={t('plan.failed')} detail={error} onRetry={() => { setError(''); load() }} /></Page>
   if (!data) return <Page title={t('nav.plan')}><Skeleton lines={6} /></Page>
@@ -87,7 +89,7 @@ export default function Plan({ srv, jobs }) {
         {shown === 'canvas' ? (
           <Suspense fallback={<Skeleton lines={6} />}>
             <Canvas srv={srv} units={data.units} run={data.run} pilot={pilot} onOpen={setOpen} focus={focus} onFocused={onFocused}
-              onSession={onSession} canStart={Boolean(a.agent)} noAgent={a.agents?.length === 0} />
+              onSession={onSession} onTake={onTake} canStart={Boolean(a.agent)} noAgent={a.agents?.length === 0} />
           </Suspense>
         ) : shown === 'board' ? (
           <div className="dk-board">{board(data.units).map((c) => (

@@ -4,6 +4,7 @@ from __future__ import annotations
 import base64, json, os, signal, subprocess, sys, threading, time, urllib.error, urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from types import SimpleNamespace
+from urllib.parse import quote
 
 import pytest
 
@@ -13,7 +14,8 @@ from test_terminals import ECHO, until
 TOKEN, PORTAL = "app-tok", "portal-tok"
 ROUTES = [("GET", "/api/app/terminals"), ("GET", "/api/app/terminals/stream"), ("POST", "/api/app/terminals"),
           ("POST", "/api/app/terminals/t-x-1/input"), ("POST", "/api/app/terminals/t-x-1/resize"),
-          ("POST", "/api/app/terminals/t-x-1/close")]
+          ("POST", "/api/app/terminals/t-x-1/close"), ("POST", "/api/app/units/x/takeover"),
+          ("POST", "/api/app/units/x/handback"), ("POST", "/api/app/units/x/stop")]
 
 
 @pytest.fixture
@@ -250,3 +252,90 @@ def test_the_servers_exit_takes_its_terminals_with_it(wired, tmp_path):
         srv.kill()
     until(lambda: not pid_alive(r["terminal"]["pid"]))
     assert sessions.load(uid).get("ended") and not sessions.live(sessions.load(uid))
+
+
+# ---------- a unit taken from the autopilot and handed back ----------
+@pytest.fixture
+def pilot_run(app, wired, monkeypatch):
+    """The autopilot at work on a unit, answering a request for it as the real one does."""
+    from lib.harness import handoff, scheduler
+    from lib.harness.events import EventLog
+    monkeypatch.setattr(scheduler, "busy", lambda: {"pid": 1})
+    uid = ready_agent_unit(wired)["id"]
+    wired.plan.set_status(uid, "doing")
+    log = EventLog(wired.common.CTX.runs / "r-1" / "events.jsonl")
+    log.emit("run.started", run="r-1", agents=["claude"])
+    log.emit("unit.started", run="r-1", unit=uid, runner="claude")
+    log.emit("session", run="r-1", unit=uid, runner="claude", id="s-1")
+    return SimpleNamespace(uid=uid, log=log, h=handoff, route=lambda action: f"{app.url}/api/app/units/{quote(uid, safe='')}/{action}")
+
+
+def answer(p):
+    def go():
+        until(lambda: p.h.read("r-1", p.uid))
+        p.h.clear("r-1", p.uid)
+        p.log.emit("unit.finished", run="r-1", unit=p.uid, runner="claude", outcome="handed", status="doing")
+    threading.Thread(target=go, daemon=True).start()
+
+
+def test_a_unit_is_taken_and_handed_back_over_http(app, pilot_run):
+    from lib import sessions
+    assert ":" in pilot_run.uid                                 # encoded in the address, as the app sends it
+    answer(pilot_run)
+    code, r = call(pilot_run.route("takeover"), {"cols": 100, "rows": 30, "lang": "en"})
+    assert code == 200, r
+    t = r["terminal"]
+    assert (t["unit"], t["session"], t["cols"]) == (pilot_run.uid, "s-1", 100) and not r["fresh"]
+    until(lambda: sessions.running(sessions.load(pilot_run.uid)))
+    code, r = call(pilot_run.route("handback"), {})
+    assert code == 200 and r["terminal"] == t["id"]
+    assert pilot_run.h.read("r-1", pilot_run.uid)["to"] == "pilot"
+
+
+def test_a_unit_with_its_terminal_open_answers_with_it(app, pilot_run):
+    answer(pilot_run)
+    tid = call(pilot_run.route("takeover"), {})[1]["terminal"]["id"]
+    code, r = call(pilot_run.route("takeover"), {})
+    assert code == 409 and r["terminal"] == tid
+
+
+def test_the_refusals_of_a_takeover_say_why(app, pilot_run, monkeypatch):
+    from lib import takeover
+    monkeypatch.setattr(takeover, "ANSWER", 0.1)
+    code, r = call(pilot_run.route("takeover"), {})
+    assert (code, r["code"]) == (409, "no-answer")
+    monkeypatch.setattr(app.t, "MAX_LIVE", 0)
+    code, r = call(pilot_run.route("takeover"), {})
+    assert code == 409 and r["limit"] == 0
+
+
+def test_handing_back_with_no_terminal_is_refused(app, pilot_run):
+    code, r = call(pilot_run.route("handback"), {})
+    assert (code, r["code"]) == (409, "no-terminal")
+
+
+def test_stopping_a_unit_over_http(app, pilot_run):
+    code, r = call(pilot_run.route("stop"), {})
+    assert code == 200 and r["stopping"] == pilot_run.uid
+    assert pilot_run.h.read("r-1", pilot_run.uid)["to"] == "stop"
+
+
+def test_a_bad_size_touches_nothing(app, pilot_run):
+    code, _ = call(pilot_run.route("takeover"), {"cols": 1})
+    assert code == 400 and pilot_run.h.read("r-1", pilot_run.uid) is None
+
+
+@pytest.mark.parametrize("action", ["takeover", "handback", "stop"])
+def test_an_unknown_unit_is_a_404(app, pilot_run, action):
+    code, r = call(f"{app.url}/api/app/units/nope/{action}", {})
+    assert code == 404 and "nope" in r["error"]
+
+
+def test_the_pipeline_says_which_kind_of_run_is_on(app, pilot_run):
+    code, r = call(f"{app.url}/api/pipeline")
+    assert code == 200 and r["run"]["kind"] == "autopilot"
+
+
+def test_a_session_beside_the_agent_at_work_is_refused(app, pilot_run):
+    code, r = call(f"{app.url}/api/app/terminals", {"unit": pilot_run.uid, "agent": "claude", "mode": "continue"})
+    assert (code, r["code"]) == (409, "at-work")

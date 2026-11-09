@@ -5,7 +5,7 @@ import { memo, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { Aviso, Button, Skeleton } from '@camaron/ui'
 import { getJSON, postJSON } from './api.js'
 import { lang, t } from './i18n.js'
-import { apply, changedRun, column, COLUMNS, columns, initial, layout, pipelinePath } from './board.js'
+import { apply, changedRun, column, COLUMNS, columns, initial, layout, outcomeWord, pipelinePath } from './board.js'
 
 // A column's name, and a unit's state in words (doing is the running column).
 const LABEL = { todo: () => t('pipe.todo'), running: () => t('pipe.running'), blocked: () => t('pipe.blocked'),
@@ -129,7 +129,7 @@ function Drawer({ unit, onClose, onChanged }) {
     try { await postJSON(path, { unit: unit.id }); onChanged() } catch (e) { setMessage(e.message) }
   }
   const l = unit.live
-  const rows = [[t('pipe.status'), LABEL[column(unit)]()], [t('pipe.agent'), l.runner], [t('pipe.outcome'), l.outcome],
+  const rows = [[t('pipe.status'), LABEL[column(unit)]()], [t('pipe.agent'), l.runner], [t('pipe.outcome'), outcomeWord(l.outcome, t)],
     [t('pipe.merge'), l.merge], [t('pipe.time'), l.seconds != null ? `${l.seconds} s` : null],
     [t('pipe.where'), unit.isolation === 'worktree' ? t('pipe.ownCopyLong') : 'cam-docs'],
     [t('pipe.tokensIn'), l.tokens_in + l.tokens_cache || null], [t('pipe.tokensOut'), l.tokens_out || null],
