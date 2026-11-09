@@ -175,7 +175,8 @@ passing (sleep, network, an overloaded API) goes back to the queue once. Neither
 open (on the canvas or in a window); when only such units are left, `run` stops and names them and `autopilot` waits. A
 run stopped from outside (its process killed, or on Windows its job stopped) cannot log its end: once the run lock is free
 or stale, `GET pipeline` reports it `finished` and `interrupted`, and its `runs/<id>/events` stream ends after its last
-event. An autopilot job stopped on macOS or Linux gets SIGTERM, ends its agent and logs its end itself.
+event. An autopilot stopped on macOS or Linux (its job's SIGTERM, or the hang-up of a closed terminal,
+unless it runs under `nohup`) ends its agent and logs its end itself.
 
 **Handing a unit over.** Every session of the autopilot has a known conversation: Claude Code is given an id
 (`--session-id`, a new one per attempt), Codex says its own (`thread.started`), and `_run_agent` logs it as a `session`
@@ -185,8 +186,8 @@ writes `{"to": "you"}` and waits up to 10 s for the run's answer in its log; a w
 ends the agent's process group and the autopilot logs `unit.finished` with `outcome: "handed"`, neither a failure nor a
 unit done. The server then opens a terminal on `--resume <id>` (`codex resume <id>`) in the same folder, with no prompt,
 and writes `since` into the unit's session record. With the run lock free the run is dead, and the server opens the last
-conversation in its log without asking. `handback` closes the terminal and writes `{"to": "pilot", "session": …,
-"agent": …}`: the autopilot puts that unit first and resumes it headless (`unit.started` with `resume`), on the agent that
+conversation in its log without asking. `handback` writes `{"to": "pilot", "session": …, "agent": …, "closing": true}`, closes the terminal, waits for its
+process group to go and writes it again without `closing`: the autopilot, which holds the unit meanwhile, puts it first and resumes it headless (`unit.started` with `resume`), on the agent that
 has its conversation. `stop` writes `{"to": "stop"}`: `outcome: "cancelled"`, the unit back to `todo` and left out of this
 run. A unit with a live session is never the run's; with only those left the autopilot logs `unit.waiting` and looks again
 every 5 s. A unit handed over that is closed unfinished is paused, and the run does not pick it up: it stops naming it
@@ -197,9 +198,10 @@ when nothing else is ready. A refusal is a 409 with its `code` (`no-run`, `paral
 share — runs, wikis written by an agent and the interactive sessions read from Claude Code's transcripts — to
 `docs/.work/kpis/<person-machine>.json`, which `share` brings to the team. `camaron plan cost` and `camaron kpis` add
 them up; dollars are the API equivalent (the agent's own figure, else tokens × `lib/pricing.yaml`, which `pricing:` in
-`workspace.yaml` can override). A conversation a run also wrote to is on the run's bill through its `usage` events, so a
-session record counts only the person's stretches of it: from `since` to its `ended`, earlier ones kept in `spans`. A
-record with neither, every one from an older kit, is counted whole.
+`workspace.yaml` can override). A conversation a run also wrote to is on the run's bill through its `usage` events (for a
+Claude session ended before its result, the run reads them from its transcript), so a session record counts only the
+person's stretches of it: from `since` to its `ended`, earlier ones kept in `spans`. A record with neither, every one
+from an older kit, is counted whole.
 
 <!-- go:plan -->
 

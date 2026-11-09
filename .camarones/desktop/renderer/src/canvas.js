@@ -115,6 +115,12 @@ export function openUnits(units, f, viewed, now, ptys = new Set()) {
   return open
 }
 
+// The units whose node is their terminal (`terms`, by unit): one that ended gives way to a run's agent at work on the unit.
+export function withYou(terms, f) {
+  const atWork = (id) => f?.units[id]?.ended === null && !f.finished
+  return new Set([...terms].filter(([id, term]) => term.ended == null || !atWork(id)).map(([id]) => id))
+}
+
 export const LANE = { id: 'lane:loose', h: 24 }
 
 // Phases left to right, each column as wide as its widest node; a node's size is the only thing that moves the rest.

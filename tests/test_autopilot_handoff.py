@@ -22,7 +22,7 @@ def pilot(kit, monkeypatch):
     plan = kit.plan
     plan.sync()
     plan.set_status("setup", "done")
-    box = {"calls": [], "script": [], "echo": [], "naps": 0, "on_nap": None}
+    box = {"calls": [], "script": [], "echo": [], "naps": 0, "on_nap": None, "slept": []}
     real_sleep = time.sleep
 
     def run_agent(agent, text, lang, uid, echo, **kw):
@@ -39,6 +39,7 @@ def pilot(kit, monkeypatch):
         if s < plan.WAIT_TAKEN:                                 # the time module's, shared: a lock or a retry elsewhere
             return real_sleep(s)
         box["naps"] += 1
+        box["slept"].append(s)
         if box["on_nap"]:
             box["on_nap"](box["naps"])
         else:
@@ -362,3 +363,148 @@ def test_the_resume_prompt_is_in_the_runs_language_and_names_the_unit(kit):
     assert "discovery:api" in es and "discovery:api" in en and es != en
     assert "plan done discovery:api" in es and "plan done discovery:api" in en
     assert "\n" not in json.dumps(es).replace("\\n", "")
+
+
+def test_a_stopped_unit_left_to_the_pilot_goes_back_in(kit, pilot):
+    from lib.harness import handoff
+    uid = only_one_ready(kit)
+    pilot["script"] = [lambda _u: result(rc=-15, handoff="stop", session="s-1")]
+    real = kit.plan.sync
+    asked = []
+
+    def sync():                                                 # it stopped; then the person opened it and left it to the pilot
+        if pilot["calls"] and not asked:
+            asked.append(True)
+            handoff.request(run_id(kit), uid, "pilot", session="s-1", agent="claude")
+        return real()
+    kit.plan.sync = sync
+    try:
+        assert pilot["run"]() == 1
+    finally:
+        kit.plan.sync = real
+    assert [c.get("session") for c in pilot["calls"]] == [None, "s-1"]
+
+
+def test_a_hand_back_on_its_way_is_no_pause(kit, pilot):
+    """The terminal has ended and the request is not final yet: the run must not take that for a unit closed unfinished."""
+    from lib.harness import handoff
+    uid = only_one_ready(kit)
+    kit.plan.set_status(uid, "doing")
+    pilot["script"] = [lambda _u: handed(uid)]
+
+    def on_nap(n):
+        if n == 1:
+            handoff.request(run_id(kit), uid, "pilot", session="s-1", agent="claude", closing=True)
+            live_session(uid)
+            end_session(uid)
+        if n == 2:
+            assert len(pilot["calls"]) == 1
+            handoff.request(run_id(kit), uid, "pilot", session="s-1", agent="claude")
+    pilot["on_nap"] = on_nap
+    assert pilot["run"]() == 1
+    assert pilot["naps"] == 2 and pilot["calls"][1]["session"] == "s-1"
+    assert not any("paused" in line for line in pilot["echo"])
+
+
+def test_a_hand_back_whose_server_died_closing_is_taken_all_the_same(kit, pilot):
+    from lib.harness import handoff
+    uid = only_one_ready(kit)
+    kit.plan.set_status(uid, "doing")
+    pilot["script"] = [lambda _u: handed(uid)]
+
+    def on_nap(_n):
+        handoff.request(run_id(kit), uid, "pilot", session="s-1", agent="claude", closing=True, at=time.time() - 3600)
+    pilot["on_nap"] = on_nap
+    assert pilot["run"]() == 1
+    assert pilot["calls"][1]["session"] == "s-1"
+
+
+def test_a_take_that_comes_as_the_agent_hits_a_limit_keeps_the_unit_for_the_person(kit, pilot):
+    from lib.harness import handoff
+    uid = only_one_ready(kit)
+    kit.plan.set_status(uid, "doing")
+
+    def limited(_u):
+        handoff.request(run_id(kit), uid, "you")
+        return result(rc=1, output="usage limit reached", session="s-1")
+    pilot["script"] = [limited]
+
+    def on_nap(_n):                                             # the server opens its terminal, then lets the request go
+        live_session(uid)
+        handoff.clear(run_id(kit), uid)
+        kit.plan.set_status(uid, "done")
+    pilot["on_nap"] = on_nap
+    pilot["run"]()
+    assert len(pilot["calls"]) == 1 and pilot["naps"] == 1
+
+
+def test_a_take_whose_server_died_does_not_hold_the_unit(kit, pilot):
+    from lib.harness import handoff
+    uid = only_one_ready(kit)
+    kit.plan.set_status(uid, "doing")
+    pilot["script"] = [lambda _u: (handoff.request(run_id(kit), uid, "you", at=time.time() - 3600),
+                                   result(rc=1, output="usage limit reached", session="s-1"))[1]]
+    assert pilot["run"]() == 1
+    assert len(pilot["calls"]) == 2 and handoff.read(run_id(kit), uid) is None
+
+
+def test_a_stop_that_comes_as_the_agent_ends_is_honoured(kit, pilot):
+    from lib.harness import handoff
+    uid = only_one_ready(kit)
+    pilot["script"] = [lambda _u: (handoff.request(run_id(kit), uid, "stop"), result(rc=1, output="usage limit reached"))[1]]
+    assert pilot["run"]() == 0
+    assert len(pilot["calls"]) == 1 and handoff.read(run_id(kit), uid) is None
+    assert any(f"{uid} stopped" in line for line in pilot["echo"])
+
+
+def test_a_cancel_cuts_a_usage_limits_wait_short(kit, pilot):
+    from lib.harness import scheduler
+    pilot["script"] = [result(rc=1, output="usage limit"), result(rc=1, output="rate limit")]
+    pilot["on_nap"] = lambda _n: scheduler.request_cancel(run_id(kit))
+    assert pilot["run"]() == 0
+    assert pilot["naps"] == 1 and pilot["slept"] == [kit.plan.WAIT_TAKEN]
+    assert any("cancelled" in line for line in pilot["echo"])
+
+
+def test_a_hand_back_cuts_a_usage_limits_wait_short(kit, pilot):
+    from lib.harness import handoff
+    handoff.request("r-1", "a", "pilot", session="s-1", agent="claude")
+    pilot["on_nap"] = lambda _n: None
+    kit.plan._limit_wait(3600, "r-1")
+    assert pilot["naps"] == 1
+
+
+def test_a_usage_limits_wait_runs_its_course_otherwise(kit, pilot):
+    from lib.harness import handoff
+    handoff.request("r-1", "a", "pilot", session="s-1", agent="claude", closing=True)    # not the run's yet
+    pilot["on_nap"] = lambda _n: None
+    kit.plan._limit_wait(3 * kit.plan.WAIT_TAKEN, "r-1")
+    assert pilot["naps"] == 3
+
+
+def test_the_run_says_it_waits_again_after_running_something_else(kit, pilot):
+    ready = [u["id"] for u in kit.plan.available() if u["runner"] == "agent"]
+    a, b = ready[0], ready[1]
+    for u in kit.plan.load()["units"]:
+        if u["id"] not in (a, b):
+            kit.plan.set_status(u["id"], "done", record=False)
+    kit.plan.set_status(a, "doing")
+    kit.plan.set_status(b, "blocked", "waits for something")
+    live_session(a)
+
+    def on_nap(n):
+        if n == 1:
+            kit.plan.set_status(b, "todo")                      # another unit comes up, runs and ends: then a is all that is left
+        if n == 2:
+            kit.plan.set_status(a, "done")
+    pilot["on_nap"] = on_nap
+    pilot["run"]()
+    assert [e["units"] for e in run_log(kit) if e["type"] == "unit.waiting"] == [[a], [a]]
+
+
+def test_a_unit_the_person_stopped_says_so_in_the_log(kit, pilot):
+    uid = only_one_ready(kit)
+    pilot["script"] = [lambda _u: result(rc=-15, handoff="stop")]
+    pilot["run"]()
+    assert finish_of(run_log(kit), uid)[0]["stopped"] is True
+

@@ -2,7 +2,7 @@
 started one of its own, and the file that ends them."""
 from __future__ import annotations
 
-import json, os, signal, subprocess, sys, threading
+import datetime as dt, json, os, signal, subprocess, sys, threading
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -132,14 +132,79 @@ def test_a_conversation_the_agent_names_is_kept(kit, agent, monkeypatch):
     assert [e["id"] for e in ev if e["type"] == "session"] == ["T"]
 
 
-def test_a_request_left_when_the_agent_ends_on_its_own_goes_with_it(kit, agent, monkeypatch):
+def test_a_request_the_agent_ended_before_is_left_for_the_run(kit, agent, monkeypatch):
     from lib.harness import handoff
     agent.seconds, agent.child = 0, False
     monkeypatch.setattr(kit.plan, "WATCH", 60)
     handoff.request("r-1", UID, "stop")
     r, _ = run(kit)
     assert getattr(r, "handoff", None) is None and r.returncode == 0
-    assert handoff.read("r-1", UID) is None
+    assert handoff.read("r-1", UID)["to"] == "stop"
+
+
+def spent(kit, sid, when=None, tokens=7):
+    """A line of the conversation's transcript, as Claude Code writes it while it works."""
+    from lib import sessions
+    ts = (when or dt.datetime.now(dt.timezone.utc)).isoformat().replace("+00:00", "Z")
+    f = sessions.claude_dir(kit.common.WORKSPACE) / f"{sid}.jsonl"
+    f.parent.mkdir(parents=True, exist_ok=True)
+    with f.open("a", encoding="utf-8", newline="\n") as fh:
+        fh.write(json.dumps({"type": "assistant", "timestamp": ts, "message": {
+            "id": f"m-{ts}", "model": "claude-x",
+            "usage": {"input_tokens": 3, "output_tokens": tokens, "cache_read_input_tokens": 11,
+                      "cache_creation_input_tokens": 13}}}) + "\n")
+
+
+def test_what_an_ended_agent_spent_is_on_the_runs_bill(kit, agent):
+    from lib.harness import handoff
+
+    def take():
+        spent(kit, agent.req.session)
+        handoff.request("r-1", UID, "you")
+    once_up(agent, take)
+    r, ev = run(kit)
+    usage = [e for e in ev if e["type"] == "usage"]                # it never got to its result, where Claude says it
+    assert r.handoff == "you" and len(usage) == 1
+    u = usage[0]
+    assert (u["unit"], u["runner"], u["model"], u["in"], u["out"], u["cache_read"], u["cache_write"]) == \
+        (UID, "claude", "claude-x", 3, 7, 11, 13)
+
+
+def test_a_resumed_attempt_only_bills_what_it_spent(kit, agent):
+    from lib.harness import handoff
+    spent(kit, "s-1", dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=1), tokens=500)
+
+    def take():
+        spent(kit, "s-1", tokens=7)
+        handoff.request("r-1", UID, "you")
+    once_up(agent, take)
+    _, ev = run(kit, session="s-1")
+    assert [e["out"] for e in ev if e["type"] == "usage"] == [7]
+
+
+def test_an_agent_that_said_what_it_spent_is_not_counted_again(kit, agent, monkeypatch):
+    from lib.adapters.runners.claude import Claude
+    from lib.harness.ports import Invocation
+    line = json.dumps({"type": "result", "result": "ok", "total_cost_usd": 0.5, "usage": {"input_tokens": 1, "output_tokens": 2}})
+
+    def build(self, req):
+        agent.req = req
+        spent(kit, req.session, dt.datetime.now(dt.timezone.utc) + dt.timedelta(seconds=30))
+        return Invocation([sys.executable, "-c", f"print({line!r})"], req.cwd, req.env)
+    monkeypatch.setattr(Claude, "build", build)
+    _, ev = run(kit)
+    assert [e["out"] for e in ev if e["type"] == "usage"] == [2]
+
+
+def test_a_transcript_that_cannot_be_read_does_not_stop_the_run(kit, agent, monkeypatch):
+    from lib.harness import handoff, transcripts
+
+    def boom(*_):
+        raise ValueError("not a transcript")
+    monkeypatch.setattr(transcripts, "read", boom)
+    once_up(agent, lambda: handoff.request("r-1", UID, "you"))
+    r, ev = run(kit)
+    assert r.handoff == "you" and not [e for e in ev if e["type"] == "usage"]
 
 
 def test_the_parallel_scheduler_keeps_its_agents(kit, agent, monkeypatch):
@@ -152,8 +217,23 @@ def test_the_parallel_scheduler_keeps_its_agents(kit, agent, monkeypatch):
     assert handoff.read("r-1", UID)["to"] == "you"
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="no SIGHUP on Windows")
+def test_a_run_started_with_nohup_stays_that_way(kit):
+    if threading.current_thread() is not threading.main_thread():
+        pytest.skip("signal handlers are the main thread's")
+    old = signal.signal(signal.SIGHUP, signal.SIG_IGN)
+    try:
+        with kit.plan._term_unwinds():
+            assert signal.getsignal(signal.SIGHUP) == signal.SIG_IGN
+            assert callable(signal.getsignal(signal.SIGTERM))
+        assert signal.getsignal(signal.SIGHUP) == signal.SIG_IGN
+    finally:
+        signal.signal(signal.SIGHUP, old)
+
+
 @pytest.mark.skipif(sys.platform == "win32", reason="a stopped job is taskkill /T there, which walks the tree itself")
-def test_a_stopped_job_ends_its_agent_and_the_log_says_the_run_ended(kit, tmp_path):
+@pytest.mark.parametrize("sig", ["SIGTERM", "SIGHUP"])       # a stopped job; the terminal a CLI run is in, closed
+def test_a_stopped_run_ends_its_agent_and_the_log_says_so(kit, tmp_path, sig):
     from lib.harness.events import EventLog
     from lib.harness.locks import pid_alive
     kit.plan.sync()
@@ -174,7 +254,7 @@ plan.run_autopilot(lang="en", max_units=1, echo=lambda _: None)
     job = subprocess.Popen([sys.executable, "-c", driver], env=dict(os.environ), start_new_session=True)
     try:
         until(pids.exists, timeout=60)
-        os.killpg(job.pid, signal.SIGTERM)                       # how a job of the server is stopped (appapi.cancel)
+        os.killpg(job.pid, getattr(signal, sig))
         job.wait(30)
     finally:
         if job.poll() is None:
