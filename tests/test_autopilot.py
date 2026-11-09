@@ -93,11 +93,12 @@ def test_a_unit_open_in_a_session_is_not_picked(kit, pilot):
     assert pilot["calls"] and first["id"] not in [uid for _, uid in pilot["calls"]]
 
 
-def test_with_only_open_units_left_it_stops_and_names_them(kit, pilot, monkeypatch):
+def test_with_only_open_units_left_it_waits_for_them(kit, pilot, monkeypatch):
     from lib import sessions
     monkeypatch.setattr(sessions, "live", lambda rec: True)
-    assert pilot["run"]() == 0 and pilot["calls"] == []
-    assert any("needs you" in line and "open in a session" in line for line in pilot["echo"])
+    with pytest.raises(Stop):                                   # its sleep: it did not stop
+        pilot["run"]()
+    assert pilot["calls"] == []
 
 
 def test_stream_rendering_shows_tool_calls(kit):

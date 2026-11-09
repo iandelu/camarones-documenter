@@ -693,6 +693,7 @@ AUTOPILOT_PROMPT = WORK / "autopilot-prompt.md"
 _RUN: ContextVar[tuple[EventLog, str] | None] = ContextVar("autopilot_run", default=None)
 WATCH = 0.5            # seconds between looks at a running unit's handoff file
 END_GRACE = 3          # seconds an agent asked to end has before it is killed
+WAIT_TAKEN = 5         # seconds between looks while the autopilot only has units with the person left
 
 
 @contextlib.contextmanager
@@ -935,19 +936,41 @@ def _recorded_autopilot(agents, lang, max_units, poll_seconds, include_interview
             kpis.record_run(run_id)
             ledger.harvest()
             raise
-        _emit("run.finished", done=done)
+        from .harness.scheduler import cancel_file
+        _emit("run.finished", done=done, **({"interrupted": True, "cancelled": True} if cancel_file(run_id).exists() else {}))
     kpis.record_run(run_id)
     ledger.harvest()
     return done
 
 
+def _resume_prompt(uid: str, lang: str) -> str:
+    """What the agent reads when the person hands its conversation back to the run."""
+    cli = cli_cmd()
+    if lang == "en":
+        return (f"The person has just corrected you in this same conversation. Carry on with unit {uid} from where it "
+                f"stands, with their corrections in mind, and close it as its instructions say: `{cli} plan done {uid} "
+                f'--note "<one line>"` (or `plan block`).\nThis is an unattended run again: never ask questions; append '
+                "them to docs/interview/open-questions.md.")
+    return (f"La persona acaba de corregirte en esta misma conversación. Sigue con la unidad {uid} desde donde está, "
+            f"teniendo en cuenta sus correcciones, y ciérrala como dicen sus instrucciones: `{cli} plan done {uid} "
+            f'--note "<una línea>"` (o `plan block`).\nVuelve a ser una ejecución desatendida: no hagas preguntas; '
+            "añádelas a docs/interview/open-questions.md.")
+
+
 def _autopilot(agents: list[str], lang: str, max_units: int | None, poll_seconds: int, include_interviews: bool,
                echo) -> int:
+    from .harness.scheduler import cancel_file
     log = lambda t: _autopilot_log(t, echo)                                    # noqa: E731
+    run_id = _RUN.get()[1]
     # team interviews only consolidate written answers: nothing to ask, so they can run unattended
     skip = set() if include_interviews or docs.interview_mode() == "team" else INTERVIEW_TYPES
     limited: dict[str, dt.datetime] = {}
     noted: set[str] = set()
+    held: set[str] = set()                     # with the person at some point of this run: closed unfinished, they are paused
+    stopped: set[str] = set()                  # stopped by the person: left out for the rest of this run
+    opening: dict[str, float] = {}             # handed, since when: the server opens its terminal right after the event
+    adopted: dict[str, dict] = {}              # handed back: first in the queue, on their conversation
+    told: list[str] | None = None              # what the last unit.waiting named
 
     def log_once(text: str) -> None:           # routing notes once per run, not once per unit
         if text not in noted:
@@ -958,18 +981,40 @@ def _autopilot(agents: list[str], lang: str, max_units: int | None, poll_seconds
         log(f"pipeline.yaml: {problem} — the plan is used as it was")
     log(f"Autopilot started with {', '.join(agents)}" + (f" (max {max_units} units)" if max_units else ""))
     while max_units is None or done < max_units:
+        if cancel_file(run_id).exists():
+            log("Autopilot stopped: cancelled.")
+            return done
         data = sync()
         ready = available(data)
-        queue = [u for u in ready if u["runner"] == "agent" and u["type"] not in skip]
+        for uid, req in handoff.pending(run_id).items():
+            if req.get("to") == "pilot" and not sessions.live(sessions.load(uid)):
+                handoff.clear(run_id, uid)
+                if uid in {u["id"] for u in ready}:
+                    adopted[uid] = req
+                    held.discard(uid)
+                    opening.pop(uid, None)
+        queue = [u for u in ready if u["runner"] == "agent" and (u["type"] not in skip or u["id"] in adopted)]
         taken = sessions.taken(queue)
-        queue = [u for u in queue if u["id"] not in taken]
+        taken += [u["id"] for u in queue if u["id"] not in taken and u["id"] in opening
+                  and time.monotonic() - opening[u["id"]] < sessions.GRACE]
+        held.update(taken)
+        paused = [u["id"] for u in queue if u["id"] in held and u["id"] not in taken]
+        queue = sorted((u for u in queue if u["id"] not in {*taken, *paused, *stopped}), key=lambda u: u["id"] not in adopted)
         if not queue:
+            if taken:
+                if told != taken:
+                    told = taken
+                    _emit("unit.waiting", units=taken)
+                    log(f"Waiting for you: {', '.join(taken)} (the run goes on when it is closed or handed back)")
+                time.sleep(WAIT_TAKEN)
+                continue
             wizard = [u["id"] for u in ready if u["runner"] == "wizard"]
             interviews = [u["id"] for u in ready if u["type"] in skip]
-            if wizard or interviews or taken:
+            left = [u["id"] for u in ready if u["id"] in stopped]
+            if wizard or interviews or paused or left:
                 why = ([f"wizard step(s) {', '.join(wizard)} (run `{cli_cmd()}`)"] if wizard else []) + \
                       ([f"interview(s) {', '.join(interviews)} (need you, in an interactive session)"] if interviews else []) + \
-                      ([f"{', '.join(taken)} open in a session (finish them there)"] if taken else [])
+                      [f"{uid} paused" for uid in paused] + [f"{uid} stopped" for uid in left]
                 log(f"Autopilot stopped: what is left needs you — {'; '.join(why)}. Then start autopilot again.")
             else:
                 d, t = progress(data)
@@ -977,8 +1022,12 @@ def _autopilot(agents: list[str], lang: str, max_units: int | None, poll_seconds
                     "(finished, or waiting on blocked units / docs/interview/open-questions.md).")
             return done
         u = queue[0]
+        back = adopted.get(u["id"])
+        resume = back.get("session") if back else None
         s = settings(u["id"])
         targets = _agents(log_once, s["tier"], s.get("runner"), bool(s.get("allow_local")))
+        if resume and back.get("agent"):       # a conversation only goes on with the agent that has it
+            targets = [a for a in targets if routing.parse(a).runner == back["agent"]] or [back["agent"]]
         if not targets:
             log(f"Autopilot stopped: no installed agent can run {u['id']} ({s.get('runner') or s['tier']}).")
             return done
@@ -991,15 +1040,41 @@ def _autopilot(agents: list[str], lang: str, max_units: int | None, poll_seconds
             time.sleep(wait)
             continue
         agent = free[0]
-        log(f"{agent} → {u['id']}: {u['title']}")
-        _emit("unit.started", unit=u["id"], runner=agent)
+        log(f"{agent} → {u['id']}: {u['title']}" + (" (handed back)" if back else ""))
+        _emit("unit.started", unit=u["id"], runner=agent, **({"resume": resume} if resume else {}))
         started = time.monotonic()
-        r = _run_agent(agent, prompt(u["id"], lang=lang, unattended=True), lang, u["id"], echo)
+        if resume:
+            r = _run_agent(agent, _resume_prompt(u["id"], lang), lang, u["id"], echo, session=resume)
+        else:
+            r = _run_agent(agent, prompt(u["id"], lang=lang, unattended=True), lang, u["id"], echo)
         output = f"{r.stdout or ''}\n{r.stderr or ''}"
-        outcome = _runner(agent)[0].classify(r.returncode, output)
+        to = getattr(r, "handoff", None)
         status = get(load(), u["id"])["status"]
-        _emit("unit.finished", unit=u["id"], runner=agent, outcome=outcome, rc=r.returncode, status=status,
-              seconds=round(time.monotonic() - started, 1))
+        seconds = round(time.monotonic() - started, 1)
+        if to and status != "done":            # a unit its agent closed just as the request came ended on its own
+            adopted.pop(u["id"], None)
+            if to == "you":
+                sid = getattr(r, "session", None)
+                _emit("unit.finished", unit=u["id"], runner=agent, outcome="handed", rc=r.returncode, status=status,
+                      seconds=seconds, **({"session": sid} if sid else {}))
+                held.add(u["id"])
+                opening[u["id"]] = time.monotonic()
+                log(f"{u['id']} is with you now: the run goes on without it")
+                continue
+            if status == "doing":
+                set_status(u["id"], "todo", record=False)
+            _emit("unit.finished", unit=u["id"], runner=agent, outcome="cancelled", rc=r.returncode,
+                  status="todo" if status == "doing" else status, seconds=seconds)
+            if to == "cancel":
+                log("Autopilot stopped: cancelled.")
+                return done
+            stopped.add(u["id"])
+            log(f"{u['id']} stopped: it goes back to the queue, left out of this run")
+            continue
+        outcome = "ok" if to else _runner(agent)[0].classify(r.returncode, output)
+        _emit("unit.finished", unit=u["id"], runner=agent, outcome=outcome, rc=r.returncode, status=status, seconds=seconds)
+        if outcome != "limited":
+            adopted.pop(u["id"], None)
         if outcome == "ok":
             log(f"{agent} finished {u['id']} (status: {status})")
             if status in ("todo", "doing"):
