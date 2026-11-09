@@ -247,7 +247,9 @@ or that it is waiting for you). The detail's button moves it:
 
 **Start** and **Continue** open the session on the canvas, in the unit's node, and take you to it (or in a window, as
 Machine says); starting a unit whose session is already open there takes you to its terminal ("It already has an open
-session: here is its terminal.").
+session: here is its terminal."). **Continue** reopens that unit's own conversation; when it cannot be found (its
+transcript is gone, or its agent saved none), a new session opens on the unit's notes and its node says so. It never
+picks up another conversation of the folder.
 
 **See its log in the portal** opens the unit in the portal's Pipeline.
 
@@ -258,7 +260,7 @@ taken and its cost. Its header says **done** only when the plan has the unit don
 finishing it says where the plan has it (to do, paused, blocked, awaits your approval), and one that could not start
 says why. About 4 seconds after it ends it folds back into a compact card with its time and cost (**View
 terminal** opens it again); a failed unit keeps its terminal. Scroll up inside a terminal and it stops following the
-end until you press **Jump to the end**; **⤢** maximises a run's terminal and Escape (or **Back to the canvas**) goes back. **Fit** frames every
+end until you press **Jump to the end**; **⤢** maximises a run's terminal over the whole main pane, down to the jobs bar, and Escape (or **Back to the canvas**) goes back. The wheel scrolls the page; a pinch or Ctrl + wheel zooms the canvas, and dragging its background moves it. **Fit** frames every
 open terminal (every unit when none is open), **Re-layout** puts the whole canvas back in its automatic layout, and the
 positions you drag are kept while that project's window stays open. Tab and the arrows move between nodes; Enter
 opens a unit's detail, or goes into a terminal with you. Escape does nothing on a node: it only leaves a maximised
@@ -270,7 +272,7 @@ plan** card. A run stopped from outside (its job stopped, its process killed) sh
 terminals stop saying running, and a unit it cut off says where the plan has it, its clock stopped at its last line.
 
 **Terminals with you.** A session you open from the app — **Start** or **Continue** on a unit (in its detail or on the
-Summary), **Propose questions with {agent}** in Quality or **Keep it current** — opens on the canvas, and the Plan puts it in front: the unit's node
+Summary), **Propose questions with {agent}** in Quality or **Keep it current** — opens on the canvas, and the Plan puts it in front (the page scrolls to it, at a size you can read, and only then does the keyboard go to it): the unit's node
 becomes a terminal where you type to the agent as in any terminal, its header saying "with you", its agent and its
 time. Everything you type goes to the agent: Escape, Tab, Shift+Tab, the arrows, Ctrl+C. **F6** leaves the terminal (on
 a Mac laptop, Fn+F6): to its node, where the arrows move between nodes again and Enter goes back into the terminal, or, when it is

@@ -90,7 +90,10 @@ this machine: each one's prompt (`prompts/`), each unit's session record (`sessi
 
 `camaron up` starts the server of the current project (port 8080 by default). It serves the portal at `/`, the desktop
 app's UI at `/desktop/` and the API at `/api/`. The desktop app starts its own server per window
-(`camaron up --foreground --port 0`) and stops it when the window closes.
+(`camaron up --foreground --port 0`) and stops it when the window closes. A crash or a force-quit runs none of the
+app's code, so the app also holds the other end of the server's stdin (`CAMARONES_LIFELINE=1`): when the system closes
+that pipe, the server stops the way the app stops it, terminals included, and ends after 10 s whatever is still
+stopping. Nothing it starts can read the pipe: their stdin is the null device, as without it.
 
 Who may do what depends on what the request carries:
 
@@ -234,6 +237,18 @@ which keeps the unit's record in `.camarones/.cache/sessions/` (its pid while th
 it is open, or its window is still opening (up to 30 s before the wrapper writes its pid), the app does not open another
 one for the same unit, `run` and `autopilot` leave the unit alone, and the app shows what the agent is doing from its
 transcript.
+
+**Continue** reopens the unit's own conversation: the one its record names, with `--resume` when its transcript is
+there, or the one a run left in its log. With none, it is a new session on the unit's prompt, and the answer and the
+terminal's meta say `fresh`, which its node shows. A runner that takes no conversation id (Codex, OpenCode) is sent to
+its own last conversation only while no later session of that runner opened here. The app never runs `claude
+--continue`, which takes the newest transcript in the folder, whichever unit or run wrote it; the wizard's Continue
+keeps no record of its sessions and still does.
+
+A kit started from inside a Claude Code session (its Bash tool, a shell it opened) opens sessions of their own. That
+session's markers would make each `claude` its child, which saves no transcript, so the CLI drops them as it starts
+(`PARENT_SESSION` in `lib/common.py`), and all it starts inherits that. Only those go: a person's own settings share the
+prefix (`CLAUDE_CODE_USE_BEDROCK`, …) and stay.
 
 **Terminals on the canvas.** The project server holds the canvas's terminals (`lib/terminals.py`): real PTYs, the
 standard library's `pty` on macOS and Linux and ConPTY through pywinpty 3.1.0 on Windows (when it does not import,

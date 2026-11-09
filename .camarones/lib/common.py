@@ -12,7 +12,7 @@ HOME = Path.home()
 PREFS = HOME / ".camarones.json"              # per-machine choices: language, models, runners, routing
 
 VERSIONS = {
-    "kit": "4.79.0",
+    "kit": "4.79.1",
     "backlog_md": "1.55.3",   # Backlog.md, the compatibility check of the board (tests/e2e/test_backlogmd.py)
     "openwiki": "0.5.2",
     "likec4": "1.59.4",
@@ -148,6 +148,21 @@ def run(cmd: list[str], cwd: Path | None = None, check: bool = True, quiet: bool
 def out(cmd: list[str], cwd: Path | None = None) -> str:
     r = run(cmd, cwd=cwd, check=False, capture=True)
     return (r.stdout or "").strip() if r.returncode == 0 else ""
+
+
+# What a Claude Code session sets on whatever it launches, and what ties a shell to the host that opened it. A `claude`
+# that inherits them is that session's child, and a child saves no transcript: the board has nothing to read and Continue
+# nothing to reopen. Only these go: the same prefix also names a person's own settings (CLAUDE_CODE_USE_BEDROCK, …),
+# without which a session may not even start, and a marker missing from this list only costs that transcript.
+PARENT_SESSION = ("CLAUDECODE", "CLAUDE_CODE_CHILD_SESSION", "CLAUDE_CODE_SESSION_ID", "CLAUDE_CODE_SESSION_ATTENDED",
+                  "CLAUDE_CODE_HOST_SESSION_ID", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_MESSAGING_SOCKET",
+                  "CLAUDE_CODE_MESSAGING_TOKEN", "CLAUDE_CODE_EXECPATH", "CLAUDE_PID", "CLAUDE_EFFORT")
+
+
+def leave_parent_session() -> None:
+    """The kit run from inside a Claude Code session opens sessions of their own: everything it starts inherits this."""
+    for name in PARENT_SESSION:
+        os.environ.pop(name, None)
 
 
 def kill_tree(pid: int, sig: int | None = None) -> bool:

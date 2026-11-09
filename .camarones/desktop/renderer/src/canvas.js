@@ -82,6 +82,10 @@ export function feed(f, ev) {
   return next === known ? going : { ...going, units: { ...f.units, [ev.unit]: next } }
 }
 
+// How near a terminal comes when it is brought to the front: near enough to read (100 %, or what fits in a smaller
+// canvas), never further than the person had it. A plan of 21 units fits at about 45 %.
+export const frontZoom = (zoom, node, box) => Math.max(zoom, Math.min(1, box.width / node.width, box.height / node.height))
+
 // A run gives its units up (Stop, Take control, Hand back) when the autopilot runs it; a parallel run keeps them.
 export const takeable = (run) => Boolean(run && !run.finished && run.kind === 'autopilot')
 

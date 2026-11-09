@@ -72,6 +72,13 @@ def update(uid: str, **fields) -> None:
     _save(uid, {**(load(uid) or {}), **fields})
 
 
+def last_opened(agent: str) -> str | None:
+    """The unit whose session with `agent` opened last here."""
+    recs = [load(f.stem) for f in DIR.glob("*.json")] if DIR.is_dir() else []
+    mine = [r for r in recs if r and r.get("agent") == agent]
+    return max(mine, key=lambda r: float(r.get("launched") or 0)).get("unit") if mine else None
+
+
 def windows(rec: dict, sid: str) -> list | None:
     """The person's stretches of conversation `sid` ([from, to] in epoch seconds, `to` None while it is open); None: it
     is all theirs, as in every record of a kit before takeovers."""

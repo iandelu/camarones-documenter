@@ -127,7 +127,7 @@ def can_open(agent: str) -> None:
 
 def _conversation(uid: str, agent: str, rec: dict | None) -> tuple[str | None, float | None]:
     """What Continue reopens, and from when the bill counts it: the record's conversation; with none, the one a run left
-    in its newest log, which is on the run's bill so far. None: the agent's own last one."""
+    in its newest log, which is on the run's bill so far. None: no conversation of this unit is known."""
     def there(sid: str) -> bool:
         return agent != "claude" or (sessions.claude_dir(WORKSPACE) / f"{sid}.jsonl").exists()
     old = (rec or {}).get("session") if (rec or {}).get("agent") == agent else None
@@ -139,12 +139,20 @@ def _conversation(uid: str, agent: str, rec: dict | None) -> tuple[str | None, f
     return None, None
 
 
+def _last_is_its(uid: str, agent: str) -> bool:
+    """Whether an agent that takes no conversation id can be sent to its own last one for this unit (`codex resume --last`):
+    only while no later session of that agent opened here. Claude Code takes ids, so its last one is never asked for: it
+    is the newest in the folder, whichever unit or run wrote it."""
+    return not runners.get(agent).own_session and sessions.last_opened(agent) == uid
+
+
 def _open(prompt: str | None, agent: str, lang: str, resume: bool, uid: str | None = None, session: str | None = None,
           route: str | None = None, where: str = "window", size: tuple[int, int] = (80, 24),
-          fallback: str | None = None, since: float | None = None) -> dict:
+          fallback: str | None = None, since: float | None = None, fresh: bool = False) -> dict:
     """prompt None: the person speaks first. uid: the plan unit whose session this is; route: whose model it takes, when
     that is not a unit (`update`). where: as `_place` answered, `fallback` its reason when that was not the canvas asked
-    for. since: where the bill starts counting a conversation a run wrote to (sessions.start)."""
+    for. since: where the bill starts counting a conversation a run wrote to (sessions.start). fresh: Continue found no
+    conversation to reopen, so this is a new one and the person is told."""
     if agent not in {a["id"] for a in installed()}:
         raise ValueError(f"{agent} is not installed on this machine")
     prefs = load_json(PREFS, {})
@@ -153,16 +161,14 @@ def _open(prompt: str | None, agent: str, lang: str, resume: bool, uid: str | No
     file = own_prompt(uid or route) if uid or route else None
     if prompt is not None:
         write_prompt(prompt, file)
-    if agent == "claude" and resume and not session and not claude_history(WORKSPACE):
-        resume = False                               # nothing to continue here: `--continue` would just error out
     req = request(agent, lang, prefs, resume, session, uid=uid or route, prompt_file=file, silent=prompt is None)
     cmd = runners.get(agent).build(req).argv
     record = sessions.start(uid, agent, session, since=since) if uid else None      # before the terminal: its end closes this record
-    done = {"launched": True, "agent": agent, "model": req.model, "prompt": prompt_ref(file)}
+    done = {"launched": True, "agent": agent, "model": req.model, "prompt": prompt_ref(file), **({"fresh": True} if fresh else {})}
     if where == "canvas":
         try:
             term = terminals.spawn(sessions.wrap(record, cmd), WORKSPACE, kind="unit" if uid else "update", unit=uid,
-                                   agent=agent, session=session, cols=size[0], rows=size[1],
+                                   agent=agent, session=session, cols=size[0], rows=size[1], fresh=fresh,
                                    env={"CAMARONES_ROOT": str(ROOT)})   # the agent's `camarones …` calls hit this plan
         except terminals.Unavailable:
             where, fallback = "window", "no-pty"
@@ -177,8 +183,9 @@ def _open(prompt: str | None, agent: str, lang: str, resume: bool, uid: str | No
 
 def launch_unit(uid: str, agent: str, lang: str = "es", mode: str = "new", where: str = "window",
                 size: tuple[int, int] = (80, 24)) -> dict:
-    """mode: new (a fresh session), continue (the agent's last conversation, for a unit in progress), restart (the
-    unit's notes are put aside and it starts over). where: a window or a terminal on the canvas of `size` (cols, rows);
+    """mode: new (a fresh session), continue (the unit's own conversation, for a unit in progress; with none to reopen, a
+    new one on its notes, and the answer says `fresh`), restart (the unit's notes are put aside and it starts over).
+    where: a window or a terminal on the canvas of `size` (cols, rows);
     AlreadyOpen when the unit's session is open in either, AtWork when a run's agent has it, Limit when the canvas has no
     room (nothing has changed)."""
     if mode not in ("new", "continue", "restart"):
@@ -201,10 +208,11 @@ def launch_unit(uid: str, agent: str, lang: str = "es", mode: str = "new", where
         run = runs.active()
         if run and runs.running(run["run"], uid):
             raise AtWork(f"{uid}: a run's agent is working on it: take control from its node on the canvas")
-        session, since = None, None
+        session, since, resume = None, None, False
         if mode == "continue":
             session, since = _conversation(uid, agent, sessions.load(uid))
-        elif agent == "claude":                      # its own conversation: the board reads it, Continue reopens it
+            resume = bool(session) or _last_is_its(uid, agent)
+        if agent == "claude" and not session:        # its own conversation: the board reads it, Continue reopens it
             session = str(uuid.uuid4())
         if mode == "restart":
             f = plan.note_file(uid)
@@ -212,8 +220,8 @@ def launch_unit(uid: str, agent: str, lang: str = "es", mode: str = "new", where
                 f.replace(f.with_suffix(".old.md"))
             plan.set_status(uid, "todo")
         plan.set_status(uid, "doing")                # so a closed window still knows what was in progress
-        return {**_open(plan.prompt(uid, lang=lang), agent, lang, resume=mode == "continue", uid=uid, session=session,
-                        where=where, size=size, fallback=fallback, since=since), "unit": uid}
+        return {**_open(plan.prompt(uid, lang=lang), agent, lang, resume=resume, uid=uid, session=session, where=where,
+                        size=size, fallback=fallback, since=since, fresh=mode == "continue" and not resume), "unit": uid}
 
 
 def launch_update(agent: str, lang: str = "es", where: str = "window", size: tuple[int, int] = (80, 24)) -> dict:

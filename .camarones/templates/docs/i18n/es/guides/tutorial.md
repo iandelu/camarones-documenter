@@ -209,8 +209,8 @@ Calidad, Librerías y Docs, más Máquina y Guía; `g` y una letra salta de una 
 
 En la app, **Empezar** o **Seguir** una unidad y la actualización de la doc (**Plan › Mantenerla al día**) abren el
 agente como una terminal en el lienzo del Plan, donde le escribes como en cualquier terminal: F6 sale de la terminal
-(Fn+F6 en un portátil Mac), **Cerrar** termina la sesión y deja la unidad en pausa (**Seguir** la vuelve a abrir), y la
-actualización de la doc va en **Sesiones sueltas**. Las terminales viven en el servidor del proyecto, así que cerrar la
+(Fn+F6 en un portátil Mac), **Cerrar** termina la sesión y deja la unidad en pausa (**Seguir** vuelve a abrir su conversación, o una sesión nueva
+que lo dice si no la encuentra), y la actualización de la doc va en **Sesiones sueltas**. Las terminales viven en el servidor del proyecto, así que cerrar la
 ventana del proyecto las termina. `camaron config set sessions window` las abre en una ventana de terminal, como hace
 siempre el asistente.
 

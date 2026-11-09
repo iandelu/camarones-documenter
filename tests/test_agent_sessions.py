@@ -49,16 +49,67 @@ def test_continue_reopens_the_units_own_conversation(wired, term):
     first = sessions.load(u["id"])["session"]
     write_transcript(wired, first, [assistant({"type": "text", "text": "hola"})])
     window_closed(u["id"])
-    term["agents"].launch_unit(u["id"], "claude", mode="continue")
+    r = term["agents"].launch_unit(u["id"], "claude", mode="continue")
     assert inner(term["cmds"][1][0])[3:5] == ["--resume", first]
     assert sessions.load(u["id"])["session"] == first
+    assert "fresh" not in r
 
 
-def test_continue_without_its_conversation_falls_back_to_the_last_one(wired, term):
+def assert_fresh(cmd, rec, result):
+    """A new conversation of the unit's own, and the person told: never `--continue`, which takes the newest
+    conversation in the folder, whichever unit or run it was."""
+    argv = inner(cmd)
+    assert "--continue" not in argv and "--resume" not in argv
+    assert argv[3:5] == ["--session-id", rec["session"]]
+    assert result["fresh"] is True
+
+
+def test_continue_whose_transcript_is_gone_opens_a_fresh_session_and_says_so(wired, term):
+    from lib import sessions
+    u = ready_agent_unit(wired)
+    term["agents"].launch_unit(u["id"], "claude")
+    lost = sessions.load(u["id"])["session"]                    # its agent saved no transcript
+    write_transcript(wired, "an-old-run", [assistant({"type": "text", "text": "someone else's"})])
+    window_closed(u["id"])
+    r = term["agents"].launch_unit(u["id"], "claude", mode="continue")
+    rec = sessions.load(u["id"])
+    assert_fresh(term["cmds"][1][0], rec, r)
+    assert rec["session"] != lost and rec["previous"] == [lost]
+
+
+def test_continue_with_no_record_opens_a_fresh_session_and_says_so(wired, term):
+    from lib import sessions
     u = ready_agent_unit(wired)
     wired.plan.set_status(u["id"], "doing")                     # opened by an older kit: no record
-    term["agents"].launch_unit(u["id"], "claude", mode="continue")
-    assert "--continue" in inner(term["cmds"][0][0])
+    write_transcript(wired, "an-old-run", [assistant({"type": "text", "text": "someone else's"})])
+    r = term["agents"].launch_unit(u["id"], "claude", mode="continue")
+    assert_fresh(term["cmds"][0][0], sessions.load(u["id"]), r)
+
+
+def test_continue_on_a_record_with_no_conversation_opens_a_fresh_session_and_says_so(wired, term):
+    from lib import sessions
+    u = ready_agent_unit(wired)
+    wired.plan.set_status(u["id"], "doing")
+    sessions.start(u["id"], "claude", None)                     # what an earlier `--continue` left behind
+    window_closed(u["id"])
+    write_transcript(wired, "an-old-run", [assistant({"type": "text", "text": "someone else's"})])
+    r = term["agents"].launch_unit(u["id"], "claude", mode="continue")
+    assert_fresh(term["cmds"][0][0], sessions.load(u["id"]), r)
+
+
+def test_an_agent_with_no_ids_only_reopens_its_last_conversation_when_that_is_this_units(wired, term):
+    from lib import sessions
+    first, other = [u["id"] for u in wired.plan.available() if u["runner"] == "agent"][:2]
+    term["agents"].launch_unit(first, "codex")
+    window_closed(first)
+    r = term["agents"].launch_unit(first, "codex", mode="continue")
+    assert inner(term["cmds"][1][0]) == ["/bin/codex", "resume", "--last"] and "fresh" not in r
+    window_closed(first)
+    term["agents"].launch_unit(other, "codex")
+    window_closed(other)
+    sessions.update(other, launched=time.time() + 60)           # it opened after: its conversation is now the last
+    r = term["agents"].launch_unit(first, "codex", mode="continue")
+    assert "resume" not in inner(term["cmds"][3][0]) and r["fresh"] is True
 
 
 def test_restart_starts_a_new_conversation(wired, term):
