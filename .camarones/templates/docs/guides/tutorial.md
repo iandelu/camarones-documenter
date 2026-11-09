@@ -199,7 +199,9 @@ In the app, **Start** or **Continue** on a unit and the docs update (**Plan › 
 terminal on the Plan's canvas, where you type to it as in any terminal: F6 leaves the terminal (Fn+F6 on a Mac laptop),
 **Close** ends the session and pauses the unit (**Continue** opens its conversation again, or a new session that says
 so when it cannot be found), and the docs update sits under **Loose sessions**. The terminals live in the project's server, so closing the project's window ends them. `camaron config set
-sessions window` opens them in a terminal window instead, as the wizard always does.
+sessions window` opens them in a terminal window instead, as the wizard always does. In the wizard, a unit left half
+done offers **Reopen this unit's conversation**, which follows the same rule, so a unit opened in either can be
+continued from the other.
 
 While the autopilot runs, on the canvas a unit at work offers **Take control**: its headless agent ends and the same
 conversation opens in the node for you to correct it, while the other units go on. **Hand back to the pilot** returns it
