@@ -178,7 +178,7 @@ scrolls sideways. `#/libs/<repo>` opens it for one repo.
 ## Plan
 
 **Pipeline** (`#/pipeline`, live): the plan as a **Graph** (units by phase, with their dependencies) or a **Board** (to
-do, running, blocked, done, dropped). A unit's panel: its agent, outcome, time, tokens and cost, whether it worked in its
+do, running, blocked, done, dropped). A unit's panel: its agent, outcome ("with you" for a unit taken from the autopilot), time, tokens and cost, whether it worked in its
 own copy, what it waits for, its notes and the agent's live log. **Approve** lets the units after one waiting for a
 person start; **Retry** puts a blocked one back in the queue. Running and cancelling are the app's (Plan). A run
 stopped from outside (its job stopped, its process killed) shows as finished within a few seconds, not as running.

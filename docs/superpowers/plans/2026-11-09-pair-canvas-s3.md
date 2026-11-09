@@ -43,6 +43,8 @@ conversation a run also wrote to (`since`, `spans`).
   run log's, with `since`, instead of `--continue`, which can pick another conversation. This is also *Open with you* on
   a failed node. The Failed row's *Retry* is not added: nothing in the S3 row asks for it and blocked units already have
   it in the detail panel.
+- **No session opens beside the agent at work.** Continue now resumes that very conversation, so `launch_unit` refuses
+  (`AtWork`, 409 `at-work`) while a run's agent has the unit, and its detail offers no Continue.
 - **Values:** watcher tick 0.5 s; end the agent with SIGTERM, SIGKILL 3 s later; takeover waits at most 10 s; autopilot
   re-syncs every 5 s while waiting; handback waits for the PTY's end at most `CLOSE_GRACE + 2` s.
 
