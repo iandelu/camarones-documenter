@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import { acceptBlock, todoSections, addAttendees, addHit, blockedPart, choiceBody, counts, crumb, FILTERS, filterRows, firstOpen, keyEffect, newPointBody,
-  nextPart, partKind, presentKey, reviewKey, reviewParts, route, screen, stale, startScreen, STEPS, stepper, viewOf } from './adr.js'
+  nextPart, outrun, partKind, presentKey, reviewKey, reviewParts, route, screen, stale, startScreen, STEPS, stepper, typedDraft, viewOf } from './adr.js'
 import { setLang, t } from './i18n.js'
 
 const states = (phase, mode) => stepper(phase, mode).map((s) => s.state)
@@ -344,6 +344,41 @@ test('a decided ADR only moves and presents; an ADR ready to accept asks to conf
   for (const act of [{ do: 'choose', n: 1 }, { do: 'edit' }, { do: 'defer' }, { do: 'accept' }]) expect(fx(act), act.do).toBeNull()
   const ready = inReview({ points: [{ id: 'p1', chosen: 'A', options: [] }] })
   expect(keyEffect(ready, 'context', { do: 'accept' }, { present: true })).toEqual({ accept: true })
+})
+
+test('a draft remembers the text it was started from, from its first keystroke on', () => {
+  expect(typedDraft(undefined, 'a', 'the file')).toEqual({ draft: 'a', base: 'the file' })
+  expect(typedDraft({ editing: true, draft: 'a', base: 'the file' }, 'ab', 'the file, since edited'))
+    .toEqual({ editing: true, draft: 'ab', base: 'the file' })
+})
+
+test('a refused save leaves a draft the file has outran: the screen knows, from the read that answered it', () => {
+  const v = (context) => ({ id: '0012', sha: context, sections: { context } })
+  const draft = typedDraft(undefined, 'mine', 'as read')
+  const before = run({ type: 'read', adr: v('as read') })
+  expect(outrun(before.adr, 'context', draft)).toBe(false)
+  const after = screen(before, { type: 'reloaded', adr: v('said elsewhere') })
+  expect(outrun(after.adr, 'context', draft)).toBe(true)
+})
+
+test('the same edit reaches a draft through an answer that was never refused: attendees carry no sha', () => {
+  const draft = typedDraft(undefined, 'mine', 'as read')
+  const s = screen(run({ type: 'read', adr: { sha: 'a', sections: { context: 'as read' } } }),
+    { type: 'done', adr: { sha: 'b', sections: { context: 'said elsewhere' } } })
+  expect(outrun(s.adr, 'context', draft)).toBe(true)
+})
+
+test('only a draft that would replace another text is outran', () => {
+  const adr = { sections: { context: 'now', options: 'other', empty: '' } }
+  expect(outrun(adr, 'context', { draft: 'mine', base: 'was' })).toBe(true)
+  expect(outrun(adr, 'context', { draft: 'mine', base: 'now' })).toBe(false)         // somewhere else in the file changed
+  expect(outrun(adr, 'context', { draft: 'now', base: 'was' })).toBe(false)          // both wrote the same
+  expect(outrun(adr, 'context', { editing: true })).toBe(false)                      // nothing typed: it shows the file's
+  expect(outrun(adr, 'context', undefined)).toBe(false)
+  expect(outrun(adr, 'empty', { draft: 'mine', base: 'was' })).toBe(true)            // emptied from outside
+  expect(outrun(adr, 'gone', { draft: 'mine', base: 'was' })).toBe(true)             // its section removed
+  expect(outrun(adr, 'gone', { draft: 'mine', base: '' })).toBe(false)               // it was never there
+  expect(outrun(null, 'context', { draft: 'mine', base: '' })).toBe(false)
 })
 
 test('only a save the file outran reloads; a busy lock or a refusal keeps its message', () => {

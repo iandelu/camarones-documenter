@@ -199,9 +199,14 @@ Los ADR del proyecto, decididos con la evidencia delante y escritos, sin IA (`#/
 - **Revisión**: parte por parte (aprobar, editar o aplazar cada sección y las páginas afectadas) y punto por punto
   (elegir una opción u *Otra*, con un motivo), más los asistentes. **Presentar** (<kbd>P</kbd>) enseña una parte por
   pantalla para una reunión: <kbd>←</kbd> <kbd>→</kbd> cambian de parte, <kbd>1</kbd>–<kbd>9</kbd> eligen,
-  <kbd>E</kbd> edita, <kbd>D</kbd> aplaza, <kbd>A</kbd> acepta, <kbd>Esc</kbd> sale.
+  <kbd>E</kbd> edita, <kbd>D</kbd> aplaza, <kbd>A</kbd> acepta, <kbd>Esc</kbd> sale. Solo queda la revisión: una parte
+  que no cabe se desplaza en su panel, y aceptar y las teclas siguen a la vista.
+- **Si el fichero cambia mientras revisas** (un pull, un editor), no se pisa nada: el guardado se rechaza y la app vuelve
+  a leer el ADR. Si cambió la parte que estabas editando, tu borrador sigue sin guardar junto a lo que dice ahora el
+  archivo, y **Guardar** espera a que elijas **Seguir con mi borrador** o **Usar el del archivo**.
 - **Aceptar** confirma el ADR con `x-owner: human` y *Decided by*; lo que aún no está decidido no se acepta, y la app
-  dice qué punto o sección falta. **Rechazar** pide un motivo.
+  dice qué punto o sección falta. **Rechazar** pide un motivo. En ambos casos el subtítulo que el kit escribió bajo el
+  título (`description`) cambia con el estado; si lo escribió una persona, no se toca.
 
 <!-- cmd:adr -->
 
@@ -447,7 +452,7 @@ Esta máquina y la preparación de este proyecto (`#/machine`, <kbd>g</kbd> <kbd
 | Repos y plan | Cada repo, clonado o no, con su stack (edítalo, o **Volver al detectado**); **Clonar o actualizar los repos** (`sync`), **Detectar repos en la carpeta** (`detect`) y el perfil del plan, rápido o completo |
 | El kit | **Actualizar el kit** (`self-update`, solo con la instalación global) y después **Reiniciar la app con la versión nueva**; **Reparar los archivos del kit** (`repair`) |
 | Todos los comandos | down, upgrade, version; con cuidado: migrate, unlink |
-| Desinstalar este proyecto | Primero **Ver qué borraría**; después **Desinstalar** abre un diálogo que repite la lista. Opcional: también los ajustes, tokens y cachés de esta máquina, y sin copia de seguridad. Por defecto se guarda una copia `.zip` de `cam-docs` en la carpeta temporal del sistema, y un tablero que ya existía se conserva (copiado junto a los repos) |
+| Desinstalar este proyecto | Primero **Ver qué borraría**; después **Desinstalar** abre un diálogo que repite la lista. Si cambias una opción, **Desinstalar** desaparece hasta que vuelvas a mirar, para que la lista sea siempre lo que se ejecuta. Opcional: también los ajustes, tokens y cachés de esta máquina, y sin copia de seguridad. Por defecto se guarda una copia `.zip` de `cam-docs` en la carpeta temporal del sistema, y un tablero que ya existía se conserva (copiado junto a los repos) |
 
 La dirección `#/machine?host=<servidor>&kind=sonarqube` (o `gitlab`, `github`) abre el formulario de Tokens relleno.
 

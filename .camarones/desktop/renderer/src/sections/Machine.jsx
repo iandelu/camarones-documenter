@@ -216,15 +216,19 @@ function Kit({ srv, jobs, m, app }) {
 }
 
 // Uninstall, previewed first: `uninstall --dry-run` lists what goes (it only reads), and only then the real one,
-// behind a dialog that repeats that list. No jokes here.
-function Uninstall({ srv, jobs, app }) {
+// behind a dialog that repeats that list. A preview speaks only for the options it ran with: changing one, even while it
+// runs, takes the list and the real button away until a new preview. No jokes here.
+export function Uninstall({ srv, jobs, app }) {
   const preview = useCmd(srv, jobs)
   const go = useCmd(srv, jobs)
   const [opts, setOpts] = useState({ user_level: false, no_backup: false })
+  const [previewed, setPreviewed] = useState(null)
   const dialog = useRef(null)
-  const lines = preview.job?.status === 'done' ? preview.job.lines : null
-  const args = (dry) => ({ ...(opts.user_level ? { user_level: true } : {}), ...(opts.no_backup && !dry ? { no_backup: true } : {}), ...(dry ? { dry_run: true } : {}) })
+  const lines = previewed === opts && preview.job?.status === 'done' ? preview.job.lines : null
+  const stale = previewed && previewed !== opts && !preview.running
+  const args = (dry) => ({ ...(opts.user_level ? { user_level: true } : {}), ...(opts.no_backup ? { no_backup: true } : {}), ...(dry ? { dry_run: true } : {}) })
   const set = (k) => (e) => setOpts((o) => ({ ...o, [k]: e.target.checked }))
+  const look = () => { setPreviewed(opts); preview.run('uninstall', args(true)) }
   return (
     <Card className="dk-run dk-cmd careful" data-tour="mc-uninstall">
       <span className="eyebrow">{t('un.title')}</span>
@@ -232,10 +236,11 @@ function Uninstall({ srv, jobs, app }) {
       <label className="dk-check"><input type="checkbox" checked={opts.user_level} onChange={set('user_level')} disabled={go.running} />{t('un.global')}</label>
       <label className="dk-check"><input type="checkbox" checked={opts.no_backup} onChange={set('no_backup')} disabled={go.running} />{t('un.noBackup')}</label>
       <div className="row">
-        <Button size="sm" disabled={preview.running || go.running} onClick={() => preview.run('uninstall', args(true))}>{t('un.preview')}</Button>
+        <Button size="sm" disabled={preview.running || go.running} onClick={look}>{t('un.preview')}</Button>
         {lines ? <Button size="sm" variant="danger" disabled={go.running} onClick={() => dialog.current.showModal()}>{t('un.go')}</Button> : null}
       </div>
-      {lines && !go.job ? <pre className="dk-log">{lines.join('\n')}</pre> : <JobOutput c={go.job ? go : preview} />}
+      {lines && !go.job ? <pre className="dk-log">{lines.join('\n')}</pre>
+        : stale && !go.job ? <p className="small" role="status">{t('un.stale')}</p> : <JobOutput c={go.job ? go : preview} />}
       {go.job?.status === 'done' ? (
         <div className="row"><span className="small">{t('un.done')}</span>{app.hub ? <Button size="sm" onClick={() => app.hub()}>{t('un.hub')}</Button> : null}</div>
       ) : null}

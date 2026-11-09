@@ -8,6 +8,8 @@ import pytest
 
 LEGACY = "# 0003 — JPA\n\n## Estado\n\nPropuesto <!-- x -->\n\n## Contexto\n\nwhy\n\n## Notas\n\nkeep\n"
 OLD = "# 0001 — EhCache\n\n## Status\n\nAccepted\n\n## Context\n\nx\n"
+PROPOSED = ("Why the project chose an option for: {title}. Proposed decision with its options, evidence and the decision points "
+            "the team reviews.")
 
 
 @pytest.fixture
@@ -84,14 +86,96 @@ def test_accept_changes_the_status_decision_and_owner_and_nothing_else(adr, kit,
     before_fm, before = kit.docs.split_fm(a["raw"])
     out = adr.accept(a["id"], by="Test", attendees=[], base_sha=a["sha"])
     fm, body = read(kit, out)
-    assert {k: v for k, v in fm.items() if k not in ("x-owner", "x-confirmed")} == \
-        {k: v for k, v in before_fm.items() if k != "x-owner"}
+    assert {k: v for k, v in fm.items() if k not in ("x-owner", "x-confirmed", "description")} == \
+        {k: v for k, v in before_fm.items() if k not in ("x-owner", "description")}
     for key in ("context", "consequences", "evidence"):
         assert doc.section(body, key) == doc.section(before, key)
     assert doc.section(before, "options") == "TODO(question): which options were considered?"
     assert doc.section(body, "options") == "### P1 · Where?\n\n- **A · Redis** (chosen)\n- **B · Postgres**"
     assert kit.docs.tldr(body) == kit.docs.tldr(before) and body.startswith(before.split("## Status")[0])
     assert doc.PLACEHOLDER not in body and "### Decision points" not in body
+
+
+# ---------- the description under the title (the portal's subtitle) ----------
+def own_words(kit, a, text="Our own words."):
+    fm, body = kit.docs.split_fm(a["raw"])
+    (kit.root / "docs" / a["path"]).write_text(kit.docs.join_fm({**fm, "description": text}, body), encoding="utf-8")
+
+
+def test_a_written_adr_keeps_the_description_every_kit_gave_it(adr, kit):
+    fm = kit.docs.split_fm(decided(adr, chosen="A")["raw"])[0]
+    assert fm["description"] == PROPOSED.format(title="Sessions")
+
+
+def test_accepting_rewords_the_description_the_kit_wrote(adr, kit):
+    a = decided(adr, chosen="A")
+    fm, body = read(kit, adr.accept(a["id"], by="Test", attendees=[], base_sha=a["sha"]))
+    assert fm["description"] == ("Why the project chose an option for: Sessions. Accepted decision with its options, evidence "
+                                 "and who decided.")
+    assert kit.docs.trust_of(fm, kit.docs.body_sha(body)) == "confirmed"
+
+
+def test_rejecting_rewords_the_description_the_kit_wrote(adr, kit):
+    a = decided(adr, chosen="A")
+    fm, _ = read(kit, adr.reject(a["id"], "too dear", by="Test", base_sha=a["sha"]))
+    assert fm["description"] == ("What the project decided against: Sessions. Rejected decision with its options, evidence and "
+                                 "the reason.")
+
+
+def test_a_description_cut_at_the_limit_is_still_the_kits(adr, kit):
+    title = "x" * 200
+    a = adr.write_without_ai(adr.new({"title": title, "kind": "new"})["id"])
+    a = adr.part(a["id"], "decision", "edit", "Yes.", base_sha=a["sha"])
+    assert "Proposed decision with its" in kit.docs.split_fm(a["raw"])[0]["description"]
+    text = read(kit, adr.accept(a["id"], by="Test", attendees=[], base_sha=a["sha"]))[0]["description"]
+    assert "Proposed" not in text and "Accepted decision with its" in text and len(text) <= 300
+
+
+@pytest.mark.parametrize("decide", [lambda adr, a: adr.accept(a["id"], by="T", attendees=[], base_sha=a["sha"]),
+                                    lambda adr, a: adr.reject(a["id"], "no", by="T", base_sha=a["sha"])])
+def test_deciding_leaves_a_description_a_person_wrote(adr, kit, decide):
+    a = decided(adr, chosen="A")
+    own_words(kit, a)
+    assert read(kit, decide(adr, a))[0]["description"] == "Our own words."
+
+
+@pytest.mark.parametrize("given", ["", ["a", "list"], {"a": "map"}, 7])
+def test_deciding_leaves_a_description_that_is_not_the_kits_whatever_it_holds(adr, kit, given):
+    a = decided(adr, chosen="A")
+    own_words(kit, a, given)
+    assert read(kit, adr.accept(a["id"], by="T", attendees=[], base_sha=a["sha"]))[0]["description"] == given
+
+
+def test_deciding_gives_no_description_to_an_adr_without_one(adr, kit):
+    f = decisions(kit) / "0003-jpa.md"
+    f.write_text("---\ntitle: JPA\n---\n" + LEGACY, encoding="utf-8")
+    a = adr.start_review("0003")
+    a = adr.part("0003", "decision", "edit", "Yes.", base_sha=a["sha"])
+    assert "description" not in read(kit, adr.accept("0003", by="T", attendees=[], base_sha=a["sha"]))[0]
+
+
+def test_superseding_rewords_the_description_the_kit_wrote(adr, kit):
+    first = accepted_adr(adr, [])
+    accepted_adr(adr, [], supersedes="1")
+    fm, body = read(kit, first)
+    assert fm["description"] == ("Why the project once chose an option for: T. Superseded decision, kept as history: a newer ADR "
+                                 "replaces it.")
+    assert kit.docs.trust_of(fm, kit.docs.body_sha(body)) == "confirmed"
+
+
+def test_superseding_rewords_what_an_earlier_kit_left_on_an_accepted_adr(adr, kit):
+    first = accepted_adr(adr, [])
+    own_words(kit, {"raw": (kit.root / "docs" / first["path"]).read_text(encoding="utf-8"), "path": first["path"]},
+              PROPOSED.format(title="T"))
+    accepted_adr(adr, [], supersedes="1")
+    assert "Superseded decision" in read(kit, first)[0]["description"]
+
+
+def test_superseding_leaves_a_description_a_person_wrote(adr, kit):
+    first = accepted_adr(adr, [])
+    own_words(kit, {"raw": (kit.root / "docs" / first["path"]).read_text(encoding="utf-8"), "path": first["path"]})
+    accepted_adr(adr, [], supersedes="1")
+    assert read(kit, first)[0]["description"] == "Our own words."
 
 
 @pytest.mark.parametrize("options", [None, "", "<!-- which? -->"])

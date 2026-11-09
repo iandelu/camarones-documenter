@@ -79,8 +79,9 @@ export default function Decisions({ srv }) {
 
 // One ADR, opened at its phase (adr.js `viewOf`). Its state (adr.js `screen`) lives and dies with it: Decisions keys it
 // by the ADR, so what one was doing never shows on another. A save the file outran (409 with its sha, adr.js `stale`)
-// reads the ADR again and says so; any other refusal, a busy lock included, shows the server's message. `fresh(id)` says
-// whether it was just created, so its evidence is gathered once; `onMoved` follows a renumbering.
+// reads the ADR again and says so, and a draft that read leaves behind is Review's to show (adr.js `outrun`); any other
+// refusal, a busy lock included, shows the server's message. `fresh(id)` says whether it was just created, so its evidence
+// is gathered once; `onMoved` follows a renumbering.
 function AdrScreen({ id, srv, notice, fresh, onMoved }) {
   const [s, dispatch] = useReducer(screen, notice, startScreen)
   const alive = useRef(true)
