@@ -414,7 +414,7 @@ This machine and this project's setup (`#/machine`, <kbd>g</kbd> <kbd>m</kbd>).
 | Repos and plan | Each repo, cloned or not, with its stack (edit it, or **Back to detected**); **Clone or pull the repos** (`sync`), **Detect repos in the folder** (`detect`) and the plan's profile, quick or full |
 | The kit | **Update the kit** (`self-update`, global install only) and then **Restart the app on the new version**; **Repair the kit's files** (`repair`) |
 | All commands | down, upgrade, version; with care: migrate, unlink |
-| Uninstall this project | **See what it would remove** first; then **Uninstall** opens a dialog that repeats the list. Optional: also this machine's settings, tokens and caches, and without a backup. By default a `.zip` backup of `cam-docs` goes to the system's temporary folder, and an existing board is kept (copied next to the repos) |
+| Uninstall this project | **See what it would remove** first; then **Uninstall** opens a dialog that repeats the list. Changing an option takes **Uninstall** away until you look again, so the list is always what runs. Optional: also this machine's settings, tokens and caches, and without a backup. By default a `.zip` backup of `cam-docs` goes to the system's temporary folder, and an existing board is kept (copied next to the repos) |
 
 The address `#/machine?host=<host>&kind=sonarqube` (or `gitlab`, `github`) opens the Tokens form filled in.
 

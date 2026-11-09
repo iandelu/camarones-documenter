@@ -268,6 +268,19 @@ def test_cli_dry_run_changes_nothing(un, before):
     assert "web/openwiki" in r.stdout
 
 
+def test_cli_dry_run_lists_what_these_options_run(un, before, home_files):
+    """The app's dialog repeats these `•` lines as its confirmation, so they follow the options."""
+    bullets = lambda *flags: [l for l in cli(un, "--dry-run", *flags).stdout.splitlines() if l.strip().startswith("•")]
+    backup = lambda ls: any("back up cam-docs" in l for l in ls)
+    machine = lambda ls: any("~/.camarones.json" in l for l in ls)
+
+    assert backup(bullets()) and not machine(bullets())
+    assert not backup(bullets("--no-backup"))
+    assert machine(bullets("--global")) and backup(bullets("--global"))
+    assert machine(bullets("--global", "--no-backup")) and not backup(bullets("--global", "--no-backup"))
+    assert (home_files / ".camarones.json").exists() and un.root.is_dir()
+
+
 def test_cli_asks_for_the_project_name(un, before):
     r = cli(un, "--no-backup", stdin="wrong\n")
     assert r.returncode == 1 and un.root.is_dir()
