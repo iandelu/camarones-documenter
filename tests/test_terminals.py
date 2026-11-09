@@ -25,6 +25,14 @@ def screen(t, tid) -> bytes:
     return ANSI.sub(b"", t.read(tid, 0)[0])
 
 
+def on_disk(t, tid) -> dict:
+    """A terminal's .json; empty while it is being replaced (Windows refuses the read then)."""
+    try:
+        return json.loads((t.DIR / f"{tid}.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
 @pytest.fixture
 def pty(kit):
     from lib import terminals
@@ -68,7 +76,8 @@ def test_the_end_of_a_program_is_kept_with_its_code(pty):
     pty.t.write(m["id"], "exit\r")
     until(lambda: pty.t.get(m["id"])["ended"])
     assert pty.t.get(m["id"])["code"] == 3
-    saved = json.loads((pty.t.DIR / f"{m['id']}.json").read_text(encoding="utf-8"))
+    until(lambda: on_disk(pty.t, m["id"]).get("code") == 3)      # written right after the end is known
+    saved = on_disk(pty.t, m["id"])
     assert (saved["code"], saved["unit"], saved["kind"]) == (3, None, "update")
     with pytest.raises(pty.t.Ended):
         pty.t.write(m["id"], "hola\r")
@@ -363,5 +372,6 @@ def test_close_wait_returns_once_what_ignored_the_hang_up_is_gone(pty, monkeypat
     time.sleep(0.3)                                             # the child has its handler
     done = pty.t.close_wait(m["id"], pty.t.CLOSE_GRACE + 2)
     assert done["ended"] is not None
-    assert not pid_alive(int(child.read_text(encoding="utf-8")))
+    until(lambda: not pid_alive(int(child.read_text(encoding="utf-8"))))     # its zombie, for an instant, on macOS
+    assert done == pty.t.get(m["id"])
 
