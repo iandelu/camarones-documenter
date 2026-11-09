@@ -95,3 +95,12 @@ test('handing back reads in English too', () => {
   expect(html(<PtyNode data={{ ...data, taken: true }} />)).toContain('Hand back to the pilot')
   expect(html(<PtyNode data={{ ...data, taken: false }} />)).toContain('Leave to the pilot')
 })
+
+test('a session that found no conversation to continue says so on its node, whichever view opened it', () => {
+  const fresh = { ...live, fresh: true }
+  expect(html(<PtyNode data={{ unit, term: fresh, now: 1000, ...on }} />)).toContain('no he encontrado la conversación de esta unidad')
+  expect(html(<PtyNode data={{ unit, term: live, now: 1000, ...on }} />)).not.toContain('no he encontrado')
+  expect(html(<PtyNode data={{ unit, term: { ...fresh, ended: 3, code: 0 }, now: 1000, ...on }} />)).not.toContain('no he encontrado')
+  setLang('en')
+  expect(html(<PtyNode data={{ unit, term: fresh, now: 1000, ...on }} />)).toContain('New session with claude')
+})

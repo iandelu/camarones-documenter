@@ -60,15 +60,11 @@ def test_a_ready_unit_opens_in_its_own_terminal_in_the_workspace(wired, term):
     assert json.loads(wired.common.PREFS.read_text(encoding="utf-8"))["last_agent"] == "claude"
 
 
-def test_continue_resumes_the_agents_last_conversation(wired, term):
+def test_continue_never_takes_whatever_conversation_is_newest_in_the_folder(wired, term):
     u = ready_agent_unit(wired)
     wired.plan.set_status(u["id"], "doing")
     term["agents"].launch_unit(u["id"], "claude", mode="continue")
-    assert "--continue" in term["cmds"][0][0]
-    window_closed(u["id"])
-    term["history"] = False                                     # nothing to continue: a fresh session
-    term["agents"].launch_unit(u["id"], "claude", mode="continue")
-    assert "--continue" not in term["cmds"][1][0]
+    assert "--continue" not in term["cmds"][0][0]
 
 
 def test_restart_puts_the_old_notes_aside(wired, term):
