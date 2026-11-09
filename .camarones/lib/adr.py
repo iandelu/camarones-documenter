@@ -5,8 +5,9 @@ meanwhile), the working state of each ADR, the list the app shows, and the revie
 editing a part, adding, choosing, deferring or removing a decision point, and the attendees. Every action holds one lock
 for its whole read-check-write, and a save whose `base_sha` is not the file's current body (a pull, an editor) is an
 `AdrConflict` that carries that sha. An edit replaces one section and keeps every other byte of the file.
-The person's decision closes the review: `accept` and `reject` set the status, hand the file to a human (`x-owner`) and
-confirm it, `accept` also marking the ADR it supersedes; `covering` lists the accepted ADRs a page falls under.
+The person's decision closes the review: `accept` and `reject` set the status, reword the description the kit wrote, hand
+the file to a human (`x-owner`) and confirm it, `accept` also marking the ADR it supersedes; `covering` lists the accepted
+ADRs a page falls under.
 `pack` gathers the evidence of a decision (`adr_pack`) into the cache and moves a framed ADR on to `evidence`.
 Never rewrites an ADR the kit did not write before that decision: a file with no state (a legacy ADR) is listed and read
 as it is, and `start_review` only creates its state. Never calls a model."""
@@ -655,17 +656,21 @@ def _supersession(state: dict, id: str, name: str) -> tuple[Path, str] | None:
     raw = _read(_in_decisions(path))
     if "�" in raw:
         raise AdrError(f"{path.name} is not UTF-8: convert it before superseding it")
-    return path, adr_doc.replace_status(raw, f"Superseded by [{id}]({name})")
+    text = adr_doc.replace_status(raw, f"Superseded by [{id}]({name})")
+    fm, body = docs.split_fm(text)
+    described = adr_doc.describe(fm, (_load_or_none(old) or {}).get("title") or _title(old, fm, body), "superseded")
+    return path, text if described == fm else docs.join_fm(described, body)
 
 
-def _owned(raw: str, name: str, id: str, state: dict) -> str:
-    """The file with `x-owner: human` and every other key as it was. A file with no frontmatter gets the few keys a page
-    needs to be confirmed; one whose frontmatter cannot be read is never rewritten."""
+def _owned(raw: str, name: str, id: str, state: dict, status: str) -> str:
+    """The file with `x-owner: human`, the description the kit wrote reworded for `status` and every other key as it was.
+    A file with no frontmatter gets the few keys a page needs to be confirmed; one whose frontmatter cannot be read is
+    never rewritten."""
     fm, body, valid = docs.parse_fm(raw)
     if not valid:
         raise AdrError(f"the frontmatter of {name} cannot be read: fix it before deciding")
-    fm = {**fm, "x-owner": "human"} if fm else {"type": "decision", "title": f"{id} — {state.get('title') or id}",
-                                                 "x-owner": "human"}
+    fm = ({**adr_doc.describe(fm, state.get("title"), status), "x-owner": "human"} if fm
+          else {"type": "decision", "title": f"{id} — {state.get('title') or id}", "x-owner": "human"})
     return docs.join_fm(fm, body)
 
 
@@ -694,7 +699,7 @@ def accept(id: str, by: str, attendees: list[str] | None, base_sha: str) -> dict
             text = adr_doc.replace_section(text, "options", considered)
         text = adr_doc.replace_section(text, "decided_by", adr_doc.render_decided_by(
             date, names, who, str(state.get("mode") or "manual")))
-        _seal(path, _owned(text, path.name, id, state), who)
+        _seal(path, _owned(text, path.name, id, state, "accepted"), who)
         if old:
             old_path, old_text = old
             _write(old_path, old_text)
@@ -712,7 +717,7 @@ def reject(id: str, why: str, by: str, base_sha: str) -> dict:
     with FileLock(LOCK):
         state, path, raw = _open(id, base_sha)
         date = today()
-        _seal(path, _owned(adr_doc.replace_status(raw, f"Rejected ({date}): {reason}"), path.name, id, state), who)
+        _seal(path, _owned(adr_doc.replace_status(raw, f"Rejected ({date}): {reason}"), path.name, id, state, "rejected"), who)
         save_state(_closed(state, "rejected", date, who))
     return get(id)
 

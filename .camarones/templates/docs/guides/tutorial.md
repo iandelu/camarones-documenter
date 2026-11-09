@@ -322,7 +322,8 @@ the review decides along the way (parts, points, attendees) is kept apart in `do
    *Other* with what the meeting decides, and a reason in one line). You can add and remove points and note the
    **attendees**. **Present** (`P`) shows one part per screen in large type to run a meeting while sharing a screen,
    all by keyboard: <kbd>←</kbd>/<kbd>→</kbd> change part, <kbd>1</kbd>–<kbd>9</kbd> pick an option, <kbd>E</kbd> edits,
-   <kbd>D</kbd> defers, <kbd>A</kbd> accepts and <kbd>Esc</kbd> leaves.
+   <kbd>D</kbd> defers, <kbd>A</kbd> accepts and <kbd>Esc</kbd> leaves. Only the review stays on screen: a part too long
+   for it scrolls in its pane, while accepting and the keys stay in view.
 5. **Accept, reject or supersede.** **Accept** leaves the file as `Accepted (date)`, with `x-owner: human`, confirmed,
    and a *Decided by* section with who decided; the options each point weighed, with their pros and cons, go into
    *Considered options* (a section that already had text only gains the ones it does not name); if the ADR supersedes
@@ -330,11 +331,13 @@ the review decides along the way (parts, points, attendees) is kept apart in `do
    with no choice, or an ADR with no points and no text in its *Decision* section, where a placeholder like
    `<What was chosen.>` or a comment does not count): the app refuses and says which. Sections that still hold a
    `TODO(question)` do not stop it, but the accept dialog names them. **Reject** needs a reason and leaves the file as
-   `Rejected (date): reason`, so nobody proposes it again without knowing why it did not go through. An accepted or
-   rejected decision is read as it is; to change it, write a new ADR that supersedes it.
+   `Rejected (date): reason`, so nobody proposes it again without knowing why it did not go through. The subtitle the
+   kit wrote in `description` follows the status, on reject and supersede too; one a person wrote is left alone. An
+   accepted or rejected decision is read as it is; to change it, write a new ADR that supersedes it.
 
 If the file changes under you (a pull, an editor) the save fails with a notice instead of overwriting, and the app reads it
-again. **An ADR the kit did not write** (no frontmatter, Spanish headings, `Propuesto <!-- … -->`, an inline
+again. If the part you were editing changed, your draft stays, unsaved, beside what the file says now, and **Save** waits
+until you choose **Keep my draft** or **Use the file's text**: nothing is overwritten unseen. **An ADR the kit did not write** (no frontmatter, Spanish headings, `Propuesto <!-- … -->`, an inline
 `Status: accepted`) shows in the list with its status, opens as it is, and is never rewritten until someone starts a
 review session on it; in that session each edit rewrites only the section edited. One that is already accepted,
 rejected, superseded or deprecated is closed: the app offers no review session, and changing it takes a new ADR that
