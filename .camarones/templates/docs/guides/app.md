@@ -193,9 +193,14 @@ The project's ADRs, made with the evidence in front of you and written down, wit
 - **Review**: part by part (approve, edit or defer each section and the affected pages) and point by point (pick an
   option or *Other*, with a reason), plus the attendees. **Present** (<kbd>P</kbd>) shows one part per screen for a
   meeting: <kbd>←</kbd> <kbd>→</kbd> change part, <kbd>1</kbd>–<kbd>9</kbd> pick, <kbd>E</kbd> edits, <kbd>D</kbd>
-  defers, <kbd>A</kbd> accepts, <kbd>Esc</kbd> leaves.
+  defers, <kbd>A</kbd> accepts, <kbd>Esc</kbd> leaves. Only the review stays on screen: a part too long for it scrolls
+  in its pane, while accepting and the keys stay in view.
+- **If the file changes while you review** (a pull, an editor), nothing is overwritten: the save is refused and the app
+  reads the ADR again. If the part you were editing changed, your draft stays, unsaved, beside what the file says now,
+  and **Save** waits until you choose **Keep my draft** or **Use the file's text**.
 - **Accept** confirms the ADR with `x-owner: human` and *Decided by*; what is not decided yet is not accepted, and the
-  app says which point or section is missing. **Reject** asks for a reason.
+  app says which point or section is missing. **Reject** asks for a reason. Either way the subtitle the kit wrote under
+  the title (`description`) follows the status; one a person wrote is left alone.
 
 <!-- cmd:adr -->
 
@@ -431,7 +436,7 @@ This machine and this project's setup (`#/machine`, <kbd>g</kbd> <kbd>m</kbd>).
 | Repos and plan | Each repo, cloned or not, with its stack (edit it, or **Back to detected**); **Clone or pull the repos** (`sync`), **Detect repos in the folder** (`detect`) and the plan's profile, quick or full |
 | The kit | **Update the kit** (`self-update`, global install only) and then **Restart the app on the new version**; **Repair the kit's files** (`repair`) |
 | All commands | down, upgrade, version; with care: migrate, unlink |
-| Uninstall this project | **See what it would remove** first; then **Uninstall** opens a dialog that repeats the list. Optional: also this machine's settings, tokens and caches, and without a backup. By default a `.zip` backup of `cam-docs` goes to the system's temporary folder, and an existing board is kept (copied next to the repos) |
+| Uninstall this project | **See what it would remove** first; then **Uninstall** opens a dialog that repeats the list. Changing an option takes **Uninstall** away until you look again, so the list is always what runs. Optional: also this machine's settings, tokens and caches, and without a backup. By default a `.zip` backup of `cam-docs` goes to the system's temporary folder, and an existing board is kept (copied next to the repos) |
 
 The address `#/machine?host=<host>&kind=sonarqube` (or `gitlab`, `github`) opens the Tokens form filled in.
 

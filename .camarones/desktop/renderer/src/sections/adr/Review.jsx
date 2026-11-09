@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Aviso, Button, Chip, Keys } from '@camaron/ui'
-import { acceptBlock, addAttendees, blockedPart, choiceBody, decided, firstOpen, keyEffect, newPointBody, nextPart, partKind, pickOf,
-  pointOf, reviewKey, reviewParts, todoSections } from '../../adr.js'
+import { acceptBlock, addAttendees, blockedPart, choiceBody, decided, firstOpen, keyEffect, newPointBody, nextPart, outrun, partKind, pickOf,
+  pointOf, reviewKey, reviewParts, todoSections, typedDraft } from '../../adr.js'
 import { t } from '../../i18n.js'
 import { initials } from '../../nav.js'
 import { chord, GO, typing } from '../../palette.js'
@@ -131,7 +131,7 @@ export function Review({ adr, busy = false, error = '', notice = '', send, onDia
   }, [])
 
   return (
-    <div ref={root} onFocus={() => { inside.current = true }}
+    <div ref={root} className="dk-rv-root" onFocus={() => { inside.current = true }}
       onBlur={(e) => { if (e.relatedTarget && !root.current?.contains(e.relatedTarget)) inside.current = false }}>
       <ReviewView adr={adr} current={here} present={present} ui={ui} busy={busy} error={error} notice={notice} onPart={onPart}
         onPoint={onPoint} onAttendees={onAttendees} onAccept={onAccept} onReject={onReject} onPresent={presenting} onGo={go} onUi={patch} />
@@ -183,7 +183,7 @@ export function ReviewView({ adr, current, present = false, ui = {}, busy = fals
         </div>
         <div className="dk-rv-whole"><Fold label={t('adr.review.whole')}><Sections sections={adr.sections} /></Fold></div>
         <p className="sr-only" role="status">{busy ? t('adr.review.saving') : ui.say || `${pane.where}: ${pane.label}`}</p>
-        {closed ? null : <Dialogs adr={adr} here={here} ui={ui} error={error} onUi={onUi} onAccept={onAccept} onReject={onReject} onPoint={onPoint} />}
+        {closed ? null : <Dialogs adr={adr} here={here} ui={ui} error={error} notice={notice} onUi={onUi} onAccept={onAccept} onReject={onReject} onPoint={onPoint} />}
       </Page>
     </div>
   )
@@ -226,14 +226,36 @@ function TextPane({ adr, here, part, closed, d, setDraft, where, label, onPart }
   </>)
   if (!closed && d.editing) {
     const value = d.draft ?? text
+    const moved = outrun(adr, here, d)        // Guardar would replace what someone else wrote: first the person reads it
     return (<>
       {head}
-      <form className="dk-rv-editf" onSubmit={(e) => { e.preventDefault(); onPart('edit', value) }}>
-        <label className="sr-only" htmlFor="rv-edit">{t('adr.review.editLabel', { part: label })}</label>
-        <textarea id="rv-edit" className="cu-input dk-rv-edit" value={value} autoFocus onChange={(e) => setDraft({ draft: e.target.value })} />
+      <form className="dk-rv-editf" onSubmit={(e) => {
+        e.preventDefault()
+        if (moved) e.currentTarget.querySelector('.dk-rv-theirs')?.focus()
+        else onPart('edit', value)
+      }}>
+        {moved ? (
+          <div id="rv-moved">
+            <Aviso tone="warn" title={t('adr.review.moved')} action={<>
+              <Button variant="primary" data-primary onClick={() => setDraft({ base: text })}>{t('adr.review.moved.keep')}</Button>
+              <Button onClick={() => setDraft({ draft: undefined, base: undefined })}>{t('adr.review.moved.take')}</Button>
+            </>}>{t('adr.review.moved.body')}</Aviso>
+          </div>) : null}
+        <div className="dk-rv-sides">
+          <div className="dk-rv-side">
+            <label className={moved ? 'eyebrow' : 'sr-only'} htmlFor="rv-edit">{moved ? t('adr.review.moved.mine') : t('adr.review.editLabel', { part: label })}</label>
+            <textarea id="rv-edit" className="cu-input dk-rv-edit" value={value} autoFocus onChange={(e) => setDraft(typedDraft(d, e.target.value, text))} />
+          </div>
+          {moved ? (
+            <div className="dk-rv-side">
+              <span id="rv-theirs" className="eyebrow">{t('adr.review.moved.file')}</span>
+              <pre className="dk-rv-theirs" tabIndex={0} aria-labelledby="rv-theirs">{text || t('adr.review.moved.empty')}</pre>
+            </div>) : null}
+        </div>
         <div className="row dk-rv-acts">
-          <Button variant="primary" type="submit" data-primary>{t('adr.review.save')}</Button>
-          <Button variant="ghost" onClick={() => setDraft({ editing: false, draft: undefined })}>{t('cancel')}</Button>
+          <Button variant="primary" type="submit" data-primary={moved ? undefined : true} aria-disabled={moved ? 'true' : undefined}
+            aria-describedby={moved ? 'rv-moved' : undefined}>{t('adr.review.save')}</Button>
+          <Button variant="ghost" onClick={() => setDraft({ editing: false, draft: undefined, base: undefined })}>{t('cancel')}</Button>
         </div>
       </form>
     </>)
@@ -468,13 +490,14 @@ function Modal({ open, onClose, labelledBy, children }) {
   return <dialog ref={ref} className="dk-dialog dk-rv-dlg" aria-labelledby={labelledBy} onClose={onClose}>{open ? children : null}</dialog>
 }
 
-function Dialogs({ adr, here, ui, error, onUi, onAccept, onReject, onPoint }) {
+function Dialogs({ adr, here, ui, error, notice, onUi, onAccept, onReject, onPoint }) {
   const close = () => onUi({ dialog: null })
   const names = attendeesOf(adr)
   const why = ui.why ?? ''
   const point = pointOf(adr, here)
   const tag = point ? String(point.id).toUpperCase() : ''
-  const refused = error ? <Aviso tone="error" title={t('adr.review.failed')} detail={error} /> : null
+  // A save the file outran leaves the dialog open: what the screen behind it says has to show here too.
+  const refused = error ? <Aviso tone="error" title={t('adr.review.failed')} detail={error} /> : notice ? <Aviso tone="info" title={notice} /> : null
   const todos = todoSections(adr).map((k) => t(`adr.sec.${k}`))
   return (<>
     <Modal open={ui.dialog === 'accept'} onClose={close} labelledBy="rv-dlg-accept">

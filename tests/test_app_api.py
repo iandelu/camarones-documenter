@@ -121,6 +121,8 @@ def test_a_yes_flag_is_only_sent_after_the_app_asked(kit, entries):
         appapi.argv(entries["uninstall"], {"no_backup": True})
     assert appapi.argv(entries["uninstall"], {"no_backup": True}, confirmed=True) == ["uninstall", "--no-backup", "--yes"]
     assert appapi.argv(entries["uninstall"], {"dry_run": True}) == ["uninstall", "--dry-run"]   # a preview: no asking
+    preview = appapi.argv(entries["uninstall"], {"user_level": True, "no_backup": True, "dry_run": True})
+    assert sorted(preview) == ["--dry-run", "--global", "--no-backup", "uninstall"]             # of the same options
     with pytest.raises(ValueError, match="yes"):
         appapi.argv(entries["uninstall"], {"yes": True}, confirmed=True)        # never set by the caller itself
 

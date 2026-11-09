@@ -162,6 +162,32 @@ def test_setup_from_the_cli_is_recorded_too(kit, monkeypatch, capsys):
     assert install_state.last_setup()["at"].endswith("Z")
 
 
+def test_setup_from_the_terminal_wizard_is_recorded_too(kit, fake_wizard, monkeypatch):
+    """The wizard's menu runs env.setup itself, not onboard.run_setup."""
+    from lib import install_state
+    monkeypatch.setattr(kit.env, "setup", lambda ci=False, log=print, comps=None: True)
+    monkeypatch.setattr(kit.wizard.W, "fr_tools", lambda self, ws: None)
+    monkeypatch.setattr(kit.wizard.W, "repo_pointer", lambda self: None)
+    assert fake_wizard([]).do_setup() is True
+    assert install_state.last_setup()["at"].endswith("Z")
+
+
+@pytest.mark.parametrize("worked,answers,recorded", [(True, ["again", "go"], True), (False, ["again", None], False)])
+def test_a_retry_in_the_first_run_is_recorded_only_when_it_worked(kit, fake_wizard, monkeypatch, worked, answers, recorded):
+    """The first attempt goes through onboard.run_setup; the retries run env.setup themselves."""
+    from lib import install_state, plan
+
+    def failed(log, cancelled=None):
+        plan.sync()                                                       # as the real one: a failed setup leaves the plan
+        return False
+    monkeypatch.setattr(kit.onboard, "run_setup", failed)
+    monkeypatch.setattr(kit.env, "setup", lambda ci=False, log=print, comps=None: worked)
+    monkeypatch.setattr(kit.wizard.W, "repo_pointer", lambda self: None)
+    monkeypatch.setattr(kit.wizard.W, "ask_usage", lambda self: None)
+    fake_wizard(answers).fr_setup(kit.docs.workspace())
+    assert (install_state.last_setup() is not None) is recorded
+
+
 def test_a_machine_set_up_before_the_record_existed_still_counts(kit):
     """A 4.x record (what setup or repair wrote) has no `setup`: the machine was set up, the time is unknown."""
     from lib import install_state
