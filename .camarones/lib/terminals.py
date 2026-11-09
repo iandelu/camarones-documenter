@@ -346,6 +346,15 @@ def close(tid: str) -> dict:
     return _meta(t)
 
 
+def close_wait(tid: str, timeout: float) -> dict:
+    """`close`, then its meta once the program is gone (at most `timeout` s): what comes next needs its conversation free."""
+    t = _term(tid)
+    close(tid)
+    with _lock:
+        _lock.wait_for(lambda: t.meta["ended"] is not None, timeout)
+        return dict(t.meta)
+
+
 def _hard(pid: int) -> None:
     """Close's SIGKILL for what ignored its hang-up, unless `shutdown` sent it first."""
     with _lock:
