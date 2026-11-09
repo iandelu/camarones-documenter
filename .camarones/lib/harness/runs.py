@@ -25,6 +25,42 @@ def _ts(ev: dict) -> dt.datetime:
     return dt.datetime.fromisoformat(ev["ts"].replace("Z", "+00:00"))
 
 
+def _kind(evs: list[dict]) -> str | None:
+    """autopilot or parallel, from how the run started; None for a log with no start (or a wiki's)."""
+    start = next((e for e in evs if e["type"] == "run.started"), {})
+    return "parallel" if "parallel" in start else "autopilot" if "agents" in start else None
+
+
+def active() -> dict | None:
+    """The plan run in progress on this machine, which may be another process: the newest log, while someone holds the
+    run lock and it has not logged its end."""
+    from . import scheduler
+    latest = ids(wiki=False)
+    if not latest or scheduler.busy() is None:
+        return None
+    evs = events(latest[0])
+    return None if any(e["type"] == "run.finished" for e in evs) else {"run": latest[0], "kind": _kind(evs)}
+
+
+def running(run_id: str, uid: str) -> bool:
+    """The run's agent is at work on the unit: its last start has no finish after it."""
+    last = [e["type"] for e in events(run_id) if e.get("unit") == uid and e["type"] in ("unit.started", "unit.finished")]
+    return bool(last) and last[-1] == "unit.started"
+
+
+def last_session(uid: str, run_id: str | None = None) -> dict | None:
+    """The conversation of the unit's last attempt in that run (default: the newest), and its agent: `id` is None for a
+    runner with no conversation of its own. None when that run never worked on the unit."""
+    if run_id is None:
+        run_id = next(iter(ids(wiki=False)), None)
+    found = None
+    for e in events(run_id) if run_id else ():
+        if e.get("unit") == uid and e["type"] in ("unit.started", "session"):
+            found = {"id": e.get("resume") if e["type"] == "unit.started" else e.get("id"),
+                     "agent": routing.parse(e.get("runner") or "").runner}
+    return found
+
+
 def summary(run_id: str) -> dict:
     evs = events(run_id)
     end = next((e for e in reversed(evs) if e["type"] == "run.finished"), None)
@@ -32,12 +68,12 @@ def summary(run_id: str) -> dict:
     usage = [e for e in evs if e["type"] == "usage"]
     done = end["done"] if end and "done" in end else sum(1 for e in finished if e.get("outcome") == "ok"
                                                            and e.get("status") == "done")
-    return {"run": run_id, "started": evs[0]["ts"] if evs else None, "finished": end is not None,
+    return {"run": run_id, "kind": _kind(evs), "started": evs[0]["ts"] if evs else None, "finished": end is not None,
             "interrupted": bool(end and end.get("interrupted")),
             "seconds": round((_ts(evs[-1]) - _ts(evs[0])).total_seconds(), 1) if evs else 0.0,
             "units": sum(1 for e in evs if e["type"] == "unit.started"), "done": done,
             "limited": sum(1 for e in finished if e.get("outcome") == "limited"),
-            "failed": sum(1 for e in finished if e.get("outcome") not in ("ok", "limited")),
+            "failed": sum(1 for e in finished if e.get("outcome") not in ("ok", "limited", "handed", "cancelled")),
             "tokens_in": sum(e.get("in", 0) for e in usage), "tokens_out": sum(e.get("out", 0) for e in usage),
             "tokens_cache": sum(e.get("cache_read", 0) + e.get("cache_write", 0) for e in usage),
             "cost_usd": round(sum(e.get("cost_usd", 0) or 0 for e in usage), 6)}

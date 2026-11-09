@@ -175,8 +175,8 @@ def headless(busy: bool | None = None) -> set[str]:
     evs = runs.events(latest[0])
     if any(e["type"] == "run.finished" for e in evs):
         return set()
-    return {e.get("unit") for e in evs if e["type"] == "unit.started"} - \
-        {e.get("unit") for e in evs if e["type"] == "unit.finished"}
+    last = {e.get("unit"): e["type"] for e in evs if e["type"] in ("unit.started", "unit.finished")}
+    return {uid for uid, kind in last.items() if kind == "unit.started"}     # a unit can start again: handed back, a limit
 
 
 def board(u: dict, busy: set[str]) -> dict:
