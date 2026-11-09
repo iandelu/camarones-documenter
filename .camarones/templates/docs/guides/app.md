@@ -194,6 +194,9 @@ The project's ADRs, made with the evidence in front of you and written down, wit
   option or *Other*, with a reason), plus the attendees. **Present** (<kbd>P</kbd>) shows one part per screen for a
   meeting: <kbd>←</kbd> <kbd>→</kbd> change part, <kbd>1</kbd>–<kbd>9</kbd> pick, <kbd>E</kbd> edits, <kbd>D</kbd>
   defers, <kbd>A</kbd> accepts, <kbd>Esc</kbd> leaves.
+- **If the file changes while you review** (a pull, an editor), nothing is overwritten: the save is refused and the app
+  reads the ADR again. If the part you were editing changed, your draft stays, unsaved, beside what the file says now,
+  and **Save** waits until you choose **Keep my draft** or **Use the file's text**.
 - **Accept** confirms the ADR with `x-owner: human` and *Decided by*; what is not decided yet is not accepted, and the
   app says which point or section is missing. **Reject** asks for a reason. Either way the subtitle the kit wrote under
   the title (`description`) follows the status; one a person wrote is left alone.
