@@ -193,7 +193,8 @@ The project's ADRs, made with the evidence in front of you and written down, wit
 - **Review**: part by part (approve, edit or defer each section and the affected pages) and point by point (pick an
   option or *Other*, with a reason), plus the attendees. **Present** (<kbd>P</kbd>) shows one part per screen for a
   meeting: <kbd>←</kbd> <kbd>→</kbd> change part, <kbd>1</kbd>–<kbd>9</kbd> pick, <kbd>E</kbd> edits, <kbd>D</kbd>
-  defers, <kbd>A</kbd> accepts, <kbd>Esc</kbd> leaves.
+  defers, <kbd>A</kbd> accepts, <kbd>Esc</kbd> leaves. Only the review stays on screen: a part too long for it scrolls
+  in its pane, while accepting and the keys stay in view.
 - **If the file changes while you review** (a pull, an editor), nothing is overwritten: the save is refused and the app
   reads the ADR again. If the part you were editing changed, your draft stays, unsaved, beside what the file says now,
   and **Save** waits until you choose **Keep my draft** or **Use the file's text**.

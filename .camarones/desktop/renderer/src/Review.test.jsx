@@ -339,11 +339,42 @@ test('a review, accepted or rejected ADR opens on the review screen', () => {
 
 const css = readFileSync(new URL('./app.css', import.meta.url), 'utf-8').replace(/\/\*[\s\S]*?\*\//g, '')
 
-test('presenting hides the rail, the sections, the breadcrumbs and the bars, and enlarges the type from the theme', () => {
+const rule = (sel) => css.match(new RegExp(`(?:^|\\})\\s*${sel.replace(/[.()>:]/g, (c) => '\\' + c)}\\s*\\{([^}]*)\\}`))?.[1] ?? ''
+
+test('presenting hides the rail, the sections, what the header holds and the bars, and enlarges the type from the theme', () => {
   const hidden = css.match(/\.dk:has\(\.dk-present\)\s*:is\(([^)]*)\)\s*\{\s*display:\s*none/)?.[1] ?? ''
-  for (const sel of ['.dk-rail', '.dk-side', '.cu-crumbs', '.dk-jobs', '.dk-status']) expect(hidden, sel).toContain(sel)
+  for (const sel of ['.dk-rail', '.dk-side', '.dk-top > *', '.dk-jobs', '.dk-status']) expect(hidden, sel).toContain(sel)
   expect(css).toMatch(/\.dk-present\s*\{[^}]*--text-display-md/)
   expect(css.match(/\.dk-present[^{]*\{[^}]*\}/g).join('\n')).not.toMatch(/font-size:\s*[\d.]+(px|rem)/)
+})
+
+// The header's row is the window's title bar: main.cjs draws the system's controls over it and it drags the window, so
+// it stays, empty, and only what it holds goes.
+test('presenting keeps the empty title bar in its row', () => {
+  expect(rule('.dk:has(.dk-present)')).toMatch(/"top"\s+3\.5rem/)
+  const hidden = css.match(/\.dk:has\(\.dk-present\)\s*:is\(([^)]*)\)\s*\{\s*display:\s*none/)?.[1] ?? ''
+  expect(hidden.split(',').map((x) => x.trim())).not.toContain('.dk-top')
+})
+
+// .dk-rv-edit asks for 14rem and a bare .cu-input in this selector beat it, leaving 73 px to write a section in.
+test('presenting makes the one-line controls tall and leaves a textarea its own height', () => {
+  const tall = [...css.matchAll(/([^{}]*\.dk-present[^{}]*)\{[^}]*min-height:\s*3rem[^}]*\}/g)].map((m) => m[1])
+  expect(tall.length).toBeGreaterThan(0)
+  for (const sel of tall) expect(sel).not.toMatch(/(^|[\s,(])\.cu-input/)
+  expect(rule('.dk-rv-edit')).toMatch(/min-height:\s*14rem/)
+})
+
+// A decision point at the display sizes is taller than the screen: it scrolls inside its pane, and the row with Aceptar
+// and the keys stay in view instead of falling off the bottom edge.
+test('presenting scrolls the part, never the accept row', () => {
+  const pane = rule('.dk-present .dk-rv-pane')
+  expect(pane).toMatch(/overflow-y:\s*auto/)
+  expect(pane).toMatch(/flex:\s*1 1 0/)
+  expect(pane).not.toMatch(/svh/)
+  expect(rule('.dk-present .dk-rv')).toMatch(/display:\s*flex/)
+  expect(rule('.dk-present .dk-rv')).toMatch(/min-height:\s*0/)
+  expect(rule('.dk-present .dk-rv')).toMatch(/align-items:\s*stretch/)         // .dk-rv's `start` would shrink the pane to its text
+  for (const sel of ['.dk-present .dk-rv-nav', '.dk-present .dk-rv-foot', '.dk-present .dk-rv-keys']) expect(rule(sel), sel).toMatch(/flex:\s*none/)
 })
 
 test('a part comes in without moving for who asked for less motion', () => {

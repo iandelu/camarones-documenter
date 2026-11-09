@@ -337,6 +337,7 @@ la revisión va decidiendo (partes, puntos, asistentes) queda aparte en `docs/.w
    puntos y apuntar los **asistentes**. **Presentar** (`P`) muestra una parte por pantalla, en letra grande, para llevar
    una reunión compartiendo pantalla, todo con el teclado: <kbd>←</kbd>/<kbd>→</kbd> cambian de parte,
    <kbd>1</kbd>–<kbd>9</kbd> eligen opción, <kbd>E</kbd> edita, <kbd>D</kbd> aplaza, <kbd>A</kbd> acepta y <kbd>Esc</kbd> sale.
+   Solo queda la revisión: una parte que no cabe se desplaza en su panel, y aceptar y las teclas siguen a la vista.
 5. **Acepta, rechaza o sustituye.** **Aceptar** deja el fichero en `Accepted (fecha)`, con `x-owner: human`, confirmado,
    y una sección *Decided by* con quién decidió; las opciones que se sopesaron en cada punto, con sus a favor y en
    contra, pasan a *Considered options* (si esa sección ya tenía texto, solo se añaden las que no nombra); si el ADR

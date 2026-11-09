@@ -322,7 +322,8 @@ the review decides along the way (parts, points, attendees) is kept apart in `do
    *Other* with what the meeting decides, and a reason in one line). You can add and remove points and note the
    **attendees**. **Present** (`P`) shows one part per screen in large type to run a meeting while sharing a screen,
    all by keyboard: <kbd>←</kbd>/<kbd>→</kbd> change part, <kbd>1</kbd>–<kbd>9</kbd> pick an option, <kbd>E</kbd> edits,
-   <kbd>D</kbd> defers, <kbd>A</kbd> accepts and <kbd>Esc</kbd> leaves.
+   <kbd>D</kbd> defers, <kbd>A</kbd> accepts and <kbd>Esc</kbd> leaves. Only the review stays on screen: a part too long
+   for it scrolls in its pane, while accepting and the keys stay in view.
 5. **Accept, reject or supersede.** **Accept** leaves the file as `Accepted (date)`, with `x-owner: human`, confirmed,
    and a *Decided by* section with who decided; the options each point weighed, with their pros and cons, go into
    *Considered options* (a section that already had text only gains the ones it does not name); if the ADR supersedes
