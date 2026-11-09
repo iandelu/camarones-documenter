@@ -73,7 +73,7 @@ def summary(run_id: str) -> dict:
             "seconds": round((_ts(evs[-1]) - _ts(evs[0])).total_seconds(), 1) if evs else 0.0,
             "units": sum(1 for e in evs if e["type"] == "unit.started"), "done": done,
             "limited": sum(1 for e in finished if e.get("outcome") == "limited"),
-            "failed": sum(1 for e in finished if e.get("outcome") not in ("ok", "limited", "handed", "cancelled")),
+            "failed": sum(1 for e in finished if e.get("outcome") not in ("ok", "limited", "handed") and not e.get("stopped")),
             "tokens_in": sum(e.get("in", 0) for e in usage), "tokens_out": sum(e.get("out", 0) for e in usage),
             "tokens_cache": sum(e.get("cache_read", 0) + e.get("cache_write", 0) for e in usage),
             "cost_usd": round(sum(e.get("cost_usd", 0) or 0 for e in usage), 6)}

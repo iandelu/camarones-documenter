@@ -31,22 +31,22 @@ class Refused(RuntimeError):
 
 def _ask(run_id: str, uid: str) -> None:
     """Asks the run for the unit, if its agent is at work on it, and waits for the unit's end in the log. Refused when
-    the run is alive and does not answer; a run that died meanwhile has left the unit behind."""
+    the run is alive and does not answer; a run that died meanwhile has left the unit behind. The request stays for the
+    caller to clear once the terminal is open: until then it keeps the unit from a run whose agent ended on its own (a
+    usage limit starts it again at once)."""
     log = EventLog(CTX.runs / run_id / "events.jsonl")
     offset = log.read()[1]                      # before the look at it: an end after that look is read below
     if not runs.running(run_id, uid):
         return
     handoff.request(run_id, uid, "you")
     deadline = time.monotonic() + ANSWER
-    try:
-        while time.monotonic() < deadline:
-            events, offset = log.read(offset)
-            if any(e["type"] == "unit.finished" and e.get("unit") == uid for e in events):
-                return
-            time.sleep(LOOK)
-    finally:
-        handoff.clear(run_id, uid)
+    while time.monotonic() < deadline:
+        events, offset = log.read(offset)
+        if any(e["type"] == "unit.finished" and e.get("unit") == uid for e in events):
+            return
+        time.sleep(LOOK)
     if scheduler.busy() is not None:
+        handoff.clear(run_id, uid)
         raise Refused("no-answer", f"the run did not answer for {uid}: try again")
 
 
@@ -61,24 +61,31 @@ def take(uid: str, lang: str = "es", size: tuple[int, int] = (80, 24)) -> dict:
         run = runs.active()
         if run and run["kind"] == "parallel" and runs.running(run["run"], uid):
             raise Refused("parallel", "a parallel run keeps its units: only the autopilot's can be taken")
-        if run:
-            _ask(run["run"], uid)
-        u = plan.get(plan.load(), uid)
-        if u["status"] in ("done", "dropped"):
-            raise Refused("finished", f"{uid} is {u['status']}: its agent finished it")
-        last = runs.last_session(uid, run["run"] if run else None)
+        run_id = run["run"] if run else None
+        last = runs.last_session(uid, run_id)
         if not last:
             raise Refused("no-run", f"no run has worked on {uid}")
-        with agents._opening:
-            agents._refuse_open(uid, where)     # a session opened by hand while the run answered
-            if u["status"] == "todo":           # its agent had not marked it: a closed terminal still knows
-                plan.set_status(uid, "doing")
-            if last["id"]:
-                res = agents._open(None, last["agent"], lang, resume=True, uid=uid, session=last["id"], where=where,
-                                   size=size, fallback=fallback, since=time.time())
-            else:
-                res = agents._open(plan.prompt(uid, lang=lang), last["agent"], lang, resume=False, uid=uid, where=where,
-                                   size=size, fallback=fallback)
+        agents.can_open(last["agent"])          # before its agent is ended for nothing
+        try:
+            if run_id:
+                _ask(run_id, uid)
+            u = plan.get(plan.load(), uid)
+            if u["status"] in ("done", "dropped"):
+                raise Refused("finished", f"{uid} is {u['status']}: its agent finished it")
+            last = runs.last_session(uid, run_id)
+            with agents._opening:
+                agents._refuse_open(uid, where)     # a session opened by hand while the run answered
+                if u["status"] == "todo":           # its agent had not marked it: a closed terminal still knows
+                    plan.set_status(uid, "doing")
+                if last["id"]:
+                    res = agents._open(None, last["agent"], lang, resume=True, uid=uid, session=last["id"], where=where,
+                                       size=size, fallback=fallback, since=time.time())
+                else:
+                    res = agents._open(plan.prompt(uid, lang=lang), last["agent"], lang, resume=False, uid=uid, where=where,
+                                       size=size, fallback=fallback)
+        finally:
+            if run_id and (handoff.read(run_id, uid) or {}).get("to") == "you":
+                handoff.clear(run_id, uid)
     return {**res, "unit": uid, "fresh": not last["id"]}
 
 
@@ -94,9 +101,11 @@ def hand_back(uid: str) -> dict:
     term = terminals.find("unit", uid)
     if not term:
         raise Refused("no-terminal", f"{uid} has no terminal on the canvas")
+    back = {"session": term["session"], "agent": term["agent"]}
+    handoff.request(run["run"], uid, "pilot", closing=True, **back)   # first: a run that sees it ended must not call it paused
     terminals.close_wait(term["id"], terminals.CLOSE_GRACE + 2)
     sessions.bound(uid)
-    handoff.request(run["run"], uid, "pilot", session=term["session"], agent=term["agent"])
+    handoff.request(run["run"], uid, "pilot", **back)
     return {"handed": uid, "terminal": term["id"]}
 
 

@@ -107,9 +107,16 @@ def test_a_handoff_is_not_a_failure_in_a_run_summary(kit, log):
     rid = log("r-1", ("run.started", {"agents": ["claude"]}), ("unit.started", {"unit": "a", "runner": "claude"}),
               ("unit.finished", {"unit": "a", "outcome": "handed", "status": "doing"}),
               ("unit.started", {"unit": "b", "runner": "claude"}),
-              ("unit.finished", {"unit": "b", "outcome": "cancelled", "status": "todo"}))
+              ("unit.finished", {"unit": "b", "outcome": "cancelled", "status": "todo", "stopped": True}))
     s = runs.summary(rid)
     assert s["failed"] == 0 and s["kind"] == "autopilot"
+
+
+def test_a_cancelled_unit_of_an_old_log_still_counts_as_it_did(kit, log):
+    from lib.harness import runs
+    rid = log("r-1", ("run.started", {"parallel": 2}), ("unit.started", {"unit": "a"}),
+              ("unit.finished", {"unit": "a", "outcome": "cancelled", "status": "todo"}))
+    assert runs.summary(rid)["failed"] == 1
 
 
 def test_an_old_run_log_has_no_kind(kit, log):

@@ -117,6 +117,14 @@ def _refuse_open(uid: str, where: str) -> None:
         terminals.room()
 
 
+def can_open(agent: str) -> None:
+    """ValueError unless this agent can open as a terminal: installed, and not a command template with no interactive
+    command. Asked before anything moves."""
+    if agent not in {a["id"] for a in installed()}:
+        raise ValueError(f"{agent} is not installed on this machine")
+    runners.get(agent).build(RunRequest(prompt="", cwd=WORKSPACE, interactive=True))
+
+
 def _conversation(uid: str, agent: str, rec: dict | None) -> tuple[str | None, float | None]:
     """What Continue reopens, and from when the bill counts it: the record's conversation; with none, the one a run left
     in its newest log, which is on the run's bill so far. None: the agent's own last one."""
