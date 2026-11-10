@@ -15,9 +15,7 @@ class Claude(CliRunner):
     def build(self, req: RunRequest) -> Invocation:
         model = ["--model", req.model] if req.model else []
         again = ["--resume" if req.resume else "--session-id", req.session] if req.session else []
-        if req.interactive:
-            if not req.session and req.resume:
-                again = ["--continue"]
+        if req.interactive:                       # no id, no reopening: `--continue` takes the newest in the folder
             argv = [self.exe(), *model, *again, *([req.prompt] if req.prompt else [])]
         elif req.allow_tools == ():               # an answer from the prompt alone: no tools, no project MCP servers
             argv = [self.exe(), "-p", req.prompt, "--tools", "", "--strict-mcp-config", *model,

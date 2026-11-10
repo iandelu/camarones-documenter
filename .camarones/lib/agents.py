@@ -1,7 +1,8 @@
 """Interactive agent sessions on the plan: a unit (the wizard's "next unit") or the docs update, opened in its own
 terminal window in the workspace, so the agent sees every repo and cam-docs. The wizard asks its questions and then
-builds the same command; the desktop app calls `launch_unit` / `launch_update` through /api/app/agent. A unit's window
-runs the agent inside lib/session_run.py, so the board knows whether it is still open (lib/sessions.py).
+builds the same command, with the same `conversation` and `refuse_busy`; the desktop app calls `launch_unit` /
+`launch_update` through /api/app/agent. A unit's window runs the agent inside lib/session_run.py, so the board knows
+whether it is still open (lib/sessions.py).
 
 The prompt goes to a file and the agent gets a one-line pointer to it: multi-line arguments do not survive Windows
 .cmd shims. A unit's session and the docs update each have a file of their own in the cache (`prompts/<unit>.md`), so
@@ -39,11 +40,6 @@ class AlreadyOpen(ValueError):
 
 class AtWork(ValueError):
     """A run's agent is working on the unit: another session on its conversation would lose it."""
-
-
-def claude_history(cwd: Path) -> bool:
-    """Whether Claude Code has a saved conversation for `cwd` (its projects dir is the path with / and . → -)."""
-    return any(sessions.claude_dir(cwd).glob("*.jsonl"))
 
 
 def installed() -> list[dict]:
@@ -142,8 +138,34 @@ def _conversation(uid: str, agent: str, rec: dict | None) -> tuple[str | None, f
 def _last_is_its(uid: str, agent: str) -> bool:
     """Whether an agent that takes no conversation id can be sent to its own last one for this unit (`codex resume --last`):
     only while no later session of that agent opened here. Claude Code takes ids, so its last one is never asked for: it
-    is the newest in the folder, whichever unit or run wrote it."""
-    return not runners.get(agent).own_session and sessions.last_opened(agent) == uid
+    is the newest in the folder, whichever unit or run wrote it. A command template has no way back at all."""
+    return runners.get(agent).reopens_last and sessions.last_opened(agent) == uid
+
+
+def conversation(uid: str, agent: str, again: bool) -> tuple[str | None, float | None, bool]:
+    """The one rule for a unit's session, the app's and the wizard's: its conversation id, from when the bill counts it,
+    and whether it is reopened. again: Continue. With nothing of its own to reopen, it is a new conversation."""
+    session, since, resume = None, None, False
+    if again:
+        session, since = _conversation(uid, agent, sessions.load(uid))
+        resume = bool(session) or _last_is_its(uid, agent)
+    if agent == "claude" and not session:        # its own conversation: the board reads it, Continue reopens it
+        session = str(uuid.uuid4())
+    return session, since, resume
+
+
+def conversation_agent(uid: str) -> str | None:
+    """The agent that holds the unit's conversation: its record's, else that of the run that left one in its log."""
+    last = runs.last_session(uid)
+    return (sessions.load(uid) or {}).get("agent") or (last["agent"] if last and last["id"] else None)
+
+
+def refuse_busy(uid: str, where: str = "window") -> None:
+    """AlreadyOpen or Limit as `_refuse_open`; AtWork while a run's agent has the unit. Asked before anything moves."""
+    _refuse_open(uid, where)
+    run = runs.active()
+    if run and runs.running(run["run"], uid):
+        raise AtWork(f"{uid}: a run's agent is working on it: take control from its node on the canvas")
 
 
 def _open(prompt: str | None, agent: str, lang: str, resume: bool, uid: str | None = None, session: str | None = None,
@@ -204,16 +226,8 @@ def launch_unit(uid: str, agent: str, lang: str = "es", mode: str = "new", where
         raise ValueError(f"{agent} is not installed on this machine")
     where, fallback = _place(where)
     with _opening:
-        _refuse_open(uid, where)
-        run = runs.active()
-        if run and runs.running(run["run"], uid):
-            raise AtWork(f"{uid}: a run's agent is working on it: take control from its node on the canvas")
-        session, since, resume = None, None, False
-        if mode == "continue":
-            session, since = _conversation(uid, agent, sessions.load(uid))
-            resume = bool(session) or _last_is_its(uid, agent)
-        if agent == "claude" and not session:        # its own conversation: the board reads it, Continue reopens it
-            session = str(uuid.uuid4())
+        refuse_busy(uid, where)
+        session, since, resume = conversation(uid, agent, mode == "continue")
         if mode == "restart":
             f = plan.note_file(uid)
             if f.exists():

@@ -8,6 +8,7 @@ from .base import CliRunner
 class Codex(CliRunner):
     id = "codex"
     label = "Codex"
+    reopens_last = True
 
     def build(self, req: RunRequest) -> Invocation:
         model = ["--model", req.model] if req.model else []

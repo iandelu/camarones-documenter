@@ -16,9 +16,8 @@ def term(wired, monkeypatch):
     fake = lambda name: f"/bin/{name}" if name in ("claude", "codex") else None      # noqa: E731
     monkeypatch.setattr(agents, "which", fake)
     monkeypatch.setattr(base, "which", fake)
-    box = {"cmds": [], "ok": True, "history": True}
+    box = {"cmds": [], "ok": True}
     monkeypatch.setattr(agents.env, "open_new_terminal", lambda cmd, cwd: box["cmds"].append((cmd, cwd)) or box["ok"])
-    monkeypatch.setattr(agents, "claude_history", lambda cwd: box["history"])
     wired.plan.sync()
     wired.plan.set_status("setup", "done")
     box["agents"] = agents
