@@ -19,7 +19,7 @@ from rich.text import Text
 
 from .common import (ROOT, HOME, PREFS, WORK, WS_FILE, CACHE, IS_WIN, IS_MAC, CAM_DIR, CAM_LAYOUT, WORKSPACE, which, cli_cmd,
                      load_json, save_json, out, repo_dir)
-from . import docs, env, genblocks, install_state, plan, creds, questionnaire, quickarch, radar, tutorial, upgrade, usage
+from . import docs, env, genblocks, install_state, plan, creds, questionnaire, quickarch, radar, sessions, tutorial, upgrade, usage
 from .adapters import runners
 from .harness.ports import RunRequest
 from .common import VERSIONS
@@ -28,7 +28,7 @@ import webbrowser
 
 console = Console(highlight=False)
 from .machine import MODELS                   # noqa: E402 — Claude Code's --model aliases; one list with the app
-from .agents import CODEX_MODEL_DEFAULT, claude_history   # noqa: E402,F401 — the launch itself lives in lib/agents.py
+from .agents import CODEX_MODEL_DEFAULT   # noqa: E402,F401 — the launch itself lives in lib/agents.py
 from . import agents as agent_sessions                      # noqa: E402
 FIRSTRUN = CACHE / "firstrun.json"     # first-run wizard position (so closing the window never loses it)
 from . import onboard                                                                 # noqa: E402
@@ -332,9 +332,12 @@ T = {
         "draft_lbl": "borrador, sin esperar a la entrevista",
         "res_q": "«{u}» se quedó a medias. ¿Cómo sigo?",
         "res_new": "▶ Nueva sesión que retoma desde el último checkpoint (recomendado)",
-        "res_cont": "💬 Reabrir la última conversación de {agent}",
+        "res_cont": "💬 Reabrir la conversación de esta unidad con {agent}",
         "res_done": "✔ Ya está terminada: márcala como hecha",
         "res_restart": "↺ Empezar esta unidad de cero",
+        "res_fresh": "No puedo reabrir una conversación de esta unidad: esta es una sesión nueva que retoma desde el último checkpoint.",
+        "unit_open": "«{u}» ya tiene su sesión abierta en una ventana o una terminal. Sigue allí, o ciérrala antes de abrir otra.",
+        "unit_at_work": "Una ejecución tiene a su agente trabajando en «{u}». Espera a que termine, o toma el control desde su nodo en el lienzo de la app.",
         "still_doing": "La unidad sigue a medias. Lo escrito está guardado: la próxima vez elige «▶ Continuar» y la IA retoma desde el último checkpoint.",
         "saved_ckpt": "💾 Progreso guardado (commit local en la carpeta del proyecto, sin push).",
         "rv_title": "✅ Revisar y verificar",
@@ -689,9 +692,12 @@ T = {
         "draft_lbl": "draft, without waiting for the interview",
         "res_q": "“{u}” was left half done. How shall I continue?",
         "res_new": "▶ New session resuming from the last checkpoint (recommended)",
-        "res_cont": "💬 Reopen the last {agent} conversation",
+        "res_cont": "💬 Reopen this unit's {agent} conversation",
         "res_done": "✔ It is finished: mark it done",
         "res_restart": "↺ Start this unit from scratch",
+        "res_fresh": "I can't reopen a conversation of this unit: this is a new session resuming from the last checkpoint.",
+        "unit_open": "“{u}” already has its session open in a window or a terminal. Carry on there, or close it before opening another.",
+        "unit_at_work": "A run's agent is working on “{u}”. Wait for it to finish, or take control from its node on the app's canvas.",
         "still_doing": "The unit is still half done. What was written is saved: next time choose “▶ Continue” and the AI resumes from the last checkpoint.",
         "saved_ckpt": "💾 Progress saved (local commit in the project folder, no push).",
         "rv_title": "✅ Review & verify",
@@ -1712,15 +1718,16 @@ class W:
                 ok = self.safe(self.busy, env.openwiki_generate, u["repo"], engine=self.wiki_engine() or engines[0])
                 self.say(self.t("w_done", repo=u["repo"]) if ok else self.t("w_fail", repo=u["repo"]), "green" if ok else "yellow")
                 return
-        resume_agent = None
+        resume_agent = c = None
         if u["status"] == "doing":                      # interrupted session: offer how to pick it up again
             last = plan.last_note(u["id"])
             if last:
                 self.say(f"[grey62]{self.t('d_last')}: {last}[/]")
-            prev = self.prefs.get("last_agent")
+            prev = agent_sessions.conversation_agent(u["id"]) or self.prefs.get("last_agent")
             opts = [Choice(self.t("res_new"), "new")]
-            if prev and which(prev):
-                opts.append(Choice(self.t("res_cont", agent="Claude Code" if prev == "claude" else "Codex"), "continue"))
+            runner = next((r for r in runners.all() if r.id == prev and which(r.command or r.id)), None)
+            if runner and (runner.own_session or runner.reopens_last):
+                opts.append(Choice(self.t("res_cont", agent=runner.label), "continue"))
             opts += [Choice(self.t("res_done"), "done"), Choice(self.t("res_restart"), "restart")]
             c = self.sel(self.t("res_q", u=u["id"]), opts)
             if c is None:
@@ -1729,13 +1736,15 @@ class W:
                 plan.set_status(u["id"], "done", "marked done in the wizard")
                 self.checkpoint(u["id"])
                 return
-            if c == "restart":
-                f = plan.note_file(u["id"])
-                if f.exists():
-                    f.rename(f.with_suffix(".old.md"))
-                plan.set_status(u["id"], "todo")
-            if c == "continue":
-                resume_agent = prev
+        if self.unit_taken(u["id"]):                    # before anything moves
+            return
+        if c == "restart":
+            f = plan.note_file(u["id"])
+            if f.exists():
+                f.rename(f.with_suffix(".old.md"))
+            plan.set_status(u["id"], "todo")
+        if c == "continue":
+            resume_agent = prev
         plan.set_status(u["id"], "doing")               # so a closed window still knows what was in progress
         prompt = plan.prompt(u["id"], lang=self.lang)
         res = self.launch_agent(prompt, resume_agent=resume_agent, uid=u["id"])
@@ -1755,10 +1764,24 @@ class W:
         if env.checkpoint_commit(what):
             self.say(self.t("saved_ckpt"), "grey62")
 
+    def unit_taken(self, uid: str) -> bool:
+        """Says so when the unit's session is open or a run's agent has it: another would fight over its conversation."""
+        try:
+            agent_sessions.refuse_busy(uid)
+        except agent_sessions.AlreadyOpen:
+            self.say(self.t("unit_open", u=uid), "yellow")
+        except agent_sessions.AtWork:
+            self.say(self.t("unit_at_work", u=uid), "yellow")
+        else:
+            return False
+        self.pause()
+        return True
+
     def launch_agent(self, prompt: str, resume_agent: str | None = None, uid: str | None = None) -> bool | str:
         """Returns "bg" when the session was launched in its own window (the wizard stays usable), True when it
         ran to completion in this terminal (no terminal emulator was found), or False when nothing was launched.
-        resume_agent reopens that agent's last conversation; uid picks the model routed to that unit."""
+        resume_agent: Continue with that agent, on the unit's own conversation or else in a new session that says so.
+        uid picks the model routed to that unit; a plan unit's session also keeps a record (lib/sessions.py)."""
         agent_sessions.write_prompt(prompt)
         if resume_agent:
             agent = resume_agent
@@ -1776,12 +1799,18 @@ class W:
             return False
         self.prefs["last_agent"] = agent
         save_json(PREFS, self.prefs)
-        if resume_agent == "claude" and not claude_history(WORKSPACE):
-            resume_agent = None                          # nothing to continue here: `--continue` would just error out
+        unit = uid if uid != "update" else None          # the docs update only routes a model, as in the app: no record
+        session, since, resume = agent_sessions.conversation(unit, agent, bool(resume_agent)) if unit else (None, None, False)
+        if resume_agent and not resume:
+            self.say(self.t("res_fresh"), "yellow")
         runner = runners.get(agent)
-        req = agent_sessions.request(agent, self.lang, self.prefs, bool(resume_agent), uid=uid)
+        req = agent_sessions.request(agent, self.lang, self.prefs, resume, session, uid=uid)
         self.say(self.t("launching", agent=f"{agent} ({req.model})" if req.model else agent), f"bold {ORANGE}")
-        cmd = runner.build(req).argv
+
+        def command(req, since=None) -> list[str]:
+            argv = runner.build(req).argv
+            return sessions.wrap(sessions.start(unit, agent, req.session, since=since), argv) if unit else argv
+        cmd = command(req, since)
         if env.open_new_terminal(cmd, WORKSPACE):   # own window, in the workspace: the agent sees every repo + cam-docs
             self.say(self.t("launched_bg"), "green")
             self.pause()
@@ -1789,8 +1818,10 @@ class W:
         console.set_alt_screen(False)         # fallback: no terminal emulator found — block this one instead
         try:
             r = subprocess.run(cmd, cwd=str(WORKSPACE))
-            if resume_agent and r.returncode != 0:          # nothing to resume (or old CLI): fresh session instead
-                subprocess.run(runner.build(dataclasses.replace(req, resume=False)).argv, cwd=str(WORKSPACE))
+            if resume and r.returncode != 0:                # nothing to resume (or old CLI): fresh session instead
+                self.say(self.t("res_fresh"), "yellow")
+                fresh = agent_sessions.conversation(unit, agent, False)[0]  # --session-id refuses an id already used
+                subprocess.run(command(dataclasses.replace(req, resume=False, session=fresh)), cwd=str(WORKSPACE))
         finally:
             console.set_alt_screen(True)
             self.banner()

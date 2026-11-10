@@ -166,7 +166,7 @@ def test_claude_interactive_session_ids(runners, kit):
     assert c.build(RunRequest(prompt="p", cwd=kit.ws, interactive=True, resume=True, session="s-1")).argv == \
         ["/bin/claude", "--resume", "s-1", "p"]
     assert c.build(RunRequest(prompt="p", cwd=kit.ws, interactive=True, resume=True)).argv == \
-        ["/bin/claude", "--continue", "p"]
+        ["/bin/claude", "p"]                       # no id, no reopening: `--continue` takes the newest in the folder
 
 
 def test_opencode_interactive_and_resume_argv(runners, kit):

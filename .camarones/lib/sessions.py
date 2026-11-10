@@ -1,4 +1,4 @@
-"""Interactive agent sessions on plan units, as the board sees them. agents.launch_unit writes one record per unit in
+"""Interactive agent sessions on plan units, as the board sees them. The app and the wizard write one record per unit in
 the git-ignored cache (`<cache>/sessions/<unit>.json`) and the terminal window runs the agent inside session_run.py,
 which adds its pid while the agent runs and when it ended. From that: whether a unit marked doing still has its window
 open (else it is paused: its notes are kept and Continue picks it up), and, for Claude Code, what the agent did last,

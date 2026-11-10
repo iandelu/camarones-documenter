@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.79.1-ff875f?style=flat-square" alt="Versión 4.79.1">
+  <img src="https://img.shields.io/badge/version-4.79.2-ff875f?style=flat-square" alt="Versión 4.79.2">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -595,7 +595,9 @@ de su tipo de trabajo, y si no hay ninguno, el de Ajustes; el asistente y la app
 abren como terminales del lienzo que tiene el servidor del proyecto (el `pty` de Python en macOS y Linux, ConPTY con
 pywinpty 3.1.0 en Windows; 8 a la vez como mucho), y cerrar la ventana del proyecto las termina: sus unidades quedan en
 pausa. Cada una lee su prompt de un fichero propio, `.camarones/.cache/prompts/<unidad>.md`, así que dos sesiones
-abiertas a la vez no se pisan. Las del piloto automático tienen una conversación conocida, así que **Tomar el control**
+abiertas a la vez no se pisan. **Seguir** (en el asistente, «Reabrir la conversación de esta unidad») vuelve a la
+conversación de esa unidad por su id, se abriera en la app o en el asistente; si no la encuentra, abre una sesión nueva
+y lo dice. Las del piloto automático tienen una conversación conocida, así que **Tomar el control**
 la abre en una terminal y **Devolver al piloto** se la devuelve desatendida; se hablan por un fichero
 (`.camarones/.cache/runs/<run>/handoff/`), y el piloto puede ser otro proceso, un `camaron autopilot` en una terminal.
 Mientras solo queden unidades contigo, el piloto espera. `camaron run` en paralelo aún no cede sus unidades.

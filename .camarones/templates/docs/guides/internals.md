@@ -234,16 +234,21 @@ Each session the app opens reads a prompt file of its own in the project's cache
 (`update.md` for the docs update), so sessions open side by side never read one another's; the wizard and the first
 run's C4 refinement still use `docs/.work/next-prompt.md`. A unit's session runs its agent inside `session_run.py`,
 which keeps the unit's record in `.camarones/.cache/sessions/` (its pid while the agent runs, then when it ended): while
-it is open, or its window is still opening (up to 30 s before the wrapper writes its pid), the app does not open another
-one for the same unit, `run` and `autopilot` leave the unit alone, and the app shows what the agent is doing from its
-transcript.
+it is open, or its window is still opening (up to 30 s before the wrapper writes its pid), neither the app nor the
+wizard opens another one for the same unit, `run` and `autopilot` leave the unit alone, and the app shows what the agent
+is doing from its transcript.
 
 **Continue** reopens the unit's own conversation: the one its record names, with `--resume` when its transcript is
 there, or the one a run left in its log. With none, it is a new session on the unit's prompt, and the answer and the
-terminal's meta say `fresh`, which its node shows. A runner that takes no conversation id (Codex, OpenCode) is sent to
-its own last conversation only while no later session of that runner opened here. The app never runs `claude
---continue`, which takes the newest transcript in the folder, whichever unit or run wrote it; the wizard's Continue
-keeps no record of its sessions and still does.
+terminal's meta say `fresh`, which its node shows; the wizard says it on screen. A runner that takes no conversation id
+(Codex, OpenCode) is sent to its own last conversation only while no later session of that runner opened here; a command
+template (Gemini) has no way back, so its Continue is a new session. The kit never runs `claude --continue`, which takes
+the newest transcript in the folder, whichever unit or run wrote it.
+
+The wizard follows the same rule and keeps the same record (`agents.conversation`, `agents.refuse_busy`), so a unit
+opened in either can be continued from the other. It reopens with the agent that holds the unit's conversation, not the
+last one used, and offers no reopening for a runner with no way back. With no terminal window to open, the session takes over the wizard's terminal, and a resume that fails
+retries there as a new conversation.
 
 A kit started from inside a Claude Code session (its Bash tool, a shell it opened) opens sessions of their own. That
 session's markers would make each `claude` its child, which saves no transcript, so the CLI drops them as it starts

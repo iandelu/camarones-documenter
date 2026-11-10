@@ -242,16 +242,22 @@ caché del proyecto, `.camarones/.cache/prompts/<unidad>.md` (`update.md` para l
 sesiones abiertas a la vez nunca leen la de la otra; el asistente y el refinado del C4 del primer arranque siguen usando
 `docs/.work/next-prompt.md`. La sesión de una unidad ejecuta su agente dentro de `session_run.py`, que guarda el
 registro de la unidad en `.camarones/.cache/sessions/` (su pid mientras el agente corre, y después cuándo acabó):
-mientras sigue abierta, o su ventana aún se está abriendo (hasta 30 s antes de que el envoltorio apunte su pid), la app
-no abre otra para la misma unidad, `run` y `autopilot` dejan la unidad en paz, y la app enseña qué está haciendo el
-agente leyendo su historial.
+mientras sigue abierta, o su ventana aún se está abriendo (hasta 30 s antes de que el envoltorio apunte su pid), ni la
+app ni el asistente abren otra para la misma unidad, `run` y `autopilot` dejan la unidad en paz, y la app enseña qué está
+haciendo el agente leyendo su historial.
 
 **Seguir** reabre la conversación de la unidad: la que nombra su registro, con `--resume` cuando su historial está, o la
 que una ejecución dejó en su registro de eventos. Si no hay ninguna, es una sesión nueva sobre el prompt de la unidad, y
-la respuesta y los metadatos de la terminal dicen `fresh`, que su nodo enseña. Un runner que no admite id de conversación
-(Codex, OpenCode) va a su última conversación solo mientras no se haya abierto aquí otra sesión posterior de ese runner.
-La app nunca ejecuta `claude --continue`, que toma el historial más reciente de la carpeta, sea de la unidad o la
-ejecución que sea; el Seguir del asistente no guarda registro de sus sesiones y aún lo usa.
+la respuesta y los metadatos de la terminal dicen `fresh`, que su nodo enseña; el asistente lo dice en pantalla. Un
+runner que no admite id de conversación (Codex, OpenCode) va a su última conversación solo mientras no se haya abierto
+aquí otra sesión posterior de ese runner; una plantilla de comandos (Gemini) no tiene forma de volver, así que su Seguir
+es una sesión nueva. El kit nunca ejecuta `claude --continue`, que toma el historial más reciente de la carpeta, sea de la
+unidad o la ejecución que sea.
+
+El asistente sigue la misma regla y guarda el mismo registro (`agents.conversation`, `agents.refuse_busy`), así que una
+unidad abierta en uno se puede seguir desde el otro. Reabre con el agente que tiene la conversación de la unidad, no con
+el último usado, y no ofrece reabrir con un runner que no tiene forma de volver. Si no hay ventana de terminal que abrir, la sesión ocupa la terminal del asistente, y una reanudación
+que falla se reintenta allí como una conversación nueva.
 
 Un kit arrancado desde dentro de una sesión de Claude Code (su herramienta Bash, una terminal que abrió) abre sesiones
 propias. Las marcas de esa sesión harían de cada `claude` un hijo suyo, que no guarda historial, así que la CLI las quita

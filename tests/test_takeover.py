@@ -247,7 +247,6 @@ def test_a_session_in_a_window_cannot_be_handed_back_from_here(pair):
 def test_a_session_opened_by_hand_can_be_left_to_the_pilot(pair):
     from lib import sessions
     pair.log.emit("run.started", run="r-1", agents=["claude"])
-    pair.box["history"] = True
     pair.plan.set_status(pair.uid, "todo")
     r = pair.agents.launch_unit(pair.uid, "claude", where="canvas")
     until(lambda: sessions.running(sessions.load(pair.uid)))
