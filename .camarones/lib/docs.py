@@ -164,7 +164,9 @@ def write_gitignore() -> None:
     text = gi.read_text(encoding="utf-8") if gi.exists() else ""
     repos = [] if CAM_LAYOUT else [f"/{n}/" for n in repo_names()]      # cam-docs layout: repos live next to it
     block = "\n".join([GI_START, *repos, "/.camarones/.cache/", "/graph/", "/.claude/settings.local.json",
-                       "camarones-documenter*/", "camarones-kit*/", "camarones-documenter*.zip", ".DS_Store", GI_END])
+                       # anchored: unanchored, they also hid docs/repos/<repo>/ and wikis/<repo>/ of a repo named
+                       # like the kit; the kit is unzipped or cloned at the project root only (lib/upgrade.py)
+                       "/camarones-documenter*/", "/camarones-kit*/", "camarones-documenter*.zip", ".DS_Store", GI_END])
     if GI_START in text:
         text = re.sub(re.escape(GI_START) + r".*?" + re.escape(GI_END), lambda _: block, text, flags=re.S)
     else:
@@ -267,6 +269,9 @@ def wiki_dir(repo: str) -> Path:
 
 
 def repo_file_exists(ref: str) -> bool:
+    if ref.strip().startswith("c4:"):                   # `c4:<element>`: an element of docs/architecture/*.c4
+        from .harness import freshness
+        return freshness.c4_exists(ref.strip()[3:])
     ref = ref.split("#", 1)[0]
     if ref.startswith("repo://"):
         ref = ref[len("repo://"):].replace("/", ":", 1)

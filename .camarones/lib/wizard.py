@@ -1160,7 +1160,9 @@ class W:
                     for r in found])
                 if picked is not None:
                     local = {r["name"] for r in found}
-                    ws["repos"] = [r for r in ws["repos"] if r["name"] not in local] + [r for r in found if r["name"] in picked]
+                    rows = {r["name"]: r for r in ws["repos"]}    # a kept repo keeps its own keys (stack, wiki…)
+                    ws["repos"] = [r for r in ws["repos"] if r["name"] not in local] + [
+                        {**r, **rows.get(r["name"], {})} for r in found if r["name"] in picked]
             elif c == "add":
                 self.add_url(ws)
             elif c == "remote":
