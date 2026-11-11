@@ -406,12 +406,23 @@ Las dependencias de cada repo, leídas de sus manifiestos y lockfiles sin IA (`#
   buceando, cuántos lleva, una barra y **Parar**— y acaba con un tick con lo que encontró («5 repos revisados · 3
   librerías con avisos conocidos», y los repos que no pudo escanear). Si sales de Librerías y vuelves mientras corre,
   retoma su progreso. Sin OSV-Scanner en la máquina, las librerías se releen sin vulnerabilidades y lo dice.
-- Filtros: búsqueda, categoría, servicio, ámbito y **Solo vulnerables**. La tabla es librería × servicio, las peores
-  primero, con un chip cuando dos repos usan versiones distintas. Bajo cada librería, los repos donde está, primero
-  donde tiene avisos y en rojo (tres nombres y luego «+N más»); su columna se queda fija al desplazar la tabla.
-- Abre una librería: **Por qué está aquí** (qué repo la declara, en qué manifiesto, con qué rango y ámbito) y **Por qué
-  está marcada** (cada aviso con su gravedad, versiones afectadas, fechas, CWE, texto completo y enlaces).
-- **Actualizar** propone la versión que corrige todos sus avisos, pregunta una vez y ejecuta `camaron bump`: una rama
+- **Buscar versiones nuevas** ejecuta `camaron inventory --latest`: pregunta a los registros públicos (Maven Central,
+  npm, PyPI, el proxy de Go, NuGet, Packagist, crates.io, pub.dev) la última versión estable de cada librería. Para eso
+  salen de la máquina los nombres de las librerías, nunca las del propio workspace; una que no está en un registro
+  público muestra «—». Dice la última librería que ha respondido y cuántas lleva, y acaba con un tick («120 librerías
+  consultadas · 14 con versión nueva»); un registro que no responde conserva las versiones de la búsqueda anterior, y
+  dice cuál.
+- Filtros: búsqueda, categoría, servicio, ámbito, **Solo vulnerables** y, cuando ya hubo una búsqueda, **Solo
+  desactualizadas**. Se quedan a la vista al bajar, igual que la cabecera de la tabla. Una línea por librería, las
+  peores primero: **Versión** (la que usan los repos, o la más baja – la más alta si difieren, con un chip), **Última**
+  («mayor» si sube el primer número, «al día» si ningún repo va por detrás, «—» si no se sabe) y **Actualizar ▾**. Bajo
+  cada librería, los repos donde está, primero donde tiene avisos y en rojo (tres nombres y luego «+N más»). No hay
+  columnas por repo: nada se desplaza de lado.
+- **Actualizar ▾** (o el nombre de la librería) la abre: primero, por repo, su manifiesto, ámbito y versión con un
+  campo con la versión propuesta (la última estable si es más alta, si no la que corrige todos sus avisos) y chips para
+  cambiar entre las dos; luego **Por qué está marcada** (cada aviso con su gravedad, versiones afectadas, fechas, CWE,
+  texto completo y enlaces) y **Por qué está aquí** (qué repo la declara, en qué manifiesto, con qué rango y ámbito).
+- **Actualizar** pregunta una vez y ejecuta `camaron bump`: una rama
   nueva `camaron/bump-<librería>-<versión>` en ese repo, sin commit ni push. Un repo con cambios sin commit no se toca.
   En un módulo Maven que hereda su versión cambia donde el repo la escribe: la propiedad o el `<version>` de su pom
   padre o de un BOM del mismo repo. Si la fija algo de fuera del repo, no la toca y dice quién la fija.

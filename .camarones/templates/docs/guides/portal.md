@@ -168,10 +168,12 @@ used files, packages and, per file, what it uses and who uses it — with a sear
 
 **Data** (`#/data`, live): each repo's tables and collections read from the code, with the ER diagram and their fields.
 
-**Libraries** (`#/libs`, live): every repo's direct dependencies as a library × repo matrix, with filters (category,
-language, repo, scope, only vulnerable); vulnerable ones first, with their advisories and the version that fixes
-them. Each library names the repos it is in, the flagged ones first, and its column stays put while the table
-scrolls sideways. `#/libs/<repo>` opens it for one repo.
+**Libraries** (`#/libs`, live): the same board as the desktop app's. One line per library with the version the repos
+use and the latest stable one, the vulnerable ones first, each naming the repos it is in; filters (category, repo,
+scope, only vulnerable, only outdated) that stay in view while you scroll, and no sideways scroll. Opening a library
+shows, per repo, the `camaron bump` command with the proposed version, ready to copy (the portal runs nothing on your
+machine), then its advisories and why it is there. Scanning and looking up newer versions happen in the desktop app or
+with `camaron inventory --cves --latest`. `#/libs/<repo>` opens it for one repo.
 
 <!-- portal:#/c4 -->
 

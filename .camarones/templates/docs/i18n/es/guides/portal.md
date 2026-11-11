@@ -178,10 +178,12 @@ bruto está a un clic.
 **Datos** (`#/data`, en vivo): las tablas y colecciones de cada repo leídas del código, con el diagrama ER y sus
 campos.
 
-**Librerías** (`#/libs`, en vivo): las dependencias directas de cada repo como matriz librería × repo, con filtros
-(categoría, lenguaje, repo, ámbito, solo vulnerables); las vulnerables primero, con sus avisos y la versión que las
-corrige. Cada librería dice en qué repos está, primero donde tiene avisos, y su columna se queda fija al desplazar la
-tabla. `#/libs/<repo>` la abre para un solo repo.
+**Librerías** (`#/libs`, en vivo): la misma pantalla que la de la app de escritorio. Una línea por librería con la
+versión que usan los repos y la última estable, las vulnerables primero, cada una diciendo en qué repos está; filtros
+(categoría, repo, ámbito, solo vulnerables, solo desactualizadas) que se quedan a la vista al bajar, y nada se desplaza
+de lado. Al abrir una librería, por repo, el comando `camaron bump` con la versión propuesta, listo para copiar (el
+portal no ejecuta nada en tu máquina); luego sus avisos y por qué está. Escanear y buscar versiones nuevas se hace en la
+app de escritorio o con `camaron inventory --cves --latest`. `#/libs/<repo>` la abre para un solo repo.
 
 <!-- portal:#/c4 -->
 
