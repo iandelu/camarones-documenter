@@ -65,15 +65,7 @@ export const S = {
     dataNone: 'No tables or collections found in the code yet.', 'dataKind.sql': 'SQL', 'dataKind.document': 'Documents',
     dataFrom: 'read from', dataPage: 'Its data page',
     dataCli: 'In a terminal: `camaron schemas`. The data unit then explains what each table means and who owns it.',
-    libsTitle: 'Libraries', libsLead: 'Every repo\'s direct dependencies, read from its manifests without AI: what each is for, '
-      + 'its version in each service and its known vulnerabilities. Click a library in red to see them.',
-    libsCount: '{n} libraries', libsVulnerable: '{n} with known vulnerabilities', libsDrift: '{n} at different versions',
-    libsNoScan: 'Not scanned for vulnerabilities yet.', libsOffline: 'offline database', libsOnline: 'osv.dev API',
-    libsSearch: 'Search a library', libsCategory: 'Category', libsLanguage: 'Language',
-    libsRepo: 'Repo', libsScope: 'Scope', libsOnlyVulnerable: 'Only vulnerable', libsLibrary: 'Library', libsVersions: 'versions differ', libsIn: 'in', libsMore: '+{n} more',
-    libsFixed: 'fixed in {v}', libsNone: 'No library matches.', all: 'all',
-    libsCli: 'In a terminal: `camaron inventory --cves`; in CI add `--fail-on high` to fail on a high or critical one.',
-    'sev.critical': 'critical', 'sev.high': 'high', 'sev.medium': 'medium', 'sev.low': 'low', 'sev.unknown': 'unrated',
+    libsTitle: 'Libraries',
     ciTitle: 'CI', ciLead: 'The docs repo pipeline and the checks each service repo runs on its pull requests, generated from '
       + 'one definition. None of them needs AI, except the optional docs proposal on your own runners.',
     ciSelfHosted: 'your own runners', ciHosted: 'hosted runners', ciLast: 'last pipeline', 'ci.passed': 'passed',
@@ -213,15 +205,7 @@ export const S = {
     dataNone: 'Aún no se han encontrado tablas ni colecciones en el código.', 'dataKind.sql': 'SQL', 'dataKind.document': 'Documentos',
     dataFrom: 'leído de', dataPage: 'Su página de datos',
     dataCli: 'En una terminal: `camaron schemas`. Después la unidad de datos explica qué significa cada tabla y de quién es.',
-    libsTitle: 'Librerías', libsLead: 'Las dependencias directas de cada repo, leídas de sus manifiestos sin IA: para qué sirve cada '
-      + 'una, su versión en cada servicio y sus vulnerabilidades conocidas. Pulsa una librería en rojo para verlas.',
-    libsCount: '{n} librerías', libsVulnerable: '{n} con vulnerabilidades conocidas', libsDrift: '{n} con versiones distintas',
-    libsNoScan: 'Aún no se han buscado vulnerabilidades.', libsOffline: 'base de datos offline', libsOnline: 'API de osv.dev',
-    libsSearch: 'Busca una librería', libsCategory: 'Categoría', libsLanguage: 'Lenguaje',
-    libsRepo: 'Repo', libsScope: 'Ámbito', libsOnlyVulnerable: 'Solo vulnerables', libsLibrary: 'Librería', libsVersions: 'versiones distintas', libsIn: 'en', libsMore: '+{n} más',
-    libsFixed: 'corregida en {v}', libsNone: 'Ninguna librería coincide.', all: 'todas',
-    libsCli: 'En una terminal: `camaron inventory --cves`; en CI añade `--fail-on high` para fallar si hay alguna alta o crítica.',
-    'sev.critical': 'crítica', 'sev.high': 'alta', 'sev.medium': 'media', 'sev.low': 'baja', 'sev.unknown': 'sin nota',
+    libsTitle: 'Librerías',
     ciTitle: 'CI', ciLead: 'El pipeline del repo de documentación y las comprobaciones que cada repo de servicio lanza en sus pull '
       + 'requests, generados desde una sola definición. Ninguno necesita IA, salvo la propuesta de docs opcional en tus runners.',
     ciSelfHosted: 'tus propios runners', ciHosted: 'runners de la plataforma', ciLast: 'último pipeline', 'ci.passed': 'correcto',
