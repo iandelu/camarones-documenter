@@ -49,6 +49,8 @@ a { color: var(--color-acento-texto); }
            color: var(--color-ink-dim); font: 400 var(--text-meta) var(--font-sans); cursor: pointer; }
 .dk-find:hover { color: var(--color-ink); border-color: var(--color-ink-dim); }
 .dk-main { grid-area: main; overflow-y: auto; padding: 1.75rem 2rem; min-width: 0; anchor-name: --dk-main; }
+/* the Libraries board's filters stick to the pane's top edge, not under its padding (sticky counts from the content box) */
+.dk-main .cu-libs { --cu-libs-top: -1.75rem; }
 .dk-page { display: flex; flex-direction: column; gap: 1.25rem; max-width: 60rem; }
 .dk-page h1 { font-size: var(--text-h1); margin: 0; }
 .dk-next { gap: .6rem; }
@@ -251,6 +253,7 @@ a.dk-stat-n:hover { color: var(--color-acento-texto); }
 @media (max-width: 900px) {
   .dk { grid-template-columns: 3.5rem 10rem minmax(0, 1fr); }
   .dk-main { padding: 1.25rem 1rem; }
+  .dk-main .cu-libs { --cu-libs-top: -1.25rem; }
 }
 
 /* The Plan: every unit coloured by its state (plan.js tone): running yellow and pulsing, done green, ready white,
