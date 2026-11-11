@@ -2,7 +2,7 @@
 import of `lib` pointed at its own temporary workspace and home folder — nothing leaks into the real ~/.camarones."""
 from __future__ import annotations
 
-import importlib, os, shutil, stat, sys
+import atexit, importlib, json, os, shutil, stat, sys, tempfile
 from collections import deque
 from pathlib import Path
 from types import SimpleNamespace
@@ -16,9 +16,22 @@ for p in (str(KIT_DIR), str(TESTS)):
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from fixtures.builder import GITCONFIG, make_workspace  # noqa: E402
-from fixtures.hang_watchdog import (pytest_configure, pytest_runtest_protocol, pytest_terminal_summary,  # noqa: E402,F401
-                                    pytest_unconfigure)
+from fixtures import bytecode, hang_watchdog  # noqa: E402
+from fixtures.builder import GITCONFIG, make_workspace, rmtree, slim  # noqa: E402
+from fixtures.hang_watchdog import pytest_runtest_protocol, pytest_terminal_summary  # noqa: E402,F401
+
+START_ENV = dict(os.environ)                    # before any test touched it: what the wired template is built under
+
+
+def pytest_configure(config) -> None:
+    bytecode.pytest_configure(config)
+    hang_watchdog.pytest_configure(config)
+
+
+def pytest_unconfigure(config) -> None:
+    hang_watchdog.pytest_unconfigure(config)
+    bytecode.pytest_unconfigure(config)
+
 
 MODULES = ("common", "docs", "env", "plan", "serve", "projects", "migrate", "quality", "codemap", "install", "quickarch", "creds", "questionnaire", "usage", "onboard", "wizard")
 
@@ -66,6 +79,14 @@ def purge_kit_modules() -> None:
         del sys.modules[name]
 
 
+UNSET = ("CAMARONES_ROOT", "CAMARONES_GLOBAL", "CAMARONES_STATE_ROOT")
+
+
+def isolated_vars(home: Path, gitconfig: Path) -> dict[str, str]:
+    return {"HOME": str(home), "USERPROFILE": str(home), "GIT_CONFIG_GLOBAL": str(gitconfig), "GIT_CONFIG_NOSYSTEM": "1",
+            "PYTHON_KEYRING_BACKEND": "keyring.backends.null.Keyring", "LANG": "es_ES.UTF-8"}
+
+
 @pytest.fixture
 def isolated_env(tmp_path, monkeypatch):
     """Temporary HOME + git identity; restores os.environ afterwards (common.ensure_path edits PATH at import)."""
@@ -74,10 +95,9 @@ def isolated_env(tmp_path, monkeypatch):
     home.mkdir()
     gitconfig = tmp_path / "gitconfig"
     gitconfig.write_text(GITCONFIG, encoding="utf-8")
-    for k, v in {"HOME": home, "USERPROFILE": home, "GIT_CONFIG_GLOBAL": gitconfig, "GIT_CONFIG_NOSYSTEM": "1",
-                 "PYTHON_KEYRING_BACKEND": "keyring.backends.null.Keyring", "LANG": "es_ES.UTF-8"}.items():
-        monkeypatch.setenv(k, str(v))
-    for k in ("CAMARONES_ROOT", "CAMARONES_GLOBAL", "CAMARONES_STATE_ROOT"):
+    for k, v in isolated_vars(home, gitconfig).items():
+        monkeypatch.setenv(k, v)
+    for k in UNSET:
         monkeypatch.delenv(k, raising=False)
     yield home
     os.environ.clear()
@@ -94,10 +114,14 @@ def load_kit(root: Path, home: Path, ws: Path | None) -> SimpleNamespace:
 
 
 @pytest.fixture
-def kit(tmp_path, isolated_env):
-    """A fresh `lib` import on a synthetic workspace: <tmp>/demo/{api,web,worker} + <tmp>/demo/cam-docs."""
-    ws = make_workspace(tmp_path)
-    ns = load_kit(ws / "cam-docs", isolated_env, ws)
+def kit(request, tmp_path, isolated_env):
+    """A fresh `lib` import on a synthetic workspace: <tmp>/demo/{api,web,worker} + <tmp>/demo/cam-docs. A test that
+    asks for `wired` gets a copy of a project wired once per process instead (see `copy_wired`)."""
+    if "wired" in request.fixturenames:
+        ns = copy_wired(tmp_path, isolated_env)
+    else:
+        ws = make_workspace(tmp_path)
+        ns = load_kit(ws / "cam-docs", isolated_env, ws)
     yield ns
     purge_kit_modules()
 
@@ -119,9 +143,72 @@ def wire_project(kit) -> SimpleNamespace:
     return kit
 
 
+_wired: list[Path] = []
+
+
+def _wired_template() -> Path:
+    """<base>/demo and <base>/home after `wire_project`, built once per process (once per xdist worker), under the
+    environment the process started with: never under what the test that happens to come first has set."""
+    if _wired and _wired[0].exists():
+        return _wired[0]
+    base = Path(tempfile.mkdtemp(prefix="cam-wired-")).resolve()
+    atexit.register(lambda: base.exists() and rmtree(base))
+    home = base / "home"
+    home.mkdir()
+    (base / "gitconfig").write_text(GITCONFIG, encoding="utf-8")
+    saved = dict(os.environ)
+    try:
+        os.environ.clear()
+        os.environ.update({k: v for k, v in START_ENV.items() if k not in UNSET}, **isolated_vars(home, base / "gitconfig"))
+        ws = make_workspace(base)
+        wire_project(load_kit(ws / "cam-docs", home, ws))
+        slim(ws)
+    finally:
+        purge_kit_modules()
+        os.environ.clear()
+        os.environ.update(saved)
+    _wired[:] = [base]
+    return base
+
+
+def _is_link(p: Path) -> bool:
+    """A symlink, or a Windows junction (absolute: it would still lead into the template)."""
+    if p.is_symlink():
+        return True
+    if hasattr(p, "is_junction"):                                       # Python 3.12+
+        return p.is_junction()
+    return p.is_dir() and Path(os.path.realpath(p)) != Path(os.path.realpath(p.parent)) / p.name
+
+
+def copy_wired(base: Path, home: Path) -> SimpleNamespace:
+    """What `wire_project` leaves behind, copied from the template instead of a dozen git processes: the workspace
+    without its links, the machine's records under ~/.camarones moved to this project's root, then the kit links the
+    copy itself, as it would on any OS."""
+    src = _wired_template()
+    ws = base / "demo"
+    shutil.copytree(src / "demo", ws, symlinks=True, ignore=lambda d, names: [n for n in names if _is_link(Path(d) / n)])
+    kit = load_kit(ws / "cam-docs", home, ws)
+    old, new = (src / "demo" / "cam-docs").resolve(), kit.root.resolve()
+    store = importlib.import_module("lib.trust").store_path      # records are named after a hash of the root
+    swaps = [(str(old), str(new)), (json.dumps(str(old))[1:-1], json.dumps(str(new))[1:-1])]
+    for f in (p for p in (src / "home").rglob("*") if p.is_file()):
+        rel = f.relative_to(src / "home")
+        dst = home / rel.parent / (store(new).name if rel.name == store(old).name else rel.name)
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        text = f.read_text(encoding="utf-8")
+        for a, b in swaps:
+            text = text.replace(a, b)
+        dst.write_text(text, encoding="utf-8", newline="\n")
+    kit.linked = kit.env.link_workspace(log=lambda _: None)
+    for r in kit.docs.repo_names():
+        kit.env.link_repo_wiki(r, log=lambda _: None)
+    return kit
+
+
 @pytest.fixture
 def wired(kit):
-    return wire_project(kit)
+    """A documented project (`wire_project`): `kit` already copied one when the test asked for this fixture."""
+    return kit if hasattr(kit, "linked") else wire_project(kit)
 
 
 class Answers:

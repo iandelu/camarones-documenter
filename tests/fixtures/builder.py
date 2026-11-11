@@ -63,8 +63,17 @@ def _template(repos: tuple[str, ...], name: str) -> Path:
         atexit.register(lambda: base.exists() and rmtree(base))
         (base / "gitconfig").write_text(GITCONFIG, encoding="utf-8")
         env = {**os.environ, "GIT_CONFIG_GLOBAL": str(base / "gitconfig"), "GIT_CONFIG_NOSYSTEM": "1"}
-        _templates[key] = build_workspace(base, repos, name, env=env)
+        _templates[key] = slim(build_workspace(base, repos, name, env=env), env=env)
     return _templates[key]
+
+
+def slim(ws: Path, env: dict | None = None) -> Path:
+    """Fewer files for every test to copy and delete: git init's example hooks go and loose objects become one pack."""
+    for f in ws.glob("*/.git/hooks/*.sample"):
+        f.unlink()
+    for dot_git in ws.glob("*/.git"):
+        git(dot_git.parent, "repack", "-a", "-d", "-q", env=env)
+    return ws
 
 
 def make_workspace(base: Path, repos: tuple[str, ...] = tuple(REPOS), name: str = "demo") -> Path:
