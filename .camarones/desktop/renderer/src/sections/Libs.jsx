@@ -11,8 +11,6 @@ import { t } from '../i18n.js'
 // a vulnerability scan, a lookup of newer versions (`inventory --latest`), a reread, and `bump` on a new branch of a
 // repo with its own package manager, never committed. A scan or a lookup shows what it reads and ends on a tick; back
 // here while one runs, the section attaches to it.
-export const SEV = { critical: 'bad', high: 'bad', medium: 'warn', moderate: 'warn' }
-export const sevWord = (s) => { const k = `sev.${s}`; const w = t(k); return w === k ? s : w }    // Quality's chips too
 const slug = (name) => name.split(':').pop().split('/').pop().replace(/[^\w.-]+/g, '-')
 const libCount = (rows) => new Set(rows.map((r) => r.ecosystem + r.name)).size
 const modeOf = (args) => (args.cves ? 'cves' : args.latest ? 'latest' : 'read')

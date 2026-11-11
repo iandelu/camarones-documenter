@@ -13,8 +13,9 @@ import { severities } from './result.js'
 export const fill = (s, vars = {}) => s.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m))
 const tv = (k, vars) => fill(t(k), vars)
 export const SEV = { critical: 'bad', high: 'bad', medium: 'warn', moderate: 'warn' }
-const word = (prefix, k) => { const w = t(`${prefix}.${k}`); return w === `${prefix}.${k}` ? k : w }
-export const sevWord = (s) => word('lb.sev', s)
+const word = (prefix, k, l) => { const w = t(`${prefix}.${k}`, l); return w === `${prefix}.${k}` ? k : w }
+// One library's severity, or the plural for `n` of them ("1 crítica", "3 críticas"); the app's Quality uses it too.
+export const sevWord = (s, n = 1, l = undefined) => word(n === 1 ? 'lb.sev' : 'lb.sevs', s, l)
 const day = (iso) => (iso || '').slice(0, 10)
 const libCount = (rows) => new Set(rows.map((r) => r.ecosystem + r.name)).size
 const lowest = (item) => Object.values(item.cells).map((c) => c.exact).filter(Boolean).sort(compareVersions)[0] || null
@@ -83,7 +84,7 @@ function Summary({ inv, rows }) {
   return (
     <div className="cu-libs-summary">
       <b>{tv('lb.count', { n: libCount(rows) })}</b>
-      {inv.vulns ? (sev.length ? sev.map(([s, n]) => <Chip key={s} state={SEV[s]}>{`${n} ${sevWord(s)}`}</Chip>)
+      {inv.vulns ? (sev.length ? sev.map(([s, n]) => <Chip key={s} state={SEV[s]}>{`${n} ${sevWord(s, n)}`}</Chip>)
         : <Chip state="ok">{t('lb.cvClean')}</Chip>) : null}
       {newer ? <Chip state="warn">{tv('lb.newer', { n: newer })}</Chip> : null}
       <span className="cu-libs-note">{inv.vulns ? tv('lb.cvAt', { day: day(inv.vulns.at) }) : t('lb.cvNever')}</span>

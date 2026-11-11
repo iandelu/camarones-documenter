@@ -7,7 +7,7 @@ import { BOARD_ACTIONS, doctorRows, driftWhy, fixableDrift, seconds } from '../q
 import { useAgents, useCmd, useJob, useStore } from '../hooks.js'
 import { AgentPicker, Failed, Fold, JobOutput, Page, ResultView, UnitRow } from '../parts.jsx'
 import Commands from './Commands.jsx'
-import { SEV, sevWord } from './Libs.jsx'
+import { SEV, sevWord } from '@camaron/ui/libs.jsx'
 import { lang, t } from '../i18n.js'
 
 // Quality is the project's health board (ui/src/health.jsx) on the snapshot of `camaron health`: machine, docs and code
@@ -253,7 +253,7 @@ function Libs({ srv }) {
       {inv ? (
         <div className="row">
           <b>{t('q.libsCount', { n: new Set(rows.map((r) => r.ecosystem + r.name)).size })}</b>
-          {inv.vulns ? (sev.length ? sev.map(([s, n]) => <Chip key={s} state={SEV[s]}>{n} {sevWord(s)}</Chip>) : <Chip state="ok">{t('q.cvClean')}</Chip>)
+          {inv.vulns ? (sev.length ? sev.map(([s, n]) => <Chip key={s} state={SEV[s]}>{`${n} ${sevWord(s, n)}`}</Chip>) : <Chip state="ok">{t('q.cvClean')}</Chip>)
             : <span className="muted small">{t('q.cvNever')}</span>}
           <span className="dk-grow"></span>
           <Button size="sm" variant="primary" href="#/libs">{t('q.libsOpen')}</Button>

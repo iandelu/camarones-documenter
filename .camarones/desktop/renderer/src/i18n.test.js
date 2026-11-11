@@ -11,7 +11,7 @@ test('every key a component names exists', () => {
   expect([...used].filter((k) => !(k in S.es))).toEqual([])
   const families = { grp: ['awaiting', 'blocked', 'doing', 'ready', 'waiting', 'done'], job: ['running', 'done', 'failed', 'stopped'],
     nav: ['summary', 'board', 'decisions', 'plan', 'interviews', 'team', 'quality', 'libs', 'docs', 'machine', 'kitdev'], fr: ['suspect', 'stale'],
-    bl: ['created', 'updated', 'edited', 'human'], sev: ['critical', 'high', 'medium', 'moderate', 'low', 'unknown'],
+    bl: ['created', 'updated', 'edited', 'human'],
     tk: ['mcp', 'hook', 'setting', 'codex', 'skill', 'file', 'plugin'], ts: ['new', 'changed'],      // lib/trust.py
     pk: ['checks', 'exporters', 'hooks', 'mcp', 'pipelines', 'prompts', 'runners', 'skills', 'types'],     // harness/plugins.py KINDS
     'adr.chip': ['running', 'review', 'proposed', 'accepted', 'superseded', 'rejected', 'deprecated', 'unknown'],   // lib/adr.py CHIPS
