@@ -129,3 +129,11 @@ test('a finished lookup ticks, counts the newer ones and names the registries it
   expect(out).toContain(t('lb.lookedWhat', { checked: 40, n: 1 }))
   expect(out).toContain(t('lb.lookFailedShort', { registries: 'npm' }))
 })
+
+test('Quality reads the severity words and states from Libraries, in the app language', async () => {
+  const { SEV, sevWord } = await import('./sections/Libs.jsx')
+  expect(SEV.high).toBe('bad')
+  expect(SEV.medium).toBe('warn')
+  expect(sevWord('high')).toBe('altas')
+  expect(sevWord('weird')).toBe('weird')
+})
