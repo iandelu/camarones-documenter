@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, test } from 'vitest'
 import { t } from '../i18n/index.js'
-import { fill, LibrariesBoard, LibraryDetail } from './libs.jsx'
+import { fill, LibrariesBoard, LibraryDetail, SEV, sevWord } from './libs.jsx'
 import { matrix } from './libs.js'
 
 const rows = [
@@ -131,4 +131,18 @@ test('the copied command quotes a scoped npm name, so PowerShell does not splat 
 test('a failed lookup does not claim an earlier one existed', () => {
   expect(en('lb.lookFailed')).toContain('if any')
   expect(t('lb.lookFailed', 'es')).toContain('si la hubo')
+})
+
+test('one severity word for one library, the plural for several, in both languages; one table of states', () => {
+  expect(sevWord('high', 1, 'es')).toBe('alta')
+  expect(sevWord('critical', 3, 'es')).toBe('críticas')
+  expect(sevWord('high', 1, 'en')).toBe('high')
+  expect(sevWord('high', 2, 'en')).toBe('high')
+  expect(sevWord('weird', 2, 'es')).toBe('weird')
+  expect([SEV.critical, SEV.high, SEV.medium, SEV.moderate]).toEqual(['bad', 'bad', 'warn', 'warn'])
+})
+
+test('the summary counts each severity with the right number', () => {
+  const two = [rows[0], { ...rows[0], name: 'org.x:y', vulns: [{ id: 'G2', severity: 'critical', fixed: null }] }]
+  expect(renderToStaticMarkup(<LibrariesBoard inv={{ ...inv, libraries: two }} />)).toContain(`2 ${sevWord('critical', 2)}`)
 })
