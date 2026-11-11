@@ -93,3 +93,71 @@ def test_an_unreadable_payload_is_no_version(latest):
     assert latest.parse("npm", b"not json", "x") is None
     assert latest.parse("Maven", b"<not xml", "a:b") is None
     assert latest.parse("crates.io", j({"crate": {}}), "x") is None
+
+
+ROWS = [{"repo": "api", "ecosystem": "Maven", "name": "org.postgresql:postgresql", "version": "42.6.0"},
+        {"repo": "web", "ecosystem": "Maven", "name": "org.postgresql:postgresql", "version": "42.5.0"},
+        {"repo": "web", "ecosystem": "npm", "name": "react", "version": "18.2.0"},
+        {"repo": "web", "ecosystem": "npm", "name": "@acme/ui", "version": "1.0.0"},
+        {"repo": "web", "ecosystem": "Maven", "name": "com.acme:core", "version": "2.0"},
+        {"repo": "web", "ecosystem": "npm", "name": "left-pad", "version": None},
+        {"repo": "web", "ecosystem": "Hex", "name": "phoenix", "version": "1.7.0"}]
+OWNED = {"Maven": {"com.acme"}, "npm": {"@acme/"}}
+METADATA = b"<metadata><versioning><versions><version>42.7.4</version></versions></versioning></metadata>"
+
+
+def test_is_owned(latest):
+    assert latest.is_owned("Maven", "com.acme:core", OWNED) and not latest.is_owned("Maven", "com.acmex:core", OWNED)
+    assert latest.is_owned("npm", "@acme/ui", OWNED) and latest.is_owned("npm", "web", {"npm": {"web"}})
+    assert not latest.is_owned("npm", "@acmex/ui", OWNED)
+    assert latest.is_owned("Go", "github.com/acme/api/pkg", {"Go": {"github.com/acme/api"}})
+    assert not latest.is_owned("Go", "github.com/acme/apix", {"Go": {"github.com/acme/api"}})
+    assert latest.is_owned("PyPI", "My_Worker", {"PyPI": {"my-worker"}})
+    assert not latest.is_owned("crates.io", "serde", {})
+
+
+def test_owned_libraries_are_never_fetched(latest):
+    asked = []
+
+    def fetch(u):
+        asked.append(u)
+        return b'{"dist-tags": {"latest": "19.0.0"}}' if "npmjs" in u else METADATA
+    out = latest.lookup(ROWS, OWNED, log=lambda _: None, fetch=fetch)
+    assert not any("acme" in u for u in asked) and not any("phoenix" in u for u in asked)
+    assert out["versions"] == {"Maven|org.postgresql:postgresql": "42.7.4", "npm|react": "19.0.0", "npm|left-pad": "19.0.0"}
+    assert out["checked"] == 3 and out["found"] == 3 and out["failed"] == [] and out["at"]
+
+
+def test_a_404_is_not_a_failure_and_a_dead_registry_is(latest):
+    def fetch(u):
+        if "npmjs" in u:
+            raise OSError("no route")
+        raise latest.NotFound(u)
+    out = latest.lookup(ROWS, OWNED, log=lambda _: None, fetch=fetch)
+    assert out["versions"] == {} and out["failed"] == ["npm"] and out["checked"] == 3
+
+
+def test_it_never_raises_and_says_what_it_did(latest):
+    lines = []
+
+    def boom(u):
+        raise RuntimeError("boom")
+    out = latest.lookup(ROWS, OWNED, log=lines.append, fetch=boom)
+    assert out["failed"] == ["Maven", "npm"]
+    assert lines[-1].startswith("✔ 0 with a newer version") and "could not reach: Maven, npm" in lines[-1]
+    assert any(line.startswith("[3/3] newer versions · ") for line in lines)
+
+
+def test_progress_is_at_most_about_fifty_lines(latest):
+    rows = [{"repo": "web", "ecosystem": "npm", "name": f"p{i}", "version": "1.0.0"} for i in range(400)]
+    lines = []
+    latest.lookup(rows, {}, log=lines.append, fetch=lambda u: b'{"dist-tags": {"latest": "1.0.0"}}')
+    progress = [line for line in lines if line.startswith("[")]
+    assert 40 <= len(progress) <= 51 and progress[-1].startswith("[400/400] newer versions · ")
+
+
+def test_the_count_of_newer_ones_and_the_default_fetch(latest, monkeypatch):
+    lines = []
+    monkeypatch.setattr(latest, "_fetch", lambda u: b'{"dist-tags": {"latest": "19.0.0"}}' if "npmjs" in u else METADATA)
+    out = latest.lookup(ROWS, OWNED, log=lines.append)
+    assert out["found"] == 3 and lines[-1].startswith("✔ 2 with a newer version (3 libraries looked up)")
