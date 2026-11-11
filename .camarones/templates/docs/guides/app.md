@@ -393,7 +393,8 @@ Every repo's dependencies, read from its manifests and lockfiles without AI (`#/
   Without OSV-Scanner on the machine the libraries are reread, without vulnerabilities, and it says so.
 - **Look for newer versions** runs `camaron inventory --latest`: it asks the public registries (Maven Central, npm,
   PyPI, the Go proxy, NuGet, Packagist, crates.io, pub.dev) for each library's latest stable version. Library names
-  leave the machine for that, never the workspace's own; a library that is not on a public registry shows "—". It
+  leave the machine for that, never the workspace's own, and a dependency taken from git, a path or a URL is not asked
+  about nor offered a public version; a library that is not on a public registry shows "—". It
   names the library it last heard back about with how many are done, and ends on a tick ("120 libraries looked up · 14
   with a newer version"); a registry it could not reach keeps the versions of the previous lookup, and it says which.
 - Filters: search, category, service, scope, **Vulnerable only** and, once a lookup ran, **Outdated only**. They stay

@@ -21,7 +21,7 @@ const board = (props) => renderToStaticMarkup(<LibrariesBoard inv={inv} {...prop
 
 test('one line per library with its version and the latest, no column per repo', () => {
   const out = board()
-  expect(out).toContain('<col style="width:46%"/>')
+  expect(out).toContain('<col class="cu-libs-col-act" style="width:8.5rem"/>')   // fits Actualizar ▾ whole at 720 px
   expect(out).not.toContain('<th>api</th>')
   expect(out).toContain('42.6.0')
   expect(out).toContain('42.7.4')
@@ -119,4 +119,16 @@ test('before any scan it says so instead of claiming the library is clean', () =
   const out = detail(false)
   expect(out).toContain(en('lb.notScanned'))
   expect(out).not.toContain(en('lb.clean'))
+})
+
+test('the copied command quotes a scoped npm name, so PowerShell does not splat it', () => {
+  const ng = [{ repo: 'web', ecosystem: 'npm', name: '@angular/core', version: '16.2.1', declared: '^16.2.1', scope: 'runtime',
+    category: 'framework', language: 'JavaScript', source: 'web:package.json', managedBy: null, vulns: [] }]
+  const out = renderToStaticMarkup(<LibraryDetail item={matrix(ng).items[0]} rows={ng} latest={latest} scanned />)
+  expect(out).toContain('camaron bump web &quot;@angular/core&quot; 19.0.5')
+})
+
+test('a failed lookup does not claim an earlier one existed', () => {
+  expect(en('lb.lookFailed')).toContain('if any')
+  expect(t('lb.lookFailed', 'es')).toContain('si la hubo')
 })

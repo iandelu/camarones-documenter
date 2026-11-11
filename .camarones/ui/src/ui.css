@@ -196,6 +196,7 @@ p.cu-libs-note { margin: 0; }
 .cu-libs-v .cu-chip { font-family: var(--font-sans); }
 .cu-libs-table > tbody > tr { scroll-margin-top: calc(var(--cu-libs-top) + var(--cu-libs-bar-h, 0px) + 2.75rem); }
 .cu-libs-act { text-align: right; }
+.cu-libs-act .cu-btn { white-space: nowrap; }
 .cu-libs-open > td { padding: 1rem !important; }
 .cu-libs-detail { display: flex; flex-direction: column; gap: 1.25rem; min-width: 0; }
 .cu-libs-detail h3 { margin: 0 0 .4rem; font-size: var(--text-body); }

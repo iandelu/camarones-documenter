@@ -161,3 +161,33 @@ def test_the_count_of_newer_ones_and_the_default_fetch(latest, monkeypatch):
     monkeypatch.setattr(latest, "_fetch", lambda u: b'{"dist-tags": {"latest": "19.0.0"}}' if "npmjs" in u else METADATA)
     out = latest.lookup(ROWS, OWNED, log=lines.append)
     assert out["found"] == 3 and lines[-1].startswith("✔ 2 with a newer version (3 libraries looked up)")
+
+
+def test_a_date_in_the_qualifier_is_not_a_flavour(latest):
+    assert latest.pick(["9.4.53.v20231009", "9.4.57.v20241219", "12.0.15"], "9.4.53.v20231009") == "12.0.15"
+    assert latest.pick(["3.18.0.v20230101-1200", "3.19.0.v20240101-0900"], "3.18.0.v20230101-1200") == "3.19.0.v20240101-0900"
+    assert latest.pick(["4.0.0-groovy-4.0", "4.1.0-groovy-4.0", "4.1.0-groovy-3.0"], "4.0.0-groovy-4.0") in ("4.1.0-groovy-4.0", "4.1.0-groovy-3.0")
+
+
+def test_a_registry_that_keeps_failing_is_not_asked_again(latest, monkeypatch):
+    monkeypatch.setattr(latest, "WORKERS", 1)
+    rows = [{"repo": "web", "ecosystem": "npm", "name": f"p{i}", "version": "1.0.0"} for i in range(20)]
+    calls = []
+
+    def dead(address):
+        calls.append(address)
+        raise OSError("dropped")
+    out = latest.lookup(rows, {}, log=lambda _: None, fetch=dead)
+    assert len(calls) == 2 and out["failed"] == ["npm"] and out["checked"] == 20
+
+
+def test_rows_marked_as_not_from_a_registry_are_skipped(latest):
+    rows = [{"repo": "web", "ecosystem": "npm", "name": "private-lib", "version": None, "registry": False},
+            {"repo": "web", "ecosystem": "npm", "name": "react", "version": "18.2.0", "registry": True}]
+    asked = []
+    out = latest.lookup(rows, {}, log=lambda _: None, fetch=lambda u: asked.append(u) or b'{"dist-tags": {"latest": "19.0.0"}}')
+    assert asked == ["https://registry.npmjs.org/react"] and out["checked"] == 1
+
+
+def test_nuget_ids_are_owned_whatever_their_case(latest):
+    assert latest.is_owned("NuGet", "acme.common", {"NuGet": {"Acme.Common"}})

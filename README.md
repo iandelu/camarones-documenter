@@ -459,7 +459,8 @@ Con `--latest` pregunta a los registros públicos (Maven Central, npm, PyPI, el 
 y pub.dev) la última versión estable de cada librería (sin alfas, betas, RC ni SNAPSHOT) y la guarda con el inventario
 y en una columna **Latest** de `libraries.md`. Para eso salen de tu máquina los nombres de las librerías, solo cuando lo
 pides y nunca las que produce el propio workspace (los `groupId` de vuestros poms, los nombres de vuestros
-`package.json`…); un registro que no responde conserva lo de la búsqueda anterior y no cambia el código de salida. La
+`package.json`, Poetry, .NET…), ni las dependencias que vienen de git, de una ruta o de una URL; un registro que no
+responde conserva lo de la búsqueda anterior, se deja de consultar tras dos fallos y no cambia el código de salida. La
 pantalla **Librerías** es la misma en la app y en el portal: una línea por librería con su versión y la última, sin
 desplazamiento lateral, con los filtros fijos al bajar; en la app **Actualizar ▾** propone esa versión y ejecuta
 `camaron bump`, en el portal da el comando para copiar.

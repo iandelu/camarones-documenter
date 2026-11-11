@@ -103,17 +103,20 @@ export function isMajor(from, to) {
   return major(to) > major(from)
 }
 
-// Whether a repo uses a version older than `version`; null when that is unknown (no lookup, or no exact version).
+// Whether a repo uses a version older than `version`; null when that is unknown (no lookup, or a repo with no exact
+// version: one managed elsewhere or on a range may be behind, so the line is never called up to date).
 export function outdated(item, version) {
+  if (!version) return null
   const exact = exactOf(item)
-  if (!version || !exact.length) return null
-  return exact.some((v) => compareVersions(version, v) > 0)
+  if (exact.some((v) => compareVersions(version, v) > 0)) return true
+  return exact.length && Object.values(item.cells).every((c) => c.exact) ? false : null
 }
 
 // What Update proposes for one repo: the latest stable when it is higher, else the version that fixes its advisories.
+// A dependency from git, a path, a URL or an SDK (`registry: false`) is never offered a public package's version.
 export function proposal(row, version) {
   const fix = fixTarget(row.vulns)
-  const latest = version && (!row.version || compareVersions(version, row.version) > 0) ? version : null
+  const latest = row.registry !== false && version && (!row.version || compareVersions(version, row.version) > 0) ? version : null
   return { version: latest || fix || '', fix, latest }
 }
 

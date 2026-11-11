@@ -408,8 +408,9 @@ Las dependencias de cada repo, leídas de sus manifiestos y lockfiles sin IA (`#
   retoma su progreso. Sin OSV-Scanner en la máquina, las librerías se releen sin vulnerabilidades y lo dice.
 - **Buscar versiones nuevas** ejecuta `camaron inventory --latest`: pregunta a los registros públicos (Maven Central,
   npm, PyPI, el proxy de Go, NuGet, Packagist, crates.io, pub.dev) la última versión estable de cada librería. Para eso
-  salen de la máquina los nombres de las librerías, nunca las del propio workspace; una que no está en un registro
-  público muestra «—». Dice la última librería que ha respondido y cuántas lleva, y acaba con un tick («120 librerías
+  salen de la máquina los nombres de las librerías, nunca las del propio workspace, y una dependencia que viene de git,
+  de una ruta o de una URL ni se consulta ni recibe una versión pública; una que no está en un registro público muestra
+  «—». Dice la última librería que ha respondido y cuántas lleva, y acaba con un tick («120 librerías
   consultadas · 14 con versión nueva»); un registro que no responde conserva las versiones de la búsqueda anterior, y
   dice cuál.
 - Filtros: búsqueda, categoría, servicio, ámbito, **Solo vulnerables** y, cuando ya hubo una búsqueda, **Solo

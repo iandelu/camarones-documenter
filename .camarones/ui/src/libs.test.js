@@ -102,3 +102,16 @@ test('an open library is brought up when its detail would end near or below the 
   expect(hidesBelow({ bottom: 600 }, 1000)).toBe(false)
   expect(hidesBelow(null, 1000)).toBe(false)
 })
+
+test('a dependency from git, a path or a URL is never offered a public version', () => {
+  expect(proposal(boot('a', null, { registry: false }), '3.4.1')).toEqual({ version: '', fix: null, latest: null })
+  expect(proposal(boot('a', '3.2.0', { registry: false, vulns: [{ id: 'G', severity: 'high', fixed: '3.2.5' }] }), '3.4.1'))
+    .toEqual({ version: '3.2.5', fix: '3.2.5', latest: null })
+})
+
+test('up to date only when every repo has an exact version at the latest', () => {
+  const mixed = matrix([boot('a', '3.4.1'), boot('b', null, { managedBy: 'p' })]).items[0]
+  expect(outdated(mixed, '3.4.1')).toBe(null)
+  const behind = matrix([boot('a', '3.1.0'), boot('b', null, { managedBy: 'p' })]).items[0]
+  expect(outdated(behind, '3.4.1')).toBe(true)
+})
