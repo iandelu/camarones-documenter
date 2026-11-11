@@ -1199,7 +1199,9 @@ def wiki_open(repo: str, log: Log = print) -> None:
     d, wiki, state = repo_dir(repo), ROOT / "wikis" / repo, CACHE / "wiki-open" / f"{repo}.json"
     ow = d / "openwiki"
     if not state.exists():
-        saved = {f: (d / f).read_text(encoding="utf-8") if (d / f).is_file() else None for f in OPENWIKI_REPO_FILES}
+        # as they are on disk, line endings included: a close puts the same bytes back (no CRLF churn on Windows)
+        saved = {f: (d / f).read_bytes().decode("utf-8", errors="surrogateescape") if (d / f).is_file() else None
+                 for f in OPENWIKI_REPO_FILES}
         state.parent.mkdir(parents=True, exist_ok=True)
         state.write_text(json.dumps(saved), encoding="utf-8")
     if _is_link(ow):
@@ -1228,7 +1230,10 @@ def wiki_close(repo: str, log: Log = print) -> bool:
     for f, text in saved.items():
         p = d / f
         if text is not None:
-            p.write_text(text, encoding="utf-8")
+            raw = text.encode("utf-8", errors="surrogateescape")   # a state from kits ≤ 4.80.1 holds LF text: LF back
+            if not p.is_file() or p.read_bytes() != raw:
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_bytes(raw)
         elif p.is_file():
             p.unlink()
             for parent in p.relative_to(d).parents:
