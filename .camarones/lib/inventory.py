@@ -65,6 +65,7 @@ def pom(text: str) -> dict:
     group, version = find(root, "groupId") or parent[0], find(root, "version") or parent[2]
     props.update({"project.groupId": group, "project.version": version, "project.parent.version": parent[2]})
     return {"key": f"{group}:{find(root, 'artifactId')}", "version": version, "parent": parent if parent[1] else None,
+            "ownGroup": find(root, "groupId"),
             "props": props, "managed": deps("dependencyManagement/dependencies/dependency"),
             "deps": deps("dependencies/dependency")}
 
@@ -290,7 +291,8 @@ def cargo(text: str) -> list[dict]:
         m = re.search(rf"^\[{table}\]\s*$(.*?)(?=^\[|\Z)", text, re.M | re.S)
         for name, rest in re.findall(r"^\s*([\w-]+)\s*=\s*(.+)$", m.group(1), re.M) if m else []:
             v = re.search(r'version\s*=\s*"([^"]+)"', rest) if rest.startswith("{") else re.match(r'"([^"]+)"', rest)
-            out.append(_row("crates.io", name, v.group(1) if v else "", scope))
+            local = next((k for k in ("path", "git") if re.search(rf"\b{k}\s*=", rest)), "") if rest.startswith("{") else ""
+            out.append(_row("crates.io", name, local or (v.group(1) if v else ""), scope))
     return out
 
 
@@ -299,8 +301,8 @@ def pubspec(text: str) -> list[dict]:
     out = []
     for key, scope in (("dependencies", "runtime"), ("dev_dependencies", "dev")):
         for name, spec in (data.get(key) or {}).items():
-            declared = "sdk" if isinstance(spec, dict) and "sdk" in spec else (
-                str(spec.get("version", "")) if isinstance(spec, dict) else str(spec or ""))
+            local = next((k for k in ("sdk", "path", "git") if k in spec), "") if isinstance(spec, dict) else ""
+            declared = local or (str(spec.get("version", "")) if isinstance(spec, dict) else str(spec or ""))
             out.append(_row("Pub", name, declared, scope))
     return out
 
@@ -379,6 +381,23 @@ def _python_locks(folder: Path) -> dict[str, str]:
     return {}
 
 
+NPM_LOCAL = re.compile(r"^(git\+|git:|github:|gitlab:|bitbucket:|gist:|file:|link:|workspace:|portal:|patch:|npm:|https?:|\.{0,2}/|~/)")
+NPM_SHORTHAND = re.compile(r"^[\w.-]+/[\w.-]+(#.*)?$")        # owner/repo[#ref]: a GitHub repo, not a version
+
+
+def from_registry(ecosystem: str, declared: str | None) -> bool:
+    """Whether the dependency is resolved from its public registry, rather than from git, a path, a URL, an SDK or an
+    npm alias: only those are looked up (lib/latest.py) and offered a public version."""
+    d = (declared or "").strip()
+    if ecosystem == "npm":
+        return not (NPM_LOCAL.match(d) or NPM_SHORTHAND.match(d))
+    if ecosystem == "PyPI":
+        return not d.startswith("@")                           # PEP 508 `name @ <url>`
+    if ecosystem in ("crates.io", "Pub"):
+        return d not in ("path", "git", "sdk")
+    return True
+
+
 def scan() -> dict:
     cats = categories()
     rows = []
@@ -389,13 +408,94 @@ def scan() -> dict:
     seen: dict[tuple, set] = {}
     for row in rows:
         row["category"] = category(row["name"], cats)
+        row["registry"] = from_registry(row["ecosystem"], row["declared"])
         row["language"] = LANGUAGE.get(row["ecosystem"], row["ecosystem"])
         seen.setdefault((row["ecosystem"], row["name"]), set()).add(row["version"] or row["declared"])
     for row in rows:
         row["drift"] = len(seen[(row["ecosystem"], row["name"])]) > 1
         row.setdefault("managedBy", None)
     rows.sort(key=lambda r: (r["repo"], r["category"], r["name"]))
-    return {"libraries": rows, "vulns": None}
+    return {"libraries": rows, "vulns": None, "latest": None}
+
+
+OWNED_EXTRA = ("gradle.properties", "setup.cfg", "setup.py")      # name a package, declare no dependency the scan reads
+
+
+def _toml_name(text: str, section: str) -> str | None:
+    block = re.search(rf"^\[{re.escape(section)}\]\s*$(.*?)(?=^\[|\Z)", text, re.M | re.S)
+    name = block and re.search(r"^\s*name\s*=\s*['\"]([^'\"]+)", block.group(1), re.M)
+    return name.group(1) if name else None
+
+
+def _owned_in(base: str, rel: str, text: str) -> list[tuple[str, str]]:
+    """(ecosystem, name or prefix) a manifest says the repo itself publishes."""
+    if base in ("build.gradle", "build.gradle.kts"):
+        m = re.search(r"^\s*group\s*=\s*['\"]([^'\"]+)", text, re.M)
+        return [("Maven", m.group(1))] if m else []
+    if base == "package.json":
+        name = json.loads(text).get("name") or ""
+        return [("npm", name)] + ([("npm", name.split("/")[0] + "/")] if name.startswith("@") and "/" in name else [])
+    if base == "go.mod":
+        m = re.search(r"^module\s+(\S+)", text, re.M)
+        return [("Go", m.group(1))] if m else []
+    if base == "pyproject.toml":
+        return [("PyPI", n) for n in (_toml_name(text, "project"), _toml_name(text, "tool.poetry")) if n]
+    if base == "setup.cfg":
+        block = re.search(r"^\[metadata\]\s*$(.*?)(?=^\[|\Z)", text, re.M | re.S)
+        name = block and re.search(r"^\s*name\s*=\s*([^\s#;]+)", block.group(1), re.M)
+        return [("PyPI", name.group(1))] if name else []
+    if base == "setup.py":
+        m = re.search(r"\bname\s*=\s*['\"]([^'\"]+)['\"]", text)
+        return [("PyPI", m.group(1))] if m else []
+    if base == "gradle.properties":
+        m = re.search(r"^\s*(?:group|GROUP)\s*=\s*(\S+)", text, re.M)
+        return [("Maven", m.group(1))] if m else []
+    if base.endswith(".csproj"):
+        m = re.search(r"<PackageId>\s*([^<\s]+)\s*</PackageId>", text) or re.search(r"<AssemblyName>\s*([^<\s]+)\s*</AssemblyName>", text)
+        return [("NuGet", m.group(1) if m else Path(rel).stem)]
+    if base == "Cargo.toml":
+        return [("crates.io", n)] if (n := _toml_name(text, "package")) else []
+    if base == "composer.json":
+        return [("Packagist", n)] if (n := json.loads(text).get("name")) else []
+    if base == "pubspec.yaml":
+        return [("Pub", n)] if (n := (yaml.safe_load(text) or {}).get("name")) else []
+    return []
+
+
+def owned() -> dict[str, set[str]]:
+    """What the workspace itself produces, so lib/latest.py never sends it: each pom's own groupId (or the one a module
+    inherits from a parent in the same repo, never from an outside parent such as spring-boot-starter-parent), Gradle's
+    `group =` (or gradle.properties' group / GROUP), the names and @scopes of its package.json, its Go modules, its .NET
+    packages (PackageId, AssemblyName or the project's file name) and its Python (PEP 621, Poetry, setup.cfg, setup.py),
+    Rust, PHP and Dart packages."""
+    out: dict[str, set[str]] = {}
+    for r in docs.workspace()["repos"]:
+        repo = repo_dir(r["name"])
+        if not repo.is_dir():
+            continue
+        entries = radar.entries(repo)
+        paths = [p for p in entries if any(radar.matches(p, m) for m in MANIFEST_NAMES)]
+        paths += [p for p in entries if Path(p).name in OWNED_EXTRA]
+        poms = _poms(repo, paths)
+        keys = {p["key"] for p in poms.values()}
+        for p in poms.values():
+            group = _interpolate(p["ownGroup"], {**p["props"], "project.parent.groupId": (p["parent"] or ("",))[0]})
+            if group and "${" not in group:
+                out.setdefault("Maven", set()).add(group)
+            elif p["parent"] and f"{p['parent'][0]}:{p['parent'][1]}" in keys:
+                out.setdefault("Maven", set()).add(p["key"].split(":")[0])
+        for rel in paths:
+            f = repo / rel
+            if Path(rel).name == "pom.xml" or not f.is_file():
+                continue
+            try:
+                found = _owned_in(f.name, rel, _read(f))
+            except (ValueError, AttributeError, TypeError, yaml.YAMLError):
+                continue                                  # a manifest the scan cannot read names nothing
+            for eco, name in found:
+                if isinstance(name, str) and name.strip():
+                    out.setdefault(eco, set()).add(name.strip())
+    return out
 
 
 def cell(text: str) -> str:
@@ -409,20 +509,26 @@ def render(result: dict) -> str:
                          "testing…), with versions and known vulnerabilities. Static scan of the manifests, no AI.",
           "tags": ["stack", "dependencies"], "x-sources": sorted({r["source"] for r in rows}), "x-owner": "ai"}
     from . import pages
+    from . import latest as registries
     vulns = result.get("vulns") is not None
+    looked = result.get("latest") is not None
+    newest = (result.get("latest") or {}).get("versions") or {}
     repos = {*docs.repo_names(), *(r["repo"] for r in rows)}                  # the workspace's, manifests or not
     drift = {r["name"] for r in rows if r["drift"]}
     vulnerable = {r["name"] for r in rows if r.get("vulns")}
+    behind = {(r["ecosystem"], r["name"]) for r in rows if registries.newer(r["version"], newest.get(f"{r['ecosystem']}|{r['name']}"))}
     tldr = (f"{pages.count(len(rows), 'direct dependency', 'direct dependencies')} across {pages.count(len(repos), 'repo')}" +
             (f"; {pages.count(len(drift), 'library', 'libraries')} with different versions in different repos" if drift else "") +
+            (f"; {pages.count(len(behind), 'library', 'libraries')} with a newer version" if behind else "") +
             (f"; {pages.count(len(vulnerable), 'library', 'libraries')} with known vulnerabilities" if vulnerable else "") + ".")
     lines = ["# Libraries", "", f"> **TL;DR:** {tldr}", ""]
     for repo in dict.fromkeys(r["repo"] for r in rows):
-        lines += [f"## {repo}", "", "| Category | Library | Version | Scope |" + (" Vulnerabilities |" if vulns else ""),
-                  "|---|---|---|---|" + ("---|" if vulns else "")]
+        lines += [f"## {repo}", "", "| Category | Library | Version |" + (" Latest |" if looked else "") + " Scope |"
+                  + (" Vulnerabilities |" if vulns else ""), "|---|---|---|" + ("---|" if looked else "") + "---|" + ("---|" if vulns else "")]
         for r in (x for x in rows if x["repo"] == repo):
             version = r["version"] or (f"managed ({r['managedBy'].rsplit(':', 1)[-1]})" if r["managedBy"] else r["declared"]) or "—"
-            row = f"| {r['category']} | `{cell(r['name'])}` | {cell(version)}{' ⚠️ drift' if r['drift'] else ''} | {r['scope']} |"
+            row = (f"| {r['category']} | `{cell(r['name'])}` | {cell(version)}{' ⚠️ drift' if r['drift'] else ''} |"
+                   + (f" {cell(newest.get(r['ecosystem'] + '|' + r['name']) or '—')} |" if looked else "") + f" {r['scope']} |")
             if vulns:
                 row += " " + (", ".join(f"{v['cve'] or v['id']} ({v['severity']}" + (f", fixed in {v['fixed']})" if v["fixed"] else ")")
                                         for v in r.get("vulns") or []) or "—") + " |"
@@ -431,24 +537,35 @@ def render(result: dict) -> str:
     if not rows:
         lines += ["No manifests found.", ""]
     lines += [pages.HOW, "Read from each repo's manifests and lockfiles with no AI. `camaron inventory --cves` adds the known "
-              "vulnerabilities (OSV); the portal's Libraries tab filters this list.", ":::", ""]
+              "vulnerabilities (OSV) and `--latest` each library's latest stable version (public registries); the portal's "
+              "Libraries tab filters this list.", ":::", ""]
     return docs.join_fm(fm, "\n".join(lines))
 
 
-def run(log=print, cves: bool = False) -> Path:
+def run(log=print, cves: bool = False, latest: bool = False) -> Path:
     """Scan, keep the result in docs/.work/inventory.json and write docs/overview/libraries.md (never over a human's).
-    `cves`: add the known vulnerabilities (lib/osv.py); otherwise the last scan's findings are kept for unchanged rows."""
+    `cves`: add the known vulnerabilities (lib/osv.py); otherwise the last scan's findings are kept for unchanged rows.
+    `latest`: ask the public registries for each library's latest stable version (lib/latest.py), over the last answers
+    so a registry that does not answer keeps them; otherwise the last lookup is kept as it was."""
     result = scan()
+    last = load()
     if cves:
         from . import osv
         result["vulns"] = osv.attach(result["libraries"], log=log)
     else:
-        last = load()
         old = {(r["repo"], r["ecosystem"], r["name"], r["version"]): r.get("vulns") for r in last.get("libraries") or []}
         for r in result["libraries"]:
             if (key := (r["repo"], r["ecosystem"], r["name"], r["version"])) in old and old[key] is not None:
                 r["vulns"] = old[key]
         result["vulns"] = last.get("vulns") if any("vulns" in r for r in result["libraries"]) else None
+    if latest:
+        from . import latest as registries
+        found = registries.lookup(result["libraries"], owned(), log=log)
+        keys = {f"{r['ecosystem']}|{r['name']}" for r in result["libraries"]}
+        before = (last.get("latest") or {}).get("versions") or {}
+        result["latest"] = {**found, "versions": {k: v for k, v in {**before, **found["versions"]}.items() if k in keys}}
+    else:
+        result["latest"] = last.get("latest")
     save_json(DATA, result)
     old = docs.split_fm(PAGE.read_text(encoding="utf-8"))[0] if PAGE.exists() else {}
     if old.get("x-owner") == "human":

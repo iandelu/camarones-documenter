@@ -8,7 +8,9 @@ from http.server import ThreadingHTTPServer
 
 import pytest
 
-needs_likec4 = pytest.mark.skipif(not shutil.which("likec4"), reason="likec4 not installed")
+from fixtures.host_tools import needs
+
+needs_likec4 = needs("likec4")
 
 MODEL = """// first look
 model {

@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.79.3-ff875f?style=flat-square" alt="Versión 4.79.3">
+  <img src="https://img.shields.io/badge/version-4.80.1-ff875f?style=flat-square" alt="Versión 4.80.1">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -256,7 +256,7 @@ escribirías en la terminal.
 | 🎙️ **Entrevistas** (`g i`) | Cuestionario del equipo o en vivo, exportar e importar respuestas, cerrar la ronda |
 | 🤝 **Equipo** (`g t`) | El repo del equipo y compartir, aprobar lo que llegó con él, hooks y plugins |
 | ✅ **Calidad** (`g q`) | La salud del proyecto sin IA: máquina, documentación y código, repo a repo (SonarQube, cobertura, vulnerabilidades, deuda) |
-| 📦 **Librerías** (`g l`) | Las dependencias de cada repo y sus vulnerabilidades (el escaneo va repo a repo con su barra, se puede parar y acaba con un tick con lo que encontró) y **Actualizar** en una rama nueva, sin commit |
+| 📦 **Librerías** (`g l`) | Una línea por librería con la versión que usan los repos y la última estable (**Buscar versiones nuevas**), sus vulnerabilidades (el escaneo va repo a repo con su barra, se puede parar y acaba con un tick con lo que encontró) y **Actualizar ▾** con esa versión ya puesta, en una rama nueva, sin commit. La misma pantalla que la del portal |
 | 📖 **Docs** (`g d`) | Abrir el portal, construir el explorador C4, generar la wiki de cada repo y preguntar con IA |
 | 🧰 **Máquina** (`g m`) | Preparar la máquina (dice «Lista», cuándo y con qué kit, una vez hecho), idioma y modelos, dónde se abren las sesiones (en el lienzo del plan o en una ventana de terminal), tokens, repos, el kit y desinstalar |
 | 📘 **Guía** (`g h`) | Toda la documentación de Camarón dentro de la app, con botones que te llevan a cada sitio y un **recorrido guiado** |
@@ -454,6 +454,16 @@ sin resolver transitivas: ningún nombre de paquete sale de tu máquina, salvo c
 `~/.camarones.json`. Encontrar vulnerabilidades sale con 0; en CI, `--fail-on high` (o `critical`) sale con 1. El escaneo cuenta los repos a
 medida que entra en cada uno (`[2/5] <repo>: …`); con `--json` la salida estándar es solo el JSON y ese progreso va a
 stderr.
+
+Con `--latest` pregunta a los registros públicos (Maven Central, npm, PyPI, el proxy de Go, NuGet, Packagist, crates.io
+y pub.dev) la última versión estable de cada librería (sin alfas, betas, RC ni SNAPSHOT) y la guarda con el inventario
+y en una columna **Latest** de `libraries.md`. Para eso salen de tu máquina los nombres de las librerías, solo cuando lo
+pides y nunca las que produce el propio workspace (los `groupId` de vuestros poms, los nombres de vuestros
+`package.json`, Poetry, .NET…), ni las dependencias que vienen de git, de una ruta o de una URL; un registro que no
+responde conserva lo de la búsqueda anterior, se deja de consultar tras dos fallos y no cambia el código de salida. La
+pantalla **Librerías** es la misma en la app y en el portal: una línea por librería con su versión y la última, sin
+desplazamiento lateral, con los filtros fijos al bajar; en la app **Actualizar ▾** propone esa versión y ejecuta
+`camaron bump`, en el portal da el comando para copiar.
 
 `camaron bump <repo> <librería> <versión>` la actualiza en una rama nueva (`camaron/bump-<nombre>-<versión>`) con su
 gestor de paquetes (npm, pnpm, yarn, uv, poetry, go) o reescribiendo el manifiesto (Maven, Gradle, requirements): sin

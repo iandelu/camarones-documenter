@@ -12,7 +12,7 @@ HOME = Path.home()
 PREFS = HOME / ".camarones.json"              # per-machine choices: language, models, runners, routing
 
 VERSIONS = {
-    "kit": "4.79.3",
+    "kit": "4.80.1",
     "backlog_md": "1.55.3",   # Backlog.md, the compatibility check of the board (tests/e2e/test_backlogmd.py)
     "openwiki": "0.5.2",
     "likec4": "1.59.4",
@@ -90,7 +90,7 @@ def extra_bin_dirs() -> list[Path]:
 
 def ensure_path() -> None:
     parts = os.environ.get("PATH", "").split(os.pathsep)
-    for d in extra_bin_dirs():
+    for d in [] if os.environ.get("CAMARONES_KEEP_PATH") else extra_bin_dirs():  # a PATH set on purpose (the test suite)
         if d.is_dir() and str(d) not in parts:
             parts.insert(0, str(d))
     os.environ["PATH"] = os.pathsep.join(parts)

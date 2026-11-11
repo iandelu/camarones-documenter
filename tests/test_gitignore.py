@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import subprocess
 
-# What kits up to 4.79.2 wrote: unanchored kit patterns that also matched nested doc folders.
+# What kits up to 4.80.0 wrote: unanchored kit patterns that also matched nested doc folders.
 OLD_BLOCK = """# >>> camarones repos >>>
 /.camarones/.cache/
 /graph/

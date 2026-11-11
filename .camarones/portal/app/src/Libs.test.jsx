@@ -1,14 +1,19 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, test } from 'vitest'
-import { Where } from './Libs.jsx'
-import { matrix } from './libs.js'
+import { LibsView } from './Libs.jsx'
 
-test('a line of the table names its repos, the flagged ones first, so their columns need no scrolling', () => {
-  const rows = ['wallet-adapter', 'backoffice-app', 'integration-service', 'lobby-service', 'content-service'].map((repo) => ({
-    repo, ecosystem: 'Maven', name: 'org.springframework:spring-webmvc', version: '6.1.21', scope: 'runtime', category: 'framework',
-    vulns: repo === 'integration-service' ? [{ id: 'GHSA-1', severity: 'high' }] : [] }))
-  const out = renderToStaticMarkup(<Where item={matrix(rows).items[0]} />)
-  expect(out).toMatch(/^<span class="libs-where[^"]*">in <b class="libs-where-bad">integration-service<\/b>/)
-  expect(out).toContain('+2 more')
-  expect(out).not.toContain('wallet-adapter')
+const row = (repo) => ({ repo, ecosystem: 'Maven', name: `org.acme.${repo}:lib`, version: '1.0.0', declared: '1.0.0', scope: 'runtime',
+  category: 'other', language: 'Java', source: `${repo}:pom.xml`, managedBy: null, vulns: [] })
+
+test('the portal draws the shared board, read-only, filtered by #/libs/<repo>', () => {
+  const out = renderToStaticMarkup(<LibsView inv={{ libraries: [row('web'), row('api')], vulns: null, latest: null }} arg="api" />)
+  expect(out).toContain('class="cu-libs"')
+  expect(out).toContain('camaron inventory --cves --latest')
+  expect(out).toContain('<option value="api" selected="">')
+  expect(out).not.toContain('org.acme.web:lib')
+})
+
+test('a repo the inventory does not have leaves the filter empty', () => {
+  const out = renderToStaticMarkup(<LibsView inv={{ libraries: [row('web')], vulns: null, latest: null }} arg="nope" />)
+  expect(out).toContain('org.acme.web:lib')
 })

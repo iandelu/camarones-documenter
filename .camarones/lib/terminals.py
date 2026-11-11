@@ -501,12 +501,13 @@ def _finish(t: _Term) -> None:
         if t.meta["ended"] is not None:
             return
         code = _reap(t)
-        with _lock:
+        ended = time.time()
+        _end_record({**_meta(t), "ended": ended, "code": code})   # before `ended` wakes close_wait, whose caller
+        with _lock:                                                # (hand_back) writes the record next
             t.over = True
-            t.meta.update(ended=time.time(), code=code)
+            t.meta.update(ended=ended, code=code)
             _bump()
         _save(t)
-        _end_record(_meta(t))
 
 
 def _end_record(meta: dict) -> None:
