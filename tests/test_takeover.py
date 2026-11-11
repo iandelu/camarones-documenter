@@ -256,6 +256,36 @@ def test_a_session_opened_by_hand_can_be_left_to_the_pilot(pair):
     assert sessions.load(pair.uid)["since"] == 0.0              # the bill: what the run writes next is the run's
 
 
+def test_hand_back_marks_the_record_only_after_the_terminal_has_closed_it(pair, monkeypatch):
+    """The terminal's end closes the unit's session record before anyone waiting on that end goes on, so hand_back's
+    mark (`since`) never meets that write half done. CI caught the mark lost to a half-written record: here the
+    terminal's write is slow and hand_back's mark waits until that write has begun."""
+    import json
+    from lib import sessions
+    real_save, real_bound, writing = sessions._save, sessions.bound, threading.Event()
+
+    def slow(uid, rec):
+        if threading.current_thread() is not threading.main_thread():      # the terminal's reader closing the record
+            sessions.path(uid).write_text(json.dumps(rec)[:12], encoding="utf-8")
+            writing.set()
+            time.sleep(0.4)
+        return real_save(uid, rec)
+
+    def bound(uid):
+        writing.wait(2)
+        real_bound(uid)
+    monkeypatch.setattr(sessions, "_save", slow)
+    monkeypatch.setattr(sessions, "bound", bound)
+    monkeypatch.setattr(pair.term, "_end_record",                       # as when the wrapper died with the terminal
+                        lambda meta: sessions.update(meta["unit"], ended=meta["ended"], code=meta["code"]))
+    pair.log.emit("run.started", run="r-1", agents=["claude"])
+    pair.plan.set_status(pair.uid, "todo")
+    pair.agents.launch_unit(pair.uid, "claude", where="canvas")
+    until(lambda: sessions.running(sessions.load(pair.uid)))
+    pair.t.hand_back(pair.uid)
+    assert sessions.load(pair.uid)["since"] == 0.0
+
+
 def test_stopping_a_unit_asks_the_run(pair):
     at_work(pair)
     assert pair.t.stop(pair.uid) == {"stopping": pair.uid}

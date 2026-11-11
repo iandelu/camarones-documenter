@@ -128,10 +128,12 @@ the board on** (`camaron board init`).
 and a row per repo (SonarQube gate, coverage, vulnerabilities, debt). **Check everything** refreshes it
 (`camaron health --refresh`). A missing tool has its **Install** button there.
 
-**Libraries** lists every dependency by repo. **Scan for vulnerabilities** checks them against OSV's offline database
-(`camaron inventory --cves`; nothing leaves your machine). A flagged library's **Update** proposes the version that
-fixes it and makes a branch in that repo (`camaron bump`), without committing or pushing; in a Maven module it changes
-the parent pom of the same repo, where the version is set.
+**Libraries** lists every dependency with the version the repos use. **Scan for vulnerabilities** checks them against
+OSV's offline database (`camaron inventory --cves`; nothing leaves your machine). **Look for newer versions** asks the
+public registries for each one's latest stable version (`camaron inventory --latest`; library names leave your
+machine, your own never). **Update ▾** proposes the latest version, or the one that fixes its advisories, and makes a
+branch in that repo (`camaron bump`), without committing or pushing; in a Maven module it changes the parent pom of the
+same repo, where the version is set.
 
 SonarQube: save a token in **Machine › Tokens** and the health check reads each repo's gate, coverage and issues.
 

@@ -136,10 +136,12 @@ Activar el tablero** (`camaron board init`).
 por área y una fila por repo (puerta de calidad de SonarQube, cobertura, vulnerabilidades, deuda). **Comprobar todo** la
 recalcula (`camaron health --refresh`). Una herramienta que falta tiene ahí su botón **Instalar**.
 
-**Librerías** lista cada dependencia por repo. **Buscar vulnerabilidades** las compara con la base de datos sin conexión
-de OSV (`camaron inventory --cves`; nada sale de tu máquina). El **Actualizar** de una librería marcada propone la
-versión que lo corrige y crea una rama en ese repo (`camaron bump`), sin commit ni push; en un módulo Maven cambia el
-pom padre del mismo repo, que es donde está la versión.
+**Librerías** lista cada dependencia con la versión que usan los repos. **Buscar vulnerabilidades** las compara con la
+base de datos sin conexión de OSV (`camaron inventory --cves`; nada sale de tu máquina). **Buscar versiones nuevas**
+pregunta a los registros públicos la última versión estable de cada una (`camaron inventory --latest`; salen de tu
+máquina los nombres de las librerías, nunca las vuestras). **Actualizar ▾** propone la última versión, o la que corrige
+sus avisos, y crea una rama en ese repo (`camaron bump`), sin commit ni push; en un módulo Maven cambia el pom padre
+del mismo repo, que es donde está la versión.
 
 SonarQube: guarda un token en **Máquina › Tokens** y la comprobación de salud lee la puerta de calidad, la cobertura y
 los problemas de cada repo.

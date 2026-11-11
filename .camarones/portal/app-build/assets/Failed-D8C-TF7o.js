@@ -1,0 +1,1 @@
+import{A as e,S as t,n,y as r}from"./i18n-DrEGkG-0.js";var i=e();function a({title:e,detail:a,onRetry:o}){return(0,i.jsx)(r,{tone:`error`,title:e,detail:a,action:o?(0,i.jsx)(t,{size:`sm`,onClick:o,children:n(`retry`)}):null})}export{a as t};
