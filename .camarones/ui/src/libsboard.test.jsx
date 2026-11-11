@@ -85,3 +85,38 @@ test('opened from #/libs/<repo>, the repo filter starts on it', () => {
   expect(out).toContain('<option value="web" selected="">')
   expect(out).not.toContain('org.postgresql:postgresql')
 })
+
+// Moved from the desktop app's tests with the detail itself: the advisories as the last scan kept them.
+const full = [
+  { id: 'GHSA-1', cve: 'CVE-2026-1', severity: 'high', score: 7.5, summary: 'launch-editor check bypassed', fixed: '8.3.3',
+    aliases: ['CVE-2026-1'], details: 'The full text of the advisory.', published: '2026-10-01T00:00:00Z', modified: null,
+    ranges: [{ introduced: '8.0.0', fixed: '8.3.3' }], references: [{ type: 'ADVISORY', url: 'https://example.org/a' }], cwes: ['CWE-22'] },
+  { id: 'GHSA-2', cve: 'CVE-2026-2', severity: 'low', summary: 'old scan', fixed: '8.3.2' }]
+const vite = [{ repo: 'web', ecosystem: 'npm', name: 'vite', version: '8.3.1', declared: '^8.3.1', scope: 'dev', category: 'build',
+  language: 'JavaScript', source: 'web:package.json', managedBy: null, vulns: full }]
+const detail = (scanned = true) => renderToStaticMarkup(<LibraryDetail item={matrix(vite).items[0]} rows={vite} latest={null} scanned={scanned} />)
+
+test('why it is flagged: each advisory once, the worst first, with its affected versions and its full text', () => {
+  const out = detail()
+  expect(out).toContain(fill(en('lb.flaggedLead'), { n: 2 }))
+  expect(out.indexOf('CVE-2026-1')).toBeLessThan(out.indexOf('CVE-2026-2'))
+  expect(out).toContain(fill(en('lb.range'), { from: '8.0.0', to: '8.3.3' }))
+  expect(out).toContain('The full text of the advisory.')
+  expect(out).toContain('CWE-22')
+  expect(out).toContain('href="https://example.org/a"')
+  expect(out).toContain(en('lb.rescan'))                        // the old scan's advisory says how to get it
+})
+
+test('why it is there: the repo, its manifest, the range and the scope; without a lookup the fix is proposed', () => {
+  const out = detail()
+  expect(out).toContain('<code>package.json</code>')
+  expect(out).toContain('<code>^8.3.1</code>')
+  expect(out).toContain(en('lb.scope.dev'))
+  expect(out).toContain('camaron bump web vite 8.3.3')
+})
+
+test('before any scan it says so instead of claiming the library is clean', () => {
+  const out = detail(false)
+  expect(out).toContain(en('lb.notScanned'))
+  expect(out).not.toContain(en('lb.clean'))
+})
