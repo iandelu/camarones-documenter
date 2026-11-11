@@ -166,7 +166,7 @@ def dashboard(months: int = 6, today: date | None = None) -> dict:
     repos = docs.repo_names()
     by = {n: {"repo": n, "pages": 0, "confirmed": 0, "draft": 0, "needsReconfirm": 0} for n in [*repos, "(project)"]}
     for row in docs.collect():
-        owner = next((n for n in repos if row["path"].startswith(f"repos/{n}/")), "(project)")
+        owner = next((n for n in repos if row["path"].startswith((f"repos/{n}/", f"wikis/{n}/"))), "(project)")
         key = {"confirmed": "confirmed", "draft": "draft", "needs-reconfirm": "needsReconfirm"}.get(row.get("trust"))
         by[owner]["pages"] += 1
         if key:

@@ -259,7 +259,51 @@ def iter_docs():
                 rel = f.relative_to(ow)
                 if any(p.startswith(".") for p in rel.parts) or rel.name in ("INSTRUCTIONS.md", "log.md"):
                     continue
-                yield f"repos/{n}/{rel.as_posix()}", f
+                yield wiki_path(n, rel.as_posix()), f
+
+
+# A wiki page's logical path is where it sits in cam-docs, wikis/<repo>/<page>: it can never be a docs page's
+# (docs/repos/<repo>/index.md vs OpenWiki's own index.md). Kits up to 4.80.1 called it repos/<repo>/<page>; that path
+# still names the wiki page wherever no docs page has it (links, read_doc, freshness stamps, translations).
+def wiki_path(repo: str, rel: str) -> str:
+    return f"wikis/{repo}/{rel}"
+
+
+def old_wiki_path(path: str) -> str | None:
+    """repos/<repo>/<page> → wikis/<repo>/<page>: what a pre-4.81 wiki path is now (None for any other path)."""
+    parts = path.split("/", 2)
+    return wiki_path(parts[1], parts[2]) if len(parts) == 3 and parts[0] == "repos" and parts[2] else None
+
+
+def link_target(path: str, known) -> str:
+    """The page a resolved link, or a path someone wrote, names. `docs/<page>` is the docs page <page> (how a wiki page
+    links one, as its file sits on disk); a wiki page's old repos/<repo>/<page> is wikis/<repo>/<page> when no docs
+    page has that path. Anything else, known or not, stays as written. Mirrored by the portal's linkTarget()."""
+    if path in known:
+        return path
+    bare = path.removeprefix("docs/")
+    if bare in known:
+        return bare
+    alias = old_wiki_path(bare)
+    return alias if alias and alias in known else path
+
+
+def find_page(path: str, canon: dict | None = None) -> Path | None:
+    """The file of a page by any path that names it (logical, `docs/…`, or a wiki page's old repos/<repo>/… path)."""
+    canon = dict(iter_docs()) if canon is None else canon
+    return canon.get(link_target(path, canon))
+
+
+def translation_file(logical: str, lang: str) -> Path:
+    """Where a page's translation is: docs/i18n/<lang>/<logical>. A wiki page translated before 4.81 kept it under
+    i18n/<lang>/repos/<repo>/<page>; that file counts unless a docs page has that path (then it is that page's)."""
+    tf = DOCS / "i18n" / lang / logical
+    if not tf.exists() and logical.startswith("wikis/") and logical.count("/") >= 2:
+        _, repo, rel = logical.split("/", 2)
+        old = DOCS / "i18n" / lang / "repos" / repo / rel
+        if old.is_file() and not (DOCS / "repos" / repo / rel).exists():
+            return old
+    return tf
 
 
 def wiki_dir(repo: str) -> Path:
@@ -310,7 +354,7 @@ def doc_status(logical: str, f: Path, langs: list[str]) -> dict:
     missing = [s for s in (fm.get("x-sources") or []) if not repo_file_exists(str(s))]
     i18n = {}
     for lang in ([] if fm.get("type") == "interview" else langs):   # working notes are not translated
-        tf = DOCS / "i18n" / lang / logical
+        tf = translation_file(logical, lang)
         if not tf.exists():
             i18n[lang] = "missing"
         else:
@@ -382,6 +426,9 @@ def translated(files: list[str]) -> list[str]:
         f = resolve(p)
         rel = f.relative_to(DOCS / "i18n")
         lang, logical = rel.parts[0], Path(*rel.parts[1:]).as_posix()
+        if logical not in canon and (alias := old_wiki_path(logical)) in canon \
+                and translation_file(alias, lang).resolve() == f.resolve():
+            logical = alias                       # a wiki page's translation kept at its pre-4.81 path
         if logical not in canon:
             raise RuntimeError(f"{p}: no canonical doc at {logical}")
         _, cbody = split_fm(canon[logical].read_text(encoding="utf-8"))
@@ -422,8 +469,9 @@ def llms() -> int:
     section = None
     for r in ok:
         notes = r["type"] == "interview" or r["path"].startswith("interview/")
-        head = "Optional" if notes else ("repos/" + r["path"].split("/")[1] if r["path"].startswith("repos/")
-                                         else (r["path"].split("/")[0] if "/" in r["path"] else "root"))
+        top = r["path"].split("/")
+        head = "Optional" if notes else ("/".join(top[:2]) if top[0] in ("repos", "wikis") and len(top) > 2
+                                         else (top[0] if len(top) > 1 else "root"))
         if head != section:
             lines += ["", f"## {head}"]
             section = head

@@ -727,7 +727,7 @@ def covering(logical: str) -> list[dict]:
     """The accepted ADRs a page falls under (`_covers`: the pages their review called affected). Read from the files, so
     an accepted ADR written elsewhere covers too. A decision page (`adr_doc.is_decision`) is never covered: it has its own
     status."""
-    page = dict(docs.iter_docs()).get(logical)
+    page = docs.find_page(logical)
     if page is None:
         return []
     mine = docs.split_fm(_read(page))[0]

@@ -119,7 +119,7 @@ function Side({ shown, go }) {
     const [where] = (shown.arg || '').split('::')
     const [repo, ...rel] = where.split('/')
     return <WikiSide key={shown.at} repo={shown.view === 'wikis' ? '' : repo}
-      page={shown.view === 'wikigraph' ? 'graph' : rel.length ? `repos/${repo}/${rel.join('/')}` : ''} />
+      page={shown.view === 'wikigraph' ? 'graph' : rel.length ? `wikis/${repo}/${rel.join('/')}` : ''} />
   }
   if (shown.view === 'code') return <CodeSide key={shown.at} arg={shown.arg} />
   if (shown.view === 'c4') return <ArchSide key={shown.at} arg={shown.arg} />

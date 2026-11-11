@@ -2008,7 +2008,7 @@ class W:
 
     def page_view(self, r: dict, i: int, n: int, show_es: bool, full: bool = False):
         f = (ROOT / r["file"]).resolve()
-        es_file = docs.DOCS / "i18n" / "es" / r["path"]
+        es_file = docs.translation_file(r["path"], "es")
         use_es = show_es and es_file.exists()
         _, body = docs.split_fm((es_file if use_es else f).read_text(encoding="utf-8"))
         lines = body.strip().splitlines()
@@ -2050,7 +2050,7 @@ class W:
             while True:
                 self.banner()
                 console.print(self.page_view(r, i, len(queue), show_es))
-                has_es = (docs.DOCS / "i18n" / "es" / r["path"]).exists()
+                has_es = docs.translation_file(r["path"], "es").exists()
                 opts = [Choice(self.t("rv_confirm"), "ok"), Choice(self.t("rv_change"), "change"),
                         Choice(self.t("rv_full"), "full")]
                 if has_es:

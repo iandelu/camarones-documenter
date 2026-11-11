@@ -25,7 +25,7 @@ def _load() -> dict:
 
 def resolve_anchor(path: str, slug: str, snippet: str = "") -> str | None:
     """The section a comment points at now: its slug if it still exists, else the section holding the quoted text."""
-    f = dict(docs.iter_docs()).get(path.removeprefix("docs/"))
+    f = docs.find_page(path)
     if not f:
         return None
     body = docs.split_fm(f.read_text(encoding="utf-8"))[1]

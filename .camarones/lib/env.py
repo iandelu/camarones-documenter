@@ -1022,13 +1022,13 @@ def wiki_nav(repo: str) -> dict:
     pages = []
     for rel in order:
         fm, body = docs.split_fm(files[rel].read_text(encoding="utf-8", errors="replace"))
-        pages.append({"path": f"repos/{repo}/{rel}", "title": fm.get("title") or docs.first_heading(body) or Path(rel).stem})
+        pages.append({"path": docs.wiki_path(repo, rel), "title": fm.get("title") or docs.first_heading(body) or Path(rel).stem})
     backlinks: dict[str, set] = {}
     for rel in files:
         for target in links(rel):
             if target != rel:
-                backlinks.setdefault(f"repos/{repo}/{target}", set()).add(f"repos/{repo}/{rel}")
-    home = next((f"repos/{repo}/{p}" for p in ("quickstart.md", "index.md", "README.md") if p in files), pages[0]["path"])
+                backlinks.setdefault(docs.wiki_path(repo, target), set()).add(docs.wiki_path(repo, rel))
+    home = next((docs.wiki_path(repo, p) for p in ("quickstart.md", "index.md", "README.md") if p in files), pages[0]["path"])
     return {"home": home, "pages": pages, "backlinks": {k: sorted(v) for k, v in sorted(backlinks.items())}}
 
 
@@ -1145,7 +1145,7 @@ def wikis() -> list[dict]:
                      "unit": units.get(f"repo-wiki:{n}"),
                      "cloned": repo_dir(n).is_dir(), "chosen": n in chosen, "ready": bool(pages) or wiki_brief_ready(n),
                      "brief": wiki_brief_kind(n), "canGenerate": can_run and repo_dir(n).is_dir(),
-                     "index": next((f"repos/{n}/{p}" for p in ("quickstart.md", "index.md", "README.md")
+                     "index": next((docs.wiki_path(n, p) for p in ("quickstart.md", "index.md", "README.md")
                                     if (docs.wiki_dir(n) / p).exists()), None)})
     return rows
 
@@ -1173,8 +1173,8 @@ def wiki_prompt(repo: str, mode: str) -> str:
             "what prose explains badly, with Mermaid: a sequenceDiagram for each main request or message path, a "
             "stateDiagram-v2 for every entity or job with a status lifecycle, a flowchart for branching rules.\n"
             f"Cross-repo context: the shared domain, business flows and C4 model live in `{ws_rel('docs/')}`. Explain this "
-            "repo's part in them from its own side, and link those pages (from the wiki: `../../docs/<page>`) instead of "
-            "copying them.\n"
+            "repo's part in them from its own side, and link those pages as the files sit on disk (from a page at the "
+            "wiki's top: `../../docs/<page>`; one more `../` per subfolder) instead of copying them.\n"
             + ("Expand: this wiki was written under an older, narrower scope (internals only). Keep the pages that are "
                "still correct, add the pages Coverage asks for that are missing, and deepen the thin ones.\n"
                if mode == "update" and wiki_old(repo) else "") +
@@ -1439,10 +1439,12 @@ def export_site(log: Log = print) -> Path:
             index.append({"path": d["path"], "lang": lang, "title": doc["title"], "trust": d["trust"],
                           "text": docs.split_fm(doc["raw"])[1][:20000]})
     log(f"✔ {len(t['docs'])} docs" + (f" + translations ({', '.join(t['langs'])})" if t["langs"] else ""))
-    if DOCS.is_dir():
-        for f in DOCS.rglob("*"):
-            if f.is_file() and f.suffix.lower() in (".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"):
-                dst = tmp / "raw" / f.relative_to(DOCS)
+    images = (".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp")
+    folders = [(DOCS, tmp / "raw")] + [(docs.wiki_dir(n), tmp / "raw" / "wikis" / n) for n in docs.repo_names()]
+    for src, out_dir in folders:                    # a wiki page's images: raw/wikis/<repo>/… as the server serves them
+        for f in (src.rglob("*") if src.is_dir() else ()):
+            if f.is_file() and f.suffix.lower() in images:
+                dst = out_dir / f.relative_to(src)
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(f, dst)
     if "likec4" in components() and (not (VIEWERS / "architecture" / "index.html").exists() or viewers()["c4"]["stale"]):

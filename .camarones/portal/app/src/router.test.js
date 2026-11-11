@@ -2,7 +2,7 @@ import { expect, test } from 'vitest'
 import { parse, resolve } from './router.js'
 
 // Characterization of the address table legacy/app.js routeNow() had: every address keeps landing where it did.
-const space = { 'repos/api/wiki/intro.md': 'wiki', 'guides/a.md': 'docs' }
+const space = { 'wikis/api/wiki/intro.md': 'wiki', 'guides/a.md': 'docs' }
 const ctx = (over = {}) => ({
   mode: 'live', current: '',
   space: (p) => space[p],
@@ -73,7 +73,12 @@ test('docs: an anchor on the page already shown only scrolls', () => {
 })
 
 test('docs: a wiki page under #/docs moves to its wiki address', () => {
+  expect(go('#/docs/wikis/api/wiki/intro.md::a')).toEqual({ kind: 'redirect', to: '#/wiki/api/wiki/intro.md::a' })
+})
+
+test('docs: a wiki page old address (repos/<repo>/<page>, kits up to 4.80.1) still lands on it', () => {
   expect(go('#/docs/repos/api/wiki/intro.md::a')).toEqual({ kind: 'redirect', to: '#/wiki/api/wiki/intro.md::a' })
+  expect(go('#/docs/repos/api/index.md')).toEqual(DOC('repos/api/index.md'))          // not a wiki page: a doc
 })
 
 test('wikis: the list, a repo graph, a page, an anchor on the page shown', () => {
@@ -84,7 +89,7 @@ test('wikis: the list, a repo graph, a page, an anchor on the page shown', () =>
   expect(go('#/wiki/api/wiki/intro.md')).toEqual({ kind: 'native', view: 'wikipage', arg: 'api/wiki/intro.md' })
   expect(go('#/wiki/api/wiki/intro.md::b')).toEqual({ kind: 'native', view: 'wikipage', arg: 'api/wiki/intro.md::b' })
   expect(go('#/wikis', { mode: 'static' })).toEqual({ kind: 'native', view: 'wikis', arg: '' })
-  expect(go('#/wiki/api/wiki/intro.md::b', { current: 'repos/api/wiki/intro.md' })).toEqual({ kind: 'scroll', anchor: 'b' })
+  expect(go('#/wiki/api/wiki/intro.md::b', { current: 'wikis/api/wiki/intro.md' })).toEqual({ kind: 'scroll', anchor: 'b' })
 })
 
 test('architecture, code, review, search, new page, zone covers', () => {

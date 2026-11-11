@@ -6,7 +6,7 @@ const idx = {
   docs: [
     { path: 'index.md', title: 'Home', space: 'docs', trust: 'confirmed' },
     { path: 'flows/alta-mascota.md', title: 'Alta de mascota', space: 'docs', trust: 'draft' },
-    { path: 'repos/api/http-api.md', title: 'HTTP API', space: 'wiki', trust: 'needs-reconfirm' },
+    { path: 'wikis/api/http-api.md', title: 'HTTP API', space: 'wiki', trust: 'needs-reconfirm' },
   ],
   views: [{ id: 'flow_checkout', kind: 'dynamic' }], codeGraphs: [], codeMaps: [],
   summary: { confirmed: 1, draft: 1, 'needs-reconfirm': 1, total: 3 }, feedback: 2,

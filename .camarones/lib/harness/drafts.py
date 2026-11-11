@@ -36,7 +36,13 @@ def snapshot(unit: str) -> int:
     with FileLock(LOCK):
         data = _load()
         pages, changed = data["pages"], 0
-        for logical, f in docs.iter_docs():
+        canon = dict(docs.iter_docs())
+        for old in [k for k in pages if k not in canon]:     # a wiki page's pre-4.81 path: keep the AI's copy
+            new = docs.link_target(old, canon)
+            if new != old and new not in pages:
+                pages[new] = pages.pop(old)
+                changed += 1
+        for logical, f in canon.items():
             fm, body = docs.split_fm(f.read_text(encoding="utf-8"))
             if not fm or fm.get("x-owner") == "human":
                 continue
@@ -57,6 +63,11 @@ def record_confirmation(logical: str, body: str, by: str) -> float | None:
     with FileLock(LOCK):
         data = _load()
         entry = data["pages"].get(logical)
+        old = "repos/" + logical[len("wikis/"):]
+        if not entry and logical.startswith("wikis/") and old in data["pages"]:
+            from .. import docs                           # copied before 4.81 under repos/<repo>/…, unless that is a
+            if docs.link_target(old, dict(docs.iter_docs())) == logical:     # docs page's own path
+                entry = data["pages"][old]
         if not entry:
             return None
         if not entry.get("body") and entry.get("confirmations"):

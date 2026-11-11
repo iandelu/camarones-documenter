@@ -159,7 +159,7 @@ def export_pdf() -> Path:
 # ---------- guided tour of a business flow ----------
 def tour(path: str) -> dict:
     logical = path.removeprefix("docs/")
-    f = dict(docs.iter_docs()).get(logical)
+    f = docs.find_page(logical)
     if not f:
         raise ExportError(f"no page at {path}")
     fm, body = docs.split_fm(f.read_text(encoding="utf-8"))
