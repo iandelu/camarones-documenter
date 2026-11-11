@@ -3,7 +3,7 @@ holding the real run lock, with agents that are real processes, and the project 
 The person takes a unit, corrects it and hands it back; the pilot carries on with it and the other unit never stopped."""
 from __future__ import annotations
 
-import os, subprocess, sys
+import os, signal, subprocess, sys, time
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -27,7 +27,9 @@ plan.set_status(first if first in text else text.split()[1], "done")
 """
 
 DRIVER = """
-import sys
+import faulthandler, signal, sys
+if hasattr(signal, "SIGUSR1"):                # a pilot that outlives its Stop dumps its threads into its log
+    faulthandler.register(signal.SIGUSR1, all_threads=True)
 sys.path.insert(0, {kit!r})
 from lib import plan
 from lib.adapters.runners import base
@@ -69,6 +71,21 @@ def live(wired, term, tmp_path, monkeypatch):                            # noqa:
     job.wait(30)
     out.close()
     terminals.shutdown()
+
+
+def stop_pilot(box, timeout: float = 30) -> int:
+    """The app's Stop the autopilot (appapi.cancel: SIGTERM to its group). One that outlives it dumps its threads into
+    its log, and the test fails with that log, so a slow CI run says where the pilot was."""
+    from lib.common import kill_tree
+    kill_tree(box.job.pid)
+    try:
+        return box.job.wait(timeout)
+    except subprocess.TimeoutExpired:
+        if hasattr(signal, "SIGUSR1"):
+            os.kill(box.job.pid, signal.SIGUSR1)
+            time.sleep(1)
+        pytest.fail(f"the autopilot outlived its Stop by {timeout} s; its log:\n"
+                    + box.log.read_text(encoding="utf-8", errors="replace")[-8000:])
 
 
 def at_work(box):
@@ -126,12 +143,10 @@ def test_stopping_a_unit_leaves_the_run_going_with_the_other(live):
 
 
 def test_stopping_the_run_leaves_the_terminal_open(live):
-    from lib.common import kill_tree
     at_work(live)
     tid = live.t.take(live.first)["terminal"]["id"]
     until(lambda: status(live, live.other) == "done", timeout=60)
-    kill_tree(live.job.pid)                                      # the app's Stop the autopilot (appapi.cancel)
-    live.job.wait(30)
+    stop_pilot(live)
     until(lambda: live.runs.active() is None)
     assert live.term.get(tid)["ended"] is None
     live.term.write(tid, "still here\n")
@@ -139,12 +154,10 @@ def test_stopping_the_run_leaves_the_terminal_open(live):
 
 
 def test_a_dead_run_leaves_its_unit_to_be_taken(live):
-    from lib.common import kill_tree
     from lib.harness.locks import pid_alive
     agent_pid = at_work(live)
     sid = next(e["id"] for e in live.events() if e["type"] == "session" and e["unit"] == live.first)
-    kill_tree(live.job.pid)
-    live.job.wait(30)
+    stop_pilot(live)
     until(lambda: not pid_alive(agent_pid))                      # no agent outlives its run
     until(lambda: live.runs.active() is None)
     r = live.t.take(live.first)
