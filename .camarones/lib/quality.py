@@ -25,7 +25,7 @@ def pages(rows: list[dict]) -> list[tuple[str, Path, str]]:
     portal shows under the canonical logical path (so its relative links resolve against that path too)."""
     out = [(r["path"], ROOT / r["file"], "") for r in rows]
     for lang in docs.workspace()["project"].get("translations", []):
-        out += [(r["path"], f, lang) for r in rows if (f := DOCS / "i18n" / lang / r["path"]).is_file()]
+        out += [(r["path"], f, lang) for r in rows if (f := docs.translation_file(r["path"], lang)).is_file()]
     return out
 
 
@@ -78,7 +78,7 @@ def check_links(rows: list[dict], strict: bool = False) -> Issues:
                 target, _, anchor = unquote(href.split("?", 1)[0]).partition("#")
                 if target and not target.endswith(".md"):
                     continue
-                page = resolve(logical, target) if target else logical
+                page = docs.link_target(resolve(logical, target), known) if target else logical
                 if target and page not in known:
                     errors.append(f"{rel_file(f)}:{n}: broken link → {href}")
                 elif (anchor and anchor != "top" and not lang and page in known

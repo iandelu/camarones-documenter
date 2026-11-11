@@ -205,7 +205,8 @@ def test_wiki_pages_take_the_prefix_of_their_folder(wired):
     (wiki / "intro.md").write_text("---\ntitle: I\n---\n# I\n", encoding="utf-8")
     assert xid.ensure_xid("repos/api/flows/x.md").startswith("FLOW-")
     assert xid.ensure_xid("repos/api/domain/y.md").startswith("DOM-")
-    assert xid.ensure_xid("repos/api/intro.md").startswith("DOC-")
+    assert xid.ensure_xid("repos/api/intro.md").startswith("DOC-")              # the pre-4.81 path still works
+    assert xid.ensure_xid("wikis/api/flows/x.md") == xid.ensure_xid("repos/api/flows/x.md")
 
 
 def test_same_decision_number_in_two_places_gets_two_ids(wired):
@@ -218,8 +219,8 @@ def test_same_decision_number_in_two_places_gets_two_ids(wired):
     b = xid.ensure_xid("repos/api/decisions/0004-x.md")
     assert a == "DEC-0004" and b != a
     assert re.fullmatch(r"DEC-[0-9a-hjkmnp-tv-z]{4}", b)
-    assert xid.index()[a] == "decisions/0004-y.md" and xid.index()[b] == "repos/api/decisions/0004-x.md"
-    assert xid.ensure_xid("repos/api/decisions/0004-x.md") == b
+    assert xid.index()[a] == "decisions/0004-y.md" and xid.index()[b] == "wikis/api/decisions/0004-x.md"
+    assert xid.ensure_xid("repos/api/decisions/0004-x.md") == b == xid.ensure_xid("wikis/api/decisions/0004-x.md")
 
 
 def test_bom_page_keeps_its_bom_and_frontmatter(wired):

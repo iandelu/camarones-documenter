@@ -12,6 +12,14 @@ KIT_REPO = "https://github.com/iandelu/camarones-documenter.git"
 
 # The job's script after the forge has checked the service repo out: $SRC is that checkout, $NAME its name in
 # workspace.yaml, $DOCS_BASE the PR's base. It builds the workspace layout the kit expects (cam-docs next to the repo).
+# The kit at $CAMARONES_KIT_REF (default v<kit>, the version that wrote the job). The kit repo is not tagged for
+# every version, so a ref it does not have falls back to its default branch, and says so.
+KIT_FETCH = r'''git clone -q --depth 1 --branch "$CAMARONES_KIT_REF" "$CAMARONES_KIT_REPO" "$W/.kit" 2>/dev/null || {
+  echo "camaron: $CAMARONES_KIT_REF is not a branch or tag of $CAMARONES_KIT_REPO: using its default branch." >&2
+  rm -rf "$W/.kit"
+  git clone -q --depth 1 "$CAMARONES_KIT_REPO" "$W/.kit"
+}'''
+
 FRESH_SCRIPT = r'''set -eu
 if [ -z "${DOCS_REPO_URL:-}" ] || [ -z "${DOCS_READ_TOKEN:-}" ]; then
   echo "docs-fresh: DOCS_REPO_URL or DOCS_READ_TOKEN is not set (pull/merge requests from forks get no secrets): skipped."
@@ -21,10 +29,10 @@ W="$(mktemp -d)"
 ln -s "$SRC" "$W/$NAME"
 AUTH="$(printf '%s:%s' "$DOCS_CLONE_USER" "$DOCS_READ_TOKEN" | base64 | tr -d '\n')"
 git -c "http.extraHeader=Authorization: Basic $AUTH" clone -q --depth 1 "$DOCS_REPO_URL" "$W/cam-docs"
-git clone -q --depth 1 --branch "$CAMARONES_KIT_REF" "$CAMARONES_KIT_REPO" "$W/.kit"
+{KIT_FETCH}
 CAMARONES_ROOT="$W/cam-docs" CAMARONES_GLOBAL=1 uv run --quiet --script "$W/.kit/.camarones/camarones.py" \
   pr fresh "$NAME" --base "$DOCS_BASE" --post --lang "${DOCS_LANG:-en}" || echo "docs-fresh: could not check the docs."
-'''
+'''.replace("{KIT_FETCH}", KIT_FETCH)
 
 PR_FRESH = {
     "id": "docs-fresh",
@@ -138,11 +146,11 @@ AUTH="$(printf '%s:%s' "$DOCS_CLONE_USER" "$DOCS_WRITE_TOKEN" | base64 | tr -d '
 # the token lives in this step's environment only, never in the runner's git config
 export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.extraHeader GIT_CONFIG_VALUE_0="Authorization: Basic $AUTH"
 git clone -q "$DOCS_REPO_URL" "$W/cam-docs"
-git clone -q --depth 1 --branch "$CAMARONES_KIT_REF" "$CAMARONES_KIT_REPO" "$W/.kit"
+{KIT_FETCH}
 CAMARONES_ROOT="$W/cam-docs" CAMARONES_GLOBAL=1 uv run --quiet --script "$W/.kit/.camarones/camarones.py" \
   pr propose "$PR_URL" --ref refs/camaron/pr/head --base "$DOCS_BASE" --comment --preview --lang "${DOCS_LANG:-en}"
 mkdir -p "$SRC/.docs-preview" && cp -R "$W/cam-docs/.camarones/.cache/previews/." "$SRC/.docs-preview/" 2>/dev/null || true
-'''
+'''.replace("{KIT_FETCH}", KIT_FETCH)
 
 PR_PROPOSE = {
     "id": "docs-propose",

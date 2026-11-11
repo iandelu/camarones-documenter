@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.80.1-ff875f?style=flat-square" alt="Versión 4.80.1">
+  <img src="https://img.shields.io/badge/version-4.81.0-ff875f?style=flat-square" alt="Versión 4.81.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -561,7 +561,8 @@ token. Nunca se exporta una página retenida por la puerta de frescura.
 instrucciones para la sesión que actualiza (o **Plan › Mantenerla al día** en la app); `mark-documented` registra el
 nuevo punto de referencia. `camaron ci` genera un job por repo de servicio que, en cada PR/MR y **sin IA**, comenta qué
 páginas deja desactualizadas (`camaron pr fresh <repo> --base main` en local); `ci: {target: self-hosted, …}` lo lleva a
-vuestros runners. `camaron pr propose <url>` deja que un agente proponga la documentación en una PR de `cam-docs`
+vuestros runners. El job descarga el kit en `ci.kit_ref` (por defecto `v<versión del kit>`); si el repo del kit no
+tiene esa etiqueta, usa su rama por defecto y lo avisa en el log. `camaron pr propose <url>` deja que un agente proponga la documentación en una PR de `cam-docs`
 (`--comment`, `--preview`, `--dry-run`), y con `self-hosted` el job `docs-propose` lo hace cuando alguien etiqueta la PR
 con `docs:update`. Antes de abrir nada ejecutan `check --secrets`. Plantillas en [.camarones/ci/](.camarones/ci/); guía
 del runner en `docs/guides/self-hosted-runner.md`.

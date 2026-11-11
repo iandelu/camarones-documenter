@@ -89,6 +89,33 @@ def test_open_close_round_trip_restores_the_repo(wired):
     assert env.wiki_close("api", log=lambda _: None) is False               # a second close changes nothing
 
 
+@pytest.mark.parametrize("ending", [b"\n", b"\r\n"])
+def test_close_restores_the_repos_files_byte_for_byte(wired, ending):
+    """A close used to write the saved text back with the platform's line endings: on Windows an LF AGENTS.md came
+    back CRLF (same content, every line changed), and a CRLF one came back LF everywhere."""
+    env, repo = wired.env, wired.ws / "api"
+    own = ending.join([b"# api", b"", b"Rules for agents \xe2\x80\x94 ours.", b""])
+    (repo / "AGENTS.md").write_bytes(own)
+    (repo / "CLAUDE.md").write_bytes(own)
+    env.wiki_open("api", log=lambda _: None)
+    (repo / "AGENTS.md").write_text("openwiki snippet\n", encoding="utf-8")   # OpenWiki rewrites one, leaves the other
+    assert env.wiki_close("api", log=lambda _: None) is True
+    assert (repo / "AGENTS.md").read_bytes() == own
+    assert (repo / "CLAUDE.md").read_bytes() == own
+
+
+def test_close_reads_a_state_saved_by_an_older_kit(wired):
+    """Kits up to 4.80.1 saved the files as universal-newline text: a close still restores them, with LF."""
+    env, repo = wired.env, wired.ws / "api"
+    state = wired.root / ".camarones" / ".cache" / "wiki-open" / "api.json"
+    env.wiki_open("api", log=lambda _: None)
+    state.write_text(json.dumps({"AGENTS.md": "# api\nold kit\n", "CLAUDE.md": None,
+                                 ".github/workflows/openwiki-update.yml": None}), encoding="utf-8")
+    (repo / "AGENTS.md").write_text("openwiki snippet\n", encoding="utf-8")
+    assert env.wiki_close("api", log=lambda _: None) is True
+    assert (repo / "AGENTS.md").read_bytes() == b"# api\nold kit\n"
+
+
 def test_brief_is_not_a_page(wired):
     wiki = wired.root / "wikis" / "web"
     (wiki / "INSTRUCTIONS.md").write_text("brief", encoding="utf-8")

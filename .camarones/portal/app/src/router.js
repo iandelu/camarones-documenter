@@ -1,7 +1,9 @@
 // The portal's address table: a hash → what the shell shows. Pure: the shell passes what it knows (mode, the page
 // on screen, each page's space, how a page is linked). Old addresses keep working: #/doc, #/status, #/wikis/<repo>,
 // #/docs/<a wiki page>, #/boards (removed in 4.49), and the Taller's (#/generate, #/machine…: machine work, the desktop
-// app's own sections since 4.53) fall through to home.
+// app's own sections since 4.53) fall through to home. A wiki page's path is wikis/<repo>/<page>; its old
+// #/docs/repos/<repo>/<page> (kits up to 4.80.1) still lands on it.
+import { oldWikiPath } from './content/links.js'
 
 // The React views that need the live server.
 export const NATIVE = ['pipeline', 'ask', 'kpis', 'ci', 'libs', 'data', 'interview', 'sync', 'kanban', 'health', 'stories']
@@ -27,13 +29,15 @@ export function resolve(hash, ctx) {
     if (!rest) return { kind: 'native', view: 'docs', arg: '' }
     const [path, anchor] = rest.split('::')
     if (ctx.space(path) === 'wiki') return { kind: 'redirect', to: ctx.hrefFor(path, anchor) }
+    const old = ctx.space(path) ? null : oldWikiPath(path)        // a wiki page's address from kits up to 4.80.1
+    if (old && ctx.space(old) === 'wiki') return { kind: 'redirect', to: ctx.hrefFor(old, anchor) }
     if (path === ctx.current && anchor !== undefined) return { kind: 'scroll', anchor }
     return { kind: 'native', view: 'doc', arg: rest }
   }
   if (view === 'wiki') {
     const [repo = '', ...more] = rest.split('/')
     const [rel = '', anchor] = more.join('/').split('::')
-    if (rel && `repos/${repo}/${rel}` === ctx.current && anchor !== undefined) return { kind: 'scroll', anchor }
+    if (rel && `wikis/${repo}/${rel}` === ctx.current && anchor !== undefined) return { kind: 'scroll', anchor }
     if (!repo) return { kind: 'native', view: 'wikis', arg: '' }
     return rel ? { kind: 'native', view: 'wikipage', arg: rest } : { kind: 'native', view: 'wikigraph', arg: repo }
   }

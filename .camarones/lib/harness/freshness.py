@@ -160,6 +160,12 @@ def _pages() -> dict:
     return out
 
 
+def docs_alias(logical: str, known) -> str:
+    """The page's logical path today for one written as `docs/…` or a wiki page's pre-4.81 repos/<repo>/…."""
+    from .. import docs
+    return docs.link_target(logical, known)
+
+
 def _sources(fm: dict) -> list[str]:
     return [str(s) for s in (fm.get("x-sources") or []) if s]
 
@@ -181,6 +187,11 @@ def stamp_all(pages: dict | None = None) -> int:
     with FileLock(LOCK):
         data = _load()
         n = 0
+        for old in [k for k in data["pages"] if k not in pages]:       # a wiki page's pre-4.81 path: keep its stamp
+            new = docs_alias(old, pages)
+            if new != old and new not in data["pages"]:
+                data["pages"][new] = data["pages"].pop(old)
+                n += 1
         for logical, (fm, sha) in pages.items():
             srcs = _sources(fm)
             e = data["pages"].get(logical)
@@ -202,7 +213,7 @@ def ack(logicals: list[str], by: str) -> list[str]:
         data = _load()
         done = []
         for logical in logicals:
-            logical = logical.removeprefix("docs/")
+            logical = docs_alias(logical, pages)
             if logical in pages:
                 _stamp(data["pages"], logical, *pages[logical], by=by)
                 done.append(logical)
@@ -213,6 +224,7 @@ def ack(logicals: list[str], by: str) -> list[str]:
 def flag(logical: str, reason: str, by: str = "agent") -> None:
     """Someone (an agent through the MCP) says the page no longer matches the code: suspect until it is rewritten or
     acknowledged — both stamp it again, which drops the flag."""
+    logical = docs_alias(logical, _pages())
     with FileLock(LOCK):
         data = _load()
         data["pages"].setdefault(logical, {"sources": {}})["flag"] = {"reason": reason, "by": by, "at": _now()}
@@ -265,12 +277,14 @@ def _settle(pages: dict, own: dict) -> dict[str, dict]:
 
 def stamped(logical: str) -> dict | None:
     """When the page's sources were last fingerprinted, and by whom when a person acknowledged it: {at, by?}."""
-    e = _load()["pages"].get(logical.removeprefix("docs/")) or {}
+    pages = _load()["pages"]
+    e = pages.get(docs_alias(logical, pages)) or {}
     return {k: e[k] for k in ("at", "by") if e.get(k)} or None
 
 
 def status(logical: str) -> dict:
-    return states().get(logical.removeprefix("docs/"), {"state": "unverified", "changed": [], "missing": []})
+    st = states()
+    return st.get(docs_alias(logical, st), {"state": "unverified", "changed": [], "missing": []})
 
 
 def policy() -> str:

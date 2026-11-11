@@ -82,7 +82,7 @@ export function crumbs(hash, mode, index) {
   if (view === 'wiki' && rest) {
     const [repo, ...relParts] = rest.split('/')
     out.push({ text: repo, href: `#/wiki/${raw.split('/')[0]}` })
-    if (relParts.length) out.push({ text: titleOf(index, `repos/${repo}/${relParts.join('/')}`) || relParts.at(-1), href: null })
+    if (relParts.length) out.push({ text: titleOf(index, `wikis/${repo}/${relParts.join('/')}`) || relParts.at(-1), href: null })
     return out
   }
   if (view === 'kanban' && /^new(\?|$)/.test(rest)) return [...out, { key: 'kanban.new', href: null }]

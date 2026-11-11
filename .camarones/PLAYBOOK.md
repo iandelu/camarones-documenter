@@ -185,7 +185,8 @@ Generate the OpenWiki of one repo. The unit exists only for the repos the user c
 `.camarones/workspace.yaml`; wizard → 📚 Wikis → choose) and needs `wikis/<repo>/INSTRUCTIONS.md` from repo-brief. Write
 a complete wiki — enough for a new developer to work on the repo with it alone — covering the brief's `## Coverage` list;
 a service with real logic usually needs 10+ pages. The cross-repo domain, flows and C4 live in `docs/`: explain the
-repo's side of them and link those pages (`../../docs/<page>`) instead of copying them. A wiki written before kit 3.10
+repo's side of them and link those pages as the files sit on disk (`../../docs/<page>` from `wikis/<repo>/`,
+one more `../` per subfolder) instead of copying them. A wiki written before kit 3.10
 had a narrower scope: `check` warns about it; `CLI wiki <repo>` (update) expands it.
 Simplest: `CLI wiki <repo>` (headless: OpenWiki with a provider key, else Claude Code / Codex through the OpenWiki MCP;
 the portal's Wikis tab runs the same; one run at a time, and a batch stops when the engine is out of quota or logged
@@ -280,7 +281,7 @@ parallel: each writes only its file). Every step cites entrypoint + evidence. Sk
 
 ## i18n
 Spanish for every canonical page written/changed since the last i18n pass (`CLI status` lists `es:missing/outdated`),
-under `docs/i18n/es/<same path>` (repo wikis: `docs/i18n/es/repos/<repo>/<page>`); then `CLI translated <files>`, `CLI llms`.
+under `docs/i18n/es/<same path>` (repo wikis: `docs/i18n/es/wikis/<repo>/<page>`); then `CLI translated <files>`, `CLI llms`.
 
 ## portal
 Wizard: `CLI up` (one portal: Docs to read/edit/confirm/comment, Architecture (C4), Code graph, Wikis, Review). For

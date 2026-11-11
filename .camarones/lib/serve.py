@@ -53,11 +53,12 @@ def reviewer() -> str:
 def doc_file(path: str, lang: str = "") -> Path:
     """Only pages the docs model knows about (or their translations) can be read or written through the API."""
     canon = dict(docs.iter_docs())
+    path = docs.link_target(path, canon)                  # a wiki page's pre-4.81 path still names it
     if path not in canon:
         raise KeyError(f"unknown page {path}")
     if not lang:
         return canon[path]
-    f = (DOCS / "i18n" / lang / path).resolve()
+    f = docs.translation_file(path, lang).resolve()
     if DOCS.resolve() not in f.parents:
         raise KeyError(path)
     return f
@@ -125,7 +126,7 @@ def api_ask(question: str) -> dict:
     for h in hits:
         r = rows.get(h["path"], {})
         ok, notice = freshness.gate(h["path"], r.get("trust", "draft"), r.get("freshness"))
-        f = dict(docs.iter_docs()).get(h["path"])
+        f = docs.find_page(h["path"])
         if not f:
             continue
         body = docs.split_fm(f.read_text(encoding="utf-8"))[1]
@@ -1212,6 +1213,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self.get_static_site(p)
             if p.startswith("/api/"):
                 return self.api_get(p[len("/api/"):], q)
+            if p.startswith("/raw/wikis/"):           # images next to a wiki page (wikis/<repo>/<page>)
+                repo, _, rel = p[len("/raw/wikis/"):].partition("/")
+                ok = repo in docs.repo_names() and self.static(docs.wiki_dir(repo), rel)
+                return ok or self.not_found()
             if p.startswith("/raw/"):                 # images and diagrams referenced by the docs
                 return self.static(DOCS, p[len("/raw/"):]) or self.not_found()
             if m := VENDOR_RE.match(p):

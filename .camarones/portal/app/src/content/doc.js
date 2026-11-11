@@ -6,6 +6,7 @@ import * as directives from './directives.js'
 import * as generated from './generated.js'
 import * as tables from './tables.js'
 import { core } from '../core.js'
+import { linkTarget, rawPath } from './links.js'
 
 const $ = (s, el = document) => el.querySelector(s)
 const $$ = (s, el = document) => [...el.querySelectorAll(s)]
@@ -56,11 +57,11 @@ export function render(md, docPath, blocks = []) {
     if (href.startsWith('#')) { a.setAttribute('href', hrefFor(docPath, slugify(decodeURIComponent(href.slice(1))))); return }
     if (/^[a-z][\w+.-]*:/i.test(href)) { a.target = '_blank'; a.rel = 'noopener'; return }
     const [file, anchor] = href.split('#')
-    if (file.endsWith('.md')) a.setAttribute('href', hrefFor(resolve(file), anchor ? slugify(anchor) : ''))
+    if (file.endsWith('.md')) a.setAttribute('href', hrefFor(linkTarget(resolve(file), (p) => !!core.byPath(p)), anchor ? slugify(anchor) : ''))
   })
   $$('img[src]', el).forEach((img) => {
     const src = img.getAttribute('src')
-    if (!/^[a-z]+:|^\//i.test(src)) img.src = 'raw/' + resolve(src)
+    if (!/^[a-z]+:|^\//i.test(src)) img.src = 'raw/' + rawPath(resolve(src))
   })
 
   $$('pre code.language-mermaid', el).forEach((c) => {

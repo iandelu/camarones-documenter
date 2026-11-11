@@ -47,9 +47,10 @@ def index() -> dict[str, str]:
 
 
 def _folder(logical: str) -> str:
-    """The first folder of the page, past a leading repos/<name>/ (a repo's wiki pages sort like the root ones)."""
+    """The first folder of the page, past a leading wikis/<name>/ (repos/<name>/ before 4.81): a repo's wiki pages
+    sort like the root ones."""
     parts = logical.split("/")
-    if parts[0] == "repos" and len(parts) > 2:
+    if parts[0] in ("repos", "wikis") and len(parts) > 2:
         parts = parts[2:]
     return parts[0]
 
@@ -67,7 +68,9 @@ def _new_id(logical: str, taken: dict[str, str]) -> str:
 
 def ensure_xid(logical: str) -> str:
     """The page's x-id; written as the last frontmatter line if it has none (a page without frontmatter gets one)."""
-    f = _pages().get(logical)
+    pages = _pages()
+    logical = docs.link_target(logical, pages)          # a wiki page's pre-4.81 repos/<repo>/… path still names it
+    f = pages.get(logical)
     if f is None:
         raise BoardError(f"no page {logical} in the docs")
     bom, text = _read(f)
@@ -101,7 +104,7 @@ def format_link(xid: str, section: str | None, hash_: str | None) -> str:
 
 
 def _body(logical: str) -> str:
-    f = _pages().get(logical)
+    f = docs.find_page(logical, _pages())
     if f is None:
         raise BoardError(f"no page {logical} in the docs")
     return docs.parse_fm(_read(f)[1])[1]

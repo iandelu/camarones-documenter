@@ -392,7 +392,7 @@ rewritten by an agent are in `CONVENTIONS.md` section 6.
 
 App → **Docs** → **Generate the wiki** (live log), wizard → **📚 Wikis**, or `camaron wiki <repo>` in a terminal. The wiki
 is stored in `cam-docs/wikis/<repo>/` (the repo sees an unversioned `openwiki/` link); you read it in the browser portal
-(**Docs** → **Wikis**), where its pages show as `repos/<repo>/…`. It uses the OpenWiki provider if one is configured (`openwiki auth configure <provider>`), otherwise
+(**Docs** → **Wikis**), where its pages show as `wikis/<repo>/…`. It uses the OpenWiki provider if one is configured (`openwiki auth configure <provider>`), otherwise
 Claude Code or Codex. The files OpenWiki adds to the repo itself (`AGENTS.md`, `CLAUDE.md`, `.github/`) are removed when
 the run ends.
 

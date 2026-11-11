@@ -36,7 +36,11 @@ docs:propose:
       # the token lives in this step's environment only, never in the runner's git config
       export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.extraHeader GIT_CONFIG_VALUE_0="Authorization: Basic $AUTH"
       git clone -q "$DOCS_REPO_URL" "$W/cam-docs"
-      git clone -q --depth 1 --branch "$CAMARONES_KIT_REF" "$CAMARONES_KIT_REPO" "$W/.kit"
+      git clone -q --depth 1 --branch "$CAMARONES_KIT_REF" "$CAMARONES_KIT_REPO" "$W/.kit" 2>/dev/null || {
+        echo "camaron: $CAMARONES_KIT_REF is not a branch or tag of $CAMARONES_KIT_REPO: using its default branch." >&2
+        rm -rf "$W/.kit"
+        git clone -q --depth 1 "$CAMARONES_KIT_REPO" "$W/.kit"
+      }
       CAMARONES_ROOT="$W/cam-docs" CAMARONES_GLOBAL=1 uv run --quiet --script "$W/.kit/.camarones/camarones.py" \
         pr propose "$PR_URL" --ref refs/camaron/pr/head --base "$DOCS_BASE" --comment --preview --lang "${DOCS_LANG:-en}"
       mkdir -p "$SRC/.docs-preview" && cp -R "$W/cam-docs/.camarones/.cache/previews/." "$SRC/.docs-preview/" 2>/dev/null || true

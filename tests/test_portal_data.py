@@ -49,8 +49,8 @@ def serve_mod(portal):
 def test_tree_lists_docs_and_wiki_pages_under_their_logical_paths(serve_mod):
     t = serve_mod.serve.tree()
     paths = [d["path"] for d in t["docs"]]
-    assert {"index.md", "flows/checkout.md", "repos/api/brief.md", "repos/api/quickstart.md"} <= set(paths)
-    assert "repos/api/INSTRUCTIONS.md" not in paths and "repos/api/log.md" not in paths
+    assert {"index.md", "flows/checkout.md", "repos/api/brief.md", "wikis/api/quickstart.md"} <= set(paths)
+    assert "wikis/api/INSTRUCTIONS.md" not in paths and "wikis/api/log.md" not in paths
     assert t["project"] == "demo" and t["repos"] == ["api", "web", "worker"]
 
 
@@ -59,8 +59,8 @@ def test_pages_are_classified_into_docs_notes_and_wiki(serve_mod):
     r = rows(serve_mod)
     assert r["index.md"]["space"] == "docs"
     assert r["flows/checkout.md"]["space"] == "docs"
-    assert r["repos/api/brief.md"]["space"] == "docs"          # shares the repos/api/ prefix with the wiki
-    assert r["repos/api/quickstart.md"]["space"] == "wiki"
+    assert r["repos/api/brief.md"]["space"] == "docs"          # the repo's docs page; its wiki is under wikis/api/
+    assert r["wikis/api/quickstart.md"]["space"] == "wiki"
     assert r["interview/discovery/api.md"]["space"] == "notes"
     assert r["interview/open-questions.md"]["space"] == "notes"  # no frontmatter type, the folder decides
 
@@ -116,23 +116,23 @@ def test_no_model_means_no_views(serve_mod):
 # ---------- wikis ----------
 def test_wiki_nav_follows_the_index_then_the_rest(serve_mod):
     nav = serve_mod.env.wiki_nav("api")
-    assert [p["path"] for p in nav["pages"]] == ["repos/api/index.md", "repos/api/quickstart.md",
-                                                 "repos/api/http-api.md", "repos/api/caches.md"]
+    assert [p["path"] for p in nav["pages"]] == ["wikis/api/index.md", "wikis/api/quickstart.md",
+                                                 "wikis/api/http-api.md", "wikis/api/caches.md"]
     assert nav["pages"][1]["title"] == "api quickstart"
-    assert nav["home"] == "repos/api/quickstart.md"
+    assert nav["home"] == "wikis/api/quickstart.md"
 
 
 def test_wiki_backlinks_resolve_relative_links_inside_the_wiki(serve_mod):
     back = serve_mod.env.wiki_nav("api")["backlinks"]
-    assert back["repos/api/quickstart.md"] == ["repos/api/http-api.md", "repos/api/index.md"]
-    assert back["repos/api/caches.md"] == ["repos/api/quickstart.md"]
-    assert "repos/api/nope.md" not in back
+    assert back["wikis/api/quickstart.md"] == ["wikis/api/http-api.md", "wikis/api/index.md"]
+    assert back["wikis/api/caches.md"] == ["wikis/api/quickstart.md"]
+    assert "wikis/api/nope.md" not in back
 
 
 def test_wikis_rows_carry_the_navigation(serve_mod):
     rows_ = {w["repo"]: w for w in serve_mod.env.wikis()}
     assert rows_["api"]["pages"] == 4
-    assert rows_["api"]["nav"]["home"] == "repos/api/quickstart.md"
+    assert rows_["api"]["nav"]["home"] == "wikis/api/quickstart.md"
     assert rows_["web"]["nav"] == {"home": None, "pages": [], "backlinks": {}}
 
 
@@ -176,7 +176,7 @@ def test_static_export_carries_the_new_fields(serve_mod, monkeypatch):
     page(serve_mod.root / "docs" / "architecture", "views.c4", VIEWS_C4)
     site = env.export_site(log=lambda _: None)
     tree = json.loads((site / "api" / "tree.json").read_text(encoding="utf-8"))
-    assert {d["path"]: d["space"] for d in tree["docs"]}["repos/api/http-api.md"] == "wiki"
+    assert {d["path"]: d["space"] for d in tree["docs"]}["wikis/api/http-api.md"] == "wiki"
     assert "flow_checkout" in [v["id"] for v in tree["views"]]
     wikis = json.loads((site / "api" / "wikis.json").read_text(encoding="utf-8"))
     assert next(w for w in wikis if w["repo"] == "api")["nav"]["pages"]

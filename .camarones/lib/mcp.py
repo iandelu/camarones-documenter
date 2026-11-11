@@ -84,7 +84,12 @@ def _rows() -> dict[str, dict]:
 
 
 def _file(path: str):
-    return dict(docs.iter_docs()).get(path.removeprefix("docs/"))
+    return docs.find_page(path)
+
+
+def _logical(path: str) -> str:
+    """The logical path of the page `path` names (`docs/…`, or a wiki page's pre-4.81 repos/<repo>/…)."""
+    return docs.link_target(path, dict(docs.iter_docs()))
 
 
 def search_docs(query: str, limit: int = 8) -> str:
@@ -118,8 +123,9 @@ def read_doc(path: str, section: str | None = None) -> str:
     usage.record("mcp:read_doc", channel="agent", page=path if f else None)
     if not f:
         return f"No page at {path}. Use list_docs or search_docs."
-    r = _rows().get(path.removeprefix("docs/"), {})
-    ok, notice = freshness.gate(path.removeprefix("docs/"), r.get("trust", "draft"), r.get("freshness"))
+    logical = _logical(path)
+    r = _rows().get(logical, {})
+    ok, notice = freshness.gate(logical, r.get("trust", "draft"), r.get("freshness"))
     if not ok:
         return notice
     text = f.read_text(encoding="utf-8")
@@ -211,7 +217,7 @@ def _replace_section(body: str, section: str, text: str) -> str | None:
 
 
 def propose_edit(path: str, text: str, section: str | None = None, reason: str = "", by: str = "agent") -> str:
-    logical = path.removeprefix("docs/")
+    logical = _logical(path)
     f = _file(logical)
     if not f:
         return f"No page at {path}."
@@ -239,7 +245,7 @@ def propose_edit(path: str, text: str, section: str | None = None, reason: str =
 
 
 def add_feedback(path: str, text: str, by: str = "agent") -> str:
-    logical = path.removeprefix("docs/")
+    logical = _logical(path)
     r = _rows().get(logical)
     if not r:
         return f"No page at {path}."
@@ -248,7 +254,7 @@ def add_feedback(path: str, text: str, by: str = "agent") -> str:
 
 
 def mark_suspect(path: str, reason: str, by: str = "agent") -> str:
-    logical = path.removeprefix("docs/")
+    logical = _logical(path)
     if logical not in _rows():
         return f"No page at {path}."
     freshness.flag(logical, reason, by)

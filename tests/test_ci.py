@@ -84,3 +84,51 @@ def test_the_umbrella_installs_the_command_its_steps_call(name):
     text = (KIT_DIR / "ci" / name).read_text(encoding="utf-8")
     assert "/usr/local/bin/camaron " in text or "/usr/local/bin/camaron\n" in text or "bin/camaron >" in text
     assert "camaron check" in text
+
+
+# ---------- the kit the job fetches ----------
+def _kit_repo(tmp_path, tags=()):
+    import subprocess
+    src = tmp_path / "kit-src"
+    (src / ".camarones").mkdir(parents=True)
+    (src / ".camarones" / "camarones.py").write_text("# kit\n", encoding="utf-8")
+    for args in (["init", "-q", "-b", "main"], ["add", "-A"], ["commit", "-q", "-m", "kit"], *[["tag", t] for t in tags]):
+        subprocess.run(["git", *args], cwd=src, check=True, capture_output=True)
+    return src
+
+
+def _fetch(ci, defn_script, tmp_path, repo, ref):
+    """The job's kit-fetch lines, run as the runner runs them (POSIX sh)."""
+    import shutil, subprocess
+    sh = shutil.which("bash") or shutil.which("sh")
+    if not sh:
+        pytest.skip("no POSIX shell")
+    lines = defn_script.splitlines()
+    start = next(i for i, l in enumerate(lines) if "CAMARONES_KIT_REPO" in l and "clone" in l)
+    end = next(i for i, l in enumerate(lines) if i > start and l.startswith("CAMARONES_ROOT="))
+    block = "\n".join(lines[start:end])
+    w = tmp_path / "w"
+    w.mkdir()
+    env = {**os.environ, "W": w.as_posix(), "CAMARONES_KIT_REPO": repo.as_posix(), "CAMARONES_KIT_REF": ref}
+    r = subprocess.run([sh, "-c", "set -eu\n" + block], env=env, capture_output=True, text=True)
+    return r, w / ".kit"
+
+
+@pytest.mark.parametrize("script", ["FRESH_SCRIPT", "PROPOSE_SCRIPT"])
+def test_a_kit_version_with_no_tag_falls_back_to_the_default_branch(ci, tmp_path, script):
+    """The default ref is v<kit>, but the kit repo is not tagged for every version: the job must still get a kit."""
+    r, kit = _fetch(ci, getattr(ci, script), tmp_path, _kit_repo(tmp_path), "v9.9.9")
+    assert r.returncode == 0, r.stderr
+    assert (kit / ".camarones" / "camarones.py").is_file()
+    assert "v9.9.9" in r.stderr                                        # says it fell back, and from what
+
+
+def test_a_tagged_kit_version_is_fetched_at_its_tag(ci, tmp_path):
+    import subprocess
+    repo = _kit_repo(tmp_path, tags=["v9.9.9"])
+    (repo / "later.txt").write_text("after the tag\n", encoding="utf-8")
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "later"], cwd=repo, check=True)
+    r, kit = _fetch(ci, ci.FRESH_SCRIPT, tmp_path, repo, "v9.9.9")
+    assert r.returncode == 0, r.stderr
+    assert (kit / ".camarones" / "camarones.py").is_file() and not (kit / "later.txt").exists()

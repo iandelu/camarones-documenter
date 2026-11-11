@@ -7,7 +7,7 @@ import { errorLine } from './onboarding.js'
 export const portalUrl = (origin, hash = '#/') => `${String(origin).replace(/\/+$/, '')}/${hash || '#/'}`
 
 // The repos that have an OpenWiki, as the portal reads them from the tree (GET tree): their pages are in the wiki
-// space, at repos/<repo>/<page> (docs.iter_docs). Only those have a graph to build (env.wiki_graph needs pages). Once each, in order.
+// space, at wikis/<repo>/<page> (docs.iter_docs). Only those have a graph to build (env.wiki_graph needs pages). Once each, in order.
 export function wikiRepos(tree) {
   const out = []
   for (const d of tree?.docs || []) {
@@ -70,8 +70,8 @@ export const askBody = (q) => {
 }
 
 // A source ("<path>" or "<path>#<section>") as the portal's address of that page: #/docs/<path>, a section after "::"
-// (portal core.hrefFor). A wiki page's path (repos/<repo>/<page>) looks like a repo's own page; the portal's router
-// sends #/docs/<a wiki page> on to #/wiki/<repo>/<page>, so it is not told apart here.
+// (portal core.hrefFor). A wiki page's path is wikis/<repo>/<page>; the portal's router sends #/docs/<a wiki page> on
+// to #/wiki/<repo>/<page>, so it is not told apart here.
 export function citeHash(cite) {
   const [path, ...rest] = String(cite).split('#')            // only the first # splits: a section may contain one
   const anchor = rest.join('#')
