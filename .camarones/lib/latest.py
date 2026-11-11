@@ -192,18 +192,31 @@ def _items(rows: list[dict], owned: dict[str, set[str]]) -> dict[tuple[str, str]
             address = url(*key)
             if not address or is_owned(*key, owned):
                 continue
-            items[key] = {"url": address, "current": None}
+            items[key] = {"url": address, "current": None, "versions": set()}
         version = r.get("version")
+        if version:
+            items[key]["versions"].add(version)
         if version and (not items[key]["current"] or newer(items[key]["current"], version)):
             items[key]["current"] = version
     return items
+
+
+def _readable(ecosystem: str, body: bytes) -> bool:
+    """Whether the body is the registry's own answer, not a captive portal's or a proxy's login page."""
+    try:
+        return ET.fromstring(body).tag == "metadata" if ecosystem == "Maven" else isinstance(json.loads(body), dict)
+    except (ValueError, ET.ParseError):
+        return False
 
 
 def _one(key: tuple[str, str], item: dict, fetch, strikes: dict) -> tuple[tuple[str, str], str | None, str | None]:
     if strikes.get(key[0], 0) >= STRIKES:                # a registry that keeps failing is not asked again this run
         return key, None, key[0]
     try:
-        return key, parse(key[0], fetch(item["url"]), key[1], item["current"]), None
+        body = fetch(item["url"])
+        if not _readable(key[0], body):
+            raise ValueError("not the registry's answer")
+        return key, parse(key[0], body, key[1], item["current"]), None
     except NotFound:
         return key, None, None
     except Exception:                                    # noqa: BLE001 — timeouts, DNS, 5xx, a proxy: the registry failed
@@ -228,7 +241,8 @@ def _lookup(rows: list[dict], owned: dict[str, set[str]], log, fetch) -> dict:
                 failed.add(bad)
             if done % step == 0 or done == total:        # `[n/total]`: the desktop app's bar counts these lines
                 log(f"[{done}/{total}] newer versions · {key[1]}")
-    behind = sum(1 for k, it in items.items() if newer(it["current"], versions.get(f"{k[0]}|{k[1]}")))
+    behind = sum(1 for k, it in items.items()                # a library with any repo behind, as the screen counts it
+                 if any(newer(v, versions.get(f"{k[0]}|{k[1]}")) for v in it["versions"]))
     log(f"✔ {behind} with a newer version ({total} {'library' if total == 1 else 'libraries'} looked up"
         + (f"; could not reach: {', '.join(sorted(failed))}" if failed else "") + ")")
     return {"at": _now(), "checked": total, "found": len(versions), "failed": sorted(failed), "versions": versions}

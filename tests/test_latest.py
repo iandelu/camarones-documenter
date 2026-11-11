@@ -191,3 +191,26 @@ def test_rows_marked_as_not_from_a_registry_are_skipped(latest):
 
 def test_nuget_ids_are_owned_whatever_their_case(latest):
     assert latest.is_owned("NuGet", "acme.common", {"NuGet": {"Acme.Common"}})
+
+
+def test_a_library_is_newer_when_any_repo_is_behind_as_on_the_screen(latest):
+    rows = [{"repo": "a", "ecosystem": "npm", "name": "react", "version": "18.2.0"},
+            {"repo": "b", "ecosystem": "npm", "name": "react", "version": "19.0.0"}]
+    lines = []
+    latest.lookup(rows, {}, log=lines.append, fetch=lambda u: b'{"dist-tags": {"latest": "19.0.0"}}')
+    assert lines[-1].startswith("✔ 1 with a newer version")
+
+
+def test_a_page_that_is_not_the_registry_answer_is_a_failure(latest):
+    """A captive portal or a proxy's login page answers 200 with HTML: the registry was not reached."""
+    def portal(address):
+        return b"<!DOCTYPE html><html><body>Sign in to the network" if "npmjs" in address else METADATA
+    out = latest.lookup(ROWS, OWNED, log=lambda _: None, fetch=portal)
+    assert out["failed"] == ["npm"] and "npm|react" not in out["versions"]
+    assert out["versions"]["Maven|org.postgresql:postgresql"] == "42.7.4"
+
+
+def test_a_real_answer_with_no_stable_version_is_not_a_failure(latest):
+    out = latest.lookup([{"repo": "a", "ecosystem": "npm", "name": "x", "version": "1.0.0"}], {}, log=lambda _: None,
+                        fetch=lambda u: b'{"name": "x", "versions": {}}')
+    assert out["failed"] == [] and out["versions"] == {}
