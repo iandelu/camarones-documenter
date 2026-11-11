@@ -39,8 +39,10 @@ Every change must work on all three. CI (`.github/workflows/tests.yml`) runs the
 - Write or extend the failing test first, then the code. Bug fix → a test that reproduces it.
 - Before touching untested behaviour, lock it with a characterization test (see `tests/`).
 - Tests are offline and deterministic: use `tests/fixtures/builder.py` (`make_workspace`) and the `isolated_env`
-  fixture from `tests/conftest.py`; never touch the real `~/.camarones`. Network tests go under `tests/e2e/` with the
-  `e2e` marker.
+  fixture from `tests/conftest.py`; never touch the real `~/.camarones`. `isolated_env` also takes the machine's own
+  kit tools and agent CLIs off PATH, as on CI (`tests/fixtures/host_tools.py`): a test of a real tool uses
+  `needs("likec4")`, and `CAMARONES_TEST_HOST_TOOLS=1` keeps them for a whole run. Network tests go under `tests/e2e/`
+  with the `e2e` marker.
 - Run: `uv run pytest -n auto` (all but e2e, one worker per core; leave `-n` out for a single file) ·
   `uv run pytest -m e2e` (clones real repos). A change is done when the suite is green; say so with the output, or say
   what failed.
