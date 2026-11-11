@@ -19,6 +19,7 @@ for p in (str(KIT_DIR), str(TESTS)):
 from fixtures import bytecode, hang_watchdog  # noqa: E402
 from fixtures.builder import GITCONFIG, make_workspace, rmtree, slim  # noqa: E402
 from fixtures.hang_watchdog import pytest_runtest_protocol, pytest_terminal_summary  # noqa: E402,F401
+from fixtures.host_tools import hidden_tools, masked_path  # noqa: E402
 
 START_ENV = dict(os.environ)                    # before any test touched it: what the wired template is built under
 
@@ -82,20 +83,23 @@ def purge_kit_modules() -> None:
 UNSET = ("CAMARONES_ROOT", "CAMARONES_GLOBAL", "CAMARONES_STATE_ROOT")
 
 
-def isolated_vars(home: Path, gitconfig: Path) -> dict[str, str]:
-    return {"HOME": str(home), "USERPROFILE": str(home), "GIT_CONFIG_GLOBAL": str(gitconfig), "GIT_CONFIG_NOSYSTEM": "1",
-            "PYTHON_KEYRING_BACKEND": "keyring.backends.null.Keyring", "LANG": "es_ES.UTF-8"}
+def isolated_vars(home: Path, gitconfig: Path, path: str, hidden: frozenset[str]) -> dict[str, str]:
+    """What a test runs under: `path` without the machine's `hidden` tools (fixtures/host_tools.py)."""
+    out = {"HOME": str(home), "USERPROFILE": str(home), "GIT_CONFIG_GLOBAL": str(gitconfig), "GIT_CONFIG_NOSYSTEM": "1",
+           "PYTHON_KEYRING_BACKEND": "keyring.backends.null.Keyring", "LANG": "es_ES.UTF-8"}
+    return {**out, "PATH": masked_path(path, hidden), "CAMARONES_KEEP_PATH": "1"} if hidden else out
 
 
 @pytest.fixture
-def isolated_env(tmp_path, monkeypatch):
-    """Temporary HOME + git identity; restores os.environ afterwards (common.ensure_path edits PATH at import)."""
+def isolated_env(request, tmp_path, monkeypatch):
+    """Temporary HOME + git identity, none of the machine's own kit tools on PATH; restores os.environ afterwards
+    (common.ensure_path edits PATH at import)."""
     saved = dict(os.environ)
     home = tmp_path / "home"
     home.mkdir()
     gitconfig = tmp_path / "gitconfig"
     gitconfig.write_text(GITCONFIG, encoding="utf-8")
-    for k, v in isolated_vars(home, gitconfig).items():
+    for k, v in isolated_vars(home, gitconfig, os.environ.get("PATH", ""), hidden_tools(request.node)).items():
         monkeypatch.setenv(k, v)
     for k in UNSET:
         monkeypatch.delenv(k, raising=False)
@@ -159,7 +163,8 @@ def _wired_template() -> Path:
     saved = dict(os.environ)
     try:
         os.environ.clear()
-        os.environ.update({k: v for k, v in START_ENV.items() if k not in UNSET}, **isolated_vars(home, base / "gitconfig"))
+        os.environ.update({k: v for k, v in START_ENV.items() if k not in UNSET},
+                          **isolated_vars(home, base / "gitconfig", START_ENV.get("PATH", ""), hidden_tools()))
         ws = make_workspace(base)
         wire_project(load_kit(ws / "cam-docs", home, ws))
         slim(ws)
