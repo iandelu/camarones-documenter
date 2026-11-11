@@ -80,6 +80,11 @@ def _c4_lines(element: str) -> list[str] | None:
     return None
 
 
+def c4_exists(element: str) -> bool:
+    """`c4:<element>` names an element the C4 model still has."""
+    return bool(element.strip()) and _c4_lines(element.strip()) is not None
+
+
 def _block(ref: str, read=None) -> list[str] | None:
     """The lines a symbol or C4 source stands for now, or None when it is gone."""
     from .symbols import locate

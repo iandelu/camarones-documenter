@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.80.0-ff875f?style=flat-square" alt="Versión 4.80.0">
+  <img src="https://img.shields.io/badge/version-4.80.1-ff875f?style=flat-square" alt="Versión 4.80.1">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -344,7 +344,7 @@ camaron feedback docs/overview/system.md "Falta describir los reintentos" --by "
 
 | Comprobación | Gravedad | Herramienta |
 |---|---|---|
-| Frontmatter ausente, fuentes `x-sources` que ya no existen, bloques `:::rule` cuyo código desapareció | ERROR | — |
+| Frontmatter ausente, fuentes `x-sources` que ya no existen (un fichero del repo o un elemento `c4:` del modelo C4), bloques `:::rule` cuyo código desapareció | ERROR | — |
 | Enlace roto a otra página, resuelto igual que en el portal | ERROR | Python |
 | `#ancla` que no corresponde a ningún título | aviso (ERROR con `--strict`) | Python |
 | Diagrama Mermaid que no se dibuja | ERROR | mermaid-cli |
