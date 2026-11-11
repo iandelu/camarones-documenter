@@ -116,3 +116,6 @@ export function proposal(row, version) {
   const latest = version && (!row.version || compareVersions(version, row.version) > 0) ? version : null
   return { version: latest || fix || '', fix, latest }
 }
+
+// Whether an opened library's detail would end in the last tenth of the window or past it: then its line is brought up.
+export const hidesBelow = (rect, viewportHeight) => !!rect && rect.bottom > viewportHeight * 0.9

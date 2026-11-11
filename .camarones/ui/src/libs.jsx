@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { t } from '../i18n/index.js'
 import { Button, Chip } from './components.jsx'
-import { advisories, applyFilter, compareVersions, facets, isMajor, latestOf, matrix, outdated, placesOf, proposal,
+import { advisories, applyFilter, compareVersions, facets, hidesBelow, isMajor, latestOf, matrix, outdated, placesOf, proposal,
   rowsOf, versionSpan } from './libs.js'
 import { severities } from './result.js'
 
@@ -106,10 +106,14 @@ const Check = ({ label, checked, onChange }) => (
 )
 
 // One library: its versions, the latest, and Update ▾ unless it is up to date with no known vulnerability. Opening it
-// scrolls it into view.
+// brings its line up under the sticky filters when the detail would end below the window, so Update shows first.
 function Line({ item, latest, open, onToggle, rows, scanned, renderUpdate }) {
   const ref = useRef(null)
-  useEffect(() => { if (open) ref.current?.scrollIntoView?.({ block: 'nearest' }) }, [open])
+  useEffect(() => {
+    if (!open || !ref.current?.scrollIntoView) return
+    const below = hidesBelow(ref.current.nextElementSibling?.getBoundingClientRect(), window.innerHeight)
+    ref.current.scrollIntoView(below ? { block: 'start', behavior: 'smooth' } : { block: 'nearest' })
+  }, [open])
   const newest = latestOf(latest, item)
   const behind = outdated(item, newest)
   const update = !(behind === false && !item.vulns.length)

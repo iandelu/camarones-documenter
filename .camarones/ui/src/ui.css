@@ -193,6 +193,8 @@ p.cu-libs-note { margin: 0; }
 .cu-libs-where { font-size: var(--text-micro); color: var(--color-ink-dim); }
 .cu-libs-where-bad, .cu-libs-table td.cell-vuln, .cu-libs-why td.cell-vuln { color: var(--color-estado-mal); font-weight: 600; }
 .cu-libs-v { font-family: var(--font-mono); color: var(--color-ink); }
+.cu-libs-v .cu-chip { font-family: var(--font-sans); }
+.cu-libs-table > tbody > tr { scroll-margin-top: calc(var(--cu-libs-top) + var(--cu-libs-bar-h, 0px) + 2.75rem); }
 .cu-libs-act { text-align: right; }
 .cu-libs-open > td { padding: 1rem !important; }
 .cu-libs-detail { display: flex; flex-direction: column; gap: 1.25rem; min-width: 0; }

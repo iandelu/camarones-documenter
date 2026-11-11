@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { advisories, applyFilter, compareVersions, fixTarget, isMajor, latestOf, matrix, outdated, placesOf, proposal, rowsOf, versionSpan } from './libs.js'
+import { advisories, applyFilter, compareVersions, fixTarget, hidesBelow, isMajor, latestOf, matrix, outdated, placesOf, proposal, rowsOf, versionSpan } from './libs.js'
 
 const vite = [
   { id: 'GHSA-a', cve: 'CVE-1', severity: 'medium', fixed: '8.3.3', ranges: [{ introduced: '8.0.0', fixed: '8.3.3' }] },
@@ -94,4 +94,11 @@ test('only outdated keeps the rows behind their latest', () => {
   expect(applyFilter(rows, { outdated: true }, L).map((r) => r.repo)).toEqual(['b'])
   expect(applyFilter(rows, { outdated: true }, null)).toEqual([])
   expect(applyFilter(rows, {}, null)).toHaveLength(2)
+})
+
+test('an open library is brought up when its detail would end near or below the bottom of the window', () => {
+  expect(hidesBelow({ bottom: 950 }, 1000)).toBe(true)
+  expect(hidesBelow({ bottom: 1400 }, 1000)).toBe(true)
+  expect(hidesBelow({ bottom: 600 }, 1000)).toBe(false)
+  expect(hidesBelow(null, 1000)).toBe(false)
 })
