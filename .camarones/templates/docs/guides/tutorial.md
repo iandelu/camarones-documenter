@@ -49,7 +49,7 @@ what to install) → setup (repos, Claude/Codex wiring, git hooks) → stack & t
 already use — Backstage, Sonar, component library, linters, contracts, CI — found without AI; fix a wrong stack there
 or later with `camaron stack`; saved in `docs/overview/tooling.md`, with every direct dependency by category in
 `docs/overview/libraries.md`, also `camaron inventory` (`camaron bump <repo> <library> <version>` updates one on a new branch of its repo, in the parent pom when a Maven module inherits it); `--cves` adds known vulnerabilities from OSV-Scanner's offline
-database; and each repo's tables and collections in the repo's page (`docs/repos/<repo>/index.md`; `docs/data/<repo>.md` before 4.52), also `camaron schemas`) → quick C4 draft → how sessions work. Esc always goes one step back; long
+database and `--latest` each library's latest stable version from its public registry; and each repo's tables and collections in the repo's page (`docs/repos/<repo>/index.md`; `docs/data/<repo>.md` before 4.52), also `camaron schemas`) → quick C4 draft → how sessions work. Esc always goes one step back; long
 tasks show what they are doing, a progress bar and crustacean facts. After that the main menu shows the plan progress and the next step.
 
 **🦐 Next step** lists the plan units that are ready (their dependencies are done). Pick one and choose Claude Code, Codex

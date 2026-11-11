@@ -1,4 +1,5 @@
-// Pure helpers of the Libraries table (the portal and the desktop app), from GET /api/inventory (lib/inventory.py rows).
+// Pure helpers of the Libraries board (the portal and the desktop app), from GET /api/inventory: lib/inventory.py rows and,
+// once `inventory --latest` ran, each library's latest stable version (lib/latest.py, key `latest`).
 const RANK = { critical: 4, high: 3, medium: 2, low: 1, unknown: 1 }
 
 export function worst(vulns) {
@@ -6,11 +7,16 @@ export function worst(vulns) {
   return vulns.reduce((a, b) => ((RANK[b.severity] || 0) > (RANK[a] || 0) ? b.severity : a), vulns[0].severity)
 }
 
-export function applyFilter(rows, f) {
+const behind = (r, latest) => {
+  const v = latest?.versions?.[`${r.ecosystem}|${r.name}`]
+  return !!(v && r.version && compareVersions(v, r.version) > 0)
+}
+
+export function applyFilter(rows, f, latest = null) {
   const q = (f.q || '').trim().toLowerCase()
   return rows.filter((r) => (!f.category || r.category === f.category) && (!f.language || r.language === f.language)
     && (!f.repo || r.repo === f.repo) && (!f.scope || r.scope === f.scope) && (!f.vulnerable || (r.vulns || []).length)
-    && (!q || r.name.toLowerCase().includes(q)))
+    && (!f.outdated || behind(r, latest)) && (!q || r.name.toLowerCase().includes(q)))
 }
 
 export function matrix(rows) {
@@ -22,7 +28,7 @@ export function matrix(rows) {
       cells: {}, vulns: [], drift: false }
     const cell = item.cells[r.repo]                       // a multi-module repo declares it in several poms
     item.cells[r.repo] = cell ? { ...cell, vulns: [...cell.vulns, ...(r.vulns || [])] }
-      : { version: r.version || r.declared || (r.managedBy ? 'managed' : ''), scope: r.scope, vulns: r.vulns || [] }
+      : { version: r.version || r.declared || (r.managedBy ? 'managed' : ''), exact: r.version || null, scope: r.scope, vulns: r.vulns || [] }
     item.vulns.push(...(r.vulns || []))
     item.drift = item.drift || r.drift
     byKey.set(key, item)
@@ -80,3 +86,39 @@ export function advisories(vulns) {
 // The inventory rows behind one line of the matrix (its key: `<ecosystem>|<name>`), by repo.
 export const rowsOf = (rows, key) => rows.filter((r) => `${r.ecosystem}|${r.name}` === key)
   .sort((a, b) => a.repo.localeCompare(b.repo))
+
+const exactOf = (item) => [...new Set(Object.values(item.cells).map((c) => c.exact).filter(Boolean))].sort(compareVersions)
+
+// The Version column: the one version the repos use, lowest – highest when they differ, else what the manifest says.
+export function versionSpan(item) {
+  const exact = exactOf(item)
+  if (exact.length) return exact.length === 1 ? exact[0] : `${exact[0]} – ${exact[exact.length - 1]}`
+  return Object.values(item.cells).find((c) => c.version)?.version || '—'
+}
+
+export const latestOf = (latest, item) => latest?.versions?.[item.key] ?? null
+
+export function isMajor(from, to) {
+  const major = (v) => parseInt(String(v || '').replace(/^v/, ''), 10)
+  return major(to) > major(from)
+}
+
+// Whether a repo uses a version older than `version`; null when that is unknown (no lookup, or a repo with no exact
+// version: one managed elsewhere or on a range may be behind, so the line is never called up to date).
+export function outdated(item, version) {
+  if (!version) return null
+  const exact = exactOf(item)
+  if (exact.some((v) => compareVersions(version, v) > 0)) return true
+  return exact.length && Object.values(item.cells).every((c) => c.exact) ? false : null
+}
+
+// What Update proposes for one repo: the latest stable when it is higher, else the version that fixes its advisories.
+// A dependency from git, a path, a URL or an SDK (`registry: false`) is never offered a public package's version.
+export function proposal(row, version) {
+  const fix = fixTarget(row.vulns)
+  const latest = row.registry !== false && version && (!row.version || compareVersions(version, row.version) > 0) ? version : null
+  return { version: latest || fix || '', fix, latest }
+}
+
+// Whether an opened library's detail would end in the last tenth of the window or past it: then its line is brought up.
+export const hidesBelow = (rect, viewportHeight) => !!rect && rect.bottom > viewportHeight * 0.9

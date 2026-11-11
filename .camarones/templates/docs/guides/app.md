@@ -391,12 +391,23 @@ Every repo's dependencies, read from its manifests and lockfiles without AI (`#/
   are done, a bar and **Stop** — and ends on a tick with what it found ("5 repos checked · 3 libraries with known
   advisories", and the repos it could not scan). Leave Libraries and come back while it runs: it picks its progress up.
   Without OSV-Scanner on the machine the libraries are reread, without vulnerabilities, and it says so.
-- Filters: search, category, service, scope and **Vulnerable only**. The table is library × service, the worst first,
-  with a chip when two repos use different versions. Under each library, the repos it is in, the flagged ones first
-  and in red (three names, then "+N more"); its column stays put while the table scrolls sideways.
-- Open a library: **Why it is here** (which repo declares it, in which manifest, with which range and scope) and **Why
-  it is flagged** (each advisory with its severity, affected versions, dates, CWE, full text and links).
-- **Update** proposes the version that fixes every advisory, asks once and runs `camaron bump`: a new branch
+- **Look for newer versions** runs `camaron inventory --latest`: it asks the public registries (Maven Central, npm,
+  PyPI, the Go proxy, NuGet, Packagist, crates.io, pub.dev) for each library's latest stable version. Library names
+  leave the machine for that, never the workspace's own, and a dependency taken from git, a path or a URL is not asked
+  about nor offered a public version; a library that is not on a public registry shows "—". It
+  names the library it last heard back about with how many are done, and ends on a tick ("120 libraries looked up · 14
+  with a newer version"); a registry it could not reach keeps the versions of the previous lookup, and it says which.
+- Filters: search, category, service, scope, **Vulnerable only** and, once a lookup ran, **Outdated only**. They stay
+  in view while you scroll, and so does the table's header. One line per library, the worst first: **Version** (the
+  one the repos use, or lowest – highest when they differ, with a chip), **Latest** ("major" when its first number is
+  higher, "up to date" when no repo is behind, "—" when unknown) and **Update ▾**. Under each library, the repos it is
+  in, the flagged ones first and in red (three names, then "+N more"). There are no columns per repo: nothing scrolls
+  sideways.
+- **Update ▾** (or the library's name) opens it: first, per repo, its manifest, scope and version with a field holding
+  the proposed version (the latest stable when it is higher, else the one that fixes every advisory) and chips to
+  switch between the two; then **Why it is flagged** (each advisory with its severity, affected versions, dates, CWE,
+  full text and links) and **Why it is here** (which repo declares it, in which manifest, with which range and scope).
+- **Update** asks once and runs `camaron bump`: a new branch
   `camaron/bump-<library>-<version>` in that repo, with no commit and no push. A repo with uncommitted changes is
   left alone. A Maven module that inherits its version is updated where the repo writes it: the property or
   `<version>` in its parent pom or a BOM of the same repo. One set outside the repo is refused, naming who sets it.
