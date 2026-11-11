@@ -21,6 +21,7 @@ TIMEOUT = 10
 WORKERS = 8
 MAX_BYTES = 32_000_000          # PyPI's JSON for a package with thousands of releases is large; past this it is skipped
 PROGRESS_LINES = 50
+STRIKES = 2                     # failures after which a registry is given up for the run (a network that drops packets)
 
 
 class NotFound(Exception):
@@ -62,9 +63,11 @@ def newer(current: str | None, candidate: str | None) -> bool:
 
 
 def _qualifier(v: str | None) -> str:
+    """A version's flavour, its letters only: `jre`, `android`, `groovy`. A date stamp (Jetty's 9.4.53.v20231009) or a
+    release marker is not one, so it never keeps a library on its old line."""
     m = QUALIFIER.search(str(v or "").removeprefix("v"))
-    q = m.group().lower() if m else ""
-    return "" if q in RELEASE_MARKERS else q
+    q = re.sub(r"[\d.\-_+]+", "", m.group()).lower() if m else ""
+    return "" if q in RELEASE_MARKERS or len(q) < 2 else q
 
 
 def pick(versions: Iterable[str], current: str | None = None) -> str | None:
@@ -156,6 +159,8 @@ def is_owned(ecosystem: str, name: str, owned: dict[str, set[str]]) -> bool:
         return any(name == m or name.startswith(m + "/") for m in mine)
     if ecosystem == "PyPI":
         return _canon(name) in {_canon(x) for x in mine}
+    if ecosystem == "NuGet":
+        return name.lower() in {x.lower() for x in mine}
     return name in mine
 
 
@@ -180,6 +185,8 @@ def _items(rows: list[dict], owned: dict[str, set[str]]) -> dict[tuple[str, str]
     """One per library the registries may be asked about, with the highest exact version the repos use."""
     items: dict[tuple[str, str], dict] = {}
     for r in rows:
+        if r.get("registry") is False:                       # git, a path, a URL, an SDK: no public version applies
+            continue
         key = (r.get("ecosystem") or "", r.get("name") or "")
         if key not in items:
             address = url(*key)
@@ -192,12 +199,15 @@ def _items(rows: list[dict], owned: dict[str, set[str]]) -> dict[tuple[str, str]
     return items
 
 
-def _one(key: tuple[str, str], item: dict, fetch) -> tuple[tuple[str, str], str | None, str | None]:
+def _one(key: tuple[str, str], item: dict, fetch, strikes: dict) -> tuple[tuple[str, str], str | None, str | None]:
+    if strikes.get(key[0], 0) >= STRIKES:                # a registry that keeps failing is not asked again this run
+        return key, None, key[0]
     try:
         return key, parse(key[0], fetch(item["url"]), key[1], item["current"]), None
     except NotFound:
         return key, None, None
     except Exception:                                    # noqa: BLE001 — timeouts, DNS, 5xx, a proxy: the registry failed
+        strikes[key[0]] = strikes.get(key[0], 0) + 1
         return key, None, key[0]
 
 
@@ -207,8 +217,9 @@ def _lookup(rows: list[dict], owned: dict[str, set[str]], log, fetch) -> dict:
     step = max(1, -(-total // PROGRESS_LINES))
     versions: dict[str, str] = {}
     failed: set[str] = set()
+    strikes: dict[str, int] = {}
     with ThreadPoolExecutor(max_workers=WORKERS) as pool:
-        for future in as_completed([pool.submit(_one, k, it, fetch) for k, it in items.items()]):
+        for future in as_completed([pool.submit(_one, k, it, fetch, strikes) for k, it in items.items()]):
             key, found, bad = future.result()
             done += 1
             if found:

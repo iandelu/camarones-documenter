@@ -291,7 +291,8 @@ def cargo(text: str) -> list[dict]:
         m = re.search(rf"^\[{table}\]\s*$(.*?)(?=^\[|\Z)", text, re.M | re.S)
         for name, rest in re.findall(r"^\s*([\w-]+)\s*=\s*(.+)$", m.group(1), re.M) if m else []:
             v = re.search(r'version\s*=\s*"([^"]+)"', rest) if rest.startswith("{") else re.match(r'"([^"]+)"', rest)
-            out.append(_row("crates.io", name, v.group(1) if v else "", scope))
+            local = next((k for k in ("path", "git") if re.search(rf"\b{k}\s*=", rest)), "") if rest.startswith("{") else ""
+            out.append(_row("crates.io", name, local or (v.group(1) if v else ""), scope))
     return out
 
 
@@ -300,8 +301,8 @@ def pubspec(text: str) -> list[dict]:
     out = []
     for key, scope in (("dependencies", "runtime"), ("dev_dependencies", "dev")):
         for name, spec in (data.get(key) or {}).items():
-            declared = "sdk" if isinstance(spec, dict) and "sdk" in spec else (
-                str(spec.get("version", "")) if isinstance(spec, dict) else str(spec or ""))
+            local = next((k for k in ("sdk", "path", "git") if k in spec), "") if isinstance(spec, dict) else ""
+            declared = local or (str(spec.get("version", "")) if isinstance(spec, dict) else str(spec or ""))
             out.append(_row("Pub", name, declared, scope))
     return out
 
@@ -380,6 +381,23 @@ def _python_locks(folder: Path) -> dict[str, str]:
     return {}
 
 
+NPM_LOCAL = re.compile(r"^(git\+|git:|github:|gitlab:|bitbucket:|gist:|file:|link:|workspace:|portal:|patch:|npm:|https?:|\.{0,2}/|~/)")
+NPM_SHORTHAND = re.compile(r"^[\w.-]+/[\w.-]+(#.*)?$")        # owner/repo[#ref]: a GitHub repo, not a version
+
+
+def from_registry(ecosystem: str, declared: str | None) -> bool:
+    """Whether the dependency is resolved from its public registry, rather than from git, a path, a URL, an SDK or an
+    npm alias: only those are looked up (lib/latest.py) and offered a public version."""
+    d = (declared or "").strip()
+    if ecosystem == "npm":
+        return not (NPM_LOCAL.match(d) or NPM_SHORTHAND.match(d))
+    if ecosystem == "PyPI":
+        return not d.startswith("@")                           # PEP 508 `name @ <url>`
+    if ecosystem in ("crates.io", "Pub"):
+        return d not in ("path", "git", "sdk")
+    return True
+
+
 def scan() -> dict:
     cats = categories()
     rows = []
@@ -390,6 +408,7 @@ def scan() -> dict:
     seen: dict[tuple, set] = {}
     for row in rows:
         row["category"] = category(row["name"], cats)
+        row["registry"] = from_registry(row["ecosystem"], row["declared"])
         row["language"] = LANGUAGE.get(row["ecosystem"], row["ecosystem"])
         seen.setdefault((row["ecosystem"], row["name"]), set()).add(row["version"] or row["declared"])
     for row in rows:
@@ -397,6 +416,9 @@ def scan() -> dict:
         row.setdefault("managedBy", None)
     rows.sort(key=lambda r: (r["repo"], r["category"], r["name"]))
     return {"libraries": rows, "vulns": None, "latest": None}
+
+
+OWNED_EXTRA = ("gradle.properties", "setup.cfg", "setup.py")      # name a package, declare no dependency the scan reads
 
 
 def _toml_name(text: str, section: str) -> str | None:
@@ -417,7 +439,20 @@ def _owned_in(base: str, rel: str, text: str) -> list[tuple[str, str]]:
         m = re.search(r"^module\s+(\S+)", text, re.M)
         return [("Go", m.group(1))] if m else []
     if base == "pyproject.toml":
-        return [("PyPI", n)] if (n := _toml_name(text, "project")) else []
+        return [("PyPI", n) for n in (_toml_name(text, "project"), _toml_name(text, "tool.poetry")) if n]
+    if base == "setup.cfg":
+        block = re.search(r"^\[metadata\]\s*$(.*?)(?=^\[|\Z)", text, re.M | re.S)
+        name = block and re.search(r"^\s*name\s*=\s*([^\s#;]+)", block.group(1), re.M)
+        return [("PyPI", name.group(1))] if name else []
+    if base == "setup.py":
+        m = re.search(r"\bname\s*=\s*['\"]([^'\"]+)['\"]", text)
+        return [("PyPI", m.group(1))] if m else []
+    if base == "gradle.properties":
+        m = re.search(r"^\s*(?:group|GROUP)\s*=\s*(\S+)", text, re.M)
+        return [("Maven", m.group(1))] if m else []
+    if base.endswith(".csproj"):
+        m = re.search(r"<PackageId>\s*([^<\s]+)\s*</PackageId>", text) or re.search(r"<AssemblyName>\s*([^<\s]+)\s*</AssemblyName>", text)
+        return [("NuGet", m.group(1) if m else Path(rel).stem)]
     if base == "Cargo.toml":
         return [("crates.io", n)] if (n := _toml_name(text, "package")) else []
     if base == "composer.json":
@@ -430,18 +465,23 @@ def _owned_in(base: str, rel: str, text: str) -> list[tuple[str, str]]:
 def owned() -> dict[str, set[str]]:
     """What the workspace itself produces, so lib/latest.py never sends it: each pom's own groupId (or the one a module
     inherits from a parent in the same repo, never from an outside parent such as spring-boot-starter-parent), Gradle's
-    `group =`, the names and @scopes of its package.json, its Go modules and its Python, Rust, PHP and Dart packages."""
+    `group =` (or gradle.properties' group / GROUP), the names and @scopes of its package.json, its Go modules, its .NET
+    packages (PackageId, AssemblyName or the project's file name) and its Python (PEP 621, Poetry, setup.cfg, setup.py),
+    Rust, PHP and Dart packages."""
     out: dict[str, set[str]] = {}
     for r in docs.workspace()["repos"]:
         repo = repo_dir(r["name"])
         if not repo.is_dir():
             continue
-        paths = [p for p in radar.entries(repo) if any(radar.matches(p, m) for m in MANIFEST_NAMES)]
+        entries = radar.entries(repo)
+        paths = [p for p in entries if any(radar.matches(p, m) for m in MANIFEST_NAMES)]
+        paths += [p for p in entries if Path(p).name in OWNED_EXTRA]
         poms = _poms(repo, paths)
         keys = {p["key"] for p in poms.values()}
         for p in poms.values():
-            if p["ownGroup"]:
-                out.setdefault("Maven", set()).add(p["ownGroup"])
+            group = _interpolate(p["ownGroup"], {**p["props"], "project.parent.groupId": (p["parent"] or ("",))[0]})
+            if group and "${" not in group:
+                out.setdefault("Maven", set()).add(group)
             elif p["parent"] and f"{p['parent'][0]}:{p['parent'][1]}" in keys:
                 out.setdefault("Maven", set()).add(p["key"].split(":")[0])
         for rel in paths:
@@ -453,8 +493,8 @@ def owned() -> dict[str, set[str]]:
             except (ValueError, AttributeError, TypeError, yaml.YAMLError):
                 continue                                  # a manifest the scan cannot read names nothing
             for eco, name in found:
-                if name:
-                    out.setdefault(eco, set()).add(name)
+                if isinstance(name, str) and name.strip():
+                    out.setdefault(eco, set()).add(name.strip())
     return out
 
 

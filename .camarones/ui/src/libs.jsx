@@ -30,7 +30,7 @@ export function LibrariesBoard({ inv, actions = null, status = null, renderUpdat
     const ro = new ResizeObserver(() => root.current?.style.setProperty('--cu-libs-bar-h', `${bar.current?.offsetHeight || 0}px`))
     ro.observe(bar.current)
     return () => ro.disconnect()
-  }, [])
+  }, [(inv.libraries || []).length > 0])                      // the bar only exists once there are libraries
   const rows = inv.libraries || []
   const latest = inv.latest || null
   const shown = useMemo(() => applyFilter(rows, f, latest), [rows, f, latest])
@@ -57,7 +57,7 @@ export function LibrariesBoard({ inv, actions = null, status = null, renderUpdat
         </div>
         {m.items.length ? (
           <table className="cu-libs-table" data-tour="libs-table">
-            <colgroup><col style={{ width: '46%' }} /><col style={{ width: '18%' }} /><col style={{ width: '20%' }} /><col style={{ width: '16%' }} /></colgroup>
+            <colgroup><col /><col style={{ width: '18%' }} /><col style={{ width: '20%' }} /><col className="cu-libs-col-act" style={{ width: '8.5rem' }} /></colgroup>
             <thead><tr>
               <th scope="col">{t('lb.library')}</th><th scope="col">{t('lb.version')}</th><th scope="col">{t('lb.latest')}</th>
               <th scope="col"><span className="sr-only">{t('lb.action')}</span></th>
@@ -211,11 +211,14 @@ export function Suggestions({ proposal: p, value, onPick }) {
   )
 }
 
+// Double quotes where a shell would read the argument (PowerShell splats `@angular/core`): they work in sh, cmd and pwsh.
+const shellArg = (s) => (/^[\w.:/+<>-]+$/.test(s) && !s.startsWith('@') ? s : `"${s}"`)
+
 // The portal runs nothing on the machine: in place of the app's Update it gives the command, ready to copy.
 export function BumpCommand({ row, proposal: p }) {
   const [version, setVersion] = useState(p.version)
   const [copied, setCopied] = useState(false)
-  const cmd = `camaron bump ${row.repo} ${row.name} ${version || '<version>'}`
+  const cmd = ['camaron', 'bump', row.repo, row.name, version || '<version>'].map(shellArg).join(' ')
   const copy = async () => {
     try { await navigator.clipboard.writeText(cmd); setCopied(true) } catch { /* no clipboard here: the command stays selectable */ }
   }

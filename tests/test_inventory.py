@@ -418,3 +418,59 @@ def test_the_cli_without_network_still_succeeds(kit, repos):
     data = json.loads(r.stdout)
     assert data["latest"]["versions"] == {} and set(data["latest"]["failed"]) >= {"npm", "PyPI"}
     assert "could not reach" in r.stderr
+
+
+# ---------- review fixes: what the workspace produces, and what does not come from a registry ----------
+def test_owned_names_from_poetry_csproj_gradle_properties_setup_cfg_and_an_interpolated_group(kit, repos):
+    (kit.ws / "worker" / "pyproject.toml").write_text('[tool.poetry]\nname = "acme-utils"\nversion = "1.0"\n', encoding="utf-8")
+    (kit.ws / "worker" / "Acme.Common.csproj").write_text('<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup>'
+                                                          '<PackageId>Acme.Common</PackageId></PropertyGroup></Project>', encoding="utf-8")
+    (kit.ws / "worker" / "Acme.Tools.csproj").write_text('<Project Sdk="Microsoft.NET.Sdk"></Project>', encoding="utf-8")
+    (kit.ws / "web" / "gradle.properties").write_text("org.gradle.jvmargs=-Xmx2g\nGROUP=io.acme.web\n", encoding="utf-8")
+    (kit.ws / "web" / "setup.cfg").write_text("[metadata]\nname = acme-cli\nversion = 1.0\n", encoding="utf-8")
+    (kit.ws / "api" / "pom.xml").write_text(
+        '<project xmlns="http://maven.apache.org/POM/4.0.0"><groupId>${acme.group}</groupId><artifactId>api</artifactId>'
+        '<version>1</version><properties><acme.group>com.acme.api</acme.group></properties></project>', encoding="utf-8")
+    own = repos.owned()
+    assert "acme-utils" in own["PyPI"] and "acme-cli" in own["PyPI"]
+    assert {"Acme.Common", "Acme.Tools"} <= own["NuGet"]
+    assert "io.acme.web" in own["Maven"] and "com.acme.api" in own["Maven"]
+
+
+def test_a_manifest_with_a_strange_name_does_not_break_the_lookup(kit, repos):
+    (kit.ws / "worker" / "composer.json").write_text('{"name": ["not", "a", "string"], "require": {}}', encoding="utf-8")
+    (kit.ws / "web" / "pubspec.yaml").write_text("name: 42\ndependencies: {}\n", encoding="utf-8")
+    own = repos.owned()
+    assert "Packagist" not in own and "Pub" not in own
+
+
+def test_dependencies_that_do_not_come_from_a_registry_are_marked(kit, repos):
+    deps = {"private-lib": "git+ssh://git@github.com/acme/private-lib.git", "local": "file:../local", "alias": "npm:react@18",
+            "short": "acme/thing#main", "linked": "workspace:*", "tarball": "https://acme.example/x.tgz", "react": "^18.2.0"}
+    (kit.ws / "web" / "package.json").write_text(json.dumps({"name": "web", "dependencies": deps}), encoding="utf-8")
+    (kit.ws / "worker" / "pyproject.toml").write_text(
+        '[project]\nname = "worker"\ndependencies = [\n  "acme-lib @ git+https://github.com/acme/lib",\n  "redis",\n]\n', encoding="utf-8")
+    (kit.ws / "worker" / "Cargo.toml").write_text('[package]\nname = "w"\n\n[dependencies]\nlocal-crate = { path = "../x" }\n'
+                                                  'git-crate = { git = "https://example.org/x", version = "0.3" }\nserde = "1.0"\n', encoding="utf-8")
+    (kit.ws / "api" / "pubspec.yaml").write_text("name: app\ndependencies:\n  flutter:\n    sdk: flutter\n  mine:\n    path: ../mine\n"
+                                                 "  http: ^1.2.0\n", encoding="utf-8")
+    libs = {(r["repo"], r["name"]): r for r in repos.scan()["libraries"]}
+    local = [("web", n) for n in ("private-lib", "local", "alias", "short", "linked", "tarball")] + \
+        [("worker", "acme-lib"), ("worker", "local-crate"), ("worker", "git-crate"), ("api", "flutter"), ("api", "mine")]
+    assert [k for k in local if libs[k]["registry"] is not False] == []
+    assert all(libs[k]["registry"] is True for k in [("web", "react"), ("worker", "redis"), ("worker", "serde"), ("api", "http")])
+    assert libs[("worker", "local-crate")]["declared"] == "path" and libs[("api", "mine")]["declared"] == "path"
+
+
+def test_dependencies_that_do_not_come_from_a_registry_are_never_looked_up(kit, repos, monkeypatch):
+    from lib import latest
+    deps = {"private-lib": "git+ssh://git@github.com/acme/private-lib.git", "react": "^18.2.0"}
+    (kit.ws / "web" / "package.json").write_text(json.dumps({"name": "web", "dependencies": deps}), encoding="utf-8")
+    asked = []
+
+    def fetch(address):
+        asked.append(address)
+        raise latest.NotFound(address)
+    monkeypatch.setattr(latest, "_fetch", fetch)
+    repos.run(log=lambda _: None, latest=True)
+    assert any(a.endswith("/react") for a in asked) and not any("private-lib" in a for a in asked)
