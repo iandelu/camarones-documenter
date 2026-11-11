@@ -8,6 +8,8 @@ import json
 
 import pytest
 
+from fixtures.host_tools import needs
+
 PUBSPEC = """name: admin_dj
 dependencies:
   flutter:
@@ -86,7 +88,7 @@ def test_the_c4_draft_is_valid_and_readable(firebase, kit, monkeypatch):
     assert "metadata { repo 'web' }" in block and "Cloud Functions · Node.js" in block
 
 
-@pytest.mark.skipif(not __import__("shutil").which("likec4"), reason="likec4 not installed")
+@needs("likec4")
 def test_likec4_accepts_the_firebase_draft(firebase, tmp_path):
     from lib import common                                  # run() resolves likec4.cmd on Windows; subprocess cannot
     for name, text in firebase.render_c4(firebase.scan(), "enjoy").items():

@@ -39,14 +39,17 @@ Every change must work on all three. CI (`.github/workflows/tests.yml`) runs the
 - Write or extend the failing test first, then the code. Bug fix → a test that reproduces it.
 - Before touching untested behaviour, lock it with a characterization test (see `tests/`).
 - Tests are offline and deterministic: use `tests/fixtures/builder.py` (`make_workspace`) and the `isolated_env`
-  fixture from `tests/conftest.py`; never touch the real `~/.camarones`. Network tests go under `tests/e2e/` with the
-  `e2e` marker.
+  fixture from `tests/conftest.py`; never touch the real `~/.camarones`. `isolated_env` also takes the machine's own
+  kit tools and agent CLIs off PATH, as on CI (`tests/fixtures/host_tools.py`): a test of a real tool uses
+  `needs("likec4")`, and `CAMARONES_TEST_HOST_TOOLS=1` keeps them for a whole run. Network tests go under `tests/e2e/`
+  with the `e2e` marker.
 - Run: `uv run pytest -n auto` (all but e2e, one worker per core; leave `-n` out for a single file) ·
   `uv run pytest -m e2e` (clones real repos). A change is done when the suite is green; say so with the output, or say
   what failed.
-- Tests run side by side, so each one owns its `tmp_path`, home and ports (bind port 0). `make_workspace` copies a
-  per-process template, so it is cheap; never share state through module globals or fixed paths. A test that truly
-  cannot run beside another one gets `@pytest.mark.serial`: all of them go to one worker, one at a time.
+- Tests run side by side, so each one owns its `tmp_path`, home and ports (bind port 0). `make_workspace` and the
+  `wired` fixture copy a per-process template (`tests/test_builder.py` checks a copy matches a fresh build), so they
+  are cheap; never share state through module globals or fixed paths. A test that truly cannot run beside another one
+  gets `@pytest.mark.serial`: all of them go to one worker, one at a time.
 - **Sandbox for end-to-end checks.** If the sandbox project exists (`$CAMARONES_SANDBOX`, else
   `~/projects/camarones-sandbox`, with the Spring PetClinic repos), use it to verify a change end to end with this
   checkout's kit, beyond the unit suite: `uv run scripts/sandbox.py cli <command>` (or `open` for the wizard),

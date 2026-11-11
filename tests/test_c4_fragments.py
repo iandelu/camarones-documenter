@@ -2,11 +2,13 @@
 Shared files (model.c4, spec.c4, views.c4, deployment.c4) are left to in-place units, which run one at a time."""
 from __future__ import annotations
 
-import os, shutil, subprocess, time
+import os, subprocess, time
 
 import pytest
 
-needs_likec4 = pytest.mark.skipif(not shutil.which("likec4"), reason="likec4 not installed")
+from fixtures.host_tools import needs
+
+needs_likec4 = needs("likec4")
 
 MODEL = "model {\n  customer = actor 'Customer'\n  demo = system 'Demo' {\n    web = webapp 'Web'\n  }\n  customer -> demo.web 'uses'\n}\n"
 VIEWS = "views {\n  view index { include * }\n}\n"
