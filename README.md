@@ -561,7 +561,8 @@ token. Nunca se exporta una página retenida por la puerta de frescura.
 instrucciones para la sesión que actualiza (o **Plan › Mantenerla al día** en la app); `mark-documented` registra el
 nuevo punto de referencia. `camaron ci` genera un job por repo de servicio que, en cada PR/MR y **sin IA**, comenta qué
 páginas deja desactualizadas (`camaron pr fresh <repo> --base main` en local); `ci: {target: self-hosted, …}` lo lleva a
-vuestros runners. `camaron pr propose <url>` deja que un agente proponga la documentación en una PR de `cam-docs`
+vuestros runners. El job descarga el kit en `ci.kit_ref` (por defecto `v<versión del kit>`); si el repo del kit no
+tiene esa etiqueta, usa su rama por defecto y lo avisa en el log. `camaron pr propose <url>` deja que un agente proponga la documentación en una PR de `cam-docs`
 (`--comment`, `--preview`, `--dry-run`), y con `self-hosted` el job `docs-propose` lo hace cuando alguien etiqueta la PR
 con `docs:update`. Antes de abrir nada ejecutan `check --secrets`. Plantillas en [.camarones/ci/](.camarones/ci/); guía
 del runner en `docs/guides/self-hosted-runner.md`.

@@ -32,6 +32,10 @@ docs:fresh:
       ln -s "$SRC" "$W/$NAME"
       AUTH="$(printf '%s:%s' "$DOCS_CLONE_USER" "$DOCS_READ_TOKEN" | base64 | tr -d '\n')"
       git -c "http.extraHeader=Authorization: Basic $AUTH" clone -q --depth 1 "$DOCS_REPO_URL" "$W/cam-docs"
-      git clone -q --depth 1 --branch "$CAMARONES_KIT_REF" "$CAMARONES_KIT_REPO" "$W/.kit"
+      git clone -q --depth 1 --branch "$CAMARONES_KIT_REF" "$CAMARONES_KIT_REPO" "$W/.kit" 2>/dev/null || {
+        echo "camaron: $CAMARONES_KIT_REF is not a branch or tag of $CAMARONES_KIT_REPO: using its default branch." >&2
+        rm -rf "$W/.kit"
+        git clone -q --depth 1 "$CAMARONES_KIT_REPO" "$W/.kit"
+      }
       CAMARONES_ROOT="$W/cam-docs" CAMARONES_GLOBAL=1 uv run --quiet --script "$W/.kit/.camarones/camarones.py" \
         pr fresh "$NAME" --base "$DOCS_BASE" --post --lang "${DOCS_LANG:-en}" || echo "docs-fresh: could not check the docs."
