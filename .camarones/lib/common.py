@@ -90,7 +90,7 @@ def extra_bin_dirs() -> list[Path]:
 
 def ensure_path() -> None:
     parts = os.environ.get("PATH", "").split(os.pathsep)
-    for d in extra_bin_dirs():
+    for d in [] if os.environ.get("CAMARONES_KEEP_PATH") else extra_bin_dirs():  # a PATH set on purpose (the test suite)
         if d.is_dir() and str(d) not in parts:
             parts.insert(0, str(d))
     os.environ["PATH"] = os.pathsep.join(parts)
