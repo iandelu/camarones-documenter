@@ -80,8 +80,9 @@ New module `.camarones/lib/latest.py`, standard library only (no new dependency;
 
 - `lookup(rows, owned, log, fetch=_fetch) -> dict`: the unique `(ecosystem, name)` of the inventory rows, minus the
   workspace's own (`owned`), each asked of its registry, 8 at a time, 10 s timeout, `User-Agent: camaron/<kit>` (no
-  personal data), proxies from the environment (`urllib` default). Logs `[n/total] <name>: …` as each starts, so the
-  app's progress parser (`scanProgress`) reads it unchanged.
+  personal data), proxies from the environment (`urllib` default). Logs `[n/total] newer versions · <name>` as they
+  finish, at most about 50 such lines however many libraries there are; the app reads them with its own small parser
+  (`lookupProgress`: Maven names hold a colon, which `scanProgress` splits on).
 - One pure parser per registry, picking the highest **stable** version (no alpha, beta, rc, cr, milestone `M1`, preview,
   dev, snapshot, ea); when the current version has a qualifier such as Guava's `-jre`, a version with the same qualifier
   is preferred:
@@ -119,6 +120,8 @@ libraries with a newer version.
 **App progress:** the job shows the bar and "Checking `<name>` · n of total" without the per-item chip list the CVE
 scan draws per repo; it ends on the tick with "N with a newer version" and, if any, "Could not reach: npm, …".
 `inventoryArgs` accepts `--latest` so leaving and coming back re-attaches to a running lookup.
+
+**Exit:** a lookup never changes the exit code; `--fail-on` still reads only the vulnerabilities.
 
 ## 4. Update
 
