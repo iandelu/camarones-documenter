@@ -44,8 +44,19 @@ export function scanProgress(lines) {
 export function inventoryArgs(running) {
   const job = (running || []).find((j) => j.kind.split(' ')[0] === 'cmd:inventory')
   const flags = job ? job.kind.split(' ').slice(1) : null
-  if (!flags || flags.some((f) => f !== '--json' && f !== '--cves')) return null
-  return { json: flags.includes('--json'), cves: flags.includes('--cves') }
+  if (!flags || flags.some((f) => !['--json', '--cves', '--latest'].includes(f))) return null
+  return { json: flags.includes('--json'), cves: flags.includes('--cves'), latest: flags.includes('--latest') }
+}
+
+// `inventory --latest` logs `[n/total] newer versions · <name>` as lookups finish (lib/latest.py). Its own parser:
+// scanProgress splits on a colon, and Maven names hold one.
+export function lookupProgress(lines) {
+  const p = { n: 0, total: 0, name: '' }
+  for (const l of lines || []) {
+    const m = l.match(/^\[(\d+)\/(\d+)\] newer versions · (.+)$/)
+    if (m) Object.assign(p, { n: +m[1], total: +m[2], name: m[3] })
+  }
+  return p
 }
 
 export const seconds = (iso) => { const ms = Date.parse(iso); return Number.isNaN(ms) ? null : ms / 1000 }
