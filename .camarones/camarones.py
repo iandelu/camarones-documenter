@@ -71,10 +71,12 @@
   schemas [--json]          each repo's tables and collections from migrations, schema files, entity classes, Mongo and
                           Firestore (no AI) → an ER diagram the kit keeps in sync with the code: in the repo page
                           (docs/data/<repo>.md is for projects from before 4.52; new projects: the repo page)
-  inventory [--cves] [--json] [--fail-on high|critical]   every repo's direct dependencies by category (framework,
-                          data, cache, security…) → docs/overview/libraries.md, no AI; --cves adds known vulnerabilities
-                          (OSV-Scanner with its offline database, so no package name leaves the machine); --fail-on
-                          exits 1 when a known one is that serious (for CI; finding one is not a failure otherwise)
+  inventory [--cves] [--latest] [--json] [--fail-on high|critical]   every repo's direct dependencies by category
+                          (framework, data, cache, security…) → docs/overview/libraries.md, no AI; --cves adds known
+                          vulnerabilities (OSV-Scanner with its offline database, so no package name leaves the machine);
+                          --latest asks public registries for each library's latest stable version (library names leave
+                          the machine, your own never); --fail-on exits 1 when a known vulnerability is that serious
+                          (for CI; finding one is not a failure otherwise)
   bump <repo> <library> <version> [--ecosystem E] [--json] [--yes]   update one library of a service repo on a new
                           branch camaron/bump-<name>-<version> with its package manager (or the version rewritten in
                           the manifest, or in the repo's parent pom or BOM a Maven module inherits it from); without
@@ -434,6 +436,7 @@ def build_parser() -> argparse.ArgumentParser:
     rd = sp.add_parser("radar"); rd.add_argument("--json", action="store_true")
     inv = sp.add_parser("inventory"); inv.add_argument("--json", action="store_true")
     inv.add_argument("--cves", action="store_true")
+    inv.add_argument("--latest", action="store_true")
     inv.add_argument("--fail-on", choices=["high", "critical"], default=None)
     bmp = sp.add_parser("bump"); bmp.add_argument("repo"); bmp.add_argument("library"); bmp.add_argument("version")
     bmp.add_argument("--ecosystem"); bmp.add_argument("--json", action="store_true"); bmp.add_argument("--yes", action="store_true")
@@ -903,7 +906,8 @@ def main() -> int:
     elif a.cmd == "inventory":
         from lib import inventory
         # --json keeps stdout for the JSON; the progress goes to stderr, where the desktop app reads it as it comes
-        page = inventory.run(log=(lambda m: print(m, file=sys.stderr, flush=True)) if a.json else print, cves=a.cves)
+        page = inventory.run(log=(lambda m: print(m, file=sys.stderr, flush=True)) if a.json else print, cves=a.cves,
+                             latest=a.latest)
         data = inventory.load()
         if a.json:
             print(json.dumps(data, indent=2, ensure_ascii=False))

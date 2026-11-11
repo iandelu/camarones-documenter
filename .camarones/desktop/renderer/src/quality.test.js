@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { BOARD_ACTIONS, doctorRows, driftWhy, fixableDrift, inventoryArgs, pytestSummary, scanProgress, seconds, setupProgress } from './quality.js'
+import { BOARD_ACTIONS, doctorRows, driftWhy, fixableDrift, inventoryArgs, lookupProgress, pytestSummary, scanProgress, seconds, setupProgress } from './quality.js'
 
 const fix = (cmd, args = {}) => ({ cmd, args })
 
@@ -52,8 +52,8 @@ test('the vulnerability scan\'s progress: the repo it reads, the ones before it 
 // Back on Libraries while a scan runs (started here, then the section was left): the same arguments attach to it.
 test('a running inventory job gives back the arguments that attach to it', () => {
   const job = (kind) => ({ id: '1', kind, status: 'running' })
-  expect(inventoryArgs([job('cmd:inventory --json --cves')])).toEqual({ json: true, cves: true })
-  expect(inventoryArgs([job('cmd:inventory --json')])).toEqual({ json: true, cves: false })
+  expect(inventoryArgs([job('cmd:inventory --json --cves')])).toEqual({ json: true, cves: true, latest: false })
+  expect(inventoryArgs([job('cmd:inventory --json')])).toEqual({ json: true, cves: false, latest: false })
   expect(inventoryArgs([job('cmd:inventory --json --cves --fail-on high')])).toBeNull()     // not ours: it fails CI
   expect(inventoryArgs([job('cmd:doctor --json')])).toBeNull()
   expect(inventoryArgs([])).toBeNull()
@@ -68,4 +68,12 @@ test('a kit file that is off says why, and one of the person\'s is nothing to re
     .toEqual(['q.driftYours', 'q.driftLink', 'q.driftEdited', 'q.driftMissing', 'q.driftMcp', 'q.driftOther'])
   expect(fixableDrift([yours, link, edited])).toEqual([link, edited])
   expect(fixableDrift(undefined)).toEqual([])
+})
+
+test('a running lookup is attached to, and its progress read despite the colon in Maven names', () => {
+  expect(inventoryArgs([{ kind: 'cmd:inventory --latest --json' }])).toEqual({ json: true, cves: false, latest: true })
+  expect(lookupProgress(['[12/400] newer versions · org.postgresql:postgresql', 'noise']))
+    .toEqual({ n: 12, total: 400, name: 'org.postgresql:postgresql' })
+  expect(lookupProgress([])).toEqual({ n: 0, total: 0, name: '' })
+  expect(lookupProgress(undefined).total).toBe(0)
 })

@@ -331,3 +331,146 @@ def test_finding_vulnerabilities_is_not_a_failure_unless_asked(kit, repos):
     assert run() == 0
     assert run("--fail-on", "high") == 1
     assert run("--fail-on", "critical") == 0
+
+
+# ---------- newer versions (`--latest`, lib/latest.py): stored with the inventory, never fetched here ----------
+def _registry(answers: dict[str, bytes]):
+    """A fake fetch: the body for the first fragment of `answers` found in the URL, else the library is not there."""
+    from lib import latest
+
+    def fetch(address):
+        for fragment, body in answers.items():
+            if fragment in address:
+                if isinstance(body, Exception):
+                    raise body
+                return body
+        raise latest.NotFound(address)
+    return fetch
+
+
+def test_owned_names_come_from_the_workspace_manifests(kit, repos):
+    (kit.ws / "worker" / "pom.xml").write_text('<project xmlns="http://maven.apache.org/POM/4.0.0"><groupId>com.acme</groupId>'
+                                               '<artifactId>worker</artifactId><version>1</version></project>', encoding="utf-8")
+    own = repos.owned()
+    assert "web" in own["npm"] and "worker" in own["PyPI"] and "com.acme" in own["Maven"]
+    assert "org.springframework.boot" not in own["Maven"]      # api inherits its groupId from an outside parent
+
+
+def test_owned_names_of_modules_and_other_manifests(kit, repos):
+    (kit.ws / "api" / "pom.xml").write_text(PARENT, encoding="utf-8")
+    (kit.ws / "api" / "core").mkdir()
+    (kit.ws / "api" / "core" / "pom.xml").write_text(MODULE, encoding="utf-8")
+    (kit.ws / "web" / "package.json").write_text(json.dumps(dict(PACKAGE, name="@acme/web")), encoding="utf-8")
+    (kit.ws / "worker" / "go.mod").write_text("module github.com/acme/worker\n\ngo 1.22\n", encoding="utf-8")
+    (kit.ws / "worker" / "build.gradle").write_text("plugins { id 'java' }\ngroup = 'io.acme.jobs'\n", encoding="utf-8")
+    own = repos.owned()
+    assert "com.acme" in own["Maven"] and "io.acme.jobs" in own["Maven"]
+    assert {"@acme/web", "@acme/"} <= own["npm"] and "github.com/acme/worker" in own["Go"]
+
+
+def test_latest_is_stored_and_carried_over(kit, repos, monkeypatch):
+    from lib import latest
+    monkeypatch.setattr(latest, "_fetch", _registry({"/react": b'{"dist-tags": {"latest": "19.0.0"}}'}))
+    repos.run(log=lambda _: None, latest=True)
+    data = repos.load()
+    assert data["latest"]["versions"]["npm|react"] == "19.0.0" and data["latest"]["failed"] == []
+    repos.run(log=lambda _: None)                                   # a reread keeps the last lookup
+    assert repos.load()["latest"] == data["latest"]
+
+
+def test_a_failed_registry_keeps_last_answers(kit, repos, monkeypatch):
+    from lib import latest
+    monkeypatch.setattr(latest, "_fetch", _registry({"npmjs": b'{"dist-tags": {"latest": "19.0.0"}}'}))
+    repos.run(log=lambda _: None, latest=True)
+    monkeypatch.setattr(latest, "_fetch", _registry({"https://": OSError("offline")}))
+    repos.run(log=lambda _: None, latest=True)
+    data = repos.load()
+    assert data["latest"]["versions"]["npm|react"] == "19.0.0" and "npm" in data["latest"]["failed"]
+
+
+def test_an_inventory_from_an_older_kit_has_no_latest(kit, repos):
+    repos.run(log=lambda _: None)
+    data = repos.load()
+    data.pop("latest", None)
+    (kit.root / "docs" / ".work" / "inventory.json").write_text(json.dumps(data), encoding="utf-8")
+    repos.run(log=lambda _: None)
+    assert repos.load()["latest"] is None
+
+
+def test_the_page_gains_a_latest_column_and_counts_newer(kit, repos):
+    result = repos.scan()
+    assert "| Latest |" not in repos.render(result)
+    result["latest"] = {"at": "2026-11-11T10:00:00+00:00", "checked": 1, "found": 1, "failed": [],
+                        "versions": {"npm|react": "19.0.0"}}
+    text = repos.render(result)
+    assert "| Category | Library | Version | Latest | Scope |" in text and "| 19.0.0 |" in text
+    assert "; 1 library with a newer version" in text
+    assert "--latest" in text.split(":::details How this page is made")[1]
+
+
+def test_the_cli_without_network_still_succeeds(kit, repos):
+    import os, subprocess, sys
+    dead = "http://127.0.0.1:9"
+    env = {**os.environ, "CAMARONES_ROOT": str(kit.root), "HTTPS_PROXY": dead, "https_proxy": dead, "NO_PROXY": "", "no_proxy": ""}
+    r = subprocess.run([sys.executable, str(kit.kit_dir / "camarones.py"), "inventory", "--latest", "--json"], env=env,
+                       capture_output=True, text=True, encoding="utf-8", cwd=kit.ws)
+    assert r.returncode == 0, r.stderr
+    data = json.loads(r.stdout)
+    assert data["latest"]["versions"] == {} and set(data["latest"]["failed"]) >= {"npm", "PyPI"}
+    assert "could not reach" in r.stderr
+
+
+# ---------- review fixes: what the workspace produces, and what does not come from a registry ----------
+def test_owned_names_from_poetry_csproj_gradle_properties_setup_cfg_and_an_interpolated_group(kit, repos):
+    (kit.ws / "worker" / "pyproject.toml").write_text('[tool.poetry]\nname = "acme-utils"\nversion = "1.0"\n', encoding="utf-8")
+    (kit.ws / "worker" / "Acme.Common.csproj").write_text('<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup>'
+                                                          '<PackageId>Acme.Common</PackageId></PropertyGroup></Project>', encoding="utf-8")
+    (kit.ws / "worker" / "Acme.Tools.csproj").write_text('<Project Sdk="Microsoft.NET.Sdk"></Project>', encoding="utf-8")
+    (kit.ws / "web" / "gradle.properties").write_text("org.gradle.jvmargs=-Xmx2g\nGROUP=io.acme.web\n", encoding="utf-8")
+    (kit.ws / "web" / "setup.cfg").write_text("[metadata]\nname = acme-cli\nversion = 1.0\n", encoding="utf-8")
+    (kit.ws / "api" / "pom.xml").write_text(
+        '<project xmlns="http://maven.apache.org/POM/4.0.0"><groupId>${acme.group}</groupId><artifactId>api</artifactId>'
+        '<version>1</version><properties><acme.group>com.acme.api</acme.group></properties></project>', encoding="utf-8")
+    own = repos.owned()
+    assert "acme-utils" in own["PyPI"] and "acme-cli" in own["PyPI"]
+    assert {"Acme.Common", "Acme.Tools"} <= own["NuGet"]
+    assert "io.acme.web" in own["Maven"] and "com.acme.api" in own["Maven"]
+
+
+def test_a_manifest_with_a_strange_name_does_not_break_the_lookup(kit, repos):
+    (kit.ws / "worker" / "composer.json").write_text('{"name": ["not", "a", "string"], "require": {}}', encoding="utf-8")
+    (kit.ws / "web" / "pubspec.yaml").write_text("name: 42\ndependencies: {}\n", encoding="utf-8")
+    own = repos.owned()
+    assert "Packagist" not in own and "Pub" not in own
+
+
+def test_dependencies_that_do_not_come_from_a_registry_are_marked(kit, repos):
+    deps = {"private-lib": "git+ssh://git@github.com/acme/private-lib.git", "local": "file:../local", "alias": "npm:react@18",
+            "short": "acme/thing#main", "linked": "workspace:*", "tarball": "https://acme.example/x.tgz", "react": "^18.2.0"}
+    (kit.ws / "web" / "package.json").write_text(json.dumps({"name": "web", "dependencies": deps}), encoding="utf-8")
+    (kit.ws / "worker" / "pyproject.toml").write_text(
+        '[project]\nname = "worker"\ndependencies = [\n  "acme-lib @ git+https://github.com/acme/lib",\n  "redis",\n]\n', encoding="utf-8")
+    (kit.ws / "worker" / "Cargo.toml").write_text('[package]\nname = "w"\n\n[dependencies]\nlocal-crate = { path = "../x" }\n'
+                                                  'git-crate = { git = "https://example.org/x", version = "0.3" }\nserde = "1.0"\n', encoding="utf-8")
+    (kit.ws / "api" / "pubspec.yaml").write_text("name: app\ndependencies:\n  flutter:\n    sdk: flutter\n  mine:\n    path: ../mine\n"
+                                                 "  http: ^1.2.0\n", encoding="utf-8")
+    libs = {(r["repo"], r["name"]): r for r in repos.scan()["libraries"]}
+    local = [("web", n) for n in ("private-lib", "local", "alias", "short", "linked", "tarball")] + \
+        [("worker", "acme-lib"), ("worker", "local-crate"), ("worker", "git-crate"), ("api", "flutter"), ("api", "mine")]
+    assert [k for k in local if libs[k]["registry"] is not False] == []
+    assert all(libs[k]["registry"] is True for k in [("web", "react"), ("worker", "redis"), ("worker", "serde"), ("api", "http")])
+    assert libs[("worker", "local-crate")]["declared"] == "path" and libs[("api", "mine")]["declared"] == "path"
+
+
+def test_dependencies_that_do_not_come_from_a_registry_are_never_looked_up(kit, repos, monkeypatch):
+    from lib import latest
+    deps = {"private-lib": "git+ssh://git@github.com/acme/private-lib.git", "react": "^18.2.0"}
+    (kit.ws / "web" / "package.json").write_text(json.dumps({"name": "web", "dependencies": deps}), encoding="utf-8")
+    asked = []
+
+    def fetch(address):
+        asked.append(address)
+        raise latest.NotFound(address)
+    monkeypatch.setattr(latest, "_fetch", fetch)
+    repos.run(log=lambda _: None, latest=True)
+    assert any(a.endswith("/react") for a in asked) and not any("private-lib" in a for a in asked)
