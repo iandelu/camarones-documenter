@@ -27,17 +27,19 @@ def _row(a: argparse.Action) -> dict:
         "default": jsonable(a.default),
         "const": jsonable(a.const),
         "choices": None if a.choices is None else jsonable(list(a.choices)),
-        "required": bool(a.required),
+        "required": bool(a.required) if a.option_strings else None,
+        "type": getattr(a.type, "__name__", None),
         "action": type(a).__name__,
     }
 
 
 def shape(parser: argparse.ArgumentParser) -> dict:
-    args, subs = [], {}
+    args, subparsers = [], None
     for a in parser._actions:
         if isinstance(a, argparse._HelpAction):
             continue
         if isinstance(a, argparse._SubParsersAction):
+            subs: dict[str, dict] = {}
             by_parser: dict[int, str] = {}
             for name, sp in a.choices.items():
                 if id(sp) in by_parser:
@@ -45,9 +47,14 @@ def shape(parser: argparse.ArgumentParser) -> dict:
                     continue
                 by_parser[id(sp)] = name
                 subs[name] = {"aliases": [], **shape(sp)}
+            subparsers = {"dest": a.dest, "required": bool(a.required), "subcommands": subs}
             continue
         args.append(_row(a))
-    return {"args": args, "subcommands": subs}
+    groups = sorted(
+        ({"dests": sorted(x.dest for x in g._group_actions), "required": bool(g.required)}
+         for g in parser._mutually_exclusive_groups),
+        key=lambda g: g["dests"])
+    return {"args": args, "exclusive_groups": groups, "subparsers": subparsers}
 
 
 if __name__ == "__main__":
