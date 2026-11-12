@@ -6,6 +6,7 @@ agent config live in `{{CAM}}` (its own git repo); the service repos listed in `
 and never receive kit files.
 
 ## Implementing a feature (any repo)
+0. Any code change: follow skill `cam-task` (docs first, difficulty, verification, guardrails, linked PRs).
 1. Before coding, look it up: `camarones` MCP tools (`search_docs`, then `read_doc(path, section)` for the section a hit
    names; `repo_graph`) or `{{CAM}}docs/llms.txt`.
    `confirmed` pages are the source of truth; `draft` pages must be verified against the code.
