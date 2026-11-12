@@ -15,6 +15,8 @@ MOVED: set[str] = {
     "help", "wizard", "catalog", "app", "new", "switch", "init", "join", "projects",
     "setup", "install", "upgrade", "self-update", "unlink", "profile", "sync", "detect", "arch", "down", "version",
     "repair", "mcp", "up", "migrate", "uninstall", "config",
+    "changes", "llms", "graph", "history", "blocks", "pages", "diagrams", "fresh", "mark-documented", "arch-draft",
+    "radar", "inventory", "bump", "schemas", "stack",
 }
 _ids = itertools.count()
 

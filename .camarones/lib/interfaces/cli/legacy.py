@@ -47,9 +47,8 @@ def cmd_trust(a) -> int:
 
 def add_legacy(sp: argparse._SubParsersAction) -> None:
     """Today's build_parser body after add_subparsers, minus the commands moved to commands/."""
-    for c in ("changes", "llms", "graph", "arch-validate", "portal"):
+    for c in ("arch-validate", "portal"):
         sp.add_parser(c)
-    sp.add_parser("history").add_argument("--months", type=int, default=12)
     rmv = sp.add_parser("removed"); rmv.add_argument("action", choices=["add"]); rmv.add_argument("what")
     rmv.add_argument("--why", required=True); rmv.add_argument("--decision", default="")
     rv = sp.add_parser("review"); rv.add_argument("action", choices=["request", "wait", "list"])
@@ -86,16 +85,10 @@ def add_legacy(sp: argparse._SubParsersAction) -> None:
     prp.add_argument("--preview", action="store_true")
     prp.add_argument("--base", default=""); prp.add_argument("--files", nargs="+"); prp.add_argument("--json", action="store_true")
     prp.add_argument("--post", action="store_true"); prp.add_argument("--lang", default="en", choices=["en", "es"])
-    bl = sp.add_parser("blocks"); bl.add_argument("--force", action="store_true"); bl.add_argument("--json", action="store_true")
-    pgs = sp.add_parser("pages"); pgs.add_argument("--adopt", action="store_true"); pgs.add_argument("--json", action="store_true")
-    dg = sp.add_parser("diagrams"); dg.add_argument("--json", action="store_true")             # alias of pages
-    fr = sp.add_parser("fresh"); fr.add_argument("--json", action="store_true"); fr.add_argument("--ack", nargs="+", default=[])
-    fr.add_argument("--by", default=""); fr.add_argument("--plan", action="store_true")
     kp = sp.add_parser("kpis"); kp.add_argument("--json", action="store_true"); kp.add_argument("--months", type=int, default=3)
     kp.add_argument("--no-check", action="store_true"); kp.add_argument("--compare", nargs=2, metavar="RUN")
     rs = sp.add_parser("runs"); rs.add_argument("run_id", nargs="?"); rs.add_argument("--json", action="store_true")
     pp = sp.add_parser("pipeline"); pp.add_argument("action", choices=["show", "validate"]); pp.add_argument("--json", action="store_true")
-    m = sp.add_parser("mark-documented"); m.add_argument("repos", nargs="*")
     s = sp.add_parser("status"); s.add_argument("--json", action="store_true")
     k = sp.add_parser("check"); k.add_argument("--strict", action="store_true")
     k.add_argument("--secrets", action="store_true", help="only the secret scan (CI gate before committing)")
@@ -128,22 +121,11 @@ def add_legacy(sp: argparse._SubParsersAction) -> None:
     us = sp.add_parser("stats"); us.add_argument("--json", action="store_true")
     us.add_argument("--months", type=int, default=3); us.add_argument("--record", choices=["on", "off"])
     fb = sp.add_parser("feedback"); fb.add_argument("file"); fb.add_argument("text"); fb.add_argument("--by", default="")
-    ad = sp.add_parser("arch-draft"); ad.add_argument("--save", action="store_true"); ad.add_argument("--overwrite", action="store_true")
-    rd = sp.add_parser("radar"); rd.add_argument("--json", action="store_true")
-    inv = sp.add_parser("inventory"); inv.add_argument("--json", action="store_true")
-    inv.add_argument("--cves", action="store_true")
-    inv.add_argument("--latest", action="store_true")
-    inv.add_argument("--fail-on", choices=["high", "critical"], default=None)
-    bmp = sp.add_parser("bump"); bmp.add_argument("repo"); bmp.add_argument("library"); bmp.add_argument("version")
-    bmp.add_argument("--ecosystem"); bmp.add_argument("--json", action="store_true"); bmp.add_argument("--yes", action="store_true")
     hl = sp.add_parser("health"); hl.add_argument("--json", action="store_true")
     hl.add_argument("--refresh", action="store_true")
-    sch = sp.add_parser("schemas"); sch.add_argument("--json", action="store_true")
     iv = sp.add_parser("interview"); iv.add_argument("action", choices=["mode", "export", "import", "status"])
     iv.add_argument("args", nargs="*"); iv.add_argument("--lang", default="es", choices=["es", "en"])
     iv.add_argument("--json", action="store_true")
-    st = sp.add_parser("stack"); st.add_argument("repo"); st.add_argument("text", nargs="?", default="")
-    st.add_argument("--reset", action="store_true")
     pr = sp.add_parser("prompt"); pr.add_argument("unit"); pr.add_argument("--lang", default="es")
     pr.add_argument("--unattended", action="store_true")
     ap = sp.add_parser("autopilot"); ap.add_argument("--lang", default="es"); ap.add_argument("--max-units", type=int)
@@ -162,10 +144,6 @@ def run_legacy(a: argparse.Namespace, p: argparse.ArgumentParser) -> int:
     elif a.cmd == "adr":
         from lib import adr_cli
         return adr_cli.run(a)
-    elif a.cmd == "changes":
-        print(json.dumps(docs.changes(), indent=2))
-    elif a.cmd == "mark-documented":
-        print("marked documented:", ", ".join(docs.mark_documented(a.repos)))
     elif a.cmd == "status":
         rows = docs.collect()
         if a.json:
@@ -192,10 +170,6 @@ def run_legacy(a: argparse.Namespace, p: argparse.ArgumentParser) -> int:
     elif a.cmd == "translated":
         for f in docs.translated(a.files):
             print("stamped", f)
-    elif a.cmd == "llms":
-        print(f"wrote docs/llms.txt ({docs.llms()} entries)")
-    elif a.cmd == "graph":
-        env.graph(rebuild=True)
     elif a.cmd == "arch-validate":
         ok, msg = env.arch_validate()
         print(msg or ("✓ Valid" if ok else "invalid"))
@@ -228,10 +202,6 @@ def run_legacy(a: argparse.Namespace, p: argparse.ArgumentParser) -> int:
     elif a.cmd == "docs":
         from lib import reset
         return reset.main(a.mode, dry_run=a.dry_run, yes=a.yes, templates=a.templates)
-    elif a.cmd == "history":
-        from lib import history
-        from lib.common import rel_file
-        print(f"✔ {rel_file(history.write(a.months))}: last {a.months} months of git history")
     elif a.cmd == "removed":
         from lib import removed
         print(f"✔ {removed.add(a.what, a.why, a.decision)}: {a.what}")
@@ -280,14 +250,8 @@ def run_legacy(a: argparse.Namespace, p: argparse.ArgumentParser) -> int:
         return cmd_runs(a)
     elif a.cmd == "kpis":
         return cmd_kpis(a)
-    elif a.cmd == "fresh":
-        return cmd_fresh(a)
     elif a.cmd == "health":
         return cmd_health(a)
-    elif a.cmd == "blocks":
-        return cmd_blocks(a)
-    elif a.cmd in ("pages", "diagrams"):
-        return cmd_pages(a)
     elif a.cmd == "pr":
         return cmd_pr(a)
     elif a.cmd == "eval":
@@ -377,77 +341,8 @@ def run_legacy(a: argparse.Namespace, p: argparse.ArgumentParser) -> int:
         print(f"  gitleaks  {'ok' if env.tool_ok('gitleaks') else 'missing'} (pinned {VERSIONS['gitleaks']})")
     elif a.cmd == "plan":
         return cmd_plan(a)
-    elif a.cmd == "arch-draft":
-        from lib import pages, quickarch
-        m = quickarch.draft()
-        print((m["dir"] / "model.c4").read_text(encoding="utf-8"))
-        if a.save:                                                      # the new layout has no first-look.md
-            print("\n".join(quickarch.save(m, overwrite=a.overwrite, page=pages.layout() == "old")))
     elif a.cmd == "interview":
         return cmd_interview(a)
-    elif a.cmd == "radar":
-        from lib import radar
-        page = radar.run(log=(lambda _: None) if a.json else print)
-        if a.json:
-            print(json.dumps(load_json(radar.CACHE_FILE, {}), indent=2, ensure_ascii=False))
-        else:
-            for name, r in load_json(radar.CACHE_FILE, {}).items():
-                print(f"{name:<20} {r['stack']}")
-                print(f"{'':<20} " + (", ".join(t["label"] for t in r["tools"]) or "-"))
-            print(f"→ {page.relative_to(ROOT).as_posix()}")
-    elif a.cmd == "inventory":
-        from lib import inventory
-        # --json keeps stdout for the JSON; the progress goes to stderr, where the desktop app reads it as it comes
-        page = inventory.run(log=(lambda m: print(m, file=sys.stderr, flush=True)) if a.json else print, cves=a.cves,
-                             latest=a.latest)
-        data = inventory.load()
-        if a.json:
-            print(json.dumps(data, indent=2, ensure_ascii=False))
-        else:
-            print(f"→ {page.relative_to(ROOT).as_posix()}")
-        return inventory.exit_code(data, a.fail_on)
-    elif a.cmd == "bump":
-        from lib import bump
-        try:
-            if not a.yes:
-                p = bump.public(bump.plan(a.repo, a.library, a.version, a.ecosystem))
-                print(json.dumps(p, indent=2, ensure_ascii=False) if a.json else
-                      f"{p['repo']}: {p['name']} {p['from']} → {p['to']} on a new branch {p['branch']}\n"
-                      f"  {' '.join(p['argv']) if p['argv'] else 'the version is rewritten in ' + p['manifest']}"
-                      f"{' (property ' + p['property'] + ')' if p.get('property') else ''}\n"
-                      "  run again with --yes to do it (nothing is committed or pushed)")
-                return 0
-            r = bump.apply(a.repo, a.library, a.version, a.ecosystem,
-                           log=(lambda m: print(m, file=sys.stderr)) if a.json else print)
-        except (KeyError, ValueError, RuntimeError) as e:
-            print(f"✖ {e.args[0] if isinstance(e, KeyError) else e}", file=sys.stderr)
-            return 1
-        if a.json:
-            print(json.dumps(r, indent=2, ensure_ascii=False))
-        return 0
-    elif a.cmd == "schemas":
-        from lib import genblocks, pages, schemas
-        found = schemas.scan()
-        if a.json:
-            print(json.dumps(found, indent=2, ensure_ascii=False))
-            return 0
-        written = schemas.write_pages() if pages.layout() == "old" else pages.write()   # new: tables in the repo pages
-        updated = genblocks.refresh()["updated"]
-        for name, r in found.items():
-            n = sum(len(s["entities"]) for s in r["stores"])
-            print(f"{name:<20} {n} tables/collections" + (f" ({', '.join(r['tools'])})" if r["tools"] else ""))
-        for f in written + [u for u in updated if u.startswith("docs/data/")]:
-            print(f"→ {f}")
-    elif a.cmd == "stack":
-        from lib import radar
-        if not a.reset and not a.text:
-            p.error("stack: give the stack text or --reset")
-        try:
-            radar.set_stack(a.repo, None if a.reset else a.text)
-        except ValueError as e:
-            print(e, file=sys.stderr)
-            return 2
-        print(f"{a.repo}: " + ("stack reset to the detected one" if a.reset else a.text.strip()))
     elif a.cmd == "checkpoint":
         print("✔ committed locally" if env.checkpoint_commit(a.message) else "no checkpoint commit")
     elif a.cmd == "remote":
@@ -770,80 +665,6 @@ def cmd_pr(a) -> int:
     if a.post:
         print(pr.post(body, affected=bool(result["pages"])))
     return 0                                     # a warning, never a failed pipeline (H27)
-
-
-def cmd_blocks(a) -> int:
-    from lib import genblocks, pages
-    old = pages.layout() == "old"                                               # the new layout has no reference.md
-    created = genblocks.write_reference() if old else []
-    out = {"created": created, **genblocks.refresh(force=a.force)}
-    if a.json:
-        print(json.dumps(out, indent=2, ensure_ascii=False))
-        return 0
-    made = f"{len(out['created'])} reference page(s) created, " if old else ""
-    print(f"✔ {made}{len(out['updated'])} page(s) refreshed")
-    for e in out["edited"]:
-        print(f"  · kept, edited by hand: {e}")
-    for h in out["human"]:
-        print(f"  · not touched, owned by a person: {h}")
-    if out["edited"]:
-        print(f"Fix the source in the repo, or `{cli_cmd()} blocks --force` to take the code's version.")
-    return 0
-
-
-def cmd_pages(a) -> int:
-    """`pages` and its alias `diagrams`: the pages from the code for the project's layout (`pages.write`), then every
-    block refreshed; `--adopt` (pages only) moves an old-layout project to the new pages."""
-    from lib import genblocks, pages
-    if getattr(a, "adopt", False):
-        out = pages.adopt(log=(lambda _: None) if a.json else print)
-        if a.json:
-            print(json.dumps(out, indent=2, ensure_ascii=False))
-        return 0
-    layout = pages.layout()
-    out = {"layout": layout, "written": pages.write(log=lambda _: None), **genblocks.refresh()}
-    if a.json:
-        print(json.dumps(out, indent=2, ensure_ascii=False))
-        return 0
-    print(f"✔ {len(out['written'])} page(s) written, {len(out['updated'])} page(s) refreshed")
-    for w in out["written"]:
-        print(f"  → {w}")
-    for e in out["edited"]:
-        print(f"  · kept, edited by hand: {e}")
-    for h in out["human"]:
-        print(f"  · not touched, owned by a person: {h}")
-    if out["edited"]:
-        print(f"Fix the source in the repo, or `{cli_cmd()} blocks --force` to take the code's version.")
-    return 0
-
-
-def cmd_fresh(a) -> int:
-    from lib.harness import freshness
-    if a.ack:
-        if not a.by:
-            print("usage: fresh --ack PAGE… --by NAME", file=sys.stderr)
-            return 2
-        done = freshness.ack(a.ack, a.by)
-        print(f"✔ today's code is now the reference for: {', '.join(done) or 'no known page'}")
-        return 0 if done else 1
-    if a.plan:
-        u = freshness.refresh_unit()
-        print(f"✔ unit {u['id']}: {u['notes']}")
-        return 0
-    states = freshness.states()
-    rows = [{"path": p, **s} for p, s in sorted(states.items())]
-    if a.json:
-        print(json.dumps(rows, indent=2, ensure_ascii=False))
-        return 0
-    old = [r for r in rows if r["state"] in freshness.OUT_OF_DATE]
-    counts = {k: sum(1 for r in rows if r["state"] == k) for k in ("fresh", "suspect", "stale", "unverified")}
-    print("  ".join(f"{n} {k}" for k, n in counts.items()) + f"  (agents: {freshness.policy()})")
-    for r in old:
-        print(f"  {r['state']:<8} {r['path']}  ← {', '.join(freshness.code_paths(r['missing'] + r['changed']))}")
-    if old:
-        print(f"Refresh them (`{cli_cmd()} fresh --plan` adds a unit) or, if they still hold, "
-              f"`{cli_cmd()} fresh --ack <page> --by <name>`.")
-    return 0
 
 
 # What each reason key of lib/health.py reads like (the apps translate the keys themselves)

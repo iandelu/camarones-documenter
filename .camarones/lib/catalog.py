@@ -34,27 +34,6 @@ _LEFT: dict[str, dict] = {             # the commands still dispatched by interf
     "docs": _e("app", "generate", "Rehacer la documentación (reabrir las unidades) o borrarla y empezar de cero",
                "Redo the docs (reopen the units) or wipe them and start over", destructive=True, reads="dry_run"),
     "runs": _e("both", "generate", "Qué hizo y costó cada ejecución", "What each run did and cost"),
-    # analyze: static analysis, no AI
-    "arch-draft": _e("app", "analyze", "Borrador C4 desde el código, sin IA", "C4 draft from the code, no AI"),
-    "radar": _e("app", "analyze", "Stack y herramientas que ya usan los repos", "Stack and tools the repos already use"),
-    "inventory": _e("both", "analyze", "Dependencias de cada repo y sus vulnerabilidades",
-                    "Each repo's dependencies and their vulnerabilities"),
-    "bump": _e("app", "analyze", "Actualizar una librería de un repo en una rama nueva, sin commit",
-               "Update one library of a repo on a new branch, not committed"),
-    "schemas": _e("app", "analyze", "Tablas y colecciones de cada repo", "Each repo's tables and collections"),
-    "blocks": _e("app", "analyze", "Datos leídos del código para los bloques generados",
-                 "Facts read from the code for the generated blocks"),
-    "pages": _e("app", "analyze", "Páginas desde el código, sin IA: el inicio y una por repo",
-                "Pages from the code, no AI: the home and one per repo"),
-    "diagrams": CLI,                                                       # alias of `pages`: the Taller shows `pages`
-    "history": _e("app", "analyze", "Historia del proyecto desde git", "The project's history from git"),
-    "graph": _e("app", "analyze", "Reconstruir el grafo de código", "Rebuild the code graph"),
-    "llms": _e("app", "analyze", "Regenerar llms.txt", "Regenerate llms.txt"),
-    "changes": _e("both", "analyze", "Ficheros cambiados desde la última documentación",
-                  "Files changed since the docs were last updated"),
-    "fresh": _e("both", "analyze", "Páginas cuyo código citado cambió", "Pages whose cited code changed"),
-    "mark-documented": _e("app", "analyze", "Marcar los commits actuales como documentados",
-                          "Record the current commits as documented"),
     # check: is it right, is it working
     "doctor": _e("app", "check", "Requisitos y versiones de las herramientas", "Prerequisites and tool versions"),
     "check": _e("app", "check", "Comprobar la calidad de la documentación", "Check the quality of the docs"),
@@ -86,8 +65,6 @@ _LEFT: dict[str, dict] = {             # the commands still dispatched by interf
     "export": _e("app", "team", "Exportar a PDF, tour, Confluence o Notion", "Export to PDF, tour, Confluence or Notion"),
     "removed": _e("both", "team", "Anotar algo quitado a propósito", "Record something removed on purpose"),
     "translated": _e("both", "team", "Marcar páginas como traducidas", "Stamp pages as translated"),
-    # machine: tools, settings, lifecycle
-    "stack": _e("app", "machine", "Corregir el stack de un repo", "Fix a repo's stack"),
     # the portal's own: reading and review
     "confirm": _e("portal"),
     "feedback": _e("portal"),
