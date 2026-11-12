@@ -80,13 +80,21 @@ def _rendered_entry(rel) -> bool:
 
 def write_kit_skills(project_name: str | None = None) -> None:
     """Always refreshed: a copy edited in .claude/skills goes back to the effective text (the team's copy, else the
-    kit's). What an earlier render wrote and the effective set no longer has is removed; foreign files stay."""
-    files = skill_files(project_name)
+    kit's). What an earlier render wrote and the effective set no longer has is removed; foreign files stay.
+    A link is never written through: one at a rendered file's path is replaced by the file, and a skill whose
+    `<host>`, `<host>/skills` or own folder is a link (or a junction) is not rendered in that host, the other host
+    still is. Trust lists the link itself, never what it points to."""
+    files, written = skill_files(project_name), []
     for rel, text in files.items():
         dst = ROOT / rel
+        if not _real_skills_dir(dst.parent):
+            continue
+        if dst.is_symlink():
+            dst.unlink()
         dst.parent.mkdir(parents=True, exist_ok=True)
         with open(dst, "w", encoding="utf-8", newline="\n") as f:
             f.write(text)
+        written.append(rel)
     manifest = load_json(RENDERED_SKILLS, [])
     for rel in {r for r in (manifest if isinstance(manifest, list) else []) if _rendered_entry(r)} - set(files):
         gone = ROOT / rel
@@ -97,7 +105,7 @@ def write_kit_skills(project_name: str | None = None) -> None:
         while d != host_skills and _real_skills_dir(d) and d.is_dir() and not any(d.iterdir()):
             d.rmdir()
             d = d.parent
-    save_json(RENDERED_SKILLS, sorted(files))
+    save_json(RENDERED_SKILLS, sorted(written))
 
 
 def init_templates(project_name: str | None = None, log: Log = print) -> list[str]:

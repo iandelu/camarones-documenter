@@ -321,3 +321,28 @@ def test_a_checkpoint_commits_a_team_copy_with_its_stamp_and_rendering(wired):
                            text=True, encoding="utf-8").stdout.splitlines()
     assert {".camarones/skills/cam-docs-update/SKILL.md", ".camarones/.kit-skills.json",
             ".claude/skills/cam-docs-update/SKILL.md"} <= set(files)
+
+
+def test_a_symlinked_rendered_file_is_replaced_never_written_through(wired, tmp_path):
+    victim = tmp_path / "victim.md"
+    victim.write_text("keep", encoding="utf-8")
+    dst = wired.root / ".claude" / "skills" / "cam-docs-update" / "SKILL.md"
+    dst.unlink()
+    link(dst, victim)
+    wired.env.write_kit_skills()
+    assert victim.read_text(encoding="utf-8") == "keep"
+    assert not dst.is_symlink()
+    assert dst.read_text(encoding="utf-8") == wired.env.skill_files()[".claude/skills/cam-docs-update/SKILL.md"]
+
+
+@pytest.mark.parametrize("at", [".claude", ".claude/skills", ".claude/skills/cam-docs-update"])
+def test_a_symlinked_host_or_skill_folder_gets_nothing_written_into_it(wired, tmp_path, at):
+    victim = tmp_path / "fake-home"
+    victim.mkdir()
+    linked_at(wired, at, victim)
+    wired.env.write_kit_skills()
+    assert list(victim.rglob("*")) == []
+    assert (wired.root / at).is_symlink()
+    assert (wired.root / ".agents" / "skills" / "cam-docs-update" / "SKILL.md").is_file()
+    if at == ".claude/skills/cam-docs-update":
+        assert (wired.root / ".claude" / "skills" / "cam-docs-lookup" / "SKILL.md").is_file()
