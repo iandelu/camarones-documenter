@@ -1,4 +1,5 @@
 import importlib
+import shutil
 
 
 def skills(kit):
@@ -54,16 +55,43 @@ def test_a_team_copy_is_rendered_in_both_hosts_and_repair_keeps_it(wired):
 def test_a_crlf_team_copy_renders_with_lf(wired):
     d = team(wired, "cam-docs-unit")
     (d / "SKILL.md").write_bytes(b"---\r\nname: cam-docs-unit\r\ndescription: Ours.\r\n---\r\nbody\r\n")
+    assert b"\r" not in "".join(wired.env.skill_files().values()).encode("utf-8")
     wired.env.write_kit_skills()
-    assert b"\r\n" not in (wired.root / ".claude" / "skills" / "cam-docs-unit" / "SKILL.md").read_bytes()
+    data = (wired.root / ".claude" / "skills" / "cam-docs-unit" / "SKILL.md").read_bytes()
+    assert b"Ours." in data and b"\r" not in data
+
+
+def test_an_unedited_crlf_fork_stays_the_kits_text(wired):
+    trust = importlib.import_module("lib.trust")
+    raw = skills(wired).kit_files("cam-docs-update")["SKILL.md"]
+    d = team(wired, "cam-docs-update")
+    (d / "SKILL.md").write_bytes(raw.replace("\n", "\r\n").encode("utf-8"))
+    wired.env.write_kit_skills()
+    assert [x for x in importlib.import_module("lib.install_state").drift() if "skills" in x["path"]] == []
+    assert [it for it, _ in trust.pending() if "cam-docs-update" in it.id] == []
+
+
+def test_a_removed_nested_team_skill_leaves_no_folder(wired):
+    d = team(wired, "our-deep")
+    (d / "references").mkdir()
+    (d / "references" / "a.md").write_text("a", encoding="utf-8")
+    wired.env.write_kit_skills()
+    assert (wired.root / ".agents" / "skills" / "our-deep" / "references" / "a.md").is_file()
+    shutil.rmtree(d)
+    wired.env.write_kit_skills()
+    for host in (".claude", ".agents"):
+        assert not (wired.root / host / "skills" / "our-deep").exists()
+        assert (wired.root / host / "skills").is_dir()
 
 
 def test_a_removed_team_skill_leaves_no_rendered_copy_and_foreign_files_stay(wired):
     d = team(wired, "our-review")
     wired.env.write_kit_skills()
+    for host in (".claude", ".agents"):
+        assert (wired.root / host / "skills" / "our-review" / "SKILL.md").is_file()
     mine = wired.root / ".claude" / "skills" / "handmade" / "SKILL.md"
     mine.parent.mkdir(parents=True); mine.write_text("x", encoding="utf-8")
-    import shutil; shutil.rmtree(d)
+    shutil.rmtree(d)
     wired.env.write_kit_skills()
     assert not (wired.root / ".claude" / "skills" / "our-review").exists()
     assert not (wired.root / ".agents" / "skills" / "our-review").exists()

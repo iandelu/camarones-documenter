@@ -60,9 +60,11 @@ def write_kit_skills(project_name: str | None = None) -> None:
         gone = ROOT / rel
         if gone.is_file() or gone.is_symlink():
             gone.unlink()
-        for d in (gone.parent, gone.parent.parent):
-            if d.is_dir() and d.parent.name == "skills" and not any(d.iterdir()):
-                d.rmdir()
+        host_skills = ROOT / rel.split("/", 1)[0] / "skills"
+        d = gone.parent
+        while d != host_skills and host_skills in d.parents and d.is_dir() and not any(d.iterdir()):
+            d.rmdir()
+            d = d.parent
     save_json(RENDERED_SKILLS, sorted(files))
 
 
