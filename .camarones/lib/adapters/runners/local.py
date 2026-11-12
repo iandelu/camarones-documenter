@@ -6,15 +6,14 @@ import json
 import os
 from pathlib import Path
 
-import yaml
-
+from ...core import yamlio
 from ...common import IS_WIN, out, which
 
 DATA = Path(__file__).with_name("local_models.yaml")
 
 
 def models() -> list[dict]:
-    return sorted(yaml.safe_load(DATA.read_text(encoding="utf-8")) or [], key=lambda m: -m["min_gb"])
+    return sorted(yamlio.safe_load(DATA.read_text(encoding="utf-8")) or [], key=lambda m: -m["min_gb"])
 
 
 def memory_gb() -> float | None:

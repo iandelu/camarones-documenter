@@ -8,8 +8,7 @@ import copy
 import functools
 from pathlib import Path
 
-import yaml
-
+from ..core import yamlio
 from .routing import TIERS
 
 DIR = Path(__file__).resolve().parent.parent / "pipelines"
@@ -23,11 +22,11 @@ OPS = {"disable": (), "needs": ("add", "remove"), "set": SETTINGS}
 
 @functools.lru_cache(maxsize=1)
 def types() -> dict[str, dict]:
-    return yaml.safe_load((DIR / "units.yaml").read_text(encoding="utf-8"))
+    return yamlio.safe_load((DIR / "units.yaml").read_text(encoding="utf-8"))
 
 
 def load(name: str) -> dict:
-    return yaml.safe_load((DIR / f"{name}.yaml").read_text(encoding="utf-8"))
+    return yamlio.safe_load((DIR / f"{name}.yaml").read_text(encoding="utf-8"))
 
 
 def kit_types() -> set[str]:

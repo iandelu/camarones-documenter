@@ -13,6 +13,7 @@ from pathlib import Path
 
 import yaml
 
+from .core import yamlio
 from .common import DOCS, repo_dir
 from . import docs, quickarch, radar
 
@@ -169,7 +170,7 @@ def liquibase_xml(text: str, rel: str, repo: str, tables: dict) -> None:
 
 
 def liquibase_yaml(text: str, rel: str, repo: str, tables: dict) -> None:
-    data = yaml.safe_load(text) or {}
+    data = yamlio.safe_load(text) or {}
     for item in data.get("databaseChangeLog") or []:
         for change in ((item or {}).get("changeSet") or {}).get("changes") or []:
             if ct := (change or {}).get("createTable"):

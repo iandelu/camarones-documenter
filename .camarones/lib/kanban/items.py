@@ -9,6 +9,7 @@ from typing import Literal, Sequence
 
 import yaml
 
+from ..core import yamlio
 TEMPLATES = Path(__file__).resolve().parents[2] / "templates" / "board"
 
 FIELD_ORDER = ("id", "title", "status", "assignee", "reporter", "created_date", "updated_date", "due_date", "labels",
@@ -74,7 +75,7 @@ def parse_item(text: str, path: Path | None = None) -> Item:
     if not m:
         raise ItemError("no frontmatter")
     try:
-        fm = yaml.safe_load(m.group(1) or "") or {}
+        fm = yamlio.safe_load(m.group(1) or "") or {}
     except yaml.YAMLError as e:
         raise ItemError(f"invalid frontmatter: {str(e).splitlines()[0]}") from e
     if not isinstance(fm, dict):

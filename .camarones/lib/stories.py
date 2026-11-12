@@ -19,6 +19,7 @@ from typing import Sequence, TypedDict
 
 import yaml
 
+from .core import yamlio
 from . import codemap, docs
 from .common import ROOT
 from .kanban import deps, index
@@ -113,7 +114,7 @@ def _words(lang: str) -> dict:
     f = TEMPLATES / lang / "story-lint.yaml"
     if not f.exists():
         f = TEMPLATES / "en" / "story-lint.yaml"
-    return yaml.safe_load(f.read_text(encoding="utf-8"))
+    return yamlio.safe_load(f.read_text(encoding="utf-8"))
 
 
 def lint_words(lang: str) -> dict[str, list[str]]:
@@ -395,7 +396,7 @@ def _kit_split(lang: str) -> dict:
     f = TEMPLATES / lang / "split.yaml"
     if not f.exists():
         f = TEMPLATES / "en" / "split.yaml"
-    return yaml.safe_load(f.read_text(encoding="utf-8"))
+    return yamlio.safe_load(f.read_text(encoding="utf-8"))
 
 
 def split_templates(lang: str) -> dict[str, str]:
@@ -405,7 +406,7 @@ def split_templates(lang: str) -> dict[str, str]:
     f = ROOT / ".camarones" / "board" / "split.yaml"
     if f.is_file():
         try:
-            mine = yaml.safe_load(f.read_text(encoding="utf-8"))
+            mine = yamlio.safe_load(f.read_text(encoding="utf-8"))
         except (OSError, UnicodeDecodeError, yaml.YAMLError) as e:
             log.warning("ignoring %s: %s", f, e)
             mine = None

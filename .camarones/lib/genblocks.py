@@ -17,6 +17,7 @@ from pathlib import Path
 
 import yaml
 
+from .core import yamlio
 from .common import DOCS, ROOT, cli_cmd, repo_dir, rel_file
 from . import diagrams, docs, quickarch
 
@@ -198,7 +199,7 @@ def endpoint_rows(name: str, repo: Path) -> list[dict]:
         if not OPENAPI_FILES.search(f.name):
             continue
         try:
-            spec = yaml.safe_load(_read(f)) or {}
+            spec = yamlio.safe_load(_read(f)) or {}
         except yaml.YAMLError:
             continue
         for path, ops in ((spec.get("paths") or {}) if isinstance(spec, dict) else {}).items():

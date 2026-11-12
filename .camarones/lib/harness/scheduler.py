@@ -74,10 +74,11 @@ def _closed_in_copy(uid: str, log) -> bool:
     """A session that closed its unit in its worktree's copy of the plan (an older kit on PATH ignores the state
     root): carry that status over to the real plan instead of losing the work."""
     import yaml
+    from ..core import yamlio
     w = Worktrees(CTX).get(uid)
     copy = w.path / "docs" / ".work" / "plan.yaml" if w else None
     try:
-        units = (yaml.safe_load(copy.read_text(encoding="utf-8")) or {}).get("units", []) if copy and copy.exists() else []
+        units = (yamlio.safe_load(copy.read_text(encoding="utf-8")) or {}).get("units", []) if copy and copy.exists() else []
     except yaml.YAMLError:
         return False
     u = next((u for u in units if u.get("id") == uid), None)

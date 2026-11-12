@@ -13,6 +13,7 @@ from pathlib import Path
 
 import yaml
 
+from .core import yamlio
 from .common import CACHE, DOCS, repo_dir, save_json
 from . import docs, quickarch
 
@@ -32,7 +33,7 @@ CATEGORIES = {
 
 def _yaml_docs(f: Path) -> list:
     try:
-        return [d for d in yaml.safe_load_all(f.read_text(encoding="utf-8", errors="ignore")) if isinstance(d, dict)]
+        return [d for d in yamlio.safe_load_all(f.read_text(encoding="utf-8", errors="ignore")) if isinstance(d, dict)]
     except (yaml.YAMLError, OSError):
         return []
 

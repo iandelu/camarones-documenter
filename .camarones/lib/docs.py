@@ -8,6 +8,7 @@ from typing import Callable
 
 import yaml
 
+from .core import yamlio
 from .common import (KIT, ROOT, DOCS, WS_FILE, CACHE, WORKSPACE, CAM_DIR, CAM_LAYOUT, repo_dir, rel_file, run,
                      load_json, save_json)
 
@@ -32,7 +33,7 @@ def ws_file() -> Path:
 
 
 def workspace() -> dict:
-    ws = (yaml.safe_load(ws_file().read_text(encoding="utf-8")) if ws_file().exists() else None) or {}
+    ws = (yamlio.safe_load(ws_file().read_text(encoding="utf-8")) if ws_file().exists() else None) or {}
     ws.setdefault("project", {})
     ws.setdefault("repos", [])
     ws["project"].setdefault("name", WORKSPACE.name)
@@ -222,7 +223,7 @@ def parse_fm(text: str) -> tuple[dict, str, bool]:
     raw, body = m.group(1), text[m.end():]
     for candidate in (raw, LOOSE_VALUE_RE.sub(lambda v: f"{v[1]}: {json.dumps(v[2], ensure_ascii=False)}", raw)):
         try:
-            fm = yaml.safe_load(candidate) or {}
+            fm = yamlio.safe_load(candidate) or {}
         except yaml.YAMLError:
             continue
         if isinstance(fm, dict):
@@ -687,7 +688,7 @@ def flatten_directives(md: str) -> str:
 
 
 def search_terms() -> dict[str, list[str]]:
-    return yaml.safe_load(TERMS_FILE.read_text(encoding="utf-8")) or {}
+    return yamlio.safe_load(TERMS_FILE.read_text(encoding="utf-8")) or {}
 
 
 def expand(query: str) -> dict[str, float]:

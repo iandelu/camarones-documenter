@@ -10,6 +10,7 @@ from pathlib import Path
 
 import yaml
 
+from ..core import yamlio
 from ..common import CTX, run
 from . import plugins
 
@@ -25,7 +26,7 @@ class PluginError(RuntimeError):
 def load_lock() -> dict:
     if not LOCK.is_file():
         return {}
-    data = yaml.safe_load(LOCK.read_text(encoding="utf-8")) or {}
+    data = yamlio.safe_load(LOCK.read_text(encoding="utf-8")) or {}
     return dict(data.get("plugins") or {})
 
 
