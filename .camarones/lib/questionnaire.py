@@ -10,6 +10,7 @@ from pathlib import Path
 
 import yaml
 
+from .core import yamlio
 from .common import DOCS
 
 QDIR = DOCS / "interview" / "questionnaire"
@@ -58,7 +59,7 @@ LABELS = {
 def load() -> dict:
     if not SOURCE.exists():
         raise ValueError(f"no questionnaire yet: the `questionnaire` unit writes {SOURCE.relative_to(DOCS.parent).as_posix()}")
-    data = yaml.safe_load(SOURCE.read_text(encoding="utf-8")) or {}
+    data = yamlio.safe_load(SOURCE.read_text(encoding="utf-8")) or {}
     qs = data.get("questions") or []
     if not qs:
         raise ValueError("questionnaire.yaml has no questions")
@@ -186,7 +187,7 @@ def _read(f: Path, data: dict) -> dict:
     text = f.read_text(encoding="utf-8-sig")
     if f.suffix.lower() == ".md":
         return _parse_md(text, data)
-    raw = json.loads(text) if f.suffix.lower() == ".json" else yaml.safe_load(text)
+    raw = json.loads(text) if f.suffix.lower() == ".json" else yamlio.safe_load(text)
     if not isinstance(raw, dict):
         raise ValueError("not an answers file")
     kinds = {q["id"]: q for q in data["questions"]}
@@ -246,7 +247,7 @@ def responses() -> dict[str, dict]:
         return {}
     out = {}
     for f in sorted(RESPONSES.glob("*.yaml")):
-        r = yaml.safe_load(f.read_text(encoding="utf-8")) or {}
+        r = yamlio.safe_load(f.read_text(encoding="utf-8")) or {}
         out[str(r.get("respondent") or f.stem)] = r
     return out
 

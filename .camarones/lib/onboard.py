@@ -11,6 +11,7 @@ from typing import Callable
 
 import yaml
 
+from .core import yamlio
 from .common import (CAM_DIR, CAM_LAYOUT, IS_WIN, cli_cmd, ensure_path, find_project_marker, load_json, repo_dir, run,
                      save_json, ws_rel)
 from .harness.ctx import Ctx
@@ -48,7 +49,7 @@ def kind_of(ws: dict) -> str:
 
 def _read_ws(docs_root: Path) -> dict:
     try:
-        ws = yaml.safe_load((docs_root / ".camarones" / "workspace.yaml").read_text(encoding="utf-8"))
+        ws = yamlio.safe_load((docs_root / ".camarones" / "workspace.yaml").read_text(encoding="utf-8"))
     except (OSError, yaml.YAMLError):
         ws = None
     ws = ws if isinstance(ws, dict) else {}

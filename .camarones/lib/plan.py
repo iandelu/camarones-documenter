@@ -25,6 +25,7 @@ from pathlib import Path
 
 import yaml
 
+from .core import yamlio
 from .common import CTX, KIT, PREFS, ROOT, load_json, WORK, CAM_LAYOUT, CAM_DIR, WORKSPACE, cli_cmd, kill_tree, ws_rel, rel_file, IS_WIN, which
 from . import docs, sessions
 from .adapters import runners
@@ -63,7 +64,7 @@ def utcnow() -> str:
 
 def load() -> dict:
     if PLAN.exists():
-        data = yaml.safe_load(PLAN.read_text(encoding="utf-8")) or {}
+        data = yamlio.safe_load(PLAN.read_text(encoding="utf-8")) or {}
     else:
         data = {}
     data.setdefault("version", 1)
@@ -126,7 +127,7 @@ def project_pipeline() -> tuple[dict, list[str]]:
     if not OVERRIDE.exists():
         return pipeline.load(default), []
     try:
-        override = yaml.safe_load(OVERRIDE.read_text(encoding="utf-8")) or {}
+        override = yamlio.safe_load(OVERRIDE.read_text(encoding="utf-8")) or {}
     except yaml.YAMLError as e:
         return pipeline.load(default), [f"pipeline.yaml is not valid YAML: {e}"]
     if not isinstance(override, dict):

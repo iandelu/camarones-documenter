@@ -12,8 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Sequence
 
-import yaml
-
+from ..core import yamlio
 from .. import docs
 from ..common import IS_MAC, IS_WIN, KIT, ROOT, out, run, which
 from ..harness.locks import FileLock
@@ -118,7 +117,7 @@ def _managed_config() -> dict[str, object]:
 def _item(v: object) -> str:
     """A list entry: plain when YAML reads it back as the same text (as Backlog.md writes it), else quoted."""
     s = str(v)
-    if re.fullmatch(r"[A-Za-z][A-Za-z0-9 _.-]*", s) and yaml.safe_load(s) == s:
+    if re.fullmatch(r"[A-Za-z][A-Za-z0-9 _.-]*", s) and yamlio.safe_load(s) == s:
         return s
     return json.dumps(s, ensure_ascii=False)
 

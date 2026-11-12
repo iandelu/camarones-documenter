@@ -9,6 +9,7 @@ from typing import Iterable
 
 import yaml
 
+from ..core import yamlio
 ORDINAL_STEP = 1000
 _CROCKFORD = "0123456789abcdefghjkmnpqrstvwxyz"
 _ID = re.compile(r"^(.*?)-(\d+)(~.*)?$")
@@ -47,7 +48,7 @@ def stamp_time(value: str) -> datetime:
 
 def load_board(text: str) -> dict[str, dict]:
     try:
-        data = yaml.safe_load(text)
+        data = yamlio.safe_load(text)
     except yaml.YAMLError as e:
         raise ValueError(f"board.yaml is not valid YAML: {e}") from e
     if not isinstance(data, dict) or data.get("version") != 1:
@@ -75,7 +76,7 @@ def _scalar(v: object) -> str:
     plain = s == s.strip() and s != "" and not (_SPECIAL & set(s[:1])) and not any(c in s for c in ":,{}[]#\n")
     if plain:
         try:
-            plain = yaml.safe_load(s) == s     # "123", "null", "true", dates... would load as another type
+            plain = yamlio.safe_load(s) == s     # "123", "null", "true", dates... would load as another type
         except yaml.YAMLError:
             plain = False
     return s if plain else json.dumps(s, ensure_ascii=False)

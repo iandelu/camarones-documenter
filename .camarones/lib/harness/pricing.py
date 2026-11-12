@@ -7,8 +7,7 @@ import functools
 import re
 from pathlib import Path
 
-import yaml
-
+from ..core import yamlio
 from . import routing
 
 KINDS = ("in", "out", "cache_read", "cache_write_5m", "cache_write_1h")
@@ -18,7 +17,7 @@ DATED = re.compile(r"-\d{8}$")
 
 @functools.lru_cache(maxsize=1)
 def _kit() -> dict:
-    return yaml.safe_load(FILE.read_text(encoding="utf-8")) or {}
+    return yamlio.safe_load(FILE.read_text(encoding="utf-8")) or {}
 
 
 def _number(v) -> bool:

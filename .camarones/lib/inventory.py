@@ -13,6 +13,7 @@ from pathlib import Path
 
 import yaml
 
+from .core import yamlio
 from .common import DOCS, WORK, repo_dir, load_json, save_json
 from . import docs, radar
 
@@ -28,7 +29,7 @@ MANIFEST_NAMES = ("pom.xml", "build.gradle", "build.gradle.kts", "libs.versions.
 
 
 def categories() -> list[tuple[str, list[str]]]:
-    return [(k, [str(p).lower() for p in v]) for k, v in (yaml.safe_load(CATEGORIES_FILE.read_text(encoding="utf-8")) or {}).items()]
+    return [(k, [str(p).lower() for p in v]) for k, v in (yamlio.safe_load(CATEGORIES_FILE.read_text(encoding="utf-8")) or {}).items()]
 
 
 def category(name: str, cats: list[tuple[str, list[str]]]) -> str:
@@ -297,7 +298,7 @@ def cargo(text: str) -> list[dict]:
 
 
 def pubspec(text: str) -> list[dict]:
-    data = yaml.safe_load(text) or {}
+    data = yamlio.safe_load(text) or {}
     out = []
     for key, scope in (("dependencies", "runtime"), ("dev_dependencies", "dev")):
         for name, spec in (data.get(key) or {}).items():
@@ -458,7 +459,7 @@ def _owned_in(base: str, rel: str, text: str) -> list[tuple[str, str]]:
     if base == "composer.json":
         return [("Packagist", n)] if (n := json.loads(text).get("name")) else []
     if base == "pubspec.yaml":
-        return [("Pub", n)] if (n := (yaml.safe_load(text) or {}).get("name")) else []
+        return [("Pub", n)] if (n := (yamlio.safe_load(text) or {}).get("name")) else []
     return []
 
 

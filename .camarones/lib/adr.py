@@ -23,6 +23,7 @@ from pathlib import Path
 
 import yaml
 
+from .core import yamlio
 from . import adr_doc, docs
 from .common import CACHE, CAM_DIR, DOCS, WORK, retry_busy
 from .harness.locks import FileLock
@@ -106,7 +107,7 @@ def load_state(id: str) -> dict | None:
     except FileNotFoundError:
         return None
     try:
-        state = yaml.safe_load(text)
+        state = yamlio.safe_load(text)
     except yaml.YAMLError:
         state = None
     if not isinstance(state, dict):

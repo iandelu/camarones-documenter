@@ -5,7 +5,7 @@ Building one costs about a dozen git processes, so each layout is built once per
 a template that every call copies: each test still gets its own workspace under its own tmp_path."""
 from __future__ import annotations
 
-import atexit, os, shutil, stat, subprocess, tempfile
+import atexit, ctypes, ctypes.util, os, shutil, stat, subprocess, sys, tempfile
 from pathlib import Path
 
 import yaml
@@ -79,8 +79,49 @@ def slim(ws: Path, env: dict | None = None) -> Path:
 def make_workspace(base: Path, repos: tuple[str, ...] = tuple(REPOS), name: str = "demo") -> Path:
     """<base>/<name>/{api,web,worker}/ + <base>/<name>/cam-docs/.camarones/workspace.yaml. Returns the workspace."""
     ws = base / name
-    shutil.copytree(_template(tuple(repos), name), ws, symlinks=True)
+    copy_tree(_template(tuple(repos), name), ws)
     return ws
+
+
+_clonefile = None
+
+
+def clone(src: Path, dst: Path) -> bool:
+    """macOS clonefile(2): the whole folder in one call, its files sharing their data with `src` until either side
+    writes (APFS). Copying a workspace file by file took a tenth of a second or more per test; this takes a few ms.
+    False where there is no clonefile, `dst` is already there, or it refuses (another volume, not APFS)."""
+    global _clonefile
+    if sys.platform != "darwin" or os.path.lexists(dst):
+        return False
+    if _clonefile is None:
+        try:
+            fn = ctypes.CDLL(ctypes.util.find_library("c"), use_errno=True).clonefile
+            fn.argtypes, fn.restype = (ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint32), ctypes.c_int
+            _clonefile = fn
+        except (OSError, AttributeError):
+            _clonefile = False
+    if _clonefile and _clonefile(os.fsencode(src), os.fsencode(dst), 0) == 0:
+        return True
+    if os.path.lexists(dst):                    # what a clone that stopped halfway left
+        rmtree(dst)
+    return False
+
+
+def copy_tree(src: Path, dst: Path) -> None:
+    """`src` at `dst`, links kept as links."""
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    if not clone(src, dst):
+        shutil.copytree(src, dst, symlinks=True)
+
+
+def drop_links(top: Path) -> None:
+    """Every symlink under `top` goes; folders and files stay."""
+    with os.scandir(top) as entries:
+        for e in entries:
+            if e.is_symlink():
+                os.unlink(e.path)
+            elif e.is_dir():
+                drop_links(Path(e.path))
 
 
 def build_workspace(base: Path, repos: tuple[str, ...] = tuple(REPOS), name: str = "demo",

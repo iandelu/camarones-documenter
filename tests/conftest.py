@@ -2,7 +2,7 @@
 import of `lib` pointed at its own temporary workspace and home folder — nothing leaks into the real ~/.camarones."""
 from __future__ import annotations
 
-import atexit, importlib, json, os, shutil, stat, sys, tempfile
+import atexit, importlib, json, os, shutil, socketserver, sys, tempfile
 from collections import deque
 from pathlib import Path
 from types import SimpleNamespace
@@ -16,13 +16,19 @@ for p in (str(KIT_DIR), str(TESTS)):
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from fixtures import bytecode, hang_watchdog  # noqa: E402
+from fixtures import bytecode, fast_git, hang_watchdog  # noqa: E402
 from fixtures.facade_guard import GuardedMonkeyPatch  # noqa: E402
-from fixtures.builder import GITCONFIG, make_workspace, rmtree, slim  # noqa: E402
+from fixtures.builder import GITCONFIG, clone, drop_links, make_workspace, rmtree, slim  # noqa: E402
 from fixtures.hang_watchdog import pytest_runtest_protocol, pytest_terminal_summary  # noqa: E402,F401
 from fixtures.host_tools import hidden_tools, masked_path  # noqa: E402
+from fixtures.reaper import Reaper  # noqa: E402
 
+fast_git.install()
 START_ENV = dict(os.environ)                    # before any test touched it: what the wired template is built under
+REAPER = Reaper()
+# a server stops when its serve_forever loop next looks up, every half second by default: each test that shut one down
+# waited for it
+socketserver.BaseServer.serve_forever.__defaults__ = (0.05,)
 
 
 def pytest_configure(config) -> None:
@@ -31,6 +37,7 @@ def pytest_configure(config) -> None:
 
 
 def pytest_unconfigure(config) -> None:
+    REAPER.wait()
     hang_watchdog.pytest_unconfigure(config)
     bytecode.pytest_unconfigure(config)
 
@@ -67,20 +74,11 @@ def pytest_runtest_makereport(item, call):
 
 @pytest.fixture(autouse=True)
 def _drop_tmp_path_when_passed(request):
-    """A run leaves ~70k files behind (git repos, read-only objects) and pytest's own cleanup of them cost the next run
-    a minute on Windows. A passing test's tmp_path goes as the test ends, spread over the workers; a failing one stays."""
+    """A passing test's tmp_path goes in the background (fixtures/reaper.py); a failing one stays."""
     yield
     path = request.node.funcargs.get("tmp_path")
-    if path is None or not request.node.stash.get(PASSED, False):
-        return
-
-    def onerror(fn, p, _exc):
-        try:
-            os.chmod(p, stat.S_IWRITE)
-            fn(p)
-        except OSError:                         # a file a child process still holds: pytest's cleanup gets it later
-            pass
-    shutil.rmtree(path, **({"onexc": onerror} if sys.version_info >= (3, 12) else {"onerror": onerror}))
+    if path is not None and request.node.stash.get(PASSED, False):
+        REAPER.drop(path)
 
 
 def purge_kit_modules() -> None:
@@ -199,7 +197,10 @@ def copy_wired(base: Path, home: Path) -> SimpleNamespace:
     copy itself, as it would on any OS."""
     src = _wired_template()
     ws = base / "demo"
-    shutil.copytree(src / "demo", ws, symlinks=True, ignore=lambda d, names: [n for n in names if _is_link(Path(d) / n)])
+    if clone(src / "demo", ws):
+        drop_links(ws)
+    else:
+        shutil.copytree(src / "demo", ws, symlinks=True, ignore=lambda d, names: [n for n in names if _is_link(Path(d) / n)])
     kit = load_kit(ws / "cam-docs", home, ws)
     old, new = (src / "demo" / "cam-docs").resolve(), kit.root.resolve()
     store = importlib.import_module("lib.trust").store_path      # records are named after a hash of the root

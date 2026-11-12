@@ -11,6 +11,7 @@ from pathlib import Path
 
 import yaml
 
+from ..core import yamlio
 from ..common import CTX, VERSIONS
 
 KIT_DIR = Path(__file__).resolve().parent.parent / "plugins"
@@ -158,7 +159,7 @@ def _check(p: Plugin, taken: set[str]) -> None:
 def _load(folder: Path, source: str, taken: set[str]) -> Plugin:
     p = Plugin(folder.name, folder, source)
     try:
-        m = yaml.safe_load((folder / "plugin.yaml").read_text(encoding="utf-8"))
+        m = yamlio.safe_load((folder / "plugin.yaml").read_text(encoding="utf-8"))
     except (OSError, yaml.YAMLError) as e:
         p.errors.append(f"plugin.yaml: cannot be read ({str(e).splitlines()[0]})")
         return p

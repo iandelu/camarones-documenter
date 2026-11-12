@@ -14,6 +14,7 @@ from pathlib import Path
 
 import yaml
 
+from ..core import yamlio
 from ..common import CAM_DIR, ROOT, WORK, WORKSPACE, VERSIONS, load_json, save_json
 from .ports import RunRequest
 
@@ -24,7 +25,7 @@ READ_ONLY = ("mcp__camarones__search_docs", "mcp__camarones__read_doc", "mcp__ca
 
 
 def load() -> list[dict]:
-    data = yaml.safe_load(FILE.read_text(encoding="utf-8")) if FILE.exists() else None
+    data = yamlio.safe_load(FILE.read_text(encoding="utf-8")) if FILE.exists() else None
     return list((data or {}).get("questions") or [])
 
 
