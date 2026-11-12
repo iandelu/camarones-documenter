@@ -1128,9 +1128,8 @@ def _autopilot(agents: list[str], lang: str, max_units: int | None, poll_seconds
             done += 1
             continue
         if outcome == "limited":
-            from .adapters.runners.base import throttled
             from .harness.scheduler import THROTTLE
-            if throttled(output):
+            if _runner(agent)[0].throttled(output):
                 throttles[agent] = throttles.get(agent, 0) + 1
                 pause = min(poll_seconds, THROTTLE * 2 ** (throttles[agent] - 1))
             else:

@@ -56,3 +56,6 @@ class CliRunner:
         if any(h in end for h in LIMIT_HINTS + THROTTLE_HINTS):
             return "limited"
         return "retry" if any(h in end for h in TRANSIENT_HINTS) else "failed"
+
+    def throttled(self, tail: str) -> bool:
+        return throttled(tail)

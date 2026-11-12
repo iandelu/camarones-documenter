@@ -12,7 +12,6 @@ import time
 from dataclasses import dataclass, field
 
 from .. import docs, env, plan, sessions
-from ..adapters.runners.base import throttled
 from ..common import CAM_DIR, CTX, cli_cmd
 from . import awake, kpis, ledger, routing
 from .ctx import Ctx
@@ -227,7 +226,8 @@ def _loop(jobs, lang, max_parallel, per_runner, max_units, poll_seconds, include
                 stop = stop or f"{uid} could not start: {j.error}"
                 continue
             output = f"{j.result.stdout or ''}\n{j.result.stderr or ''}"
-            outcome = plan._runner(j.target)[0].classify(j.result.returncode, output)
+            runner = plan._runner(j.target)[0]
+            outcome = runner.classify(j.result.returncode, output)
             st = plan.get(plan.load(), uid)["status"]
             if cancelled and st != "done":
                 if st == "doing":
@@ -240,7 +240,7 @@ def _loop(jobs, lang, max_parallel, per_runner, max_units, poll_seconds, include
             if outcome == "ok":
                 held.pop(j.target, None)
             if outcome == "limited":
-                if throttled(output):
+                if runner.throttled(output):
                     held[j.target] = held.get(j.target, 0) + 1
                     pause = min(poll_seconds, THROTTLE * 2 ** (held[j.target] - 1))
                 else:

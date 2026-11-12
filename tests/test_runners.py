@@ -157,6 +157,13 @@ def test_a_server_holding_requests_back_is_a_short_limit_not_the_quota(runners):
     assert not throttled("temporarily limiting requests mentioned early\n" + "x" * 3000)
 
 
+@pytest.mark.parametrize("rid", ["claude", "codex", "opencode"])
+def test_every_runner_says_whether_it_was_throttled(runners, rid):
+    """The scheduler and the autopilot (app layer) ask the runner they hold, never the adapter module."""
+    r = runners.get(rid)
+    assert r.throttled(THROTTLED) and not r.throttled("Claude usage limit reached, resets at 5pm")
+
+
 @pytest.mark.parametrize("tail", ["You've hit your 5-hour limit · resets 3:30pm (Europe/Madrid)",
                                   "You've hit your weekly limit · resets Nov 14"])
 def test_claudes_own_wording_of_a_spent_quota_is_a_usage_limit(runners, tail):
