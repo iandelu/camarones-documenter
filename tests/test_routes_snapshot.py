@@ -86,6 +86,11 @@ def test_route_access(server, route):
         assert (status, answer.get("app")) == (403, True)
         status, answer = probe(server, method, path, body, token=PORTAL_TOKEN)
         assert (status, answer.get("app")) == (403, True)
+        status, _ = probe(server, method, path, body, token=APP_TOKEN)
+        if method == "POST":
+            assert status == 400
+        else:
+            assert status != 403
     elif access == "portal":
         status, answer = probe(server, method, path, b"{}" if method == "POST" else None)
         assert (status, answer.get("token")) == (403, True)
