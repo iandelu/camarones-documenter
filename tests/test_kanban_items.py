@@ -57,6 +57,13 @@ def test_bad_yaml_raises_item_error(kit):
         parse_item("no frontmatter here\n")
 
 
+@pytest.mark.parametrize("line", ["due_date: 2026-13-45", "n: 0b_", "when: 2026-02-30T10:00:00Z"])
+def test_a_value_yaml_cannot_construct_raises_item_error(kit, line):
+    from lib.kanban.items import ItemError, parse_item
+    with pytest.raises(ItemError, match="^invalid frontmatter: "):
+        parse_item(f"---\nid: WI-1\n{line}\n---\n")
+
+
 def test_missing_id_raises_item_error(kit):
     from lib.kanban.items import ItemError, parse_item
     with pytest.raises(ItemError):
@@ -115,6 +122,18 @@ def test_load_dir_reports_problems(kit, tmp_path):
     assert [i.id for i in items] == ["WI-1"] and items[0].path == d / "wi-1 - ok.md"
     assert len(problems) == 1 and problems[0]["path"] == d / "bad.md" and problems[0]["error"]
     assert load_dir(tmp_path / "nope") == ([], [])
+
+
+def test_load_dir_reports_an_impossible_date_instead_of_crashing(kit, tmp_path):
+    from lib.kanban.items import load_dir
+    d = tmp_path / "tasks"
+    d.mkdir()
+    (d / "wi-1 - ok.md").write_text("---\nid: WI-1\ntitle: ok\n---\n\nb\n", encoding="utf-8")
+    (d / "wi-2 - typo.md").write_text("---\nid: WI-2\ndue_date: 2026-13-45\n---\n", encoding="utf-8")
+    items, problems = load_dir(d)
+    assert [i.id for i in items] == ["WI-1"]
+    assert [p["path"] for p in problems] == [d / "wi-2 - typo.md"]
+    assert problems[0]["error"].startswith("invalid frontmatter: ")
 
 
 def test_paths_are_under_cam_docs_backlog(kit):

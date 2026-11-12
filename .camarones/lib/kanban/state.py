@@ -49,7 +49,7 @@ def stamp_time(value: str) -> datetime:
 def load_board(text: str) -> dict[str, dict]:
     try:
         data = yamlio.safe_load(text)
-    except yaml.YAMLError as e:
+    except (yaml.YAMLError, ValueError) as e:     # PyYAML raises ValueError for 2026-13-45, 0b_
         raise ValueError(f"board.yaml is not valid YAML: {e}") from e
     if not isinstance(data, dict) or data.get("version") != 1:
         raise ValueError("board.yaml: expected a mapping with version: 1")
@@ -66,7 +66,7 @@ def load_board(text: str) -> dict[str, dict]:
                 "assignee": [str(a) for a in c.get("assignee") or []],
                 "t": {str(k): str(v) for k, v in (c.get("t") or {}).items()},
             }
-        except (KeyError, TypeError, ValueError) as e:
+        except (KeyError, TypeError, ValueError, AttributeError) as e:
             raise ValueError(f"board.yaml: card {key} is malformed ({e})") from e
     return cards
 
@@ -77,7 +77,7 @@ def _scalar(v: object) -> str:
     if plain:
         try:
             plain = yamlio.safe_load(s) == s     # "123", "null", "true", dates... would load as another type
-        except yaml.YAMLError:
+        except (yaml.YAMLError, ValueError):
             plain = False
     return s if plain else json.dumps(s, ensure_ascii=False)
 
