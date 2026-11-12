@@ -219,7 +219,8 @@ aprobaciones viven en `~/.camarones/trust/`, fuera del repo. Si en la carpeta de
 dos líneas que importan sus reglas (`@AGENTS.md`); `uninstall` las quita y deja lo tuyo. Publicar es un paso explícito:
 **Equipo › Compartir ahora**, **Plan › Sincronizar** en el portal o `camaron share` (checkpoint, rebase sobre el trabajo
 del equipo y push); con `camaron share --auto on` cada checkpoint se comparte solo, en esta máquina. Un conflicto se
-deshace sin tocar nada, y algo que parece un secreto no se publica.
+deshace sin tocar nada, y algo que parece un secreto no se publica. Si no llega al servidor del equipo o le faltan
+credenciales, te dice por qué (la VPN o el proxy, el token de ese servidor) y debajo lo que respondió git.
 
 ## El día a día en cinco pasos
 

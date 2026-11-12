@@ -357,7 +357,9 @@ El repo `cam-docs` del equipo y lo que llegó con él (`#/team`, <kbd>g</kbd> <k
 guardar— y **Compartir ahora** (un checkpoint, después tu trabajo rebasado sobre el del equipo y subido),
 **Comprobar** (pregunta al remoto qué hay de nuevo) y **Compartir cada vez que se guarda el progreso**
 (`camaron share --auto on|off`, solo en esta máquina). Un conflicto se deshace sin tocar nada; algo que parece un
-secreto no se publica.
+secreto no se publica. Un compartir o una comprobación que falla dice por qué —no llega al servidor (conexión, VPN o
+proxy), pide un token o rechaza el tuyo, el repo no está— con la línea de git debajo; un problema de token enlaza a
+**Máquina › Tokens** para ese servidor.
 
 **Lo que llegó con el repo del equipo.** Los hooks, servidores MCP, ajustes, skills, ficheros y plugins de `cam-docs`
 que no escribió el kit esperan aquí a que los apruebes en esta máquina: **Aprobar (n)** los lista y ejecuta
@@ -513,6 +515,7 @@ instalación global. Es el banco para cambiar el kit:
 | «No he podido arrancar el servidor del proyecto» | El cuadro trae el error del servidor; `camaron doctor` en esa carpeta suele decir qué falta |
 | En el portal del navegador no está el botón que esperabas | Es a propósito: el portal del navegador no ejecuta nada en tu máquina. Hazlo aquí |
 | Quieres que vuelva a descargar Electron | Borra `~/.camarones/desktop` y lanza `camaron app` |
+| «No llego a <servidor>: revisa la conexión, la VPN o el proxy» al **Compartir ahora** | El servidor del equipo solo está en la red de tu empresa: conecta la VPN (o configura el proxy) y vuelve a compartir |
 
 En Linux con los *user namespaces* restringidos (Ubuntu 24.04 y posteriores) el kit abre la app con `--no-sandbox`;
 sus ventanas solo cargan el servidor local de tu proyecto.

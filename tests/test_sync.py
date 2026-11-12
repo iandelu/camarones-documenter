@@ -35,6 +35,26 @@ def test_ahead_behind_and_the_last_share(kit, tmp_path):
     assert kit.env.sync_status(fetch=True)["behind"] == 1
 
 
+def test_a_failed_check_for_news_says_why_with_gits_words(kit, tmp_path):
+    kit.env.init_templates("demo", log=lambda _: None)
+    kit.env.set_remote(str(tmp_path / "missing.git"))
+    f = kit.env.sync_status(fetch=True)["fetched"]
+    assert f["ok"] is False and f["reason"] == "not-found" and f["host"] == ""
+    assert f["detail"].startswith("fatal: ") and "does not appear to be a git repository" in f["detail"]
+    assert f["detail"] == kit.env.share(log=lambda _: None)["detail"]           # the same words a share reports
+
+
+def test_a_check_for_news_names_the_teams_host(kit, monkeypatch):
+    kit.env.init_templates("demo", log=lambda _: None)
+    kit.env.set_remote("https://gitlab-central.example.space/team/docs.git")
+    said = "fatal: unable to access 'https://gitlab-central.example.space/team/docs.git/': Could not resolve host: x"
+    real = kit.env.run
+    monkeypatch.setattr(kit.env, "run", lambda cmd, **kw: subprocess.CompletedProcess(cmd, 128, "", said)
+                        if cmd[:2] == ["git", "fetch"] else real(cmd, **kw))
+    f = kit.env.sync_status(fetch=True)["fetched"]
+    assert f == {"ok": False, "reason": "network", "host": "gitlab-central.example.space", "detail": said}
+
+
 def test_auto_share_survives_the_last_share(kit, tmp_path):
     remote = bare(tmp_path)
     kit.env.set_auto_share(True)

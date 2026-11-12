@@ -147,6 +147,7 @@
 #native .sy-tile.wide { grid-column: span 2; }
 @media (max-width: 640px) { #native .sy-tile.wide { grid-column: auto; } }
 #native .sy-tile.warn { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
+#native .sy-said { display: block; margin-top: .3rem; font-size: .8rem; overflow-wrap: anywhere; }
 #native .sy-actions { gap: .6rem; align-items: center; flex-wrap: wrap; margin: .5rem 0 1.5rem; }
 #native .sync .ok { color: var(--ok); }
 #native .sy-files { columns: 2 18rem; padding-left: 1.1rem; }

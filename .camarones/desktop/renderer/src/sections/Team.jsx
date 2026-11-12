@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Aviso, Button, Card, Skeleton } from '@camaron/ui'
+import { Aviso, Button, Card, Skeleton, fetchSay, shareOk, shareSay } from '@camaron/ui'
 import { useCmd } from '../hooks.js'
 import { Failed, JobOutput, Page } from '../parts.jsx'
 import Commands from './Commands.jsx'
@@ -44,8 +44,6 @@ function Repo({ srv, jobs }) {
     try { const r = await srv.post('sync/share', {}); setResult(r.result); setS(r.sync) } catch (e) { setResult({ status: 'error', detail: e.message }) } finally { setBusy('') }
   }
   async function check() { setBusy('check'); try { await load(true) } finally { setBusy('') } }
-  const ok = result && ['pushed', 'up-to-date', 'nothing'].includes(result.status)
-  const say = (r) => { const k = `sy.${r.status}`; const m = t(k, { detail: r.detail || '' }); return m === k ? r.status : m }
   const clean = url.trim()
   return (
     <Card className="dk-run" data-tour="team-repo">
@@ -70,11 +68,31 @@ function Repo({ srv, jobs }) {
             onChange={() => cmd('share', { auto: s.auto ? 'off' : 'on' })} />{t('tm.auto')}</label>
         </div>
       </>)}
-      {s?.fetched && !s.fetched.ok ? <Aviso tone="warn" title={t('tm.fetchFailed')} detail={s.fetched.reason} /> : null}
-      {result ? (ok ? <p className="small" role="status">{say(result)}</p> : <Aviso tone="error" title={say(result)} />) : null}
+      <FetchNote fetched={s?.fetched} remote={s?.remote} />
+      <ShareResult result={result} remote={s?.remote} />
       <JobOutput c={c} />
     </Card>
   )
+}
+
+// A share's outcome. A failure git explained (no route to the host, no token…) says so in words, git's line beneath,
+// and a refused token links to the Tokens card for that host.
+export function ShareResult({ result, remote }) {
+  if (!result) return null
+  const said = shareSay(result, remote)
+  const m = t(said.key, said.vars)
+  const title = m === said.key ? result.status : m
+  if (shareOk(result)) return <p className="small" role="status">{title}</p>
+  const token = said.token
+    ? <Button size="sm" variant="ghost" href={`#/machine?host=${encodeURIComponent(said.token)}`}>{t('sy.token', { host: said.token })}</Button>
+    : null
+  return <Aviso tone="error" title={title} detail={said.detail} action={token} />
+}
+
+export function FetchNote({ fetched, remote }) {
+  const said = fetchSay(fetched, remote)
+  if (!said) return null
+  return <Aviso tone="warn" title={t('tm.fetchFailed')} detail={said.detail}>{said.key ? t(said.key, said.vars) : null}</Aviso>
 }
 
 // What came with the team's repo (agent config, plugins) and this machine has not approved: nothing of it loads
