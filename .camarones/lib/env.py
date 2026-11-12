@@ -47,6 +47,24 @@ def skill_files(project_name: str | None = None) -> dict[str, str]:
 RENDERED_SKILLS = CACHE / "skills-rendered.json"
 
 
+def _real_skills_dir(d: Path) -> bool:
+    """`d` is ROOT/<host>/skills or a folder in it, and nothing on the way down from ROOT is a link: a symlink (or a
+    Windows junction, which only `resolve()` shows) committed at `.claude`, `.claude/skills` or deeper would carry a
+    write or a delete out of the project."""
+    try:
+        parts = d.relative_to(ROOT).parts
+    except ValueError:
+        return False
+    if len(parts) < 2 or parts[0] not in (".claude", ".agents") or parts[1] != "skills" or ".." in parts:
+        return False
+    p = ROOT.resolve()
+    for part in parts:
+        p = p / part
+        if p.is_symlink() or (p.exists() and p.resolve() != p):
+            return False
+    return True
+
+
 def _rendered_entry(rel) -> bool:
     """A manifest entry the cleanup may remove: `<host>/skills/<name>/…` inside ROOT/<host>/skills. The manifest is a
     file in the repo, so a teammate could commit one that names any other file."""
@@ -57,7 +75,7 @@ def _rendered_entry(rel) -> bool:
     if (len(parts) < 4 or parts[0] not in (".claude", ".agents") or parts[1] != "skills"
             or not skills.NAME_RE.fullmatch(parts[2]) or any(p in ("", ".", "..") for p in parts)):
         return False
-    return (ROOT / rel).parent.resolve().is_relative_to((ROOT / parts[0] / "skills").resolve())
+    return _real_skills_dir((ROOT / rel).parent)
 
 
 def write_kit_skills(project_name: str | None = None) -> None:
@@ -76,7 +94,7 @@ def write_kit_skills(project_name: str | None = None) -> None:
             gone.unlink()
         host_skills = ROOT / rel.split("/", 1)[0] / "skills"
         d = gone.parent
-        while d != host_skills and host_skills in d.parents and d.is_dir() and not any(d.iterdir()):
+        while d != host_skills and _real_skills_dir(d) and d.is_dir() and not any(d.iterdir()):
             d.rmdir()
             d = d.parent
     save_json(RENDERED_SKILLS, sorted(files))

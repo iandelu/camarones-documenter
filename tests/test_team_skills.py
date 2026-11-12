@@ -1,6 +1,7 @@
 import importlib
 import shutil
 import subprocess
+from pathlib import PurePosixPath
 
 import pytest
 
@@ -275,6 +276,28 @@ def test_the_render_manifest_only_removes_rendered_skill_files(wired):
     wired.env.write_kit_skills()
     assert victim.read_text(encoding="utf-8") == "keep" and settings.read_bytes() == before
     assert (wired.root / ".claude" / "skills").is_dir()
+
+
+def linked_at(wired, at, victim):
+    """`at` (a cam-docs-relative folder) replaced by a committed-style symlink to the folder `victim`."""
+    path = wired.root / at
+    shutil.rmtree(path, ignore_errors=True)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    link(path, victim, folder=True)
+
+
+@pytest.mark.parametrize("at", [".claude", ".claude/skills", ".claude/skills/projects"])
+def test_the_render_cleanup_never_deletes_through_a_link(wired, tmp_path, at):
+    victim = tmp_path / "fake-home"
+    projects = victim / PurePosixPath(".claude/skills/projects").relative_to(at)
+    (projects / "old").mkdir(parents=True)
+    (projects / "important.txt").write_text("keep", encoding="utf-8")
+    linked_at(wired, at, victim)
+    wired.env.save_json(wired.env.RENDERED_SKILLS, [".claude/skills/projects/important.txt",
+                                                    ".claude/skills/projects/old/gone.md"])
+    wired.env.write_kit_skills()
+    assert (projects / "important.txt").read_text(encoding="utf-8") == "keep"
+    assert (projects / "old").is_dir()
 
 
 def test_an_approved_team_copy_edited_again_needs_approval_again(wired):
