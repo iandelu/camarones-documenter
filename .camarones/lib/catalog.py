@@ -87,27 +87,12 @@ _LEFT: dict[str, dict] = {             # the commands still dispatched by interf
     "removed": _e("both", "team", "Anotar algo quitado a propósito", "Record something removed on purpose"),
     "translated": _e("both", "team", "Marcar páginas como traducidas", "Stamp pages as translated"),
     # machine: tools, settings, lifecycle
-    "setup": _e("app", "machine", "Instalar herramientas y conectar agentes", "Install tools and wire the agents"),
-    "sync": _e("app", "machine", "Clonar o actualizar los repos", "Clone or pull the repos"),
-    "detect": _e("app", "machine", "Añadir los repos encontrados en la carpeta", "Add the repos found in the folder"),
     "stack": _e("app", "machine", "Corregir el stack de un repo", "Fix a repo's stack"),
-    "profile": _e("app", "machine", "Cambiar el plan entre rápido y completo", "Switch the plan between quick and full"),
-    "repair": _e("app", "machine", "Reponer lo que el kit gestiona", "Put back what the kit owns"),
-    "config": _e("app", "machine", "Idioma y modelos de esta máquina", "Language and models of this machine"),
-    "upgrade": _e("app", "machine", "Actualizar el kit del proyecto desde una copia", "Update the project's kit from a copy"),
-    "self-update": _e("app", "machine", "Actualizar el kit global", "Update the global kit"),
-    "version": _e("app", "machine", "Versión del kit y de sus herramientas", "Kit and tool versions"),
-    "down": _e("app", "machine", "Parar el portal", "Stop the portal"),
-    "unlink": _e("app", "machine", "Quitar la copia local del kit", "Remove the local kit copy", destructive=True),
-    "migrate": _e("app", "machine", "Mover un proyecto antiguo a cam-docs", "Move an older project into cam-docs",
-                  destructive=True, reads="dry_run"),
-    "uninstall": _e("app", "machine", "Desinstalar el proyecto", "Uninstall the project", destructive=True,
-                    reads="dry_run"),
     # the portal's own: reading and review
     "confirm": _e("portal"),
     "feedback": _e("portal"),
     # CLI only: agents, hooks, servers and terminal tools
-    "install": CLI, "arch": CLI, "up": CLI, "mcp": CLI, "hook": CLI, "review": CLI, "prompt": CLI,
+    "hook": CLI, "review": CLI, "prompt": CLI,
 }
 
 

@@ -47,16 +47,8 @@ def cmd_trust(a) -> int:
 
 def add_legacy(sp: argparse._SubParsersAction) -> None:
     """Today's build_parser body after add_subparsers, minus the commands moved to commands/."""
-    s = sp.add_parser("setup"); s.add_argument("--ci", action="store_true"); s.add_argument("--profile", choices=["quick", "full"])
-    ins = sp.add_parser("install"); ins.add_argument("destination", type=Path)
-    ins.add_argument("--profile", choices=["quick", "full"], default="quick"); ins.add_argument("--dry-run", action="store_true")
-    upg = sp.add_parser("upgrade"); upg.add_argument("source", type=Path); upg.add_argument("--dry-run", action="store_true")
-    sp.add_parser("self-update")
-    sp.add_parser("unlink")
-    prof = sp.add_parser("profile"); prof.add_argument("name", choices=["quick", "full"])
-    for c in ("sync", "detect", "changes", "llms", "graph", "arch", "arch-validate", "portal", "down", "version"):
+    for c in ("changes", "llms", "graph", "arch-validate", "portal"):
         sp.add_parser(c)
-    sp.add_parser("repair")
     sp.add_parser("history").add_argument("--months", type=int, default=12)
     rmv = sp.add_parser("removed"); rmv.add_argument("action", choices=["add"]); rmv.add_argument("what")
     rmv.add_argument("--why", required=True); rmv.add_argument("--decision", default="")
@@ -66,7 +58,6 @@ def add_legacy(sp: argparse._SubParsersAction) -> None:
     hk = sp.add_parser("hook"); hk.add_argument("name", choices=["session-start", "post-edit", "stop"])
     hks = sp.add_parser("hooks"); hks.add_argument("state", nargs="?", choices=["on", "off"])
     hks.add_argument("--json", action="store_true")
-    mc = sp.add_parser("mcp"); mc.add_argument("--http", action="store_true"); mc.add_argument("--port", type=int, default=8765)
     dr = sp.add_parser("doctor"); dr.add_argument("--local", action="store_true")
     dr.add_argument("--context", action="store_true"); dr.add_argument("--json", action="store_true")
     dr.add_argument("--install", choices=["git", "node", "docker", "java", "claude", "codex"])
@@ -110,22 +101,12 @@ def add_legacy(sp: argparse._SubParsersAction) -> None:
     k.add_argument("--secrets", action="store_true", help="only the secret scan (CI gate before committing)")
     c = sp.add_parser("confirm"); c.add_argument("files", nargs="+"); c.add_argument("--by", required=True)
     t = sp.add_parser("translated"); t.add_argument("files", nargs="+")
-    u = sp.add_parser("up"); u.add_argument("--port", type=int, default=8080); u.add_argument("--docker", action="store_true")
-    u.add_argument("--static", "--no-docker", dest="static", action="store_true"); u.add_argument("--foreground", action="store_true")
     w = sp.add_parser("wiki"); w.add_argument("repos", nargs="+"); w.add_argument("--engine", default="")
     w.add_argument("--init", dest="mode", action="store_const", const="init", default="")
     w.add_argument("--update", dest="mode", action="store_const", const="update")
     w.add_argument("--open", dest="mode", action="store_const", const="open")
     w.add_argument("--close", dest="mode", action="store_const", const="close")
     w.add_argument("--force", action="store_true")
-    mg = sp.add_parser("migrate"); mg.add_argument("--yes", action="store_true"); mg.add_argument("--dry-run", action="store_true")
-    mg.add_argument("--finish", action="store_true", help=argparse.SUPPRESS)
-    un = sp.add_parser("uninstall"); un.add_argument("--yes", action="store_true"); un.add_argument("--dry-run", action="store_true")
-    un.add_argument("--global", dest="user_level", action="store_true"); un.add_argument("--no-backup", action="store_true")
-    un.add_argument("--backup-dir", type=Path)
-    ub = un.add_mutually_exclusive_group()
-    ub.add_argument("--keep-board", dest="keep_board", action="store_const", const=True, default=None)
-    ub.add_argument("--drop-board", dest="keep_board", action="store_const", const=False)
     dr = sp.add_parser("docs"); dr.add_argument("action", choices=["reset"])
     dm = dr.add_mutually_exclusive_group(required=True)
     dm.add_argument("--redo", dest="mode", action="store_const", const="redo")
@@ -171,8 +152,6 @@ def add_legacy(sp: argparse._SubParsersAction) -> None:
     board_cli.add_parser(sp)
     from lib import adr_cli
     adr_cli.add_parser(sp)
-    cf = sp.add_parser("config"); cf.add_argument("action", nargs="?", default="get", choices=["get", "set"])
-    cf.add_argument("key", nargs="?"); cf.add_argument("value", nargs="?"); cf.add_argument("--json", action="store_true")
 
 
 def run_legacy(a: argparse.Namespace, p: argparse.ArgumentParser) -> int:
@@ -183,66 +162,6 @@ def run_legacy(a: argparse.Namespace, p: argparse.ArgumentParser) -> int:
     elif a.cmd == "adr":
         from lib import adr_cli
         return adr_cli.run(a)
-    elif a.cmd == "config":
-        from lib import machine
-        try:
-            if a.action == "set":
-                if not a.key or a.value is None:
-                    raise ValueError("usage: config set KEY VALUE")
-                machine.set_setting(a.key, a.value)
-            s = machine.settings()
-            if a.key and a.key not in s:
-                raise ValueError(f"unknown setting {a.key}: one of {', '.join(s)}")
-        except ValueError as e:
-            print(f"✖ {e}", file=sys.stderr)
-            return 2
-        if a.json:
-            print(json.dumps(s if not a.key else {a.key: s[a.key]}))
-        elif a.key:
-            print(s[a.key])
-        else:
-            for k, v in s.items():
-                print(f"{k:<12} {v}")
-    elif a.cmd in ("install", "upgrade"):
-        from lib.install import install
-        if a.cmd == "install":
-            install(KIT.parent, a.destination, a.profile, dry_run=a.dry_run)
-        else:
-            install(a.source, ROOT, update=True, dry_run=a.dry_run)
-    elif a.cmd == "self-update":
-        from lib.upgrade import self_update
-        self_update(print)
-    elif a.cmd == "unlink":
-        from lib.install import unlink
-        removed = unlink(ROOT)
-        print("Kit code removed from this project — it now resolves against the global kit."
-              if removed else "Nothing to remove — this project has no local kit copy.")
-    elif a.cmd == "profile":
-        env.set_profile(a.name)
-        plan.sync()
-        print(f"Profile: {a.name}. Progress kept. Run setup to prepare the selected tools.")
-    elif a.cmd == "setup":
-        if a.profile:
-            env.set_profile(a.profile)
-        env.init_templates()
-        env.setup(ci=a.ci)
-        if not a.ci:
-            plan.sync()
-            plan.set_status("setup", "done", "cli setup")
-            from lib import install_state
-            install_state.mark_setup()
-    elif a.cmd == "sync":
-        docs.sync_repos()
-        from lib import genblocks
-        if r := genblocks.refresh()["updated"]:
-            print(f"✔ generated blocks refreshed in {len(r)} page(s)")
-    elif a.cmd == "detect":
-        ws = docs.workspace()
-        known = set(docs.repo_names())
-        new = [r for r in docs.detect_repos() if r["name"] not in known]
-        ws["repos"] += new
-        docs.save_workspace(ws)
-        print(f"added {len(new)} repo(s): {', '.join(r['name'] for r in new) or '—'}")
     elif a.cmd == "changes":
         print(json.dumps(docs.changes(), indent=2))
     elif a.cmd == "mark-documented":
@@ -277,24 +196,12 @@ def run_legacy(a: argparse.Namespace, p: argparse.ArgumentParser) -> int:
         print(f"wrote docs/llms.txt ({docs.llms()} entries)")
     elif a.cmd == "graph":
         env.graph(rebuild=True)
-    elif a.cmd == "arch":
-        env.arch_start()
     elif a.cmd == "arch-validate":
         ok, msg = env.arch_validate()
         print(msg or ("✓ Valid" if ok else "invalid"))
         return 0 if ok else 1
     elif a.cmd == "portal":
         env.portal()
-    elif a.cmd == "up":
-        if a.foreground:
-            from lib import serve
-            serve.run_server(a.port, static=a.static)
-        elif a.docker or a.static:
-            if not (CACHE / "site" / "index.html").exists():
-                env.portal()
-            (env.docker_up if a.docker else env.serve_local)(a.port)
-        else:
-            env.serve_editor(a.port)
     elif a.cmd == "wiki":
         if a.mode in ("open", "close"):
             for r in a.repos:
@@ -318,13 +225,6 @@ def run_legacy(a: argparse.Namespace, p: argparse.ArgumentParser) -> int:
                 print(f"✖ {e}", file=sys.stderr)
                 failed.append(r)
         return 1 if failed else 0
-    elif a.cmd == "migrate":
-        from lib import migrate
-        return migrate.main(yes=a.yes, dry_run=a.dry_run, finish=a.finish)
-    elif a.cmd == "uninstall":
-        from lib import uninstall
-        return uninstall.main(include_global=a.user_level, dry_run=a.dry_run, yes=a.yes, backup=not a.no_backup,
-                              backup_dir=a.backup_dir, keep_board=a.keep_board)
     elif a.cmd == "docs":
         from lib import reset
         return reset.main(a.mode, dry_run=a.dry_run, yes=a.yes, templates=a.templates)
@@ -332,17 +232,6 @@ def run_legacy(a: argparse.Namespace, p: argparse.ArgumentParser) -> int:
         from lib import history
         from lib.common import rel_file
         print(f"✔ {rel_file(history.write(a.months))}: last {a.months} months of git history")
-    elif a.cmd == "repair":
-        from lib import install_state
-        left = install_state.repair()
-        yours = [d for d in left if d.get("why") == "yours"]
-        print("✔ kit files and links restored" if not left else "\n".join(
-            [f"⚠ still off ({len(left)}):"]
-            + [f"    {d['state']:<10} {d['path']}{'  (yours: kept)' if d in yours else ''}" for d in left]
-            + ([f"  links held back: review the agent config with `{cli_cmd()} trust`"]
-               if any(d["state"] == "not linked" and d not in yours for d in left) else [])
-            + ([f"  yours: a file of yours is there and the kit never replaces it — move it into {CAM_DIR}/ to "
-                "share it with the team, or leave it as it is"] if yours else [])))
     elif a.cmd == "removed":
         from lib import removed
         print(f"✔ {removed.add(a.what, a.why, a.decision)}: {a.what}")
@@ -375,20 +264,6 @@ def run_legacy(a: argparse.Namespace, p: argparse.ArgumentParser) -> int:
         print(f"method hooks: {'on' if hooks.enabled() else 'off'}" + (
             " — SessionStart (plan state), PostToolUse (check the page just edited), Stop (remind once to update docs)"
             if hooks.enabled() else ""))
-    elif a.cmd == "mcp" and a.http:
-        from lib import mcp
-        srv = mcp.http_server(port=a.port)
-        print(f"camarones MCP on http://127.0.0.1:{srv.server_address[1]}/mcp — header "
-              f"`Authorization: Bearer <token>`, token in {mcp.TOKEN_FILE}", file=sys.stderr)
-        try:
-            srv.serve_forever()
-        except KeyboardInterrupt:
-            pass
-    elif a.cmd == "mcp":
-        from lib import mcp
-        mcp.serve_stdio()
-    elif a.cmd == "down":
-        env.docker_down()
     elif a.cmd == "ci":
         env.install_ci(a.forge)
     elif a.cmd == "run":
@@ -573,8 +448,6 @@ def run_legacy(a: argparse.Namespace, p: argparse.ArgumentParser) -> int:
             print(e, file=sys.stderr)
             return 2
         print(f"{a.repo}: " + ("stack reset to the detected one" if a.reset else a.text.strip()))
-    elif a.cmd == "version":
-        print(f"Camarón {VERSIONS['kit']} — " + ", ".join(f"{k} {v}" for k, v in VERSIONS.items() if k != "kit"))
     elif a.cmd == "checkpoint":
         print("✔ committed locally" if env.checkpoint_commit(a.message) else "no checkpoint commit")
     elif a.cmd == "remote":
