@@ -1,6 +1,8 @@
 import importlib
 import shutil
 
+import pytest
+
 
 def skills(kit):
     return importlib.import_module("lib.skills")
@@ -113,3 +115,56 @@ def test_budget_counts_only_kit_skills_as_the_kits(wired):
     rows = {i["path"]: i["kit"] for i in importlib.import_module("lib.budget").standing()["items"] if i["kind"] == "skill"}
     assert rows[".claude/skills/our-review/SKILL.md"] is False
     assert rows[".claude/skills/cam-docs-lookup/SKILL.md"] is True
+
+
+def test_fork_copies_the_kit_text_and_stays_trusted_until_edited(wired):
+    s = skills(wired)
+    d = s.fork("cam-docs-update")
+    assert (d / "SKILL.md").read_text(encoding="utf-8") == s.kit_files("cam-docs-update")["SKILL.md"]
+    assert s.load_stamp()["forks"]["cam-docs-update"]["kit"] == wired.env.VERSIONS["kit"]
+    wired.env.write_kit_skills()
+    assert [it for it, _ in importlib.import_module("lib.trust").pending() if "cam-docs-update" in it.id] == []
+    assert s.diff("cam-docs-update") == ""
+
+
+def test_diff_shows_the_team_edit_and_what_the_kit_changed_since(wired, monkeypatch):
+    s = skills(wired)
+    d = s.fork("cam-docs-update")
+    (d / "SKILL.md").write_text("team line\n", encoding="utf-8")
+    assert "+team line" in s.diff("cam-docs-update")
+    real = s.kit_files
+    monkeypatch.setattr(s, "kit_files", lambda n: {"SKILL.md": real(n)["SKILL.md"] + "kit line\n"})
+    assert s.outdated() == ["cam-docs-update"] and "+kit line" in s.diff("cam-docs-update", against_fork=True)
+
+
+def test_reset_puts_the_team_copy_aside_and_follows_the_kit(wired):
+    s = skills(wired)
+    s.fork("cam-docs-update")
+    aside = s.reset("cam-docs-update", now="20261112-101500")
+    assert aside == wired.root / ".camarones" / "skills" / ".reset" / "cam-docs-update-20261112-101500"
+    assert (aside / "SKILL.md").exists() and s.origin("cam-docs-update") == "kit"
+    assert "cam-docs-update" not in s.load_stamp()["forks"]
+
+
+def test_reset_refuses_a_team_only_skill_and_fork_refuses_twice(wired):
+    s = skills(wired)
+    team(wired, "our-review")
+    with pytest.raises(ValueError, match="team skill"):
+        s.reset("our-review")
+    s.fork("cam-docs-unit")
+    with pytest.raises(ValueError, match="already has a team copy"):
+        s.fork("cam-docs-unit")
+
+
+def test_legacy_layout_has_no_team_copies(kit, monkeypatch):
+    s = skills(kit)
+    monkeypatch.setattr(s, "team_dir", lambda: None)
+    assert s.team_names() == [] and s.origin("cam-docs-update") == "kit"
+    with pytest.raises(ValueError, match="cam-docs layout"):
+        s.fork("cam-docs-update")
+
+
+def test_doctor_reports_outdated_team_copies(wired, monkeypatch):
+    s = skills(wired)
+    monkeypatch.setattr(s, "outdated", lambda: ["cam-docs-update"])
+    assert importlib.import_module("lib.doctor").report()["skills_outdated"] == ["cam-docs-update"]

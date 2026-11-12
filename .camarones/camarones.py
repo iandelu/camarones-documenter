@@ -881,6 +881,10 @@ def main() -> int:
             for d in off:
                 print(f"    {d['state']:<10} {d['path']}  ({d['what']}"
                       + ("; yours: kept, the kit never replaces it)" if d not in fix else ")"))
+            from lib import skills as team_skills
+            for sk in team_skills.outdated():
+                print(f"⚠ skill {sk}: the kit's version changed since your team copy — "
+                      f"`{cli_cmd()} skills diff {sk} --kit`")
         print(f"  openwiki  {'ok' if env.openwiki_installed() else 'missing'} (pinned {VERSIONS['openwiki']})")
         print(f"  gitleaks  {'ok' if env.tool_ok('gitleaks') else 'missing'} (pinned {VERSIONS['gitleaks']})")
     elif a.cmd == "plan":

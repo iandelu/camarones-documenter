@@ -7,7 +7,7 @@ import json
 from datetime import datetime, timezone
 
 from .common import CACHE, VERSIONS, WS_FILE
-from . import env
+from . import env, skills
 
 INSTALLABLE = ("git", "node", "docker", "java", "claude", "codex")   # env.install_prereq knows how, per OS
 PINNED = ("graphify", "likec4", "mmdc")                               # versions read from the tool itself
@@ -32,7 +32,8 @@ def report() -> dict:
     if WS_FILE.exists():
         from . import install_state
         drift = install_state.drift()
-    return {"prerequisites": pre, "tools": tools, "drift": drift, "fix_drift": {"cmd": "repair", "args": {}}}
+    return {"prerequisites": pre, "tools": tools, "drift": drift, "fix_drift": {"cmd": "repair", "args": {}},
+            "skills_outdated": skills.outdated()}
 
 
 def check(log=print) -> dict:

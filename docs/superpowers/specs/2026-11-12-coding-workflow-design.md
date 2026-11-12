@@ -289,8 +289,9 @@ bodies load only on use. `budget.py` counts every `cam-` skill as the kit's.
     `.camarones/.kit-skills.json` (like `.kit-docs.json`);
   - `diff <name>` — the team copy against the kit's current text; with `--kit`, the kit's text when forked against
     now;
-  - `reset <name>` — back to the kit's text; the team's copy stays aside as `SKILL.md.<date>` (as
-    `docs reset --templates` does);
+  - `reset <name>` — back to the kit's text; the team's copy stays aside as the folder
+    `cam-docs/.camarones/skills/.reset/<name>-<YYYYMMDD-HHMMSS>/` (a file left in the skill's folder would keep it a
+    team copy);
   - `notes [<name>]` — §5.2.
 - **Upgrades** never touch a team copy; `doctor` warns when the kit's version of a forked skill moved on.
 - **Trust:** a team copy is not the kit's text, so `trust` lists it (kind `skill`, labelled "team copy of <name>") and
