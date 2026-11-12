@@ -1,0 +1,577 @@
+[
+  {
+    "method": "GET",
+    "path": "/api/app/adr",
+    "access": "app"
+  },
+  {
+    "method": "GET",
+    "path": "/api/app/adr/0001",
+    "access": "app"
+  },
+  {
+    "method": "GET",
+    "path": "/api/app/adr/0001/pack",
+    "access": "app"
+  },
+  {
+    "method": "POST",
+    "path": "/api/app/adr/accept",
+    "access": "app"
+  },
+  {
+    "method": "POST",
+    "path": "/api/app/adr/attendees",
+    "access": "app"
+  },
+  {
+    "method": "GET",
+    "path": "/api/app/adr/candidates",
+    "access": "app"
+  },
+  {
+    "method": "POST",
+    "path": "/api/app/adr/new",
+    "access": "app"
+  },
+  {
+    "method": "POST",
+    "path": "/api/app/adr/pack",
+    "access": "app"
+  },
+  {
+    "method": "POST",
+    "path": "/api/app/adr/part",
+    "access": "app"
+  },
+  {
+    "method": "POST",
+    "path": "/api/app/adr/point",
+    "access": "app"
+  },
+  {
+    "method": "POST",
+    "path": "/api/app/adr/reject",
+    "access": "app"
+  },
+  {
+    "method": "POST",
+    "path": "/api/app/adr/review",
+    "access": "app"
+  },
+  {
+    "method": "POST",
+    "path": "/api/app/adr/write",
+    "access": "app"
+  },
+  {
+    "method": "POST",
+    "path": "/api/app/agent",
+    "access": "app"
+  },
+  {
+    "method": "GET",
+    "path": "/api/app/agents",
+    "access": "app"
+  },
+  {
+    "method": "GET",
+    "path": "/api/app/catalog",
+    "access": "app"
+  },
+  {
+    "method": "POST",
+    "path": "/api/app/cmd",
+    "access": "app"
+  },
+  {
+    "method": "GET",
+    "path": "/api/app/creds",
+    "access": "app"
+  },
+  {
+    "method": "POST",
+    "path": "/api/app/creds",
+    "access": "app"
+  },
+  {
+    "method": "GET",
+    "path": "/api/app/doctor",
+    "access": "app"
+  },
+  {
+    "method": "POST",
+    "path": "/api/app/doctor",
+    "access": "app"
+  },
+  {
+    "method": "GET",
+    "path": "/api/app/guide",
+    "access": "app"
+  },
+  {
+    "method": "GET",
+    "path": "/api/app/info",
+    "access": "app"
+  },
+  {
+    "method": "POST",
+    "path": "/api/app/jobs/j1/cancel",
+    "access": "app"
+  },
+  {
+    "method": "GET",
+    "path": "/api/app/jobs/j1/events",
+    "access": "app"
+  },
+  {
+    "method": "GET",
+    "path": "/api/app/kitdev",
+    "access": "app"
+  },
+  {
+    "method": "POST",
+    "path": "/api/app/kitdev",
+    "access": "app"
+  },
+  {
+    "method": "GET",
+    "path": "/api/app/machine",
+    "access": "app"
+  },
+  {
+    "method": "POST",
+    "path": "/api/app/onboard/arch",
+    "access": "app"
+  },
+  {
+    "method": "POST",
+    "path": "/api/app/onboard/done",
+    "access": "app"
+  },
+  {
+    "method": "POST",
+    "path": "/api/app/onboard/repos",
+    "access": "app"
+  },
+  {
+    "method": "POST",
+    "path": "/api/app/onboard/scan",
+    "access": "app"
+  },
+  {
+    "method": "POST",
+    "path": "/api/app/onboard/setup",
+    "access": "app"
+  },
+  {
+    "method": "GET",
+    "path": "/api/app/onboard/stack",
+    "access": "app"
+  },
+  {
+    "method": "POST",
+    "path": "/api/app/onboard/stack",
+    "access": "app"
+  },
+  {
+    "method": "GET",
+    "path": "/api/app/onboard/state",
+    "access": "app"
+  },
+  {
+    "method": "POST",
+    "path": "/api/app/onboard/step",
+    "access": "app"
+  },
+  {
+    "method": "GET",
+    "path": "/api/app/onboard/tools",
+    "access": "app"
+  },
+  {
+    "method": "GET",
+    "path": "/api/app/summary",
+    "access": "app"
+  },
+  {
+    "method": "GET",
+    "path": "/api/app/terminals",
+    "access": "app"
+  },
+  {
+    "method": "POST",
+    "path": "/api/app/terminals",
+    "access": "app"
+  },
+  {
+    "method": "GET",
+    "path": "/api/app/terminals/stream",
+    "access": "app"
+  },
+  {
+    "method": "POST",
+    "path": "/api/app/terminals/t-a-1/close",
+    "access": "app"
+  },
+  {
+    "method": "POST",
+    "path": "/api/app/terminals/t-a-1/input",
+    "access": "app"
+  },
+  {
+    "method": "POST",
+    "path": "/api/app/terminals/t-a-1/resize",
+    "access": "app"
+  },
+  {
+    "method": "POST",
+    "path": "/api/app/tour-offered",
+    "access": "app"
+  },
+  {
+    "method": "POST",
+    "path": "/api/app/units/u1/handback",
+    "access": "app"
+  },
+  {
+    "method": "POST",
+    "path": "/api/app/units/u1/stop",
+    "access": "app"
+  },
+  {
+    "method": "POST",
+    "path": "/api/app/units/u1/takeover",
+    "access": "app"
+  },
+  {
+    "method": "GET",
+    "path": "/api/ask",
+    "access": "public"
+  },
+  {
+    "method": "POST",
+    "path": "/api/ask/answer",
+    "access": "app"
+  },
+  {
+    "method": "POST",
+    "path": "/api/build",
+    "access": "app"
+  },
+  {
+    "method": "POST",
+    "path": "/api/c4/confirm",
+    "access": "public"
+  },
+  {
+    "method": "POST",
+    "path": "/api/c4/element",
+    "access": "public"
+  },
+  {
+    "method": "POST",
+    "path": "/api/c4/relation",
+    "access": "public"
+  },
+  {
+    "method": "POST",
+    "path": "/api/c4/remove",
+    "access": "public"
+  },
+  {
+    "method": "GET",
+    "path": "/api/c4/view",
+    "access": "public"
+  },
+  {
+    "method": "GET",
+    "path": "/api/check",
+    "access": "public"
+  },
+  {
+    "method": "GET",
+    "path": "/api/ci",
+    "access": "public"
+  },
+  {
+    "method": "POST",
+    "path": "/api/ci",
+    "access": "app"
+  },
+  {
+    "method": "GET",
+    "path": "/api/codemap",
+    "access": "public"
+  },
+  {
+    "method": "POST",
+    "path": "/api/commit",
+    "access": "public"
+  },
+  {
+    "method": "POST",
+    "path": "/api/confirm",
+    "access": "public"
+  },
+  {
+    "method": "GET",
+    "path": "/api/doc",
+    "access": "public"
+  },
+  {
+    "method": "POST",
+    "path": "/api/doc",
+    "access": "public"
+  },
+  {
+    "method": "POST",
+    "path": "/api/feedback",
+    "access": "public"
+  },
+  {
+    "method": "GET",
+    "path": "/api/health",
+    "access": "public"
+  },
+  {
+    "method": "GET",
+    "path": "/api/interview",
+    "access": "public"
+  },
+  {
+    "method": "POST",
+    "path": "/api/interview/answer",
+    "access": "public"
+  },
+  {
+    "method": "GET",
+    "path": "/api/inventory",
+    "access": "public"
+  },
+  {
+    "method": "POST",
+    "path": "/api/inventory",
+    "access": "app"
+  },
+  {
+    "method": "GET",
+    "path": "/api/jobs",
+    "access": "public"
+  },
+  {
+    "method": "GET",
+    "path": "/api/jobs/j1",
+    "access": "public"
+  },
+  {
+    "method": "GET",
+    "path": "/api/kanban",
+    "access": "public"
+  },
+  {
+    "method": "POST",
+    "path": "/api/kanban/add",
+    "access": "portal"
+  },
+  {
+    "method": "POST",
+    "path": "/api/kanban/archive",
+    "access": "portal"
+  },
+  {
+    "method": "POST",
+    "path": "/api/kanban/assign",
+    "access": "portal"
+  },
+  {
+    "method": "POST",
+    "path": "/api/kanban/init",
+    "access": "portal"
+  },
+  {
+    "method": "GET",
+    "path": "/api/kanban/item",
+    "access": "public"
+  },
+  {
+    "method": "POST",
+    "path": "/api/kanban/link",
+    "access": "portal"
+  },
+  {
+    "method": "POST",
+    "path": "/api/kanban/move",
+    "access": "portal"
+  },
+  {
+    "method": "GET",
+    "path": "/api/kanban/next",
+    "access": "public"
+  },
+  {
+    "method": "GET",
+    "path": "/api/kanban/waves",
+    "access": "public"
+  },
+  {
+    "method": "GET",
+    "path": "/api/kpis",
+    "access": "public"
+  },
+  {
+    "method": "POST",
+    "path": "/api/kpis/miss",
+    "access": "public"
+  },
+  {
+    "method": "POST",
+    "path": "/api/new",
+    "access": "public"
+  },
+  {
+    "method": "GET",
+    "path": "/api/pipeline",
+    "access": "public"
+  },
+  {
+    "method": "GET",
+    "path": "/api/plan/cost",
+    "access": "public"
+  },
+  {
+    "method": "POST",
+    "path": "/api/plan/cost",
+    "access": "app"
+  },
+  {
+    "method": "POST",
+    "path": "/api/review/decide",
+    "access": "public"
+  },
+  {
+    "method": "GET",
+    "path": "/api/reviews",
+    "access": "public"
+  },
+  {
+    "method": "GET",
+    "path": "/api/runs",
+    "access": "public"
+  },
+  {
+    "method": "POST",
+    "path": "/api/runs",
+    "access": "app"
+  },
+  {
+    "method": "GET",
+    "path": "/api/runs/r1",
+    "access": "public"
+  },
+  {
+    "method": "POST",
+    "path": "/api/runs/r1/cancel",
+    "access": "app"
+  },
+  {
+    "method": "GET",
+    "path": "/api/runs/r1/events",
+    "access": "public"
+  },
+  {
+    "method": "GET",
+    "path": "/api/schemas",
+    "access": "public"
+  },
+  {
+    "method": "POST",
+    "path": "/api/schemas",
+    "access": "app"
+  },
+  {
+    "method": "GET",
+    "path": "/api/search",
+    "access": "public"
+  },
+  {
+    "method": "GET",
+    "path": "/api/status",
+    "access": "public"
+  },
+  {
+    "method": "GET",
+    "path": "/api/stories",
+    "access": "public"
+  },
+  {
+    "method": "POST",
+    "path": "/api/stories/analyze",
+    "access": "public"
+  },
+  {
+    "method": "GET",
+    "path": "/api/stories/files",
+    "access": "public"
+  },
+  {
+    "method": "GET",
+    "path": "/api/stories/item",
+    "access": "public"
+  },
+  {
+    "method": "POST",
+    "path": "/api/stories/lint",
+    "access": "public"
+  },
+  {
+    "method": "POST",
+    "path": "/api/stories/save",
+    "access": "portal"
+  },
+  {
+    "method": "POST",
+    "path": "/api/stories/suggest",
+    "access": "portal"
+  },
+  {
+    "method": "GET",
+    "path": "/api/sync",
+    "access": "public"
+  },
+  {
+    "method": "POST",
+    "path": "/api/sync/share",
+    "access": "public"
+  },
+  {
+    "method": "GET",
+    "path": "/api/tree",
+    "access": "public"
+  },
+  {
+    "method": "POST",
+    "path": "/api/units/approve",
+    "access": "public"
+  },
+  {
+    "method": "POST",
+    "path": "/api/units/retry",
+    "access": "public"
+  },
+  {
+    "method": "GET",
+    "path": "/api/viewers",
+    "access": "public"
+  },
+  {
+    "method": "POST",
+    "path": "/api/wiki",
+    "access": "app"
+  },
+  {
+    "method": "GET",
+    "path": "/api/wikis",
+    "access": "public"
+  }
+]
