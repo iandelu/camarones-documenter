@@ -343,7 +343,9 @@ The team's `cam-docs` repo and what came with it (`#/team`, <kbd>g</kbd> <kbd>t<
 **The team's repo.** Paste its URL and **Save** (`camaron remote`). With a remote, three figures — to send, to bring
 in, not saved yet — and **Share now** (a checkpoint, then your work rebased on the team's and pushed), **Check** (asks
 the remote what is new) and **Share every time progress is saved** (`camaron share --auto on|off`, this machine only).
-A conflict is undone and nothing is touched; something that looks like a secret is not published.
+A conflict is undone and nothing is touched; something that looks like a secret is not published. A share or a check
+that fails says why — the server cannot be reached (connection, VPN or proxy), it wants a token or refuses yours, the
+repo is not there — with git's own line beneath; a token problem links to **Machine › Tokens** for that server.
 
 **What came with the team's repo.** Hooks, MCP servers, settings, skills, files and plugins in `cam-docs` that the kit
 did not write wait here until you approve them on this machine: **Approve (n)** lists them and runs
@@ -494,6 +496,7 @@ global install. It is the bench for changing the kit:
 | "I could not start the project's server" | The box shows the server's error; `camaron doctor` in that folder usually says what is missing |
 | A button you expected is not in the browser portal | On purpose: the browser portal runs nothing on your machine. Do it here |
 | You want Electron downloaded again | Delete `~/.camarones/desktop` and run `camaron app` |
+| "I can't reach <server>: check the connection, VPN or proxy" on **Share now** | The team's server is only on your company's network: connect the VPN (or set the proxy) and share again |
 
 On Linux with restricted user namespaces (Ubuntu 24.04 and later) the kit starts the app with `--no-sandbox`; its
 windows only ever load your project's local server.

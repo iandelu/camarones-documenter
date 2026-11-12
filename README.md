@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.81.0-ff875f?style=flat-square" alt="Versión 4.81.0">
+  <img src="https://img.shields.io/badge/version-4.81.1-ff875f?style=flat-square" alt="Versión 4.81.1">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -219,7 +219,8 @@ aprobaciones viven en `~/.camarones/trust/`, fuera del repo. Si en la carpeta de
 dos líneas que importan sus reglas (`@AGENTS.md`); `uninstall` las quita y deja lo tuyo. Publicar es un paso explícito:
 **Equipo › Compartir ahora**, **Plan › Sincronizar** en el portal o `camaron share` (checkpoint, rebase sobre el trabajo
 del equipo y push); con `camaron share --auto on` cada checkpoint se comparte solo, en esta máquina. Un conflicto se
-deshace sin tocar nada, y algo que parece un secreto no se publica.
+deshace sin tocar nada, y algo que parece un secreto no se publica. Si no llega al servidor del equipo o le faltan
+credenciales, te dice por qué (la VPN o el proxy, el token de ese servidor) y debajo lo que respondió git.
 
 ## El día a día en cinco pasos
 

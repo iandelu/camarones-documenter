@@ -204,7 +204,9 @@ quién ha respondido, qué no ha respondido nadie y dónde no hay acuerdo.
 **Sincronizar** (`#/sync`, en vivo): este `cam-docs` frente al repo del equipo —tus commits sin compartir, los suyos que
 no tienes, cuándo compartió esta máquina por última vez y los ficheros aún sin guardar—. **Sincronizar con el equipo**
 hace lo mismo que `camaron share` (un checkpoint, entra el trabajo del equipo, sale el tuyo); **Comprobar si hay
-novedades** pregunta al remoto. Un conflicto se deshace; un posible secreto bloquea el push.
+novedades** pregunta al remoto. Un conflicto se deshace; un posible secreto bloquea el push. Un fallo dice por qué (no
+llega al servidor: conexión, VPN o proxy; falta un token o lo rechaza; el repo no está) con la línea de git debajo; los
+tokens se guardan en la app de escritorio.
 
 <!-- portal:#/pipeline -->
 

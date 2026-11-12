@@ -193,7 +193,8 @@ answered and where people disagree.
 **Sync** (`#/sync`, live): this `cam-docs` against the team's repo — your commits not shared, theirs not here, when
 this machine last shared, and files not saved yet. **Sync with the team** does what `camaron share` does (a
 checkpoint, the team's work in, yours out); **Check for news** asks the remote. A conflict is undone; a possible secret
-blocks the push.
+blocks the push. A failure says why (the server unreachable: connection, VPN or proxy; a token missing or refused; the
+repo not found) with git's line beneath; tokens are saved in the desktop app.
 
 <!-- portal:#/pipeline -->
 

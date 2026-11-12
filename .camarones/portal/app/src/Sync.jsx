@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getJSON, postJSON } from './api.js'
 import { t } from './i18n.js'
-import { Skeleton } from '@camaron/ui'
+import { Skeleton, fetchSay, shareOk, shareSay } from '@camaron/ui'
 import Failed from './Failed.jsx'
 
 // Sync with the team (env.sync_status / env.share): where this cam-docs stands against the team's repo and sharing
@@ -30,9 +30,6 @@ export default function Sync() {
   }
   if (error) return <section className="view"><h1>{t('syTitle')}</h1><Failed title={t('syFailed')} detail={error} onRetry={() => { setError(''); load(false) }} /></section>
   if (!s) return <section className="view"><h1>{t('syTitle')}</h1><Skeleton lines={3} /></section>
-  const r = result
-  const message = r && (t(`sy.${r.status}`).startsWith('sy.') ? r.status : t(`sy.${r.status}`)).replace('{detail}', r.detail || '')
-  const ok = r && ['pushed', 'up-to-date', 'nothing'].includes(r.status)
   return (
     <section className="view sync">
       <h1>{t('syTitle')}</h1>
@@ -50,11 +47,11 @@ export default function Sync() {
             <small className="muted">{s.auto ? t('syAutoOn') : t('syAutoOff')}</small></div>
         </div>
       )}
-      {s.fetched && !s.fetched.ok ? <p className="error" role="alert">{t('syFetchFailed')} {s.fetched.reason}</p> : null}
+      <FetchLine fetched={s.fetched} remote={s.remote} />
       <div className="row sy-actions">
         {s.remote ? <button type="button" className="small" disabled={!!busy} onClick={share}>{busy === 'share' ? t('syBusy') : t('syShare')}</button> : null}
         {s.remote ? <button type="button" className="ghost small" disabled={!!busy} onClick={check}>{t('syCheck')}</button> : null}
-        {r ? <span className={ok ? 'ok' : 'error'} role={ok ? 'status' : 'alert'}>{message}</span> : null}
+        <ShareLine result={result} remote={s.remote} />
       </div>
       <h2>{t('syPending').replace('{n}', s.pending.length)}</h2>
       {s.pending.length ? (
@@ -63,5 +60,28 @@ export default function Sync() {
       ) : <p className="muted">{t('syClean')}</p>}
       {s.head ? <p className="muted small">{t('syHead')} <code>{s.head.hash}</code> {s.head.subject} · {when(s.head.date)}</p> : null}
     </section>
+  )
+}
+
+// A share's outcome. A failure git explained (no route to the host, no token…) says so in words, git's line beneath;
+// a token is saved in the desktop app, never here.
+export function ShareLine({ result, remote }) {
+  if (!result) return null
+  const said = shareSay(result, remote)
+  const m = t(said.key, said.vars)
+  const message = m === said.key ? result.status : m
+  if (shareOk(result)) return <span className="ok" role="status">{message}</span>
+  return (
+    <span className="error" role="alert">{message}{said.token ? ` ${t('sy.tokenHint', { host: said.token })}` : ''}
+      {said.detail ? <code className="sy-said">{said.detail}</code> : null}</span>
+  )
+}
+
+export function FetchLine({ fetched, remote }) {
+  const said = fetchSay(fetched, remote)
+  if (!said) return null
+  return (
+    <p className="error" role="alert">{said.key ? t(said.key, said.vars) : t('syFetchFailed')}
+      {said.detail ? <code className="sy-said">{said.detail}</code> : null}</p>
   )
 }

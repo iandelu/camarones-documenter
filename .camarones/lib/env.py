@@ -1801,7 +1801,8 @@ def sync_status(fetch: bool = False) -> dict:
     if url and fetch:
         from . import creds
         r = run(["git", "fetch", "--quiet", "origin"], cwd=ROOT, check=False, quiet=True, env=creds.git_env(url))
-        fetched = {"ok": r.returncode == 0, "reason": "" if r.returncode == 0 else git_failure(r.stderr or r.stdout or "")}
+        fetched = {"ok": True, "reason": ""} if r.returncode == 0 else \
+            {"ok": False, "reason": git_failure(r.stderr or r.stdout or ""), "host": _remote_host(url), "detail": _git_said(r)}
     ahead = behind = None
     if url and branch and git("rev-parse", "--verify", "--quiet", f"origin/{branch}"):
         counts = git("rev-list", "--left-right", "--count", f"HEAD...origin/{branch}").split()
@@ -1831,6 +1832,18 @@ def set_remote(url: str) -> None:
     run(["git", "remote", "add", "origin", clean_remote(url)], cwd=ROOT, quiet=True)
 
 
+def _remote_host(url: str) -> str:
+    from . import creds
+    return (creds.host_of(url) or "") if re.match(r"^[a-z][a-z0-9+.-]*://|^[\w.+-]+@", url, re.I) else ""
+
+
+def _git_said(r) -> str:
+    """git's own words for a failed fetch or push, from its fatal/error line on (its last line alone is often a fragment)."""
+    lines = [ln.strip() for ln in (r.stderr or r.stdout or "").strip().splitlines() if ln.strip()]
+    start = next((i for i, ln in enumerate(lines) if ln.lower().startswith(("fatal:", "error:"))), len(lines) - 1)
+    return " · ".join(lines[max(start, 0):])[:400]
+
+
 def _ident() -> list[str]:
     return [] if out(["git", "config", "user.email"], cwd=ROOT) else ["-c", "user.name=Camarón",
                                                                       "-c", "user.email=camarones@localhost"]
@@ -1848,7 +1861,7 @@ def share(log: Log = print) -> dict:
         url = clean_remote(url)
         run(["git", "remote", "set-url", "origin", url], cwd=ROOT, check=False, quiet=True)
     auth = creds.git_env(url)
-    host = creds.host_of(url) if re.match(r"^[a-z][a-z0-9+.-]*://|^[\w.+-]+@", url, re.I) else None
+    host = _remote_host(url)
 
     def git(*args: str, env: dict | None = None):
         return run(["git", *args], cwd=ROOT, check=False, quiet=True, env=env)
@@ -1861,10 +1874,7 @@ def share(log: Log = print) -> dict:
         reason = git_failure(r.stderr or r.stdout or "")
         if reason == "auth" and host and not creds.get(host):
             reason = "no-token"
-        lines = [ln.strip() for ln in (r.stderr or r.stdout or "").strip().splitlines() if ln.strip()]
-        start = next((i for i, ln in enumerate(lines) if ln.lower().startswith(("fatal:", "error:"))), len(lines) - 1)
-        detail = " · ".join(lines[max(start, 0):])[:400]              # git's last line alone is often a fragment
-        return {"status": "error", "reason": reason, "host": host or "", "detail": detail}
+        return {"status": "error", "reason": reason, "host": host, "detail": _git_said(r)}
 
     said: set[str] = set()
 
