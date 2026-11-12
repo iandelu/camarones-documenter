@@ -1,7 +1,7 @@
 """PTYs in the project server (lib/terminals.py): a real terminal per session, on every OS (pywinpty on Windows)."""
 from __future__ import annotations
 
-import json, os, re, socket, subprocess, sys, time
+import json, os, re, socket, subprocess, sys, threading, time
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -203,8 +203,15 @@ def test_the_ninth_terminal_is_refused(pty, monkeypatch):
     pty.open()                                                         # room again
 
 
-def test_a_unit_terminal_closes_its_session_record(pty, kit):
+def test_a_unit_terminal_closes_its_session_record(pty, kit, monkeypatch):
     from lib import sessions
+    held, go, end_record = threading.Event(), threading.Event(), pty.t._end_record
+
+    def holding(meta):                                                   # between the record's end and the terminal's
+        end_record(meta)
+        held.set()
+        go.wait(15)
+    monkeypatch.setattr(pty.t, "_end_record", holding)
     rec = sessions.start("discovery:api", "claude", None)
     m = pty.t.spawn(sessions.wrap(rec, [sys.executable, str(ECHO)]), kit.root, kind="unit", unit="discovery:api",
                     agent="claude")
@@ -212,8 +219,13 @@ def test_a_unit_terminal_closes_its_session_record(pty, kit):
     until(lambda: sessions.running(sessions.load("discovery:api")))      # inside session_run, as in a window
     assert pty.t.find("unit", "discovery:api")["id"] == m["id"]
     pty.t.close(m["id"])
-    until(lambda: (sessions.load("discovery:api") or {}).get("ended"))
-    assert not sessions.live(sessions.load("discovery:api")) and pty.t.find("unit", "discovery:api") is None
+    assert held.wait(15)
+    # The record ends first: close_wait's caller (hand_back) finds it ended, and the terminal, still found, refuses a
+    # reopen while its program may linger. Waiting for the record and asserting the terminal raced on a slow runner.
+    assert (sessions.load("discovery:api") or {}).get("ended") and pty.t.find("unit", "discovery:api")["id"] == m["id"]
+    go.set()
+    until(lambda: pty.t.find("unit", "discovery:api") is None)
+    assert not sessions.live(sessions.load("discovery:api"))
 
 
 def test_a_record_taken_by_a_newer_session_is_left_alone(pty, kit):
@@ -358,6 +370,17 @@ def test_on_windows_a_program_that_ended_lets_go_of_its_sockets(conpty, kit):
     until(lambda: conpty.t.get(m["id"])["ended"])
     assert conpty.t.get(m["id"])["code"] == 0
     assert proc.fileobj.fileno() == -1 and proc._server.fileno() == -1
+
+
+# A terminal shutdown ends itself (its program still holds the PTY) has a reader one look from its own end. Returning
+# before it, the server's exit cut that reader off mid-cleanup, and this fixture put IS_WIN back under a fake ConPTY's
+# reader, which then took the POSIX branches: os.close(None).
+def test_shutdown_returns_once_each_reader_let_go_of_its_pty(conpty, kit, monkeypatch):
+    monkeypatch.setattr(conpty.t, "TICK", 1.0)                         # a reader looks again later than shutdown ends
+    m = conpty.t.spawn([sys.executable, "-c", "pass"], kit.root, kind="update", agent="test")
+    proc = conpty.t._term(m["id"]).proc
+    conpty.t.shutdown()
+    assert conpty.t.get(m["id"])["ended"] and proc.fileobj.fileno() == -1 and proc._server.fileno() == -1
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="taskkill /T /F ends the tree at once")
