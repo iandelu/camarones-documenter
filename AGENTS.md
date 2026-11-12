@@ -47,9 +47,9 @@ Every change must work on all three. CI (`.github/workflows/tests.yml`) runs the
   `uv run pytest -m e2e` (clones real repos). A change is done when the suite is green; say so with the output, or say
   what failed.
 - Tests run side by side, so each one owns its `tmp_path`, home and ports (bind port 0). `make_workspace` and the
-  `wired` fixture copy a per-process template (`tests/test_builder.py` checks a copy matches a fresh build), so they
-  are cheap; never share state through module globals or fixed paths. A test that truly cannot run beside another one
-  gets `@pytest.mark.serial`: all of them go to one worker, one at a time.
+  `wired` fixture copy a per-process template (one `clonefile` on macOS; `tests/test_builder.py` checks a copy matches a
+  fresh build), so they are cheap; never share state through module globals or fixed paths. A test that truly cannot
+  run beside another one gets `@pytest.mark.serial`: all of them go to one worker, one at a time.
 - **Sandbox for end-to-end checks.** If the sandbox project exists (`$CAMARONES_SANDBOX`, else
   `~/projects/camarones-sandbox`, with the Spring PetClinic repos), use it to verify a change end to end with this
   checkout's kit, beyond the unit suite: `uv run scripts/sandbox.py cli <command>` (or `open` for the wizard),

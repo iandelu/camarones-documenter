@@ -18,7 +18,7 @@ for p in (str(KIT_DIR), str(TESTS)):
 
 from fixtures import bytecode, fast_git, hang_watchdog  # noqa: E402
 from fixtures.facade_guard import GuardedMonkeyPatch  # noqa: E402
-from fixtures.builder import GITCONFIG, make_workspace, rmtree, slim  # noqa: E402
+from fixtures.builder import GITCONFIG, clone, drop_links, make_workspace, rmtree, slim  # noqa: E402
 from fixtures.hang_watchdog import pytest_runtest_protocol, pytest_terminal_summary  # noqa: E402,F401
 from fixtures.host_tools import hidden_tools, masked_path  # noqa: E402
 
@@ -200,7 +200,10 @@ def copy_wired(base: Path, home: Path) -> SimpleNamespace:
     copy itself, as it would on any OS."""
     src = _wired_template()
     ws = base / "demo"
-    shutil.copytree(src / "demo", ws, symlinks=True, ignore=lambda d, names: [n for n in names if _is_link(Path(d) / n)])
+    if clone(src / "demo", ws):
+        drop_links(ws)
+    else:
+        shutil.copytree(src / "demo", ws, symlinks=True, ignore=lambda d, names: [n for n in names if _is_link(Path(d) / n)])
     kit = load_kit(ws / "cam-docs", home, ws)
     old, new = (src / "demo" / "cam-docs").resolve(), kit.root.resolve()
     store = importlib.import_module("lib.trust").store_path      # records are named after a hash of the root

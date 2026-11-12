@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from conftest import REPO, load_kit, wire_project
+from fixtures import builder
 from fixtures.builder import REPOS, build_workspace, git, make_workspace, snapshot
 
 
@@ -35,6 +36,41 @@ def test_a_copy_leaves_out_gits_sample_hooks_and_loose_objects(tmp_path, isolate
     assert not [o for o in ws.glob("*/.git/objects/??/*")]
     git(ws / "api", "commit", "-q", "--allow-empty", "-m", "next")
     assert git(ws / "api", "log", "--format=%s") == "next\ninitial\n"
+
+
+def test_where_cloning_fails_a_copy_is_a_plain_copy(tmp_path, monkeypatch):
+    src = make_workspace(tmp_path / "src")
+    monkeypatch.setattr(builder, "clone", lambda a, b: False)
+    builder.copy_tree(src, tmp_path / "copy")
+    assert tree(tmp_path / "copy") == tree(src)
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="clonefile(2) is macOS")
+def test_on_a_mac_a_copy_is_one_clone_of_its_own(tmp_path):
+    src = make_workspace(tmp_path / "src")
+    assert builder.clone(src, tmp_path / "copy")
+    assert tree(tmp_path / "copy") == tree(src)
+    (tmp_path / "copy" / "api" / "README.md").write_text("changed\n", encoding="utf-8")
+    assert (src / "api" / "README.md").read_text(encoding="utf-8") == "# api\n\nREST backend.\n"
+
+
+def test_a_copy_onto_a_folder_that_is_there_fails_and_leaves_it_alone(tmp_path):
+    src = make_workspace(tmp_path / "src")
+    (tmp_path / "taken" / "mine.txt").parent.mkdir()
+    (tmp_path / "taken" / "mine.txt").write_text("keep\n", encoding="utf-8")
+    with pytest.raises(FileExistsError):
+        builder.copy_tree(src, tmp_path / "taken")
+    assert [p.name for p in (tmp_path / "taken").iterdir()] == ["mine.txt"]
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="symlinks need a right Windows does not give by default")
+def test_drop_links_takes_every_link_and_nothing_else(tmp_path):
+    (tmp_path / "repo" / "src").mkdir(parents=True)
+    (tmp_path / "repo" / "src" / "a.py").write_text("a\n", encoding="utf-8")
+    (tmp_path / "AGENTS.md").symlink_to("repo/src/a.py")
+    (tmp_path / "repo" / "wiki").symlink_to("src", target_is_directory=True)
+    builder.drop_links(tmp_path)
+    assert sorted(p.relative_to(tmp_path).as_posix() for p in tmp_path.rglob("*")) == ["repo", "repo/src", "repo/src/a.py"]
 
 
 def test_other_layouts_are_templates_of_their_own(tmp_path):
