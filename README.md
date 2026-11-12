@@ -239,8 +239,9 @@ detalle.
 ## Programar con Camarón
 
 Abre Claude Code o Codex en el espacio de trabajo y pídele un cambio de código: el kit le enseña a seguir la skill
-`cam-task` (más `cam-difficulty`, `cam-verify`, `cam-ship` y `cam-retro`). El código va en una rama `cam/<id>-<slug>` de
-cada repo de servicio y la documentación en su propio worktree de `cam-docs`, así que nada toca tu rama de trabajo.
+`cam-task` (más `cam-difficulty`, `cam-verify`, `cam-ship` y `cam-retro`). El cambio va en su propia rama,
+`cam/<id>-<slug>`, en cada repo de servicio, y la documentación en su propio worktree de `cam-docs` (`.cw/<id>`): tu
+checkout de `cam-docs` y su tablero nunca cambian de rama.
 
 1. **La documentación primero**: lee `cam-docs` y resume lo que dice, con citas, antes de tocar código.
 2. **Dificultad**: baja (0–2), media (3–5) o alta (6+). En la alta propone partir el cambio en elementos de tablero

@@ -27,11 +27,15 @@ the service repos and `{{CAM}}`) unless a step says otherwise.
 5. **Implement test-first**: for each behaviour a failing test, watch it fail, make it pass. Commit with the repo's
    own conventions.
 6. **Update the docs in the worktree** with `cam-docs-update`, adapted: edit `.cw/<id>/docs/` instead of
-   `{{CAM}}docs/`, run its `{{CLI}}` commands on the worktree, skip its `checkpoint` and `mark-documented`, and do not
-   use the MCP's `propose_edit` (it writes to the main checkout). A board item: link it to the pages you updated, on
-   the worktree, as `cam-ship` guardrail 8 says. Then commit the docs locally: `git -C .cw/<id> add -A`, then
-   `git -C .cw/<id> commit -m "docs: <title>"`. Commit every later docs edit the same way: verification and the
-   guardrails read commits, not the working tree.
+   `{{CAM}}docs/`, run its `{{CLI}}` commands on the worktree, skip its `llms`, `checkpoint` and `mark-documented`, and
+   do not use the MCP's `propose_edit` (it writes to the main checkout). A board item: link it to the pages you
+   updated, on the worktree, as `cam-ship` guardrail 8 says. Then commit the docs locally, leaving out the four derived
+   files the kit's commands rewrite (`docs/.status.json`, `docs/.work/fresh.json`, `docs/llms.txt`,
+   `docs/llms-full.txt`):
+   `git -C .cw/<id> add -A -- . ":(exclude)docs/.status.json" ":(exclude)docs/llms.txt" ":(exclude)docs/llms-full.txt" ":(exclude)docs/.work/fresh.json"`,
+   then `git -C .cw/<id> commit -m "docs: <title>"`. Commit every later docs edit the same way: verification and the
+   guardrails read commits, not the working tree. A tree is **clean** when `git status --porcelain` lists nothing, or,
+   in `.cw/<id>`, nothing but the four derived files.
 7. **Verify** with `cam-verify`.
 8. **Ship** with `cam-ship`: guardrails, impact, one question, linked draft PRs.
 9. **Retro** with `cam-retro`.

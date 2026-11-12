@@ -12,9 +12,10 @@ and never receive kit files.
    `confirmed` pages are the source of truth; `draft` pages must be verified against the code.
 2. Code questions: `graphify query "<question>" --graph {{CAM}}graph/<repo>/graph.json` (one repo) or
    `--graph {{CAM}}.camarones/.cache/graph/graph.json` (all repos).
-3. After changing behaviour, update the affected pages in `{{CAM}}docs/` in the same session (skill `cam-docs-update`),
-   then `{{CLI}} check`. The docs are alive: code and docs change together. Through the MCP: `propose_edit` (AI drafts
-   change in place; confirmed pages get a proposal for review), `add_feedback`, `mark_suspect` when a page is now wrong.
+3. Outside a `cam-task` change, after changing behaviour, update the affected pages in `{{CAM}}docs/` in the same
+   session (skill `cam-docs-update`), then `{{CLI}} check`. The docs are alive: code and docs change together. Through
+   the MCP: `propose_edit` (AI drafts change in place; confirmed pages get a proposal for review), `add_feedback`,
+   `mark_suspect` when a page is now wrong.
 
 ## Where to look
 

@@ -165,9 +165,9 @@ Cuando el código se mueve, la documentación lo sigue:
 ## Programar con Camarón
 
 Abre Claude Code o Codex en el espacio de trabajo y pídele un cambio: el agente empieza la skill `cam-task` (y detrás
-`cam-difficulty`, `cam-verify`, `cam-ship` y `cam-retro`). El código va en una rama `cam/<id>-<slug>` de cada repo de
-servicio y la documentación en su propio worktree de `cam-docs` (`.cw/<id>`), así que tus ramas de trabajo se quedan
-como estaban.
+`cam-difficulty`, `cam-verify`, `cam-ship` y `cam-retro`). El cambio va en su propia rama, `cam/<id>-<slug>`, en cada
+repo de servicio, y la documentación en su propio worktree de `cam-docs` (`.cw/<id>`): tu checkout de `cam-docs` y su
+tablero nunca cambian de rama.
 
 - **Primero la documentación.** El agente lee `cam-docs` y resume lo que dice, con citas, antes de tocar código.
 - **Dificultad.** Baja (0–2), media (3–5) o alta (6+). A una baja le toca un plan corto, a una media un plan que

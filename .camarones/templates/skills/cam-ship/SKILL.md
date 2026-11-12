@@ -13,7 +13,8 @@ Each failure stops here: fix it, or ask the person. A fix is a new commit: run `
 then the guardrails again.
 
 1. Everything is committed: the code in every repo (the repo's own conventions), the docs in `.cw/<id>`
-   (`cam-task` step 6). Every tree, the worktree included, is clean: `git status --porcelain` prints nothing.
+   (`cam-task` step 6). Every tree is clean as that step defines it: `git status --porcelain` lists nothing, or, in
+   `.cw/<id>`, nothing but the four derived files.
 2. Score again with the real diff (`cam-difficulty`). The level went up → stop and ask.
 3. Forbidden paths: `git diff --name-only <base>...HEAD` in each repo shows none of `.env*`, `*.pem`, `*.key`,
    `id_rsa*`, `secrets/`. A match → stop and ask.
@@ -23,7 +24,8 @@ then the guardrails again.
 5. Stale docs: `{{CLI}} pr fresh <repo> --base <base>` for each repo lists the pages its code diff leaves stale (read
    from the main checkout, so pages you already updated still show). Each one is updated and committed in the worktree,
    or explained under Warnings.
-6. `{{CLI}} check` on the worktree: no errors. Its warnings go under Warnings.
+6. `{{CLI}} check` on the worktree: no errors. Its warnings go under Warnings. It rewrites only the four derived files,
+   so the tree stays clean.
 7. Trust: the docs commits (`git -C .cw/<id> diff <base>...HEAD`, the docs' `<base>`) add no `x-confirmed`, and edit
    no `<!-- human -->` block and no page with `x-owner: human`.
 8. Board item, if any: linked to the pages the change updated, on the worktree, then committed (`cam-task` step 6):
@@ -50,9 +52,9 @@ change asked for → go back to the step it concerns.
 
 ## 4. On yes
 
-1. Commit whatever is still pending in the worktree (after guardrail 1 there is nothing; if there was, run
-   `cam-verify` and the guardrails again first). Push every branch: `git push -u origin cam/<id>-<slug>` in each repo
-   and in `.cw/<id>`.
+1. Anything pending in the worktree besides the four derived files? After guardrail 1 there is none; if there is,
+   commit it as `cam-task` step 6 says, then run `cam-verify` and the guardrails again. Push every branch:
+   `git push -u origin cam/<id>-<slug>` in each repo and in `.cw/<id>`.
 2. The code PR(s) first, as drafts, in each repo: `gh pr create --draft --base <branch> --title "<title>" --body-file <file>`
    (GitLab: `glab mr create --draft --target-branch <branch> --title "<title>" --description "<body>"`). `<branch>` is
    `<base>` without `origin/`; `<file>` a temporary file outside the repos.
@@ -79,4 +81,6 @@ change asked for → go back to the step it concerns.
 - Give the PR URLs. You never move board columns: tell the person to move the item to review.
 - Never merge, neither the code nor the docs. The person merges the code first and the docs right after, then
   re-confirms the confirmed pages the change edited.
+- Once a person has merged the PRs, the docs worktree goes: `git -C {{CAM}}. worktree remove ../.cw/<id>` (it refuses
+  while the four derived files are there; add `--force` when they are all that is left).
 - Then `cam-retro`.

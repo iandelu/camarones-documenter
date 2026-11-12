@@ -26,11 +26,13 @@ Build the plan for each repo you changed, run it, and record the evidence. Commi
    replaces the detected one; each entry of `extra: [{id, run: [argv…]}]` is one more check.
 3. The docs: `{{CLI}} check` on the docs worktree, from the workspace root, with no errors:
    `CAMARONES_ROOT="$PWD/.cw/<id>" CAMARONES_WORKSPACE="$PWD" CAMARONES_STATE_ROOT="$PWD/{{CAM}}." {{CLI}} check`
-   (plain `check` inside the worktree reports false "sources no longer exist" errors).
+   (plain `check` inside the worktree reports false "sources no longer exist" errors). It rewrites the four derived
+   files of `cam-task` step 6: leave them uncommitted.
 4. You may add checks for a risk (e.g. an integration test for `migration`), each with a one-line why, listed apart as
    yours. Never drop a check from steps 1–3.
 5. Evidence, per check: the command, its exit code and `git rev-parse HEAD` of its repo (for `check`, of `.cw/<id>`),
-   with a clean tree (`git status --porcelain` prints nothing). A new commit makes it stale: run it again.
+   with a clean tree as `cam-task` step 6 defines it (in `.cw/<id>`, only the four derived files may be listed). A new
+   commit makes it stale: run it again.
 6. A failed check: run it once more, unchanged.
    - Failed then passed is `flaky`: report it; it needs the person's word before `cam-ship`.
    - Failed again: read the log, fix the code (not the test, unless the test is wrong, and then say so), run again.

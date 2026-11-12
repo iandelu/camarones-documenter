@@ -383,7 +383,7 @@ PAGES = {
                  "la aprueba una vez en `camaron trust`; `camaron doctor` avisa si la versión del kit se movió. Lo "
                  "aprendido se apunta con `camaron skills note … --source retro|review|board` (`camaron skills notes` lo "
                  "lee). Más adelante llegará `camaron change`, donde el propio kit hará de escribano. Tu agente "
-                 "programa; Camarón solo le pasa los apuntes y vigila que nadie se salte el cierre. 🦐"},
+                 "programa; Camarón solo le pasa los apuntes y le recuerda recoger antes de irse. 🦐"},
         {"icon": "📋", "title": "El Tablero: el trabajo junto a la documentación",
          "art": r"""
    cam-docs/backlog/
@@ -911,8 +911,8 @@ PAGES = {
                  "upgrades and each machine approves it once in `camaron trust`; `camaron doctor` warns when the kit's "
                  "version moved on. What you learn goes in with `camaron skills note … --source retro|review|board` "
                  "(`camaron skills notes` reads it back). Later versions bring `camaron change`, where the kit itself "
-                 "does the paperwork. Your agent writes the code; Camarón just hands it the notes and checks nobody skips "
-                 "the closing. 🦐"},
+                 "does the paperwork. Your agent writes the code; Camarón just hands it the notes and reminds it to close "
+                 "up shop. 🦐"},
         {"icon": "📋", "title": "The Board: the work next to the docs",
          "art": r"""
    cam-docs/backlog/
