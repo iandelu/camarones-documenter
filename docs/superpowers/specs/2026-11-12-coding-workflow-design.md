@@ -301,7 +301,8 @@ bodies load only on use. `budget.py` counts every `cam-` skill as the kit's.
 
 - One file per skill: `cam-docs/docs/.work/skill-notes/<skill>.md`, committed with the next checkpoint or sync. One
   entry per line, parseable and readable:
-  `- 2026-11-12 · retro · step verify · change wi-12 · lanerid — <text> (<ref>)`.
+  `- {date} · {source} · step {step} · change {change} · ref {ref} · {by} — {text}`, a field with no value as `-`;
+  e.g. `- 2026-11-12 · retro · step verify · change wi-12 · ref - · lanerid — <text>`.
 - `camaron skills note <skill> "<text>" --source retro|review|board [--step <step>] [--change <id>] [--ref <url|WI-n>]`;
   the same through the MCP `change` tool (`action: note`).
 - **Retro** (`cam-retro`): at the end of every change session, 0–3 notes, only for friction in the workflow (a missing
