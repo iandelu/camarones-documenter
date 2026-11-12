@@ -17,9 +17,13 @@ NO_USAGE = {"help", "mcp", "wizard"}
 
 
 def test_order_is_the_parser(kit):
+    """ORDER's commands first, in its order; a command added since sorts after them by name (adding a command is
+    adding a module, ORDER only keeps today's --help order)."""
     from lib.interfaces.cli import main
     from lib.catalog import subparsers
-    assert list(subparsers(main.build_parser())) == list(ORDER)
+    names = list(subparsers(main.build_parser()))
+    assert set(ORDER) <= set(names), f"ORDER names commands that are gone: {sorted(set(ORDER) - set(names))}"
+    assert names == list(ORDER) + sorted(n for n in names if n not in ORDER)
 
 
 def test_main_is_short():
@@ -68,3 +72,14 @@ def test_help_prints_utf8_on_a_cp1252_pipe(kit):
     r = subprocess.run([sys.executable, str(kit.kit_dir / "camarones.py"), "help"], capture_output=True,
                        env={**os.environ, "CAMARONES_ROOT": str(kit.root), "PYTHONIOENCODING": "cp1252"})
     assert r.returncode == 0 and "🦐 Camarón" in r.stdout.decode("utf-8")
+
+
+def test_an_error_while_building_the_parser_is_one_line_too(kit, monkeypatch, capsys):
+    """The old entry script mapped these errors around all of main(), parsing included."""
+    from lib.interfaces.cli import main
+
+    def broken():
+        raise PermissionError(13, "Permission denied", "/nope")
+    monkeypatch.setattr(main, "build_parser", broken)
+    assert main.main(["version"]) == 1
+    assert capsys.readouterr().err == "🦐✖ [Errno 13] Permission denied: '/nope'\n"

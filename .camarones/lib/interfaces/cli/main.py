@@ -18,9 +18,14 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
-def main(argv: list[str] | None = None) -> int:
-    leave_parent_session()
+def _parse_and_run(argv: list[str]) -> int:
     parser = build_parser()
-    args = parser.parse_args((sys.argv[1:] if argv is None else argv) or ["wizard"])
+    args = parser.parse_args(argv or ["wizard"])
     command = registry.find(registry.load(), args.cmd)
     return middleware.dispatch(middleware.Invocation(command, args, CliContext(parser)))
+
+
+def main(argv: list[str] | None = None) -> int:
+    leave_parent_session()
+    # building and parsing too: the old entry script mapped these errors around all of main()
+    return middleware.errors_to_exit(None, lambda: _parse_and_run(sys.argv[1:] if argv is None else argv))
