@@ -1750,7 +1750,8 @@ def install_ci(forge: str | None = None, log: Log = print) -> Path:
 # ---------- progress safety: local checkpoint commits in the umbrella repo ----------
 CHECKPOINT_PATHS = ["docs", "wikis", "evals", "backlog", ".gitattributes", ".camarones/workspace.yaml", ".camarones/PLAYBOOK.md", ".camarones/CONVENTIONS.md",
                     ".camarones/skeletons", ".camarones/plugins", ".camarones/plugins.lock", ".camarones/.kit-docs.json", ".camarones/ci", ".claude", ".codex", ".agents", ".mcp.json", "AGENTS.md", "CLAUDE.md",
-                    ".gitignore", ".gitlab-ci.yml", ".github"]
+                    ".gitignore", ".gitlab-ci.yml", ".github",
+                    ".camarones/skills", ".camarones/.kit-skills.json"]   # a team copy, its fork stamp and its rendering travel together
 
 
 def checkpoint_paths() -> list[str]:

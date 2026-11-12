@@ -64,7 +64,12 @@ def _rel(path: Path) -> str:
 
 def _rerender() -> None:
     from . import env
-    env.write_kit_skills()
+    env.refresh_agent_config()
+
+
+def _done(a, data: dict, line: str) -> int:
+    print(json.dumps(data, ensure_ascii=False, indent=2) if a.json else line)
+    return 0
 
 
 def _list(a) -> int:
@@ -88,8 +93,8 @@ def _fork(a) -> int:
     from . import skills
     path = skills.fork(a.args[0])
     _rerender()
-    print(f"✔ team copy of {a.args[0]}: {_rel(path)} — edit it and commit it in a docs PR")
-    return 0
+    return _done(a, {"name": a.args[0], "path": _rel(path)},
+                 f"✔ team copy of {a.args[0]}: {_rel(path)} — edit it and commit it in a docs PR")
 
 
 def _diff(a) -> int:
@@ -106,16 +111,15 @@ def _reset(a) -> int:
     from . import skills
     path = skills.reset(a.args[0])
     _rerender()
-    print(f"✔ {a.args[0]} follows the kit again (your copy: {_rel(path)})")
-    return 0
+    return _done(a, {"name": a.args[0], "path": _rel(path)},
+                 f"✔ {a.args[0]} follows the kit again (your copy: {_rel(path)})")
 
 
 def _note(a) -> int:
     from . import skills
     path = skills.add_note(a.args[0], " ".join(a.args[1:]), a.source, _who(), step=a.step or "",
                            change=a.change or "", ref=a.ref or "")
-    print(f"✔ note added to {_rel(path)}")
-    return 0
+    return _done(a, {"skill": a.args[0], "path": _rel(path)}, f"✔ note added to {_rel(path)}")
 
 
 def _notes(a) -> int:

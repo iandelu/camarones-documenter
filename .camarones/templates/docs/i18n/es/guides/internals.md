@@ -353,7 +353,8 @@ sitio si alguien lo edita o lo borra.
 La versión de un equipo de una skill del kit (`camaron skills fork`) vive en `cam-docs/.camarones/skills/<nombre>/`: gana
 a la del kit, sobrevive a las actualizaciones y cuenta como escrita por el equipo, así que cada máquina la aprueba una
 vez en `camaron trust` (cualquier cambio vuelve a preguntar). `doctor` avisa cuando la versión del kit de una skill
-bifurcada se movió desde que se hizo la copia.
+bifurcada se movió desde que se hizo la copia. Un checkpoint guarda la copia junto con su sello de bifurcación
+(`.camarones/.kit-skills.json`) y su versión renderizada en `.claude/` y `.agents/`.
 
 <!-- go:team -->
 

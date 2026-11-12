@@ -1,5 +1,6 @@
 import importlib
 import shutil
+import subprocess
 
 import pytest
 
@@ -285,3 +286,15 @@ def test_an_approved_team_copy_edited_again_needs_approval_again(wired):
     wired.env.write_kit_skills()
     rows = [(it, st) for it, st in trust.pending() if "cam-docs-update" in it.id]
     assert rows and all(st == "changed" for _, st in rows)
+
+
+def test_a_checkpoint_commits_a_team_copy_with_its_stamp_and_rendering(wired):
+    s = skills(wired)
+    d = s.fork("cam-docs-update")
+    (d / "SKILL.md").write_text("---\nname: cam-docs-update\ndescription: Ours.\n---\nbody\n", encoding="utf-8")
+    wired.env.write_kit_skills()
+    assert wired.env.checkpoint_commit("team copy") is True
+    files = subprocess.run(["git", "show", "--name-only", "--format=", "HEAD"], cwd=wired.root, capture_output=True,
+                           text=True, encoding="utf-8").stdout.splitlines()
+    assert {".camarones/skills/cam-docs-update/SKILL.md", ".camarones/.kit-skills.json",
+            ".claude/skills/cam-docs-update/SKILL.md"} <= set(files)

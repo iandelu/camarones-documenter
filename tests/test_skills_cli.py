@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import subprocess
 import sys
 
@@ -41,3 +42,26 @@ def test_bad_input_is_one_line_and_exit_2(wired):
         r = cli(wired, *args)
         assert r.returncode == 2 and r.stderr.startswith("✖") and len(r.stderr.strip().splitlines()) == 1, args
     assert not (wired.root / "docs" / ".work" / "skill-notes").exists()
+
+
+def test_fork_reset_and_note_print_data_with_json(wired):
+    r = cli(wired, "fork", "cam-docs-update", "--json")
+    assert r.returncode == 0, r.stderr
+    assert json.loads(r.stdout) == {"name": "cam-docs-update", "path": ".camarones/skills/cam-docs-update"}
+    r = cli(wired, "reset", "cam-docs-update", "--json")
+    assert r.returncode == 0, r.stderr
+    data = json.loads(r.stdout)
+    assert data["name"] == "cam-docs-update" and data["path"].startswith(".camarones/skills/.reset/cam-docs-update-")
+    r = cli(wired, "note", "cam-docs-update", "too", "late", "--source", "retro", "--json")
+    assert r.returncode == 0, r.stderr
+    assert json.loads(r.stdout) == {"skill": "cam-docs-update", "path": "docs/.work/skill-notes/cam-docs-update.md"}
+
+
+def test_fork_renders_only_where_the_kit_wires_the_agents(wired):
+    ws = wired.docs.workspace()
+    ws["project"]["components"] = ["quality"]
+    wired.docs.save_workspace(ws)
+    shutil.rmtree(wired.root / ".claude" / "skills")
+    r = cli(wired, "fork", "cam-docs-update")
+    assert r.returncode == 0, r.stderr
+    assert not (wired.root / ".claude" / "skills").exists()

@@ -336,7 +336,8 @@ kit itself installed is recognised without asking, and `camaron repair` restores
 
 A team's version of a kit skill (`camaron skills fork`) lives in `cam-docs/.camarones/skills/<name>/`: it wins over the
 kit's, survives upgrades and counts as team-written, so each machine approves it once in `camaron trust` (any edit asks
-again). `doctor` warns when the kit's version of a forked skill moved on since the copy was made.
+again). `doctor` warns when the kit's version of a forked skill moved on since the copy was made. A checkpoint commits
+the copy with its fork stamp (`.camarones/.kit-skills.json`) and its rendering in `.claude/` and `.agents/`.
 
 <!-- go:team -->
 

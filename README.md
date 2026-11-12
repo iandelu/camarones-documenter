@@ -257,8 +257,9 @@ Para afinar el flujo a tu equipo, `camaron skills`: `list` (de dónde viene cada
 copia), `fork NOMBRE`, `diff NOMBRE [--kit]` y `reset NOMBRE` (tu copia queda en `.camarones/skills/.reset/`). La copia
 del equipo vive en `cam-docs/.camarones/skills/<nombre>/`, gana a la del kit, sobrevive a las actualizaciones y cada
 máquina aprueba una copia editada una vez en `camaron trust`; `camaron doctor` avisa cuando la versión del kit ya se
-movió. Lo que se aprende se apunta con `camaron skills note … --source retro|review|board` y se lee con
-`camaron skills notes` (ficheros en `docs/.work/skill-notes/`).
+movió; los checkpoints la guardan junto con su sello (`.camarones/.kit-skills.json`). Lo que se aprende se apunta
+con `camaron skills note … --source retro|review|board` y se lee con `camaron skills notes` (ficheros en
+`docs/.work/skill-notes/`).
 
 Los proyectos que ya existen reciben las skills en su próximo refresco. Más adelante llegará `camaron change`: el propio
 kit producirá la evidencia, ejecutará los guardarraíles y abrirá las PR.
