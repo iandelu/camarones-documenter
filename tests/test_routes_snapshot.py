@@ -28,26 +28,30 @@ def server(tmp_path_factory):
     from conftest import GITCONFIG, UNSET, isolated_vars, load_kit, purge_kit_modules
     from fixtures.builder import make_workspace
     from fixtures.host_tools import hidden_tools
+    saved = dict(os.environ)
     tmp = tmp_path_factory.mktemp("routes")
     home = tmp / "home"
     home.mkdir()
     (tmp / "gitconfig").write_text(GITCONFIG, encoding="utf-8")
     ws = make_workspace(tmp)
-    with pytest.MonkeyPatch.context() as mp:
-        for k, v in isolated_vars(home, tmp / "gitconfig", os.environ.get("PATH", ""), hidden_tools()).items():
-            mp.setenv(k, v)
-        for k in UNSET:
-            mp.delenv(k, raising=False)
-        kit = load_kit(ws / "cam-docs", home, ws)
-        mp.setattr(kit.serve, "APP_TOKEN", APP_TOKEN)
-        mp.setattr(kit.serve, "PORTAL_TOKEN", PORTAL_TOKEN)
-        srv = ThreadingHTTPServer(("127.0.0.1", 0), kit.serve.Handler)
-        threading.Thread(target=srv.serve_forever, daemon=True).start()
-        yield f"http://127.0.0.1:{srv.server_address[1]}"
-        srv.shutdown()
-        srv.server_close()
-        purge_kit_modules()
-        os.environ.pop("CAMARONES_ROOT", None)
+    try:
+        with pytest.MonkeyPatch.context() as mp:
+            for k, v in isolated_vars(home, tmp / "gitconfig", os.environ.get("PATH", ""), hidden_tools()).items():
+                mp.setenv(k, v)
+            for k in UNSET:
+                mp.delenv(k, raising=False)
+            kit = load_kit(ws / "cam-docs", home, ws)
+            mp.setattr(kit.serve, "APP_TOKEN", APP_TOKEN)
+            mp.setattr(kit.serve, "PORTAL_TOKEN", PORTAL_TOKEN)
+            srv = ThreadingHTTPServer(("127.0.0.1", 0), kit.serve.Handler)
+            threading.Thread(target=srv.serve_forever, daemon=True).start()
+            yield f"http://127.0.0.1:{srv.server_address[1]}"
+            srv.shutdown()
+            srv.server_close()
+            purge_kit_modules()
+    finally:
+        os.environ.clear()
+        os.environ.update(saved)
 
 
 def probe(base: str, method: str, path: str, body: bytes | None = None, token: str | None = None):
