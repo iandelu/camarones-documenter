@@ -39,12 +39,23 @@ base.which = plan.which = lambda name: "/bin/" + name
 Claude.build = lambda self, req: Invocation([sys.executable, {agent!r}, {pids!r}, str(plan.AUTOPILOT_PROMPT), {first!r}, {kit!r}],
                                             req.cwd, req.env)
 plan.prompt = lambda uid, lang="es", unattended=False: "prompt " + uid
+{extra}
 plan.run_autopilot(lang="en", echo=print)
+"""
+
+STOP_AS_IT_STARTS = """
+import time
+emit = plan._emit
+def emit_then_wait(kind, **fields):           # the Stop lands between the agent's start and the watch on it
+    emit(kind, **fields)
+    if kind == "session":
+        time.sleep(60)
+plan._emit = emit_then_wait
 """
 
 
 @pytest.fixture
-def live(wired, term, tmp_path, monkeypatch):                            # noqa: F811
+def live(wired, term, tmp_path, monkeypatch, request):                   # noqa: F811
     from lib import takeover, terminals
     from lib.adapters.runners.claude import Claude
     from lib.common import kill_tree
@@ -58,7 +69,8 @@ def live(wired, term, tmp_path, monkeypatch):                            # noqa:
     first, other = ready
     agent, pids = tmp_path / "agent.py", tmp_path / "pids"
     agent.write_text(AGENT, encoding="utf-8")
-    driver = DRIVER.format(kit=str(wired.kit_dir), agent=str(agent), pids=str(pids), first=first)
+    driver = DRIVER.format(kit=str(wired.kit_dir), agent=str(agent), pids=str(pids), first=first,
+                           extra=getattr(request, "param", ""))
     out = (tmp_path / "pilot.log").open("wb")
     job = subprocess.Popen([sys.executable, "-c", driver], env=dict(os.environ), stdout=out, stderr=subprocess.STDOUT,
                            start_new_session=sys.platform != "win32")
@@ -91,6 +103,7 @@ def stop_pilot(box, timeout: float = 30) -> int:
 def at_work(box):
     until(lambda: box.pids.exists() and box.pids.read_text(encoding="utf-8"), timeout=60)
     until(lambda: box.runs.active() is not None and box.runs.running(box.runs.ids(wiki=False)[0], box.first), timeout=30)
+    until(lambda: any(e["type"] == "session" and e["unit"] == box.first for e in box.events()))  # the agent may come first
     return int(box.pids.read_text(encoding="utf-8"))
 
 
@@ -162,3 +175,11 @@ def test_a_dead_run_leaves_its_unit_to_be_taken(live):
     until(lambda: live.runs.active() is None)
     r = live.t.take(live.first)
     assert r["terminal"]["session"] == sid
+
+
+@pytest.mark.parametrize("live", [STOP_AS_IT_STARTS], indirect=True, ids=["stop-as-it-starts"])
+def test_a_run_stopped_as_its_agent_starts_ends_that_agent(live):
+    from lib.harness.locks import pid_alive
+    agent_pid = at_work(live)
+    stop_pilot(live)
+    until(lambda: not pid_alive(agent_pid))

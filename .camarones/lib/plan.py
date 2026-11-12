@@ -851,15 +851,15 @@ def _run_agent(agent: str, text: str, lang: str, uid: str, echo=print, *, prompt
                              env=inv.env, **({"start_new_session": True} if watched and not IS_WIN else {}))
     except OSError as e:
         return subprocess.CompletedProcess(cmd, 127, str(e), "")
-    if on_start:
-        on_start(p)
-    if sid:
-        emit("session", unit=uid, runner=agent, id=sid)
-    threading.Thread(target=heartbeat, daemon=True).start()
     watcher = threading.Thread(target=watch, daemon=True) if watched else None
-    if watcher:
-        watcher.start()
-    try:
+    try:                                    # a Stop is a SystemExit wherever it lands: from here on it ends the agent
+        if on_start:
+            on_start(p)
+        if sid:
+            emit("session", unit=uid, runner=agent, id=sid)
+        threading.Thread(target=heartbeat, daemon=True).start()
+        if watcher:
+            watcher.start()
         for line in p.stdout:
             events = runner.parse(line.rstrip("\n"))
             for ev in events:
@@ -880,7 +880,7 @@ def _run_agent(agent: str, text: str, lang: str, uid: str, echo=print, *, prompt
         stop.set()
         if p.poll() is None:
             _end_agent(p) if watched else p.kill()
-        if watcher:
+        if watcher and watcher.ident is not None:
             watcher.join(END_GRACE + 1)
             if asked.get("to") in ("you", "stop"):
                 handoff.clear(watched, uid)
