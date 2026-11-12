@@ -252,7 +252,7 @@ retries there as a new conversation.
 
 A kit started from inside a Claude Code session (its Bash tool, a shell it opened) opens sessions of their own. That
 session's markers would make each `claude` its child, which saves no transcript, so the CLI drops them as it starts
-(`PARENT_SESSION` in `lib/common.py`), and all it starts inherits that. Only those go: a person's own settings share the
+(`PARENT_SESSION` in `lib/core/process.py`), and all it starts inherits that. Only those go: a person's own settings share the
 prefix (`CLAUDE_CODE_USE_BEDROCK`, …) and stay.
 
 **Terminals on the canvas.** The project server holds the canvas's terminals (`lib/terminals.py`): real PTYs, the

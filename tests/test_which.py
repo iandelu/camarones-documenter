@@ -3,6 +3,11 @@ in the folder a command runs from changed how the kit rendered its skills (CI on
 from __future__ import annotations
 
 
+def process_which(name):
+    from lib.core import process
+    return process.which(name)
+
+
 def setup(kit, tmp_path, monkeypatch, in_path: bool):
     here, bin_dir = tmp_path / "here", tmp_path / "bin"
     here.mkdir()
@@ -10,7 +15,8 @@ def setup(kit, tmp_path, monkeypatch, in_path: bool):
     (here / "camaron.cmd").write_text("@echo planted\n", encoding="utf-8")
     if in_path:
         (bin_dir / "camaron.cmd").write_text("@echo real\n", encoding="utf-8")
-    monkeypatch.setattr(kit.common, "IS_WIN", True)
+    from lib.core import process
+    monkeypatch.setattr(process, "IS_WIN", True)
     monkeypatch.setenv("PATHEXT", ".com;.exe;.bat;.cmd")        # Windows matches any case; Linux CI does not
     monkeypatch.setenv("PATH", str(bin_dir))
     monkeypatch.chdir(here)
@@ -19,11 +25,11 @@ def setup(kit, tmp_path, monkeypatch, in_path: bool):
 
 def test_the_current_folder_is_not_searched(kit, tmp_path, monkeypatch):
     setup(kit, tmp_path, monkeypatch, in_path=False)
-    assert kit.common.which("camaron") is None
+    assert process_which("camaron") is None
 
 
 def test_path_wins_and_extensions_follow_pathext(kit, tmp_path, monkeypatch):
     bin_dir = setup(kit, tmp_path, monkeypatch, in_path=True)
-    assert kit.common.which("camaron") == str(bin_dir / "camaron.cmd")
-    assert kit.common.which("camaron.cmd") == str(bin_dir / "camaron.cmd")
-    assert kit.common.which("nope") is None
+    assert process_which("camaron") == str(bin_dir / "camaron.cmd")
+    assert process_which("camaron.cmd") == str(bin_dir / "camaron.cmd")
+    assert process_which("nope") is None

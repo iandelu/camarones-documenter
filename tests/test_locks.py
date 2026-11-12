@@ -9,7 +9,7 @@ import pytest
 
 @pytest.fixture
 def locks(kit):
-    from lib.harness import locks
+    from lib.core import locks
     return locks
 
 

@@ -110,11 +110,12 @@ def test_every_program_the_kit_looks_up_is_hidden_or_one_ci_has_too():
 def test_the_kit_adds_its_tool_folders_unless_told_path_is_final(kit, tmp_path, monkeypatch):
     extra = tmp_path / "extra"
     extra.mkdir()
-    monkeypatch.setattr(kit.common, "extra_bin_dirs", lambda: [extra])
+    from lib.core import process
+    monkeypatch.setattr(process, "extra_bin_dirs", lambda: [extra])
     monkeypatch.setenv("PATH", "base")
     monkeypatch.setenv("CAMARONES_KEEP_PATH", "1")
-    kit.common.ensure_path()
+    process.ensure_path()
     assert os.environ["PATH"] == "base"
     monkeypatch.delenv("CAMARONES_KEEP_PATH")
-    kit.common.ensure_path()
+    process.ensure_path()
     assert os.environ["PATH"].split(os.pathsep) == [str(extra), "base"]
