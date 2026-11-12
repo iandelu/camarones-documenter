@@ -21,7 +21,8 @@ MUST = {
                    "sdk env", "rev-parse HEAD", "flaky", "not green", "four derived files"],
     "cam-ship": [".env*", "gitleaks", "{{CLI}} pr fresh", "x-confirmed", "Open the PRs?", "gh pr create --draft",
                  "glab mr create --draft", "{{CLI}} board link", "never move", "Never merge", "cam-retro",
-                 "four derived files", "worktree remove ../.cw/<id>"],
+                 "four derived files", "worktree remove ../.cw/<id>", "git -C .cw/<id> status --porcelain",
+                 "`docs/.work/fresh.json`", "commit it or ask the person"],
     "cam-retro": ["{{CLI}} skills note", "--source retro", "review|board", "skill-feedback", "{{CLI}} skills notes",
                   "skills fork"],
 }

@@ -81,6 +81,8 @@ change asked for → go back to the step it concerns.
 - Give the PR URLs. You never move board columns: tell the person to move the item to review.
 - Never merge, neither the code nor the docs. The person merges the code first and the docs right after, then
   re-confirms the confirmed pages the change edited.
-- Once a person has merged the PRs, the docs worktree goes: `git -C {{CAM}}. worktree remove ../.cw/<id>` (it refuses
-  while the four derived files are there; add `--force` when they are all that is left).
+- Once a person has merged the PRs, the docs worktree goes: `git -C {{CAM}}. worktree remove ../.cw/<id>`. Git refuses
+  while the tree has changes and suggests `--force`: add it only when `git -C .cw/<id> status --porcelain` lists
+  nothing but the four derived files (`docs/.status.json`, `docs/llms.txt`, `docs/llms-full.txt`,
+  `docs/.work/fresh.json`). Anything else → commit it or ask the person; never force past it.
 - Then `cam-retro`.
