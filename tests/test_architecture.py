@@ -146,3 +146,56 @@ def test_a_facade_that_imports_a_name_it_does_not_list_fails_the_shape_check():
     assert any("dumps is imported but not listed" in p for p in _facade_problems(ast.parse(src)))
     ok = 'from __future__ import annotations\nimport os\n__facade__ = "x"\n__all__ = ["os"]\n'
     assert _facade_problems(ast.parse(ok)) == []
+
+
+def _facades(mods) -> dict[str, tuple[str, set[str]]]:
+    found = {}
+    for name, path in mods.items():
+        if not path.exists():
+            continue
+        values = {t.id: n.value for n in ast.parse(path.read_text(encoding="utf-8")).body
+                  if isinstance(n, ast.Assign) for t in n.targets if isinstance(t, ast.Name)}
+        if "__facade__" in values:
+            found[name] = (ast.literal_eval(values["__facade__"]), set(ast.literal_eval(values.get("__all__", "[]"))))
+    return found
+
+
+def _facade_reads(mods) -> list[str]:
+    """`common.HOME` read at call time sees the facade's copy, not a patch of the module that defines HOME."""
+    facades = _facades(mods)
+    out = []
+    for name, path in mods.items():
+        if not path.exists():
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        bound: dict[str, str] = {}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and (node.level or archscan._is_kit(node.module)):
+                target = archscan._from_target(name, path.name == "__init__.py", node)
+                for a in node.names:
+                    full = f"{target}.{a.name}" if target else a.name
+                    if full in facades:
+                        bound[a.asname or a.name] = full
+            elif isinstance(node, ast.Import):
+                for a in node.names:
+                    full = archscan._strip_root(a.name)
+                    if a.asname and full in facades:
+                        bound[a.asname] = full
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) and node.value.id in bound:
+                home, names = facades[bound[node.value.id]]
+                if node.attr in names:
+                    out.append(f"{name} reads {node.value.id}.{node.attr}: import it from {home}")
+    return sorted(set(out))
+
+
+def test_no_module_reads_a_facade_reexport_at_call_time():
+    assert _facade_reads(archscan.modules(KIT_DIR)) == []
+
+
+def test_the_facade_read_check_sees_one(tmp_path):
+    lib = tmp_path / "lib"
+    lib.mkdir()
+    (lib / "f.py").write_text('from os import sep\n__facade__ = "lib.g"\n__all__ = ["sep"]\n', encoding="utf-8")
+    (lib / "m.py").write_text("from . import f\n\ndef g():\n    return f.sep\n", encoding="utf-8")
+    assert _facade_reads(archscan.modules(tmp_path)) == ["m reads f.sep: import it from lib.g"]

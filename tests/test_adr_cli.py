@@ -21,7 +21,7 @@ def cli(kit, *args):
 def call(capsys, *argv):
     """`camaron adr …` in this process: the kit fixture has pointed `lib` at the test project."""
     import argparse
-    from lib import adr_cli
+    from lib.interfaces.cli.commands import adr as adr_cli
     parser = argparse.ArgumentParser()
     adr_cli.add_parser(parser.add_subparsers(dest="cmd"))
     code = adr_cli.run(parser.parse_args(["adr", *argv]))

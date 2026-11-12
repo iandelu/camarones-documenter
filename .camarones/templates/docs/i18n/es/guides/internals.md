@@ -33,7 +33,7 @@ x-owner: human
 
 | Pieza | Qué es | Dónde |
 |---|---|---|
-| CLI | `camaron <comando>`, un script en línea de `uv`; todo el comportamiento del kit | `.camarones/camarones.py`, `.camarones/lib/` |
+| CLI | `camaron <comando>`, un script en línea de `uv`; todo el comportamiento del kit | `.camarones/camarones.py`, `.camarones/lib/interfaces/cli/` (una clase por comando), `.camarones/lib/` |
 | Asistente | Los menús de la terminal sobre los mismos comandos | `camaron` (sin argumentos) |
 | Servidor del proyecto | Sirve el portal, la interfaz de la app y la API HTTP de un proyecto | `camaron up`; la app arranca uno por ventana |
 | Portal | App de React que lee y edita la documentación | `/` del servidor, o un exportado estático |
