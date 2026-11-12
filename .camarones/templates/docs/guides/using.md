@@ -152,6 +152,39 @@ When the code moves, the docs follow:
   date, without AI; `camaron pr propose <url>` lets an agent propose the doc changes in a PR of `cam-docs`.
 - `camaron check` is the gate: broken links, diagrams that do not render, secrets, structure.
 
+## Coding with Camarón
+
+Open Claude Code or Codex in the workspace and ask for a change: the agent starts the `cam-task` skill (with
+`cam-difficulty`, `cam-verify`, `cam-ship` and `cam-retro` behind it). The code goes on a `cam/<id>-<slug>` branch in
+each service repo and the docs in their own `cam-docs` worktree (`.cw/<id>`), so your working branches stay as they
+were.
+
+- **Docs first.** The agent reads `cam-docs` and summarises what it says, with citations, before touching code.
+- **Difficulty.** Low (0–2), medium (3–5) or high (6+). A low change gets a short plan, a medium one a plan you approve,
+  a high one a spec, a plan and a proposed split into draft board items.
+- **Test first, then verification.** The agent runs the repo's own build, tests and linters plus `camaron check`.
+- **Guardrails and impact.** Forbidden paths, gitleaks, pages the change leaves stale (`camaron pr fresh`) and the
+  trust rules, then the impact on the docs, the contracts and the board.
+- **One question.** "Open the PRs?" If you say yes it opens a draft code PR per repo and a draft docs PR that link each
+  other. The kit never merges, and agents never move board cards.
+
+With superpowers installed, its brainstorming, plans, TDD and debugging skills are used for those steps, inside the
+change's own branches and worktree.
+
+To adapt the workflow to your team:
+
+- `camaron skills list` shows where each skill comes from (kit, team, team-only) and whether the kit's version changed
+  since your copy. `fork NAME` makes a team copy, `diff NAME [--kit]` shows what you changed, `reset NAME` returns to the
+  kit's (your copy is kept in `.camarones/skills/.reset/`).
+- A team copy lives in `cam-docs/.camarones/skills/<name>/`, wins over the kit's and survives upgrades. Each machine
+  approves an edited copy once in `camaron trust`, and `camaron doctor` warns when the kit's version of a forked skill
+  moved on.
+- Lessons go in as notes: `camaron skills note SKILL TEXT --source retro|review|board`, read back with
+  `camaron skills notes [SKILL]`. They live in `docs/.work/skill-notes/`.
+
+Later versions bring `camaron change`, where the kit itself produces the evidence, runs the guardrails and opens the
+PRs.
+
 ## Costs and KPIs
 
 - **Plan › Plan from zero** (`camaron plan cost`): tokens, hours and API-equivalent dollars the plan took, for the

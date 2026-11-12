@@ -360,6 +360,30 @@ PAGES = {
                  "desplegado aparece publicado al fusionarse. Se configura en «Equipo › CI». También se puede hacer a mano "
                  "con «🔄 Actualizar doc tras cambios» y «🌐 Portal › 📦 Exportar el portal». Y en cada pull request de "
                  "un repo, un job sin IA comenta qué páginas deja desactualizadas el cambio (`camaron pr fresh`)."},
+        {"icon": "🧑‍💻", "title": "Programar con Camarón: de la petición a las PR",
+         "art": r"""
+   "añade X a la API"  -->  cam-task
+     1. lee cam-docs primero (con citas)
+     2. dificultad: baja 0-2 | media 3-5 | alta 6+ (se parte en tarjetas)
+     3. prueba primero, y verifica con el build y los tests del repo + check
+     4. guardarraíles: rutas prohibidas, gitleaks, páginas desactualizadas
+     5. impacto + una pregunta: ¿Abro las PR?
+   cam/<id>-<slug> en cada repo  +  worktree .cw/<id> de cam-docs
+   PR de código (borrador)  <-->  PR de documentación (borrador)""",
+         "text": "Abre Claude Code o Codex en el espacio de trabajo y pide un cambio: el agente sigue la skill `cam-task` "
+                 "(con `cam-difficulty`, `cam-verify`, `cam-ship` y `cam-retro`). Lee primero la documentación y la resume con "
+                 "citas, puntúa la dificultad (baja, media o alta; la alta propone partir el cambio en tarjetas en borrador), "
+                 "escribe la prueba antes que el código, verifica con el build, los tests y los linters del repo más "
+                 "`camaron check`, pasa los guardarraíles y te hace una sola pregunta: «¿Abro las PR?». Si dices que sí, "
+                 "abre una PR de código en borrador por repo y una PR de documentación en borrador, enlazadas entre sí. "
+                 "El kit nunca fusiona y los agentes no mueven tarjetas del tablero. Con superpowers instalado, sus "
+                 "skills de brainstorming, planes y TDD se usan en esos pasos. Para ajustar el flujo a tu equipo: "
+                 "`camaron skills list | fork | diff [--kit] | reset`; la copia del equipo vive en "
+                 "`cam-docs/.camarones/skills/<nombre>/`, gana a la del kit, sobrevive a las actualizaciones y cada máquina "
+                 "la aprueba una vez en `camaron trust`; `camaron doctor` avisa si la versión del kit se movió. Lo "
+                 "aprendido se apunta con `camaron skills note … --source retro|review|board` (`camaron skills notes` lo "
+                 "lee). Más adelante llegará `camaron change`, donde el propio kit hará de escribano. Tu agente "
+                 "programa; Camarón solo le pasa los apuntes y vigila que nadie se salte el cierre. 🦐"},
         {"icon": "📋", "title": "El Tablero: el trabajo junto a la documentación",
          "art": r"""
    cam-docs/backlog/
@@ -865,6 +889,30 @@ PAGES = {
                  "once merged. Set it up in “Team › CI”. You can also do it by hand with “🔄 Update docs after changes” and "
                  "“🌐 Portal › 📦 Export the portal”. And on every pull request in a repo, a job without AI comments "
                  "which pages the change leaves out of date (`camaron pr fresh`)."},
+        {"icon": "🧑‍💻", "title": "Coding with Camarón: from request to PRs",
+         "art": r"""
+   "add X to the API"  -->  cam-task
+     1. reads cam-docs first (with citations)
+     2. difficulty: low 0-2 | medium 3-5 | high 6+ (split into cards)
+     3. test first, then verifies with the repo's build and tests + check
+     4. guardrails: forbidden paths, gitleaks, stale pages
+     5. impact + one question: Open the PRs?
+   cam/<id>-<slug> in each repo  +  cam-docs worktree .cw/<id>
+   code PR (draft)  <-->  docs PR (draft)""",
+         "text": "Open Claude Code or Codex in the workspace and ask for a change: the agent follows the `cam-task` skill "
+                 "(with `cam-difficulty`, `cam-verify`, `cam-ship` and `cam-retro`). It reads the docs first and summarises "
+                 "them with citations, scores the difficulty (low, medium or high; high proposes splitting the change into "
+                 "draft cards), writes the test before the code, verifies with the repo's build, tests and linters plus "
+                 "`camaron check`, passes the guardrails and asks you one question: \"Open the PRs?\". If you say yes it "
+                 "opens a draft code PR per repo and a draft docs PR that link each other. The kit never merges, and "
+                 "agents never move board cards. With superpowers installed, its brainstorming, plans and TDD skills are "
+                 "used for those steps. To tune the workflow for your team: `camaron skills list | fork | diff [--kit] | "
+                 "reset`; the team copy lives in `cam-docs/.camarones/skills/<name>/`, wins over the kit's, survives "
+                 "upgrades and each machine approves it once in `camaron trust`; `camaron doctor` warns when the kit's "
+                 "version moved on. What you learn goes in with `camaron skills note … --source retro|review|board` "
+                 "(`camaron skills notes` reads it back). Later versions bring `camaron change`, where the kit itself "
+                 "does the paperwork. Your agent writes the code; Camarón just hands it the notes and checks nobody skips "
+                 "the closing. 🦐"},
         {"icon": "📋", "title": "The Board: the work next to the docs",
          "art": r"""
    cam-docs/backlog/

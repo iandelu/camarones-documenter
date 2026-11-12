@@ -162,6 +162,40 @@ Cuando el código se mueve, la documentación lo sigue:
   una PR de `cam-docs`.
 - `camaron check` es la puerta: enlaces rotos, diagramas que no se dibujan, secretos, estructura.
 
+## Programar con Camarón
+
+Abre Claude Code o Codex en el espacio de trabajo y pídele un cambio: el agente empieza la skill `cam-task` (y detrás
+`cam-difficulty`, `cam-verify`, `cam-ship` y `cam-retro`). El código va en una rama `cam/<id>-<slug>` de cada repo de
+servicio y la documentación en su propio worktree de `cam-docs` (`.cw/<id>`), así que tus ramas de trabajo se quedan
+como estaban.
+
+- **Primero la documentación.** El agente lee `cam-docs` y resume lo que dice, con citas, antes de tocar código.
+- **Dificultad.** Baja (0–2), media (3–5) o alta (6+). A una baja le toca un plan corto, a una media un plan que
+  apruebas tú, a una alta una especificación, un plan y una propuesta de partirla en elementos de tablero en borrador.
+- **Prueba primero y luego verificación.** El agente ejecuta el build, los tests y los linters del propio repo más
+  `camaron check`.
+- **Guardarraíles e impacto.** Rutas prohibidas, gitleaks, páginas que el cambio deja desactualizadas
+  (`camaron pr fresh`) y reglas de confianza; después, el impacto en la documentación, los contratos y el tablero.
+- **Una sola pregunta.** «¿Abro las PR?» Si dices que sí, abre una PR de código en borrador por repo y una PR de
+  documentación en borrador, enlazadas entre sí. El kit nunca fusiona y los agentes nunca mueven tarjetas.
+
+Con superpowers instalado, sus skills de brainstorming, planes, TDD y depuración se usan en esos pasos, dentro de las
+ramas y el worktree del propio cambio.
+
+Para adaptar el flujo a tu equipo:
+
+- `camaron skills list` muestra de dónde viene cada skill (kit, equipo, solo del equipo) y si la versión del kit cambió
+  desde tu copia. `fork NOMBRE` crea una copia del equipo, `diff NOMBRE [--kit]` enseña lo que cambiaste y
+  `reset NOMBRE` vuelve a la del kit (tu copia queda en `.camarones/skills/.reset/`).
+- Una copia del equipo vive en `cam-docs/.camarones/skills/<nombre>/`, gana a la del kit y sobrevive a las
+  actualizaciones. Cada máquina aprueba una copia editada una vez en `camaron trust`, y `camaron doctor` avisa cuando la
+  versión del kit de una skill bifurcada ya se movió.
+- Las lecciones entran como notas: `camaron skills note SKILL TEXTO --source retro|review|board`, y se leen con
+  `camaron skills notes [SKILL]`. Viven en `docs/.work/skill-notes/`.
+
+En versiones posteriores llegará `camaron change`, donde el propio kit produce la evidencia, ejecuta los guardarraíles
+y abre las PR.
+
 ## Costes y KPIs
 
 - **Plan › Plan desde 0** (`camaron plan cost`): tokens, horas y dólares equivalentes de la API que se llevó el plan,

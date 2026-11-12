@@ -432,3 +432,8 @@ One plan and one minor version per slice; each is useful on its own.
 6. Detecting public contracts and topics per stack beyond the generated blocks (slice 2).
 7. Module placement within the hexagonal layers (`tests/test_architecture.py`): `change*` and `forge` as application
    modules over `lib/core` (each slice's plan).
+8. Plain `camaron check` run inside the docs worktree `.cw/<id>` misreads the layout. The slice-1 skills work around it
+   with `CAMARONES_ROOT`/`CAMARONES_WORKSPACE`/`CAMARONES_STATE_ROOT` set (as the integrate gate does); slice 2's
+   `change start` should remove the need.
+9. `board link` accepts doc pages, not PR URLs, so slice 1 links the item to the updated pages and names it in the PR
+   bodies; slice 4's `change pr` links PRs to the item.

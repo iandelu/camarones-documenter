@@ -332,7 +332,9 @@ También ofrece cada página como recurso (`camdocs://<ruta>`, más `camdocs://l
 `implement-feature` y `update-docs`. Todo pasa por la misma puerta de frescura.
 
 **`likec4`** responde preguntas sobre el modelo de arquitectura (quién llama a este servicio, qué hay entre A y B). Las
-skills `cam-docs-lookup`, `cam-docs-update` y `cam-docs-diagrams` enseñan a los agentes cuándo usarlos.
+skills `cam-docs-lookup`, `cam-docs-update` y `cam-docs-diagrams` enseñan a los agentes cuándo usarlos, y `cam-task`,
+`cam-difficulty`, `cam-verify`, `cam-ship` y `cam-retro` llevan un cambio de código desde la documentación hasta las pull
+requests.
 
 ## Plugins y confianza
 
@@ -347,6 +349,11 @@ agentes y llegó con el repo del equipo —plugins, hooks, servidores MCP, ajust
 apruebas en tu máquina (`camaron trust`, o Equipo en la app). La aprobación cubre todos los ficheros, así que cualquier
 cambio vuelve a preguntar. Lo que instaló el propio kit se reconoce sin preguntar, y `camaron repair` lo devuelve a su
 sitio si alguien lo edita o lo borra.
+
+La versión de un equipo de una skill del kit (`camaron skills fork`) vive en `cam-docs/.camarones/skills/<nombre>/`: gana
+a la del kit, sobrevive a las actualizaciones y cuenta como escrita por el equipo, así que cada máquina la aprueba una
+vez en `camaron trust` (cualquier cambio vuelve a preguntar). `doctor` avisa cuando la versión del kit de una skill
+bifurcada se movió desde que se hizo la copia.
 
 <!-- go:team -->
 
