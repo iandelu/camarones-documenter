@@ -3,9 +3,9 @@ largest_cycle: 66
 cycle_modules: 68
 oversize:
   - adr
-  - camarones
   - docs
   - env
+  - interfaces.cli.legacy
   - kanban.ops
   - pages
   - plan
@@ -27,14 +27,6 @@ violations:
   - "budget -> mcp"
   - "bump -> inventory"
   - "c4edit -> harness.symbols"
-  - "camarones -> adapters.runners.local"
-  - "camarones -> creds"
-  - "camarones -> history"
-  - "camarones -> inventory"
-  - "camarones -> machine"
-  - "camarones -> quickarch"
-  - "camarones -> radar"
-  - "camarones -> schemas"
   - "codemap -> docs"
   - "diagrams -> docs"
   - "diagrams -> genblocks"
@@ -74,6 +66,14 @@ violations:
   - "health -> sonar"
   - "history -> docs"
   - "install_state -> kanban"
+  - "interfaces.cli.launch -> creds"
+  - "interfaces.cli.legacy -> adapters.runners.local"
+  - "interfaces.cli.legacy -> history"
+  - "interfaces.cli.legacy -> inventory"
+  - "interfaces.cli.legacy -> machine"
+  - "interfaces.cli.legacy -> quickarch"
+  - "interfaces.cli.legacy -> radar"
+  - "interfaces.cli.legacy -> schemas"
   - "inventory -> docs"
   - "inventory -> pages"
   - "kanban.cli -> kanban.index"

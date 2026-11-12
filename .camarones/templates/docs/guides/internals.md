@@ -33,7 +33,7 @@ x-owner: human
 
 | Piece | What it is | Where |
 |---|---|---|
-| CLI | `camaron <command>`, a `uv` inline script; every behaviour of the kit | `.camarones/camarones.py`, `.camarones/lib/` |
+| CLI | `camaron <command>`, a `uv` inline script; every behaviour of the kit | `.camarones/camarones.py`, `.camarones/lib/interfaces/cli/` (one class per command), `.camarones/lib/` |
 | Wizard | The terminal menus over the same commands | `camaron` (no arguments) |
 | Project server | Serves the portal, the app's UI and the HTTP API for one project | `camaron up`; the app starts one per window |
 | Portal | React app that reads and edits the docs | `/` of the server, or a static export |

@@ -41,7 +41,7 @@ def test_largest_cycle_is_the_biggest_strongly_connected_component(tmp_path):
 
 def test_imports_inside_functions_count_on_the_real_kit():
     found = archscan.edges(archscan.modules(KIT_DIR))
-    assert ("camarones", "adr_cli") in found and ("serve", "adr_api") in found
+    assert ("interfaces.cli.middleware", "usage") in found and ("serve", "adr_api") in found
 
 
 def test_core_escapes_reports_an_edge_leaving_the_core_folder():

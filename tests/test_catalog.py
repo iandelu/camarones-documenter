@@ -101,3 +101,11 @@ def test_every_argument_the_app_shows_has_a_label_in_both_languages(described):
     src = (Path(__file__).resolve().parents[1] / ".camarones" / "desktop" / "renderer" / "src" / "i18n.js").read_text(encoding="utf-8")
     dests = {a["dest"] for c in described["commands"] if c["verdict"] != "portal" for a in c["args"]} - {"json"}
     assert sorted(d for d in dests if src.count(f"'arg.{d}':") != 2) == []
+
+
+def test_an_alias_is_not_a_second_command():
+    import argparse
+    from lib import catalog
+    p = argparse.ArgumentParser()
+    p.add_subparsers(dest="cmd").add_parser("new-name", aliases=["old-name"])
+    assert list(catalog.subparsers(p)) == ["new-name"]

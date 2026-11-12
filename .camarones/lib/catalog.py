@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import argparse
 
-VERDICTS = ("portal", "app", "both", "cli")      # both: the portal shows it, the app runs it
-ZONES = ("projects", "generate", "analyze", "check", "interviews", "team", "machine")
+from .interfaces.cli import registry
+from .interfaces.cli.registry import VERDICTS, ZONES
 
 
 def _e(verdict: str, zone: str | None = None, es: str = "", en: str = "", ai: bool = False,
@@ -20,7 +20,7 @@ def _e(verdict: str, zone: str | None = None, es: str = "", en: str = "", ai: bo
 
 
 CLI = _e("cli")
-COMMANDS: dict[str, dict] = {
+_LEFT: dict[str, dict] = {             # the commands still dispatched by interfaces/cli/legacy.py
     # projects: the app's hub
     "new": _e("app", "projects", "Crear un proyecto nuevo", "Create a new project"),
     "join": _e("app", "projects", "Unirse al cam-docs del equipo", "Join the team's cam-docs"),
@@ -120,9 +120,14 @@ COMMANDS: dict[str, dict] = {
 }
 
 
+COMMANDS: dict[str, dict] = {**_LEFT, **registry.entries(registry.load())}
+
+
 def subparsers(parser: argparse.ArgumentParser) -> dict[str, argparse.ArgumentParser]:
+    """Each command once: argparse maps an alias to the same parser as its command."""
     act = next(a for a in parser._actions if isinstance(a, argparse._SubParsersAction))
-    return dict(act.choices)
+    seen: set[int] = set()
+    return {name: sub for name, sub in act.choices.items() if not (id(sub) in seen or seen.add(id(sub)))}
 
 
 def drift(names) -> tuple[list[str], list[str]]:
