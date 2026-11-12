@@ -36,6 +36,7 @@ def test_a_failed_write_leaves_the_old_file_and_no_temp(kit, monkeypatch):
 
 
 def test_a_replace_refused_for_a_moment_is_retried(kit, monkeypatch):
+    from lib.core import fsutil                  # the retry loop lives there
     c, f = kit.common, kit.root / "state.json"
     calls, real = [], os.replace
 
@@ -45,12 +46,13 @@ def test_a_replace_refused_for_a_moment_is_retried(kit, monkeypatch):
             raise PermissionError("in use")
         real(src, dst)
     monkeypatch.setattr(c.os, "replace", busy_once)
-    monkeypatch.setattr(c.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(fsutil.time, "sleep", lambda _s: None)
     c.save_json(f, {"n": 3})
     assert len(calls) == 2 and c.load_json(f, None) == {"n": 3}
 
 
 def test_a_read_refused_for_a_moment_is_retried(kit, monkeypatch):
+    from lib.core import fsutil                  # the retry loop lives there
     c, f = kit.common, kit.root / "state.json"
     c.save_json(f, {"n": 4})
     real, calls = Path.read_text, []
@@ -61,7 +63,7 @@ def test_a_read_refused_for_a_moment_is_retried(kit, monkeypatch):
             raise PermissionError("in use")
         return real(self, *a, **kw)
     monkeypatch.setattr(Path, "read_text", busy_once)
-    monkeypatch.setattr(c.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(fsutil.time, "sleep", lambda _s: None)
     assert c.load_json(f, None) == {"n": 4} and len(calls) == 2
 
 

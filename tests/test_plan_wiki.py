@@ -129,7 +129,7 @@ def test_one_wiki_run_at_a_time(wired, monkeypatch):
     env = wired.env
     env.WIKI_LOCK.parent.mkdir(parents=True, exist_ok=True)
     env.WIKI_LOCK.write_text('{"pid": 999999, "repo": "web"}', encoding="utf-8")
-    from lib.harness import locks                                         # liveness moved there with the shared FileLock
+    from lib.core import locks                                            # liveness moved there with the shared FileLock
     monkeypatch.setattr(locks, "pid_alive", lambda pid: True)
     with pytest.raises(RuntimeError, match="another OpenWiki run"):
         with env.wiki_lock("api"):
