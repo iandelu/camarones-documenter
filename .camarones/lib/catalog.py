@@ -21,14 +21,6 @@ def _e(verdict: str, zone: str | None = None, es: str = "", en: str = "", ai: bo
 
 CLI = _e("cli")
 _LEFT: dict[str, dict] = {             # the commands still dispatched by interfaces/cli/legacy.py
-    # projects: the app's hub
-    "new": _e("app", "projects", "Crear un proyecto nuevo", "Create a new project"),
-    "join": _e("app", "projects", "Unirse al cam-docs del equipo", "Join the team's cam-docs"),
-    "switch": _e("app", "projects", "Abrir otro proyecto registrado", "Open another registered project"),
-    "projects": _e("app", "projects", "Proyectos registrados; --inspect mira una carpeta, --adopt la vuelve proyecto, "
-                   "--git-init pone en git su código", "Registered projects; --inspect reads a folder, --adopt makes it a "
-                   "project, --git-init puts its code under git"),
-    "init": _e("app", "projects", "Preparar este proyecto (plantillas y plan)", "Prepare this project (templates and plan)"),
     # generate: AI and the plan
     "run": _e("app", "generate", "Documentar las unidades listas en paralelo", "Document the ready units in parallel",
               ai=True),

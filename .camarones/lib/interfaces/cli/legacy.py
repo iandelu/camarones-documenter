@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse, json, os, sys
 from pathlib import Path
 
-from lib import projects
 from lib.core.ctx import KIT
 from lib.interfaces.cli.registry import CliContext, Command
 from lib import docs, env, plan
@@ -52,13 +51,9 @@ def add_legacy(sp: argparse._SubParsersAction) -> None:
     ins = sp.add_parser("install"); ins.add_argument("destination", type=Path)
     ins.add_argument("--profile", choices=["quick", "full"], default="quick"); ins.add_argument("--dry-run", action="store_true")
     upg = sp.add_parser("upgrade"); upg.add_argument("source", type=Path); upg.add_argument("--dry-run", action="store_true")
-    nw = sp.add_parser("new"); nw.add_argument("name"); nw.add_argument("--from", dest="from_url", default="")
-    nw.add_argument("--no-open", action="store_true")
-    sp.add_parser("switch")
     sp.add_parser("self-update")
     sp.add_parser("unlink")
     prof = sp.add_parser("profile"); prof.add_argument("name", choices=["quick", "full"])
-    sp.add_parser("init")
     for c in ("sync", "detect", "changes", "llms", "graph", "arch", "arch-validate", "portal", "down", "version"):
         sp.add_parser(c)
     sp.add_parser("repair")
@@ -149,8 +144,6 @@ def add_legacy(sp: argparse._SubParsersAction) -> None:
     rm = sp.add_parser("remote"); rm.add_argument("url", nargs="?")
     sh = sp.add_parser("share"); sh.add_argument("--auto", choices=["on", "off"])
     tr = sp.add_parser("trust"); tr.add_argument("--yes", action="store_true"); tr.add_argument("--json", action="store_true")
-    jn = sp.add_parser("join"); jn.add_argument("url"); jn.add_argument("folder", nargs="?", type=Path)
-    jn.add_argument("--no-open", action="store_true")
     us = sp.add_parser("stats"); us.add_argument("--json", action="store_true")
     us.add_argument("--months", type=int, default=3); us.add_argument("--record", choices=["on", "off"])
     fb = sp.add_parser("feedback"); fb.add_argument("file"); fb.add_argument("text"); fb.add_argument("--by", default="")
@@ -178,13 +171,6 @@ def add_legacy(sp: argparse._SubParsersAction) -> None:
     board_cli.add_parser(sp)
     from lib import adr_cli
     adr_cli.add_parser(sp)
-    pj = sp.add_parser("projects"); pj.add_argument("--json", action="store_true"); pj.add_argument("--add", type=Path)
-    # the desktop start screen's way in (it calls them itself); own dests, apart from `pages --adopt`
-    pj.add_argument("--inspect", dest="inspect_dir", type=Path, metavar="DIR", help="what a folder is, writes nothing")
-    pj.add_argument("--adopt", dest="adopt_dir", type=Path, metavar="DIR", help="make a folder a project")
-    pj.add_argument("--name", dest="adopt_name", metavar="NAME", help="the project's name, with --adopt")
-    pj.add_argument("--git-init", dest="git_init_dir", type=Path, metavar="DIR",
-                    help="git init the code folders without a repository")
     cf = sp.add_parser("config"); cf.add_argument("action", nargs="?", default="get", choices=["get", "set"])
     cf.add_argument("key", nargs="?"); cf.add_argument("value", nargs="?"); cf.add_argument("--json", action="store_true")
 
@@ -217,49 +203,6 @@ def run_legacy(a: argparse.Namespace, p: argparse.ArgumentParser) -> int:
         else:
             for k, v in s.items():
                 print(f"{k:<12} {v}")
-    elif a.cmd == "projects" and (a.inspect_dir or a.adopt_dir or a.git_init_dir):
-        # the desktop start screen's way in: what a picked folder is, then make it a project (no project globals needed)
-        from lib import onboard
-        try:
-            if a.inspect_dir:
-                if not a.inspect_dir.is_dir():
-                    raise ValueError(f"not a folder: {a.inspect_dir}")
-                info = onboard.inspect(a.inspect_dir)
-                if a.json:
-                    print(json.dumps(info, ensure_ascii=False))
-                for k, v in info.items() if not a.json else ():
-                    print(f"{k:<10} {v}")
-            elif a.git_init_dir:
-                done = onboard.git_init(a.git_init_dir)
-                print(json.dumps({"initialised": [str(p) for p in done]}, ensure_ascii=False) if a.json
-                      else "\n".join(f"✔ git init {p}" for p in done))
-            else:
-                dest = onboard.start(a.adopt_dir, a.adopt_name)
-                print(json.dumps({"path": str(dest)}, ensure_ascii=False) if a.json else f"✔ {dest}")
-        except (ValueError, RuntimeError, OSError) as e:
-            print(f"✖ {e}", file=sys.stderr)
-            code = ("taken" if isinstance(e, projects.Taken) else getattr(e, "code", "") if isinstance(e, onboard.Refused)
-                    else "git-init" if a.git_init_dir else "")
-            if a.json and code:                                     # the app words it: a stable code, not this line
-                print(json.dumps({"error": code, "detail": str(e)}, ensure_ascii=False))
-            return 1
-    elif a.cmd == "projects" and a.add:
-        from lib.common import docs_root
-        root = docs_root(a.add)
-        if not (a.add.is_dir() and (root / ".camarones" / "workspace.yaml").is_file()):
-            print(f"✖ {a.add} is not a Camarón project (no cam-docs/.camarones/workspace.yaml)", file=sys.stderr)
-            return 1
-        projects.register(root)
-        row = {"name": root.parent.name if root.name == "cam-docs" else root.name, "path": str(root), "exists": True}
-        print(json.dumps(row, ensure_ascii=False) if a.json else f"✔ {row['name']} → {root}")
-    elif a.cmd == "projects":
-        # a project registered by its docs root is named after its workspace folder, not "cam-docs"
-        rows = [{"name": Path(r["path"]).parent.name if r["name"] == "cam-docs" else r["name"], "path": r["path"],
-                 "exists": Path(r["path"]).is_dir()} for r in projects.load()]
-        if a.json:
-            print(json.dumps(rows, indent=2, ensure_ascii=False))
-        for r in rows if not a.json else ():
-            print(f"{r['name']:<24} {r['path']}{'' if r['exists'] else '  (missing)'}")
     elif a.cmd in ("install", "upgrade"):
         from lib.install import install
         if a.cmd == "install":
@@ -288,10 +231,6 @@ def run_legacy(a: argparse.Namespace, p: argparse.ArgumentParser) -> int:
             plan.set_status("setup", "done", "cli setup")
             from lib import install_state
             install_state.mark_setup()
-    elif a.cmd == "init":
-        env.init_templates()
-        docs.save_workspace(docs.workspace())   # persist workspace.yaml even with 0 repos yet — global
-        plan.sync()                             # install's marker lookup (find_project_marker) needs it on disk
     elif a.cmd == "sync":
         docs.sync_repos()
         from lib import genblocks
