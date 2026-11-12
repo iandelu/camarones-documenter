@@ -24,7 +24,7 @@
 - Kit version: 4.60.0 with step (a), 4.61.0 with step (c); README badge follows.
 - User docs move with the code (AGENTS.md §5.1): README (Spanish), `lib/tutorial.py` + regenerated `TUTORIAL.md`, `templates/docs/guides/tutorial.md` and its `es` twin.
 - Committed builds `portal/app-build/` and `desktop/renderer-build/` rebuilt and committed with their source.
-- Commits: conventional (`feat(health): …`), stage only this plan's hunks (other sessions share the tree), end with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
+- Commits: conventional (`feat(health): …`), stage only this plan's hunks (other sessions share the tree), no `Co-Authored-By` or "Generated with" line.
 
 **Environment notes for this machine:** the repo needs `git -c safe.directory=* …` (owned by another Windows user); run pytest as `uv run python -m pytest -p no:cacheprovider` (the `pytest` trampoline fails); renderer tests `cd .camarones/desktop/renderer && npx vitest run`, portal and `ui` tests `cd .camarones/portal/app && npx vitest run`, desktop helpers `node --test test/core.test.cjs test/renderer.test.cjs` from `.camarones/desktop`.
 

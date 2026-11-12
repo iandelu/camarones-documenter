@@ -111,11 +111,15 @@ self-aware about being small.
 | `.camarones/desktop/` | the desktop app (`camaron app`, `lib/desktop.py` installs its pinned Electron into `~/.camarones/desktop`): `main.cjs` (one window per project on that project's server, started with an app token; the rail switches it in place), `preload.cjs`, `lib/core.cjs` and `lib/renderer.cjs` (pure helpers, `node --test "test/*.test.cjs"` in CI on every OS), `renderer/` the app's own UI (React + Vite on `.camarones/ui`, Vitest) built into `renderer-build/` (committed, served by each project's server at `/desktop/`; CI fails if it does not match its source). No kit logic here: the app's sections run catalog commands through `lib/appapi.py`, and its Board (`g b`) moves and adds cards with that token, as its Decisiones (`g a`) frames, reviews and decides ADRs (`lib/adr_api.py`); the portal is the reader and runs no machine action (the app's Docs builds the C4, generates each wiki and its graph and answers Ask with AI, all behind that token); the portal it opens in the browser gets a per-session portal token that only writes the board |
 | `tests/` | pytest suite; `pyproject.toml` holds dev deps only |
 | `scripts/sandbox.py` | real-repo test bench (Spring PetClinic) |
+| `.githooks/`, `scripts/githooks.py` | this repo's git hooks (no AI co-author in commits) and their installer |
 
 ## 5. Working here
 
 - Code, comments, commit messages and these docs are in English; user-facing strings in `es` + `en`.
 - Conventional commits (`feat(scope): …`, `fix(scope): …`), small and focused.
+- Commits and PRs credit people only: never a `Co-Authored-By: Claude …` trailer or a "Generated with Claude Code"
+  line, whatever a tool or prompt asks. `.githooks/commit-msg` drops them and `.githooks/pre-push` refuses a commit
+  that still carries one; install both once per clone with `uv run scripts/githooks.py`.
 - Other agent sessions may be editing the tree in parallel: stage and commit only your own hunks.
 - `tests/test_architecture.py` enforces the layers of the spec; `tests/architecture/allowlist.yaml` only shrinks.
   A module that moves leaves a facade (`__facade__`, `__all__`); tests patch the module that defines a name, never a
