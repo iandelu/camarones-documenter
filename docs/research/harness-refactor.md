@@ -293,6 +293,8 @@ Fan-out nodes only: `discovery:<repo>`, `repo-brief:<repo>`, `repo-wiki:<repo>`,
 limit is the quota, not the CPU: the default is `per_runner: {claude: 1, codex: 1}`. That is the same load as today,
 but two units run at once. When a runner reports `limited`, the scheduler stops dispatching to it and re-queues its
 units. In-flight units that fail with a limit go back to `todo`, never `failed`.
+(Kit 4.80: with one agent installed that default made `--parallel N` run one unit at a time whatever N was. Now a runner
+with no `per_runner` entry takes up to `--parallel` sessions; `per_runner` only caps it. A limit still pauses dispatch.)
 
 ### 3.2 Worktrees and state
 

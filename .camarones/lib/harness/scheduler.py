@@ -1,7 +1,8 @@
 """Parallel scheduler (R13): run ready units at the same time. A unit with `isolation: worktree` works in its own copy
 of cam-docs and is integrated when it finishes; other units run in the main cam-docs, one at a time. Integration waits
 until no in-place unit is running, and a unit's dependents wait for its integration. A usage limit pauses only that
-runner and puts only its unit back in the queue (its worktree, with any work, is kept)."""
+runner and puts only its unit back in the queue (its worktree, with any work, is kept); the server limiting requests
+pauses it a minute instead. A run commits cam-docs first: worktrees branch from that commit."""
 from __future__ import annotations
 
 import datetime as dt
@@ -10,7 +11,8 @@ import threading
 import time
 from dataclasses import dataclass, field
 
-from .. import docs, plan, sessions
+from .. import docs, env, plan, sessions
+from ..adapters.runners.base import throttled
 from ..common import CAM_DIR, CTX, cli_cmd
 from . import awake, kpis, ledger, routing
 from .ctx import Ctx
@@ -20,7 +22,12 @@ from .locks import FileLock, LockBusy
 from .worktrees import Worktrees, slug
 
 RESYNC = 10.0          # seconds between plan syncs while nothing changes (agents add units such as flows)
+THROTTLE = 60.0        # seconds a runner rests when the server limits its requests, doubled while that goes on
 RUN_LOCK = CTX.state_root / ".camarones" / ".cache" / "locks" / "run.lock"   # one run at a time, CLI or portal
+
+
+def _span(seconds: float) -> str:
+    return f"{round(seconds)} s" if seconds < 120 else f"{round(seconds / 60)} min"
 
 
 def busy() -> dict | None:
@@ -113,7 +120,7 @@ def run_parallel(lang: str = "es", max_parallel: int = 2, per_runner: dict[str, 
                  max_units: int | None = None, poll_seconds: int = 900, include_interviews: bool = False,
                  policy: str = "on-conflict", gates=GATES, echo=print, poll: float = 0.5,
                  only: set[str] | None = None) -> int:
-    """Run ready agent units, up to `max_parallel` at once and `per_runner[runner]` (default 1) per runner. Returns
+    """Run ready agent units, up to `max_parallel` at once and `per_runner[runner]` (default: all of them) per runner. Returns
     the units finished and merged. Every run is recorded in .camarones/.cache/runs/<run>/events.jsonl. One run at a
     time: a second one (CLI or portal) raises RuntimeError naming who holds the run lock."""
     lock = FileLock(RUN_LOCK, wait=0, info={"what": "documentation run"})
@@ -168,6 +175,7 @@ def _loop(jobs, lang, max_parallel, per_runner, max_units, poll_seconds, include
             log(text)
     skip = set() if include_interviews or docs.interview_mode() == "team" else plan.INTERVIEW_TYPES
     limited: dict[str, dt.datetime] = {}
+    held: dict[str, int] = {}                # runner → server rate limits in a row (a short rest, not the quota's pause)
     retried: set[str] = set()                # one more try per unit after a transient failure
     pending: list[str] = []
     started = done = 0
@@ -175,6 +183,8 @@ def _loop(jobs, lang, max_parallel, per_runner, max_units, poll_seconds, include
     synced = 0.0
     for problem in plan.pipeline_problems():
         log(f"pipeline.yaml: {problem} — the plan is used as it was")
+    if env.checkpoint_commit("before a parallel run"):   # worktrees branch from HEAD: from these docs, and from a commit
+        log(f"Checkpoint: {CAM_DIR}/ committed locally, so each unit's copy starts from the docs as they are")
     units = {u["id"]: u for u in plan.load()["units"]}
     for w in Worktrees(CTX).list():                  # work finished earlier but never merged (crash, main was busy)
         u = units.get(w.unit) or {}
@@ -186,11 +196,18 @@ def _loop(jobs, lang, max_parallel, per_runner, max_units, poll_seconds, include
             log(f"{w.unit}: finished work found in {plan._at(w.path)} — merging it before anything else")
     log(f"Parallel run started: up to {max_parallel} unit(s) at a time" + (f", max {max_units}" if max_units else ""))
     agents = {routing.parse(t).runner for t in plan._agents(lambda _: None)}
-    if 0 < len(agents) < max_parallel:                 # one session per agent by default (quotas): say how to allow more
-        for rid in sorted(agents):
-            if per_runner.get(rid, 1) * len(agents) < max_parallel:
-                log(f"{rid}: {per_runner.get(rid, 1)} session at a time — --per-runner {rid}={max_parallel} lets it "
-                    "take more (each session uses your quota)")
+    room = sum(per_runner.get(rid, max_parallel) for rid in agents)
+    if agents and room < max_parallel:
+        log(f"--per-runner allows {room} session(s) at once across {', '.join(sorted(agents))}, fewer than the "
+            f"{max_parallel} asked")
+    shown: tuple = ()
+
+    def report() -> None:                    # what runs and what waits, each time that changes (the app's run card)
+        nonlocal shown
+        if (now_shown := (tuple(sorted(jobs)), tuple(sorted(waiting.items())))) != shown:
+            shown = now_shown
+            emit("run.slots", running=sorted(jobs), waiting=waiting)
+    waiting: dict[str, str] = {}
     cancelled = False
     while True:
         if not cancelled and run_id and cancel_file(run_id).exists():          # 0. a cancel from the portal
@@ -220,12 +237,21 @@ def _loop(jobs, lang, max_parallel, per_runner, max_units, poll_seconds, include
                 continue
             emit("unit.finished", unit=uid, runner=j.target, outcome=outcome, rc=j.result.returncode, status=st,
                  seconds=seconds)
+            if outcome == "ok":
+                held.pop(j.target, None)
             if outcome == "limited":
-                limited[j.target] = dt.datetime.now() + dt.timedelta(seconds=poll_seconds)
+                if throttled(output):
+                    held[j.target] = held.get(j.target, 0) + 1
+                    pause = min(poll_seconds, THROTTLE * 2 ** (held[j.target] - 1))
+                else:
+                    held.pop(j.target, None)
+                    pause = poll_seconds
+                limited[j.target] = dt.datetime.now() + dt.timedelta(seconds=pause)
                 started -= 1                          # back in the queue: it does not use up --max-units
                 if st == "doing":
                     plan.set_status(uid, "todo", record=False)
-                log(f"{j.target} hit its usage limit — {uid} goes back to the queue")
+                log(f"the server is limiting {j.target}'s requests — {uid} goes back to the queue, retried in "
+                    f"{_span(pause)}" if j.target in held else f"{j.target} hit its usage limit — {uid} goes back to the queue")
             elif outcome == "retry" and uid not in retried:
                 retried.add(uid)
                 started -= 1
@@ -270,6 +296,7 @@ def _loop(jobs, lang, max_parallel, per_runner, max_units, poll_seconds, include
             log(f"Run stopped: {stop}")
             return done
         capped = max_units is not None and started >= max_units
+        waiting: dict[str, str] = {}                 # ready units left out, and why: what the app shows while it runs
         if not stop and not capped:                                             # 3. start what can start
             if time.monotonic() - synced > RESYNC:
                 data, synced = plan.sync(), time.monotonic()
@@ -289,6 +316,7 @@ def _loop(jobs, lang, max_parallel, per_runner, max_units, poll_seconds, include
                 s = plan.settings(u["id"])
                 inplace = s.get("isolation") != "worktree"
                 if inplace and (pending or any(j.inplace for j in jobs.values())):
+                    waiting[u["id"]] = "shared"
                     continue
                 targets = plan._agents(log_once, s["tier"], s.get("runner"), bool(s.get("allow_local")))
                 if not targets:
@@ -300,9 +328,12 @@ def _loop(jobs, lang, max_parallel, per_runner, max_units, poll_seconds, include
                     rid = routing.parse(j.target).runner
                     busy[rid] = busy.get(rid, 0) + 1
                 free = [t for t in targets if limited.get(t, dt.datetime.min) <= now
-                        and busy.get(routing.parse(t).runner, 0) < per_runner.get(routing.parse(t).runner, 1)]
+                        and busy.get(routing.parse(t).runner, 0) < per_runner.get(routing.parse(t).runner, max_parallel)]
                 if not free:
-                    waiting_on_limits = waiting_on_limits or all(limited.get(t, dt.datetime.min) > now for t in targets)
+                    at_limit = all(limited.get(t, dt.datetime.min) > now for t in targets)
+                    waiting_on_limits = waiting_on_limits or at_limit
+                    waiting[u["id"]] = ("throttle" if all(t in held for t in targets) else "limit") if at_limit \
+                        else "runner"
                     continue
                 job = Job(u["id"], free[0], inplace)
                 job.thread = threading.Thread(target=_work, args=(job, lang, emit, echo), daemon=True)
@@ -314,9 +345,11 @@ def _loop(jobs, lang, max_parallel, per_runner, max_units, poll_seconds, include
             if not jobs and not pending and not stop:
                 if waiting_on_limits:
                     soonest = min(limited.values())
-                    wait = max(60, min(poll_seconds, int((soonest - dt.datetime.now()).total_seconds())))
-                    log(f"Every agent for the next units is at its usage limit — retrying in {wait // 60} min "
+                    wait = max(poll, min(poll_seconds, (soonest - dt.datetime.now()).total_seconds()))
+                    why = "held back by the server" if set(limited) <= set(held) else "at its usage limit"
+                    log(f"Every agent for the next units is {why} — retrying in {_span(wait)} "
                         "(machine must stay on; Ctrl+C to stop, progress is saved).")
+                    report()
                     time.sleep(wait)
                     continue
                 if queue:
@@ -338,4 +371,5 @@ def _loop(jobs, lang, max_parallel, per_runner, max_units, poll_seconds, include
         elif not jobs and not pending and not stop:
             log(f"Run stopped: reached the limit of {max_units} unit(s).")
             return done
+        report()
         time.sleep(poll)

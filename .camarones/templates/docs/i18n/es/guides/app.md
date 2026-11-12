@@ -221,11 +221,13 @@ Ejecuta el plan de documentación y ve cada unidad (`#/plan`, <kbd>g</kbd> <kbd>
 Un proyecto sin plan ofrece **Crear el plan** (`camaron plan sync`). Si no, de arriba abajo:
 
 **Ejecutar el plan.** **Ejecutar las listas** lanza una ejecución de la documentación: varias unidades a la vez
-(**A la vez**, de 1 a 4, 2 por defecto), cada descubrimiento, ficha de repo y flujo en su propia copia de `cam-docs`,
-que se fusiona al terminar. **Opciones** tiene las sesiones por agente (`claude=2,codex=1`), un máximo de unidades y si
-incluir las entrevistas. **Piloto automático** hace en cambio una unidad tras otra, sin vigilancia. Los dos están
-apagados mientras no haya ninguna unidad lista. Con una ejecución en marcha, la tarjeta enseña su avance y **Cancelar
-la ejecución** (los agentes se paran, sus unidades vuelven a la cola y su trabajo se conserva); con el piloto en marcha,
+(**A la vez**, de 1 a 4, 2 por defecto), cada descubrimiento, ficha de repo, dominio, decisiones, catálogo de flujos y
+flujo en su propia copia de `cam-docs`, que se fusiona al terminar. **Opciones** tiene un tope de sesiones por agente
+(`claude=2,codex=1`; sin él, un agente usa todas las de **A la vez**), un máximo de unidades y si incluir las
+entrevistas. **Piloto automático** hace en cambio una unidad tras otra, sin vigilancia. Los dos están
+apagados mientras no haya ninguna unidad lista. Con una ejecución en marcha, la tarjeta enseña su avance, cuántas unidades van a la vez y por qué esperan las listas que
+se quedan fuera (usan de una en una la copia principal de `cam-docs`, el agente no tiene una sesión libre, el servidor
+frena las peticiones un minuto o el agente llegó a su límite de uso, o aún no hay más listas), y **Cancelar la ejecución** (los agentes se paran, sus unidades vuelven a la cola y su trabajo se conserva); con el piloto en marcha,
 **Parar el piloto**. Solo existe una ejecución a la vez, se lance desde la app o desde la terminal. Ninguno de los dos
 empieza una unidad cuya sesión tienes abierta (en el lienzo o en una ventana). Si solo quedan de esas, **Ejecutar las
 listas** se para y las nombra, para que las acabes allí, y el piloto automático te espera (*Tomar una unidad del piloto

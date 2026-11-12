@@ -521,13 +521,16 @@ portal labels each diagram "From the code", "Edited by hand", "Confirmed by <nam
 the `cam-docs-diagrams` skill: pick the right diagram, write Mermaid that renders, never edit a generated block.
 
 **Parallel runs.** `camaron run --parallel 3 --per-runner claude=2,codex=1` does several units at once. Discovery, repo
-briefs and flows each work in their own copy of `cam-docs/` (a git worktree in `.cw/<n>/`) and are merged back when
+briefs, domain, decisions, the flows catalog and flows each work in their own copy of `cam-docs/` (a git worktree in `.cw/<n>/`) and are merged back when
 they finish, after `check` and `arch-validate` show no new errors; other units run one at a time, and a unit waits for
 what it needs to be merged. A clash blocks the unit, leaves `cam-docs/` untouched and adds an `integrate:<unit>` unit.
 `camaron runs` shows what each run did and cost; `camaron pipeline show` lists the units and where each one works.
 `autopilot` stays sequential. Runs keep the computer awake (a laptop that sleeps breaks the agent's session); a
-session cut by something passing (sleep, network, an overloaded API) is retried once. One session per agent by default:
-with a single agent installed, `--per-runner claude=2` lets it take more. `run` and the autopilot both leave alone a unit whose
+session cut by something passing (sleep, network, an overloaded API) is retried once. `--parallel` is how many sessions
+run at once, even with a single agent installed; `--per-runner` caps an agent below it (each session uses its quota).
+A run first commits `cam-docs/` locally, so every copy starts from the docs as they are. When the server holds requests
+back (Claude says it is not your usage limit, as a proxy may with several sessions at once), that agent rests a minute,
+twice that if it happens again, instead of the usage limit's wait. `run` and the autopilot both leave alone a unit whose
 session the app has open (on its canvas or in a window). When only such units are left `run` stops and names them, for you to
 finish there, and the autopilot waits until you finish one, hand it back or close it.
 

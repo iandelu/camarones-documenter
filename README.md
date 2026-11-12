@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.82.0-ff875f?style=flat-square" alt="Versión 4.82.0">
+  <img src="https://img.shields.io/badge/version-4.83.0-ff875f?style=flat-square" alt="Versión 4.83.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -643,8 +643,10 @@ la abre en una terminal y **Devolver al piloto** se la devuelve desatendida; se 
 (`.camarones/.cache/runs/<run>/handoff/`), y el piloto puede ser otro proceso, un `camaron autopilot` en una terminal.
 Mientras solo queden unidades contigo, el piloto espera. `camaron run` en paralelo aún no cede sus unidades.
 Los modelos locales solo entran por OpenCode y nunca para trabajo `agentic-heavy`; `camaron doctor --local` propone uno
-de pesos abiertos según la memoria de tu equipo. `camaron run --parallel 3 --per-runner claude=2,codex=1` reparte las
-sesiones; mientras dura una ejecución el ordenador no se suspende. `camaron doctor --context` suma los tokens que carga
+de pesos abiertos según la memoria de tu equipo. `camaron run --parallel 3` hace hasta tres unidades a la vez, aunque
+solo tengas un agente, y `--per-runner claude=2,codex=1` pone tope a cada uno; mientras corre, la tarjeta del Plan dice
+cuántas van a la vez y por qué esperan las demás, si el servidor frena las peticiones espera un minuto (no la pausa del
+límite de uso), y el ordenador no se suspende. `camaron doctor --context` suma los tokens que carga
 cada sesión de agente (avisa por encima de 6000; `context: {budget: N}`). `camaron hooks on` añade tres hooks de Claude
 Code: el estado del plan al empezar, la revisión de cada página al editarla y un recordatorio si los repos cambiaron.
 `camaron eval comply <unidad>` ejecuta una unidad de verdad y puntúa lo escrito, sin IA (para el sandbox).

@@ -89,10 +89,10 @@ def test_patch_errors_name_the_patch_entry(kit, project):
 def test_unit_settings_come_from_the_type_then_the_patch(kit, project):
     project(None)
     assert kit.plan.settings("i18n")["tier"] == "bounded"
-    assert kit.plan.settings("domain") == {"tier": "agentic-heavy", "isolation": "none"}
+    assert kit.plan.settings("data") == {"tier": "agentic-heavy", "isolation": "none"}
     assert kit.plan.settings("discovery:api")["isolation"] == "worktree"
-    project({"patch": [{"op": "set", "node": "domain", "runner": "codex:o5"}]})
-    assert kit.plan.settings("domain") == {"tier": "agentic-heavy", "isolation": "none", "runner": "codex:o5"}
+    project({"patch": [{"op": "set", "node": "data", "runner": "codex:o5"}]})
+    assert kit.plan.settings("data") == {"tier": "agentic-heavy", "isolation": "none", "runner": "codex:o5"}
 
 
 @pytest.fixture
