@@ -43,12 +43,42 @@ def save_stamp(data: dict) -> None:
         save_json(p, data)
 
 
-def _read(path: Path) -> str:
-    return path.read_bytes().decode("utf-8").replace("\r\n", "\n")
+JUNK = {".DS_Store", "Thumbs.db", "desktop.ini", "__pycache__"}       # and any dot-file: never part of a skill
+
+
+def _read(path: Path) -> str | None:
+    try:
+        return path.read_bytes().decode("utf-8-sig").replace("\r\n", "\n")
+    except UnicodeDecodeError:
+        return None
+
+
+def _scan(folder: Path) -> tuple[dict[str, str], list[str]]:
+    """A skill folder's text files, and why any other file in it was left out. A link is never followed: a committed
+    symlink would copy a file from outside the repo into the rendered skills."""
+    base, files, skipped = folder.resolve(), {}, []
+
+    def walk(d: Path) -> None:
+        for p in sorted(d.iterdir()):
+            rel = p.relative_to(folder).as_posix()
+            if p.name in JUNK or p.name.startswith("."):
+                continue
+            if p.is_symlink() or not p.resolve().is_relative_to(base):
+                skipped.append(f"symlinked {'folder' if p.is_dir() else 'file'} {rel}")
+            elif p.is_dir():
+                walk(p)
+            elif p.is_file():
+                text = _read(p)
+                if text is None:
+                    skipped.append(f"not UTF-8 text: {rel}")
+                else:
+                    files[rel] = text
+    walk(folder)
+    return files, skipped
 
 
 def _tree(folder: Path) -> dict[str, str]:
-    return {f.relative_to(folder).as_posix(): _read(f) for f in sorted(folder.rglob("*")) if f.is_file()}
+    return _scan(folder)[0]
 
 
 def kit_names() -> list[str]:
@@ -62,24 +92,49 @@ def kit_files(name: str) -> dict[str, str]:
     return _tree(d) if d.is_dir() else {}
 
 
-def _team_folders() -> list[Path]:
+def _linked_team_dir() -> bool:
     t = team_dir()
-    if t is None or not t.is_dir():
+    return t is not None and t.is_dir() and t.resolve() != ROOT.resolve() / ".camarones" / "skills"
+
+
+def _team_entries() -> list[Path]:
+    t = team_dir()
+    if t is None or not t.is_dir() or _linked_team_dir():
         return []
-    return sorted((d for d in t.iterdir() if d.is_dir() and not d.name.startswith(".")), key=lambda d: d.name)
+    return sorted((d for d in t.iterdir() if not d.name.startswith(".") and (d.is_dir() or d.is_symlink())),
+                  key=lambda d: d.name)
+
+
+def _linked(d: Path) -> bool:
+    return d.is_symlink() or d.resolve() != d.parent.resolve() / d.name
+
+
+def _team_folders() -> list[Path]:
+    return [d for d in _team_entries() if not _linked(d)]
+
+
+def _has_skill_md(d: Path) -> bool:
+    f = d / "SKILL.md"
+    return f.is_file() and not f.is_symlink() and _read(f) is not None
 
 
 def team_names() -> list[str]:
-    return [d.name for d in _team_folders() if NAME_RE.fullmatch(d.name) and (d / "SKILL.md").is_file()]
+    return [d.name for d in _team_folders() if NAME_RE.fullmatch(d.name) and _has_skill_md(d)]
 
 
 def ignored() -> list[dict]:
+    if _linked_team_dir():
+        return [{"name": "", "why": "symlink"}]
     out = []
-    for d in _team_folders():
-        if not NAME_RE.fullmatch(d.name):
+    for d in _team_entries():
+        if _linked(d):
+            out.append({"name": d.name, "why": "symlink"})
+        elif not NAME_RE.fullmatch(d.name):
             out.append({"name": d.name, "why": "invalid name"})
         elif not (d / "SKILL.md").is_file():
             out.append({"name": d.name, "why": "no SKILL.md"})
+        else:
+            out.extend({"name": d.name, "why": why} for why in _scan(d)[1])
     return out
 
 

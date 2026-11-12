@@ -47,6 +47,19 @@ def skill_files(project_name: str | None = None) -> dict[str, str]:
 RENDERED_SKILLS = CACHE / "skills-rendered.json"
 
 
+def _rendered_entry(rel) -> bool:
+    """A manifest entry the cleanup may remove: `<host>/skills/<name>/…` inside ROOT/<host>/skills. The manifest is a
+    file in the repo, so a teammate could commit one that names any other file."""
+    from . import skills
+    if not isinstance(rel, str) or "\\" in rel:
+        return False
+    parts = rel.split("/")
+    if (len(parts) < 4 or parts[0] not in (".claude", ".agents") or parts[1] != "skills"
+            or not skills.NAME_RE.fullmatch(parts[2]) or any(p in ("", ".", "..") for p in parts)):
+        return False
+    return (ROOT / rel).parent.resolve().is_relative_to((ROOT / parts[0] / "skills").resolve())
+
+
 def write_kit_skills(project_name: str | None = None) -> None:
     """Always refreshed: a copy edited in .claude/skills goes back to the effective text (the team's copy, else the
     kit's). What an earlier render wrote and the effective set no longer has is removed; foreign files stay."""
@@ -56,7 +69,8 @@ def write_kit_skills(project_name: str | None = None) -> None:
         dst.parent.mkdir(parents=True, exist_ok=True)
         with open(dst, "w", encoding="utf-8", newline="\n") as f:
             f.write(text)
-    for rel in set(load_json(RENDERED_SKILLS, [])) - set(files):
+    manifest = load_json(RENDERED_SKILLS, [])
+    for rel in {r for r in (manifest if isinstance(manifest, list) else []) if _rendered_entry(r)} - set(files):
         gone = ROOT / rel
         if gone.is_file() or gone.is_symlink():
             gone.unlink()

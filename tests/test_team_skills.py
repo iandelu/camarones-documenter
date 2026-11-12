@@ -178,3 +178,110 @@ def test_reset_never_nests_when_the_aside_name_is_taken(wired):
     second = s.reset("cam-docs-update", now="20261112-101500")
     assert first != second and second.name == first.name + "-2" and second.parent == first.parent
     assert (first / "SKILL.md").is_file() and (second / "SKILL.md").is_file()
+
+
+def link(path, target, folder=False):
+    try:
+        path.symlink_to(target, target_is_directory=folder)
+    except OSError:
+        pytest.skip("no symlink rights")
+
+
+def test_a_symlink_in_a_team_skill_is_never_followed(wired, tmp_path):
+    s = skills(wired)
+    secret = tmp_path / "hosts.yml"
+    secret.write_text("oauth_token: gho_secret", encoding="utf-8")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "SKILL.md").write_text("---\nname: x\ndescription: Not ours.\n---\ngho_secret\n", encoding="utf-8")
+    d = team(wired, "our-leak")
+    link(d / "notes.md", secret)
+    link(d / "refs", outside, folder=True)
+    link(wired.root / ".camarones" / "skills" / "our-linked", outside, folder=True)
+    md = wired.root / ".camarones" / "skills" / "our-md"
+    md.mkdir()
+    link(md / "SKILL.md", outside / "SKILL.md")
+    wired.env.write_kit_skills()
+    assert s.team_names() == ["our-leak"]
+    assert "gho_secret" not in "".join(wired.env.skill_files().values())
+    for host in (".claude", ".agents"):
+        rendered = sorted(p.relative_to(wired.root / host / "skills").as_posix()
+                          for p in (wired.root / host / "skills").rglob("*") if "our-" in p.as_posix())
+        assert rendered == ["our-leak", "our-leak/SKILL.md"]
+    assert sorted((i["name"], i["why"]) for i in s.ignored()) == [
+        ("our-leak", "symlinked file notes.md"), ("our-leak", "symlinked folder refs"), ("our-linked", "symlink"),
+        ("our-md", "symlinked file SKILL.md")]
+
+
+def test_a_symlinked_team_folder_gives_no_team_copies(wired, tmp_path):
+    s = skills(wired)
+    outside = tmp_path / "elsewhere"
+    (outside / "our-review").mkdir(parents=True)
+    (outside / "our-review" / "SKILL.md").write_text("---\nname: x\ndescription: Not ours.\n---\n", encoding="utf-8")
+    shutil.rmtree(wired.root / ".camarones" / "skills", ignore_errors=True)
+    link(wired.root / ".camarones" / "skills", outside, folder=True)
+    assert s.team_names() == [] and "our-review" not in s.sources()
+    assert s.ignored() == [{"name": "", "why": "symlink"}]
+
+
+def test_junk_and_binary_files_in_a_team_skill_are_left_out(wired):
+    s = skills(wired)
+    d = team(wired, "our-review", extra={"Thumbs.db": "x", "desktop.ini": "x", ".hidden.md": "x"})
+    (d / ".DS_Store").write_bytes(b"\x00\x00\x00\x01Bud1\xff\xfe")
+    (d / "__pycache__").mkdir()
+    (d / "__pycache__" / "x.cpython-312.pyc").write_bytes(b"\xcb\r\r\n\x00\x00\xff")
+    (d / "logo.png").write_bytes(b"\x89PNG\r\n\x1a\n\x00\xff\xfe")
+    files = wired.env.skill_files()
+    assert sorted(r for r in files if "/our-review/" in r) == [
+        ".agents/skills/our-review/SKILL.md", ".claude/skills/our-review/SKILL.md"]
+    assert s.ignored() == [{"name": "our-review", "why": "not UTF-8 text: logo.png"}]
+    wired.env.write_kit_skills()
+    assert [x for x in importlib.import_module("lib.install_state").drift() if "our-review" in x["path"]] == []
+
+
+def test_a_team_copy_whose_skill_md_is_not_utf8_is_not_a_team_copy(wired):
+    s = skills(wired)
+    d = team(wired, "cam-docs-unit")
+    (d / "SKILL.md").write_bytes(b"---\nname: cam-docs-unit\ndescription: Caf\xe9.\n---\n")
+    assert s.origin("cam-docs-unit") == "kit"
+    assert s.ignored() == [{"name": "cam-docs-unit", "why": "not UTF-8 text: SKILL.md"}]
+    wired.env.write_kit_skills()
+
+
+def test_a_team_copy_saved_with_a_bom_keeps_its_frontmatter(wired):
+    s = skills(wired)
+    trust = importlib.import_module("lib.trust")
+    d = team(wired, "our-review")
+    (d / "SKILL.md").write_bytes(b"\xef\xbb\xbf---\nname: our-review\ndescription: Ours.\n---\nbody\n")
+    assert s.description("our-review") == "Ours."
+    raw = s.kit_files("cam-docs-update")["SKILL.md"]
+    f = team(wired, "cam-docs-update")
+    (f / "SKILL.md").write_bytes(b"\xef\xbb\xbf" + raw.encode("utf-8"))
+    wired.env.write_kit_skills()
+    assert not (wired.root / ".claude" / "skills" / "our-review" / "SKILL.md").read_bytes().startswith(b"\xef\xbb\xbf")
+    assert [x for x in importlib.import_module("lib.install_state").drift() if "skills" in x["path"]] == []
+    assert [it for it, _ in trust.pending() if "cam-docs-update" in it.id] == []
+
+
+def test_the_render_manifest_only_removes_rendered_skill_files(wired):
+    victim = wired.root.parent / "victim.txt"
+    victim.write_text("keep", encoding="utf-8")
+    settings = wired.root / ".claude" / "settings.json"
+    before = settings.read_bytes()
+    wired.env.save_json(wired.env.RENDERED_SKILLS, ["../victim.txt", ".claude/settings.json", ".claude/skills",
+                                                    ".claude/skills/x/../../settings.json", victim.as_posix(),
+                                                    ".claude/skills/x/..\\..\\settings.json"])
+    wired.env.write_kit_skills()
+    assert victim.read_text(encoding="utf-8") == "keep" and settings.read_bytes() == before
+    assert (wired.root / ".claude" / "skills").is_dir()
+
+
+def test_an_approved_team_copy_edited_again_needs_approval_again(wired):
+    trust = importlib.import_module("lib.trust")
+    d = team(wired, "cam-docs-update", text="---\nname: cam-docs-update\ndescription: Ours.\n---\nbody\n")
+    wired.env.write_kit_skills()
+    trust.approve()
+    (d / "SKILL.md").write_text("---\nname: cam-docs-update\ndescription: Ours.\n---\nother body\n", encoding="utf-8")
+    wired.env.write_kit_skills()
+    rows = [(it, st) for it, st in trust.pending() if "cam-docs-update" in it.id]
+    assert rows and all(st == "changed" for _, st in rows)
