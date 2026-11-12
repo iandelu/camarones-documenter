@@ -58,7 +58,7 @@ def needs_project(rest: list[str]) -> bool:
     cmd = registry.find(registry.load(), rest[0])
     if cmd is not None:
         return cmd.needs_project(rest[1:])
-    return rest[0] not in LEGACY_NO_PROJECT and rest[:2] != ["board", "merge-driver"]
+    return rest[0] not in LEGACY_NO_PROJECT
 
 
 def prelaunch(argv: list[str], entry: str) -> None:

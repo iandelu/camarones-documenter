@@ -20,7 +20,7 @@ MOVED: set[str] = {
     "arch-validate", "doctor", "eval", "ab", "kpis", "pipeline", "status", "check", "stats", "health",
     "run", "pr", "runs", "wiki", "docs", "plan", "prompt", "autopilot",
     "portal", "removed", "review", "hook", "hooks", "plugins", "export", "confirm", "translated", "ci", "checkpoint",
-    "remote", "share", "trust", "feedback", "interview",
+    "remote", "share", "trust", "feedback", "interview", "board", "adr",
 }
 _ids = itertools.count()
 
@@ -118,3 +118,13 @@ def test_loading_the_registry_imports_nothing_outside_the_cli():
 
 def test_moved_commands_are_registry_commands(reg):
     assert MOVED <= set(reg.load())
+
+
+def test_the_old_cli_modules_are_facades():
+    from lib import adr_cli
+    from lib.interfaces.cli.commands import adr, board
+    from lib.kanban import cli as board_cli
+    assert board_cli.__facade__ == "lib.interfaces.cli.commands.board" and board_cli.run is board.run
+    assert board_cli.add_parser is board.add_parser
+    assert adr_cli.__facade__ == "lib.interfaces.cli.commands.adr" and adr_cli.add_parser is adr.add_parser
+    assert adr_cli.run is adr.run

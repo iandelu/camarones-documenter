@@ -21,9 +21,6 @@ def _e(verdict: str, zone: str | None = None, es: str = "", en: str = "", ai: bo
 
 CLI = _e("cli")
 _LEFT: dict[str, dict] = {             # the commands still dispatched by interfaces/cli/legacy.py
-    # team: shared repo, agent config, CI
-    "board": _e("both", "team", "El tablero: historias, épicas y su estado", "The board: stories, epics and their status"),
-    "adr": _e("app", "team", "Decisiones (ADR): listar, crear, aceptar", "Decisions (ADRs): list, create, accept"),
 }
 
 

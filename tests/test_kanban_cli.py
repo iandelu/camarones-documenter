@@ -106,7 +106,8 @@ def test_a_busy_lock_or_a_file_error_is_one_plain_line(wired, monkeypatch, capsy
     import argparse
     from pathlib import Path
     from lib.harness.locks import LockBusy
-    from lib.kanban import cli as board_cli, ops
+    from lib.interfaces.cli.commands import board as board_cli
+    from lib.kanban import ops
     p = argparse.ArgumentParser()
     board_cli.add_parser(p.add_subparsers(dest="cmd"))
     args = p.parse_args(["board", "move", "WI-1", "Ready"])
@@ -291,7 +292,7 @@ def test_story_split_accept_refuses_a_cycle_or_duplicates(wired, monkeypatch, ca
     import argparse
     _story_world(wired)
     from lib import stories
-    from lib.kanban import cli as board_cli
+    from lib.interfaces.cli.commands import board as board_cli
     p = argparse.ArgumentParser()
     board_cli.add_parser(p.add_subparsers(dest="cmd"))
     args = p.parse_args(["board", "story", "split", "WI-1", "--accept"])
@@ -323,7 +324,7 @@ def test_story_errors_are_plain_and_exit_2(wired):
 
 def _parse(*argv):
     import argparse
-    from lib.kanban import cli as board_cli
+    from lib.interfaces.cli.commands import board as board_cli
     p = argparse.ArgumentParser()
     board_cli.add_parser(p.add_subparsers(dest="cmd"))
     return board_cli, p.parse_args(["board", *argv])
