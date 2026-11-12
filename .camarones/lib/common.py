@@ -1,14 +1,23 @@
-"""Shared paths, versions and cross-platform process helpers (macOS, Windows, Linux)."""
+"""Keeps VERSIONS, which install and upgrade read from this file as text, and re-exports lib.core for old imports."""
 from __future__ import annotations
 
-import os, shutil, signal, subprocess, sys
-from pathlib import Path
+from .core.ctx import KIT, CAM_DIR, Ctx, docs_root, find_project_marker, find_root
+from .core.fsutil import load_json, retry_busy, rmtree, save_json
+from .core.paths import (
+    CACHE, CAM_LAYOUT, CTX, DOCS, GRAPHS, PREFS, ROOT, WORK, WORKSPACE, WS_FILE, cli_cmd, rel_file, repo_dir, ws_rel,
+)
+from .core.platform import HOME, IS_MAC, IS_WIN
+from .core.process import (
+    PARENT_SESSION, ensure_path, extra_bin_dirs, kill_tree, leave_parent_session, out, py, run, sdkman_dir, uv, which,
+)
 
-from .core.ctx import KIT, CAM_DIR, Ctx, docs_root, find_project_marker, find_root  # noqa: F401  (re-exported)
-from .core.fsutil import load_json, retry_busy, rmtree, save_json  # noqa: F401  (re-exported)
-from .core.platform import HOME, IS_MAC, IS_WIN  # noqa: F401  (re-exported)
-
-PREFS = HOME / ".camarones.json"              # per-machine choices: language, models, runners, routing
+__facade__ = "lib.core"
+__all__ = [
+    "IS_WIN", "IS_MAC", "HOME", "PREFS", "CTX", "ROOT", "CAM_LAYOUT", "WORKSPACE", "DOCS", "WORK", "WS_FILE", "CACHE",
+    "GRAPHS", "KIT", "CAM_DIR", "Ctx", "docs_root", "find_project_marker", "find_root", "repo_dir", "ws_rel",
+    "rel_file", "cli_cmd", "sdkman_dir", "extra_bin_dirs", "ensure_path", "which", "run", "out", "PARENT_SESSION",
+    "leave_parent_session", "kill_tree", "uv", "retry_busy", "load_json", "save_json", "py", "rmtree",
+]
 
 VERSIONS = {
     "kit": "4.81.0",
@@ -23,165 +32,3 @@ VERSIONS = {
     "electron": "44.7.0",     # the desktop app (`camaron app`), installed into ~/.camarones/desktop
     "uv": "0.12.18",          # the uv image the generated GitLab jobs run in (lib/ci.py)
 }
-
-
-CTX = Ctx.from_env()
-ROOT = CTX.root
-CAM_LAYOUT = CTX.cam_layout                        # cam-docs layout: repos are ROOT's siblings, not its children
-WORKSPACE = CTX.workspace                          # folder holding the repos; agents are launched here
-DOCS = CTX.docs
-WORK = CTX.work                # plan, handoff, session log (committed, hidden from portal); CAMARONES_STATE_ROOT moves it
-WS_FILE = CTX.ws_file                              # project config: per-project, never shared across projects
-CACHE = CTX.cache                                  # generated, git-ignored: portal build, site, code graph, vendor cache
-GRAPHS = CTX.graphs                                # per-repo graphify output (git-ignored), kept out of the repos
-
-
-def repo_dir(name: str) -> Path:
-    return WORKSPACE / name
-
-
-def ws_rel(path: str) -> str:
-    """A ROOT-relative path as seen from WORKSPACE, where agents run: cam-docs/docs/…, docs/… in the legacy layout,
-    .cw/<n>/docs/… in a unit's worktree."""
-    return Path(os.path.relpath(ROOT / path, WORKSPACE)).as_posix()
-
-
-def rel_file(f: Path) -> str:
-    """ROOT-relative posix path; files outside ROOT (a repo's wiki) get a ../ path that still joins with ROOT."""
-    return Path(os.path.relpath(f, ROOT)).as_posix()
-
-
-def cli_cmd() -> str:
-    """How humans/agents invoke Camarón on this OS; legacy launchers remain a compatibility fallback."""
-    if os.environ.get("CAMARONES_GLOBAL") or not (ROOT / "camaron.command").exists() and which("camaron"):
-        return "camaron"
-    if (ROOT / ("camaron.cmd" if IS_WIN else "camaron.command")).exists():
-        return r".\camaron.cmd" if IS_WIN else "./camaron.command"
-    return r".\camarones.cmd" if IS_WIN else "./camarones.command"
-
-
-# ---------- PATH & tools ----------
-def sdkman_dir() -> Path:
-    return Path(os.environ.get("SDKMAN_DIR", HOME / ".sdkman"))
-
-
-def extra_bin_dirs() -> list[Path]:
-    dirs = [HOME / ".local" / "bin", HOME / ".cargo" / "bin"]
-    # SDKMAN (java, maven, gradle…) is initialised only in interactive shells: add its "current" candidates explicitly
-    cand = sdkman_dir() / "candidates"
-    if cand.is_dir():
-        dirs += sorted(p / "current" / "bin" for p in cand.iterdir() if (p / "current" / "bin").is_dir())
-    if os.environ.get("JAVA_HOME"):
-        dirs.append(Path(os.environ["JAVA_HOME"]) / "bin")
-    if IS_WIN:
-        appdata = os.environ.get("APPDATA")
-        if appdata:
-            dirs.append(Path(appdata) / "npm")
-        pf = Path(os.environ.get("ProgramFiles", r"C:\Program Files"))
-        local = Path(os.environ.get("LOCALAPPDATA", HOME / "AppData" / "Local"))
-        # where winget puts freshly installed tools, so they work without reopening the terminal
-        dirs += [pf / "nodejs", pf / "Git" / "cmd", pf / "Docker" / "Docker" / "resources" / "bin",
-                 local / "Microsoft" / "WinGet" / "Links", HOME / ".local" / "bin"]
-    else:
-        dirs += [Path("/opt/homebrew/bin"), Path("/usr/local/bin")]
-    return dirs
-
-
-def ensure_path() -> None:
-    parts = os.environ.get("PATH", "").split(os.pathsep)
-    for d in [] if os.environ.get("CAMARONES_KEEP_PATH") else extra_bin_dirs():  # a PATH set on purpose (the test suite)
-        if d.is_dir() and str(d) not in parts:
-            parts.insert(0, str(d))
-    os.environ["PATH"] = os.pathsep.join(parts)
-    # quiet, private defaults for every child process
-    os.environ.setdefault("NO_UPDATE_NOTIFIER", "1")
-    os.environ.setdefault("DO_NOT_TRACK", "1")
-    os.environ.setdefault("OPENWIKI_TELEMETRY_DISABLED", "1")
-    os.environ.setdefault("PYTHONUTF8", "1")
-    java_cur = sdkman_dir() / "candidates" / "java" / "current"
-    if not os.environ.get("JAVA_HOME") and java_cur.is_dir():
-        os.environ["JAVA_HOME"] = str(java_cur)
-
-
-ensure_path()
-
-
-def which(name: str) -> str | None:
-    """shutil.which, except that on Windows only PATH is searched: shutil looks in the current folder first, so a
-    launcher or a planted program in the folder a command runs from would win over the real one."""
-    if not IS_WIN or os.path.dirname(name):
-        return shutil.which(name)
-    exts = [e for e in os.environ.get("PATHEXT", ".COM;.EXE;.BAT;.CMD").split(";") if e]
-    names = [name] if any(name.lower().endswith(e.lower()) for e in exts) else [name + e for e in exts]
-    for d in os.environ.get("PATH", "").split(os.pathsep):
-        d = d.strip().strip('"')
-        for n in names if d else ():
-            f = os.path.join(d, n)
-            if os.path.isfile(f):
-                return f
-    return None
-
-
-def run(cmd: list[str], cwd: Path | None = None, check: bool = True, quiet: bool = False,
-        capture: bool = False, env: dict | None = None) -> subprocess.CompletedProcess:
-    """Run a command resolving Windows .cmd shims (npm, npx, likec4, openwiki are .cmd on Windows)."""
-    exe = which(cmd[0]) or cmd[0]
-    full = [exe, *cmd[1:]]
-    kw: dict = {"cwd": str(cwd) if cwd else None, "env": {**os.environ, **(env or {})}}
-    if capture or quiet:
-        kw.update(capture_output=True, text=True, encoding="utf-8", errors="replace")
-    try:
-        r = subprocess.run(full, **kw)
-    except OSError as e:
-        # a tool that is missing, unreadable, or blocked (e.g. Windows Smart App Control /
-        # WinError 4551) must not crash the wizard — treat it like "not available" instead
-        if check:
-            raise RuntimeError(f"'{cmd[0]}' not found — run setup / install it first ({e})") from None
-        return subprocess.CompletedProcess(full, 127, "", str(e))
-    if check and r.returncode != 0:
-        msg = (r.stderr or r.stdout or "").strip()[-2000:] if (capture or quiet) else ""
-        raise RuntimeError(f"command failed ({r.returncode}): {' '.join(cmd)}\n{msg}")
-    return r
-
-
-def out(cmd: list[str], cwd: Path | None = None) -> str:
-    r = run(cmd, cwd=cwd, check=False, capture=True)
-    return (r.stdout or "").strip() if r.returncode == 0 else ""
-
-
-# What a Claude Code session sets on whatever it launches, and what ties a shell to the host that opened it. A `claude`
-# that inherits them is that session's child, and a child saves no transcript: the board has nothing to read and Continue
-# nothing to reopen. Only these go: the same prefix also names a person's own settings (CLAUDE_CODE_USE_BEDROCK, …),
-# without which a session may not even start, and a marker missing from this list only costs that transcript.
-PARENT_SESSION = ("CLAUDECODE", "CLAUDE_CODE_CHILD_SESSION", "CLAUDE_CODE_SESSION_ID", "CLAUDE_CODE_SESSION_ATTENDED",
-                  "CLAUDE_CODE_HOST_SESSION_ID", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_MESSAGING_SOCKET",
-                  "CLAUDE_CODE_MESSAGING_TOKEN", "CLAUDE_CODE_EXECPATH", "CLAUDE_PID", "CLAUDE_EFFORT")
-
-
-def leave_parent_session() -> None:
-    """The kit run from inside a Claude Code session opens sessions of their own: everything it starts inherits this."""
-    for name in PARENT_SESSION:
-        os.environ.pop(name, None)
-
-
-def kill_tree(pid: int, sig: int | None = None) -> bool:
-    """The process and what it started; False when it was already gone. POSIX signals its process group (`pid` leads
-    one: it was started with start_new_session); Windows has no groups, so taskkill walks the tree (`sig` ignored)."""
-    if IS_WIN:
-        return run(["taskkill", "/PID", str(pid), "/T", "/F"], check=False, quiet=True).returncode == 0
-    try:
-        os.killpg(pid, sig or signal.SIGTERM)
-    except (ProcessLookupError, PermissionError):  # EPERM: macOS's answer for a group left with only its zombie
-        return False
-    return True
-
-
-def uv() -> str:
-    exe = which("uv") or os.environ.get("UV")
-    if not exe:
-        raise RuntimeError("uv not found — run the Camarón launcher (it installs uv).")
-    return exe
-
-
-def py() -> str:
-    return sys.executable

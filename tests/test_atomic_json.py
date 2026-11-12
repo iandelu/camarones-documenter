@@ -14,7 +14,7 @@ def test_the_old_file_stays_whole_until_the_new_one_replaces_it(kit, monkeypatch
     def spy(src, dst):
         seen.append(json.loads(Path(dst).read_text(encoding="utf-8")))
         real(src, dst)
-    monkeypatch.setattr(c.os, "replace", spy)
+    monkeypatch.setattr(os, "replace", spy)
     c.save_json(f, {"n": 2})
     assert seen == [{"n": 1}] and c.load_json(f, None) == {"n": 2}
     assert [p.name for p in f.parent.iterdir() if "state" in p.name] == ["state.json"]
@@ -26,7 +26,7 @@ def test_a_failed_write_leaves_the_old_file_and_no_temp(kit, monkeypatch):
 
     def boom(*_a):
         raise OSError("disk full")
-    monkeypatch.setattr(c.os, "replace", boom)
+    monkeypatch.setattr(os, "replace", boom)
     try:
         c.save_json(f, {"n": 2})
     except OSError:
@@ -45,7 +45,7 @@ def test_a_replace_refused_for_a_moment_is_retried(kit, monkeypatch):
         if len(calls) == 1:
             raise PermissionError("in use")
         real(src, dst)
-    monkeypatch.setattr(c.os, "replace", busy_once)
+    monkeypatch.setattr(os, "replace", busy_once)
     monkeypatch.setattr(fsutil.time, "sleep", lambda _s: None)
     c.save_json(f, {"n": 3})
     assert len(calls) == 2 and c.load_json(f, None) == {"n": 3}
