@@ -1,3 +1,4 @@
+import ast
 from conftest import KIT_DIR
 from fixtures import archscan
 
@@ -69,3 +70,55 @@ def test_every_exact_layer_key_is_a_module():
     mods, _, table, _ = scan()
     stale = sorted(k for k in table if not k.endswith(".*") and k != "bootstrap" and k not in mods)
     assert not stale, f"layers.yaml names modules that no longer exist; remove them: {stale}"
+
+
+def _facade_problems(tree: ast.Module) -> list[str]:
+    bound: set[str] = set()
+    problems: list[str] = []
+    all_node = None
+    is_facade = False
+    for i, node in enumerate(tree.body):
+        if i == 0 and isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
+            continue
+        if isinstance(node, ast.ImportFrom):
+            bound |= {a.asname or a.name for a in node.names}
+        elif isinstance(node, ast.Import):
+            bound |= {a.asname or a.name.split(".")[0] for a in node.names}
+        elif isinstance(node, ast.Assign) and all(isinstance(t, ast.Name) for t in node.targets):
+            names = [t.id for t in node.targets]
+            try:
+                ast.literal_eval(node.value)
+            except (ValueError, TypeError, SyntaxError):
+                problems.append(f"line {node.lineno}: {', '.join(names)} is not a literal")
+            is_facade = is_facade or "__facade__" in names
+            if "__all__" in names:
+                all_node = node
+        else:
+            problems.append(f"line {node.lineno}: {type(node).__name__} is not an import, a literal or the docstring")
+    if not is_facade:
+        return []
+    if all_node is None:
+        return problems + ["no __all__"]
+    try:
+        listed = ast.literal_eval(all_node.value)
+    except (ValueError, TypeError, SyntaxError):
+        return problems + ["__all__ is not a literal"]
+    if not isinstance(listed, (list, tuple)) or not all(isinstance(n, str) for n in listed):
+        return problems + ["__all__ must be a list or tuple of strings"]
+    return problems + [f"__all__ lists {n}, which no import binds" for n in listed if n not in bound]
+
+
+def test_facades_hold_only_imports_and_literals():
+    bad = {}
+    for name, path in archscan.modules(KIT_DIR).items():
+        found = _facade_problems(ast.parse(path.read_text(encoding="utf-8")))
+        if found:
+            bad[name] = found
+    assert not bad, f"a facade holds only a docstring, imports and literals, and __all__ lists imported names: {bad}"
+
+
+def test_the_facade_shape_check_sees_a_bad_facade():
+    src = 'import os\n__facade__ = "x"\n__all__ = ["os", "gone"]\ndef f(): pass\n'
+    found = _facade_problems(ast.parse(src))
+    assert any("FunctionDef" in p for p in found) and any("gone" in p for p in found)
+    assert _facade_problems(ast.parse("def f(): pass\n")) == []
