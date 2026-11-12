@@ -36,12 +36,34 @@ def kit_skill_files(project_name: str | None = None) -> dict[str, str]:
             for src in sorted((TEMPLATES / "skills").rglob("*")) if src.is_file() for host in (".claude", ".agents")}
 
 
+def skill_files(project_name: str | None = None) -> dict[str, str]:
+    """Like kit_skill_files, but the effective skills: a team's copy of a skill wins, and a team-only skill is added."""
+    from . import skills
+    name = project_name or docs.workspace()["project"]["name"]
+    return {f"{host}/skills/{skill}/{rel}": fill(raw, name)
+            for skill, files in skills.sources().items() for rel, raw in files.items() for host in (".claude", ".agents")}
+
+
+RENDERED_SKILLS = CACHE / "skills-rendered.json"
+
+
 def write_kit_skills(project_name: str | None = None) -> None:
-    """Kit-owned: always refreshed (a copy edited in the team's repo goes back to the kit's text)."""
-    for rel, text in kit_skill_files(project_name).items():
+    """Always refreshed: a copy edited in .claude/skills goes back to the effective text (the team's copy, else the
+    kit's). What an earlier render wrote and the effective set no longer has is removed; foreign files stay."""
+    files = skill_files(project_name)
+    for rel, text in files.items():
         dst = ROOT / rel
         dst.parent.mkdir(parents=True, exist_ok=True)
-        dst.write_text(text, encoding="utf-8")
+        with open(dst, "w", encoding="utf-8", newline="\n") as f:
+            f.write(text)
+    for rel in set(load_json(RENDERED_SKILLS, [])) - set(files):
+        gone = ROOT / rel
+        if gone.is_file() or gone.is_symlink():
+            gone.unlink()
+        for d in (gone.parent, gone.parent.parent):
+            if d.is_dir() and d.parent.name == "skills" and not any(d.iterdir()):
+                d.rmdir()
+    save_json(RENDERED_SKILLS, sorted(files))
 
 
 def init_templates(project_name: str | None = None, log: Log = print) -> list[str]:
@@ -618,7 +640,8 @@ def write_agent_config(comps: list[str]) -> None:
 
 def refresh_agent_config() -> None:
     """Re-render what the kit owns in the agent config (its skills and MCP entries) for this machine, so a copy edited
-    in the team's repo — or rendered on a teammate's machine — goes back to the kit's own text before trust.pending()."""
+    in .claude/skills — or rendered on a teammate's machine — goes back to the effective text (the team's copy of a
+    skill, else the kit's) before trust.pending()."""
     if CAM_LAYOUT and WS_FILE.exists() and "agents" in components():
         write_kit_skills()
         write_agent_config(components())
