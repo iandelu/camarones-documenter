@@ -46,7 +46,7 @@ other sessions cannot merge around; a new dependency or DI framework; a behaviou
 
 ```
 .camarones/lib/
-  core/        Ctx and paths, process (run/out/which/kill_tree), fsutil (json, rmtree), locks, versions
+  core/        ctx and paths, platform (IS_WIN, IS_MAC, HOME), process (run/out/which/kill_tree), fsutil (json, rmtree), locks
                → imports nothing from lib outside core
   domain/      pure rules and models, no subprocess, no network, no global paths: data in, data out
   ports/       typing.Protocol interfaces the app needs from the outside world → domain types only
@@ -98,7 +98,7 @@ machine or the network. Data files
 
 | Today | Target |
 |---|---|
-| `common.py` | `core/paths.py` (`CTX`, `ROOT`, `CAM_LAYOUT`, `WORKSPACE`, `DOCS`, `WORK`, `WS_FILE`, `CACHE`, `GRAPHS`, `HOME`, `PREFS`; `repo_dir`, `ws_rel`, `rel_file`), `core/process.py` (`which`, `run`, `out`, `kill_tree`, `leave_parent_session`, `PARENT_SESSION`, `ensure_path`, `extra_bin_dirs`, `sdkman_dir`, `uv`, `py`, `cli_cmd`, `retry_busy`), `core/fsutil.py` (`load_json`, `save_json`, `rmtree`), `core/versions.py` (`VERSIONS`), `core/platform.py` (`IS_WIN`, `IS_MAC`) |
+| `common.py` | `core/paths.py` (`CTX`, `ROOT`, `CAM_LAYOUT`, `WORKSPACE`, `DOCS`, `WORK`, `WS_FILE`, `CACHE`, `GRAPHS`, `PREFS`; `repo_dir`, `ws_rel`, `rel_file`, `cli_cmd`), `core/process.py` (`which`, `run`, `out`, `kill_tree`, `leave_parent_session`, `PARENT_SESSION`, `ensure_path`, `extra_bin_dirs`, `sdkman_dir`, `uv`, `py`), `core/fsutil.py` (`retry_busy`, `load_json`, `save_json`, `rmtree`), `core/platform.py` (`IS_WIN`, `IS_MAC`, `HOME`). **`VERSIONS` stays in `common.py`**: `install.py:115`, `upgrade.py:76,94,149-162` and every older installed kit read the kit version by searching that file's text |
 | `harness/ctx.py`, `harness/locks.py` | `core/ctx.py`, `core/locks.py` |
 | `adr_doc.py` | `domain/adr/doc.py` |
 | `adr.py` | `domain/adr/model.py` (numbering, states), `app/adr.py` (review and decision actions), `adapters/stores/adr_state.py` (`docs/.work/adr/*.yaml`) |
@@ -212,8 +212,10 @@ patching module attributes.
 - The same test counts strongly connected import components: the largest may not grow beyond its recorded size
   (61), and the record is lowered whenever it shrinks.
 - File budget: a module over 600 lines must be in the allowlist.
-- Facade guard: modules marked `# facade: moved to <path>` may not be the target of `monkeypatch.setattr` in tests
-  (checked by scanning `tests/` with `ast`).
+- Facade guard: a facade sets `__facade__ = "<new module>"` and lists its re-exported names in `__all__`. The
+  suite's `monkeypatch` fixture refuses to patch a name a facade re-exports, in both the object and the dotted-string
+  forms, naming the module to patch instead. A facade holds only a docstring, imports and literal assignments (its
+  own data, such as `VERSIONS`, stays out of `__all__` and can be patched).
 - CLI snapshot: for every command and subcommand, its options (dest, flags, default, choices, nargs) and
   positionals, recorded once in `tests/snapshots/cli.json`; any difference fails.
 - HTTP snapshot: every route as (method, path pattern, access level) in `tests/snapshots/routes.json`. F0 writes
@@ -230,7 +232,7 @@ allowlist shrank.
 | Phase | Scope | Exit |
 |---|---|---|
 | F0 Guardrails | §5 | Tests in CI, recording today's state; no code moved |
-| F1 Core | `core/` from `common.py`, `harness/ctx.py`, `harness/locks.py`; `common.py` a facade | `common` facade only; nothing in `core/` imports outside it |
+| F1 Core | `core/` from `common.py`, `harness/ctx.py`, `harness/locks.py`; `common.py` a facade that keeps `VERSIONS` | `common` holds `VERSIONS` and re-exports only; nothing in `core/` imports outside it |
 | F2 CLI | `interfaces/cli/` registry and middleware; commands moved one group per PR; catalog generated | `main()` < 50 lines; CLI snapshot unchanged |
 | F3 HTTP | `interfaces/http/` server, router, `Request`; routes moved one area per PR; access centralised | No `if p == "/api…"`; routes snapshot unchanged; every route has a 3-token access test |
 | F4 `env.py` | One adapter per PR with its port (likec4, openwiki, graphify, docker, agent_config, prereqs, fs_links, os_open, git checkpoint), then `app/setup`, `app/templates`, `app/share`, `app/export_site`, `app/portal` | `env.py` facade only |
@@ -240,8 +242,9 @@ allowlist shrank.
 
 ## 7. Compatibility (AGENTS.md §2.3)
 
-- Every moved module leaves a facade at its old path with **explicit** re-exports (no `import *`) and a
-  `# facade: moved to <path>` first line. Facades stay for all of 4.x; removing them is a major-version decision.
+- Every moved module leaves a facade at its old path with **explicit** re-exports (no `import *`), `__facade__` and
+  `__all__` (§5). Facades stay for all of 4.x; removing them is a major-version decision. `lib/common.py` is also the
+  permanent home of `VERSIONS` (§3).
   `tests/fixtures/index_worker.py` (`from lib.kanban import index`) and any project plugin that imports `lib.*`
   keep working.
 - No data changes: commands, flags, aliases, `workspace.yaml` keys, frontmatter fields, `plan.yaml` and
@@ -262,7 +265,8 @@ allowlist shrank.
 | Imports inside functions keep hiding cycles | The architecture test counts them like top-level imports |
 | A move changes behaviour silently | CLI and HTTP snapshots; characterization tests before touching untested code (AGENTS.md §2.2) |
 | Windows: paths, symlinks and junctions in `fs_links` | That adapter keeps today's tests and runs on the Windows CI job before merge |
-| `conftest.py` reloading `lib.*` per test breaks with packages | F1 updates the reload list to the new packages and keeps the `isolated_env` contract |
+| `conftest.py` reloading `lib.*` per test misses new packages | `purge_kit_modules` already drops every `lib.*` module, `lib.core.*` included; F1 adds a test that importing `lib.common` alone still extends PATH |
+| Moving `VERSIONS` would break upgrades from every installed 4.x kit | It stays in `common.py`; F1 tests that `upgrade._version_in` and `install.py`'s regex still find it there |
 
 ## 9. Out of scope
 
