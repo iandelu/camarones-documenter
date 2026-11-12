@@ -19,6 +19,8 @@ MOVED: set[str] = {
     "radar", "inventory", "bump", "schemas", "stack",
     "arch-validate", "doctor", "eval", "ab", "kpis", "pipeline", "status", "check", "stats", "health",
     "run", "pr", "runs", "wiki", "docs", "plan", "prompt", "autopilot",
+    "portal", "removed", "review", "hook", "hooks", "plugins", "export", "confirm", "translated", "ci", "checkpoint",
+    "remote", "share", "trust", "feedback", "interview",
 }
 _ids = itertools.count()
 
