@@ -5,7 +5,6 @@ oversize:
   - adr
   - docs
   - env
-  - interfaces.cli.legacy
   - kanban.ops
   - pages
   - plan
@@ -71,9 +70,9 @@ violations:
   - "interfaces.cli.commands.analyze -> quickarch"
   - "interfaces.cli.commands.analyze -> radar"
   - "interfaces.cli.commands.analyze -> schemas"
+  - "interfaces.cli.commands.check -> adapters.runners.local"
   - "interfaces.cli.commands.machine -> machine"
   - "interfaces.cli.launch -> creds"
-  - "interfaces.cli.legacy -> adapters.runners.local"
   - "inventory -> docs"
   - "inventory -> pages"
   - "kanban.cli -> kanban.index"

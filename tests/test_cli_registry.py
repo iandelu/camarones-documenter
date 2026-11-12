@@ -17,6 +17,7 @@ MOVED: set[str] = {
     "repair", "mcp", "up", "migrate", "uninstall", "config",
     "changes", "llms", "graph", "history", "blocks", "pages", "diagrams", "fresh", "mark-documented", "arch-draft",
     "radar", "inventory", "bump", "schemas", "stack",
+    "arch-validate", "doctor", "eval", "ab", "kpis", "pipeline", "status", "check", "stats", "health",
 }
 _ids = itertools.count()
 
