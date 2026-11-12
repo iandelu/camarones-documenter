@@ -9,21 +9,29 @@ From the workspace root. `<id>`, `<base>`, `.cw/<id>` and "on the worktree" are 
 
 ## 1. Guardrails
 
-Each failure stops here: fix it, or ask the person.
+Each failure stops here: fix it, or ask the person. A fix is a new commit: run `cam-verify` again for what it changed,
+then the guardrails again.
 
-1. The code is committed in every repo (the repo's own conventions) and every tree is clean.
+1. Everything is committed: the code in every repo (the repo's own conventions), the docs in `.cw/<id>`
+   (`cam-task` step 6). Every tree, the worktree included, is clean: `git status --porcelain` prints nothing.
 2. Score again with the real diff (`cam-difficulty`). The level went up → stop and ask.
 3. Forbidden paths: `git diff --name-only <base>...HEAD` in each repo shows none of `.env*`, `*.pem`, `*.key`,
    `id_rsa*`, `secrets/`. A match → stop and ask.
-4. Secrets: in each repo, `gitleaks git --redact --log-opts="<base>..HEAD" .` when `gitleaks` is on PATH. A finding
-   → stop. Not on PATH → write "gitleaks not run" under Warnings.
+4. Secrets: `<gitleaks>` is the kit's copy `~/.camarones/bin/gitleaks-*/gitleaks` (`gitleaks.exe` on Windows), or
+   else `gitleaks` on PATH. In each repo: `<gitleaks> git --redact --log-opts="<base>..HEAD" .`. A finding → stop.
+   Neither exists → write "gitleaks not run" under Warnings.
 5. Stale docs: `{{CLI}} pr fresh <repo> --base <base>` for each repo lists the pages its code diff leaves stale (read
-   from the main checkout, so pages you already updated still show). Each one is updated in the worktree or explained
-   under Warnings.
+   from the main checkout, so pages you already updated still show). Each one is updated and committed in the worktree,
+   or explained under Warnings.
 6. `{{CLI}} check` on the worktree: no errors. Its warnings go under Warnings.
-7. Trust: the docs diff (`git -C .cw/<id> diff <base>...`, the docs' `<base>`) writes no `x-confirmed`, and edits no
-   `<!-- human -->` block and no page with `x-owner: human`.
-8. Verification (`cam-verify`) is green for the current commit of every repo. A commit came after → run it again.
+7. Trust: the docs commits (`git -C .cw/<id> diff <base>...HEAD`, the docs' `<base>`) add no `x-confirmed`, and edit
+   no `<!-- human -->` block and no page with `x-owner: human`.
+8. Board item, if any: linked to the pages the change updated, on the worktree, then committed (`cam-task` step 6):
+   `{{CLI}} board link <ITEM> <page>[#section]`. It takes doc pages, not PR URLs. "Unknown item" means the card was
+   made after the worktree's commit (cards are committed only at a checkpoint): skip the link, do not retry, and write
+   "board item <ITEM> not linked to the docs" under Warnings. The PR bodies name the item either way.
+9. Verification (`cam-verify`) is green for the current commit of every repo and of `.cw/<id>`. A commit came after →
+   run it again.
 
 ## 2. Impact
 
@@ -42,17 +50,16 @@ change asked for → go back to the step it concerns.
 
 ## 4. On yes
 
-1. Board item, if any: link it to the pages the change updated, on the worktree, so the link ships with the docs:
-   `{{CLI}} board link <ITEM> <page>[#section]`. It takes doc pages, not PR URLs; the PR bodies name the item.
-2. Commit the docs in the worktree: `git -C .cw/<id> add -A`, then `git -C .cw/<id> commit -m "docs: <title>"`.
-   Push every branch: `git push -u origin cam/<id>-<slug>` in each repo and in `.cw/<id>`.
-3. The code PR(s) first, as drafts, in each repo: `gh pr create --draft --base <branch> --title "<title>" --body-file <file>`
+1. Commit whatever is still pending in the worktree (after guardrail 1 there is nothing; if there was, run
+   `cam-verify` and the guardrails again first). Push every branch: `git push -u origin cam/<id>-<slug>` in each repo
+   and in `.cw/<id>`.
+2. The code PR(s) first, as drafts, in each repo: `gh pr create --draft --base <branch> --title "<title>" --body-file <file>`
    (GitLab: `glab mr create --draft --target-branch <branch> --title "<title>" --description "<body>"`). `<branch>` is
    `<base>` without `origin/`; `<file>` a temporary file outside the repos.
-4. Then the docs PR, from `.cw/<id>`, also a draft, its body linking the code PRs.
-5. Then add the docs PR's link to each code PR body (`gh pr edit <url> --body-file <file>`,
+3. Then the docs PR, from `.cw/<id>`, also a draft, its body linking the code PRs.
+4. Then add the docs PR's link to each code PR body (`gh pr edit <url> --body-file <file>`,
    `glab mr update <n> --description "<body>"`).
-6. Every body has these sections:
+5. Every body has these sections:
 
    ```
    ## Linked PRs
@@ -62,9 +69,10 @@ change asked for → go back to the step it concerns.
    ## Verification
    ## Warnings
    ```
-7. No `gh`/`glab`, or not logged in: push, then give the person the URL that opens each PR and the bodies to paste.
-8. A step failed halfway: run again from it. Look for a PR already open for the branch first
+6. No `gh`/`glab`, or not logged in: push, then give the person the URL that opens each PR and the bodies to paste.
+7. A step failed halfway: run again from it, looking first for a PR already open for the branch
    (`gh pr list --head cam/<id>-<slug>`, `glab mr list --source-branch cam/<id>-<slug>`); never open a second one.
+   The same step fails again → stop and give the person the error; never loop.
 
 ## 5. Hand over
 

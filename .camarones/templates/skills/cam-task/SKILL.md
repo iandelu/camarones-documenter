@@ -28,7 +28,10 @@ the service repos and `{{CAM}}`) unless a step says otherwise.
    own conventions.
 6. **Update the docs in the worktree** with `cam-docs-update`, adapted: edit `.cw/<id>/docs/` instead of
    `{{CAM}}docs/`, run its `{{CLI}}` commands on the worktree, skip its `checkpoint` and `mark-documented`, and do not
-   use the MCP's `propose_edit` (it writes to the main checkout). `cam-ship` commits the docs.
+   use the MCP's `propose_edit` (it writes to the main checkout). A board item: link it to the pages you updated, on
+   the worktree, as `cam-ship` guardrail 8 says. Then commit the docs locally: `git -C .cw/<id> add -A`, then
+   `git -C .cw/<id> commit -m "docs: <title>"`. Commit every later docs edit the same way: verification and the
+   guardrails read commits, not the working tree.
 7. **Verify** with `cam-verify`.
 8. **Ship** with `cam-ship`: guardrails, impact, one question, linked draft PRs.
 9. **Retro** with `cam-retro`.
@@ -39,6 +42,10 @@ When superpowers' skills are available, use them for the generic steps: step 4 �
 (medium and high), step 5 → `test-driven-development`, any failure → `systematic-debugging`. Without them, follow the
 steps above as written: write the failing test, watch it fail, make it pass. Camarón's own steps 1–3 and 6–9 are
 never skipped either way. While a change is open, `cam-ship` replaces `finishing-a-development-branch`.
+
+Step 1's branches and docs worktree are the change's workspace: create no other worktree (they already satisfy
+`using-git-worktrees`), and keep the code on its branch in the person's own checkout. Specs and plans stay in chat or
+go into `.cw/<id>/docs/.work/plans/`, never at the workspace root or in a service repo.
 
 ## When to ask the person
 
