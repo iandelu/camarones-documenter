@@ -207,10 +207,12 @@ patching module attributes.
 
 - `tests/test_architecture.py` parses every module with `ast`, counting imports at module level **and** inside
   functions. A table assigns a layer to every module, including today's flat ones (§3), so the rule applies from day
-  one. Today's violations are listed in `tests/architecture_allowlist.txt`; the test fails on a violation not in the
+  one. Today's violations are listed in `tests/architecture/allowlist.yaml`; the test fails on a violation not in the
   list **and** on a listed one that no longer happens (the list must be trimmed in the same PR).
 - The same test counts strongly connected import components: the largest may not grow beyond its recorded size
-  (61), and the record is lowered whenever it shrinks.
+  (66, as measured by `tests/fixtures/archscan.py`), nor may the total of modules inside such components
+  (`cycle_modules`), and each record is lowered whenever it shrinks. `core` is checked by folder as well as by
+  layer: nothing in `lib/core` imports anything outside it, with no allowlist.
 - File budget: a module over 600 lines must be in the allowlist.
 - Facade guard: a facade sets `__facade__ = "<new module>"` and lists its re-exported names in `__all__`. The
   suite's `monkeypatch` fixture refuses to patch a name a facade re-exports, in both the object and the dotted-string
