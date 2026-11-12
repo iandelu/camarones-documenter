@@ -1,0 +1,23 @@
+#!/bin/sh
+# Refuse to push commits that still credit an AI as co-author: the ones commit-msg could not see (--no-verify,
+# rebase, cherry-pick, an old branch merged in). Only commits the remote lacks are checked.
+pattern='^[[:space:]]*co-authored-by:([[:space:]]*claude([^[:alpha:]]|$)|.*@anthropic\.com)|^[^[:alnum:]]*generated with \[?claude code'
+remote="$1"
+zero=$(git hash-object --stdin </dev/null | tr '0-9a-f' '0')
+found=""
+while read -r local_ref local_sha remote_ref remote_sha; do
+    [ "$local_sha" = "$zero" ] && continue
+    if [ "$remote_sha" != "$zero" ] && git cat-file -e "$remote_sha^{commit}" 2>/dev/null; then
+        set -- "$remote_sha..$local_sha"
+    else
+        set -- "$local_sha" --not --remotes="$remote"
+    fi
+    bad=$(git log -i -E --grep="$pattern" --format='  %h %s' "$@")
+    [ -n "$bad" ] && found="$found$bad
+"
+done
+[ -z "$found" ] && exit 0
+echo "push refused: these commits credit an AI as co-author (Co-Authored-By: Claude / Generated with Claude Code):" >&2
+printf '%s' "$found" >&2
+echo "Reword them (git commit --amend, git rebase -i) and push again." >&2
+exit 1

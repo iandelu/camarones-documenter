@@ -217,9 +217,7 @@ Mermaid and LikeC4. Removes lib/boards.py, the boards/board/sketch API, the Boar
 view and the @excalidraw/excalidraw dependency. Existing docs/boards/*.excalidraw
 files are never touched; #/boards addresses redirect to the Architecture zone.
 
-Projects keep their copy of the tutorial guide (templates are copied once).
-
-Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+Projects keep their copy of the tutorial guide (templates are copied once)."
 ```
 
 - [ ] **Step 4: Report** the suite output and the sandbox result; the branch is not merged or pushed until the user says

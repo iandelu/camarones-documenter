@@ -1,0 +1,8 @@
+#!/bin/sh
+# Commits here credit people only: drop AI co-author trailers and "Generated with Claude Code" lines, whichever
+# agent wrote the message. Keep the pattern in step with .githooks/pre-push.
+pattern='^[[:space:]]*co-authored-by:([[:space:]]*claude([^[:alpha:]]|$)|.*@anthropic\.com)|^[^[:alnum:]]*generated with \[?claude code'
+tmp="$1.no-ai"
+grep -viE "$pattern" "$1" > "$tmp"
+cat "$tmp" > "$1"
+rm -f "$tmp"

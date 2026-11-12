@@ -29,8 +29,8 @@ availability per mode, breadcrumbs, palette entries, Home KPIs) exposed to the l
 - Aurora colours are backgrounds only. Buttons and chips are pills. One `accent` (black/ink) button per block.
 - Motion: only `transform`/`opacity`; 200 ms hover/focus, 400 ms state change; `prefers-reduced-motion` respected.
 - `APP/../app-build/` is committed and must match the source (`npm ci && npm test && npm run build` in `APP`).
-- Other sessions may edit the tree: stage only this plan's files. Conventional commits ending with
-  `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
+- Other sessions may edit the tree: stage only this plan's files. Conventional commits, no
+  `Co-Authored-By` or "Generated with" line.
 - Deviation from the spec, on purpose: tokens live in `APP/public/theme/tokens.css` (linked in `<head>` before
   `legacy/app.css`), not `src/tokens.css`. A Vite-imported stylesheet loads after the legacy CSS and after first
   paint; the theme must apply first.
