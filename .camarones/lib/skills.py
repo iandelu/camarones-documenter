@@ -9,7 +9,7 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
-from .common import KIT, ROOT, VERSIONS, load_json, save_json
+from .common import DOCS, KIT, ROOT, VERSIONS, load_json, save_json
 
 KIT_SKILLS: Path = KIT / "templates" / "skills"
 NAME_RE = re.compile(r"[a-z0-9][a-z0-9-]*")
@@ -173,3 +173,65 @@ def outdated() -> list[str]:
     forks = load_stamp()["forks"]
     return sorted(n for n in team_names() if origin(n) == "team" and n in forks
                   and forks[n].get("files") != kit_files(n))
+
+
+SOURCES = ("retro", "review", "board")
+_NOTE_RE = re.compile(r"^- (\S+) · (\S+) · step (.*?) · change (.*?) · ref (.*?) · (.*?) — (.*)$")
+_NOTE_KEYS = ("date", "source", "step", "change", "ref", "by")
+
+
+def notes_dir() -> Path:
+    return DOCS / ".work" / "skill-notes"
+
+
+def _field(value: str) -> str:
+    return (value or "").replace(" · ", " - ").replace(" — ", " - ").strip() or "-"
+
+
+def format_note(n: dict) -> str:
+    f = {k: _field(n.get(k, "")) for k in _NOTE_KEYS}
+    text = " ".join(n.get("text", "").split())
+    return (f"- {f['date']} · {f['source']} · step {f['step']} · change {f['change']} · ref {f['ref']} · "
+            f"{f['by']} — {text}")
+
+
+def parse_note(line: str) -> dict | None:
+    m = _NOTE_RE.match(line.rstrip("\r\n"))
+    if not m:
+        return None
+    vals = [("" if v == "-" else v) for v in m.groups()[:6]]
+    return {**dict(zip(_NOTE_KEYS, vals)), "text": m.group(7)}
+
+
+def add_note(skill: str, text: str, source: str, by: str, step: str = "", change: str = "", ref: str = "",
+             today: str | None = None) -> Path:
+    if origin(skill) is None:
+        raise ValueError(f"unknown skill: {skill}")
+    if source not in SOURCES:
+        raise ValueError("source must be one of: " + ", ".join(SOURCES))
+    if not " ".join(text.split()):
+        raise ValueError("empty note")
+    path = notes_dir() / f"{skill}.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    line = format_note({"date": today or datetime.now().strftime("%Y-%m-%d"), "source": source, "step": step,
+                        "change": change, "ref": ref, "by": by, "text": text})
+    header = ""
+    if not path.exists():
+        header = (f"# Skill notes: {skill}\n\nWhere the `{skill}` skill got in the way. One line per note, "
+                  "added with `camaron skills note`.\n\n")
+    with open(path, "a", encoding="utf-8", newline="\n") as fh:
+        fh.write(header + line + "\n")
+    return path
+
+
+def notes(skill: str | None = None) -> list[dict]:
+    files = [notes_dir() / f"{skill}.md"] if skill else sorted(notes_dir().glob("*.md"))
+    out = []
+    for f in files:
+        if not f.is_file():
+            continue
+        for line in f.read_text(encoding="utf-8").splitlines():
+            n = parse_note(line)
+            if n:
+                out.append({**n, "skill": f.stem})
+    return sorted(out, key=lambda n: n["date"], reverse=True)
