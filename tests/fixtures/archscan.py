@@ -59,7 +59,7 @@ def _is_kit(dotted: str | None) -> bool:
     return dotted == ROOT_PACKAGE or (dotted or "").startswith(ROOT_PACKAGE + ".")
 
 
-def largest_cycle(nodes: Iterable[str], edges: set[tuple[str, str]]) -> int:
+def _cycle_sizes(nodes: Iterable[str], edges: set[tuple[str, str]]) -> list[int]:
     graph: dict[str, list[str]] = {n: [] for n in nodes}
     for a, b in sorted(edges):
         if a in graph and b in graph:
@@ -68,7 +68,7 @@ def largest_cycle(nodes: Iterable[str], edges: set[tuple[str, str]]) -> int:
     low: dict[str, int] = {}
     on_stack: set[str] = set()
     stack: list[str] = []
-    best = 0
+    sizes: list[int] = []
     counter = 0
     for root in graph:
         if root in index:
@@ -103,8 +103,17 @@ def largest_cycle(nodes: Iterable[str], edges: set[tuple[str, str]]) -> int:
                         size += 1
                         if member == node:
                             break
-                    best = max(best, size if size > 1 else 0)
-    return best
+                    if size > 1:
+                        sizes.append(size)
+    return sizes
+
+
+def largest_cycle(nodes: Iterable[str], edges: set[tuple[str, str]]) -> int:
+    return max(_cycle_sizes(nodes, edges), default=0)
+
+
+def cycle_modules(nodes: Iterable[str], edges: set[tuple[str, str]]) -> int:
+    return sum(_cycle_sizes(nodes, edges))
 
 
 def line_count(path: Path) -> int:

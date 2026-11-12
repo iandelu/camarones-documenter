@@ -48,3 +48,9 @@ def test_core_escapes_reports_an_edge_leaving_the_core_folder():
     found = {("core.process", "common"), ("core.paths", "harness.locks"), ("core.a", "core.b"), ("common", "core.a"),
              ("coreish", "a")}
     assert archscan.core_escapes(found) == {("core.process", "common"), ("core.paths", "harness.locks")}
+
+
+def test_cycle_modules_counts_every_module_inside_a_cycle(tmp_path):
+    mods = archscan.modules(build(tmp_path, TREE))
+    assert archscan.cycle_modules(mods, archscan.edges(mods)) == 4
+    assert archscan.cycle_modules(["x", "y"], {("x", "y")}) == 0

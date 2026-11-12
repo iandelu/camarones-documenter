@@ -62,6 +62,14 @@ def test_the_largest_cycle_never_grows():
     assert size == want, f"the largest import cycle shrank: lower largest_cycle to {size} in allowlist.yaml"
 
 
+def test_the_modules_in_cycles_never_grow():
+    mods, found, _, allow = scan()
+    size = archscan.cycle_modules(mods, found)
+    want = allow["cycle_modules"]
+    assert size <= want, f"{size} modules sit in import cycles (allowlist.yaml says {want})"
+    assert size == want, f"the modules in import cycles shrank: lower cycle_modules to {size} in allowlist.yaml"
+
+
 def test_big_files_are_listed():
     mods, _, _, allow = scan()
     big = {m for m, p in mods.items() if archscan.line_count(p) > archscan.MAX_LINES}
