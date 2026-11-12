@@ -15,10 +15,24 @@ def facade(monkeypatch, name="fake_facade"):
     return mod
 
 
-def test_patching_a_re_exported_name_is_refused(monkeypatch):
+def test_the_message_names_the_module_that_defines_the_name(monkeypatch):
+    mod = facade(monkeypatch)
+
+    def thing():
+        pass
+
+    thing.__module__ = "lib.core.process"
+    mod.thing = thing
+    mp = GuardedMonkeyPatch()
+    with pytest.raises(AssertionError, match=r"fake_facade\.thing is re-exported by a facade: patch it in lib\.core\.process$"):
+        mp.setattr(mod, "thing", 2)
+    mp.undo()
+
+
+def test_the_message_falls_back_to_the_facade_target(monkeypatch):
     mod = facade(monkeypatch)
     mp = GuardedMonkeyPatch()
-    with pytest.raises(AssertionError, match=r"fake_facade\.thing is re-exported by a facade: patch it in lib\.core\.fake"):
+    with pytest.raises(AssertionError, match=r"fake_facade\.thing is re-exported by a facade: patch it in lib\.core\.fake$"):
         mp.setattr(mod, "thing", 2)
     mp.undo()
 

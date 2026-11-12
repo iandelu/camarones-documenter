@@ -34,5 +34,7 @@ class GuardedMonkeyPatch(pytest.MonkeyPatch):
             owner = name = None
         facade = getattr(owner, "__facade__", None) if owner is not None else None
         if facade and isinstance(name, str) and name in getattr(owner, "__all__", ()):
-            raise AssertionError(f"{owner.__name__}.{name} is re-exported by a facade: patch it in {facade}")
+            home = getattr(getattr(owner, name, None), "__module__", None)
+            where = home if isinstance(home, str) and home.startswith("lib.") else facade
+            raise AssertionError(f"{owner.__name__}.{name} is re-exported by a facade: patch it in {where}")
         return super().setattr(target, *args, **kwargs)

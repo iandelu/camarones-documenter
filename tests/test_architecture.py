@@ -86,6 +86,8 @@ def _facade_problems(tree: ast.Module) -> list[str]:
     for i, node in enumerate(tree.body):
         if i == 0 and isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
             continue
+        if isinstance(node, ast.ImportFrom) and node.module == "__future__":
+            continue
         if isinstance(node, ast.ImportFrom):
             bound |= {a.asname or a.name for a in node.names}
         elif isinstance(node, ast.Import):
@@ -111,7 +113,8 @@ def _facade_problems(tree: ast.Module) -> list[str]:
         return problems + ["__all__ is not a literal"]
     if not isinstance(listed, (list, tuple)) or not all(isinstance(n, str) for n in listed):
         return problems + ["__all__ must be a list or tuple of strings"]
-    return problems + [f"__all__ lists {n}, which no import binds" for n in listed if n not in bound]
+    problems += [f"__all__ lists {n}, which no import binds" for n in listed if n not in bound]
+    return problems + [f"{n} is imported but not listed in __all__" for n in sorted(bound - set(listed))]
 
 
 def test_facades_hold_only_imports_and_literals():
@@ -128,3 +131,10 @@ def test_the_facade_shape_check_sees_a_bad_facade():
     found = _facade_problems(ast.parse(src))
     assert any("FunctionDef" in p for p in found) and any("gone" in p for p in found)
     assert _facade_problems(ast.parse("def f(): pass\n")) == []
+
+
+def test_a_facade_that_imports_a_name_it_does_not_list_fails_the_shape_check():
+    src = 'import os\nfrom json import dumps\n__facade__ = "x"\n__all__ = ["os"]\n'
+    assert any("dumps is imported but not listed" in p for p in _facade_problems(ast.parse(src)))
+    ok = 'from __future__ import annotations\nimport os\n__facade__ = "x"\n__all__ = ["os"]\n'
+    assert _facade_problems(ast.parse(ok)) == []
