@@ -81,3 +81,21 @@ def test_values_that_yaml_would_misread_survive(kit):
     from lib.kanban.state import dump_board, load_board
     cards = {"WI-1": card("12345678", assignee=["a b", "x:y", "null"], t={"status": "2026-10-24T10:12:00Z a@x"})}
     assert load_board(dump_board(cards)) == cards
+
+
+def test_values_yaml_cannot_construct_survive(kit):
+    from lib.kanban.state import dump_board, load_board
+    cards = {"WI-1": card("2026-13-45", "0b_", assignee=["0x_", "2026-02-30T10:00:00Z"], t={"0b_": "2026-13-45"})}
+    assert load_board(dump_board(cards)) == cards
+
+
+def test_load_reports_a_value_yaml_cannot_construct_as_invalid_yaml(kit):
+    from lib.kanban.state import load_board
+    with pytest.raises(ValueError, match="^board.yaml is not valid YAML: "):
+        load_board("version: 1\ncards:\n  WI-1: {uid: 2026-13-45, status: Ready, ordinal: 1000}\n")
+
+
+def test_load_rejects_a_t_that_is_not_a_mapping(kit):
+    from lib.kanban.state import load_board
+    with pytest.raises(ValueError, match="^board.yaml: card WI-1 is malformed"):
+        load_board("version: 1\ncards:\n  WI-1: {uid: abcdefgh, status: Ready, ordinal: 1000, t: 5}\n")

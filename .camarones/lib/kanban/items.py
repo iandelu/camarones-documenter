@@ -75,7 +75,7 @@ def parse_item(text: str, path: Path | None = None) -> Item:
         raise ItemError("no frontmatter")
     try:
         fm = yaml.safe_load(m.group(1) or "") or {}
-    except yaml.YAMLError as e:
+    except (yaml.YAMLError, ValueError) as e:                     # PyYAML raises ValueError for 2026-13-45, 0b_
         raise ItemError(f"invalid frontmatter: {str(e).splitlines()[0]}") from e
     if not isinstance(fm, dict):
         raise ItemError("frontmatter is not a mapping")
