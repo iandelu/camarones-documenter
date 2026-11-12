@@ -119,6 +119,10 @@
                             CLAUDE.md in the workspace gets the kit's entries linked in, its rules imported
   removed add WHAT --why WHY [--decision decisions/NNNN-x.md]
                             record something removed on purpose (docs/overview/removed.md) so agents do not recreate it
+  skills list | fork NAME | diff NAME [--kit] | reset NAME | note SKILL TEXT --source retro|review|board
+         [--step S] [--change ID] [--ref URL] | notes [SKILL]   [--json]
+                            the agents' skills: a team copy in .camarones/skills wins over the kit's; notes say
+                            where a skill got in the way (docs/.work/skill-notes)
   review request PAGE [--note T] | wait ID [--timeout S] | list
                             an agent asks a person to review a page and waits for the answer (approve / changes, as
                             JSON); people answer in the portal's Review tab
@@ -458,6 +462,8 @@ def build_parser() -> argparse.ArgumentParser:
     board_cli.add_parser(sp)
     from lib import adr_cli
     adr_cli.add_parser(sp)
+    from lib import skills_cli
+    skills_cli.add_parser(sp)
     pj = sp.add_parser("projects"); pj.add_argument("--json", action="store_true"); pj.add_argument("--add", type=Path)
     # the desktop start screen's way in (it calls them itself); own dests, apart from `pages --adopt`
     pj.add_argument("--inspect", dest="inspect_dir", type=Path, metavar="DIR", help="what a folder is, writes nothing")
@@ -513,6 +519,9 @@ def main() -> int:
     elif a.cmd == "adr":
         from lib import adr_cli
         return adr_cli.run(a)
+    elif a.cmd == "skills":
+        from lib import skills_cli
+        return skills_cli.run(a)
     elif a.cmd == "config":
         from lib import machine
         try:

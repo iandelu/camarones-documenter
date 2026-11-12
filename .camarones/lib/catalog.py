@@ -115,7 +115,7 @@ COMMANDS: dict[str, dict] = {
     "confirm": _e("portal"),
     "feedback": _e("portal"),
     # CLI only: agents, hooks, servers and terminal tools
-    "help": CLI, "install": CLI, "wizard": CLI, "arch": CLI, "up": CLI, "mcp": CLI, "hook": CLI, "review": CLI,
+    "help": CLI, "skills": CLI, "install": CLI, "wizard": CLI, "arch": CLI, "up": CLI, "mcp": CLI, "hook": CLI, "review": CLI,
     "prompt": CLI, "catalog": CLI, "app": CLI,
 }
 

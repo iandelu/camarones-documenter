@@ -2919,6 +2919,120 @@
     "exclusive_groups": [],
     "subparsers": null
    },
+   "skills": {
+    "aliases": [],
+    "args": [
+     {
+      "action": "_StoreAction",
+      "choices": [
+       "list",
+       "fork",
+       "diff",
+       "reset",
+       "note",
+       "notes"
+      ],
+      "const": null,
+      "default": null,
+      "dest": "action",
+      "nargs": null,
+      "options": [],
+      "required": null,
+      "type": null
+     },
+     {
+      "action": "_StoreAction",
+      "choices": null,
+      "const": null,
+      "default": null,
+      "dest": "args",
+      "nargs": "*",
+      "options": [],
+      "required": null,
+      "type": null
+     },
+     {
+      "action": "_StoreTrueAction",
+      "choices": null,
+      "const": true,
+      "default": false,
+      "dest": "kit",
+      "nargs": 0,
+      "options": [
+       "--kit"
+      ],
+      "required": false,
+      "type": null
+     },
+     {
+      "action": "_StoreAction",
+      "choices": null,
+      "const": null,
+      "default": null,
+      "dest": "source",
+      "nargs": null,
+      "options": [
+       "--source"
+      ],
+      "required": false,
+      "type": null
+     },
+     {
+      "action": "_StoreAction",
+      "choices": null,
+      "const": null,
+      "default": null,
+      "dest": "step",
+      "nargs": null,
+      "options": [
+       "--step"
+      ],
+      "required": false,
+      "type": null
+     },
+     {
+      "action": "_StoreAction",
+      "choices": null,
+      "const": null,
+      "default": null,
+      "dest": "change",
+      "nargs": null,
+      "options": [
+       "--change"
+      ],
+      "required": false,
+      "type": null
+     },
+     {
+      "action": "_StoreAction",
+      "choices": null,
+      "const": null,
+      "default": null,
+      "dest": "ref",
+      "nargs": null,
+      "options": [
+       "--ref"
+      ],
+      "required": false,
+      "type": null
+     },
+     {
+      "action": "_StoreTrueAction",
+      "choices": null,
+      "const": true,
+      "default": false,
+      "dest": "json",
+      "nargs": 0,
+      "options": [
+       "--json"
+      ],
+      "required": false,
+      "type": null
+     }
+    ],
+    "exclusive_groups": [],
+    "subparsers": null
+   },
    "stack": {
     "aliases": [],
     "args": [
