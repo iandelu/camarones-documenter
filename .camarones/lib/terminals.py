@@ -20,6 +20,7 @@ from pathlib import Path
 
 from . import sessions
 from .common import CACHE, IS_WIN, kill_tree, save_json
+from .harness.locks import LockBusy
 
 MAX_LIVE = 8                    # live terminals per project server
 RING = 256 * 1024               # bytes kept in memory per terminal, for replay
@@ -520,15 +521,16 @@ def _end_record(meta: dict) -> None:
     never started): the unit reads as paused, as after a closed window. The record is this terminal's when it was
     launched at or before the terminal started, as the caller starts it before it spawns; a newer session's was
     launched later. Not the pid: on Windows a venv's python.exe is a launcher, and the wrapper is its child. Left
-    alone when the wrapper wrote its end, when there is none or it is being rewritten, and once it is another's."""
+    alone when the wrapper wrote its end, when there is none or it is damaged, and once it is another's."""
     if meta["kind"] != "unit" or not meta["unit"]:
         return
-    rec = sessions.load(meta["unit"])
-    if not rec or rec.get("ended") or float(rec.get("launched") or 0) > meta["started"]:
-        return
     try:
-        sessions.update(meta["unit"], ended=meta["ended"], code=meta["code"])
-    except OSError:                             # the unit then reads as paused by its dead pid, as before
+        with sessions.lock(meta["unit"]):       # a newer session started meanwhile keeps its record
+            rec = sessions.load(meta["unit"])
+            if not rec or rec.get("ended") or float(rec.get("launched") or 0) > meta["started"]:
+                return
+            sessions.update(meta["unit"], ended=meta["ended"], code=meta["code"])
+    except (OSError, LockBusy):                 # the unit then reads as paused by its dead pid, as before
         pass
 
 

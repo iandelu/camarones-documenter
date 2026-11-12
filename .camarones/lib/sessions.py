@@ -12,8 +12,8 @@ import sys
 import time
 from pathlib import Path
 
-from .common import CACHE, HOME, IS_WIN
-from .harness.locks import pid_alive
+from .common import CACHE, HOME, IS_WIN, retry_busy, save_json
+from .harness.locks import FileLock, pid_alive
 
 DIR = CACHE / "sessions"
 GRACE = 30                      # seconds a launched window has to start its wrapper before it counts as never opened
@@ -30,20 +30,28 @@ def path(uid: str) -> Path:
     return DIR / (slug(uid) + ".json")
 
 
+def lock(uid: str) -> FileLock:
+    """One writer of a unit's record at a time: the server's threads, the wizard and session_run.py (which takes the
+    same file), so a read-modify-write never drops what another wrote meanwhile. The folder first: the lock knows its
+    holder by the folder's resolved path, which changes once it exists (/var → /private/var on macOS)."""
+    f = path(uid)
+    f.parent.mkdir(parents=True, exist_ok=True)
+    return FileLock(f.with_name(f.name + ".lock"), wait=10)
+
+
 def load(uid: str) -> dict | None:
     try:
-        rec = json.loads(path(uid).read_text(encoding="utf-8"))
+        rec = json.loads(retry_busy(lambda: path(uid).read_text(encoding="utf-8")))
     except FileNotFoundError:
         return None
     except (OSError, ValueError):
-        return {}                               # being replaced by the wrapper right now
+        return {}                               # damaged
     return rec if isinstance(rec, dict) else {}
 
 
 def _save(uid: str, rec: dict) -> Path:
     f = path(uid)
-    f.parent.mkdir(parents=True, exist_ok=True)
-    f.write_text(json.dumps(rec), encoding="utf-8")
+    save_json(f, rec)
     return f
 
 
@@ -53,23 +61,25 @@ def start(uid: str, agent: str, session: str | None, since: float | None = None)
 
     `since`: a run wrote to this conversation too, on the run's own bill, so this record only counts it from then to
     its `ended`. Earlier such stretches stay in `spans` by conversation, and reopening one of those is another stretch."""
-    old = load(uid) or {}
-    previous = [s for s in old.get("previous") or [] if s]
-    if old.get("agent") == "claude" and old.get("session") and old["session"] != session \
-            and old["session"] not in previous:
-        previous.append(old["session"])
-    spans = dict(old.get("spans") or {})
-    if old.get("session") and old.get("since") is not None:
-        spans[old["session"]] = [*spans.get(old["session"], []), [old["since"], old.get("ended") or time.time()]]
-    if since is None and session in spans:
-        since = time.time()
-    return _save(uid, {"unit": uid, "agent": agent, "session": session, "launched": time.time(),
-                       **({"previous": previous} if previous else {}), **({"spans": spans} if spans else {}),
-                       **({"since": since} if since is not None else {})})
+    with lock(uid):
+        old = load(uid) or {}
+        previous = [s for s in old.get("previous") or [] if s]
+        if old.get("agent") == "claude" and old.get("session") and old["session"] != session \
+                and old["session"] not in previous:
+            previous.append(old["session"])
+        spans = dict(old.get("spans") or {})
+        if old.get("session") and old.get("since") is not None:
+            spans[old["session"]] = [*spans.get(old["session"], []), [old["since"], old.get("ended") or time.time()]]
+        if since is None and session in spans:
+            since = time.time()
+        return _save(uid, {"unit": uid, "agent": agent, "session": session, "launched": time.time(),
+                           **({"previous": previous} if previous else {}), **({"spans": spans} if spans else {}),
+                           **({"since": since} if since is not None else {})})
 
 
 def update(uid: str, **fields) -> None:
-    _save(uid, {**(load(uid) or {}), **fields})
+    with lock(uid):
+        _save(uid, {**(load(uid) or {}), **fields})
 
 
 def last_opened(agent: str) -> str | None:
@@ -90,9 +100,10 @@ def windows(rec: dict, sid: str) -> list | None:
 
 def bound(uid: str) -> None:
     """A run takes over a session that was all the person's: from where it ended, the conversation is on the run's bill."""
-    rec = load(uid)
-    if rec and rec.get("session") and rec.get("since") is None:
-        update(uid, since=0.0, ended=rec.get("ended") or time.time())
+    with lock(uid):
+        rec = load(uid)
+        if rec and rec.get("session") and rec.get("since") is None:
+            update(uid, since=0.0, ended=rec.get("ended") or time.time())
 
 
 def wrap(record: Path | None, cmd: list[str]) -> list[str]:

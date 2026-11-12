@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import sys
+import threading
 import time
 
 import pytest
@@ -183,6 +184,88 @@ def test_the_wrapper_passes_the_agents_exit_code_through(wired):
     from lib import sessions
     rec = sessions.start("u1", "claude", "s-1")
     assert subprocess.call(sessions.wrap(rec, [sys.executable, "-c", "raise SystemExit(3)"])) == 3
+
+
+# ---------- one writer at a time ----------
+def meanwhile(fn):
+    """`fn` on another thread, given a moment to finish: a writer holding the record makes it wait instead."""
+    t = threading.Thread(target=fn, daemon=True)
+    t.start()
+    t.join(0.5)
+    return t
+
+
+def test_the_wrappers_end_keeps_a_mark_written_meanwhile(wired, monkeypatch):
+    """hand_back marks the record (`since`) while the agent exits and the wrapper writes its end: neither write drops
+    the other's. Here the mark comes between the wrapper's read of the record and its write."""
+    from lib import session_run, sessions
+    rec = sessions.start("u1", "claude", "s-1")
+    real, reads, marks = session_run._read, [], []
+
+    def read(p):
+        r = real(p)
+        reads.append(r)
+        if len(reads) == 2:                                     # the end's read
+            marks.append(meanwhile(lambda: sessions.bound("u1")))
+        return r
+    monkeypatch.setattr(session_run, "_read", read)
+    assert session_run.main([str(rec), "--", sys.executable, "-c", "pass"]) == 0
+    marks[0].join(15)
+    after = sessions.load("u1")
+    assert after["since"] == 0.0 and after["code"] == 0 and after["pid"] and after["session"] == "s-1"
+
+
+def test_closing_the_record_keeps_a_mark_written_meanwhile(wired, monkeypatch):
+    """The terminal closing the record from its reader thread (`update`) and hand_back's mark meet the same way."""
+    from lib import sessions
+    sessions.start("u1", "claude", "s-1")
+    real, marks = sessions.load, []
+
+    def load(uid):
+        r = real(uid)
+        if not marks:
+            marks.append(None)
+            marks[0] = meanwhile(lambda: sessions.bound(uid))
+        return r
+    monkeypatch.setattr(sessions, "load", load)
+    sessions.update("u1", ended=time.time(), code=-1)
+    marks[0].join(15)
+    assert real("u1")["since"] == 0.0 and real("u1")["code"] == -1
+
+
+def test_the_wrapper_waits_while_the_server_writes_the_record(wired):
+    """The wrapper, a process of its own, takes the record's lock as lib/sessions.py does: while the server holds it,
+    the wrapper writes nothing and the agent does not start."""
+    from lib import sessions
+    rec = sessions.start("u1", "claude", "s-1")
+    seen = wired.root / "seen.json"
+    child = [sys.executable, "-c", f"import shutil; shutil.copy(r'{rec}', r'{seen}')"]
+    with sessions.lock("u1"):
+        p = subprocess.Popen(sessions.wrap(rec, child))
+        time.sleep(1)
+        assert p.poll() is None and not seen.exists() and "pid" not in sessions.load("u1")
+    assert p.wait(30) == 0 and json.loads(seen.read_text(encoding="utf-8"))["pid"]
+
+
+def test_a_write_cut_short_leaves_the_record_as_it_was(wired, monkeypatch):
+    """A record is replaced whole or not at all: a reader (the board, the bill, another writer) never meets it half
+    written, and a process killed while writing it does not leave it so."""
+    from pathlib import Path
+    from lib import sessions
+    sessions.start("u1", "claude", "s-1")
+    real, folder = Path.write_text, sessions.DIR.resolve()
+
+    def cut(self, data, *a, **kw):
+        if self.parent.resolve() == folder:
+            real(self, data[:len(data) // 2], *a, **kw)
+            raise OSError("disk full")
+        return real(self, data, *a, **kw)
+    with monkeypatch.context() as m:
+        m.setattr(Path, "write_text", cut)
+        with pytest.raises(OSError):
+            sessions.update("u1", pid=1)
+    assert sessions.load("u1")["session"] == "s-1"
+    assert [f.name for f in sessions.DIR.iterdir()] == ["u1.json"]
 
 
 # ---------- what the agent is doing ----------
