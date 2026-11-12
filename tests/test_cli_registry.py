@@ -18,6 +18,7 @@ MOVED: set[str] = {
     "changes", "llms", "graph", "history", "blocks", "pages", "diagrams", "fresh", "mark-documented", "arch-draft",
     "radar", "inventory", "bump", "schemas", "stack",
     "arch-validate", "doctor", "eval", "ab", "kpis", "pipeline", "status", "check", "stats", "health",
+    "run", "pr", "runs", "wiki", "docs", "plan", "prompt", "autopilot",
 }
 _ids = itertools.count()
 

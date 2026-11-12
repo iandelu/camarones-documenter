@@ -21,19 +21,6 @@ def _e(verdict: str, zone: str | None = None, es: str = "", en: str = "", ai: bo
 
 CLI = _e("cli")
 _LEFT: dict[str, dict] = {             # the commands still dispatched by interfaces/cli/legacy.py
-    # generate: AI and the plan
-    "run": _e("app", "generate", "Documentar las unidades listas en paralelo", "Document the ready units in parallel",
-              ai=True),
-    "autopilot": _e("app", "generate", "Documentar una unidad tras otra, sin vigilancia",
-                    "Document one unit after another, unattended", ai=True),
-    "wiki": _e("app", "generate", "Generar o actualizar la wiki de un repo", "Generate or update a repo's wiki", ai=True),
-    "pr": _e("app", "generate", "Qué deja desactualizado un PR y proponer el arreglo",
-             "What a PR leaves out of date, and propose the fix", ai=True),
-    "plan": _e("both", "generate", "El plan de trabajo: ver, añadir, reabrir, aprobar y ver su coste",
-               "The work plan: show, add, reopen, approve and see its cost"),
-    "docs": _e("app", "generate", "Rehacer la documentación (reabrir las unidades) o borrarla y empezar de cero",
-               "Redo the docs (reopen the units) or wipe them and start over", destructive=True, reads="dry_run"),
-    "runs": _e("both", "generate", "Qué hizo y costó cada ejecución", "What each run did and cost"),
     # interviews
     "interview": _e("both", "interviews", "Cuestionario de entrevista: modo, exportar, importar, estado",
                     "Interview questionnaire: mode, export, import, status"),
