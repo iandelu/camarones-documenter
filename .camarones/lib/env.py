@@ -8,7 +8,8 @@ from pathlib import Path
 from typing import Callable
 
 from .common import (CTX, KIT, ROOT, DOCS, HOME, CACHE, IS_WIN, IS_MAC, VERSIONS, CAM_DIR, CAM_LAYOUT, WORKSPACE, WS_FILE, GRAPHS, run, out,
-                     which, uv, ensure_path, cli_cmd, sdkman_dir, repo_dir, ws_rel, rel_file, load_json, save_json)
+                     which, uv, ensure_path, cli_cmd, sdkman_dir, repo_dir, ws_rel, rel_file, load_json, save_json,
+                     own_file, through_link)
 from . import binaries, docs
 from .adapters import runners
 from .harness.ports import RunRequest
@@ -22,6 +23,18 @@ TEMPLATES = KIT / "templates"
 # ---------- templates ----------
 KIT_DOCS = ("PLAYBOOK.md", "CONVENTIONS.md")         # copied into the project so agents (and the team) can read them
 KIT_DOCS_STAMP = ROOT / ".camarones" / ".kit-docs.json"
+
+
+def _real(p: Path) -> bool:
+    """Nothing from ROOT down to `p`, `p` included, is a link: reading or editing `p` in place stays in the project.
+    Anyone who can push to cam-docs can commit a link, and these writers run before trust is asked."""
+    return not through_link(ROOT, p)
+
+
+def _own_file(p: Path) -> bool:
+    """A file the kit writes whole (its config, its stamps): never through a linked folder, and a link at `p` itself
+    is replaced by the file."""
+    return own_file(ROOT, p)
 
 
 def fill(text: str, name: str) -> str:
@@ -55,14 +68,9 @@ def _real_skills_dir(d: Path) -> bool:
         parts = d.relative_to(ROOT).parts
     except ValueError:
         return False
-    if len(parts) < 2 or parts[0] not in (".claude", ".agents") or parts[1] != "skills" or ".." in parts:
+    if len(parts) < 2 or parts[0] not in (".claude", ".agents") or parts[1] != "skills":
         return False
-    p = ROOT.resolve()
-    for part in parts:
-        p = p / part
-        if p.is_symlink() or (p.exists() and p.resolve() != p):
-            return False
-    return True
+    return _real(d)
 
 
 def _rendered_entry(rel) -> bool:
@@ -95,7 +103,7 @@ def write_kit_skills(project_name: str | None = None) -> None:
         with open(dst, "w", encoding="utf-8", newline="\n") as f:
             f.write(text)
         written.append(rel)
-    manifest = load_json(RENDERED_SKILLS, [])
+    manifest = load_json(RENDERED_SKILLS, []) if _real(RENDERED_SKILLS) else []
     for rel in {r for r in (manifest if isinstance(manifest, list) else []) if _rendered_entry(r)} - set(files):
         gone = ROOT / rel
         if gone.is_file() or gone.is_symlink():
@@ -105,7 +113,8 @@ def write_kit_skills(project_name: str | None = None) -> None:
         while d != host_skills and _real_skills_dir(d) and d.is_dir() and not any(d.iterdir()):
             d.rmdir()
             d = d.parent
-    save_json(RENDERED_SKILLS, sorted(written))
+    if _own_file(RENDERED_SKILLS):
+        save_json(RENDERED_SKILLS, sorted(written))
 
 
 def init_templates(project_name: str | None = None, log: Log = print) -> list[str]:
@@ -120,6 +129,8 @@ def init_templates(project_name: str | None = None, log: Log = print) -> list[st
         if rel.parts[0] in ("skills", "skeletons", "board"):   # skills go to the agent hosts, skeletons via sync_kit_docs, board stays in the kit
             continue
         dst = ROOT / rel
+        if not _real(dst):                                     # a link on the way or at dst, dangling too: left alone
+            continue
         if dst.exists():
             if rel.as_posix() == "AGENTS.md":
                 refresh_block(src, dst, project_name)
@@ -173,21 +184,25 @@ def sync_kit_docs(aside: str | None = None) -> list[str]:
     an edited copy follows the kit too, and the team's text stays next to it as <name>.<aside>."""
     if (ROOT / ".camarones").resolve() == KIT.resolve():
         return []                                   # legacy: the kit itself lives in this project
-    stamp, changed = load_json(KIT_DOCS_STAMP, {}), []
+    stamp, changed = load_json(KIT_DOCS_STAMP, {}) if _real(KIT_DOCS_STAMP) else {}, []
     for n, src in _kit_doc_files():
         dst = ROOT / ".camarones" / n
+        if not _own_file(dst):
+            continue
         cur, new = _sha(dst), _sha(src)
         if cur == new:
             continue
         if cur and stamp.get(n) != cur:
             if not aside:
                 continue
-            shutil.copyfile(dst, dst.with_name(f"{dst.name}.{aside}"))
+            if _own_file(kept := dst.with_name(f"{dst.name}.{aside}")):
+                shutil.copyfile(dst, kept)
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(src, dst)
         stamp[n] = new
         changed.append(f".camarones/{n}")
-    save_json(KIT_DOCS_STAMP, stamp)
+    if _own_file(KIT_DOCS_STAMP):
+        save_json(KIT_DOCS_STAMP, stamp)
     return changed
 
 
@@ -614,6 +629,8 @@ def write_codex_mcp(servers: dict) -> None:
     """Same servers for Codex, in a managed block of .codex/config.toml (other content is kept; a server the user
     already defined outside the block is left to them)."""
     f = ROOT / ".codex" / "config.toml"
+    if not _own_file(f):
+        return
     text = CODEX_MCP_RE.sub("", f.read_text(encoding="utf-8") if f.is_file() else "")
     block = codex_block({k: v for k, v in servers.items() if f"[mcp_servers.{k}]" not in text})
     f.parent.mkdir(parents=True, exist_ok=True)
@@ -654,15 +671,18 @@ def install_graphify_skill() -> None:
 
 
 def write_agent_config(comps: list[str]) -> None:
+    """Runs before trust is asked: a file reached through a linked folder is left alone, and a link where the kit
+    writes .mcp.json, .codex/config.toml or .claude/settings.json is replaced by the file, never read or written."""
     for f in (ROOT / "AGENTS.md", ROOT / "CLAUDE.md"):
-        if f.is_file() and GRAPHIFY_SECTION.search(text := f.read_text(encoding="utf-8")):
+        if _real(f) and f.is_file() and GRAPHIFY_SECTION.search(text := f.read_text(encoding="utf-8")):
             f.write_text(GRAPHIFY_SECTION.sub("", text).rstrip() + "\n", encoding="utf-8")
     hooks = ROOT / ".codex" / "hooks.json"
-    if hooks.is_file():
+    if _real(hooks) and hooks.is_file():
         data = without_graphify_hooks(load_json(hooks, {}))
         save_json(hooks, data) if data else hooks.unlink()
     mcp_file = ROOT / ".mcp.json"
-    cfg = load_json(mcp_file, {})
+    own_mcp = _own_file(mcp_file)
+    cfg = load_json(mcp_file, {}) if own_mcp else {}
     servers = cfg.setdefault("mcpServers", {})
     servers["camarones"] = camarones_mcp()
     if "openwiki" not in comps:
@@ -671,9 +691,12 @@ def write_agent_config(comps: list[str]) -> None:
         servers["likec4"] = likec4_mcp()
     else:
         servers.pop("likec4", None)
-    save_json(mcp_file, cfg)
+    if own_mcp:
+        save_json(mcp_file, cfg)
     write_codex_mcp({k: servers[k] for k in ("camarones", "likec4") if k in servers})
     settings = ROOT / ".claude" / "settings.json"
+    if not _own_file(settings):
+        return
     from . import hooks
     st = hooks.apply(without_graphify_hooks(load_json(settings, {})))           # method hooks, when the project opts in
     st["enabledMcpjsonServers"] = sorted(set(st.get("enabledMcpjsonServers", [])) | set(servers))

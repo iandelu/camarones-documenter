@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from .core.ctx import KIT, CAM_DIR, Ctx, docs_root, find_project_marker, find_root
-from .core.fsutil import load_json, retry_busy, rmtree, save_json
+from .core.fsutil import is_link, load_json, own_file, retry_busy, rmtree, save_json, through_link
 from .core.paths import (
     CACHE, CAM_LAYOUT, CTX, DOCS, GRAPHS, PREFS, ROOT, WORK, WORKSPACE, WS_FILE, cli_cmd, rel_file, repo_dir, ws_rel,
 )
@@ -16,7 +16,8 @@ __all__ = [
     "IS_WIN", "IS_MAC", "HOME", "PREFS", "CTX", "ROOT", "CAM_LAYOUT", "WORKSPACE", "DOCS", "WORK", "WS_FILE", "CACHE",
     "GRAPHS", "KIT", "CAM_DIR", "Ctx", "docs_root", "find_project_marker", "find_root", "repo_dir", "ws_rel",
     "rel_file", "cli_cmd", "sdkman_dir", "extra_bin_dirs", "ensure_path", "which", "run", "out", "PARENT_SESSION",
-    "leave_parent_session", "kill_tree", "uv", "retry_busy", "load_json", "save_json", "py", "rmtree",
+    "leave_parent_session", "kill_tree", "uv", "retry_busy", "load_json", "save_json", "py", "rmtree", "is_link",
+    "through_link", "own_file",
 ]
 
 VERSIONS = {
