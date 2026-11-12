@@ -147,6 +147,14 @@ def violations(edges: set[tuple[str, str]], table: dict[str, str]) -> set[tuple[
     return bad
 
 
+def in_core_folder(name: str) -> bool:
+    return name == "core" or name.startswith("core.")
+
+
+def core_escapes(edges: set[tuple[str, str]]) -> set[tuple[str, str]]:
+    return {(a, b) for a, b in edges if in_core_folder(a) and not in_core_folder(b)}
+
+
 def _load(name: str):
     import yaml
 

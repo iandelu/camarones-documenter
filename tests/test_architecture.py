@@ -48,6 +48,12 @@ def test_core_imports_only_core():
     assert not bad, f"core may import only core ({SPEC} §2):\n{edge_lines(bad)}"
 
 
+def test_the_core_folder_imports_only_the_core_folder():
+    _, found, _, _ = scan()
+    bad = archscan.core_escapes(found)
+    assert not bad, f"lib/core imports nothing outside lib/core ({SPEC} §2); no allowlist applies:\n{edge_lines(bad)}"
+
+
 def test_the_largest_cycle_never_grows():
     mods, found, _, allow = scan()
     size = archscan.largest_cycle(mods, found)
