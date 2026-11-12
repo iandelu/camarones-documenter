@@ -8,7 +8,7 @@ import os
 
 from pathlib import Path
 
-from . import common
+from .core import platform
 from .common import PREFS, VERSIONS, load_json, repo_dir, save_json
 from .agents import CODEX_MODEL_DEFAULT
 
@@ -44,7 +44,7 @@ def set_setting(key: str, value: str) -> dict:
 def codex_models() -> list[dict]:
     """The Codex models to pick from: the ones Codex itself lists (its models_cache.json, in its order), then the one
     saved here and the kit's default if Codex does not list them. Codex's slugs rotate, so nothing is hard-coded."""
-    home = Path(os.environ.get("CODEX_HOME") or common.HOME / ".codex")
+    home = Path(os.environ.get("CODEX_HOME") or platform.HOME / ".codex")
     cache = load_json(home / "models_cache.json", {})
     listed = cache.get("models") if isinstance(cache, dict) else None
     rows = sorted((m for m in listed or [] if isinstance(m, dict) and m.get("slug") and m.get("visibility", "list") == "list"),
