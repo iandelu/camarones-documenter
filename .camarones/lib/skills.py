@@ -165,6 +165,8 @@ def fork(name: str) -> Path:
     t = team_dir()
     if t is None:
         raise ValueError("team copies need the cam-docs layout")
+    if _linked_team_dir():
+        raise ValueError(".camarones/skills is a link: team copies are never written through it")
     if name not in kit_names():
         raise ValueError(f"{name} is not a kit skill")
     dest = t / name

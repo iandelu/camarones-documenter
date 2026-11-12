@@ -346,3 +346,13 @@ def test_a_symlinked_host_or_skill_folder_gets_nothing_written_into_it(wired, tm
     assert (wired.root / ".agents" / "skills" / "cam-docs-update" / "SKILL.md").is_file()
     if at == ".claude/skills/cam-docs-update":
         assert (wired.root / ".claude" / "skills" / "cam-docs-lookup" / "SKILL.md").is_file()
+
+
+def test_fork_refuses_a_symlinked_team_folder(wired, tmp_path):
+    s = skills(wired)
+    victim = tmp_path / "elsewhere"
+    victim.mkdir()
+    linked_at(wired, ".camarones/skills", victim)
+    with pytest.raises(ValueError, match="is a link"):
+        s.fork("cam-docs-update")
+    assert list(victim.iterdir()) == [] and "cam-docs-update" not in s.load_stamp()["forks"]
