@@ -52,6 +52,69 @@ def test_another_thread_waits_its_turn(locks, tmp_path):
     assert order in (["a+", "a-", "b+", "b-"], ["b+", "b-", "a+", "a-"])
 
 
+def handovers(order: str) -> int:
+    return sum(1 for x, y in zip(order, order[1:]) if x != y)
+
+
+def test_threads_taking_the_lock_back_to_back_take_turns(locks, tmp_path):
+    """A holder that takes the lock again at once used to keep it: the waiter only got in if its poll fell in the
+    instant between a release and the next acquire."""
+    order, ready = [], threading.Barrier(2)
+
+    def worker(name):
+        ready.wait()
+        for _ in range(15):
+            with locks.FileLock(tmp_path / "x.lock", wait=60):
+                order.append(name)
+                time.sleep(0.03)
+    threads = [threading.Thread(target=worker, args=(n,)) for n in "ab"]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert handovers("".join(order)) >= 15, "".join(order)
+
+
+def turn_of(path, pid: int, tid: int = 0) -> None:
+    path.with_name(path.name + ".next").write_text(
+        json.dumps({"pid": pid, "host": socket.gethostname(), "tid": tid, "ts": time.time()}), encoding="utf-8")
+
+
+def test_a_turn_left_by_a_dead_waiter_is_taken_over(locks, tmp_path):
+    path = tmp_path / "x.lock"
+    turn_of(path, dead_pid())
+    with locks.FileLock(path, wait=5):
+        assert not path.with_name("x.lock.next").exists()
+
+
+def test_a_turn_nobody_takes_does_not_keep_a_free_lock_for_long(locks, tmp_path, monkeypatch):
+    """A waiter whose turn it is but who never comes (stopped with Ctrl-Z, say) must not block everyone else."""
+    monkeypatch.setattr(locks, "TURN_GRACE", 0.2)
+    path = tmp_path / "x.lock"
+    turn_of(path, os.getpid())
+    start = time.monotonic()
+    with locks.FileLock(path, wait=30):
+        assert time.monotonic() - start < 10
+        assert not path.with_name("x.lock.next").exists()  # not coming: the turn is free again, for the next waiter
+
+
+def test_a_turn_of_its_own_left_behind_never_stalls_a_thread(locks, tmp_path, monkeypatch):
+    monkeypatch.setattr(locks, "TURN_GRACE", 30)
+    path = tmp_path / "x.lock"
+    turn_of(path, os.getpid(), threading.get_ident())
+    start = time.monotonic()
+    with locks.FileLock(path, wait=60):
+        assert time.monotonic() - start < 10
+        assert not path.with_name("x.lock.next").exists()
+
+
+def test_a_lock_that_does_not_wait_ignores_the_turn_of_a_free_lock(locks, tmp_path):
+    path = tmp_path / "x.lock"
+    turn_of(path, os.getpid())
+    with locks.FileLock(path, wait=0):
+        assert path.exists()
+
+
 def test_a_live_holder_makes_it_busy(locks, tmp_path):
     path = tmp_path / "x.lock"
     path.write_text(json.dumps({"pid": os.getpid(), "host": socket.gethostname(), "ts": time.time(), "repo": "web"}),
@@ -166,6 +229,33 @@ def test_two_processes_writing_the_plan_lose_nothing(kit):
     assert [p.wait(timeout=120) for p in procs] == [0, 0]
     ids = {u["id"] for u in kit.plan.load()["units"]}
     assert {f"flow:{t}-{i}" for t in "ab" for i in range(50)} <= ids
+
+
+GREEDY = """
+import pathlib, sys, time
+sys.path.insert(0, sys.argv[1])
+from lib.core.locks import FileLock
+lock, tag, log = pathlib.Path(sys.argv[2]), sys.argv[3], pathlib.Path(sys.argv[4])
+(lock.parent / f"ready-{tag}").touch()
+while len(list(lock.parent.glob("ready-*"))) < 2:
+    time.sleep(0.01)
+for _ in range(20):
+    with FileLock(lock, wait=60):
+        with log.open("a", encoding="utf-8") as fh:
+            fh.write(tag)
+        time.sleep(0.05)
+"""
+
+
+def test_two_processes_taking_the_lock_back_to_back_take_turns(kit, tmp_path):
+    """What starved a plan writer under load (LockBusy after 30 s): each writer took the lock again at once."""
+    lock, log = tmp_path / "locks" / "x.lock", tmp_path / "order.txt"
+    lock.parent.mkdir()
+    procs = [subprocess.Popen([sys.executable, "-c", GREEDY, str(kit.kit_dir), str(lock), t, str(log)])
+             for t in "ab"]
+    assert [p.wait(timeout=120) for p in procs] == [0, 0]
+    order = log.read_text(encoding="utf-8")
+    assert handovers(order) >= 20, order
 
 
 def test_the_plan_lock_lives_outside_git(kit):
