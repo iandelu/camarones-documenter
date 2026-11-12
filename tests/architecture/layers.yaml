@@ -88,6 +88,7 @@ quality: app
 questionnaire: app
 removed: app
 reset: app
+skills: app
 review: app
 sessions: app
 sourcelinks: app
