@@ -261,7 +261,7 @@ que falla se reintenta allí como una conversación nueva.
 
 Un kit arrancado desde dentro de una sesión de Claude Code (su herramienta Bash, una terminal que abrió) abre sesiones
 propias. Las marcas de esa sesión harían de cada `claude` un hijo suyo, que no guarda historial, así que la CLI las quita
-al arrancar (`PARENT_SESSION` en `lib/common.py`) y todo lo que arranca lo hereda. Solo se van esas: los ajustes propios de
+al arrancar (`PARENT_SESSION` en `lib/core/process.py`) y todo lo que arranca lo hereda. Solo se van esas: los ajustes propios de
 cada persona comparten el prefijo (`CLAUDE_CODE_USE_BEDROCK`, …) y se quedan.
 
 **Terminales en el lienzo.** El servidor del proyecto tiene las terminales del lienzo (`lib/terminals.py`): PTY de
