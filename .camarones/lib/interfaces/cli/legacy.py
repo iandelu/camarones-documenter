@@ -48,7 +48,6 @@ def cmd_trust(a) -> int:
 
 def add_legacy(sp: argparse._SubParsersAction) -> None:
     """Today's build_parser body after add_subparsers, minus the commands moved to commands/."""
-    sp.add_parser("help")
     s = sp.add_parser("setup"); s.add_argument("--ci", action="store_true"); s.add_argument("--profile", choices=["quick", "full"])
     ins = sp.add_parser("install"); ins.add_argument("destination", type=Path)
     ins.add_argument("--profile", choices=["quick", "full"], default="quick"); ins.add_argument("--dry-run", action="store_true")
@@ -60,7 +59,7 @@ def add_legacy(sp: argparse._SubParsersAction) -> None:
     sp.add_parser("unlink")
     prof = sp.add_parser("profile"); prof.add_argument("name", choices=["quick", "full"])
     sp.add_parser("init")
-    for c in ("sync", "detect", "changes", "llms", "graph", "arch", "arch-validate", "portal", "down", "wizard", "version"):
+    for c in ("sync", "detect", "changes", "llms", "graph", "arch", "arch-validate", "portal", "down", "version"):
         sp.add_parser(c)
     sp.add_parser("repair")
     sp.add_parser("history").add_argument("--months", type=int, default=12)
@@ -175,8 +174,6 @@ def add_legacy(sp: argparse._SubParsersAction) -> None:
     pr.add_argument("--unattended", action="store_true")
     ap = sp.add_parser("autopilot"); ap.add_argument("--lang", default="es"); ap.add_argument("--max-units", type=int)
     ap.add_argument("--poll-seconds", type=int, default=900); ap.add_argument("--include-interviews", action="store_true")
-    cat = sp.add_parser("catalog"); cat.add_argument("--json", action="store_true")
-    cat.add_argument("--markdown", action="store_true"); cat.add_argument("--check", action="store_true")
     from lib.kanban import cli as board_cli
     board_cli.add_parser(sp)
     from lib import adr_cli
@@ -188,35 +185,13 @@ def add_legacy(sp: argparse._SubParsersAction) -> None:
     pj.add_argument("--name", dest="adopt_name", metavar="NAME", help="the project's name, with --adopt")
     pj.add_argument("--git-init", dest="git_init_dir", type=Path, metavar="DIR",
                     help="git init the code folders without a repository")
-    sp.add_parser("app")
     cf = sp.add_parser("config"); cf.add_argument("action", nargs="?", default="get", choices=["get", "set"])
     cf.add_argument("key", nargs="?"); cf.add_argument("value", nargs="?"); cf.add_argument("--json", action="store_true")
 
 
-def cmd_catalog(a, parser: argparse.ArgumentParser) -> int:
-    from lib import catalog
-    data = catalog.describe(parser)
-    if a.json:
-        print(json.dumps(data, indent=2, ensure_ascii=False))
-    elif a.markdown:
-        print(catalog.triage_markdown(data["commands"]), end="")
-    elif not a.check:
-        for c in data["commands"]:
-            print(f"{c['name']:<16} {c['verdict']:<7} {c['zone'] or '':<11} {c['en']}")
-    if data["unlisted"] or data["unknown"]:
-        print(f"✖ catalog out of sync — not in lib/catalog.py: {', '.join(data['unlisted']) or '—'}; "
-              f"not in the parser: {', '.join(data['unknown']) or '—'}", file=sys.stderr)
-        return 1
-    return 0
-
-
 def run_legacy(a: argparse.Namespace, p: argparse.ArgumentParser) -> int:
     """Today's main() dispatch, minus the commands moved to commands/."""
-    if a.cmd == "help":
-        print(p.description)
-    elif a.cmd == "catalog":
-        return cmd_catalog(a, p)
-    elif a.cmd == "board":
+    if a.cmd == "board":
         from lib.kanban import cli as board_cli
         return board_cli.run(a)
     elif a.cmd == "adr":
@@ -242,9 +217,6 @@ def run_legacy(a: argparse.Namespace, p: argparse.ArgumentParser) -> int:
         else:
             for k, v in s.items():
                 print(f"{k:<12} {v}")
-    elif a.cmd == "app":
-        from lib import desktop
-        desktop.launch()
     elif a.cmd == "projects" and (a.inspect_dir or a.adopt_dir or a.git_init_dir):
         # the desktop start screen's way in: what a picked folder is, then make it a project (no project globals needed)
         from lib import onboard
@@ -306,9 +278,6 @@ def run_legacy(a: argparse.Namespace, p: argparse.ArgumentParser) -> int:
         env.set_profile(a.name)
         plan.sync()
         print(f"Profile: {a.name}. Progress kept. Run setup to prepare the selected tools.")
-    elif a.cmd == "wizard":
-        from lib.wizard import W
-        W().run()
     elif a.cmd == "setup":
         if a.profile:
             env.set_profile(a.profile)

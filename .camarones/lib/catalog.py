@@ -115,8 +115,7 @@ _LEFT: dict[str, dict] = {             # the commands still dispatched by interf
     "confirm": _e("portal"),
     "feedback": _e("portal"),
     # CLI only: agents, hooks, servers and terminal tools
-    "help": CLI, "install": CLI, "wizard": CLI, "arch": CLI, "up": CLI, "mcp": CLI, "hook": CLI, "review": CLI,
-    "prompt": CLI, "catalog": CLI, "app": CLI,
+    "install": CLI, "arch": CLI, "up": CLI, "mcp": CLI, "hook": CLI, "review": CLI, "prompt": CLI,
 }
 
 

@@ -11,7 +11,7 @@ import pytest
 
 from conftest import KIT_DIR
 
-MOVED: set[str] = set()
+MOVED: set[str] = {"help", "wizard", "catalog", "app"}
 _ids = itertools.count()
 
 

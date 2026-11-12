@@ -8,7 +8,7 @@ from pathlib import Path
 from lib import projects                            # no dependency on ROOT/common state
 from lib.interfaces.cli import registry
 
-LEGACY_NO_PROJECT = frozenset({"help", "version", "self-update", "mcp", "catalog", "projects", "app"})
+LEGACY_NO_PROJECT = frozenset({"version", "self-update", "mcp", "projects"})
 
 
 def _relaunch(root: Path, argv: list[str], entry: str) -> None:
