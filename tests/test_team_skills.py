@@ -1,4 +1,5 @@
 import importlib
+import json
 import shutil
 import subprocess
 from pathlib import PurePosixPath
@@ -356,3 +357,36 @@ def test_fork_refuses_a_symlinked_team_folder(wired, tmp_path):
     with pytest.raises(ValueError, match="is a link"):
         s.fork("cam-docs-update")
     assert list(victim.iterdir()) == [] and "cam-docs-update" not in s.load_stamp()["forks"]
+
+
+def handmade(wired):
+    """A skill file the kit never rendered, and a manifest text that names it."""
+    f = wired.root / ".claude" / "skills" / "handmade" / "SKILL.md"
+    f.parent.mkdir(parents=True)
+    f.write_text("x", encoding="utf-8")
+    return f, json.dumps([".claude/skills/handmade/SKILL.md"])
+
+
+def test_a_symlinked_render_manifest_is_neither_read_nor_written_through(wired, tmp_path):
+    mine, names_it = handmade(wired)
+    victim = tmp_path / "victim.json"
+    victim.write_text(names_it, encoding="utf-8")
+    manifest = wired.env.RENDERED_SKILLS
+    manifest.unlink(missing_ok=True)
+    manifest.parent.mkdir(parents=True, exist_ok=True)
+    link(manifest, victim)
+    wired.env.write_kit_skills()
+    assert victim.read_text(encoding="utf-8") == names_it and mine.exists()
+    assert not manifest.is_symlink()
+    assert ".claude/skills/cam-docs-update/SKILL.md" in wired.env.load_json(manifest, [])
+
+
+def test_a_symlinked_cache_folder_gives_no_render_manifest(wired, tmp_path):
+    mine, names_it = handmade(wired)
+    victim = tmp_path / "fake-cache"
+    victim.mkdir()
+    (victim / wired.env.RENDERED_SKILLS.name).write_text(names_it, encoding="utf-8")
+    linked_at(wired, ".camarones/.cache", victim)
+    wired.env.write_kit_skills()
+    assert [p.name for p in victim.iterdir()] == [wired.env.RENDERED_SKILLS.name]
+    assert (victim / wired.env.RENDERED_SKILLS.name).read_text(encoding="utf-8") == names_it and mine.exists()

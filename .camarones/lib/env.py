@@ -47,22 +47,24 @@ def skill_files(project_name: str | None = None) -> dict[str, str]:
 RENDERED_SKILLS = CACHE / "skills-rendered.json"
 
 
-def _real_skills_dir(d: Path) -> bool:
-    """`d` is ROOT/<host>/skills or a folder in it, and nothing on the way down from ROOT is a link: a symlink (or a
-    Windows junction, which only `resolve()` shows) committed at `.claude`, `.claude/skills` or deeper would carry a
-    write or a delete out of the project."""
-    try:
-        parts = d.relative_to(ROOT).parts
-    except ValueError:
-        return False
-    if len(parts) < 2 or parts[0] not in (".claude", ".agents") or parts[1] != "skills" or ".." in parts:
+def _unlinked(d: Path) -> bool:
+    """`d` is in ROOT and nothing on the way down from ROOT is a link: a symlink (or a Windows junction, which only
+    `resolve()` shows) committed at `.claude`, `.claude/skills`, `.camarones/.cache` or deeper would carry a write or a
+    delete out of the project."""
+    if not d.is_relative_to(ROOT) or ".." in d.relative_to(ROOT).parts:
         return False
     p = ROOT.resolve()
-    for part in parts:
+    for part in d.relative_to(ROOT).parts:
         p = p / part
         if p.is_symlink() or (p.exists() and p.resolve() != p):
             return False
     return True
+
+
+def _real_skills_dir(d: Path) -> bool:
+    """`d` is ROOT/<host>/skills or a folder in it, with no link on the way down."""
+    parts = d.relative_to(ROOT).parts if d.is_relative_to(ROOT) else ()
+    return parts[:1] in ((".claude",), (".agents",)) and parts[1:2] == ("skills",) and _unlinked(d)
 
 
 def _rendered_entry(rel) -> bool:
@@ -81,21 +83,23 @@ def _rendered_entry(rel) -> bool:
 def write_kit_skills(project_name: str | None = None) -> None:
     """Always refreshed: a copy edited in .claude/skills goes back to the effective text (the team's copy, else the
     kit's). What an earlier render wrote and the effective set no longer has is removed; foreign files stay.
-    A link is never written through: one at a rendered file's path is replaced by the file, and a skill whose
-    `<host>`, `<host>/skills` or own folder is a link (or a junction) is not rendered in that host, the other host
-    still is. Trust lists the link itself, never what it points to."""
+    Nothing is read, written or deleted through a link (or a junction): one at a rendered file's path is replaced by
+    the file; a skill whose `<host>`, `<host>/skills` or own folder is a link is not rendered in that host, the other
+    host still is. The manifest of what was rendered is git-ignored, but a link force-added there arrives with a plain
+    pull: a linked manifest is ignored and replaced, and a linked cache folder keeps none."""
     files, written = skill_files(project_name), []
     for rel, text in files.items():
         dst = ROOT / rel
         if not _real_skills_dir(dst.parent):
             continue
         if dst.is_symlink():
-            dst.unlink()
+            _unlink(dst)
         dst.parent.mkdir(parents=True, exist_ok=True)
         with open(dst, "w", encoding="utf-8", newline="\n") as f:
             f.write(text)
         written.append(rel)
-    manifest = load_json(RENDERED_SKILLS, [])
+    keep = _unlinked(RENDERED_SKILLS.parent)
+    manifest = load_json(RENDERED_SKILLS, []) if keep and not RENDERED_SKILLS.is_symlink() else []
     for rel in {r for r in (manifest if isinstance(manifest, list) else []) if _rendered_entry(r)} - set(files):
         gone = ROOT / rel
         if gone.is_file() or gone.is_symlink():
@@ -105,7 +109,10 @@ def write_kit_skills(project_name: str | None = None) -> None:
         while d != host_skills and _real_skills_dir(d) and d.is_dir() and not any(d.iterdir()):
             d.rmdir()
             d = d.parent
-    save_json(RENDERED_SKILLS, sorted(written))
+    if keep:
+        if RENDERED_SKILLS.is_symlink():
+            _unlink(RENDERED_SKILLS)
+        save_json(RENDERED_SKILLS, sorted(written))
 
 
 def init_templates(project_name: str | None = None, log: Log = print) -> list[str]:
