@@ -109,3 +109,53 @@ def largest_cycle(nodes: Iterable[str], edges: set[tuple[str, str]]) -> int:
 
 def line_count(path: Path) -> int:
     return len(path.read_text(encoding="utf-8").splitlines())
+
+
+MAX_LINES = 600
+ARCH_DIR = Path(__file__).resolve().parent.parent / "architecture"
+
+_CORE = frozenset({"core"})
+ALLOWED: dict[str, frozenset[str]] = {
+    "core": _CORE,
+    "domain": frozenset({"core", "domain"}),
+    "ports": frozenset({"core", "domain", "ports"}),
+    "adapters": frozenset({"core", "domain", "ports", "adapters"}),
+    "app": frozenset({"core", "domain", "ports", "app"}),
+    "interfaces": frozenset({"core", "domain", "ports", "app", "interfaces", "bootstrap"}),
+    "bootstrap": frozenset({"core", "domain", "ports", "adapters", "app"}),
+}
+
+
+def layer_of(name: str, table: dict[str, str]) -> str | None:
+    if name in table:
+        return table[name]
+    best = None
+    for key in table:
+        if key.endswith(".*"):
+            base = key[:-2]
+            if (name == base or name.startswith(base + ".")) and (best is None or len(base) > len(best)):
+                best = base
+    return table[best + ".*"] if best is not None else None
+
+
+def violations(edges: set[tuple[str, str]], table: dict[str, str]) -> set[tuple[str, str]]:
+    bad = set()
+    for a, b in edges:
+        la, lb = layer_of(a, table), layer_of(b, table)
+        if la in ALLOWED and lb not in ALLOWED[la]:
+            bad.add((a, b))
+    return bad
+
+
+def _load(name: str):
+    import yaml
+
+    return yaml.safe_load((ARCH_DIR / name).read_text(encoding="utf-8"))
+
+
+def load_layers() -> dict[str, str]:
+    return _load("layers.yaml")
+
+
+def load_allowlist() -> dict:
+    return _load("allowlist.yaml")
