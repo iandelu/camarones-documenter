@@ -16,12 +16,13 @@ for p in (str(KIT_DIR), str(TESTS)):
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from fixtures import bytecode, hang_watchdog  # noqa: E402
+from fixtures import bytecode, fast_git, hang_watchdog  # noqa: E402
 from fixtures.facade_guard import GuardedMonkeyPatch  # noqa: E402
 from fixtures.builder import GITCONFIG, make_workspace, rmtree, slim  # noqa: E402
 from fixtures.hang_watchdog import pytest_runtest_protocol, pytest_terminal_summary  # noqa: E402,F401
 from fixtures.host_tools import hidden_tools, masked_path  # noqa: E402
 
+fast_git.install()
 START_ENV = dict(os.environ)                    # before any test touched it: what the wired template is built under
 
 
