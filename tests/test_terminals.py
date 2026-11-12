@@ -360,6 +360,17 @@ def test_on_windows_a_program_that_ended_lets_go_of_its_sockets(conpty, kit):
     assert proc.fileobj.fileno() == -1 and proc._server.fileno() == -1
 
 
+# A terminal shutdown ends itself (its program still holds the PTY) has a reader one look from its own end. Returning
+# before it, the server's exit cut that reader off mid-cleanup, and this fixture put IS_WIN back under a fake ConPTY's
+# reader, which then took the POSIX branches: os.close(None).
+def test_shutdown_returns_once_each_reader_let_go_of_its_pty(conpty, kit, monkeypatch):
+    monkeypatch.setattr(conpty.t, "TICK", 1.0)                         # a reader looks again later than shutdown ends
+    m = conpty.t.spawn([sys.executable, "-c", "pass"], kit.root, kind="update", agent="test")
+    proc = conpty.t._term(m["id"]).proc
+    conpty.t.shutdown()
+    assert conpty.t.get(m["id"])["ended"] and proc.fileobj.fileno() == -1 and proc._server.fileno() == -1
+
+
 @pytest.mark.skipif(sys.platform == "win32", reason="taskkill /T /F ends the tree at once")
 def test_close_wait_returns_once_what_ignored_the_hang_up_is_gone(pty, monkeypatch, tmp_path):
     from lib.harness.locks import pid_alive

@@ -58,6 +58,7 @@ class _Term:
         self.wlock = threading.Lock()           # one write at a time
         self.saving = threading.Lock()          # one .json write at a time, so the newest meta is written last
         self.finishing = threading.Lock()       # its reader and `shutdown` may both end it
+        self.reader = threading.Thread(target=_pump, args=(self,), daemon=True, name=f"pty {meta['id']}")
 
 
 _lock = threading.Condition(threading.Lock())  # _terms, every terminal's meta, ring and `over`, and _gen
@@ -201,7 +202,7 @@ def spawn(argv: list[str], cwd: Path, *, kind: str, agent: str, unit: str | None
             _bump()
         first, _pruned = not _pruned, True
     _save(t)                                    # before the reader: it makes DIR, where the log goes
-    threading.Thread(target=_pump, args=(t,), daemon=True, name=f"pty {tid}").start()
+    t.reader.start()
     if first:
         _prune()
     return _meta(t)
@@ -380,7 +381,7 @@ def wait(seen: int, timeout: float) -> int:
 def shutdown() -> None:
     """Ends every live terminal, for the server's exit: its process group is hung up, and what is left of it 2 s later
     is killed, as is what is left of a group Close hung up less than CLOSE_GRACE s ago (its timer would not outlive
-    the server); then they are all ended."""
+    the server); then they are all ended, and it returns once their readers let go of the PTYs."""
     with _lock:
         live = [t for t in _terms.values() if t.meta["ended"] is None]
         groups = {t.meta["pid"] for t in live} | _hung
@@ -397,6 +398,10 @@ def shutdown() -> None:
         _lock.wait_for(lambda: all(t.meta["ended"] is not None for t in live), 1)
     for t in live:
         _finish(t)                              # a reader still at it (something holds the PTY) stops at its next look
+    end = time.monotonic() + 2 * TICK + 1       # that look, and a write under way letting go of the PTY
+    for t in live:
+        if t.reader.is_alive():                 # not started yet: a spawn under way, whose reader stops at once (over)
+            t.reader.join(max(0.0, end - time.monotonic()))
 
 
 def _quiet(live: list[_Term], groups: set[int]) -> bool:
