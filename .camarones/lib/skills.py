@@ -155,7 +155,12 @@ def reset(name: str, now: str | None = None) -> Path:
         raise ValueError(f"{name} is a team skill: delete its folder to remove it")
     if o != "team":
         raise ValueError(f"no team copy of {name}")
-    aside = team_dir() / ".reset" / f"{name}-{now or datetime.now().strftime('%Y%m%d-%H%M%S')}"
+    base = f"{name}-{now or datetime.now().strftime('%Y%m%d-%H%M%S')}"
+    aside = team_dir() / ".reset" / base
+    n = 2
+    while aside.exists():
+        aside = team_dir() / ".reset" / f"{base}-{n}"
+        n += 1
     aside.parent.mkdir(parents=True, exist_ok=True)
     shutil.move(str(team_dir() / name), str(aside))
     stamp = load_stamp()

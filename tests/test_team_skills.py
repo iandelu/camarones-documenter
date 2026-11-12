@@ -168,3 +168,13 @@ def test_doctor_reports_outdated_team_copies(wired, monkeypatch):
     s = skills(wired)
     monkeypatch.setattr(s, "outdated", lambda: ["cam-docs-update"])
     assert importlib.import_module("lib.doctor").report()["skills_outdated"] == ["cam-docs-update"]
+
+
+def test_reset_never_nests_when_the_aside_name_is_taken(wired):
+    s = skills(wired)
+    s.fork("cam-docs-update")
+    first = s.reset("cam-docs-update", now="20261112-101500")
+    s.fork("cam-docs-update")
+    second = s.reset("cam-docs-update", now="20261112-101500")
+    assert first != second and second.name == first.name + "-2" and second.parent == first.parent
+    assert (first / "SKILL.md").is_file() and (second / "SKILL.md").is_file()
