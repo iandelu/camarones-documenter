@@ -98,7 +98,7 @@ def drift() -> list[dict]:
         return []
     from . import docs, env
     out = []
-    expected = {rel: hashlib.sha256(text.encode("utf-8")).hexdigest() for rel, text in env.kit_skill_files().items()}
+    expected = {rel: hashlib.sha256(text.encode("utf-8")).hexdigest() for rel, text in env.skill_files().items()}
     for rel, want in expected.items():
         f = ROOT / rel
         if not f.is_file():

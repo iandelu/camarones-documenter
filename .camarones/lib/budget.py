@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 
 from .common import ROOT
-from . import docs
+from . import docs, skills
 
 BUDGET = 6000           # standing tokens; `context: {budget: N}` in workspace.yaml changes it
 
@@ -21,7 +21,7 @@ def _skills() -> list[dict]:
         fm, body = docs.split_fm(f.read_text(encoding="utf-8"))
         head = f"{fm.get('name', f.parent.name)}: {fm.get('description', '')}"
         out.append({"kind": "skill", "path": f.relative_to(ROOT).as_posix(), "tokens": tokens(head),
-                    "on_use": tokens(body), "kit": f.parent.name.startswith("cam-docs-")})
+                    "on_use": tokens(body), "kit": skills.origin(f.parent.name) == "kit"})
     return out
 
 

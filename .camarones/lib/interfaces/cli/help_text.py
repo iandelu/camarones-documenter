@@ -115,6 +115,10 @@
                             CLAUDE.md in the workspace gets the kit's entries linked in, its rules imported
   removed add WHAT --why WHY [--decision decisions/NNNN-x.md]
                             record something removed on purpose (docs/overview/removed.md) so agents do not recreate it
+  skills list | fork NAME | diff NAME [--kit] | reset NAME | note SKILL TEXT --source retro|review|board
+         [--step S] [--change ID] [--ref URL] | notes [SKILL]   [--json]
+                            the agents' skills: a team copy in .camarones/skills wins over the kit's; notes say
+                            where a skill got in the way (docs/.work/skill-notes)
   review request PAGE [--note T] | wait ID [--timeout S] | list
                             an agent asks a person to review a page and waits for the answer (approve / changes, as
                             JSON); people answer in the portal's Review tab

@@ -36,12 +36,76 @@ def kit_skill_files(project_name: str | None = None) -> dict[str, str]:
             for src in sorted((TEMPLATES / "skills").rglob("*")) if src.is_file() for host in (".claude", ".agents")}
 
 
+def skill_files(project_name: str | None = None) -> dict[str, str]:
+    """Like kit_skill_files, but the effective skills: a team's copy of a skill wins, and a team-only skill is added."""
+    from . import skills
+    name = project_name or docs.workspace()["project"]["name"]
+    return {f"{host}/skills/{skill}/{rel}": fill(raw, name)
+            for skill, files in skills.sources().items() for rel, raw in files.items() for host in (".claude", ".agents")}
+
+
+RENDERED_SKILLS = CACHE / "skills-rendered.json"
+
+
+def _real_skills_dir(d: Path) -> bool:
+    """`d` is ROOT/<host>/skills or a folder in it, and nothing on the way down from ROOT is a link: a symlink (or a
+    Windows junction, which only `resolve()` shows) committed at `.claude`, `.claude/skills` or deeper would carry a
+    write or a delete out of the project."""
+    try:
+        parts = d.relative_to(ROOT).parts
+    except ValueError:
+        return False
+    if len(parts) < 2 or parts[0] not in (".claude", ".agents") or parts[1] != "skills" or ".." in parts:
+        return False
+    p = ROOT.resolve()
+    for part in parts:
+        p = p / part
+        if p.is_symlink() or (p.exists() and p.resolve() != p):
+            return False
+    return True
+
+
+def _rendered_entry(rel) -> bool:
+    """A manifest entry the cleanup may remove: `<host>/skills/<name>/…` inside ROOT/<host>/skills. The manifest is a
+    file in the repo, so a teammate could commit one that names any other file."""
+    from . import skills
+    if not isinstance(rel, str) or "\\" in rel:
+        return False
+    parts = rel.split("/")
+    if (len(parts) < 4 or parts[0] not in (".claude", ".agents") or parts[1] != "skills"
+            or not skills.NAME_RE.fullmatch(parts[2]) or any(p in ("", ".", "..") for p in parts)):
+        return False
+    return _real_skills_dir((ROOT / rel).parent)
+
+
 def write_kit_skills(project_name: str | None = None) -> None:
-    """Kit-owned: always refreshed (a copy edited in the team's repo goes back to the kit's text)."""
-    for rel, text in kit_skill_files(project_name).items():
+    """Always refreshed: a copy edited in .claude/skills goes back to the effective text (the team's copy, else the
+    kit's). What an earlier render wrote and the effective set no longer has is removed; foreign files stay.
+    A link is never written through: one at a rendered file's path is replaced by the file, and a skill whose
+    `<host>`, `<host>/skills` or own folder is a link (or a junction) is not rendered in that host, the other host
+    still is. Trust lists the link itself, never what it points to."""
+    files, written = skill_files(project_name), []
+    for rel, text in files.items():
         dst = ROOT / rel
+        if not _real_skills_dir(dst.parent):
+            continue
+        if dst.is_symlink():
+            dst.unlink()
         dst.parent.mkdir(parents=True, exist_ok=True)
-        dst.write_text(text, encoding="utf-8")
+        with open(dst, "w", encoding="utf-8", newline="\n") as f:
+            f.write(text)
+        written.append(rel)
+    manifest = load_json(RENDERED_SKILLS, [])
+    for rel in {r for r in (manifest if isinstance(manifest, list) else []) if _rendered_entry(r)} - set(files):
+        gone = ROOT / rel
+        if gone.is_file() or gone.is_symlink():
+            gone.unlink()
+        host_skills = ROOT / rel.split("/", 1)[0] / "skills"
+        d = gone.parent
+        while d != host_skills and _real_skills_dir(d) and d.is_dir() and not any(d.iterdir()):
+            d.rmdir()
+            d = d.parent
+    save_json(RENDERED_SKILLS, sorted(written))
 
 
 def init_templates(project_name: str | None = None, log: Log = print) -> list[str]:
@@ -618,7 +682,8 @@ def write_agent_config(comps: list[str]) -> None:
 
 def refresh_agent_config() -> None:
     """Re-render what the kit owns in the agent config (its skills and MCP entries) for this machine, so a copy edited
-    in the team's repo — or rendered on a teammate's machine — goes back to the kit's own text before trust.pending()."""
+    in .claude/skills — or rendered on a teammate's machine — goes back to the effective text (the team's copy of a
+    skill, else the kit's) before trust.pending()."""
     if CAM_LAYOUT and WS_FILE.exists() and "agents" in components():
         write_kit_skills()
         write_agent_config(components())
@@ -1711,7 +1776,8 @@ def install_ci(forge: str | None = None, log: Log = print) -> Path:
 # ---------- progress safety: local checkpoint commits in the umbrella repo ----------
 CHECKPOINT_PATHS = ["docs", "wikis", "evals", "backlog", ".gitattributes", ".camarones/workspace.yaml", ".camarones/PLAYBOOK.md", ".camarones/CONVENTIONS.md",
                     ".camarones/skeletons", ".camarones/plugins", ".camarones/plugins.lock", ".camarones/.kit-docs.json", ".camarones/ci", ".claude", ".codex", ".agents", ".mcp.json", "AGENTS.md", "CLAUDE.md",
-                    ".gitignore", ".gitlab-ci.yml", ".github"]
+                    ".gitignore", ".gitlab-ci.yml", ".github",
+                    ".camarones/skills", ".camarones/.kit-skills.json"]   # a team copy, its fork stamp and its rendering travel together
 
 
 def checkpoint_paths() -> list[str]:

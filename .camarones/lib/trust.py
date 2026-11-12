@@ -74,6 +74,14 @@ def _group(rel: str) -> str:
     return "/".join(parts[:3]) if len(parts) > 3 and parts[1] == "skills" else ""
 
 
+def _team_label(rel: str, kind: str) -> str:
+    from . import skills
+    parts = rel.split("/")
+    if kind != "skill" or len(parts) < 4:
+        return ""
+    return {"team": " (team copy)", "team-only": " (team skill)"}.get(skills.origin(parts[2]), "")
+
+
 def items(root: Path | None = None) -> dict[str, Item]:
     """Everything in the agent config that can run code, widen access or steer an agent."""
     root = root or ROOT
@@ -140,7 +148,7 @@ def items(root: Path | None = None) -> dict[str, Item]:
                     target = os.readlink(p)
                     add(f"file {rel}", kind, f"link:{target}", f"{rel} → {target}", _group(rel))
                 else:
-                    add(f"file {rel}", kind, p.read_bytes(), rel, _group(rel))
+                    add(f"file {rel}", kind, p.read_bytes(), rel + _team_label(rel, kind), _group(rel))
 
     from .harness import plugins
     for p in plugins.discover(root / ".camarones" / "plugins"):

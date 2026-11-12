@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.81.1-ff875f?style=flat-square" alt="Versión 4.81.1">
+  <img src="https://img.shields.io/badge/version-4.82.0-ff875f?style=flat-square" alt="Versión 4.82.0">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -237,6 +237,35 @@ pruebas, qué no, los comandos que ejecutó y la siguiente acción. Si una sesi�
 el último checkpoint. La guía [Usar Camarón](.camarones/templates/docs/i18n/es/guides/using.md) cuenta cada paso con
 detalle.
 
+## Programar con Camarón
+
+Abre Claude Code o Codex en el espacio de trabajo y pídele un cambio de código: el kit le enseña a seguir la skill
+`cam-task` (más `cam-difficulty`, `cam-verify`, `cam-ship` y `cam-retro`). El cambio va en su propia rama,
+`cam/<id>-<slug>`, en cada repo de servicio, y la documentación en su propio worktree de `cam-docs` (`.cw/<id>`): tu
+checkout de `cam-docs` y su tablero nunca cambian de rama.
+
+1. **La documentación primero**: lee `cam-docs` y resume lo que dice, con citas, antes de tocar código.
+2. **Dificultad**: baja (0–2), media (3–5) o alta (6+). En la alta propone partir el cambio en elementos de tablero
+   en borrador.
+3. **Prueba primero**, y el agente verifica con el build, los tests y los linters del propio repo más `camaron check`.
+4. **Guardarraíles**: rutas prohibidas, gitleaks, páginas desactualizadas (`camaron pr fresh`) y reglas de confianza.
+5. **Impacto y una sola pregunta**, «¿Abro las PR?»: si dices que sí, abre una PR de código en borrador por repo y una
+   PR de documentación en borrador, enlazadas entre sí. El kit nunca fusiona y los agentes no mueven tarjetas del tablero.
+
+Con superpowers instalado, sus skills de brainstorming, planes, TDD y depuración se usan en esos pasos, dentro de las
+ramas y el worktree del propio cambio.
+
+Para afinar el flujo a tu equipo, `camaron skills`: `list` (de dónde viene cada skill y si la del kit cambió desde tu
+copia), `fork NOMBRE`, `diff NOMBRE [--kit]` y `reset NOMBRE` (tu copia queda en `.camarones/skills/.reset/`). La copia
+del equipo vive en `cam-docs/.camarones/skills/<nombre>/`, gana a la del kit, sobrevive a las actualizaciones y cada
+máquina aprueba una copia editada una vez en `camaron trust`; `camaron doctor` avisa cuando la versión del kit ya se
+movió; los checkpoints la guardan junto con su sello (`.camarones/.kit-skills.json`). Lo que se aprende se apunta
+con `camaron skills note … --source retro|review|board` y se lee con `camaron skills notes` (ficheros en
+`docs/.work/skill-notes/`).
+
+Los proyectos que ya existen reciben las skills en su próximo refresco. Más adelante llegará `camaron change`: el propio
+kit producirá la evidencia, ejecutará los guardarraíles y abrirá las PR.
+
 ## La app de escritorio
 
 <p align="center">
@@ -390,7 +419,7 @@ Cada función es un comando `camaron`; `camaron catalog` dice dónde vive cada u
 | Decisiones | `adr` (`list`, `candidates`, `new`, `pack`, `write`, `show`, `accept`, `reject`) |
 | Tablero | `board` (`init`, `add`, `list`, `show`, `move`, `assign`, `link`, `archive`, `repair`, `next`, `waves`, `story`) |
 | CI y exportar | `ci`, `pr` (`fresh`, `propose`), `export` (`pdf`, `tour`, `codetour`, `confluence`, `notion`), `removed`, `checkpoint` |
-| Agentes | `mcp`, `hooks`, `plugins`, `catalog` |
+| Agentes | `mcp`, `hooks`, `plugins`, `skills`, `catalog` |
 
 ## Por dentro
 

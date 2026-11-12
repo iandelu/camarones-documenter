@@ -85,7 +85,7 @@ every command either way.
 | `status` | check |  |  | yes |
 | `translated` | team |  |  |  |
 
-## Cli only (12)
+## Cli only (13)
 
 | Command | Zone | AI | Destructive | --json |
 |---|---|---|---|---|
@@ -99,5 +99,6 @@ every command either way.
 | `mcp` | — |  |  |  |
 | `prompt` | — |  |  |  |
 | `review` | — |  |  |  |
+| `skills` | — |  |  | yes |
 | `up` | — |  |  |  |
 | `wizard` | — |  |  |  |

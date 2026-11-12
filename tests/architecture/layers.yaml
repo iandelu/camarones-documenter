@@ -88,6 +88,7 @@ quality: app
 questionnaire: app
 removed: app
 reset: app
+skills: app
 review: app
 sessions: app
 sourcelinks: app
@@ -101,6 +102,7 @@ usage: app
 kanban.cli: interfaces
 adr_api: interfaces
 adr_cli: interfaces
+skills_cli: interfaces
 appapi: interfaces
 catalog: interfaces
 desktop: interfaces

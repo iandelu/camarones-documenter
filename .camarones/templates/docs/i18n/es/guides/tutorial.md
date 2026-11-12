@@ -501,7 +501,7 @@ comprobado, los comandos ejecutados y la siguiente acción.
 `doctor --local` (propone un modelo local libre para este equipo, sin instalar nada), `doctor --context` (los tokens
 que carga cada sesión de un agente antes de leer una página, frente a `context.budget`), `autopilot`, `plugins [--json]`,
 `run`, `runs`, `kpis`, `eval`, `ab`, `pipeline show|validate`, `blocks [--force]`, `pages [--adopt] [--json]`, `diagrams [--json]`, `pr fresh <repo>` y
-`plugins add|update|outdated|remove`, `pr propose <url>`, `removed add`, `repair`, `export codetour <flujo>`,
+`plugins add|update|outdated|remove`, `skills list|fork|diff|reset|note|notes` (las skills del kit y las copias del equipo; todas aceptan `--json`), `pr propose <url>`, `removed add`, `repair`, `export codetour <flujo>`,
 `adr list|new|show|pack|candidates|write|accept|reject` (las decisiones: plantear, reunir la
 evidencia, escribir, aceptar, rechazar; todos aceptan `--json`), `history [--months 12]` (puntos calientes, a quién preguntar en cada repo, ficheros que cambian juntos, leídos de git sin
 IA en `docs/overview/history.md`), `catalog [--json|--check]` (cada comando con dónde vive: portal, app de escritorio o

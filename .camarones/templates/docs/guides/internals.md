@@ -319,7 +319,8 @@ It also offers every page as a resource (`camdocs://<path>`, plus `camdocs://llm
 `implement-feature` and `update-docs`. Everything goes through the same freshness gate.
 
 **`likec4`** answers questions about the architecture model (who calls this service, what sits between A and B). The
-skills `cam-docs-lookup`, `cam-docs-update` and `cam-docs-diagrams` teach agents when to use them.
+skills `cam-docs-lookup`, `cam-docs-update` and `cam-docs-diagrams` teach agents when to use them, and `cam-task`,
+`cam-difficulty`, `cam-verify`, `cam-ship` and `cam-retro` carry a code change from the docs to the pull requests.
 
 ## Plugins and trust
 
@@ -332,6 +333,11 @@ The kit works out whether a plugin runs code instead of trusting its manifest. A
 and arrived with the team's repo — plugins, hooks, MCP servers, settings, skills — is not loaded until you approve it on
 your machine (`camaron trust`, or Team in the app). The approval covers every file, so any change asks again. What the
 kit itself installed is recognised without asking, and `camaron repair` restores it if someone edits or deletes it.
+
+A team's version of a kit skill (`camaron skills fork`) lives in `cam-docs/.camarones/skills/<name>/`: it wins over the
+kit's, survives upgrades and counts as team-written, so each machine approves it once in `camaron trust` (any edit asks
+again). `doctor` warns when the kit's version of a forked skill moved on since the copy was made. A checkpoint commits
+the copy with its fork stamp (`.camarones/.kit-skills.json`) and its rendering in `.claude/` and `.agents/`.
 
 <!-- go:team -->
 

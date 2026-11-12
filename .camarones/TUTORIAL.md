@@ -276,7 +276,22 @@ If your repos are private, Camarones needs a token to clone and update them. It 
 
 Optional: a pipeline that, after each change in the repos or in cam-docs, updates the affected docs and publishes the read-only portal. So a merge request opened from the deployed portal's “Edit” shows up once merged. Set it up in “Team › CI”. You can also do it by hand with “🔄 Update docs after changes” and “🌐 Portal › 📦 Export the portal”. And on every pull request in a repo, a job without AI comments which pages the change leaves out of date (`camaron pr fresh`).
 
-### 18. 📋 The Board: the work next to the docs
+### 18. 🧑‍💻 Coding with Camarón: from request to PRs
+
+```text
+   "add X to the API"  -->  cam-task
+     1. reads cam-docs first (with citations)
+     2. difficulty: low 0-2 | medium 3-5 | high 6+ (split into cards)
+     3. test first, then verifies with the repo's build and tests + check
+     4. guardrails: forbidden paths, gitleaks, stale pages
+     5. impact + one question: Open the PRs?
+   cam/<id>-<slug> in each repo  +  cam-docs worktree .cw/<id>
+   code PR (draft)  <-->  docs PR (draft)
+```
+
+Open Claude Code or Codex in the workspace and ask for a change: the agent follows the `cam-task` skill (with `cam-difficulty`, `cam-verify`, `cam-ship` and `cam-retro`). It reads the docs first and summarises them with citations, scores the difficulty (low, medium or high; high proposes splitting the change into draft cards), writes the test before the code, verifies with the repo's build, tests and linters plus `camaron check`, passes the guardrails and asks you one question: "Open the PRs?". If you say yes it opens a draft code PR per repo and a draft docs PR that link each other. The kit never merges, and agents never move board cards. With superpowers installed, its brainstorming, plans and TDD skills are used for those steps. To tune the workflow for your team: `camaron skills list | fork | diff [--kit] | reset`; the team copy lives in `cam-docs/.camarones/skills/<name>/`, wins over the kit's, survives upgrades and each machine approves it once in `camaron trust`; `camaron doctor` warns when the kit's version moved on. What you learn goes in with `camaron skills note … --source retro|review|board` (`camaron skills notes` reads it back). Later versions bring `camaron change`, where the kit itself does the paperwork. Your agent writes the code; Camarón just hands it the notes and reminds it to close up shop. 🦐
+
+### 19. 📋 The Board: the work next to the docs
 
 ```text
    cam-docs/backlog/
@@ -300,7 +315,7 @@ The start gate. Moving a card into “In Progress” checks that its dependencie
 
 Your intern shrimp has pinned the sticky notes up already: all you do is move them.
 
-### 19. 📜 Decisions: the ADRs, with the evidence in front of you
+### 20. 📜 Decisions: the ADRs, with the evidence in front of you
 
 ```text
    Decisions (g a)                        docs/decisions/0007-why-jpa.md
@@ -328,7 +343,7 @@ In the terminal: `camaron adr list|new|show|pack|candidates|write|accept|reject`
 
 Your intern shrimp has already combed the code for the decisions nobody wrote down: you get the last word.
 
-### 20. 🧰 Supporting pieces
+### 21. 🧰 Supporting pieces
 
 ```text
    uv        -> runs Camarones (Python) without installing anything else
@@ -341,7 +356,7 @@ Your intern shrimp has already combed the code for the decisions nobody wrote do
 
 The wizard checks all of this and installs it for you (winget on Windows, Homebrew on Mac) when you choose “Install everything recommended”. Only git and Node.js are required. The quality gate (mermaid-cli and gitleaks) comes with the full install; mermaid-cli downloads a headless Chromium the first time. Without AI, the install writes `docs/index.md` (what the project is, a card per repo and the context map) and, for each repo, `docs/repos/<repo>/index.md`: what it exposes (the endpoints map, with the endpoints table folded), what data it stores (ER diagram), its lifecycles (one state diagram per status enum; transitions are never guessed), its messages and what it needs to run (env vars and commands, folded), all read from its files; with topics, also `docs/architecture/messaging.md`. `camaron pages` (`camaron diagrams` is its alias) brings them up to date, and `camaron blocks` and `sync` keep the blocks current. A project from before 4.52 keeps its pages (`reference.md`, `diagrams.md`, `system-map.md`, `first-look.md`, `data/<repo>.md`) until you run `camaron pages --adopt`: it moves the blocks with their confirmations into the new pages, deletes only the kit pages it emptied, never writes a person's page (`x-owner: human` or `x-confirmed`) and lists what it could not touch (pages, links, translations). They are ordinary Docs pages made of generated blocks: a person can confirm one by copying the block's `sha=` value into `confirmed=` and putting their name in `by=` (one word, or quoted when it has spaces: `by="Ana López"`), e.g. `<!-- generated:states repo=api id=OrderStatus confirmed=3fa1c2d4e5f6 by=ana sha=3fa1c2d4e5f6 -->`; the kit then stops rewriting it, and `check` warns when the code has changed since or no longer has the diagram's source. To take the code's version, remove `confirmed=` and `by=` from the marker, run `camaron diagrams` and confirm it again. The portal tells you for each diagram whether it comes from the code, was edited by hand, a person confirmed it, or the code changed. Team extensions go in `.camarones/plugins/` as plugins (`camaron plugins add` brings one in and pins it in plugins.lock); the ones that run code or steer agents are not loaded until you approve them on your machine, and any change asks again. Also without AI: `camaron history` reads the git history (hotspots, who to ask), `camaron doctor --context` counts what every agent session loads and `camaron repair` puts the kit's files back if someone touches them.
 
-### 21. 🗺 Your day to day
+### 22. 🗺 Your day to day
 
 ```text
    1. camarones              -> opens the project's wizard (cam-docs)
@@ -635,7 +650,22 @@ Si tus repos son privados, Camarones necesita un token para clonarlos y actualiz
 
 Opcional: un pipeline que, tras cada cambio en los repos o en cam-docs, actualiza la documentación afectada y publica el portal de solo lectura. Así, un merge request hecho desde «Editar» del portal desplegado aparece publicado al fusionarse. Se configura en «Equipo › CI». También se puede hacer a mano con «🔄 Actualizar doc tras cambios» y «🌐 Portal › 📦 Exportar el portal». Y en cada pull request de un repo, un job sin IA comenta qué páginas deja desactualizadas el cambio (`camaron pr fresh`).
 
-### 18. 📋 El Tablero: el trabajo junto a la documentación
+### 18. 🧑‍💻 Programar con Camarón: de la petición a las PR
+
+```text
+   "añade X a la API"  -->  cam-task
+     1. lee cam-docs primero (con citas)
+     2. dificultad: baja 0-2 | media 3-5 | alta 6+ (se parte en tarjetas)
+     3. prueba primero, y verifica con el build y los tests del repo + check
+     4. guardarraíles: rutas prohibidas, gitleaks, páginas desactualizadas
+     5. impacto + una pregunta: ¿Abro las PR?
+   cam/<id>-<slug> en cada repo  +  worktree .cw/<id> de cam-docs
+   PR de código (borrador)  <-->  PR de documentación (borrador)
+```
+
+Abre Claude Code o Codex en el espacio de trabajo y pide un cambio: el agente sigue la skill `cam-task` (con `cam-difficulty`, `cam-verify`, `cam-ship` y `cam-retro`). Lee primero la documentación y la resume con citas, puntúa la dificultad (baja, media o alta; la alta propone partir el cambio en tarjetas en borrador), escribe la prueba antes que el código, verifica con el build, los tests y los linters del repo más `camaron check`, pasa los guardarraíles y te hace una sola pregunta: «¿Abro las PR?». Si dices que sí, abre una PR de código en borrador por repo y una PR de documentación en borrador, enlazadas entre sí. El kit nunca fusiona y los agentes no mueven tarjetas del tablero. Con superpowers instalado, sus skills de brainstorming, planes y TDD se usan en esos pasos. Para ajustar el flujo a tu equipo: `camaron skills list | fork | diff [--kit] | reset`; la copia del equipo vive en `cam-docs/.camarones/skills/<nombre>/`, gana a la del kit, sobrevive a las actualizaciones y cada máquina la aprueba una vez en `camaron trust`; `camaron doctor` avisa si la versión del kit se movió. Lo aprendido se apunta con `camaron skills note … --source retro|review|board` (`camaron skills notes` lo lee). Más adelante llegará `camaron change`, donde el propio kit hará de escribano. Tu agente programa; Camarón solo le pasa los apuntes y le recuerda recoger antes de irse. 🦐
+
+### 19. 📋 El Tablero: el trabajo junto a la documentación
 
 ```text
    cam-docs/backlog/
@@ -659,7 +689,7 @@ La puerta de salida. Mover una tarjeta a «In Progress» comprueba que sus depen
 
 Tu gambita de prácticas ya ha colgado los post-its en su sitio: tú solo los mueves.
 
-### 19. 📜 Decisiones: los ADR, con la evidencia delante
+### 20. 📜 Decisiones: los ADR, con la evidencia delante
 
 ```text
    Decisiones (g a)                       docs/decisions/0007-why-jpa.md
@@ -687,7 +717,7 @@ En la terminal: `camaron adr list|new|show|pack|candidates|write|accept|reject`,
 
 Tu gambita de prácticas ya ha rebuscado en el código las decisiones que nadie escribió: tú pones la última palabra.
 
-### 20. 🧰 Piezas de apoyo
+### 21. 🧰 Piezas de apoyo
 
 ```text
    uv        -> ejecuta Camarones (Python) sin instalar nada mas
@@ -700,7 +730,7 @@ Tu gambita de prácticas ya ha rebuscado en el código las decisiones que nadie 
 
 El asistente comprueba todo esto y lo instala por ti (winget en Windows, Homebrew en Mac) si eliges «Instalar todo lo recomendado». Solo git y Node.js son obligatorios. El control de calidad (mermaid-cli y gitleaks) viene con la instalación completa; mermaid-cli descarga un Chromium sin ventana la primera vez. Sin IA, la instalación escribe `docs/index.md` (qué es el proyecto, una tarjeta por repo y el mapa de contexto) y, por cada repo, `docs/repos/<repo>/index.md`: qué expone (el mapa de endpoints, con la tabla de endpoints plegada), qué datos guarda (diagrama ER), sus ciclos de vida (un diagrama de estados por enum de estado; las transiciones no se adivinan), sus mensajes y qué necesita para arrancar (variables de entorno y comandos, plegados), todo leído de sus ficheros; con topics, también `docs/architecture/messaging.md`. `camaron pages` (`camaron diagrams` es su alias) los pone al día, y `camaron blocks` y `sync` mantienen los bloques. Un proyecto anterior a la 4.52 conserva sus páginas (`reference.md`, `diagrams.md`, `system-map.md`, `first-look.md`, `data/<repo>.md`) hasta que ejecutes `camaron pages --adopt`: mueve los bloques con sus confirmaciones a las páginas nuevas, borra solo las páginas del kit que deja vacías, no escribe nunca una página de una persona (`x-owner: human` o `x-confirmed`) y te lista lo que no pudo tocar (páginas, enlaces, traducciones). Son páginas normales de Docs hechas de bloques generados: una persona puede confirmar uno copiando el `sha=` del bloque en `confirmed=` y poniendo su nombre en `by=` (una palabra, o entre comillas si lleva espacios: `by="Ana López"`), p. ej. `<!-- generated:states repo=api id=OrderStatus confirmed=3fa1c2d4e5f6 by=ana sha=3fa1c2d4e5f6 -->`; entonces el kit ya no lo reescribe, y `check` avisa si el código cambió desde entonces o si ya no tiene la fuente del diagrama. Para quedarte con la versión del código, quita `confirmed=` y `by=` del marcador, ejecuta `camaron diagrams` y vuelve a confirmarlo. El portal dice de cada diagrama si viene del código, si se editó a mano, si lo confirmó alguien o si el código cambió. Las extensiones del equipo van como plugins en `.camarones/plugins/` (`camaron plugins add` las trae y las fija en plugins.lock); las que ejecutan código o guían a los agentes no se cargan hasta que las apruebas en tu máquina, y cualquier cambio vuelve a preguntar. También sin IA: `camaron history` lee el historial de git (ficheros más tocados, a quién preguntar), `camaron doctor --context` cuenta lo que carga cada sesión de un agente y `camaron repair` devuelve a su sitio los ficheros del kit si alguien los toca.
 
-### 21. 🗺 Tu día a día
+### 22. 🗺 Tu día a día
 
 ```text
    1. camarones              -> abre el asistente del proyecto (cam-docs)
