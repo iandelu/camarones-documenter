@@ -96,8 +96,10 @@
                             OpenCode) without installing anything
   run [--parallel N] [--per-runner claude=2,codex=1] [--max-units N] [--lang es|en] [--include-interviews]
       [--policy on-conflict|never] [--poll-seconds N] [--only UNIT…]
-                            run ready units in parallel: discovery, repo briefs and flows each in their own copy of
-                            cam-docs (merged back when done), other units one at a time. autopilot stays sequential
+                            run ready units in parallel, up to N at once (one agent may take all N unless
+                            --per-runner caps it): discovery, repo briefs, domain, decisions, the flows catalog and
+                            flows each in their own copy of cam-docs (merged back when done), other units one at a
+                            time. autopilot stays sequential
   runs [RUN] [--json]       what past runs did: units, outcome, merges, time, tokens and cost
   eval [list|run|draft|confirm ID…] [--runner T] [--judge T] [--all] [--json] [--by NAME]
                             golden questions (evals/questions.yaml): run asks the confirmed ones to an agent that may

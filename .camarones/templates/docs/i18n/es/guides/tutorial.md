@@ -542,14 +542,18 @@ diagrams` (o `blocks`) y vuelve a confirmarlo. El portal etiqueta cada diagrama 
 adecuado, escribir Mermaid que se dibuje y no editar nunca un bloque generado.
 
 **En paralelo.** `camaron run --parallel 3 --per-runner claude=2,codex=1` hace varias unidades a la vez. Los
-descubrimientos, las fichas de repo y los flujos trabajan cada uno en su propia copia de `cam-docs/` (un worktree de git
+descubrimientos, las fichas de repo, el dominio, las decisiones, el catálogo de flujos y los flujos trabajan cada uno en
+su propia copia de `cam-docs/` (un worktree de git
 en `.cw/<n>/`) y se integran al terminar, si `check` y `arch-validate` no muestran errores nuevos. Las demás unidades
 van de una en una, y una unidad espera a que se integre lo que necesita. Si hay un choque, la unidad se bloquea,
 `cam-docs/` no se toca y se añade una unidad `integrate:<unidad>`. `camaron runs` muestra qué hizo y cuánto costó cada
 ejecución; `camaron pipeline show` lista las unidades y dónde trabaja cada una. `autopilot` sigue siendo secuencial.
 Las ejecuciones mantienen el ordenador despierto (un portátil que se duerme corta la sesión del agente); una sesión
-cortada por algo pasajero (suspensión, red, API saturada) se reintenta una vez. Por defecto, una sesión por agente: con
-un solo agente instalado, `--per-runner claude=2` le deja hacer más. `run` y el piloto automático dejan en paz una
+cortada por algo pasajero (suspensión, red, API saturada) se reintenta una vez. `--parallel` es cuántas sesiones van a
+la vez, aunque solo tengas un agente; `--per-runner` le pone a un agente un tope por debajo (cada sesión gasta su cuota).
+Antes de empezar, la ejecución hace un commit local de `cam-docs/`, para que cada copia parta de la documentación tal
+como está. Si el servidor frena las peticiones (Claude dice que no es tu límite de uso, como puede hacer un proxy con
+varias sesiones a la vez), ese agente descansa un minuto, el doble si se repite, en vez de la espera del límite de uso. `run` y el piloto automático dejan en paz una
 unidad cuya sesión tiene abierta la app (en su lienzo o en una ventana). Si solo quedan de esas, `run` se para y las nombra, para
 que las acabes allí, y el piloto te espera hasta que acabes una, la devuelvas o la cierres.
 

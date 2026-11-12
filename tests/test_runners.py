@@ -143,6 +143,28 @@ def test_classify_tells_limits_from_failures(runners, agent):
     assert r.classify(1, "usage limit mentioned early\n" + "x" * 3000) == "failed"     # only the end of the output counts
 
 
+# What Claude Code printed on 2026-11-11 when two sandbox sessions went through a LiteLLM proxy at once.
+THROTTLED = ('API Error: Server is temporarily limiting requests (not your usage limit) · litellm.RateLimitError: '
+             'AnthropicException - {"type":"error","error":{"type":"rate_limit_error","message":"slow down"}}')
+
+
+def test_a_server_holding_requests_back_is_a_short_limit_not_the_quota(runners):
+    from lib.adapters.runners.base import throttled
+    assert runners.get("claude").classify(1, THROTTLED) == "limited"
+    assert runners.get("claude").classify(1, "Server is temporarily limiting requests") == "limited"
+    assert throttled(THROTTLED)
+    assert not throttled("Claude usage limit reached, resets at 5pm") and not throttled("Error: rate limit")
+    assert not throttled("temporarily limiting requests mentioned early\n" + "x" * 3000)
+
+
+@pytest.mark.parametrize("tail", ["You've hit your 5-hour limit · resets 3:30pm (Europe/Madrid)",
+                                  "You've hit your weekly limit · resets Nov 14"])
+def test_claudes_own_wording_of_a_spent_quota_is_a_usage_limit(runners, tail):
+    """What `claude -p` answered on 2026-11-11 once the sandbox run had spent the window: it read as a failure."""
+    from lib.adapters.runners.base import throttled
+    assert runners.get("claude").classify(1, tail) == "limited" and not throttled(tail)
+
+
 def test_autopilot_keeps_its_limit_hints(kit):
     from lib.adapters.runners.base import LIMIT_HINTS
     assert kit.plan.LIMIT_HINTS == LIMIT_HINTS

@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from 'vitest'
 import { setLang, t } from './i18n.js'
-import { board, canvasNote, COLUMNS, groups, openedWith, openSession, phases, said, sessionLine, sessionNote, takeNote, takeOver, tone, unitAction, unitRoute, waitsFor } from './plan.js'
+import { board, canvasNote, COLUMNS, groups, openedWith, openSession, phases, said, sessionLine, sessionNote, slots, takeNote, takeOver, tone, unitAction, unitRoute, waitsFor } from './plan.js'
 
 afterEach(() => setLang('es'))
 
@@ -204,4 +204,18 @@ test('a session that found no conversation to continue says so; on the canvas it
   expect(sessionNote({ where: 'canvas', fresh: true, terminal: { id: 't' } }, 'Codex').key).toBe('next.fresh')
   expect(canvasNote({ where: 'window', fresh: true }, 'Codex').key).toBe('next.fresh')
   expect(canvasNote({ where: 'canvas', fresh: true, terminal: { id: 't' } }, 'Codex')).toBeNull()
+})
+
+// A parallel run in progress says how many units run of the ones asked for, which, and why the rest waits.
+test('a live parallel run says what runs at once and why the rest waits', () => {
+  const units = [u('domain', 'doing', { title: 'Dominio' }), u('data', 'todo', { title: 'Datos' }), u('x', 'todo')]
+  const run = { finished: false, parallel: 3, running: ['domain'], waiting: { data: 'shared', x: 'runner' } }
+  expect(slots(run, units)).toEqual({ at: 1, of: 3, running: ['Dominio'],
+    why: [{ key: 'run.why.shared', units: ['Datos'] }, { key: 'run.why.runner', units: ['x'] }] })
+  expect(slots({ ...run, waiting: {} }, units).why).toEqual([{ key: 'run.why.none', units: [] }])
+  expect(slots({ ...run, waiting: { data: 'throttle' } }, units).why).toEqual([{ key: 'run.why.throttle', units: ['Datos'] }])
+  expect(slots({ ...run, running: ['domain', 'data', 'x'], waiting: {} }, units).why).toEqual([])
+  expect(slots({ ...run, finished: true }, units)).toBeNull()
+  expect(slots({ finished: false, running: [] }, units)).toBeNull()          // the autopilot: one at a time, no slots
+  expect(slots(null, units)).toBeNull()
 })

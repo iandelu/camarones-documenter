@@ -215,10 +215,14 @@ Run the documentation plan and see every unit (`#/plan`, <kbd>g</kbd> <kbd>p</kb
 A project with no plan offers **Create the plan** (`camaron plan sync`). Otherwise, from the top:
 
 **Run the plan.** **Run the ready ones** starts a documentation run: several units at once (**At once**, 1–4,
-default 2), each discovery, repo brief and flow in its own copy of `cam-docs`, merged back when it ends. **Options**
-holds sessions per agent (`claude=2,codex=1`), a maximum number of units and whether to include the interviews.
+default 2), each discovery, repo brief, domain, decisions, flows catalog and flow in its own copy of `cam-docs`, merged
+back when it ends. **Options** holds a cap of sessions per agent (`claude=2,codex=1`; without it one agent takes all of
+**At once**), a maximum number of units and whether to include the interviews.
 **Autopilot** does one unit after another instead, unattended. Both are off while no unit is ready. While a run is on,
-the card shows its progress and **Cancel the run** (agents stop, their units go back to the queue, their work is kept);
+the card shows its progress, how many units run at once and why the ready ones left out wait (they use the main copy of
+`cam-docs` one at a time, the agent has no free session, the server is holding requests back for a minute or the agent
+hit its usage limit, or nothing else is ready yet), and
+**Cancel the run** (agents stop, their units go back to the queue, their work is kept);
 while the autopilot is on, **Stop the autopilot**. Only one run exists at a time, from the app or the terminal. Neither
 starts a unit whose session you have open (on the canvas or in a window). When only such units are left, **Run the ready
 ones** stops and names them, for you to finish there, and the autopilot waits for you (*Taking a unit from the autopilot*,

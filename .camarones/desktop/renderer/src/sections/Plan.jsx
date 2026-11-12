@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { Aviso, Button, Card, Chip, EmptyState, PlanCost, Skeleton, uiText } from '@camaron/ui'
-import { board, canvasNote, openSession, phases, sessionLine, sessionNote, takeNote, takeOver, tone, waitsFor } from '../plan.js'
+import { board, canvasNote, openSession, phases, sessionLine, sessionNote, slots, takeNote, takeOver, tone, waitsFor } from '../plan.js'
 import { arrivedLive, defaultView, planLive, runLive } from '../canvas.js'
 import { useAgents, useCmd, useHash, useStore } from '../hooks.js'
 import { termOf } from '../nav.js'
@@ -71,7 +71,7 @@ export default function Plan({ srv, jobs }) {
   const card = (u) => <UnitCard key={u.id} u={u} on={u.id === open} onOpen={() => setOpen(u.id === open ? null : u.id)} />
   return (
     <Page title={t('nav.plan')} wide>
-      <Run srv={srv} jobs={jobs} run={data.run} pilot={pilot} onChanged={load} ready={ready} />
+      <Run srv={srv} jobs={jobs} run={data.run} units={data.units} pilot={pilot} onChanged={load} ready={ready} />
       <Update srv={srv} a={a} />
       <div className="row dk-units-head" data-tour="plan-units">
         <b>{t('plan.progress', { done, total: live.length })}</b>
@@ -175,7 +175,7 @@ function Session({ u, a }) {
 
 // Run the plan: the ready units in parallel (POST runs), or the autopilot (a catalog command, a job of the server);
 // while either runs, the way to stop it. The options fold away.
-function Run({ srv, jobs, run, pilot, onChanged, ready }) {
+function Run({ srv, jobs, run, units, pilot, onChanged, ready }) {
   const [opts, setOpts] = useState({ parallel: 2, per_runner: '', max_units: '', include_interviews: false })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -194,10 +194,11 @@ function Run({ srv, jobs, run, pilot, onChanged, ready }) {
       {pilot ? (
         <div className="row"><span role="status">{t('plan.pilotOn')}</span>
           <Button size="sm" variant="danger" disabled={busy} onClick={() => act(() => srv.post(`app/jobs/${pilot.id}/cancel`, {}))}>{t('plan.pilotStop')}</Button></div>
-      ) : live ? (
+      ) : live ? (<>
         <div className="row"><span role="status">{t('plan.running', { done: run.done, units: run.units })}</span>
           <Button size="sm" variant="danger" disabled={busy} onClick={() => act(() => srv.post(`runs/${encodeURIComponent(run.run)}/cancel`, {}))}>{t('plan.cancel')}</Button></div>
-      ) : (<>
+        {slots(run, units) ? <Slots s={slots(run, units)} /> : null}
+      </>) : (<>
         <div className="row">
           <label className="dk-inline">{t('plan.atOnce')}
             <select className="cu-input dk-select dk-narrow" value={opts.parallel} disabled={busy} onChange={set('parallel')}>
@@ -224,6 +225,16 @@ function Run({ srv, jobs, run, pilot, onChanged, ready }) {
       {error ? <Aviso tone="error" title={t('unit.failed')} detail={error} /> : null}
       {pilotCmd.error || pilotCmd.job?.status === 'failed' ? <JobOutput c={pilotCmd} /> : null}
     </Card>
+  )
+}
+
+// While a parallel run works: how many units run at once of the ones asked for, which, and why the ready rest waits.
+export function Slots({ s }) {
+  return (
+    <div className="dk-slots small">
+      <span>{t('run.slots', { at: s.at, of: s.of })}{s.running.length ? ` · ${s.running.join(', ')}` : ''}</span>
+      {s.why.map((w) => <span key={w.key} className="muted">{t(w.key, { units: w.units.join(', ') })}</span>)}
+    </div>
   )
 }
 

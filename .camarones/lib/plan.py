@@ -987,6 +987,7 @@ def _autopilot(agents: list[str], lang: str, max_units: int | None, poll_seconds
     # team interviews only consolidate written answers: nothing to ask, so they can run unattended
     skip = set() if include_interviews or docs.interview_mode() == "team" else INTERVIEW_TYPES
     limited: dict[str, dt.datetime] = {}
+    throttles: dict[str, int] = {}           # agent → server rate limits in a row: a short rest, not the quota's pause
     noted: set[str] = set()
     held: set[str] = set()                     # with the person at some point of this run: closed unfinished, they are paused
     stopped: set[str] = set()                  # stopped by the person: left out for the rest of this run
@@ -1073,8 +1074,9 @@ def _autopilot(agents: list[str], lang: str, max_units: int | None, poll_seconds
         free = [a for a in targets if limited.get(a, dt.datetime.min) <= dt.datetime.now()]
         if not free:
             soonest = min(limited[a] for a in targets)
-            wait = max(60, min(poll_seconds, int((soonest - dt.datetime.now()).total_seconds())))
-            log(f"All agents are at their usage limit — retrying in {wait // 60} min "
+            wait = max(1, min(poll_seconds, math.ceil((soonest - dt.datetime.now()).total_seconds())))
+            why = "are held back by the server (limiting requests)" if set(targets) <= set(throttles) else "are at their usage limit"
+            log(f"All agents {why} — retrying in {f'{wait} s' if wait < 120 else f'{wait // 60} min'} "
                 f"(machine must stay on; Ctrl+C to stop, progress is saved).")
             _limit_wait(wait, run_id)
             continue
@@ -1115,6 +1117,7 @@ def _autopilot(agents: list[str], lang: str, max_units: int | None, poll_seconds
         _emit("unit.finished", unit=u["id"], runner=agent, outcome=outcome, rc=r.returncode, status=status, seconds=seconds)
         if outcome != "limited":
             adopted.pop(u["id"], None)
+            throttles.pop(agent, None)
         if outcome == "ok":
             log(f"{agent} finished {u['id']} (status: {status})")
             if status in ("todo", "doing"):
@@ -1124,9 +1127,18 @@ def _autopilot(agents: list[str], lang: str, max_units: int | None, poll_seconds
             done += 1
             continue
         if outcome == "limited":
-            limited[agent] = dt.datetime.now() + dt.timedelta(seconds=poll_seconds)
+            from .adapters.runners.base import throttled
+            from .harness.scheduler import THROTTLE
+            if throttled(output):
+                throttles[agent] = throttles.get(agent, 0) + 1
+                pause = min(poll_seconds, THROTTLE * 2 ** (throttles[agent] - 1))
+            else:
+                throttles.pop(agent, None)
+                pause = poll_seconds
+            limited[agent] = dt.datetime.now() + dt.timedelta(seconds=pause)
             others = [a for a in targets if limited.get(a, dt.datetime.min) <= dt.datetime.now()]
-            log(f"{agent} hit its usage limit" + (f" — switching to {others[0]}" if others else ""))
+            log((f"The server is limiting {agent}'s requests for a moment" if agent in throttles else f"{agent} hit its usage limit")
+                + (f" — switching to {others[0]}" if others else ""))
             continue
         log(f"Autopilot stopped: {agent} failed on {u['id']} (exit {r.returncode}). Last output:\n"
             + output.strip()[-1500:])

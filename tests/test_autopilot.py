@@ -67,6 +67,21 @@ def test_waits_when_every_agent_is_limited(pilot):
     assert any("All agents are at their usage limit" in l for l in pilot["echo"])
 
 
+def test_a_server_holding_requests_back_is_waited_out_in_a_minute(kit, pilot, monkeypatch):
+    from test_runners import THROTTLED
+    waits = []
+
+    def wait(seconds, _run):
+        waits.append(seconds)
+        raise Stop
+    monkeypatch.setattr(kit.plan, "_limit_wait", wait)
+    pilot["script"] = [(None, 1, THROTTLED), (None, 1, THROTTLED)]
+    with pytest.raises(Stop):
+        pilot["run"]()
+    assert waits and waits[0] <= 60                                       # not the usage limit's poll_seconds
+    assert any("limiting requests" in l for l in pilot["echo"])
+
+
 def test_any_other_failure_stops(pilot):
     pilot["script"] = [(None, 2, "segfault")]
     assert pilot["run"]() == 0

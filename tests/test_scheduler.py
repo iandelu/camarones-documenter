@@ -21,6 +21,11 @@ mark("start")
 if mode == "limit":
     print("Error: usage limit reached, resets at 5pm")
     sys.exit(1)
+held = os.environ["FAKE_LOG"] + "." + uid.replace(":", "-") + ".held"
+if mode == "throttle" and not os.path.exists(held):
+    open(held, "w").close()
+    print("API Error: Server is temporarily limiting requests (not your usage limit) · litellm.RateLimitError")
+    sys.exit(1)
 flaky = os.environ["FAKE_LOG"] + "." + uid.replace(":", "-") + ".flaked"
 if mode == "flaky" and not os.path.exists(flaky):
     open(flaky, "w").close()
@@ -62,7 +67,8 @@ def fake(wired, tmp_path, monkeypatch):
         monkeypatch.setenv("FAKE_TOGETHER", str(together))
         save_json(PREFS, {"runners": {"fake": {"argv": [sys.executable, str(script), "ok"]},
                                       "lim": {"argv": [sys.executable, str(script), "limit"]},
-                                      "flaky": {"argv": [sys.executable, str(script), "flaky"]}},
+                                      "flaky": {"argv": [sys.executable, str(script), "flaky"]},
+                                      "held": {"argv": [sys.executable, str(script), "throttle"]}},
                           "routing": {"agentic-heavy": routing}})
     wired.plan.sync()
 
@@ -167,11 +173,61 @@ def test_a_runner_with_no_slots_stops_instead_of_spinning(wired, fake):
     assert done == 0 and any("no agent slot" in l for l in out)
 
 
-def test_a_lone_runner_capped_at_one_session_is_explained(wired, fake):
-    fake["configure"](["fake"], sleep="0.1")
+def test_a_lone_runner_takes_as_many_sessions_as_the_run_allows(wired, fake):
+    """`parallel` is what the person asked for: a runner with no cap of its own fills every slot."""
+    fake["configure"](["fake"], sleep="0", together=3)
     wired.plan.set_status("setup", "done")
-    _, out = run(wired, max_parallel=3, max_units=1)
-    assert any("fake: 1 session at a time" in l and "--per-runner fake=3" in l for l in out)
+    done, _ = run(wired, max_parallel=3, max_units=3)
+    assert done == 3
+    s = spans(fake["entries"]())
+    disc = [f"discovery:{r}" for r in ("api", "web", "worker")]
+    assert max(s[u]["start"] for u in disc) < min(s[u]["end"] for u in disc)
+
+
+def test_per_runner_caps_a_runner_below_the_run_and_says_so(wired, fake):
+    fake["configure"](["fake"], sleep="0.3")
+    wired.plan.set_status("setup", "done")
+    run(wired, max_parallel=3, per_runner={"fake": 1}, max_units=2)
+    s = spans(fake["entries"]())
+    a, b = (s[u] for u in sorted(s))
+    assert a["end"] <= b["start"] or b["end"] <= a["start"]
+    from lib.harness.events import EventLog
+    log = sorted(wired.common.CTX.runs.glob("*/events.jsonl"))[-1]
+    slots = [e for e in EventLog(log).read()[0] if e["type"] == "run.slots"]
+    assert any(len(e["running"]) == 1 and "runner" in e["waiting"].values() for e in slots)
+
+
+def test_domain_decisions_and_the_flows_catalog_get_their_own_worktree(wired):
+    for uid in ("domain", "decisions-quality", "flows-catalog"):
+        assert wired.plan.settings(uid)["isolation"] == "worktree", uid
+    assert wired.plan.settings("data")["isolation"] == "none"            # it tags model.c4, a shared file: alone
+
+
+def test_domain_and_decisions_overlap_with_an_in_place_unit(wired, fake):
+    fake["configure"](["fake"], sleep="0", together=3)
+    for uid in ("setup", "discovery:api", "discovery:web", "discovery:worker", "discovery-cross"):
+        wired.plan.set_status(uid, "done")
+    trio = {"domain", "data", "decisions-quality"}
+    done, _ = run(wired, max_parallel=3, only=trio)
+    assert done == 3
+    s = spans(fake["entries"]())
+    assert max(s[u]["start"] for u in trio) < min(s[u]["end"] for u in trio)
+
+
+def test_a_live_run_says_what_runs_at_once_and_why_the_rest_waits(wired):
+    from lib.harness import runs
+    from lib.harness.events import EventLog
+    log = EventLog(wired.common.CTX.runs / "r-1" / "events.jsonl")
+    log.emit("run.started", run="r-1", parallel=3, per_runner={}, max_units=None)
+    for uid in ("a", "b"):
+        log.emit("unit.started", run="r-1", unit=uid, runner="claude", isolation="worktree")
+    log.emit("unit.finished", run="r-1", unit="a", runner="claude", outcome="ok", status="done", seconds=1.0)
+    log.emit("run.slots", run="r-1", running=["b"], waiting={"c": "shared", "d": "runner"})
+    assert runs.slots("r-1") == {"parallel": 3, "running": ["b"], "waiting": {"c": "shared", "d": "runner"}}
+    run = wired.serve.api_pipeline("es")["run"]                 # nobody holds the run lock: the run died, nothing runs
+    assert (run["parallel"], run["finished"], run["running"], run["waiting"]) == (3, True, [], {})
+    log.emit("run.finished", run="r-1", done=1)
+    assert runs.slots("r-1") == {"parallel": 3, "running": [], "waiting": {}}
 
 
 def test_a_unit_closed_in_its_worktree_copy_by_an_older_kit_still_counts(wired, fake, monkeypatch):
@@ -183,6 +239,33 @@ def test_a_unit_closed_in_its_worktree_copy_by_an_older_kit_still_counts(wired, 
     assert done == 1 and status(wired, "discovery:api") == "done"
     assert (wired.root / "docs" / "notes" / "discovery-api.md").exists()                # merged into main
     assert any("older kit" in l for l in out)
+
+
+def test_docs_never_committed_get_a_first_checkpoint_before_any_worktree(wired, fake):
+    """`camaron setup` from a terminal commits nothing (the wizard and the app commit "first setup"), and a unit's
+    worktree branches from a commit: on 2026-11-11 a sandbox run stopped at `git worktree add … HEAD`."""
+    import subprocess
+    subprocess.run(["git", "symbolic-ref", "HEAD", "refs/heads/fresh"], cwd=wired.root, check=True)   # no commit yet
+    fake["configure"](["fake"], sleep="0.1")
+    wired.plan.set_status("setup", "done")
+    done, out = run(wired, max_parallel=2, max_units=1)
+    assert done == 1 and status(wired, "discovery:api") == "done", out
+
+
+def test_a_server_holding_requests_back_pauses_the_runner_briefly(wired, fake, monkeypatch):
+    """Not the usage limit's poll_seconds (15 min by default): parallel sessions through a proxy meet this often."""
+    from lib.harness import scheduler
+    monkeypatch.setattr(scheduler, "THROTTLE", 0.3)
+    fake["configure"](["held"], sleep="0.1")
+    wired.plan.set_status("setup", "done")
+    done, out = run(wired, max_parallel=1, only={"discovery:api"})
+    assert done == 1 and status(wired, "discovery:api") == "done", out
+    assert [e["unit"] for e in fake["entries"]() if e["kind"] == "start"] == ["discovery:api"] * 2
+    assert any("the server is limiting" in l for l in out)
+    assert not any("hit its usage limit" in l or "at its usage limit" in l for l in out)
+    from lib.harness.events import EventLog
+    log = sorted(wired.common.CTX.runs.glob("*/events.jsonl"))[-1]
+    assert any("throttle" in e["waiting"].values() for e in EventLog(log).read()[0] if e["type"] == "run.slots")
 
 
 def test_a_transient_failure_is_retried_once(wired, fake):

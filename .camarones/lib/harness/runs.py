@@ -61,6 +61,23 @@ def last_session(uid: str, run_id: str | None = None) -> dict | None:
     return found
 
 
+def slots(run_id: str) -> dict:
+    """While a run works: the `parallel` it was asked for, the units its agents are on (in the order they started) and
+    the ready units it left out with why (the scheduler's last run.slots: shared, runner, limit). Empty once it ended."""
+    evs = events(run_id)
+    start = next((e for e in evs if e["type"] == "run.started"), {})
+    if any(e["type"] == "run.finished" for e in evs):
+        return {"parallel": start.get("parallel"), "running": [], "waiting": {}}
+    last: dict[str, str] = {}
+    for e in evs:
+        if e["type"] in ("unit.started", "unit.finished") and e.get("unit"):
+            last.pop(e["unit"], None)
+            last[e["unit"]] = e["type"]
+    told = next((e for e in reversed(evs) if e["type"] == "run.slots"), {})
+    return {"parallel": start.get("parallel"), "running": [u for u, kind in last.items() if kind == "unit.started"],
+            "waiting": told.get("waiting") or {}}
+
+
 def summary(run_id: str) -> dict:
     evs = events(run_id)
     end = next((e for e in reversed(evs) if e["type"] == "run.finished"), None)

@@ -404,9 +404,9 @@ def api_pipeline(lang: str = "") -> dict:
                       "approval": bool(n.get("approval")), "awaiting": plan.awaiting(u), "ready": u["id"] in ready,
                       "terminal": term.get(u["id"]), **sessions.board(u, busy)})
     latest = runs.ids(wiki=False)
-    run = runs.summary(latest[0]) if latest else None
+    run = {**runs.summary(latest[0]), **runs.slots(latest[0])} if latest else None
     if run and not run["finished"] and run_stopped(run["run"], locked):
-        run.update(finished=True, interrupted=True)
+        run.update(finished=True, interrupted=True, running=[], waiting={})
     return {"units": units, "run": run, "interviews": docs.interview_mode() if docs.interview_mode_chosen() else None}
 
 

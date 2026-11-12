@@ -50,6 +50,22 @@ export const waitsFor = (unit, units) => {
   return (unit.deps || []).filter((d) => !['done', 'dropped'].includes(status[d]))
 }
 
+// A live parallel run (lib/harness/runs.py summary): how many units run of the `parallel` asked for, by title, and why
+// the ready ones left out wait (the scheduler's run.slots: shared, runner, throttle, limit); none left out but slots free means
+// nothing else is ready yet. null for the autopilot or a finished run.
+const WHY = ['shared', 'runner', 'throttle', 'limit']
+export function slots(run, units) {
+  if (!run || run.finished || !run.parallel) return null
+  const title = Object.fromEntries((units || []).map((u) => [u.id, u.title || u.id]))
+  const named = (ids) => ids.map((id) => title[id] || id)
+  const running = run.running || []
+  const waiting = Object.entries(run.waiting || {})
+  const why = WHY.map((r) => ({ key: `run.why.${r}`, units: named(waiting.filter(([, w]) => w === r).map(([id]) => id)) }))
+    .filter((w) => w.units.length)
+  return { at: running.length, of: run.parallel, running: named(running),
+    why: why.length || running.length >= run.parallel ? why : [{ key: 'run.why.none', units: [] }] }
+}
+
 // plan: what the pipeline says of the whole plan ({interviews}: the mode, null while nobody chose it: the agent
 // refuses an interview unit until then, so the row asks for it).
 export function unitAction(u, plan = {}) {

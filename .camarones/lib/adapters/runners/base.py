@@ -9,10 +9,19 @@ from ...harness.ports import Outcome
 # best guess at the CLIs' wording, matched only against the end of the output (where the CLI prints its
 # error) so a unit documenting a rate-limited API isn't misread; anything else stops the loop instead
 LIMIT_HINTS = ("usage limit", "rate limit", "rate_limit", "limit reached", "try again later",
-               "too many requests", "resets at", "limit will reset", "quota exceeded")
+               "too many requests", "resets at", "limit will reset", "quota exceeded", "-hour limit", "weekly limit")
+# the server (or a proxy before it) turns requests away for a moment, which Claude Code says is not the usage limit:
+# a short wait, not the quota's pause; more likely the more sessions run at once
+THROTTLE_HINTS = ("not your usage limit", "temporarily limiting requests")
 # the session broke for a reason that may not happen again (sleep, network, an overloaded API): worth one more try
 TRANSIENT_HINTS = ("went to sleep", "socket hang up", "econnreset", "connection reset", "connection error",
                    "network error", "overloaded", "fetch failed", "503 service", "502 bad gateway")
+
+
+def throttled(tail: str) -> bool:
+    """A limited session that hit a rate limit passing in a minute or two, not the end of the quota."""
+    end = tail[-2000:].lower()
+    return any(h in end for h in THROTTLE_HINTS)
 
 
 class CliRunner:
@@ -44,6 +53,6 @@ class CliRunner:
         if rc == 0:
             return "ok"
         end = tail[-2000:].lower()
-        if any(h in end for h in LIMIT_HINTS):
+        if any(h in end for h in LIMIT_HINTS + THROTTLE_HINTS):
             return "limited"
         return "retry" if any(h in end for h in TRANSIENT_HINTS) else "failed"

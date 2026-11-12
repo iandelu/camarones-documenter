@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, expect, test } from 'vitest'
-import { CostView, Reset } from './sections/Plan.jsx'
+import { CostView, Reset, Slots } from './sections/Plan.jsx'
 import { setLang } from './i18n.js'
 
 const srv = { get: () => new Promise(() => {}), post: () => new Promise(() => {}) }
@@ -59,4 +59,14 @@ test('the plan cost card sits under the board', () => {
 
 test('nothing is drawn while the plan cost loads', () => {
   expect(renderToStaticMarkup(<CostView />)).toBe('')
+})
+
+test('a live run shows how many units run at once, which, and why the rest waits', () => {
+  const s = { at: 1, of: 3, running: ['Dominio'], why: [{ key: 'run.why.shared', units: ['Datos'] }] }
+  const out = renderToStaticMarkup(<Slots s={s} />)
+  expect(out).toContain('A la vez: 1 de 3')
+  expect(out).toContain('Dominio')
+  expect(out).toMatch(/cam-docs[^<]*Datos/)
+  setLang('en')
+  expect(renderToStaticMarkup(<Slots s={s} />)).toContain('At once: 1 of 3')
 })
