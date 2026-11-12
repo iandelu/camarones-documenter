@@ -24,7 +24,7 @@ class Wizard(Command):
 
 
 def cmd_catalog(a, parser: argparse.ArgumentParser) -> int:
-    from lib import catalog
+    from lib.interfaces.cli import catalog
     data = catalog.describe(parser)
     if a.json:
         print(json.dumps(data, indent=2, ensure_ascii=False))

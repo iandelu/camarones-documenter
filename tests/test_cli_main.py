@@ -42,13 +42,13 @@ def test_git_runs_the_board_merge_driver_outside_a_project():
 
 @pytest.mark.parametrize("name", ORDER)
 def test_which_commands_record_usage(name, kit):
-    from lib.interfaces.cli import main
-    assert main.command_for(name).records_usage(argparse.Namespace(cmd=name, action=None)) is (name not in NO_USAGE)
+    from lib.interfaces.cli import registry
+    assert registry.find(registry.load(), name).records_usage(argparse.Namespace(cmd=name, action=None)) is (name not in NO_USAGE)
 
 
 def test_the_board_merge_driver_records_no_usage(kit):
-    from lib.interfaces.cli import main
-    assert main.command_for("board").records_usage(argparse.Namespace(cmd="board", action="merge-driver")) is False
+    from lib.interfaces.cli import registry
+    assert registry.find(registry.load(), "board").records_usage(argparse.Namespace(cmd="board", action="merge-driver")) is False
 
 
 def test_no_argument_opens_the_wizard_and_logs_nothing(kit, monkeypatch):

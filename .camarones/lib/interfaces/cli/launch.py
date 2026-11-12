@@ -8,9 +8,6 @@ from pathlib import Path
 from lib import projects                            # no dependency on ROOT/common state
 from lib.interfaces.cli import registry
 
-LEGACY_NO_PROJECT: frozenset[str] = frozenset()
-
-
 def _relaunch(root: Path, argv: list[str], entry: str) -> None:
     """Restart this script with CAMARONES_ROOT set, so every module that captured ROOT at import
     time (docs, env, wizard, …) sees the right project from the start. Mirrors lib/upgrade.py's
@@ -56,9 +53,7 @@ def needs_project(rest: list[str]) -> bool:
     if not rest:
         return True
     cmd = registry.find(registry.load(), rest[0])
-    if cmd is not None:
-        return cmd.needs_project(rest[1:])
-    return rest[0] not in LEGACY_NO_PROJECT
+    return True if cmd is None else cmd.needs_project(rest[1:])
 
 
 def prelaunch(argv: list[str], entry: str) -> None:

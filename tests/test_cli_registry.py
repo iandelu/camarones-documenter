@@ -11,17 +11,6 @@ import pytest
 
 from conftest import KIT_DIR
 
-MOVED: set[str] = {
-    "help", "wizard", "catalog", "app", "new", "switch", "init", "join", "projects",
-    "setup", "install", "upgrade", "self-update", "unlink", "profile", "sync", "detect", "arch", "down", "version",
-    "repair", "mcp", "up", "migrate", "uninstall", "config",
-    "changes", "llms", "graph", "history", "blocks", "pages", "diagrams", "fresh", "mark-documented", "arch-draft",
-    "radar", "inventory", "bump", "schemas", "stack",
-    "arch-validate", "doctor", "eval", "ab", "kpis", "pipeline", "status", "check", "stats", "health",
-    "run", "pr", "runs", "wiki", "docs", "plan", "prompt", "autopilot",
-    "portal", "removed", "review", "hook", "hooks", "plugins", "export", "confirm", "translated", "ci", "checkpoint",
-    "remote", "share", "trust", "feedback", "interview", "board", "adr",
-}
 _ids = itertools.count()
 
 
@@ -116,8 +105,16 @@ def test_loading_the_registry_imports_nothing_outside_the_cli():
     assert [m for m in loaded if m not in ("lib", "lib.interfaces") and not m.startswith("lib.interfaces.cli")] == []
 
 
-def test_moved_commands_are_registry_commands(reg):
-    assert MOVED <= set(reg.load())
+def test_every_parser_command_is_a_registry_command(kit, reg):
+    from lib.interfaces.cli import main
+    from lib.interfaces.cli.catalog import subparsers
+    assert set(subparsers(main.build_parser())) == set(reg.load())
+
+
+def test_catalog_rows_come_from_the_decorators(reg):
+    from lib import catalog
+    assert catalog.__facade__ == "lib.interfaces.cli.catalog"
+    assert catalog.COMMANDS == reg.entries(reg.load())
 
 
 def test_the_old_cli_modules_are_facades():
