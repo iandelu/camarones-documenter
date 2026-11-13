@@ -2310,7 +2310,7 @@ class W:
             self.safe(self.busy, lambda log: docs.sync_repos(log))
             self.retry_missing(onboard.missing_repos())
             for n in docs.repo_names():
-                if (repo_dir(n) / ".git").exists() and not env.repo_graph(n).exists():
+                if (repo_dir(n) / ".git").exists() and not services.current().code.repo_graph(n).exists():
                     self.safe(self.busy, env.wire_one, n)
             plan.sync()
 

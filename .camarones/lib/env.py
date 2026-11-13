@@ -6,7 +6,7 @@ from collections import deque
 from contextlib import contextmanager
 from pathlib import Path
 
-from .common import (CTX, KIT, ROOT, DOCS, HOME, CACHE, IS_WIN, IS_MAC, VERSIONS, CAM_DIR, CAM_LAYOUT, WORKSPACE, WS_FILE, GRAPHS, run, out,
+from .common import (CTX, KIT, ROOT, DOCS, HOME, CACHE, IS_WIN, VERSIONS, CAM_DIR, CAM_LAYOUT, WORKSPACE, WS_FILE, GRAPHS, run, out,
                      which, uv, ensure_path, cli_cmd, sdkman_dir, repo_dir, ws_rel, rel_file, load_json, save_json,
                      own_file, through_link)
 from . import binaries, docs
@@ -460,7 +460,7 @@ def wire_repo(name: str, log: Log = print, comps: list[str] | None = None) -> No
         services.current().agent_config.wire_repo_mcp(name, log)
     if "graphify" in comps:
         log(f"{name}: building the code graph…")
-        if not graph_repo(name):
+        if not services.current().code.graph_repo(name):
             log(f"⚠ {name}: graphify build failed")
 
 
@@ -541,29 +541,15 @@ def setup(ci: bool = False, log: Log = print, comps: list[str] | None = None) ->
 
 
 # ---------- code graph ----------
-def repo_graph(name: str) -> Path:
-    own = GRAPHS / name / "graph.json"
-    legacy = repo_dir(name) / "graphify-out" / "graph.json"
-    return legacy if not own.exists() and legacy.exists() else own
-
-
-def graph_repo(name: str) -> bool:
-    """AST-only graph of one repo, written to cam-docs/graph/<repo> (GRAPHIFY_OUT) instead of the repo."""
-    (GRAPHS / name).mkdir(parents=True, exist_ok=True)
-    r = run(["graphify", "update", ".", "--force"], cwd=repo_dir(name), check=False, quiet=True,
-            env={"GRAPHIFY_OUT": str(GRAPHS / name)})
-    return r.returncode == 0
-
-
 def graph(rebuild: bool = True, log: Log = print) -> Path | None:
     graphs = []
     for n in docs.repo_names():
         if not repo_dir(n).is_dir():
             continue
-        if rebuild or not repo_graph(n).exists():
-            graph_repo(n)
-        if repo_graph(n).exists():
-            graphs.append(str(repo_graph(n)))
+        if rebuild or not services.current().code.repo_graph(n).exists():
+            services.current().code.graph_repo(n)
+        if services.current().code.repo_graph(n).exists():
+            graphs.append(str(services.current().code.repo_graph(n)))
     if not graphs:
         log("✔ no code graphs yet")
         return None
@@ -630,7 +616,7 @@ def build_graphs(log: Log = print) -> bool:
     for n in docs.repo_names():
         if repo_dir(n).is_dir():
             log(f"{n}: code graph…")
-            if not graph_repo(n):
+            if not services.current().code.graph_repo(n):
                 log(f"⚠ {n}: graphify failed")
     return graph(rebuild=False, log=log) is not None
 
