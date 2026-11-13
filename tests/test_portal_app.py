@@ -112,7 +112,7 @@ def test_the_react_views_are_reached_through_zones(kit):
 def test_status_without_check_answers_fast_and_check_has_its_own_endpoint(server, kit, monkeypatch):
     import json
     calls = []
-    monkeypatch.setattr(kit.serve.docs, "check", lambda *a, **k: calls.append(1) or (["e"], ["w"]))
+    monkeypatch.setattr(kit.docs, "check", lambda *a, **k: calls.append(1) or (["e"], ["w"]))
     s = json.loads(get(f"{server}/api/status?check=0")[2])
     assert s["check"] is None and "plan" in s and calls == []
     c = json.loads(get(f"{server}/api/check")[2])

@@ -853,8 +853,8 @@ def test_a_confirmed_block_of_a_repo_not_on_this_machine_is_not_reported(dg):
 
 def test_serve_takes_the_states_of_genblocks_as_they_are(dg):
     import inspect
-    serve = importlib.import_module("lib.serve")
-    assert "repo_dir" not in inspect.getsource(serve._compute_blocks)
+    routes = importlib.import_module("lib.interfaces.http.routes.docs")
+    assert "repo_dir" not in inspect.getsource(routes._compute_blocks)
 
 
 def _count_scans(dg, monkeypatch):
@@ -987,7 +987,7 @@ def test_the_confirmed_stale_warning_says_how_to_take_the_code(dg):
 
 
 def test_a_prune_race_never_fails_the_page(dg, monkeypatch):
-    serve = importlib.import_module("lib.serve")
+    routes = importlib.import_module("lib.interfaces.http.routes.docs")
     dg.put("api", "src/main/java/demo/OrderStatus.java", ORDER)
     f = dg.kit.root / "docs" / "states.md"
     f.parent.mkdir(parents=True, exist_ok=True)
@@ -996,5 +996,5 @@ def test_a_prune_race_never_fails_the_page(dg, monkeypatch):
     class Racing(dict):
         def items(self):
             raise RuntimeError("dictionary changed size during iteration")
-    monkeypatch.setattr(serve, "_blocks_cache", Racing())
-    assert serve._blocks(f, f.read_text(encoding="utf-8"))[0]["state"] == "current"
+    monkeypatch.setattr(routes, "_blocks_cache", Racing())
+    assert routes._blocks(f, f.read_text(encoding="utf-8"))[0]["state"] == "current"
