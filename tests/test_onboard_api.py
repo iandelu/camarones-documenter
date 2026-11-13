@@ -238,6 +238,11 @@ def test_stack_lists_and_edits(app_server, kit):
     assert post(app_server, "stack", {"repo": "api", "text": None})[0] == 200                  # back to the detected one
 
 
+def test_set_stack_returns_the_stack_rows(kit):
+    rows = kit.onboard.set_stack("api", "Java 21")
+    assert rows == kit.onboard.stack_rows() and rows["api"]["stack"] == "Java 21"
+
+
 def test_scan_runs_as_a_job(app_server, kit, monkeypatch):
     import lib.wizard
     seen = []

@@ -418,7 +418,7 @@ Talk to the user in {talk}. Do not modify application code.
 """
 
 
-# ---------- what the app's endpoints do (serve.py only parses and answers) ----------
+# ---------- what the app's endpoints do (lib/interfaces/http only parses and answers) ----------
 LAST_DRAFT: dict = {}        # the newest C4 draft (quickarch.draft's model): /firstlook serves its html, `save` copies it
 DRAFT_LOCK = threading.Lock()   # a new draft replaces LAST_DRAFT whole, never edits it: readers see one draft or the other
 
@@ -503,6 +503,13 @@ def stack_rows() -> dict:
     """radar.scan() reduced to what the stack step edits: {repo: {stack, detected_stack}}."""
     from . import radar
     return {n: {"stack": r["stack"], "detected_stack": r["detected_stack"]} for n, r in radar.scan().items()}
+
+
+def set_stack(repo: str, text: str | None) -> dict:
+    """The stack step's edit of one repo (None: back to the detected stack), then the rows as they are now."""
+    from . import radar
+    radar.set_stack(repo, text)
+    return stack_rows()
 
 
 def scan_job(log) -> dict:
