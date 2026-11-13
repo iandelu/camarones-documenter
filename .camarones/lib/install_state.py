@@ -97,10 +97,10 @@ def drift() -> list[dict]:
     """Kit files edited or gone, and links that should point into cam-docs but do not."""
     if not CAM_LAYOUT:
         return []
-    from . import docs, env
+    from . import docs
     from .app import services
     out = []
-    expected = {rel: hashlib.sha256(text.encode("utf-8")).hexdigest() for rel, text in env.skill_files().items()}
+    expected = {rel: hashlib.sha256(text.encode("utf-8")).hexdigest() for rel, text in services.current().templates.skill_files().items()}
     for rel, want in expected.items():
         f = ROOT / rel
         if not f.is_file():

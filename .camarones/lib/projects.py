@@ -71,7 +71,7 @@ class Taken(ValueError):
 
 def create(name: str, at: Path | None = None, url: str = "") -> Path:
     """Make <at>/<name>/cam-docs/ (a new workspace folder for the repos, with its docs folder) and register it.
-    The wizard's first-run flow (env.init_templates) does the actual bootstrap once it's opened.
+    The wizard's first-run flow (app/templates.py init_templates) does the actual bootstrap once it's opened.
     `url`: the team's cam-docs repo — joined (cloned, or reused if already here) instead of starting from zero."""
     slug = re.sub(r"[^a-z0-9]+", "-", name.strip().lower()).strip("-") or "project"
     base = at or Path.cwd()

@@ -141,7 +141,7 @@ def test_init_templates_never_refreshes_agents_md_through_a_link(wired, tmp_path
     text = "mine\n<!-- camarones:start -->\nold\n<!-- camarones:end -->\n"
     victim = victim_file(tmp_path, "AGENTS.md", text)
     plant(wired, "AGENTS.md", victim)
-    wired.env.init_templates(log=lambda _: None)
+    wired.services.templates.init_templates(log=lambda _: None)
     assert victim.read_text(encoding="utf-8") == text
     assert (wired.root / "AGENTS.md").is_symlink()
 
@@ -149,7 +149,7 @@ def test_init_templates_never_refreshes_agents_md_through_a_link(wired, tmp_path
 def test_init_templates_never_adds_the_import_through_a_claude_md_link(wired, tmp_path):
     victim = victim_file(tmp_path, "CLAUDE.md", "mine\n")
     plant(wired, "CLAUDE.md", victim)
-    wired.env.init_templates(log=lambda _: None)
+    wired.services.templates.init_templates(log=lambda _: None)
     assert victim.read_text(encoding="utf-8") == "mine\n"
 
 
@@ -158,7 +158,7 @@ def test_init_templates_never_adds_the_import_through_a_claude_md_link(wired, tm
 def test_init_templates_never_creates_the_target_of_a_dangling_link(wired, tmp_path, rel):
     target = folder(tmp_path, "planted") / "created.md"
     plant(wired, rel, target)
-    wired.env.init_templates(log=lambda _: None)
+    wired.services.templates.init_templates(log=lambda _: None)
     assert not target.exists()
 
 
@@ -166,14 +166,14 @@ def test_init_templates_never_creates_the_target_of_a_dangling_link(wired, tmp_p
 def test_init_templates_writes_nothing_into_a_linked_folder(wired, tmp_path, rel):
     victim = folder(tmp_path, "fake-home")
     plant(wired, rel, victim, folder=True)
-    wired.env.init_templates(log=lambda _: None)
+    wired.services.templates.init_templates(log=lambda _: None)
     assert list(victim.iterdir()) == []
 
 
 def test_a_linked_kit_doc_is_replaced_by_the_kits_copy(wired, tmp_path):
     victim = victim_file(tmp_path, "PLAYBOOK.md", "mine\n")
     dst = plant(wired, ".camarones/PLAYBOOK.md", victim)
-    wired.env.init_templates(log=lambda _: None)
+    wired.services.templates.init_templates(log=lambda _: None)
     assert victim.read_text(encoding="utf-8") == "mine\n"
     kit_dir = importlib.import_module("lib.core.ctx").KIT
     assert not dst.is_symlink() and dst.read_bytes() == (kit_dir / "PLAYBOOK.md").read_bytes()
@@ -182,7 +182,7 @@ def test_a_linked_kit_doc_is_replaced_by_the_kits_copy(wired, tmp_path):
 def test_docs_reset_never_copies_a_linked_kit_doc_into_the_project(wired, tmp_path):
     victim = victim_file(tmp_path, "id_rsa", "PRIVATE KEY\n")
     plant(wired, ".camarones/CONVENTIONS.md", victim)
-    wired.env.sync_kit_docs(aside="team")
+    wired.services.templates.sync_kit_docs(aside="team")
     assert not (wired.root / ".camarones" / "CONVENTIONS.md.team").exists()
     assert victim.read_text(encoding="utf-8") == "PRIVATE KEY\n"
 
@@ -191,15 +191,15 @@ def test_docs_reset_never_copies_a_linked_kit_doc_into_the_project(wired, tmp_pa
 def test_init_templates_writes_no_project_file_through_a_link(wired, tmp_path, rel):
     victim = victim_file(tmp_path, "mine.txt", "mine\n")
     plant(wired, rel, victim)
-    wired.env.init_templates(log=lambda _: None)
+    wired.services.templates.init_templates(log=lambda _: None)
     assert victim.read_text(encoding="utf-8") == "mine\n"
 
 
 def test_the_render_manifest_is_never_written_through_a_link(wired, tmp_path):
     victim = victim_file(tmp_path, "skills-rendered.json", "mine\n")
-    wired.env.RENDERED_SKILLS.parent.mkdir(parents=True, exist_ok=True)
-    dst = plant(wired, wired.env.RENDERED_SKILLS.relative_to(wired.root).as_posix(), victim)
-    wired.env.write_kit_skills()
+    wired.services.templates.RENDERED_SKILLS.parent.mkdir(parents=True, exist_ok=True)
+    dst = plant(wired, wired.services.templates.RENDERED_SKILLS.relative_to(wired.root).as_posix(), victim)
+    wired.services.templates.write_kit_skills()
     assert victim.read_text(encoding="utf-8") == "mine\n"
     assert not dst.is_symlink()
 
@@ -207,7 +207,7 @@ def test_the_render_manifest_is_never_written_through_a_link(wired, tmp_path):
 def test_a_linked_cache_folder_gets_no_render_manifest(wired, tmp_path):
     victim = folder(tmp_path, "fake-cache")
     plant(wired, ".camarones/.cache", victim, folder=True)
-    wired.env.write_kit_skills()
+    wired.services.templates.write_kit_skills()
     assert list(victim.iterdir()) == []
 
 

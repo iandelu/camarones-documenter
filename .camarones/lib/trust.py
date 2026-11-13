@@ -186,9 +186,8 @@ def items(root: Path | None = None) -> dict[str, Item]:
 def owned() -> dict[str, set[str]]:
     """id → digests of what this kit writes for this machine right now: its skills and its MCP entries (the Codex block
     holds whichever of them the kit wrote there)."""
-    from . import env
     from .app import services
-    out = {f"file {rel}": {_digest(text.encode("utf-8"))} for rel, text in env.kit_skill_files().items()}
+    out = {f"file {rel}": {_digest(text.encode("utf-8"))} for rel, text in services.current().templates.kit_skill_files().items()}
     servers = {"camarones": services.current().agent_config.camarones_mcp(), "likec4": services.current().agent_config.likec4_mcp()}
     out.update({f"mcp {k}": {_digest(v)} for k, v in servers.items()})
     out["codex mcp block"] = {_digest(services.current().agent_config.codex_block(dict(sub)).strip())

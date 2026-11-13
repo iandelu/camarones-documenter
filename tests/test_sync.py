@@ -12,7 +12,7 @@ from test_team_repo import bare, git, publish
 
 
 def test_without_a_remote(kit):
-    kit.env.init_templates("demo", log=lambda _: None)
+    kit.services.templates.init_templates("demo", log=lambda _: None)
     s = kit.env.sync_status()
     assert s["remote"] == "" and s["ahead"] is None and s["behind"] is None and s["last_share"] is None
     (kit.root / "docs" / "new.md").write_text("# New\n", encoding="utf-8")
@@ -36,7 +36,7 @@ def test_ahead_behind_and_the_last_share(kit, tmp_path):
 
 
 def test_a_failed_check_for_news_says_why_with_gits_words(kit, tmp_path):
-    kit.env.init_templates("demo", log=lambda _: None)
+    kit.services.templates.init_templates("demo", log=lambda _: None)
     kit.env.set_remote(str(tmp_path / "missing.git"))
     f = kit.env.sync_status(fetch=True)["fetched"]
     assert f["ok"] is False and f["reason"] == "not-found" and f["host"] == ""
@@ -45,7 +45,7 @@ def test_a_failed_check_for_news_says_why_with_gits_words(kit, tmp_path):
 
 
 def test_a_check_for_news_names_the_teams_host(kit, monkeypatch):
-    kit.env.init_templates("demo", log=lambda _: None)
+    kit.services.templates.init_templates("demo", log=lambda _: None)
     kit.env.set_remote("https://gitlab-central.example.space/team/docs.git")
     said = "fatal: unable to access 'https://gitlab-central.example.space/team/docs.git/': Could not resolve host: x"
     real = kit.env.run
@@ -95,7 +95,7 @@ def test_the_portal_shows_and_shares(kit, tmp_path, portal):
 
 
 def test_sharing_without_a_remote_says_so(kit, portal):
-    kit.env.init_templates("demo", log=lambda _: None)
+    kit.services.templates.init_templates("demo", log=lambda _: None)
     code, r = call(portal + "/api/sync/share", {})
     assert code == 200 and r["result"]["status"] == "no-remote"
 

@@ -368,7 +368,7 @@ def run_setup(log, cancelled: Callable[[], bool] | None = None) -> bool:
     cancel button) is asked between steps: before setup starts and once it ends; a cancelled setup is not marked done."""
     if cancelled and cancelled():
         return False
-    env.init_templates(docs.workspace()["project"]["name"], log=lambda _: None)   # `log` counts setup's own steps
+    services.current().templates.init_templates(docs.workspace()["project"]["name"], log=lambda _: None)   # `log` counts setup's own steps
     try:
         ok = env.setup(log=log)
     finally:

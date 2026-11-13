@@ -160,7 +160,7 @@ def test_a_project_already_linked_on_this_machine_is_trusted_as_it_is(wired):
 
 # ---------- linking ----------
 def test_unapproved_config_is_not_linked_into_the_workspace(kit):
-    kit.env.init_templates(log=lambda _: None)
+    kit.services.templates.init_templates(log=lambda _: None)
     kit.env.write_agent_config(["agents"])
     trust = __import__("lib.trust", fromlist=["trust"])
     assert trust.pending() == []                          # first look, nothing linked yet: nothing to trust blindly

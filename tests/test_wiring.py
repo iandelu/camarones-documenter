@@ -66,7 +66,7 @@ def test_agents_md_refresh_only_touches_the_kit_block(wired):
     text = f.read_text(encoding="utf-8")
     edited = "# Mine\n\nteam rules\n\n" + text[:text.index(a)] + a + "\nstale\n" + b + text[text.index(b) + len(b):] + "\ntail\n"
     f.write_text(edited, encoding="utf-8")
-    assert wired.env.refresh_block(wired.kit_dir / "templates" / "AGENTS.md", f, "demo")
+    assert wired.services.templates.refresh_block(wired.kit_dir / "templates" / "AGENTS.md", f, "demo")
     new = f.read_text(encoding="utf-8")
     assert new.startswith("# Mine\n\nteam rules") and new.endswith("\ntail\n") and "\nstale\n" not in new
 
@@ -74,8 +74,8 @@ def test_agents_md_refresh_only_touches_the_kit_block(wired):
 def test_existing_claude_md_gets_the_agents_import(kit):
     f = kit.root / "CLAUDE.md"
     f.write_text("project notes\n", encoding="utf-8")
-    kit.env.ensure_agents_import(f)
-    kit.env.ensure_agents_import(f)
+    kit.services.templates.ensure_agents_import(f)
+    kit.services.templates.ensure_agents_import(f)
     assert f.read_text(encoding="utf-8") == "@AGENTS.md\n\nproject notes\n"
 
 
@@ -104,10 +104,10 @@ def test_dropping_a_component_removes_its_mcp_server(kit):
 
 
 def test_init_templates_never_overwrites_project_docs(kit):
-    kit.env.init_templates(log=lambda _: None)
+    kit.services.templates.init_templates(log=lambda _: None)
     page = kit.root / "docs" / "guides" / "tutorial.md"
     page.write_text("ours", encoding="utf-8")
-    created = kit.env.init_templates(log=lambda _: None)
+    created = kit.services.templates.init_templates(log=lambda _: None)
     assert page.read_text(encoding="utf-8") == "ours"
     assert "docs/guides/tutorial.md" not in created
     assert (kit.root / ".git").is_dir()                               # cam-docs is its own git repo

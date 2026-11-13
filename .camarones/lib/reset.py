@@ -20,6 +20,7 @@ from .common import CAM_DIR, CAM_LAYOUT, DOCS, ROOT, WORK, WS_FILE, load_json, o
 from .core.locks import pid_alive
 from .core.paths import WIKI_LOCK
 from . import docs, env, plan
+from .app import services
 
 MODES = ("redo", "wipe")
 KEEP_TYPES = {"setup", "ci", "questionnaire", "answers", *plan.INTERVIEW_TYPES}   # stay done in both modes
@@ -58,9 +59,9 @@ def persons(f: Path) -> bool:
 
 def _template_copy(f: Path) -> bool:
     """Still exactly what the kit's templates wrote (spec.c4, handoff.md…): deleting it would only copy it back."""
-    t = env.TEMPLATES / f.relative_to(ROOT)
+    t = services.current().templates.TEMPLATES / f.relative_to(ROOT)
     try:
-        return t.is_file() and f.read_text(encoding="utf-8") == env.fill(t.read_text(encoding="utf-8"),
+        return t.is_file() and f.read_text(encoding="utf-8") == services.current().templates.fill(t.read_text(encoding="utf-8"),
                                                                          docs.workspace()["project"]["name"])
     except (OSError, UnicodeDecodeError, ValueError):
         return False
@@ -139,7 +140,7 @@ def preview(mode: str, templates: bool = False) -> tuple[list[str], list[str]]:
                  "images and other files that are not pages", "the board, the review comments and the usage records"]
     if templates:
         steps += [f"templates: .camarones/{n} follows the kit again (yours kept as {n}.before-reset-<date>)"
-                  for n in env.edited_kit_docs()]
+                  for n in services.current().templates.edited_kit_docs()]
     return steps, kept
 
 
@@ -196,7 +197,7 @@ def _log(text: str) -> None:
 
 
 def _regenerate(log) -> None:
-    env.init_templates(log=lambda _: None)            # the template pages and spec.c4 a wipe removed
+    services.current().templates.init_templates(log=lambda _: None)            # the template pages and spec.c4 a wipe removed
     try:
         from . import genblocks, pages
         pages.write(log=lambda _: None)
@@ -223,7 +224,7 @@ def run(mode: str, templates: bool = False, log=lambda _: None) -> dict:
         result["deleted"] = [rel_file(f) for f in gone]
         result["restarted"] = _restart_plan()
     if templates:
-        result["templates"] = env.sync_kit_docs(aside=f"before-reset-{stamp}")
+        result["templates"] = services.current().templates.sync_kit_docs(aside=f"before-reset-{stamp}")
     if mode == "wipe":
         _regenerate(log)
     _log(f"docs reset ({mode})")

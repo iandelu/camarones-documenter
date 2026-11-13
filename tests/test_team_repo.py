@@ -25,7 +25,7 @@ def bare(tmp_path: Path, name: str = "team-docs.git") -> Path:
 
 def publish(kit, remote: Path) -> None:
     """The first teammate: a set-up project whose cam-docs is pushed to the team remote."""
-    kit.env.init_templates("demo", log=lambda _: None)
+    kit.services.templates.init_templates("demo", log=lambda _: None)
     kit.plan.sync()
     kit.env.set_remote(str(remote))
     assert kit.env.share(log=lambda _: None)["status"] == "pushed"
@@ -75,7 +75,7 @@ def test_join_a_team_project_clones_it(kit, tmp_path):
 
 def test_join_checks_out_the_pushed_branch_when_remote_head_is_unborn(kit, tmp_path):
     remote = bare(tmp_path)                                  # created with HEAD → main, first push came from master
-    kit.env.init_templates("demo", log=lambda _: None)
+    kit.services.templates.init_templates("demo", log=lambda _: None)
     git(kit.root, "checkout", "-q", "-b", "master")
     publish(kit, remote)
     dest, joined = kit.projects.join(str(remote), tmp_path / "mate")
@@ -130,7 +130,7 @@ def test_create_with_a_url_joins(kit, tmp_path):
 
 # ---------- share ----------
 def test_share_without_remote_says_so(kit):
-    kit.env.init_templates("demo", log=lambda _: None)
+    kit.services.templates.init_templates("demo", log=lambda _: None)
     assert kit.env.share(log=lambda _: None)["status"] == "no-remote"
 
 
@@ -173,7 +173,7 @@ def test_share_conflict_leaves_the_local_work_untouched(kit, tmp_path):
 
 
 def test_set_remote_replaces_origin(kit, tmp_path):
-    kit.env.init_templates("demo", log=lambda _: None)
+    kit.services.templates.init_templates("demo", log=lambda _: None)
     a, b = bare(tmp_path, "a.git"), bare(tmp_path, "b.git")
     kit.env.set_remote(str(a))
     kit.env.set_remote(str(b))
@@ -212,7 +212,7 @@ def test_join_first_run_resumes_on_its_step(kit, fake_wizard, monkeypatch):
 
 
 def test_share_menu_sets_the_remote_and_asks_before_pushing(kit, fake_wizard, tmp_path, monkeypatch):
-    kit.env.init_templates("demo", log=lambda _: None)
+    kit.services.templates.init_templates("demo", log=lambda _: None)
     remote = bare(tmp_path)
     w = fake_wizard([str(remote), False])                               # URL, then "no" to publishing
     w.do_share()
@@ -244,7 +244,7 @@ def cli(root: Path | None, cwd: Path, *args: str, **extra: str):
 
 
 def test_cli_remote_share_and_join(kit, tmp_path):
-    kit.env.init_templates("demo", log=lambda _: None)
+    kit.services.templates.init_templates("demo", log=lambda _: None)
     remote = bare(tmp_path)
     r = cli(kit.root, kit.ws, "remote", str(remote))
     assert r.returncode == 0, r.stdout + r.stderr
@@ -276,13 +276,13 @@ def test_clean_remote_leaves_local_paths_alone(kit, tmp_path):
 
 
 def test_set_remote_stores_the_clean_url(kit):
-    kit.env.init_templates("demo", log=lambda _: None)
+    kit.services.templates.init_templates("demo", log=lambda _: None)
     kit.env.set_remote("https://gitlab.example.com/g/docs# ")
     assert kit.env.docs_remote() == "https://gitlab.example.com/g/docs"
 
 
 def test_share_repairs_an_origin_saved_with_a_fragment(kit, tmp_path):
-    kit.env.init_templates("demo", log=lambda _: None)
+    kit.services.templates.init_templates("demo", log=lambda _: None)
     remote = bare(tmp_path)
     kit.env.set_remote(str(remote))
     git(kit.root, "remote", "set-url", "origin", remote.as_uri() + "#")     # what an older kit stored as typed
@@ -312,7 +312,7 @@ def test_git_failure_reason(kit, stderr, reason):
 
 
 def test_share_explains_an_unreachable_remote(kit, tmp_path):
-    kit.env.init_templates("demo", log=lambda _: None)
+    kit.services.templates.init_templates("demo", log=lambda _: None)
     kit.env.set_remote(str(tmp_path / "missing.git"))
     r = kit.env.share(log=lambda _: None)
     assert r["status"] == "error" and r["reason"] == "not-found" and r["host"] == ""
@@ -326,7 +326,7 @@ def test_share_error_strings_exist_in_both_languages(kit):
 
 
 def test_share_menu_shows_the_reason_and_offers_a_token(kit, fake_wizard, monkeypatch):
-    kit.env.init_templates("demo", log=lambda _: None)
+    kit.services.templates.init_templates("demo", log=lambda _: None)
     kit.env.set_remote("https://gitlab.example.com/g/docs.git")
     calls, said = [], []
     monkeypatch.setattr(kit.env, "share", lambda log=print: calls.append(1) or {
@@ -341,7 +341,7 @@ def test_share_menu_shows_the_reason_and_offers_a_token(kit, fake_wizard, monkey
 
 
 def test_cli_share_prints_the_reason(kit, tmp_path):
-    kit.env.init_templates("demo", log=lambda _: None)
+    kit.services.templates.init_templates("demo", log=lambda _: None)
     kit.env.set_remote(str(tmp_path / "missing.git"))
     r = cli(kit.root, kit.ws, "share")
     assert r.returncode == 1 and "\nerror (not-found): fatal: " in r.stdout, r.stdout + r.stderr
@@ -350,7 +350,7 @@ def test_cli_share_prints_the_reason(kit, tmp_path):
 
 # ---------- auto-share: opt-in push after every checkpoint ----------
 def test_auto_share_is_off_by_default(kit, tmp_path):
-    kit.env.init_templates("demo", log=lambda _: None)
+    kit.services.templates.init_templates("demo", log=lambda _: None)
     remote = bare(tmp_path)
     kit.env.set_remote(str(remote))
     assert not kit.env.auto_share()
@@ -360,7 +360,7 @@ def test_auto_share_is_off_by_default(kit, tmp_path):
 
 
 def test_auto_share_pushes_each_checkpoint(kit, tmp_path):
-    kit.env.init_templates("demo", log=lambda _: None)
+    kit.services.templates.init_templates("demo", log=lambda _: None)
     remote = bare(tmp_path)
     kit.env.set_remote(str(remote))
     kit.env.set_auto_share(True)
@@ -370,7 +370,7 @@ def test_auto_share_pushes_each_checkpoint(kit, tmp_path):
 
 
 def test_auto_share_failure_keeps_the_local_commit(kit, tmp_path, capsys):
-    kit.env.init_templates("demo", log=lambda _: None)
+    kit.services.templates.init_templates("demo", log=lambda _: None)
     kit.env.set_remote(str(tmp_path / "missing.git"))
     kit.env.set_auto_share(True)
     (kit.root / "docs" / "note.md").write_text("# note\n", encoding="utf-8")
@@ -379,13 +379,13 @@ def test_auto_share_failure_keeps_the_local_commit(kit, tmp_path, capsys):
 
 
 def test_auto_share_setting_is_local_to_this_machine(kit):
-    kit.env.init_templates("demo", log=lambda _: None)
+    kit.services.templates.init_templates("demo", log=lambda _: None)
     kit.env.set_auto_share(True)
     assert kit.env.AUTO_SHARE.is_relative_to(kit.common.CACHE)
 
 
 def test_cli_share_auto_toggle(kit):
-    kit.env.init_templates("demo", log=lambda _: None)
+    kit.services.templates.init_templates("demo", log=lambda _: None)
     r = cli(kit.root, kit.ws, "share", "--auto", "on")
     assert r.returncode == 0 and "auto-share: on" in r.stdout, r.stdout + r.stderr
     assert kit.common.load_json(kit.env.AUTO_SHARE, {}) == {"auto": True}
@@ -394,7 +394,7 @@ def test_cli_share_auto_toggle(kit):
 
 
 def test_share_menu_offers_auto_share_once(kit, fake_wizard, tmp_path):
-    kit.env.init_templates("demo", log=lambda _: None)
+    kit.services.templates.init_templates("demo", log=lambda _: None)
     remote = bare(tmp_path)
     kit.env.set_remote(str(remote))
     fake_wizard([True, True]).do_share()                                # publish, then "yes" to auto-share

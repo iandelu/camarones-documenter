@@ -20,7 +20,7 @@ class Setup(Command):
         from lib import env, plan
         if args.profile:
             cli.services.components.set_profile(args.profile)
-        env.init_templates()
+        cli.services.templates.init_templates()
         env.setup(ci=args.ci)
         if not args.ci:
             plan.sync()

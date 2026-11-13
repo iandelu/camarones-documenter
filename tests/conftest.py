@@ -143,7 +143,7 @@ def wire_project(kit) -> SimpleNamespace:
     ws = kit.docs.workspace()
     ws["project"]["repo_pointer"] = True
     kit.docs.save_workspace(ws)
-    env.init_templates(log=lambda _: None)
+    kit.services.templates.init_templates(log=lambda _: None)
     env.write_agent_config(["likec4", "openwiki", "agents"])
     kit.linked = env.link_workspace(log=lambda _: None)
     for r in kit.docs.repo_names():

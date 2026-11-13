@@ -254,14 +254,14 @@ def test_two_writers_do_not_lose_cards(board, kit):
 
 def test_new_project_gets_a_board(kit):
     assert not (kit.root / ".git").exists()
-    kit.env.init_templates(log=lambda _: None)
+    kit.services.templates.init_templates(log=lambda _: None)
     assert (kit.root / "backlog" / "board.yaml").exists()
     assert (kit.root / "backlog" / "tasks").is_dir()
 
 
 def test_existing_project_unchanged(kit):
     subprocess.run(["git", "init", "-q", str(kit.root)], check=True)         # already a docs repo: the board is opt-in
-    kit.env.init_templates(log=lambda _: None)
+    kit.services.templates.init_templates(log=lambda _: None)
     assert not (kit.root / "backlog").exists()
     assert not (kit.root / ".gitattributes").exists()
     assert git(kit.root, "config", "--get", "merge.camaron-board.driver") == ""

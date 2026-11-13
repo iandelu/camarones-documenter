@@ -60,6 +60,11 @@ def _components() -> object:
     return components
 
 
+def _templates() -> object:
+    from lib.app import templates
+    return templates
+
+
 PROVIDERS: dict[str, Callable[[], object]] = {
     "launcher": _launcher,
     "diagrams": _diagrams,
@@ -71,6 +76,7 @@ PROVIDERS: dict[str, Callable[[], object]] = {
     "containers": _containers,
     "vcs": _vcs,
     "components": _components,
+    "templates": _templates,
 }
 
 
