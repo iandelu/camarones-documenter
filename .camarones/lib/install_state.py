@@ -126,7 +126,7 @@ def drift() -> list[dict]:
                 out.append({"path": f"{r}/openwiki", "state": "not linked", "what": "repo wiki link"})
     if "agents" in env.components() and which("claude"):
         out += [{"path": r, "state": "not registered", "what": "repo MCP (Claude Code)"} for r in docs.repo_names()
-                if repo_dir(r).is_dir() and not env.repo_mcp_registered(r)]
+                if repo_dir(r).is_dir() and not services.current().agent_config.repo_mcp_registered(r)]
     return out
 
 
@@ -145,7 +145,7 @@ def repair(log=print) -> list[dict]:
                 services.current().links.link_repo_wiki(r, log)
     if "agents" in comps:
         for r in docs.repo_names():
-            env.wire_repo_mcp(r, log)
+            services.current().agent_config.wire_repo_mcp(r, log)
     from . import kanban
     if kanban.enabled():                                  # a joined clone gets the board's merge driver here
         from .kanban import ops

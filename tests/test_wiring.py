@@ -91,7 +91,7 @@ def test_agent_config_merges_with_the_users_own(kit):
     mcp = json.loads((kit.root / ".mcp.json").read_text(encoding="utf-8"))["mcpServers"]
     assert set(mcp) == {"mine", "camarones", "likec4"}
     toml = (kit.root / ".codex" / "config.toml").read_text(encoding="utf-8")
-    assert toml.startswith('model = "o4"') and toml.count(kit.env.CODEX_MCP_START) == 1
+    assert toml.startswith('model = "o4"') and toml.count(kit.services.agent_config.CODEX_MCP_START) == 1
     st = json.loads((kit.root / ".claude" / "settings.json").read_text(encoding="utf-8"))
     assert st["hooks"]["PreToolUse"] == [{"hooks": [{"command": "my-hook"}]}]
     assert set(st["enabledMcpjsonServers"]) >= {"camarones", "likec4"}

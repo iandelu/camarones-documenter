@@ -104,7 +104,7 @@ def test_a_linked_codex_config_is_replaced_never_written_through(wired, tmp_path
     assert victim.read_text(encoding="utf-8") == 'model = "mine"\n'
     assert not dst.is_symlink()
     text = dst.read_text(encoding="utf-8")
-    assert wired.env.CODEX_MCP_START in text and "mine" not in text
+    assert wired.services.agent_config.CODEX_MCP_START in text and "mine" not in text
 
 
 def test_a_linked_codex_hooks_file_is_left_alone(wired, tmp_path):

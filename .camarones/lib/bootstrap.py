@@ -25,10 +25,16 @@ def _links() -> object:
     return fs_links
 
 
+def _agent_config() -> object:
+    from lib.adapters import agent_config
+    return agent_config
+
+
 PROVIDERS: dict[str, Callable[[], object]] = {
     "launcher": _launcher,
     "diagrams": _diagrams,
     "links": _links,
+    "agent_config": _agent_config,
 }
 
 

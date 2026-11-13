@@ -63,7 +63,7 @@ class RepoCleaner(migrate.Cleaner):
 
 def forget_repo_mcp(name: str) -> bool:
     """The `camarones` MCP server setup registered for this repo in Claude Code's local config."""
-    return env.unwire_repo_mcp(name)
+    return services.current().agent_config.unwire_repo_mcp(name)
 
 
 def repo_names() -> list[str]:
@@ -191,7 +191,7 @@ def steps(include_global: bool = False, backup: bool = True, keep_board: bool | 
         out.append(Step("backup", f"back up {CAM_DIR}/ to {BACKUP_DIR}{os.sep}{env.project_id()}-<date>.zip"))
     for name in repo_names():
         out += [Step("repo", a) for a in RepoCleaner(name, dry=True).run()]
-        if env.repo_mcp_entry(name):
+        if services.current().agent_config.repo_mcp_entry(name):
             out.append(Step("registry", f"Claude Code's local config for {name}: the camarones MCP server"))
     out += [Step("link", f"{WORKSPACE.name}/{n} → {CAM_DIR}/{n} (link)") for n in root_links()]
     out += [Step("link", f"{WORKSPACE.name}/{p.parent.name}/{p.name} → {CAM_DIR}/{p.parent.name}/{p.name} (link in your own "

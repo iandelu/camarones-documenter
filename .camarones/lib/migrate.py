@@ -92,8 +92,8 @@ class Cleaner:
         data = load_json(p, None)
         if not isinstance(data, dict):
             return
-        from .env import without_graphify_hooks
-        data = without_graphify_hooks(data)
+        from .app import services
+        data = services.current().agent_config.without_graphify_hooks(data)
         self.settle(rel, json.dumps(data, indent=2) + "\n" if data else "")
 
     def mcp(self) -> None:

@@ -472,58 +472,16 @@ def unlink_agent_config() -> list[str]:
     return gone
 
 
-def camarones_mcp() -> dict:
-    """MCP entry for the kit's own server — no API keys; it resolves the project by walking up from its cwd."""
-    if cli_cmd() in ("camaron", "camarones"):              # a global install: the same command on every machine
-        cli = cli_cmd()                                    # Windows: a .cmd shim, which MCP hosts cannot spawn
-        return {"command": "cmd", "args": ["/c", cli, "mcp"]} if IS_WIN else {"command": cli, "args": ["mcp"]}
-    return {"command": "uv", "args": ["run", "--quiet", "--script", str(KIT / "camarones.py"), "mcp"]}
-
-
-def likec4_mcp() -> dict:
-    """LikeC4's own MCP server (built into the pinned CLI, offline) over docs/architecture: agents can query the C4
-    model ("who calls X?") while writing it. The path is workspace-relative — agents start in the workspace root.
-    Windows: likec4 is a .cmd shim, which MCP hosts cannot spawn directly."""
-    args = ["mcp", "--stdio", ws_rel("docs/architecture")]
-    return {"command": "cmd", "args": ["/c", "likec4", *args]} if IS_WIN else {"command": "likec4", "args": args}
-
-
-CODEX_MCP_START, CODEX_MCP_END = "# CAMARONES:MCP:START", "# CAMARONES:MCP:END"
-CODEX_MCP_RE = re.compile(rf"{CODEX_MCP_START}.*?{CODEX_MCP_END}\n?", re.S)
-
-
-def codex_block(servers: dict) -> str:
-    body = [f"[mcp_servers.{name}]\ncommand = {json.dumps(s['command'])}\nargs = {json.dumps(s['args'])}\n"
-            for name, s in servers.items()]
-    return f"{CODEX_MCP_START}\n" + "\n".join(body) + f"{CODEX_MCP_END}\n" if body else ""
-
-
 def write_codex_mcp(servers: dict) -> None:
     """Same servers for Codex, in a managed block of .codex/config.toml (other content is kept; a server the user
     already defined outside the block is left to them)."""
     f = ROOT / ".codex" / "config.toml"
     if not _own_file(f):
         return
-    text = CODEX_MCP_RE.sub("", f.read_text(encoding="utf-8") if f.is_file() else "")
-    block = codex_block({k: v for k, v in servers.items() if f"[mcp_servers.{k}]" not in text})
+    text = services.current().agent_config.CODEX_MCP_RE.sub("", f.read_text(encoding="utf-8") if f.is_file() else "")
+    block = services.current().agent_config.codex_block({k: v for k, v in servers.items() if f"[mcp_servers.{k}]" not in text})
     f.parent.mkdir(parents=True, exist_ok=True)
     f.write_text((text.rstrip() + "\n\n" if text.strip() else "") + block, encoding="utf-8")
-
-
-GRAPHIFY_SECTION = re.compile(r"\n*^## graphify\n.*?(?=^## |\Z)", re.S | re.M)
-
-
-def without_graphify_hooks(data: dict) -> dict:
-    """graphify's hooks assume a graphify-out/ in the cwd; the kit keeps graphs in cam-docs/graph/ instead."""
-    for event, groups in list((data.get("hooks") or {}).items()):
-        groups = [g for g in groups if not any("graphify" in h.get("command", "") for h in g.get("hooks", []))]
-        if groups:
-            data["hooks"][event] = groups
-        else:
-            del data["hooks"][event]
-    if data.get("hooks") == {}:
-        del data["hooks"]
-    return data
 
 
 OPENWIKI_INSTALL = [["openwiki", "integrations", "install", host, "--project", "."] for host in ("claude", "codex")]
@@ -547,21 +505,21 @@ def write_agent_config(comps: list[str]) -> None:
     """Runs before trust is asked: a file reached through a linked folder is left alone, and a link where the kit
     writes .mcp.json, .codex/config.toml or .claude/settings.json is replaced by the file, never read or written."""
     for f in (ROOT / "AGENTS.md", ROOT / "CLAUDE.md"):
-        if _real(f) and f.is_file() and GRAPHIFY_SECTION.search(text := f.read_text(encoding="utf-8")):
-            f.write_text(GRAPHIFY_SECTION.sub("", text).rstrip() + "\n", encoding="utf-8")
+        if _real(f) and f.is_file() and services.current().agent_config.GRAPHIFY_SECTION.search(text := f.read_text(encoding="utf-8")):
+            f.write_text(services.current().agent_config.GRAPHIFY_SECTION.sub("", text).rstrip() + "\n", encoding="utf-8")
     hooks = ROOT / ".codex" / "hooks.json"
     if _real(hooks) and hooks.is_file():
-        data = without_graphify_hooks(load_json(hooks, {}))
+        data = services.current().agent_config.without_graphify_hooks(load_json(hooks, {}))
         save_json(hooks, data) if data else hooks.unlink()
     mcp_file = ROOT / ".mcp.json"
     own_mcp = _own_file(mcp_file)
     cfg = load_json(mcp_file, {}) if own_mcp else {}
     servers = cfg.setdefault("mcpServers", {})
-    servers["camarones"] = camarones_mcp()
+    servers["camarones"] = services.current().agent_config.camarones_mcp()
     if "openwiki" not in comps:
         servers.pop("openwiki", None)
     if "likec4" in comps:
-        servers["likec4"] = likec4_mcp()
+        servers["likec4"] = services.current().agent_config.likec4_mcp()
     else:
         servers.pop("likec4", None)
     if own_mcp:
@@ -571,7 +529,7 @@ def write_agent_config(comps: list[str]) -> None:
     if not _own_file(settings):
         return
     from . import hooks
-    st = hooks.apply(without_graphify_hooks(load_json(settings, {})))           # method hooks, when the project opts in
+    st = hooks.apply(services.current().agent_config.without_graphify_hooks(load_json(settings, {})))  # method hooks, when the project opts in
     st["enabledMcpjsonServers"] = sorted(set(st.get("enabledMcpjsonServers", [])) | set(servers))
     save_json(settings, st)
 
@@ -592,56 +550,11 @@ def wire_repo(name: str, log: Log = print, comps: list[str] | None = None) -> No
     if "openwiki" in comps and CAM_LAYOUT:
         services.current().links.link_repo_wiki(name, log)
     if "agents" in comps and CAM_LAYOUT:
-        wire_repo_mcp(name, log)
+        services.current().agent_config.wire_repo_mcp(name, log)
     if "graphify" in comps:
         log(f"{name}: building the code graph…")
         if not graph_repo(name):
             log(f"⚠ {name}: graphify build failed")
-
-
-def claude_config() -> Path:
-    """Claude Code's own config file, where `--scope local` MCP servers live per folder."""
-    return Path(os.environ.get("CLAUDE_CONFIG_DIR") or HOME) / ".claude.json"
-
-
-def repo_mcp_entry(name: str) -> dict | None:
-    """The `camarones` MCP server Claude Code has for this repo's folder in its local scope, if any."""
-    data = load_json(claude_config(), {}) if claude_config().is_file() else {}
-    want = os.path.normcase(str(repo_dir(name).resolve()))
-    for folder, cfg in (data.get("projects") or {}).items():
-        if os.path.normcase(str(Path(folder).resolve())) == want and isinstance(cfg, dict):
-            entry = (cfg.get("mcpServers") or {}).get("camarones")
-            return entry if isinstance(entry, dict) else None
-    return None
-
-
-def repo_mcp_registered(name: str) -> bool:
-    entry = repo_mcp_entry(name)
-    return bool(entry) and (entry.get("env") or {}).get("CAMARONES_ROOT") == str(ROOT)
-
-
-def wire_repo_mcp(name: str, log: Log = print) -> bool:
-    """Claude Code opened inside a service repo reaches the docs: the `camarones` MCP server in Claude Code's local
-    scope for that folder (stored in the user's Claude config, nothing in the repo), pointed at this cam-docs.
-    Returns whether it registered it now."""
-    if not which("claude") or not repo_dir(name).is_dir() or repo_mcp_registered(name):
-        return False
-    if repo_mcp_entry(name):                                  # registered for another cam-docs (moved project)
-        run(["claude", "mcp", "remove", "--scope", "local", "camarones"], cwd=repo_dir(name), check=False, quiet=True)
-    m = camarones_mcp()
-    r = run(["claude", "mcp", "add", "--scope", "local", "camarones", "-e", f"CAMARONES_ROOT={ROOT}", "--",
-             m["command"], *m["args"]], cwd=repo_dir(name), check=False, quiet=True)   # -e takes many: name first
-    ok = r.returncode == 0 and repo_mcp_registered(name)
-    log(f"✔ {name}: Claude Code opened in this repo finds the docs (camarones MCP)" if ok
-        else f"⚠ {name}: could not register the camarones MCP for Claude Code")
-    return ok
-
-
-def unwire_repo_mcp(name: str) -> bool:
-    if not repo_mcp_entry(name) or not which("claude") or not repo_dir(name).is_dir():
-        return False
-    run(["claude", "mcp", "remove", "--scope", "local", "camarones"], cwd=repo_dir(name), check=False, quiet=True)
-    return repo_mcp_entry(name) is None
 
 
 def add_repo_pointer(name: str) -> bool:

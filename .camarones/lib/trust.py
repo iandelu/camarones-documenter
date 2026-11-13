@@ -145,12 +145,12 @@ def items(root: Path | None = None) -> dict[str, Item]:
 
     codex = root / ".codex" / "config.toml"
     if real(".codex/config.toml") and codex.is_file():
-        from .env import CODEX_MCP_RE
+        from .app import services
         text = codex.read_text(encoding="utf-8")
-        block = CODEX_MCP_RE.search(text)
+        block = services.current().agent_config.CODEX_MCP_RE.search(text)
         if block:
             add("codex mcp block", "codex", block.group(0).strip(), "MCP servers in the kit's block of .codex/config.toml")
-        rest = [ln.strip() for ln in CODEX_MCP_RE.sub("", text).splitlines() if ln.strip() and not ln.lstrip().startswith("#")]
+        rest = [ln.strip() for ln in services.current().agent_config.CODEX_MCP_RE.sub("", text).splitlines() if ln.strip() and not ln.lstrip().startswith("#")]
         if rest:
             add("codex config", "codex", "\n".join(rest), _short(" · ".join(rest)))
     hooks_json = root / ".codex" / "hooks.json"
@@ -187,10 +187,11 @@ def owned() -> dict[str, set[str]]:
     """id → digests of what this kit writes for this machine right now: its skills and its MCP entries (the Codex block
     holds whichever of them the kit wrote there)."""
     from . import env
+    from .app import services
     out = {f"file {rel}": {_digest(text.encode("utf-8"))} for rel, text in env.kit_skill_files().items()}
-    servers = {"camarones": env.camarones_mcp(), "likec4": env.likec4_mcp()}
+    servers = {"camarones": services.current().agent_config.camarones_mcp(), "likec4": services.current().agent_config.likec4_mcp()}
     out.update({f"mcp {k}": {_digest(v)} for k, v in servers.items()})
-    out["codex mcp block"] = {_digest(env.codex_block(dict(sub)).strip())
+    out["codex mcp block"] = {_digest(services.current().agent_config.codex_block(dict(sub)).strip())
                               for n in (1, 2) for sub in itertools.combinations(servers.items(), n)}
     from . import hooks, install_state
     out.update(hooks.owned())                        # the method hooks (R36), when the project turned them on

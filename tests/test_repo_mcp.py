@@ -15,12 +15,12 @@ from conftest import wire_project
 @pytest.fixture
 def claude(kit, isolated_env, monkeypatch):
     """A fake `claude mcp add|remove --scope local` that edits ~/.claude.json the way Claude Code does."""
-    env = kit.env
+    env = kit.services.agent_config                 # the adapter: where wire_repo_mcp looks up which and run
     cfg = isolated_env / ".claude.json"
     calls = []
     monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
     real_which = env.which
-    for mod in (env, importlib.import_module("lib.install_state")):           # the wiring, and the drift check
+    for mod in (env, importlib.import_module("lib.install_state")):           # the wiring (agent_config), and the drift check
         monkeypatch.setattr(mod, "which", lambda name: "/bin/claude" if name == "claude" else real_which(name))
     real_run = env.run
 
@@ -58,20 +58,20 @@ def test_each_repo_gets_the_docs_mcp_in_claude_codes_local_scope(kit, claude):
     from fixtures.builder import snapshot
     before = snapshot(kit.ws / "api")
     for r in kit.docs.repo_names():
-        assert kit.env.wire_repo_mcp(r, log=lambda _: None) is True
+        assert kit.services.agent_config.wire_repo_mcp(r, log=lambda _: None) is True
     data = json.loads(cfg.read_text(encoding="utf-8"))
     entry = data["projects"][str((kit.ws / "api").resolve())]["mcpServers"]["camarones"]
     assert entry["env"]["CAMARONES_ROOT"] == str(kit.root) and entry["args"][-1] == "mcp"
     assert all("--scope" in c and c[c.index("--scope") + 1] == "local" for c, _ in calls)
     assert snapshot(kit.ws / "api") == before                                      # nothing written into the repo
-    assert all(kit.env.repo_mcp_registered(r) for r in kit.docs.repo_names())
+    assert all(kit.services.agent_config.repo_mcp_registered(r) for r in kit.docs.repo_names())
     calls.clear()
-    assert kit.env.wire_repo_mcp("api", log=lambda _: None) is False and not calls  # idempotent
+    assert kit.services.agent_config.wire_repo_mcp("api", log=lambda _: None) is False and not calls  # idempotent
 
 
 def test_without_claude_code_nothing_is_attempted(kit, monkeypatch):
-    monkeypatch.setattr(kit.env, "which", lambda name: None)
-    assert kit.env.wire_repo_mcp("api", log=lambda _: None) is False
+    monkeypatch.setattr(kit.services.agent_config, "which", lambda name: None)
+    assert kit.services.agent_config.wire_repo_mcp("api", log=lambda _: None) is False
 
 
 def test_doctor_reports_and_repair_restores_a_repo_without_it(kit, claude, monkeypatch):
@@ -87,7 +87,7 @@ def test_doctor_reports_and_repair_restores_a_repo_without_it(kit, claude, monke
 def test_uninstall_removes_it(kit, claude):
     cfg, calls = claude
     for r in kit.docs.repo_names():
-        kit.env.wire_repo_mcp(r, log=lambda _: None)
+        kit.services.agent_config.wire_repo_mcp(r, log=lambda _: None)
     from lib import uninstall
     assert any("camarones MCP" in s.label for s in uninstall.steps(backup=False))
     for r in uninstall.repo_names():
@@ -101,9 +101,9 @@ def test_uninstall_removes_it(kit, claude):
 def test_the_shared_mcp_entry_names_the_cli_not_a_path_on_this_machine(kit, monkeypatch, cli, portable):
     """.mcp.json is committed to the team's cam-docs: with a global install it must say `camaron mcp`, not a path.
     This is the macOS / Linux entry, checked on every OS; Windows goes through cmd (the next test)."""
-    monkeypatch.setattr(kit.env, "cli_cmd", lambda: cli)
-    monkeypatch.setattr(kit.env, "IS_WIN", False)
-    entry = kit.env.camarones_mcp()
+    monkeypatch.setattr(kit.services.agent_config, "cli_cmd", lambda: cli)
+    monkeypatch.setattr(kit.services.agent_config, "IS_WIN", False)
+    entry = kit.services.agent_config.camarones_mcp()
     if portable:
         assert entry == {"command": cli, "args": ["mcp"]}
     else:
@@ -111,6 +111,6 @@ def test_the_shared_mcp_entry_names_the_cli_not_a_path_on_this_machine(kit, monk
 
 
 def test_on_windows_the_cmd_shim_goes_through_cmd(kit, monkeypatch):
-    monkeypatch.setattr(kit.env, "cli_cmd", lambda: "camaron")
-    monkeypatch.setattr(kit.env, "IS_WIN", True)
-    assert kit.env.camarones_mcp() == {"command": "cmd", "args": ["/c", "camaron", "mcp"]}
+    monkeypatch.setattr(kit.services.agent_config, "cli_cmd", lambda: "camaron")
+    monkeypatch.setattr(kit.services.agent_config, "IS_WIN", True)
+    assert kit.services.agent_config.camarones_mcp() == {"command": "cmd", "args": ["/c", "camaron", "mcp"]}
