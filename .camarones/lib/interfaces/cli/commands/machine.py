@@ -19,7 +19,7 @@ class Setup(Command):
     def run(self, args: argparse.Namespace, cli: CliContext) -> int:
         from lib import env, plan
         if args.profile:
-            env.set_profile(args.profile)
+            cli.services.components.set_profile(args.profile)
         env.init_templates()
         env.setup(ci=args.ci)
         if not args.ci:
@@ -86,7 +86,7 @@ class Profile(Command):
 
     def run(self, args: argparse.Namespace, cli: CliContext) -> int:
         from lib import env, plan
-        env.set_profile(args.name)
+        cli.services.components.set_profile(args.name)
         plan.sync()
         print(f"Profile: {args.name}. Progress kept. Run setup to prepare the selected tools.")
         return 0

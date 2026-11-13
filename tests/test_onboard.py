@@ -287,7 +287,7 @@ def rows_of(**ok):
 def test_install_choice_all_skips_a_second_agent(kit):
     system, comps = kit.onboard.install_choice(rows_of(git=True, claude=True), "all")
     assert "codex" not in system and system == ["docker"]
-    assert comps == kit.env.ALL_COMPONENTS
+    assert comps == kit.services.components.ALL_COMPONENTS
 
 
 def test_install_choice_all_installs_the_missing_recommended(kit):
@@ -296,7 +296,7 @@ def test_install_choice_all_installs_the_missing_recommended(kit):
 
 
 def test_install_choice_pick_and_none(kit, monkeypatch):
-    monkeypatch.setattr(kit.env, "components", lambda: ["likec4"])
+    monkeypatch.setattr(kit.services.components, "components", lambda: ["likec4"])
     monkeypatch.setattr(kit.env, "prerequisites", lambda: {"git": {}, "docker": {}, "codex": {}})
     system, comps = kit.onboard.install_choice(rows_of(), "pick", ["docker", "likec4", "openwiki", "bogus"])
     assert system == ["docker"] and comps == ["likec4", "openwiki"]
@@ -305,7 +305,7 @@ def test_install_choice_pick_and_none(kit, monkeypatch):
 
 def test_install_tools_reports_failures(kit, monkeypatch):
     done = []
-    monkeypatch.setattr(kit.env, "set_components", lambda c: done.append(("set", c)))
+    monkeypatch.setattr(kit.services.components, "set_components", lambda c: done.append(("set", c)))
     monkeypatch.setattr(kit.services.toolchain, "install_prereq", lambda k, log=print: k != "docker")
     logged = []
     assert kit.onboard.install_tools(["git", "docker"], ["likec4"], logged.append) == ["docker"]

@@ -68,7 +68,7 @@ def test_the_plan_has_a_diagrams_unit_after_the_content_it_draws(kit):
 
 
 def test_quick_profile_has_no_diagrams_unit(kit):
-    kit.env.set_profile("quick")
+    kit.services.components.set_profile("quick")
     assert "diagrams" not in [u["id"] for u in kit.plan.sync()["units"] if u["status"] != "dropped"]
 
 

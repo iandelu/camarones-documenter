@@ -55,6 +55,11 @@ def _vcs() -> object:
     return checkpoint
 
 
+def _components() -> object:
+    from lib.app import components
+    return components
+
+
 PROVIDERS: dict[str, Callable[[], object]] = {
     "launcher": _launcher,
     "diagrams": _diagrams,
@@ -65,6 +70,7 @@ PROVIDERS: dict[str, Callable[[], object]] = {
     "wiki_engine": _wiki_engine,
     "containers": _containers,
     "vcs": _vcs,
+    "components": _components,
 }
 
 

@@ -347,9 +347,9 @@ def test_tool_rows_shape(kit, monkeypatch):
            "codex": {"ok": True, "need": False, "hint": "Codex CLI", "note": "n"}}
     monkeypatch.setattr(kit.env, "prerequisites", lambda: pre)
     monkeypatch.setattr(kit.services.toolchain, "tool_ok", lambda k: k == "likec4")
-    monkeypatch.setattr(kit.env, "components", lambda: ["openwiki"])
-    monkeypatch.setattr(kit.env, "KIT_TOOLS", {"likec4": "C4"})
-    monkeypatch.setattr(kit.env, "EXTRAS", {"openwiki": "Wiki", "agents": "Agents"})
+    monkeypatch.setattr(kit.services.components, "components", lambda: ["openwiki"])
+    monkeypatch.setattr(kit.services.components, "KIT_TOOLS", {"likec4": "C4"})
+    monkeypatch.setattr(kit.services.components, "EXTRAS", {"openwiki": "Wiki", "agents": "Agents"})
     row = lambda i, label, ok, kind, rec, sys_, found="", note="": {"id": i, "label": label, "ok": ok, "kind": kind,
                                                                     "rec": rec, "sys": sys_, "found": found, "note": note}
     want = [row("git", "git", True, "t_required", True, True, "2.4"),

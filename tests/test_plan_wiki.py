@@ -24,7 +24,7 @@ def test_wiki_units_only_for_the_chosen_repos(kit):
 
 def test_no_wiki_units_without_the_openwiki_component(kit):
     kit.docs.set_wiki_repos(["api"])
-    kit.env.set_components(["likec4", "agents"])
+    kit.services.components.set_components(["likec4", "agents"])
     assert unit(kit.plan.sync(), "repo-wiki:api")["notes"] == "OpenWiki not selected"
 
 

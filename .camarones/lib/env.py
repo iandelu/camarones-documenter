@@ -264,43 +264,8 @@ def prerequisites() -> dict[str, dict]:
     }
 
 
-# ---------- components the user can choose ----------
-KIT_TOOLS = {
-    "graphify": "graphify — code knowledge graph (Claude/Codex query it instead of grepping)",
-    "likec4": "LikeC4 — C4 architecture diagrams + interactive explorer",
-    "openwiki": "OpenWiki — one wiki per repo with grounded claims",
-    "quality": "Quality gate — mermaid-cli (diagram validation) + gitleaks (secret scan) for CLI check",
-}
-EXTRAS = {
-    "agents": "Claude Code / Codex wiring in cam-docs (skills, MCP, rules), linked from the workspace root",
-}
-ALL_COMPONENTS = [*KIT_TOOLS, *EXTRAS]
-
-
-def components() -> list[str]:
-    """Components chosen in the wizard (stored in .camarones/workspace.yaml → project.components). Default: all."""
-    chosen = docs.workspace()["project"].get("components")
-    return list(ALL_COMPONENTS) if chosen is None else [c for c in chosen if c in ALL_COMPONENTS]
-
-
-def set_profile(name: str) -> None:
-    from .install import PROFILES
-    if name not in PROFILES:
-        raise ValueError(f'Unknown profile: {name}')
-    ws = docs.workspace()
-    ws['project']['profile'] = name
-    ws['project']['components'] = list(PROFILES[name])
-    docs.save_workspace(ws)
-
-
-def set_components(chosen: list[str]) -> None:
-    ws = docs.workspace()
-    ws["project"]["components"] = [c for c in ALL_COMPONENTS if c in chosen]
-    docs.save_workspace(ws)
-
-
 def install_tools(log: Log = print, comps: list[str] | None = None) -> None:
-    comps = components() if comps is None else comps
+    comps = services.current().components.components() if comps is None else comps
     if "graphify" in comps:
         if not services.current().toolchain.tool_ok("graphify"):
             log(f"installing graphify {VERSIONS['graphify']} (uv)…")
@@ -442,15 +407,15 @@ def refresh_agent_config() -> None:
     """Re-render what the kit owns in the agent config (its skills and MCP entries) for this machine, so a copy edited
     in .claude/skills — or rendered on a teammate's machine — goes back to the effective text (the team's copy of a
     skill, else the kit's) before trust.pending()."""
-    if CAM_LAYOUT and WS_FILE.exists() and "agents" in components():
+    if CAM_LAYOUT and WS_FILE.exists() and "agents" in services.current().components.components():
         write_kit_skills()
-        write_agent_config(components())
+        write_agent_config(services.current().components.components())
 
 
 def wire_repo(name: str, log: Log = print, comps: list[str] | None = None) -> None:
     """Nothing is written into the repo's tracked files: the code graph goes to cam-docs/graph/<repo>, and the
     OpenWiki folder is an untracked symlink into cam-docs/wikis/<repo>."""
-    comps = components() if comps is None else comps
+    comps = services.current().components.components() if comps is None else comps
     if "openwiki" in comps and CAM_LAYOUT:
         services.current().links.link_repo_wiki(name, log)
     if "agents" in comps and CAM_LAYOUT:
@@ -480,7 +445,7 @@ def wire_one(name: str, log: Log = print, comps: list[str] | None = None) -> Non
 
 
 def wire_umbrella(log: Log = print, comps: list[str] | None = None) -> None:
-    comps = components() if comps is None else comps
+    comps = services.current().components.components() if comps is None else comps
     if "agents" in comps:
         q = dict(cwd=ROOT, check=False, quiet=True)
         if "openwiki" in comps:
@@ -500,8 +465,8 @@ def wire_umbrella(log: Log = print, comps: list[str] | None = None) -> None:
 
 def setup_steps(comps: list[str] | None = None) -> int:
     """How many ✔ lines setup() will print — drives the progress bar."""
-    comps = components() if comps is None else comps
-    n = sum(1 for t in KIT_TOOLS if t in comps) + 1          # tools + repos synced
+    comps = services.current().components.components() if comps is None else comps
+    n = sum(1 for t in services.current().components.KIT_TOOLS if t in comps) + 1          # tools + repos synced
     n += len(docs.repo_names())                              # repos wired
     n += 1                                                   # umbrella
     n += 1 if "graphify" in comps else 0
@@ -511,7 +476,7 @@ def setup_steps(comps: list[str] | None = None) -> int:
 
 
 def setup(ci: bool = False, log: Log = print, comps: list[str] | None = None) -> bool:
-    comps = components() if comps is None else comps
+    comps = services.current().components.components() if comps is None else comps
     missing = [k for k, v in prerequisites().items() if v["need"] and not v["ok"]]
     if missing:
         raise RuntimeError("missing prerequisites: " + ", ".join(missing))
@@ -607,7 +572,7 @@ def code_graphs() -> dict[str, Path]:
 
 
 def build_graphs(log: Log = print) -> bool:
-    if "graphify" not in components():
+    if "graphify" not in services.current().components.components():
         log("⚠ graphify is not installed (setup)")
         return False
     for n in docs.repo_names():
@@ -647,14 +612,14 @@ def viewers() -> dict:
     model = bool(model_at) and any(re.search(r"^\s*model\s*\{", f.read_text(encoding="utf-8", errors="replace"), re.M)
                                    for f in services.current().diagrams.arch_dir().rglob("*.c4"))     # the kit's spec.c4 alone is not a model
     return {"c4": {"exists": bool(c4_at), "at": c4_at, "stale": bool(c4_at) and model_at > c4_at, "model": model},
-            "graphs": graphs, "graphify": "graphify" in components(), "likec4": "likec4" in components()}
+            "graphs": graphs, "graphify": "graphify" in services.current().components.components(), "likec4": "likec4" in services.current().components.components()}
 
 
 # ---------- OpenWiki ----------
 def wiki_engines() -> list[str]:
     """Who can write a wiki without a terminal: OpenWiki itself (provider key), else an agent CLI with the
     OpenWiki MCP tools (uses the agent's own login)."""
-    if "openwiki" not in components() or not services.current().toolchain.openwiki_installed():
+    if "openwiki" not in services.current().components.components() or not services.current().toolchain.openwiki_installed():
         return []
     return [e for e, ok in (("openwiki", services.current().wiki_engine.openwiki_credentials()), ("claude", bool(which("claude"))),
                             ("codex", bool(which("codex")))) if ok]
@@ -680,14 +645,14 @@ def wire_openwiki(host: str, log: Log = print) -> None:
     install_state.learn([cmd])
     if run(cmd, cwd=ROOT, check=False, quiet=True).returncode != 0 or not services.current().wiki_engine.openwiki_wired(host):
         raise RuntimeError(f"OpenWiki could not be connected to {host} in this project: run `camaron setup`")
-    write_agent_config(components())
+    write_agent_config(services.current().components.components())
 
 
 def wiki_engine_help() -> str | None:
     """Why no engine can write a wiki here (a key of ENGINE_HELP), or None when one can."""
     if wiki_engines():
         return None
-    if "openwiki" not in components():
+    if "openwiki" not in services.current().components.components():
         return "off"
     return "key" if services.current().toolchain.openwiki_installed() else "missing"
 
@@ -1060,11 +1025,11 @@ def export_site(log: Log = print) -> Path:
                 dst = out_dir / f.relative_to(src)
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(f, dst)
-    if "likec4" in components() and (not (VIEWERS / "architecture" / "index.html").exists() or viewers()["c4"]["stale"]):
+    if "likec4" in services.current().components.components() and (not (VIEWERS / "architecture" / "index.html").exists() or viewers()["c4"]["stale"]):
         build_c4(log=log)
     if (VIEWERS / "architecture").is_dir():
         shutil.copytree(VIEWERS / "architecture", tmp / "architecture")
-    if "graphify" in components() and not code_graphs():
+    if "graphify" in services.current().components.components() and not code_graphs():
         graph(rebuild=False, log=log)
     for n, f in code_graphs().items():
         dst = tmp / "code-graph" / ("" if n == "all" else n) / "index.html"

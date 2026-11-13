@@ -5,6 +5,7 @@ import cycle, so each field comes from a provider in lib/bootstrap.py."""
 from __future__ import annotations
 
 import inspect
+from types import ModuleType
 from collections.abc import Callable, Mapping
 
 from lib.ports.agent_config import AgentConfig
@@ -31,6 +32,7 @@ class Services:
     wiki_engine: WikiEngine
     containers: ContainerRuntime
     vcs: Vcs
+    components: ModuleType
 
     def __init__(self, providers: Mapping[str, Callable[[], object]]) -> None:
         object.__setattr__(self, "_providers", dict(providers))

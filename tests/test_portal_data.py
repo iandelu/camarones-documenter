@@ -171,7 +171,7 @@ def test_the_tree_marks_as_decisions_the_pages_the_app_lists(serve_mod):
 # ---------- static export ----------
 def test_static_export_carries_the_new_fields(serve_mod, monkeypatch):
     env, docs = serve_mod.env, serve_mod.docs
-    env.set_components(["agents"])
+    serve_mod.services.components.set_components(["agents"])
     monkeypatch.setattr(docs, "vendor_file", lambda *_a: None)
     monkeypatch.setattr(docs, "vendor", lambda _site: (0, []))
     page(serve_mod.root / "docs" / "architecture", "views.c4", VIEWS_C4)
@@ -192,7 +192,7 @@ def test_static_export_carries_the_new_fields(serve_mod, monkeypatch):
 
 def test_static_export_carries_the_decisions_that_cover_each_page(serve_mod, monkeypatch):
     env, docs = serve_mod.env, serve_mod.docs
-    env.set_components(["agents"])
+    serve_mod.services.components.set_components(["agents"])
     monkeypatch.setattr(docs, "vendor_file", lambda *_a: None)
     monkeypatch.setattr(docs, "vendor", lambda _site: (0, []))
     root = serve_mod.root / "docs"
@@ -241,7 +241,7 @@ def test_code_maps_are_listed_served_and_exported(serve_mod, monkeypatch):
     write_graph(serve_mod)
     assert serve_mod.serve.tree()["codeMaps"] == ["api"]
     env, docs = serve_mod.env, serve_mod.docs
-    env.set_components(["agents"])
+    serve_mod.services.components.set_components(["agents"])
     monkeypatch.setattr(docs, "vendor_file", lambda *_a: None)
     monkeypatch.setattr(docs, "vendor", lambda _site: (0, []))
     site = env.export_site(log=lambda _: None)

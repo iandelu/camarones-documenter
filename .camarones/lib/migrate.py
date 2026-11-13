@@ -238,7 +238,7 @@ def finish_phase(dry: bool = False, ask: bool = False) -> int:
     ws = docs.workspace()
     ws["project"].pop("agent_branch", None)
     docs.save_workspace(ws)
-    comps = env.components()
+    comps = services.current().components.components()
     for n in docs.repo_names():
         if "openwiki" in comps and (repo_dir(n) / "openwiki").exists():
             services.current().links.link_repo_wiki(n)

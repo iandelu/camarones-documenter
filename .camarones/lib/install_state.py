@@ -119,12 +119,12 @@ def drift() -> list[dict]:
     for n in services.current().links.LINKS:
         if why := services.current().links.workspace_off(n):  # "yours": a file of the person's is there, never replaced
             out.append({"path": f"{WORKSPACE.name}/{n}", "state": "not linked", "what": "workspace link", "why": why})
-    if "openwiki" in env.components():
+    if "openwiki" in services.current().components.components():
         for r in docs.repo_names():
             d = repo_dir(r)
             if d.is_dir() and os.path.realpath(d / "openwiki") != os.path.realpath(ROOT / "wikis" / r):
                 out.append({"path": f"{r}/openwiki", "state": "not linked", "what": "repo wiki link"})
-    if "agents" in env.components() and which("claude"):
+    if "agents" in services.current().components.components() and which("claude"):
         out += [{"path": r, "state": "not registered", "what": "repo MCP (Claude Code)"} for r in docs.repo_names()
                 if repo_dir(r).is_dir() and not services.current().agent_config.repo_mcp_registered(r)]
     return out
@@ -135,7 +135,7 @@ def repair(log=print) -> list[dict]:
     team's pages or files the kit did not write. Returns what is still off (links held back by trust, say)."""
     from . import docs, env
     from .app import services
-    comps = env.components()
+    comps = services.current().components.components()
     env.wire_umbrella(log, comps)
     if "openwiki" in comps and "agents" in comps:
         learn(services.current().wiki_engine.OPENWIKI_INSTALL, restore=True)
