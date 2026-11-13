@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from lib import adr, adr_doc, codemap, docs, env, plan, sourcelinks
+from lib import adr, adr_doc, codemap, docs, plan, sourcelinks
 from lib.app import services
 from lib.common import VERSIONS
 from lib.core.ctx import KIT
@@ -44,7 +44,9 @@ def tree() -> dict:
     ws = docs.workspace()
     return {"project": ws["project"]["name"], "langs": ws["project"].get("translations", []), "reviewer": reviewer(),
             "summary": docs.summary(rows), "feedback": len(docs.pending_feedback()), "kit": VERSIONS["kit"],
-            "repos": docs.repo_names(), "codeGraphs": list(services.current().viewers.code_graphs()), "engines": env.wiki_engines(), "engineHelp": env.wiki_engine_help(), "kitGuides": sorted(docs.kit_guides()),
+            "repos": docs.repo_names(), "codeGraphs": list(services.current().viewers.code_graphs()),
+            "engines": services.current().wiki.wiki_engines(), "engineHelp": services.current().wiki.wiki_engine_help(),
+            "kitGuides": sorted(docs.kit_guides()),
             "sections": docs.SECTIONS, "views": services.current().diagrams.c4_views(), "codeMaps": codemap.available(), "editBase": "",
             "docs": _with_adr_status(rows)}
 

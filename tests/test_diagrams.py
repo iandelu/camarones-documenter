@@ -73,5 +73,5 @@ def test_quick_profile_has_no_diagrams_unit(kit):
 
 
 def test_the_wiki_prompt_asks_for_diagrams(kit):
-    p = kit.env.wiki_prompt("api", "init")
+    p = kit.services.wiki.wiki_prompt("api", "init")
     assert "sequenceDiagram" in p and "stateDiagram-v2" in p

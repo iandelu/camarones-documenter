@@ -119,9 +119,9 @@ def test_close_reads_a_state_saved_by_an_older_kit(wired):
 def test_brief_is_not_a_page(wired):
     wiki = wired.root / "wikis" / "web"
     (wiki / "INSTRUCTIONS.md").write_text("brief", encoding="utf-8")
-    assert wired.env.wiki_pages("web") == [] and wired.env.wiki_brief_ready("web")
+    assert wired.services.wiki.wiki_pages("web") == [] and wired.services.wiki.wiki_brief_ready("web")
     (wiki / "overview.md").write_text("# overview", encoding="utf-8")
-    assert [p.name for p in wired.env.wiki_pages("web")] == ["overview.md"]
+    assert [p.name for p in wired.services.wiki.wiki_pages("web")] == ["overview.md"]
     assert "repos/web/INSTRUCTIONS.md" not in [l for l, _ in wired.docs.iter_docs()]
 
 
@@ -143,7 +143,7 @@ def test_one_wiki_run_at_a_time(wired, monkeypatch):
 @pytest.fixture
 def engine(wired, monkeypatch):
     """A fake headless engine: `rc` is its exit code; with rc 0 it writes one page into the real openwiki/ folder."""
-    env, box = wired.env, {"rc": 0, "calls": 0}
+    wk, box = wired.services.wiki, {"rc": 0, "calls": 0}
 
     def stream(cmd, cwd, log, env_=None):
         box["calls"] += 1
@@ -151,13 +151,13 @@ def engine(wired, monkeypatch):
             (wired.ws / "api" / "openwiki" / "index.md").write_text("# api\n", encoding="utf-8")
         log("session limit reached" if box["rc"] else "ok")
         return box["rc"]
-    monkeypatch.setattr(env, "wiki_engines", lambda: ["claude"])
+    monkeypatch.setattr(wk, "wiki_engines", lambda: ["claude"])
     mcp = wired.root / ".mcp.json"                                       # setup connected OpenWiki to the agents
     cfg = json.loads(mcp.read_text(encoding="utf-8"))
     cfg["mcpServers"]["openwiki"] = {"command": "openwiki", "args": ["mcp", "--host", "claude"]}
     mcp.write_text(json.dumps(cfg), encoding="utf-8")
-    monkeypatch.setattr(env, "stream", stream)
-    monkeypatch.setattr(env, "wiki_graph", lambda *a, **kw: True)
+    monkeypatch.setattr(wk, "stream", stream)
+    monkeypatch.setattr(wk, "wiki_graph", lambda *a, **kw: True)
     monkeypatch.setattr(wired.services.share, "checkpoint_commit", lambda *a, **kw: True)
     wired.docs.set_wiki_repos(["api"])
     wired.plan.sync()
@@ -166,9 +166,9 @@ def engine(wired, monkeypatch):
 
 def test_first_wiki_needs_the_brief(wired, engine):
     with pytest.raises(RuntimeError, match="INSTRUCTIONS.md"):
-        wired.env.openwiki_generate("api", log=lambda _: None)
+        wired.services.wiki.openwiki_generate("api", log=lambda _: None)
     assert engine["calls"] == 0
-    assert wired.env.openwiki_generate("api", log=lambda _: None, force=True) is True
+    assert wired.services.wiki.openwiki_generate("api", log=lambda _: None, force=True) is True
     assert unit(wired.plan.load(), "repo-wiki:api")["status"] == "done"
     assert wired.services.links._is_link(wired.ws / "api" / "openwiki")
 
@@ -176,8 +176,8 @@ def test_first_wiki_needs_the_brief(wired, engine):
 def test_engine_down_aborts_and_restores_the_unit(wired, engine):
     engine["rc"] = 1
     (wired.root / "wikis" / "api" / "INSTRUCTIONS.md").write_text("brief", encoding="utf-8")
-    with pytest.raises(wired.env.WikiAbort):
-        wired.env.openwiki_generate("api", log=lambda _: None)
+    with pytest.raises(wired.services.wiki.WikiAbort):
+        wired.services.wiki.openwiki_generate("api", log=lambda _: None)
     u = unit(wired.plan.load(), "repo-wiki:api")
     assert u["status"] == "todo"
     assert "repo-wiki:api" not in (wired.plan.LOG.read_text(encoding="utf-8") if wired.plan.LOG.exists() else "")
@@ -187,51 +187,51 @@ def test_engine_down_aborts_and_restores_the_unit(wired, engine):
 
 # ---------- wiki scope: complete wikis, and a warning for the ones written under the old, narrow scope ----------
 def test_the_wiki_prompt_asks_for_a_complete_wiki(wired):
-    p = wired.env.wiki_prompt("api", "init")
+    p = wired.services.wiki.wiki_prompt("api", "init")
     assert "Coverage" in p and "do not restate" not in p
     assert "docs/" in p                                           # still points at the cross-repo docs, to link not copy
 
 
 def test_a_generated_wiki_is_stamped_with_the_current_scope(wired, engine):
-    env = wired.env
-    assert env.openwiki_generate("api", log=lambda _: None, force=True) is True
-    assert env.wiki_scope("api") == env.WIKI_SCOPE
-    assert not {w["repo"]: w for w in env.wikis()}["api"]["old"]
+    wk = wired.services.wiki
+    assert wk.openwiki_generate("api", log=lambda _: None, force=True) is True
+    assert wk.wiki_scope("api") == wk.WIKI_SCOPE
+    assert not {w["repo"]: w for w in wk.wikis()}["api"]["old"]
 
 
 def test_an_unstamped_wiki_is_old_warned_and_expanded_on_update(wired, engine, monkeypatch):
-    env, wiki = wired.env, wired.root / "wikis" / "api"
+    wk, wiki = wired.services.wiki, wired.root / "wikis" / "api"
     (wiki / "INSTRUCTIONS.md").write_text("brief", encoding="utf-8")
     (wiki / "index.md").write_text("# api\n", encoding="utf-8")          # written by a kit before scope stamps
-    assert env.wiki_scope("api") == 1
-    assert {w["repo"]: w for w in env.wikis()}["api"]["old"]
+    assert wk.wiki_scope("api") == 1
+    assert {w["repo"]: w for w in wk.wikis()}["api"]["old"]
     assert any("wikis/api" in w and "older" in w for w in wired.docs.check()[1])
-    assert "Expand" in env.wiki_prompt("api", "update")
+    assert "Expand" in wk.wiki_prompt("api", "update")
     prompts = []
-    real = env.stream
-    monkeypatch.setattr(env, "stream", lambda cmd, cwd, log, env_=None: prompts.append(cmd[2]) or real(cmd, cwd, log))
-    assert env.openwiki_generate("api", log=lambda _: None) is True
+    real = wk.stream
+    monkeypatch.setattr(wk, "stream", lambda cmd, cwd, log, env_=None: prompts.append(cmd[2]) or real(cmd, cwd, log))
+    assert wk.openwiki_generate("api", log=lambda _: None) is True
     assert "Expand" in prompts[0]
-    assert not {w["repo"]: w for w in env.wikis()}["api"]["old"]
+    assert not {w["repo"]: w for w in wk.wikis()}["api"]["old"]
     assert not any("wikis/api" in w and "older" in w for w in wired.docs.check()[1])
 
 
 def test_openwiki_own_engine_counts_as_complete_only_with_a_coverage_brief(wired, engine, monkeypatch):
-    env, brief = wired.env, wired.root / "wikis" / "api" / "INSTRUCTIONS.md"
-    monkeypatch.setattr(env, "wiki_engines", lambda: ["openwiki"])     # OpenWiki's agent reads the brief, not our prompt
+    wk, brief = wired.services.wiki, wired.root / "wikis" / "api" / "INSTRUCTIONS.md"
+    monkeypatch.setattr(wk, "wiki_engines", lambda: ["openwiki"])      # OpenWiki's agent reads the brief, not our prompt
     brief.write_text("# brief\n", encoding="utf-8")
-    assert env.openwiki_generate("api", log=lambda _: None) is True
-    assert env.wiki_old("api")
+    assert wk.openwiki_generate("api", log=lambda _: None) is True
+    assert wk.wiki_old("api")
     brief.write_text("# brief\n\n## Coverage\n- one page per endpoint group\n", encoding="utf-8")
-    assert env.openwiki_generate("api", log=lambda _: None) is True
-    assert not env.wiki_old("api")
+    assert wk.openwiki_generate("api", log=lambda _: None) is True
+    assert not wk.wiki_old("api")
 
 
 # ---------- a wiki written by an agent is a run of its own, with its tokens and cost ----------
 @pytest.fixture
 def engine_streaming(wired, engine, monkeypatch):
     """The fake engine, now speaking Claude Code's stream-json: one tool call, then the result with its usage."""
-    env = wired.env
+    wk = wired.services.wiki
     lines = [{"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Write",
                                                             "input": {"file_path": "openwiki/index.md"}}]}},
              {"type": "result", "result": "done", "total_cost_usd": 0.42,
@@ -242,13 +242,13 @@ def engine_streaming(wired, engine, monkeypatch):
         for line in lines:
             log(json.dumps(line))
         return 0
-    monkeypatch.setattr(env, "stream", stream)
+    monkeypatch.setattr(wk, "stream", stream)
     return engine
 
 
 def test_a_wiki_by_an_agent_is_a_run_with_its_cost(wired, engine_streaming):
     shown = []
-    assert wired.env.openwiki_generate("api", log=shown.append, force=True) is True
+    assert wired.services.wiki.openwiki_generate("api", log=shown.append, force=True) is True
     from lib.harness import runs
     rid = runs.ids()[0]
     assert rid.endswith("-wiki-api") and runs.ids(wiki=False) == []
@@ -261,9 +261,9 @@ def test_a_wiki_by_an_agent_is_a_run_with_its_cost(wired, engine_streaming):
 
 
 def test_openwikis_own_engine_writes_no_run(wired, engine, monkeypatch):
-    monkeypatch.setattr(wired.env, "wiki_engines", lambda: ["openwiki"])
+    monkeypatch.setattr(wired.services.wiki, "wiki_engines", lambda: ["openwiki"])
     (wired.root / "wikis" / "api" / "INSTRUCTIONS.md").write_text("# brief\n", encoding="utf-8")
-    assert wired.env.openwiki_generate("api", log=lambda _: None) is True
+    assert wired.services.wiki.openwiki_generate("api", log=lambda _: None) is True
     from lib.harness import runs
     assert runs.ids() == []
 
@@ -274,16 +274,16 @@ def test_a_run_log_that_cannot_be_written_never_breaks_the_wiki(wired, engine_st
     def full(self, *a, **kw):
         raise OSError("no space left on device")
     monkeypatch.setattr(EventLog, "emit", full)
-    assert wired.env.openwiki_generate("api", log=lambda _: None, force=True) is True
+    assert wired.services.wiki.openwiki_generate("api", log=lambda _: None, force=True) is True
     assert unit(wired.plan.load(), "repo-wiki:api")["status"] == "done"
 
 
 def test_a_wiki_that_crashes_still_closes_its_run(wired, engine_streaming, monkeypatch):
     def boom(cmd, cwd, log, env_=None):
         raise RuntimeError("engine crashed")
-    monkeypatch.setattr(wired.env, "stream", boom)
+    monkeypatch.setattr(wired.services.wiki, "stream", boom)
     with pytest.raises(RuntimeError):
-        wired.env.openwiki_generate("api", log=lambda _: None, force=True)
+        wired.services.wiki.openwiki_generate("api", log=lambda _: None, force=True)
     from lib.harness import runs
     s = runs.summary(runs.ids()[0])
     assert s["finished"] is True and s["failed"] == 1

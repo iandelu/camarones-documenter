@@ -534,8 +534,8 @@ def check(strict: bool = False, secrets_only: bool = False) -> tuple[list[str], 
         e, w = fn(rows, strict)
         errors += e
         warns += w
-    from . import env
-    for n in env.old_wikis():
+    from .app import services
+    for n in services.current().wiki.old_wikis():
         warns.append(f"wikis/{n}: written with an older, narrower scope — regenerate it for a complete wiki: "
                      f"{cli_cmd()} wiki {n}")
     return errors, warns

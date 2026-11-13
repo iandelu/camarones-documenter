@@ -116,7 +116,7 @@ def test_no_model_means_no_views(serve_mod):
 
 # ---------- wikis ----------
 def test_wiki_nav_follows_the_index_then_the_rest(serve_mod):
-    nav = serve_mod.env.wiki_nav("api")
+    nav = serve_mod.services.wiki.wiki_nav("api")
     assert [p["path"] for p in nav["pages"]] == ["wikis/api/index.md", "wikis/api/quickstart.md",
                                                  "wikis/api/http-api.md", "wikis/api/caches.md"]
     assert nav["pages"][1]["title"] == "api quickstart"
@@ -124,14 +124,14 @@ def test_wiki_nav_follows_the_index_then_the_rest(serve_mod):
 
 
 def test_wiki_backlinks_resolve_relative_links_inside_the_wiki(serve_mod):
-    back = serve_mod.env.wiki_nav("api")["backlinks"]
+    back = serve_mod.services.wiki.wiki_nav("api")["backlinks"]
     assert back["wikis/api/quickstart.md"] == ["wikis/api/http-api.md", "wikis/api/index.md"]
     assert back["wikis/api/caches.md"] == ["wikis/api/quickstart.md"]
     assert "wikis/api/nope.md" not in back
 
 
 def test_wikis_rows_carry_the_navigation(serve_mod):
-    rows_ = {w["repo"]: w for w in serve_mod.env.wikis()}
+    rows_ = {w["repo"]: w for w in serve_mod.services.wiki.wikis()}
     assert rows_["api"]["pages"] == 4
     assert rows_["api"]["nav"]["home"] == "wikis/api/quickstart.md"
     assert rows_["web"]["nav"] == {"home": None, "pages": [], "backlinks": {}}
@@ -143,7 +143,7 @@ def test_a_bare_workspace_still_builds_the_tree(kit):
     serve = importlib.import_module("lib.serve")
     t = serve.tree()
     assert t["docs"] == [] and t["views"] == [] and t["sections"]
-    assert all(w["nav"]["pages"] == [] for w in kit.env.wikis())
+    assert all(w["nav"]["pages"] == [] for w in kit.services.wiki.wikis())
 
 
 # ---------- decisions ----------
@@ -216,8 +216,8 @@ def test_wiki_graph_export_does_not_pass_flags_openwiki_rejects(serve_mod, monke
         dest = cmd[cmd.index("--export") + 1]
         Path(dest).mkdir(parents=True, exist_ok=True)
         (Path(dest) / "index.html").write_text("ok", encoding="utf-8")
-    monkeypatch.setattr(serve_mod.env, "run", fake_run)
-    assert serve_mod.env.wiki_graph("api", log=lambda _: None)
+    monkeypatch.setattr(serve_mod.services.wiki, "run", fake_run)
+    assert serve_mod.services.wiki.wiki_graph("api", log=lambda _: None)
     assert "--no-open" not in calls[0] and "--port" not in calls[0]   # openwiki: "--export cannot be combined with --port or --no-open"
 
 
@@ -227,11 +227,11 @@ def test_a_wiki_graph_older_than_its_pages_is_stale(serve_mod):
     graph.parent.mkdir(parents=True, exist_ok=True)
     graph.write_text("old", encoding="utf-8")
     os.utime(graph, (1_000_000, 1_000_000))
-    rows = {w["repo"]: w for w in serve_mod.env.wikis()}
+    rows = {w["repo"]: w for w in serve_mod.services.wiki.wikis()}
     assert rows["api"]["graph"] and rows["api"]["graphStale"]
     assert not rows["web"]["graph"] and not rows["web"]["graphStale"]
     os.utime(graph, None)
-    assert not {w["repo"]: w for w in serve_mod.env.wikis()}["api"]["graphStale"]
+    assert not {w["repo"]: w for w in serve_mod.services.wiki.wikis()}["api"]["graphStale"]
 
 
 def test_code_maps_are_listed_served_and_exported(serve_mod, monkeypatch):

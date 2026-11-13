@@ -12,30 +12,30 @@ from test_plan_wiki import engine, unit  # noqa: F401 — the fake headless engi
 
 
 def row(kit, repo):
-    return next(r for r in kit.env.wikis() if r["repo"] == repo)
+    return next(r for r in kit.services.wiki.wikis() if r["repo"] == repo)
 
 
 def test_a_starter_brief_from_the_static_scan(wired):
-    env = wired.env
-    assert env.starter_brief("api") is True
+    wiki = wired.services.wiki
+    assert wiki.starter_brief("api") is True
     brief = (wired.root / "wikis" / "api" / "INSTRUCTIONS.md").read_text(encoding="utf-8")
-    assert brief.startswith(env.STARTER_MARK) and "## Coverage" in brief and "Java" in brief
-    assert env.wiki_brief_ready("api") and row(wired, "api")["brief"] == "starter"
-    assert env.starter_brief("api") is False                                         # never over an existing brief
+    assert brief.startswith(wiki.STARTER_MARK) and "## Coverage" in brief and "Java" in brief
+    assert wiki.wiki_brief_ready("api") and row(wired, "api")["brief"] == "starter"
+    assert wiki.starter_brief("api") is False                                        # never over an existing brief
     (wired.root / "wikis" / "web" / "INSTRUCTIONS.md").parent.mkdir(parents=True, exist_ok=True)
     (wired.root / "wikis" / "web" / "INSTRUCTIONS.md").write_text("# web\n\n## Coverage\n", encoding="utf-8")
-    assert env.starter_brief("web") is False and row(wired, "web")["brief"] == "ai"
+    assert wiki.starter_brief("web") is False and row(wired, "web")["brief"] == "ai"
 
 
 def test_each_card_says_what_a_click_will_do(wired, monkeypatch):
-    env = wired.env
-    monkeypatch.setattr(env, "wiki_engines", lambda: ["claude"])
+    wiki = wired.services.wiki
+    monkeypatch.setattr(wiki, "wiki_engines", lambda: ["claude"])
     r = row(wired, "api")
     assert r["chosen"] is False and r["brief"] is None and r["canGenerate"] is True
     wired.docs.set_wiki_repos(["api"])
-    env.starter_brief("api")
+    wiki.starter_brief("api")
     assert row(wired, "api")["canGenerate"] is True and row(wired, "api")["brief"] == "starter"
-    monkeypatch.setattr(env, "wiki_engines", lambda: [])
+    monkeypatch.setattr(wiki, "wiki_engines", lambda: [])
     assert row(wired, "api")["canGenerate"] is False
 
 
@@ -45,15 +45,15 @@ def test_each_card_says_what_a_click_will_do(wired, monkeypatch):
     (["openwiki", "agents"], True, "key"),
 ])
 def test_without_an_engine_the_exact_fix(wired, monkeypatch, comps, installed, fix):
-    env = wired.env
+    wiki = wired.services.wiki
     ws = wired.docs.workspace(); ws["project"]["components"] = comps; wired.docs.save_workspace(ws)
     monkeypatch.setattr(wired.services.toolchain, "openwiki_installed", lambda: installed)
     monkeypatch.setattr(wired.services.wiki_engine, "openwiki_credentials", lambda: False)
-    monkeypatch.setattr(env, "which", lambda name: None)
-    assert env.wiki_engines() == [] and env.wiki_engine_help() == fix
+    monkeypatch.setattr(wiki, "which", lambda name: None)
+    assert wiki.wiki_engines() == [] and wiki.wiki_engine_help() == fix
     assert wired.serve.tree()["engineHelp"] == fix
-    with pytest.raises(RuntimeError, match=re.escape(env.ENGINE_HELP[fix][:20])):
-        env.openwiki_generate("api", log=lambda _: None)
+    with pytest.raises(RuntimeError, match=re.escape(wiki.ENGINE_HELP[fix][:20])):
+        wiki.openwiki_generate("api", log=lambda _: None)
 
 
 # /api/tree asks on every page load and `npm ls -g` takes seconds: six of them when OpenWiki is missing, which is what
@@ -82,7 +82,7 @@ def on_path(kit, monkeypatch, exe):
 
 
 def test_a_page_load_without_openwiki_does_not_wait_for_npm(wired, monkeypatch, npm):
-    monkeypatch.setattr(wired.env, "which", lambda name: None)
+    monkeypatch.setattr(wired.services.wiki, "which", lambda name: None)
     monkeypatch.setattr(wired.services.toolchain, "which", lambda name: None)
     assert wired.serve.tree()["engines"] == []
     assert npm.cmds == []
@@ -163,7 +163,7 @@ def installer(wired, engine, monkeypatch):  # noqa: F811
             data["mcpServers"]["openwiki"] = {"command": "openwiki", "args": ["mcp", "--host", cmd[3]]}
             mcp.write_text(json.dumps(data), encoding="utf-8")
         return type("Done", (), {"returncode": 1 if box["fail"] else 0})()
-    monkeypatch.setattr(wired.env, "run", run)
+    monkeypatch.setattr(wired.services.wiki, "run", run)
     monkeypatch.setattr(importlib.import_module("lib.install_state"), "learn", lambda cmds, **kw: None)
     (wired.root / "wikis" / "api" / "INSTRUCTIONS.md").write_text("brief", encoding="utf-8")
     return box
@@ -172,19 +172,19 @@ def installer(wired, engine, monkeypatch):  # noqa: F811
 def test_a_run_connects_openwiki_to_the_agent_first(wired, engine, installer):  # noqa: F811
     import json
     assert not wired.services.wiki_engine.openwiki_wired("claude")
-    assert wired.env.openwiki_generate("api", log=lambda _: None) is True
+    assert wired.services.wiki.openwiki_generate("api", log=lambda _: None) is True
     assert ["openwiki", "integrations", "install", "claude", "--project", "."] in installer["calls"]
     settings = json.loads((wired.root / ".claude" / "settings.json").read_text(encoding="utf-8"))
     assert "openwiki" in settings["enabledMcpjsonServers"]                       # a headless run loads it unasked
     installer["calls"].clear()
-    wired.env.openwiki_generate("api", log=lambda _: None)
+    wired.services.wiki.openwiki_generate("api", log=lambda _: None)
     assert not any(c[:3] == ["openwiki", "integrations", "install"] for c in installer["calls"])
 
 
 def test_when_openwiki_cannot_be_connected_the_run_says_so(wired, engine, installer):  # noqa: F811
     installer["fail"] = True
     with pytest.raises(RuntimeError, match="camaron setup"):
-        wired.env.openwiki_generate("api", log=lambda _: None)
+        wired.services.wiki.openwiki_generate("api", log=lambda _: None)
     assert engine["calls"] == 0
 
 
@@ -193,7 +193,7 @@ def held(wired, monkeypatch):
     """Wiki generation that runs until the test lets it go."""
     import threading
     gate = threading.Event()
-    monkeypatch.setattr(wired.env, "openwiki_generate", lambda repo, mode, log, engine="": gate.wait(10))
+    monkeypatch.setattr(wired.services.wiki, "openwiki_generate", lambda repo, mode, log, engine="": gate.wait(10))
     yield gate
     gate.set()
 
@@ -220,14 +220,14 @@ def test_a_second_repo_during_the_first_ones_preparation_is_busy(wired, held, mo
     wired.docs.set_wiki_repos([])
     wired.plan.sync()
     preparing, release = threading.Event(), threading.Event()
-    real = wired.env.starter_brief
+    real = wired.services.wiki.starter_brief
 
     def slow(repo):
         if repo == "api":
             preparing.set()
             release.wait(10)
         return real(repo)
-    monkeypatch.setattr(wired.env, "starter_brief", slow)
+    monkeypatch.setattr(wired.services.wiki, "starter_brief", slow)
     first: dict = {}
     t = threading.Thread(target=lambda: first.update(wired.serve.wiki({"repo": "api", "choose": True, "starter": True})))
     t.start()
@@ -249,13 +249,13 @@ def test_a_preparation_that_fails_leaves_no_running_wiki(wired, held, monkeypatc
 
     def boom(repo):
         raise OSError("disk full")
-    monkeypatch.setattr(wired.env, "starter_brief", boom)
+    monkeypatch.setattr(wired.services.wiki, "starter_brief", boom)
     with pytest.raises(OSError, match="disk full"):
         wired.serve.wiki({"repo": "api", "starter": True})
     failed = [j for j in wired.serve.JOBS.values() if j["kind"] == "wiki" and j.get("repo") == "api"]
     assert failed and failed[-1]["status"] == "failed" and any("disk full" in line for line in failed[-1]["log"])
     monkeypatch.undo()
-    monkeypatch.setattr(wired.env, "openwiki_generate", lambda repo, mode, log, engine="": held.wait(10))
+    monkeypatch.setattr(wired.services.wiki, "openwiki_generate", lambda repo, mode, log, engine="": held.wait(10))
     assert wired.serve.wiki({"repo": "web"})["status"] == "running"                # not blocked by the failed one
     held.set()
 

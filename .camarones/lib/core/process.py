@@ -1,7 +1,8 @@
 """Cross-platform process helpers and the tool PATH (macOS, Windows, Linux)."""
 from __future__ import annotations
 
-import os, shutil, signal, subprocess, sys
+import os, re, shutil, signal, subprocess, sys
+from collections.abc import Callable
 from pathlib import Path
 
 from .platform import HOME, IS_WIN
@@ -93,6 +94,22 @@ def run(cmd: list[str], cwd: Path | None = None, check: bool = True, quiet: bool
 def out(cmd: list[str], cwd: Path | None = None) -> str:
     r = run(cmd, cwd=cwd, check=False, capture=True)
     return (r.stdout or "").strip() if r.returncode == 0 else ""
+
+
+def stream(cmd: list[str], cwd: Path, log: Callable[[str], None], env: dict | None = None) -> int:
+    """Run a long command and hand each output line to `log` (the portal shows it live)."""
+    try:
+        pr = subprocess.Popen([which(cmd[0]) or cmd[0], *cmd[1:]], cwd=str(cwd), stdin=subprocess.DEVNULL,
+                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8",
+                              errors="replace", env={**os.environ, **(env or {})})
+    except OSError as e:
+        log(f"⚠ {cmd[0]}: {e}")
+        return 127
+    for line in pr.stdout:
+        line = re.sub(r"\x1b\[[0-9;?]*[A-Za-z]", "", line).rstrip()
+        if line.strip():
+            log(line)
+    return pr.wait()
 
 
 # What a Claude Code session sets on whatever it launches, and what ties a shell to the host that opened it. A `claude`

@@ -4,7 +4,6 @@ cycle_modules: 52
 oversize:
   - adr
   - docs
-  - env
   - kanban.ops
   - pages
   - plan
@@ -26,6 +25,10 @@ violations:
   - "app.setup -> binaries"
   - "app.share -> creds"
   - "app.share -> kanban"
+  - "app.wiki -> adapters.runners"
+  - "app.wiki -> harness.events"
+  - "app.wiki -> quickarch"
+  - "app.wiki -> radar"
   - "budget -> mcp"
   - "bump -> inventory"
   - "c4edit -> harness.symbols"
@@ -33,11 +36,7 @@ violations:
   - "diagrams -> docs"
   - "diagrams -> genblocks"
   - "docs -> creds"
-  - "env -> adapters.runners"
   - "env -> codemap"
-  - "env -> harness.events"
-  - "env -> quickarch"
-  - "env -> radar"
   - "exporters -> harness.symbols"
   - "genblocks -> diagrams"
   - "genblocks -> quickarch"

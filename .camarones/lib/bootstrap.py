@@ -80,6 +80,11 @@ def _share() -> object:
     return share
 
 
+def _wiki() -> object:
+    from lib.app import wiki
+    return wiki
+
+
 PROVIDERS: dict[str, Callable[[], object]] = {
     "launcher": _launcher,
     "diagrams": _diagrams,
@@ -95,6 +100,7 @@ PROVIDERS: dict[str, Callable[[], object]] = {
     "viewers": _viewers,
     "setup": _setup,
     "share": _share,
+    "wiki": _wiki,
 }
 
 

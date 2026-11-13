@@ -961,7 +961,7 @@ class W:
         fb = len(docs.pending_feedback())
         if fb:
             tbl.add_row("✏️", f"{fb} {self.t('d_fb')}")
-        old = env.old_wikis()
+        old = services.current().wiki.old_wikis()
         if old:
             tbl.add_row("📚", f"[yellow]{self.t('d_old_wikis', n=len(old), repos=', '.join(old))}[/]")
         nxt = [u for u in plan.available(data) if u["status"] != "doing"]
@@ -1712,13 +1712,14 @@ class W:
                 plan.set_status(u["id"], "done", "wizard")
                 self.checkpoint(u["id"])
             return
-        if u["type"] == "repo-wiki" and (engines := env.wiki_engines()):
+        if u["type"] == "repo-wiki" and (engines := services.current().wiki.wiki_engines()):
             c = self.sel(self.t("w_unit_q", repo=u["repo"]), [Choice(self.t("w_here", engine=engines[0]), "here"),
                                                               Choice(self.t("w_agent"), "agent")])
             if c is None:
                 return
             if c == "here":
-                ok = self.safe(self.busy, env.openwiki_generate, u["repo"], engine=self.wiki_engine() or engines[0])
+                ok = self.safe(self.busy, services.current().wiki.openwiki_generate, u["repo"],
+                               engine=self.wiki_engine() or engines[0])
                 self.say(self.t("w_done", repo=u["repo"]) if ok else self.t("w_fail", repo=u["repo"]), "green" if ok else "yellow")
                 return
         resume_agent = c = None
@@ -2176,7 +2177,7 @@ class W:
 
     def do_wikis(self) -> None:
         while True:
-            rows = env.wikis()
+            rows = services.current().wiki.wikis()
             tbl = Table(title=self.t("w_title"), title_justify="left", border_style="grey42", show_header=False)
             for w in rows:
                 if not w["chosen"]:
@@ -2219,8 +2220,8 @@ class W:
                 continue
             for i, repo in enumerate(picked):
                 try:
-                    ok = self.busy(env.openwiki_generate, repo, engine=engine)
-                except env.WikiAbort as e:          # quota / login: the rest would fail the same way
+                    ok = self.busy(services.current().wiki.openwiki_generate, repo, engine=engine)
+                except services.current().wiki.WikiAbort as e:  # quota / login: the rest would fail the same way
                     left = picked[i + 1:]
                     console.print(Panel(str(e) + (f"\n{self.t('w_skipped', repos=', '.join(left))}" if left else ""),
                                         title=self.t("error"), border_style="red"))
@@ -2265,7 +2266,7 @@ class W:
         return "gone"
 
     def wiki_engine(self) -> str | None:
-        engines = env.wiki_engines()
+        engines = services.current().wiki.wiki_engines()
         if not engines:
             self.say(Panel(self.t("w_no_engine"), border_style="yellow"))
             return None

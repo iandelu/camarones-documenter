@@ -1,5 +1,5 @@
 """The portal's viewers: the code graphs, the C4 explorer and which of them are stale. The wiki graphs they sit beside
-are exported by the wiki (env's wiki_graph)."""
+are exported by the wiki (app.wiki.wiki_graph)."""
 from __future__ import annotations
 
 import re

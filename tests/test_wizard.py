@@ -21,7 +21,7 @@ def test_checkbox_with_nothing_selectable_goes_back(kit):
 def test_wikis_menu_with_no_ready_repo_does_not_crash(wired, fake_wizard, monkeypatch):
     wired.docs.set_wiki_repos(["api"])                                           # chosen, but no INSTRUCTIONS.md yet
     wired.plan.sync()
-    monkeypatch.setattr(wired.env, "openwiki_generate", lambda *a, **kw: pytest.fail("must not start a run"))
+    monkeypatch.setattr(wired.services.wiki, "openwiki_generate", lambda *a, **kw: pytest.fail("must not start a run"))
     w = fake_wizard(["gen", None])
     w.do_wikis()
     assert len(w.answers.asked) == 2                                             # no repo picker in between

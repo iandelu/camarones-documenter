@@ -87,7 +87,8 @@ def build(b: dict) -> dict:
         return start_job("graph", "Code graphs", lambda log: services.current().viewers.build_graphs(log=log))
     if what == "wiki-graph" and repo in docs.repo_names():
         # a kind per repo: start_job attaches a second start of the same kind to the running job, whatever the repo
-        return start_job(f"wiki-graph:{repo}", f"Wiki graph {repo}", lambda log: env.wiki_graph(repo, log=log))
+        return start_job(f"wiki-graph:{repo}", f"Wiki graph {repo}",
+                         lambda log: services.current().wiki.wiki_graph(repo, log=log))
     raise ValueError(f"unknown build {what!r}")
 
 
@@ -100,7 +101,7 @@ def wiki(b: dict) -> dict:
     repo, mode, engine = b.get("repo", ""), b.get("mode", ""), b.get("engine", "")
     if repo not in docs.repo_names() or mode not in ("", "init", "update"):
         raise ValueError("unknown repo or mode")
-    choose = repo not in docs.wiki_repos() and not env.wiki_pages(repo)
+    choose = repo not in docs.wiki_repos() and not services.current().wiki.wiki_pages(repo)
     if choose and not b.get("choose"):
         raise ValueError(f"{repo} is not chosen for a wiki")
     with JOB_LOCK:
@@ -115,11 +116,11 @@ def wiki(b: dict) -> dict:
             docs.set_wiki_repos([*docs.wiki_repos(), repo])
             plan.sync()
         if b.get("starter"):
-            env.starter_brief(repo)
+            services.current().wiki.starter_brief(repo)
     except Exception as e:
         fail_job(job, e)
         raise
-    return run_job(job, lambda log: env.openwiki_generate(repo, mode, log, engine))
+    return run_job(job, lambda log: services.current().wiki.openwiki_generate(repo, mode, log, engine))
 
 
 @route("GET", "/api/inventory")
@@ -177,7 +178,7 @@ def get_viewers(req: Request) -> Response:
 
 @route("GET", "/api/wikis")
 def get_wikis(req: Request) -> Response:
-    return json_response(env.wikis())
+    return json_response(req.services.wiki.wikis())
 
 
 @route("POST", "/api/build", access=Access.APP)
