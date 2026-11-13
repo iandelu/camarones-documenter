@@ -24,8 +24,8 @@ def app(wired, term, monkeypatch):                                       # noqa:
     from lib.adapters.runners.claude import Claude
     from lib.harness.ports import Invocation
     monkeypatch.setattr(Claude, "build", lambda self, req: Invocation([sys.executable, str(ECHO)], req.cwd, req.env))
-    monkeypatch.setattr(wired.serve, "APP_TOKEN", TOKEN)
-    monkeypatch.setattr(wired.serve, "PORTAL_TOKEN", PORTAL)
+    monkeypatch.setattr("lib.interfaces.http.server.APP_TOKEN", TOKEN)
+    monkeypatch.setattr("lib.interfaces.http.server.PORTAL_TOKEN", PORTAL)
     srv = ThreadingHTTPServer(("127.0.0.1", 0), wired.serve.Handler)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     yield SimpleNamespace(url=f"http://127.0.0.1:{srv.server_address[1]}", term=term, t=terminals)

@@ -52,7 +52,7 @@ def test_the_same_move_with_force_goes_through(ops, server):
 
 
 def test_the_app_can_force_too(ops, server, wired, monkeypatch):
-    monkeypatch.setattr(wired.serve, "APP_TOKEN", APP)
+    monkeypatch.setattr("lib.interfaces.http.server.APP_TOKEN", APP)
     collide(ops)
     assert call(server + "/api/kanban/move", {"id": "WI-2", "status": "In Progress"}, token=APP)[0] == 409
     code, row = call(server + "/api/kanban/move", {"id": "WI-2", "status": "In Progress", "force": True}, token=APP)
@@ -305,7 +305,7 @@ def test_save_with_the_token_writes_the_story_and_its_tasks(world, server):
 
 
 def test_save_by_the_app_works_too(world, server, wired, monkeypatch):
-    monkeypatch.setattr(wired.serve, "APP_TOKEN", APP)
+    monkeypatch.setattr("lib.interfaces.http.server.APP_TOKEN", APP)
     code, b = post(server, "/api/stories/save", {**story(), "tasks": []}, token=APP)
     assert code == 200 and b["story"]["id"] == "WI-1"
 

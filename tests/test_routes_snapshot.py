@@ -16,7 +16,8 @@ import pytest
 from fixtures.http_probe import APP_TOKEN, PORTAL_TOKEN, arm, serving
 
 SNAPSHOT = Path(__file__).parent / "snapshots" / "routes.json"
-SERVE = Path(__file__).resolve().parents[1] / ".camarones" / "lib" / "serve.py"
+HTTP = Path(__file__).resolve().parents[1] / ".camarones" / "lib" / "interfaces" / "http"
+API_PATH = re.compile(r"/api/[\w/.-]*\w")
 ROUTES = json.loads(SNAPSHOT.read_text(encoding="utf-8")) if SNAPSHOT.is_file() else []
 
 
@@ -100,24 +101,18 @@ def test_route_access(server, route, who):
             assert status != 403
 
 
-def literal_paths() -> set[str]:
-    tree = ast.parse(SERVE.read_text(encoding="utf-8"))
-    found = {n.value for n in ast.walk(tree) if isinstance(n, ast.Constant) and isinstance(n.value, str)
-             and re.fullmatch(r"/api/[\w/.-]*\w", n.value)}
-    for fn in ast.walk(tree):
-        if not (isinstance(fn, ast.FunctionDef) and fn.name in ("api_get", "api_app_get")):
-            continue
-        prefix = "/api/" if fn.name == "api_get" else "/api/app/"
-        for cmp in ast.walk(fn):
-            if not (isinstance(cmp, ast.Compare) and isinstance(cmp.left, ast.Name) and cmp.left.id == "name"):
-                continue
-            for side in cmp.comparators:
-                for c in ast.walk(side):
-                    if isinstance(c, ast.Constant) and isinstance(c.value, str):
-                        found.add(prefix + c.value)
-    return found
+def spelled_paths(tree: ast.AST) -> set[str]:
+    """String constants that read as an API path, except the pattern of a `route(...)` declaration."""
+    declared = {id(call.args[1]) for call in ast.walk(tree)
+                if isinstance(call, ast.Call) and len(call.args) > 1
+                and (getattr(call.func, "id", None) or getattr(call.func, "attr", None)) == "route"}
+    return {n.value for n in ast.walk(tree) if isinstance(n, ast.Constant) and isinstance(n.value, str)
+            and API_PATH.fullmatch(n.value) and id(n) not in declared}
 
 
-def test_every_literal_route_in_serve_is_listed():
-    listed = {r["path"] for r in ROUTES}
-    assert sorted(literal_paths() - listed) == []
+def test_no_route_path_is_spelled_outside_a_declaration():
+    """Every API path the server answers is a route's declared pattern, so the router's table is the whole API."""
+    assert spelled_paths(ast.parse('@route("GET", "/api/x")\ndef h(req): return "/api/y"\n')) == {"/api/y"}
+    found = sorted(f"{f.relative_to(HTTP).as_posix()}: {path}" for f in sorted(HTTP.rglob("*.py"))
+                   for path in spelled_paths(ast.parse(f.read_text(encoding="utf-8"))))
+    assert found == []

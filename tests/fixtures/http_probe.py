@@ -10,7 +10,7 @@ import urllib.request
 from collections.abc import Iterator
 from http.server import ThreadingHTTPServer
 
-SERVER = "lib.serve"                # the module that holds the server's tokens and its static mode
+SERVER = "lib.interfaces.http.server"   # the module that holds the server's tokens and its static mode
 APP_TOKEN = "app-token"
 PORTAL_TOKEN = "portal-token"
 

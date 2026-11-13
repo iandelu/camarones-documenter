@@ -81,7 +81,7 @@ AREA: dict[tuple[str, str], str] = {
     ], "jobs"),
 }
 
-MOVED: set[str] = {"docs", "board", "onboard", "analysis", "machine", "terminals", "runs", "team", "architecture", "adr", "app_cmd", "jobs"}
+MOVED: set[str] = set(AREA.values())
 
 
 @pytest.fixture
@@ -184,6 +184,7 @@ def test_moved_areas_are_routed(kit):
         assert hit, f"{method} {path} is not routed"
         assert (hit.route.access, hit.route.handler.__module__) == (
             SNAP[(method, path)], f"lib.interfaces.http.routes.{area}"), f"{method} {path}"
+        assert len(loaded.candidates(method, path)) == 1, f"{method} {path} matches more than one route"
 
 
 def test_every_declared_api_route_is_in_the_snapshot(kit):
@@ -194,3 +195,9 @@ def test_every_declared_api_route_is_in_the_snapshot(kit):
         one = router.Router([route])
         access = {a for (m, p), a in SNAP.items() if m == route.method and one.match(m, p)}
         assert access == {route.access}, f"{route.method} {route.pattern}: the snapshot says {access or 'nothing'}"
+
+
+def test_serve_is_a_facade_of_the_http_interface(kit):
+    serve = importlib.import_module("lib.serve")
+    assert serve.__facade__ == "lib.interfaces.http"
+    assert not hasattr(serve, "APP_ONLY")

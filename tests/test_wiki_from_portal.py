@@ -262,7 +262,7 @@ def test_a_preparation_that_fails_leaves_no_running_wiki(wired, held, monkeypatc
 def test_the_busy_answer_is_a_409(wired, held, monkeypatch):
     import json, threading, urllib.error, urllib.request
     from http.server import ThreadingHTTPServer
-    monkeypatch.setattr(wired.serve, "APP_TOKEN", "tok")
+    monkeypatch.setattr("lib.interfaces.http.server.APP_TOKEN", "tok")
     wired.docs.set_wiki_repos(["api", "web"])
     wired.serve.wiki({"repo": "api"})
     srv = ThreadingHTTPServer(("127.0.0.1", 0), wired.serve.Handler)

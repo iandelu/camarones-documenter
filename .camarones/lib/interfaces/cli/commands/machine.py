@@ -193,8 +193,8 @@ class Up(Command):
         from lib import env
         from lib.core.paths import CACHE
         if args.foreground:
-            from lib import serve
-            serve.run_server(args.port, static=args.static)
+            from lib.interfaces.http.server import run_server
+            run_server(args.port, static=args.static)
         elif args.docker or args.static:
             if not (CACHE / "site" / "index.html").exists():
                 env.portal()

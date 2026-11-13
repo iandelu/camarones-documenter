@@ -53,7 +53,7 @@ def test_the_wizard_defaults_to_the_same_step(kit):
 
 @pytest.fixture
 def app(kit, monkeypatch):
-    monkeypatch.setattr(kit.serve, "APP_TOKEN", TOKEN)
+    monkeypatch.setattr("lib.interfaces.http.server.APP_TOKEN", TOKEN)
     srv = ThreadingHTTPServer(("127.0.0.1", 0), kit.serve.Handler)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     yield f"http://127.0.0.1:{srv.server_address[1]}"

@@ -12,8 +12,8 @@ APP, PORTAL = "app-token", "portal-token"
 
 @pytest.fixture
 def server(wired, monkeypatch):
-    monkeypatch.setattr(wired.serve, "APP_TOKEN", "")
-    monkeypatch.setattr(wired.serve, "PORTAL_TOKEN", PORTAL)
+    monkeypatch.setattr("lib.interfaces.http.server.APP_TOKEN", "")
+    monkeypatch.setattr("lib.interfaces.http.server.PORTAL_TOKEN", PORTAL)
     srv = ThreadingHTTPServer(("127.0.0.1", 0), wired.serve.Handler)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     yield f"http://127.0.0.1:{srv.server_address[1]}"
@@ -45,7 +45,7 @@ def test_board_writes_need_a_token(wired, server, monkeypatch):
     assert call(server + "/api/kanban/init", token=PORTAL)[0] == 200
     assert (wired.root / "backlog" / "board.yaml").exists()
     assert call(server + "/api/kanban/add", {"type": "task", "title": "x"}, token="nope")[0] == 403
-    monkeypatch.setattr(wired.serve, "APP_TOKEN", APP)
+    monkeypatch.setattr("lib.interfaces.http.server.APP_TOKEN", APP)
     code, row = call(server + "/api/kanban/add", {"type": "task", "title": "from the app"}, token=APP)
     assert code == 200 and row["id"] == "WI-1"
 
@@ -62,7 +62,7 @@ APP_ONLY_POSTS = ["/api/runs", "/api/runs/r-1/cancel", "/api/wiki", "/api/build"
 def test_the_app_servers_portal_token_writes_the_board_and_nothing_app_only(wired, server, monkeypatch):
     """The desktop app starts its project server with both tokens (desktop/main.cjs): the portal it opens in the
     browser carries the portal one, which writes the board as `camaron up`'s does, and never what needs the app."""
-    monkeypatch.setattr(wired.serve, "APP_TOKEN", APP)
+    monkeypatch.setattr("lib.interfaces.http.server.APP_TOKEN", APP)
     call(server + "/api/kanban/init", token=PORTAL)
     code, row = call(server + "/api/kanban/add", {"type": "task", "title": "from the browser"}, token=PORTAL)
     assert code == 200 and row["id"] == "WI-1"
@@ -132,7 +132,7 @@ def test_add_from_doc_section_gives_page_an_xid(wired, server):
 
 
 def test_add_task_under_a_story_with_the_app_token(wired, server, monkeypatch):
-    monkeypatch.setattr(wired.serve, "APP_TOKEN", APP)
+    monkeypatch.setattr("lib.interfaces.http.server.APP_TOKEN", APP)
     call(server + "/api/kanban/init", token=PORTAL)
     assert call(server + "/api/kanban/add", {"type": "story", "title": "Pay twice"}, token=APP)[1]["id"] == "WI-1"
     code, row = call(server + "/api/kanban/add", {"type": "task", "title": "S1", "parent": "WI-1"}, token=APP)
@@ -144,7 +144,7 @@ def test_add_task_under_a_story_with_the_app_token(wired, server, monkeypatch):
 
 
 def test_add_with_a_refused_parent_pair_is_400_and_writes_nothing(wired, server, monkeypatch):
-    monkeypatch.setattr(wired.serve, "APP_TOKEN", APP)
+    monkeypatch.setattr("lib.interfaces.http.server.APP_TOKEN", APP)
     call(server + "/api/kanban/init", token=PORTAL)
     call(server + "/api/kanban/add", {"type": "story", "title": "Pay twice"}, token=APP)
     tasks = wired.root / "backlog" / "tasks"
@@ -155,7 +155,7 @@ def test_add_with_a_refused_parent_pair_is_400_and_writes_nothing(wired, server,
 
 
 def test_add_with_parent_and_a_different_epic_is_400(wired, server, monkeypatch):
-    monkeypatch.setattr(wired.serve, "APP_TOKEN", APP)
+    monkeypatch.setattr("lib.interfaces.http.server.APP_TOKEN", APP)
     call(server + "/api/kanban/init", token=PORTAL)
     call(server + "/api/kanban/add", {"type": "epic", "title": "Payments"}, token=APP)
     call(server + "/api/kanban/add", {"type": "epic", "title": "Other"}, token=APP)
@@ -244,13 +244,13 @@ def raw_call(url, headers):
 
 
 def test_non_ascii_token_is_403_not_500(wired, server, monkeypatch):
-    monkeypatch.setattr(wired.serve, "APP_TOKEN", APP)
+    monkeypatch.setattr("lib.interfaces.http.server.APP_TOKEN", APP)
     for url in ("/api/kanban/init", "/api/runs"):
         assert raw_call(server + url, {"X-Camaron-Token": "caf\xe9".encode("latin-1")}) == 403
 
 
 def test_empty_token_header_with_no_tokens_is_403(wired, server, monkeypatch):
-    monkeypatch.setattr(wired.serve, "PORTAL_TOKEN", "")
+    monkeypatch.setattr("lib.interfaces.http.server.PORTAL_TOKEN", "")
     assert raw_call(server + "/api/kanban/add", {"X-Camaron-Token": ""}) == 403
     assert call(server + "/api/kanban/add", {"type": "task", "title": "x"})[0] == 403
 
@@ -353,19 +353,21 @@ def test_the_wizard_reopens_its_portal_with_its_token(wired, monkeypatch):
 
 def test_port_80_accepts_a_host_without_port(wired):
     """On port 80 the browser sends `Host: localhost`, with no port."""
+    import importlib
     from types import SimpleNamespace
     H = wired.serve.Handler
+    server = importlib.import_module("lib.interfaces.http.server")
 
     def foreign(host, port):
         return H.foreign_host(SimpleNamespace(server=SimpleNamespace(server_address=("127.0.0.1", port)),
                                               headers={"Host": host}))
-    old = wired.serve.PORTAL_TOKEN
-    wired.serve.PORTAL_TOKEN = PORTAL
+    old = server.PORTAL_TOKEN
+    server.PORTAL_TOKEN = PORTAL
     try:
         assert not foreign("localhost", 80) and not foreign("127.0.0.1", 80) and not foreign("localhost:80", 80)
         assert foreign("localhost", 8080) and foreign("evil.example", 80) and not foreign("localhost:8080", 8080)
     finally:
-        wired.serve.PORTAL_TOKEN = old
+        server.PORTAL_TOKEN = old
 
 
 def test_a_static_portal_gets_no_token(wired, monkeypatch):

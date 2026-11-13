@@ -13,7 +13,7 @@ TOKEN = "app-tok"
 
 @pytest.fixture
 def app(kit, monkeypatch):
-    monkeypatch.setattr(kit.serve, "APP_TOKEN", TOKEN)
+    monkeypatch.setattr("lib.interfaces.http.server.APP_TOKEN", TOKEN)
     srv = ThreadingHTTPServer(("127.0.0.1", 0), kit.serve.Handler)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     yield f"http://127.0.0.1:{srv.server_address[1]}"
@@ -173,9 +173,10 @@ def test_the_machine_remembers_the_tour_offer(kit, app):
 
 def test_the_server_keeps_its_tokens_out_of_what_it_starts(kit, monkeypatch):
     """Commands, runs and agents the server starts inherit its environment: the tokens leave it once read."""
-    import os
+    import importlib, os
+    server = importlib.import_module("lib.interfaces.http.server")
     monkeypatch.setenv("CAMARONES_APP_TOKEN", "app-secret")
     monkeypatch.setenv("CAMARONES_PORTAL_TOKEN", "portal-secret")
-    kit.serve.take_tokens()
-    assert (kit.serve.APP_TOKEN, kit.serve.PORTAL_TOKEN) == ("app-secret", "portal-secret")
+    server.take_tokens()
+    assert (server.APP_TOKEN, server.PORTAL_TOKEN) == ("app-secret", "portal-secret")
     assert "CAMARONES_APP_TOKEN" not in os.environ and "CAMARONES_PORTAL_TOKEN" not in os.environ

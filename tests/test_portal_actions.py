@@ -15,7 +15,7 @@ APP_TOKEN = "app-token"      # these actions run on the machine: the desktop app
 
 @pytest.fixture
 def server(wired, monkeypatch):
-    monkeypatch.setattr(wired.serve, "APP_TOKEN", APP_TOKEN)
+    monkeypatch.setattr("lib.interfaces.http.server.APP_TOKEN", APP_TOKEN)
     srv = ThreadingHTTPServer(("127.0.0.1", 0), wired.serve.Handler)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     yield f"http://127.0.0.1:{srv.server_address[1]}"

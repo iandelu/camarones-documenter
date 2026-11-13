@@ -161,7 +161,7 @@ def test_an_older_plan_is_localized_without_being_rewritten(kit, old_plan):
 # ---------- the server ----------
 @pytest.fixture
 def server(kit, monkeypatch):
-    monkeypatch.setattr(kit.serve, "APP_TOKEN", TOKEN)
+    monkeypatch.setattr("lib.interfaces.http.server.APP_TOKEN", TOKEN)
     srv = ThreadingHTTPServer(("127.0.0.1", 0), kit.serve.Handler)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     yield f"http://127.0.0.1:{srv.server_address[1]}"

@@ -65,7 +65,7 @@ def test_the_last_pipeline_comes_from_the_forge_cli(kit, monkeypatch, forge, too
 
 @pytest.fixture
 def portal(kit, ci, monkeypatch):
-    monkeypatch.setattr(kit.serve, "APP_TOKEN", "app-token")       # installing CI files is the desktop app's work
+    monkeypatch.setattr("lib.interfaces.http.server.APP_TOKEN", "app-token")       # installing CI files is the desktop app's work
     srv = ThreadingHTTPServer(("127.0.0.1", 0), kit.serve.Handler)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     yield f"http://127.0.0.1:{srv.server_address[1]}"
