@@ -196,7 +196,7 @@ def steps(include_global: bool = False, backup: bool = True, keep_board: bool | 
     out += [Step("link", f"{WORKSPACE.name}/{n} → {CAM_DIR}/{n} (link)") for n in root_links()]
     out += [Step("link", f"{WORKSPACE.name}/{p.parent.name}/{p.name} → {CAM_DIR}/{p.parent.name}/{p.name} (link in your own "
                          f"folder)") for p in services.current().links.merged_links()]
-    if services.current().links.KIT_IMPORT in _text(WORKSPACE / "CLAUDE.md"):           # read_text: CRLF reads as LF
+    if services.current().links.KIT_IMPORT in _text(WORKSPACE / "CLAUDE.md"):  # read_text: CRLF reads as LF
         out.append(Step("edit", f"{WORKSPACE.name}/CLAUDE.md (yours): the two lines that import the kit's rules"))
     if (WORKSPACE / ".cw").exists():
         out.append(Step("delete", f"{WORKSPACE.name}/.cw/ — the units' worktrees (work not integrated yet is lost)"))
@@ -275,7 +275,7 @@ def run(include_global: bool = False, backup: bool = True, backup_dir: Path | No
         if forget_repo_mcp(name):
             acts.append("camarones MCP")
         log(f"✔ {name}: " + (f"{len(acts)} trace(s) removed" if acts else "clean"))
-    for p in services.current().links.merged_links():                # the kit's links inside a folder of the person's own
+    for p in services.current().links.merged_links():  # the kit's links inside a folder of the person's own
         remove_link(p)
     for n in root_links():
         remove_link(WORKSPACE / n)

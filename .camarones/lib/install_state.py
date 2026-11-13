@@ -117,7 +117,7 @@ def drift() -> list[dict]:
         elif _digest(f) != want:
             out.append({"path": rel, "state": "edited", "what": "tool skill"})
     for n in services.current().links.LINKS:
-        if why := services.current().links.workspace_off(n):                   # "yours": a file of the person's is there, never replaced
+        if why := services.current().links.workspace_off(n):  # "yours": a file of the person's is there, never replaced
             out.append({"path": f"{WORKSPACE.name}/{n}", "state": "not linked", "what": "workspace link", "why": why})
     if "openwiki" in env.components():
         for r in docs.repo_names():
