@@ -34,6 +34,7 @@ class Services:
     vcs: Vcs
     components: ModuleType
     templates: ModuleType
+    viewers: ModuleType
 
     def __init__(self, providers: Mapping[str, Callable[[], object]]) -> None:
         object.__setattr__(self, "_providers", dict(providers))

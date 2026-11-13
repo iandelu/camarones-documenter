@@ -122,9 +122,9 @@ def test_vendor_serves_the_cached_file_else_redirects_to_the_cdn(kit, monkeypatc
 
 
 def test_the_viewers_are_served_from_the_cache(kit, monkeypatch):
-    put(kit.env.VIEWERS / "wiki-graph" / "api" / "index.html", '<html><script src="https://unpkg.com/d3@7.9.0/dist/d3.min.js"></script></html>')
-    put(kit.env.VIEWERS / "wiki-graph" / "api" / "data.json", "{}")
-    put(kit.env.VIEWERS / "architecture" / "index.html", "<html>c4</html>")
+    put(kit.services.viewers.VIEWERS / "wiki-graph" / "api" / "index.html", '<html><script src="https://unpkg.com/d3@7.9.0/dist/d3.min.js"></script></html>')
+    put(kit.services.viewers.VIEWERS / "wiki-graph" / "api" / "data.json", "{}")
+    put(kit.services.viewers.VIEWERS / "architecture" / "index.html", "<html>c4</html>")
     arm(monkeypatch)
     with serving(kit.serve.Handler) as base:
         assert request(base, "GET", "/wiki-graph/api/")[::2] == (

@@ -29,8 +29,7 @@ class Llms(Command):
 @command("graph", "app", "analyze", es="Reconstruir el grafo de código", en="Rebuild the code graph")
 class Graph(Command):
     def run(self, args: argparse.Namespace, cli: CliContext) -> int:
-        from lib import env
-        env.graph(rebuild=True)
+        cli.services.viewers.graph(rebuild=True)
         return 0
 
 

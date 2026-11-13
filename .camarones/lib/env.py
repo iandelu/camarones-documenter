@@ -5,7 +5,7 @@ import datetime as dt, json, os, posixpath, re, shutil, subprocess, sys
 from collections import deque
 from pathlib import Path
 
-from .common import (CTX, KIT, ROOT, DOCS, HOME, CACHE, IS_WIN, VERSIONS, CAM_DIR, CAM_LAYOUT, WORKSPACE, WS_FILE, GRAPHS, run, out,
+from .common import (CTX, KIT, ROOT, DOCS, HOME, CACHE, IS_WIN, VERSIONS, CAM_DIR, CAM_LAYOUT, WORKSPACE, WS_FILE, run, out,
                      which, uv, ensure_path, cli_cmd, sdkman_dir, repo_dir, ws_rel, rel_file, load_json, save_json)
 from . import binaries, docs
 from .app import services
@@ -292,44 +292,14 @@ def setup(ci: bool = False, log: Log = print, comps: list[str] | None = None) ->
     wire_umbrella(log, comps)
     if "graphify" in comps:
         log("merging the cross-repo code graph…")
-        graph(rebuild=False, log=log)
+        services.current().viewers.graph(rebuild=False, log=log)
     if "likec4" in comps and (DOCS / "architecture" / "likec4.config.json").exists():
         ok, _ = services.current().diagrams.arch_validate()
         log("✔ C4 model valid" if ok else "⚠ C4 model has errors: run arch-validate")
     return True
 
 
-# ---------- code graph ----------
-def graph(rebuild: bool = True, log: Log = print) -> Path | None:
-    graphs = []
-    for n in docs.repo_names():
-        if not repo_dir(n).is_dir():
-            continue
-        if rebuild or not services.current().code.repo_graph(n).exists():
-            services.current().code.graph_repo(n)
-        if services.current().code.repo_graph(n).exists():
-            graphs.append(str(services.current().code.repo_graph(n)))
-    if not graphs:
-        log("✔ no code graphs yet")
-        return None
-    gdir = CACHE / "graph"
-    gdir.mkdir(parents=True, exist_ok=True)
-    merged = gdir / "graph.json"
-    if len(graphs) > 1:
-        run(["graphify", "merge-graphs", *graphs, "--out", str(merged)], quiet=True)
-    else:
-        shutil.copyfile(graphs[0], merged)
-    run(["graphify", "export", "html", "--graph", str(merged)], quiet=True, check=False, cwd=gdir,
-        env={"GRAPHIFY_OUT": str(gdir)})
-    log(f"✔ code graph: {len(graphs)} repo(s) → {ws_rel('.camarones/.cache/graph/graph.html')} (cross-repo edges are INFERRED)")
-    return gdir / "graph.html"
-
-
-# ---------- C4 ----------
 # ---------- portal: viewers (C4, code graph, wiki graphs) ----------
-VIEWERS = CACHE / "viewers"
-
-
 def stream(cmd: list[str], cwd: Path, log: Log, env: dict | None = None) -> int:
     """Run a long command and hand each output line to `log` (the portal shows it live)."""
     try:
@@ -346,42 +316,8 @@ def stream(cmd: list[str], cwd: Path, log: Log, env: dict | None = None) -> int:
     return pr.wait()
 
 
-def build_c4(dest: Path | None = None, log: Log = print) -> bool:
-    dest = dest or VIEWERS / "architecture"
-    if not (services.current().diagrams.arch_dir() / "likec4.config.json").exists():
-        log("⚠ no C4 model yet (docs/architecture/likec4.config.json) — unit arch-system writes it")
-        return False
-    log("building the interactive C4 explorer (LikeC4)…")
-    shutil.rmtree(dest, ignore_errors=True)
-    r = run(["likec4", "build", ".", "-o", str(dest), "--base", "/architecture/", "--title", docs.workspace()["project"]["name"]],
-            cwd=services.current().diagrams.arch_dir(), check=False, quiet=True)
-    ok = r.returncode == 0 and (dest / "index.html").exists()
-    log("✔ C4 explorer" if ok else "⚠ C4 explorer skipped: the model has errors (run arch-validate)")
-    return ok
-
-
-def code_graphs() -> dict[str, Path]:
-    """Viewer HTML per repo, plus 'all' for the merged graph."""
-    found = {n: GRAPHS / n / "graph.html" for n in docs.repo_names() if (GRAPHS / n / "graph.html").is_file()}
-    if (CACHE / "graph" / "graph.html").is_file():
-        found = {"all": CACHE / "graph" / "graph.html", **found}
-    return found
-
-
-def build_graphs(log: Log = print) -> bool:
-    if "graphify" not in services.current().components.components():
-        log("⚠ graphify is not installed (setup)")
-        return False
-    for n in docs.repo_names():
-        if repo_dir(n).is_dir():
-            log(f"{n}: code graph…")
-            if not services.current().code.graph_repo(n):
-                log(f"⚠ {n}: graphify failed")
-    return graph(rebuild=False, log=log) is not None
-
-
 def wiki_graph(repo: str, dest: Path | None = None, log: Log = print) -> bool:
-    wiki, dest = docs.wiki_dir(repo), dest or VIEWERS / "wiki-graph" / repo
+    wiki, dest = docs.wiki_dir(repo), dest or services.current().viewers.VIEWERS / "wiki-graph" / repo
     if not wiki_pages(repo):
         return False
     log(f"exporting the wiki graph of {repo}…")
@@ -391,25 +327,6 @@ def wiki_graph(repo: str, dest: Path | None = None, log: Log = print) -> bool:
     log(f"✔ wiki graph {repo}" if ok else f"⚠ wiki graph {repo} failed")
     return ok
 
-
-def newest(paths) -> float:
-    return max((p.stat().st_mtime for p in paths if p.exists()), default=0.0)
-
-
-def repo_changed_at(repo: str) -> float:
-    t = out(["git", "log", "-1", "--format=%ct"], cwd=repo_dir(repo))
-    return float(t) if t else 0.0
-
-
-def viewers() -> dict:
-    c4_at = newest([VIEWERS / "architecture" / "index.html"])
-    model_at = newest(services.current().diagrams.arch_dir().rglob("*.c4")) if services.current().diagrams.arch_dir().is_dir() else 0.0     # fragments in repos/, flows/ too
-    graphs = {n: {"at": newest([f]), "stale": n != "all" and repo_changed_at(n) > newest([f])}
-              for n, f in code_graphs().items()}
-    model = bool(model_at) and any(re.search(r"^\s*model\s*\{", f.read_text(encoding="utf-8", errors="replace"), re.M)
-                                   for f in services.current().diagrams.arch_dir().rglob("*.c4"))     # the kit's spec.c4 alone is not a model
-    return {"c4": {"exists": bool(c4_at), "at": c4_at, "stale": bool(c4_at) and model_at > c4_at, "model": model},
-            "graphs": graphs, "graphify": "graphify" in services.current().components.components(), "likec4": "likec4" in services.current().components.components()}
 
 
 # ---------- OpenWiki ----------
@@ -598,8 +515,8 @@ def wikis() -> list[dict]:
     rows = []
     for n in docs.repo_names():
         pages, nav = wiki_pages(n), wiki_nav(n)
-        at, graph_at = newest(pages), newest([VIEWERS / "wiki-graph" / n / "index.html"])
-        rows.append({"repo": n, "pages": len(nav["pages"]), "nav": nav, "at": at, "stale": bool(pages) and repo_changed_at(n) > at,
+        at, graph_at = services.current().viewers.newest(pages), services.current().viewers.newest([services.current().viewers.VIEWERS / "wiki-graph" / n / "index.html"])
+        rows.append({"repo": n, "pages": len(nav["pages"]), "nav": nav, "at": at, "stale": bool(pages) and services.current().viewers.repo_changed_at(n) > at,
                      "graph": bool(graph_at), "graphStale": bool(graph_at) and at > graph_at, "old": wiki_old(n),
                      "unit": units.get(f"repo-wiki:{n}"),
                      "cloned": repo_dir(n).is_dir(), "chosen": n in chosen, "ready": bool(pages) or wiki_brief_ready(n),
@@ -822,27 +739,27 @@ def export_site(log: Log = print) -> Path:
                 dst = out_dir / f.relative_to(src)
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(f, dst)
-    if "likec4" in services.current().components.components() and (not (VIEWERS / "architecture" / "index.html").exists() or viewers()["c4"]["stale"]):
-        build_c4(log=log)
-    if (VIEWERS / "architecture").is_dir():
-        shutil.copytree(VIEWERS / "architecture", tmp / "architecture")
-    if "graphify" in services.current().components.components() and not code_graphs():
-        graph(rebuild=False, log=log)
-    for n, f in code_graphs().items():
+    if "likec4" in services.current().components.components() and (not (services.current().viewers.VIEWERS / "architecture" / "index.html").exists() or services.current().viewers.viewers()["c4"]["stale"]):
+        services.current().viewers.build_c4(log=log)
+    if (services.current().viewers.VIEWERS / "architecture").is_dir():
+        shutil.copytree(services.current().viewers.VIEWERS / "architecture", tmp / "architecture")
+    if "graphify" in services.current().components.components() and not services.current().viewers.code_graphs():
+        services.current().viewers.graph(rebuild=False, log=log)
+    for n, f in services.current().viewers.code_graphs().items():
         dst = tmp / "code-graph" / ("" if n == "all" else n) / "index.html"
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(f, dst)
-    log(f"✔ code graphs ({len(code_graphs())})")
+    log(f"✔ code graphs ({len(services.current().viewers.code_graphs())})")
     for w in wikis():
         if w["pages"] and (not w["graph"] or w["graphStale"]):
             wiki_graph(w["repo"], log=log)
-        if (VIEWERS / "wiki-graph" / w["repo"]).is_dir():
-            shutil.copytree(VIEWERS / "wiki-graph" / w["repo"], tmp / "wiki-graph" / w["repo"])
-    t["codeGraphs"] = list(code_graphs())
+        if (services.current().viewers.VIEWERS / "wiki-graph" / w["repo"]).is_dir():
+            shutil.copytree(services.current().viewers.VIEWERS / "wiki-graph" / w["repo"], tmp / "wiki-graph" / w["repo"])
+    t["codeGraphs"] = list(services.current().viewers.code_graphs())
     dump("tree.json", t)
     dump("status.json", portal_views.status())
     dump("wikis.json", wikis())
-    dump("viewers.json", viewers())
+    dump("viewers.json", services.current().viewers.viewers())
     from . import codemap
     for n in codemap.available():
         dump(f"codemap/{n}.json", codemap.load(n))

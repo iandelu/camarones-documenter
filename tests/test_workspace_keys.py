@@ -21,7 +21,7 @@ def test_cli_setup_keeps_a_repos_stack(kit, monkeypatch):
     name = seed(kit)
     monkeypatch.setattr(kit.env, "prerequisites", lambda: {})
     monkeypatch.setattr(kit.env, "install_tools", lambda *a, **kw: None)
-    monkeypatch.setattr(kit.env, "graph", lambda *a, **kw: None)
+    monkeypatch.setattr(kit.services.viewers, "graph", lambda *a, **kw: None)
     kit.services.templates.init_templates(log=lambda _: None)
     kit.env.setup(log=lambda _: None)
     kit.plan.sync()

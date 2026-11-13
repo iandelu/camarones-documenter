@@ -3,7 +3,7 @@ snapshot, the CI files, the code maps and the viewers; and the jobs that build t
 from __future__ import annotations
 
 from lib import docs, env, plan
-from lib.app import portal_views
+from lib.app import portal_views, services
 from lib.core.paths import DOCS
 from lib.core.process import which
 from lib.interfaces.http.jobs import JOB_LOCK, JOBS, claim_job, fail_job, run_job, start_job
@@ -71,7 +71,7 @@ def first_look(log) -> bool:
             log(f"⚠ diagrams skipped: {e}")
     docs.llms()
     if which("likec4"):
-        env.build_c4(log=log)
+        services.current().viewers.build_c4(log=log)
     wrote = "index.md, a page per repo" if new else "architecture/first-look.md, architecture/system-map.md"
     log(f"✔ first look written: {wrote}, overview/tooling.md and the C4 draft")
     return True
@@ -82,9 +82,9 @@ def build(b: dict) -> dict:
     if what == "first-look":
         return start_job("first-look", "First look (no AI)", first_look)
     if what == "c4":
-        return start_job("c4", "C4 explorer", lambda log: env.build_c4(log=log))
+        return start_job("c4", "C4 explorer", lambda log: services.current().viewers.build_c4(log=log))
     if what == "graph":
-        return start_job("graph", "Code graphs", lambda log: env.build_graphs(log=log))
+        return start_job("graph", "Code graphs", lambda log: services.current().viewers.build_graphs(log=log))
     if what == "wiki-graph" and repo in docs.repo_names():
         # a kind per repo: start_job attaches a second start of the same kind to the running job, whatever the repo
         return start_job(f"wiki-graph:{repo}", f"Wiki graph {repo}", lambda log: env.wiki_graph(repo, log=log))
@@ -172,7 +172,7 @@ def get_codemap(req: Request) -> Response:
 
 @route("GET", "/api/viewers")
 def get_viewers(req: Request) -> Response:
-    return json_response(env.viewers())
+    return json_response(req.services.viewers.viewers())
 
 
 @route("GET", "/api/wikis")

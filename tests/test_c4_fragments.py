@@ -45,16 +45,16 @@ def test_two_fragments_declaring_the_same_element_fail(kit):
 
 def test_the_c4_viewer_goes_stale_when_a_fragment_changes(kit):
     d = arch(kit, {"model.c4": MODEL})
-    built = kit.env.VIEWERS / "architecture" / "index.html"
+    built = kit.services.viewers.VIEWERS / "architecture" / "index.html"
     built.parent.mkdir(parents=True, exist_ok=True)
     built.write_text("<html>", encoding="utf-8")
     old = time.time() - 100
     for f in (d / "model.c4", d / "spec.c4", built):
         os.utime(f, (old, old))
-    assert not kit.env.viewers()["c4"]["stale"]
+    assert not kit.services.viewers.viewers()["c4"]["stale"]
     (d / "flows").mkdir(exist_ok=True)
     (d / "flows" / "checkout.c4").write_text(FLOW, encoding="utf-8")
-    assert kit.env.viewers()["c4"]["stale"]
+    assert kit.services.viewers.viewers()["c4"]["stale"]
 
 
 def test_integration_notes_a_parallel_unit_that_edited_a_shared_c4_file(wired):

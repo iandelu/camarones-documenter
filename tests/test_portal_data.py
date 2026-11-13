@@ -31,7 +31,7 @@ def portal(kit, monkeypatch):
     page(wiki, "http-api.md", "# HTTP resources\n\nStart with the [quickstart](./quickstart.md#run).\n")
     page(wiki, "quickstart.md", "# api quickstart\n\nSee [HTTP](http-api.md) and [caches](caches.md).\n")
     page(wiki, "caches.md", "# Caches\n\nNothing links back: [missing](nope.md).\n")
-    monkeypatch.setattr(kit.env, "repo_changed_at", lambda _repo: 0.0)
+    monkeypatch.setattr(kit.services.viewers, "repo_changed_at", lambda _repo: 0.0)
     return kit
 
 
@@ -223,7 +223,7 @@ def test_wiki_graph_export_does_not_pass_flags_openwiki_rejects(serve_mod, monke
 
 def test_a_wiki_graph_older_than_its_pages_is_stale(serve_mod):
     import os
-    graph = serve_mod.env.VIEWERS / "wiki-graph" / "api" / "index.html"
+    graph = serve_mod.services.viewers.VIEWERS / "wiki-graph" / "api" / "index.html"
     graph.parent.mkdir(parents=True, exist_ok=True)
     graph.write_text("old", encoding="utf-8")
     os.utime(graph, (1_000_000, 1_000_000))

@@ -65,6 +65,11 @@ def _templates() -> object:
     return templates
 
 
+def _viewers() -> object:
+    from lib.app import viewers
+    return viewers
+
+
 PROVIDERS: dict[str, Callable[[], object]] = {
     "launcher": _launcher,
     "diagrams": _diagrams,
@@ -77,6 +82,7 @@ PROVIDERS: dict[str, Callable[[], object]] = {
     "vcs": _vcs,
     "components": _components,
     "templates": _templates,
+    "viewers": _viewers,
 }
 
 
