@@ -118,8 +118,8 @@ def test_a_project_without_a_record_still_checks(wired, monkeypatch):
 
 def test_repair_names_a_file_of_the_person_s_it_leaves_alone(wired):
     agents = wired.ws / "AGENTS.md"
-    if wired.env._linked(agents):
-        wired.env._unlink(agents)
+    if wired.services.links._linked(agents):
+        wired.services.links._unlink(agents)
     agents.write_text("ours\n", encoding="utf-8")
     env = {**os.environ, "CAMARONES_ROOT": str(wired.root)}
     r = subprocess.run([sys.executable, str(KIT_DIR / "camarones.py"), "repair"], env=env, capture_output=True, text=True,
@@ -131,8 +131,8 @@ def test_repair_names_a_file_of_the_person_s_it_leaves_alone(wired):
 
 def test_doctor_lists_a_file_of_the_person_s_apart_from_what_repair_fixes(wired):
     agents = wired.ws / "AGENTS.md"
-    if wired.env._linked(agents):
-        wired.env._unlink(agents)
+    if wired.services.links._linked(agents):
+        wired.services.links._unlink(agents)
     agents.write_text("ours\n", encoding="utf-8")
     env = {**os.environ, "CAMARONES_ROOT": str(wired.root)}
     r = subprocess.run([sys.executable, str(KIT_DIR / "camarones.py"), "doctor"], env=env, capture_output=True, text=True,

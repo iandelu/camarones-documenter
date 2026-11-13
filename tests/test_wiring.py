@@ -1,7 +1,9 @@
 """Wiring: everything lives in cam-docs, the service repos only get an untracked openwiki link (+ optional pointer)."""
 from __future__ import annotations
 
-import json, subprocess
+import json, subprocess, sys
+
+import pytest
 
 from fixtures.builder import git
 
@@ -16,7 +18,7 @@ def test_repos_only_get_the_optional_claude_pointer(wired):
     assert porcelain(wired.ws / "web") == {"?? CLAUDE.md"}
     for r in ("api", "web", "worker"):
         assert "/openwiki" in (wired.ws / r / ".git" / "info" / "exclude").read_text(encoding="utf-8").splitlines()
-        assert wired.env._is_link(wired.ws / r / "openwiki")
+        assert wired.services.links._is_link(wired.ws / r / "openwiki")
         assert (wired.root / "wikis" / r).is_dir()
 
 
@@ -40,7 +42,7 @@ def test_link_never_replaces_a_real_file(kit):
     real = kit.ws / "AGENTS.md"
     real.write_text("team notes", encoding="utf-8")
     (kit.root / "AGENTS.md").write_text("kit", encoding="utf-8")
-    assert kit.env.link(real, kit.root / "AGENTS.md", log=lambda _: None) is False
+    assert kit.services.links.link(real, kit.root / "AGENTS.md", log=lambda _: None) is False
     assert real.read_text(encoding="utf-8") == "team notes"
 
 
@@ -142,8 +144,8 @@ def test_migrate_cleanup_restores_head_bytes_and_line_endings(kit):
 def own_folder(wired, n=".claude"):
     """The person's own folder at the workspace root, made before the kit (Claude Code's local settings in it)."""
     p = wired.ws / n
-    if p.is_symlink() or wired.env._linked(p):
-        wired.env._unlink(p)
+    if p.is_symlink() or wired.services.links._linked(p):
+        wired.services.links._unlink(p)
     p.mkdir()
     (p / "settings.local.json").write_text('{"permissions": {"allow": ["Bash(ls)"]}}', encoding="utf-8")
     return p
@@ -151,7 +153,7 @@ def own_folder(wired, n=".claude"):
 
 def file_links(wired) -> bool:
     """Windows without symlink rights links folders (junctions) but not files: the fixture's AGENTS.md says which."""
-    return wired.env._linked(wired.ws / "AGENTS.md")
+    return wired.services.links._linked(wired.ws / "AGENTS.md")
 
 
 def test_a_real_agent_folder_gets_the_kit_s_entries_linked_in(wired):
@@ -176,7 +178,7 @@ def test_an_entry_of_the_person_s_in_their_folder_is_kept_and_named_as_theirs(wi
     (mine / "skills").mkdir()
     (mine / "skills" / "ours.md").write_text("ours\n", encoding="utf-8")
     wired.env.link_workspace(log=lambda _: None)
-    assert not wired.env._linked(mine / "skills") and (mine / "skills" / "ours.md").is_file()
+    assert not wired.services.links._linked(mine / "skills") and (mine / "skills" / "ours.md").is_file()
     off = {d["path"]: d for d in install_state.drift()}
     assert off[f"{wired.ws.name}/.claude"]["why"] == "yours"
 
@@ -186,7 +188,7 @@ def test_the_person_s_own_claude_md_imports_the_kit_rules(wired):
     if not file_links(wired):                               # no linked AGENTS.md: nothing to import
         return
     mine = wired.ws / "CLAUDE.md"
-    wired.env._unlink(mine)
+    wired.services.links._unlink(mine)
     mine.write_text("# Our workspace\n\nRead this first.\n", encoding="utf-8")
     assert any(d["path"].endswith("/CLAUDE.md") for d in install_state.drift())
     assert "CLAUDE.md" in wired.env.link_workspace(log=lambda _: None)
@@ -195,16 +197,16 @@ def test_the_person_s_own_claude_md_imports_the_kit_rules(wired):
     assert not any(d["path"].endswith("/CLAUDE.md") for d in install_state.drift())
     wired.env.link_workspace(log=lambda _: None)
     assert mine.read_text(encoding="utf-8") == text                                   # once
-    assert wired.env.drop_kit_import(mine) is True
+    assert wired.services.links.drop_kit_import(mine) is True
     assert mine.read_text(encoding="utf-8") == "# Our workspace\n\nRead this first.\n"
-    assert wired.env.drop_kit_import(mine) is False
+    assert wired.services.links.drop_kit_import(mine) is False
 
 
 def test_a_file_of_the_person_s_that_cannot_be_merged_is_named_as_theirs(wired):
     from lib import install_state
     agents = wired.ws / "AGENTS.md"
-    if wired.env._linked(agents):
-        wired.env._unlink(agents)
+    if wired.services.links._linked(agents):
+        wired.services.links._unlink(agents)
     agents.write_text("the team's own\n", encoding="utf-8")
     off = {d["path"]: d for d in install_state.drift()}
     assert off[f"{wired.ws.name}/AGENTS.md"]["why"] == "yours"
@@ -216,13 +218,13 @@ def test_the_import_keeps_the_person_s_line_endings_and_comes_out_byte_for_byte(
     if not file_links(wired):
         return
     mine = wired.ws / "CLAUDE.md"
-    wired.env._unlink(mine)
+    wired.services.links._unlink(mine)
     original = b"# Ours\r\n\r\nWindows notes.\r\n"
     mine.write_bytes(original)
     wired.env.link_workspace(log=lambda _: None)
     merged = mine.read_bytes()
     assert merged.startswith(original) and b"@AGENTS.md\r\n" in merged and b"\n" not in merged.replace(b"\r\n", b"")
-    assert wired.env.drop_kit_import(mine) is True
+    assert wired.services.links.drop_kit_import(mine) is True
     assert mine.read_bytes() == original
 
 
@@ -230,9 +232,23 @@ def test_a_claude_md_without_a_final_newline_comes_back_as_it_was(wired):
     if not file_links(wired):
         return
     mine = wired.ws / "CLAUDE.md"
-    wired.env._unlink(mine)
+    wired.services.links._unlink(mine)
     mine.write_bytes(b"# Ours")
     wired.env.link_workspace(log=lambda _: None)
     assert mine.read_bytes().startswith(b"# Ours\n") and b"@AGENTS.md" in mine.read_bytes()
-    wired.env.drop_kit_import(mine)
+    wired.services.links.drop_kit_import(mine)
     assert mine.read_bytes() == b"# Ours"
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="junctions are Windows only")
+def test_a_junction_is_linked_and_unlinked_without_following_it(kit, tmp_path):
+    """Windows junctions (mklink /J) are what the kit falls back to without symlink rights: seen as links, and removed
+    without touching what they lead to."""
+    t, p = tmp_path / "t", tmp_path / "p"
+    t.mkdir()
+    (t / "keep.txt").write_text("kept", encoding="utf-8")
+    subprocess.run(["cmd", "/c", "mklink", "/J", str(p), str(t)], check=True, capture_output=True)
+    assert kit.services.links._linked(p) and kit.services.links._is_link(p)
+    kit.services.links._unlink(p)
+    assert not p.exists() and not p.is_symlink()
+    assert (t / "keep.txt").read_text(encoding="utf-8") == "kept"

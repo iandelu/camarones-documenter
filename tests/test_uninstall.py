@@ -92,7 +92,7 @@ def test_what_the_kit_put_in_the_person_s_own_folder_and_claude_md_goes_too(un, 
     (kit.root / ".tours").mkdir(exist_ok=True)
     (kit.root / ".tours" / "kit.tour").write_text("{}", encoding="utf-8")
     kit.env.link_workspace(log=lambda _: None)
-    assert kit.env._linked(own[".claude"] / "skills")
+    assert kit.services.links._linked(own[".claude"] / "skills")
     labels = "\n".join(s.label for s in kit.uninstall.steps())
     assert f"{kit.ws.name}/.claude/skills" in labels
     run(kit, backup=False)
@@ -105,10 +105,10 @@ def test_the_import_line_in_the_person_s_claude_md_is_taken_out(un, monkeypatch)
     wire_project(kit)
     monkeypatch.setattr(kit.env, "docker_down", lambda: None)
     monkeypatch.setattr(kit.uninstall, "which", lambda name: None)
-    if not kit.env._linked(kit.ws / "AGENTS.md"):           # Windows without file-symlink rights
+    if not kit.services.links._linked(kit.ws / "AGENTS.md"):           # Windows without file-symlink rights
         return
     mine = kit.ws / "CLAUDE.md"
-    kit.env._unlink(mine)
+    kit.services.links._unlink(mine)
     mine.write_text("# Ours\n", encoding="utf-8")
     kit.env.link_workspace(log=lambda _: None)
     assert "@AGENTS.md" in mine.read_text(encoding="utf-8")
@@ -442,7 +442,7 @@ def test_a_failed_board_copy_aborts_before_anything_changes(un, before, monkeypa
         run(un, backup=False)
     assert un.root.is_dir() and (un.root / "backlog" / "tasks" / ITEM).is_file()
     assert not (un.ws / "backlog").exists()
-    assert [r["path"] for r in un.projects.load()] and all(un.env._is_link(un.ws / n) for n in un.linked)
+    assert [r["path"] for r in un.projects.load()] and all(un.services.links._is_link(un.ws / n) for n in un.linked)
     assert un.stopped == ["portal"]
 
 

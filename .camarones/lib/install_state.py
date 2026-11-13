@@ -98,6 +98,7 @@ def drift() -> list[dict]:
     if not CAM_LAYOUT:
         return []
     from . import docs, env
+    from .app import services
     out = []
     expected = {rel: hashlib.sha256(text.encode("utf-8")).hexdigest() for rel, text in env.skill_files().items()}
     for rel, want in expected.items():
@@ -115,8 +116,8 @@ def drift() -> list[dict]:
             out.append({"path": rel, "state": "missing", "what": "tool skill"})
         elif _digest(f) != want:
             out.append({"path": rel, "state": "edited", "what": "tool skill"})
-    for n in env.LINKS:
-        if why := env.workspace_off(n):                   # "yours": a file of the person's is there, never replaced
+    for n in services.current().links.LINKS:
+        if why := services.current().links.workspace_off(n):                   # "yours": a file of the person's is there, never replaced
             out.append({"path": f"{WORKSPACE.name}/{n}", "state": "not linked", "what": "workspace link", "why": why})
     if "openwiki" in env.components():
         for r in docs.repo_names():
@@ -133,6 +134,7 @@ def repair(log=print) -> list[dict]:
     """Put back what the kit owns: its skills and agent config, the agent tools' skills, the links. Never touches the
     team's pages or files the kit did not write. Returns what is still off (links held back by trust, say)."""
     from . import docs, env
+    from .app import services
     comps = env.components()
     env.wire_umbrella(log, comps)
     if "openwiki" in comps and "agents" in comps:
@@ -140,7 +142,7 @@ def repair(log=print) -> list[dict]:
     if "openwiki" in comps:
         for r in docs.repo_names():
             if repo_dir(r).is_dir():
-                env.link_repo_wiki(r, log)
+                services.current().links.link_repo_wiki(r, log)
     if "agents" in comps:
         for r in docs.repo_names():
             env.wire_repo_mcp(r, log)

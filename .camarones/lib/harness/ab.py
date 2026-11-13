@@ -28,7 +28,8 @@ def enabled() -> bool:
 def control_workspace():
     """A folder with links to the repos only, outside the project (so walking up never reaches cam-docs). Links are
     removed without following them: repos are never touched."""
-    from .. import docs, env
+    from .. import docs
+    from ..app import services
     tmp = Path(tempfile.mkdtemp(prefix="camaron-ab-")).resolve()
     try:
         for r in docs.repo_names():
@@ -37,7 +38,7 @@ def control_workspace():
         yield tmp
     finally:
         for child in tmp.iterdir():
-            if env._is_link(child):
+            if services.current().links._is_link(child):
                 try:
                     child.unlink()
                 except OSError:
@@ -145,9 +146,9 @@ def task_workspace(with_docs: bool):
                     (tmp / name).write_bytes((tmp / "cam-docs" / name).read_bytes())
         yield tmp
     finally:
-        from .. import env
+        from ..app import services
         for child in list(tmp.iterdir()):
-            if env._is_link(child):
+            if services.current().links._is_link(child):
                 try:
                     child.unlink()
                 except OSError:

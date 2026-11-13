@@ -223,6 +223,7 @@ def main(yes: bool = False, dry_run: bool = False, finish: bool = False) -> int:
 # ---------- phase 2: wire the new layout ----------
 def finish_phase(dry: bool = False, ask: bool = False) -> int:
     from . import docs, env
+    from .app import services
     report = clean_repos(dry=True)
     if ask and any(report.values()):
         for repo, acts in report.items():
@@ -240,7 +241,7 @@ def finish_phase(dry: bool = False, ask: bool = False) -> int:
     comps = env.components()
     for n in docs.repo_names():
         if "openwiki" in comps and (repo_dir(n) / "openwiki").exists():
-            env.link_repo_wiki(n)
+            services.current().links.link_repo_wiki(n)
     env.wire_umbrella(print, comps)
     run(["git", "add", "-A"], cwd=ROOT, check=False, quiet=True)
     ident = [] if out(["git", "config", "user.email"], cwd=ROOT) else ["-c", "user.name=Camarón",

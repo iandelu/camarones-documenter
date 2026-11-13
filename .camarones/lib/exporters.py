@@ -222,7 +222,7 @@ def _evidence(ref: str, repo: str) -> tuple[str, int] | None:
 def export_codetour(path: str) -> Path:
     """The flow as a VS Code CodeTour (X10): .tours/<flow>.tour in cam-docs, linked at the workspace root."""
     from .common import WORKSPACE
-    from . import env
+    from .app import services
     t = tour(path)
     steps = [{"title": t["title"], "description": t["summary"] or t["title"]}]
     for n, s in enumerate(t["steps"], 1):
@@ -240,7 +240,7 @@ def export_codetour(path: str) -> Path:
     out.write_text(json.dumps({"$schema": "https://aka.ms/codetour-schema", "title": t["title"],
                                "description": f"From {t['path']} (Camarón)", "steps": steps},
                               indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
-    env.link(WORKSPACE / ".tours", out.parent, log=lambda _: None)
+    services.current().links.link(WORKSPACE / ".tours", out.parent, log=lambda _: None)
     return out
 
 

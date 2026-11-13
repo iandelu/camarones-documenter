@@ -20,9 +20,15 @@ def _diagrams() -> object:
     return likec4
 
 
+def _links() -> object:
+    from lib.adapters import fs_links
+    return fs_links
+
+
 PROVIDERS: dict[str, Callable[[], object]] = {
     "launcher": _launcher,
     "diagrams": _diagrams,
+    "links": _links,
 }
 
 

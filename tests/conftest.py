@@ -147,7 +147,7 @@ def wire_project(kit) -> SimpleNamespace:
     env.write_agent_config(["likec4", "openwiki", "agents"])
     kit.linked = env.link_workspace(log=lambda _: None)
     for r in kit.docs.repo_names():
-        env.link_repo_wiki(r, log=lambda _: None)
+        kit.services.links.link_repo_wiki(r, log=lambda _: None)
         env.add_repo_pointer(r)
     (kit.root / "docs" / "overview.md").write_text("---\ntitle: Overview\n---\n# Overview\n", encoding="utf-8")
     kit.env.checkpoint_commit("wired")
@@ -223,7 +223,7 @@ def copy_wired(base: Path, home: Path) -> SimpleNamespace:
     kit = copy_project(project_template("wired", wire_project), base, home)
     kit.linked = kit.env.link_workspace(log=lambda _: None)
     for r in kit.docs.repo_names():
-        kit.env.link_repo_wiki(r, log=lambda _: None)
+        kit.services.links.link_repo_wiki(r, log=lambda _: None)
     return kit
 
 

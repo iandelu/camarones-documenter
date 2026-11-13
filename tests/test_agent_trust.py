@@ -195,7 +195,7 @@ def test_declining_takes_the_kit_s_links_out_of_the_user_s_own_folder(trusted):
     real.mkdir()
     (real / "settings.local.json").write_text("{}", encoding="utf-8")
     trusted.env.link_workspace(log=lambda _: None)
-    assert trusted.env._linked(real / "skills")
+    assert trusted.services.links._linked(real / "skills")
     add_hook(trusted)
     assert "skills" in " ".join(trusted.trust.decline())
     assert sorted(p.name for p in real.iterdir()) == ["settings.local.json"]

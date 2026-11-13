@@ -71,11 +71,11 @@ def test_close_without_open_is_a_no_op(wired):
 
 
 def test_open_close_round_trip_restores_the_repo(wired):
-    env, repo = wired.env, wired.ws / "api"
+    env, links, repo = wired.env, wired.services.links, wired.ws / "api"
     claude_before = (repo / "CLAUDE.md").read_text(encoding="utf-8")
     env.wiki_open("api", log=lambda _: None)
     ow = repo / "openwiki"
-    assert ow.is_dir() and not env._is_link(ow)
+    assert ow.is_dir() and not links._is_link(ow)
     (ow / "index.md").write_text("# api wiki\n", encoding="utf-8")        # what OpenWiki writes during the run
     (repo / "AGENTS.md").write_text("openwiki snippet", encoding="utf-8")
     (repo / "CLAUDE.md").write_text("openwiki snippet", encoding="utf-8")
@@ -83,7 +83,7 @@ def test_open_close_round_trip_restores_the_repo(wired):
     (repo / ".github" / "workflows" / "openwiki-update.yml").write_text("on: push", encoding="utf-8")
     assert env.wiki_close("api", log=lambda _: None) is True
     assert (wired.root / "wikis" / "api" / "index.md").is_file()
-    assert env._is_link(ow)
+    assert links._is_link(ow)
     assert not (repo / "AGENTS.md").exists() and not (repo / ".github").exists()
     assert (repo / "CLAUDE.md").read_text(encoding="utf-8") == claude_before
     assert env.wiki_close("api", log=lambda _: None) is False               # a second close changes nothing
@@ -170,7 +170,7 @@ def test_first_wiki_needs_the_brief(wired, engine):
     assert engine["calls"] == 0
     assert wired.env.openwiki_generate("api", log=lambda _: None, force=True) is True
     assert unit(wired.plan.load(), "repo-wiki:api")["status"] == "done"
-    assert wired.env._is_link(wired.ws / "api" / "openwiki")
+    assert wired.services.links._is_link(wired.ws / "api" / "openwiki")
 
 
 def test_engine_down_aborts_and_restores_the_unit(wired, engine):
@@ -182,7 +182,7 @@ def test_engine_down_aborts_and_restores_the_unit(wired, engine):
     assert u["status"] == "todo"
     assert "repo-wiki:api" not in (wired.plan.LOG.read_text(encoding="utf-8") if wired.plan.LOG.exists() else "")
     assert not wired.env.WIKI_LOCK.exists()
-    assert wired.env._is_link(wired.ws / "api" / "openwiki")             # the repo is put back even on failure
+    assert wired.services.links._is_link(wired.ws / "api" / "openwiki")             # the repo is put back even on failure
 
 
 # ---------- wiki scope: complete wikis, and a warning for the ones written under the old, narrow scope ----------

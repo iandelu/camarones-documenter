@@ -21,7 +21,7 @@ KIT = REPO / ".camarones" / "camarones.py"
 CACHE = REPO / ".cache" / "sandbox"
 DEFAULT_DIR = Path.home() / "projects" / "camarones-sandbox"
 CAM_DIR = "cam-docs"
-# what the kit links from the workspace root into cam-docs (lib/env.py LINKS)
+# what the kit links from the workspace root into cam-docs (lib/adapters/fs_links.py LINKS)
 LINKS = (".claude", ".codex", ".agents", ".mcp.json", "AGENTS.md", "CLAUDE.md")
 REPOS = {   # name → (url, branch, pinned commit)
     "spring-petclinic-rest": ("https://github.com/spring-petclinic/spring-petclinic-rest", "master",
