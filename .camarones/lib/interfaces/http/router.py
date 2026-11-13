@@ -9,12 +9,13 @@ from __future__ import annotations
 import functools
 import importlib
 import inspect
+import json
 import pkgutil
 import re
 from collections.abc import Callable, Iterable, Iterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
-from .messages import Request, Response
+from .messages import Request, Response, json_response, not_found
 
 PACKAGE = "lib.interfaces.http.routes"
 METHODS = ("GET", "POST")                     # HEAD is served as GET, PUT as POST
@@ -142,3 +143,59 @@ def load() -> Router:
             if inspect.isfunction(obj) and obj.__module__ == module.__name__:
                 found += getattr(obj, "__routes__", [])
     return Router(found)
+
+
+def error_response(method: str, exc: Exception) -> Response:
+    """What a handler raised, as the answer: a GET's missing key is a 404, a POST's bad input a 400, the rest a 500."""
+    if method == "GET":
+        if isinstance(exc, KeyError):
+            return json_response({"error": f"missing or unknown: {exc}"}, 404)
+    elif isinstance(exc, (KeyError, ValueError, RuntimeError)):
+        return json_response({"error": str(exc)}, 400)
+    return json_response({"error": f"{type(exc).__name__}: {exc}"}, 500)
+
+
+def dispatch(req: Request, static_site: Callable[[str], Response]) -> Response:
+    """Who may call what, checked here once and in this order, then the matched route. A GET: a foreign host; the app
+    token; static mode (`static_site` answers from the exported site); unknown paths. A POST: static mode, the
+    `X-Camarones` header and the host, the app token, a body that is JSON, who acts (`by`), unknown paths, the portal
+    token."""
+    p = req.path
+    if req.method == "GET":
+        if req.foreign:
+            return json_response({"error": "forbidden host"}, 403)
+        try:
+            hit = load().match("GET", p)
+            if (p.startswith(APP_API) or (hit and hit.route.access == Access.APP)) and not req.is_app:
+                return json_response({"error": APP_ONLY_MSG, "app": True}, 403)
+            if hit and (not req.static or p.startswith(APP_API) or hit.route.static):
+                return hit.route.handler(replace(req, body={}, params=hit.params))
+            if p.startswith(APP_API):
+                return json_response({"error": "not found"}, 404)
+            if req.static:
+                return static_site(p)
+            if p.startswith(API):
+                return json_response({"error": "not found"}, 404)
+            return not_found()
+        except Exception as e:  # noqa: BLE001
+            return error_response("GET", e)
+    if req.static:
+        return json_response({"error": "read-only portal — run `camaron up` to edit"}, 405)
+    if not req.marked or req.foreign:
+        return json_response({"error": "forbidden"}, 403)
+    hit = load().match("POST", p)
+    if (p.startswith(APP_API) or (hit and hit.route.access == Access.APP)) and not req.is_app:
+        return json_response({"error": APP_ONLY_MSG, "app": True}, 403)
+    try:
+        body = json.loads(req.raw or b"{}")
+        by = ""
+        if not hit or hit.route.by:
+            from lib.app.portal_views import reviewer
+            by = (body.get("by") or reviewer()).strip()
+        if not hit:
+            return json_response({"error": "not found"}, 404)
+        if hit.route.access == Access.PORTAL and not req.can_write:
+            return json_response({"error": hit.route.refusal, "token": True}, 403)
+        return hit.route.handler(replace(req, body=body, params=hit.params, by=by))
+    except Exception as e:  # noqa: BLE001
+        return error_response("POST", e)

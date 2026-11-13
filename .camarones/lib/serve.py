@@ -10,13 +10,14 @@ from .interfaces.http.routes.analysis import (
 from .interfaces.http.routes.architecture import api_c4_view, c4_change
 from .interfaces.http.routes.board import kanban_marks, kanban_state
 from .interfaces.http.routes.docs import api_ask, api_doc, api_search, create, write
+from .interfaces.http.routes.files import DESKTOP, SITE, cdn_local
 from .interfaces.http.routes.jobs import cancel_job
 from .interfaces.http.routes.machine import app_creds, app_kitdev, app_summary, ui_lang
 from .interfaces.http.routes.onboard import app_onboard
 from .interfaces.http.routes.runs import api_pipeline, approve_unit, retry_unit, run_stopped, start_run
 from .interfaces.http.routes.team import api_interview, kpis_miss
 from .interfaces.http.routes.terminals import STREAM_FROM, app_session, app_terminal, app_unit
-from .interfaces.http.server import DESKTOP, SITE, Handler, cdn_local, run_server, take_tokens, token_matches, watch_app
+from .interfaces.http.server import Handler, run_server, take_tokens, token_matches, watch_app
 
 __facade__ = "lib.interfaces.http"
 __all__ = [
