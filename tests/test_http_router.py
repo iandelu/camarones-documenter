@@ -138,6 +138,7 @@ def test_the_method_is_part_of_the_route(router):
     ("GET", "/api/app/x", {}),
     ("POST", "/api/x", {"access": "portal"}),
     ("POST", "/api/x", {"refusal": "no"}),
+    ("GET", "/api/x", {"access": "portal", "refusal": "no"}),
     ("GET", "/api/x", {"by": False}),
     ("POST", "/api/x", {"static": True}),
     ("GET", "/api/{x", {}),

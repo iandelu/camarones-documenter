@@ -89,6 +89,8 @@ def route(method: str, pattern: str, *, access: str = Access.PUBLIC, refusal: st
         raise bad(f"everything under {APP_API} needs the app token (access=Access.APP)")
     if (access == Access.PORTAL) != bool(refusal):
         raise bad("a portal route says why it refuses (refusal), and only a portal route does")
+    if method == "GET" and access == Access.PORTAL:
+        raise bad("dispatch gates no GET on the portal token (access=Access.PORTAL is for POST routes)")
     if method == "GET" and not by:
         raise bad("by=False is for POST routes")
     if method == "POST" and static:
