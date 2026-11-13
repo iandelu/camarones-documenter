@@ -7,19 +7,17 @@ import ast
 import json
 import os
 import re
-import threading
 import urllib.error
 import urllib.request
-from http.server import ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
 
+from fixtures.http_probe import APP_TOKEN, PORTAL_TOKEN, arm, serving
+
 SNAPSHOT = Path(__file__).parent / "snapshots" / "routes.json"
 SERVE = Path(__file__).resolve().parents[1] / ".camarones" / "lib" / "serve.py"
 ROUTES = json.loads(SNAPSHOT.read_text(encoding="utf-8")) if SNAPSHOT.is_file() else []
-APP_TOKEN = "app-token"
-PORTAL_TOKEN = "portal-token"
 
 
 @pytest.fixture(scope="module")
@@ -41,13 +39,9 @@ def server(tmp_path_factory):
             for k in UNSET:
                 mp.delenv(k, raising=False)
             kit = load_kit(ws / "cam-docs", home, ws)
-            mp.setattr(kit.serve, "APP_TOKEN", APP_TOKEN)
-            mp.setattr(kit.serve, "PORTAL_TOKEN", PORTAL_TOKEN)
-            srv = ThreadingHTTPServer(("127.0.0.1", 0), kit.serve.Handler)
-            threading.Thread(target=srv.serve_forever, daemon=True).start()
-            yield f"http://127.0.0.1:{srv.server_address[1]}"
-            srv.shutdown()
-            srv.server_close()
+            arm(mp)
+            with serving(kit.serve.Handler) as base:
+                yield base
             purge_kit_modules()
     finally:
         os.environ.clear()
@@ -77,29 +71,33 @@ def test_the_snapshot_is_sorted_and_well_formed():
     assert len({(r["method"], r["path"]) for r in ROUTES}) == len(ROUTES)
 
 
+@pytest.mark.parametrize("who", ["none", "portal", "app"])
 @pytest.mark.parametrize("route", ROUTES, ids=[f"{r['method']} {r['path']}" for r in ROUTES])
-def test_route_access(server, route):
+def test_route_access(server, route, who):
+    """Every route, with no token, the portal token and the app token: the app token opens everything, the portal
+    token only the portal's writes, and a public route ignores both."""
     method, path, access = route["method"], route["path"], route["access"]
+    token = {"none": None, "portal": PORTAL_TOKEN, "app": APP_TOKEN}[who]
     if access == "app":
-        body = b"{" if method == "POST" else None
-        status, answer = probe(server, method, path, body)
-        assert (status, answer.get("app")) == (403, True)
-        status, answer = probe(server, method, path, body, token=PORTAL_TOKEN)
-        assert (status, answer.get("app")) == (403, True)
-        status, _ = probe(server, method, path, body, token=APP_TOKEN)
-        if method == "POST":
+        status, answer = probe(server, method, path, b"{" if method == "POST" else None, token)
+        if who != "app":
+            assert (status, answer.get("app")) == (403, True)
+        elif method == "POST":
             assert status == 400
         else:
             assert status != 403
     elif access == "portal":
-        status, answer = probe(server, method, path, b"{}" if method == "POST" else None)
-        assert (status, answer.get("token")) == (403, True)
-    elif method == "GET":
-        status, _ = probe(server, method, path)
-        assert status != 403
+        status, answer = probe(server, method, path, b"{}", token)
+        if who == "none":
+            assert (status, answer.get("token")) == (403, True)
+        else:
+            assert status != 403
     else:
-        status, _ = probe(server, method, path, b"{")
-        assert status == 400
+        status, _ = probe(server, method, path, b"{" if method == "POST" else None, token)
+        if method == "POST":
+            assert status == 400
+        else:
+            assert status != 403
 
 
 def literal_paths() -> set[str]:

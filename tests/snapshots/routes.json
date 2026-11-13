@@ -95,6 +95,16 @@
     "access": "app"
   },
   {
+    "method": "POST",
+    "path": "/api/app/creds/delete",
+    "access": "app"
+  },
+  {
+    "method": "POST",
+    "path": "/api/app/creds/test",
+    "access": "app"
+  },
+  {
     "method": "GET",
     "path": "/api/app/doctor",
     "access": "app"
