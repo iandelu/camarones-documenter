@@ -11,7 +11,7 @@ import hashlib, itertools, json, os
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .common import CAM_LAYOUT, HOME, ROOT, WORKSPACE, load_json, save_json
+from .common import CAM_LAYOUT, HOME, ROOT, WORKSPACE, is_link, load_json, save_json, through_link
 
 AGENT_DIRS = (".claude", ".codex", ".agents")
 AGENT_LINKS = (*AGENT_DIRS, ".mcp.json")         # workspace-root links that make agents load this config
@@ -82,8 +82,16 @@ def _team_label(rel: str, kind: str) -> str:
     return {"team": " (team copy)", "team-only": " (team skill)"}.get(skills.origin(parts[2]), "")
 
 
+def _target(p: Path) -> str:
+    try:
+        return os.readlink(p)
+    except OSError:
+        return os.path.realpath(p)
+
+
 def items(root: Path | None = None) -> dict[str, Item]:
-    """Everything in the agent config that can run code, widen access or steer an agent."""
+    """Everything in the agent config that can run code, widen access or steer an agent. A link (symlink or junction)
+    is one item, the link itself: what it points to is never read, so a linked folder or config file is not parsed."""
     root = root or ROOT
     found: dict[str, Item] = {}
 
@@ -94,7 +102,19 @@ def items(root: Path | None = None) -> dict[str, Item]:
         p = root / rel
         add(f"file {rel}", "file", p.read_bytes(), f"{rel} (unreadable as JSON)")
 
-    data, ok = _read_json(root / ".mcp.json")
+    def link_item(p: Path) -> None:
+        rel, target = _rel(p, root), _target(p)
+        kind = "skill" if "/skills/" in f"/{rel}" else "file"
+        add(f"file {rel}", kind, f"link:{target}", f"{rel} → {target}", _group(rel))
+
+    def real(rel: str) -> bool:
+        return not through_link(root, root / rel)
+
+    data, ok = ({}, True)
+    if not real(".mcp.json"):
+        link_item(root / ".mcp.json")
+    else:
+        data, ok = _read_json(root / ".mcp.json")
     if not ok:
         whole(".mcp.json")
     for name, server in ((data or {}).get("mcpServers") or {}).items():
@@ -102,6 +122,8 @@ def items(root: Path | None = None) -> dict[str, Item]:
 
     for fname, tag in CLAUDE_SETTINGS.items():
         rel = f".claude/{fname}"
+        if not real(rel):                        # the walk below lists the link
+            continue
         st, ok = _read_json(root / rel)
         if not ok:
             whole(rel)
@@ -122,7 +144,7 @@ def items(root: Path | None = None) -> dict[str, Item]:
                 add(f"claude {k}{tag}", "setting", st[k], f"{k}: {_short(st[k])}")
 
     codex = root / ".codex" / "config.toml"
-    if codex.is_file():
+    if real(".codex/config.toml") and codex.is_file():
         from .env import CODEX_MCP_RE
         text = codex.read_text(encoding="utf-8")
         block = CODEX_MCP_RE.search(text)
@@ -132,22 +154,26 @@ def items(root: Path | None = None) -> dict[str, Item]:
         if rest:
             add("codex config", "codex", "\n".join(rest), _short(" · ".join(rest)))
     hooks_json = root / ".codex" / "hooks.json"
-    if hooks_json.is_file():
+    if real(".codex/hooks.json") and hooks_json.is_file():
         data, ok = _read_json(hooks_json)
         add("codex hooks", "hook", data if ok else hooks_json.read_bytes(), _short(data if ok else "(unreadable)"))
 
     for d in AGENT_DIRS:
+        if is_link(root / d):                    # os.walk would follow a linked top folder even with followlinks=False
+            link_item(root / d)
+            continue
         for cur, dirs, files in os.walk(root / d, followlinks=False):
-            for name in [*files, *[x for x in dirs if Path(cur, x).is_symlink()]]:
+            links = [x for x in dirs if is_link(Path(cur, x))]
+            dirs[:] = [x for x in dirs if x not in links]       # a junction too: never walked into
+            for name in [*files, *links]:
                 p = Path(cur) / name
                 rel = _rel(p, root)
-                if rel in STRUCTURED or name in JUNK or "__pycache__" in p.parts:
+                if name in JUNK or "__pycache__" in p.parts:
                     continue
-                kind = "skill" if "/skills/" in f"/{rel}" else "file"
-                if p.is_symlink():                   # never followed: where it points is what gets approved
-                    target = os.readlink(p)
-                    add(f"file {rel}", kind, f"link:{target}", f"{rel} → {target}", _group(rel))
-                else:
+                if is_link(p):                       # never followed: where it points is what gets approved
+                    link_item(p)
+                elif rel not in STRUCTURED:
+                    kind = "skill" if "/skills/" in f"/{rel}" else "file"
                     add(f"file {rel}", kind, p.read_bytes(), rel + _team_label(rel, kind), _group(rel))
 
     from .harness import plugins
@@ -195,9 +221,10 @@ def _save(approved: dict[str, str], root: Path | None = None, off: list[str] | N
 
 def _linked_here() -> bool:
     """This machine already loads the config: a workspace link into cam-docs (it lives outside the repo, so a clone
-    cannot fake it; a real folder with the same name resolves to itself, not into cam-docs)."""
-    return any((WORKSPACE / n).exists() and os.path.realpath(WORKSPACE / n) == os.path.realpath(ROOT / n)
-               for n in AGENT_LINKS)
+    cannot fake it; a real folder with the same name resolves to itself, not into cam-docs). cam-docs' own entry must
+    be real: a committed `.agents → ../.agents` resolves to the person's own folder and would pass for such a link."""
+    return any(is_link(WORKSPACE / n) and (ROOT / n).exists() and not through_link(ROOT, ROOT / n)
+               and os.path.realpath(WORKSPACE / n) == os.path.realpath(ROOT / n) for n in AGENT_LINKS)
 
 
 def pending(root: Path | None = None) -> list[tuple[Item, str]]:

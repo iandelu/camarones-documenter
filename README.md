@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.83.0-ff875f?style=flat-square" alt="Versión 4.83.0">
+  <img src="https://img.shields.io/badge/version-4.83.1-ff875f?style=flat-square" alt="Versión 4.83.1">
   <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square" alt="Python 3.10 o superior">
   <img src="https://img.shields.io/badge/agentes-Claude_Code_%C2%B7_Codex-8bd5ca?style=flat-square" alt="Integración con Claude Code y Codex">
   <img src="https://img.shields.io/badge/macOS_%C2%B7_Windows_%C2%B7_Linux-182430?style=flat-square" alt="macOS, Windows y Linux">
@@ -214,7 +214,8 @@ proyecto.
 
 Lo que llega con el repo del equipo no se ejecuta a ciegas: los hooks, servidores MCP, ajustes, skills y plugins que no
 escribió el kit solo se cargan cuando los apruebas en tu máquina (**Equipo** en la app, o `camaron trust`); las
-aprobaciones viven en `~/.camarones/trust/`, fuera del repo. Si en la carpeta del workspace ya tenías tu propio
+aprobaciones viven en `~/.camarones/trust/`, fuera del repo. Un enlace simbólico que llega en el repo se aprueba como
+un solo elemento, y el kit nunca lee ni escribe a través de él. Si en la carpeta del workspace ya tenías tu propio
 `.claude/` o tu `CLAUDE.md`, `setup` y `repair` no los reemplazan: enlazan dentro lo del kit y añaden a tu `CLAUDE.md`
 dos líneas que importan sus reglas (`@AGENTS.md`); `uninstall` las quita y deja lo tuyo. Publicar es un paso explícito:
 **Equipo › Compartir ahora**, **Plan › Sincronizar** en el portal o `camaron share` (checkpoint, rebase sobre el trabajo

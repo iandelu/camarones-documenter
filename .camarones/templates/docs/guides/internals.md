@@ -333,6 +333,9 @@ The kit works out whether a plugin runs code instead of trusting its manifest. A
 and arrived with the team's repo — plugins, hooks, MCP servers, settings, skills — is not loaded until you approve it on
 your machine (`camaron trust`, or Team in the app). The approval covers every file, so any change asks again. What the
 kit itself installed is recognised without asking, and `camaron repair` restores it if someone edits or deletes it.
+A link committed to the repo (a symlink or junction: `.claude`, a settings file, `.mcp.json`…) is one item, shown with
+where it points: the kit never reads what is behind it or writes through it, and where it writes a file of its own
+(`.mcp.json`, `.claude/settings.json`, `.codex/config.toml`) it replaces the link with that file.
 
 A team's version of a kit skill (`camaron skills fork`) lives in `cam-docs/.camarones/skills/<name>/`: it wins over the
 kit's, survives upgrades and counts as team-written, so each machine approves it once in `camaron trust` (any edit asks

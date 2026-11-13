@@ -10,7 +10,7 @@ import yaml
 
 from .core import yamlio
 from .common import (KIT, ROOT, DOCS, WS_FILE, CACHE, WORKSPACE, CAM_DIR, CAM_LAYOUT, repo_dir, rel_file, run,
-                     load_json, save_json)
+                     load_json, save_json, through_link)
 
 STATE_FILE = DOCS / ".state.json"
 STATUS_FILE = DOCS / ".status.json"
@@ -162,6 +162,8 @@ def sync_repos(log: Log = print) -> list[str]:
 
 def write_gitignore() -> None:
     gi = ROOT / ".gitignore"
+    if through_link(ROOT, gi):                          # a committed link: never read or written through
+        return
     text = gi.read_text(encoding="utf-8") if gi.exists() else ""
     repos = [] if CAM_LAYOUT else [f"/{n}/" for n in repo_names()]      # cam-docs layout: repos live next to it
     block = "\n".join([GI_START, *repos, "/.camarones/.cache/", "/graph/", "/.claude/settings.local.json",
