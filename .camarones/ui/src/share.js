@@ -1,7 +1,7 @@
-// What a share (app.share.share, POST /api/sync/share) or a check for news (app.share.sync_status fetch) says, as a
-// key and its vars for each app's own strings. An error git explained (projects.git_failure, plus no-token) gets its
-// reason's sentence, with git's own line apart as the detail; anything else keeps its status sentence, as the wizard
-// does.
+// What a share (app.share.share, POST /api/sync/share) or a check for news
+// (app.share.sync_status fetch) says, as a key and its vars for each app's own strings. An error
+// git explained (projects.git_failure, plus no-token) gets its reason's sentence, with git's own
+// line apart as the detail; anything else keeps its status sentence, as the wizard does.
 
 const OK = ['pushed', 'up-to-date', 'nothing']
 const REASONS = ['network', 'auth', 'no-token', 'denied', 'not-found']
