@@ -48,7 +48,9 @@ Every change must work on all three. CI (`.github/workflows/tests.yml`) runs the
   what failed.
 - Tests run side by side, so each one owns its `tmp_path`, home and ports (bind port 0). `make_workspace` and the
   `wired` fixture copy a per-process template (one `clonefile` on macOS; `tests/test_builder.py` checks a copy matches a
-  fresh build), so they are cheap; never share state through module globals or fixed paths. A test that truly cannot
+  fresh build), so they are cheap. A module whose every test needs the same costly project builds it once with
+  `project_template` and copies it with `copy_project` (`tests/conftest.py`), with a test that the copy matches a fresh
+  build. Never share state through module globals or fixed paths. A test that truly cannot
   run beside another one gets `@pytest.mark.serial`: all of them go to one worker, one at a time.
 - **Sandbox for end-to-end checks.** If the sandbox project exists (`$CAMARONES_SANDBOX`, else
   `~/projects/camarones-sandbox`, with the Spring PetClinic repos), use it to verify a change end to end with this

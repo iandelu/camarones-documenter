@@ -153,15 +153,17 @@ def wire_project(kit) -> SimpleNamespace:
     return kit
 
 
-_wired: list[Path] = []
+_templates: dict[str, Path] = {}
 
 
-def _wired_template() -> Path:
-    """<base>/demo and <base>/home after `wire_project`, built once per process (once per xdist worker), under the
-    environment the process started with: never under what the test that happens to come first has set."""
-    if _wired and _wired[0].exists():
-        return _wired[0]
-    base = Path(tempfile.mkdtemp(prefix="cam-wired-")).resolve()
+def project_template(name: str, build) -> Path:
+    """<base>/demo and <base>/home after `build(kit)` on the synthetic workspace, built once per process (once per
+    xdist worker) for each name, under the environment the process started with: never under what the test that
+    happens to come first has set."""
+    base = _templates.get(name)
+    if base and base.exists():
+        return base
+    base = Path(tempfile.mkdtemp(prefix=f"cam-{name}-")).resolve()
     atexit.register(lambda: base.exists() and rmtree(base))
     home = base / "home"
     home.mkdir()
@@ -172,13 +174,13 @@ def _wired_template() -> Path:
         os.environ.update({k: v for k, v in START_ENV.items() if k not in UNSET},
                           **isolated_vars(home, base / "gitconfig", START_ENV.get("PATH", ""), hidden_tools()))
         ws = make_workspace(base)
-        wire_project(load_kit(ws / "cam-docs", home, ws))
+        build(load_kit(ws / "cam-docs", home, ws))
         slim(ws)
     finally:
         purge_kit_modules()
         os.environ.clear()
         os.environ.update(saved)
-    _wired[:] = [base]
+    _templates[name] = base
     return base
 
 
@@ -191,11 +193,9 @@ def _is_link(p: Path) -> bool:
     return p.is_dir() and Path(os.path.realpath(p)) != Path(os.path.realpath(p.parent)) / p.name
 
 
-def copy_wired(base: Path, home: Path) -> SimpleNamespace:
-    """What `wire_project` leaves behind, copied from the template instead of a dozen git processes: the workspace
-    without its links, the machine's records under ~/.camarones moved to this project's root, then the kit links the
-    copy itself, as it would on any OS."""
-    src = _wired_template()
+def copy_project(src: Path, base: Path, home: Path) -> SimpleNamespace:
+    """A project template copied to <base>/demo instead of built again: the workspace without its links, the machine's
+    records under ~/.camarones moved to this project's root."""
     ws = base / "demo"
     if clone(src / "demo", ws):
         drop_links(ws)
@@ -213,6 +213,13 @@ def copy_wired(base: Path, home: Path) -> SimpleNamespace:
         for a, b in swaps:
             text = text.replace(a, b)
         dst.write_text(text, encoding="utf-8", newline="\n")
+    return kit
+
+
+def copy_wired(base: Path, home: Path) -> SimpleNamespace:
+    """What `wire_project` leaves behind, copied instead of a dozen git processes; the kit links the copy itself, as it
+    would on any OS."""
+    kit = copy_project(project_template("wired", wire_project), base, home)
     kit.linked = kit.env.link_workspace(log=lambda _: None)
     for r in kit.docs.repo_names():
         kit.env.link_repo_wiki(r, log=lambda _: None)
