@@ -3,7 +3,7 @@ lib/app/portal_views.py); this path stays for old imports."""
 from __future__ import annotations
 
 from .app.portal_views import covering
-from .interfaces.http.routes.adr import BUSY, get, post
+from .interfaces.http.routes.adr import BUSY, POST, get, post
 
 __facade__ = "lib.interfaces.http.routes.adr"
-__all__ = ["BUSY", "covering", "get", "post"]
+__all__ = ["BUSY", "POST", "covering", "get", "post"]

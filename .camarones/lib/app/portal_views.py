@@ -97,13 +97,13 @@ def status(check: bool = True) -> dict:
             "check": dict(zip(("errors", "warnings"), docs.check())) if check else None,
             "plan": dict(zip(("done", "total"), plan.progress()))}
 
+
 def covering(logical: str) -> list[dict]:
     try:
         return adr.covering(logical)
     except Exception as e:  # noqa: BLE001 — a page is read even when its decisions cannot be
         _adr_log.warning("decisions covering %s unavailable (%s); the page loads without them", logical, e)
         return []
-
 
 
 def code_map(repo: str) -> dict | None:
