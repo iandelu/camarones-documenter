@@ -28,6 +28,7 @@ from .interfaces.http.routes.analysis import (
 )
 from .interfaces.http.routes.board import kanban_marks, kanban_state
 from .interfaces.http.routes.docs import api_ask, api_doc, api_search, create, write
+from .interfaces.http.routes.jobs import cancel_job
 from .interfaces.http.routes.machine import app_creds, app_kitdev, app_summary, sessions_setting, ui_lang
 from .interfaces.http.routes.onboard import app_onboard
 from .interfaces.http.routes.runs import api_pipeline, approve_unit, retry_unit, run_stopped, start_run
@@ -49,16 +50,6 @@ PORTAL_TOKEN = ""                            # set by `camaron up` (CAMARONES_PO
 APP_ONLY = re.compile(r"^/api/(runs|runs/[\w.-]+/cancel|wiki|build|inventory|schemas|ci|ask/answer|plan/cost)$")
 mimetypes.add_type("text/javascript", ".js")    # Windows may map .js to text/plain in the registry
 mimetypes.add_type("font/woff2", ".woff2")    # the portal theme fonts; older Pythons do not know the type
-
-
-def cancel_job(job_id: str) -> dict:
-    """The app's cancel button: an in-process job (setup) is asked to stop between steps; a command job is killed."""
-    ev = CANCEL.get(job_id)
-    if ev is not None and JOBS.get(job_id, {}).get("status") == "running":
-        ev.set()
-        return {"cancelling": job_id}
-    from .interfaces.http.routes.app_cmd import cancel
-    return cancel(job_id)
 
 
 def cdn_local(html: str) -> str:
@@ -159,32 +150,7 @@ class Handler(BaseHTTPRequestHandler):
         ok = {f"127.0.0.1:{port}", f"localhost:{port}"} | ({"127.0.0.1", "localhost"} if port == 80 else set())
         return self.headers.get("Host", "") not in ok          # on port 80 the browser leaves the port out
 
-    def stream_job(self, job: dict, offset: int) -> None:
-        """Server-sent events of a job's log: one `line` per log line (its id the line count after it), then `end`."""
-        self.send_response(200)
-        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
-        self.send_header("Cache-Control", "no-store")
-        self.end_headers()
-        try:
-            while True:
-                lines, running = job["log"][offset:], job["status"] == "running"
-                for line in lines:
-                    offset += 1
-                    ev = {"type": "line", "n": offset, "text": line}
-                    self.wfile.write(f"id: {offset}\ndata: {json.dumps(ev, ensure_ascii=False)}\n\n".encode("utf-8"))
-                if not running and offset >= len(job["log"]):
-                    end = {"type": "end", "status": job["status"], "rc": job.get("rc"), "result": job.get("result")}
-                    self.wfile.write(f"data: {json.dumps(end, ensure_ascii=False)}\n\n".encode("utf-8"))
-                    self.wfile.flush()
-                    return
-                self.wfile.flush()
-                time.sleep(0.2)
-        except (BrokenPipeError, ConnectionResetError):
-            return
-
     def api_app_get(self, name: str, q: dict):
-        if (m := re.fullmatch(r"jobs/([\w.-]+)/events", name)) and m.group(1) in JOBS:
-            return self.stream_job(JOBS[m.group(1)], int(self.headers.get("Last-Event-ID") or q.get("from") or 0))
         self.json({"error": "not found"}, 404)
 
     def get_static_site(self, p: str) -> None:
@@ -256,14 +222,6 @@ class Handler(BaseHTTPRequestHandler):
             self.json({"error": f"{type(e).__name__}: {e}"}, 500)
 
     def api_get(self, name: str, q: dict):
-        if name == "jobs":
-            from .interfaces.http.routes.app_cmd import stoppable
-            return self.json([{**{k: v for k, v in j.items() if k != "log"}, "stoppable": stoppable(j["id"])}
-                              for j in list(JOBS.values())])
-        if name.startswith("jobs/") and name[5:] in JOBS:
-            j = JOBS[name[5:]]
-            since = int(q.get("since", 0))
-            return self.json({**j, "log": j["log"][since:], "lines": len(j["log"])})
         self.json({"error": "not found"}, 404)
 
     def do_PUT(self):
@@ -291,8 +249,6 @@ class Handler(BaseHTTPRequestHandler):
                     return self.json({"error": hit.route.refusal, "token": True}, 403)
                 return self.reply(hit.route.handler(self.routed(hit, p, {}, b, by)))
             by = (b.get("by") or reviewer()).strip()
-            if m := re.fullmatch(r"/api/app/jobs/([\w.-]+)/cancel", p):
-                return self.json(cancel_job(m.group(1)))
             self.json({"error": "not found"}, 404)
         except (KeyError, ValueError, RuntimeError) as e:
             self.json({"error": str(e)}, 400)
