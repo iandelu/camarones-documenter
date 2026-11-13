@@ -197,8 +197,8 @@ class Docs(Command):
         return reset.main(args.mode, dry_run=args.dry_run, yes=args.yes, templates=args.templates)
 
 
-def cmd_plan(a) -> int:
-    from lib import env, plan
+def cmd_plan(a, cli: CliContext) -> int:
+    from lib import plan
     from lib.core.paths import ROOT
     for problem in plan.pipeline_problems():
         print(f"✖ .camarones/pipeline.yaml — {problem} (the plan is left as it was)", file=sys.stderr)
@@ -234,7 +234,7 @@ def cmd_plan(a) -> int:
         print(f"{u['id']} → {u['status']}" + (f": {u['notes']}" if plan.awaiting(u) else ""))
         if u.get("reopened"):
             print("reopened to refine with what it settled: " + ", ".join(u["reopened"]))
-        if status != "doing" and env.checkpoint_commit(f"{u['id']} {u['status']}"):
+        if status != "doing" and cli.services.share.checkpoint_commit(f"{u['id']} {u['status']}"):
             print("✔ docs committed locally (checkpoint)")
     elif a.action == "cost":
         from lib.harness import ledger
@@ -250,7 +250,7 @@ def cmd_plan(a) -> int:
         except ValueError as e:
             print(f"✖ {e}", file=sys.stderr); return 2
         print(f"{u['id']} → done ({u['notes']})")
-        if env.checkpoint_commit(f"{u['id']} approved"):
+        if cli.services.share.checkpoint_commit(f"{u['id']} approved"):
             print("✔ docs committed locally (checkpoint)")
     elif a.action == "redo":
         if not a.unit:
@@ -260,7 +260,7 @@ def cmd_plan(a) -> int:
         still = plan.dependents(plan.load(), a.unit)
         if still:
             print("Still done, built on it (reopen with --also if they need redoing): " + ", ".join(u["id"] for u in still))
-        if env.checkpoint_commit(f"redo {a.unit}"):
+        if cli.services.share.checkpoint_commit(f"redo {a.unit}"):
             print("✔ docs committed locally (checkpoint)")
     elif a.action == "add":
         if not a.unit or not a.title:
@@ -286,7 +286,7 @@ class Plan(Command):
         parser.add_argument("--also", nargs="*", default=[])
 
     def run(self, args: argparse.Namespace, cli: CliContext) -> int:
-        return cmd_plan(args)
+        return cmd_plan(args, cli)
 
 
 @command("prompt", "cli")

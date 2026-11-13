@@ -31,7 +31,7 @@ def pr(wired, tmp_path, monkeypatch):
     f = wired.root / "docs" / "flows" / "a.md"
     f.parent.mkdir(parents=True, exist_ok=True)
     f.write_text(f"---\ntitle: A\nx-sources:\n  - api:{API}#L3-L5\n---\n# A\n\nThe api calls worker.\n", encoding="utf-8")
-    wired.env.checkpoint_commit("page a")
+    wired.services.share.checkpoint_commit("page a")
     from lib.harness import freshness
     freshness.stamp_all()
     repo = wired.ws / "api"

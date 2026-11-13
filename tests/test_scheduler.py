@@ -234,7 +234,7 @@ def test_a_unit_closed_in_its_worktree_copy_by_an_older_kit_still_counts(wired, 
     fake["configure"](["fake"], sleep="0.1")
     monkeypatch.setenv("FAKE_OLD_KIT", "1")
     wired.plan.set_status("setup", "done")
-    wired.env.checkpoint_commit("plan")              # as on a real project: worktrees carry a copy of the plan
+    wired.services.share.checkpoint_commit("plan")  # as on a real project: worktrees carry a copy of the plan
     done, out = run(wired, max_parallel=1, per_runner={"fake": 1}, max_units=1)
     assert done == 1 and status(wired, "discovery:api") == "done"
     assert (wired.root / "docs" / "notes" / "discovery-api.md").exists()                # merged into main

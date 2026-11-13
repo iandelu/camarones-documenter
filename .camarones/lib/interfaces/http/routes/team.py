@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 
-from lib import docs, env, usage
+from lib import docs, usage
 from lib.app.portal_views import reviewer
 from lib.core.paths import DOCS
 from lib.interfaces.http.messages import Request, Response, json_response
@@ -51,13 +51,13 @@ def api_interview(who: str = "") -> dict:
 
 @route("GET", "/api/sync")
 def get_sync(req: Request) -> Response:
-    return json_response(env.sync_status(fetch=req.query.get("fetch") == "1"))
+    return json_response(req.services.share.sync_status(fetch=req.query.get("fetch") == "1"))
 
 
 @route("POST", "/api/sync/share")
 def post_share(req: Request) -> Response:
     # the team action: checkpoint, pull the team's work, push
-    return json_response({"result": env.share(log=lambda _: None), "sync": env.sync_status()})
+    return json_response({"result": req.services.share.share(log=lambda _: None), "sync": req.services.share.sync_status()})
 
 
 @route("GET", "/api/interview")

@@ -19,7 +19,7 @@ from pathlib import Path
 from .common import CAM_DIR, CAM_LAYOUT, DOCS, ROOT, WORK, WS_FILE, load_json, out, rel_file, run as run_cmd
 from .core.locks import pid_alive
 from .core.paths import WIKI_LOCK
-from . import docs, env, plan
+from . import docs, plan
 from .app import services
 
 MODES = ("redo", "wipe")
@@ -158,7 +158,7 @@ def backup(stamp: str) -> dict:
     that refused the checkpoint)."""
     tag = zipped = None
     if (ROOT / ".git").exists():
-        env.checkpoint_commit("before docs reset")
+        services.current().share.checkpoint_commit("before docs reset")
         if run_cmd(["git", "rev-parse", "--verify", "-q", "HEAD"], cwd=ROOT, check=False, quiet=True).returncode == 0 \
                 and run_cmd(["git", "tag", TAG + stamp], cwd=ROOT, check=False, quiet=True).returncode == 0:
             tag = TAG + stamp
@@ -228,7 +228,7 @@ def run(mode: str, templates: bool = False, log=lambda _: None) -> dict:
     if mode == "wipe":
         _regenerate(log)
     _log(f"docs reset ({mode})")
-    env.checkpoint_commit(f"docs reset ({mode})")
+    services.current().share.checkpoint_commit(f"docs reset ({mode})")
     return result
 
 

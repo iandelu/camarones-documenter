@@ -15,7 +15,7 @@ from .core import yamlio
 from .common import (CAM_DIR, CAM_LAYOUT, IS_WIN, VERSIONS, cli_cmd, ensure_path, find_project_marker, load_json,
                      repo_dir, run, save_json, ws_rel)
 from .harness.ctx import Ctx
-from . import docs, env, plan, projects
+from . import docs, plan, projects
 from .app import services
 
 STEPS = ("name", "repos", "tools", "setup", "stack", "arch", "intro")   # first-run steps, saved by id
@@ -553,4 +553,4 @@ def done() -> dict:
     from .common import ROOT
     m = mode(load_json(firstrun_file(ROOT), {}))
     finish(ROOT, len(steps("new" if m == "done" else m, kind_of(docs.workspace()))))
-    return {"committed": bool(env.checkpoint_commit("first setup"))}
+    return {"committed": bool(services.current().share.checkpoint_commit("first setup"))}

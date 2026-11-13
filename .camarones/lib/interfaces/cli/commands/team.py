@@ -242,8 +242,7 @@ class Checkpoint(Command):
         parser.add_argument("message", nargs="?", default="progress")
 
     def run(self, args: argparse.Namespace, cli: CliContext) -> int:
-        from lib import env
-        print("✔ committed locally" if env.checkpoint_commit(args.message) else "no checkpoint commit")
+        print("✔ committed locally" if cli.services.share.checkpoint_commit(args.message) else "no checkpoint commit")
         return 0
 
 
@@ -253,10 +252,9 @@ class Remote(Command):
         parser.add_argument("url", nargs="?")
 
     def run(self, args: argparse.Namespace, cli: CliContext) -> int:
-        from lib import env
         if args.url:
-            env.set_remote(args.url)
-        print(env.docs_remote() or "no remote — set one with: remote URL")
+            cli.services.share.set_remote(args.url)
+        print(cli.services.share.docs_remote() or "no remote — set one with: remote URL")
         return 0
 
 
@@ -266,12 +264,11 @@ class Share(Command):
         parser.add_argument("--auto", choices=["on", "off"])
 
     def run(self, args: argparse.Namespace, cli: CliContext) -> int:
-        from lib import env
         if args.auto:
-            env.set_auto_share(args.auto == "on")
+            cli.services.share.set_auto_share(args.auto == "on")
             print(f"auto-share: {args.auto}")
             return 0
-        r = env.share()
+        r = cli.services.share.share()
         why = f" ({r['reason']})" if r.get("reason") else ""
         print(f"{r['status']}{why}{': ' + r['detail'] if r['detail'] else ''}")
         return 0 if r["status"] in ("pushed", "up-to-date", "nothing") else 1

@@ -1117,7 +1117,7 @@ class W:
                 i += 1
         self.step_hdr = None
         onboard.finish(ROOT, len(steps))
-        env.checkpoint_commit("first setup")
+        services.current().share.checkpoint_commit("first setup")
         return True
 
     def fr_name(self, ws: dict):
@@ -1764,7 +1764,7 @@ class W:
         self.pause()
 
     def checkpoint(self, what: str) -> None:
-        if env.checkpoint_commit(what):
+        if services.current().share.checkpoint_commit(what):
             self.say(self.t("saved_ckpt"), "grey62")
 
     def unit_taken(self, uid: str) -> bool:
@@ -2315,19 +2315,19 @@ class W:
             plan.sync()
 
     def do_share(self) -> None:
-        url = env.docs_remote()
+        url = services.current().share.docs_remote()
         if not url:
             url = (self.txt(self.t("sh_url")) or "").strip()
             if not url:
                 return
-            env.set_remote(url)
+            services.current().share.set_remote(url)
         if not self.yes(self.t("sh_confirm", url=url), default=True):
             return
         while True:
-            r = self.safe(self.busy, env.share)
+            r = self.safe(self.busy, services.current().share.share)
             if not r:
                 return
-            url = env.docs_remote() or url
+            url = services.current().share.docs_remote() or url
             if r["status"] != "error" or not r.get("reason"):
                 break
             host = r.get("host") or url
@@ -2343,9 +2343,9 @@ class W:
         ok = r["status"] in ("pushed", "up-to-date", "nothing")
         self.say(self.t("sh_" + r["status"].replace("-", "_"), url=url, detail=r["detail"], cli=cli_cmd()),
                  f"bold {ORANGE}" if r["status"] == "pushed" else ("" if ok else "red"))
-        if ok and not env.AUTO_SHARE.exists():                         # asked once; the CLI flag changes it later
+        if ok and not services.current().share.AUTO_SHARE.exists():    # asked once; the CLI flag changes it later
             on = bool(self.yes(self.t("sh_auto_ask", cli=cli_cmd()), default=True))
-            env.set_auto_share(on)
+            services.current().share.set_auto_share(on)
             if on:
                 self.say(self.t("sh_auto_on"), "green")
         self.pause()

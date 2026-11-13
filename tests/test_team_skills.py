@@ -321,7 +321,7 @@ def test_a_checkpoint_commits_a_team_copy_with_its_stamp_and_rendering(wired):
     d = s.fork("cam-docs-update")
     (d / "SKILL.md").write_text("---\nname: cam-docs-update\ndescription: Ours.\n---\nbody\n", encoding="utf-8")
     wired.services.templates.write_kit_skills()
-    assert wired.env.checkpoint_commit("team copy") is True
+    assert wired.services.share.checkpoint_commit("team copy") is True
     files = subprocess.run(["git", "show", "--name-only", "--format=", "HEAD"], cwd=wired.root, capture_output=True,
                            text=True, encoding="utf-8").stdout.splitlines()
     assert {".camarones/skills/cam-docs-update/SKILL.md", ".camarones/.kit-skills.json",

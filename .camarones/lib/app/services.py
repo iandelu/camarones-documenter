@@ -36,6 +36,7 @@ class Services:
     templates: ModuleType
     viewers: ModuleType
     setup: ModuleType
+    share: ModuleType
 
     def __init__(self, providers: Mapping[str, Callable[[], object]]) -> None:
         object.__setattr__(self, "_providers", dict(providers))

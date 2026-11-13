@@ -149,7 +149,7 @@ def wire_project(kit) -> SimpleNamespace:
         kit.services.links.link_repo_wiki(r, log=lambda _: None)
         kit.services.setup.add_repo_pointer(r)
     (kit.root / "docs" / "overview.md").write_text("---\ntitle: Overview\n---\n# Overview\n", encoding="utf-8")
-    kit.env.checkpoint_commit("wired")
+    kit.services.share.checkpoint_commit("wired")
     return kit
 
 

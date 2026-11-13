@@ -158,7 +158,7 @@ def engine(wired, monkeypatch):
     mcp.write_text(json.dumps(cfg), encoding="utf-8")
     monkeypatch.setattr(env, "stream", stream)
     monkeypatch.setattr(env, "wiki_graph", lambda *a, **kw: True)
-    monkeypatch.setattr(env, "checkpoint_commit", lambda *a, **kw: True)
+    monkeypatch.setattr(wired.services.share, "checkpoint_commit", lambda *a, **kw: True)
     wired.docs.set_wiki_repos(["api"])
     wired.plan.sync()
     return box

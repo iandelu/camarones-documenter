@@ -75,6 +75,11 @@ def _setup() -> object:
     return setup
 
 
+def _share() -> object:
+    from lib.app import share
+    return share
+
+
 PROVIDERS: dict[str, Callable[[], object]] = {
     "launcher": _launcher,
     "diagrams": _diagrams,
@@ -89,6 +94,7 @@ PROVIDERS: dict[str, Callable[[], object]] = {
     "templates": _templates,
     "viewers": _viewers,
     "setup": _setup,
+    "share": _share,
 }
 
 

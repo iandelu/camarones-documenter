@@ -154,14 +154,14 @@ def test_idempotent(wired):
 def test_checkpoint_commits_backlog(wired):
     from lib.kanban import ops
     ops.add("task", "Committed")
-    assert wired.env.checkpoint_commit("x") is True
+    assert wired.services.share.checkpoint_commit("x") is True
     files = git(wired.root, "show", "--name-only", "--format=", "HEAD").splitlines()
     assert "backlog/board.yaml" in files and any(f.startswith("backlog/tasks/wi-1") for f in files)
 
 
 def test_checkpoint_repairs_first(wired):
     mk(wired, "WI-9", "Hand made", status="Ready")
-    assert wired.env.checkpoint_commit("x") is True
+    assert wired.services.share.checkpoint_commit("x") is True
     assert "WI-9" in (wired.root / "backlog" / "board.yaml").read_text(encoding="utf-8")
     assert git(wired.root, "status", "--porcelain", "backlog") == ""
 
@@ -174,7 +174,7 @@ def test_checkpoint_survives_a_failing_repair(wired, monkeypatch, capsys):
 
     monkeypatch.setattr(repair, "repair", boom)
     (wired.root / "docs" / "new.md").write_text("# New\n", encoding="utf-8")
-    assert wired.env.checkpoint_commit("x") is True
+    assert wired.services.share.checkpoint_commit("x") is True
     assert "boom" in capsys.readouterr().err
 
 
@@ -196,7 +196,7 @@ def test_project_without_backlog_unchanged(wired):
     git(wired.root, "commit", "-q", "-m", "no board")
     attrs.write_text("*.png binary\n", encoding="utf-8")            # a user's own file, untracked
     (wired.root / "docs" / "new.md").write_text("# New\n", encoding="utf-8")
-    assert wired.env.checkpoint_commit("x") is True
+    assert wired.services.share.checkpoint_commit("x") is True
     from lib import install_state
     install_state.repair(log=lambda _: None)
     assert not (wired.root / "backlog").exists()
@@ -216,7 +216,7 @@ def test_share_repairs_after_the_pull_and_commits(kit, tmp_path):
     git(mate, "add", "-A")
     git(mate, "commit", "-q", "-m", "hand made item")
     git(mate, "push", "-q", "origin", "main")
-    s = kit.env.share(log=lambda _: None)
+    s = kit.services.share.share(log=lambda _: None)
     assert s["status"] == "pushed", s
     assert git(kit.root, "log", "-1", "--format=%s") == "docs(camarones): board repaired after sync"
     assert "WI-9" in (kit.root / "backlog" / "board.yaml").read_text(encoding="utf-8")
@@ -298,7 +298,7 @@ def test_share_is_blocked_when_the_repair_commit_is_blocked(kit, tmp_path, monke
     git(mate, "add", "-A")
     git(mate, "commit", "-q", "-m", "hand made item")
     git(mate, "push", "-q", "origin", "main")
-    real = kit.env.checkpoint_commit
+    real = kit.services.share.checkpoint_commit
 
     def blocked(message, **kw):
         if message == "board repaired after sync":
@@ -306,8 +306,8 @@ def test_share_is_blocked_when_the_repair_commit_is_blocked(kit, tmp_path, monke
             return False                                   # staged, not committed: like the secrets guard
         return real(message, **kw)
 
-    monkeypatch.setattr(kit.env, "checkpoint_commit", blocked)
-    s = kit.env.share(log=lambda _: None)
+    monkeypatch.setattr(kit.services.share, "checkpoint_commit", blocked)
+    s = kit.services.share.share(log=lambda _: None)
     assert s["status"] == "blocked", s
     assert git(kit.root, "rev-parse", "origin/main") == git(mate, "rev-parse", "HEAD")
 
@@ -319,7 +319,7 @@ def test_checkpoint_never_commits_a_stray_temp_file(wired):
     (BACKLOG / "board.yaml.tmp").write_text("half written", encoding="utf-8")
     (BACKLOG / "tasks" / "wi-1 - x.md.tmp").write_text("half written", encoding="utf-8")
     (wired.root / "docs" / "new.md").write_text("# New\n", encoding="utf-8")
-    assert wired.env.checkpoint_commit("x") is True
+    assert wired.services.share.checkpoint_commit("x") is True
     assert not [f for f in git(wired.root, "ls-files").splitlines() if f.endswith(".tmp")]
     assert list(BACKLOG.rglob("*.tmp")) == []                       # the repair pass cleaned them (under the lock)
 
@@ -332,7 +332,7 @@ def test_checkpoint_skips_temp_files_even_when_the_repair_fails(wired, monkeypat
     monkeypatch.setattr(repair, "repair", boom)
     (BACKLOG / "board.yaml.tmp").write_text("half written", encoding="utf-8")
     (wired.root / "docs" / "new.md").write_text("# New\n", encoding="utf-8")
-    assert wired.env.checkpoint_commit("x") is True
+    assert wired.services.share.checkpoint_commit("x") is True
     assert not [f for f in git(wired.root, "ls-files").splitlines() if f.endswith(".tmp")]
 
 
@@ -340,7 +340,7 @@ def test_checkpoint_prints_the_repair_warnings(wired, capsys):
     from lib.kanban import BACKLOG
     (BACKLOG / "docs").mkdir(exist_ok=True)
     (BACKLOG / "docs" / "notes.md").write_text("x\n", encoding="utf-8")
-    assert wired.env.checkpoint_commit("x") is True
+    assert wired.services.share.checkpoint_commit("x") is True
     assert "backlog/docs/ has content" in capsys.readouterr().err
 
 
@@ -352,7 +352,7 @@ def test_share_passes_the_repair_warnings_to_its_log(kit, tmp_path):
     (BACKLOG / "docs").mkdir(parents=True, exist_ok=True)
     (BACKLOG / "docs" / "notes.md").write_text("x\n", encoding="utf-8")
     lines = []
-    s = kit.env.share(log=lines.append)
+    s = kit.services.share.share(log=lines.append)
     assert s["status"] == "pushed", s
     assert sum("backlog/docs/ has content" in l for l in lines) == 1
 
