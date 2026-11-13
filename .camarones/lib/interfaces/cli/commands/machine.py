@@ -85,7 +85,7 @@ class Profile(Command):
         parser.add_argument("name", choices=["quick", "full"])
 
     def run(self, args: argparse.Namespace, cli: CliContext) -> int:
-        from lib import env, plan
+        from lib import plan
         cli.services.components.set_profile(args.name)
         plan.sync()
         print(f"Profile: {args.name}. Progress kept. Run setup to prepare the selected tools.")

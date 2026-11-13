@@ -35,7 +35,8 @@ def fake_tools(kit, monkeypatch, evil: bool = False):
                 (cwd / ".mcp.json").write_text(json.dumps(cfg), encoding="utf-8")
             return subprocess.CompletedProcess(cmd, 0, "", "")
         return real(cmd, cwd=cwd, **kw)
-    for mod in (kit.services.setup, importlib.import_module("lib.install_state")):  # setup's installs, learn()'s scratch run
+    # setup's installs, learn()'s scratch run
+    for mod in (kit.services.setup, importlib.import_module("lib.install_state")):
         monkeypatch.setattr(mod, "run", run)
     no_claude(kit, monkeypatch)
 
