@@ -1495,12 +1495,13 @@ def forge_edit_base() -> str:
 def export_site(log: Log = print) -> Path:
     """The same portal app, read-only: HTML + JSON snapshots of the API, the viewers and the libraries they need.
     No npm build — any static host (nginx image, GitLab/GitHub Pages) serves it."""
-    from . import adr_api, quality, serve
+    from . import quality
+    from .app import portal_views
     quality.assert_no_secrets()
     writable(CACHE)
     site, tmp = CACHE / "site", CACHE / "site.tmp"
     shutil.rmtree(tmp, ignore_errors=True)
-    shutil.copytree(serve.UI, tmp)
+    shutil.copytree(portal_views.UI, tmp)
     html = (tmp / "index.html").read_text(encoding="utf-8")
     (tmp / "index.html").write_text(html.replace('content="live"', 'content="static"'), encoding="utf-8")
     docs.llms()
@@ -1513,14 +1514,14 @@ def export_site(log: Log = print) -> Path:
         f.parent.mkdir(parents=True, exist_ok=True)
         f.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
 
-    t = serve.tree()
+    t = portal_views.tree()
     t["editBase"] = forge_edit_base()
     langs = [""] + t["langs"]
     index = []
     for d in t["docs"]:
-        decisions = adr_api.covering(d["path"])
+        decisions = portal_views.covering(d["path"])
         for lang in langs:
-            doc = serve.read(d["path"], lang)
+            doc = portal_views.read(d["path"], lang)
             if lang and not doc["exists"]:
                 continue
             doc["decisions"] = decisions
@@ -1554,21 +1555,21 @@ def export_site(log: Log = print) -> Path:
             shutil.copytree(VIEWERS / "wiki-graph" / w["repo"], tmp / "wiki-graph" / w["repo"])
     t["codeGraphs"] = list(code_graphs())
     dump("tree.json", t)
-    dump("status.json", serve.status())
+    dump("status.json", portal_views.status())
     dump("wikis.json", wikis())
     dump("viewers.json", viewers())
     from . import codemap
     for n in codemap.available():
         dump(f"codemap/{n}.json", codemap.load(n))
     dump("search.json", index)
-    for lib in serve.UI_LIBS:
+    for lib in portal_views.UI_LIBS:
         f = docs.vendor_file(*lib)
         if f:
             dst = tmp / "vendor" / f"{lib[0]}@{lib[1]}" / lib[2]
             dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(f, dst)
     k, failed = docs.vendor(tmp)
-    log(f"✔ offline libraries ({k + len(serve.UI_LIBS)})" + (f" — still on CDN: {failed}" if failed else ""))
+    log(f"✔ offline libraries ({k + len(portal_views.UI_LIBS)})" + (f" — still on CDN: {failed}" if failed else ""))
     shutil.rmtree(site, ignore_errors=True)
     tmp.rename(site)
     image_context()

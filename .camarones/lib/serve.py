@@ -17,8 +17,10 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from .common import CTX, KIT, ROOT, DOCS, CACHE, VERSIONS, kill_tree, out, rel_file
-from . import adr_doc, codemap, docs, env, plan, sourcelinks, usage
+from .common import CTX, KIT, ROOT, DOCS, CACHE, kill_tree, out
+from . import docs, env, plan, sourcelinks, usage
+from .app import portal_views
+from .app.portal_views import APP, UI, UI_LIBS, doc_file, read, reviewer, status, tree
 from .interfaces.http import inputs, router
 from .interfaces.http.jobs import CANCEL, JOB_LOCK, JOBS, claim_job, fail_job, job_running, run_job, start_job
 from .interfaces.http.messages import Request, Response
@@ -26,13 +28,8 @@ from .interfaces.http.router import APP_ONLY_MSG, Access
 
 _log = logging.getLogger("camaron.serve")
 
-APP = KIT / "portal" / "app-build"           # the portal: React views + the docs views (portal/app), built in the kit's CI
-UI = APP                                     # the old name, kept for callers
 DESKTOP = KIT / "desktop" / "renderer-build"  # the desktop app's own UI (desktop/renderer): its project windows load it here
 SITE = CACHE / "site"
-UI_LIBS = (("marked", "15.0.12", "lib/marked.umd.js"), ("dompurify", "3.2.6", "dist/purify.min.js"),
-           ("mermaid", "11.4.1", "dist/mermaid.min.js"), ("@highlightjs/cdn-assets", "11.11.1", "highlight.min.js"),
-           ("vis-network", "9.1.6", "standalone/umd/vis-network.min.js"))     # the code map, loaded on its tab only
 VENDOR_RE = re.compile(r"^/vendor/((?:@[\w.-]+/)?[\w.-]+)@([\w.+-]+)/([\w./+-]+)$")
 STATIC = False
 APP_GONE_GRACE = 10                          # seconds the normal stop has once the app is gone (watch_app)
@@ -47,76 +44,6 @@ CHUNK = 64 * 1024                            # bytes of a terminal per stream me
 KEEP_ALIVE = 15.0                            # seconds a stream may stay silent: a write is how it finds the client gone
 mimetypes.add_type("text/javascript", ".js")    # Windows may map .js to text/plain in the registry
 mimetypes.add_type("font/woff2", ".woff2")    # the portal theme fonts; older Pythons do not know the type
-
-
-def reviewer() -> str:
-    return out(["git", "config", "user.name"], cwd=ROOT) or "human"
-
-
-def doc_file(path: str, lang: str = "") -> Path:
-    """Only pages the docs model knows about (or their translations) can be read or written through the API."""
-    canon = dict(docs.iter_docs())
-    path = docs.link_target(path, canon)                  # a wiki page's pre-4.81 path still names it
-    if path not in canon:
-        raise KeyError(f"unknown page {path}")
-    if not lang:
-        return canon[path]
-    f = docs.translation_file(path, lang).resolve()
-    if DOCS.resolve() not in f.parents:
-        raise KeyError(path)
-    return f
-
-
-def tree() -> dict:
-    rows = docs.collect()
-    ws = docs.workspace()
-    return {"project": ws["project"]["name"], "langs": ws["project"].get("translations", []), "reviewer": reviewer(),
-            "summary": docs.summary(rows), "feedback": len(docs.pending_feedback()), "kit": VERSIONS["kit"],
-            "repos": docs.repo_names(), "codeGraphs": list(env.code_graphs()), "engines": env.wiki_engines(), "engineHelp": env.wiki_engine_help(), "kitGuides": sorted(docs.kit_guides()),
-            "sections": docs.SECTIONS, "views": env.c4_views(), "codeMaps": codemap.available(), "editBase": "",
-            "docs": _with_adr_status(rows)}
-
-
-def _with_adr_status(rows: list[dict]) -> list[dict]:
-    """The docs index rows; a decision page (`adr_doc.is_decision`) also says its ADR's status, read from the file as it
-    stands."""
-    keys = ("path", "file", "title", "description", "type", "space", "trust", "owner", "i18n", "orphan_sources")
-    files = dict(docs.iter_docs()) if any(_is_decision(r) for r in rows) else {}
-    out = []
-    for r in rows:
-        row = {k: r[k] for k in keys}
-        if _is_decision(r) and r["path"] in files:
-            try:
-                row["adr_status"] = adr_doc.status_of(docs.split_fm(files[r["path"]].read_text(encoding="utf-8"))[1])[0]
-            except OSError:
-                pass
-        out.append(row)
-    return out
-
-
-def _is_decision(row: dict) -> bool:
-    return adr_doc.is_decision(row["path"], row["type"])
-
-
-def read(path: str, lang: str = "") -> dict:
-    f = doc_file(path, lang)
-    raw = f.read_text(encoding="utf-8") if f.exists() else ""
-    fm, body = docs.split_fm(raw)
-    row = next((r for r in docs.collect() if r["path"] == path), {})
-    return {"path": path, "lang": lang, "file": rel_file(f), "raw": raw, "exists": f.exists(),
-            "title": fm.get("title") or docs.first_heading(body) or Path(path).stem, "trust": row.get("trust"),
-            "owner": row.get("owner"), "sources": fm.get("x-sources") or [], "confirmed": fm.get("x-confirmed"),
-            "fresh": row.get("fresh"), "freshness": row.get("freshness"),
-            "sourceInfo": _source_info(path, fm.get("x-sources") or [], row.get("freshness")),
-            "feedback": [l for l in docs.pending_feedback() if f"`{row.get('file')}`" in l]}
-
-
-def _source_info(path: str, refs: list, state: dict | None) -> list[dict]:
-    """The Sources card is a bonus: a repo that cannot be read never stops a page from opening."""
-    try:
-        return sourcelinks.describe(path, refs, state)
-    except Exception:  # noqa: BLE001
-        return []
 
 
 def api_ask(question: str) -> dict:
@@ -282,8 +209,7 @@ def api_doc(q: dict) -> dict:
     d = read(q["path"], q.get("lang", ""))
     d["blocks"] = _blocks(doc_file(q["path"], q.get("lang", "")), d["raw"])
     sourcelinks.with_files(d["sourceInfo"])        # this machine's portal: the reader's editor opens the file
-    from . import adr_api
-    d["decisions"] = adr_api.covering(q["path"])   # the accepted ADRs that cover this page
+    d["decisions"] = portal_views.covering(q["path"])   # the accepted ADRs that cover this page
     if q.get("track"):
         usage.record("portal:doc", channel="human", page=q["path"])
     return d
@@ -616,14 +542,6 @@ def app_summary(lang: str = "") -> dict:
     return {"step": plan.next_step(data, review=review, lang=ui_lang(lang)), "plan": {"done": done, "total": total}, "review": review,
             "doctor": doctor.problems(last["result"]) if last else None,
             "interviews": docs.interview_mode() if docs.interview_mode_chosen() else None}
-
-
-def status(check: bool = True) -> dict:
-    """`check=False` skips the full quality check (seconds on a big project): the page shows the rest at once."""
-    return {"queue": [{k: r[k] for k in ("path", "title", "trust", "type")} for r in docs.review_queue()],
-            "feedback": docs.pending_feedback(), "changes": docs.changes(),
-            "check": dict(zip(("errors", "warnings"), docs.check())) if check else None,
-            "plan": dict(zip(("done", "total"), plan.progress()))}
 
 
 def first_look(log) -> bool:
@@ -1241,7 +1159,7 @@ class Handler(BaseHTTPRequestHandler):
         if name == "wikis":
             return self.json(env.wikis())
         if name == "codemap":
-            m = codemap.load(q.get("repo", "")) if q.get("repo") in docs.repo_names() else None
+            m = portal_views.code_map(q.get("repo", ""))
             return self.json(m) if m else self.json({"error": "no code map"}, 404)
         if name == "viewers":
             return self.json(env.viewers())

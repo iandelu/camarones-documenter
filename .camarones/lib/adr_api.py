@@ -5,14 +5,13 @@ made from a file that has changed since 409 (with the sha the file has now, so t
 waited too long for the ADR lock. `covering` is the decisions a doc page lists, which can never break reading it."""
 from __future__ import annotations
 
-import logging
 import re
 from collections.abc import Callable
 
 from . import adr
+from .app.portal_views import covering  # noqa: F401  (the decisions a doc page lists)
 from .harness.locks import LockBusy
 
-log = logging.getLogger("camaron.adr_api")
 
 BUSY = "another change to this ADR is being saved: try again"
 _ONE = re.compile(r"adr/([^/]+)(/pack)?")
@@ -136,12 +135,3 @@ def post(action: str, b: dict, by: str) -> tuple[dict, int]:
     if not isinstance(b, dict):
         return {"error": "the request must be an object"}, 400
     return _answer(lambda: run(b, by))
-
-
-# ---------- the decisions a doc page lists ----------
-def covering(logical: str) -> list[dict]:
-    try:
-        return adr.covering(logical)
-    except Exception as e:  # noqa: BLE001 — a page is read even when its decisions cannot be
-        log.warning("decisions covering %s unavailable (%s); the page loads without them", logical, e)
-        return []

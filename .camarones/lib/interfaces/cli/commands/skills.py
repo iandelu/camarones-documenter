@@ -61,8 +61,8 @@ def _wrong_usage(a) -> str | None:
 
 
 def _who() -> str:
-    from lib import serve
-    return serve.reviewer()
+    from lib.app import portal_views
+    return portal_views.reviewer()
 
 
 def _rel(path: Path) -> str:

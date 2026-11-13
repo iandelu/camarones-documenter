@@ -1,6 +1,6 @@
 # Today's debts against the layer rule (spec §5). Entries only ever leave this file.
-largest_cycle: 66
-cycle_modules: 68
+largest_cycle: 52
+cycle_modules: 54
 oversize:
   - adr
   - docs
@@ -21,6 +21,7 @@ violations:
   - "adr_pack -> kanban.index"
   - "adr_pack -> quickarch"
   - "agents -> adapters.runners"
+  - "app.portal_views -> codemap"
   - "agents -> terminals"
   - "answers -> mcp"
   - "budget -> mcp"
@@ -31,7 +32,6 @@ violations:
   - "diagrams -> genblocks"
   - "docs -> creds"
   - "env -> adapters.runners"
-  - "env -> adr_api"
   - "env -> binaries"
   - "env -> codemap"
   - "env -> creds"
@@ -39,7 +39,6 @@ violations:
   - "env -> kanban"
   - "env -> quickarch"
   - "env -> radar"
-  - "env -> serve"
   - "exporters -> harness.symbols"
   - "genblocks -> diagrams"
   - "genblocks -> quickarch"
@@ -112,7 +111,6 @@ violations:
   - "radar -> pages"
   - "schemas -> docs"
   - "schemas -> genblocks"
-  - "serve -> codemap"
   - "serve -> creds"
   - "serve -> diagrams"
   - "serve -> harness.events"
