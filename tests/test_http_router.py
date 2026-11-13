@@ -81,7 +81,7 @@ AREA: dict[tuple[str, str], str] = {
     ], "jobs"),
 }
 
-MOVED: set[str] = {"docs", "board", "onboard", "analysis", "machine", "terminals", "runs", "team"}
+MOVED: set[str] = {"docs", "board", "onboard", "analysis", "machine", "terminals", "runs", "team", "architecture"}
 
 
 @pytest.fixture

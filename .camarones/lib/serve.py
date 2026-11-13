@@ -22,6 +22,7 @@ from . import docs, env, plan, sourcelinks, usage
 from .app import portal_views
 from .app.portal_views import APP, UI, UI_LIBS, doc_file, read, reviewer, status, tree
 from .interfaces.http import inputs, router
+from .interfaces.http.routes.architecture import api_c4_view, c4_change
 from .interfaces.http.routes.analysis import (
     api_inventory, api_schemas, build, first_look, inventory_job, schemas_write, wiki,
 )
@@ -48,37 +49,6 @@ PORTAL_TOKEN = ""                            # set by `camaron up` (CAMARONES_PO
 APP_ONLY = re.compile(r"^/api/(runs|runs/[\w.-]+/cancel|wiki|build|inventory|schemas|ci|ask/answer|plan/cost)$")
 mimetypes.add_type("text/javascript", ".js")    # Windows may map .js to text/plain in the registry
 mimetypes.add_type("font/woff2", ".woff2")    # the portal theme fonts; older Pythons do not know the type
-
-
-def api_c4_view(view: str) -> dict:
-    """A C4 view's elements for the portal's panel: fields, draft/confirmed, and the relations in and out of each."""
-    from . import c4edit
-    idx = c4edit.index()
-    shown = c4edit.view_elements(view, idx)
-    keep = ("fqn", "kind", "title", "technology", "description", "tags", "draft", "confirmed", "confirmedBy",
-            "confirmedAt", "file", "line")
-    rel = lambda r: {k: r[k] for k in ("from", "to", "label", "kind")}  # noqa: E731
-    return {"view": view, "kinds": idx["kinds"], "relKinds": idx["relKinds"], "editable": not STATIC,
-            "all": [{"fqn": f, "title": e["title"]} for f, e in idx["elements"].items()],
-            "elements": [{**{k: idx["elements"][f][k] for k in keep},
-                          "out": [rel(r) for r in idx["relations"] if r["from"] == f],
-                          "in": [rel(r) for r in idx["relations"] if r["to"] == f]} for f in shown]}
-
-
-def c4_change(path: str, b: dict, by: str) -> dict:
-    from . import c4edit
-    if path == "element":
-        changes = {k: b[k] for k in c4edit.EDITABLE if k in b}
-        return c4edit.edit(b["fqn"], **changes)
-    if path == "confirm":
-        return {"confirmed": c4edit.confirm_view(b["view"], by) if b.get("view") else c4edit.confirm(b["fqns"], by)}
-    if path == "relation" and b.get("action") == "add":
-        return c4edit.add_relation(b["from"], b["to"], str(b.get("label") or ""), b.get("kind") or None)
-    if path == "remove":
-        return c4edit.remove_element(b["fqn"])
-    if path == "relation" and b.get("action") == "remove":
-        return c4edit.remove_relation(b["from"], b["to"], str(b.get("label") or ""))
-    raise ValueError(f"unknown C4 change {path!r}")
 
 
 def cancel_job(job_id: str) -> dict:
@@ -298,8 +268,6 @@ class Handler(BaseHTTPRequestHandler):
             from . import appapi
             return self.json([{**{k: v for k, v in j.items() if k != "log"}, "stoppable": appapi.stoppable(j["id"])}
                               for j in list(JOBS.values())])
-        if name == "c4/view":
-            return self.json(api_c4_view(q.get("id", "")))
         if name.startswith("jobs/") and name[5:] in JOBS:
             j = JOBS[name[5:]]
             since = int(q.get("since", 0))
@@ -344,11 +312,6 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json(*adr_api.post(m.group(1), b, by))
             if m := re.fullmatch(r"/api/app/jobs/([\w.-]+)/cancel", p):
                 return self.json(cancel_job(m.group(1)))
-            if m := re.fullmatch(r"/api/c4/(element|confirm|relation|remove)", p):
-                try:
-                    return self.json(c4_change(m.group(1), b, by))
-                except KeyError as e:
-                    return self.json({"error": f"not in the model: {e}"}, 404)
             self.json({"error": "not found"}, 404)
         except (KeyError, ValueError, RuntimeError) as e:
             self.json({"error": str(e)}, 400)
