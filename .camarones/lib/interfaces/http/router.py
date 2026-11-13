@@ -43,7 +43,7 @@ def _compile(method: str, pattern: str) -> tuple[re.Pattern, str, bool]:
         pos, first = m.end(), m.start() if first is None else first
     parts.append(re.escape(pattern[pos:]))
     try:
-        rx = re.compile("".join(parts))
+        rx = re.compile("".join(parts), re.DOTALL)       # `.*` takes a decoded newline, as p.startswith(X) did
     except re.error as e:
         raise ValueError(f"route {method} {pattern}: {e}") from None
     return rx, pattern if first is None else pattern[:first], first is not None

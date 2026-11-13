@@ -1,8 +1,8 @@
 'use strict'
 // Camarón's desktop app, main process. It only runs processes and windows: every project window is served by that
-// project's own server (lib/serve.py, started here with a fresh token): the app's UI at /desktop/ (desktop/renderer),
-// the portal at /, so the app, the portal and the CLI are the same code. The hub (the same UI, from disk) lists
-// projects, asks what a picked folder is, makes it a project and joins a team's docs, all through the CLI
+// project's own server (lib/interfaces/http/server.py, started here with a fresh token): the app's UI at /desktop/
+// (desktop/renderer), the portal at /, so the app, the portal and the CLI are the same code. The hub (the same UI, from
+// disk) lists projects, asks what a picked folder is, makes it a project and joins a team's docs, all through the CLI
 // (`projects`, `projects --inspect/--adopt/--git-init`, `join --no-open`). The portal is read in the system browser,
 // with this session's portal token (like `camaron up`), so it writes the board while the app is open.
 // Started by `camaron app` (lib/desktop.py), which passes the interpreter and kit to call back.

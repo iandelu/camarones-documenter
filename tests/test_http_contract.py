@@ -44,6 +44,17 @@ def test_unknown_paths_answer_by_their_place(kit, monkeypatch):
         assert request(base, "GET", "/missing.js")[::2] == (404, b"not found")
 
 
+def test_a_decoded_newline_stays_inside_the_path(kit, monkeypatch):
+    """A route `X{rest:.*}` stands for a `p.startswith(X)` branch, which took any tail, a decoded %0A included."""
+    arm(monkeypatch)
+    with serving(kit.serve.Handler) as base:
+        status, headers, raw = request(base, "GET", "/x%0A")
+        assert (status, raw) == (200, (kit.kit_dir / "portal" / "app-build" / "index.html").read_bytes())
+        assert headers["content-type"].startswith("text/html")
+        status, _, raw = request(base, "GET", "/desktop/x%0A")
+    assert (status, raw) == (200, (kit.kit_dir / "desktop" / "renderer-build" / "index.html").read_bytes())
+
+
 def test_static_mode_reads_the_export_and_refuses_writes(kit, monkeypatch):
     site = kit.common.CACHE / "site"
     site.mkdir(parents=True, exist_ok=True)
