@@ -100,7 +100,7 @@ def test_c4_views_are_read_from_the_model_without_likec4(serve_mod):
     arch = serve_mod.root / "docs" / "architecture"
     page(arch, "views.c4", VIEWS_C4)
     page(arch, "repos/api.c4", "views {\n  view api_components of shop.api {\n  }\n}\n")
-    views = {v["id"]: v for v in serve_mod.env.c4_views()}
+    views = {v["id"]: v for v in serve_mod.services.diagrams.c4_views()}
     assert views["index"] == {"id": "index", "title": "System context", "kind": "element", "file": "views.c4"}
     assert views["containers"]["title"] == "containers"
     assert views["flow_checkout"]["kind"] == "dynamic" and views["flow_checkout"]["title"] == "Checkout"
@@ -110,7 +110,7 @@ def test_c4_views_are_read_from_the_model_without_likec4(serve_mod):
 
 
 def test_no_model_means_no_views(serve_mod):
-    assert serve_mod.env.c4_views() == []
+    assert serve_mod.services.diagrams.c4_views() == []
     assert serve_mod.serve.tree()["views"] == []
 
 

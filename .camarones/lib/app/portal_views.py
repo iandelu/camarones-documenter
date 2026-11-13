@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 
 from lib import adr, adr_doc, codemap, docs, env, plan, sourcelinks
+from lib.app import services
 from lib.common import VERSIONS
 from lib.core.ctx import KIT
 from lib.core.paths import DOCS, ROOT, rel_file
@@ -44,7 +45,7 @@ def tree() -> dict:
     return {"project": ws["project"]["name"], "langs": ws["project"].get("translations", []), "reviewer": reviewer(),
             "summary": docs.summary(rows), "feedback": len(docs.pending_feedback()), "kit": VERSIONS["kit"],
             "repos": docs.repo_names(), "codeGraphs": list(env.code_graphs()), "engines": env.wiki_engines(), "engineHelp": env.wiki_engine_help(), "kitGuides": sorted(docs.kit_guides()),
-            "sections": docs.SECTIONS, "views": env.c4_views(), "codeMaps": codemap.available(), "editBase": "",
+            "sections": docs.SECTIONS, "views": services.current().diagrams.c4_views(), "codeMaps": codemap.available(), "editBase": "",
             "docs": _with_adr_status(rows)}
 
 

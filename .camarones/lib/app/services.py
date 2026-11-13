@@ -7,6 +7,7 @@ from __future__ import annotations
 import inspect
 from collections.abc import Callable, Mapping
 
+from lib.ports.diagram_engine import DiagramEngine
 from lib.ports.launcher import Launcher
 
 
@@ -15,6 +16,7 @@ class Services:
     from outside."""
 
     launcher: Launcher
+    diagrams: DiagramEngine
 
     def __init__(self, providers: Mapping[str, Callable[[], object]]) -> None:
         object.__setattr__(self, "_providers", dict(providers))

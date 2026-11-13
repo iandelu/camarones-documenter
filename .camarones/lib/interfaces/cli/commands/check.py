@@ -12,8 +12,7 @@ from lib.interfaces.cli.registry import CliContext, Command, command
 @command("arch-validate", "app", "check", es="Validar el modelo C4", en="Validate the C4 model")
 class ArchValidate(Command):
     def run(self, args: argparse.Namespace, cli: CliContext) -> int:
-        from lib import env
-        ok, msg = env.arch_validate()
+        ok, msg = cli.services.diagrams.arch_validate()
         print(msg or ("✓ Valid" if ok else "invalid"))
         return 0 if ok else 1
 

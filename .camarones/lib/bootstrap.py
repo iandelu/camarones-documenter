@@ -15,8 +15,14 @@ def _launcher() -> object:
     return os_open
 
 
+def _diagrams() -> object:
+    from lib.adapters import likec4
+    return likec4
+
+
 PROVIDERS: dict[str, Callable[[], object]] = {
     "launcher": _launcher,
+    "diagrams": _diagrams,
 }
 
 

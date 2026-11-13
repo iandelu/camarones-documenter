@@ -10,6 +10,7 @@ from .common import (CTX, KIT, ROOT, DOCS, HOME, CACHE, IS_WIN, IS_MAC, VERSIONS
                      which, uv, ensure_path, cli_cmd, sdkman_dir, repo_dir, ws_rel, rel_file, load_json, save_json,
                      own_file, through_link)
 from . import binaries, docs
+from .app import services
 from .adapters import runners
 from .harness.ports import RunRequest
 from .harness.locks import FileLock, LockBusy, pid_alive  # noqa: F401  (pid_alive re-exported)
@@ -852,7 +853,7 @@ def setup(ci: bool = False, log: Log = print, comps: list[str] | None = None) ->
         log("merging the cross-repo code graph…")
         graph(rebuild=False, log=log)
     if "likec4" in comps and (DOCS / "architecture" / "likec4.config.json").exists():
-        ok, _ = arch_validate()
+        ok, _ = services.current().diagrams.arch_validate()
         log("✔ C4 model valid" if ok else "⚠ C4 model has errors: run arch-validate")
     return True
 
@@ -898,23 +899,6 @@ def graph(rebuild: bool = True, log: Log = print) -> Path | None:
 
 
 # ---------- C4 ----------
-def arch_dir() -> Path:
-    return DOCS / "architecture"
-
-
-def arch_validate() -> tuple[bool, str]:
-    if not (arch_dir() / "likec4.config.json").exists():
-        return False, "no docs/architecture/likec4.config.json yet"
-    r = run(["likec4", "validate", "."], cwd=arch_dir(), check=False, capture=True)
-    text = re.sub(r"\x1b\[[0-9;]*m", "", (r.stdout or "") + (r.stderr or ""))
-    keep = [l for l in text.splitlines() if re.search(r"ERROR|Line \d+|Invalid|Valid|WARN .*layout", l)]
-    return r.returncode == 0, "\n".join(keep[-40:])
-
-
-def arch_start() -> None:
-    run(["likec4", "start", "."], cwd=arch_dir(), check=False)
-
-
 # ---------- portal: viewers (C4, code graph, wiki graphs) ----------
 VIEWERS = CACHE / "viewers"
 
@@ -937,36 +921,16 @@ def stream(cmd: list[str], cwd: Path, log: Log, env: dict | None = None) -> int:
 
 def build_c4(dest: Path | None = None, log: Log = print) -> bool:
     dest = dest or VIEWERS / "architecture"
-    if not (arch_dir() / "likec4.config.json").exists():
+    if not (services.current().diagrams.arch_dir() / "likec4.config.json").exists():
         log("⚠ no C4 model yet (docs/architecture/likec4.config.json) — unit arch-system writes it")
         return False
     log("building the interactive C4 explorer (LikeC4)…")
     shutil.rmtree(dest, ignore_errors=True)
     r = run(["likec4", "build", ".", "-o", str(dest), "--base", "/architecture/", "--title", docs.workspace()["project"]["name"]],
-            cwd=arch_dir(), check=False, quiet=True)
+            cwd=services.current().diagrams.arch_dir(), check=False, quiet=True)
     ok = r.returncode == 0 and (dest / "index.html").exists()
     log("✔ C4 explorer" if ok else "⚠ C4 explorer skipped: the model has errors (run arch-validate)")
     return ok
-
-
-C4_VIEW_RE = re.compile(r"^\s*(dynamic\s+|deployment\s+)?view\s+([A-Za-z_][\w-]*)\b", re.M)
-C4_TITLE_RE = re.compile(r"""^\s*title\s+(['"])(.*?)\1""", re.M)
-
-
-def c4_views() -> list[dict]:
-    """Views declared in the model, read with a regex so the portal can list and embed them without LikeC4."""
-    arch = arch_dir()
-    found = []
-    for f in sorted(arch.rglob("*.c4"), key=lambda p: (p.parent != arch, p.as_posix())) if arch.is_dir() else []:
-        text = f.read_text(encoding="utf-8", errors="replace")
-        decls = list(C4_VIEW_RE.finditer(text))
-        for i, m in enumerate(decls):
-            block = text[m.end(): decls[i + 1].start() if i + 1 < len(decls) else len(text)]
-            title = C4_TITLE_RE.search(block)
-            kind = (m.group(1) or "element").strip()
-            found.append({"id": m.group(2), "title": title.group(2) if title else m.group(2), "kind": kind,
-                          "file": f.relative_to(arch).as_posix()})
-    return found
 
 
 def code_graphs() -> dict[str, Path]:
@@ -1012,11 +976,11 @@ def repo_changed_at(repo: str) -> float:
 
 def viewers() -> dict:
     c4_at = newest([VIEWERS / "architecture" / "index.html"])
-    model_at = newest(arch_dir().rglob("*.c4")) if arch_dir().is_dir() else 0.0     # fragments in repos/, flows/ too
+    model_at = newest(services.current().diagrams.arch_dir().rglob("*.c4")) if services.current().diagrams.arch_dir().is_dir() else 0.0     # fragments in repos/, flows/ too
     graphs = {n: {"at": newest([f]), "stale": n != "all" and repo_changed_at(n) > newest([f])}
               for n, f in code_graphs().items()}
     model = bool(model_at) and any(re.search(r"^\s*model\s*\{", f.read_text(encoding="utf-8", errors="replace"), re.M)
-                                   for f in arch_dir().rglob("*.c4"))     # the kit's spec.c4 alone is not a model
+                                   for f in services.current().diagrams.arch_dir().rglob("*.c4"))     # the kit's spec.c4 alone is not a model
     return {"c4": {"exists": bool(c4_at), "at": c4_at, "stale": bool(c4_at) and model_at > c4_at, "model": model},
             "graphs": graphs, "graphify": "graphify" in components(), "likec4": "likec4" in components()}
 
@@ -1581,7 +1545,7 @@ portal = export_site
 
 def portal_steps() -> int:
     wikis_n = sum(1 for n in docs.repo_names() if wiki_pages(n))
-    c4 = 1 if (arch_dir() / "likec4.config.json").exists() else 0
+    c4 = 1 if (services.current().diagrams.arch_dir() / "likec4.config.json").exists() else 0
     return 4 + 2 * c4 + 2 * wikis_n
 
 

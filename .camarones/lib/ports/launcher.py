@@ -1,5 +1,5 @@
-"""Launcher: what the app asks of the desktop it runs on. Open a URL or a folder in the person's browser or file
-manager, and run a command in a terminal window of its own."""
+"""Launcher: what the app asks of the desktop it runs on. Open a URL in the person's browser, and run a command in a
+terminal window of its own."""
 from __future__ import annotations
 
 from pathlib import Path

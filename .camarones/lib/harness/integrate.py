@@ -25,7 +25,7 @@ UNION = ("docs/interview/open-questions.md",)               # append-only lists:
 
 GATE_SCRIPT = {
     "check": "from lib import docs\nprint(json.dumps(docs.check()[0]))",
-    "arch-validate": "from lib import env\nok, msg = env.arch_validate()\nprint(json.dumps([] if ok else [msg or 'C4 model invalid']))",
+    "arch-validate": "from lib.app import services\nok, msg = services.current().diagrams.arch_validate()\nprint(json.dumps([] if ok else [msg or 'C4 model invalid']))",
 }
 
 

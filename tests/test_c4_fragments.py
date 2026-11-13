@@ -19,7 +19,7 @@ FLOW = ("views {\n  dynamic view flow_checkout {\n    customer -> demo.web 'open
 
 
 def arch(kit, files):
-    d = kit.env.arch_dir()
+    d = kit.services.diagrams.arch_dir()
     spec = (kit.kit_dir / "templates" / "docs" / "architecture" / "spec.c4").read_text(encoding="utf-8")
     for rel, text in {"likec4.config.json": '{"name": "demo"}', "spec.c4": spec, **files}.items():
         f = d / rel
@@ -31,7 +31,7 @@ def arch(kit, files):
 @needs_likec4
 def test_repo_and_flow_fragments_validate_with_the_shared_model(kit):
     arch(kit, {"model.c4": MODEL, "views.c4": VIEWS, "repos/api.c4": REPO, "flows/checkout.c4": FLOW})
-    ok, msg = kit.env.arch_validate()
+    ok, msg = kit.services.diagrams.arch_validate()
     assert ok, msg
 
 
@@ -39,7 +39,7 @@ def test_repo_and_flow_fragments_validate_with_the_shared_model(kit):
 def test_two_fragments_declaring_the_same_element_fail(kit):
     arch(kit, {"model.c4": MODEL, "views.c4": VIEWS, "repos/api.c4": REPO,
                "repos/api-again.c4": "model {\n  extend demo {\n    api = service 'API again'\n  }\n}\n"})
-    ok, msg = kit.env.arch_validate()
+    ok, msg = kit.services.diagrams.arch_validate()
     assert not ok and "Duplicate" in msg
 
 

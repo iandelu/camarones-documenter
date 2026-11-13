@@ -120,8 +120,7 @@ class Detect(Command):
 @command("arch", "cli")
 class Arch(Command):
     def run(self, args: argparse.Namespace, cli: CliContext) -> int:
-        from lib import env
-        env.arch_start()
+        cli.services.diagrams.arch_start()
         return 0
 
 
