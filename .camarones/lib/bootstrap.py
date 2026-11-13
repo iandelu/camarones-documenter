@@ -85,6 +85,11 @@ def _wiki() -> object:
     return wiki
 
 
+def _portal() -> object:
+    from lib.app import portal
+    return portal
+
+
 PROVIDERS: dict[str, Callable[[], object]] = {
     "launcher": _launcher,
     "diagrams": _diagrams,
@@ -101,6 +106,7 @@ PROVIDERS: dict[str, Callable[[], object]] = {
     "setup": _setup,
     "share": _share,
     "wiki": _wiki,
+    "portal": _portal,
 }
 
 

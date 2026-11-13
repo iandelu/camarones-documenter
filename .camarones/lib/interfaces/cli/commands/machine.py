@@ -127,8 +127,7 @@ class Arch(Command):
 @command("down", "app", "machine", es="Parar el portal", en="Stop the portal")
 class Down(Command):
     def run(self, args: argparse.Namespace, cli: CliContext) -> int:
-        from lib import env
-        env.docker_down()
+        cli.services.portal.docker_down()
         return 0
 
 
@@ -197,9 +196,9 @@ class Up(Command):
         elif args.docker or args.static:
             if not (CACHE / "site" / "index.html").exists():
                 env.portal()
-            (env.docker_up if args.docker else env.serve_local)(args.port)
+            (cli.services.portal.docker_up if args.docker else cli.services.portal.serve_local)(args.port)
         else:
-            env.serve_editor(args.port)
+            cli.services.portal.serve_editor(args.port)
         return 0
 
 

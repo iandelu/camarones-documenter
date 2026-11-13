@@ -18,7 +18,7 @@ from .common import KIT, ROOT, HOME, CACHE, CAM_DIR, CAM_LAYOUT, WORKSPACE, WS_F
 from .core.locks import pid_alive
 from .core.paths import WIKI_LOCK
 from .ports import Log
-from . import creds, docs, env, install_state, migrate, projects, trust
+from . import creds, docs, install_state, migrate, projects, trust
 from .app import services
 
 BACKUP_DIR = Path(tempfile.gettempdir()) / "camarones-backups"
@@ -194,7 +194,7 @@ def steps(include_global: bool = False, backup: bool = True, keep_board: bool | 
     out += [Step("wiki", f"finish the interrupted OpenWiki run of {r} (the repo gets its own files back)")
             for r in open_wiki_runs()]
     if backup:
-        out.append(Step("backup", f"back up {CAM_DIR}/ to {BACKUP_DIR}{os.sep}{env.project_id()}-<date>.zip"))
+        out.append(Step("backup", f"back up {CAM_DIR}/ to {BACKUP_DIR}{os.sep}{services.current().portal.project_id()}-<date>.zip"))
     for name in repo_names():
         out += [Step("repo", a) for a in RepoCleaner(name, dry=True).run()]
         if services.current().agent_config.repo_mcp_entry(name):
@@ -237,7 +237,7 @@ def untouched() -> list[str]:
 # ---------- run ----------
 def backup_zip(dest_dir: Path) -> Path:
     dest_dir.mkdir(parents=True, exist_ok=True)
-    zipped = dest_dir / f"{env.project_id()}-{dt.datetime.now():%Y%m%d-%H%M%S}.zip"
+    zipped = dest_dir / f"{services.current().portal.project_id()}-{dt.datetime.now():%Y%m%d-%H%M%S}.zip"
     with zipfile.ZipFile(zipped, "w", zipfile.ZIP_DEFLATED) as z:
         for cur, dirs, files in os.walk(ROOT, followlinks=False):
             for f in files:
@@ -249,9 +249,9 @@ def backup_zip(dest_dir: Path) -> Path:
 
 
 def stop_services() -> None:
-    env.docker_down()
+    services.current().portal.docker_down()
     if which("docker"):
-        run_cmd(["docker", "image", "rm", "-f", f"camarones-docs-{env.project_id()}:local"], check=False, quiet=True)
+        run_cmd(["docker", "image", "rm", "-f", f"camarones-docs-{services.current().portal.project_id()}:local"], check=False, quiet=True)
 
 
 def run(include_global: bool = False, backup: bool = True, backup_dir: Path | None = None, log: Log = print,

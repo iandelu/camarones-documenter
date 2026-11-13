@@ -20,7 +20,7 @@ def before(un, monkeypatch):
     (kit.ws / "AGENTS.md").write_text("the team's own AGENTS.md\n", encoding="utf-8")   # a real file at the root
     wire_project(kit)
     kit.stopped = []
-    monkeypatch.setattr(kit.env, "docker_down", lambda: kit.stopped.append("portal"))
+    monkeypatch.setattr(kit.services.portal, "docker_down", lambda: kit.stopped.append("portal"))
     monkeypatch.setattr(kit.uninstall, "which", lambda name: None)
     monkeypatch.setattr(kit.uninstall, "BACKUP_DIR", kit.home.parent / "backups")
     return snap
@@ -103,7 +103,7 @@ def test_what_the_kit_put_in_the_person_s_own_folder_and_claude_md_goes_too(un, 
 def test_the_import_line_in_the_person_s_claude_md_is_taken_out(un, monkeypatch):
     kit = un
     wire_project(kit)
-    monkeypatch.setattr(kit.env, "docker_down", lambda: None)
+    monkeypatch.setattr(kit.services.portal, "docker_down", lambda: None)
     monkeypatch.setattr(kit.uninstall, "which", lambda name: None)
     if not kit.services.links._linked(kit.ws / "AGENTS.md"):           # Windows without file-symlink rights
         return

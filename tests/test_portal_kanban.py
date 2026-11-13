@@ -219,10 +219,10 @@ def test_serve_editor_url_carries_token(wired, monkeypatch):
             return 1 if Sock.n == 1 else 0
 
     import socket
-    monkeypatch.setattr(wired.env.subprocess, "Popen", popen)
+    monkeypatch.setattr(wired.services.portal.subprocess, "Popen", popen)
     monkeypatch.setattr(socket, "socket", lambda *a, **k: Sock())
     monkeypatch.setattr("time.sleep", lambda *_: None)
-    url = wired.env.serve_editor(port=8099, log=lambda *_: None)
+    url = wired.services.portal.serve_editor(port=8099, log=lambda *_: None)
     m = re.search(r"#cam-token=([\w-]{20,})$", url)
     assert m and url.startswith("http://localhost:8099/")
     assert seen["env"]["CAMARONES_PORTAL_TOKEN"] == m.group(1)
@@ -285,16 +285,16 @@ def test_hand_written_dict_label_does_not_break_the_view(wired, server):
 
 
 def test_portal_url_has_one_fragment(wired):
-    assert wired.env.portal_url(8080, "TOK", "#/c4") == "http://localhost:8080/#/c4&cam-token=TOK"
-    assert wired.env.portal_url(8080, "TOK") == "http://localhost:8080/#cam-token=TOK"
-    assert wired.env.portal_url(8080, None, "#/c4") == "http://localhost:8080/#/c4"
-    assert wired.env.portal_url(8080) == "http://localhost:8080/"
+    assert wired.services.portal.portal_url(8080, "TOK", "#/c4") == "http://localhost:8080/#/c4&cam-token=TOK"
+    assert wired.services.portal.portal_url(8080, "TOK") == "http://localhost:8080/#cam-token=TOK"
+    assert wired.services.portal.portal_url(8080, None, "#/c4") == "http://localhost:8080/#/c4"
+    assert wired.services.portal.portal_url(8080) == "http://localhost:8080/"
 
 
 def test_open_portal_keeps_route_and_token(wired, monkeypatch):
     opened = []
     monkeypatch.setattr(wired.services.launcher, "open_url", opened.append)
-    monkeypatch.setattr(wired.env, "serve_editor", lambda port, log=print, static=False: wired.env.portal_url(port, "T" * 24))
+    monkeypatch.setattr(wired.services.portal, "serve_editor", lambda port, log=print, static=False: wired.services.portal.portal_url(port, "T" * 24))
     import socket
 
     class Down:
@@ -324,8 +324,8 @@ def test_the_wizard_reopens_its_portal_with_its_token(wired, monkeypatch):
 
     def serve(port, log=print, static=False):
         up.add(port)
-        return wired.env.portal_url(port, "T" * 24)
-    monkeypatch.setattr(wired.env, "serve_editor", serve)
+        return wired.services.portal.portal_url(port, "T" * 24)
+    monkeypatch.setattr(wired.services.portal, "serve_editor", serve)
     import socket
 
     class Sock:
@@ -398,11 +398,11 @@ def test_a_static_portal_gets_no_token(wired, monkeypatch):
             return 1 if Sock.n == 1 else 0
 
     import socket
-    monkeypatch.setattr(wired.env.subprocess, "Popen", popen)
+    monkeypatch.setattr(wired.services.portal.subprocess, "Popen", popen)
     monkeypatch.setattr(socket, "socket", lambda *a, **k: Sock())
     monkeypatch.setattr("time.sleep", lambda *_: None)
     said = []
-    url = wired.env.serve_editor(port=8099, log=said.append, static=True)
+    url = wired.services.portal.serve_editor(port=8099, log=said.append, static=True)
     assert url == "http://localhost:8099/" and "cam-token" not in " ".join(said)
     assert "CAMARONES_PORTAL_TOKEN" not in seen["env"]
 
@@ -429,10 +429,10 @@ def test_the_live_portal_does_not_promise_machine_work(wired, monkeypatch):
             return 1 if Sock.n == 1 else 0
 
     import socket
-    monkeypatch.setattr(wired.env.subprocess, "Popen", lambda cmd, **kw: Pr())
+    monkeypatch.setattr(wired.services.portal.subprocess, "Popen", lambda cmd, **kw: Pr())
     monkeypatch.setattr(socket, "socket", lambda *a, **k: Sock())
     monkeypatch.setattr("time.sleep", lambda *_: None)
     said = []
-    wired.env.serve_editor(port=8099, log=said.append)
+    wired.services.portal.serve_editor(port=8099, log=said.append)
     line = " ".join(said)
     assert "edit" in line and "rebuild" not in line and "wikis" not in line

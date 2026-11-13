@@ -2152,7 +2152,7 @@ class W:
                 self.prefs["port"] = port
                 save_json(PREFS, self.prefs)
                 if c == "live":
-                    url = self.safe(self.busy, env.serve_editor, port, total=1)
+                    url = self.safe(self.busy, services.current().portal.serve_editor, port, total=1)
                 else:
                     if c == "up":
                         ok, why = services.current().containers.docker_ready()
@@ -2163,9 +2163,9 @@ class W:
                     if not (CACHE / "site" / "index.html").exists() and \
                             self.safe(self.busy, env.portal, total=env.portal_steps()) is None:
                         continue                                # build failed: the error is already on screen
-                    url = self.safe(self.busy, env.docker_up if c == "up" else env.serve_local, port, total=1)
+                    url = self.safe(self.busy, services.current().portal.docker_up if c == "up" else services.current().portal.serve_local, port, total=1)
                     if not url and c == "up" and self.yes(self.t("p_docker_fail"), default=True):
-                        url = self.safe(self.busy, env.serve_local, port, total=1)
+                        url = self.safe(self.busy, services.current().portal.serve_local, port, total=1)
                 if url:
                     self.say(self.t("p_running", url=url), "green")
                     services.current().launcher.open_url(url)
@@ -2173,7 +2173,7 @@ class W:
             elif c == "open":
                 services.current().launcher.open_url(f"http://localhost:{port}")
             elif c == "down":
-                env.docker_down()
+                services.current().portal.docker_down()
 
     def do_wikis(self) -> None:
         while True:
@@ -2281,11 +2281,11 @@ class W:
         with socket.socket() as sck:
             up = sck.connect_ex(("127.0.0.1", port)) == 0
         mine = getattr(self, "_portal_token", {})      # in memory only: the server this wizard started, by port
-        url = env.portal_url(port, mine.get(port), hash_) if up else self.safe(self.busy, env.serve_editor, port, total=1)
+        url = services.current().portal.portal_url(port, mine.get(port), hash_) if up else self.safe(self.busy, services.current().portal.serve_editor, port, total=1)
         if url and not up:                       # keep the fresh token, add the route to the same fragment
-            token = env.portal_token(url)
+            token = services.current().portal.portal_token(url)
             self._portal_token = {**mine, port: token}
-            url = env.portal_url(port, token, hash_)
+            url = services.current().portal.portal_url(port, token, hash_)
         if url:
             services.current().launcher.open_url(url)
 
