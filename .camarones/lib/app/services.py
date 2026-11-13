@@ -7,10 +7,14 @@ from __future__ import annotations
 import inspect
 from collections.abc import Callable, Mapping
 
+from lib.ports.launcher import Launcher
+
 
 class Services:
     """A declared field (a class annotation) is its provider's result, resolved on first read and kept; nothing is set
     from outside."""
+
+    launcher: Launcher
 
     def __init__(self, providers: Mapping[str, Callable[[], object]]) -> None:
         object.__setattr__(self, "_providers", dict(providers))

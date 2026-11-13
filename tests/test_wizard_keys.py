@@ -40,7 +40,7 @@ def ui(kit, monkeypatch):
     monkeypatch.setattr(wz.W, "launch_agent",
                         lambda self, prompt, resume_agent=None, uid=None: box["launched"].append(prompt.splitlines()[0]) or "bg")
     monkeypatch.setattr(wz.W, "reveal", lambda self, folder: box["revealed"].append(folder))
-    monkeypatch.setattr(wz.env, "open_url", lambda url: pytest.fail(f"opened {url}"))
+    monkeypatch.setattr(kit.services.launcher, "open_url", lambda url: pytest.fail(f"opened {url}"))
 
     def play(*keys, fn):
         with create_pipe_input() as inp, create_app_session(input=inp, output=DummyOutput()):

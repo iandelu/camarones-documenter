@@ -76,7 +76,7 @@ def command(task: str, b: dict) -> tuple[list[str], Path]:
 
 def open_wizard() -> bool:
     """`sandbox.py open`: the wizard is interactive, so it gets its own terminal window."""
-    from . import env
+    from .app import services
     if not available():
         raise PermissionError("Kit dev is only for a checkout of the kit")
-    return env.open_new_terminal([uv(), "run", "--quiet", str(REPO / "scripts" / "sandbox.py"), "open"], REPO)
+    return services.current().launcher.open_new_terminal([uv(), "run", "--quiet", str(REPO / "scripts" / "sandbox.py"), "open"], REPO)

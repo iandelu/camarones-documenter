@@ -22,7 +22,7 @@ def launched(kit, fake_wizard, monkeypatch):
     monkeypatch.setattr(agents, "which", fake)
     monkeypatch.setattr(base, "which", fake)
     box = {"cmds": [], "said": []}
-    monkeypatch.setattr(kit.wizard.env, "open_new_terminal", lambda cmd, cwd: box["cmds"].append((cmd, cwd)) or True)
+    monkeypatch.setattr(kit.services.launcher, "open_new_terminal", lambda cmd, cwd: box["cmds"].append((cmd, cwd)) or True)
     monkeypatch.setattr(kit.wizard.W, "say", lambda self, msg, style="": box["said"].append(str(msg)))
 
     def make(answers=(), **prefs):
@@ -111,7 +111,7 @@ def said(launched, key, **kw):
 
 def no_terminal(kit, monkeypatch, codes=(1, 0)):
     """No terminal emulator: the session blocks this one. The commands it ran, in order."""
-    monkeypatch.setattr(kit.wizard.env, "open_new_terminal", lambda cmd, cwd: False)
+    monkeypatch.setattr(kit.services.launcher, "open_new_terminal", lambda cmd, cwd: False)
     runs = []
     monkeypatch.setattr(kit.wizard.subprocess, "run",
                         lambda cmd, cwd=None: runs.append(cmd) or subprocess.CompletedProcess(cmd, codes[len(runs) - 1]))

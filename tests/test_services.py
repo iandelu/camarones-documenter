@@ -3,8 +3,10 @@ process entry builds them once, and commands and routes receive them."""
 from __future__ import annotations
 
 import importlib
+import inspect
 import json
 import sys
+import typing
 
 import pytest
 
@@ -122,3 +124,46 @@ def test_an_override_is_wrapped_as_a_provider_and_returned_as_is(kit, svc, decla
     fake = object()
     s = kit.bootstrap.build(**{declared: fake})
     assert getattr(s, declared) is fake and svc.current() is s
+
+
+def _members(port) -> dict[str, object]:
+    """A Protocol's members: the functions its body defines and its annotated attributes."""
+    functions = {n: v for n, v in vars(port).items() if inspect.isfunction(v) and not n.startswith("__")}
+    return {**{n: None for n in inspect.get_annotations(port)}, **functions}
+
+
+def _shape(function, drop_self: bool) -> list[tuple[str, object, bool]]:
+    params = list(inspect.signature(function).parameters.values())[1 if drop_self else 0:]
+    return [(p.name, p.kind, p.default is not p.empty) for p in params]
+
+
+def test_each_adapter_provides_its_port(kit, svc):
+    built = kit.bootstrap.build()
+    ports = {f: t for f, t in typing.get_type_hints(svc.Services).items()
+             if isinstance(t, type) and getattr(t, "_is_protocol", False)}
+    assert ports, "Services declares no port yet"
+    wrong = []
+    for field, port in sorted(ports.items()):
+        adapter = getattr(built, field)
+        for name, declared in _members(port).items():
+            if not hasattr(adapter, name):
+                wrong.append(f"{field}: {adapter.__name__} has no {name}")
+            elif declared is not None and _shape(getattr(adapter, name), False) != _shape(declared, True):
+                wrong.append(f"{field}.{name}: {_shape(getattr(adapter, name), False)} is not {port.__name__}'s "
+                             f"{_shape(declared, True)}")
+    assert wrong == []
+
+
+def test_an_override_replaces_one_port(kit, svc):
+    class Fake:
+        def open_url(self, url):
+            pass
+
+        def open_new_terminal(self, cmd, cwd):
+            return True
+
+    fake = Fake()
+    s = kit.bootstrap.build(launcher=fake)
+    assert svc.current() is s and svc.current().launcher is fake
+    assert set(kit.bootstrap.PROVIDERS) == svc.fields()          # every other field keeps its default provider
+    assert kit.bootstrap.build().launcher is not fake

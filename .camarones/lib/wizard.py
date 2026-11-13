@@ -19,6 +19,7 @@ from rich.text import Text
 
 from .common import (ROOT, HOME, PREFS, WORK, WS_FILE, CACHE, IS_WIN, IS_MAC, CAM_DIR, CAM_LAYOUT, WORKSPACE, which, cli_cmd,
                      load_json, save_json, out, repo_dir)
+from .app import services
 from . import docs, env, genblocks, install_state, plan, creds, questionnaire, quickarch, radar, sessions, tutorial, upgrade, usage
 from .adapters import runners
 from .harness.ports import RunRequest
@@ -1598,7 +1599,7 @@ class W:
     # ---------- team questionnaire (deferred interviews) ----------
     def reveal(self, folder: Path) -> None:
         """Show a folder in the system file manager (Explorer / Finder / the desktop's default)."""
-        env.open_url(folder.resolve().as_uri())
+        services.current().launcher.open_url(folder.resolve().as_uri())
 
     def show_answers(self, s: dict) -> None:
         tbl = Table(title=self.t("qa_title"), title_justify="left", border_style="grey42", show_header=False)
@@ -1676,7 +1677,7 @@ class W:
         os.environ["CAMARONES_ROOT"] = str(ROOT)
         if not IS_WIN:
             cmd = ["env", f"CAMARONES_ROOT={ROOT}", *cmd]      # a macOS/Linux terminal window does not inherit it
-        if env.open_new_terminal(cmd, WORKSPACE):     # long-lived loop in its own window; the wizard stays usable
+        if services.current().launcher.open_new_terminal(cmd, WORKSPACE):     # long-lived loop in its own window; the wizard stays usable
             self.say(self.t("autopilot_bg"), "green")
             self.pause()
             return
@@ -1813,7 +1814,7 @@ class W:
             argv = runner.build(req).argv
             return sessions.wrap(sessions.start(unit, agent, req.session, since=since), argv) if unit else argv
         cmd = command(req, since)
-        if env.open_new_terminal(cmd, WORKSPACE):   # own window, in the workspace: the agent sees every repo + cam-docs
+        if services.current().launcher.open_new_terminal(cmd, WORKSPACE):   # own window, in the workspace: the agent sees every repo + cam-docs
             self.say(self.t("launched_bg"), "green")
             self.pause()
             return "bg"
@@ -2166,10 +2167,10 @@ class W:
                         url = self.safe(self.busy, env.serve_local, port, total=1)
                 if url:
                     self.say(self.t("p_running", url=url), "green")
-                    env.open_url(url)
+                    services.current().launcher.open_url(url)
                     return True
             elif c == "open":
-                env.open_url(f"http://localhost:{port}")
+                services.current().launcher.open_url(f"http://localhost:{port}")
             elif c == "down":
                 env.docker_down()
 
@@ -2285,7 +2286,7 @@ class W:
             self._portal_token = {**mine, port: token}
             url = env.portal_url(port, token, hash_)
         if url:
-            env.open_url(url)
+            services.current().launcher.open_url(url)
 
     def retry_missing(self, missing: list[str]) -> None:
         """A repo with a url but no .git after sync almost always means missing/expired credentials —

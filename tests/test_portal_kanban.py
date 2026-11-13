@@ -293,7 +293,7 @@ def test_portal_url_has_one_fragment(wired):
 
 def test_open_portal_keeps_route_and_token(wired, monkeypatch):
     opened = []
-    monkeypatch.setattr(wired.env, "open_url", opened.append)
+    monkeypatch.setattr(wired.services.launcher, "open_url", opened.append)
     monkeypatch.setattr(wired.env, "serve_editor", lambda port, log=print, static=False: wired.env.portal_url(port, "T" * 24))
     import socket
 
@@ -320,7 +320,7 @@ def test_open_portal_keeps_route_and_token(wired, monkeypatch):
 def test_the_wizard_reopens_its_portal_with_its_token(wired, monkeypatch):
     """R14: the same wizard opening the portal a second time (the server already up) keeps it writable."""
     opened, up = [], set()
-    monkeypatch.setattr(wired.env, "open_url", opened.append)
+    monkeypatch.setattr(wired.services.launcher, "open_url", opened.append)
 
     def serve(port, log=print, static=False):
         up.add(port)

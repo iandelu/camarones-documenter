@@ -19,7 +19,8 @@ import uuid
 from pathlib import Path
 
 from .common import CACHE, PREFS, ROOT, WORK, WORKSPACE, load_json, save_json, which, ws_rel
-from . import docs, env, plan, sessions, terminals
+from . import docs, plan, sessions, terminals
+from .app import services
 from .adapters import runners
 from .harness import routing, runs
 from .harness.ports import RunRequest
@@ -198,7 +199,7 @@ def _open(prompt: str | None, agent: str, lang: str, resume: bool, uid: str | No
             return {**done, "where": "canvas", "terminal": term}
     if uid:
         cmd = sessions.wrap(record, cmd)
-    if not env.open_new_terminal(cmd, WORKSPACE):
+    if not services.current().launcher.open_new_terminal(cmd, WORKSPACE):
         raise RuntimeError(f"no terminal window could be opened on this machine: the prompt is in {prompt_ref(file)}")
     return {**done, "where": where, **({"fallback": fallback} if fallback else {})}
 

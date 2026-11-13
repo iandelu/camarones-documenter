@@ -9,7 +9,15 @@ from collections.abc import Callable
 from lib.app import services
 from lib.app.services import Services
 
-PROVIDERS: dict[str, Callable[[], object]] = {}
+
+def _launcher() -> object:
+    from lib.adapters.system import os_open
+    return os_open
+
+
+PROVIDERS: dict[str, Callable[[], object]] = {
+    "launcher": _launcher,
+}
 
 
 def build(**overrides: object) -> Services:
