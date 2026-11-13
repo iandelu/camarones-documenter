@@ -105,7 +105,7 @@ def test_a_stopped_job_says_it_was_stopped(kit):
 
 
 def test_the_jobs_say_which_can_be_stopped(kit, app, monkeypatch):
-    from lib import appapi
+    from lib.interfaces.http.routes import app_cmd
     gate = threading.Event()
     job = kit.serve.start_job("test:wait", "wait", lambda log: gate.wait(10))
 
@@ -115,7 +115,7 @@ def test_the_jobs_say_which_can_be_stopped(kit, app, monkeypatch):
     try:
         row = next(j for j in get(app + "/api/jobs")[1] if j["id"] == job["id"])
         assert row["stoppable"] is False and "log" not in row              # a build: it runs to the end
-        monkeypatch.setitem(appapi.PROCS, job["id"], {"proc": Running()})
+        monkeypatch.setitem(app_cmd.PROCS, job["id"], {"proc": Running()})
         row = next(j for j in get(app + "/api/jobs")[1] if j["id"] == job["id"])
         assert row["stoppable"] is True                                     # a process the app started: Stop
     finally:

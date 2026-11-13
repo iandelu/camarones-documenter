@@ -8,7 +8,7 @@ CORS preflight this server never grants.
 
 The portal is the team's viewer. Work that starts a process or calls a model (runs, wikis, builds, scans, CI files,
 Ask's AI answer) belongs to the desktop app: it starts this server with CAMARONES_APP_TOKEN and sends the token on
-each request (lib/appapi.py); without it those calls answer 403 with `"app": true`. With a token set, a request whose
+each request (lib/interfaces/http/routes/app_cmd.py); without it those calls answer 403 with `"app": true`. With a token set, a request whose
 Host is not this server is refused (a DNS-rebinding page would otherwise be same-origin)."""
 from __future__ import annotations
 
@@ -57,8 +57,8 @@ def cancel_job(job_id: str) -> dict:
     if ev is not None and JOBS.get(job_id, {}).get("status") == "running":
         ev.set()
         return {"cancelling": job_id}
-    from . import appapi
-    return appapi.cancel(job_id)
+    from .interfaces.http.routes.app_cmd import cancel
+    return cancel(job_id)
 
 
 def cdn_local(html: str) -> str:
@@ -183,11 +183,6 @@ class Handler(BaseHTTPRequestHandler):
             return
 
     def api_app_get(self, name: str, q: dict):
-        from . import appapi
-        if name == "info":
-            return self.json(appapi.info())
-        if name == "catalog":
-            return self.json(appapi.catalog())
         if (m := re.fullmatch(r"jobs/([\w.-]+)/events", name)) and m.group(1) in JOBS:
             return self.stream_job(JOBS[m.group(1)], int(self.headers.get("Last-Event-ID") or q.get("from") or 0))
         self.json({"error": "not found"}, 404)
@@ -262,8 +257,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def api_get(self, name: str, q: dict):
         if name == "jobs":
-            from . import appapi
-            return self.json([{**{k: v for k, v in j.items() if k != "log"}, "stoppable": appapi.stoppable(j["id"])}
+            from .interfaces.http.routes.app_cmd import stoppable
+            return self.json([{**{k: v for k, v in j.items() if k != "log"}, "stoppable": stoppable(j["id"])}
                               for j in list(JOBS.values())])
         if name.startswith("jobs/") and name[5:] in JOBS:
             j = JOBS[name[5:]]
@@ -296,14 +291,6 @@ class Handler(BaseHTTPRequestHandler):
                     return self.json({"error": hit.route.refusal, "token": True}, 403)
                 return self.reply(hit.route.handler(self.routed(hit, p, {}, b, by)))
             by = (b.get("by") or reviewer()).strip()
-            if p == "/api/app/cmd":
-                from . import appapi
-                try:
-                    return self.json(appapi.start(b, start_job))
-                except PermissionError as e:
-                    return self.json({"error": str(e), "confirm": True}, 409)
-                except KeyError as e:
-                    return self.json({"error": f"unknown command {e}"}, 404)
             if m := re.fullmatch(r"/api/app/jobs/([\w.-]+)/cancel", p):
                 return self.json(cancel_job(m.group(1)))
             self.json({"error": "not found"}, 404)

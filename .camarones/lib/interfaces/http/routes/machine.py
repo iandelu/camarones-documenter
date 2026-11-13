@@ -27,7 +27,8 @@ def ui_lang(lang: str = "") -> str:
 
 def app_kitdev(b: dict) -> tuple[dict, int]:
     """A Kit dev task (lib/kitdev.py) as a job, outside this project's environment (the sandbox is its own project)."""
-    from lib import appapi, kitdev
+    from lib import kitdev
+    from lib.interfaces.http.routes.app_cmd import stream_job
     task = str(b.get("task", ""))
     try:
         if task == "sandbox-open":
@@ -37,8 +38,8 @@ def app_kitdev(b: dict) -> tuple[dict, int]:
         return {"error": str(e)}, 403
     env = {k: v for k, v in os.environ.items() if k not in ("CAMARONES_ROOT", "CAMARONES_APP_TOKEN")}
     label = " ".join([Path(argv[0]).stem, *argv[1:]])
-    return appapi.stream_job(start_job, f"kitdev:{task}", argv, cwd, {**env, "PYTHONUTF8": "1"}, label=label,
-                             shown=[Path(argv[0]).stem, *argv[1:]]), 200
+    return stream_job(start_job, f"kitdev:{task}", argv, cwd, {**env, "PYTHONUTF8": "1"}, label=label,
+                      shown=[Path(argv[0]).stem, *argv[1:]]), 200
 
 
 def app_creds(action: str, b: dict) -> tuple[dict, int]:
