@@ -22,6 +22,9 @@ from . import docs, env, plan, sourcelinks, usage
 from .app import portal_views
 from .app.portal_views import APP, UI, UI_LIBS, doc_file, read, reviewer, status, tree
 from .interfaces.http import inputs, router
+from .interfaces.http.routes.analysis import (
+    api_inventory, api_schemas, build, first_look, inventory_job, schemas_write, wiki,
+)
 from .interfaces.http.routes.board import kanban_marks, kanban_state
 from .interfaces.http.routes.docs import api_ask, api_doc, api_search, create, write
 from .interfaces.http.routes.onboard import app_onboard
@@ -62,44 +65,6 @@ def api_c4_view(view: str) -> dict:
             "elements": [{**{k: idx["elements"][f][k] for k in keep},
                           "out": [rel(r) for r in idx["relations"] if r["from"] == f],
                           "in": [rel(r) for r in idx["relations"] if r["to"] == f]} for f in shown]}
-
-
-def api_schemas() -> dict:
-    """Each repo's tables and collections (lib/schemas.py) with the same markdown its data page holds. `page`: its
-    data page, else its repo page (the new layout), else None."""
-    from . import pages, schemas
-    out = []
-    for name, r in schemas.scan().items():
-        page = next((p for p in (schemas.PAGE.format(repo=name), pages.REPO_PAGE.format(repo=name))
-                     if (DOCS / p).is_file()), None)
-        out.append({"repo": name, "tools": r["tools"], "stores": [{"kind": s["kind"], "engines": s["engines"],
-                                                                   "entities": s["entities"]} for s in r["stores"]],
-                    "entities": sum(len(s["entities"]) for s in r["stores"]), "markdown": schemas.block_body(r),
-                    "page": page})
-    return {"repos": out}
-
-
-def schemas_write() -> dict:
-    """The portal's Data view button: the data pages (old layout) or the pages from the code (new layout)."""
-    from . import genblocks, pages, schemas
-    write = schemas.write_pages if pages.layout() == "old" else pages.write
-    written = write(log=lambda _: None)
-    genblocks.refresh()
-    docs.llms()
-    return {"written": written}
-
-
-def api_inventory() -> dict:
-    """The last inventory (docs/.work/inventory.json), or a fresh scan of the manifests when there is none yet."""
-    from . import inventory
-    return inventory.load() or inventory.scan()
-
-
-def inventory_job(b: dict) -> dict:
-    from . import inventory
-    cves = bool(b.get("cves"))
-    return start_job("inventory", "Libraries" + (" + vulnerabilities" if cves else ""),
-                     lambda log: bool(inventory.run(log=log, cves=cves)))
 
 
 def kpis_miss(b: dict) -> dict:
@@ -398,79 +363,6 @@ def app_summary(lang: str = "") -> dict:
             "interviews": docs.interview_mode() if docs.interview_mode_chosen() else None}
 
 
-def first_look(log) -> bool:
-    """A fresh project's first pages without AI, from the static scan: the C4 draft, the stack and tools, the project
-    home and a page per repo (an old-layout project: the first-look, data and diagram pages instead), llms.txt; then
-    the C4 explorer when LikeC4 is installed. What the empty Docs and Architecture tabs offer."""
-    from . import diagrams, inventory, pages, quickarch, radar, schemas
-    new = pages.layout() == "new"
-    quickarch.save(quickarch.draft(log=log), page=not new)          # the new layout has no first-look.md
-    radar.run(log=log)
-    inventory.run(log=log)
-    if new:
-        try:
-            pages.write(log=log)
-        except Exception as e:  # noqa: BLE001 — the pages are a bonus: llms.txt and the C4 build still run
-            log(f"⚠ pages skipped: {e}")
-    else:
-        schemas.write_pages(log=log)
-        try:
-            diagrams.write_pages(log=log)
-        except Exception as e:  # noqa: BLE001 — the diagrams are a bonus: llms.txt and the C4 build still run
-            log(f"⚠ diagrams skipped: {e}")
-    docs.llms()
-    if env.which("likec4"):
-        env.build_c4(log=log)
-    wrote = "index.md, a page per repo" if new else "architecture/first-look.md, architecture/system-map.md"
-    log(f"✔ first look written: {wrote}, overview/tooling.md and the C4 draft")
-    return True
-
-
-def build(b: dict) -> dict:
-    what, repo = b.get("what"), b.get("repo") or ""
-    if what == "first-look":
-        return start_job("first-look", "First look (no AI)", first_look)
-    if what == "c4":
-        return start_job("c4", "C4 explorer", lambda log: env.build_c4(log=log))
-    if what == "graph":
-        return start_job("graph", "Code graphs", lambda log: env.build_graphs(log=log))
-    if what == "wiki-graph" and repo in docs.repo_names():
-        # a kind per repo: start_job attaches a second start of the same kind to the running job, whatever the repo
-        return start_job(f"wiki-graph:{repo}", f"Wiki graph {repo}", lambda log: env.wiki_graph(repo, log=log))
-    raise ValueError(f"unknown build {what!r}")
-
-
-def wiki(b: dict) -> dict:
-    """`choose`: add the repo to the ones with a wiki (its plan unit comes back); `starter`: write a starter brief
-    (no AI) when repo-brief has not written one. The card says both before the click. One wiki runs at a time: while
-    another repo's runs, the answer is {"error": "busy", "repo"} and nothing is chosen or written (the same repo
-    attaches to its run). The run is claimed before choosing and writing, in the same step as that check, so a second
-    repo clicked while the first one is still being prepared is busy too."""
-    repo, mode, engine = b.get("repo", ""), b.get("mode", ""), b.get("engine", "")
-    if repo not in docs.repo_names() or mode not in ("", "init", "update"):
-        raise ValueError("unknown repo or mode")
-    choose = repo not in docs.wiki_repos() and not env.wiki_pages(repo)
-    if choose and not b.get("choose"):
-        raise ValueError(f"{repo} is not chosen for a wiki")
-    with JOB_LOCK:
-        running = next((j for j in JOBS.values() if j["kind"] == "wiki" and j["status"] == "running"), None)
-        if running and running.get("repo") != repo:
-            return {"error": "busy", "repo": running.get("repo", "")}
-        if running:
-            return running
-        job = claim_job("wiki", f"OpenWiki {repo}", repo=repo)
-    try:
-        if choose:
-            docs.set_wiki_repos([*docs.wiki_repos(), repo])
-            plan.sync()
-        if b.get("starter"):
-            env.starter_brief(repo)
-    except Exception as e:
-        fail_job(job, e)
-        raise
-    return run_job(job, lambda log: env.openwiki_generate(repo, mode, log, engine))
-
-
 def cdn_local(html: str) -> str:
     """Graph viewers pull libraries from CDNs; point them at /vendor/ (npm-fetched once) so they work offline."""
     return docs.CDN_RE.sub(lambda m: f"/vendor/{m.group(1)}@{m.group(2)}/{m.group(3)}", html)
@@ -757,13 +649,6 @@ class Handler(BaseHTTPRequestHandler):
             self.json({"error": f"{type(e).__name__}: {e}"}, 500)
 
     def api_get(self, name: str, q: dict):
-        if name == "wikis":
-            return self.json(env.wikis())
-        if name == "codemap":
-            m = portal_views.code_map(q.get("repo", ""))
-            return self.json(m) if m else self.json({"error": "no code map"}, 404)
-        if name == "viewers":
-            return self.json(env.viewers())
         if name == "jobs":
             from . import appapi
             return self.json([{**{k: v for k, v in j.items() if k != "log"}, "stoppable": appapi.stoppable(j["id"])}
@@ -774,16 +659,6 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(api_interview(q.get("who", "")))
         if name == "sync":
             return self.json(env.sync_status(fetch=q.get("fetch") == "1"))
-        if name == "inventory":
-            return self.json(api_inventory())
-        if name == "health":                    # a read: the snapshot `camaron health` or the app built, never a build
-            from . import health
-            return self.json({"snapshot": health.load()})
-        if name == "schemas":
-            return self.json(api_schemas())
-        if name == "ci":
-            from . import ci
-            return self.json(ci.status())
         if name == "kpis":
             from .harness import kpis
             return self.json(kpis.dashboard())
@@ -911,11 +786,6 @@ class Handler(BaseHTTPRequestHandler):
                 from . import questionnaire
                 questionnaire.answer(b)
                 return self.json(questionnaire.status())
-            if p == "/api/build":
-                return self.json(build(b))
-            if p == "/api/wiki":
-                r = wiki(b)
-                return self.json(r, 409 if r.get("error") == "busy" else 200)
             if p == "/api/runs":
                 return self.json(*start_run(b))
             if m := re.fullmatch(r"/api/runs/([\w.-]+)/cancel", p):
@@ -924,16 +794,6 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json({"cancelling": m.group(1)})
             if p == "/api/units/retry":
                 return self.json(*retry_unit(b.get("unit", "")))
-            if p == "/api/schemas":
-                return self.json(schemas_write())
-            if p == "/api/inventory":
-                return self.json(inventory_job(b))
-            if p == "/api/ci":
-                from . import ci
-                if b.get("forge") not in ("github", "gitlab"):
-                    raise ValueError("forge: github or gitlab")
-                env.install_ci(b["forge"], log=lambda _: None)
-                return self.json(ci.status(b["forge"]))
             if p == "/api/plan/cost":            # the app: this machine's sessions first, then the bill
                 from .harness import ledger
                 ledger.harvest()

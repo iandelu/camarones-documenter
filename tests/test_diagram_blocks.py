@@ -613,7 +613,7 @@ def test_first_look_draws_the_diagrams(dg, monkeypatch):
     pages_repo(dg)
     seed_old_layout(dg.kit.root)                                 # 2a's pages are the old layout's
     serve = importlib.import_module("lib.serve")
-    monkeypatch.setattr(serve.env, "which", lambda _n: None)
+    monkeypatch.setattr("lib.env.which", lambda _n: None)
     logs = []
     assert serve.first_look(log=logs.append)
     assert (dg.kit.root / "docs" / "architecture" / "system-map.md").exists()
@@ -680,13 +680,13 @@ def test_first_look_survives_a_diagram_failure(dg, monkeypatch):
     pages_repo(dg)
     seed_old_layout(dg.kit.root)                                 # 2a's pages are the old layout's
     serve = importlib.import_module("lib.serve")
-    monkeypatch.setattr(serve.env, "which", lambda _n: None)
+    monkeypatch.setattr("lib.env.which", lambda _n: None)
 
     def boom(log=None):
         raise RuntimeError("no map today")
     monkeypatch.setattr(dg.mod, "write_pages", boom)
     llms = []
-    monkeypatch.setattr(serve.docs, "llms", lambda *a, **k: llms.append(1))
+    monkeypatch.setattr("lib.docs.llms", lambda *a, **k: llms.append(1))
     logs = []
     assert serve.first_look(log=logs.append) is True
     assert llms and any("diagrams skipped" in line for line in logs)

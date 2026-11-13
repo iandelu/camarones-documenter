@@ -112,7 +112,7 @@ def test_a_fresh_project_gets_its_first_look_from_the_portal(kit, monkeypatch):
     import time
     from lib import quickarch, serve
     monkeypatch.setattr(quickarch, "which", lambda name: None)                     # no LikeC4 build in tests
-    monkeypatch.setattr(serve.env, "build_c4", lambda log=print: True)
+    monkeypatch.setattr("lib.env.build_c4", lambda log=print: True)
     assert not (kit.root / "docs" / "architecture" / "first-look.md").exists()
     job = serve.build({"what": "first-look"})
     for _ in range(200):

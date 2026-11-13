@@ -510,7 +510,7 @@ def test_install_survives_a_pages_failure(pg, monkeypatch):
 
 def test_first_look_writes_the_home_not_first_look_md(pg, monkeypatch):
     serve = importlib.import_module("lib.serve")
-    monkeypatch.setattr(serve.env, "which", lambda _n: None)
+    monkeypatch.setattr("lib.env.which", lambda _n: None)
     monkeypatch.setattr(importlib.import_module("lib.quickarch"), "which", lambda _n: None)   # no LikeC4 in tests
     logs = []
     assert serve.first_look(log=logs.append)
