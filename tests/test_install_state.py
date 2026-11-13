@@ -2,7 +2,7 @@
 own skills, `doctor` reports drift and `repair` puts the kit's files and links back."""
 from __future__ import annotations
 
-import json, os, subprocess, sys
+import importlib, json, os, subprocess, sys
 
 from conftest import KIT_DIR
 
@@ -10,7 +10,8 @@ from conftest import KIT_DIR
 def no_claude(kit, monkeypatch):
     """Without Claude Code on PATH, whatever this machine has: the repo MCP has its own tests (test_repo_mcp.py)."""
     real = kit.env.which
-    monkeypatch.setattr(kit.env, "which", lambda name: None if name == "claude" else real(name))
+    for mod in (kit.env, importlib.import_module("lib.install_state")):       # setup's wiring, and the drift check
+        monkeypatch.setattr(mod, "which", lambda name: None if name == "claude" else real(name))
 
 
 def fake_tools(kit, monkeypatch, evil: bool = False):
@@ -34,7 +35,8 @@ def fake_tools(kit, monkeypatch, evil: bool = False):
                 (cwd / ".mcp.json").write_text(json.dumps(cfg), encoding="utf-8")
             return subprocess.CompletedProcess(cmd, 0, "", "")
         return real(cmd, cwd=cwd, **kw)
-    monkeypatch.setattr(kit.env, "run", run)
+    for mod in (kit.env, importlib.import_module("lib.install_state")):       # setup's installs, learn()'s scratch run
+        monkeypatch.setattr(mod, "run", run)
     no_claude(kit, monkeypatch)
 
 

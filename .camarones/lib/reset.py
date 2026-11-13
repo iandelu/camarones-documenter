@@ -17,6 +17,7 @@ import datetime as dt
 from pathlib import Path
 
 from .common import CAM_DIR, CAM_LAYOUT, DOCS, ROOT, WORK, WS_FILE, load_json, out, rel_file, run as run_cmd
+from .core.locks import pid_alive
 from . import docs, env, plan
 
 MODES = ("redo", "wipe")
@@ -39,7 +40,7 @@ def guard() -> str | None:
                 "wait for it or stop it, then reset.")
     lock = load_json(env.WIKI_LOCK, {}) if env.WIKI_LOCK.exists() else {}
     pid = lock.get("pid") if isinstance(lock, dict) else None
-    if pid and env.pid_alive(int(pid)):
+    if pid and pid_alive(int(pid)):
         return f"An OpenWiki run is in progress ({lock.get('repo')}, pid {pid}): wait for it to finish, then reset."
     return None
 

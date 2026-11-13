@@ -19,6 +19,7 @@ import atexit, hmac, json, os, signal, sys, threading, time
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+from lib.app import services
 from lib.common import kill_tree
 from lib.interfaces.http import router
 from lib.interfaces.http.messages import Request, Response
@@ -68,7 +69,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def answer(self, method: str, path: str, query: dict, raw: bytes = b"") -> None:
         req = Request(method, path, query, self.headers, raw=raw, is_app=self.is_app(), can_write=self.can_write(),
-                      foreign=self.foreign_host(), marked=self.headers.get("X-Camarones") == "1", static=STATIC)
+                      foreign=self.foreign_host(), marked=self.headers.get("X-Camarones") == "1", static=STATIC,
+                      services=services.current())
         self.reply(router.dispatch(req, files.static_site))
 
     def do_HEAD(self):

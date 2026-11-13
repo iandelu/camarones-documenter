@@ -308,7 +308,7 @@ def test_share_repairs_an_origin_saved_with_a_fragment(kit, tmp_path):
     ("fatal: something nobody expected", "unknown"),
 ])
 def test_git_failure_reason(kit, stderr, reason):
-    assert kit.env.git_failure(stderr) == reason
+    assert kit.projects.git_failure(stderr) == reason
 
 
 def test_share_explains_an_unreachable_remote(kit, tmp_path):

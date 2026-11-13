@@ -5,6 +5,7 @@ from __future__ import annotations
 from lib import docs, env, plan
 from lib.app import portal_views
 from lib.core.paths import DOCS
+from lib.core.process import which
 from lib.interfaces.http.jobs import JOB_LOCK, JOBS, claim_job, fail_job, run_job, start_job
 from lib.interfaces.http.messages import Request, Response, json_response
 from lib.interfaces.http.router import Access, route
@@ -69,7 +70,7 @@ def first_look(log) -> bool:
         except Exception as e:  # noqa: BLE001 — the diagrams are a bonus: llms.txt and the C4 build still run
             log(f"⚠ diagrams skipped: {e}")
     docs.llms()
-    if env.which("likec4"):
+    if which("likec4"):
         env.build_c4(log=log)
     wrote = "index.md, a page per repo" if new else "architecture/first-look.md, architecture/system-map.md"
     log(f"✔ first look written: {wrote}, overview/tooling.md and the C4 draft")

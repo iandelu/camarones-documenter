@@ -15,6 +15,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .common import KIT, ROOT, HOME, CACHE, CAM_DIR, CAM_LAYOUT, WORKSPACE, WS_FILE, run as run_cmd, which, load_json, rmtree
+from .core.locks import pid_alive
+from .ports import Log
 from . import creds, docs, env, install_state, migrate, projects, trust
 
 BACKUP_DIR = Path(tempfile.gettempdir()) / "camarones-backups"
@@ -25,7 +27,6 @@ USER_KEEP = {"kit"}                                              # the global in
 OPENWIKI_ENV = HOME / ".openwiki" / ".env"
 OPENWIKI_LINE = "OPENWIKI_TELEMETRY_DISABLED=1"
 POINTER_RE = re.compile(rf"\n*{re.escape(env.POINTER_START)}.*?{re.escape(env.POINTER_END)}\n?", re.S)
-Log = env.Log
 
 
 @dataclass
@@ -164,7 +165,7 @@ def guard() -> str | None:
                 "install or another kit copy.")
     lock = load_json(env.WIKI_LOCK, {}) if env.WIKI_LOCK.exists() else {}
     pid = lock.get("pid") if isinstance(lock, dict) else None
-    if pid and pid != os.getpid() and env.pid_alive(int(pid)):
+    if pid and pid != os.getpid() and pid_alive(int(pid)):
         return f"An OpenWiki run is in progress ({lock.get('repo')}, pid {pid}): wait for it to finish, then uninstall."
     return None
 

@@ -12,8 +12,8 @@ from typing import Callable
 import yaml
 
 from .core import yamlio
-from .common import (CAM_DIR, CAM_LAYOUT, IS_WIN, cli_cmd, ensure_path, find_project_marker, load_json, repo_dir, run,
-                     save_json, ws_rel)
+from .common import (CAM_DIR, CAM_LAYOUT, IS_WIN, VERSIONS, cli_cmd, ensure_path, find_project_marker, load_json,
+                     repo_dir, run, save_json, ws_rel)
 from .harness.ctx import Ctx
 from . import docs, env, plan, projects
 
@@ -327,7 +327,7 @@ def tool_rows() -> list[dict]:
     for k, label in {**env.KIT_TOOLS, **env.EXTRAS}.items():
         installed = env.tool_ok(k) if k in env.KIT_TOOLS else (k in chosen)
         rows.append({"id": k, "label": label, "ok": installed, "kind": "t_kit", "rec": True, "sys": False,
-                     "found": env.VERSIONS.get(k, "") if installed and k in env.KIT_TOOLS else "", "note": ""})
+                     "found": VERSIONS.get(k, "") if installed and k in env.KIT_TOOLS else "", "note": ""})
     return rows
 
 

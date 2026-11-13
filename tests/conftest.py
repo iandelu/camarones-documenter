@@ -42,7 +42,7 @@ def pytest_unconfigure(config) -> None:
     bytecode.pytest_unconfigure(config)
 
 
-MODULES = ("common", "docs", "env", "plan", "serve", "projects", "migrate", "quality", "codemap", "install", "quickarch", "creds", "questionnaire", "usage", "onboard", "wizard")
+MODULES = ("common", "docs", "env", "plan", "serve", "projects", "migrate", "quality", "codemap", "install", "quickarch", "creds", "questionnaire", "usage", "onboard", "wizard", "bootstrap")
 
 
 @pytest.hookimpl(tryfirst=True)                 # before xdist's own hook reads the groups
@@ -120,6 +120,7 @@ def load_kit(root: Path, home: Path, ws: Path | None) -> SimpleNamespace:
     ns = SimpleNamespace(root=root, ws=ws or root.parent, home=home, kit_dir=KIT_DIR)
     for m in MODULES:
         setattr(ns, m, importlib.import_module(f"lib.{m}"))
+    ns.services = ns.bootstrap.build()          # as a process entry does: kit.services.<field> is the module itself
     return ns
 
 

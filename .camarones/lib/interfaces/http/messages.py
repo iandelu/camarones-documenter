@@ -5,7 +5,10 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from typing import Any, BinaryIO
+from typing import TYPE_CHECKING, Any, BinaryIO
+
+if TYPE_CHECKING:
+    from lib.app.services import Services
 
 
 @dataclass(frozen=True)
@@ -23,6 +26,7 @@ class Request:
     foreign: bool = False                         # Host is not this server (checked only once a token is set)
     marked: bool = False                          # X-Camarones: 1
     static: bool = False                          # `up --static`: the exported site
+    services: Services | None = None              # the process's (lib.app.services.current())
 
 
 @dataclass(frozen=True)

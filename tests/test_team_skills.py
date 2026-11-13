@@ -11,6 +11,10 @@ def skills(kit):
     return importlib.import_module("lib.skills")
 
 
+def fsutil(kit):
+    return importlib.import_module("lib.core.fsutil")
+
+
 def team(kit, name, text="---\nname: x\ndescription: Team text.\n---\n# x\n", extra=None):
     d = kit.root / ".camarones" / "skills" / name
     d.mkdir(parents=True, exist_ok=True)
@@ -124,7 +128,7 @@ def test_fork_copies_the_kit_text_and_stays_trusted_until_edited(wired):
     s = skills(wired)
     d = s.fork("cam-docs-update")
     assert (d / "SKILL.md").read_text(encoding="utf-8") == s.kit_files("cam-docs-update")["SKILL.md"]
-    assert s.load_stamp()["forks"]["cam-docs-update"]["kit"] == wired.env.VERSIONS["kit"]
+    assert s.load_stamp()["forks"]["cam-docs-update"]["kit"] == wired.common.VERSIONS["kit"]
     wired.env.write_kit_skills()
     assert [it for it, _ in importlib.import_module("lib.trust").pending() if "cam-docs-update" in it.id] == []
     assert s.diff("cam-docs-update") == ""
@@ -271,9 +275,9 @@ def test_the_render_manifest_only_removes_rendered_skill_files(wired):
     victim.write_text("keep", encoding="utf-8")
     settings = wired.root / ".claude" / "settings.json"
     before = settings.read_bytes()
-    wired.env.save_json(wired.env.RENDERED_SKILLS, ["../victim.txt", ".claude/settings.json", ".claude/skills",
-                                                    ".claude/skills/x/../../settings.json", victim.as_posix(),
-                                                    ".claude/skills/x/..\\..\\settings.json"])
+    fsutil(wired).save_json(wired.env.RENDERED_SKILLS, ["../victim.txt", ".claude/settings.json", ".claude/skills",
+                                                        ".claude/skills/x/../../settings.json", victim.as_posix(),
+                                                        ".claude/skills/x/..\\..\\settings.json"])
     wired.env.write_kit_skills()
     assert victim.read_text(encoding="utf-8") == "keep" and settings.read_bytes() == before
     assert (wired.root / ".claude" / "skills").is_dir()
@@ -294,8 +298,8 @@ def test_the_render_cleanup_never_deletes_through_a_link(wired, tmp_path, at):
     (projects / "old").mkdir(parents=True)
     (projects / "important.txt").write_text("keep", encoding="utf-8")
     linked_at(wired, at, victim)
-    wired.env.save_json(wired.env.RENDERED_SKILLS, [".claude/skills/projects/important.txt",
-                                                    ".claude/skills/projects/old/gone.md"])
+    fsutil(wired).save_json(wired.env.RENDERED_SKILLS, [".claude/skills/projects/important.txt",
+                                                        ".claude/skills/projects/old/gone.md"])
     wired.env.write_kit_skills()
     assert (projects / "important.txt").read_text(encoding="utf-8") == "keep"
     assert (projects / "old").is_dir()
@@ -378,7 +382,7 @@ def test_a_symlinked_render_manifest_is_neither_read_nor_written_through(wired, 
     wired.env.write_kit_skills()
     assert victim.read_text(encoding="utf-8") == names_it and mine.exists()
     assert not manifest.is_symlink()
-    assert ".claude/skills/cam-docs-update/SKILL.md" in wired.env.load_json(manifest, [])
+    assert ".claude/skills/cam-docs-update/SKILL.md" in fsutil(wired).load_json(manifest, [])
 
 
 def test_a_symlinked_cache_folder_gives_no_render_manifest(wired, tmp_path):

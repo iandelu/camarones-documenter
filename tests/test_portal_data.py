@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import re
+from pathlib import Path
 
 import pytest
 
@@ -213,8 +214,8 @@ def test_wiki_graph_export_does_not_pass_flags_openwiki_rejects(serve_mod, monke
     def fake_run(cmd, cwd=None, **_kw):
         calls.append(cmd)
         dest = cmd[cmd.index("--export") + 1]
-        (serve_mod.env.Path(dest)).mkdir(parents=True, exist_ok=True)
-        (serve_mod.env.Path(dest) / "index.html").write_text("ok", encoding="utf-8")
+        Path(dest).mkdir(parents=True, exist_ok=True)
+        (Path(dest) / "index.html").write_text("ok", encoding="utf-8")
     monkeypatch.setattr(serve_mod.env, "run", fake_run)
     assert serve_mod.env.wiki_graph("api", log=lambda _: None)
     assert "--no-open" not in calls[0] and "--port" not in calls[0]   # openwiki: "--export cannot be combined with --port or --no-open"

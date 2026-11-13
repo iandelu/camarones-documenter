@@ -355,7 +355,7 @@ def test_tool_rows_shape(kit, monkeypatch):
     want = [row("git", "git", True, "t_required", True, True, "2.4"),
             row("claude", "Claude Code CLI", False, "t_optional", False, True),     # a working codex: claude is not recommended
             row("codex", "Codex CLI", True, "t_optional", False, True, note="n"),
-            row("likec4", "C4", True, "t_kit", True, False, kit.env.VERSIONS.get("likec4", "")),
+            row("likec4", "C4", True, "t_kit", True, False, kit.common.VERSIONS.get("likec4", "")),
             row("openwiki", "Wiki", True, "t_kit", True, False), row("agents", "Agents", False, "t_kit", True, False)]
     assert kit.wizard.W().tool_rows() == want
     if hasattr(kit.onboard, "tool_rows"):

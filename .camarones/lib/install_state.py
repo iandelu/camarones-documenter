@@ -9,6 +9,7 @@ import hashlib, os, shutil
 from pathlib import Path
 
 from .common import CAM_LAYOUT, HOME, ROOT, WORKSPACE, VERSIONS, repo_dir, load_json, save_json
+from .core.process import run, which
 
 STORE_DIR = HOME / ".camarones" / "install"
 AGENT_DIRS = (".claude", ".codex", ".agents")
@@ -55,12 +56,12 @@ def learn(cmds: list[list[str]], restore: bool = False) -> None:
     `restore` copies its skill files back where the project's copy is gone or differs (the installer itself skips a
     tool it believes installed)."""
     import tempfile
-    from . import env, trust
+    from . import trust
     with tempfile.TemporaryDirectory() as tmp:
         scratch = Path(tmp)
-        env.run(["git", "init", "-q"], cwd=scratch, check=False, quiet=True)
+        run(["git", "init", "-q"], cwd=scratch, check=False, quiet=True)
         for cmd in cmds:
-            env.run(cmd, cwd=scratch, check=False, quiet=True)
+            run(cmd, cwd=scratch, check=False, quiet=True)
         made = {i.id: i.digest for i in trust.items(scratch).values() if _learnable(i)}
         _record(made)
         for key in made if restore else ():
@@ -122,7 +123,7 @@ def drift() -> list[dict]:
             d = repo_dir(r)
             if d.is_dir() and os.path.realpath(d / "openwiki") != os.path.realpath(ROOT / "wikis" / r):
                 out.append({"path": f"{r}/openwiki", "state": "not linked", "what": "repo wiki link"})
-    if "agents" in env.components() and env.which("claude"):
+    if "agents" in env.components() and which("claude"):
         out += [{"path": r, "state": "not registered", "what": "repo MCP (Claude Code)"} for r in docs.repo_names()
                 if repo_dir(r).is_dir() and not env.repo_mcp_registered(r)]
     return out

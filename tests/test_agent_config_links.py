@@ -175,7 +175,8 @@ def test_a_linked_kit_doc_is_replaced_by_the_kits_copy(wired, tmp_path):
     dst = plant(wired, ".camarones/PLAYBOOK.md", victim)
     wired.env.init_templates(log=lambda _: None)
     assert victim.read_text(encoding="utf-8") == "mine\n"
-    assert not dst.is_symlink() and dst.read_bytes() == (wired.env.KIT / "PLAYBOOK.md").read_bytes()
+    kit_dir = importlib.import_module("lib.core.ctx").KIT
+    assert not dst.is_symlink() and dst.read_bytes() == (kit_dir / "PLAYBOOK.md").read_bytes()
 
 
 def test_docs_reset_never_copies_a_linked_kit_doc_into_the_project(wired, tmp_path):

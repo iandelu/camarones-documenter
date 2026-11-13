@@ -90,7 +90,7 @@ def test_a_page_load_without_openwiki_does_not_wait_for_npm(wired, monkeypatch, 
 @pytest.mark.parametrize("found, pinned", [(lambda v: v, True), (lambda v: "0.0.1", False)])
 def test_on_windows_the_version_is_read_beside_the_command(wired, tmp_path, monkeypatch, npm, found, pinned):
     env = wired.env
-    package(tmp_path / "npm" / "node_modules" / "openwiki", found(env.VERSIONS["openwiki"]))
+    package(tmp_path / "npm" / "node_modules" / "openwiki", found(wired.common.VERSIONS["openwiki"]))
     (tmp_path / "npm" / "openwiki.cmd").write_text("@echo off\n", encoding="utf-8")
     on_path(env, monkeypatch, tmp_path / "npm" / "openwiki.cmd")
     assert env.openwiki_installed() is pinned and npm.cmds == []
@@ -101,7 +101,7 @@ def test_on_windows_the_version_is_read_beside_the_command(wired, tmp_path, monk
 def test_on_posix_the_version_is_read_through_the_commands_link(wired, tmp_path, monkeypatch, npm, found, pinned):
     env = wired.env
     pkg = tmp_path / "prefix" / "lib" / "node_modules" / "openwiki"
-    package(pkg, found(env.VERSIONS["openwiki"]))
+    package(pkg, found(wired.common.VERSIONS["openwiki"]))
     (pkg / "dist").mkdir()
     (pkg / "dist" / "cli.js").write_text("#!/usr/bin/env node\n", encoding="utf-8")
     (tmp_path / "prefix" / "bin").mkdir()

@@ -89,7 +89,7 @@ def put(f, text):
 
 
 def test_the_code_graph_serves_the_repo_the_portal_asks_for(kit, monkeypatch):
-    put(kit.env.GRAPHS / "api" / "graph.html", "<html>api graph</html>")
+    put(importlib.import_module("lib.core.paths").GRAPHS / "api" / "graph.html", "<html>api graph</html>")
     put(kit.common.CACHE / "graph" / "graph.html",
         '<script src="https://cdn.jsdelivr.net/npm/vis-network@9.1.9/dist/vis.js"></script>all graph')
     arm(monkeypatch)

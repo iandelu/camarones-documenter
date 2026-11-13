@@ -5,7 +5,6 @@ import datetime as dt, json, os, posixpath, re, shutil, subprocess, sys, webbrow
 from collections import deque
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Callable
 
 from .common import (CTX, KIT, ROOT, DOCS, HOME, CACHE, IS_WIN, IS_MAC, VERSIONS, CAM_DIR, CAM_LAYOUT, WORKSPACE, WS_FILE, GRAPHS, run, out,
                      which, uv, ensure_path, cli_cmd, sdkman_dir, repo_dir, ws_rel, rel_file, load_json, save_json,
@@ -14,9 +13,9 @@ from . import binaries, docs
 from .adapters import runners
 from .harness.ports import RunRequest
 from .harness.locks import FileLock, LockBusy, pid_alive  # noqa: F401  (pid_alive re-exported)
+from .ports import Log
 from .projects import git_failure  # noqa: F401 — share() and callers of env.git_failure
 
-Log = Callable[[str], None]
 TEMPLATES = KIT / "templates"
 
 

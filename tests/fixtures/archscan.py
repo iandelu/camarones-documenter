@@ -133,6 +133,8 @@ ALLOWED: dict[str, frozenset[str]] = {
     "interfaces": frozenset({"core", "domain", "ports", "app", "interfaces", "bootstrap"}),
     "bootstrap": frozenset({"core", "domain", "ports", "adapters", "app"}),
 }
+# a facade (an old import path kept alive) re-exports from any layer; no layer may import it
+ALLOWED["facade"] = frozenset(ALLOWED)
 
 
 def layer_of(name: str, table: dict[str, str]) -> str | None:

@@ -238,9 +238,9 @@ def test_guard_kit_inside_the_project(un, monkeypatch):
 def test_guard_running_openwiki(un, before, monkeypatch):
     un.env.WIKI_LOCK.parent.mkdir(parents=True, exist_ok=True)
     un.env.WIKI_LOCK.write_text('{"pid": 999999, "repo": "api"}', encoding="utf-8")
-    monkeypatch.setattr(un.env, "pid_alive", lambda pid: True)
+    monkeypatch.setattr(un.uninstall, "pid_alive", lambda pid: True)
     assert "OpenWiki" in un.uninstall.guard()
-    monkeypatch.setattr(un.env, "pid_alive", lambda pid: False)
+    monkeypatch.setattr(un.uninstall, "pid_alive", lambda pid: False)
     assert un.uninstall.guard() is None
 
 

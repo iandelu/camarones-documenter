@@ -8,6 +8,7 @@ import datetime as dt, hmac, json, re, secrets, sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from .common import HOME, ROOT, DOCS, WORK, WS_FILE, VERSIONS, run, which
+from .core.paths import CACHE
 from .harness import freshness
 from . import docs, env, usage
 
@@ -170,7 +171,7 @@ def repo_graph(question: str, repo: str | None = None) -> str:
     usage.record("mcp:repo_graph")
     if not which("graphify"):
         return "graphify is not installed (run camarones setup)."
-    g = env.repo_graph(repo) if repo else env.CACHE / "graph" / "graph.json"
+    g = env.repo_graph(repo) if repo else CACHE / "graph" / "graph.json"
     if not g.exists():
         return f"No code graph for {repo or 'the workspace'} yet — run `camaron graph`."
     r = run(["graphify", "query", question, "--graph", str(g)], check=False, capture=True)

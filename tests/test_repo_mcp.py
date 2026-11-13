@@ -3,6 +3,7 @@ Claude Code's *local* scope for each repo folder — kept in the user's Claude c
 `doctor` reports a repo without it, `repair` puts it back and `uninstall` removes it."""
 from __future__ import annotations
 
+import importlib
 import json
 from pathlib import Path
 
@@ -19,7 +20,8 @@ def claude(kit, isolated_env, monkeypatch):
     calls = []
     monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
     real_which = env.which
-    monkeypatch.setattr(env, "which", lambda name: "/bin/claude" if name == "claude" else real_which(name))
+    for mod in (env, importlib.import_module("lib.install_state")):           # the wiring, and the drift check
+        monkeypatch.setattr(mod, "which", lambda name: "/bin/claude" if name == "claude" else real_which(name))
     real_run = env.run
 
     def run(cmd, cwd=None, **kw):
