@@ -3,7 +3,7 @@
 Registry lives at ~/.camarones/projects.json — outside any project, next to the global kit copy."""
 from __future__ import annotations
 
-import json, os, re, urllib.parse, urllib.request
+import json, os, re, urllib.parse
 from pathlib import Path
 
 from .common import CAM_DIR, HOME, IS_WIN, docs_root, find_project_marker, run
@@ -98,7 +98,8 @@ def remote_key(url: str) -> str:
     else:
         p = urllib.parse.urlparse(u)
         if not p.hostname:                                             # local path or file:// (tests, shared drives)
-            local = urllib.request.url2pathname(p.path) if p.scheme == "file" else u
+            from urllib.request import url2pathname                    # lazy: it loads http.client on every start
+            local = url2pathname(p.path) if p.scheme == "file" else u
             return os.path.normcase(str(Path(local).resolve()))
         host, path = p.hostname, p.path
     return f"{host.lower()}/{path.strip('/').removesuffix('.git').strip('/').lower()}"
