@@ -18,7 +18,10 @@ class Services:
     def __getattr__(self, name: str) -> object:
         if name.startswith("_") or name not in fields():
             raise AttributeError(f"no service {name!r}")
-        value = self._providers[name]()
+        provider = self._providers.get(name)
+        if provider is None:
+            raise AttributeError(f"no provider for service {name!r}")
+        value = provider()
         object.__setattr__(self, name, value)               # later reads find it without coming here
         return value
 

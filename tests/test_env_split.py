@@ -93,7 +93,8 @@ HOME: dict[str, str] = {name: home for home, names in _MAP.items() for name in n
 MOVED: set[str] = {"ports"}                         # the homes whose names have moved; each task adds its own
 NEW: set[str] = {home for home in _MAP if home.startswith(("adapters.", "app."))}   # the modules F4 creates
 
-TEST_READS = (re.compile(r"(?<![\w.])(?:kit\.)?(?:\w+\.)?env\.([A-Za-z_]\w*)"), re.compile(r"lib\.env\.([A-Za-z_]\w*)"))
+TEST_READS = (re.compile(r"(?<![\w.])(?:kit\.)?(?:\w+\.)?env\.([A-Za-z_]\w*)"), re.compile(r"lib\.env\.([A-Za-z_]\w*)"),
+              re.compile(r"setattr\(\s*(?:\w+\.)*env\s*,\s*[\"']([A-Za-z_]\w*)[\"']"))   # setattr(kit.env, "name", …)
 SERVICES = "app.services"
 
 
@@ -177,3 +178,11 @@ def test_only_the_cli_entry_imports_bootstrap():
     mods = archscan.modules(KIT_DIR)
     assert sorted(a for a, b in archscan.edges(mods) if b == "bootstrap") == ["interfaces.cli.main"]
     assert {c.split(":")[0] for c in _install_calls(mods)} - {SERVICES} == {"bootstrap"}
+
+
+def test_the_guard_sees_the_setattr_form():
+    seen = {m.group(1) for line in ('monkeypatch.setattr(kit.env, "zz", f)', "monkeypatch.setattr(wired.env, 'x', f)",
+                                    'monkeypatch.setattr( agents.env , "y", f)')
+            for m in TEST_READS[2].finditer(line)}
+    assert seen == {"zz", "x", "y"}
+    assert not TEST_READS[2].search('monkeypatch.setattr(kit.services.launcher, "zz", f)')

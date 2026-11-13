@@ -77,3 +77,48 @@ def test_a_request_carries_the_processs_services(kit, svc, monkeypatch):
     with serving(kit.serve.Handler) as base:
         got = request(base, "GET", "/api/zz")
     assert (got[0], json.loads(got[2])) == (200, {"same": True})
+
+
+@pytest.fixture
+def declared(svc, kit, monkeypatch):
+    """A field `zz` declared on Services, so the holder's contract is tested whatever the real fields are."""
+    monkeypatch.setitem(svc.Services.__annotations__, "zz", "object")
+    return "zz"
+
+
+def test_a_provider_runs_once_and_its_result_is_kept(svc, declared):
+    calls = []
+    s = svc.Services({declared: lambda: calls.append(1) or object()})
+    assert getattr(s, declared) is getattr(s, declared) and calls == [1]
+
+
+def test_a_service_cannot_be_set_from_outside(svc, declared):
+    s = svc.Services({declared: object})
+    with pytest.raises(AttributeError, match="not set"):
+        setattr(s, declared, 1)
+
+
+def test_an_undeclared_name_is_an_attribute_error(svc, declared):
+    s = svc.Services({declared: object, "undeclared": object})
+    with pytest.raises(AttributeError):
+        s.undeclared
+    assert getattr(s, "undeclared", None) is None and not hasattr(s, "_private")
+
+
+def test_a_declared_field_with_no_provider_is_an_attribute_error(svc, declared):
+    s = svc.Services({})
+    assert not hasattr(s, declared) and getattr(s, declared, "default") == "default"
+    with pytest.raises(AttributeError, match="no provider"):
+        getattr(s, declared)
+
+
+def test_build_refuses_a_declared_field_with_no_provider(kit, declared):
+    with pytest.raises(RuntimeError, match=f"no provider for {declared}"):
+        kit.bootstrap.build()
+
+
+def test_an_override_is_wrapped_as_a_provider_and_returned_as_is(kit, svc, declared, monkeypatch):
+    monkeypatch.setitem(kit.bootstrap.PROVIDERS, declared, lambda: pytest.fail("the default was built"))
+    fake = object()
+    s = kit.bootstrap.build(**{declared: fake})
+    assert getattr(s, declared) is fake and svc.current() is s
