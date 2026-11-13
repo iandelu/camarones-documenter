@@ -2,6 +2,8 @@
 carries each card's wave and blockers. Reuses the server of test_portal_kanban."""
 from __future__ import annotations
 
+from itertools import product
+
 import pytest
 
 from test_portal_kanban import APP, PORTAL, call, server  # noqa: F401  (server is a fixture)
@@ -358,13 +360,12 @@ def test_save_passes_the_bases_and_a_field_both_changed_is_a_409(world, server):
 
 
 @pytest.mark.parametrize("path", ["/api/stories/analyze", "/api/stories/save"])
-@pytest.mark.parametrize("bad", [{"want": ""}, {"want": "   "}, {"want": None}, {"want": 3}])
-def test_a_story_without_a_want_is_a_400(world, server, path, bad):
-    s = story()
-    s["story"].update(bad)
-    s["tasks"] = []
-    code, b = post(server, path, s, token=PORTAL)
-    assert code == 400 and "want" in b["error"]
+def test_a_story_without_a_want_is_a_400(world, server, path):
+    for bad in ("", "   ", None, 3):
+        s = story(want=bad)
+        s["tasks"] = []
+        code, b = post(server, path, s, token=PORTAL)
+        assert code == 400 and "want" in b["error"], (bad, code, b)
 
 
 def test_bad_bodies_are_400s(world, server):
@@ -448,34 +449,32 @@ def with_task(**kw):
 
 
 @pytest.mark.parametrize("path", ROUTES)
-@pytest.mark.parametrize("field", ["touches", "criteria", "deps", "added", "dropped"])
-@pytest.mark.parametrize("bad", [5, "api:a.py", {"a": 1}, [1], [None], ["ok", 3]])
-def test_a_task_list_field_that_is_not_a_list_of_text_is_a_400(world, server, path, field, bad):
+def test_a_task_list_field_that_is_not_a_list_of_text_is_a_400(world, server, path):
     before = tree(world.root)
-    code, b = post(server, path, with_task(**{field: bad}), token=PORTAL)
-    assert code == 400 and field in b["error"], (field, bad, code, b)
-    assert tree(world.root) == before
+    for field, bad in product(["touches", "criteria", "deps", "added", "dropped"],
+                              [5, "api:a.py", {"a": 1}, [1], [None], ["ok", 3]]):
+        code, b = post(server, path, with_task(**{field: bad}), token=PORTAL)
+        assert code == 400 and field in b["error"], (field, bad, code, b)
+        assert tree(world.root) == before, (field, bad)
 
 
 @pytest.mark.parametrize("path", ROUTES)
-@pytest.mark.parametrize("field", ["key", "title", "group", "kind"])
-@pytest.mark.parametrize("bad", [5, ["x"], {"a": 1}, True])
-def test_a_task_text_field_that_is_not_text_is_a_400(world, server, path, field, bad):
-    code, b = post(server, path, with_task(**{field: bad}), token=PORTAL)
-    assert code == 400 and field in b["error"], (field, bad, code, b)
+def test_a_task_text_field_that_is_not_text_is_a_400(world, server, path):
+    for field, bad in product(["key", "title", "group", "kind"], [5, ["x"], {"a": 1}, True]):
+        code, b = post(server, path, with_task(**{field: bad}), token=PORTAL)
+        assert code == 400 and field in b["error"], (field, bad, code, b)
 
 
 @pytest.mark.parametrize("path", ROUTES)
-@pytest.mark.parametrize("bad", ["yes", 1, "false", []])
-def test_edited_must_be_a_bool(world, server, path, bad):
-    code, b = post(server, path, with_task(edited=bad), token=PORTAL)
-    assert code == 400 and "edited" in b["error"]
+def test_edited_must_be_a_bool(world, server, path):
+    for bad in ("yes", 1, "false", []):
+        code, b = post(server, path, with_task(edited=bad), token=PORTAL)
+        assert code == 400 and "edited" in b["error"], (bad, code, b)
 
 
 @pytest.mark.parametrize("path", ROUTES)
-@pytest.mark.parametrize("field", ["key", "title"])
-def test_a_task_without_a_key_or_title_is_a_400_that_names_it(world, server, path, field):
-    for blank in (KeyError, "", "  ", None):
+def test_a_task_without_a_key_or_title_is_a_400_that_names_it(world, server, path):
+    for field, blank in product(["key", "title"], [KeyError, "", "  ", None]):
         code, b = post(server, path, with_task(**{field: blank}), token=PORTAL)
         assert code == 400 and field in b["error"], (field, blank, code, b)
 
@@ -499,7 +498,7 @@ def test_reads_on_a_project_without_a_board(world, server):
     assert code == 404 and "error" in b
 
 
-@pytest.mark.parametrize("bad", ["api:a.py", 5, {"a": 1}, [1], ["ok", None]])
-def test_lint_touches_must_be_a_list_of_text(world, server, bad):
-    code, b = post(server, "/api/stories/lint", {"as": "a", "want": "b", "so": "c", "touches": bad})
-    assert code == 400 and "touches" in b["error"]
+def test_lint_touches_must_be_a_list_of_text(world, server):
+    for bad in ("api:a.py", 5, {"a": 1}, [1], ["ok", None]):
+        code, b = post(server, "/api/stories/lint", {"as": "a", "want": "b", "so": "c", "touches": bad})
+        assert code == 400 and "touches" in b["error"], (bad, code, b)
