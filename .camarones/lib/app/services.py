@@ -9,6 +9,7 @@ from collections.abc import Callable, Mapping
 
 from lib.ports.agent_config import AgentConfig
 from lib.ports.code_indexer import CodeIndexer
+from lib.ports.container_runtime import ContainerRuntime
 from lib.ports.diagram_engine import DiagramEngine
 from lib.ports.file_links import FileLinks
 from lib.ports.launcher import Launcher
@@ -27,6 +28,7 @@ class Services:
     toolchain: Toolchain
     code: CodeIndexer
     wiki_engine: WikiEngine
+    containers: ContainerRuntime
 
     def __init__(self, providers: Mapping[str, Callable[[], object]]) -> None:
         object.__setattr__(self, "_providers", dict(providers))

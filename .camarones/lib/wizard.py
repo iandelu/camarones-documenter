@@ -2154,7 +2154,7 @@ class W:
                     url = self.safe(self.busy, env.serve_editor, port, total=1)
                 else:
                     if c == "up":
-                        ok, why = env.docker_ready()
+                        ok, why = services.current().containers.docker_ready()
                         if not ok:
                             if not self.yes(self.t("p_docker_na", why=why), default=True):
                                 continue

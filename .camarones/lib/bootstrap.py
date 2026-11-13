@@ -45,6 +45,11 @@ def _wiki_engine() -> object:
     return openwiki
 
 
+def _containers() -> object:
+    from lib.adapters import docker
+    return docker
+
+
 PROVIDERS: dict[str, Callable[[], object]] = {
     "launcher": _launcher,
     "diagrams": _diagrams,
@@ -53,6 +58,7 @@ PROVIDERS: dict[str, Callable[[], object]] = {
     "toolchain": _toolchain,
     "code": _code,
     "wiki_engine": _wiki_engine,
+    "containers": _containers,
 }
 
 

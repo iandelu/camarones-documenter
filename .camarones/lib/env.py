@@ -1095,7 +1095,7 @@ def export_site(log: Log = print) -> Path:
     log(f"✔ offline libraries ({k + len(portal_views.UI_LIBS)})" + (f" — still on CDN: {failed}" if failed else ""))
     shutil.rmtree(site, ignore_errors=True)
     tmp.rename(site)
-    image_context()
+    services.current().containers.image_context()
     log(f"✔ portal exported → {ws_rel('.camarones/.cache/site')}")
     return site
 
@@ -1120,18 +1120,6 @@ def writable(d: Path) -> None:
                            f"  sudo chown -R $(whoami) \"{d}\"")
 
 
-def image_context() -> Path:
-    """Self-contained docker build context: Dockerfile + nginx.conf + site/ (used locally and by CI)."""
-    site, ctx = CACHE / "site", CACHE / "portal-image"
-    if not (site / "index.html").exists():
-        raise RuntimeError("the portal is not built yet — build it first (Portal → Build / `portal`)")
-    shutil.rmtree(ctx, ignore_errors=True)
-    shutil.copytree(site, ctx / "site")
-    shutil.copyfile(KIT / "portal" / "Dockerfile", ctx / "Dockerfile")
-    shutil.copyfile(KIT / "nginx.conf", ctx / "nginx.conf")
-    return ctx
-
-
 def project_id() -> str:
     return docs.workspace()["project"].get("id") or re.sub(r"[^a-z0-9]+", "-", ROOT.name.lower()).strip("-") or "project"
 
@@ -1141,21 +1129,13 @@ def compose_cmd() -> list[str]:
     return ["docker", "compose", "-f", str(KIT / "portal" / "compose.yml"), "-p", f"{project_id()}-docs"]
 
 
-def docker_ready() -> tuple[bool, str]:
-    if not which("docker"):
-        return False, "docker not found — install Docker Desktop (or use 'Serve without Docker')"
-    if run(["docker", "info"], check=False, quiet=True).returncode != 0:
-        return False, "Docker is installed but not running — open Docker Desktop and try again (or use 'Serve without Docker')"
-    return True, ""
-
-
 def docker_up(port: int = 8080, log: Log = print) -> str:
     """Plain `docker build` + `docker run`: no compose file or compose plugin needed (works with any Docker)."""
-    ok, why = docker_ready()
+    ok, why = services.current().containers.docker_ready()
     if not ok:
         raise RuntimeError(why)
     stop_local()
-    ctx = image_context()
+    ctx = services.current().containers.image_context()
     pid = project_id()
     image, name = f"camarones-docs-{pid}:local", f"{pid}-docs"
     log("building the nginx image…")
