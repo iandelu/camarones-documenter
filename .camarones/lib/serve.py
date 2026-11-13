@@ -29,6 +29,7 @@ from .interfaces.http.routes.board import kanban_marks, kanban_state
 from .interfaces.http.routes.docs import api_ask, api_doc, api_search, create, write
 from .interfaces.http.routes.machine import app_creds, app_kitdev, app_summary, sessions_setting, ui_lang
 from .interfaces.http.routes.onboard import app_onboard
+from .interfaces.http.routes.terminals import app_session, app_terminal, app_unit, shutdown, unit_terminals
 from .interfaces.http.jobs import CANCEL, JOB_LOCK, JOBS, claim_job, fail_job, job_running, run_job, start_job
 from .interfaces.http.messages import Request, Response
 from .interfaces.http.router import APP_ONLY_MSG, Access
@@ -44,11 +45,6 @@ APP_TOKEN = ""                               # set by the desktop app (CAMARONES
 PORTAL_TOKEN = ""                            # set by `camaron up` (CAMARONES_PORTAL_TOKEN): lets this machine's browser write the board
 APP_ONLY = re.compile(r"^/api/(runs|runs/[\w.-]+/cancel|wiki|build|inventory|schemas|ci|ask/answer|plan/cost)$")
 STOPPED_AFTER = 5.0                          # seconds of quiet before a run's stream asks whether its run was stopped
-TERMINAL_POST = re.compile(r"^/api/app/terminals/(t-[\w.-]+-\d+)/(input|resize|close)$")
-UNIT_POST = re.compile(r"^/api/app/units/([^/]+)/(takeover|handback|stop)$")
-STREAM_FROM = re.compile(r"(t-[\w.-]+-\d+):(\d+)")     # one piece of the terminal stream's `from`
-CHUNK = 64 * 1024                            # bytes of a terminal per stream message, at most
-KEEP_ALIVE = 15.0                            # seconds a stream may stay silent: a write is how it finds the client gone
 mimetypes.add_type("text/javascript", ".js")    # Windows may map .js to text/plain in the registry
 mimetypes.add_type("font/woff2", ".woff2")    # the portal theme fonts; older Pythons do not know the type
 
@@ -170,12 +166,12 @@ def api_pipeline(lang: str = "") -> dict:
     """The plan as a graph for the Pipeline tab: every unit with its status and dependencies, how it runs (isolation,
     tier, runner), its agent session (open or paused, lib/sessions.py), its live terminal in this server and the latest
     run. Titles read in `lang` (plan.title); plan.yaml is only read."""
-    from . import sessions, terminals
+    from . import sessions
     from .harness import pipeline, runs, scheduler
     lang = ui_lang(lang)
     locked = scheduler.busy() is not None                    # asked once: the second probe could see the first
     busy = sessions.headless(locked)
-    term = {m["unit"]: m["id"] for m in terminals.listing() if m["kind"] == "unit" and m["ended"] is None}
+    term = unit_terminals()
     try:
         nodes = {u["id"]: u for u in plan.pipeline_units()}
     except plan.PipelineError:
@@ -197,71 +193,6 @@ def api_pipeline(lang: str = "") -> dict:
     if run and not run["finished"] and run_stopped(run["run"], locked):
         run.update(finished=True, interrupted=True, running=[], waiting={})
     return {"units": units, "run": run, "interviews": docs.interview_mode() if docs.interview_mode_chosen() else None}
-
-
-def app_session(b: dict) -> tuple[dict, int]:
-    """POST /api/app/terminals (and its old name, /api/app/agent): a unit's session or the docs update, on the canvas or
-    in a window as this machine's `sessions` setting says. Every field is checked first: launch_* moves the unit before
-    the terminal refuses a bad size. Already open, or no room on the canvas, is a 409 that says which or how many."""
-    from . import agents, terminals
-    unit, agent = inputs.text(b, "unit", True), inputs.text(b, "agent", True)
-    lang, mode = inputs.text(b, "lang") or "es", inputs.text(b, "mode") or "new"
-    if mode not in ("new", "continue", "restart"):
-        raise ValueError("mode: new, continue or restart")
-    size = (inputs.dim(b, "cols", terminals.COLS, 80), inputs.dim(b, "rows", terminals.ROWS, 24))
-    where = sessions_setting()
-    try:
-        if unit == "update":
-            return agents.launch_update(agent, lang, where=where, size=size), 200
-        return agents.launch_unit(unit, agent, lang, mode, where=where, size=size), 200
-    except agents.AlreadyOpen as e:
-        return {"error": str(e), "terminal": e.terminal}, 409
-    except agents.AtWork as e:
-        return {"error": str(e), "code": "at-work"}, 409
-    except terminals.Limit:
-        return {"error": f"{terminals.MAX_LIVE} terminals are open: close one first", "limit": terminals.MAX_LIVE}, 409
-
-
-def app_terminal(tid: str, action: str, b: dict) -> tuple[dict, int]:
-    """POST /api/app/terminals/<id>/<action>: keys typed (`input`), a new size (`resize`) or `close`. A bad body is a
-    400 before the terminal is touched, an unknown terminal a 404, input to one that ended or does not take it a 409."""
-    from . import terminals
-    try:
-        if action == "input":
-            data = inputs.text(b, "data", True)
-            if len(data.encode("utf-8")) > terminals.INPUT_MAX:
-                raise ValueError(f"data: at most {terminals.INPUT_MAX} bytes a request")
-            terminals.write(tid, data)
-            return {"ok": True}, 200
-        if action == "resize":
-            return terminals.resize(tid, inputs.dim(b, "cols", terminals.COLS), inputs.dim(b, "rows", terminals.ROWS)), 200
-        return terminals.close(tid), 200
-    except KeyError:
-        return {"error": f"no terminal {tid}"}, 404
-    except terminals.Ended:
-        return {"error": f"{tid} has ended"}, 409
-    except TimeoutError as e:
-        return {"error": str(e)}, 409
-
-
-def app_unit(uid: str, action: str, b: dict) -> tuple[dict, int]:
-    """POST /api/app/units/<uid>/<action>: take a unit from the autopilot, hand it back or stop it (lib/takeover.py). A
-    bad size is a 400 before anything moves, an unknown unit a 404. What the run's state refuses is a 409: `code` for the
-    app, or the terminal it already has, or the limit it reached."""
-    from . import agents, takeover, terminals
-    try:
-        if action == "takeover":
-            size = (inputs.dim(b, "cols", terminals.COLS, 80), inputs.dim(b, "rows", terminals.ROWS, 24))
-            return takeover.take(uid, inputs.text(b, "lang") or "es", size), 200
-        return (takeover.hand_back if action == "handback" else takeover.stop)(uid), 200
-    except KeyError:
-        return {"error": f"no unit {uid}"}, 404
-    except agents.AlreadyOpen as e:
-        return {"error": str(e), "terminal": e.terminal}, 409
-    except terminals.Limit:
-        return {"error": f"{terminals.MAX_LIVE} terminals are open: close one first", "limit": terminals.MAX_LIVE}, 409
-    except takeover.Refused as e:
-        return {"error": str(e), "code": e.code}, 409
 
 
 def cancel_job(job_id: str) -> dict:
@@ -409,74 +340,12 @@ class Handler(BaseHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError):
             return
 
-    def stream_terminals(self, q: dict) -> None:
-        """Server-sent events of every terminal of this server on one connection (Chromium allows six per host). Each
-        is replayed from its offset in `from` (`<id>:<offset>,…`, 0 when not named), then followed: `{t, d, o}` per
-        CHUNK at most, `d` the raw bytes in base64 (a read can split a UTF-8 character), `o` the offset after them and
-        the id `<t>:<o>`; after an ended one's last bytes, `{t, end, o}` once. One the person closed sends that end
-        alone, once it ended. Terminals opened later join. It ends when the client goes, which only a write finds out:
-        a keep-alive after KEEP_ALIVE s of nothing else."""
-        from . import terminals
-        offsets = {}
-        for piece in q["from"].split(",") if q.get("from") else []:
-            if not (m := STREAM_FROM.fullmatch(piece)):
-                return self.json({"error": "from: <terminal>:<offset>, separated by commas"}, 400)
-            offsets[m[1]] = int(m[2])
-        self.send_response(200)
-        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
-        self.send_header("Cache-Control", "no-store")
-        self.end_headers()
-        told, gen, beat = set(), -1, time.monotonic()           # told: the ended terminals whose end went out
-        try:
-            while True:
-                gen = terminals.wait(gen, max(0.0, beat + KEEP_ALIVE - time.monotonic()))
-                wrote = False
-                for meta in terminals.listing():
-                    t = meta["id"]
-                    if t in told or (meta["closed"] and meta["ended"] is None):
-                        continue
-                    try:
-                        data, end = terminals.read(t, offsets.get(t, 0))
-                    except KeyError:                            # forgotten since the listing
-                        continue
-                    if meta["closed"]:                          # closed by the person: never shown again
-                        data = b""
-                    o = end - len(data)
-                    for i in range(0, len(data), CHUNK):
-                        o += len(chunk := data[i:i + CHUNK])
-                        msg = json.dumps({"t": t, "d": base64.b64encode(chunk).decode("ascii"), "o": o})
-                        self.wfile.write(f"id: {t}:{o}\ndata: {msg}\n\n".encode("utf-8"))
-                    offsets[t], wrote = end, wrote or bool(data)
-                    if meta["ended"] is not None:               # listed before the read: its last bytes went first
-                        msg = json.dumps({"t": t, "end": meta["code"], "o": end})
-                        self.wfile.write(f"data: {msg}\n\n".encode("utf-8"))
-                        told.add(t)
-                        wrote = True
-                if not wrote and time.monotonic() - beat < KEEP_ALIVE:
-                    continue
-                if not wrote:
-                    self.wfile.write(b": keep-alive\n\n")
-                self.wfile.flush()
-                beat = time.monotonic()
-        except OSError:                 # the client went: a broken pipe, a reset, Windows' abort, macOS' EPROTOTYPE
-            return
-
     def api_app_get(self, name: str, q: dict):
         from . import appapi
         if name == "info":
             return self.json(appapi.info())
         if name == "catalog":
             return self.json(appapi.catalog())
-        if name == "agents":
-            from . import agents
-            from .common import PREFS, load_json
-            return self.json({"agents": agents.installed(), "last": load_json(PREFS, {}).get("last_agent")})
-        if name == "terminals":
-            from . import terminals
-            return self.json({"terminals": terminals.listing(), "available": terminals.available(),
-                              "limit": terminals.MAX_LIVE})
-        if name == "terminals/stream":
-            return self.stream_terminals(q)
         if name == "adr" or name.startswith("adr/"):
             from . import adr_api
             return self.json(*adr_api.get(name, q))
@@ -653,10 +522,6 @@ class Handler(BaseHTTPRequestHandler):
                 if hit.route.access == Access.PORTAL and not self.can_write():
                     return self.json({"error": hit.route.refusal, "token": True}, 403)
                 return self.reply(hit.route.handler(self.routed(hit, p, {}, b, by)))
-            if m := TERMINAL_POST.match(p):             # keys as they are typed: before `by`, which runs git
-                return self.json(*app_terminal(m[1], m[2], b))
-            if m := UNIT_POST.match(p):
-                return self.json(*app_unit(urllib.parse.unquote(m[1]), m[2], b))
             by = (b.get("by") or reviewer()).strip()
             if p == "/api/app/cmd":
                 from . import appapi
@@ -669,8 +534,6 @@ class Handler(BaseHTTPRequestHandler):
             if m := re.fullmatch(r"/api/app/adr/([a-z]+)", p):     # the decisions (lib/adr_api.py)
                 from . import adr_api
                 return self.json(*adr_api.post(m.group(1), b, by))
-            if p in ("/api/app/terminals", "/api/app/agent"):     # /agent: its old name
-                return self.json(*app_session(b))
             if m := re.fullmatch(r"/api/app/jobs/([\w.-]+)/cancel", p):
                 return self.json(cancel_job(m.group(1)))
             if p == "/api/sync/share":             # the team action: checkpoint, pull the team's work, push
@@ -742,13 +605,12 @@ def watch_app() -> None:
 
 def run_server(port: int = 8080, static: bool = False) -> None:
     global STATIC
-    from . import terminals
     STATIC = static
     take_tokens()
     if static and not (SITE / "index.html").exists():
         raise RuntimeError("the portal is not exported yet — run `camaron portal` first")
     httpd = ThreadingHTTPServer(("127.0.0.1", port), Handler)
-    atexit.register(terminals.shutdown)         # no agent outlives its server: the app's stop, Ctrl+C, an error
+    atexit.register(shutdown)                   # no agent outlives its server: the app's stop, Ctrl+C, an error
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))       # how the app stops it on POSIX; SystemExit runs atexit
     if os.environ.pop("CAMARONES_LIFELINE", ""):
         watch_app()

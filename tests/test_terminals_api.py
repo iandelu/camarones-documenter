@@ -1,7 +1,7 @@
 """The terminals over HTTP (lib/serve.py): app token only, and one server-sent stream for every terminal."""
 from __future__ import annotations
 
-import base64, json, os, signal, subprocess, sys, threading, time, urllib.error, urllib.request
+import base64, importlib, json, os, signal, subprocess, sys, threading, time, urllib.error, urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from types import SimpleNamespace
 from urllib.parse import quote
@@ -156,9 +156,10 @@ def test_a_long_replay_comes_in_pieces_of_64_kb_at_most(app, wired):
 
 
 def test_a_stream_ends_once_its_client_goes(app, wired, monkeypatch):
-    monkeypatch.setattr(wired.serve, "KEEP_ALIVE", 0.2)
-    gone, stream = threading.Event(), wired.serve.Handler.stream_terminals
-    monkeypatch.setattr(wired.serve.Handler, "stream_terminals", lambda self, q: (stream(self, q), gone.set()))
+    routes = importlib.import_module("lib.interfaces.http.routes.terminals")
+    monkeypatch.setattr(routes, "KEEP_ALIVE", 0.2)
+    gone, follow = threading.Event(), routes.follow_terminals
+    monkeypatch.setattr(routes, "follow_terminals", lambda out, offsets: (follow(out, offsets), gone.set()))
     req = urllib.request.Request(app.url + "/api/app/terminals/stream", headers={"X-Camarones": "1",
                                                                                  "X-Camaron-Token": TOKEN})
     with urllib.request.urlopen(req, timeout=20) as r:
