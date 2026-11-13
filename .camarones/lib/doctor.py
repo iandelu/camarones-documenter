@@ -7,7 +7,7 @@ import json
 from datetime import datetime, timezone
 
 from .common import CACHE, VERSIONS, WS_FILE
-from . import env, skills
+from . import skills
 from .app import services
 
 INSTALLABLE = ("git", "node", "docker", "java", "claude", "codex")   # adapters.prereqs.install_prereq knows how, per OS
@@ -18,7 +18,7 @@ CACHE_FILE = CACHE / "doctor.json"     # the last check, so the app shows it at 
 def report() -> dict:
     pre = [{"name": k, "ok": bool(v["ok"]), "need": bool(v["need"]), "found": v.get("found", ""), "hint": v["hint"],
             "note": v.get("note", ""), "fix": None if v["ok"] or k not in INSTALLABLE else
-            {"cmd": "doctor", "args": {"install": k}}} for k, v in env.prerequisites().items()]
+            {"cmd": "doctor", "args": {"install": k}}} for k, v in services.current().setup.prerequisites().items()]
     tools = []
     for name in PINNED:
         found = services.current().toolchain.tool_version(name)

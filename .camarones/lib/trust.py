@@ -2,8 +2,9 @@
 
 cam-docs is the team's repo (join/share) and its .claude/.codex/.agents/.mcp.json are linked into the workspace root,
 so anyone who can push to it could add a hook or an MCP server that runs on every teammate's machine. This module
-lists those surfaces, recognises what this kit writes itself (env.refresh_agent_config re-renders it for this machine)
-and keeps approvals per machine in ~/.camarones/trust/ — outside the repo, so nothing committed can approve itself.
+lists those surfaces, recognises what this kit writes itself (app.setup.refresh_agent_config re-renders it for this
+machine) and keeps approvals per machine in ~/.camarones/trust/ — outside the repo, so nothing committed can approve
+itself.
 Project plugins that run code (.camarones/plugins/, R28) are approved the same way, as one item per plugin folder."""
 from __future__ import annotations
 
@@ -265,10 +266,10 @@ def approve(ids: list[str] | None = None, root: Path | None = None) -> int:
 def decline(root: Path | None = None) -> list[str]:
     """Keep the agents of this machine away from the config: drop the workspace links (never a real file or folder).
     The approvals stay as they are, so the same items are asked again. Returns the links removed."""
-    from . import env
+    from .app import services
     if all(it.kind == "plugin" for it, _ in pending(root)):    # plugins simply stay off; the agent config is fine
         return []
-    return env.unlink_agent_config()
+    return services.current().setup.unlink_agent_config()
 
 
 def plugin_approved(plugin, root: Path | None = None) -> bool:

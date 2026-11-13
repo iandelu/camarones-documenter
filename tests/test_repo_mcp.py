@@ -79,7 +79,7 @@ def test_doctor_reports_and_repair_restores_a_repo_without_it(kit, claude, monke
     from lib import install_state
     off = {(d["path"], d["what"]) for d in install_state.drift()}
     assert ("api", "repo MCP (Claude Code)") in off
-    monkeypatch.setattr(wired.env, "wire_umbrella", lambda *a, **kw: None)          # repair's other steps need tools
+    monkeypatch.setattr(wired.services.setup, "wire_umbrella", lambda *a, **kw: None)          # repair's other steps need tools
     install_state.repair(log=lambda _: None)
     assert not [d for d in install_state.drift() if d["what"] == "repo MCP (Claude Code)"]
 

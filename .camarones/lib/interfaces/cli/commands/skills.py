@@ -74,8 +74,8 @@ def _rel(path: Path) -> str:
 
 
 def _rerender() -> None:
-    from lib import env
-    env.refresh_agent_config()
+    from lib.app import services
+    services.current().setup.refresh_agent_config()
 
 
 def _done(a, data: dict, line: str) -> int:

@@ -48,11 +48,10 @@ def apply(st: dict) -> dict:
 
 
 def set_enabled(on: bool) -> None:
-    from . import env
     ws = docs.workspace()
     ws["hooks"] = {**(ws.get("hooks") or {}), "method": bool(on)}
     docs.save_workspace(ws)
-    env.write_agent_config(services.current().components.components())
+    services.current().setup.write_agent_config(services.current().components.components())
 
 
 # ---------- the hooks themselves ----------

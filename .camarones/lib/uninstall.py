@@ -28,7 +28,12 @@ USER_DIR = HOME / ".camarones"
 USER_KEEP = {"kit"}                                              # the global install's kit copy (macOS/Linux)
 OPENWIKI_ENV = HOME / ".openwiki" / ".env"
 OPENWIKI_LINE = "OPENWIKI_TELEMETRY_DISABLED=1"
-POINTER_RE = re.compile(rf"\n*{re.escape(env.POINTER_START)}.*?{re.escape(env.POINTER_END)}\n?", re.S)
+
+
+def _pointer_re() -> re.Pattern[str]:
+    """The CLAUDE.md pointer block (app.setup.add_repo_pointer). Built at its use: services exist only after a build."""
+    s = services.current().setup
+    return re.compile(rf"\n*{re.escape(s.POINTER_START)}.*?{re.escape(s.POINTER_END)}\n?", re.S)
 
 
 @dataclass
@@ -56,9 +61,9 @@ class RepoCleaner(migrate.Cleaner):
             self.act("unlink openwiki", lambda: remove_link(ow))
         self.lines(".git/info/exclude", ["/openwiki"])
         cm = self.repo / "CLAUDE.md"
-        if cm.is_file() and env.POINTER_START in (text := cm.read_text(encoding="utf-8")) \
-                and env.POINTER_START not in (migrate.head_text(self.repo, "CLAUDE.md") or ""):
-            self.settle("CLAUDE.md", POINTER_RE.sub("", text))
+        if cm.is_file() and services.current().setup.POINTER_START in (text := cm.read_text(encoding="utf-8")) \
+                and services.current().setup.POINTER_START not in (migrate.head_text(self.repo, "CLAUDE.md") or ""):
+            self.settle("CLAUDE.md", _pointer_re().sub("", text))
         return super().run()
 
 

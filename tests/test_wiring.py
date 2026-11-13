@@ -24,19 +24,18 @@ def test_repos_only_get_the_optional_claude_pointer(wired):
 
 
 def test_repos_stay_clean_without_the_pointer(kit):
-    env = kit.env
     for r in kit.docs.repo_names():
-        env.wire_repo(r, log=lambda _: None, comps=["openwiki"])
+        kit.services.setup.wire_repo(r, log=lambda _: None, comps=["openwiki"])
         assert porcelain(kit.ws / r) == set()
 
 
 def test_pointer_is_idempotent_and_keeps_the_teams_text(kit):
     f = kit.ws / "api" / "CLAUDE.md"
     before = f.read_text(encoding="utf-8")
-    assert kit.env.add_repo_pointer("api") is True
-    assert kit.env.add_repo_pointer("api") is False
+    assert kit.services.setup.add_repo_pointer("api") is True
+    assert kit.services.setup.add_repo_pointer("api") is False
     text = f.read_text(encoding="utf-8")
-    assert text.startswith(before.rstrip()) and text.count(kit.env.POINTER_START) == 1
+    assert text.startswith(before.rstrip()) and text.count(kit.services.setup.POINTER_START) == 1
 
 
 def test_link_never_replaces_a_real_file(kit):
@@ -56,7 +55,7 @@ def test_workspace_links_point_into_cam_docs(wired):
 def test_linking_again_keeps_the_links_quietly(wired):
     """Windows without symlink rights links folders as junctions: a second setup must see them as its own links."""
     said = []
-    assert set(wired.env.link_workspace(log=said.append)) == set(wired.linked)
+    assert set(wired.services.setup.link_workspace(log=said.append)) == set(wired.linked)
     assert not [m for m in said if "already exists" in m]
 
 
@@ -86,8 +85,8 @@ def test_agent_config_merges_with_the_users_own(kit):
     (kit.root / ".claude").mkdir()
     (kit.root / ".claude" / "settings.json").write_text(json.dumps({"hooks": {"PreToolUse": [
         {"hooks": [{"command": "graphify hook"}]}, {"hooks": [{"command": "my-hook"}]}]}}), encoding="utf-8")
-    kit.env.write_agent_config(["likec4", "agents"])
-    kit.env.write_agent_config(["likec4", "agents"])                  # idempotent
+    kit.services.setup.write_agent_config(["likec4", "agents"])
+    kit.services.setup.write_agent_config(["likec4", "agents"])       # idempotent
     mcp = json.loads((kit.root / ".mcp.json").read_text(encoding="utf-8"))["mcpServers"]
     assert set(mcp) == {"mine", "camarones", "likec4"}
     toml = (kit.root / ".codex" / "config.toml").read_text(encoding="utf-8")
@@ -98,8 +97,8 @@ def test_agent_config_merges_with_the_users_own(kit):
 
 
 def test_dropping_a_component_removes_its_mcp_server(kit):
-    kit.env.write_agent_config(["likec4", "agents"])
-    kit.env.write_agent_config(["agents"])
+    kit.services.setup.write_agent_config(["likec4", "agents"])
+    kit.services.setup.write_agent_config(["agents"])
     assert "likec4" not in json.loads((kit.root / ".mcp.json").read_text(encoding="utf-8"))["mcpServers"]
 
 
@@ -162,14 +161,14 @@ def test_a_real_agent_folder_gets_the_kit_s_entries_linked_in(wired):
     from lib import install_state
     mine = own_folder(wired)
     assert any(d["path"].endswith("/.claude") and d.get("why") == "missing" for d in install_state.drift())
-    assert ".claude" in wired.env.link_workspace(log=lambda _: None) or not file_links(wired)
+    assert ".claude" in wired.services.setup.link_workspace(log=lambda _: None) or not file_links(wired)
     assert (mine / "settings.local.json").read_text(encoding="utf-8").startswith('{"permissions"')
     assert (mine / "skills").resolve() == (wired.root / ".claude" / "skills").resolve()
     if not file_links(wired):
         return
     assert not any(d["path"].endswith("/.claude") for d in install_state.drift())
     said = []
-    assert ".claude" in wired.env.link_workspace(log=said.append)                  # again: nothing to do, nothing said
+    assert ".claude" in wired.services.setup.link_workspace(log=said.append)       # again: nothing to do, nothing said
     assert not [m for m in said if ".claude" in m]
 
 
@@ -178,7 +177,7 @@ def test_an_entry_of_the_person_s_in_their_folder_is_kept_and_named_as_theirs(wi
     mine = own_folder(wired)
     (mine / "skills").mkdir()
     (mine / "skills" / "ours.md").write_text("ours\n", encoding="utf-8")
-    wired.env.link_workspace(log=lambda _: None)
+    wired.services.setup.link_workspace(log=lambda _: None)
     assert not wired.services.links._linked(mine / "skills") and (mine / "skills" / "ours.md").is_file()
     off = {d["path"]: d for d in install_state.drift()}
     assert off[f"{wired.ws.name}/.claude"]["why"] == "yours"
@@ -192,11 +191,11 @@ def test_the_person_s_own_claude_md_imports_the_kit_rules(wired):
     wired.services.links._unlink(mine)
     mine.write_text("# Our workspace\n\nRead this first.\n", encoding="utf-8")
     assert any(d["path"].endswith("/CLAUDE.md") for d in install_state.drift())
-    assert "CLAUDE.md" in wired.env.link_workspace(log=lambda _: None)
+    assert "CLAUDE.md" in wired.services.setup.link_workspace(log=lambda _: None)
     text = mine.read_text(encoding="utf-8")
     assert text.startswith("# Our workspace\n\nRead this first.\n") and text.rstrip().endswith("@AGENTS.md")
     assert not any(d["path"].endswith("/CLAUDE.md") for d in install_state.drift())
-    wired.env.link_workspace(log=lambda _: None)
+    wired.services.setup.link_workspace(log=lambda _: None)
     assert mine.read_text(encoding="utf-8") == text                                   # once
     assert wired.services.links.drop_kit_import(mine) is True
     assert mine.read_text(encoding="utf-8") == "# Our workspace\n\nRead this first.\n"
@@ -211,7 +210,7 @@ def test_a_file_of_the_person_s_that_cannot_be_merged_is_named_as_theirs(wired):
     agents.write_text("the team's own\n", encoding="utf-8")
     off = {d["path"]: d for d in install_state.drift()}
     assert off[f"{wired.ws.name}/AGENTS.md"]["why"] == "yours"
-    wired.env.link_workspace(log=lambda _: None)
+    wired.services.setup.link_workspace(log=lambda _: None)
     assert agents.read_text(encoding="utf-8") == "the team's own\n"
 
 
@@ -222,7 +221,7 @@ def test_the_import_keeps_the_person_s_line_endings_and_comes_out_byte_for_byte(
     wired.services.links._unlink(mine)
     original = b"# Ours\r\n\r\nWindows notes.\r\n"
     mine.write_bytes(original)
-    wired.env.link_workspace(log=lambda _: None)
+    wired.services.setup.link_workspace(log=lambda _: None)
     merged = mine.read_bytes()
     assert merged.startswith(original) and b"@AGENTS.md\r\n" in merged and b"\n" not in merged.replace(b"\r\n", b"")
     assert wired.services.links.drop_kit_import(mine) is True
@@ -235,7 +234,7 @@ def test_a_claude_md_without_a_final_newline_comes_back_as_it_was(wired):
     mine = wired.ws / "CLAUDE.md"
     wired.services.links._unlink(mine)
     mine.write_bytes(b"# Ours")
-    wired.env.link_workspace(log=lambda _: None)
+    wired.services.setup.link_workspace(log=lambda _: None)
     assert mine.read_bytes().startswith(b"# Ours\n") and b"@AGENTS.md" in mine.read_bytes()
     wired.services.links.drop_kit_import(mine)
     assert mine.read_bytes() == b"# Ours"

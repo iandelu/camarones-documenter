@@ -60,7 +60,7 @@ def test_a_linked_claude_folder_gets_no_settings_written_through_it(wired, tmp_p
     victim = folder(tmp_path, "fake-home", {"settings.json": '{"model": "mine"}\n'})
     before = snapshot(victim)
     plant(wired, ".claude", victim, folder=True)
-    wired.env.write_agent_config(COMPS)
+    wired.services.setup.write_agent_config(COMPS)
     assert snapshot(victim) == before
     assert (wired.root / ".claude").is_symlink()
 
@@ -68,7 +68,7 @@ def test_a_linked_claude_folder_gets_no_settings_written_through_it(wired, tmp_p
 def test_a_linked_settings_file_is_replaced_never_written_through(wired, tmp_path):
     victim = victim_file(tmp_path, "settings.json", '{"model": "mine"}\n')
     dst = plant(wired, ".claude/settings.json", victim)
-    wired.env.write_agent_config(COMPS)
+    wired.services.setup.write_agent_config(COMPS)
     assert victim.read_text(encoding="utf-8") == '{"model": "mine"}\n'
     assert not dst.is_symlink()
     st = json.loads(dst.read_text(encoding="utf-8"))
@@ -80,7 +80,7 @@ def test_a_linked_mcp_json_is_replaced_and_never_read_or_written_through(wired, 
         {"mcpServers": {"private": {"command": "x"}}, "oauthAccount": "secret"}))
     before = victim.read_bytes()
     dst = plant(wired, ".mcp.json", victim)
-    wired.env.write_agent_config(COMPS)
+    wired.services.setup.write_agent_config(COMPS)
     assert victim.read_bytes() == before
     assert not dst.is_symlink()
     cfg = json.loads(dst.read_text(encoding="utf-8"))
@@ -93,14 +93,14 @@ def test_a_linked_codex_folder_gets_nothing_written_or_removed_through_it(wired,
         "hooks.json": json.dumps({"hooks": {"Stop": [{"hooks": [{"command": "graphify hook"}]}]}})})
     before = snapshot(victim)
     plant(wired, ".codex", victim, folder=True)
-    wired.env.write_agent_config(COMPS)
+    wired.services.setup.write_agent_config(COMPS)
     assert snapshot(victim) == before
 
 
 def test_a_linked_codex_config_is_replaced_never_written_through(wired, tmp_path):
     victim = victim_file(tmp_path, "config.toml", 'model = "mine"\n')
     dst = plant(wired, ".codex/config.toml", victim)
-    wired.env.write_agent_config(COMPS)
+    wired.services.setup.write_agent_config(COMPS)
     assert victim.read_text(encoding="utf-8") == 'model = "mine"\n'
     assert not dst.is_symlink()
     text = dst.read_text(encoding="utf-8")
@@ -111,7 +111,7 @@ def test_a_linked_codex_hooks_file_is_left_alone(wired, tmp_path):
     victim = victim_file(tmp_path, "hooks.json", json.dumps({"hooks": {"Stop": [{"hooks": [{"command": "graphify"}]}]}}))
     before = victim.read_bytes()
     dst = plant(wired, ".codex/hooks.json", victim)
-    wired.env.write_agent_config(COMPS)
+    wired.services.setup.write_agent_config(COMPS)
     assert victim.read_bytes() == before and dst.is_symlink()
 
 
@@ -119,7 +119,7 @@ def test_a_linked_codex_hooks_file_is_left_alone(wired, tmp_path):
 def test_agent_instructions_behind_a_link_keep_their_graphify_section(wired, tmp_path, name):
     victim = victim_file(tmp_path, name, "# Mine\n\n## graphify\nrun it\n")
     plant(wired, name, victim)
-    wired.env.write_agent_config(COMPS)
+    wired.services.setup.write_agent_config(COMPS)
     assert victim.read_text(encoding="utf-8") == "# Mine\n\n## graphify\nrun it\n"
 
 
@@ -131,7 +131,7 @@ def test_refresh_before_trust_renders_the_kit_config_and_writes_nothing_through_
     plant(wired, ".claude", claude, folder=True)
     plant(wired, ".codex", codex, folder=True)
     plant(wired, ".mcp.json", mcp)
-    wired.env.refresh_agent_config()
+    wired.services.setup.refresh_agent_config()
     assert (snapshot(claude), snapshot(codex), mcp.read_bytes()) == before
     assert "camarones" in json.loads((wired.root / ".mcp.json").read_text(encoding="utf-8"))["mcpServers"]
 
@@ -255,7 +255,7 @@ def test_trust_asks_for_a_linked_claude_folder_and_writes_nothing_through_it(wir
     victim = folder(tmp_path, "fake-home", {"settings.json": '{"model": "mine"}\n'})
     before = snapshot(victim)
     plant(wired, ".claude", victim, folder=True)
-    wired.env.refresh_agent_config()
+    wired.services.setup.refresh_agent_config()
     assert "file .claude" in {it.id for it, _ in trust.pending()}
     assert snapshot(victim) == before
 
@@ -263,7 +263,7 @@ def test_trust_asks_for_a_linked_claude_folder_and_writes_nothing_through_it(wir
 def test_a_committed_link_to_the_workspace_s_own_folder_pre_approves_nothing(wired, trust):
     """First look trusts a project this machine already links. A committed `.agents → ../.agents` resolves to the
     person's own folder at the workspace root, which must not pass for such a link."""
-    wired.env.unlink_agent_config()
+    wired.services.setup.unlink_agent_config()
     trust.forget()
     own = wired.root.parent / ".agents"
     own.mkdir(exist_ok=True)

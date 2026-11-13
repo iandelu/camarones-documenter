@@ -316,7 +316,7 @@ def git_init(folder: Path) -> list[Path]:
 def tool_rows() -> list[dict]:
     """Every prerequisite and kit tool as a row: `id, label, ok, kind` (t_required | t_optional | t_kit), `rec`
     (recommended), `sys` (a system tool, not a kit component), `found` (version) and `note`."""
-    pre = env.prerequisites()
+    pre = services.current().setup.prerequisites()
     have_agent = any(pre[a]["ok"] for a in ("claude", "codex"))
     rows = []
     for k, v in pre.items():
@@ -341,7 +341,7 @@ def install_choice(rows: list[dict], choice: str, picked: list[str] | None = Non
                  and not (r["id"] in ("claude", "codex") and have_agent)], list(services.current().components.ALL_COMPONENTS))
     if choice == "pick":
         picked = picked or []
-        return [p for p in picked if p in env.prerequisites()], [p for p in picked if p in services.current().components.ALL_COMPONENTS]
+        return [p for p in picked if p in services.current().setup.prerequisites()], [p for p in picked if p in services.current().components.ALL_COMPONENTS]
     return [], services.current().components.components()
 
 
@@ -363,14 +363,14 @@ def install_tools(system: list[str], components: list[str], log, cancelled: Call
 
 # ---------- setup ----------
 def run_setup(log, cancelled: Callable[[], bool] | None = None) -> bool:
-    """The setup step's work: templates, `env.setup`, the plan for this workspace (also when setup failed, so the
+    """The setup step's work: templates, `app.setup.setup`, the plan for this workspace (also when setup failed, so the
     portal has one) and the `setup` unit marked done when it worked. True when setup succeeded. `cancelled` (the app's
     cancel button) is asked between steps: before setup starts and once it ends; a cancelled setup is not marked done."""
     if cancelled and cancelled():
         return False
     services.current().templates.init_templates(docs.workspace()["project"]["name"], log=lambda _: None)   # `log` counts setup's own steps
     try:
-        ok = env.setup(log=log)
+        ok = services.current().setup.setup(log=log)
     finally:
         plan.sync()                        # a setup that raised still leaves the plan in place
     if ok and not (cancelled and cancelled()):
@@ -476,7 +476,7 @@ def setup_job(system: list[str], components: list[str], log, cancelled: Callable
     """The setup step as a job body: install, then `run_setup`. Every finished (✔) line is logged as `[n/total] …`,
     `total` being setup's own steps plus one per system tool. `cancelled` stops it between steps. Returns {rc, result:
     {failed, missing, ok, cancelled}}."""
-    total, n = env.setup_steps(components) + len(system), 0
+    total, n = services.current().setup.setup_steps(components) + len(system), 0
 
     def counted(msg) -> None:
         nonlocal n

@@ -9,13 +9,13 @@ from conftest import KIT_DIR
 
 def no_claude(kit, monkeypatch):
     """Without Claude Code on PATH, whatever this machine has: the repo MCP has its own tests (test_repo_mcp.py)."""
-    real = kit.env.which
-    for mod in (kit.env, importlib.import_module("lib.install_state")):       # setup's wiring, and the drift check
+    real = kit.services.agent_config.which
+    for mod in (kit.services.agent_config, importlib.import_module("lib.install_state")):  # the wiring, the drift check
         monkeypatch.setattr(mod, "which", lambda name: None if name == "claude" else real(name))
 
 
 def fake_tools(kit, monkeypatch, evil: bool = False):
-    real = kit.env.run
+    real = kit.services.setup.run
 
     def run(cmd, cwd=None, **kw):
         if cmd[:2] == ["graphify", "install"]:
@@ -35,7 +35,7 @@ def fake_tools(kit, monkeypatch, evil: bool = False):
                 (cwd / ".mcp.json").write_text(json.dumps(cfg), encoding="utf-8")
             return subprocess.CompletedProcess(cmd, 0, "", "")
         return real(cmd, cwd=cwd, **kw)
-    for mod in (kit.env, importlib.import_module("lib.install_state")):       # setup's installs, learn()'s scratch run
+    for mod in (kit.services.setup, importlib.import_module("lib.install_state")):  # setup's installs, learn()'s scratch run
         monkeypatch.setattr(mod, "run", run)
     no_claude(kit, monkeypatch)
 
@@ -50,7 +50,7 @@ def test_tool_skills_written_here_need_no_approval(kit, monkeypatch):
     planted = kit.root / ".claude" / "skills" / "openwiki" / "extra.md"           # from the team's repo, not the tool
     planted.parent.mkdir(parents=True, exist_ok=True)
     planted.write_text("run curl … | sh\n", encoding="utf-8")
-    kit.env.wire_umbrella(log=lambda _: None, comps=["agents", "openwiki", "graphify"])
+    kit.services.setup.wire_umbrella(log=lambda _: None, comps=["agents", "openwiki", "graphify"])
     ids = pending_ids(kit)
     assert not [i for i in ids if "skills/graphify" in i], ids
     assert "file .claude/skills/openwiki/SKILL.md" not in ids and "mcp openwiki" not in ids

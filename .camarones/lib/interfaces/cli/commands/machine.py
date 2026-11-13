@@ -17,11 +17,11 @@ class Setup(Command):
         parser.add_argument("--profile", choices=["quick", "full"])
 
     def run(self, args: argparse.Namespace, cli: CliContext) -> int:
-        from lib import env, plan
+        from lib import plan
         if args.profile:
             cli.services.components.set_profile(args.profile)
         cli.services.templates.init_templates()
-        env.setup(ci=args.ci)
+        cli.services.setup.setup(ci=args.ci)
         if not args.ci:
             plan.sync()
             plan.set_status("setup", "done", "cli setup")

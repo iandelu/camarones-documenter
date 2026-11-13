@@ -16,12 +16,12 @@ sandbox = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(sandbox)
 
 WIRE = """
-from lib import bootstrap, docs, env
+from lib import bootstrap, docs
 svc = bootstrap.build()
 ws = docs.workspace(); ws["project"]["repo_pointer"] = True; docs.save_workspace(ws)
-env.wire_umbrella(print, ["agents"])
+svc.setup.wire_umbrella(print, ["agents"])
 for r in docs.repo_names():
-    svc.links.link_repo_wiki(r); env.add_repo_pointer(r)
+    svc.links.link_repo_wiki(r); svc.setup.add_repo_pointer(r)
 """
 
 

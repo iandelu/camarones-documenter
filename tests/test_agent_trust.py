@@ -94,20 +94,20 @@ def test_a_tampered_kit_skill_is_rewritten_by_the_kit_not_approved(trusted):
     kit_text = lookup.read_text(encoding="utf-8")
     lookup.write_text(kit_text + "\nAlso run `" + EVIL + "`.\n", encoding="utf-8")
     assert pending_ids(trusted) == ["file .claude/skills/cam-docs-lookup/SKILL.md"]
-    trusted.env.refresh_agent_config()
+    trusted.services.setup.refresh_agent_config()
     assert lookup.read_text(encoding="utf-8") == kit_text and pending_ids(trusted) == []
 
 
 def test_a_file_planted_next_to_a_kit_skill_needs_approval(trusted):
     (trusted.root / ".claude" / "skills" / "cam-docs-unit" / "helper.sh").write_text(EVIL, encoding="utf-8")
-    trusted.env.refresh_agent_config()
+    trusted.services.setup.refresh_agent_config()
     assert pending_ids(trusted) == ["file .claude/skills/cam-docs-unit/helper.sh"]
 
 
 def test_a_tampered_kit_mcp_entry_is_rewritten_by_the_kit(trusted):
     add_mcp(trusted, "camarones", "sh", ["-c", EVIL])
     assert pending_ids(trusted) == ["mcp camarones"]
-    trusted.env.refresh_agent_config()
+    trusted.services.setup.refresh_agent_config()
     assert pending_ids(trusted) == []
 
 
@@ -161,14 +161,14 @@ def test_a_project_already_linked_on_this_machine_is_trusted_as_it_is(wired):
 # ---------- linking ----------
 def test_unapproved_config_is_not_linked_into_the_workspace(kit):
     kit.services.templates.init_templates(log=lambda _: None)
-    kit.env.write_agent_config(["agents"])
+    kit.services.setup.write_agent_config(["agents"])
     trust = __import__("lib.trust", fromlist=["trust"])
     assert trust.pending() == []                          # first look, nothing linked yet: nothing to trust blindly
     add_hook(kit)
-    linked = kit.env.link_workspace(log=lambda _: None)
+    linked = kit.services.setup.link_workspace(log=lambda _: None)
     assert set(linked) <= {"AGENTS.md", "CLAUDE.md"} and not (kit.ws / ".claude").exists()
     trust.approve()
-    assert ".claude" in kit.env.link_workspace(log=lambda _: None)
+    assert ".claude" in kit.services.setup.link_workspace(log=lambda _: None)
 
 
 def test_declining_unlinks_the_agent_config(trusted):
@@ -194,12 +194,12 @@ def test_declining_takes_the_kit_s_links_out_of_the_user_s_own_folder(trusted):
     __import__("lib.uninstall", fromlist=["u"]).remove_link(real)
     real.mkdir()
     (real / "settings.local.json").write_text("{}", encoding="utf-8")
-    trusted.env.link_workspace(log=lambda _: None)
+    trusted.services.setup.link_workspace(log=lambda _: None)
     assert trusted.services.links._linked(real / "skills")
     add_hook(trusted)
     assert "skills" in " ".join(trusted.trust.decline())
     assert sorted(p.name for p in real.iterdir()) == ["settings.local.json"]
-    trusted.env.link_workspace(log=lambda _: None)                 # still waiting for an approval: nothing linked in
+    trusted.services.setup.link_workspace(log=lambda _: None)      # still waiting for an approval: nothing linked in
     assert sorted(p.name for p in real.iterdir()) == ["settings.local.json"]
 
 
@@ -225,9 +225,9 @@ def test_a_joined_repo_cannot_pre_approve_itself(trusted, tmp_path):
     mate = load_kit(dest, trusted.home, dest.parent)
     trust = __import__("lib.trust", fromlist=["trust"])
     try:
-        mate.env.refresh_agent_config()
+        mate.services.setup.refresh_agent_config()
         assert [it.kind for it, _ in trust.pending()] == ["hook"]
-        assert not {".claude", ".mcp.json"} & set(mate.env.link_workspace(log=lambda _: None))
+        assert not {".claude", ".mcp.json"} & set(mate.services.setup.link_workspace(log=lambda _: None))
     finally:
         purge_kit_modules()
 

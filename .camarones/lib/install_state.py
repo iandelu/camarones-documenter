@@ -133,10 +133,10 @@ def drift() -> list[dict]:
 def repair(log=print) -> list[dict]:
     """Put back what the kit owns: its skills and agent config, the agent tools' skills, the links. Never touches the
     team's pages or files the kit did not write. Returns what is still off (links held back by trust, say)."""
-    from . import docs, env
+    from . import docs
     from .app import services
     comps = services.current().components.components()
-    env.wire_umbrella(log, comps)
+    services.current().setup.wire_umbrella(log, comps)
     if "openwiki" in comps and "agents" in comps:
         learn(services.current().wiki_engine.OPENWIKI_INSTALL, restore=True)
     if "openwiki" in comps:

@@ -57,11 +57,13 @@ def codex_models() -> list[dict]:
 
 
 def panel() -> dict:
-    from . import agents, docs, env, install_state, terminals
+    from . import agents, docs, install_state, terminals
+    from .app import services
     ws = docs.workspace()
     repos = [{"name": r["name"], "url": r.get("url", ""), "stack": r.get("stack", ""),
               "cloned": repo_dir(r["name"]).is_dir()} for r in ws["repos"]]
-    return {"settings": settings(), "models": MODELS, "codex_models": codex_models(), "agents": agents.installed(), "setup_steps": env.setup_steps(),
+    return {"settings": settings(), "models": MODELS, "codex_models": codex_models(), "agents": agents.installed(),
+            "setup_steps": services.current().setup.setup_steps(),
             "sessions": list(SESSIONS), "terminals": terminals.available(), "repos": repos, "profile": ws["project"].get("profile"),
             "setup": install_state.last_setup(),
             "kit": {"version": VERSIONS["kit"], "global": bool(os.environ.get("CAMARONES_GLOBAL"))}}

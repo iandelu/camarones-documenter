@@ -18,7 +18,6 @@ class ArchValidate(Command):
 
 
 def cmd_doctor(a, cli: CliContext) -> int:
-    from lib import env
     from lib.common import VERSIONS
     from lib.core.paths import cli_cmd
     if a.context:
@@ -32,13 +31,13 @@ def cmd_doctor(a, cli: CliContext) -> int:
         from lib import doctor
         ok = doctor.install(a.install)
         print(f"✔ {a.install} installed" if ok else f"✖ {a.install} could not be installed here: "
-              f"{env.prerequisites().get(a.install, {}).get('hint', a.install)}", file=sys.stdout if ok else sys.stderr)
+              f"{cli.services.setup.prerequisites().get(a.install, {}).get('hint', a.install)}", file=sys.stdout if ok else sys.stderr)
         return 0 if ok else 1
     elif a.json:
         from lib import doctor
         print(json.dumps(doctor.report(), indent=2, ensure_ascii=False))
     else:
-        for k, v in env.prerequisites().items():
+        for k, v in cli.services.setup.prerequisites().items():
             print(f"{'✔' if v['ok'] else ('✖' if v['need'] else '·')} {k:<7} {v.get('found', '')}  {'' if v['ok'] else v['hint']}")
             if v.get("note"):
                 print(f"          {v['note']}")

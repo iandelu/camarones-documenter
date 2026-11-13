@@ -1058,7 +1058,7 @@ class W:
     def trust_check(self) -> None:
         """Agent config from the team's repo that this machine has not approved: show what it runs and ask (lib/trust.py)."""
         from . import trust
-        env.refresh_agent_config()
+        services.current().setup.refresh_agent_config()
         rows = trust.grouped(trust.pending())
         if not rows:
             return
@@ -1070,7 +1070,7 @@ class W:
         console.print(tbl)
         if self.yes(self.t("trust_q"), default=False):
             trust.approve()
-            env.link_workspace(log=lambda _: None)
+            services.current().setup.link_workspace(log=lambda _: None)
             self.say(self.t("trust_ok"), "green")
         else:
             trust.decline()
@@ -1240,8 +1240,8 @@ class W:
             if sys_pick:
                 self.say(f"[bold]{self.t('t_installing')}: {', '.join(sys_pick)}[/]")
             for k in onboard.install_tools(sys_pick, kit_pick, lambda m: self.say("  " + m, "grey62")):
-                self.say(self.t("manual", hint=env.prerequisites().get(k, {}).get("hint", k)), "yellow")
-            if all(v["ok"] for v in env.prerequisites().values() if v["need"]):
+                self.say(self.t("manual", hint=services.current().setup.prerequisites().get(k, {}).get("hint", k)), "yellow")
+            if all(v["ok"] for v in services.current().setup.prerequisites().values() if v["need"]):
                 return None
             self.say(self.t("reopen"), "yellow")
             self.pause()
@@ -1251,7 +1251,7 @@ class W:
         self.repo_pointer()
         self.ask_usage()
         self.say(f"[bold]{self.t('setup_run')}[/]")
-        ok = self.safe(self.busy, onboard.run_setup, total=env.setup_steps())
+        ok = self.safe(self.busy, onboard.run_setup, total=services.current().setup.setup_steps())
         if ok:
             self.say(self.t("setup_ok"), f"bold {ORANGE}")
         while True:
@@ -1272,7 +1272,7 @@ class W:
                 self.banner()
                 self.add_token(host)
             self.banner()
-            ok = self.safe(self.busy, env.setup, total=env.setup_steps())
+            ok = self.safe(self.busy, services.current().setup.setup, total=services.current().setup.setup_steps())
             if ok:
                 plan.set_status("setup", "done", "wizard")
                 install_state.mark_setup()
@@ -1291,7 +1291,7 @@ class W:
     def prereqs(self) -> bool:
         ok = True
         have_agent = [a for a in ("claude", "codex") if which(a)]
-        for k, v in env.prerequisites().items():
+        for k, v in services.current().setup.prerequisites().items():
             mark = "✔" if v["ok"] else ("✖" if v["need"] else "·")
             extra = v.get("found", "")
             if k in ("claude", "codex") and not v["ok"]:
@@ -2311,7 +2311,7 @@ class W:
             self.retry_missing(onboard.missing_repos())
             for n in docs.repo_names():
                 if (repo_dir(n) / ".git").exists() and not services.current().code.repo_graph(n).exists():
-                    self.safe(self.busy, env.wire_one, n)
+                    self.safe(self.busy, services.current().setup.wire_one, n)
             plan.sync()
 
     def do_share(self) -> None:
@@ -2439,7 +2439,7 @@ class W:
             return False
         self.repo_pointer()
         self.banner()
-        ok = self.safe(self.busy, env.setup, total=env.setup_steps())
+        ok = self.safe(self.busy, services.current().setup.setup, total=services.current().setup.setup_steps())
         plan.sync()
         if ok:
             plan.set_status("setup", "done", "wizard")

@@ -15,7 +15,7 @@ def cli(kit, *args):
 
 def test_report_names_each_check_and_how_to_fix_it(kit, monkeypatch):
     from lib import doctor
-    monkeypatch.setattr(doctor.env, "prerequisites", lambda: {
+    monkeypatch.setattr(kit.services.setup, "prerequisites", lambda: {
         "git": {"ok": True, "need": True, "hint": "git"},
         "codex": {"ok": False, "need": False, "hint": "Codex CLI"}})
     monkeypatch.setattr(kit.services.toolchain, "tool_version", lambda name: "1.59.4" if name == "likec4" else "")

@@ -91,7 +91,7 @@ def test_what_the_kit_put_in_the_person_s_own_folder_and_claude_md_goes_too(un, 
         own[n] = p
     (kit.root / ".tours").mkdir(exist_ok=True)
     (kit.root / ".tours" / "kit.tour").write_text("{}", encoding="utf-8")
-    kit.env.link_workspace(log=lambda _: None)
+    kit.services.setup.link_workspace(log=lambda _: None)
     assert kit.services.links._linked(own[".claude"] / "skills")
     labels = "\n".join(s.label for s in kit.uninstall.steps())
     assert f"{kit.ws.name}/.claude/skills" in labels
@@ -110,7 +110,7 @@ def test_the_import_line_in_the_person_s_claude_md_is_taken_out(un, monkeypatch)
     mine = kit.ws / "CLAUDE.md"
     kit.services.links._unlink(mine)
     mine.write_text("# Ours\n", encoding="utf-8")
-    kit.env.link_workspace(log=lambda _: None)
+    kit.services.setup.link_workspace(log=lambda _: None)
     assert "@AGENTS.md" in mine.read_text(encoding="utf-8")
     assert any("CLAUDE.md" in s.label and s.kind == "edit" for s in kit.uninstall.steps())
     run(kit, backup=False)
