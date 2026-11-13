@@ -90,9 +90,9 @@ _MAP: dict[str, tuple[str, ...]] = {
     "ci": ("detect_forge", "install_ci"),
 }
 HOME: dict[str, str] = {name: home for home, names in _MAP.items() for name in names}
+# MOVED: the homes whose names have moved; each task adds its own
 MOVED: set[str] = {"ports", "adapters.system.os_open", "adapters.likec4", "adapters.fs_links", "adapters.agent_config",
                    "adapters.prereqs", "adapters.graphify", "adapters.openwiki", "core.paths"}
-# the homes whose names have moved; each task adds its own
 NEW: set[str] = {home for home in _MAP if home.startswith(("adapters.", "app."))}   # the modules F4 creates
 
 TEST_READS = (re.compile(r"(?<![\w.])(?:kit\.)?(?:\w+\.)?env\.([A-Za-z_]\w*)"), re.compile(r"lib\.env\.([A-Za-z_]\w*)"),
