@@ -4,7 +4,6 @@ from __future__ import annotations
 import os
 import re
 import subprocess
-from pathlib import Path
 
 from lib import docs
 from lib.app import services

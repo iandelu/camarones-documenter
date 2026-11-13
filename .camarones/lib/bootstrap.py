@@ -90,6 +90,11 @@ def _portal() -> object:
     return portal
 
 
+def _export_site() -> object:
+    from lib.app import export_site
+    return export_site
+
+
 PROVIDERS: dict[str, Callable[[], object]] = {
     "launcher": _launcher,
     "diagrams": _diagrams,
@@ -107,6 +112,7 @@ PROVIDERS: dict[str, Callable[[], object]] = {
     "share": _share,
     "wiki": _wiki,
     "portal": _portal,
+    "export_site": _export_site,
 }
 
 

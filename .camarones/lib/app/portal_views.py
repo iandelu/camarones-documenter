@@ -1,5 +1,5 @@
 """The docs as the portal shows them: the index, a page with its trust and sources, the review status, the decisions
-that cover a page. The live server's routes and the static export (`env.export_site`) both build their JSON here."""
+that cover a page. The live server's routes and the static export (`app.export_site`) both build their JSON here."""
 from __future__ import annotations
 
 import logging

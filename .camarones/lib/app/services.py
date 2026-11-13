@@ -39,6 +39,7 @@ class Services:
     share: ModuleType
     wiki: ModuleType
     portal: ModuleType
+    export_site: ModuleType
 
     def __init__(self, providers: Mapping[str, Callable[[], object]]) -> None:
         object.__setattr__(self, "_providers", dict(providers))

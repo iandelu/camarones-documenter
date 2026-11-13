@@ -14,8 +14,7 @@ from lib.interfaces.cli.registry import CliContext, Command, command
 @command("portal", "app", "team", es="Exportar el portal de solo lectura", en="Export the read-only portal")
 class Portal(Command):
     def run(self, args: argparse.Namespace, cli: CliContext) -> int:
-        from lib import env
-        env.portal()
+        cli.services.export_site.portal()
         return 0
 
 

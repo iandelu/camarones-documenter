@@ -188,14 +188,13 @@ class Up(Command):
         parser.add_argument("--foreground", action="store_true")
 
     def run(self, args: argparse.Namespace, cli: CliContext) -> int:
-        from lib import env
         from lib.core.paths import CACHE
         if args.foreground:
             from lib.interfaces.http.server import run_server
             run_server(args.port, static=args.static)
         elif args.docker or args.static:
             if not (CACHE / "site" / "index.html").exists():
-                env.portal()
+                cli.services.export_site.portal()
             (cli.services.portal.docker_up if args.docker else cli.services.portal.serve_local)(args.port)
         else:
             cli.services.portal.serve_editor(args.port)

@@ -170,12 +170,12 @@ def test_the_tree_marks_as_decisions_the_pages_the_app_lists(serve_mod):
 
 # ---------- static export ----------
 def test_static_export_carries_the_new_fields(serve_mod, monkeypatch):
-    env, docs = serve_mod.env, serve_mod.docs
+    docs = serve_mod.docs
     serve_mod.services.components.set_components(["agents"])
     monkeypatch.setattr(docs, "vendor_file", lambda *_a: None)
     monkeypatch.setattr(docs, "vendor", lambda _site: (0, []))
     page(serve_mod.root / "docs" / "architecture", "views.c4", VIEWS_C4)
-    site = env.export_site(log=lambda _: None)
+    site = serve_mod.services.export_site.export_site(log=lambda _: None)
     tree = json.loads((site / "api" / "tree.json").read_text(encoding="utf-8"))
     assert {d["path"]: d["space"] for d in tree["docs"]}["wikis/api/http-api.md"] == "wiki"
     assert "flow_checkout" in [v["id"] for v in tree["views"]]
@@ -191,7 +191,7 @@ def test_static_export_carries_the_new_fields(serve_mod, monkeypatch):
 
 
 def test_static_export_carries_the_decisions_that_cover_each_page(serve_mod, monkeypatch):
-    env, docs = serve_mod.env, serve_mod.docs
+    docs = serve_mod.docs
     serve_mod.services.components.set_components(["agents"])
     monkeypatch.setattr(docs, "vendor_file", lambda *_a: None)
     monkeypatch.setattr(docs, "vendor", lambda _site: (0, []))
@@ -199,7 +199,7 @@ def test_static_export_carries_the_decisions_that_cover_each_page(serve_mod, mon
     page(root, "orders.md", "---\ntitle: Orders\nx-sources:\n  - api:src/S.java\n---\n# Orders\n")
     page(root / "i18n" / "es", "orders.md", "---\ntitle: Pedidos\n---\n# Pedidos\n")
     page(root, "decisions/0003-jpa.md", "---\nx-sources:\n  - api:src/S.java\n---\n# 0003 — JPA\n\n## Estado\n\nAceptada\n")
-    site = env.export_site(log=lambda _: None)
+    site = serve_mod.services.export_site.export_site(log=lambda _: None)
     read = lambda lang, rel: json.loads((site / "api" / "doc" / lang / f"{rel}.json").read_text(encoding="utf-8"))  # noqa: E731
     covering = [{"id": "0003", "title": "JPA", "path": "decisions/0003-jpa.md", "kind": "retro", "implementation": "n/a"}]
     assert read("_", "orders.md")["decisions"] == covering and read("es", "orders.md")["decisions"] == covering
@@ -240,10 +240,10 @@ def test_code_maps_are_listed_served_and_exported(serve_mod, monkeypatch):
     serve_mod.codemap = importlib.import_module("lib.codemap")
     write_graph(serve_mod)
     assert serve_mod.serve.tree()["codeMaps"] == ["api"]
-    env, docs = serve_mod.env, serve_mod.docs
+    docs = serve_mod.docs
     serve_mod.services.components.set_components(["agents"])
     monkeypatch.setattr(docs, "vendor_file", lambda *_a: None)
     monkeypatch.setattr(docs, "vendor", lambda _site: (0, []))
-    site = env.export_site(log=lambda _: None)
+    site = serve_mod.services.export_site.export_site(log=lambda _: None)
     m = json.loads((site / "api" / "codemap" / "api.json").read_text(encoding="utf-8"))
     assert m["stats"]["files"] == 5

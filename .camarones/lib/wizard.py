@@ -2143,7 +2143,7 @@ class W:
             if not c:
                 return
             if c == "build":
-                self.safe(self.busy, env.portal, total=env.portal_steps())
+                self.safe(self.busy, services.current().export_site.portal, total=services.current().export_site.portal_steps())
             elif c in ("live", "up", "local"):
                 v = self.txt(self.t("port"), default=str(port))
                 if v is None:
@@ -2161,7 +2161,7 @@ class W:
                                 continue
                             c = "local"
                     if not (CACHE / "site" / "index.html").exists() and \
-                            self.safe(self.busy, env.portal, total=env.portal_steps()) is None:
+                            self.safe(self.busy, services.current().export_site.portal, total=services.current().export_site.portal_steps()) is None:
                         continue                                # build failed: the error is already on screen
                     url = self.safe(self.busy, services.current().portal.docker_up if c == "up" else services.current().portal.serve_local, port, total=1)
                     if not url and c == "up" and self.yes(self.t("p_docker_fail"), default=True):
