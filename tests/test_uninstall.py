@@ -1,7 +1,7 @@
 """Undo everything: the project's docs, its links, every trace in the repos and (opt-in) the user-level files."""
 from __future__ import annotations
 
-import json, os, subprocess, sys, zipfile
+import importlib, json, os, subprocess, sys, zipfile
 from pathlib import Path
 
 import pytest
@@ -147,7 +147,7 @@ def test_only_this_project_leaves_the_registry(un, before, tmp_path):
 
 def test_a_pending_openwiki_run_is_undone_first(un, before):
     kit = un
-    kit.env.wiki_open("api", log=lambda _: None)
+    kit.services.wiki_engine.wiki_open("api", log=lambda _: None)
     (kit.ws / "api" / "AGENTS.md").write_text("openwiki snippet", encoding="utf-8")
     (kit.ws / "api" / "CLAUDE.md").write_text("openwiki snippet", encoding="utf-8")
     run(kit, backup=False)
@@ -236,8 +236,8 @@ def test_guard_kit_inside_the_project(un, monkeypatch):
 
 
 def test_guard_running_openwiki(un, before, monkeypatch):
-    un.env.WIKI_LOCK.parent.mkdir(parents=True, exist_ok=True)
-    un.env.WIKI_LOCK.write_text('{"pid": 999999, "repo": "api"}', encoding="utf-8")
+    importlib.import_module("lib.core.paths").WIKI_LOCK.parent.mkdir(parents=True, exist_ok=True)
+    importlib.import_module("lib.core.paths").WIKI_LOCK.write_text('{"pid": 999999, "repo": "api"}', encoding="utf-8")
     monkeypatch.setattr(un.uninstall, "pid_alive", lambda pid: True)
     assert "OpenWiki" in un.uninstall.guard()
     monkeypatch.setattr(un.uninstall, "pid_alive", lambda pid: False)

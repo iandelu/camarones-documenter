@@ -20,6 +20,8 @@ WORK = CTX.work                # plan, handoff, session log (committed, hidden f
 WS_FILE = CTX.ws_file                              # project config: per-project, never shared across projects
 CACHE = CTX.cache                                  # generated, git-ignored: portal build, site, code graph, vendor cache
 GRAPHS = CTX.graphs                                # per-repo graphify output (git-ignored), kept out of the repos
+WIKI_STAMP = ".camaron.json"   # in wikis/<repo>/, next to OpenWiki's own dot-files; hidden from the docs
+WIKI_LOCK = CACHE / "wiki.lock"
 
 
 def repo_dir(name: str) -> Path:

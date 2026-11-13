@@ -1,7 +1,7 @@
 """Work plan units and the OpenWiki run lifecycle (choice of repos, brief requirement, open/close, one run at a time)."""
 from __future__ import annotations
 
-import json, os
+import importlib, json, os
 
 import pytest
 
@@ -66,14 +66,14 @@ def test_available_follows_dependencies(kit):
 def test_close_without_open_is_a_no_op(wired):
     agents = wired.ws / "api" / "AGENTS.md"
     agents.write_text("the repo's own", encoding="utf-8")
-    assert wired.env.wiki_close("api", log=lambda _: None) is False
+    assert wired.services.wiki_engine.wiki_close("api", log=lambda _: None) is False
     assert agents.read_text(encoding="utf-8") == "the repo's own"
 
 
 def test_open_close_round_trip_restores_the_repo(wired):
-    env, links, repo = wired.env, wired.services.links, wired.ws / "api"
+    engine, links, repo = wired.services.wiki_engine, wired.services.links, wired.ws / "api"
     claude_before = (repo / "CLAUDE.md").read_text(encoding="utf-8")
-    env.wiki_open("api", log=lambda _: None)
+    engine.wiki_open("api", log=lambda _: None)
     ow = repo / "openwiki"
     assert ow.is_dir() and not links._is_link(ow)
     (ow / "index.md").write_text("# api wiki\n", encoding="utf-8")        # what OpenWiki writes during the run
@@ -81,38 +81,38 @@ def test_open_close_round_trip_restores_the_repo(wired):
     (repo / "CLAUDE.md").write_text("openwiki snippet", encoding="utf-8")
     (repo / ".github" / "workflows").mkdir(parents=True)
     (repo / ".github" / "workflows" / "openwiki-update.yml").write_text("on: push", encoding="utf-8")
-    assert env.wiki_close("api", log=lambda _: None) is True
+    assert engine.wiki_close("api", log=lambda _: None) is True
     assert (wired.root / "wikis" / "api" / "index.md").is_file()
     assert links._is_link(ow)
     assert not (repo / "AGENTS.md").exists() and not (repo / ".github").exists()
     assert (repo / "CLAUDE.md").read_text(encoding="utf-8") == claude_before
-    assert env.wiki_close("api", log=lambda _: None) is False               # a second close changes nothing
+    assert engine.wiki_close("api", log=lambda _: None) is False               # a second close changes nothing
 
 
 @pytest.mark.parametrize("ending", [b"\n", b"\r\n"])
 def test_close_restores_the_repos_files_byte_for_byte(wired, ending):
     """A close used to write the saved text back with the platform's line endings: on Windows an LF AGENTS.md came
     back CRLF (same content, every line changed), and a CRLF one came back LF everywhere."""
-    env, repo = wired.env, wired.ws / "api"
+    engine, repo = wired.services.wiki_engine, wired.ws / "api"
     own = ending.join([b"# api", b"", b"Rules for agents \xe2\x80\x94 ours.", b""])
     (repo / "AGENTS.md").write_bytes(own)
     (repo / "CLAUDE.md").write_bytes(own)
-    env.wiki_open("api", log=lambda _: None)
+    engine.wiki_open("api", log=lambda _: None)
     (repo / "AGENTS.md").write_text("openwiki snippet\n", encoding="utf-8")   # OpenWiki rewrites one, leaves the other
-    assert env.wiki_close("api", log=lambda _: None) is True
+    assert engine.wiki_close("api", log=lambda _: None) is True
     assert (repo / "AGENTS.md").read_bytes() == own
     assert (repo / "CLAUDE.md").read_bytes() == own
 
 
 def test_close_reads_a_state_saved_by_an_older_kit(wired):
     """Kits up to 4.80.1 saved the files as universal-newline text: a close still restores them, with LF."""
-    env, repo = wired.env, wired.ws / "api"
+    engine, repo = wired.services.wiki_engine, wired.ws / "api"
     state = wired.root / ".camarones" / ".cache" / "wiki-open" / "api.json"
-    env.wiki_open("api", log=lambda _: None)
+    engine.wiki_open("api", log=lambda _: None)
     state.write_text(json.dumps({"AGENTS.md": "# api\nold kit\n", "CLAUDE.md": None,
                                  ".github/workflows/openwiki-update.yml": None}), encoding="utf-8")
     (repo / "AGENTS.md").write_text("openwiki snippet\n", encoding="utf-8")
-    assert env.wiki_close("api", log=lambda _: None) is True
+    assert engine.wiki_close("api", log=lambda _: None) is True
     assert (repo / "AGENTS.md").read_bytes() == b"# api\nold kit\n"
 
 
@@ -126,18 +126,18 @@ def test_brief_is_not_a_page(wired):
 
 
 def test_one_wiki_run_at_a_time(wired, monkeypatch):
-    env = wired.env
-    env.WIKI_LOCK.parent.mkdir(parents=True, exist_ok=True)
-    env.WIKI_LOCK.write_text('{"pid": 999999, "repo": "web"}', encoding="utf-8")
+    paths, engine = importlib.import_module("lib.core.paths"), wired.services.wiki_engine
+    paths.WIKI_LOCK.parent.mkdir(parents=True, exist_ok=True)
+    paths.WIKI_LOCK.write_text('{"pid": 999999, "repo": "web"}', encoding="utf-8")
     from lib.core import locks                                            # liveness moved there with the shared FileLock
     monkeypatch.setattr(locks, "pid_alive", lambda pid: True)
     with pytest.raises(RuntimeError, match="another OpenWiki run"):
-        with env.wiki_lock("api"):
+        with engine.wiki_lock("api"):
             pass
     monkeypatch.setattr(locks, "pid_alive", lambda pid: False)            # a dead holder does not block
-    with env.wiki_lock("api"):
-        assert f'"pid": {os.getpid()}' in env.WIKI_LOCK.read_text(encoding="utf-8")
-    assert not env.WIKI_LOCK.exists()
+    with engine.wiki_lock("api"):
+        assert f'"pid": {os.getpid()}' in paths.WIKI_LOCK.read_text(encoding="utf-8")
+    assert not paths.WIKI_LOCK.exists()
 
 
 @pytest.fixture
@@ -181,7 +181,7 @@ def test_engine_down_aborts_and_restores_the_unit(wired, engine):
     u = unit(wired.plan.load(), "repo-wiki:api")
     assert u["status"] == "todo"
     assert "repo-wiki:api" not in (wired.plan.LOG.read_text(encoding="utf-8") if wired.plan.LOG.exists() else "")
-    assert not wired.env.WIKI_LOCK.exists()
+    assert not importlib.import_module("lib.core.paths").WIKI_LOCK.exists()
     assert wired.services.links._is_link(wired.ws / "api" / "openwiki")             # the repo is put back even on failure
 
 

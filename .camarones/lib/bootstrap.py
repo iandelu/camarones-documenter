@@ -40,6 +40,11 @@ def _code() -> object:
     return graphify
 
 
+def _wiki_engine() -> object:
+    from lib.adapters import openwiki
+    return openwiki
+
+
 PROVIDERS: dict[str, Callable[[], object]] = {
     "launcher": _launcher,
     "diagrams": _diagrams,
@@ -47,6 +52,7 @@ PROVIDERS: dict[str, Callable[[], object]] = {
     "agent_config": _agent_config,
     "toolchain": _toolchain,
     "code": _code,
+    "wiki_engine": _wiki_engine,
 }
 
 

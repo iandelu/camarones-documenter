@@ -417,7 +417,7 @@ def wiki_cmd(kit, monkeypatch):
     monkeypatch.setattr(env, "wire_openwiki", lambda host, log=print: None)      # argv only: wiring has its own tests
     monkeypatch.setattr(env, "wiki_pages", lambda repo: [])
     monkeypatch.setattr(env, "wiki_prompt", lambda repo, mode: "PROMPT")
-    monkeypatch.setattr(env, "wiki_workdir", lambda repo, log=print: contextlib.nullcontext())
+    monkeypatch.setattr(kit.services.wiki_engine, "wiki_workdir", lambda repo, log=print: contextlib.nullcontext())
     monkeypatch.setattr(env, "stream", lambda cmd, cwd, log, env=None: seen.append((cmd, cwd)) or 1)
 
     def run(engine):

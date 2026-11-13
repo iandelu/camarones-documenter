@@ -158,9 +158,9 @@ class Wiki(Command):
         if args.mode in ("open", "close"):
             for r in args.repos:
                 if args.mode == "open":
-                    env.wiki_open(r)
+                    cli.services.wiki_engine.wiki_open(r)
                     print(f"{r}/openwiki/: real folder — run the OpenWiki MCP lifecycle, then `wiki {r} --close`")
-                elif env.wiki_close(r):
+                elif cli.services.wiki_engine.wiki_close(r):
                     if env.wiki_pages(r):          # a manual MCP session follows the current PLAYBOOK scope
                         env.stamp_wiki(r, mode="manual", kit=VERSIONS["kit"])
                     print(f"{r}/openwiki/: moved to cam-docs/wikis/{r}/, repo restored")

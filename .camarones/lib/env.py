@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import datetime as dt, json, os, posixpath, re, shutil, subprocess, sys
 from collections import deque
-from contextlib import contextmanager
 from pathlib import Path
 
 from .common import (CTX, KIT, ROOT, DOCS, HOME, CACHE, IS_WIN, VERSIONS, CAM_DIR, CAM_LAYOUT, WORKSPACE, WS_FILE, GRAPHS, run, out,
@@ -13,7 +12,8 @@ from . import binaries, docs
 from .app import services
 from .adapters import runners
 from .harness.ports import RunRequest
-from .harness.locks import FileLock, LockBusy, pid_alive  # noqa: F401  (pid_alive re-exported)
+from .harness.locks import pid_alive  # noqa: F401  (pid_alive re-exported)
+from .core.paths import WIKI_STAMP
 from .ports import Log
 from .projects import git_failure  # noqa: F401 — share() and callers of env.git_failure
 
@@ -391,9 +391,6 @@ def write_codex_mcp(servers: dict) -> None:
     f.write_text((text.rstrip() + "\n\n" if text.strip() else "") + block, encoding="utf-8")
 
 
-OPENWIKI_INSTALL = [["openwiki", "integrations", "install", host, "--project", "."] for host in ("claude", "codex")]
-
-
 def install_graphify_skill() -> None:
     """Only the skill: `graphify install --project` would also add hooks and rules pointing at graphify-out/."""
     import tempfile
@@ -488,8 +485,8 @@ def wire_umbrella(log: Log = print, comps: list[str] | None = None) -> None:
         q = dict(cwd=ROOT, check=False, quiet=True)
         if "openwiki" in comps:
             from . import install_state
-            install_state.learn(OPENWIKI_INSTALL)
-            for cmd in OPENWIKI_INSTALL:
+            install_state.learn(services.current().wiki_engine.OPENWIKI_INSTALL)
+            for cmd in services.current().wiki_engine.OPENWIKI_INSTALL:
                 run(cmd, **q)
         if "graphify" in comps:
             install_graphify_skill()
@@ -654,23 +651,12 @@ def viewers() -> dict:
 
 
 # ---------- OpenWiki ----------
-PROVIDER_KEYS = ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "OPENROUTER_API_KEY",
-                 "OPENAI_COMPATIBLE_API_KEY", "OPENAI_CHATGPT_ACCESS_TOKEN")
-
-
-def openwiki_credentials() -> bool:
-    """OpenWiki runs headless only with a provider key in the environment or saved in ~/.openwiki/.env."""
-    saved = HOME / ".openwiki" / ".env"
-    text = saved.read_text(encoding="utf-8", errors="replace") if saved.exists() else ""
-    return any(os.environ.get(k) or re.search(rf"^{k}=\S", text, re.M) for k in PROVIDER_KEYS)
-
-
 def wiki_engines() -> list[str]:
     """Who can write a wiki without a terminal: OpenWiki itself (provider key), else an agent CLI with the
     OpenWiki MCP tools (uses the agent's own login)."""
     if "openwiki" not in components() or not services.current().toolchain.openwiki_installed():
         return []
-    return [e for e, ok in (("openwiki", openwiki_credentials()), ("claude", bool(which("claude"))),
+    return [e for e, ok in (("openwiki", services.current().wiki_engine.openwiki_credentials()), ("claude", bool(which("claude"))),
                             ("codex", bool(which("codex")))) if ok]
 
 
@@ -683,24 +669,16 @@ ENGINE_HELP = {
 }
 
 
-def openwiki_wired(host: str) -> bool:
-    """Whether the agent can reach OpenWiki's MCP tools in this project (what `openwiki integrations install` writes)."""
-    if host == "claude":
-        return "openwiki" in (load_json(ROOT / ".mcp.json", {}).get("mcpServers") or {})
-    cfg = ROOT / ".codex" / "config.toml"
-    return cfg.is_file() and "openwiki" in cfg.read_text(encoding="utf-8", errors="replace")
-
-
 def wire_openwiki(host: str, log: Log = print) -> None:
     """An agent writes the wiki through OpenWiki's MCP server: connect it the way setup does when it is missing
     (a project set up without the agents step, or a config someone removed), and let headless runs load it."""
-    if openwiki_wired(host):
+    if services.current().wiki_engine.openwiki_wired(host):
         return
     from . import install_state
-    cmd = next(c for c in OPENWIKI_INSTALL if c[3] == host)
+    cmd = next(c for c in services.current().wiki_engine.OPENWIKI_INSTALL if c[3] == host)
     log(f"Connecting OpenWiki to {host} in this project…")
     install_state.learn([cmd])
-    if run(cmd, cwd=ROOT, check=False, quiet=True).returncode != 0 or not openwiki_wired(host):
+    if run(cmd, cwd=ROOT, check=False, quiet=True).returncode != 0 or not services.current().wiki_engine.openwiki_wired(host):
         raise RuntimeError(f"OpenWiki could not be connected to {host} in this project: run `camaron setup`")
     write_agent_config(components())
 
@@ -753,7 +731,6 @@ def wiki_nav(repo: str) -> dict:
 
 
 WIKI_SCOPE = 2                 # 1: repo internals only (kit <= 3.9) · 2: a complete wiki, the repo's side of flows and C4
-WIKI_STAMP = ".camaron.json"   # in wikis/<repo>/, next to OpenWiki's own dot-files; hidden from the docs
 
 
 def wiki_scope(repo: str) -> int:
@@ -906,87 +883,6 @@ def wiki_prompt(repo: str, mode: str) -> str:
             f"session\" section of `{ws_rel('docs/.work/handoff.md')}`.\n")
 
 
-OPENWIKI_REPO_FILES = ("AGENTS.md", "CLAUDE.md", ".github/workflows/openwiki-update.yml")
-
-
-def wiki_open(repo: str, log: Log = print) -> None:
-    """OpenWiki refuses a symlinked openwiki/ and adds agent snippets + a GitHub workflow to the repo. So a run gets a
-    real openwiki/ seeded from cam-docs/wikis/<repo>, and wiki_close moves the result back and restores the repo."""
-    d, wiki, state = repo_dir(repo), ROOT / "wikis" / repo, CACHE / "wiki-open" / f"{repo}.json"
-    ow = d / "openwiki"
-    if not state.exists():
-        # as they are on disk, line endings included: a close puts the same bytes back (no CRLF churn on Windows)
-        saved = {f: (d / f).read_bytes().decode("utf-8", errors="surrogateescape") if (d / f).is_file() else None
-                 for f in OPENWIKI_REPO_FILES}
-        state.parent.mkdir(parents=True, exist_ok=True)
-        state.write_text(json.dumps(saved), encoding="utf-8")
-    if services.current().links._is_link(ow):
-        ow.unlink()
-    if not ow.exists():
-        shutil.copytree(wiki, ow) if wiki.is_dir() else ow.mkdir()
-
-
-def wiki_close(repo: str, log: Log = print) -> bool:
-    """Only undoes a wiki_open: without its saved state it cannot tell the repo's own AGENTS.md / CLAUDE.md from
-    OpenWiki's, so it leaves them alone (a second close, or a close without open, is a no-op)."""
-    d, wiki, state = repo_dir(repo), ROOT / "wikis" / repo, CACHE / "wiki-open" / f"{repo}.json"
-    if not state.exists():
-        log(f"{repo}: no open OpenWiki run — nothing to close")
-        services.current().links.link_repo_wiki(repo, log)
-        return False
-    ow = d / "openwiki"
-    if ow.is_dir() and not services.current().links._is_link(ow):
-        if any(ow.iterdir()):
-            shutil.rmtree(wiki, ignore_errors=True)
-            wiki.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(str(ow), str(wiki))
-        else:                                   # nothing written: keep the wiki cam-docs already has
-            ow.rmdir()
-    saved = json.loads(state.read_text(encoding="utf-8"))
-    for f, text in saved.items():
-        p = d / f
-        if text is not None:
-            raw = text.encode("utf-8", errors="surrogateescape")   # a state from kits ≤ 4.80.1 holds LF text: LF back
-            if not p.is_file() or p.read_bytes() != raw:
-                p.parent.mkdir(parents=True, exist_ok=True)
-                p.write_bytes(raw)
-        elif p.is_file():
-            p.unlink()
-            for parent in p.relative_to(d).parents:
-                if parent != Path(".") and (d / parent).is_dir() and not any((d / parent).iterdir()):
-                    (d / parent).rmdir()
-    state.unlink(missing_ok=True)
-    services.current().links.link_repo_wiki(repo, log)
-    return True
-
-
-@contextmanager
-def wiki_workdir(repo: str, log: Log = print):
-    wiki_open(repo, log)
-    try:
-        yield
-    finally:
-        wiki_close(repo, log)
-
-
-WIKI_LOCK = CACHE / "wiki.lock"
-
-
-@contextmanager
-def wiki_lock(repo: str):
-    """One OpenWiki run at a time across the wizard, the portal and the CLI: parallel runs share the agent's quota."""
-    lock = FileLock(WIKI_LOCK, wait=0, info={"repo": repo})
-    try:
-        lock.acquire()
-    except LockBusy as e:
-        raise RuntimeError(f"another OpenWiki run is in progress ({e.holder.get('repo')}, pid {e.holder.get('pid')}) "
-                           "— wait for it to finish") from None
-    try:
-        yield
-    finally:
-        lock.release()
-
-
 class WikiAbort(RuntimeError):
     """The engine cannot run at all (quota, login): every other repo of a batch would fail the same way."""
 
@@ -1067,11 +963,11 @@ def openwiki_generate(repo: str, mode: str = "", log: Log = print, engine: str =
     if engine != "openwiki":
         wire_openwiki(engine, log)
     record = None
-    with wiki_lock(repo):
+    with services.current().wiki_engine.wiki_lock(repo):
         if known:
             plan.set_status(uid, "doing")
         log(f"OpenWiki {mode} for {repo} via {engine}… (this can take a while)")
-        with wiki_workdir(repo, log):
+        with services.current().wiki_engine.wiki_workdir(repo, log):
             if engine == "openwiki":
                 rc = stream(["openwiki", "code", f"--{mode}", "--print"], repo_dir(repo), tee)
             else:

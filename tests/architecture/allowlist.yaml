@@ -46,7 +46,6 @@ violations:
   - "harness.handoff -> sessions"
   - "harness.integrate -> harness.worktrees"
   - "harness.ledger -> docs"
-  - "harness.ledger -> env"
   - "harness.ledger -> harness.kpis"
   - "harness.ledger -> harness.runs"
   - "harness.ledger -> harness.transcripts"

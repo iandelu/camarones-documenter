@@ -16,6 +16,7 @@ from pathlib import Path
 
 from .common import KIT, ROOT, HOME, CACHE, CAM_DIR, CAM_LAYOUT, WORKSPACE, WS_FILE, run as run_cmd, which, load_json, rmtree
 from .core.locks import pid_alive
+from .core.paths import WIKI_LOCK
 from .ports import Log
 from . import creds, docs, env, install_state, migrate, projects, trust
 from .app import services
@@ -164,7 +165,7 @@ def guard() -> str | None:
     if kit == root or root in kit.parents:
         return (f"The kit running this command lives inside {CAM_DIR}/ ({kit}): run uninstall from the global "
                 "install or another kit copy.")
-    lock = load_json(env.WIKI_LOCK, {}) if env.WIKI_LOCK.exists() else {}
+    lock = load_json(WIKI_LOCK, {}) if WIKI_LOCK.exists() else {}
     pid = lock.get("pid") if isinstance(lock, dict) else None
     if pid and pid != os.getpid() and pid_alive(int(pid)):
         return f"An OpenWiki run is in progress ({lock.get('repo')}, pid {pid}): wait for it to finish, then uninstall."
@@ -257,7 +258,7 @@ def run(include_global: bool = False, backup: bool = True, backup_dir: Path | No
     stop_services()
     log("✔ portal stopped")
     for r in open_wiki_runs():
-        env.wiki_close(r, log)
+        services.current().wiki_engine.wiki_close(r, log)
     zipped = backup_zip(backup_dir or BACKUP_DIR) if backup else None
     if zipped:
         log(f"✔ backup: {zipped}")

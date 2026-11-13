@@ -2,7 +2,7 @@
 A lock left by a dead process (or older than its TTL, for another machine) is taken over."""
 from __future__ import annotations
 
-import json, os, socket, subprocess, sys, threading, time
+import importlib, json, os, socket, subprocess, sys, threading, time
 
 import pytest
 
@@ -264,21 +264,21 @@ def test_the_plan_lock_lives_outside_git(kit):
 
 
 def test_only_one_wiki_run_at_a_time(kit, tmp_path):
-    env = kit.env
-    env.WIKI_LOCK.parent.mkdir(parents=True, exist_ok=True)
-    env.WIKI_LOCK.write_text(json.dumps({"pid": os.getpid(), "host": socket.gethostname(), "ts": time.time(),
+    paths, engine = importlib.import_module("lib.core.paths"), kit.services.wiki_engine
+    paths.WIKI_LOCK.parent.mkdir(parents=True, exist_ok=True)
+    paths.WIKI_LOCK.write_text(json.dumps({"pid": os.getpid(), "host": socket.gethostname(), "ts": time.time(),
                                          "repo": "web"}), encoding="utf-8")
     with pytest.raises(RuntimeError, match="another OpenWiki run is in progress \\(web"):
-        with env.wiki_lock("api"):
+        with engine.wiki_lock("api"):
             pass
-    env.WIKI_LOCK.unlink()
-    with env.wiki_lock("api"):
-        assert json.loads(env.WIKI_LOCK.read_text(encoding="utf-8"))["repo"] == "api"
-    assert not env.WIKI_LOCK.exists()
+    paths.WIKI_LOCK.unlink()
+    with engine.wiki_lock("api"):
+        assert json.loads(paths.WIKI_LOCK.read_text(encoding="utf-8"))["repo"] == "api"
+    assert not paths.WIKI_LOCK.exists()
 
 
 def test_a_busy_plan_inside_a_wiki_run_is_not_reported_as_a_wiki_run(kit, locks):
     with pytest.raises(locks.LockBusy):
-        with kit.env.wiki_lock("api"):
+        with kit.services.wiki_engine.wiki_lock("api"):
             raise locks.LockBusy(kit.plan.PLAN_LOCK, {"pid": 1})
-    assert not kit.env.WIKI_LOCK.exists()
+    assert not importlib.import_module("lib.core.paths").WIKI_LOCK.exists()

@@ -48,7 +48,7 @@ def test_without_an_engine_the_exact_fix(wired, monkeypatch, comps, installed, f
     env = wired.env
     ws = wired.docs.workspace(); ws["project"]["components"] = comps; wired.docs.save_workspace(ws)
     monkeypatch.setattr(wired.services.toolchain, "openwiki_installed", lambda: installed)
-    monkeypatch.setattr(env, "openwiki_credentials", lambda: False)
+    monkeypatch.setattr(wired.services.wiki_engine, "openwiki_credentials", lambda: False)
     monkeypatch.setattr(env, "which", lambda name: None)
     assert env.wiki_engines() == [] and env.wiki_engine_help() == fix
     assert wired.serve.tree()["engineHelp"] == fix
@@ -171,7 +171,7 @@ def installer(wired, engine, monkeypatch):  # noqa: F811
 
 def test_a_run_connects_openwiki_to_the_agent_first(wired, engine, installer):  # noqa: F811
     import json
-    assert not wired.env.openwiki_wired("claude")
+    assert not wired.services.wiki_engine.openwiki_wired("claude")
     assert wired.env.openwiki_generate("api", log=lambda _: None) is True
     assert ["openwiki", "integrations", "install", "claude", "--project", "."] in installer["calls"]
     settings = json.loads((wired.root / ".claude" / "settings.json").read_text(encoding="utf-8"))

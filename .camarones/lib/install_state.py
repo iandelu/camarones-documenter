@@ -138,7 +138,7 @@ def repair(log=print) -> list[dict]:
     comps = env.components()
     env.wire_umbrella(log, comps)
     if "openwiki" in comps and "agents" in comps:
-        learn(env.OPENWIKI_INSTALL, restore=True)
+        learn(services.current().wiki_engine.OPENWIKI_INSTALL, restore=True)
     if "openwiki" in comps:
         for r in docs.repo_names():
             if repo_dir(r).is_dir():
