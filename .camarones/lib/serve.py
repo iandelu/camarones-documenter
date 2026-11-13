@@ -188,9 +188,6 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(appapi.info())
         if name == "catalog":
             return self.json(appapi.catalog())
-        if name == "adr" or name.startswith("adr/"):
-            from . import adr_api
-            return self.json(*adr_api.get(name, q))
         if (m := re.fullmatch(r"jobs/([\w.-]+)/events", name)) and m.group(1) in JOBS:
             return self.stream_job(JOBS[m.group(1)], int(self.headers.get("Last-Event-ID") or q.get("from") or 0))
         self.json({"error": "not found"}, 404)
@@ -307,9 +304,6 @@ class Handler(BaseHTTPRequestHandler):
                     return self.json({"error": str(e), "confirm": True}, 409)
                 except KeyError as e:
                     return self.json({"error": f"unknown command {e}"}, 404)
-            if m := re.fullmatch(r"/api/app/adr/([a-z]+)", p):     # the decisions (lib/adr_api.py)
-                from . import adr_api
-                return self.json(*adr_api.post(m.group(1), b, by))
             if m := re.fullmatch(r"/api/app/jobs/([\w.-]+)/cancel", p):
                 return self.json(cancel_job(m.group(1)))
             self.json({"error": "not found"}, 404)
