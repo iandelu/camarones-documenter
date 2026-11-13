@@ -90,7 +90,6 @@ def test_a_page_load_without_openwiki_does_not_wait_for_npm(wired, monkeypatch, 
 
 @pytest.mark.parametrize("found, pinned", [(lambda v: v, True), (lambda v: "0.0.1", False)])
 def test_on_windows_the_version_is_read_beside_the_command(wired, tmp_path, monkeypatch, npm, found, pinned):
-    env = wired.env
     package(tmp_path / "npm" / "node_modules" / "openwiki", found(wired.common.VERSIONS["openwiki"]))
     (tmp_path / "npm" / "openwiki.cmd").write_text("@echo off\n", encoding="utf-8")
     on_path(wired, monkeypatch, tmp_path / "npm" / "openwiki.cmd")
@@ -100,7 +99,6 @@ def test_on_windows_the_version_is_read_beside_the_command(wired, tmp_path, monk
 @pytest.mark.skipif(sys.platform == "win32", reason="npm links a command on POSIX; on Windows it writes a shim")
 @pytest.mark.parametrize("found, pinned", [(lambda v: v, True), (lambda v: "0.0.1", False)])
 def test_on_posix_the_version_is_read_through_the_commands_link(wired, tmp_path, monkeypatch, npm, found, pinned):
-    env = wired.env
     pkg = tmp_path / "prefix" / "lib" / "node_modules" / "openwiki"
     package(pkg, found(wired.common.VERSIONS["openwiki"]))
     (pkg / "dist").mkdir()
@@ -113,7 +111,6 @@ def test_on_posix_the_version_is_read_through_the_commands_link(wired, tmp_path,
 
 @pytest.mark.parametrize("rc, installed", [(0, True), (1, False)])
 def test_a_shim_with_no_package_beside_it_still_asks_npm(wired, tmp_path, monkeypatch, npm, rc, installed):
-    env = wired.env
     (tmp_path / "openwiki").mkdir()                                   # a folder that happens to share the name
     package(tmp_path / "openwiki" / "shims", "9.9.9", name="something-else")
     (tmp_path / "openwiki" / "shims" / "openwiki").write_text("#!/bin/sh\n", encoding="utf-8")

@@ -10,7 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from .common import HOME, ROOT, DOCS, WORK, WS_FILE, VERSIONS, run, which
 from .core.paths import CACHE
 from .harness import freshness
-from . import docs, env, usage
+from . import docs, usage
 from .app import services
 
 PROTOCOL = "2025-06-18"
