@@ -5,8 +5,12 @@ it needs AI. Where it runs is project config, `ci:` in workspace.yaml: `target` 
 that need no AI) or self-hosted (`runner_labels` for GitHub `runs-on`, `runner_tags` for GitLab `tags`)."""
 from __future__ import annotations
 
-from .common import VERSIONS
+import shutil
+from pathlib import Path
+
+from .common import KIT, ROOT, VERSIONS, out
 from . import docs
+from .ports import Log
 
 KIT_REPO = "https://github.com/iandelu/camarones-documenter.git"
 
@@ -281,9 +285,8 @@ def status(forge: str | None = None) -> dict:
     """What the CI tab shows: the pipelines `camaron ci` writes (installed, out of date against the definition), the
     files service repos copy, the last check and freshness, and the last pipeline run."""
     from .common import KIT, ROOT, out
-    from . import env
     from .harness import freshness
-    forge = forge or env.detect_forge()
+    forge = forge or detect_forge()
     cfg = config()
     rel = lambda p: p.relative_to(ROOT).as_posix()  # noqa: E731
     if forge == "github":
@@ -311,3 +314,40 @@ def status(forge: str | None = None) -> dict:
             "check": {"errors": len(errors), "warnings": len(warnings), "first": [str(e) for e in errors[:5]]},
             "freshness": {s: sum(1 for v in states.values() if v["state"] == s) for s in ("fresh", "suspect", "stale")},
             "pipeline": last_pipeline(forge), "guide": "guides/self-hosted-runner.md"}
+
+
+# ---------- install ----------
+def detect_forge() -> str:
+    urls = " ".join(r.get("url", "") for r in docs.workspace()["repos"])
+    urls += " " + out(["git", "-C", str(ROOT), "remote", "get-url", "origin"])
+    if "github" in urls:
+        return "github"
+    return "gitlab"
+
+
+def install_ci(forge: str | None = None, log: Log = print) -> Path:
+    forge = forge or detect_forge()
+    if forge == "github":
+        dst = ROOT / ".github" / "workflows" / "docs.yml"
+        src = KIT / "ci" / "umbrella.github.yml"
+    else:
+        dst = ROOT / ".gitlab-ci.yml"
+        src = KIT / "ci" / "umbrella.gitlab-ci.yml"
+        if dst.exists() and "camarones" not in dst.read_text(encoding="utf-8"):
+            dst = ROOT / ".gitlab-ci.camarones.yml"
+            log("  existing .gitlab-ci.yml kept: add `include: local: .gitlab-ci.camarones.yml` to it")
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(src, dst)
+    snippet = f"repo.{'github.yml' if forge == 'github' else 'gitlab-ci.yml'}"
+    (ROOT / ".camarones" / "ci").mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(KIT / "ci" / snippet, ROOT / ".camarones" / "ci" / snippet)   # service repos include it from here
+    fresh = ROOT / ".camarones" / "ci" / FILES[forge]
+    fresh.write_text(render(forge), encoding="utf-8", newline="\n")      # generated from lib/ci.py, ci: in workspace.yaml
+    log(f"  ✔ {dst.relative_to(ROOT)} (docs repo pipeline)")
+    log(f"  → per-repo snippet: .camarones/ci/{snippet}")
+    log(f"  → per-repo pull request check (no AI): .camarones/ci/{FILES[forge]}")
+    proposal = render_propose(forge)
+    if proposal:                                    # ci.target: self-hosted — the AI job runs on the team's runner
+        (ROOT / ".camarones" / "ci" / FILES_PROPOSE[forge]).write_text(proposal, encoding="utf-8", newline="\n")
+        log(f"  → per-repo docs proposal (AI, self-hosted runner): .camarones/ci/{FILES_PROPOSE[forge]}")
+    return dst

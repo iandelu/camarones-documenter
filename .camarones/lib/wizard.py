@@ -20,7 +20,7 @@ from rich.text import Text
 from .common import (ROOT, HOME, PREFS, WORK, WS_FILE, CACHE, IS_WIN, IS_MAC, CAM_DIR, CAM_LAYOUT, WORKSPACE, which, cli_cmd,
                      load_json, save_json, out, repo_dir)
 from .app import services
-from . import docs, env, genblocks, install_state, plan, creds, questionnaire, quickarch, radar, sessions, tutorial, upgrade, usage
+from . import ci, docs, genblocks, install_state, plan, creds, questionnaire, quickarch, radar, sessions, tutorial, upgrade, usage
 from .adapters import runners
 from .harness.ports import RunRequest
 from .common import VERSIONS
@@ -2450,10 +2450,10 @@ class W:
 
     def do_ci(self) -> bool:
         forge = self.sel(self.t("ci_forge"), [Choice("GitLab", "gitlab"), Choice("GitHub", "github")],
-                         default=env.detect_forge())
+                         default=ci.detect_forge())
         if not forge:
             return False
-        self.safe(self.busy, env.install_ci, forge)
+        self.safe(self.busy, ci.install_ci, forge)
         self.say(self.t("ci_done"), "green")
         self.pause()
         return True

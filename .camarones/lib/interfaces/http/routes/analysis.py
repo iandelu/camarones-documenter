@@ -2,7 +2,7 @@
 snapshot, the CI files, the code maps and the viewers; and the jobs that build them (first look, C4, graphs, wikis)."""
 from __future__ import annotations
 
-from lib import docs, env, plan
+from lib import docs, plan
 from lib.app import portal_views, services
 from lib.core.paths import DOCS
 from lib.core.process import which
@@ -161,7 +161,7 @@ def post_ci(req: Request) -> Response:
     b = req.body
     if b.get("forge") not in ("github", "gitlab"):
         raise ValueError("forge: github or gitlab")
-    env.install_ci(b["forge"], log=lambda _: None)
+    ci.install_ci(b["forge"], log=lambda _: None)
     return json_response(ci.status(b["forge"]))
 
 

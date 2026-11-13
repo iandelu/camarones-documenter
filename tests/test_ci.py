@@ -60,9 +60,9 @@ def test_the_project_config_is_read(kit, ci):
 
 
 def test_camaron_ci_writes_the_service_repo_job(kit, ci):
-    kit.env.install_ci("github", log=lambda _: None)
+    ci.install_ci("github", log=lambda _: None)
     assert (kit.root / ".camarones" / "ci" / "docs-fresh.github.yml").read_text(encoding="utf-8") == ci.render("github")
-    kit.env.install_ci("gitlab", log=lambda _: None)
+    ci.install_ci("gitlab", log=lambda _: None)
     assert (kit.root / ".camarones" / "ci" / "docs-fresh.gitlab-ci.yml").exists()
 
 

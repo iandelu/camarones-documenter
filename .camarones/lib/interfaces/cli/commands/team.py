@@ -230,8 +230,8 @@ class Ci(Command):
         parser.add_argument("forge", nargs="?", choices=["gitlab", "github"])
 
     def run(self, args: argparse.Namespace, cli: CliContext) -> int:
-        from lib import env
-        env.install_ci(args.forge)
+        from lib import ci
+        ci.install_ci(args.forge)
         return 0
 
 
