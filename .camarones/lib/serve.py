@@ -12,13 +12,17 @@ each request (lib/appapi.py); without it those calls answer 403 with `"app": tru
 Host is not this server is refused (a DNS-rebinding page would otherwise be same-origin)."""
 from __future__ import annotations
 
-import atexit, base64, datetime as dt, hmac, itertools, json, logging, mimetypes, os, re, signal, sys, threading, time
+import atexit, base64, datetime as dt, hmac, json, logging, mimetypes, os, re, signal, sys, threading, time
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from .common import CTX, KIT, ROOT, DOCS, CACHE, VERSIONS, kill_tree, out, rel_file
 from . import adr_doc, codemap, docs, env, plan, sourcelinks, usage
+from .interfaces.http import inputs, router
+from .interfaces.http.jobs import CANCEL, JOB_LOCK, JOBS, claim_job, fail_job, job_running, run_job, start_job
+from .interfaces.http.messages import Request, Response
+from .interfaces.http.router import APP_ONLY_MSG, Access
 
 _log = logging.getLogger("camaron.serve")
 
@@ -35,7 +39,6 @@ APP_GONE_GRACE = 10                          # seconds the normal stop has once 
 APP_TOKEN = ""                               # set by the desktop app (CAMARONES_APP_TOKEN); empty: browser portal only
 PORTAL_TOKEN = ""                            # set by `camaron up` (CAMARONES_PORTAL_TOKEN): lets this machine's browser write the board
 APP_ONLY = re.compile(r"^/api/(runs|runs/[\w.-]+/cancel|wiki|build|inventory|schemas|ci|ask/answer|plan/cost)$")
-APP_ONLY_MSG = "this runs on your machine: open it in the desktop app (`camaron app`)"
 STOPPED_AFTER = 5.0                          # seconds of quiet before a run's stream asks whether its run was stopped
 TERMINAL_POST = re.compile(r"^/api/app/terminals/(t-[\w.-]+-\d+)/(input|resize|close)$")
 UNIT_POST = re.compile(r"^/api/app/units/([^/]+)/(takeover|handback|stop)$")
@@ -432,11 +435,11 @@ def app_session(b: dict) -> tuple[dict, int]:
     in a window as this machine's `sessions` setting says. Every field is checked first: launch_* moves the unit before
     the terminal refuses a bad size. Already open, or no room on the canvas, is a 409 that says which or how many."""
     from . import agents, machine, terminals
-    unit, agent = _text(b, "unit", True), _text(b, "agent", True)
-    lang, mode = _text(b, "lang") or "es", _text(b, "mode") or "new"
+    unit, agent = inputs.text(b, "unit", True), inputs.text(b, "agent", True)
+    lang, mode = inputs.text(b, "lang") or "es", inputs.text(b, "mode") or "new"
     if mode not in ("new", "continue", "restart"):
         raise ValueError("mode: new, continue or restart")
-    size = (_dim(b, "cols", terminals.COLS, 80), _dim(b, "rows", terminals.ROWS, 24))
+    size = (inputs.dim(b, "cols", terminals.COLS, 80), inputs.dim(b, "rows", terminals.ROWS, 24))
     where = machine.settings()["sessions"]
     try:
         if unit == "update":
@@ -456,13 +459,13 @@ def app_terminal(tid: str, action: str, b: dict) -> tuple[dict, int]:
     from . import terminals
     try:
         if action == "input":
-            data = _text(b, "data", True)
+            data = inputs.text(b, "data", True)
             if len(data.encode("utf-8")) > terminals.INPUT_MAX:
                 raise ValueError(f"data: at most {terminals.INPUT_MAX} bytes a request")
             terminals.write(tid, data)
             return {"ok": True}, 200
         if action == "resize":
-            return terminals.resize(tid, _dim(b, "cols", terminals.COLS), _dim(b, "rows", terminals.ROWS)), 200
+            return terminals.resize(tid, inputs.dim(b, "cols", terminals.COLS), inputs.dim(b, "rows", terminals.ROWS)), 200
         return terminals.close(tid), 200
     except KeyError:
         return {"error": f"no terminal {tid}"}, 404
@@ -479,8 +482,8 @@ def app_unit(uid: str, action: str, b: dict) -> tuple[dict, int]:
     from . import agents, takeover, terminals
     try:
         if action == "takeover":
-            size = (_dim(b, "cols", terminals.COLS, 80), _dim(b, "rows", terminals.ROWS, 24))
-            return takeover.take(uid, _text(b, "lang") or "es", size), 200
+            size = (inputs.dim(b, "cols", terminals.COLS, 80), inputs.dim(b, "rows", terminals.ROWS, 24))
+            return takeover.take(uid, inputs.text(b, "lang") or "es", size), 200
         return (takeover.hand_back if action == "handback" else takeover.stop)(uid), 200
     except KeyError:
         return {"error": f"no unit {uid}"}, 404
@@ -535,14 +538,6 @@ def app_creds(action: str, b: dict) -> tuple[dict, int]:
 ONBOARD_POST = re.compile(r"^/api/app/onboard/(step|repos|setup|scan|stack|arch|done)$")
 
 
-CANCEL: dict[str, threading.Event] = {}      # job id → its cancel flag, for jobs that run in this process (onboard:setup)
-
-
-def job_running(kind: str) -> bool:
-    with JOB_LOCK:
-        return any(j["kind"] == kind and j["status"] == "running" for j in JOBS.values())
-
-
 def cancel_job(job_id: str) -> dict:
     """The app's cancel button: an in-process job (setup) is asked to stop between steps; a command job is killed."""
     ev = CANCEL.get(job_id)
@@ -562,8 +557,8 @@ def app_onboard(name: str, b: dict) -> tuple[dict, int]:
     if name == "repos":
         return onboard.set_repos(b.get("repos")), 200
     if name == "setup":
-        system = _text_list(b, "system")
-        comps = [c for c in _text_list(b, "components") if c in env.ALL_COMPONENTS] if "components" in b else env.components()
+        system = inputs.text_list(b, "system")
+        comps = [c for c in inputs.text_list(b, "components") if c in env.ALL_COMPONENTS] if "components" in b else env.components()
         ev = threading.Event()
         job = start_job("onboard:setup", "setup", lambda log: onboard.setup_job(system, comps, log, ev.is_set))
         CANCEL.setdefault(job["id"], ev)           # a click that attached to the running job keeps that job's flag
@@ -572,7 +567,7 @@ def app_onboard(name: str, b: dict) -> tuple[dict, int]:
         return start_job("onboard:scan", "scan", onboard.scan_job), 200
     if name == "stack":
         from . import radar
-        text = _text(b, "text")
+        text = inputs.text(b, "text")
         radar.set_stack(str(b.get("repo", "")), text)
         return onboard.stack_rows(), 200
     if name == "arch":
@@ -629,54 +624,6 @@ def status(check: bool = True) -> dict:
             "feedback": docs.pending_feedback(), "changes": docs.changes(),
             "check": dict(zip(("errors", "warnings"), docs.check())) if check else None,
             "plan": dict(zip(("done", "total"), plan.progress()))}
-
-
-# ---------- background jobs (builds and wiki generation run for minutes) ----------
-JOBS: dict[str, dict] = {}
-JOB_IDS = itertools.count(1)
-JOB_LOCK = threading.Lock()
-
-
-def start_job(kind: str, label: str, fn, **extra) -> dict:
-    """One job per kind at a time: a second click attaches to the running one. `extra`: fields the job carries (a
-    wiki job's repo)."""
-    with JOB_LOCK:
-        running = next((j for j in JOBS.values() if j["kind"] == kind and j["status"] == "running"), None)
-        if running:
-            return running
-        job = claim_job(kind, label, **extra)
-    return run_job(job, fn)
-
-
-def claim_job(kind: str, label: str, **extra) -> dict:
-    """A running job registered before its work starts; the caller holds JOB_LOCK (so checking and claiming are one
-    step) and then hands it to run_job, or to fail_job if what comes before the work fails."""
-    job = {"id": str(next(JOB_IDS)), "kind": kind, "label": label, "status": "running", "log": [],
-           "started": time.time(), "ended": None, **extra}
-    JOBS[job["id"]] = job
-    return job
-
-
-def fail_job(job: dict, error: Exception) -> None:
-    job["log"].append(f"⚠ {error}")
-    job["status"], job["ended"] = "failed", time.time()
-
-
-def run_job(job: dict, fn) -> dict:
-    def work():
-        try:
-            ok = fn(job["log"].append)
-            if isinstance(ok, dict):                 # a command job: its exit code decides
-                job.update(ok)
-                ok = ok.get("rc", 0) == 0
-            job["status"] = "done" if ok is not False else "failed"
-        except Exception as e:  # noqa: BLE001
-            job["log"].append(f"⚠ {e}")
-            job["status"] = "failed"
-        job["ended"] = time.time()
-
-    threading.Thread(target=work, daemon=True).start()
-    return job
 
 
 def first_look(log) -> bool:
@@ -762,49 +709,6 @@ def token_matches(got: str, want: str) -> bool:
     return hmac.compare_digest(got.encode("utf-8"), want.encode("utf-8"))
 
 
-def _text(b: dict, key: str, required: bool = False) -> str | None:
-    v = b.get(key)
-    if v is None and not required:
-        return None
-    if not isinstance(v, str):
-        raise ValueError(f"{key} must be text")
-    return v
-
-
-def _dim(b: dict, key: str, bounds: tuple[int, int], default: int | None = None) -> int:
-    """A terminal's columns or rows: a whole number within `bounds` (true is not one), `default` when not given."""
-    v = default if b.get(key) is None else b[key]
-    if isinstance(v, bool) or not isinstance(v, int) or not bounds[0] <= v <= bounds[1]:
-        raise ValueError(f"{key}: a whole number from {bounds[0]} to {bounds[1]}")
-    return v
-
-
-def _text_list(b: dict, key: str) -> list[str]:
-    v = b.get(key)
-    if v is None:
-        return []
-    if not isinstance(v, list) or not all(isinstance(x, str) for x in v):
-        raise ValueError(f"{key} must be a list of text")
-    return v
-
-
-def _doc_refs(b: dict) -> list[str]:
-    v = b.get("docs")
-    if v is None:
-        return []
-    if not isinstance(v, list):
-        raise ValueError("docs must be a list")
-    refs = []
-    for d in v:
-        if isinstance(d, str):
-            refs.append(d)
-        elif isinstance(d, dict) and isinstance(d.get("path"), str) and isinstance(d.get("section", ""), (str, type(None))):
-            refs.append(f"{d['path']}#{d['section']}" if d.get("section") else d["path"])
-        else:
-            raise ValueError("each doc is a text ref or {path, section} with text values")
-    return refs
-
-
 def _story_body(b: dict) -> dict:
     """The `stories.Story` of a request body (`story`, with `as` accepted for `as_`); anything not text, or a blank
     `want`, is a ValueError (a 400)."""
@@ -818,9 +722,9 @@ def _story_body(b: dict) -> dict:
             raise ValueError(f"{'as' if k == 'as_' else k} must be text")
     if not (clauses["want"] or "").strip():
         raise ValueError("want is required: say what the story is about")
-    return {"id": (_text(raw, "id") or "").strip() or None, "as_": clauses["as_"] or "", "want": clauses["want"] or "",
-            "so": clauses["so"] or "", "criteria": _text_list(raw, "criteria"), "touches": _text_list(raw, "touches"),
-            "epic": (_text(raw, "epic") or "").strip() or None, "priority": (_text(raw, "priority") or "").strip() or None}
+    return {"id": (inputs.text(raw, "id") or "").strip() or None, "as_": clauses["as_"] or "", "want": clauses["want"] or "",
+            "so": clauses["so"] or "", "criteria": inputs.text_list(raw, "criteria"), "touches": inputs.text_list(raw, "touches"),
+            "epic": (inputs.text(raw, "epic") or "").strip() or None, "priority": (inputs.text(raw, "priority") or "").strip() or None}
 
 
 def _task_list(b: dict) -> list[dict]:
@@ -966,6 +870,30 @@ class Handler(BaseHTTPRequestHandler):
     def not_found(self) -> None:
         self.send(404, b"not found", "text/plain")
 
+    def reply(self, resp: Response) -> None:
+        """Write a route's Response: an event stream after its headers, anything else as `send` writes it."""
+        if resp.stream is not None:
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            resp.stream(self.wfile)
+            return
+        self.send_response(resp.status)
+        if resp.ctype is not None:
+            self.send_header("Content-Type", resp.ctype)
+            self.send_header("Content-Length", str(len(resp.body)))
+        self.send_header("Cache-Control", "no-store")
+        for k, v in resp.headers.items():
+            self.send_header(k, v)
+        self.end_headers()
+        if self.command != "HEAD" and resp.body:
+            self.wfile.write(resp.body)
+
+    def routed(self, hit: router.Match, path: str, query: dict, body, by: str = "") -> Request:
+        return Request("GET" if self.command in ("GET", "HEAD") else "POST", path, query, self.headers, body=body,
+                       params=hit.params, by=by, is_app=self.is_app(), can_write=self.can_write(), static=STATIC)
+
     def do_HEAD(self):
         self.do_GET()
 
@@ -991,22 +919,22 @@ class Handler(BaseHTTPRequestHandler):
             return self.json({"error": "writing the board needs the machine token: open the portal with `camaron up`", "token": True}, 403)
         surface = "app" if self.is_app() else "portal"
         try:                                   # every field is checked before anything is written: bad input is a 400
-            by = (_text(b, "by") or "").strip() or None
+            by = (inputs.text(b, "by") or "").strip() or None
             if action == "init":
                 return self.json({"created": ops.init(log=lambda *_: None)})
             if action == "add":
-                return self.json(ops.add(_text(b, "type", True), _text(b, "title", True), epic=_text(b, "epic") or None,
-                                         parent=_text(b, "parent") or None,
-                                         repos=_text_list(b, "repos"), labels=_text_list(b, "labels"),
-                                         priority=_text(b, "priority") or None, docs=_doc_refs(b), by=by, surface=surface))
+                return self.json(ops.add(inputs.text(b, "type", True), inputs.text(b, "title", True), epic=inputs.text(b, "epic") or None,
+                                         parent=inputs.text(b, "parent") or None,
+                                         repos=inputs.text_list(b, "repos"), labels=inputs.text_list(b, "labels"),
+                                         priority=inputs.text(b, "priority") or None, docs=inputs.doc_refs(b), by=by, surface=surface))
             if action == "move":
-                return self.json(ops.move(_text(b, "id", True), _text(b, "status", True), before=_text(b, "before"),
-                                          after=_text(b, "after"), by=by, surface=surface, force=b.get("force") is True))
+                return self.json(ops.move(inputs.text(b, "id", True), inputs.text(b, "status", True), before=inputs.text(b, "before"),
+                                          after=inputs.text(b, "after"), by=by, surface=surface, force=b.get("force") is True))
             if action == "assign":
-                return self.json(ops.assign(_text(b, "id", True), _text(b, "who", True), by=by, surface=surface))
+                return self.json(ops.assign(inputs.text(b, "id", True), inputs.text(b, "who", True), by=by, surface=surface))
             if action == "link":
-                return self.json(ops.link(_text(b, "id", True), _text(b, "ref", True), by=by, surface=surface))
-            return self.json(ops.archive(_text(b, "id", True), by=by, surface=surface))
+                return self.json(ops.link(inputs.text(b, "id", True), inputs.text(b, "ref", True), by=by, surface=surface))
+            return self.json(ops.archive(inputs.text(b, "id", True), by=by, surface=surface))
         except ops.GateError as e:            # the start gate said no: the Board asks, then resends with `force`
             self.json({"error": str(e), "blocked_by": e.blocked_by}, 409)
         except ValueError as e:               # BoardError is a ValueError
@@ -1024,15 +952,15 @@ class Handler(BaseHTTPRequestHandler):
             return self.json({"error": "AI suggestions need the machine token: open the portal with `camaron up`",
                               "token": True}, 403)
         try:                                   # every field is checked before anything is written: bad input is a 400
-            lang = _text(b, "lang") or ops.docs_lang()
+            lang = inputs.text(b, "lang") or ops.docs_lang()
             if action == "lint":
                 for k in ("as", "want", "so"):
-                    _text(b, k)
+                    inputs.text(b, k)
                 return self.json({"hints": stories.lint(b.get("as") or "", b.get("want") or "", b.get("so") or "", lang,
-                                                        touches=_text_list(b, "touches"))})
+                                                        touches=inputs.text_list(b, "touches"))})
             if action == "suggest":
                 from . import stories_ai
-                what, skip = _text(b, "what", True), _text_list(b, "exclude")
+                what, skip = inputs.text(b, "what", True), inputs.text_list(b, "exclude")
                 if what not in stories_ai.WHAT:
                     raise ValueError(f"what must be one of {', '.join(stories_ai.WHAT)}")
                 story = _story_body(b)
@@ -1042,13 +970,13 @@ class Handler(BaseHTTPRequestHandler):
                     return self.json({"error": str(e)}, 503)
             story, tasks = _story_body(b), _task_list(b)
             if action == "analyze":
-                removed = _text_list(b, "removed")
+                removed = inputs.text_list(b, "removed")
                 _refuse_groups(story, tasks)
                 return self.json(stories.analyze(story, tasks, lang=lang, removed=removed))
-            by = (_text(b, "by") or "").strip() or None
-            base_sha, docs_refs, title = _text(b, "base_sha") or None, _doc_refs(b), _text(b, "title")
-            base_title = _text(b, "base_title")
-            base_touches = None if b.get("base_touches") is None else _text_list(b, "base_touches")
+            by = (inputs.text(b, "by") or "").strip() or None
+            base_sha, docs_refs, title = inputs.text(b, "base_sha") or None, inputs.doc_refs(b), inputs.text(b, "title")
+            base_title = inputs.text(b, "base_title")
+            base_touches = None if b.get("base_touches") is None else inputs.text_list(b, "base_touches")
             return self.json(stories_save.save(story, title=title, tasks=tasks, base_sha=base_sha, docs=docs_refs,
                                                lang=lang, by=by, surface="app" if self.is_app() else "portal",
                                                base_title=base_title, base_touches=base_touches))
@@ -1201,9 +1129,12 @@ class Handler(BaseHTTPRequestHandler):
         if self.foreign_host():
             return self.json({"error": "forbidden host"}, 403)
         try:
+            hit = router.load().match("GET", p)
+            if (p.startswith("/api/app/") or (hit and hit.route.access == Access.APP)) and not self.is_app():
+                return self.json({"error": APP_ONLY_MSG, "app": True}, 403)
+            if hit and (not STATIC or p.startswith("/api/app/") or hit.route.static):
+                return self.reply(hit.route.handler(self.routed(hit, p, q, {})))
             if p.startswith("/api/app/"):
-                if not self.is_app():
-                    return self.json({"error": APP_ONLY_MSG, "app": True}, 403)
                 return self.api_app_get(p[len("/api/app/"):], q)
             if p == "/firstlook":                     # the C4 draft's interactive view (read-only, like the docs)
                 from . import onboard
@@ -1418,10 +1349,17 @@ class Handler(BaseHTTPRequestHandler):
         if self.headers.get("X-Camarones") != "1" or self.foreign_host():
             return self.json({"error": "forbidden"}, 403)
         p = urllib.parse.urlparse(self.path).path
-        if (APP_ONLY.match(p) or p.startswith("/api/app/")) and not self.is_app():
+        hit = router.load().match("POST", p)
+        if (APP_ONLY.match(p) or p.startswith("/api/app/") or (hit and hit.route.access == Access.APP)) \
+                and not self.is_app():
             return self.json({"error": APP_ONLY_MSG, "app": True}, 403)
         try:
             b = json.loads(raw or b"{}")
+            if hit:
+                by = (b.get("by") or reviewer()).strip() if hit.route.by else ""
+                if hit.route.access == Access.PORTAL and not self.can_write():
+                    return self.json({"error": hit.route.refusal, "token": True}, 403)
+                return self.reply(hit.route.handler(self.routed(hit, p, {}, b, by)))
             if m := TERMINAL_POST.match(p):             # keys as they are typed: before `by`, which runs git
                 return self.json(*app_terminal(m[1], m[2], b))
             if m := UNIT_POST.match(p):
