@@ -127,7 +127,7 @@ def test_a_wired_copy_matches_a_project_wired_from_scratch(wired, tmp_path):
 @pytest.fixture
 def first_on_its_worker_with_a_stray_author(monkeypatch):
     import conftest
-    monkeypatch.setattr(conftest, "_wired", [])
+    monkeypatch.setattr(conftest, "_templates", {})
     monkeypatch.setenv("GIT_AUTHOR_NAME", "Someone Else")
 
 

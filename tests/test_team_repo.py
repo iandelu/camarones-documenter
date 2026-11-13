@@ -44,6 +44,11 @@ def test_remote_key_matches_the_same_repo(kit, a, b):
     assert kit.projects.remote_key(a) == kit.projects.remote_key(b)
 
 
+def test_remote_key_reads_a_file_url_as_its_path(kit, tmp_path):
+    remote = bare(tmp_path)
+    assert kit.projects.remote_key(remote.resolve().as_uri()) == kit.projects.remote_key(str(remote))
+
+
 def test_remote_key_tells_repos_apart(kit):
     k = kit.projects.remote_key
     assert k("git@github.com:acme/docs.git") != k("git@github.com:acme/api.git")

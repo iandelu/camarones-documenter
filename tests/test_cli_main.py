@@ -83,3 +83,14 @@ def test_an_error_while_building_the_parser_is_one_line_too(kit, monkeypatch, ca
     monkeypatch.setattr(main, "build_parser", broken)
     assert main.main(["version"]) == 1
     assert capsys.readouterr().err == "🦐✖ [Errno 13] Permission denied: '/nope'\n"
+
+
+def test_starting_the_cli_loads_no_http_client(kit):
+    """Every command starts through launch.py and lib.projects: urllib.request (http.client, email, ssl) costs each
+    run about 15 ms, and only an http call needs it."""
+    probe = ("import sys; from lib.interfaces.cli import launch, main; main.build_parser(); "
+             "print(sorted(m for m in ('urllib.request', 'http.client') if m in sys.modules))")
+    r = subprocess.run([sys.executable, "-c", probe], cwd=kit.kit_dir, capture_output=True, text=True,
+                       encoding="utf-8", timeout=60)
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.strip() == "[]"

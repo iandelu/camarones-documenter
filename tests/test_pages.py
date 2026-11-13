@@ -19,8 +19,8 @@ paths:
 SQL = "CREATE TABLE pets (id int primary key, name text);\nCREATE TABLE owners (id int primary key);\n"
 
 
-@pytest.fixture
-def pg(kit):
+def as_pg(kit):
+    """`kit` with what these tests reach for: `put` a file in a repo, the pages and genblocks modules."""
     from fixtures.builder import rmtree
 
     def put(repo, rel, text):
@@ -30,6 +30,11 @@ def pg(kit):
         return f
     return type("PG", (), {"kit": kit, "put": staticmethod(put), "rmtree": staticmethod(rmtree),
                            "mod": importlib.import_module("lib.pages"), "gb": importlib.import_module("lib.genblocks")})
+
+
+@pytest.fixture
+def pg(kit):
+    return as_pg(kit)
 
 
 def test_count_says_zero_plainly(pg):

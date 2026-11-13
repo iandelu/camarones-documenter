@@ -5,31 +5,60 @@ import importlib, json, pathlib, re
 
 import pytest
 
-from fixtures.builder import snapshot
-from test_pages import OPENAPI, ORDER, PUBLISHER, SQL, cli, pg  # noqa: F401  (pg: the fixture, reused)
+from conftest import copy_project, load_kit, project_template, purge_kit_modules
+from fixtures.builder import REPOS, make_workspace, snapshot
+from test_pages import OPENAPI, ORDER, PUBLISHER, SQL, as_pg, cli, pg  # noqa: F401  (pg: the fixture, reused)
 
 PROPS = "server.port=${PORT:8080}\nspring.datasource.url=${DB_URL:jdbc:postgresql://localhost:5432/pets}\n"
 
 
-@pytest.fixture
-def old_project(pg, monkeypatch):  # noqa: F811
+def no_tools(kit, setattr):
+    """LikeC4, mermaid-cli and gitleaks absent, as on a machine that never installed them."""
+    setattr(importlib.import_module("lib.quickarch"), "which", lambda _n: None)
+    setattr(kit.quality, "which", lambda _n: None)
+    setattr(kit.quality.binaries, "bin_path", lambda _n: None)
+
+
+def write_4x(kit):
     """A 4.x project: code with an OpenAPI file, a status enum, a SQL migration, a publisher and environment variables,
     documented by the 4.x writers (reference, diagram and data pages, the first look; LikeC4 off)."""
+    pg = as_pg(kit)
     pg.put("api", "src/main/resources/openapi.yaml", OPENAPI)
     pg.put("api", "src/main/java/demo/OrderStatus.java", ORDER)
     pg.put("api", "src/main/resources/db/migration/V1__init.sql", SQL)
     pg.put("api", "src/main/java/demo/Pub.java", PUBLISHER)
     pg.put("api", "src/main/resources/application.properties", PROPS)
+    no_tools(kit, setattr)
     quickarch = importlib.import_module("lib.quickarch")
-    monkeypatch.setattr(quickarch, "which", lambda _n: None)
-    monkeypatch.setattr(pg.kit.quality, "which", lambda _n: None)               # no mermaid-cli, no gitleaks
-    monkeypatch.setattr(pg.kit.quality.binaries, "bin_path", lambda _n: None)
     pg.gb.write_reference()
     pg.mod.diagrams.write_pages()
     pg.mod.schemas.write_pages(log=lambda _: None)
     quickarch.save(quickarch.draft(log=lambda _: None))
     assert pg.mod.layout() == "old"
-    return pg
+
+
+@pytest.fixture
+def old_project(tmp_path, isolated_env, monkeypatch):
+    """`write_4x`'s project, written once per process and copied for each test."""
+    kit = copy_project(project_template("pages-4x", write_4x), tmp_path, isolated_env)
+    no_tools(kit, monkeypatch.setattr)
+    yield as_pg(kit)
+    purge_kit_modules()
+
+
+def test_the_old_project_matches_one_built_from_scratch(old_project, tmp_path):
+    copy = files_but_times(old_project.kit.ws)
+    ws = make_workspace(tmp_path / "fresh")
+    write_4x(load_kit(ws / "cam-docs", old_project.kit.home, ws))
+    fresh = files_but_times(ws)
+    assert [k for k in sorted(fresh.keys() | copy.keys()) if fresh.get(k) != copy.get(k)] == []
+
+
+def files_but_times(ws):
+    """Every file of the workspace but git's internals, with the times the writers record made neutral: the copy was
+    written when its template was, seconds or minutes before the test."""
+    stamp = re.compile(rb"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\+00:00)?")
+    return {f"{r}/{k}": stamp.sub(b"<time>", v) for r in (*REPOS, "cam-docs") for k, v in snapshot(ws / r).items()}
 
 
 def doc(fx, rel):
