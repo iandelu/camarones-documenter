@@ -123,3 +123,14 @@ def test_handler_errors_map_as_today(http):
     assert (got[0], body(got)) == (400, {"error": "bad"})
     got = request(base, "GET", "/api/zz/os")
     assert (got[0], body(got)) == (500, {"error": "OSError: x"})
+
+
+def test_the_routes_load_before_the_server_is_up(kit, monkeypatch):
+    """A route module that does not import fails the start, not the first request after the ready line."""
+    router = importlib.import_module("lib.interfaces.http.router")
+    server = importlib.import_module("lib.interfaces.http.server")
+    monkeypatch.setattr(router, "load", lambda: (_ for _ in ()).throw(ImportError("a broken route module")))
+    monkeypatch.setattr(server, "ThreadingHTTPServer", lambda *a, **k: pytest.fail("the socket was opened"))
+    monkeypatch.setattr(server, "take_tokens", lambda: None)
+    with pytest.raises(ImportError, match="a broken route module"):
+        server.run_server(0)

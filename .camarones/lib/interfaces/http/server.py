@@ -141,6 +141,7 @@ def run_server(port: int = 8080, static: bool = False) -> None:
     take_tokens()
     if static and not (files.SITE / "index.html").exists():
         raise RuntimeError("the portal is not exported yet — run `camaron portal` first")
+    router.load()                               # a route module that does not import fails here, before the ready line
     httpd = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     atexit.register(shutdown)                   # no agent outlives its server: the app's stop, Ctrl+C, an error
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))       # how the app stops it on POSIX; SystemExit runs atexit
