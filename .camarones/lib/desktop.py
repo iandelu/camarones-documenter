@@ -9,7 +9,7 @@ import json, os, subprocess, sys
 from pathlib import Path
 
 from .common import HOME, IS_MAC, IS_WIN, KIT, ROOT, VERSIONS, WS_FILE, run
-from .env import node_major
+from .app import services
 
 DEST = HOME / ".camarones" / "desktop"
 ELECTRON = DEST / "node_modules" / "electron"
@@ -28,7 +28,7 @@ def binary() -> Path:
 
 
 def ensure(log=print) -> Path:
-    if node_major() < VERSIONS["node_min_major"]:
+    if services.current().toolchain.node_major() < VERSIONS["node_min_major"]:
         raise RuntimeError(f"the desktop app needs Node.js >= {VERSIONS['node_min_major']} (`camaron setup` installs "
                            "it); the CLI and the wizard work without it")
     want = VERSIONS["electron"]

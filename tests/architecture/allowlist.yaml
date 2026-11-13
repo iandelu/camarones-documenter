@@ -1,6 +1,6 @@
 # Today's debts against the layer rule (spec §5). Entries only ever leave this file.
-largest_cycle: 51
-cycle_modules: 53
+largest_cycle: 50
+cycle_modules: 52
 oversize:
   - adr
   - docs

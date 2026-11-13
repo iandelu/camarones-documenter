@@ -30,11 +30,17 @@ def _agent_config() -> object:
     return agent_config
 
 
+def _toolchain() -> object:
+    from lib.adapters import prereqs
+    return prereqs
+
+
 PROVIDERS: dict[str, Callable[[], object]] = {
     "launcher": _launcher,
     "diagrams": _diagrams,
     "links": _links,
     "agent_config": _agent_config,
+    "toolchain": _toolchain,
 }
 
 

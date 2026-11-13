@@ -222,12 +222,6 @@ def refresh_block(src: Path, dst: Path, project_name: str | None = None) -> bool
 
 
 # ---------- prerequisites ----------
-def node_major() -> int:
-    v = out(["node", "-v"])
-    m = re.match(r"v(\d+)", v)
-    return int(m.group(1)) if m else 0
-
-
 JVM_MARKERS = ("pom.xml", "build.gradle", "build.gradle.kts", "mvnw", "gradlew", ".sdkmanrc", ".java-version")
 
 
@@ -262,89 +256,12 @@ def prerequisites() -> dict[str, dict]:
     extra = {"java": java_info()} if jvm_repos() else {}
     return extra | {
         "git": {"ok": bool(which("git")), "need": True, "hint": "git"},
-        "node": {"ok": node_major() >= VERSIONS["node_min_major"], "need": True,
+        "node": {"ok": services.current().toolchain.node_major() >= VERSIONS["node_min_major"], "need": True,
                  "hint": f"Node.js >= {VERSIONS['node_min_major']}", "found": out(["node", "-v"]) or "—"},
         "docker": {"ok": bool(which("docker")), "need": False, "hint": "Docker Desktop (only to serve the portal)"},
         "claude": {"ok": bool(which("claude")), "need": False, "hint": "Claude Code CLI"},
         "codex": {"ok": bool(which("codex")), "need": False, "hint": "Codex CLI"},
     }
-
-
-def install_prereq(name: str, log: Log = print) -> bool:
-    """Best-effort install with the OS package manager. Returns True if a command ran successfully."""
-    cmds: dict[str, list[list[str]]] = {}
-    if IS_WIN and which("winget"):
-        base = ["winget", "install", "-e", "--accept-source-agreements", "--accept-package-agreements", "--id"]
-        cmds = {"git": [base + ["Git.Git"]], "node": [base + ["OpenJS.NodeJS.LTS"]],
-                "docker": [base + ["Docker.DockerDesktop"]]}
-    elif IS_MAC and which("brew"):
-        cmds = {"git": [["brew", "install", "git"]], "node": [["brew", "install", "node@22"], ["brew", "link", "--overwrite", "node@22"]],
-                "docker": [["brew", "install", "--cask", "docker"]]}
-    if name == "java":
-        if (sdkman_dir() / "bin" / "sdkman-init.sh").exists() and not IS_WIN:
-            cmds["java"] = [["bash", "-c", f'source "{sdkman_dir()}/bin/sdkman-init.sh" && yes | sdk install java']]
-        elif IS_MAC and which("brew"):
-            cmds["java"] = [["brew", "install", "openjdk@21"]]
-        elif IS_WIN and which("winget"):
-            cmds["java"] = [["winget", "install", "-e", "--accept-source-agreements", "--accept-package-agreements",
-                             "--id", "EclipseAdoptium.Temurin.21.JDK"]]
-    npm_cli = {"claude": [["npm", "install", "-g", "@anthropic-ai/claude-code"]],
-               "codex": [["npm", "install", "-g", "@openai/codex"]]}
-    cmds.update(npm_cli)
-    if name not in cmds:
-        return False
-    for c in cmds[name]:
-        log("$ " + " ".join(c))
-        if run(c, check=False).returncode != 0:
-            return False
-    ensure_path()
-    return True
-
-
-# ---------- pinned tools ----------
-def tool_version(name: str) -> str:
-    m = re.search(r"\d+\.\d+\.\d+", out([name, "--version"]))
-    return m.group(0) if m else ""
-
-
-def npm_global(pkg: str, log: Log) -> None:
-    if run(["npm", "install", "-g", pkg], check=False, quiet=True).returncode != 0:
-        if IS_WIN:
-            raise RuntimeError(f"npm install -g {pkg} failed")
-        log(f"  npm -g needs permissions: installing {pkg} into ~/.local")
-        run(["npm", "install", "-g", "--prefix", str(HOME / ".local"), pkg], quiet=True)
-        ensure_path()
-
-
-def npm_global_version(exe: Path, name: str) -> str:
-    """The version of the global package behind a command, "" when its package.json is not where `npm install -g` puts
-    it: on POSIX the command links into <prefix>/lib/node_modules/<name>/, on Windows a shim sits beside
-    node_modules/<name>/."""
-    for folder in (exe.parent / "node_modules" / name, *(p for p in exe.resolve().parents if p.name == name)):
-        try:
-            meta = load_json(folder / "package.json", {})
-        except OSError:
-            continue
-        if isinstance(meta, dict) and meta.get("name") == name:
-            return str(meta.get("version") or "")
-    return ""
-
-
-def openwiki_installed() -> bool:
-    """The pinned OpenWiki is what the command runs. The portal asks on every page load and `npm ls -g` takes seconds,
-    so npm only answers for a command whose package is elsewhere (a version manager's shim)."""
-    exe = which("openwiki")
-    if not exe:
-        return False
-    found = npm_global_version(Path(exe), "openwiki")
-    if found:
-        return found == VERSIONS["openwiki"]
-    r = run(["npm", "ls", "-g", "--depth=0", f"openwiki@{VERSIONS['openwiki']}"], check=False, quiet=True)
-    if r.returncode == 0:
-        return True
-    r = run(["npm", "ls", "-g", "--prefix", str(HOME / ".local"), "--depth=0", f"openwiki@{VERSIONS['openwiki']}"],
-            check=False, quiet=True)
-    return r.returncode == 0
 
 
 # ---------- components the user can choose ----------
@@ -382,33 +299,23 @@ def set_components(chosen: list[str]) -> None:
     docs.save_workspace(ws)
 
 
-def tool_ok(name: str) -> bool:
-    if name == "openwiki":
-        return openwiki_installed()
-    if name == "quality":
-        return tool_ok("mmdc") and tool_ok("gitleaks")
-    if name == "gitleaks":
-        return binaries.pinned_path("gitleaks").is_file()
-    return tool_version(name) == VERSIONS[name]
-
-
 def install_tools(log: Log = print, comps: list[str] | None = None) -> None:
     comps = components() if comps is None else comps
     if "graphify" in comps:
-        if not tool_ok("graphify"):
+        if not services.current().toolchain.tool_ok("graphify"):
             log(f"installing graphify {VERSIONS['graphify']} (uv)…")
             run([uv(), "tool", "install", "--force", f"graphifyy=={VERSIONS['graphify']}"], quiet=True)
             ensure_path()
-        log(f"✔ graphify {tool_version('graphify')}")
+        log(f"✔ graphify {services.current().toolchain.tool_version('graphify')}")
     if "likec4" in comps:
-        if not tool_ok("likec4"):
+        if not services.current().toolchain.tool_ok("likec4"):
             log(f"installing likec4 {VERSIONS['likec4']} (npm)…")
-            npm_global(f"likec4@{VERSIONS['likec4']}", log)
-        log(f"✔ likec4 {tool_version('likec4')}")
+            services.current().toolchain.npm_global(f"likec4@{VERSIONS['likec4']}", log)
+        log(f"✔ likec4 {services.current().toolchain.tool_version('likec4')}")
     if "openwiki" in comps:
-        if not tool_ok("openwiki"):
+        if not services.current().toolchain.tool_ok("openwiki"):
             log(f"installing openwiki {VERSIONS['openwiki']} (npm)…")
-            npm_global(f"openwiki@{VERSIONS['openwiki']}", log)
+            services.current().toolchain.npm_global(f"openwiki@{VERSIONS['openwiki']}", log)
         log(f"✔ openwiki {VERSIONS['openwiki']}")
         envf = HOME / ".openwiki" / ".env"
         envf.parent.mkdir(exist_ok=True)
@@ -416,17 +323,17 @@ def install_tools(log: Log = print, comps: list[str] | None = None) -> None:
             with envf.open("a", encoding="utf-8") as fh:
                 fh.write("OPENWIKI_TELEMETRY_DISABLED=1\n")
     if "quality" in comps:                  # optional: a failure only means CLI check skips that check (one WARN)
-        if not tool_ok("mmdc"):
+        if not services.current().toolchain.tool_ok("mmdc"):
             log(f"installing mermaid-cli {VERSIONS['mmdc']} (npm, downloads a headless Chromium)…")
             try:
-                npm_global(f"@mermaid-js/mermaid-cli@{VERSIONS['mmdc']}", log)
+                services.current().toolchain.npm_global(f"@mermaid-js/mermaid-cli@{VERSIONS['mmdc']}", log)
             except RuntimeError as e:
                 log(f"⚠ mermaid-cli not installed ({e}) — diagrams will not be validated")
-        if not tool_ok("gitleaks"):
+        if not services.current().toolchain.tool_ok("gitleaks"):
             log(f"installing gitleaks {VERSIONS['gitleaks']}…")
             binaries.ensure("gitleaks", log)
         gl = binaries.bin_path("gitleaks")
-        log(f"✔ quality gate: mermaid-cli {tool_version('mmdc') or 'missing'} · gitleaks {'ok' if gl else 'missing'}")
+        log(f"✔ quality gate: mermaid-cli {services.current().toolchain.tool_version('mmdc') or 'missing'} · gitleaks {'ok' if gl else 'missing'}")
 
 
 # ---------- wiring: everything lives in cam-docs, the service repos stay clean ----------
@@ -775,7 +682,7 @@ def openwiki_credentials() -> bool:
 def wiki_engines() -> list[str]:
     """Who can write a wiki without a terminal: OpenWiki itself (provider key), else an agent CLI with the
     OpenWiki MCP tools (uses the agent's own login)."""
-    if "openwiki" not in components() or not openwiki_installed():
+    if "openwiki" not in components() or not services.current().toolchain.openwiki_installed():
         return []
     return [e for e, ok in (("openwiki", openwiki_credentials()), ("claude", bool(which("claude"))),
                             ("codex", bool(which("codex")))) if ok]
@@ -818,7 +725,7 @@ def wiki_engine_help() -> str | None:
         return None
     if "openwiki" not in components():
         return "off"
-    return "key" if openwiki_installed() else "missing"
+    return "key" if services.current().toolchain.openwiki_installed() else "missing"
 
 
 def wiki_pages(repo: str) -> list[Path]:

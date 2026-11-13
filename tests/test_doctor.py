@@ -18,7 +18,7 @@ def test_report_names_each_check_and_how_to_fix_it(kit, monkeypatch):
     monkeypatch.setattr(doctor.env, "prerequisites", lambda: {
         "git": {"ok": True, "need": True, "hint": "git"},
         "codex": {"ok": False, "need": False, "hint": "Codex CLI"}})
-    monkeypatch.setattr(doctor.env, "tool_version", lambda name: "1.59.4" if name == "likec4" else "")
+    monkeypatch.setattr(kit.services.toolchain, "tool_version", lambda name: "1.59.4" if name == "likec4" else "")
     r = doctor.report()
     pre = {p["name"]: p for p in r["prerequisites"]}
     assert pre["git"]["ok"] and pre["git"]["fix"] is None
@@ -33,7 +33,7 @@ def test_report_names_each_check_and_how_to_fix_it(kit, monkeypatch):
 def test_install_goes_through_the_os_package_manager(kit, monkeypatch):
     from lib import doctor
     seen = []
-    monkeypatch.setattr(doctor.env, "install_prereq", lambda name, log=print: seen.append(name) or True)
+    monkeypatch.setattr(kit.services.toolchain, "install_prereq", lambda name, log=print: seen.append(name) or True)
     assert doctor.install("node", log=lambda _: None) is True and seen == ["node"]
     with pytest.raises(ValueError):
         doctor.install("rm -rf", log=lambda _: None)

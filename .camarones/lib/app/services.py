@@ -11,6 +11,7 @@ from lib.ports.agent_config import AgentConfig
 from lib.ports.diagram_engine import DiagramEngine
 from lib.ports.file_links import FileLinks
 from lib.ports.launcher import Launcher
+from lib.ports.toolchain import Toolchain
 
 
 class Services:
@@ -21,6 +22,7 @@ class Services:
     diagrams: DiagramEngine
     links: FileLinks
     agent_config: AgentConfig
+    toolchain: Toolchain
 
     def __init__(self, providers: Mapping[str, Callable[[], object]]) -> None:
         object.__setattr__(self, "_providers", dict(providers))

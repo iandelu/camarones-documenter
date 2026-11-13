@@ -346,7 +346,7 @@ def test_tool_rows_shape(kit, monkeypatch):
            "claude": {"ok": False, "need": False, "hint": "Claude Code CLI"},
            "codex": {"ok": True, "need": False, "hint": "Codex CLI", "note": "n"}}
     monkeypatch.setattr(kit.env, "prerequisites", lambda: pre)
-    monkeypatch.setattr(kit.env, "tool_ok", lambda k: k == "likec4")
+    monkeypatch.setattr(kit.services.toolchain, "tool_ok", lambda k: k == "likec4")
     monkeypatch.setattr(kit.env, "components", lambda: ["openwiki"])
     monkeypatch.setattr(kit.env, "KIT_TOOLS", {"likec4": "C4"})
     monkeypatch.setattr(kit.env, "EXTRAS", {"openwiki": "Wiki", "agents": "Agents"})

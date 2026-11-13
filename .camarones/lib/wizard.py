@@ -1303,7 +1303,7 @@ class W:
                 continue
             ans = self.yes(self.t("missing", what=v["hint"]), default=v["need"])
             if ans:
-                if env.install_prereq(k, log=lambda m: self.say("  " + m, "grey62")):
+                if services.current().toolchain.install_prereq(k, log=lambda m: self.say("  " + m, "grey62")):
                     if k in ("git", "node", "docker", "java"):
                         self.say(self.t("reopen"), "yellow")
                         ok = ok and not v["need"]

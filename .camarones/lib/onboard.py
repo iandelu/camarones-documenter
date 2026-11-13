@@ -16,6 +16,7 @@ from .common import (CAM_DIR, CAM_LAYOUT, IS_WIN, VERSIONS, cli_cmd, ensure_path
                      repo_dir, run, save_json, ws_rel)
 from .harness.ctx import Ctx
 from . import docs, env, plan, projects
+from .app import services
 
 STEPS = ("name", "repos", "tools", "setup", "stack", "arch", "intro")   # first-run steps, saved by id
 LEGACY_STEPS = ("name", "repos", "tools", "setup", "arch", "intro")     # firstrun.json before 3.3 kept only the index
@@ -214,7 +215,7 @@ def local_ready() -> bool:
     """This machine already has what setup gives: every repo with a URL cloned and the chosen kit tools."""
     if missing_repos():
         return False
-    return all(env.tool_ok(k) for k in env.KIT_TOOLS if k in env.components())
+    return all(services.current().toolchain.tool_ok(k) for k in env.KIT_TOOLS if k in env.components())
 
 
 def mode(saved: dict) -> str:
@@ -325,7 +326,7 @@ def tool_rows() -> list[dict]:
                      "found": v.get("found", ""), "note": v.get("note", "")})
     chosen = env.components()
     for k, label in {**env.KIT_TOOLS, **env.EXTRAS}.items():
-        installed = env.tool_ok(k) if k in env.KIT_TOOLS else (k in chosen)
+        installed = services.current().toolchain.tool_ok(k) if k in env.KIT_TOOLS else (k in chosen)
         rows.append({"id": k, "label": label, "ok": installed, "kind": "t_kit", "rec": True, "sys": False,
                      "found": VERSIONS.get(k, "") if installed and k in env.KIT_TOOLS else "", "note": ""})
     return rows
@@ -352,7 +353,7 @@ def install_tools(system: list[str], components: list[str], log, cancelled: Call
     for k in system:
         if cancelled and cancelled():
             break
-        if env.install_prereq(k, log=log):
+        if services.current().toolchain.install_prereq(k, log=log):
             log(f"✔ {k}")                  # one finished step each, so the app's progress counts the system tools too
         else:
             failed.append(k)

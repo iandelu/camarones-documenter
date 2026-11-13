@@ -306,7 +306,7 @@ def test_install_choice_pick_and_none(kit, monkeypatch):
 def test_install_tools_reports_failures(kit, monkeypatch):
     done = []
     monkeypatch.setattr(kit.env, "set_components", lambda c: done.append(("set", c)))
-    monkeypatch.setattr(kit.env, "install_prereq", lambda k, log=print: k != "docker")
+    monkeypatch.setattr(kit.services.toolchain, "install_prereq", lambda k, log=print: k != "docker")
     logged = []
     assert kit.onboard.install_tools(["git", "docker"], ["likec4"], logged.append) == ["docker"]
     assert done == [("set", ["likec4"])]

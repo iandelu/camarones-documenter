@@ -26,7 +26,7 @@ def desk(kit, monkeypatch):
             (pkg / "path.txt").write_text("electron", encoding="utf-8")
         return subprocess.CompletedProcess(cmd, 0, "", "")
     monkeypatch.setattr(desktop, "run", fake_run)
-    monkeypatch.setattr(desktop, "node_major", lambda: 22)
+    monkeypatch.setattr(kit.services.toolchain, "node_major", lambda: 22)
     desktop.calls = calls
     desktop.SKIPS_SCRIPTS = False
     return desktop
@@ -59,8 +59,8 @@ def test_when_npm_skips_install_scripts_electron_downloads_itself(desk):
     assert b == desk.ELECTRON / "dist" / "electron"
 
 
-def test_without_node_it_says_what_to_install(desk, monkeypatch):
-    monkeypatch.setattr(desk, "node_major", lambda: 0)
+def test_without_node_it_says_what_to_install(kit, desk, monkeypatch):
+    monkeypatch.setattr(kit.services.toolchain, "node_major", lambda: 0)
     with pytest.raises(RuntimeError, match="Node.js"):
         desk.ensure(log=lambda _: None)
     assert not desk.calls

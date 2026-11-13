@@ -169,7 +169,7 @@ def test_setup_job_logs_progress(app_server, kit, monkeypatch):
             log(f"✔ step {i}")
         return True
     monkeypatch.setattr(kit.env, "setup", fake_setup)
-    monkeypatch.setattr(kit.env, "install_prereq", lambda k, log=print: True)
+    monkeypatch.setattr(kit.services.toolchain, "install_prereq", lambda k, log=print: True)
     monkeypatch.setattr(kit.env, "set_components", lambda c: None)
     code, job = post(app_server, "setup", {"system": ["docker"], "components": ["likec4", "bogus"]})
     assert code == 200 and job["kind"] == "onboard:setup"
@@ -183,7 +183,7 @@ def test_setup_job_logs_progress(app_server, kit, monkeypatch):
 
 def test_a_failed_setup_ends_failed_with_its_result(app_server, kit, monkeypatch):
     monkeypatch.setattr(kit.env, "setup", lambda ci=False, log=print, comps=None: (_ for _ in ()).throw(RuntimeError("boom")))
-    monkeypatch.setattr(kit.env, "install_prereq", lambda k, log=print: False)
+    monkeypatch.setattr(kit.services.toolchain, "install_prereq", lambda k, log=print: False)
     monkeypatch.setattr(kit.env, "set_components", lambda c: None)
     j = wait_job(app_server, post(app_server, "setup", {"system": ["docker"], "components": []})[1]["id"])
     assert j["status"] == "failed" and any("boom" in l for l in j["log"])
@@ -199,7 +199,7 @@ def test_cancelling_setup_stops_between_steps(app_server, kit, monkeypatch):
         first.set()
         release.wait(20)                                  # the first tool is "installing" while the user cancels
         return True
-    monkeypatch.setattr(kit.env, "install_prereq", install)
+    monkeypatch.setattr(kit.services.toolchain, "install_prereq", install)
     monkeypatch.setattr(kit.env, "setup", lambda ci=False, log=print, comps=None: ran_setup.append(1) or True)
     monkeypatch.setattr(kit.env, "set_components", lambda c: None)
     code, job = post(app_server, "setup", {"system": ["git", "docker", "java"], "components": []})

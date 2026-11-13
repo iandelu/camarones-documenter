@@ -17,7 +17,7 @@ class ArchValidate(Command):
         return 0 if ok else 1
 
 
-def cmd_doctor(a) -> int:
+def cmd_doctor(a, cli: CliContext) -> int:
     from lib import env
     from lib.common import VERSIONS
     from lib.core.paths import cli_cmd
@@ -43,7 +43,7 @@ def cmd_doctor(a) -> int:
             if v.get("note"):
                 print(f"          {v['note']}")
         for tname in ("graphify", "likec4", "mmdc"):
-            print(f"  {tname:<9} {env.tool_version(tname) or 'missing'} (pinned {VERSIONS[tname]})")
+            print(f"  {tname:<9} {cli.services.toolchain.tool_version(tname) or 'missing'} (pinned {VERSIONS[tname]})")
         from lib import install_state
         from lib.core.paths import WS_FILE
         if WS_FILE.exists():
@@ -58,8 +58,8 @@ def cmd_doctor(a) -> int:
             for sk in team_skills.outdated():
                 print(f"⚠ skill {sk}: the kit's version changed since your team copy — "
                       f"`{cli_cmd()} skills diff {sk} --kit`")
-        print(f"  openwiki  {'ok' if env.openwiki_installed() else 'missing'} (pinned {VERSIONS['openwiki']})")
-        print(f"  gitleaks  {'ok' if env.tool_ok('gitleaks') else 'missing'} (pinned {VERSIONS['gitleaks']})")
+        print(f"  openwiki  {'ok' if cli.services.toolchain.openwiki_installed() else 'missing'} (pinned {VERSIONS['openwiki']})")
+        print(f"  gitleaks  {'ok' if cli.services.toolchain.tool_ok('gitleaks') else 'missing'} (pinned {VERSIONS['gitleaks']})")
     return 0
 
 
@@ -72,7 +72,7 @@ class Doctor(Command):
         parser.add_argument("--install", choices=["git", "node", "docker", "java", "claude", "codex"])
 
     def run(self, args: argparse.Namespace, cli: CliContext) -> int:
-        return cmd_doctor(args)
+        return cmd_doctor(args, cli)
 
 
 def cmd_eval(a) -> int:

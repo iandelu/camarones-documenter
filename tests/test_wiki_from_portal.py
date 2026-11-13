@@ -47,7 +47,7 @@ def test_each_card_says_what_a_click_will_do(wired, monkeypatch):
 def test_without_an_engine_the_exact_fix(wired, monkeypatch, comps, installed, fix):
     env = wired.env
     ws = wired.docs.workspace(); ws["project"]["components"] = comps; wired.docs.save_workspace(ws)
-    monkeypatch.setattr(env, "openwiki_installed", lambda: installed)
+    monkeypatch.setattr(wired.services.toolchain, "openwiki_installed", lambda: installed)
     monkeypatch.setattr(env, "openwiki_credentials", lambda: False)
     monkeypatch.setattr(env, "which", lambda name: None)
     assert env.wiki_engines() == [] and env.wiki_engine_help() == fix
@@ -61,14 +61,14 @@ def test_without_an_engine_the_exact_fix(wired, monkeypatch, comps, installed, f
 @pytest.fixture
 def npm(wired, monkeypatch):
     """The `npm` commands run, answered `npm_rc`; the rest as they are."""
-    calls, real = SimpleNamespace(cmds=[], rc=1), wired.env.run
+    calls, real = SimpleNamespace(cmds=[], rc=1), wired.services.toolchain.run
 
     def spy(cmd, *a, **k):
         if cmd[0] != "npm":
             return real(cmd, *a, **k)
         calls.cmds.append(cmd)
         return SimpleNamespace(returncode=calls.rc, stdout="", stderr="")
-    monkeypatch.setattr(wired.env, "run", spy)
+    monkeypatch.setattr(wired.services.toolchain, "run", spy)
     return calls
 
 
@@ -77,12 +77,13 @@ def package(folder, version, name="openwiki"):
     (folder / "package.json").write_text(json.dumps({"name": name, "version": version}), encoding="utf-8")
 
 
-def on_path(env, monkeypatch, exe):
-    monkeypatch.setattr(env, "which", lambda name: str(exe) if name == "openwiki" else None)
+def on_path(kit, monkeypatch, exe):
+    monkeypatch.setattr(kit.services.toolchain, "which", lambda name: str(exe) if name == "openwiki" else None)
 
 
 def test_a_page_load_without_openwiki_does_not_wait_for_npm(wired, monkeypatch, npm):
     monkeypatch.setattr(wired.env, "which", lambda name: None)
+    monkeypatch.setattr(wired.services.toolchain, "which", lambda name: None)
     assert wired.serve.tree()["engines"] == []
     assert npm.cmds == []
 
@@ -92,8 +93,8 @@ def test_on_windows_the_version_is_read_beside_the_command(wired, tmp_path, monk
     env = wired.env
     package(tmp_path / "npm" / "node_modules" / "openwiki", found(wired.common.VERSIONS["openwiki"]))
     (tmp_path / "npm" / "openwiki.cmd").write_text("@echo off\n", encoding="utf-8")
-    on_path(env, monkeypatch, tmp_path / "npm" / "openwiki.cmd")
-    assert env.openwiki_installed() is pinned and npm.cmds == []
+    on_path(wired, monkeypatch, tmp_path / "npm" / "openwiki.cmd")
+    assert wired.services.toolchain.openwiki_installed() is pinned and npm.cmds == []
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="npm links a command on POSIX; on Windows it writes a shim")
@@ -106,8 +107,8 @@ def test_on_posix_the_version_is_read_through_the_commands_link(wired, tmp_path,
     (pkg / "dist" / "cli.js").write_text("#!/usr/bin/env node\n", encoding="utf-8")
     (tmp_path / "prefix" / "bin").mkdir()
     (tmp_path / "prefix" / "bin" / "openwiki").symlink_to(pkg / "dist" / "cli.js")
-    on_path(env, monkeypatch, tmp_path / "prefix" / "bin" / "openwiki")
-    assert env.openwiki_installed() is pinned and npm.cmds == []
+    on_path(wired, monkeypatch, tmp_path / "prefix" / "bin" / "openwiki")
+    assert wired.services.toolchain.openwiki_installed() is pinned and npm.cmds == []
 
 
 @pytest.mark.parametrize("rc, installed", [(0, True), (1, False)])
@@ -116,9 +117,9 @@ def test_a_shim_with_no_package_beside_it_still_asks_npm(wired, tmp_path, monkey
     (tmp_path / "openwiki").mkdir()                                   # a folder that happens to share the name
     package(tmp_path / "openwiki" / "shims", "9.9.9", name="something-else")
     (tmp_path / "openwiki" / "shims" / "openwiki").write_text("#!/bin/sh\n", encoding="utf-8")
-    on_path(env, monkeypatch, tmp_path / "openwiki" / "shims" / "openwiki")
+    on_path(wired, monkeypatch, tmp_path / "openwiki" / "shims" / "openwiki")
     npm.rc = rc
-    assert env.openwiki_installed() is installed and npm.cmds and npm.cmds[0][:2] == ["npm", "ls"]
+    assert wired.services.toolchain.openwiki_installed() is installed and npm.cmds and npm.cmds[0][:2] == ["npm", "ls"]
 
 
 def test_the_portal_chooses_the_repo_writes_the_starter_brief_and_generates(wired, engine):  # noqa: F811
