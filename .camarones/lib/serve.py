@@ -30,6 +30,7 @@ from .interfaces.http.routes.docs import api_ask, api_doc, api_search, create, w
 from .interfaces.http.routes.machine import app_creds, app_kitdev, app_summary, sessions_setting, ui_lang
 from .interfaces.http.routes.onboard import app_onboard
 from .interfaces.http.routes.runs import api_pipeline, approve_unit, retry_unit, run_stopped, start_run
+from .interfaces.http.routes.team import api_interview, kpis_miss
 from .interfaces.http.routes.terminals import app_session, app_terminal, app_unit, shutdown, unit_terminals
 from .interfaces.http.jobs import CANCEL, JOB_LOCK, JOBS, claim_job, fail_job, job_running, run_job, start_job
 from .interfaces.http.messages import Request, Response
@@ -64,30 +65,6 @@ def api_c4_view(view: str) -> dict:
                           "in": [rel(r) for r in idx["relations"] if r["to"] == f]} for f in shown]}
 
 
-def kpis_miss(b: dict) -> dict:
-    """A question nobody found an answer to: `question` adds it to the open questions for the next interview,
-    `dismiss` just forgets it."""
-    q, action = str(b.get("q") or ""), b.get("action")
-    if q not in {m["q"] for m in usage.misses()}:
-        raise KeyError(q)
-    if action == "question":
-        n = next(m["n"] for m in usage.misses() if m["q"] == q)
-        f = DOCS / "interview" / "open-questions.md"
-        if not f.exists():
-            f.parent.mkdir(parents=True, exist_ok=True)
-            f.write_text("---\ntype: interview\ntitle: Open questions\ndescription: Questions agents could not answer "
-                         "from the code; answer them in the next interview or inline.\n---\n# Open questions\n",
-                         encoding="utf-8", newline="\n")
-        text = f.read_text(encoding="utf-8")
-        line = (f"- [ ] ({dt.date.today().isoformat()}, docs-gap) {q} — asked {n}× in the portal or by agents; "
-                "no page answered it\n")
-        f.write_text(text.rstrip("\n") + "\n" + line, encoding="utf-8", newline="\n")
-    elif action != "dismiss":
-        raise ValueError("action: question or dismiss")
-    usage.forget(q)
-    return {"misses": usage.misses()}
-
-
 def c4_change(path: str, b: dict, by: str) -> dict:
     from . import c4edit
     if path == "element":
@@ -112,20 +89,6 @@ def cancel_job(job_id: str) -> dict:
         return {"cancelling": job_id}
     from . import appapi
     return appapi.cancel(job_id)
-
-
-def api_interview(who: str = "") -> dict:
-    """The team questionnaire for the portal's Interview view: the questions, the labels of the offline form (both
-    languages), who answered and, with `who`, that person's own answers to edit them."""
-    from . import questionnaire
-    try:
-        data = questionnaire.load()
-    except ValueError as e:
-        return {"available": False, "reason": str(e), "mode": docs.interview_mode(), "chosen": docs.interview_mode_chosen()}
-    mine = next((r for n, r in questionnaire.responses().items() if who and n.strip().lower() == who.strip().lower()), None)
-    return {"available": True, "mode": docs.interview_mode(), "chosen": docs.interview_mode_chosen(), "id": data["id"], "title": data.get("title") or "",
-            "intro": data.get("intro") or "", "questions": data["questions"], "labels": questionnaire.LABELS,
-            "status": questionnaire.status(), "user": reviewer(), "mine": mine}
 
 
 def cdn_local(html: str) -> str:
@@ -335,13 +298,6 @@ class Handler(BaseHTTPRequestHandler):
             from . import appapi
             return self.json([{**{k: v for k, v in j.items() if k != "log"}, "stoppable": appapi.stoppable(j["id"])}
                               for j in list(JOBS.values())])
-        if name == "interview":
-            return self.json(api_interview(q.get("who", "")))
-        if name == "sync":
-            return self.json(env.sync_status(fetch=q.get("fetch") == "1"))
-        if name == "kpis":
-            from .harness import kpis
-            return self.json(kpis.dashboard())
         if name == "c4/view":
             return self.json(api_c4_view(q.get("id", "")))
         if name.startswith("jobs/") and name[5:] in JOBS:
@@ -388,17 +344,6 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json(*adr_api.post(m.group(1), b, by))
             if m := re.fullmatch(r"/api/app/jobs/([\w.-]+)/cancel", p):
                 return self.json(cancel_job(m.group(1)))
-            if p == "/api/sync/share":             # the team action: checkpoint, pull the team's work, push
-                return self.json({"result": env.share(log=lambda _: None), "sync": env.sync_status()})
-            if p == "/api/interview/answer":
-                from . import questionnaire
-                questionnaire.answer(b)
-                return self.json(questionnaire.status())
-            if p == "/api/kpis/miss":
-                try:
-                    return self.json(kpis_miss(b))
-                except KeyError as e:
-                    return self.json({"error": f"not in the list: {e}"}, 404)
             if m := re.fullmatch(r"/api/c4/(element|confirm|relation|remove)", p):
                 try:
                     return self.json(c4_change(m.group(1), b, by))
