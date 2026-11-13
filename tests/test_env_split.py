@@ -95,7 +95,7 @@ MOVED: set[str] = {"ports", "adapters.system.os_open", "adapters.likec4", "adapt
                    "adapters.prereqs", "adapters.graphify", "adapters.openwiki", "adapters.docker",
                    "adapters.git.checkpoint", "core.paths", "app.components", "app.templates", "app.viewers",
                    "app.setup", "app.share", "app.wiki", "core.process", "app.portal",
-                   "app.export_site"}
+                   "app.export_site", "ci"}
 NEW: set[str] = {home for home in _MAP if home.startswith(("adapters.", "app."))}   # the modules F4 creates
 
 TEST_READS = (re.compile(r"(?<![\w.])(?:kit\.)?(?:\w+\.)?env\.([A-Za-z_]\w*)"), re.compile(r"lib\.env\.([A-Za-z_]\w*)"),
@@ -110,20 +110,27 @@ def test_every_env_name_has_one_home():
 
 
 def test_moved_names_live_in_their_home(kit):
-    env = vars(importlib.import_module("lib.env"))
     wrong = []
     for name, home in sorted(HOME.items()):
-        if home not in MOVED:
-            continue
-        mod = importlib.import_module(f"lib.{home}")
-        if not hasattr(mod, name):
+        if home in MOVED and not hasattr(importlib.import_module(f"lib.{home}"), name):
             wrong.append(f"lib.{home} has no {name}")
-        elif home.startswith(("adapters.", "app.")) or home == "ci":
-            if name in env:
-                wrong.append(f"lib.env still defines {name} (moved to lib.{home})")
-        elif name in env and env[name] is not getattr(mod, name):        # ports, core.*: env may import it
-            wrong.append(f"lib.env's {name} is not lib.{home}'s")
     assert wrong == []
+
+
+def test_the_facade_re_exports_every_env_name():
+    env = importlib.import_module("lib.env")
+    homes = {**HOME, "pid_alive": "core.locks", "git_failure": "projects"}
+    assert REEXPORTS <= set(homes)
+    wrong = [f"lib.env.{n} is not lib.{home}.{n}" for n, home in sorted(homes.items())
+             if getattr(env, n, None) is not getattr(importlib.import_module(f"lib.{home}"), n)]
+    assert wrong == []
+
+
+def test_env_is_a_facade():
+    env = importlib.import_module("lib.env")
+    assert env.__facade__
+    assert set(env.__all__) == set(HOME) | REEXPORTS
+    assert archscan.layer_of("env", archscan.load_layers()) == "facade"
 
 
 def _is_facade(path) -> bool:

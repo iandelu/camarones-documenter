@@ -42,7 +42,7 @@ def pytest_unconfigure(config) -> None:
     bytecode.pytest_unconfigure(config)
 
 
-MODULES = ("common", "docs", "env", "plan", "serve", "projects", "migrate", "quality", "codemap", "install", "quickarch", "creds", "questionnaire", "usage", "onboard", "wizard", "bootstrap")
+MODULES = ("common", "docs", "plan", "serve", "projects", "migrate", "quality", "codemap", "install", "quickarch", "creds", "questionnaire", "usage", "onboard", "wizard", "bootstrap")
 
 
 @pytest.hookimpl(tryfirst=True)                 # before xdist's own hook reads the groups

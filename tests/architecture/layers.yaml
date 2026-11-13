@@ -69,7 +69,7 @@ c4edit: app
 ci: app
 docs: app
 doctor: app
-env: app
+env: facade
 exporters: app
 genblocks: app
 guide: app
