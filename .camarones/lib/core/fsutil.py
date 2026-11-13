@@ -38,6 +38,39 @@ def save_json(p: Path, data) -> None:
         raise
 
 
+def is_link(p: Path) -> bool:
+    """A symlink or a Windows junction (Python < 3.12 cannot tell a junction: it resolves somewhere else)."""
+    return p.is_symlink() or (p.is_dir() and Path(os.path.realpath(p)) != Path(os.path.realpath(p.parent)) / p.name)
+
+
+def through_link(root: Path, p: Path) -> bool:
+    """Reaching `p` from `root` crosses a link, `p` itself included, or `p` is not under `root`. A symlink or junction
+    committed anywhere on the way would carry a read or a write out of the project's real tree."""
+    try:
+        parts = p.relative_to(root).parts
+    except ValueError:
+        return True
+    cur = root.resolve()
+    for part in parts:
+        cur = cur / part
+        if part == ".." or cur.is_symlink() or (cur.exists() and cur.resolve() != cur):
+            return True
+    return False
+
+
+def own_file(root: Path, p: Path) -> bool:
+    """The kit may write its own file at `p`: no folder from `root` down to it is a link, and a link sitting at `p`
+    is taken out first, so the write lands in a regular file and never goes through the link."""
+    if through_link(root, p.parent):
+        return False
+    if is_link(p):
+        try:
+            p.unlink()
+        except OSError:
+            os.rmdir(p)                         # a Windows junction (the target is never followed)
+    return True
+
+
 def rmtree(path: Path) -> None:
     """shutil.rmtree that also removes read-only files (git objects on Windows)."""
     def onerror(fn, p, _exc):

@@ -348,7 +348,10 @@ El kit calcula si un plugin ejecuta código en lugar de fiarse de su manifiesto.
 agentes y llegó con el repo del equipo —plugins, hooks, servidores MCP, ajustes, skills— no se carga hasta que lo
 apruebas en tu máquina (`camaron trust`, o Equipo en la app). La aprobación cubre todos los ficheros, así que cualquier
 cambio vuelve a preguntar. Lo que instaló el propio kit se reconoce sin preguntar, y `camaron repair` lo devuelve a su
-sitio si alguien lo edita o lo borra.
+sitio si alguien lo edita o lo borra. Un enlace que llega en el repo (un symlink o una junction: `.claude`, un fichero
+de ajustes, `.mcp.json`…) es un solo elemento, con el sitio al que apunta: el kit nunca lee lo que hay detrás ni escribe
+a través de él, y donde escribe un fichero suyo (`.mcp.json`, `.claude/settings.json`, `.codex/config.toml`) cambia el
+enlace por ese fichero.
 
 La versión de un equipo de una skill del kit (`camaron skills fork`) vive en `cam-docs/.camarones/skills/<nombre>/`: gana
 a la del kit, sobrevive a las actualizaciones y cuenta como escrita por el equipo, así que cada máquina la aprueba una

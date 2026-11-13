@@ -9,7 +9,7 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
-from .common import DOCS, KIT, ROOT, VERSIONS, load_json, save_json
+from .common import DOCS, KIT, ROOT, VERSIONS, load_json, own_file, save_json, through_link
 
 KIT_SKILLS: Path = KIT / "templates" / "skills"
 NAME_RE = re.compile(r"[a-z0-9][a-z0-9-]*")
@@ -31,15 +31,16 @@ def stamp_path() -> Path | None:
 
 def load_stamp() -> dict:
     p = stamp_path()
-    data = load_json(p, {}) if p else {}
+    data = load_json(p, {}) if p and not through_link(ROOT, p) else {}
     if not isinstance(data, dict) or not isinstance(data.get("forks"), dict):
         return {"forks": {}}
     return data
 
 
 def save_stamp(data: dict) -> None:
+    """A committed link at the stamp is replaced by the file, never written through."""
     p = stamp_path()
-    if p is not None:
+    if p is not None and own_file(ROOT, p):
         save_json(p, data)
 
 
@@ -212,6 +213,8 @@ def reset(name: str, now: str | None = None) -> Path:
         raise ValueError(f"{name} is a team skill: delete its folder to remove it")
     if o != "team":
         raise ValueError(f"no team copy of {name}")
+    if through_link(ROOT, team_dir() / ".reset"):
+        raise ValueError(".camarones/skills/.reset is a link: a team copy is never moved through it")
     base = f"{name}-{now or datetime.now().strftime('%Y%m%d-%H%M%S')}"
     aside = team_dir() / ".reset" / base
     n = 2
@@ -269,6 +272,8 @@ def add_note(skill: str, text: str, source: str, by: str, step: str = "", change
     if not " ".join(text.split()):
         raise ValueError("empty note")
     path = notes_dir() / f"{skill}.md"
+    if through_link(ROOT, path):
+        raise ValueError(f"{path.relative_to(ROOT).as_posix()} goes through a link: notes are never written through it")
     path.parent.mkdir(parents=True, exist_ok=True)
     line = format_note({"date": today or datetime.now().strftime("%Y-%m-%d"), "source": source, "step": step,
                         "change": change, "ref": ref, "by": by, "text": text})
