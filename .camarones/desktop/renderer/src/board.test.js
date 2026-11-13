@@ -140,7 +140,8 @@ test('gateKey: one blocking card reads in the singular, several in the plural', 
   expect(gateKey(['WI-3', 'WI-4'])).toBe('bd.gate.many')
 })
 
-// The start gate's 409 names its blockers as {id, kind, files?} (lib/serve.py, Historias); older servers sent bare ids.
+// The start gate's 409 names its blockers as {id, kind, files?} (routes/board.py, Historias); older servers sent bare
+// ids.
 const blockedBy = [{ id: 'WI-3', kind: 'dependency' }, { id: 'WI-7', kind: 'conflict', files: ['api:src/a.py'] }]
 afterEach(() => setLang('es'))
 

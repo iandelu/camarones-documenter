@@ -18,12 +18,13 @@ function cliEnv(env) {
 
 // portalToken: this session's key for the portal the app opens in the browser (as `camaron up` does): with it that
 // portal writes the board; it never unlocks what needs the app token. CAMARONES_LIFELINE: the server's stdin is a pipe
-// this process holds and never writes to, so when it ends, however it ends, the server stops (lib/serve.py watch_app).
+// this process holds and never writes to, so when it ends, however it ends, the server stops
+// (lib/interfaces/http/server.py watch_app).
 const backendEnv = (env, root, token, portalToken) => ({ ...cliEnv(env), CAMARONES_ROOT: root, CAMARONES_APP_TOKEN: token,
   CAMARONES_LIFELINE: '1', ...(portalToken ? { CAMARONES_PORTAL_TOKEN: portalToken } : {}) })
 const BACKEND_STDIO = ['pipe', 'pipe', 'pipe']
 
-// lib/serve.py prints {"ready": true, "port": N} as its first line when the app started it.
+// lib/interfaces/http/server.py prints {"ready": true, "port": N} as its first line when the app started it.
 function parseReady(line) {
   try {
     const r = JSON.parse(line)

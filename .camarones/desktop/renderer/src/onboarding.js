@@ -1,5 +1,5 @@
 // The first-run wizard of the desktop app (#/start) as data: where it stands, what comes next, whether a step may be
-// left and why not, and the shapes the server's onboarding endpoints take (lib/onboard.py, lib/serve.py). Pure: no
+// left and why not, and the shapes the server's onboarding endpoints take (lib/onboard.py, routes/onboard.py). Pure: no
 // React, no fetch. `state` is GET app/onboard/state: {mode, kind, steps (without `name`), step, done, repos, found}.
 
 export const STEP_KEYS = { repos: 'obStepRepos', tools: 'obStepTools', setup: 'obStepSetup', stack: 'obStepStack',

@@ -166,8 +166,8 @@ test("the server's \"no AI\" and \"too slow\" refusals are said in the app's lan
   setLang('es')
 })
 
-// One wiki runs at a time on the server (lib/serve.py wiki(): another repo's start is 409 busy). The jobs store's running
-// list says which repo's runs: Generate closes on the others; the repo that runs keeps its own button.
+// One wiki runs at a time on the server (routes/analysis.py wiki(): another repo's start is 409 busy). The jobs store's
+// running list says which repo's runs: Generate closes on the others; the repo that runs keeps its own button.
 test('a wiki running for one repo closes Generate on the others', () => {
   const running = [{ id: '1', kind: 'wiki', repo: 'api', status: 'running' }, { id: '2', kind: 'c4', status: 'running' }]
   expect(wikiBusyWith(running, 'web')).toBe('api')

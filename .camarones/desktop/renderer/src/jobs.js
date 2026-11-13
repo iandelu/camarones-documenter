@@ -1,5 +1,6 @@
-// The server's jobs (lib/serve.py: builds, wikis, the app's commands, Kit dev) as one store for the window. They live
-// on the server, so they outlast a change of section; the panel lists them and the status bar says what runs.
+// The server's jobs (lib/interfaces/http/jobs.py: builds, wikis, the app's commands, Kit dev) as one store for the
+// window. They live on the server, so they outlast a change of section; the panel lists them and the status bar says
+// what runs.
 export const RECENT = 6
 
 // What runs, and the most recent first (the server keeps every job of its session). A panel's background read

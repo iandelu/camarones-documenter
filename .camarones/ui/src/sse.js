@@ -1,5 +1,5 @@
-// Server-sent events read in pieces (lib/serve.py streams runs and jobs): complete messages out, the rest kept for
-// the next piece, and the last id seen so a dropped stream can resume. Comments (keep-alives) are skipped.
+// Server-sent events read in pieces (lib/interfaces/http streams runs and jobs): complete messages out, the rest kept
+// for the next piece, and the last id seen so a dropped stream can resume. Comments (keep-alives) are skipped.
 export function parseSSE(buf) {
   const events = []
   let id = null

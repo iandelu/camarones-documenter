@@ -1,7 +1,7 @@
 import { STATIC } from './api.js'
 
-// Reading the docs API the same way in both portals: the live server (lib/serve.py, GET api/<name>?<params>) and the
-// static export, where each answer is a json file (api/<name>.json, api/doc/<lang|_>/<path>.json) and search runs
+// Reading the docs API the same way in both portals: the live server (lib/interfaces/http, GET api/<name>?<params>) and
+// the static export, where each answer is a json file (api/<name>.json, api/doc/<lang|_>/<path>.json) and search runs
 // here over api/search.json. Reads only; writes go through postJSON (api.js).
 const where = () => ({ static: STATIC })
 

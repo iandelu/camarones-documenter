@@ -1,9 +1,9 @@
 import { parseSSE } from '@camaron/ui'
 
-// The project's server, one folder up from /desktop/. Every call carries the app's token (lib/serve.py checks it);
-// a write also carries X-Camarones, which a page on another site cannot send. A read's `query` goes in the address
-// ({ lang } for the units' titles in the app's language). A refusal throws an Error with the server's message, its
-// `status` and the response `data`.
+// The project's server, one folder up from /desktop/. Every call carries the app's token (lib/interfaces/http/router.py
+// checks it); a write also carries X-Camarones, which a page on another site cannot send. A read's `query` goes in the
+// address ({ lang } for the units' titles in the app's language). A refusal throws an Error with the server's message,
+// its `status` and the response `data`.
 // `stream` follows a server-sent stream (a run's events) and resolves with the last id it read, to resume from there;
 // when it rejects (a refusal, a dropped connection, an abort) the error carries that same `id`.
 export function server(token, fetcher = (...a) => fetch(...a)) {

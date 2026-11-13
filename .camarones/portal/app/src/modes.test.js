@@ -18,7 +18,7 @@ test('no source keeps a branch for the desktop app\'s window', () => {
   }
 })
 
-test('the portal calls no endpoint only the desktop app may (lib/serve.py APP_ONLY)', () => {
+test('the portal calls no endpoint only the desktop app may (routes declared Access.APP)', () => {
   for (const f of files) {
     const src = readFileSync(f, 'utf-8')
     expect(src, f.pathname).not.toMatch(/postJSON\(['`](runs|wiki|build|inventory|schemas|ci|ask\/answer|plan\/cost)['`/]/)

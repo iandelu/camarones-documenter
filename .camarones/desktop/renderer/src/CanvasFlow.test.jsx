@@ -15,7 +15,7 @@ const flow = (run = null) => {
   return seen.at(-1)
 }
 
-// The run's log of a stopped autopilot never says run.finished; the Plan's poll does (lib/serve.py run_stopped).
+// The run's log of a stopped autopilot never says run.finished; the Plan's poll does (routes/runs.py run_stopped).
 test("the Plan's word that the run is over reaches every node, before or without the log's own", () => {
   const run = { run: 'r-1', started: '2026-10-27T10:00:00Z', finished: false, units: 1, done: 0, seconds: 1, cost_usd: 0 }
   expect(flow(run).nodes.every((n) => n.data.finished === false)).toBe(true)

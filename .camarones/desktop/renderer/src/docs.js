@@ -26,9 +26,9 @@ export const c4Card = { id: 'c4', repo: '', body: { what: 'c4' }, hash: '#/c4' }
 // cloned and chosen, its brief ('ai' | 'starter' | null), its pages and canGenerate = cloned and a wiki engine
 // installed). `blocked` says why Generate is closed: 'notCloned', 'noEngine', or 'unread' when wikis could not be read
 // (then the tree's `repos` still list every repo, with what the tree knows of their pages).
-// `body` is what POST wiki takes (lib/serve.py wiki(b)): `choose` only for a repo not yet chosen (the server adds it to
-// the ones with a wiki), `starter` only when there is no brief and no pages (a starter brief is written without AI),
-// as the portal sent them. `graph` is the wiki-graph build, which needs pages (`hasWiki`).
+// `body` is what POST wiki takes (routes/analysis.py wiki(b)): `choose` only for a repo not yet chosen (the server adds
+// it to the ones with a wiki), `starter` only when there is no brief and no pages (a starter brief is written without
+// AI), as the portal sent them. `graph` is the wiki-graph build, which needs pages (`hasWiki`).
 export const wikiBlocks = (tree, wikis) => {
   const block = (repo, hasWiki, blocked, { chosen = false, brief = null, pages = 0 } = {}) => ({ repo, hasWiki, blocked, hash: `#/wiki/${repo}`,
     body: { repo, ...(chosen ? {} : { choose: true }), ...(brief || pages ? {} : { starter: true }) },
@@ -49,8 +49,9 @@ export const wikisRead = (prev, got) => (got.error
 export const startBuild = (srv, card) => srv.post('build', card.body)
 export const startWiki = (srv, block) => srv.post('wiki', block.body)
 
-// One wiki runs at a time (lib/serve.py wiki(): another repo's start is refused with 409 busy). From the jobs store's
-// running list: the repo whose wiki runs, when it is not `repo` ('' otherwise), so Generate closes on the others.
+// One wiki runs at a time (routes/analysis.py wiki(): another repo's start is refused with 409 busy). From the jobs
+// store's running list: the repo whose wiki runs, when it is not `repo` ('' otherwise), so Generate closes on the
+// others.
 export const wikiBusyWith = (running, repo) =>
   (running || []).find((j) => j.kind === 'wiki' && j.status === 'running' && j.repo && j.repo !== repo)?.repo || ''
 

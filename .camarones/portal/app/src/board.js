@@ -80,7 +80,7 @@ export function layout(units, { dx = 260, dy = 76 } = {}) {
   return { nodes, edges }
 }
 
-// What the page reads: the units with their titles in the language the page speaks (lib/serve.py api_pipeline).
+// What the page reads: the units with their titles in the language the page speaks (routes/runs.py api_pipeline).
 export const pipelinePath = (lang) => `pipeline?lang=${encodeURIComponent(lang)}`
 
 // Whether the page must reload the pipeline: another run appeared, or the one shown is still going.

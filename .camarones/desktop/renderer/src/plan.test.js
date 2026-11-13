@@ -116,7 +116,8 @@ test('an already open session takes you to its terminal', async () => {
   expect(sessionNote(res, 'x').key).toBe('pty.already')
 })
 
-// The server says why in English (lib/serve.py); the app says it in the person's language, wherever it opens one.
+// The server says why in English (lib/interfaces/http); the app says it in the person's language, wherever it opens
+// one.
 test('no room for a terminal, or a unit open in a window, is said in the app language', async () => {
   const refused = (data, message = 'refused') => ({ post: async () => { throw Object.assign(new Error(message), { status: 409, data }) } })
   await expect(openSession(refused({ error: '8 terminals are open: close one first', limit: 8 }), {}, () => {}))

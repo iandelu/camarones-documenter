@@ -1,6 +1,6 @@
-// The portal server's API (lib/serve.py), relative so the app also works under a sub-path. Mutations need the
+// The portal server's API (lib/interfaces/http), relative so the app also works under a sub-path. Mutations need the
 // X-Camarones header, which a cross-site page cannot send. Work that starts a process is the desktop app's: the
-// server refuses it here (lib/serve.py APP_ONLY).
+// server refuses it here (routes declared Access.APP in lib/interfaces/http).
 import { parseSSE } from '@camaron/ui'
 
 // (Read once at import; without a page — the tests — it is the live server.)
