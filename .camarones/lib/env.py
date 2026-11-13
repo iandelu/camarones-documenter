@@ -1272,19 +1272,6 @@ def install_ci(forge: str | None = None, log: Log = print) -> Path:
 
 
 # ---------- progress safety: local checkpoint commits in the umbrella repo ----------
-CHECKPOINT_PATHS = ["docs", "wikis", "evals", "backlog", ".gitattributes", ".camarones/workspace.yaml", ".camarones/PLAYBOOK.md", ".camarones/CONVENTIONS.md",
-                    ".camarones/skeletons", ".camarones/plugins", ".camarones/plugins.lock", ".camarones/.kit-docs.json", ".camarones/ci", ".claude", ".codex", ".agents", ".mcp.json", "AGENTS.md", "CLAUDE.md",
-                    ".gitignore", ".gitlab-ci.yml", ".github",
-                    ".camarones/skills", ".camarones/.kit-skills.json"]   # a team copy, its fork stamp and its rendering travel together
-
-
-def checkpoint_paths() -> list[str]:
-    """What a checkpoint stages. .gitattributes only on a project with a board: it holds the board's merge driver line,
-    and a project without one may have a root .gitattributes of its own that the kit never committed."""
-    from . import kanban
-    return [p for p in CHECKPOINT_PATHS if (ROOT / p).exists() and (p != ".gitattributes" or kanban.enabled())]
-
-
 def _stderr(line: str) -> None:
     print(line, file=sys.stderr)
 
@@ -1312,7 +1299,7 @@ def checkpoint_commit(message: str, warn: Log = _stderr) -> bool:
     if not (ROOT / ".git").exists():
         return False
     board_repair(warn)
-    paths = checkpoint_paths()
+    paths = services.current().vcs.checkpoint_paths()
     if CTX.root != CTX.state_root:   # a unit's worktree: its pages only; derived files, plan state and the board belong to main
         paths = [p for p in paths if p not in ("backlog", ".gitattributes")]
         paths += [":(exclude)docs/.work", ":(exclude)docs/.status.json", ":(exclude)docs/llms.txt",
@@ -1372,7 +1359,7 @@ def sync_status(fetch: bool = False) -> dict:
         counts = git("rev-list", "--left-right", "--count", f"HEAD...origin/{branch}").split()
         if len(counts) == 2:
             ahead, behind = int(counts[0]), int(counts[1])
-    paths = checkpoint_paths()
+    paths = services.current().vcs.checkpoint_paths()
     pending = []
     if (ROOT / ".git").exists() and paths:
         status = run(["git", "status", "--porcelain", "-uall", "--", *paths], cwd=ROOT, check=False, capture=True).stdout or ""

@@ -139,7 +139,7 @@ def test_eval_draft_adds_a_bounded_unit_for_an_agent(kit, evals):
 
 
 def test_questions_are_committed_with_the_docs(kit):
-    assert "evals" in kit.env.CHECKPOINT_PATHS
+    assert "evals" in kit.services.vcs.CHECKPOINT_PATHS
 
 
 def test_the_petclinic_set_is_well_formed(kit, evals):

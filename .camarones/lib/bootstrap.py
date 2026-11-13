@@ -50,6 +50,11 @@ def _containers() -> object:
     return docker
 
 
+def _vcs() -> object:
+    from lib.adapters.git import checkpoint
+    return checkpoint
+
+
 PROVIDERS: dict[str, Callable[[], object]] = {
     "launcher": _launcher,
     "diagrams": _diagrams,
@@ -59,6 +64,7 @@ PROVIDERS: dict[str, Callable[[], object]] = {
     "code": _code,
     "wiki_engine": _wiki_engine,
     "containers": _containers,
+    "vcs": _vcs,
 }
 
 

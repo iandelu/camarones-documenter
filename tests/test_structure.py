@@ -141,7 +141,7 @@ def test_skeletons_reach_the_project_and_an_edited_copy_is_kept(kit):
     (dst / "decision.md").write_text("ours\n", encoding="utf-8")
     kit.env.sync_kit_docs()
     assert (dst / "decision.md").read_text(encoding="utf-8") == "ours\n"
-    assert ".camarones/skeletons" in kit.env.CHECKPOINT_PATHS
+    assert ".camarones/skeletons" in kit.services.vcs.CHECKPOINT_PATHS
 
 
 def test_init_templates_does_not_copy_skeletons_into_the_docs(kit):
