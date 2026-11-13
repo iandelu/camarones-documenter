@@ -107,16 +107,15 @@ def test_the_code_graph_serves_the_repo_the_portal_asks_for(kit, monkeypatch):
 
 def test_vendor_serves_the_cached_file_else_redirects_to_the_cdn(kit, monkeypatch):
     put(kit.common.CACHE / "vendor-cache" / "@scope__pkg@1.2.3" / "package" / "dist" / "lib.js", "var cached = 1;")
-    monkeypatch.setattr(kit.docs, "vendor_file", lambda pkg, ver, file: None)   # a miss would run `npm pack`
     arm(monkeypatch)
     with serving(kit.serve.Handler) as base:
-        status, headers, raw = request(base, "GET", "/vendor/other@2.0.0/dist/a.min.js")
-        assert (status, raw) == (302, b"")
-        assert headers["location"] == "https://cdn.jsdelivr.net/npm/other@2.0.0/dist/a.min.js"
-        status, headers, _ = request(base, "GET", "/vendor/@scope/pkg@1.2.3/dist/lib.js")
-        assert (status, headers["location"]) == (302, "https://cdn.jsdelivr.net/npm/@scope/pkg@1.2.3/dist/lib.js")
-        monkeypatch.undo()
-        arm(monkeypatch)
+        with monkeypatch.context() as m:                # only the stub ends here; the isolated env stays in place
+            m.setattr(kit.docs, "vendor_file", lambda pkg, ver, file: None)   # a miss would run `npm pack`
+            status, headers, raw = request(base, "GET", "/vendor/other@2.0.0/dist/a.min.js")
+            assert (status, raw) == (302, b"")
+            assert headers["location"] == "https://cdn.jsdelivr.net/npm/other@2.0.0/dist/a.min.js"
+            status, headers, _ = request(base, "GET", "/vendor/@scope/pkg@1.2.3/dist/lib.js")
+            assert (status, headers["location"]) == (302, "https://cdn.jsdelivr.net/npm/@scope/pkg@1.2.3/dist/lib.js")
         status, headers, raw = request(base, "GET", "/vendor/@scope/pkg@1.2.3/dist/lib.js")
     assert (status, raw) == (200, b"var cached = 1;")
     assert headers["content-type"].startswith("text/javascript")
