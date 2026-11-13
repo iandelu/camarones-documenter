@@ -129,8 +129,10 @@ self-aware about being small.
 - Other agent sessions may be editing the tree in parallel: stage and commit only your own hunks.
 - `tests/test_architecture.py` enforces the layers of the spec; `tests/architecture/allowlist.yaml` only shrinks.
   A module that moves leaves a facade (`__facade__`, `__all__`); tests patch the module that defines a name, never a
-  facade. Code outside `lib/adapters` and `lib/app` reaches an adapter or a use case through `services`
-  (`cli.services`, `req.services`, `lib.app.services.current()`), never by importing it; `tests/test_env_split.py` checks it.
+  facade. Code outside `lib/adapters` and `lib/app` reaches the adapters and use cases that `services`
+  carries (env's former helpers) through `services` (`cli.services`, `req.services`, `lib.app.services.current()`),
+  never by importing them; only `bootstrap` (the composition root) and the `env` facade import them.
+  `tests/test_env_split.py` checks it.
 
 ### 5.1 README and tutorial move with the code
 
