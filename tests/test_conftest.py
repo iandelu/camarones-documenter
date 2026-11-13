@@ -29,34 +29,31 @@ def test_a_dropped_folder_is_gone_once_the_reaper_has_caught_up(tmp_path):
     assert not any(f.exists() for f in folders)
 
 
-def test_drop_returns_before_the_folder_is_deleted(tmp_path):
-    gate = threading.Event()
-    reaper = Reaper(remove=lambda p: gate.wait(5))
-    started = time.monotonic()
-    reaper.drop(tree(tmp_path / "t"))
-    assert time.monotonic() - started < 1 and (tmp_path / "t").exists()
-    gate.set()
-    reaper.wait()
-
-
 def test_a_folder_that_cannot_go_does_not_stop_the_others(tmp_path):
-    calls = []
-
-    def remove(p):
-        calls.append(p.name)
-        if p.name == "bad":
-            raise OSError("held by a child process")
-    reaper = Reaper(remove=remove)
-    for name in ("bad", "good"):
-        reaper.drop(tmp_path / name)
+    reaper = Reaper()
+    (tmp_path / "a-file").write_text("x", encoding="utf-8")       # rmtree refuses a file: the child carries on
+    reaper.drop(tmp_path / "a-file")
+    reaper.drop(tree(tmp_path / "good"))
     reaper.wait()
-    assert calls == ["bad", "good"]
+    assert (tmp_path / "a-file").exists() and not (tmp_path / "good").exists()
 
 
 def test_a_missing_folder_is_no_error(tmp_path):
     reaper = Reaper()
     reaper.drop(tmp_path / "never-made")
     reaper.wait()
+
+
+def test_a_tests_patches_never_reach_the_deleting(tmp_path, monkeypatch):
+    """A test may patch an os function for the whole process (test_locks patches os.open); the folders of the tests
+    before it are deleted where that patch cannot see them, nor they it."""
+    seen, real = [], os.rmdir
+    monkeypatch.setattr(os, "rmdir", lambda *a, **kw: (seen.append(a), real(*a, **kw))[1])
+    reaper = Reaper()
+    folder = tree(tmp_path / "t")
+    reaper.drop(folder)
+    reaper.wait()
+    assert not folder.exists() and seen == []
 
 
 def test_a_server_a_test_starts_stops_at_once():
