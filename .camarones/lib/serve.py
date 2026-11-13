@@ -27,6 +27,7 @@ from .interfaces.http.routes.analysis import (
 )
 from .interfaces.http.routes.board import kanban_marks, kanban_state
 from .interfaces.http.routes.docs import api_ask, api_doc, api_search, create, write
+from .interfaces.http.routes.machine import app_creds, app_kitdev, app_summary, sessions_setting, ui_lang
 from .interfaces.http.routes.onboard import app_onboard
 from .interfaces.http.jobs import CANCEL, JOB_LOCK, JOBS, claim_job, fail_job, job_running, run_job, start_job
 from .interfaces.http.messages import Request, Response
@@ -149,12 +150,6 @@ def approve_unit(uid: str) -> tuple[dict, int]:
     return plan.approve(uid, by=reviewer()), 200
 
 
-def ui_lang(lang: str = "") -> str:
-    """The language of the UI that asks (es / en), else the one picked on this machine (~/.camarones.json)."""
-    from . import machine
-    return lang if lang in machine.LANGS else machine.settings()["lang"]
-
-
 def run_stopped(run_id: str, busy: bool | None = None) -> bool:
     """A plan run whose log has no run.finished and never will: stopped from outside (its job stopped, which is SIGTERM
     to its process group or taskkill /F on Windows, or a crash) before it could log its end. One run holds the run lock
@@ -204,33 +199,17 @@ def api_pipeline(lang: str = "") -> dict:
     return {"units": units, "run": run, "interviews": docs.interview_mode() if docs.interview_mode_chosen() else None}
 
 
-def app_kitdev(b: dict) -> tuple[dict, int]:
-    """A Kit dev task (lib/kitdev.py) as a job, outside this project's environment (the sandbox is its own project)."""
-    from . import appapi, kitdev
-    task = str(b.get("task", ""))
-    try:
-        if task == "sandbox-open":
-            return {"opened": kitdev.open_wizard()}, 200
-        argv, cwd = kitdev.command(task, b)
-    except PermissionError as e:
-        return {"error": str(e)}, 403
-    env = {k: v for k, v in os.environ.items() if k not in ("CAMARONES_ROOT", "CAMARONES_APP_TOKEN")}
-    label = " ".join([Path(argv[0]).stem, *argv[1:]])
-    return appapi.stream_job(start_job, f"kitdev:{task}", argv, cwd, {**env, "PYTHONUTF8": "1"}, label=label,
-                             shown=[Path(argv[0]).stem, *argv[1:]]), 200
-
-
 def app_session(b: dict) -> tuple[dict, int]:
     """POST /api/app/terminals (and its old name, /api/app/agent): a unit's session or the docs update, on the canvas or
     in a window as this machine's `sessions` setting says. Every field is checked first: launch_* moves the unit before
     the terminal refuses a bad size. Already open, or no room on the canvas, is a 409 that says which or how many."""
-    from . import agents, machine, terminals
+    from . import agents, terminals
     unit, agent = inputs.text(b, "unit", True), inputs.text(b, "agent", True)
     lang, mode = inputs.text(b, "lang") or "es", inputs.text(b, "mode") or "new"
     if mode not in ("new", "continue", "restart"):
         raise ValueError("mode: new, continue or restart")
     size = (inputs.dim(b, "cols", terminals.COLS, 80), inputs.dim(b, "rows", terminals.ROWS, 24))
-    where = machine.settings()["sessions"]
+    where = sessions_setting()
     try:
         if unit == "update":
             return agents.launch_update(agent, lang, where=where, size=size), 200
@@ -285,46 +264,6 @@ def app_unit(uid: str, action: str, b: dict) -> tuple[dict, int]:
         return {"error": str(e), "code": e.code}, 409
 
 
-def app_creds(action: str, b: dict) -> tuple[dict, int]:
-    """The desktop app's tokens for GitLab / GitHub / SonarQube (lib/creds.py, the OS keychain): saved only after the
-    server accepts them (or with `anyway`), tested, or deleted. A token is never sent back. A SonarQube host is kept as
-    given (path prefix included, trailing slash dropped) and only over https, except for a local one."""
-    from . import creds
-    raw = str(b.get("host") or "").strip()
-    sonar = creds.sonar_host(raw)
-    if b.get("kind") == "sonarqube" or creds.hosts().get(sonar, {}).get("kind") == "sonarqube":
-        try:
-            creds.sonar_base(sonar)
-        except ValueError as e:
-            return {"error": f"host: {e}"}, 400
-        host, b = sonar, {**b, "kind": "sonarqube"}
-        if host.startswith("-") or any(c.isspace() for c in host):
-            return {"error": "host: like sonar.example.com"}, 400
-    else:
-        host = creds.host_of(raw if "://" in raw else f"https://{raw}") or raw
-        if not host or host.startswith("-") or "/" in host:
-            return {"error": "host: like gitlab.example.com"}, 400
-    if action == "/delete":
-        creds.delete(host)
-        return {"deleted": host}, 200
-    if action == "/test":
-        tok = creds.get(host)
-        if not tok:
-            return {"error": f"no token saved for {host}"}, 404
-        ok, info = creds.verify(host, creds.hosts().get(host, {}).get("kind") or creds.guess_kind(host), tok)
-        return {"ok": ok, "info": info}, 200
-    if action:
-        return {"error": "not found"}, 404
-    kind, token = b.get("kind") or creds.guess_kind(host), str(b.get("token") or "").strip()
-    if kind not in ("gitlab", "github", "sonarqube") or not token:
-        return {"error": "kind (gitlab, github or sonarqube) and token are required"}, 400
-    ok, info = creds.verify(host, kind, token)
-    if not ok and not b.get("anyway"):
-        return {"error": f"{host} did not accept the token: {info}"}, 400
-    where = creds.save(host, kind, token, info if ok else "")
-    return {"host": host, "user": info if ok else "", "where": where}, 200
-
-
 def cancel_job(job_id: str) -> dict:
     """The app's cancel button: an in-process job (setup) is asked to stop between steps; a command job is killed."""
     ev = CANCEL.get(job_id)
@@ -347,20 +286,6 @@ def api_interview(who: str = "") -> dict:
     return {"available": True, "mode": docs.interview_mode(), "chosen": docs.interview_mode_chosen(), "id": data["id"], "title": data.get("title") or "",
             "intro": data.get("intro") or "", "questions": data["questions"], "labels": questionnaire.LABELS,
             "status": questionnaire.status(), "user": reviewer(), "mine": mine}
-
-
-def app_summary(lang: str = "") -> dict:
-    """The desktop app's Summary: the next step (the wizard's rule, plan.next_step), the plan's progress, the pages
-    waiting for a person and what the last doctor check found (None: never checked). Reads only: plan.sync() writes,
-    and a page that just looks must not."""
-    from . import doctor
-    review = len(docs.review_queue()) if DOCS.exists() else 0
-    data = plan.load()
-    done, total = plan.progress(data)
-    last = doctor.checked()
-    return {"step": plan.next_step(data, review=review, lang=ui_lang(lang)), "plan": {"done": done, "total": total}, "review": review,
-            "doctor": doctor.problems(last["result"]) if last else None,
-            "interviews": docs.interview_mode() if docs.interview_mode_chosen() else None}
 
 
 def cdn_local(html: str) -> str:
@@ -542,27 +467,6 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(appapi.info())
         if name == "catalog":
             return self.json(appapi.catalog())
-        if name == "summary":
-            return self.json(app_summary(q.get("lang", "")))
-        if name == "doctor":
-            from . import doctor
-            return self.json({"checked": doctor.checked()})
-        if name == "kitdev":
-            from . import kitdev
-            return self.json(kitdev.info())
-        if name == "machine":
-            from . import machine
-            return self.json(machine.panel())
-        if name == "guide":
-            from . import guide
-            from .common import PREFS, load_json
-            lang = q.get("lang") or load_json(PREFS, {}).get("lang", "es")
-            return self.json({"lang": lang, "guides": guide.guides(lang)})
-        if name == "creds":
-            from . import creds
-            return self.json({"backend": creds.backend_name(), "hosts": [
-                {"host": h, "kind": m.get("kind", ""), "user": m.get("user", ""), "saved": bool(creds.get(h))}
-                for h, m in creds.hosts().items()]})
         if name == "agents":
             from . import agents
             from .common import PREFS, load_json
@@ -762,17 +666,6 @@ class Handler(BaseHTTPRequestHandler):
                     return self.json({"error": str(e), "confirm": True}, 409)
                 except KeyError as e:
                     return self.json({"error": f"unknown command {e}"}, 404)
-            if p == "/api/app/tour-offered":            # the Summary's offer of the tour, once per machine (not per window origin)
-                from .common import PREFS, load_json, save_json
-                save_json(PREFS, {**load_json(PREFS, {}), "tour_offered": True})
-                return self.json({"ok": True})
-            if p == "/api/app/doctor":                  # check again: a job that keeps its result (lib/doctor.check)
-                from . import doctor
-                return self.json(start_job("doctor", "doctor", lambda log: bool(doctor.check(log))))
-            if p == "/api/app/kitdev":                  # the bench of a kit checkout: sandbox, pytest, npm, node --test
-                return self.json(*app_kitdev(b))
-            if p.startswith("/api/app/creds"):           # tokens only ever travel in this body, never on a command line
-                return self.json(*app_creds(p[len("/api/app/creds"):], b))
             if m := re.fullmatch(r"/api/app/adr/([a-z]+)", p):     # the decisions (lib/adr_api.py)
                 from . import adr_api
                 return self.json(*adr_api.post(m.group(1), b, by))
