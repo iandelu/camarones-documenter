@@ -190,7 +190,7 @@ def test_a_run_that_logged_its_end_is_not_called_interrupted(kit, server, run_lo
 
 def test_the_stream_of_a_stopped_run_ends_after_its_last_event(kit, server, monkeypatch):
     """Without this a stopped run's stream stayed open for the server's hour of quiet, one thread per window."""
-    monkeypatch.setattr(kit.serve, "STOPPED_AFTER", 0.2)
+    monkeypatch.setattr("lib.interfaces.http.routes.runs.STOPPED_AFTER", 0.2)
     rid = stopped_run(kit)
     got = sse(f"{server}/api/runs/{rid}/events")
     assert [e["type"] for _, e in got] == ["run.started", "unit.started"]
@@ -200,7 +200,7 @@ def test_the_stream_of_a_running_run_stays_open_while_it_holds_the_lock(kit, ser
     from lib.harness import scheduler
     from lib.harness.events import EventLog
     from lib.harness.locks import FileLock
-    monkeypatch.setattr(kit.serve, "STOPPED_AFTER", 0.2)
+    monkeypatch.setattr("lib.interfaces.http.routes.runs.STOPPED_AFTER", 0.2)
     rid = stopped_run(kit)
     lock = FileLock(scheduler.RUN_LOCK, wait=0)
     lock.acquire()

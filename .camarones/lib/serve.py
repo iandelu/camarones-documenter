@@ -29,6 +29,7 @@ from .interfaces.http.routes.board import kanban_marks, kanban_state
 from .interfaces.http.routes.docs import api_ask, api_doc, api_search, create, write
 from .interfaces.http.routes.machine import app_creds, app_kitdev, app_summary, sessions_setting, ui_lang
 from .interfaces.http.routes.onboard import app_onboard
+from .interfaces.http.routes.runs import api_pipeline, approve_unit, retry_unit, run_stopped, start_run
 from .interfaces.http.routes.terminals import app_session, app_terminal, app_unit, shutdown, unit_terminals
 from .interfaces.http.jobs import CANCEL, JOB_LOCK, JOBS, claim_job, fail_job, job_running, run_job, start_job
 from .interfaces.http.messages import Request, Response
@@ -44,7 +45,6 @@ APP_GONE_GRACE = 10                          # seconds the normal stop has once 
 APP_TOKEN = ""                               # set by the desktop app (CAMARONES_APP_TOKEN); empty: browser portal only
 PORTAL_TOKEN = ""                            # set by `camaron up` (CAMARONES_PORTAL_TOKEN): lets this machine's browser write the board
 APP_ONLY = re.compile(r"^/api/(runs|runs/[\w.-]+/cancel|wiki|build|inventory|schemas|ci|ask/answer|plan/cost)$")
-STOPPED_AFTER = 5.0                          # seconds of quiet before a run's stream asks whether its run was stopped
 mimetypes.add_type("text/javascript", ".js")    # Windows may map .js to text/plain in the registry
 mimetypes.add_type("font/woff2", ".woff2")    # the portal theme fonts; older Pythons do not know the type
 
@@ -102,97 +102,6 @@ def c4_change(path: str, b: dict, by: str) -> dict:
     if path == "relation" and b.get("action") == "remove":
         return c4edit.remove_relation(b["from"], b["to"], str(b.get("label") or ""))
     raise ValueError(f"unknown C4 change {path!r}")
-
-
-def start_run(b: dict) -> tuple[dict, int]:
-    """A documentation run as a background job of this server; refused while another run (CLI or portal) holds the
-    run lock."""
-    from .harness import scheduler
-    holder = scheduler.busy()
-    if holder:
-        return {"error": f"a documentation run is already in progress (pid {holder.get('pid')})"}, 409
-    try:
-        slots = scheduler.parse_slots(str(b.get("per_runner") or ""))
-    except ValueError as e:
-        return {"error": f"per_runner {e}"}, 400
-    parallel = max(1, min(8, int(b.get("parallel") or 2)))
-    max_units = int(b["max_units"]) if b.get("max_units") not in (None, "") else None
-    policy = b.get("policy") or "on-conflict"
-    if policy not in ("on-conflict", "never"):
-        return {"error": "policy: on-conflict or never"}, 400
-
-    def go(log):
-        scheduler.run_parallel(lang=b.get("lang") or "en", max_parallel=parallel, per_runner=slots,
-                               max_units=max_units, include_interviews=bool(b.get("include_interviews")),
-                               policy=policy, echo=log)
-    return start_job("run", "documentation run", go), 200
-
-
-def retry_unit(uid: str) -> tuple[dict, int]:
-    u = next((x for x in plan.load()["units"] if x["id"] == uid), None)
-    if not u:
-        return {"error": f"unknown unit {uid}"}, 404
-    if u["status"] != "blocked":
-        return {"error": f"{uid} is {u['status']}: only blocked units are retried"}, 409
-    return plan.set_status(uid, "todo", "retry requested from the portal"), 200
-
-
-def approve_unit(uid: str) -> tuple[dict, int]:
-    u = next((x for x in plan.load()["units"] if x["id"] == uid), None)
-    if not u:
-        return {"error": f"unknown unit {uid}"}, 404
-    if not plan.awaiting(u):
-        return {"error": f"{uid} is not awaiting approval"}, 409
-    return plan.approve(uid, by=reviewer()), 200
-
-
-def run_stopped(run_id: str, busy: bool | None = None) -> bool:
-    """A plan run whose log has no run.finished and never will: stopped from outside (its job stopped, which is SIGTERM
-    to its process group or taskkill /F on Windows, or a crash) before it could log its end. One run holds the run lock
-    at a time, the latest, so an older one is over, and the latest is once the lock is free or stale; its log is read
-    again after that, so a run that ended on its own in between is not taken for a stopped one. `busy` is the lock's
-    answer when the caller already probed it (a probe holds the lock for an instant, so two can see each other); None
-    probes."""
-    from .harness import runs, scheduler
-    latest = runs.ids(wiki=False)
-    if busy is None:
-        busy = scheduler.busy() is not None
-    if run_id not in latest or (run_id == latest[0] and busy):
-        return False
-    return not any(e["type"] == "run.finished" for e in runs.events(run_id))
-
-
-def api_pipeline(lang: str = "") -> dict:
-    """The plan as a graph for the Pipeline tab: every unit with its status and dependencies, how it runs (isolation,
-    tier, runner), its agent session (open or paused, lib/sessions.py), its live terminal in this server and the latest
-    run. Titles read in `lang` (plan.title); plan.yaml is only read."""
-    from . import sessions
-    from .harness import pipeline, runs, scheduler
-    lang = ui_lang(lang)
-    locked = scheduler.busy() is not None                    # asked once: the second probe could see the first
-    busy = sessions.headless(locked)
-    term = unit_terminals()
-    try:
-        nodes = {u["id"]: u for u in plan.pipeline_units()}
-    except plan.PipelineError:
-        nodes = {}
-    types = pipeline.types()
-    units = []
-    data = plan.load()
-    ready = {u["id"] for u in plan.available(data)}          # the app's Plan groups by it
-    for u in data["units"]:
-        t, n = types.get(u["type"], {}), nodes.get(u["id"], {})
-        units.append({**{k: u.get(k) for k in ("id", "type", "phase", "status", "deps", "repo", "notes", "runner")},
-                      "title": plan.title(u, lang),
-                      "isolation": n.get("isolation") or t.get("isolation", "none"),
-                      "tier": n.get("tier") or t.get("tier", "agentic-heavy"), "agent": n.get("runner"),
-                      "approval": bool(n.get("approval")), "awaiting": plan.awaiting(u), "ready": u["id"] in ready,
-                      "terminal": term.get(u["id"]), **sessions.board(u, busy)})
-    latest = runs.ids(wiki=False)
-    run = {**runs.summary(latest[0]), **runs.slots(latest[0])} if latest else None
-    if run and not run["finished"] and run_stopped(run["run"], locked):
-        run.update(finished=True, interrupted=True, running=[], waiting={})
-    return {"units": units, "run": run, "interviews": docs.interview_mode() if docs.interview_mode_chosen() else None}
 
 
 def cancel_job(job_id: str) -> dict:
@@ -426,8 +335,6 @@ class Handler(BaseHTTPRequestHandler):
             from . import appapi
             return self.json([{**{k: v for k, v in j.items() if k != "log"}, "stoppable": appapi.stoppable(j["id"])}
                               for j in list(JOBS.values())])
-        if name == "pipeline":
-            return self.json(api_pipeline(q.get("lang", "")))
         if name == "interview":
             return self.json(api_interview(q.get("who", "")))
         if name == "sync":
@@ -435,68 +342,13 @@ class Handler(BaseHTTPRequestHandler):
         if name == "kpis":
             from .harness import kpis
             return self.json(kpis.dashboard())
-        if name == "plan/cost":                 # a read: the bill as the roll-ups have it, never a harvest
-            from .harness import ledger
-            return self.json(ledger.bill())
         if name == "c4/view":
             return self.json(api_c4_view(q.get("id", "")))
-        if name == "runs":
-            from .harness import runs
-            return self.json(runs.rows())
-        if m := re.fullmatch(r"runs/([\w.-]+)(/events)?", name):
-            from .harness import runs
-            if m.group(1) not in runs.ids():
-                return self.json({"error": f"no run {m.group(1)}"}, 404)
-            if m.group(2):
-                return self.stream_events(m.group(1), int(self.headers.get("Last-Event-ID") or q.get("from") or 0))
-            return self.json(runs.detail(m.group(1)))
         if name.startswith("jobs/") and name[5:] in JOBS:
             j = JOBS[name[5:]]
             since = int(q.get("since", 0))
             return self.json({**j, "log": j["log"][since:], "lines": len(j["log"])})
         self.json({"error": "not found"}, 404)
-
-    def stream_events(self, run_id: str, offset: int) -> None:
-        """Server-sent events: one message per run event, its id the byte offset after it. Ends with the run; for a
-        plan run stopped from outside (run_stopped), once its log is read to the end; or after an hour with nothing
-        new. A stopped run already read to its end is a 204, the one answer that stops a browser's EventSource from
-        reconnecting."""
-        from .harness.events import EventLog
-        log = EventLog(CTX.runs / run_id / "events.jsonl")
-        stopped = run_stopped(run_id)
-        if stopped and not log.read_lines(offset):
-            self.send_response(204)
-            self.send_header("Cache-Control", "no-store")
-            self.end_headers()
-            return
-        self.send_response(200)
-        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
-        self.send_header("Cache-Control", "no-store")
-        self.end_headers()
-        quiet = beat = looked = time.monotonic()
-        try:
-            while time.monotonic() - quiet < 3600:
-                batch = log.read_lines(offset)
-                for ev, offset in batch:
-                    self.wfile.write(f"id: {offset}\ndata: {json.dumps(ev, ensure_ascii=False)}\n\n".encode("utf-8"))
-                    if ev.get("type") == "run.finished":
-                        self.wfile.flush()
-                        return
-                if batch:
-                    self.wfile.flush()
-                    quiet = time.monotonic()
-                elif stopped:
-                    return              # read once more after it was found stopped: nothing was left
-                elif time.monotonic() - beat > 15:
-                    self.wfile.write(b": keep-alive\n\n")
-                    self.wfile.flush()
-                    beat = time.monotonic()
-                now = time.monotonic()
-                if not batch and min(now - quiet, now - looked) > STOPPED_AFTER:
-                    looked, stopped = now, run_stopped(run_id)
-                time.sleep(0.3)
-        except (BrokenPipeError, ConnectionResetError):
-            return
 
     def do_PUT(self):
         self.do_POST()
@@ -542,18 +394,6 @@ class Handler(BaseHTTPRequestHandler):
                 from . import questionnaire
                 questionnaire.answer(b)
                 return self.json(questionnaire.status())
-            if p == "/api/runs":
-                return self.json(*start_run(b))
-            if m := re.fullmatch(r"/api/runs/([\w.-]+)/cancel", p):
-                from .harness import scheduler
-                scheduler.request_cancel(m.group(1))
-                return self.json({"cancelling": m.group(1)})
-            if p == "/api/units/retry":
-                return self.json(*retry_unit(b.get("unit", "")))
-            if p == "/api/plan/cost":            # the app: this machine's sessions first, then the bill
-                from .harness import ledger
-                ledger.harvest()
-                return self.json(ledger.bill())
             if p == "/api/kpis/miss":
                 try:
                     return self.json(kpis_miss(b))
@@ -564,8 +404,6 @@ class Handler(BaseHTTPRequestHandler):
                     return self.json(c4_change(m.group(1), b, by))
                 except KeyError as e:
                     return self.json({"error": f"not in the model: {e}"}, 404)
-            if p == "/api/units/approve":
-                return self.json(*approve_unit(b.get("unit", "")))
             self.json({"error": "not found"}, 404)
         except (KeyError, ValueError, RuntimeError) as e:
             self.json({"error": str(e)}, 400)

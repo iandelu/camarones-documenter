@@ -9,7 +9,6 @@ oversize:
   - pages
   - plan
   - schemas
-  - serve
   - stories
   - tutorial
   - wizard
@@ -82,6 +81,7 @@ violations:
   - "interfaces.http.routes.board -> kanban.index"
   - "interfaces.http.routes.machine -> creds"
   - "interfaces.http.routes.machine -> machine"
+  - "interfaces.http.routes.runs -> harness.events"
   - "interfaces.http.routes.terminals -> terminals"
   - "inventory -> docs"
   - "inventory -> pages"
@@ -121,7 +121,6 @@ violations:
   - "radar -> pages"
   - "schemas -> docs"
   - "schemas -> genblocks"
-  - "serve -> harness.events"
   - "sourcelinks -> harness.symbols"
   - "sourcelinks -> history"
   - "stories -> codemap"
