@@ -3,6 +3,7 @@ the static mode, HEAD and PUT, foreign hosts. Written against lib/serve.py befor
 every answer (docs/superpowers/plans/2026-11-13-hexagonal-f3-http.md, Review Focus)."""
 from __future__ import annotations
 
+import importlib
 import json
 
 from fixtures.http_probe import APP_TOKEN, arm, request, serving
@@ -79,3 +80,68 @@ def test_head_put_and_foreign_hosts(kit, monkeypatch):
         assert (status, json.loads(raw)) == (403, {"error": "forbidden host"})
         status, _, raw = request(base, "POST", "/api/new", b"{}", host="evil.test")
     assert (status, json.loads(raw)) == (403, {"error": "forbidden"})
+
+
+def put(f, text):
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text(text, encoding="utf-8", newline="")
+    return f
+
+
+def test_the_code_graph_serves_the_repo_the_portal_asks_for(kit, monkeypatch):
+    put(kit.env.GRAPHS / "api" / "graph.html", "<html>api graph</html>")
+    put(kit.common.CACHE / "graph" / "graph.html",
+        '<script src="https://cdn.jsdelivr.net/npm/vis-network@9.1.9/dist/vis.js"></script>all graph')
+    arm(monkeypatch)
+    with serving(kit.serve.Handler) as base:
+        for path in ("/code-graph/api/", "/code-graph/api"):    # the portal asks `code-graph/<name>/`
+            status, headers, raw = request(base, "GET", path)
+            assert (status, raw) == (200, b"<html>api graph</html>"), path
+            assert headers["content-type"] == "text/html; charset=utf-8"
+        for path in ("/code-graph/",):
+            status, _, raw = request(base, "GET", path)
+            assert status == 200 and raw.endswith(b"all graph"), path
+            assert b"/vendor/vis-network@9.1.9/dist/vis.js" in raw and b"cdn.jsdelivr.net" not in raw
+        assert request(base, "GET", "/code-graph/web/")[::2] == (404, b"not found")
+
+
+def test_vendor_serves_the_cached_file_else_redirects_to_the_cdn(kit, monkeypatch):
+    put(kit.common.CACHE / "vendor-cache" / "@scope__pkg@1.2.3" / "package" / "dist" / "lib.js", "var cached = 1;")
+    monkeypatch.setattr(kit.docs, "vendor_file", lambda pkg, ver, file: None)   # a miss would run `npm pack`
+    arm(monkeypatch)
+    with serving(kit.serve.Handler) as base:
+        status, headers, raw = request(base, "GET", "/vendor/other@2.0.0/dist/a.min.js")
+        assert (status, raw) == (302, b"")
+        assert headers["location"] == "https://cdn.jsdelivr.net/npm/other@2.0.0/dist/a.min.js"
+        status, headers, _ = request(base, "GET", "/vendor/@scope/pkg@1.2.3/dist/lib.js")
+        assert (status, headers["location"]) == (302, "https://cdn.jsdelivr.net/npm/@scope/pkg@1.2.3/dist/lib.js")
+        monkeypatch.undo()
+        arm(monkeypatch)
+        status, headers, raw = request(base, "GET", "/vendor/@scope/pkg@1.2.3/dist/lib.js")
+    assert (status, raw) == (200, b"var cached = 1;")
+    assert headers["content-type"].startswith("text/javascript")
+
+
+def test_the_viewers_are_served_from_the_cache(kit, monkeypatch):
+    put(kit.env.VIEWERS / "wiki-graph" / "api" / "index.html", '<html><script src="https://unpkg.com/d3@7.9.0/dist/d3.min.js"></script></html>')
+    put(kit.env.VIEWERS / "wiki-graph" / "api" / "data.json", "{}")
+    put(kit.env.VIEWERS / "architecture" / "index.html", "<html>c4</html>")
+    arm(monkeypatch)
+    with serving(kit.serve.Handler) as base:
+        assert request(base, "GET", "/wiki-graph/api/")[::2] == (
+            200, b'<html><script src="/vendor/d3@7.9.0/dist/d3.min.js"></script></html>')
+        assert request(base, "GET", "/wiki-graph/api/data.json")[::2] == (200, b"{}")
+        assert request(base, "GET", "/wiki-graph/web/")[::2] == (404, b"not found")
+        assert request(base, "GET", "/architecture/")[::2] == (200, b"<html>c4</html>")
+        assert request(base, "GET", "/architecture/view/overview")[::2] == (200, b"<html>c4</html>")
+
+
+def test_firstlook_is_the_one_route_static_mode_still_routes(kit, monkeypatch):
+    onboard = importlib.import_module("lib.onboard")
+    put(kit.common.CACHE / "site" / "index.html", "<html>site</html>")
+    draft = put(kit.common.CACHE / "draft.html", "<html>draft</html>")
+    monkeypatch.setattr(onboard, "LAST_DRAFT", {"html": str(draft)})
+    arm(monkeypatch, static=True)
+    with serving(kit.serve.Handler) as base:
+        assert request(base, "GET", "/firstlook")[::2] == (200, b"<html>draft</html>")
+        assert request(base, "GET", "/desktop")[::2] == (200, b"<html>site</html>")   # every other path: the export

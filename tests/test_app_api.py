@@ -3,6 +3,7 @@ token the app passes to the server it launches; the browser portal is the team's
 also refuses requests whose Host is not itself (DNS rebinding) and runs catalog commands as jobs."""
 from __future__ import annotations
 
+import importlib
 import json, os, subprocess, sys, threading, time, urllib.error, urllib.request
 from http.server import ThreadingHTTPServer
 
@@ -172,6 +173,22 @@ def test_job_events_stream_the_log(app_server):
     events = [json.loads(line[6:]) for line in body.splitlines() if line.startswith("data: ")]
     assert events[-1]["type"] == "end" and events[-1]["status"] == "done"
     assert any(e["type"] == "line" for e in events)
+
+
+def test_job_events_offset_is_last_event_id_else_from_else_zero(app_server, monkeypatch):
+    jobs = importlib.import_module("lib.interfaces.http.jobs")
+    monkeypatch.setitem(jobs.JOBS, "offsets", {"id": "offsets", "status": "done", "rc": 0, "log": ["one", "two", "three"]})
+
+    def texts(query="", **headers):
+        req = urllib.request.Request(f"{app_server}/api/app/jobs/offsets/events{query}",
+                                     headers={"X-Camaron-Token": TOKEN, **headers})
+        with urllib.request.urlopen(req, timeout=60) as r:
+            body = r.read().decode("utf-8")
+        return [e["text"] for e in (json.loads(x[6:]) for x in body.splitlines() if x.startswith("data: "))
+                if e["type"] == "line"]
+    assert texts("?from=1", **{"Last-Event-ID": "2"}) == ["three"]
+    assert texts("?from=1") == ["two", "three"]
+    assert texts() == ["one", "two", "three"]
 
 
 # ---------- the CLI side ----------
