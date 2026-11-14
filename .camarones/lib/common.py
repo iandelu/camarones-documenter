@@ -21,7 +21,7 @@ __all__ = [
 ]
 
 VERSIONS = {
-    "kit": "4.83.1",
+    "kit": "4.83.2",
     "backlog_md": "1.55.3",   # Backlog.md, the compatibility check of the board (tests/e2e/test_backlogmd.py)
     "openwiki": "0.5.2",
     "likec4": "1.59.4",

@@ -78,6 +78,19 @@ def test_workspace_links_go_and_real_files_stay(un, before):
     assert kit.stopped == ["portal"]
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="junctions are Windows only")
+def test_a_junction_root_link_goes_on_a_python_without_is_junction(un, before, without_is_junction):
+    """Windows without symlink rights links folders as junctions (mklink /J); on Python 3.10 and 3.11 uninstall must
+    still see one as the kit's link, list it and take it out instead of leaving it dangling."""
+    kit = un
+    p = kit.ws / ".claude"
+    kit.uninstall.remove_link(p)
+    subprocess.run(["cmd", "/c", "mklink", "/J", str(p), str(kit.root / ".claude")], check=True, capture_output=True)
+    assert ".claude" in kit.uninstall.root_links()
+    run(kit, backup=False)
+    assert sorted(c.name for c in kit.ws.iterdir()) == ["AGENTS.md", *REPOS]      # a dangling junction would be listed
+
+
 def test_what_the_kit_put_in_the_person_s_own_folder_and_claude_md_goes_too(un, before):
     """A real .claude/ of theirs got the kit's entries linked in, a real .tours/ too: both go back as they were."""
     kit = un

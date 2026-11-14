@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import json, subprocess, sys
-from pathlib import Path
 
 import pytest
 
@@ -248,9 +247,22 @@ def test_a_junction_is_linked_and_unlinked_without_following_it(kit, tmp_path):
     t.mkdir()
     (t / "keep.txt").write_text("kept", encoding="utf-8")
     subprocess.run(["cmd", "/c", "mklink", "/J", str(p), str(t)], check=True, capture_output=True)
-    assert kit.services.links._linked(p)
-    if hasattr(Path, "is_junction"):              # _is_link sees a junction only through Path.is_junction (Python 3.12+)
-        assert kit.services.links._is_link(p)
+    assert kit.services.links._linked(p) and kit.services.links._is_link(p)
     kit.services.links._unlink(p)
     assert not p.exists() and not p.is_symlink()
     assert (t / "keep.txt").read_text(encoding="utf-8") == "kept"
+
+
+def test_without_is_junction_only_links_are_links(kit, tmp_path, without_is_junction):
+    """Python 3.10/3.11 on every OS: the junction check reads a reparse tag that macOS and Linux lack, so a real folder,
+    a file and a missing path are no links there, and nothing raises."""
+    d, f = tmp_path / "d", tmp_path / "f"
+    d.mkdir()
+    f.write_text("x", encoding="utf-8")
+    links = kit.services.links
+    assert not links._is_link(d) and not links._is_link(f) and not links._is_link(tmp_path / "missing")
+    try:
+        (tmp_path / "s").symlink_to(d, target_is_directory=True)
+    except OSError:
+        pytest.skip("no symlink rights (Windows without Developer Mode)")
+    assert links._is_link(tmp_path / "s")
