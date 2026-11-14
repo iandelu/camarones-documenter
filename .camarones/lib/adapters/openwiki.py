@@ -10,7 +10,7 @@ import shutil
 from contextlib import contextmanager
 from pathlib import Path
 
-from lib.adapters.fs_links import _is_link, link_repo_wiki
+from lib.adapters import fs_links
 from lib.common import CACHE, HOME, ROOT, load_json, repo_dir
 from lib.core.locks import FileLock, LockBusy
 from lib.core.paths import WIKI_LOCK
@@ -51,7 +51,7 @@ def wiki_open(repo: str, log: Log = print) -> None:
                  for f in OPENWIKI_REPO_FILES}
         state.parent.mkdir(parents=True, exist_ok=True)
         state.write_text(json.dumps(saved), encoding="utf-8")
-    if _is_link(ow):
+    if fs_links._is_link(ow):
         ow.unlink()
     if not ow.exists():
         shutil.copytree(wiki, ow) if wiki.is_dir() else ow.mkdir()
@@ -63,10 +63,10 @@ def wiki_close(repo: str, log: Log = print) -> bool:
     d, wiki, state = repo_dir(repo), ROOT / "wikis" / repo, CACHE / "wiki-open" / f"{repo}.json"
     if not state.exists():
         log(f"{repo}: no open OpenWiki run — nothing to close")
-        link_repo_wiki(repo, log)
+        fs_links.link_repo_wiki(repo, log)
         return False
     ow = d / "openwiki"
-    if ow.is_dir() and not _is_link(ow):
+    if ow.is_dir() and not fs_links._is_link(ow):
         if any(ow.iterdir()):
             shutil.rmtree(wiki, ignore_errors=True)
             wiki.parent.mkdir(parents=True, exist_ok=True)
@@ -87,7 +87,7 @@ def wiki_close(repo: str, log: Log = print) -> bool:
                 if parent != Path(".") and (d / parent).is_dir() and not any((d / parent).iterdir()):
                     (d / parent).rmdir()
     state.unlink(missing_ok=True)
-    link_repo_wiki(repo, log)
+    fs_links.link_repo_wiki(repo, log)
     return True
 
 
