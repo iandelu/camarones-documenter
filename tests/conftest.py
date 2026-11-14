@@ -193,6 +193,15 @@ def _is_link(p: Path) -> bool:
     return p.is_dir() and Path(os.path.realpath(p)) != Path(os.path.realpath(p.parent)) / p.name
 
 
+@pytest.fixture
+def without_is_junction(monkeypatch):
+    """pathlib as on Python 3.10 and 3.11, which the kit supports: no Path.is_junction (it came in 3.12)."""
+    for cls in type(Path()).__mro__:
+        if "is_junction" in vars(cls):
+            monkeypatch.delattr(cls, "is_junction")
+    assert not hasattr(Path(), "is_junction")
+
+
 def copy_project(src: Path, base: Path, home: Path) -> SimpleNamespace:
     """A project template copied to <base>/demo instead of built again: the workspace without its links, the machine's
     records under ~/.camarones moved to this project's root."""

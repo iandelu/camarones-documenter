@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import stat
 from pathlib import Path
 
 from lib.common import CAM_DIR, IS_WIN, ROOT, WORKSPACE, repo_dir, run
@@ -31,7 +32,8 @@ def git_exclude(repo: Path, pattern: str) -> None:
 
 
 def _linked(p: Path) -> bool:
-    """A symlink or a Windows junction (Python < 3.12 cannot tell a junction: it resolves somewhere else)."""
+    """A symlink or a Windows junction, or a folder that resolves somewhere else (how junctions were told apart before
+    _is_link read their reparse tag on every Python)."""
     return _is_link(p) or (p.is_dir() and Path(os.path.realpath(p)) != Path(os.path.realpath(p.parent)) / p.name)
 
 
@@ -150,4 +152,11 @@ def link_repo_wiki(name: str, log: Log = print) -> None:
 
 
 def _is_link(p: Path) -> bool:
-    return p.is_symlink() or getattr(p, "is_junction", lambda: False)()
+    """A symlink or a Windows junction. A junction is read from its reparse tag, as Path.is_junction does: that method
+    only exists from Python 3.12, and the kit runs on 3.10 too. macOS and Linux have no reparse tag, so no junctions."""
+    if p.is_symlink():
+        return True
+    try:
+        return getattr(os.lstat(p), "st_reparse_tag", 0) == stat.IO_REPARSE_TAG_MOUNT_POINT
+    except (OSError, ValueError):
+        return False
