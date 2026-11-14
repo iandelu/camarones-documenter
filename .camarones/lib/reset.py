@@ -17,7 +17,10 @@ import datetime as dt
 from pathlib import Path
 
 from .common import CAM_DIR, CAM_LAYOUT, DOCS, ROOT, WORK, WS_FILE, load_json, out, rel_file, run as run_cmd
-from . import docs, env, plan
+from .core.locks import pid_alive
+from .core.paths import WIKI_LOCK
+from . import docs, plan
+from .app import services
 
 MODES = ("redo", "wipe")
 KEEP_TYPES = {"setup", "ci", "questionnaire", "answers", *plan.INTERVIEW_TYPES}   # stay done in both modes
@@ -37,9 +40,9 @@ def guard() -> str | None:
     if holder:
         return (f"A documentation run is in progress ({holder.get('what', 'run')}, pid {holder.get('pid')}): "
                 "wait for it or stop it, then reset.")
-    lock = load_json(env.WIKI_LOCK, {}) if env.WIKI_LOCK.exists() else {}
+    lock = load_json(WIKI_LOCK, {}) if WIKI_LOCK.exists() else {}
     pid = lock.get("pid") if isinstance(lock, dict) else None
-    if pid and env.pid_alive(int(pid)):
+    if pid and pid_alive(int(pid)):
         return f"An OpenWiki run is in progress ({lock.get('repo')}, pid {pid}): wait for it to finish, then reset."
     return None
 
@@ -56,9 +59,9 @@ def persons(f: Path) -> bool:
 
 def _template_copy(f: Path) -> bool:
     """Still exactly what the kit's templates wrote (spec.c4, handoff.md…): deleting it would only copy it back."""
-    t = env.TEMPLATES / f.relative_to(ROOT)
+    t = services.current().templates.TEMPLATES / f.relative_to(ROOT)
     try:
-        return t.is_file() and f.read_text(encoding="utf-8") == env.fill(t.read_text(encoding="utf-8"),
+        return t.is_file() and f.read_text(encoding="utf-8") == services.current().templates.fill(t.read_text(encoding="utf-8"),
                                                                          docs.workspace()["project"]["name"])
     except (OSError, UnicodeDecodeError, ValueError):
         return False
@@ -137,7 +140,7 @@ def preview(mode: str, templates: bool = False) -> tuple[list[str], list[str]]:
                  "images and other files that are not pages", "the board, the review comments and the usage records"]
     if templates:
         steps += [f"templates: .camarones/{n} follows the kit again (yours kept as {n}.before-reset-<date>)"
-                  for n in env.edited_kit_docs()]
+                  for n in services.current().templates.edited_kit_docs()]
     return steps, kept
 
 
@@ -155,7 +158,7 @@ def backup(stamp: str) -> dict:
     that refused the checkpoint)."""
     tag = zipped = None
     if (ROOT / ".git").exists():
-        env.checkpoint_commit("before docs reset")
+        services.current().share.checkpoint_commit("before docs reset")
         if run_cmd(["git", "rev-parse", "--verify", "-q", "HEAD"], cwd=ROOT, check=False, quiet=True).returncode == 0 \
                 and run_cmd(["git", "tag", TAG + stamp], cwd=ROOT, check=False, quiet=True).returncode == 0:
             tag = TAG + stamp
@@ -194,7 +197,7 @@ def _log(text: str) -> None:
 
 
 def _regenerate(log) -> None:
-    env.init_templates(log=lambda _: None)            # the template pages and spec.c4 a wipe removed
+    services.current().templates.init_templates(log=lambda _: None)            # the template pages and spec.c4 a wipe removed
     try:
         from . import genblocks, pages
         pages.write(log=lambda _: None)
@@ -221,11 +224,11 @@ def run(mode: str, templates: bool = False, log=lambda _: None) -> dict:
         result["deleted"] = [rel_file(f) for f in gone]
         result["restarted"] = _restart_plan()
     if templates:
-        result["templates"] = env.sync_kit_docs(aside=f"before-reset-{stamp}")
+        result["templates"] = services.current().templates.sync_kit_docs(aside=f"before-reset-{stamp}")
     if mode == "wipe":
         _regenerate(log)
     _log(f"docs reset ({mode})")
-    env.checkpoint_commit(f"docs reset ({mode})")
+    services.current().share.checkpoint_commit(f"docs reset ({mode})")
     return result
 
 

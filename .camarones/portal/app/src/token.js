@@ -1,4 +1,4 @@
-// `camaron up` opens the portal with the machine token in the fragment (env.portal_url): `#/<route>&cam-token=<t>`
+// `camaron up` opens the portal with the machine token in the fragment (app.portal.portal_url): `#/<route>&cam-token=<t>`
 // or `#cam-token=<t>`. The page keeps it for this tab (sessionStorage, sent as a header by api.js) and takes it out of
 // the address at once, so it never lands in the history, a bookmark or a shared link.
 // `storage` defaults lazily, inside the guard: with site data blocked even reading `sessionStorage` throws.

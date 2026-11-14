@@ -1,10 +1,9 @@
 # Today's debts against the layer rule (spec §5). Entries only ever leave this file.
-largest_cycle: 52
-cycle_modules: 54
+largest_cycle: 43
+cycle_modules: 47
 oversize:
   - adr
   - docs
-  - env
   - kanban.ops
   - pages
   - plan
@@ -22,7 +21,15 @@ violations:
   - "agents -> adapters.runners"
   - "agents -> terminals"
   - "answers -> mcp"
+  - "app.export_site -> codemap"
   - "app.portal_views -> codemap"
+  - "app.setup -> binaries"
+  - "app.share -> creds"
+  - "app.share -> kanban"
+  - "app.wiki -> adapters.runners"
+  - "app.wiki -> harness.events"
+  - "app.wiki -> quickarch"
+  - "app.wiki -> radar"
   - "budget -> mcp"
   - "bump -> inventory"
   - "c4edit -> harness.symbols"
@@ -30,14 +37,6 @@ violations:
   - "diagrams -> docs"
   - "diagrams -> genblocks"
   - "docs -> creds"
-  - "env -> adapters.runners"
-  - "env -> binaries"
-  - "env -> codemap"
-  - "env -> creds"
-  - "env -> harness.events"
-  - "env -> kanban"
-  - "env -> quickarch"
-  - "env -> radar"
   - "exporters -> harness.symbols"
   - "genblocks -> diagrams"
   - "genblocks -> quickarch"
@@ -46,7 +45,6 @@ violations:
   - "harness.handoff -> sessions"
   - "harness.integrate -> harness.worktrees"
   - "harness.ledger -> docs"
-  - "harness.ledger -> env"
   - "harness.ledger -> harness.kpis"
   - "harness.ledger -> harness.runs"
   - "harness.ledger -> harness.transcripts"
@@ -95,8 +93,8 @@ violations:
   - "kanban.xid -> harness.freshness"
   - "kanban.xid -> kanban.ops"
   - "machine -> agents"
+  - "machine -> app.services"
   - "machine -> docs"
-  - "machine -> env"
   - "machine -> install_state"
   - "mcp -> harness.events"
   - "mcp -> kanban"

@@ -17,7 +17,7 @@ def term(wired, monkeypatch):
     monkeypatch.setattr(agents, "which", fake)
     monkeypatch.setattr(base, "which", fake)
     box = {"cmds": [], "ok": True}
-    monkeypatch.setattr(agents.env, "open_new_terminal", lambda cmd, cwd: box["cmds"].append((cmd, cwd)) or box["ok"])
+    monkeypatch.setattr(wired.services.launcher, "open_new_terminal", lambda cmd, cwd: box["cmds"].append((cmd, cwd)) or box["ok"])
     wired.plan.sync()
     wired.plan.set_status("setup", "done")
     box["agents"] = agents

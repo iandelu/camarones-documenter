@@ -273,7 +273,7 @@ def test_wiki_graph_builds_are_one_job_per_repo(app_server, kit, monkeypatch):
         gate.wait(30)
         return True
 
-    monkeypatch.setattr(kit.env, "wiki_graph", slow)
+    monkeypatch.setattr(kit.services.wiki, "wiki_graph", slow)
     try:
         build = lambda repo: call(app_server + "/api/build", {"what": "wiki-graph", "repo": repo}, token=TOKEN)
         (c1, a), (c2, b), (c3, a2) = build("api"), build("web"), build("api")

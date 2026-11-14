@@ -6,7 +6,7 @@ from __future__ import annotations
 import mimetypes
 from pathlib import Path
 
-from lib import docs, env
+from lib import docs
 from lib.app.portal_views import APP
 from lib.common import CACHE, DOCS, KIT
 from lib.interfaces.http.messages import Request, Response, not_found, redirect
@@ -92,18 +92,18 @@ def vendor(req: Request) -> Response:
 
 @route("GET", "/architecture/{rest:.*}")
 def architecture(req: Request) -> Response:
-    return static_response(env.VIEWERS / "architecture", req.params["rest"], spa=True) or not_found()
+    return static_response(req.services.viewers.VIEWERS / "architecture", req.params["rest"], spa=True) or not_found()
 
 
 @route("GET", "/code-graph/{repo:(?:[\\w.-]+/?)?}")
 def code_graph(req: Request) -> Response:
-    f = env.code_graphs().get(req.params["repo"].rstrip("/") or "all")
+    f = req.services.viewers.code_graphs().get(req.params["repo"].rstrip("/") or "all")
     return file_response(f, local_cdn=True) if f else not_found()
 
 
 @route("GET", "/wiki-graph/{repo:[\\w.-]+}/{rest:.*}")
 def wiki_graph(req: Request) -> Response:
-    return static_response(env.VIEWERS / "wiki-graph" / req.params["repo"], req.params["rest"],
+    return static_response(req.services.viewers.VIEWERS / "wiki-graph" / req.params["repo"], req.params["rest"],
                            local_cdn=True) or not_found()
 
 

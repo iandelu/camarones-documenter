@@ -118,7 +118,7 @@ def test_projects_without_a_lock_keep_working(wired, store):
 
 
 def test_vendored_plugins_travel_with_checkpoints(wired, store):
-    assert {".camarones/plugins", ".camarones/plugins.lock"} <= set(wired.env.CHECKPOINT_PATHS)
+    assert {".camarones/plugins", ".camarones/plugins.lock"} <= set(wired.services.vcs.CHECKPOINT_PATHS)
 
 
 def test_remove(wired, store, tmp_path):

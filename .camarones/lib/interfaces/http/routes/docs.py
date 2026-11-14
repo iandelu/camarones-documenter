@@ -7,7 +7,7 @@ import threading
 import time
 from pathlib import Path
 
-from lib import docs, env, plan, sourcelinks, usage
+from lib import docs, plan, sourcelinks, usage
 from lib.app import portal_views
 from lib.app.portal_views import doc_file, read, status, tree
 from lib.core.paths import DOCS, ROOT
@@ -199,5 +199,5 @@ def post_review_decide(req: Request) -> Response:
 @route("POST", "/api/commit")
 def post_commit(req: Request) -> Response:
     docs.llms()
-    ok = env.checkpoint_commit(req.body.get("message") or "docs edited in the portal")
+    ok = req.services.share.checkpoint_commit(req.body.get("message") or "docs edited in the portal")
     return json_response({"committed": ok, "head": out(["git", "log", "-1", "--format=%h %s"], cwd=ROOT)})

@@ -112,7 +112,7 @@ def test_a_fresh_project_gets_its_first_look_from_the_portal(kit, monkeypatch):
     import time
     from lib import quickarch, serve
     monkeypatch.setattr(quickarch, "which", lambda name: None)                     # no LikeC4 build in tests
-    monkeypatch.setattr("lib.env.build_c4", lambda log=print: True)
+    monkeypatch.setattr(kit.services.viewers, "build_c4", lambda log=print: True)
     assert not (kit.root / "docs" / "architecture" / "first-look.md").exists()
     job = serve.build({"what": "first-look"})
     for _ in range(200):
@@ -141,6 +141,6 @@ def test_only_the_kit_spec_is_not_a_model_yet(kit):
     arch.mkdir(parents=True, exist_ok=True)
     (arch / "spec.c4").write_text("specification {\n  element system\n}\n", encoding="utf-8")
     (arch / "likec4.config.json").write_text('{"name": "demo"}', encoding="utf-8")
-    assert kit.env.viewers()["c4"]["model"] is False                    # the empty tab offers a first look, not a build
+    assert kit.services.viewers.viewers()["c4"]["model"] is False                    # the empty tab offers a first look, not a build
     (arch / "model.c4").write_text("model {\n  a = system 'A'\n}\n", encoding="utf-8")
-    assert kit.env.viewers()["c4"]["model"] is True
+    assert kit.services.viewers.viewers()["c4"]["model"] is True

@@ -4,14 +4,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from . import docs, env
+from . import docs
+from .app import services
 
 ORDER = ("using", "app", "portal", "internals", "tutorial")
 
 
 def guides(lang: str, base: Path | None = None) -> list[dict]:
     """Each guide that ships in English, in ORDER, from its Spanish twin when lang is es and the twin exists."""
-    base = base or env.TEMPLATES / "docs"
+    base = base or services.current().templates.TEMPLATES / "docs"
     out = []
     for name in ORDER:
         en = base / "guides" / f"{name}.md"

@@ -42,7 +42,7 @@ def pytest_unconfigure(config) -> None:
     bytecode.pytest_unconfigure(config)
 
 
-MODULES = ("common", "docs", "env", "plan", "serve", "projects", "migrate", "quality", "codemap", "install", "quickarch", "creds", "questionnaire", "usage", "onboard", "wizard")
+MODULES = ("common", "docs", "plan", "serve", "projects", "migrate", "quality", "codemap", "install", "quickarch", "creds", "questionnaire", "usage", "onboard", "wizard", "bootstrap")
 
 
 @pytest.hookimpl(tryfirst=True)                 # before xdist's own hook reads the groups
@@ -120,6 +120,7 @@ def load_kit(root: Path, home: Path, ws: Path | None) -> SimpleNamespace:
     ns = SimpleNamespace(root=root, ws=ws or root.parent, home=home, kit_dir=KIT_DIR)
     for m in MODULES:
         setattr(ns, m, importlib.import_module(f"lib.{m}"))
+    ns.services = ns.bootstrap.build()          # as a process entry does: kit.services.<field> is the module itself
     return ns
 
 
@@ -138,18 +139,17 @@ def kit(request, tmp_path, isolated_env):
 
 def wire_project(kit) -> SimpleNamespace:
     """The offline part of `setup` (no external tools): the 'documented project' state the kit leaves behind."""
-    env = kit.env
     ws = kit.docs.workspace()
     ws["project"]["repo_pointer"] = True
     kit.docs.save_workspace(ws)
-    env.init_templates(log=lambda _: None)
-    env.write_agent_config(["likec4", "openwiki", "agents"])
-    kit.linked = env.link_workspace(log=lambda _: None)
+    kit.services.templates.init_templates(log=lambda _: None)
+    kit.services.setup.write_agent_config(["likec4", "openwiki", "agents"])
+    kit.linked = kit.services.setup.link_workspace(log=lambda _: None)
     for r in kit.docs.repo_names():
-        env.link_repo_wiki(r, log=lambda _: None)
-        env.add_repo_pointer(r)
+        kit.services.links.link_repo_wiki(r, log=lambda _: None)
+        kit.services.setup.add_repo_pointer(r)
     (kit.root / "docs" / "overview.md").write_text("---\ntitle: Overview\n---\n# Overview\n", encoding="utf-8")
-    kit.env.checkpoint_commit("wired")
+    kit.services.share.checkpoint_commit("wired")
     return kit
 
 
@@ -220,9 +220,9 @@ def copy_wired(base: Path, home: Path) -> SimpleNamespace:
     """What `wire_project` leaves behind, copied instead of a dozen git processes; the kit links the copy itself, as it
     would on any OS."""
     kit = copy_project(project_template("wired", wire_project), base, home)
-    kit.linked = kit.env.link_workspace(log=lambda _: None)
+    kit.linked = kit.services.setup.link_workspace(log=lambda _: None)
     for r in kit.docs.repo_names():
-        kit.env.link_repo_wiki(r, log=lambda _: None)
+        kit.services.links.link_repo_wiki(r, log=lambda _: None)
     return kit
 
 

@@ -12,14 +12,12 @@ from lib.interfaces.cli.registry import CliContext, Command, command
 @command("arch-validate", "app", "check", es="Validar el modelo C4", en="Validate the C4 model")
 class ArchValidate(Command):
     def run(self, args: argparse.Namespace, cli: CliContext) -> int:
-        from lib import env
-        ok, msg = env.arch_validate()
+        ok, msg = cli.services.diagrams.arch_validate()
         print(msg or ("✓ Valid" if ok else "invalid"))
         return 0 if ok else 1
 
 
-def cmd_doctor(a) -> int:
-    from lib import env
+def cmd_doctor(a, cli: CliContext) -> int:
     from lib.common import VERSIONS
     from lib.core.paths import cli_cmd
     if a.context:
@@ -33,18 +31,18 @@ def cmd_doctor(a) -> int:
         from lib import doctor
         ok = doctor.install(a.install)
         print(f"✔ {a.install} installed" if ok else f"✖ {a.install} could not be installed here: "
-              f"{env.prerequisites().get(a.install, {}).get('hint', a.install)}", file=sys.stdout if ok else sys.stderr)
+              f"{cli.services.setup.prerequisites().get(a.install, {}).get('hint', a.install)}", file=sys.stdout if ok else sys.stderr)
         return 0 if ok else 1
     elif a.json:
         from lib import doctor
         print(json.dumps(doctor.report(), indent=2, ensure_ascii=False))
     else:
-        for k, v in env.prerequisites().items():
+        for k, v in cli.services.setup.prerequisites().items():
             print(f"{'✔' if v['ok'] else ('✖' if v['need'] else '·')} {k:<7} {v.get('found', '')}  {'' if v['ok'] else v['hint']}")
             if v.get("note"):
                 print(f"          {v['note']}")
         for tname in ("graphify", "likec4", "mmdc"):
-            print(f"  {tname:<9} {env.tool_version(tname) or 'missing'} (pinned {VERSIONS[tname]})")
+            print(f"  {tname:<9} {cli.services.toolchain.tool_version(tname) or 'missing'} (pinned {VERSIONS[tname]})")
         from lib import install_state
         from lib.core.paths import WS_FILE
         if WS_FILE.exists():
@@ -59,8 +57,8 @@ def cmd_doctor(a) -> int:
             for sk in team_skills.outdated():
                 print(f"⚠ skill {sk}: the kit's version changed since your team copy — "
                       f"`{cli_cmd()} skills diff {sk} --kit`")
-        print(f"  openwiki  {'ok' if env.openwiki_installed() else 'missing'} (pinned {VERSIONS['openwiki']})")
-        print(f"  gitleaks  {'ok' if env.tool_ok('gitleaks') else 'missing'} (pinned {VERSIONS['gitleaks']})")
+        print(f"  openwiki  {'ok' if cli.services.toolchain.openwiki_installed() else 'missing'} (pinned {VERSIONS['openwiki']})")
+        print(f"  gitleaks  {'ok' if cli.services.toolchain.tool_ok('gitleaks') else 'missing'} (pinned {VERSIONS['gitleaks']})")
     return 0
 
 
@@ -73,7 +71,7 @@ class Doctor(Command):
         parser.add_argument("--install", choices=["git", "node", "docker", "java", "claude", "codex"])
 
     def run(self, args: argparse.Namespace, cli: CliContext) -> int:
-        return cmd_doctor(args)
+        return cmd_doctor(args, cli)
 
 
 def cmd_eval(a) -> int:

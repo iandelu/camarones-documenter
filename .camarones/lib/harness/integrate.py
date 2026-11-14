@@ -25,7 +25,7 @@ UNION = ("docs/interview/open-questions.md",)               # append-only lists:
 
 GATE_SCRIPT = {
     "check": "from lib import docs\nprint(json.dumps(docs.check()[0]))",
-    "arch-validate": "from lib import env\nok, msg = env.arch_validate()\nprint(json.dumps([] if ok else [msg or 'C4 model invalid']))",
+    "arch-validate": "from lib.app import services\nok, msg = services.current().diagrams.arch_validate()\nprint(json.dumps([] if ok else [msg or 'C4 model invalid']))",
 }
 
 
@@ -42,8 +42,10 @@ def _env(ctx: Ctx) -> dict:
 
 
 def _kit(ctx: Ctx, code: str) -> str:
-    """Run kit code against another tree in its own process (the kit resolves its paths at import)."""
-    r = subprocess.run([sys.executable, "-c", f"import json, sys\nsys.path.insert(0, {str(KIT)!r})\n{code}"],
+    """Run kit code against another tree in its own process (the kit resolves its paths at import), with that process's
+    services built first, as the CLI's entry builds them."""
+    preamble = f"import json, sys\nsys.path.insert(0, {str(KIT)!r})\nfrom lib import bootstrap\nbootstrap.build()\n"
+    r = subprocess.run([sys.executable, "-c", preamble + code],
                        env=_env(ctx), capture_output=True, text=True, encoding="utf-8", errors="replace")
     if r.returncode:
         raise RuntimeError(f"kit call failed in {ctx.root}: {(r.stderr or r.stdout).strip()[-500:]}")

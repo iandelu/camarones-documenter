@@ -56,7 +56,7 @@ VIEWS = """views {
 
 @pytest.fixture
 def arch(kit, monkeypatch):
-    d = kit.env.arch_dir()
+    d = kit.services.diagrams.arch_dir()
     spec = (kit.kit_dir / "templates" / "docs" / "architecture" / "spec.c4").read_text(encoding="utf-8")
     for rel, text in {"likec4.config.json": '{"name": "shop"}', "spec.c4": spec, "model.c4": MODEL,
                       "views.c4": VIEWS, "repos/orders.c4": FRAGMENT}.items():

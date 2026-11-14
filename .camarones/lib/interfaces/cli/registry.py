@@ -9,7 +9,10 @@ import importlib
 import pkgutil
 from dataclasses import dataclass
 from functools import cache
-from typing import Callable, ClassVar
+from typing import TYPE_CHECKING, Callable, ClassVar
+
+if TYPE_CHECKING:                       # a type only: loading the registry imports nothing outside the CLI
+    from lib.app.services import Services
 
 VERDICTS = ("portal", "app", "both", "cli")      # both: the portal shows it, the app runs it
 ZONES = ("projects", "generate", "analyze", "check", "interviews", "team", "machine")
@@ -46,6 +49,7 @@ class Spec:
 @dataclass(frozen=True)
 class CliContext:
     parser: argparse.ArgumentParser
+    services: Services | None = None
 
 
 class Command:

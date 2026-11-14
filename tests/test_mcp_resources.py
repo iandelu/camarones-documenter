@@ -62,7 +62,7 @@ def test_llms_full_has_every_readable_page_without_frontmatter(kit, mcp):
 def test_llms_full_is_a_derived_file(kit):
     from lib.harness import integrate
     assert "docs/llms-full.txt" in integrate.DERIVED
-    assert ":(exclude)docs/llms-full.txt" in (kit.kit_dir / "lib" / "env.py").read_text(encoding="utf-8")
+    assert ":(exclude)docs/llms-full.txt" in (kit.kit_dir / "lib" / "app" / "share.py").read_text(encoding="utf-8")
 
 
 def test_resources_list_the_readable_pages(kit, mcp):

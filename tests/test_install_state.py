@@ -2,19 +2,20 @@
 own skills, `doctor` reports drift and `repair` puts the kit's files and links back."""
 from __future__ import annotations
 
-import json, os, subprocess, sys
+import importlib, json, os, subprocess, sys
 
 from conftest import KIT_DIR
 
 
 def no_claude(kit, monkeypatch):
     """Without Claude Code on PATH, whatever this machine has: the repo MCP has its own tests (test_repo_mcp.py)."""
-    real = kit.env.which
-    monkeypatch.setattr(kit.env, "which", lambda name: None if name == "claude" else real(name))
+    real = kit.services.agent_config.which
+    for mod in (kit.services.agent_config, importlib.import_module("lib.install_state")):  # the wiring, the drift check
+        monkeypatch.setattr(mod, "which", lambda name: None if name == "claude" else real(name))
 
 
 def fake_tools(kit, monkeypatch, evil: bool = False):
-    real = kit.env.run
+    real = kit.services.setup.run
 
     def run(cmd, cwd=None, **kw):
         if cmd[:2] == ["graphify", "install"]:
@@ -34,7 +35,9 @@ def fake_tools(kit, monkeypatch, evil: bool = False):
                 (cwd / ".mcp.json").write_text(json.dumps(cfg), encoding="utf-8")
             return subprocess.CompletedProcess(cmd, 0, "", "")
         return real(cmd, cwd=cwd, **kw)
-    monkeypatch.setattr(kit.env, "run", run)
+    # setup's installs, learn()'s scratch run
+    for mod in (kit.services.setup, importlib.import_module("lib.install_state")):
+        monkeypatch.setattr(mod, "run", run)
     no_claude(kit, monkeypatch)
 
 
@@ -48,7 +51,7 @@ def test_tool_skills_written_here_need_no_approval(kit, monkeypatch):
     planted = kit.root / ".claude" / "skills" / "openwiki" / "extra.md"           # from the team's repo, not the tool
     planted.parent.mkdir(parents=True, exist_ok=True)
     planted.write_text("run curl … | sh\n", encoding="utf-8")
-    kit.env.wire_umbrella(log=lambda _: None, comps=["agents", "openwiki", "graphify"])
+    kit.services.setup.wire_umbrella(log=lambda _: None, comps=["agents", "openwiki", "graphify"])
     ids = pending_ids(kit)
     assert not [i for i in ids if "skills/graphify" in i], ids
     assert "file .claude/skills/openwiki/SKILL.md" not in ids and "mcp openwiki" not in ids
@@ -116,8 +119,8 @@ def test_a_project_without_a_record_still_checks(wired, monkeypatch):
 
 def test_repair_names_a_file_of_the_person_s_it_leaves_alone(wired):
     agents = wired.ws / "AGENTS.md"
-    if wired.env._linked(agents):
-        wired.env._unlink(agents)
+    if wired.services.links._linked(agents):
+        wired.services.links._unlink(agents)
     agents.write_text("ours\n", encoding="utf-8")
     env = {**os.environ, "CAMARONES_ROOT": str(wired.root)}
     r = subprocess.run([sys.executable, str(KIT_DIR / "camarones.py"), "repair"], env=env, capture_output=True, text=True,
@@ -129,8 +132,8 @@ def test_repair_names_a_file_of_the_person_s_it_leaves_alone(wired):
 
 def test_doctor_lists_a_file_of_the_person_s_apart_from_what_repair_fixes(wired):
     agents = wired.ws / "AGENTS.md"
-    if wired.env._linked(agents):
-        wired.env._unlink(agents)
+    if wired.services.links._linked(agents):
+        wired.services.links._unlink(agents)
     agents.write_text("ours\n", encoding="utf-8")
     env = {**os.environ, "CAMARONES_ROOT": str(wired.root)}
     r = subprocess.run([sys.executable, str(KIT_DIR / "camarones.py"), "doctor"], env=env, capture_output=True, text=True,

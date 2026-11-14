@@ -41,6 +41,14 @@ def test_the_allowlist_holds_no_fixed_debt():
         f'  - "{e}"' for e in fixed)
 
 
+def test_a_facade_layer_module_imports_anything_and_nothing_imports_it():
+    edges = {("f", "a"), ("f", "x"), ("x", "f")}
+    assert archscan.violations(edges, {"f": "facade", "a": "adapters", "x": "app"}) == {("x", "f")}
+    # declared, not just unchecked: a layer missing from ALLOWED would import anything too
+    assert archscan.ALLOWED["facade"] == set(archscan.ALLOWED) - {"facade"}
+    assert [layer for layer, allowed in archscan.ALLOWED.items() if "facade" in allowed] == []
+
+
 def test_core_imports_only_core():
     _, found, table, _ = scan()
     bad = {(a, b) for a, b in found

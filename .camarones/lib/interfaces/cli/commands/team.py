@@ -14,8 +14,7 @@ from lib.interfaces.cli.registry import CliContext, Command, command
 @command("portal", "app", "team", es="Exportar el portal de solo lectura", en="Export the read-only portal")
 class Portal(Command):
     def run(self, args: argparse.Namespace, cli: CliContext) -> int:
-        from lib import env
-        env.portal()
+        cli.services.export_site.portal()
         return 0
 
 
@@ -231,8 +230,8 @@ class Ci(Command):
         parser.add_argument("forge", nargs="?", choices=["gitlab", "github"])
 
     def run(self, args: argparse.Namespace, cli: CliContext) -> int:
-        from lib import env
-        env.install_ci(args.forge)
+        from lib import ci
+        ci.install_ci(args.forge)
         return 0
 
 
@@ -242,8 +241,7 @@ class Checkpoint(Command):
         parser.add_argument("message", nargs="?", default="progress")
 
     def run(self, args: argparse.Namespace, cli: CliContext) -> int:
-        from lib import env
-        print("✔ committed locally" if env.checkpoint_commit(args.message) else "no checkpoint commit")
+        print("✔ committed locally" if cli.services.share.checkpoint_commit(args.message) else "no checkpoint commit")
         return 0
 
 
@@ -253,10 +251,9 @@ class Remote(Command):
         parser.add_argument("url", nargs="?")
 
     def run(self, args: argparse.Namespace, cli: CliContext) -> int:
-        from lib import env
         if args.url:
-            env.set_remote(args.url)
-        print(env.docs_remote() or "no remote — set one with: remote URL")
+            cli.services.share.set_remote(args.url)
+        print(cli.services.share.docs_remote() or "no remote — set one with: remote URL")
         return 0
 
 
@@ -266,28 +263,27 @@ class Share(Command):
         parser.add_argument("--auto", choices=["on", "off"])
 
     def run(self, args: argparse.Namespace, cli: CliContext) -> int:
-        from lib import env
         if args.auto:
-            env.set_auto_share(args.auto == "on")
+            cli.services.share.set_auto_share(args.auto == "on")
             print(f"auto-share: {args.auto}")
             return 0
-        r = env.share()
+        r = cli.services.share.share()
         why = f" ({r['reason']})" if r.get("reason") else ""
         print(f"{r['status']}{why}{': ' + r['detail'] if r['detail'] else ''}")
         return 0 if r["status"] in ("pushed", "up-to-date", "nothing") else 1
 
 
-def cmd_trust(a) -> int:
-    from lib import env, trust
+def cmd_trust(a, cli: CliContext) -> int:
+    from lib import trust
     from lib.core.paths import cli_cmd
-    env.refresh_agent_config()
+    cli.services.setup.refresh_agent_config()
     rows = trust.grouped(trust.pending())
     if a.json:                                  # what is pending, for the desktop app (approving takes --yes)
         print(json.dumps({"pending": [dict(zip(("kind", "label", "detail", "status"), r)) for r in rows]},
                          ensure_ascii=False))
         return 0
     if not rows:
-        env.link_workspace()
+        cli.services.setup.link_workspace()
         print("✔ nothing to approve: the agent config and plugins are the kit's own or already approved on this machine")
         return 0
     print("Agent config and plugins not approved on this machine (Claude Code, Codex or the kit would load them):\n")
@@ -307,7 +303,7 @@ def cmd_trust(a) -> int:
             print("not approved: nothing in the list is loaded on this machine")
             return 1
     n = trust.approve()
-    env.link_workspace()
+    cli.services.setup.link_workspace()
     print(f"✔ approved {n} item(s); the workspace's agents load this config")
     return 0
 
@@ -320,7 +316,7 @@ class Trust(Command):
         parser.add_argument("--json", action="store_true")
 
     def run(self, args: argparse.Namespace, cli: CliContext) -> int:
-        return cmd_trust(args)
+        return cmd_trust(args, cli)
 
 
 @command("feedback", "portal")

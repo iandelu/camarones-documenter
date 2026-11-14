@@ -114,14 +114,13 @@ def test_guide_links_point_at_headings(kit):
 
 
 def test_projects_get_the_guides_without_overwriting(kit):
-    from lib import env
     mine = kit.root / "docs" / "guides" / "app.md"
     if mine.exists():
         mine.unlink()
     portal = kit.root / "docs" / "guides" / "portal.md"
     portal.parent.mkdir(parents=True, exist_ok=True)
     portal.write_text("# Our own notes\n", encoding="utf-8")
-    env.init_templates("shop", log=lambda _: None)
+    kit.services.templates.init_templates("shop", log=lambda _: None)
     assert mine.is_file()
     assert portal.read_text(encoding="utf-8") == "# Our own notes\n"
 
@@ -142,11 +141,10 @@ def test_spanish_twins_mirror_the_english_guides(kit):
 
 
 def test_projects_get_the_spanish_guides_too(kit):
-    from lib import env
     es = kit.root / "docs" / "i18n" / "es" / "guides" / "using.md"
     if es.exists():
         es.unlink()
-    env.init_templates("shop", log=lambda _: None)
+    kit.services.templates.init_templates("shop", log=lambda _: None)
     assert es.is_file()
 
 

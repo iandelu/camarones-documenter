@@ -71,9 +71,8 @@ def test_the_texts_say_where_each_generated_diagram_lives_and_the_real_check_wor
     assert "the code changed since this diagram was confirmed" in lookup and "out of date with the code" in lookup
 
 
-def test_the_diagrams_skill_reaches_every_project_on_every_run():
-    from lib import env
-    files = env.kit_skill_files("Demo")
+def test_the_diagrams_skill_reaches_every_project_on_every_run(kit):
+    files = kit.services.templates.kit_skill_files("Demo")
     for host in (".claude", ".agents"):
         text = files[f"{host}/skills/cam-docs-diagrams/SKILL.md"]
         assert "{{" not in text

@@ -287,7 +287,7 @@ def rows_of(**ok):
 def test_install_choice_all_skips_a_second_agent(kit):
     system, comps = kit.onboard.install_choice(rows_of(git=True, claude=True), "all")
     assert "codex" not in system and system == ["docker"]
-    assert comps == kit.env.ALL_COMPONENTS
+    assert comps == kit.services.components.ALL_COMPONENTS
 
 
 def test_install_choice_all_installs_the_missing_recommended(kit):
@@ -296,8 +296,8 @@ def test_install_choice_all_installs_the_missing_recommended(kit):
 
 
 def test_install_choice_pick_and_none(kit, monkeypatch):
-    monkeypatch.setattr(kit.env, "components", lambda: ["likec4"])
-    monkeypatch.setattr(kit.env, "prerequisites", lambda: {"git": {}, "docker": {}, "codex": {}})
+    monkeypatch.setattr(kit.services.components, "components", lambda: ["likec4"])
+    monkeypatch.setattr(kit.services.setup, "prerequisites", lambda: {"git": {}, "docker": {}, "codex": {}})
     system, comps = kit.onboard.install_choice(rows_of(), "pick", ["docker", "likec4", "openwiki", "bogus"])
     assert system == ["docker"] and comps == ["likec4", "openwiki"]
     assert kit.onboard.install_choice(rows_of(), "none") == ([], ["likec4"])
@@ -305,8 +305,8 @@ def test_install_choice_pick_and_none(kit, monkeypatch):
 
 def test_install_tools_reports_failures(kit, monkeypatch):
     done = []
-    monkeypatch.setattr(kit.env, "set_components", lambda c: done.append(("set", c)))
-    monkeypatch.setattr(kit.env, "install_prereq", lambda k, log=print: k != "docker")
+    monkeypatch.setattr(kit.services.components, "set_components", lambda c: done.append(("set", c)))
+    monkeypatch.setattr(kit.services.toolchain, "install_prereq", lambda k, log=print: k != "docker")
     logged = []
     assert kit.onboard.install_tools(["git", "docker"], ["likec4"], logged.append) == ["docker"]
     assert done == [("set", ["likec4"])]
@@ -316,7 +316,7 @@ def test_greenfield_without_repos_sets_up_and_plans(kit, monkeypatch):
     ws = kit.docs.workspace()
     ws["repos"], ws["project"]["kind"] = [], "greenfield"
     kit.docs.save_workspace(ws)
-    monkeypatch.setattr(kit.env, "setup", lambda ci=False, log=print, comps=None: True)
+    monkeypatch.setattr(kit.services.setup, "setup", lambda ci=False, log=print, comps=None: True)
     assert kit.onboard.run_setup(lambda _: None) is True
     data = kit.plan.load()
     assert kit.plan.get(data, "setup")["status"] == "done"
@@ -325,7 +325,7 @@ def test_greenfield_without_repos_sets_up_and_plans(kit, monkeypatch):
 
 
 def test_a_failed_setup_is_not_marked_done(kit, monkeypatch):
-    monkeypatch.setattr(kit.env, "setup", lambda ci=False, log=print, comps=None: False)
+    monkeypatch.setattr(kit.services.setup, "setup", lambda ci=False, log=print, comps=None: False)
     assert kit.onboard.run_setup(lambda _: None) is False
     assert kit.plan.get(kit.plan.load(), "setup")["status"] != "done"
 

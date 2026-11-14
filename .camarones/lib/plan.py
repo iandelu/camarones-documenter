@@ -567,8 +567,8 @@ def render(data: dict | None = None) -> str:
 
 # ---------- session prompts ----------
 def prompt(uid: str, lang: str = "es", unattended: bool = False) -> str:
-    from . import env                    # lazy: env imports plan
-    env.sync_kit_docs()                  # the session reads the project's PLAYBOOK copy: bring it up to this kit
+    from .app import services
+    services.current().templates.sync_kit_docs()  # the session reads the project's PLAYBOOK copy: bring it up to this kit
     data = load()
     u = get(data, uid) if uid != "update" else {"id": "update", "title": "Incremental update", "type": "update", "phase": "-"}
     cli = cli_cmd()

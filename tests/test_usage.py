@@ -78,11 +78,11 @@ def test_recording_never_breaks_the_tool(kit):
 
 
 def test_stats_travel_with_share(kit, tmp_path):
-    kit.env.init_templates("demo", log=lambda _: None)
+    kit.services.templates.init_templates("demo", log=lambda _: None)
     remote = bare(tmp_path)
-    kit.env.set_remote(str(remote))
+    kit.services.share.set_remote(str(remote))
     kit.usage.record("cli:check", now=NOW)
-    assert kit.env.share(log=lambda _: None)["status"] == "pushed"
+    assert kit.services.share.share(log=lambda _: None)["status"] == "pushed"
     assert f"docs/.work/usage/{kit.usage.me()}.json" in remote_files(remote)
 
 
@@ -117,7 +117,7 @@ def test_portal_records_only_what_the_reader_asked_for(kit):
 
 
 def test_cli_records_the_command_and_toggles_recording(kit):
-    kit.env.init_templates("demo", log=lambda _: None)
+    kit.services.templates.init_templates("demo", log=lambda _: None)
     assert cli(kit.root, kit.ws, "status").returncode == 0
     assert "cli:status" in month(kit, datetime.now().strftime("%Y-%m"))["events"]
     r = cli(kit.root, kit.ws, "stats", "--record", "off")
@@ -166,7 +166,7 @@ def test_report_on_a_project_without_stats(kit):
 
 
 def test_cli_stats_json_and_markdown(kit):
-    kit.env.init_templates("demo", log=lambda _: None)
+    kit.services.templates.init_templates("demo", log=lambda _: None)
     page(kit, "flows/checkout.md", "Checkout")
     seed_team(kit)
     r = cli(kit.root, kit.ws, "stats", "--json", "--months", "12")
@@ -177,12 +177,12 @@ def test_cli_stats_json_and_markdown(kit):
 
 
 def test_doc_changes_count_people_writing_but_not_the_stats_themselves(kit):
-    kit.env.init_templates("demo", log=lambda _: None)
+    kit.services.templates.init_templates("demo", log=lambda _: None)
     page(kit, "overview.md", "Overview")
-    kit.env.checkpoint_commit("overview")
+    kit.services.share.checkpoint_commit("overview")
     base = kit.usage.report(months=1)["months"][0]["doc_commits"]
     kit.usage.record("cli:check")
-    kit.env.checkpoint_commit("stats only")
+    kit.services.share.checkpoint_commit("stats only")
     r = kit.usage.report(months=1)["months"][0]
     assert base >= 1 and r["doc_commits"] == base and r["writers"] == 1
 

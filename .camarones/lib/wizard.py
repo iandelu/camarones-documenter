@@ -19,7 +19,8 @@ from rich.text import Text
 
 from .common import (ROOT, HOME, PREFS, WORK, WS_FILE, CACHE, IS_WIN, IS_MAC, CAM_DIR, CAM_LAYOUT, WORKSPACE, which, cli_cmd,
                      load_json, save_json, out, repo_dir)
-from . import docs, env, genblocks, install_state, plan, creds, questionnaire, quickarch, radar, sessions, tutorial, upgrade, usage
+from .app import services
+from . import ci, docs, genblocks, install_state, plan, creds, questionnaire, quickarch, radar, sessions, tutorial, upgrade, usage
 from .adapters import runners
 from .harness.ports import RunRequest
 from .common import VERSIONS
@@ -960,7 +961,7 @@ class W:
         fb = len(docs.pending_feedback())
         if fb:
             tbl.add_row("✏️", f"{fb} {self.t('d_fb')}")
-        old = env.old_wikis()
+        old = services.current().wiki.old_wikis()
         if old:
             tbl.add_row("📚", f"[yellow]{self.t('d_old_wikis', n=len(old), repos=', '.join(old))}[/]")
         nxt = [u for u in plan.available(data) if u["status"] != "doing"]
@@ -1057,7 +1058,7 @@ class W:
     def trust_check(self) -> None:
         """Agent config from the team's repo that this machine has not approved: show what it runs and ask (lib/trust.py)."""
         from . import trust
-        env.refresh_agent_config()
+        services.current().setup.refresh_agent_config()
         rows = trust.grouped(trust.pending())
         if not rows:
             return
@@ -1069,7 +1070,7 @@ class W:
         console.print(tbl)
         if self.yes(self.t("trust_q"), default=False):
             trust.approve()
-            env.link_workspace(log=lambda _: None)
+            services.current().setup.link_workspace(log=lambda _: None)
             self.say(self.t("trust_ok"), "green")
         else:
             trust.decline()
@@ -1116,7 +1117,7 @@ class W:
                 i += 1
         self.step_hdr = None
         onboard.finish(ROOT, len(steps))
-        env.checkpoint_commit("first setup")
+        services.current().share.checkpoint_commit("first setup")
         return True
 
     def fr_name(self, ws: dict):
@@ -1239,8 +1240,8 @@ class W:
             if sys_pick:
                 self.say(f"[bold]{self.t('t_installing')}: {', '.join(sys_pick)}[/]")
             for k in onboard.install_tools(sys_pick, kit_pick, lambda m: self.say("  " + m, "grey62")):
-                self.say(self.t("manual", hint=env.prerequisites().get(k, {}).get("hint", k)), "yellow")
-            if all(v["ok"] for v in env.prerequisites().values() if v["need"]):
+                self.say(self.t("manual", hint=services.current().setup.prerequisites().get(k, {}).get("hint", k)), "yellow")
+            if all(v["ok"] for v in services.current().setup.prerequisites().values() if v["need"]):
                 return None
             self.say(self.t("reopen"), "yellow")
             self.pause()
@@ -1250,7 +1251,7 @@ class W:
         self.repo_pointer()
         self.ask_usage()
         self.say(f"[bold]{self.t('setup_run')}[/]")
-        ok = self.safe(self.busy, onboard.run_setup, total=env.setup_steps())
+        ok = self.safe(self.busy, onboard.run_setup, total=services.current().setup.setup_steps())
         if ok:
             self.say(self.t("setup_ok"), f"bold {ORANGE}")
         while True:
@@ -1271,7 +1272,7 @@ class W:
                 self.banner()
                 self.add_token(host)
             self.banner()
-            ok = self.safe(self.busy, env.setup, total=env.setup_steps())
+            ok = self.safe(self.busy, services.current().setup.setup, total=services.current().setup.setup_steps())
             if ok:
                 plan.set_status("setup", "done", "wizard")
                 install_state.mark_setup()
@@ -1290,7 +1291,7 @@ class W:
     def prereqs(self) -> bool:
         ok = True
         have_agent = [a for a in ("claude", "codex") if which(a)]
-        for k, v in env.prerequisites().items():
+        for k, v in services.current().setup.prerequisites().items():
             mark = "✔" if v["ok"] else ("✖" if v["need"] else "·")
             extra = v.get("found", "")
             if k in ("claude", "codex") and not v["ok"]:
@@ -1302,7 +1303,7 @@ class W:
                 continue
             ans = self.yes(self.t("missing", what=v["hint"]), default=v["need"])
             if ans:
-                if env.install_prereq(k, log=lambda m: self.say("  " + m, "grey62")):
+                if services.current().toolchain.install_prereq(k, log=lambda m: self.say("  " + m, "grey62")):
                     if k in ("git", "node", "docker", "java"):
                         self.say(self.t("reopen"), "yellow")
                         ok = ok and not v["need"]
@@ -1598,7 +1599,7 @@ class W:
     # ---------- team questionnaire (deferred interviews) ----------
     def reveal(self, folder: Path) -> None:
         """Show a folder in the system file manager (Explorer / Finder / the desktop's default)."""
-        env.open_url(folder.resolve().as_uri())
+        services.current().launcher.open_url(folder.resolve().as_uri())
 
     def show_answers(self, s: dict) -> None:
         tbl = Table(title=self.t("qa_title"), title_justify="left", border_style="grey42", show_header=False)
@@ -1676,7 +1677,7 @@ class W:
         os.environ["CAMARONES_ROOT"] = str(ROOT)
         if not IS_WIN:
             cmd = ["env", f"CAMARONES_ROOT={ROOT}", *cmd]      # a macOS/Linux terminal window does not inherit it
-        if env.open_new_terminal(cmd, WORKSPACE):     # long-lived loop in its own window; the wizard stays usable
+        if services.current().launcher.open_new_terminal(cmd, WORKSPACE):     # long-lived loop in its own window; the wizard stays usable
             self.say(self.t("autopilot_bg"), "green")
             self.pause()
             return
@@ -1711,13 +1712,14 @@ class W:
                 plan.set_status(u["id"], "done", "wizard")
                 self.checkpoint(u["id"])
             return
-        if u["type"] == "repo-wiki" and (engines := env.wiki_engines()):
+        if u["type"] == "repo-wiki" and (engines := services.current().wiki.wiki_engines()):
             c = self.sel(self.t("w_unit_q", repo=u["repo"]), [Choice(self.t("w_here", engine=engines[0]), "here"),
                                                               Choice(self.t("w_agent"), "agent")])
             if c is None:
                 return
             if c == "here":
-                ok = self.safe(self.busy, env.openwiki_generate, u["repo"], engine=self.wiki_engine() or engines[0])
+                ok = self.safe(self.busy, services.current().wiki.openwiki_generate, u["repo"],
+                               engine=self.wiki_engine() or engines[0])
                 self.say(self.t("w_done", repo=u["repo"]) if ok else self.t("w_fail", repo=u["repo"]), "green" if ok else "yellow")
                 return
         resume_agent = c = None
@@ -1763,7 +1765,7 @@ class W:
         self.pause()
 
     def checkpoint(self, what: str) -> None:
-        if env.checkpoint_commit(what):
+        if services.current().share.checkpoint_commit(what):
             self.say(self.t("saved_ckpt"), "grey62")
 
     def unit_taken(self, uid: str) -> bool:
@@ -1813,7 +1815,7 @@ class W:
             argv = runner.build(req).argv
             return sessions.wrap(sessions.start(unit, agent, req.session, since=since), argv) if unit else argv
         cmd = command(req, since)
-        if env.open_new_terminal(cmd, WORKSPACE):   # own window, in the workspace: the agent sees every repo + cam-docs
+        if services.current().launcher.open_new_terminal(cmd, WORKSPACE):   # own window, in the workspace: the agent sees every repo + cam-docs
             self.say(self.t("launched_bg"), "green")
             self.pause()
             return "bg"
@@ -2141,7 +2143,7 @@ class W:
             if not c:
                 return
             if c == "build":
-                self.safe(self.busy, env.portal, total=env.portal_steps())
+                self.safe(self.busy, services.current().export_site.portal, total=services.current().export_site.portal_steps())
             elif c in ("live", "up", "local"):
                 v = self.txt(self.t("port"), default=str(port))
                 if v is None:
@@ -2150,32 +2152,32 @@ class W:
                 self.prefs["port"] = port
                 save_json(PREFS, self.prefs)
                 if c == "live":
-                    url = self.safe(self.busy, env.serve_editor, port, total=1)
+                    url = self.safe(self.busy, services.current().portal.serve_editor, port, total=1)
                 else:
                     if c == "up":
-                        ok, why = env.docker_ready()
+                        ok, why = services.current().containers.docker_ready()
                         if not ok:
                             if not self.yes(self.t("p_docker_na", why=why), default=True):
                                 continue
                             c = "local"
                     if not (CACHE / "site" / "index.html").exists() and \
-                            self.safe(self.busy, env.portal, total=env.portal_steps()) is None:
+                            self.safe(self.busy, services.current().export_site.portal, total=services.current().export_site.portal_steps()) is None:
                         continue                                # build failed: the error is already on screen
-                    url = self.safe(self.busy, env.docker_up if c == "up" else env.serve_local, port, total=1)
+                    url = self.safe(self.busy, services.current().portal.docker_up if c == "up" else services.current().portal.serve_local, port, total=1)
                     if not url and c == "up" and self.yes(self.t("p_docker_fail"), default=True):
-                        url = self.safe(self.busy, env.serve_local, port, total=1)
+                        url = self.safe(self.busy, services.current().portal.serve_local, port, total=1)
                 if url:
                     self.say(self.t("p_running", url=url), "green")
-                    env.open_url(url)
+                    services.current().launcher.open_url(url)
                     return True
             elif c == "open":
-                env.open_url(f"http://localhost:{port}")
+                services.current().launcher.open_url(f"http://localhost:{port}")
             elif c == "down":
-                env.docker_down()
+                services.current().portal.docker_down()
 
     def do_wikis(self) -> None:
         while True:
-            rows = env.wikis()
+            rows = services.current().wiki.wikis()
             tbl = Table(title=self.t("w_title"), title_justify="left", border_style="grey42", show_header=False)
             for w in rows:
                 if not w["chosen"]:
@@ -2218,8 +2220,8 @@ class W:
                 continue
             for i, repo in enumerate(picked):
                 try:
-                    ok = self.busy(env.openwiki_generate, repo, engine=engine)
-                except env.WikiAbort as e:          # quota / login: the rest would fail the same way
+                    ok = self.busy(services.current().wiki.openwiki_generate, repo, engine=engine)
+                except services.current().wiki.WikiAbort as e:  # quota / login: the rest would fail the same way
                     left = picked[i + 1:]
                     console.print(Panel(str(e) + (f"\n{self.t('w_skipped', repos=', '.join(left))}" if left else ""),
                                         title=self.t("error"), border_style="red"))
@@ -2264,7 +2266,7 @@ class W:
         return "gone"
 
     def wiki_engine(self) -> str | None:
-        engines = env.wiki_engines()
+        engines = services.current().wiki.wiki_engines()
         if not engines:
             self.say(Panel(self.t("w_no_engine"), border_style="yellow"))
             return None
@@ -2279,13 +2281,13 @@ class W:
         with socket.socket() as sck:
             up = sck.connect_ex(("127.0.0.1", port)) == 0
         mine = getattr(self, "_portal_token", {})      # in memory only: the server this wizard started, by port
-        url = env.portal_url(port, mine.get(port), hash_) if up else self.safe(self.busy, env.serve_editor, port, total=1)
+        url = services.current().portal.portal_url(port, mine.get(port), hash_) if up else self.safe(self.busy, services.current().portal.serve_editor, port, total=1)
         if url and not up:                       # keep the fresh token, add the route to the same fragment
-            token = env.portal_token(url)
+            token = services.current().portal.portal_token(url)
             self._portal_token = {**mine, port: token}
-            url = env.portal_url(port, token, hash_)
+            url = services.current().portal.portal_url(port, token, hash_)
         if url:
-            env.open_url(url)
+            services.current().launcher.open_url(url)
 
     def retry_missing(self, missing: list[str]) -> None:
         """A repo with a url but no .git after sync almost always means missing/expired credentials —
@@ -2309,24 +2311,24 @@ class W:
             self.safe(self.busy, lambda log: docs.sync_repos(log))
             self.retry_missing(onboard.missing_repos())
             for n in docs.repo_names():
-                if (repo_dir(n) / ".git").exists() and not env.repo_graph(n).exists():
-                    self.safe(self.busy, env.wire_one, n)
+                if (repo_dir(n) / ".git").exists() and not services.current().code.repo_graph(n).exists():
+                    self.safe(self.busy, services.current().setup.wire_one, n)
             plan.sync()
 
     def do_share(self) -> None:
-        url = env.docs_remote()
+        url = services.current().share.docs_remote()
         if not url:
             url = (self.txt(self.t("sh_url")) or "").strip()
             if not url:
                 return
-            env.set_remote(url)
+            services.current().share.set_remote(url)
         if not self.yes(self.t("sh_confirm", url=url), default=True):
             return
         while True:
-            r = self.safe(self.busy, env.share)
+            r = self.safe(self.busy, services.current().share.share)
             if not r:
                 return
-            url = env.docs_remote() or url
+            url = services.current().share.docs_remote() or url
             if r["status"] != "error" or not r.get("reason"):
                 break
             host = r.get("host") or url
@@ -2342,9 +2344,9 @@ class W:
         ok = r["status"] in ("pushed", "up-to-date", "nothing")
         self.say(self.t("sh_" + r["status"].replace("-", "_"), url=url, detail=r["detail"], cli=cli_cmd()),
                  f"bold {ORANGE}" if r["status"] == "pushed" else ("" if ok else "red"))
-        if ok and not env.AUTO_SHARE.exists():                         # asked once; the CLI flag changes it later
+        if ok and not services.current().share.AUTO_SHARE.exists():    # asked once; the CLI flag changes it later
             on = bool(self.yes(self.t("sh_auto_ask", cli=cli_cmd()), default=True))
-            env.set_auto_share(on)
+            services.current().share.set_auto_share(on)
             if on:
                 self.say(self.t("sh_auto_on"), "green")
         self.pause()
@@ -2438,7 +2440,7 @@ class W:
             return False
         self.repo_pointer()
         self.banner()
-        ok = self.safe(self.busy, env.setup, total=env.setup_steps())
+        ok = self.safe(self.busy, services.current().setup.setup, total=services.current().setup.setup_steps())
         plan.sync()
         if ok:
             plan.set_status("setup", "done", "wizard")
@@ -2448,10 +2450,10 @@ class W:
 
     def do_ci(self) -> bool:
         forge = self.sel(self.t("ci_forge"), [Choice("GitLab", "gitlab"), Choice("GitHub", "github")],
-                         default=env.detect_forge())
+                         default=ci.detect_forge())
         if not forge:
             return False
-        self.safe(self.busy, env.install_ci, forge)
+        self.safe(self.busy, ci.install_ci, forge)
         self.say(self.t("ci_done"), "green")
         self.pause()
         return True

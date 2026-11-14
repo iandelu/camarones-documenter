@@ -48,7 +48,7 @@ def documented(wired):
     page(wiki, "INSTRUCTIONS.md", body="brief\n")
     kit.common.save_json(kit.common.WORK / "fresh.json", {"v": 1, "pages": {"gone/old.md": {"body_sha": "x", "at": "x"}}})
     kit.common.save_json(root / "docs" / ".state.json", {"api": "abc"})
-    kit.env.checkpoint_commit("documented")
+    kit.services.share.checkpoint_commit("documented")
     kit.reset = importlib.import_module("lib.reset")
     return kit
 

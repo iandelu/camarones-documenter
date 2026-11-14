@@ -46,8 +46,8 @@ def validate() -> tuple[bool, str]:
     """LikeC4's own check when it is installed; without it only the structural checks done before writing apply."""
     if not which("likec4"):
         return True, ""
-    from . import env
-    return env.arch_validate()
+    from .app import services
+    return services.current().diagrams.arch_validate()
 
 
 # ---------- reading ----------

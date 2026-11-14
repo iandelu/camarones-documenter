@@ -26,7 +26,7 @@ def test_nothing_installed_yet(kit, ci):
 
 
 def test_after_camaron_ci_it_is_installed_and_current(kit, ci):
-    kit.env.install_ci("github", log=lambda _: None)
+    ci.install_ci("github", log=lambda _: None)
     s = ci.status("github")
     inst = s["installed"]
     assert inst["umbrella"]["path"] == ".github/workflows/docs.yml" and inst["fresh"]["path"] == ".camarones/ci/docs-fresh.github.yml"

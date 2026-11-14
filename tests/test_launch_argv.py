@@ -22,7 +22,7 @@ def launched(kit, fake_wizard, monkeypatch):
     monkeypatch.setattr(agents, "which", fake)
     monkeypatch.setattr(base, "which", fake)
     box = {"cmds": [], "said": []}
-    monkeypatch.setattr(kit.wizard.env, "open_new_terminal", lambda cmd, cwd: box["cmds"].append((cmd, cwd)) or True)
+    monkeypatch.setattr(kit.services.launcher, "open_new_terminal", lambda cmd, cwd: box["cmds"].append((cmd, cwd)) or True)
     monkeypatch.setattr(kit.wizard.W, "say", lambda self, msg, style="": box["said"].append(str(msg)))
 
     def make(answers=(), **prefs):
@@ -111,7 +111,7 @@ def said(launched, key, **kw):
 
 def no_terminal(kit, monkeypatch, codes=(1, 0)):
     """No terminal emulator: the session blocks this one. The commands it ran, in order."""
-    monkeypatch.setattr(kit.wizard.env, "open_new_terminal", lambda cmd, cwd: False)
+    monkeypatch.setattr(kit.services.launcher, "open_new_terminal", lambda cmd, cwd: False)
     runs = []
     monkeypatch.setattr(kit.wizard.subprocess, "run",
                         lambda cmd, cwd=None: runs.append(cmd) or subprocess.CompletedProcess(cmd, codes[len(runs) - 1]))
@@ -409,19 +409,19 @@ def test_without_a_terminal_a_new_session_that_fails_is_not_run_again(kit, launc
 @pytest.fixture
 def wiki_cmd(kit, monkeypatch):
     from lib.adapters.runners import base
-    env = kit.env
+    wiki = kit.services.wiki                        # lib.app.wiki: where openwiki_generate looks up stream
     seen = []
     monkeypatch.setattr(base, "which", lambda name: f"/bin/{name}")
-    monkeypatch.setattr(env, "wiki_engines", lambda: ["openwiki", "claude", "codex"])
-    monkeypatch.setattr(env, "link_repo_wiki", lambda repo, log=print: None)
-    monkeypatch.setattr(env, "wire_openwiki", lambda host, log=print: None)      # argv only: wiring has its own tests
-    monkeypatch.setattr(env, "wiki_pages", lambda repo: [])
-    monkeypatch.setattr(env, "wiki_prompt", lambda repo, mode: "PROMPT")
-    monkeypatch.setattr(env, "wiki_workdir", lambda repo, log=print: contextlib.nullcontext())
-    monkeypatch.setattr(env, "stream", lambda cmd, cwd, log, env=None: seen.append((cmd, cwd)) or 1)
+    monkeypatch.setattr(wiki, "wiki_engines", lambda: ["openwiki", "claude", "codex"])
+    monkeypatch.setattr(kit.services.links, "link_repo_wiki", lambda repo, log=print: None)
+    monkeypatch.setattr(wiki, "wire_openwiki", lambda host, log=print: None)     # argv only: wiring has its own tests
+    monkeypatch.setattr(wiki, "wiki_pages", lambda repo: [])
+    monkeypatch.setattr(wiki, "wiki_prompt", lambda repo, mode: "PROMPT")
+    monkeypatch.setattr(kit.services.wiki_engine, "wiki_workdir", lambda repo, log=print: contextlib.nullcontext())
+    monkeypatch.setattr(wiki, "stream", lambda cmd, cwd, log, env=None: seen.append((cmd, cwd)) or 1)
 
     def run(engine):
-        env.openwiki_generate("api", mode="init", log=lambda _: None, engine=engine, force=True)
+        wiki.openwiki_generate("api", mode="init", log=lambda _: None, engine=engine, force=True)
         cmd, cwd = seen.pop()
         return [Path(cmd[0]).name, *cmd[1:]], cwd
     return run

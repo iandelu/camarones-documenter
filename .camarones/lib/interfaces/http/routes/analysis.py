@@ -2,9 +2,10 @@
 snapshot, the CI files, the code maps and the viewers; and the jobs that build them (first look, C4, graphs, wikis)."""
 from __future__ import annotations
 
-from lib import docs, env, plan
-from lib.app import portal_views
+from lib import docs, plan
+from lib.app import portal_views, services
 from lib.core.paths import DOCS
+from lib.core.process import which
 from lib.interfaces.http.jobs import JOB_LOCK, JOBS, claim_job, fail_job, run_job, start_job
 from lib.interfaces.http.messages import Request, Response, json_response
 from lib.interfaces.http.router import Access, route
@@ -69,8 +70,8 @@ def first_look(log) -> bool:
         except Exception as e:  # noqa: BLE001 — the diagrams are a bonus: llms.txt and the C4 build still run
             log(f"⚠ diagrams skipped: {e}")
     docs.llms()
-    if env.which("likec4"):
-        env.build_c4(log=log)
+    if which("likec4"):
+        services.current().viewers.build_c4(log=log)
     wrote = "index.md, a page per repo" if new else "architecture/first-look.md, architecture/system-map.md"
     log(f"✔ first look written: {wrote}, overview/tooling.md and the C4 draft")
     return True
@@ -81,12 +82,13 @@ def build(b: dict) -> dict:
     if what == "first-look":
         return start_job("first-look", "First look (no AI)", first_look)
     if what == "c4":
-        return start_job("c4", "C4 explorer", lambda log: env.build_c4(log=log))
+        return start_job("c4", "C4 explorer", lambda log: services.current().viewers.build_c4(log=log))
     if what == "graph":
-        return start_job("graph", "Code graphs", lambda log: env.build_graphs(log=log))
+        return start_job("graph", "Code graphs", lambda log: services.current().viewers.build_graphs(log=log))
     if what == "wiki-graph" and repo in docs.repo_names():
         # a kind per repo: start_job attaches a second start of the same kind to the running job, whatever the repo
-        return start_job(f"wiki-graph:{repo}", f"Wiki graph {repo}", lambda log: env.wiki_graph(repo, log=log))
+        return start_job(f"wiki-graph:{repo}", f"Wiki graph {repo}",
+                         lambda log: services.current().wiki.wiki_graph(repo, log=log))
     raise ValueError(f"unknown build {what!r}")
 
 
@@ -99,7 +101,7 @@ def wiki(b: dict) -> dict:
     repo, mode, engine = b.get("repo", ""), b.get("mode", ""), b.get("engine", "")
     if repo not in docs.repo_names() or mode not in ("", "init", "update"):
         raise ValueError("unknown repo or mode")
-    choose = repo not in docs.wiki_repos() and not env.wiki_pages(repo)
+    choose = repo not in docs.wiki_repos() and not services.current().wiki.wiki_pages(repo)
     if choose and not b.get("choose"):
         raise ValueError(f"{repo} is not chosen for a wiki")
     with JOB_LOCK:
@@ -114,11 +116,11 @@ def wiki(b: dict) -> dict:
             docs.set_wiki_repos([*docs.wiki_repos(), repo])
             plan.sync()
         if b.get("starter"):
-            env.starter_brief(repo)
+            services.current().wiki.starter_brief(repo)
     except Exception as e:
         fail_job(job, e)
         raise
-    return run_job(job, lambda log: env.openwiki_generate(repo, mode, log, engine))
+    return run_job(job, lambda log: services.current().wiki.openwiki_generate(repo, mode, log, engine))
 
 
 @route("GET", "/api/inventory")
@@ -159,7 +161,7 @@ def post_ci(req: Request) -> Response:
     b = req.body
     if b.get("forge") not in ("github", "gitlab"):
         raise ValueError("forge: github or gitlab")
-    env.install_ci(b["forge"], log=lambda _: None)
+    ci.install_ci(b["forge"], log=lambda _: None)
     return json_response(ci.status(b["forge"]))
 
 
@@ -171,12 +173,12 @@ def get_codemap(req: Request) -> Response:
 
 @route("GET", "/api/viewers")
 def get_viewers(req: Request) -> Response:
-    return json_response(env.viewers())
+    return json_response(req.services.viewers.viewers())
 
 
 @route("GET", "/api/wikis")
 def get_wikis(req: Request) -> Response:
-    return json_response(env.wikis())
+    return json_response(req.services.wiki.wikis())
 
 
 @route("POST", "/api/build", access=Access.APP)

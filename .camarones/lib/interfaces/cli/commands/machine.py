@@ -17,11 +17,11 @@ class Setup(Command):
         parser.add_argument("--profile", choices=["quick", "full"])
 
     def run(self, args: argparse.Namespace, cli: CliContext) -> int:
-        from lib import env, plan
+        from lib import plan
         if args.profile:
-            env.set_profile(args.profile)
-        env.init_templates()
-        env.setup(ci=args.ci)
+            cli.services.components.set_profile(args.profile)
+        cli.services.templates.init_templates()
+        cli.services.setup.setup(ci=args.ci)
         if not args.ci:
             plan.sync()
             plan.set_status("setup", "done", "cli setup")
@@ -85,8 +85,8 @@ class Profile(Command):
         parser.add_argument("name", choices=["quick", "full"])
 
     def run(self, args: argparse.Namespace, cli: CliContext) -> int:
-        from lib import env, plan
-        env.set_profile(args.name)
+        from lib import plan
+        cli.services.components.set_profile(args.name)
         plan.sync()
         print(f"Profile: {args.name}. Progress kept. Run setup to prepare the selected tools.")
         return 0
@@ -120,16 +120,14 @@ class Detect(Command):
 @command("arch", "cli")
 class Arch(Command):
     def run(self, args: argparse.Namespace, cli: CliContext) -> int:
-        from lib import env
-        env.arch_start()
+        cli.services.diagrams.arch_start()
         return 0
 
 
 @command("down", "app", "machine", es="Parar el portal", en="Stop the portal")
 class Down(Command):
     def run(self, args: argparse.Namespace, cli: CliContext) -> int:
-        from lib import env
-        env.docker_down()
+        cli.services.portal.docker_down()
         return 0
 
 
@@ -190,17 +188,16 @@ class Up(Command):
         parser.add_argument("--foreground", action="store_true")
 
     def run(self, args: argparse.Namespace, cli: CliContext) -> int:
-        from lib import env
         from lib.core.paths import CACHE
         if args.foreground:
             from lib.interfaces.http.server import run_server
             run_server(args.port, static=args.static)
         elif args.docker or args.static:
             if not (CACHE / "site" / "index.html").exists():
-                env.portal()
-            (env.docker_up if args.docker else env.serve_local)(args.port)
+                cli.services.export_site.portal()
+            (cli.services.portal.docker_up if args.docker else cli.services.portal.serve_local)(args.port)
         else:
-            env.serve_editor(args.port)
+            cli.services.portal.serve_editor(args.port)
         return 0
 
 

@@ -4,8 +4,9 @@ import { t } from './i18n.js'
 import { Skeleton, fetchSay, shareOk, shareSay } from '@camaron/ui'
 import Failed from './Failed.jsx'
 
-// Sync with the team (env.sync_status / env.share): where this cam-docs stands against the team's repo and sharing
-// as the team action it is — checkpoint, bring in the team's work, push. A clash is undone and reported, never forced.
+// Sync with the team (app.share.sync_status / app.share.share): where this cam-docs
+// stands against the team's repo and sharing as the team action it is — checkpoint,
+// bring in the team's work, push. A clash is undone and reported, never forced.
 const when = (iso) => { try { return new Date(iso).toLocaleString(document.documentElement.lang || 'en', { dateStyle: 'medium', timeStyle: 'short' }) } catch { return iso } }
 
 export default function Sync() {

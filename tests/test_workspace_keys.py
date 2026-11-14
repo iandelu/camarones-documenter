@@ -19,11 +19,11 @@ def row(kit, name):
 def test_cli_setup_keeps_a_repos_stack(kit, monkeypatch):
     """What `camaron setup` runs (camarones.py), with the tool installs stubbed out."""
     name = seed(kit)
-    monkeypatch.setattr(kit.env, "prerequisites", lambda: {})
-    monkeypatch.setattr(kit.env, "install_tools", lambda *a, **kw: None)
-    monkeypatch.setattr(kit.env, "graph", lambda *a, **kw: None)
-    kit.env.init_templates(log=lambda _: None)
-    kit.env.setup(log=lambda _: None)
+    monkeypatch.setattr(kit.services.setup, "prerequisites", lambda: {})
+    monkeypatch.setattr(kit.services.setup, "install_tools", lambda *a, **kw: None)
+    monkeypatch.setattr(kit.services.viewers, "graph", lambda *a, **kw: None)
+    kit.services.templates.init_templates(log=lambda _: None)
+    kit.services.setup.setup(log=lambda _: None)
     kit.plan.sync()
     kit.plan.set_status("setup", "done", "cli setup")
     r = row(kit, name)

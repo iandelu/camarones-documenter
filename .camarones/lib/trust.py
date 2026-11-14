@@ -2,8 +2,9 @@
 
 cam-docs is the team's repo (join/share) and its .claude/.codex/.agents/.mcp.json are linked into the workspace root,
 so anyone who can push to it could add a hook or an MCP server that runs on every teammate's machine. This module
-lists those surfaces, recognises what this kit writes itself (env.refresh_agent_config re-renders it for this machine)
-and keeps approvals per machine in ~/.camarones/trust/ — outside the repo, so nothing committed can approve itself.
+lists those surfaces, recognises what this kit writes itself (app.setup.refresh_agent_config re-renders it for this
+machine) and keeps approvals per machine in ~/.camarones/trust/ — outside the repo, so nothing committed can approve
+itself.
 Project plugins that run code (.camarones/plugins/, R28) are approved the same way, as one item per plugin folder."""
 from __future__ import annotations
 
@@ -145,12 +146,12 @@ def items(root: Path | None = None) -> dict[str, Item]:
 
     codex = root / ".codex" / "config.toml"
     if real(".codex/config.toml") and codex.is_file():
-        from .env import CODEX_MCP_RE
+        from .app import services
         text = codex.read_text(encoding="utf-8")
-        block = CODEX_MCP_RE.search(text)
+        block = services.current().agent_config.CODEX_MCP_RE.search(text)
         if block:
             add("codex mcp block", "codex", block.group(0).strip(), "MCP servers in the kit's block of .codex/config.toml")
-        rest = [ln.strip() for ln in CODEX_MCP_RE.sub("", text).splitlines() if ln.strip() and not ln.lstrip().startswith("#")]
+        rest = [ln.strip() for ln in services.current().agent_config.CODEX_MCP_RE.sub("", text).splitlines() if ln.strip() and not ln.lstrip().startswith("#")]
         if rest:
             add("codex config", "codex", "\n".join(rest), _short(" · ".join(rest)))
     hooks_json = root / ".codex" / "hooks.json"
@@ -186,11 +187,11 @@ def items(root: Path | None = None) -> dict[str, Item]:
 def owned() -> dict[str, set[str]]:
     """id → digests of what this kit writes for this machine right now: its skills and its MCP entries (the Codex block
     holds whichever of them the kit wrote there)."""
-    from . import env
-    out = {f"file {rel}": {_digest(text.encode("utf-8"))} for rel, text in env.kit_skill_files().items()}
-    servers = {"camarones": env.camarones_mcp(), "likec4": env.likec4_mcp()}
+    from .app import services
+    out = {f"file {rel}": {_digest(text.encode("utf-8"))} for rel, text in services.current().templates.kit_skill_files().items()}
+    servers = {"camarones": services.current().agent_config.camarones_mcp(), "likec4": services.current().agent_config.likec4_mcp()}
     out.update({f"mcp {k}": {_digest(v)} for k, v in servers.items()})
-    out["codex mcp block"] = {_digest(env.codex_block(dict(sub)).strip())
+    out["codex mcp block"] = {_digest(services.current().agent_config.codex_block(dict(sub)).strip())
                               for n in (1, 2) for sub in itertools.combinations(servers.items(), n)}
     from . import hooks, install_state
     out.update(hooks.owned())                        # the method hooks (R36), when the project turned them on
@@ -265,10 +266,10 @@ def approve(ids: list[str] | None = None, root: Path | None = None) -> int:
 def decline(root: Path | None = None) -> list[str]:
     """Keep the agents of this machine away from the config: drop the workspace links (never a real file or folder).
     The approvals stay as they are, so the same items are asked again. Returns the links removed."""
-    from . import env
+    from .app import services
     if all(it.kind == "plugin" for it, _ in pending(root)):    # plugins simply stay off; the agent config is fine
         return []
-    return env.unlink_agent_config()
+    return services.current().setup.unlink_agent_config()
 
 
 def plugin_approved(plugin, root: Path | None = None) -> bool:

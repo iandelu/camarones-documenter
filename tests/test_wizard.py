@@ -21,7 +21,7 @@ def test_checkbox_with_nothing_selectable_goes_back(kit):
 def test_wikis_menu_with_no_ready_repo_does_not_crash(wired, fake_wizard, monkeypatch):
     wired.docs.set_wiki_repos(["api"])                                           # chosen, but no INSTRUCTIONS.md yet
     wired.plan.sync()
-    monkeypatch.setattr(wired.env, "openwiki_generate", lambda *a, **kw: pytest.fail("must not start a run"))
+    monkeypatch.setattr(wired.services.wiki, "openwiki_generate", lambda *a, **kw: pytest.fail("must not start a run"))
     w = fake_wizard(["gen", None])
     w.do_wikis()
     assert len(w.answers.asked) == 2                                             # no repo picker in between
@@ -345,17 +345,17 @@ def test_tool_rows_shape(kit, monkeypatch):
     pre = {"git": {"ok": True, "need": True, "hint": "git", "found": "2.4"},
            "claude": {"ok": False, "need": False, "hint": "Claude Code CLI"},
            "codex": {"ok": True, "need": False, "hint": "Codex CLI", "note": "n"}}
-    monkeypatch.setattr(kit.env, "prerequisites", lambda: pre)
-    monkeypatch.setattr(kit.env, "tool_ok", lambda k: k == "likec4")
-    monkeypatch.setattr(kit.env, "components", lambda: ["openwiki"])
-    monkeypatch.setattr(kit.env, "KIT_TOOLS", {"likec4": "C4"})
-    monkeypatch.setattr(kit.env, "EXTRAS", {"openwiki": "Wiki", "agents": "Agents"})
+    monkeypatch.setattr(kit.services.setup, "prerequisites", lambda: pre)
+    monkeypatch.setattr(kit.services.toolchain, "tool_ok", lambda k: k == "likec4")
+    monkeypatch.setattr(kit.services.components, "components", lambda: ["openwiki"])
+    monkeypatch.setattr(kit.services.components, "KIT_TOOLS", {"likec4": "C4"})
+    monkeypatch.setattr(kit.services.components, "EXTRAS", {"openwiki": "Wiki", "agents": "Agents"})
     row = lambda i, label, ok, kind, rec, sys_, found="", note="": {"id": i, "label": label, "ok": ok, "kind": kind,
                                                                     "rec": rec, "sys": sys_, "found": found, "note": note}
     want = [row("git", "git", True, "t_required", True, True, "2.4"),
             row("claude", "Claude Code CLI", False, "t_optional", False, True),     # a working codex: claude is not recommended
             row("codex", "Codex CLI", True, "t_optional", False, True, note="n"),
-            row("likec4", "C4", True, "t_kit", True, False, kit.env.VERSIONS.get("likec4", "")),
+            row("likec4", "C4", True, "t_kit", True, False, kit.common.VERSIONS.get("likec4", "")),
             row("openwiki", "Wiki", True, "t_kit", True, False), row("agents", "Agents", False, "t_kit", True, False)]
     assert kit.wizard.W().tool_rows() == want
     if hasattr(kit.onboard, "tool_rows"):

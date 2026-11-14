@@ -12,10 +12,11 @@ from typing import Callable
 import yaml
 
 from .core import yamlio
-from .common import (CAM_DIR, CAM_LAYOUT, IS_WIN, cli_cmd, ensure_path, find_project_marker, load_json, repo_dir, run,
-                     save_json, ws_rel)
+from .common import (CAM_DIR, CAM_LAYOUT, IS_WIN, VERSIONS, cli_cmd, ensure_path, find_project_marker, load_json,
+                     repo_dir, run, save_json, ws_rel)
 from .harness.ctx import Ctx
-from . import docs, env, plan, projects
+from . import docs, plan, projects
+from .app import services
 
 STEPS = ("name", "repos", "tools", "setup", "stack", "arch", "intro")   # first-run steps, saved by id
 LEGACY_STEPS = ("name", "repos", "tools", "setup", "arch", "intro")     # firstrun.json before 3.3 kept only the index
@@ -214,7 +215,7 @@ def local_ready() -> bool:
     """This machine already has what setup gives: every repo with a URL cloned and the chosen kit tools."""
     if missing_repos():
         return False
-    return all(env.tool_ok(k) for k in env.KIT_TOOLS if k in env.components())
+    return all(services.current().toolchain.tool_ok(k) for k in services.current().components.KIT_TOOLS if k in services.current().components.components())
 
 
 def mode(saved: dict) -> str:
@@ -315,7 +316,7 @@ def git_init(folder: Path) -> list[Path]:
 def tool_rows() -> list[dict]:
     """Every prerequisite and kit tool as a row: `id, label, ok, kind` (t_required | t_optional | t_kit), `rec`
     (recommended), `sys` (a system tool, not a kit component), `found` (version) and `note`."""
-    pre = env.prerequisites()
+    pre = services.current().setup.prerequisites()
     have_agent = any(pre[a]["ok"] for a in ("claude", "codex"))
     rows = []
     for k, v in pre.items():
@@ -323,11 +324,11 @@ def tool_rows() -> list[dict]:
         rec = v["need"] or k in ("docker", "java") or (k == "claude" and not have_agent)
         rows.append({"id": k, "label": v["hint"], "ok": v["ok"], "kind": kind, "rec": rec, "sys": True,
                      "found": v.get("found", ""), "note": v.get("note", "")})
-    chosen = env.components()
-    for k, label in {**env.KIT_TOOLS, **env.EXTRAS}.items():
-        installed = env.tool_ok(k) if k in env.KIT_TOOLS else (k in chosen)
+    chosen = services.current().components.components()
+    for k, label in {**services.current().components.KIT_TOOLS, **services.current().components.EXTRAS}.items():
+        installed = services.current().toolchain.tool_ok(k) if k in services.current().components.KIT_TOOLS else (k in chosen)
         rows.append({"id": k, "label": label, "ok": installed, "kind": "t_kit", "rec": True, "sys": False,
-                     "found": env.VERSIONS.get(k, "") if installed and k in env.KIT_TOOLS else "", "note": ""})
+                     "found": VERSIONS.get(k, "") if installed and k in services.current().components.KIT_TOOLS else "", "note": ""})
     return rows
 
 
@@ -337,22 +338,22 @@ def install_choice(rows: list[dict], choice: str, picked: list[str] | None = Non
     have_agent = any(r["ok"] for r in rows if r["id"] in ("claude", "codex"))
     if choice == "all":
         return ([r["id"] for r in rows if r["sys"] and not r["ok"] and r["rec"]
-                 and not (r["id"] in ("claude", "codex") and have_agent)], list(env.ALL_COMPONENTS))
+                 and not (r["id"] in ("claude", "codex") and have_agent)], list(services.current().components.ALL_COMPONENTS))
     if choice == "pick":
         picked = picked or []
-        return [p for p in picked if p in env.prerequisites()], [p for p in picked if p in env.ALL_COMPONENTS]
-    return [], env.components()
+        return [p for p in picked if p in services.current().setup.prerequisites()], [p for p in picked if p in services.current().components.ALL_COMPONENTS]
+    return [], services.current().components.components()
 
 
 def install_tools(system: list[str], components: list[str], log, cancelled: Callable[[], bool] | None = None) -> list[str]:
     """Save the chosen components, install the system tools in order and refresh PATH; returns the ones that failed.
     `cancelled` is asked before each install: once it says yes, the rest are left alone."""
-    env.set_components(components)
+    services.current().components.set_components(components)
     failed = []
     for k in system:
         if cancelled and cancelled():
             break
-        if env.install_prereq(k, log=log):
+        if services.current().toolchain.install_prereq(k, log=log):
             log(f"✔ {k}")                  # one finished step each, so the app's progress counts the system tools too
         else:
             failed.append(k)
@@ -362,14 +363,14 @@ def install_tools(system: list[str], components: list[str], log, cancelled: Call
 
 # ---------- setup ----------
 def run_setup(log, cancelled: Callable[[], bool] | None = None) -> bool:
-    """The setup step's work: templates, `env.setup`, the plan for this workspace (also when setup failed, so the
+    """The setup step's work: templates, `app.setup.setup`, the plan for this workspace (also when setup failed, so the
     portal has one) and the `setup` unit marked done when it worked. True when setup succeeded. `cancelled` (the app's
     cancel button) is asked between steps: before setup starts and once it ends; a cancelled setup is not marked done."""
     if cancelled and cancelled():
         return False
-    env.init_templates(docs.workspace()["project"]["name"], log=lambda _: None)   # `log` counts setup's own steps
+    services.current().templates.init_templates(docs.workspace()["project"]["name"], log=lambda _: None)   # `log` counts setup's own steps
     try:
-        ok = env.setup(log=log)
+        ok = services.current().setup.setup(log=log)
     finally:
         plan.sync()                        # a setup that raised still leaves the plan in place
     if ok and not (cancelled and cancelled()):
@@ -396,7 +397,7 @@ def arch_prompt(lang: str) -> str:
     layout = (f"\nLayout: you run in the workspace folder. Docs live in `{CAM_DIR}/` (its own git repo); the service repos "
               f"are its siblings. Edit only the files under `{arch}/` — never create a `docs/` folder anywhere else.\n"
               if CAM_LAYOUT else "")
-    code = ("`graphify query` in the repos, " if "graphify" in env.components() else "")
+    code = ("`graphify query` in the repos, " if "graphify" in services.current().components.components() else "")
     first_look = (f" Update `{arch}/first-look.md` to match."            # an old-layout project's page
                   if (docs.DOCS / "architecture" / "first-look.md").exists() else "")
     return f"""Camarones session — improve the first-look architecture draft.
@@ -475,7 +476,7 @@ def setup_job(system: list[str], components: list[str], log, cancelled: Callable
     """The setup step as a job body: install, then `run_setup`. Every finished (✔) line is logged as `[n/total] …`,
     `total` being setup's own steps plus one per system tool. `cancelled` stops it between steps. Returns {rc, result:
     {failed, missing, ok, cancelled}}."""
-    total, n = env.setup_steps(components) + len(system), 0
+    total, n = services.current().setup.setup_steps(components) + len(system), 0
 
     def counted(msg) -> None:
         nonlocal n
@@ -552,4 +553,4 @@ def done() -> dict:
     from .common import ROOT
     m = mode(load_json(firstrun_file(ROOT), {}))
     finish(ROOT, len(steps("new" if m == "done" else m, kind_of(docs.workspace()))))
-    return {"committed": bool(env.checkpoint_commit("first setup"))}
+    return {"committed": bool(services.current().share.checkpoint_commit("first setup"))}

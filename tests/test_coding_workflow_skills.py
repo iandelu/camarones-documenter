@@ -58,7 +58,7 @@ def test_agents_md_sends_every_code_change_to_cam_task():
 
 
 def test_every_project_gets_the_pack_rendered_in_both_hosts(kit):
-    files = kit.env.kit_skill_files("Demo")
+    files = kit.services.templates.kit_skill_files("Demo")
     for name in PACK:
         for host in (".claude", ".agents"):
             assert "{{" not in files[f"{host}/skills/{name}/SKILL.md"]
@@ -68,7 +68,7 @@ def test_an_old_projects_agents_md_gets_the_line_on_refresh(wired):
     f = wired.root / "AGENTS.md"
     old = [l for l in f.read_text(encoding="utf-8").splitlines() if "cam-task" not in l]
     f.write_text("\n".join(old) + "\n", encoding="utf-8")                     # what a 4.81 project has
-    wired.env.init_templates(log=lambda _: None)
+    wired.services.templates.init_templates(log=lambda _: None)
     assert "follow skill `cam-task`" in f.read_text(encoding="utf-8")
 
 

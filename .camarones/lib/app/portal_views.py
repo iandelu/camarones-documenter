@@ -1,11 +1,12 @@
 """The docs as the portal shows them: the index, a page with its trust and sources, the review status, the decisions
-that cover a page. The live server's routes and the static export (`env.export_site`) both build their JSON here."""
+that cover a page. The live server's routes and the static export (`app.export_site`) both build their JSON here."""
 from __future__ import annotations
 
 import logging
 from pathlib import Path
 
-from lib import adr, adr_doc, codemap, docs, env, plan, sourcelinks
+from lib import adr, adr_doc, codemap, docs, plan, sourcelinks
+from lib.app import services
 from lib.common import VERSIONS
 from lib.core.ctx import KIT
 from lib.core.paths import DOCS, ROOT, rel_file
@@ -43,8 +44,10 @@ def tree() -> dict:
     ws = docs.workspace()
     return {"project": ws["project"]["name"], "langs": ws["project"].get("translations", []), "reviewer": reviewer(),
             "summary": docs.summary(rows), "feedback": len(docs.pending_feedback()), "kit": VERSIONS["kit"],
-            "repos": docs.repo_names(), "codeGraphs": list(env.code_graphs()), "engines": env.wiki_engines(), "engineHelp": env.wiki_engine_help(), "kitGuides": sorted(docs.kit_guides()),
-            "sections": docs.SECTIONS, "views": env.c4_views(), "codeMaps": codemap.available(), "editBase": "",
+            "repos": docs.repo_names(), "codeGraphs": list(services.current().viewers.code_graphs()),
+            "engines": services.current().wiki.wiki_engines(), "engineHelp": services.current().wiki.wiki_engine_help(),
+            "kitGuides": sorted(docs.kit_guides()),
+            "sections": docs.SECTIONS, "views": services.current().diagrams.c4_views(), "codeMaps": codemap.available(), "editBase": "",
             "docs": _with_adr_status(rows)}
 
 

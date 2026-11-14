@@ -7,9 +7,10 @@ import json
 from datetime import datetime, timezone
 
 from .common import CACHE, VERSIONS, WS_FILE
-from . import env, skills
+from . import skills
+from .app import services
 
-INSTALLABLE = ("git", "node", "docker", "java", "claude", "codex")   # env.install_prereq knows how, per OS
+INSTALLABLE = ("git", "node", "docker", "java", "claude", "codex")   # adapters.prereqs.install_prereq knows how, per OS
 PINNED = ("graphify", "likec4", "mmdc")                               # versions read from the tool itself
 CACHE_FILE = CACHE / "doctor.json"     # the last check, so the app shows it at once and checks again on request
 
@@ -17,15 +18,15 @@ CACHE_FILE = CACHE / "doctor.json"     # the last check, so the app shows it at 
 def report() -> dict:
     pre = [{"name": k, "ok": bool(v["ok"]), "need": bool(v["need"]), "found": v.get("found", ""), "hint": v["hint"],
             "note": v.get("note", ""), "fix": None if v["ok"] or k not in INSTALLABLE else
-            {"cmd": "doctor", "args": {"install": k}}} for k, v in env.prerequisites().items()]
+            {"cmd": "doctor", "args": {"install": k}}} for k, v in services.current().setup.prerequisites().items()]
     tools = []
     for name in PINNED:
-        found = env.tool_version(name)
+        found = services.current().toolchain.tool_version(name)
         tools.append({"name": name, "found": found, "pinned": VERSIONS[name], "ok": found == VERSIONS[name]})
-    tools.append({"name": "openwiki", "found": "ok" if env.openwiki_installed() else "", "pinned": VERSIONS["openwiki"],
-                  "ok": env.openwiki_installed()})
-    tools.append({"name": "gitleaks", "found": "ok" if env.tool_ok("gitleaks") else "", "pinned": VERSIONS["gitleaks"],
-                  "ok": env.tool_ok("gitleaks")})
+    tools.append({"name": "openwiki", "found": "ok" if services.current().toolchain.openwiki_installed() else "", "pinned": VERSIONS["openwiki"],
+                  "ok": services.current().toolchain.openwiki_installed()})
+    tools.append({"name": "gitleaks", "found": "ok" if services.current().toolchain.tool_ok("gitleaks") else "", "pinned": VERSIONS["gitleaks"],
+                  "ok": services.current().toolchain.tool_ok("gitleaks")})
     for t in tools:
         t["fix"] = None if t["ok"] else {"cmd": "setup", "args": {}}
     drift = []
@@ -69,4 +70,4 @@ def problems(result: dict) -> dict:
 def install(name: str, log=print) -> bool:
     if name not in INSTALLABLE:
         raise ValueError(f"{name}: one of {', '.join(INSTALLABLE)}")
-    return env.install_prereq(name, log=log)
+    return services.current().toolchain.install_prereq(name, log=log)

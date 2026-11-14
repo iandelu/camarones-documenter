@@ -6,8 +6,9 @@ import { errorLine } from './onboarding.js'
 // An address of the portal: origin is this window's (location.origin), hash the portal's route ('#/', '#/review'…).
 export const portalUrl = (origin, hash = '#/') => `${String(origin).replace(/\/+$/, '')}/${hash || '#/'}`
 
-// The repos that have an OpenWiki, as the portal reads them from the tree (GET tree): their pages are in the wiki
-// space, at wikis/<repo>/<page> (docs.iter_docs). Only those have a graph to build (env.wiki_graph needs pages). Once each, in order.
+// The repos that have an OpenWiki, as the portal reads them from the tree (GET tree):
+// their pages are in the wiki space, at wikis/<repo>/<page> (docs.iter_docs). Only
+// those have a graph to build (app.wiki.wiki_graph needs pages). Once each, in order.
 export function wikiRepos(tree) {
   const out = []
   for (const d of tree?.docs || []) {
@@ -22,8 +23,8 @@ export function wikiRepos(tree) {
 // portal shows the result.
 export const c4Card = { id: 'c4', repo: '', body: { what: 'c4' }, hash: '#/c4' }
 
-// One block per repo of the project, from GET wikis (env.wikis(): every repo, in the project's order, with whether it is
-// cloned and chosen, its brief ('ai' | 'starter' | null), its pages and canGenerate = cloned and a wiki engine
+// One block per repo of the project, from GET wikis (app.wiki.wikis(): every repo, in the project's order, with whether
+// it is cloned and chosen, its brief ('ai' | 'starter' | null), its pages and canGenerate = cloned and a wiki engine
 // installed). `blocked` says why Generate is closed: 'notCloned', 'noEngine', or 'unread' when wikis could not be read
 // (then the tree's `repos` still list every repo, with what the tree knows of their pages).
 // `body` is what POST wiki takes (routes/analysis.py wiki(b)): `choose` only for a repo not yet chosen (the server adds

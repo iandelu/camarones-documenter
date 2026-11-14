@@ -9,6 +9,7 @@ import hashlib, os, shutil
 from pathlib import Path
 
 from .common import CAM_LAYOUT, HOME, ROOT, WORKSPACE, VERSIONS, repo_dir, load_json, save_json
+from .core.process import run, which
 
 STORE_DIR = HOME / ".camarones" / "install"
 AGENT_DIRS = (".claude", ".codex", ".agents")
@@ -55,12 +56,12 @@ def learn(cmds: list[list[str]], restore: bool = False) -> None:
     `restore` copies its skill files back where the project's copy is gone or differs (the installer itself skips a
     tool it believes installed)."""
     import tempfile
-    from . import env, trust
+    from . import trust
     with tempfile.TemporaryDirectory() as tmp:
         scratch = Path(tmp)
-        env.run(["git", "init", "-q"], cwd=scratch, check=False, quiet=True)
+        run(["git", "init", "-q"], cwd=scratch, check=False, quiet=True)
         for cmd in cmds:
-            env.run(cmd, cwd=scratch, check=False, quiet=True)
+            run(cmd, cwd=scratch, check=False, quiet=True)
         made = {i.id: i.digest for i in trust.items(scratch).values() if _learnable(i)}
         _record(made)
         for key in made if restore else ():
@@ -96,9 +97,10 @@ def drift() -> list[dict]:
     """Kit files edited or gone, and links that should point into cam-docs but do not."""
     if not CAM_LAYOUT:
         return []
-    from . import docs, env
+    from . import docs
+    from .app import services
     out = []
-    expected = {rel: hashlib.sha256(text.encode("utf-8")).hexdigest() for rel, text in env.skill_files().items()}
+    expected = {rel: hashlib.sha256(text.encode("utf-8")).hexdigest() for rel, text in services.current().templates.skill_files().items()}
     for rel, want in expected.items():
         f = ROOT / rel
         if not f.is_file():
@@ -114,35 +116,36 @@ def drift() -> list[dict]:
             out.append({"path": rel, "state": "missing", "what": "tool skill"})
         elif _digest(f) != want:
             out.append({"path": rel, "state": "edited", "what": "tool skill"})
-    for n in env.LINKS:
-        if why := env.workspace_off(n):                   # "yours": a file of the person's is there, never replaced
+    for n in services.current().links.LINKS:
+        if why := services.current().links.workspace_off(n):  # "yours": a file of the person's is there, never replaced
             out.append({"path": f"{WORKSPACE.name}/{n}", "state": "not linked", "what": "workspace link", "why": why})
-    if "openwiki" in env.components():
+    if "openwiki" in services.current().components.components():
         for r in docs.repo_names():
             d = repo_dir(r)
             if d.is_dir() and os.path.realpath(d / "openwiki") != os.path.realpath(ROOT / "wikis" / r):
                 out.append({"path": f"{r}/openwiki", "state": "not linked", "what": "repo wiki link"})
-    if "agents" in env.components() and env.which("claude"):
+    if "agents" in services.current().components.components() and which("claude"):
         out += [{"path": r, "state": "not registered", "what": "repo MCP (Claude Code)"} for r in docs.repo_names()
-                if repo_dir(r).is_dir() and not env.repo_mcp_registered(r)]
+                if repo_dir(r).is_dir() and not services.current().agent_config.repo_mcp_registered(r)]
     return out
 
 
 def repair(log=print) -> list[dict]:
     """Put back what the kit owns: its skills and agent config, the agent tools' skills, the links. Never touches the
     team's pages or files the kit did not write. Returns what is still off (links held back by trust, say)."""
-    from . import docs, env
-    comps = env.components()
-    env.wire_umbrella(log, comps)
+    from . import docs
+    from .app import services
+    comps = services.current().components.components()
+    services.current().setup.wire_umbrella(log, comps)
     if "openwiki" in comps and "agents" in comps:
-        learn(env.OPENWIKI_INSTALL, restore=True)
+        learn(services.current().wiki_engine.OPENWIKI_INSTALL, restore=True)
     if "openwiki" in comps:
         for r in docs.repo_names():
             if repo_dir(r).is_dir():
-                env.link_repo_wiki(r, log)
+                services.current().links.link_repo_wiki(r, log)
     if "agents" in comps:
         for r in docs.repo_names():
-            env.wire_repo_mcp(r, log)
+            services.current().agent_config.wire_repo_mcp(r, log)
     from . import kanban
     if kanban.enabled():                                  # a joined clone gets the board's merge driver here
         from .kanban import ops

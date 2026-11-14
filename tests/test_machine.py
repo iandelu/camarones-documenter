@@ -131,7 +131,7 @@ def test_the_panel_says_whether_setup_already_ran_on_this_machine(kit, monkeypat
     """The Machine panel offers setup as the next step only until it has run here: then it says when, and with which kit."""
     from lib import install_state, machine
     assert machine.panel()["setup"] is None
-    monkeypatch.setattr(kit.env, "setup", lambda ci=False, log=print, comps=None: True)
+    monkeypatch.setattr(kit.services.setup, "setup", lambda ci=False, log=print, comps=None: True)
     assert kit.onboard.run_setup(lambda _: None) is True
     done = machine.panel()["setup"]
     assert done["kit"] == kit.common.VERSIONS["kit"] and done["at"].endswith("Z")
@@ -141,9 +141,9 @@ def test_the_panel_says_whether_setup_already_ran_on_this_machine(kit, monkeypat
 
 def test_a_cancelled_or_failed_setup_is_not_recorded(kit, monkeypatch):
     from lib import install_state
-    monkeypatch.setattr(kit.env, "setup", lambda ci=False, log=print, comps=None: True)
+    monkeypatch.setattr(kit.services.setup, "setup", lambda ci=False, log=print, comps=None: True)
     assert kit.onboard.run_setup(lambda _: None, cancelled=lambda: True) is False
-    monkeypatch.setattr(kit.env, "setup", lambda ci=False, log=print, comps=None: False)
+    monkeypatch.setattr(kit.services.setup, "setup", lambda ci=False, log=print, comps=None: False)
     assert kit.onboard.run_setup(lambda _: None) is False
     assert install_state.last_setup() is None
 
@@ -152,7 +152,7 @@ def test_setup_from_the_cli_is_recorded_too(kit, monkeypatch, capsys):
     """The app's Run setup is `camaron setup`; `--ci` (a pipeline, not this machine) records nothing."""
     import runpy
     from lib import install_state
-    monkeypatch.setattr(kit.env, "setup", lambda ci=False, log=print, comps=None: True)
+    monkeypatch.setattr(kit.services.setup, "setup", lambda ci=False, log=print, comps=None: True)
     for args, recorded in ((["setup", "--ci"], False), (["setup"], True)):
         monkeypatch.setattr(sys, "argv", ["camarones.py", *args])
         with pytest.raises(SystemExit) as e:
@@ -163,9 +163,9 @@ def test_setup_from_the_cli_is_recorded_too(kit, monkeypatch, capsys):
 
 
 def test_setup_from_the_terminal_wizard_is_recorded_too(kit, fake_wizard, monkeypatch):
-    """The wizard's menu runs env.setup itself, not onboard.run_setup."""
+    """The wizard's menu runs app.setup.setup itself, not onboard.run_setup."""
     from lib import install_state
-    monkeypatch.setattr(kit.env, "setup", lambda ci=False, log=print, comps=None: True)
+    monkeypatch.setattr(kit.services.setup, "setup", lambda ci=False, log=print, comps=None: True)
     monkeypatch.setattr(kit.wizard.W, "fr_tools", lambda self, ws: None)
     monkeypatch.setattr(kit.wizard.W, "repo_pointer", lambda self: None)
     assert fake_wizard([]).do_setup() is True
@@ -174,14 +174,14 @@ def test_setup_from_the_terminal_wizard_is_recorded_too(kit, fake_wizard, monkey
 
 @pytest.mark.parametrize("worked,answers,recorded", [(True, ["again", "go"], True), (False, ["again", None], False)])
 def test_a_retry_in_the_first_run_is_recorded_only_when_it_worked(kit, fake_wizard, monkeypatch, worked, answers, recorded):
-    """The first attempt goes through onboard.run_setup; the retries run env.setup themselves."""
+    """The first attempt goes through onboard.run_setup; the retries run app.setup.setup themselves."""
     from lib import install_state, plan
 
     def failed(log, cancelled=None):
         plan.sync()                                                       # as the real one: a failed setup leaves the plan
         return False
     monkeypatch.setattr(kit.onboard, "run_setup", failed)
-    monkeypatch.setattr(kit.env, "setup", lambda ci=False, log=print, comps=None: worked)
+    monkeypatch.setattr(kit.services.setup, "setup", lambda ci=False, log=print, comps=None: worked)
     monkeypatch.setattr(kit.wizard.W, "repo_pointer", lambda self: None)
     monkeypatch.setattr(kit.wizard.W, "ask_usage", lambda self: None)
     fake_wizard(answers).fr_setup(kit.docs.workspace())

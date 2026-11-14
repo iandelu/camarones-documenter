@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import re
+from pathlib import Path
 
 import pytest
 
@@ -30,7 +31,7 @@ def portal(kit, monkeypatch):
     page(wiki, "http-api.md", "# HTTP resources\n\nStart with the [quickstart](./quickstart.md#run).\n")
     page(wiki, "quickstart.md", "# api quickstart\n\nSee [HTTP](http-api.md) and [caches](caches.md).\n")
     page(wiki, "caches.md", "# Caches\n\nNothing links back: [missing](nope.md).\n")
-    monkeypatch.setattr(kit.env, "repo_changed_at", lambda _repo: 0.0)
+    monkeypatch.setattr(kit.services.viewers, "repo_changed_at", lambda _repo: 0.0)
     return kit
 
 
@@ -99,7 +100,7 @@ def test_c4_views_are_read_from_the_model_without_likec4(serve_mod):
     arch = serve_mod.root / "docs" / "architecture"
     page(arch, "views.c4", VIEWS_C4)
     page(arch, "repos/api.c4", "views {\n  view api_components of shop.api {\n  }\n}\n")
-    views = {v["id"]: v for v in serve_mod.env.c4_views()}
+    views = {v["id"]: v for v in serve_mod.services.diagrams.c4_views()}
     assert views["index"] == {"id": "index", "title": "System context", "kind": "element", "file": "views.c4"}
     assert views["containers"]["title"] == "containers"
     assert views["flow_checkout"]["kind"] == "dynamic" and views["flow_checkout"]["title"] == "Checkout"
@@ -109,13 +110,13 @@ def test_c4_views_are_read_from_the_model_without_likec4(serve_mod):
 
 
 def test_no_model_means_no_views(serve_mod):
-    assert serve_mod.env.c4_views() == []
+    assert serve_mod.services.diagrams.c4_views() == []
     assert serve_mod.serve.tree()["views"] == []
 
 
 # ---------- wikis ----------
 def test_wiki_nav_follows_the_index_then_the_rest(serve_mod):
-    nav = serve_mod.env.wiki_nav("api")
+    nav = serve_mod.services.wiki.wiki_nav("api")
     assert [p["path"] for p in nav["pages"]] == ["wikis/api/index.md", "wikis/api/quickstart.md",
                                                  "wikis/api/http-api.md", "wikis/api/caches.md"]
     assert nav["pages"][1]["title"] == "api quickstart"
@@ -123,14 +124,14 @@ def test_wiki_nav_follows_the_index_then_the_rest(serve_mod):
 
 
 def test_wiki_backlinks_resolve_relative_links_inside_the_wiki(serve_mod):
-    back = serve_mod.env.wiki_nav("api")["backlinks"]
+    back = serve_mod.services.wiki.wiki_nav("api")["backlinks"]
     assert back["wikis/api/quickstart.md"] == ["wikis/api/http-api.md", "wikis/api/index.md"]
     assert back["wikis/api/caches.md"] == ["wikis/api/quickstart.md"]
     assert "wikis/api/nope.md" not in back
 
 
 def test_wikis_rows_carry_the_navigation(serve_mod):
-    rows_ = {w["repo"]: w for w in serve_mod.env.wikis()}
+    rows_ = {w["repo"]: w for w in serve_mod.services.wiki.wikis()}
     assert rows_["api"]["pages"] == 4
     assert rows_["api"]["nav"]["home"] == "wikis/api/quickstart.md"
     assert rows_["web"]["nav"] == {"home": None, "pages": [], "backlinks": {}}
@@ -142,7 +143,7 @@ def test_a_bare_workspace_still_builds_the_tree(kit):
     serve = importlib.import_module("lib.serve")
     t = serve.tree()
     assert t["docs"] == [] and t["views"] == [] and t["sections"]
-    assert all(w["nav"]["pages"] == [] for w in kit.env.wikis())
+    assert all(w["nav"]["pages"] == [] for w in kit.services.wiki.wikis())
 
 
 # ---------- decisions ----------
@@ -169,12 +170,12 @@ def test_the_tree_marks_as_decisions_the_pages_the_app_lists(serve_mod):
 
 # ---------- static export ----------
 def test_static_export_carries_the_new_fields(serve_mod, monkeypatch):
-    env, docs = serve_mod.env, serve_mod.docs
-    env.set_components(["agents"])
+    docs = serve_mod.docs
+    serve_mod.services.components.set_components(["agents"])
     monkeypatch.setattr(docs, "vendor_file", lambda *_a: None)
     monkeypatch.setattr(docs, "vendor", lambda _site: (0, []))
     page(serve_mod.root / "docs" / "architecture", "views.c4", VIEWS_C4)
-    site = env.export_site(log=lambda _: None)
+    site = serve_mod.services.export_site.export_site(log=lambda _: None)
     tree = json.loads((site / "api" / "tree.json").read_text(encoding="utf-8"))
     assert {d["path"]: d["space"] for d in tree["docs"]}["wikis/api/http-api.md"] == "wiki"
     assert "flow_checkout" in [v["id"] for v in tree["views"]]
@@ -190,15 +191,15 @@ def test_static_export_carries_the_new_fields(serve_mod, monkeypatch):
 
 
 def test_static_export_carries_the_decisions_that_cover_each_page(serve_mod, monkeypatch):
-    env, docs = serve_mod.env, serve_mod.docs
-    env.set_components(["agents"])
+    docs = serve_mod.docs
+    serve_mod.services.components.set_components(["agents"])
     monkeypatch.setattr(docs, "vendor_file", lambda *_a: None)
     monkeypatch.setattr(docs, "vendor", lambda _site: (0, []))
     root = serve_mod.root / "docs"
     page(root, "orders.md", "---\ntitle: Orders\nx-sources:\n  - api:src/S.java\n---\n# Orders\n")
     page(root / "i18n" / "es", "orders.md", "---\ntitle: Pedidos\n---\n# Pedidos\n")
     page(root, "decisions/0003-jpa.md", "---\nx-sources:\n  - api:src/S.java\n---\n# 0003 — JPA\n\n## Estado\n\nAceptada\n")
-    site = env.export_site(log=lambda _: None)
+    site = serve_mod.services.export_site.export_site(log=lambda _: None)
     read = lambda lang, rel: json.loads((site / "api" / "doc" / lang / f"{rel}.json").read_text(encoding="utf-8"))  # noqa: E731
     covering = [{"id": "0003", "title": "JPA", "path": "decisions/0003-jpa.md", "kind": "retro", "implementation": "n/a"}]
     assert read("_", "orders.md")["decisions"] == covering and read("es", "orders.md")["decisions"] == covering
@@ -213,24 +214,24 @@ def test_wiki_graph_export_does_not_pass_flags_openwiki_rejects(serve_mod, monke
     def fake_run(cmd, cwd=None, **_kw):
         calls.append(cmd)
         dest = cmd[cmd.index("--export") + 1]
-        (serve_mod.env.Path(dest)).mkdir(parents=True, exist_ok=True)
-        (serve_mod.env.Path(dest) / "index.html").write_text("ok", encoding="utf-8")
-    monkeypatch.setattr(serve_mod.env, "run", fake_run)
-    assert serve_mod.env.wiki_graph("api", log=lambda _: None)
+        Path(dest).mkdir(parents=True, exist_ok=True)
+        (Path(dest) / "index.html").write_text("ok", encoding="utf-8")
+    monkeypatch.setattr(serve_mod.services.wiki, "run", fake_run)
+    assert serve_mod.services.wiki.wiki_graph("api", log=lambda _: None)
     assert "--no-open" not in calls[0] and "--port" not in calls[0]   # openwiki: "--export cannot be combined with --port or --no-open"
 
 
 def test_a_wiki_graph_older_than_its_pages_is_stale(serve_mod):
     import os
-    graph = serve_mod.env.VIEWERS / "wiki-graph" / "api" / "index.html"
+    graph = serve_mod.services.viewers.VIEWERS / "wiki-graph" / "api" / "index.html"
     graph.parent.mkdir(parents=True, exist_ok=True)
     graph.write_text("old", encoding="utf-8")
     os.utime(graph, (1_000_000, 1_000_000))
-    rows = {w["repo"]: w for w in serve_mod.env.wikis()}
+    rows = {w["repo"]: w for w in serve_mod.services.wiki.wikis()}
     assert rows["api"]["graph"] and rows["api"]["graphStale"]
     assert not rows["web"]["graph"] and not rows["web"]["graphStale"]
     os.utime(graph, None)
-    assert not {w["repo"]: w for w in serve_mod.env.wikis()}["api"]["graphStale"]
+    assert not {w["repo"]: w for w in serve_mod.services.wiki.wikis()}["api"]["graphStale"]
 
 
 def test_code_maps_are_listed_served_and_exported(serve_mod, monkeypatch):
@@ -239,10 +240,10 @@ def test_code_maps_are_listed_served_and_exported(serve_mod, monkeypatch):
     serve_mod.codemap = importlib.import_module("lib.codemap")
     write_graph(serve_mod)
     assert serve_mod.serve.tree()["codeMaps"] == ["api"]
-    env, docs = serve_mod.env, serve_mod.docs
-    env.set_components(["agents"])
+    docs = serve_mod.docs
+    serve_mod.services.components.set_components(["agents"])
     monkeypatch.setattr(docs, "vendor_file", lambda *_a: None)
     monkeypatch.setattr(docs, "vendor", lambda _site: (0, []))
-    site = env.export_site(log=lambda _: None)
+    site = serve_mod.services.export_site.export_site(log=lambda _: None)
     m = json.loads((site / "api" / "codemap" / "api.json").read_text(encoding="utf-8"))
     assert m["stats"]["files"] == 5

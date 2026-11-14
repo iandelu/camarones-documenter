@@ -3,7 +3,7 @@ current plan, priced and timed, for the whole team. Sessions are harvested from 
 machine's KPIs roll-up (docs/.work/kpis/<person-machine>.json), written only when something changed."""
 from __future__ import annotations
 
-import json, time
+import importlib, json, time
 
 import pytest
 
@@ -264,7 +264,7 @@ def test_unmeasured_and_unrecorded_are_named(priced, ledger):
     record(kit, "interview-context", None, agent="codex")
     wiki = kit.docs.wiki_dir("api")
     wiki.mkdir(parents=True, exist_ok=True)
-    (wiki / kit.env.WIKI_STAMP).write_text(json.dumps({"scope": 2, "engine": "openwiki"}), encoding="utf-8")
+    (wiki / importlib.import_module("lib.core.paths").WIKI_STAMP).write_text(json.dumps({"scope": 2, "engine": "openwiki"}), encoding="utf-8")
     for uid in ("repo-wiki:api", "domain"):
         kit.plan.set_status(uid, "done", record=False)
     b = ledger.bill()

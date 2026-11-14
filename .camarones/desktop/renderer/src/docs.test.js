@@ -13,7 +13,7 @@ test('the portal lives at the root of the project server', () => {
 })
 
 // The portal reads a page's space ('wiki' for a repo's OpenWiki, at repos/<repo>/<page>): the repos with at least one
-// wiki page are the ones whose graph can be built (env.wiki_graph is False without pages).
+// wiki page are the ones whose graph can be built (app.wiki.wiki_graph is False without pages).
 test('the repos with a wiki are the ones with wiki pages, once each, in order', () => {
   const tree = { docs: [
     { path: 'index.md', space: 'docs' },
@@ -37,8 +37,9 @@ test('the C4 card builds the explorer and the portal shows it at #/c4', () => {
   expect(c4Card).toEqual({ id: 'c4', repo: '', body: { what: 'c4' }, hash: '#/c4' })
 })
 
-// GET wikis (env.wikis(), what the portal's Wikis view reads): per repo, in the project's order, whether it is cloned,
-// chosen, has a brief ('ai' | 'starter' | null) and pages, and canGenerate (= cloned and a wiki engine installed).
+// GET wikis (app.wiki.wikis(), what the portal's Wikis view reads): per repo, in the project's
+// order, whether it is cloned, chosen, has a brief ('ai' | 'starter' | null) and pages, and
+// canGenerate (= cloned and a wiki engine installed).
 const wikis = [
   { repo: 'api', pages: 3, cloned: true, chosen: true, brief: 'ai', canGenerate: true },
   { repo: 'web', pages: 0, cloned: false, chosen: false, brief: null, canGenerate: false },

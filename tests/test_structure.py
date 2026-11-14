@@ -135,17 +135,17 @@ def test_check_runs_it(kit):
 
 
 def test_skeletons_reach_the_project_and_an_edited_copy_is_kept(kit):
-    kit.env.sync_kit_docs()
+    kit.services.templates.sync_kit_docs()
     dst = kit.root / ".camarones" / "skeletons"
     assert sorted(p.name for p in dst.glob("*.md")) == sorted([p.name for p in SKELETONS] + ["README.md"])
     (dst / "decision.md").write_text("ours\n", encoding="utf-8")
-    kit.env.sync_kit_docs()
+    kit.services.templates.sync_kit_docs()
     assert (dst / "decision.md").read_text(encoding="utf-8") == "ours\n"
-    assert ".camarones/skeletons" in kit.env.CHECKPOINT_PATHS
+    assert ".camarones/skeletons" in kit.services.vcs.CHECKPOINT_PATHS
 
 
 def test_init_templates_does_not_copy_skeletons_into_the_docs(kit):
-    kit.env.init_templates(log=lambda _: None)
+    kit.services.templates.init_templates(log=lambda _: None)
     assert not (kit.root / "skeletons").exists() and not (kit.root / "docs" / "skeletons").exists()
 
 

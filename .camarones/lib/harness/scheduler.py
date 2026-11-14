@@ -11,7 +11,8 @@ import threading
 import time
 from dataclasses import dataclass, field
 
-from .. import docs, env, plan, sessions
+from .. import docs, plan, sessions
+from ..app import services
 from ..common import CAM_DIR, CTX, cli_cmd
 from . import awake, kpis, ledger, routing
 from .ctx import Ctx
@@ -182,7 +183,8 @@ def _loop(jobs, lang, max_parallel, per_runner, max_units, poll_seconds, include
     synced = 0.0
     for problem in plan.pipeline_problems():
         log(f"pipeline.yaml: {problem} — the plan is used as it was")
-    if env.checkpoint_commit("before a parallel run"):   # worktrees branch from HEAD: from these docs, and from a commit
+    # worktrees branch from HEAD: from these docs, and from a commit
+    if services.current().share.checkpoint_commit("before a parallel run"):
         log(f"Checkpoint: {CAM_DIR}/ committed locally, so each unit's copy starts from the docs as they are")
     units = {u["id"]: u for u in plan.load()["units"]}
     for w in Worktrees(CTX).list():                  # work finished earlier but never merged (crash, main was busy)

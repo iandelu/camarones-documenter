@@ -25,8 +25,8 @@ export default function Team({ srv, jobs }) {
   )
 }
 
-// The team's repo (remote) and sharing (env.sync_status / env.share): sharing is the team action — checkpoint, bring
-// in the team's work, push; a clash is undone and reported, never forced.
+// The team's repo (remote) and sharing (app.share.sync_status / app.share.share): sharing is the team action —
+// checkpoint, bring in the team's work, push; a clash is undone and reported, never forced.
 function Repo({ srv, jobs }) {
   const [s, setS] = useState(null)
   const [url, setUrl] = useState('')

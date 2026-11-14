@@ -1,7 +1,7 @@
 """Undo everything: the project's docs, its links, every trace in the repos and (opt-in) the user-level files."""
 from __future__ import annotations
 
-import json, os, subprocess, sys, zipfile
+import importlib, json, os, subprocess, sys, zipfile
 from pathlib import Path
 
 import pytest
@@ -20,7 +20,7 @@ def before(un, monkeypatch):
     (kit.ws / "AGENTS.md").write_text("the team's own AGENTS.md\n", encoding="utf-8")   # a real file at the root
     wire_project(kit)
     kit.stopped = []
-    monkeypatch.setattr(kit.env, "docker_down", lambda: kit.stopped.append("portal"))
+    monkeypatch.setattr(kit.services.portal, "docker_down", lambda: kit.stopped.append("portal"))
     monkeypatch.setattr(kit.uninstall, "which", lambda name: None)
     monkeypatch.setattr(kit.uninstall, "BACKUP_DIR", kit.home.parent / "backups")
     return snap
@@ -91,8 +91,8 @@ def test_what_the_kit_put_in_the_person_s_own_folder_and_claude_md_goes_too(un, 
         own[n] = p
     (kit.root / ".tours").mkdir(exist_ok=True)
     (kit.root / ".tours" / "kit.tour").write_text("{}", encoding="utf-8")
-    kit.env.link_workspace(log=lambda _: None)
-    assert kit.env._linked(own[".claude"] / "skills")
+    kit.services.setup.link_workspace(log=lambda _: None)
+    assert kit.services.links._linked(own[".claude"] / "skills")
     labels = "\n".join(s.label for s in kit.uninstall.steps())
     assert f"{kit.ws.name}/.claude/skills" in labels
     run(kit, backup=False)
@@ -103,14 +103,14 @@ def test_what_the_kit_put_in_the_person_s_own_folder_and_claude_md_goes_too(un, 
 def test_the_import_line_in_the_person_s_claude_md_is_taken_out(un, monkeypatch):
     kit = un
     wire_project(kit)
-    monkeypatch.setattr(kit.env, "docker_down", lambda: None)
+    monkeypatch.setattr(kit.services.portal, "docker_down", lambda: None)
     monkeypatch.setattr(kit.uninstall, "which", lambda name: None)
-    if not kit.env._linked(kit.ws / "AGENTS.md"):           # Windows without file-symlink rights
+    if not kit.services.links._linked(kit.ws / "AGENTS.md"):           # Windows without file-symlink rights
         return
     mine = kit.ws / "CLAUDE.md"
-    kit.env._unlink(mine)
+    kit.services.links._unlink(mine)
     mine.write_text("# Ours\n", encoding="utf-8")
-    kit.env.link_workspace(log=lambda _: None)
+    kit.services.setup.link_workspace(log=lambda _: None)
     assert "@AGENTS.md" in mine.read_text(encoding="utf-8")
     assert any("CLAUDE.md" in s.label and s.kind == "edit" for s in kit.uninstall.steps())
     run(kit, backup=False)
@@ -147,7 +147,7 @@ def test_only_this_project_leaves_the_registry(un, before, tmp_path):
 
 def test_a_pending_openwiki_run_is_undone_first(un, before):
     kit = un
-    kit.env.wiki_open("api", log=lambda _: None)
+    kit.services.wiki_engine.wiki_open("api", log=lambda _: None)
     (kit.ws / "api" / "AGENTS.md").write_text("openwiki snippet", encoding="utf-8")
     (kit.ws / "api" / "CLAUDE.md").write_text("openwiki snippet", encoding="utf-8")
     run(kit, backup=False)
@@ -236,11 +236,11 @@ def test_guard_kit_inside_the_project(un, monkeypatch):
 
 
 def test_guard_running_openwiki(un, before, monkeypatch):
-    un.env.WIKI_LOCK.parent.mkdir(parents=True, exist_ok=True)
-    un.env.WIKI_LOCK.write_text('{"pid": 999999, "repo": "api"}', encoding="utf-8")
-    monkeypatch.setattr(un.env, "pid_alive", lambda pid: True)
+    importlib.import_module("lib.core.paths").WIKI_LOCK.parent.mkdir(parents=True, exist_ok=True)
+    importlib.import_module("lib.core.paths").WIKI_LOCK.write_text('{"pid": 999999, "repo": "api"}', encoding="utf-8")
+    monkeypatch.setattr(un.uninstall, "pid_alive", lambda pid: True)
     assert "OpenWiki" in un.uninstall.guard()
-    monkeypatch.setattr(un.env, "pid_alive", lambda pid: False)
+    monkeypatch.setattr(un.uninstall, "pid_alive", lambda pid: False)
     assert un.uninstall.guard() is None
 
 
@@ -442,7 +442,7 @@ def test_a_failed_board_copy_aborts_before_anything_changes(un, before, monkeypa
         run(un, backup=False)
     assert un.root.is_dir() and (un.root / "backlog" / "tasks" / ITEM).is_file()
     assert not (un.ws / "backlog").exists()
-    assert [r["path"] for r in un.projects.load()] and all(un.env._is_link(un.ws / n) for n in un.linked)
+    assert [r["path"] for r in un.projects.load()] and all(un.services.links._is_link(un.ws / n) for n in un.linked)
     assert un.stopped == ["portal"]
 
 

@@ -9,6 +9,7 @@ from typing import Callable
 import yaml
 
 from .core import yamlio
+from .core.paths import cli_cmd
 from .common import (KIT, ROOT, DOCS, WS_FILE, CACHE, WORKSPACE, CAM_DIR, CAM_LAYOUT, repo_dir, rel_file, run,
                      load_json, save_json, through_link)
 
@@ -533,10 +534,10 @@ def check(strict: bool = False, secrets_only: bool = False) -> tuple[list[str], 
         e, w = fn(rows, strict)
         errors += e
         warns += w
-    from . import env
-    for n in env.old_wikis():
+    from .app import services
+    for n in services.current().wiki.old_wikis():
         warns.append(f"wikis/{n}: written with an older, narrower scope — regenerate it for a complete wiki: "
-                     f"{env.cli_cmd()} wiki {n}")
+                     f"{cli_cmd()} wiki {n}")
     return errors, warns
 
 

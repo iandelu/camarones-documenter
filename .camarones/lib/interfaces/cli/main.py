@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import sys
 
+from lib import bootstrap
 from lib.core.paths import cli_cmd
 from lib.core.process import leave_parent_session
 from lib.interfaces.cli import help_text, middleware, registry
@@ -22,7 +23,7 @@ def _parse_and_run(argv: list[str]) -> int:
     parser = build_parser()
     args = parser.parse_args(argv or ["wizard"])
     command = registry.find(registry.load(), args.cmd)
-    return middleware.dispatch(middleware.Invocation(command, args, CliContext(parser)))
+    return middleware.dispatch(middleware.Invocation(command, args, CliContext(parser, bootstrap.build())))
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -151,7 +151,7 @@ def test_integration_never_touches_the_live_plan_in_main(wired, setup):
 
 def test_plan_state_committed_on_the_branch_never_reaches_main(wired, setup):
     """An older kit can checkpoint the worktree's copy of the plan into the unit's branch: integration drops it."""
-    wired.env.checkpoint_commit("plan")
+    wired.services.share.checkpoint_commit("plan")
     w = setup["unit"]("discovery:api", {"docs/a.md": "a\n"})
     work = w.path / "docs" / ".work"
     (work / "plan.yaml").write_text("units: []\n", encoding="utf-8")
@@ -170,7 +170,7 @@ def test_open_questions_from_two_units_are_both_kept(wired, setup):
     q = wired.root / "docs" / "interview" / "open-questions.md"
     q.parent.mkdir(parents=True, exist_ok=True)
     q.write_text("# Open questions\n\n- [ ] existing\n", encoding="utf-8")
-    wired.env.checkpoint_commit("questions")
+    wired.services.share.checkpoint_commit("questions")
     setup["unit"]("discovery:api", {"docs/interview/open-questions.md": "# Open questions\n\n- [ ] existing\n- [ ] from api\n"})
     setup["unit"]("discovery:web", {"docs/interview/open-questions.md": "# Open questions\n\n- [ ] existing\n- [ ] from web\n"})
     assert setup["run"]("discovery:api").outcome == "merged"
@@ -180,7 +180,7 @@ def test_open_questions_from_two_units_are_both_kept(wired, setup):
 
 
 def test_a_conflict_only_in_derived_files_resolves_itself(wired, setup):
-    wired.env.checkpoint_commit("base")
+    wired.services.share.checkpoint_commit("base")
     a = setup["unit"]("discovery:api", {"docs/a.md": "a\n"})
     b = setup["unit"]("discovery:web", {"docs/b.md": "b\n"})
     for w, text in ((a, '{"from": "api"}\n'), (b, '{"from": "web"}\n')):            # agents that checkpointed anyway
@@ -204,7 +204,7 @@ def test_checkpoint_in_a_worktree_leaves_out_derived_files_and_plan_state(wired,
     monkeypatch.setenv("CAMARONES_STATE_ROOT", str(wired.root))
     monkeypatch.setenv("CAMARONES_WORKSPACE", str(wired.ws))
     k = load_kit(w.path, wired.home, wired.ws)
-    assert k.env.checkpoint_commit("unit work")
+    assert k.services.share.checkpoint_commit("unit work")
     changed = git(w.path, "show", "--name-only", "--format=", "HEAD").split()
     assert "docs/page.md" in changed and not any(c.startswith("docs/.work") or c.endswith(".status.json") for c in changed)
 
@@ -226,7 +226,7 @@ def test_checkpoint_in_a_worktree_leaves_the_board_alone(wired, monkeypatch):
     monkeypatch.setenv("CAMARONES_STATE_ROOT", str(wired.root))
     monkeypatch.setenv("CAMARONES_WORKSPACE", str(wired.ws))
     k = load_kit(w.path, wired.home, wired.ws)
-    assert k.env.checkpoint_commit("unit work")
+    assert k.services.share.checkpoint_commit("unit work")
     changed = git(w.path, "show", "--name-only", "--format=", "HEAD").splitlines()
     assert "docs/page.md" in changed and not any(c.startswith("backlog/") or c == ".gitattributes" for c in changed)
     assert board.read_bytes() == before

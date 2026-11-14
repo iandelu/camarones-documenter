@@ -613,7 +613,7 @@ def test_first_look_draws_the_diagrams(dg, monkeypatch):
     pages_repo(dg)
     seed_old_layout(dg.kit.root)                                 # 2a's pages are the old layout's
     serve = importlib.import_module("lib.serve")
-    monkeypatch.setattr("lib.env.which", lambda _n: None)
+    monkeypatch.setattr("lib.interfaces.http.routes.analysis.which", lambda _n: None)
     logs = []
     assert serve.first_look(log=logs.append)
     assert (dg.kit.root / "docs" / "architecture" / "system-map.md").exists()
@@ -680,7 +680,7 @@ def test_first_look_survives_a_diagram_failure(dg, monkeypatch):
     pages_repo(dg)
     seed_old_layout(dg.kit.root)                                 # 2a's pages are the old layout's
     serve = importlib.import_module("lib.serve")
-    monkeypatch.setattr("lib.env.which", lambda _n: None)
+    monkeypatch.setattr("lib.interfaces.http.routes.analysis.which", lambda _n: None)
 
     def boom(log=None):
         raise RuntimeError("no map today")

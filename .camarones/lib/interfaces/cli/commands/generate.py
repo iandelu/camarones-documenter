@@ -153,24 +153,23 @@ class Wiki(Command):
         parser.add_argument("--force", action="store_true")
 
     def run(self, args: argparse.Namespace, cli: CliContext) -> int:
-        from lib import env
         from lib.common import VERSIONS
         if args.mode in ("open", "close"):
             for r in args.repos:
                 if args.mode == "open":
-                    env.wiki_open(r)
+                    cli.services.wiki_engine.wiki_open(r)
                     print(f"{r}/openwiki/: real folder — run the OpenWiki MCP lifecycle, then `wiki {r} --close`")
-                elif env.wiki_close(r):
-                    if env.wiki_pages(r):          # a manual MCP session follows the current PLAYBOOK scope
-                        env.stamp_wiki(r, mode="manual", kit=VERSIONS["kit"])
+                elif cli.services.wiki_engine.wiki_close(r):
+                    if cli.services.wiki.wiki_pages(r):        # a manual MCP session follows the current PLAYBOOK scope
+                        cli.services.wiki.stamp_wiki(r, mode="manual", kit=VERSIONS["kit"])
                     print(f"{r}/openwiki/: moved to cam-docs/wikis/{r}/, repo restored")
             return 0
         failed = []
         for i, r in enumerate(args.repos):
             try:
-                if not env.openwiki_generate(r, args.mode, engine=args.engine, force=args.force):
+                if not cli.services.wiki.openwiki_generate(r, args.mode, engine=args.engine, force=args.force):
                     failed.append(r)
-            except env.WikiAbort as e:
+            except cli.services.wiki.WikiAbort as e:
                 print(f"✖ {e}" + (f"\n  not started: {', '.join(args.repos[i + 1:])}" if args.repos[i + 1:] else ""),
                       file=sys.stderr)
                 return 1
@@ -197,8 +196,8 @@ class Docs(Command):
         return reset.main(args.mode, dry_run=args.dry_run, yes=args.yes, templates=args.templates)
 
 
-def cmd_plan(a) -> int:
-    from lib import env, plan
+def cmd_plan(a, cli: CliContext) -> int:
+    from lib import plan
     from lib.core.paths import ROOT
     for problem in plan.pipeline_problems():
         print(f"✖ .camarones/pipeline.yaml — {problem} (the plan is left as it was)", file=sys.stderr)
@@ -234,7 +233,7 @@ def cmd_plan(a) -> int:
         print(f"{u['id']} → {u['status']}" + (f": {u['notes']}" if plan.awaiting(u) else ""))
         if u.get("reopened"):
             print("reopened to refine with what it settled: " + ", ".join(u["reopened"]))
-        if status != "doing" and env.checkpoint_commit(f"{u['id']} {u['status']}"):
+        if status != "doing" and cli.services.share.checkpoint_commit(f"{u['id']} {u['status']}"):
             print("✔ docs committed locally (checkpoint)")
     elif a.action == "cost":
         from lib.harness import ledger
@@ -250,7 +249,7 @@ def cmd_plan(a) -> int:
         except ValueError as e:
             print(f"✖ {e}", file=sys.stderr); return 2
         print(f"{u['id']} → done ({u['notes']})")
-        if env.checkpoint_commit(f"{u['id']} approved"):
+        if cli.services.share.checkpoint_commit(f"{u['id']} approved"):
             print("✔ docs committed locally (checkpoint)")
     elif a.action == "redo":
         if not a.unit:
@@ -260,7 +259,7 @@ def cmd_plan(a) -> int:
         still = plan.dependents(plan.load(), a.unit)
         if still:
             print("Still done, built on it (reopen with --also if they need redoing): " + ", ".join(u["id"] for u in still))
-        if env.checkpoint_commit(f"redo {a.unit}"):
+        if cli.services.share.checkpoint_commit(f"redo {a.unit}"):
             print("✔ docs committed locally (checkpoint)")
     elif a.action == "add":
         if not a.unit or not a.title:
@@ -286,7 +285,7 @@ class Plan(Command):
         parser.add_argument("--also", nargs="*", default=[])
 
     def run(self, args: argparse.Namespace, cli: CliContext) -> int:
-        return cmd_plan(args)
+        return cmd_plan(args, cli)
 
 
 @command("prompt", "cli")

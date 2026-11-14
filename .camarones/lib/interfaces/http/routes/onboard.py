@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import threading
 
-from lib import env
+from lib.app import services
 from lib.interfaces.http import inputs
 from lib.interfaces.http.jobs import CANCEL, job_running, start_job
 from lib.interfaces.http.messages import Request, Response, json_response
@@ -21,7 +21,7 @@ def app_onboard(name: str, b: dict) -> tuple[dict, int]:
         return onboard.set_repos(b.get("repos")), 200
     if name == "setup":
         system = inputs.text_list(b, "system")
-        comps = [c for c in inputs.text_list(b, "components") if c in env.ALL_COMPONENTS] if "components" in b else env.components()
+        comps = [c for c in inputs.text_list(b, "components") if c in services.current().components.ALL_COMPONENTS] if "components" in b else services.current().components.components()
         ev = threading.Event()
         job = start_job("onboard:setup", "setup", lambda log: onboard.setup_job(system, comps, log, ev.is_set))
         CANCEL.setdefault(job["id"], ev)           # a click that attached to the running job keeps that job's flag

@@ -92,8 +92,8 @@ class Cleaner:
         data = load_json(p, None)
         if not isinstance(data, dict):
             return
-        from .env import without_graphify_hooks
-        data = without_graphify_hooks(data)
+        from .app import services
+        data = services.current().agent_config.without_graphify_hooks(data)
         self.settle(rel, json.dumps(data, indent=2) + "\n" if data else "")
 
     def mcp(self) -> None:
@@ -222,7 +222,8 @@ def main(yes: bool = False, dry_run: bool = False, finish: bool = False) -> int:
 
 # ---------- phase 2: wire the new layout ----------
 def finish_phase(dry: bool = False, ask: bool = False) -> int:
-    from . import docs, env
+    from . import docs
+    from .app import services
     report = clean_repos(dry=True)
     if ask and any(report.values()):
         for repo, acts in report.items():
@@ -237,11 +238,11 @@ def finish_phase(dry: bool = False, ask: bool = False) -> int:
     ws = docs.workspace()
     ws["project"].pop("agent_branch", None)
     docs.save_workspace(ws)
-    comps = env.components()
+    comps = services.current().components.components()
     for n in docs.repo_names():
         if "openwiki" in comps and (repo_dir(n) / "openwiki").exists():
-            env.link_repo_wiki(n)
-    env.wire_umbrella(print, comps)
+            services.current().links.link_repo_wiki(n)
+    services.current().setup.wire_umbrella(print, comps)
     run(["git", "add", "-A"], cwd=ROOT, check=False, quiet=True)
     ident = [] if out(["git", "config", "user.email"], cwd=ROOT) else ["-c", "user.name=Camarón",
                                                                        "-c", "user.email=camarones@localhost"]

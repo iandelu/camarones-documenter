@@ -347,20 +347,20 @@ def test_the_menu_entry_switches_a_started_interview(kit, quiet, launched, fake_
 def test_prompt_refreshes_an_untouched_playbook_copy(kit):
     """Bug: after a kit upgrade the project's PLAYBOOK copy (what agents read) stayed old until setup ran again."""
     import hashlib
-    env, dst = kit.env, kit.root / ".camarones" / "PLAYBOOK.md"
+    dst = kit.root / ".camarones" / "PLAYBOOK.md"
     dst.parent.mkdir(parents=True, exist_ok=True)
     dst.write_text("# old playbook\n", encoding="utf-8")
-    kit.common.save_json(env.KIT_DOCS_STAMP, {"PLAYBOOK.md": hashlib.sha256(dst.read_bytes()).hexdigest()})
+    kit.common.save_json(kit.services.templates.KIT_DOCS_STAMP, {"PLAYBOOK.md": hashlib.sha256(dst.read_bytes()).hexdigest()})
     kit.plan.sync()
     kit.plan.prompt("setup")
     assert "## questionnaire" in dst.read_text(encoding="utf-8")
 
 
 def test_prompt_keeps_a_playbook_the_team_edited(kit):
-    env, dst = kit.env, kit.root / ".camarones" / "PLAYBOOK.md"
+    dst = kit.root / ".camarones" / "PLAYBOOK.md"
     dst.parent.mkdir(parents=True, exist_ok=True)
     dst.write_text("# our own playbook\n", encoding="utf-8")
-    kit.common.save_json(env.KIT_DOCS_STAMP, {"PLAYBOOK.md": "sha-of-what-the-kit-wrote-before"})
+    kit.common.save_json(kit.services.templates.KIT_DOCS_STAMP, {"PLAYBOOK.md": "sha-of-what-the-kit-wrote-before"})
     kit.plan.sync()
     kit.plan.prompt("setup")
     assert dst.read_text(encoding="utf-8") == "# our own playbook\n"

@@ -9,6 +9,7 @@ from pathlib import Path
 
 from .common import CACHE, DOCS, KIT, ROOT, uv
 from . import docs
+from .app import services
 
 CAP = 1800                                        # characters the session start adds to the agent's context
 EVENTS = {"SessionStart": ("", "session-start"), "PostToolUse": ("Edit|Write|MultiEdit", "post-edit"),
@@ -47,11 +48,10 @@ def apply(st: dict) -> dict:
 
 
 def set_enabled(on: bool) -> None:
-    from . import env
     ws = docs.workspace()
     ws["hooks"] = {**(ws.get("hooks") or {}), "method": bool(on)}
     docs.save_workspace(ws)
-    env.write_agent_config(env.components())
+    services.current().setup.write_agent_config(services.current().components.components())
 
 
 # ---------- the hooks themselves ----------
